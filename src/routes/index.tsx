@@ -73,6 +73,8 @@ function CreatePage() {
   const [submitting, setSubmitting] = useState(false);
   const [confirmHighCost, setConfirmHighCost] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<AssetRow | null>(null);
+  const [cinemaEnabled, setCinemaEnabled] = useState(true);
+  const [cinema, setCinema] = useState<CinemaSelection>({});
   const prefillApplied = useRef(false);
   const submitLock = useRef(false);
   const requestIdRef = useRef<string | null>(null);
