@@ -31,7 +31,7 @@ export const Route = createFileRoute("/campaigns")({
 });
 
 function CampaignsPage() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const { data: campaigns, isLoading } = useCampaigns();
   const { data: projects } = useProjects();
@@ -76,8 +76,9 @@ function CampaignsPage() {
     const { error } = await supabase.from("campaigns").insert({
       name: name.trim(),
       objective: objective.trim() || null,
-      budget_usd: budget ? Number(budget) : null,
-      budget_mode: budgetMode,
+      // Budgets are administrator-controlled and enforced in the database.
+      budget_usd: isAdmin && budget ? Number(budget) : null,
+      budget_mode: isAdmin ? budgetMode : "none",
       project_id: projectId || null,
       created_by: user.id,
     });
@@ -126,16 +127,25 @@ function CampaignsPage() {
                 <Label htmlFor={`mode-${campaign.id}`} className="text-xs text-muted-foreground">
                   Limit
                 </Label>
-                <select
-                  id={`mode-${campaign.id}`}
-                  className="h-8 flex-1 rounded-md border border-border bg-surface-raised px-2 text-xs"
-                  value={(campaign as { budget_mode?: string }).budget_mode ?? "none"}
-                  onChange={(e) => void updateBudget(campaign.id, { budget_mode: e.target.value })}
-                >
-                  <option value="none">Not enforced</option>
-                  <option value="soft">Warn when exceeded</option>
-                  <option value="hard">Block when exceeded</option>
-                </select>
+                {isAdmin ? (
+                  <select
+                    id={`mode-${campaign.id}`}
+                    className="h-8 flex-1 rounded-md border border-border bg-surface-raised px-2 text-xs"
+                    value={(campaign as { budget_mode?: string }).budget_mode ?? "none"}
+                    onChange={(e) => void updateBudget(campaign.id, { budget_mode: e.target.value })}
+                  >
+                    <option value="none">Not enforced</option>
+                    <option value="soft">Warn when exceeded</option>
+                    <option value="hard">Block when exceeded</option>
+                  </select>
+                ) : (
+                  <span className="text-xs text-muted-foreground">
+                    {{ none: "Not enforced", soft: "Warn when exceeded", hard: "Block when exceeded" }[
+                      (campaign as { budget_mode?: string }).budget_mode ?? "none"
+                    ] ?? "Not enforced"}{" "}
+                    · admins only
+                  </span>
+                )}
               </div>
             </div>
           ))}
@@ -156,23 +166,29 @@ function CampaignsPage() {
               <Label htmlFor="campaign-objective">Objective</Label>
               <Textarea id="campaign-objective" value={objective} onChange={(e) => setObjective(e.target.value)} />
             </div>
-            <div>
-              <Label htmlFor="campaign-budget">Budget (USD)</Label>
-              <Input id="campaign-budget" type="number" min="0" value={budget} onChange={(e) => setBudget(e.target.value)} />
-            </div>
-            <div>
-              <Label htmlFor="campaign-budget-mode">When the budget is reached</Label>
-              <select
-                id="campaign-budget-mode"
-                className="mt-1 h-9 w-full rounded-md border border-border bg-surface-raised px-2 text-sm"
-                value={budgetMode}
-                onChange={(e) => setBudgetMode(e.target.value)}
-              >
-                <option value="none">Do nothing</option>
-                <option value="soft">Warn only</option>
-                <option value="hard">Block new generations</option>
-              </select>
-            </div>
+            {isAdmin ? (
+              <>
+                <div>
+                  <Label htmlFor="campaign-budget">Budget (USD)</Label>
+                  <Input id="campaign-budget" type="number" min="0" value={budget} onChange={(e) => setBudget(e.target.value)} />
+                </div>
+                <div>
+                  <Label htmlFor="campaign-budget-mode">When the budget is reached</Label>
+                  <select
+                    id="campaign-budget-mode"
+                    className="mt-1 h-9 w-full rounded-md border border-border bg-surface-raised px-2 text-sm"
+                    value={budgetMode}
+                    onChange={(e) => setBudgetMode(e.target.value)}
+                  >
+                    <option value="none">Do nothing</option>
+                    <option value="soft">Warn only</option>
+                    <option value="hard">Block new generations</option>
+                  </select>
+                </div>
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">Budgets are set by an administrator after the campaign is created.</p>
+            )}
             <div>
               <Label htmlFor="campaign-project">Project</Label>
               <select
