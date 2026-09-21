@@ -166,7 +166,7 @@ export const reviseDirectorPlan = createServerFn({ method: "POST" })
     const version = (existing.version ?? 1) + 1;
     await supabaseAdmin
       .from("production_plans")
-      .update({ plan: result.data as unknown as Record<string, unknown>, version, title: result.data.title ?? "Untitled production" })
+      .update({ plan: result.data as never, version, title: result.data.title ?? "Untitled production" })
       .eq("id", data.planId);
     await supabaseAdmin.from("production_plan_versions").insert({
       plan_id: data.planId,
