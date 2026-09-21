@@ -161,6 +161,18 @@ function CreatePage() {
   const issueMap = Object.fromEntries(issues.map((issue) => [issue.key, issue.message]));
   const promptField = model?.parameter_schema?.fields?.find((field) => field.key === "prompt");
 
+  // Cinema Mode compiles shot language into the prompt actually submitted, so the
+  // estimate and the generation always use the identical payload.
+  const cinemaOn = cinemaSupported(model) && cinemaEnabled;
+  const submitValues = useMemo(() => {
+    if (!model || !cinemaOn) return values;
+    return {
+      ...values,
+      prompt: compileCinemaPrompt((values["prompt"] as string) ?? "", cinema, promptCinemaGroups(model)),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model?.id, JSON.stringify(values), JSON.stringify(cinema), cinemaOn]);
+
   // Debounced live estimate; any parameter change invalidates the previous one.
   useEffect(() => {
     if (!model || !health?.configured || issues.length) {
