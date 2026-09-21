@@ -79,22 +79,37 @@ export const estimateGeneration = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => estimateInput.parse(data))
   .handler(async ({ data, context }) => {
     await assertActiveMember(context.userId);
-    const { higgsfieldProvider, extractCost, providerConfigured } = await import("./higgsfield/provider.server");
-    if (!providerConfigured()) return { ok: false, code: "PROVIDER_NOT_CONFIGURED", costUsd: null };
+    const { higgsfieldProvider, extractCost, extractPricingDescription, providerConfigured } = await import(
+      "./higgsfield/provider.server"
+    );
+    if (!providerConfigured())
+      return { ok: false, code: "PROVIDER_NOT_CONFIGURED", costUsd: null, pricingDescription: null as string | null };
 
     const { model } = await loadContext(null as never, data.modelId);
     const roles = data.inputs.map((i) => i.role);
     const issues = validateParameters(model, data.parameters, roles);
-    if (issues.length) return { ok: false, code: "INVALID_PARAMETERS", costUsd: null, issues };
+    if (issues.length)
+      return { ok: false, code: "INVALID_PARAMETERS", costUsd: null, pricingDescription: null as string | null, issues };
 
     const call = await higgsfieldProvider.estimate(model.model_path, data.parameters);
     const { recordProviderHealth } = await import("./generation-pipeline.server");
     await recordProviderHealth(call.ok, call.errorMessage);
-    if (!call.ok) return { ok: false, code: call.errorCode ?? "ESTIMATE_FAILED", costUsd: null };
+    if (!call.ok)
+      return {
+        ok: false,
+        code: call.errorCode ?? "ESTIMATE_FAILED",
+        costUsd: null,
+        pricingDescription: null as string | null,
+        message: call.errorMessage ?? null,
+      };
 
     const cost = extractCost(call.data);
-    if (cost === null) return { ok: false, code: "ESTIMATE_FAILED", costUsd: null };
-    return { ok: true, code: null, costUsd: cost };
+    const pricingDescription = extractPricingDescription(call.data);
+    // Metered models are quoted as a rate rather than a figure; that is a valid
+    // answer from the provider, not an estimate failure.
+    if (cost === null && !pricingDescription)
+      return { ok: false, code: "ESTIMATE_FAILED", costUsd: null, pricingDescription: null as string | null };
+    return { ok: true, code: null, costUsd: cost, pricingDescription };
   });
 
 /** Creates the generation record first, then submits exactly once. */
@@ -366,25 +381,34 @@ export const listMarketingPresets = createServerFn({ method: "POST" })
       (Array.isArray(payload["data"]) && payload["data"]) ||
       [];
     const presets = (listSource as Json[])
-      .map((item) => ({
-        id: String(item["id"] ?? item["preset_id"] ?? ""),
-        name: String(item["name"] ?? item["title"] ?? "Untitled preset"),
-        type: typeof item["type"] === "string" ? (item["type"] as string) : null,
-        previewUrl:
-          typeof item["preview_url"] === "string"
-            ? (item["preview_url"] as string)
-            : typeof item["thumbnail_url"] === "string"
-              ? (item["thumbnail_url"] as string)
-              : null,
-      }))
+      .map((item) => {
+        const cover = (item["cover_image"] ?? {}) as Json;
+        return {
+          id: String(item["id"] ?? item["preset_id"] ?? ""),
+          name: String(item["name"] ?? item["title"] ?? "Untitled preset"),
+          type: typeof item["type"] === "string" ? (item["type"] as string) : null,
+          previewUrl:
+            typeof cover["url"] === "string"
+              ? (cover["url"] as string)
+              : typeof item["preview_url"] === "string"
+                ? (item["preview_url"] as string)
+                : typeof item["thumbnail_url"] === "string"
+                  ? (item["thumbnail_url"] as string)
+                  : null,
+        };
+      })
       .filter((preset) => preset.id);
 
+    // The provider paginates with a numeric cursor; it stops advancing once the
+    // whole catalogue has been read.
+    const rawCursor = payload["next_cursor"] ?? payload["cursor"];
+    const total = typeof payload["total"] === "number" ? payload["total"] : null;
+    const cursorValue =
+      typeof rawCursor === "string" || typeof rawCursor === "number" ? String(rawCursor) : null;
     const nextCursor =
-      typeof payload["next_cursor"] === "string"
-        ? (payload["next_cursor"] as string)
-        : typeof payload["cursor"] === "string"
-          ? (payload["cursor"] as string)
-          : null;
+      cursorValue && (total === null || Number(cursorValue) < total) && cursorValue !== (data.cursor ?? "0")
+        ? cursorValue
+        : null;
 
     return { ok: true, code: null, presets, nextCursor };
   });

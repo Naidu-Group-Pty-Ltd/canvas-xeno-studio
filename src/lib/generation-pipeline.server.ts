@@ -7,6 +7,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { AppError } from "./higgsfield/errors";
 import {
   extractCost,
+  extractPricingDescription,
   extractRequestId,
   higgsfieldProvider,
   isAllowedOutputUrl,
@@ -275,7 +276,12 @@ export async function submitToProvider(generationId: string): Promise<{ status: 
   await logEvent(generationId, "estimate_requested", { model_path: generation.model_path });
   const estimateCall = await higgsfieldProvider.estimate(generation.model_path, params);
   const serverCost = estimateCall.ok ? extractCost(estimateCall.data) : null;
-  if (serverCost !== null) {
+  const meteredPricing = estimateCall.ok ? extractPricingDescription(estimateCall.data) : null;
+  if (serverCost === null && meteredPricing) {
+    // Metered model: the provider quotes a rate, not a figure. Record the rate
+    // rather than inventing a number, and allow the submission to proceed.
+    await logEvent(generationId, "estimate_received", { pricing_description: meteredPricing });
+  } else if (serverCost !== null) {
     await supabaseAdmin
       .from("generations")
       .update({ estimated_cost_usd: serverCost, cost_source: "provider_estimate" })

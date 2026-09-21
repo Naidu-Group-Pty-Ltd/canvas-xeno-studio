@@ -54,6 +54,8 @@ type EstimateState =
   | { kind: "idle" }
   | { kind: "loading" }
   | { kind: "ready"; costUsd: number }
+  /** Metered models are quoted as a rate rather than a single figure. */
+  | { kind: "metered"; description: string }
   | { kind: "unavailable"; reason: string };
 
 function CreatePage() {
@@ -203,7 +205,16 @@ function CreatePage() {
           },
         });
         if (result.ok && result.costUsd !== null) setEstimate({ kind: "ready", costUsd: result.costUsd });
-        else setEstimate({ kind: "unavailable", reason: "Estimate unavailable" });
+        else if (result.ok && result.pricingDescription)
+          setEstimate({ kind: "metered", description: result.pricingDescription });
+        else
+          setEstimate({
+            kind: "unavailable",
+            reason:
+              result.code === "INSUFFICIENT_PROVIDER_BALANCE"
+                ? "Provider account is out of credits"
+                : "Estimate unavailable",
+          });
       } catch {
         setEstimate({ kind: "unavailable", reason: "Estimate unavailable" });
       }
@@ -219,7 +230,7 @@ function CreatePage() {
     issues.length === 0 &&
     health?.configured === true &&
     health?.state !== "disabled" &&
-    (!requireEstimate || estimate.kind === "ready");
+    (!requireEstimate || estimate.kind === "ready" || estimate.kind === "metered");
 
   const disabledReason = !health?.configured
     ? "Higgsfield credentials are not configured"
@@ -227,9 +238,11 @@ function CreatePage() {
       ? "The provider is switched off in Settings"
       : issues.length
         ? issues[0]!.message
-        : requireEstimate && estimate.kind !== "ready"
-          ? "Waiting for a valid cost estimate"
-          : null;
+        : estimate.kind === "unavailable"
+          ? estimate.reason
+          : requireEstimate && estimate.kind !== "ready" && estimate.kind !== "metered"
+            ? "Waiting for a valid cost estimate"
+            : null;
 
   async function runSubmit() {
     if (!model || !canGenerate) return;
@@ -509,10 +522,14 @@ function CreatePage() {
                 <span className="font-mono">
                   {estimate.kind === "loading" && "Calculating…"}
                   {estimate.kind === "ready" && `$${estimate.costUsd.toFixed(2)}`}
+                  {estimate.kind === "metered" && "Metered"}
                   {estimate.kind === "unavailable" && estimate.reason}
                   {estimate.kind === "idle" && "—"}
                 </span>
               </div>
+              {estimate.kind === "metered" && (
+                <p className="text-[11px] leading-relaxed text-muted-foreground">{estimate.description}</p>
+              )}
               {batchCount > 1 && (
                 <p className="text-[11px] text-primary">
                   Batch matrix: {batchCount} generations

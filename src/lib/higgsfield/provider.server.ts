@@ -8,15 +8,20 @@ import { AppError } from "./errors";
 
 export const HIGGSFIELD_BASE_URL = process.env["HF_BASE_URL"] || "https://api.higgsfield.ai";
 
-/** Endpoint map kept in one place so provider routes are never scattered. */
+/**
+ * Endpoint map kept in one place so provider routes are never scattered.
+ * Verified against the live API: model paths are posted at the API root, and
+ * estimates use the same path behind /estimate.
+ */
 export const HF_ENDPOINTS = {
-  estimate: "/v1/estimate",
-  submit: (modelPath: string) => `/v1/${modelPath}`,
-  status: (requestId: string) => `/v1/jobs/${requestId}`,
-  cancel: (requestId: string) => `/v1/jobs/${requestId}/cancel`,
-  uploadUrl: "/v1/media/upload-url",
-  presets: "/v1/marketing-studio/presets",
-  health: "/v1/account",
+  estimate: (modelPath: string) => `/estimate/${modelPath}`,
+  submit: (modelPath: string) => `/${modelPath}`,
+  status: (requestId: string) => `/requests/${requestId}/status`,
+  cancel: (requestId: string) => `/requests/${requestId}/cancel`,
+  uploadUrl: "/files/generate-upload-url",
+  presets: "/marketing-studio/image/presets",
+  /** Cheapest authenticated call available: an estimate charges nothing. */
+  health: "/estimate/higgsfield-ai/soul/v2/standard",
 };
 
 export interface ProviderCredentials {
@@ -24,11 +29,17 @@ export interface ProviderCredentials {
   keySecret: string;
 }
 
+/**
+ * Credentials are tolerated in either shape: a bare secret, or the combined
+ * "keyId:secret" pair that the provider console offers as a single copy button.
+ */
 export function getCredentials(): ProviderCredentials | null {
-  const keyId = process.env["HF_KEY_ID"];
-  const keySecret = process.env["HF_KEY_SECRET"];
-  if (!keyId || !keySecret) return null;
-  return { keyId, keySecret };
+  const keyId = process.env["HF_KEY_ID"]?.trim();
+  const rawSecret = process.env["HF_KEY_SECRET"]?.trim();
+  if (!keyId || !rawSecret) return null;
+  const keySecret = rawSecret.includes(":") ? rawSecret.slice(rawSecret.lastIndexOf(":") + 1) : rawSecret;
+  if (!keySecret) return null;
+  return { keyId: keyId.includes(":") ? keyId.slice(0, keyId.indexOf(":")) : keyId, keySecret };
 }
 
 export function providerConfigured(): boolean {
@@ -71,12 +82,19 @@ function classify(status: number, body: unknown): { code: string; message: strin
     (typeof raw["detail"] === "string" && raw["detail"]) ||
     `Provider returned HTTP ${status}`;
   const lowered = String(message).toLowerCase();
-  if (status === 402 || lowered.includes("insufficient") || lowered.includes("balance"))
+  if (
+    status === 402 ||
+    lowered.includes("not_enough_credits") ||
+    lowered.includes("insufficient") ||
+    lowered.includes("balance")
+  )
     return { code: "INSUFFICIENT_PROVIDER_BALANCE", message };
   if (status === 429) return { code: "RATE_LIMITED", message };
-  if (status === 401 || status === 403) return { code: "PROVIDER_NOT_CONFIGURED", message };
-  if (status === 400 || status === 422) return { code: "INVALID_PARAMETERS", message };
+  if (status === 401) return { code: "PROVIDER_NOT_CONFIGURED", message };
   if (lowered.includes("nsfw") || lowered.includes("moderation")) return { code: "MODERATION_BLOCKED", message };
+  if (status === 400 || status === 422) return { code: "INVALID_PARAMETERS", message };
+  if (status === 404 || status === 423 || status === 503)
+    return { code: "PROVIDER_REJECTED", message: `${message} (model unavailable for this account)` };
   return { code: "PROVIDER_REJECTED", message };
 }
 
@@ -179,7 +197,21 @@ function collectUrls(node: unknown, out: NormalizedOutput[], depth = 0) {
         out.push(entry);
       }
     }
-    for (const key of ["results", "result", "outputs", "output", "images", "image", "videos", "video", "data", "assets"]) {
+    for (const key of [
+      "payload",
+      "results",
+      "result",
+      "outputs",
+      "output",
+      "images",
+      "image",
+      "videos",
+      "video",
+      "audios",
+      "audio",
+      "data",
+      "assets",
+    ]) {
       if (key in record) collectUrls(record[key], out, depth + 1);
     }
   }
@@ -196,7 +228,7 @@ export function normalizeResult(payload: unknown): NormalizedOutput[] {
 export function extractRequestId(payload: unknown): string | null {
   if (!payload || typeof payload !== "object") return null;
   const record = payload as Record<string, unknown>;
-  for (const key of ["id", "request_id", "job_id", "jobId", "requestId", "task_id"]) {
+  for (const key of ["request_id", "requestId", "job_id", "jobId", "task_id", "id"]) {
     const value = record[key];
     if (typeof value === "string" && value.length > 0) return value;
   }
@@ -208,7 +240,16 @@ export function extractRequestId(payload: unknown): string | null {
 export function extractCost(payload: unknown): number | null {
   if (!payload || typeof payload !== "object") return null;
   const record = payload as Record<string, unknown>;
-  for (const key of ["cost", "cost_usd", "price", "price_usd", "estimated_cost", "estimated_cost_usd", "amount"]) {
+  for (const key of [
+    "usd",
+    "cost",
+    "cost_usd",
+    "price",
+    "price_usd",
+    "estimated_cost",
+    "estimated_cost_usd",
+    "amount",
+  ]) {
     const value = record[key];
     if (typeof value === "number" && Number.isFinite(value)) return value;
     if (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value))) return Number(value);
@@ -220,6 +261,18 @@ export function extractCost(payload: unknown): number | null {
     }
   }
   return null;
+}
+
+/**
+ * Some models are metered rather than quoted (per second, per token). For those
+ * the provider answers with a pricing description instead of a figure, which is
+ * shown verbatim rather than guessed at.
+ */
+export function extractPricingDescription(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null;
+  const record = payload as Record<string, unknown>;
+  const value = record["pricing_description"];
+  return typeof value === "string" && value.trim() !== "" ? value.trim() : null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -246,18 +299,24 @@ export const higgsfieldProvider: GenerationProvider = {
   isConfigured: providerConfigured,
 
   estimate(modelPath, params) {
-    return hfFetch(HF_ENDPOINTS.estimate, {
+    // The estimate endpoint takes exactly the generation body.
+    return hfFetch(HF_ENDPOINTS.estimate(modelPath), {
       method: "POST",
-      body: { model: modelPath, model_path: modelPath, params, parameters: params },
+      body: params,
       timeoutMs: 20_000,
     });
   },
 
   submit(modelPath, params, webhookUrl) {
-    const body: Record<string, unknown> = { params, ...params };
-    if (webhookUrl) body["webhook"] = { url: webhookUrl };
-    return hfFetch(HF_ENDPOINTS.submit(modelPath), { method: "POST", body, timeoutMs: 45_000 });
+    // Webhooks are configured through the hf_webhook query parameter.
+    const query = webhookUrl ? `?hf_webhook=${encodeURIComponent(webhookUrl)}` : "";
+    return hfFetch(`${HF_ENDPOINTS.submit(modelPath)}${query}`, {
+      method: "POST",
+      body: params,
+      timeoutMs: 45_000,
+    });
   },
+
 
   getStatus(requestId, statusUrl) {
     return statusUrl
@@ -290,20 +349,39 @@ export const higgsfieldProvider: GenerationProvider = {
 
     if (!uploadUrl) throw new AppError("UPLOAD_FAILED", "Provider did not return an upload destination");
 
-    const put = await fetch(uploadUrl, {
-      method: "PUT",
-      headers: { "Content-Type": mimeType },
-      body: bytes,
-    });
+    // Every header the provider returns must be replayed on the presigned PUT,
+    // and provider credentials must never be sent to the storage host.
+    const headers: Record<string, string> = { "Content-Type": mimeType };
+    const provided = data["upload_headers"];
+    if (provided && typeof provided === "object") {
+      for (const [key, value] of Object.entries(provided as Record<string, unknown>)) {
+        if (typeof value === "string") headers[key] = value;
+      }
+    }
+
+    const put = await fetch(uploadUrl, { method: "PUT", headers, body: bytes });
     if (!put.ok) throw new AppError("UPLOAD_FAILED", `Provider upload failed (HTTP ${put.status})`);
     return publicUrl;
   },
 
+
   listPresets(cursor) {
-    const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
+    const query = `?size=50&cursor=${encodeURIComponent(cursor ?? "0")}`;
     return hfFetch(`${HF_ENDPOINTS.presets}${query}`, { timeoutMs: 20_000 });
   },
 };
+
+/**
+ * Cheap authenticated round-trip used for the provider health indicator.
+ * An estimate never charges the account.
+ */
+export async function providerHealthCheck(): Promise<ProviderCall<unknown>> {
+  return hfFetch(HF_ENDPOINTS.health, {
+    method: "POST",
+    body: { prompt: "health check" },
+    timeoutMs: 15_000,
+  });
+}
 
 /** Only provider result URLs are ever fetched during ingestion (SSRF guard). */
 export function isAllowedOutputUrl(url: string): boolean {
