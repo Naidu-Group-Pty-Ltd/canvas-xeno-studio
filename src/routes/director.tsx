@@ -36,6 +36,7 @@ export const Route = createFileRoute("/director")({
 });
 
 function DirectorPage() {
+  const { profile } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: projects } = useProjects();
