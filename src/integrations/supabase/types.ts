@@ -336,6 +336,7 @@ export type Database = {
       }
       campaigns: {
         Row: {
+          budget_mode: string
           budget_usd: number | null
           created_at: string
           created_by: string
@@ -350,6 +351,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          budget_mode?: string
           budget_usd?: number | null
           created_at?: string
           created_by: string
@@ -364,6 +366,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          budget_mode?: string
           budget_usd?: number | null
           created_at?: string
           created_by?: string
@@ -675,6 +678,7 @@ export type Database = {
       generations: {
         Row: {
           actual_cost_usd: number | null
+          campaign_id: string | null
           client_request_id: string | null
           completed_at: string | null
           cost_source: string | null
@@ -708,6 +712,7 @@ export type Database = {
         }
         Insert: {
           actual_cost_usd?: number | null
+          campaign_id?: string | null
           client_request_id?: string | null
           completed_at?: string | null
           cost_source?: string | null
@@ -741,6 +746,7 @@ export type Database = {
         }
         Update: {
           actual_cost_usd?: number | null
+          campaign_id?: string | null
           client_request_id?: string | null
           completed_at?: string | null
           cost_source?: string | null
@@ -773,6 +779,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "generations_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "generations_model_registry_id_fkey"
             columns: ["model_registry_id"]
@@ -1407,6 +1420,8 @@ export type Database = {
       }
       projects: {
         Row: {
+          budget_mode: string
+          budget_usd: number | null
           created_at: string
           created_by: string
           description: string | null
@@ -1416,6 +1431,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          budget_mode?: string
+          budget_usd?: number | null
           created_at?: string
           created_by: string
           description?: string | null
@@ -1425,6 +1442,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          budget_mode?: string
+          budget_usd?: number | null
           created_at?: string
           created_by?: string
           description?: string | null
@@ -1922,6 +1941,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_spend_allowance: {
+        Args: { _amount: number; _campaign_id: string; _project_id: string }
+        Returns: Json
+      }
       claim_ready_operations: {
         Args: { claim_limit?: number }
         Returns: {
