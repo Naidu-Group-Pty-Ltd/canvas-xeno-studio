@@ -8,15 +8,20 @@ import { AppError } from "./errors";
 
 export const HIGGSFIELD_BASE_URL = process.env["HF_BASE_URL"] || "https://api.higgsfield.ai";
 
-/** Endpoint map kept in one place so provider routes are never scattered. */
+/**
+ * Endpoint map kept in one place so provider routes are never scattered.
+ * Verified against the live API: model paths are posted at the API root, and
+ * estimates use the same path behind /estimate.
+ */
 export const HF_ENDPOINTS = {
-  estimate: "/v1/estimate",
-  submit: (modelPath: string) => `/v1/${modelPath}`,
-  status: (requestId: string) => `/v1/jobs/${requestId}`,
-  cancel: (requestId: string) => `/v1/jobs/${requestId}/cancel`,
-  uploadUrl: "/v1/media/upload-url",
-  presets: "/v1/marketing-studio/presets",
-  health: "/v1/account",
+  estimate: (modelPath: string) => `/estimate/${modelPath}`,
+  submit: (modelPath: string) => `/${modelPath}`,
+  status: (requestId: string) => `/requests/${requestId}/status`,
+  cancel: (requestId: string) => `/requests/${requestId}/cancel`,
+  uploadUrl: "/files/generate-upload-url",
+  presets: "/marketing-studio/image/presets",
+  /** Cheapest authenticated call available: an estimate charges nothing. */
+  health: "/estimate/higgsfield-ai/soul/v2/standard",
 };
 
 export interface ProviderCredentials {
@@ -24,11 +29,17 @@ export interface ProviderCredentials {
   keySecret: string;
 }
 
+/**
+ * Credentials are tolerated in either shape: a bare secret, or the combined
+ * "keyId:secret" pair that the provider console offers as a single copy button.
+ */
 export function getCredentials(): ProviderCredentials | null {
-  const keyId = process.env["HF_KEY_ID"];
-  const keySecret = process.env["HF_KEY_SECRET"];
-  if (!keyId || !keySecret) return null;
-  return { keyId, keySecret };
+  const keyId = process.env["HF_KEY_ID"]?.trim();
+  const rawSecret = process.env["HF_KEY_SECRET"]?.trim();
+  if (!keyId || !rawSecret) return null;
+  const keySecret = rawSecret.includes(":") ? rawSecret.slice(rawSecret.lastIndexOf(":") + 1) : rawSecret;
+  if (!keySecret) return null;
+  return { keyId: keyId.includes(":") ? keyId.slice(0, keyId.indexOf(":")) : keyId, keySecret };
 }
 
 export function providerConfigured(): boolean {
