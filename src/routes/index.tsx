@@ -72,6 +72,8 @@ function CreatePage() {
   const [confirmHighCost, setConfirmHighCost] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<AssetRow | null>(null);
   const prefillApplied = useRef(false);
+  const submitLock = useRef(false);
+  const requestIdRef = useRef<string | null>(null);
 
   const mediaModels = useMemo(() => models.filter((model) => model.output_type === mediaType), [models, mediaType]);
   const model = useMemo(() => models.find((entry) => entry.id === modelId) ?? null, [models, modelId]);
