@@ -1,4 +1,8 @@
 import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { MediaPreview } from "@/components/studio/MediaPreview";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Clapperboard } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
@@ -111,5 +115,58 @@ function StoryboardsPage() {
         </section>
       </div>
     </AppShell>
+  );
+}
+
+/** Every generation launched from a shot is filed here as a numbered take. */
+function ShotTakes({ shotId }: { shotId: string }) {
+  const queryClient = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ["shot_takes", shotId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("shot_takes")
+        .select("id,take_number,is_selected,generation_id,asset_id,assets(id,asset_type,storage_bucket,storage_path)")
+        .eq("shot_id", shotId)
+        .order("take_number");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  if (!data?.length) return null;
+
+  async function select(takeId: string) {
+    await supabase.from("shot_takes").update({ is_selected: false }).eq("shot_id", shotId);
+    await supabase.from("shot_takes").update({ is_selected: true }).eq("id", takeId);
+    await supabase.from("shots").update({ selected_take_id: takeId, status: "approved" }).eq("id", shotId);
+    await queryClient.invalidateQueries({ queryKey: ["shot_takes", shotId] });
+    await queryClient.invalidateQueries({ queryKey: ["storyboards"] });
+    toast.success("Take selected for this shot.");
+  }
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-2">
+      {data.map((take) => {
+        const asset = take.assets as { asset_type: "image" | "video" | "audio"; storage_bucket: string; storage_path: string } | null;
+        return (
+          <button
+            key={take.id}
+            type="button"
+            onClick={() => void select(take.id)}
+            title={`Take ${take.take_number}`}
+            className={`h-14 w-20 overflow-hidden rounded border ${take.is_selected ? "border-primary" : "border-border"}`}
+          >
+            {asset ? (
+              <MediaPreview bucket={asset.storage_bucket} path={asset.storage_path} type={asset.asset_type} contain />
+            ) : (
+              <span className="flex size-full items-center justify-center text-[10px] text-muted-foreground">
+                Take {take.take_number}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
   );
 }
