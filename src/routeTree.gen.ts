@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AssetsRouteImport } from './routes/assets'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ApiPublicHiggsfieldReconcileRouteImport } from './routes/api/public/higgsfield-reconcile'
 import { Route as ApiPublicHiggsfieldWebhookRouteImport } from './routes/api/public/higgsfield-webhook'
@@ -17,6 +18,11 @@ import { Route as ApiPublicHiggsfieldWebhookRouteImport } from './routes/api/pub
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AssetsRoute = AssetsRouteImport.update({
+  id: '/assets',
+  path: '/assets',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -39,12 +45,14 @@ const ApiPublicHiggsfieldWebhookRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/assets': typeof AssetsRoute
   '/auth': typeof AuthRoute
   '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
   '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/assets': typeof AssetsRoute
   '/auth': typeof AuthRoute
   '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
   '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
@@ -52,6 +60,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/assets': typeof AssetsRoute
   '/auth': typeof AuthRoute
   '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
   '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
@@ -60,18 +69,21 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/assets'
     | '/auth'
     | '/api/public/higgsfield-reconcile'
     | '/api/public/higgsfield-webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/assets'
     | '/auth'
     | '/api/public/higgsfield-reconcile'
     | '/api/public/higgsfield-webhook'
   id:
     | '__root__'
     | '/'
+    | '/assets'
     | '/auth'
     | '/api/public/higgsfield-reconcile'
     | '/api/public/higgsfield-webhook'
@@ -79,6 +91,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AssetsRoute: typeof AssetsRoute
   AuthRoute: typeof AuthRoute
   ApiPublicHiggsfieldReconcileRoute: typeof ApiPublicHiggsfieldReconcileRoute
   ApiPublicHiggsfieldWebhookRoute: typeof ApiPublicHiggsfieldWebhookRoute
@@ -91,6 +104,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/assets': {
+      id: '/assets'
+      path: '/assets'
+      fullPath: '/assets'
+      preLoaderRoute: typeof AssetsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -119,6 +139,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AssetsRoute: AssetsRoute,
   AuthRoute: AuthRoute,
   ApiPublicHiggsfieldReconcileRoute: ApiPublicHiggsfieldReconcileRoute,
   ApiPublicHiggsfieldWebhookRoute: ApiPublicHiggsfieldWebhookRoute,
