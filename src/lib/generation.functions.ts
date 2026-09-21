@@ -108,19 +108,21 @@ export const submitGeneration = createServerFn({ method: "POST" })
     if (settings["provider_enabled"] === false) throw new AppError("PROVIDER_DISABLED");
     if (!providerConfigured()) throw new AppError("PROVIDER_NOT_CONFIGURED");
 
-    const { data: profile } = await supabaseAdmin
-      .from("profiles")
-      .select("id,is_active")
-      .eq("id", context.userId)
-      .maybeSingle();
-    if (!profile?.is_active) throw new AppError("NOT_AUTHORIZED");
+    await assertActiveMember(context.userId);
 
     const roles = data.inputs.map((i) => i.role);
     const issues = validateParameters(model, data.parameters, roles);
     if (issues.length) throw new AppError("INVALID_PARAMETERS", issues.map((i) => i.message).join("; "));
 
-    if (settings["require_cost_estimate"] === true && (data.estimatedCostUsd ?? null) === null)
-      throw new AppError("ESTIMATE_FAILED", "A cost estimate is required before generating");
+    // The browser's estimate is only a hint: the authoritative figure is
+    // re-fetched from the provider here with the parameters actually submitted.
+    const { higgsfieldProvider, extractCost } = await import("./higgsfield/provider.server");
+    const estimateCall = await higgsfieldProvider.estimate(model.model_path, data.parameters);
+    const serverCost = estimateCall.ok ? extractCost(estimateCall.data) : null;
+    const estimatedCost = serverCost ?? data.estimatedCostUsd ?? null;
+
+    if (settings["require_cost_estimate"] === true && serverCost === null)
+      throw new AppError("ESTIMATE_FAILED", "A valid cost estimate is required before generating");
 
     const { data: generation, error } = await supabaseAdmin
       .from("generations")
