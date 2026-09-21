@@ -126,11 +126,16 @@ export function AssetDetailDialog({
                 <span className="label-eyebrow">Move to project</span>
                 <Select
                   value={asset.project_id ?? "none"}
-                  onValueChange={guard(async (value: unknown) => {
-                    await moveAsset(asset.id, value === "none" ? null : (value as string));
-                    refresh();
-                    toast.success("Asset moved");
-                  }) as unknown as (value: string) => void}
+                  onValueChange={(value: string) => {
+                    void moveAsset(asset.id, value === "none" ? null : value)
+                      .then(() => {
+                        refresh();
+                        toast.success("Asset moved");
+                      })
+                      .catch((error: unknown) =>
+                        toast.error(error instanceof Error ? error.message : "That action failed"),
+                      );
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />

@@ -172,7 +172,7 @@ export function GenerationDetail({
                   <ul className="space-y-1 text-xs text-muted-foreground">
                     {data.inputs.map((input) => (
                       <li key={input.id}>
-                        {input.input_type} · {input.storage_path.split("/").pop()}
+                        {input.input_type} · {(input.storage_path ?? "").split("/").pop() ?? "media"}
                       </li>
                     ))}
                   </ul>
