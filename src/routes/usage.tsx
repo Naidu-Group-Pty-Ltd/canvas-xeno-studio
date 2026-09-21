@@ -74,6 +74,10 @@ function UsagePage() {
       .reduce((total, row) => total + Number(row.estimated_cost_usd ?? 0), 0);
   };
 
+  // Confirmed charges only: rows where the provider actually reported a cost.
+  const confirmedActual = ledger.reduce((total, row) => total + Number(row.actual_cost_usd ?? 0), 0);
+  const confirmedRows = ledger.filter((row) => row.actual_cost_usd != null).length;
+
   const byDay = useMemo(() => {
     const map = new Map<string, { date: string; spend: number; generations: number }>();
     for (const row of ledger) {
@@ -178,13 +182,18 @@ function UsagePage() {
         {isLoading ? (
           <Skeleton className="h-28 rounded-lg" />
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <Stat label="Est. spend today" value={`$${spendSince(1).toFixed(2)}`} />
             <Stat label="Est. spend 7 days" value={`$${spendSince(7).toFixed(2)}`} />
             <Stat label="Est. spend 30 days" value={`$${spendSince(30).toFixed(2)}`} />
+            <Stat
+              label="Confirmed by provider"
+              value={confirmedRows ? `$${confirmedActual.toFixed(2)}` : "Not reported"}
+            />
             <Stat label="Successful" value={String(counts.completed)} />
             <Stat label="Failed / blocked" value={String(counts.failed)} />
             <Stat label="Active now" value={String(counts.active)} />
+            <Stat label="Image vs video" value={`${imageCount} / ${generations.length - imageCount}`} />
           </div>
         )}
 

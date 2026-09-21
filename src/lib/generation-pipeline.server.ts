@@ -26,7 +26,9 @@ export function appBaseUrl(): string {
 }
 
 export function webhookUrl(): string | undefined {
-  const base = process.env["PUBLIC_APP_URL"] || process.env["APP_BASE_URL"];
+  // Always attach a callback URL: the stable project URL is used when no
+  // explicit public URL is configured, otherwise webhooks would never arrive.
+  const base = process.env["PUBLIC_APP_URL"] || process.env["APP_BASE_URL"] || appBaseUrl();
   if (!base) return undefined;
   const token = process.env["LOVABLE_CRON_SECRET"];
   return `${base.replace(/\/$/, "")}/api/public/higgsfield-webhook${token ? `?token=${encodeURIComponent(token)}` : ""}`;
@@ -185,7 +187,9 @@ export async function submitToProvider(generationId: string): Promise<{ status: 
     return { status: "queued" };
   }
 
-  if (call.uncertain) {
+  // A transport failure or provider 5xx after the POST left is ambiguous: the
+  // request may already be running and charging, so it is never auto-retried.
+  if (call.uncertain || call.status === 0 || call.status >= 500) {
     await supabaseAdmin
       .from("generations")
       .update({
@@ -338,18 +342,28 @@ export async function ingestOutputs(generationId: string): Promise<number> {
     return 0;
   }
 
-  let created = 0;
+  // Deterministic paths + an existing-asset check make repeat deliveries safe:
+  // a duplicate webhook can never create a second asset row.
+  const { data: existing } = await supabaseAdmin
+    .from("assets")
+    .select("storage_path")
+    .eq("generation_id", generationId);
+  const existingPaths = new Set((existing ?? []).map((row) => row.storage_path));
+
+  let created = existingPaths.size;
   for (const [index, output] of usable.entries()) {
     try {
-      const response = await fetch(output.url);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const mime = response.headers.get("content-type") ?? "application/octet-stream";
-      const buffer = await response.arrayBuffer();
       const extension = (output.url.split("?")[0]!.split(".").pop() ?? "bin").slice(0, 5).replace(/[^a-z0-9]/gi, "");
       const scope = generation.project_id
         ? `projects/${generation.project_id}`
         : `unassigned/${generation.user_id}`;
-      const path = `${scope}/outputs/${generationId}/${index}-${crypto.randomUUID()}.${extension}`;
+      const path = `${scope}/outputs/${generationId}/${index}.${extension || "bin"}`;
+      if (existingPaths.has(path)) continue;
+
+      const response = await fetch(output.url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const mime = response.headers.get("content-type") ?? "application/octet-stream";
+      const buffer = await response.arrayBuffer();
 
       const upload = await supabaseAdmin.storage
         .from("generated-assets")

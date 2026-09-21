@@ -27,10 +27,23 @@ async function loadContext(supabase: never, modelId: string) {
   return { supabaseAdmin, model: model as unknown as ModelRegistryEntry };
 }
 
+/** Every user-facing server function requires an ACTIVE internal team member. */
+async function assertActiveMember(userId: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("id,is_active")
+    .eq("id", userId)
+    .maybeSingle();
+  if (!profile?.is_active) throw new AppError("NOT_AUTHORIZED", "Your account is not an active team member");
+  return profile;
+}
+
 /** Provider configuration/health, safe for all members (never exposes secrets). */
 export const getProviderHealth = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async () => {
+  .handler(async ({ context }) => {
+    await assertActiveMember(context.userId);
     const { providerConfigured } = await import("./higgsfield/provider.server");
     const { getSettings } = await import("./generation-pipeline.server");
     const settings = await getSettings();
@@ -62,7 +75,8 @@ export const getProviderHealth = createServerFn({ method: "GET" })
 export const estimateGeneration = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => estimateInput.parse(data))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    await assertActiveMember(context.userId);
     const { higgsfieldProvider, extractCost, providerConfigured } = await import("./higgsfield/provider.server");
     if (!providerConfigured()) return { ok: false, code: "PROVIDER_NOT_CONFIGURED", costUsd: null };
 
@@ -94,19 +108,21 @@ export const submitGeneration = createServerFn({ method: "POST" })
     if (settings["provider_enabled"] === false) throw new AppError("PROVIDER_DISABLED");
     if (!providerConfigured()) throw new AppError("PROVIDER_NOT_CONFIGURED");
 
-    const { data: profile } = await supabaseAdmin
-      .from("profiles")
-      .select("id,is_active")
-      .eq("id", context.userId)
-      .maybeSingle();
-    if (!profile?.is_active) throw new AppError("NOT_AUTHORIZED");
+    await assertActiveMember(context.userId);
 
     const roles = data.inputs.map((i) => i.role);
     const issues = validateParameters(model, data.parameters, roles);
     if (issues.length) throw new AppError("INVALID_PARAMETERS", issues.map((i) => i.message).join("; "));
 
-    if (settings["require_cost_estimate"] === true && (data.estimatedCostUsd ?? null) === null)
-      throw new AppError("ESTIMATE_FAILED", "A cost estimate is required before generating");
+    // The browser's estimate is only a hint: the authoritative figure is
+    // re-fetched from the provider here with the parameters actually submitted.
+    const { higgsfieldProvider, extractCost } = await import("./higgsfield/provider.server");
+    const estimateCall = await higgsfieldProvider.estimate(model.model_path, data.parameters);
+    const serverCost = estimateCall.ok ? extractCost(estimateCall.data) : null;
+    const estimatedCost = serverCost ?? data.estimatedCostUsd ?? null;
+
+    if (settings["require_cost_estimate"] === true && serverCost === null)
+      throw new AppError("ESTIMATE_FAILED", "A valid cost estimate is required before generating");
 
     const { data: generation, error } = await supabaseAdmin
       .from("generations")
@@ -120,8 +136,8 @@ export const submitGeneration = createServerFn({ method: "POST" })
         operation: model.operation as never,
         prompt: typeof data.parameters["prompt"] === "string" ? (data.parameters["prompt"] as string) : null,
         parameters: data.parameters as never,
-        estimated_cost_usd: data.estimatedCostUsd ?? null,
-        cost_source: data.estimatedCostUsd != null ? "provider_estimate" : null,
+        estimated_cost_usd: estimatedCost,
+        cost_source: estimatedCost != null ? "provider_estimate" : null,
         status: "ready",
         ingest_status: "not_required",
       })
@@ -158,7 +174,7 @@ export const submitGeneration = createServerFn({ method: "POST" })
       generation_id: generation.id,
       user_id: context.userId,
       model_registry_id: model.id,
-      estimated_cost_usd: data.estimatedCostUsd ?? null,
+      estimated_cost_usd: estimatedCost,
       billing_status: "estimated",
     });
 
@@ -169,7 +185,8 @@ export const submitGeneration = createServerFn({ method: "POST" })
 export const refreshGenerationStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ generationId: z.string().uuid() }).parse(data))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    await assertActiveMember(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { higgsfieldProvider } = await import("./higgsfield/provider.server");
     const pipeline = await import("./generation-pipeline.server");
@@ -190,7 +207,8 @@ export const refreshGenerationStatus = createServerFn({ method: "POST" })
 export const cancelGeneration = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ generationId: z.string().uuid() }).parse(data))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    await assertActiveMember(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { higgsfieldProvider } = await import("./higgsfield/provider.server");
     const pipeline = await import("./generation-pipeline.server");
@@ -229,8 +247,10 @@ export const resubmitGeneration = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ generationId: z.string().uuid() }).parse(data))
   .handler(async ({ data, context }) => {
+    await assertActiveMember(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const pipeline = await import("./generation-pipeline.server");
+
 
     const { data: original } = await supabaseAdmin
       .from("generations")
@@ -285,7 +305,8 @@ export const resubmitGeneration = createServerFn({ method: "POST" })
 export const ingestGenerationOutputs = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ generationId: z.string().uuid() }).parse(data))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    await assertActiveMember(context.userId);
     const pipeline = await import("./generation-pipeline.server");
     const created = await pipeline.ingestOutputs(data.generationId);
     return { assets: created };
@@ -295,7 +316,8 @@ export const ingestGenerationOutputs = createServerFn({ method: "POST" })
 export const listMarketingPresets = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ cursor: z.string().optional() }).parse(data))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    await assertActiveMember(context.userId);
     const { higgsfieldProvider, providerConfigured } = await import("./higgsfield/provider.server");
     if (!providerConfigured()) return { ok: false, code: "PROVIDER_NOT_CONFIGURED", presets: [], nextCursor: null };
 
