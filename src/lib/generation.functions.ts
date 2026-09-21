@@ -136,8 +136,8 @@ export const submitGeneration = createServerFn({ method: "POST" })
         operation: model.operation as never,
         prompt: typeof data.parameters["prompt"] === "string" ? (data.parameters["prompt"] as string) : null,
         parameters: data.parameters as never,
-        estimated_cost_usd: data.estimatedCostUsd ?? null,
-        cost_source: data.estimatedCostUsd != null ? "provider_estimate" : null,
+        estimated_cost_usd: estimatedCost,
+        cost_source: estimatedCost != null ? "provider_estimate" : null,
         status: "ready",
         ingest_status: "not_required",
       })
@@ -174,7 +174,7 @@ export const submitGeneration = createServerFn({ method: "POST" })
       generation_id: generation.id,
       user_id: context.userId,
       model_registry_id: model.id,
-      estimated_cost_usd: data.estimatedCostUsd ?? null,
+      estimated_cost_usd: estimatedCost,
       billing_status: "estimated",
     });
 
