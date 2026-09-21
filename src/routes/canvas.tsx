@@ -43,7 +43,10 @@ function CanvasPage() {
   async function createTemplate() {
     if (!user || !name.trim()) return;
     const { error } = await supabase.from("workflow_templates").insert({ name: name.trim(), created_by: user.id });
-    if (error) return toast.error(error.message);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     setOpen(false);
     setName("");
     await queryClient.invalidateQueries({ queryKey: ["workflow_templates"] });
@@ -59,7 +62,10 @@ function CanvasPage() {
       node_type: type,
       label: type.replace(/_/g, " "),
     });
-    if (error) return toast.error(error.message);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     await queryClient.invalidateQueries({ queryKey: ["workflow_templates"] });
   }
 

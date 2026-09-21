@@ -14,9 +14,11 @@ import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as AssetsRouteImport } from './routes/assets'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CampaignsRouteImport } from './routes/campaigns'
+import { Route as CanvasRouteImport } from './routes/canvas'
 import { Route as DirectorRouteImport } from './routes/director'
 import { Route as EditLabRouteImport } from './routes/edit-lab'
 import { Route as LibraryRouteImport } from './routes/library'
+import { Route as ModelLabRouteImport } from './routes/model-lab'
 import { Route as ModelsRouteImport } from './routes/models'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as StoryboardsRouteImport } from './routes/storyboards'
@@ -51,6 +53,11 @@ const CampaignsRoute = CampaignsRouteImport.update({
   path: '/campaigns',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CanvasRoute = CanvasRouteImport.update({
+  id: '/canvas',
+  path: '/canvas',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DirectorRoute = DirectorRouteImport.update({
   id: '/director',
   path: '/director',
@@ -64,6 +71,11 @@ const EditLabRoute = EditLabRouteImport.update({
 const LibraryRoute = LibraryRouteImport.update({
   id: '/library',
   path: '/library',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ModelLabRoute = ModelLabRouteImport.update({
+  id: '/model-lab',
+  path: '/model-lab',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ModelsRoute = ModelsRouteImport.update({
@@ -115,9 +127,11 @@ export interface FileRoutesByFullPath {
   '/assets': typeof AssetsRoute
   '/auth': typeof AuthRoute
   '/campaigns': typeof CampaignsRoute
+  '/canvas': typeof CanvasRoute
   '/director': typeof DirectorRoute
   '/edit-lab': typeof EditLabRoute
   '/library': typeof LibraryRoute
+  '/model-lab': typeof ModelLabRoute
   '/models': typeof ModelsRoute
   '/settings': typeof SettingsRoute
   '/storyboards': typeof StoryboardsRoute
@@ -133,9 +147,11 @@ export interface FileRoutesByTo {
   '/assets': typeof AssetsRoute
   '/auth': typeof AuthRoute
   '/campaigns': typeof CampaignsRoute
+  '/canvas': typeof CanvasRoute
   '/director': typeof DirectorRoute
   '/edit-lab': typeof EditLabRoute
   '/library': typeof LibraryRoute
+  '/model-lab': typeof ModelLabRoute
   '/models': typeof ModelsRoute
   '/settings': typeof SettingsRoute
   '/storyboards': typeof StoryboardsRoute
@@ -152,9 +168,11 @@ export interface FileRoutesById {
   '/assets': typeof AssetsRoute
   '/auth': typeof AuthRoute
   '/campaigns': typeof CampaignsRoute
+  '/canvas': typeof CanvasRoute
   '/director': typeof DirectorRoute
   '/edit-lab': typeof EditLabRoute
   '/library': typeof LibraryRoute
+  '/model-lab': typeof ModelLabRoute
   '/models': typeof ModelsRoute
   '/settings': typeof SettingsRoute
   '/storyboards': typeof StoryboardsRoute
@@ -172,9 +190,11 @@ export interface FileRouteTypes {
     | '/assets'
     | '/auth'
     | '/campaigns'
+    | '/canvas'
     | '/director'
     | '/edit-lab'
     | '/library'
+    | '/model-lab'
     | '/models'
     | '/settings'
     | '/storyboards'
@@ -190,9 +210,11 @@ export interface FileRouteTypes {
     | '/assets'
     | '/auth'
     | '/campaigns'
+    | '/canvas'
     | '/director'
     | '/edit-lab'
     | '/library'
+    | '/model-lab'
     | '/models'
     | '/settings'
     | '/storyboards'
@@ -208,9 +230,11 @@ export interface FileRouteTypes {
     | '/assets'
     | '/auth'
     | '/campaigns'
+    | '/canvas'
     | '/director'
     | '/edit-lab'
     | '/library'
+    | '/model-lab'
     | '/models'
     | '/settings'
     | '/storyboards'
@@ -227,9 +251,11 @@ export interface RootRouteChildren {
   AssetsRoute: typeof AssetsRoute
   AuthRoute: typeof AuthRoute
   CampaignsRoute: typeof CampaignsRoute
+  CanvasRoute: typeof CanvasRoute
   DirectorRoute: typeof DirectorRoute
   EditLabRoute: typeof EditLabRoute
   LibraryRoute: typeof LibraryRoute
+  ModelLabRoute: typeof ModelLabRoute
   ModelsRoute: typeof ModelsRoute
   SettingsRoute: typeof SettingsRoute
   StoryboardsRoute: typeof StoryboardsRoute
@@ -277,6 +303,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CampaignsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/canvas': {
+      id: '/canvas'
+      path: '/canvas'
+      fullPath: '/canvas'
+      preLoaderRoute: typeof CanvasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/director': {
       id: '/director'
       path: '/director'
@@ -296,6 +329,13 @@ declare module '@tanstack/react-router' {
       path: '/library'
       fullPath: '/library'
       preLoaderRoute: typeof LibraryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/model-lab': {
+      id: '/model-lab'
+      path: '/model-lab'
+      fullPath: '/model-lab'
+      preLoaderRoute: typeof ModelLabRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/models': {
@@ -363,9 +403,11 @@ const rootRouteChildren: RootRouteChildren = {
   AssetsRoute: AssetsRoute,
   AuthRoute: AuthRoute,
   CampaignsRoute: CampaignsRoute,
+  CanvasRoute: CanvasRoute,
   DirectorRoute: DirectorRoute,
   EditLabRoute: EditLabRoute,
   LibraryRoute: LibraryRoute,
+  ModelLabRoute: ModelLabRoute,
   ModelsRoute: ModelsRoute,
   SettingsRoute: SettingsRoute,
   StoryboardsRoute: StoryboardsRoute,
