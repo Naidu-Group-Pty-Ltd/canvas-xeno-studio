@@ -230,7 +230,7 @@ function CreatePage() {
     issues.length === 0 &&
     health?.configured === true &&
     health?.state !== "disabled" &&
-    (!requireEstimate || estimate.kind === "ready");
+    (!requireEstimate || estimate.kind === "ready" || estimate.kind === "metered");
 
   const disabledReason = !health?.configured
     ? "Higgsfield credentials are not configured"
@@ -238,9 +238,11 @@ function CreatePage() {
       ? "The provider is switched off in Settings"
       : issues.length
         ? issues[0]!.message
-        : requireEstimate && estimate.kind !== "ready"
-          ? "Waiting for a valid cost estimate"
-          : null;
+        : estimate.kind === "unavailable"
+          ? estimate.reason
+          : requireEstimate && estimate.kind !== "ready" && estimate.kind !== "metered"
+            ? "Waiting for a valid cost estimate"
+            : null;
 
   async function runSubmit() {
     if (!model || !canGenerate) return;
