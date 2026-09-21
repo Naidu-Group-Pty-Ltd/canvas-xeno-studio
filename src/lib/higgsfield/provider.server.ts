@@ -82,12 +82,19 @@ function classify(status: number, body: unknown): { code: string; message: strin
     (typeof raw["detail"] === "string" && raw["detail"]) ||
     `Provider returned HTTP ${status}`;
   const lowered = String(message).toLowerCase();
-  if (status === 402 || lowered.includes("insufficient") || lowered.includes("balance"))
+  if (
+    status === 402 ||
+    lowered.includes("not_enough_credits") ||
+    lowered.includes("insufficient") ||
+    lowered.includes("balance")
+  )
     return { code: "INSUFFICIENT_PROVIDER_BALANCE", message };
   if (status === 429) return { code: "RATE_LIMITED", message };
-  if (status === 401 || status === 403) return { code: "PROVIDER_NOT_CONFIGURED", message };
-  if (status === 400 || status === 422) return { code: "INVALID_PARAMETERS", message };
+  if (status === 401) return { code: "PROVIDER_NOT_CONFIGURED", message };
   if (lowered.includes("nsfw") || lowered.includes("moderation")) return { code: "MODERATION_BLOCKED", message };
+  if (status === 400 || status === 422) return { code: "INVALID_PARAMETERS", message };
+  if (status === 404 || status === 423 || status === 503)
+    return { code: "PROVIDER_REJECTED", message: `${message} (model unavailable for this account)` };
   return { code: "PROVIDER_REJECTED", message };
 }
 
