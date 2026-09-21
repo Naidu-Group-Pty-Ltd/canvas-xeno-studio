@@ -14,6 +14,7 @@ const estimateInput = z.object({
 
 const submitInput = estimateInput.extend({
   projectId: z.string().uuid().nullable().optional(),
+  campaignId: z.string().uuid().nullable().optional(),
   parentGenerationId: z.string().uuid().nullable().optional(),
   estimatedCostUsd: z.number().nullable().optional(),
   clientRequestId: z.string().min(8).max(64).optional(),
@@ -127,6 +128,20 @@ export const submitGeneration = createServerFn({ method: "POST" })
       if (existing) return { generationId: existing.id, status: existing.status };
     }
 
+    // Spending limits are checked atomically in the database (the owning row is
+    // locked), so two simultaneous submissions cannot together pass a hard limit.
+    let budgetWarning: string | null = null;
+    if (data.projectId || data.campaignId) {
+      const { data: allowance } = await supabaseAdmin.rpc("check_spend_allowance", {
+        _project_id: data.projectId ?? null,
+        _campaign_id: data.campaignId ?? null,
+        _amount: data.estimatedCostUsd ?? 0,
+      });
+      const verdict = (allowance ?? {}) as { allowed?: boolean; message?: string; warning?: string | null };
+      if (verdict.allowed === false) throw new AppError("BUDGET_EXCEEDED", verdict.message);
+      budgetWarning = verdict.warning ?? null;
+    }
+
     // The provisional browser estimate is stored here; the pipeline re-requests
     // the authoritative estimate with the exact serialized provider payload.
     const estimatedCost = data.estimatedCostUsd ?? null;
@@ -136,6 +151,7 @@ export const submitGeneration = createServerFn({ method: "POST" })
       .insert({
         user_id: context.userId,
         project_id: data.projectId ?? null,
+        campaign_id: data.campaignId ?? null,
         model_registry_id: model.id,
         parent_generation_id: data.parentGenerationId ?? null,
         client_request_id: clientRequestId,
@@ -198,7 +214,7 @@ export const submitGeneration = createServerFn({ method: "POST" })
     });
 
     const result = await pipeline.submitOrQueue(generation.id);
-    return { generationId: generation.id, status: result.status };
+    return { generationId: generation.id, status: result.status, budgetWarning };
   });
 
 export const refreshGenerationStatus = createServerFn({ method: "POST" })

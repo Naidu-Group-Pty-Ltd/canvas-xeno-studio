@@ -40,7 +40,11 @@ function DirectorPage() {
   const queryClient = useQueryClient();
   const { data: projects } = useProjects();
   const { data: plans, isLoading } = useProductionPlans();
-  const { data: health } = useQuery({ queryKey: ["reasoning-health"], queryFn: () => getReasoningHealth() });
+  const { data: health } = useQuery({
+    queryKey: ["reasoning-health"],
+    enabled: !!profile?.is_active,
+    queryFn: () => getReasoningHealth(),
+  });
 
   const [brief, setBrief] = useState("");
   const [projectId, setProjectId] = useState<string | null>(null);
