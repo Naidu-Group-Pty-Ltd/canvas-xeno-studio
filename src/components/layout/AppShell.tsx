@@ -178,7 +178,7 @@ export function AppShell({ children, title }: { children: ReactNode; title?: str
           {!collapsed && <span className="font-display text-sm font-semibold tracking-tight">{APP_NAME}</span>}
         </div>
         <nav className="flex-1 space-y-1 px-2 py-4">
-          {NAV.map((item) => {
+          {navItems.map((item) => {
             const active = item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
             return (
               <Link
@@ -252,6 +252,7 @@ export function AppShell({ children, title }: { children: ReactNode; title?: str
 }
 
 function MobileNav({ pathname }: { pathname: string }) {
+  const navItems = useNavItems();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -260,7 +261,7 @@ function MobileNav({ pathname }: { pathname: string }) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-48">
-        {NAV.map((item) => (
+        {navItems.map((item) => (
           <DropdownMenuItem key={item.to} asChild>
             <Link to={item.to} className={cn(pathname === item.to && "text-primary")}>
               <item.icon className="mr-2 size-4" />
