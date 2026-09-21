@@ -54,6 +54,8 @@ type EstimateState =
   | { kind: "idle" }
   | { kind: "loading" }
   | { kind: "ready"; costUsd: number }
+  /** Metered models are quoted as a rate rather than a single figure. */
+  | { kind: "metered"; description: string }
   | { kind: "unavailable"; reason: string };
 
 function CreatePage() {
@@ -203,7 +205,16 @@ function CreatePage() {
           },
         });
         if (result.ok && result.costUsd !== null) setEstimate({ kind: "ready", costUsd: result.costUsd });
-        else setEstimate({ kind: "unavailable", reason: "Estimate unavailable" });
+        else if (result.ok && result.pricingDescription)
+          setEstimate({ kind: "metered", description: result.pricingDescription });
+        else
+          setEstimate({
+            kind: "unavailable",
+            reason:
+              result.code === "INSUFFICIENT_PROVIDER_BALANCE"
+                ? "Provider account is out of credits"
+                : "Estimate unavailable",
+          });
       } catch {
         setEstimate({ kind: "unavailable", reason: "Estimate unavailable" });
       }
