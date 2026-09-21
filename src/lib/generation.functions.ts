@@ -79,22 +79,37 @@ export const estimateGeneration = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => estimateInput.parse(data))
   .handler(async ({ data, context }) => {
     await assertActiveMember(context.userId);
-    const { higgsfieldProvider, extractCost, providerConfigured } = await import("./higgsfield/provider.server");
-    if (!providerConfigured()) return { ok: false, code: "PROVIDER_NOT_CONFIGURED", costUsd: null };
+    const { higgsfieldProvider, extractCost, extractPricingDescription, providerConfigured } = await import(
+      "./higgsfield/provider.server"
+    );
+    if (!providerConfigured())
+      return { ok: false, code: "PROVIDER_NOT_CONFIGURED", costUsd: null, pricingDescription: null as string | null };
 
     const { model } = await loadContext(null as never, data.modelId);
     const roles = data.inputs.map((i) => i.role);
     const issues = validateParameters(model, data.parameters, roles);
-    if (issues.length) return { ok: false, code: "INVALID_PARAMETERS", costUsd: null, issues };
+    if (issues.length)
+      return { ok: false, code: "INVALID_PARAMETERS", costUsd: null, pricingDescription: null as string | null, issues };
 
     const call = await higgsfieldProvider.estimate(model.model_path, data.parameters);
     const { recordProviderHealth } = await import("./generation-pipeline.server");
     await recordProviderHealth(call.ok, call.errorMessage);
-    if (!call.ok) return { ok: false, code: call.errorCode ?? "ESTIMATE_FAILED", costUsd: null };
+    if (!call.ok)
+      return {
+        ok: false,
+        code: call.errorCode ?? "ESTIMATE_FAILED",
+        costUsd: null,
+        pricingDescription: null as string | null,
+        message: call.errorMessage ?? null,
+      };
 
     const cost = extractCost(call.data);
-    if (cost === null) return { ok: false, code: "ESTIMATE_FAILED", costUsd: null };
-    return { ok: true, code: null, costUsd: cost };
+    const pricingDescription = extractPricingDescription(call.data);
+    // Metered models are quoted as a rate rather than a figure; that is a valid
+    // answer from the provider, not an estimate failure.
+    if (cost === null && !pricingDescription)
+      return { ok: false, code: "ESTIMATE_FAILED", costUsd: null, pricingDescription: null as string | null };
+    return { ok: true, code: null, costUsd: cost, pricingDescription };
   });
 
 /** Creates the generation record first, then submits exactly once. */
