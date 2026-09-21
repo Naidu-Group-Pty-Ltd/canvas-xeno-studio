@@ -34,12 +34,97 @@ export function webhookUrl(): string | undefined {
   return `${base.replace(/\/$/, "")}/api/public/higgsfield-webhook${token ? `?token=${encodeURIComponent(token)}` : ""}`;
 }
 
+/** Generation lifecycle status -> operation status, so Activity and lineage share one vocabulary. */
+const OPERATION_STATUS: Record<string, string> = {
+  draft: "draft",
+  estimating: "awaiting_estimate",
+  ready: "ready",
+  local_queued: "local_queued",
+  submitting: "submitting",
+  submission_uncertain: "submission_uncertain",
+  queued: "provider_queued",
+  in_progress: "running",
+  completed: "completed",
+  failed: "failed",
+  nsfw: "failed",
+  canceled: "canceled",
+};
+
+/**
+ * Every generation is mirrored into exactly one operation record (unique on
+ * generation_id) so the V2 operation graph, lineage and cost attribution stay
+ * accurate without changing the V1 submission path. Mirrors are excluded from
+ * the durable queue, so they can never cause a second provider request.
+ */
+export async function mirrorOperation(generationId: string): Promise<void> {
+  const { data: generation } = await supabaseAdmin
+    .from("generations")
+    .select(
+      "id,user_id,project_id,model_registry_id,provider,operation,status,parameters,prompt,estimated_cost_usd,actual_cost_usd,hf_request_id,hf_status_url,hf_cancel_url,client_request_id,generation_group_id,parent_generation_id,error_code,error_message,ingest_status,submitted_at,started_at,completed_at,created_at",
+    )
+    .eq("id", generationId)
+    .maybeSingle();
+  if (!generation) return;
+
+  const status =
+    generation.status === "completed" && generation.ingest_status === "pending"
+      ? "processing_output"
+      : (OPERATION_STATUS[generation.status] ?? "running");
+
+  const { data: parentOperation } = generation.parent_generation_id
+    ? await supabaseAdmin
+        .from("operations")
+        .select("id,root_operation_id")
+        .eq("generation_id", generation.parent_generation_id)
+        .maybeSingle()
+    : { data: null };
+
+  const row = {
+    generation_id: generation.id,
+    created_by: generation.user_id,
+    project_id: generation.project_id,
+    operation_type: generation.operation,
+    provider: generation.provider,
+    model_registry_id: generation.model_registry_id,
+    generation_group_id: generation.generation_group_id,
+    parent_operation_id: parentOperation?.id ?? null,
+    root_operation_id: parentOperation?.root_operation_id ?? parentOperation?.id ?? null,
+    status,
+    input_payload: { prompt: generation.prompt, parameters: generation.parameters } as never,
+    estimated_cost_usd: generation.estimated_cost_usd,
+    actual_cost_usd: generation.actual_cost_usd,
+    provider_request_id: generation.hf_request_id,
+    provider_status_url: generation.hf_status_url,
+    provider_cancel_url: generation.hf_cancel_url,
+    dedupe_key: generation.client_request_id,
+    error_code: generation.error_code,
+    error_message: generation.error_message,
+    submitted_at: generation.submitted_at,
+    started_at: generation.started_at,
+    completed_at: generation.completed_at,
+  };
+
+  await supabaseAdmin.from("operations").upsert(row as never, { onConflict: "generation_id" });
+}
+
 export async function logEvent(generationId: string, eventType: string, payload: Json = {}) {
   await supabaseAdmin.from("generation_events").insert({
     generation_id: generationId,
     event_type: eventType,
     payload: payload as never,
   });
+  // Keep the operation mirror and its event trail in step with the generation.
+  await mirrorOperation(generationId);
+  const { data: operation } = await supabaseAdmin
+    .from("operations")
+    .select("id")
+    .eq("generation_id", generationId)
+    .maybeSingle();
+  if (operation) {
+    await supabaseAdmin
+      .from("operation_events")
+      .insert({ operation_id: operation.id, event_type: eventType, payload: payload as never });
+  }
 }
 
 export async function getSettings(): Promise<Record<string, unknown>> {
