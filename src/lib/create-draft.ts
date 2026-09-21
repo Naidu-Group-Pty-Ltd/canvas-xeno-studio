@@ -15,9 +15,13 @@ export interface CreatePrefill {
 const KEY = "xeno.create.prefill";
 const DRAFT_KEY = "xeno.create.prompt";
 
+export const PREFILL_EVENT = "xeno:create-prefill";
+
 export function setCreatePrefill(prefill: CreatePrefill) {
   if (typeof window === "undefined") return;
   window.sessionStorage.setItem(KEY, JSON.stringify(prefill));
+  // Lets an already-mounted Create page pick the hand-off up immediately.
+  window.dispatchEvent(new CustomEvent(PREFILL_EVENT));
 }
 
 export function takeCreatePrefill(): CreatePrefill | null {

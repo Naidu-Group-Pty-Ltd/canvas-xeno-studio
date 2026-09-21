@@ -247,8 +247,10 @@ export const resubmitGeneration = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ generationId: z.string().uuid() }).parse(data))
   .handler(async ({ data, context }) => {
+    await assertActiveMember(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const pipeline = await import("./generation-pipeline.server");
+
 
     const { data: original } = await supabaseAdmin
       .from("generations")
