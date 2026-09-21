@@ -27,6 +27,18 @@ async function loadContext(supabase: never, modelId: string) {
   return { supabaseAdmin, model: model as unknown as ModelRegistryEntry };
 }
 
+/** Every user-facing server function requires an ACTIVE internal team member. */
+async function assertActiveMember(userId: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("id,is_active")
+    .eq("id", userId)
+    .maybeSingle();
+  if (!profile?.is_active) throw new AppError("NOT_AUTHORIZED", "Your account is not an active team member");
+  return profile;
+}
+
 /** Provider configuration/health, safe for all members (never exposes secrets). */
 export const getProviderHealth = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
