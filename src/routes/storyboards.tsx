@@ -83,6 +83,7 @@ function StoryboardsPage() {
                                 <span className="text-xs text-muted-foreground">{shot.status}</span>
                               </div>
                               <p className="mt-1 line-clamp-3 text-xs text-muted-foreground">{shot.prompt}</p>
+                              <ShotTakes shotId={shot.id} />
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -92,6 +93,7 @@ function StoryboardsPage() {
                                     prompt: shot.prompt ?? "",
                                     ...(shot.recommended_model_id ? { modelId: shot.recommended_model_id } : {}),
                                     projectId: open.project_id,
+                                    shotId: shot.id,
                                   });
                                   navigate({ to: "/" });
                                 }}
