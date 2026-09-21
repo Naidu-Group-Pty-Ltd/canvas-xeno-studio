@@ -48,7 +48,7 @@ export function ParameterFields({ model, values, inputRoles, onChange, advanced 
   );
 }
 
-function FieldLabel({ field, issue }: { field: FieldSchema; issue?: string }) {
+function FieldLabel({ field, issue }: { field: FieldSchema; issue?: string | undefined }) {
   return (
     <div className="flex items-center justify-between gap-2">
       <Label htmlFor={field.key} className="text-xs font-medium">
