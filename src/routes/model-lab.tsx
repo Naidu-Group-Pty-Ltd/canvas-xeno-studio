@@ -38,6 +38,7 @@ function ModelLabPage() {
   const { data: metrics } = useModelMetrics();
   const { data: sessions } = useArenaSessions();
   const { data: generations } = useGenerations({ limit: 60 });
+  const { data: assets } = useAssets({ limit: 120 });
 
   const [mediaType, setMediaType] = useState<"image" | "video">("image");
   const [prompt, setPrompt] = useState("");
