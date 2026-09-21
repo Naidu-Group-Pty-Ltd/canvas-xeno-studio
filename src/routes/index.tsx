@@ -208,6 +208,11 @@ function CreatePage() {
 
   async function runSubmit() {
     if (!model || !canGenerate) return;
+    // Synchronous lock + idempotency key: a double-click can never bill twice.
+    if (submitLock.current) return;
+    submitLock.current = true;
+    const clientRequestId = requestIdRef.current ?? crypto.randomUUID();
+    requestIdRef.current = clientRequestId;
     setSubmitting(true);
     try {
       const result = await submitGeneration({
@@ -218,8 +223,10 @@ function CreatePage() {
           projectId,
           parentGenerationId,
           estimatedCostUsd: estimate.kind === "ready" ? estimate.costUsd : null,
+          clientRequestId,
         },
       });
+      requestIdRef.current = null;
       toast.success(
         result.status === "local_queued"
           ? "Queued — it will submit as soon as a provider slot frees up."
