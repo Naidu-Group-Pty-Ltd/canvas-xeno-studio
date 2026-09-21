@@ -167,6 +167,14 @@ export function useStudioRealtime() {
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "assets" }, () => {
         queryClient.invalidateQueries({ queryKey: ["assets"] });
+        queryClient.invalidateQueries({ queryKey: ["shot_takes"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "operations" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["operations"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "shot_takes" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["shot_takes"] });
+        queryClient.invalidateQueries({ queryKey: ["storyboards"] });
       })
       .subscribe();
     return () => {

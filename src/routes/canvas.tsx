@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Network, Plus } from "lucide-react";
+import { Network, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/layout/AppShell";
@@ -69,6 +69,15 @@ function CanvasPage() {
     await queryClient.invalidateQueries({ queryKey: ["workflow_templates"] });
   }
 
+  async function removeNode(id: string) {
+    const { error } = await supabase.from("workflow_nodes").delete().eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    await queryClient.invalidateQueries({ queryKey: ["workflow_templates"] });
+  }
+
   return (
     <AppShell title="Canvas">
       <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)]">
@@ -107,8 +116,13 @@ function CanvasPage() {
                 <h2 className="font-display text-lg font-semibold">{active.name}</h2>
                 <span className="text-xs text-muted-foreground">v{active.current_version}</span>
               </header>
+              {active.is_system && (
+                <p className="mb-3 rounded-md border border-border bg-surface-raised p-2 text-xs text-muted-foreground">
+                  This is a built-in recipe. Duplicate it to make your own editable copy.
+                </p>
+              )}
               <div className="mb-4 flex flex-wrap gap-2">
-                {NODE_TYPES.map((type) => (
+                {!active.is_system && NODE_TYPES.map((type) => (
                   <Button key={type} size="sm" variant="outline" onClick={() => void addNode(type)}>
                     + {type.replace(/_/g, " ")}
                   </Button>
@@ -120,6 +134,14 @@ function CanvasPage() {
                     <span className="text-xs text-muted-foreground">{index + 1}</span>
                     <span className="font-medium">{node.label ?? node.node_type}</span>
                     <span className="ml-auto text-xs text-muted-foreground">{node.node_key}</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      aria-label={`Remove ${node.label ?? node.node_type}`}
+                      onClick={() => void removeNode(node.id)}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
                   </div>
                 ))}
                 {!active.workflow_nodes?.length && (
@@ -127,8 +149,8 @@ function CanvasPage() {
                 )}
               </div>
               <p className="mt-4 text-xs text-muted-foreground">
-                Workflows are saved as durable templates. Running them queues real operations — costs are always
-                estimated and confirmed before any billable step.
+                Workflows are saved as durable templates. Automatic execution is not enabled yet — open each step in
+                Create to run it, so nothing is ever charged without an explicit confirmation.
               </p>
             </>
           )}
