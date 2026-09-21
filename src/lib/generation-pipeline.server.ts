@@ -104,7 +104,19 @@ export async function mirrorOperation(generationId: string): Promise<void> {
     completed_at: generation.completed_at,
   };
 
-  await supabaseAdmin.from("operations").upsert(row as never, { onConflict: "generation_id" });
+  // The uniqueness index is partial, so ON CONFLICT inference does not apply: read then write.
+  const { data: existing } = await supabaseAdmin
+    .from("operations")
+    .select("id")
+    .eq("generation_id", generation.id)
+    .maybeSingle();
+  if (existing) {
+    await supabaseAdmin.from("operations").update(row as never).eq("id", existing.id);
+  } else {
+    const { error } = await supabaseAdmin.from("operations").insert(row as never);
+    // A concurrent worker may have inserted the mirror first; that is fine.
+    if (error && error.code !== "23505") throw error;
+  }
 }
 
 export async function logEvent(generationId: string, eventType: string, payload: Json = {}) {
