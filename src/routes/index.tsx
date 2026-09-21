@@ -346,6 +346,14 @@ function CreatePage() {
                 </Select>
 
                 {parentGenerationId && <Badge variant="outline">Variation</Badge>}
+                {shotId && (
+                  <Badge variant="outline" className="gap-2">
+                    Shooting a storyboard shot
+                    <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setShotId(null)}>
+                      ×
+                    </button>
+                  </Badge>
+                )}
               </div>
 
               <div className="mt-5 space-y-4">

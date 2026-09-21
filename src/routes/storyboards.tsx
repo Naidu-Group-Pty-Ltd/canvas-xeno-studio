@@ -126,11 +126,23 @@ function ShotTakes({ shotId }: { shotId: string }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("shot_takes")
-        .select("id,take_number,is_selected,generation_id,asset_id,assets(id,asset_type,storage_bucket,storage_path)")
+        .select("id,take_number,is_selected,generation_id")
         .eq("shot_id", shotId)
         .order("take_number");
       if (error) throw error;
-      return data ?? [];
+      const generationIds = (data ?? []).map((take) => take.generation_id).filter((id): id is string => !!id);
+      // Outputs are linked through the generation, so a take shows its result as soon as ingestion finishes.
+      const { data: assets } = generationIds.length
+        ? await supabase
+            .from("assets")
+            .select("generation_id,asset_type,storage_bucket,storage_path")
+            .in("generation_id", generationIds)
+            .is("deleted_at", null)
+        : { data: [] };
+      return (data ?? []).map((take) => ({
+        ...take,
+        asset: (assets ?? []).find((asset) => asset.generation_id === take.generation_id) ?? null,
+      }));
     },
   });
 
@@ -148,7 +160,7 @@ function ShotTakes({ shotId }: { shotId: string }) {
   return (
     <div className="mt-2 flex flex-wrap gap-2">
       {data.map((take) => {
-        const asset = take.assets as { asset_type: "image" | "video" | "audio"; storage_bucket: string; storage_path: string } | null;
+        const asset = take.asset;
         return (
           <button
             key={take.id}
