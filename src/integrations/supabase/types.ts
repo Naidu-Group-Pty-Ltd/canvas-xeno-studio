@@ -279,6 +279,7 @@ export type Database = {
       generations: {
         Row: {
           actual_cost_usd: number | null
+          client_request_id: string | null
           completed_at: string | null
           cost_source: string | null
           created_at: string
@@ -311,6 +312,7 @@ export type Database = {
         }
         Insert: {
           actual_cost_usd?: number | null
+          client_request_id?: string | null
           completed_at?: string | null
           cost_source?: string | null
           created_at?: string
@@ -343,6 +345,7 @@ export type Database = {
         }
         Update: {
           actual_cost_usd?: number | null
+          client_request_id?: string | null
           completed_at?: string | null
           cost_source?: string | null
           created_at?: string
