@@ -131,6 +131,7 @@ export function AppShell({ children, title }: { children: ReactNode; title?: str
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navItems = useNavItems();
   useStudioRealtime();
 
   useEffect(() => {
