@@ -8,6 +8,7 @@ import type { AssetRow } from "@/hooks/useStudioData";
 import { useModels, useProjects } from "@/hooks/useStudioData";
 import { MediaPreview } from "@/components/studio/MediaPreview";
 import { StatusBadge } from "@/components/studio/StatusBadge";
+import { MediaTaskPanel } from "@/components/studio/MediaTaskPanel";
 import {
   downloadAsset,
   moveAsset,
