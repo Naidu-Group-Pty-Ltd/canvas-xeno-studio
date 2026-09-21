@@ -427,15 +427,28 @@ export async function ingestOutputs(generationId: string): Promise<number> {
       if (error && !error.message.includes("duplicate")) throw new Error(error.message);
       created += 1;
     } catch (error) {
+      failures += 1;
       console.error("ingest failed", { generationId, message: (error as Error).message });
     }
   }
 
+  // A partially ingested generation stays "failed" so reconciliation retries it
+  // instead of quietly leaving an output only on the provider's servers.
+  const complete = failures === 0 && created > 0;
   await supabaseAdmin
     .from("generations")
-    .update({ ingest_status: created > 0 ? "completed" : "failed" })
+    .update({
+      ingest_status: complete ? "completed" : "failed",
+      ...(complete
+        ? {}
+        : { error_code: "INGEST_FAILED", error_message: "Some outputs could not be saved to storage" }),
+    })
     .eq("id", generationId);
-  await logEvent(generationId, "asset_ingest_completed", { assets: created });
+  await logEvent(generationId, complete ? "asset_ingest_completed" : "failed", {
+    assets: created,
+    failures,
+    code: complete ? undefined : "INGEST_FAILED",
+  });
   return created;
 }
 
