@@ -302,9 +302,12 @@ function CreatePage() {
     }
   }
 
+  const batchCount = Math.max(expandMatrix(matrix).length, 1);
+
   function handleGenerate() {
     if (!canGenerate) return;
-    if (estimate.kind === "ready" && estimate.costUsd >= highCostThreshold) setConfirmHighCost(true);
+    if (batchCount > 1) setConfirmHighCost(true);
+    else if (estimate.kind === "ready" && estimate.costUsd >= highCostThreshold) setConfirmHighCost(true);
     else void runSubmit();
   }
 
@@ -428,6 +431,10 @@ function CreatePage() {
                 )}
 
                 {model && (
+                  <BatchMatrix model={model} values={values} selection={matrix} onChange={setMatrix} />
+                )}
+
+                {model && (
                   <ReferenceRail
                     model={model}
                     projectId={projectId}
@@ -506,6 +513,12 @@ function CreatePage() {
                   {estimate.kind === "idle" && "—"}
                 </span>
               </div>
+              {batchCount > 1 && (
+                <p className="text-[11px] text-primary">
+                  Batch matrix: {batchCount} generations
+                  {estimate.kind === "ready" ? ` · approx. $${(estimate.costUsd * batchCount).toFixed(2)} total` : ""}
+                </p>
+              )}
               <Button
                 size="lg"
                 className="w-full accent-glow"
@@ -548,10 +561,13 @@ function CreatePage() {
       <AlertDialog open={confirmHighCost} onOpenChange={setConfirmHighCost}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirm this generation</AlertDialogTitle>
+            <AlertDialogTitle>{batchCount > 1 ? "Confirm this batch" : "Confirm this generation"}</AlertDialogTitle>
             <AlertDialogDescription>
-              This generation is estimated to cost $
-              {estimate.kind === "ready" ? estimate.costUsd.toFixed(2) : "0.00"}.
+              {batchCount > 1
+                ? `This runs ${batchCount} separate generations, approximately $${
+                    estimate.kind === "ready" ? (estimate.costUsd * batchCount).toFixed(2) : "0.00"
+                  } in total. Each one is estimated again by the provider before it is sent.`
+                : `This generation is estimated to cost $${estimate.kind === "ready" ? estimate.costUsd.toFixed(2) : "0.00"}.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
