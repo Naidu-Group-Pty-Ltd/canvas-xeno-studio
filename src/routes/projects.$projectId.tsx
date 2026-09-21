@@ -186,9 +186,10 @@ function FolderManager({
   async function addFolder() {
     if (!name.trim()) return;
     const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) return;
     const { error } = await supabase
       .from("asset_folders")
-      .insert({ project_id: projectId, name: name.trim(), created_by: userData.user?.id ?? null });
+      .insert({ project_id: projectId, name: name.trim(), created_by: userData.user.id });
     if (error) {
       toast.error(error.message);
       return;
