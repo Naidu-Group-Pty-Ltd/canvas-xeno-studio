@@ -190,7 +190,7 @@ export type Database = {
       asset_folders: {
         Row: {
           created_at: string
-          created_by: string
+          created_by: string | null
           id: string
           name: string
           parent_id: string | null
@@ -199,7 +199,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          created_by: string
+          created_by?: string | null
           id?: string
           name: string
           parent_id?: string | null
@@ -208,7 +208,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           id?: string
           name?: string
           parent_id?: string | null
@@ -708,7 +708,7 @@ export type Database = {
           submission_started_at: string | null
           submitted_at: string | null
           updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           actual_cost_usd?: number | null
@@ -742,7 +742,7 @@ export type Database = {
           submission_started_at?: string | null
           submitted_at?: string | null
           updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           actual_cost_usd?: number | null
@@ -776,7 +776,7 @@ export type Database = {
           submission_started_at?: string | null
           submitted_at?: string | null
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -1423,7 +1423,7 @@ export type Database = {
           budget_mode: string
           budget_usd: number | null
           created_at: string
-          created_by: string
+          created_by: string | null
           description: string | null
           id: string
           is_archived: boolean
@@ -1434,7 +1434,7 @@ export type Database = {
           budget_mode?: string
           budget_usd?: number | null
           created_at?: string
-          created_by: string
+          created_by?: string | null
           description?: string | null
           id?: string
           is_archived?: boolean
@@ -1445,7 +1445,7 @@ export type Database = {
           budget_mode?: string
           budget_usd?: number | null
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           description?: string | null
           id?: string
           is_archived?: boolean
@@ -1705,7 +1705,7 @@ export type Database = {
           generation_id: string
           id: string
           model_registry_id: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           actual_cost_usd?: number | null
@@ -1715,7 +1715,7 @@ export type Database = {
           generation_id: string
           id?: string
           model_registry_id: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           actual_cost_usd?: number | null
@@ -1725,7 +1725,7 @@ export type Database = {
           generation_id?: string
           id?: string
           model_registry_id?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
