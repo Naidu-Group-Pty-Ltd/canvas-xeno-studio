@@ -191,7 +191,7 @@ function CreatePage() {
         const result = await estimateGeneration({
           data: {
             modelId: model.id,
-            parameters: values,
+            parameters: submitValues,
             inputs: references.map((item, index) => ({ assetId: item.assetId, role: item.role, position: index })),
           },
         });
@@ -203,7 +203,7 @@ function CreatePage() {
     }, 700);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [model?.id, JSON.stringify(values), JSON.stringify(inputRoles), health?.configured, issues.length]);
+  }, [model?.id, JSON.stringify(submitValues), JSON.stringify(inputRoles), health?.configured, issues.length]);
 
   const canGenerate =
     !!model &&
@@ -236,7 +236,7 @@ function CreatePage() {
       const result = await submitGeneration({
         data: {
           modelId: model.id,
-          parameters: values,
+          parameters: submitValues,
           inputs: references.map((item, index) => ({ assetId: item.assetId, role: item.role, position: index })),
           projectId,
           parentGenerationId,
