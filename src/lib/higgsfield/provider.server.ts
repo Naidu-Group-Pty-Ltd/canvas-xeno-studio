@@ -228,7 +228,7 @@ export function normalizeResult(payload: unknown): NormalizedOutput[] {
 export function extractRequestId(payload: unknown): string | null {
   if (!payload || typeof payload !== "object") return null;
   const record = payload as Record<string, unknown>;
-  for (const key of ["id", "request_id", "job_id", "jobId", "requestId", "task_id"]) {
+  for (const key of ["request_id", "requestId", "job_id", "jobId", "task_id", "id"]) {
     const value = record[key];
     if (typeof value === "string" && value.length > 0) return value;
   }
