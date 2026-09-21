@@ -229,11 +229,18 @@ function CreatePage() {
         },
       });
       requestIdRef.current = null;
-      toast.success(
-        result.status === "local_queued"
-          ? "Queued — it will submit as soon as a provider slot frees up."
-          : "Generation submitted. Track it in Activity.",
-      );
+      if (result.status === "submission_uncertain")
+        toast.warning(
+          "Submission status is uncertain. Automatic retry is disabled to prevent accidental duplicate generation charges. Review it in Activity.",
+        );
+      else if (result.status === "failed")
+        toast.error("The provider rejected this generation. Open it in Activity for the reason.");
+      else
+        toast.success(
+          result.status === "local_queued"
+            ? "Queued — it will submit as soon as a provider slot frees up."
+            : "Generation submitted. Track it in Activity.",
+        );
       setParentGenerationId(null);
       queryClient.invalidateQueries({ queryKey: ["generations"] });
     } catch (error) {
