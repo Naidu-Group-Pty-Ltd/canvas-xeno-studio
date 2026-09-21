@@ -133,8 +133,8 @@ export const submitGeneration = createServerFn({ method: "POST" })
     let budgetWarning: string | null = null;
     if (data.projectId || data.campaignId) {
       const { data: allowance } = await supabaseAdmin.rpc("check_spend_allowance", {
-        _project_id: data.projectId ?? null,
-        _campaign_id: data.campaignId ?? null,
+        _project_id: (data.projectId ?? null) as string,
+        _campaign_id: (data.campaignId ?? null) as string,
         _amount: data.estimatedCostUsd ?? 0,
       });
       const verdict = (allowance ?? {}) as { allowed?: boolean; message?: string; warning?: string | null };
