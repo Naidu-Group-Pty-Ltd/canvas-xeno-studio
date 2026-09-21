@@ -7,6 +7,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { AppError } from "./higgsfield/errors";
 import {
   extractCost,
+  extractPricingDescription,
   extractRequestId,
   higgsfieldProvider,
   isAllowedOutputUrl,
