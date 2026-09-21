@@ -74,6 +74,10 @@ function UsagePage() {
       .reduce((total, row) => total + Number(row.estimated_cost_usd ?? 0), 0);
   };
 
+  // Confirmed charges only: rows where the provider actually reported a cost.
+  const confirmedActual = ledger.reduce((total, row) => total + Number(row.actual_cost_usd ?? 0), 0);
+  const confirmedRows = ledger.filter((row) => row.actual_cost_usd != null).length;
+
   const byDay = useMemo(() => {
     const map = new Map<string, { date: string; spend: number; generations: number }>();
     for (const row of ledger) {
