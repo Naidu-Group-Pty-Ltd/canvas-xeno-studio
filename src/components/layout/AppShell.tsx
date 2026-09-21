@@ -6,17 +6,24 @@ import {
   Boxes,
   ChevronLeft,
   CircleDot,
+  Clapperboard,
   Images,
   LayoutGrid,
   LogOut,
+  Megaphone,
+  Network,
   PanelLeft,
+  Scissors,
   Settings,
   Sparkles,
+  Swords,
   TrendingUp,
+  Wand2,
 } from "lucide-react";
 import { APP_NAME } from "@/lib/app-config";
 import { useAuth } from "@/hooks/useAuth";
 import { useGenerations, useStudioRealtime } from "@/hooks/useStudioData";
+import { useFeatureFlags } from "@/hooks/useV2Data";
 import { getProviderHealth } from "@/lib/generation.functions";
 import { ACTIVE_STATUSES } from "@/lib/model-schema";
 import { Button } from "@/components/ui/button";
@@ -34,14 +41,27 @@ import { GlobalSearch } from "@/components/layout/GlobalSearch";
 import { cn } from "@/lib/utils";
 
 const NAV = [
-  { to: "/", label: "Create", icon: Sparkles },
-  { to: "/projects", label: "Projects", icon: LayoutGrid },
-  { to: "/assets", label: "Assets", icon: Images },
-  { to: "/activity", label: "Activity", icon: Activity },
-  { to: "/models", label: "Models", icon: Boxes },
-  { to: "/usage", label: "Usage", icon: TrendingUp },
-  { to: "/settings", label: "Settings", icon: Settings },
+  { to: "/director", label: "Director", icon: Wand2, flag: "v2_director" },
+  { to: "/", label: "Create", icon: Sparkles, flag: null },
+  { to: "/storyboards", label: "Storyboards", icon: Clapperboard, flag: "v2_storyboards" },
+  { to: "/edit-lab", label: "Edit Lab", icon: Scissors, flag: "v2_edit_lab" },
+  { to: "/canvas", label: "Canvas", icon: Network, flag: "v2_canvas" },
+  { to: "/campaigns", label: "Campaigns", icon: Megaphone, flag: "v2_campaigns" },
+  { to: "/projects", label: "Projects", icon: LayoutGrid, flag: null },
+  { to: "/assets", label: "Library", icon: Images, flag: null },
+  { to: "/model-lab", label: "Model Lab", icon: Swords, flag: "v2_model_arena" },
+  { to: "/models", label: "Models", icon: Boxes, flag: null },
+  { to: "/activity", label: "Activity", icon: Activity, flag: null },
+  { to: "/usage", label: "Usage", icon: TrendingUp, flag: null },
+  { to: "/settings", label: "Settings", icon: Settings, flag: null },
 ] as const;
+
+/** V2 sections only appear when their feature flag is enabled. */
+function useNavItems() {
+  const { data: flags } = useFeatureFlags();
+  return NAV.filter((item) => !item.flag || (flags?.find((f) => f.key === item.flag)?.enabled ?? false));
+}
+
 
 export function useProviderHealth() {
   const { profile } = useAuth();
@@ -111,6 +131,7 @@ export function AppShell({ children, title }: { children: ReactNode; title?: str
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navItems = useNavItems();
   useStudioRealtime();
 
   useEffect(() => {
@@ -158,7 +179,7 @@ export function AppShell({ children, title }: { children: ReactNode; title?: str
           {!collapsed && <span className="font-display text-sm font-semibold tracking-tight">{APP_NAME}</span>}
         </div>
         <nav className="flex-1 space-y-1 px-2 py-4">
-          {NAV.map((item) => {
+          {navItems.map((item) => {
             const active = item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
             return (
               <Link
@@ -232,6 +253,7 @@ export function AppShell({ children, title }: { children: ReactNode; title?: str
 }
 
 function MobileNav({ pathname }: { pathname: string }) {
+  const navItems = useNavItems();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -240,7 +262,7 @@ function MobileNav({ pathname }: { pathname: string }) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-48">
-        {NAV.map((item) => (
+        {navItems.map((item) => (
           <DropdownMenuItem key={item.to} asChild>
             <Link to={item.to} className={cn(pathname === item.to && "text-primary")}>
               <item.icon className="mr-2 size-4" />
