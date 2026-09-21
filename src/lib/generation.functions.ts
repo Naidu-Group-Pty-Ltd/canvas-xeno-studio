@@ -381,25 +381,34 @@ export const listMarketingPresets = createServerFn({ method: "POST" })
       (Array.isArray(payload["data"]) && payload["data"]) ||
       [];
     const presets = (listSource as Json[])
-      .map((item) => ({
-        id: String(item["id"] ?? item["preset_id"] ?? ""),
-        name: String(item["name"] ?? item["title"] ?? "Untitled preset"),
-        type: typeof item["type"] === "string" ? (item["type"] as string) : null,
-        previewUrl:
-          typeof item["preview_url"] === "string"
-            ? (item["preview_url"] as string)
-            : typeof item["thumbnail_url"] === "string"
-              ? (item["thumbnail_url"] as string)
-              : null,
-      }))
+      .map((item) => {
+        const cover = (item["cover_image"] ?? {}) as Json;
+        return {
+          id: String(item["id"] ?? item["preset_id"] ?? ""),
+          name: String(item["name"] ?? item["title"] ?? "Untitled preset"),
+          type: typeof item["type"] === "string" ? (item["type"] as string) : null,
+          previewUrl:
+            typeof cover["url"] === "string"
+              ? (cover["url"] as string)
+              : typeof item["preview_url"] === "string"
+                ? (item["preview_url"] as string)
+                : typeof item["thumbnail_url"] === "string"
+                  ? (item["thumbnail_url"] as string)
+                  : null,
+        };
+      })
       .filter((preset) => preset.id);
 
+    // The provider paginates with a numeric cursor; it stops advancing once the
+    // whole catalogue has been read.
+    const rawCursor = payload["next_cursor"] ?? payload["cursor"];
+    const total = typeof payload["total"] === "number" ? payload["total"] : null;
+    const cursorValue =
+      typeof rawCursor === "string" || typeof rawCursor === "number" ? String(rawCursor) : null;
     const nextCursor =
-      typeof payload["next_cursor"] === "string"
-        ? (payload["next_cursor"] as string)
-        : typeof payload["cursor"] === "string"
-          ? (payload["cursor"] as string)
-          : null;
+      cursorValue && (total === null || Number(cursorValue) < total) && cursorValue !== (data.cursor ?? "0")
+        ? cursorValue
+        : null;
 
     return { ok: true, code: null, presets, nextCursor };
   });
