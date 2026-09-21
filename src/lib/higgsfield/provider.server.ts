@@ -197,7 +197,21 @@ function collectUrls(node: unknown, out: NormalizedOutput[], depth = 0) {
         out.push(entry);
       }
     }
-    for (const key of ["results", "result", "outputs", "output", "images", "image", "videos", "video", "data", "assets"]) {
+    for (const key of [
+      "payload",
+      "results",
+      "result",
+      "outputs",
+      "output",
+      "images",
+      "image",
+      "videos",
+      "video",
+      "audios",
+      "audio",
+      "data",
+      "assets",
+    ]) {
       if (key in record) collectUrls(record[key], out, depth + 1);
     }
   }
