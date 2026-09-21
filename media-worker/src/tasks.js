@@ -1,0 +1,353 @@
+import { join } from "node:path";
+import { probe, ffmpeg } from "./ffmpeg.js";
+import { TaskError } from "./net.js";
+
+/**
+ * Task catalogue.
+ *
+ * Every task declares the sources it needs and the outputs it produces, and
+ * builds its own FFmpeg argument list from validated, typed values. A task body
+ * can never contain FFmpeg flags, shell fragments or file paths.
+ */
+
+const SCALE_MODES = new Set(["cover", "contain", "blur_pad"]);
+const VIDEO_FORMATS = { mp4: "video/mp4", webm: "video/webm" };
+const IMAGE_FORMATS = { jpg: "image/jpeg", png: "image/png", webp: "image/webp" };
+const AUDIO_FORMATS = { wav: "audio/wav", mp3: "audio/mpeg", m4a: "audio/mp4" };
+
+function num(value, { min, max, fallback, name }) {
+  if (value === undefined || value === null || value === "") {
+    if (fallback === undefined) throw new TaskError("INVALID_PARAMETERS", `${name} is required`);
+    return fallback;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) throw new TaskError("INVALID_PARAMETERS", `${name} must be a number`);
+  if (parsed < min || parsed > max) {
+    throw new TaskError("INVALID_PARAMETERS", `${name} must be between ${min} and ${max}`);
+  }
+  return parsed;
+}
+
+function even(value) {
+  const rounded = Math.round(value);
+  return rounded % 2 === 0 ? rounded : rounded + 1;
+}
+
+function pick(value, allowed, fallback, name) {
+  if (value === undefined || value === null || value === "") return fallback;
+  const key = String(value).toLowerCase();
+  if (!(key in allowed) && !(allowed instanceof Set && allowed.has(key))) {
+    throw new TaskError("INVALID_PARAMETERS", `${name} "${value}" is not supported`);
+  }
+  return key;
+}
+
+/** Builds the scale/pad filter for a target frame, without cropping the subject away in "contain". */
+function frameFilter(width, height, mode) {
+  const w = even(width);
+  const h = even(height);
+  if (mode === "cover") {
+    return `scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h}`;
+  }
+  if (mode === "blur_pad") {
+    return (
+      `split=2[bg][fg];` +
+      `[bg]scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h},boxblur=luma_radius=40:luma_power=2[bgb];` +
+      `[fg]scale=${w}:${h}:force_original_aspect_ratio=decrease[fgs];` +
+      `[bgb][fgs]overlay=(W-w)/2:(H-h)/2`
+    );
+  }
+  return `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:color=black`;
+}
+
+function videoEncodeArgs(format, crf, fps, withAudio) {
+  const args = [];
+  if (fps) args.push("-r", String(fps));
+  if (format === "webm") {
+    args.push("-c:v", "libvpx-vp9", "-crf", String(crf), "-b:v", "0");
+    args.push(...(withAudio ? ["-c:a", "libopus", "-b:a", "128k"] : ["-an"]));
+  } else {
+    args.push("-c:v", "libx264", "-preset", "medium", "-crf", String(crf), "-pix_fmt", "yuv420p", "-movflags", "+faststart");
+    args.push(...(withAudio ? ["-c:a", "aac", "-b:a", "192k"] : ["-an"]));
+  }
+  return args;
+}
+
+/**
+ * Each handler receives validated sources on local disk and returns the list of
+ * files to upload, in the same order as the upload slots the app supplied.
+ */
+export const TASKS = {
+  probe: {
+    sources: { min: 1, max: 1 },
+    outputs: () => 0,
+    async run({ sources }) {
+      return { outputs: [], metadata: await probe(sources[0].path) };
+    },
+  },
+
+  create_thumbnail: {
+    sources: { min: 1, max: 1 },
+    outputs: () => 1,
+    async run({ sources, params, dir }) {
+      const width = even(num(params.width, { min: 64, max: 3840, fallback: 640, name: "width" }));
+      const time = num(params.time_seconds, { min: 0, max: 86_400, fallback: 0, name: "time_seconds" });
+      const format = pick(params.format, IMAGE_FORMATS, "jpg", "format");
+      const out = join(dir, `thumbnail.${format}`);
+      const args = [];
+      if (time > 0) args.push("-ss", String(time));
+      args.push("-i", sources[0].path, "-frames:v", "1", "-vf", `scale=${width}:-2`);
+      if (format === "jpg") args.push("-q:v", "3");
+      args.push(out);
+      await ffmpeg(args);
+      return { outputs: [{ path: out, mime: IMAGE_FORMATS[format], kind: "image" }], metadata: await probe(out) };
+    },
+  },
+
+  extract_frames: {
+    sources: { min: 1, max: 1 },
+    /** One output per requested timestamp — the app supplies a matching number of upload slots. */
+    outputs: (params) => timestamps(params).length,
+    async run({ sources, params, dir }) {
+      const times = timestamps(params);
+      const width = even(num(params.width, { min: 64, max: 3840, fallback: 960, name: "width" }));
+      const outputs = [];
+      for (const [index, time] of times.entries()) {
+        const out = join(dir, `frame-${String(index + 1).padStart(3, "0")}.jpg`);
+        await ffmpeg(["-ss", String(time), "-i", sources[0].path, "-frames:v", "1", "-vf", `scale=${width}:-2`, "-q:v", "3", out]);
+        outputs.push({ path: out, mime: "image/jpeg", kind: "image", timestamp_seconds: time });
+      }
+      return { outputs, metadata: { frame_times: times } };
+    },
+  },
+
+  trim_video: {
+    sources: { min: 1, max: 1 },
+    outputs: () => 1,
+    async run({ sources, params, dir }) {
+      const start = num(params.start_seconds, { min: 0, max: 86_400, fallback: 0, name: "start_seconds" });
+      const end = num(params.end_seconds, { min: 0.1, max: 86_400, name: "end_seconds" });
+      if (end <= start) throw new TaskError("INVALID_PARAMETERS", "end_seconds must be after start_seconds");
+      const format = pick(params.format, VIDEO_FORMATS, "mp4", "format");
+      const crf = num(params.crf, { min: 14, max: 40, fallback: 20, name: "crf" });
+      const probed = await probe(sources[0].path);
+      const out = join(dir, `trimmed.${format}`);
+      await ffmpeg([
+        "-ss", String(start),
+        "-to", String(end),
+        "-i", sources[0].path,
+        ...videoEncodeArgs(format, crf, null, probed.has_audio),
+        out,
+      ]);
+      return { outputs: [{ path: out, mime: VIDEO_FORMATS[format], kind: "video" }], metadata: await probe(out) };
+    },
+  },
+
+  transcode_video: {
+    sources: { min: 1, max: 1 },
+    outputs: () => 1,
+    async run({ sources, params, dir }) {
+      const format = pick(params.format, VIDEO_FORMATS, "mp4", "format");
+      const crf = num(params.crf, { min: 14, max: 40, fallback: 22, name: "crf" });
+      const fps = params.fps ? num(params.fps, { min: 6, max: 60, name: "fps" }) : null;
+      const probed = await probe(sources[0].path);
+      const filters = [];
+      if (params.width || params.height) {
+        const width = even(num(params.width, { min: 64, max: 3840, fallback: probed.width ?? 1280, name: "width" }));
+        const height = even(num(params.height, { min: 64, max: 2160, fallback: probed.height ?? 720, name: "height" }));
+        filters.push(frameFilter(width, height, pick(params.mode, SCALE_MODES, "contain", "mode")));
+      }
+      const out = join(dir, `transcoded.${format}`);
+      await ffmpeg([
+        "-i", sources[0].path,
+        ...(filters.length ? ["-filter_complex", filters.join(",")] : []),
+        ...videoEncodeArgs(format, crf, fps, probed.has_audio),
+        out,
+      ]);
+      return { outputs: [{ path: out, mime: VIDEO_FORMATS[format], kind: "video" }], metadata: await probe(out) };
+    },
+  },
+
+  /** Reframe for a different aspect ratio (e.g. a 9:16 cut of a landscape master). */
+  reframe_video: {
+    sources: { min: 1, max: 1 },
+    outputs: () => 1,
+    async run({ sources, params, dir }) {
+      const width = even(num(params.width, { min: 64, max: 3840, name: "width" }));
+      const height = even(num(params.height, { min: 64, max: 3840, name: "height" }));
+      const mode = pick(params.mode, SCALE_MODES, "cover", "mode");
+      const format = pick(params.format, VIDEO_FORMATS, "mp4", "format");
+      const crf = num(params.crf, { min: 14, max: 40, fallback: 20, name: "crf" });
+      const probed = await probe(sources[0].path);
+      const out = join(dir, `reframed.${format}`);
+      await ffmpeg([
+        "-i", sources[0].path,
+        "-filter_complex", frameFilter(width, height, mode),
+        ...videoEncodeArgs(format, crf, null, probed.has_audio),
+        out,
+      ]);
+      return { outputs: [{ path: out, mime: VIDEO_FORMATS[format], kind: "video" }], metadata: await probe(out) };
+    },
+  },
+
+  resize_image: {
+    sources: { min: 1, max: 1 },
+    outputs: () => 1,
+    async run({ sources, params, dir }) {
+      const width = even(num(params.width, { min: 32, max: 6000, name: "width" }));
+      const height = params.height ? even(num(params.height, { min: 32, max: 6000, name: "height" })) : null;
+      const format = pick(params.format, IMAGE_FORMATS, "jpg", "format");
+      const out = join(dir, `resized.${format}`);
+      const filter = height ? frameFilter(width, height, pick(params.mode, SCALE_MODES, "contain", "mode")) : `scale=${width}:-2`;
+      await ffmpeg(["-i", sources[0].path, "-filter_complex", filter, ...(format === "jpg" ? ["-q:v", "3"] : []), out]);
+      return { outputs: [{ path: out, mime: IMAGE_FORMATS[format], kind: "image" }], metadata: await probe(out) };
+    },
+  },
+
+  extract_audio: {
+    sources: { min: 1, max: 1 },
+    outputs: () => 1,
+    async run({ sources, params, dir }) {
+      const format = pick(params.format, AUDIO_FORMATS, "wav", "format");
+      const probed = await probe(sources[0].path);
+      if (!probed.has_audio) throw new TaskError("INVALID_PARAMETERS", "That video has no audio track");
+      const out = join(dir, `audio.${format}`);
+      const codec = format === "wav" ? ["-c:a", "pcm_s16le"] : format === "mp3" ? ["-c:a", "libmp3lame", "-b:a", "192k"] : ["-c:a", "aac", "-b:a", "192k"];
+      await ffmpeg(["-i", sources[0].path, "-vn", ...codec, out]);
+      return { outputs: [{ path: out, mime: AUDIO_FORMATS[format], kind: "audio" }], metadata: await probe(out) };
+    },
+  },
+
+  add_audio: {
+    sources: { min: 2, max: 2 },
+    outputs: () => 1,
+    async run({ sources, params, dir }) {
+      const video = sources.find((source) => source.role === "video") ?? sources[0];
+      const audio = sources.find((source) => source.role === "audio") ?? sources[1];
+      const format = pick(params.format, VIDEO_FORMATS, "mp4", "format");
+      const crf = num(params.crf, { min: 14, max: 40, fallback: 20, name: "crf" });
+      const volume = num(params.volume, { min: 0, max: 4, fallback: 1, name: "volume" });
+      const out = join(dir, `with-audio.${format}`);
+      await ffmpeg([
+        "-i", video.path,
+        "-i", audio.path,
+        "-filter_complex", `[1:a]volume=${volume}[a]`,
+        "-map", "0:v:0",
+        "-map", "[a]",
+        "-shortest",
+        ...videoEncodeArgs(format, crf, null, true),
+        out,
+      ]);
+      return { outputs: [{ path: out, mime: VIDEO_FORMATS[format], kind: "video" }], metadata: await probe(out) };
+    },
+  },
+
+  /**
+   * Timeline assembly / export: ordered clips, each with its own in/out point,
+   * normalised to one frame size, with optional cross-fades and a music bed.
+   */
+  assemble_video: {
+    sources: { min: 1, max: 40 },
+    outputs: () => 1,
+    async run({ sources, params, dir }) {
+      const clips = Array.isArray(params.clips) && params.clips.length ? params.clips : sources.map((_, index) => ({ source_index: index }));
+      if (clips.length > 40) throw new TaskError("INVALID_PARAMETERS", "A timeline may contain at most 40 clips");
+
+      const width = even(num(params.width, { min: 128, max: 3840, fallback: 1920, name: "width" }));
+      const height = even(num(params.height, { min: 128, max: 3840, fallback: 1080, name: "height" }));
+      const fps = num(params.fps, { min: 12, max: 60, fallback: 30, name: "fps" });
+      const mode = pick(params.mode, SCALE_MODES, "contain", "mode");
+      const format = pick(params.format, VIDEO_FORMATS, "mp4", "format");
+      const crf = num(params.crf, { min: 14, max: 40, fallback: 20, name: "crf" });
+      const transition = num(params.transition_seconds, { min: 0, max: 3, fallback: 0, name: "transition_seconds" });
+
+      const audioSource = sources.find((source) => source.role === "audio");
+      const videoSources = sources.filter((source) => source.role !== "audio");
+
+      const inputs = [];
+      const filters = [];
+      const labels = [];
+      for (const [index, clip] of clips.entries()) {
+        const sourceIndex = num(clip.source_index, { min: 0, max: videoSources.length - 1, fallback: 0, name: "source_index" });
+        const source = videoSources[sourceIndex];
+        if (!source) throw new TaskError("INVALID_PARAMETERS", `Clip ${index + 1} refers to a missing source`);
+        const start = num(clip.start_seconds, { min: 0, max: 86_400, fallback: 0, name: "start_seconds" });
+        const end = clip.end_seconds ? num(clip.end_seconds, { min: 0.1, max: 86_400, name: "end_seconds" }) : null;
+        if (end !== null && end <= start) throw new TaskError("INVALID_PARAMETERS", `Clip ${index + 1} ends before it starts`);
+
+        inputs.push("-ss", String(start));
+        if (end !== null) inputs.push("-to", String(end));
+        inputs.push("-i", source.path);
+
+        const label = `v${index}`;
+        filters.push(`[${inputs.filter((value) => value === "-i").length - 1}:v]${frameFilter(width, height, mode)},fps=${fps},setsar=1,format=yuv420p[${label}]`);
+        labels.push(label);
+      }
+
+      let videoLabel;
+      if (labels.length === 1) {
+        videoLabel = labels[0];
+      } else if (transition > 0) {
+        // Chained cross-fades need each clip's duration to place the next offset.
+        let previous = labels[0];
+        let offset = await clipDuration(clips[0], videoSources);
+        for (let index = 1; index < labels.length; index += 1) {
+          const output = `x${index}`;
+          const at = Math.max(0, offset - transition);
+          filters.push(`[${previous}][${labels[index]}]xfade=transition=fade:duration=${transition}:offset=${at.toFixed(3)}[${output}]`);
+          offset = at + (await clipDuration(clips[index], videoSources));
+          previous = output;
+        }
+        videoLabel = previous;
+      } else {
+        filters.push(`${labels.map((label) => `[${label}]`).join("")}concat=n=${labels.length}:v=1:a=0[vout]`);
+        videoLabel = "vout";
+      }
+
+      const maps = ["-map", `[${videoLabel}]`];
+      let withAudio = false;
+      if (audioSource) {
+        inputs.push("-i", audioSource.path);
+        const audioIndex = inputs.filter((value) => value === "-i").length - 1;
+        const volume = num(params.audio_volume, { min: 0, max: 4, fallback: 1, name: "audio_volume" });
+        filters.push(`[${audioIndex}:a]volume=${volume}[aout]`);
+        maps.push("-map", "[aout]");
+        withAudio = true;
+      }
+
+      const out = join(dir, `assembled.${format}`);
+      await ffmpeg([
+        ...inputs,
+        "-filter_complex", filters.join(";"),
+        ...maps,
+        ...(withAudio ? ["-shortest"] : []),
+        ...videoEncodeArgs(format, crf, fps, withAudio),
+        out,
+      ]);
+      return { outputs: [{ path: out, mime: VIDEO_FORMATS[format], kind: "video" }], metadata: await probe(out) };
+    },
+  },
+};
+
+async function clipDuration(clip, sources) {
+  const source = sources[Number(clip.source_index ?? 0)] ?? sources[0];
+  const start = Number(clip.start_seconds ?? 0);
+  if (clip.end_seconds) return Math.max(0.1, Number(clip.end_seconds) - start);
+  const probed = await probe(source.path);
+  return Math.max(0.1, (probed.duration_seconds ?? 1) - start);
+}
+
+function timestamps(params) {
+  if (Array.isArray(params?.times_seconds) && params.times_seconds.length) {
+    if (params.times_seconds.length > 24) throw new TaskError("INVALID_PARAMETERS", "At most 24 frames may be extracted");
+    return params.times_seconds.map((value) => num(value, { min: 0, max: 86_400, name: "times_seconds" }));
+  }
+  const count = num(params?.count, { min: 1, max: 24, fallback: 4, name: "count" });
+  const duration = num(params?.duration_seconds, { min: 0.2, max: 86_400, fallback: 4, name: "duration_seconds" });
+  // Evenly spaced inside the clip, avoiding the very first and last frame.
+  return Array.from({ length: count }, (_, index) => Number(((duration * (index + 0.5)) / count).toFixed(3)));
+}
+
+export function describeTasks() {
+  return Object.keys(TASKS);
+}

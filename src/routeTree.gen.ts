@@ -27,6 +27,7 @@ import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
 import { Route as ApiPublicHiggsfieldReconcileRouteImport } from './routes/api/public/higgsfield-reconcile'
 import { Route as ApiPublicHiggsfieldWebhookRouteImport } from './routes/api/public/higgsfield-webhook'
+import { Route as ApiPublicMediaWorkerCallbackRouteImport } from './routes/api/public/media-worker-callback'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -120,6 +121,12 @@ const ApiPublicHiggsfieldWebhookRoute =
     path: '/api/public/higgsfield-webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicMediaWorkerCallbackRoute =
+  ApiPublicMediaWorkerCallbackRouteImport.update({
+    id: '/api/public/media-worker-callback',
+    path: '/api/public/media-worker-callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -140,6 +147,7 @@ export interface FileRoutesByFullPath {
   '/projects/': typeof ProjectsIndexRoute
   '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
   '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
+  '/api/public/media-worker-callback': typeof ApiPublicMediaWorkerCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -160,6 +168,7 @@ export interface FileRoutesByTo {
   '/projects': typeof ProjectsIndexRoute
   '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
   '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
+  '/api/public/media-worker-callback': typeof ApiPublicMediaWorkerCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -181,6 +190,7 @@ export interface FileRoutesById {
   '/projects/': typeof ProjectsIndexRoute
   '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
   '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
+  '/api/public/media-worker-callback': typeof ApiPublicMediaWorkerCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -203,6 +213,7 @@ export interface FileRouteTypes {
     | '/projects/'
     | '/api/public/higgsfield-reconcile'
     | '/api/public/higgsfield-webhook'
+    | '/api/public/media-worker-callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -223,6 +234,7 @@ export interface FileRouteTypes {
     | '/projects'
     | '/api/public/higgsfield-reconcile'
     | '/api/public/higgsfield-webhook'
+    | '/api/public/media-worker-callback'
   id:
     | '__root__'
     | '/'
@@ -243,6 +255,7 @@ export interface FileRouteTypes {
     | '/projects/'
     | '/api/public/higgsfield-reconcile'
     | '/api/public/higgsfield-webhook'
+    | '/api/public/media-worker-callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -264,6 +277,7 @@ export interface RootRouteChildren {
   ProjectsIndexRoute: typeof ProjectsIndexRoute
   ApiPublicHiggsfieldReconcileRoute: typeof ApiPublicHiggsfieldReconcileRoute
   ApiPublicHiggsfieldWebhookRoute: typeof ApiPublicHiggsfieldWebhookRoute
+  ApiPublicMediaWorkerCallbackRoute: typeof ApiPublicMediaWorkerCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -394,6 +408,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHiggsfieldWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/media-worker-callback': {
+      id: '/api/public/media-worker-callback'
+      path: '/api/public/media-worker-callback'
+      fullPath: '/api/public/media-worker-callback'
+      preLoaderRoute: typeof ApiPublicMediaWorkerCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -416,6 +437,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProjectsIndexRoute: ProjectsIndexRoute,
   ApiPublicHiggsfieldReconcileRoute: ApiPublicHiggsfieldReconcileRoute,
   ApiPublicHiggsfieldWebhookRoute: ApiPublicHiggsfieldWebhookRoute,
+  ApiPublicMediaWorkerCallbackRoute: ApiPublicMediaWorkerCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

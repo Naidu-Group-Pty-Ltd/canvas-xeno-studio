@@ -1,0 +1,12 @@
+{
+  "name": "xeno-media-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Xeno Studio media worker: structured, signed FFmpeg tasks (thumbnails, frames, trim, transcode, reframe, concat, assemble, audio).",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node src/server.js",
+    "selftest": "node src/selftest.js"
+  }
+}

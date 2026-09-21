@@ -816,6 +816,108 @@ export type Database = {
           },
         ]
       }
+      media_tasks: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          dedupe_key: string | null
+          error_code: string | null
+          error_message: string | null
+          id: string
+          input_payload: Json
+          operation_id: string | null
+          output_payload: Json | null
+          project_id: string | null
+          result_asset_id: string | null
+          source_asset_id: string | null
+          status: string
+          storage_bucket: string | null
+          storage_path: string | null
+          submitted_at: string | null
+          task_type: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          dedupe_key?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          input_payload?: Json
+          operation_id?: string | null
+          output_payload?: Json | null
+          project_id?: string | null
+          result_asset_id?: string | null
+          source_asset_id?: string | null
+          status?: string
+          storage_bucket?: string | null
+          storage_path?: string | null
+          submitted_at?: string | null
+          task_type: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          dedupe_key?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          input_payload?: Json
+          operation_id?: string | null
+          output_payload?: Json | null
+          project_id?: string | null
+          result_asset_id?: string | null
+          source_asset_id?: string | null
+          status?: string
+          storage_bucket?: string | null
+          storage_path?: string | null
+          submitted_at?: string | null
+          task_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_tasks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_tasks_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "operations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_tasks_result_asset_id_fkey"
+            columns: ["result_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_tasks_source_asset_id_fkey"
+            columns: ["source_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       model_performance_metrics: {
         Row: {
           aspect_ratio: string | null
