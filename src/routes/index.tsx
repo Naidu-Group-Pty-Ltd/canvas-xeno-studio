@@ -16,6 +16,7 @@ import { useAssets, useGenerations, useModels, useProjects, useSettings, type As
 import { useAuth } from "@/hooks/useAuth";
 import { defaultsForModel, validateParameters, type ModelRegistryEntry } from "@/lib/model-schema";
 import { estimateGeneration, submitGeneration } from "@/lib/generation.functions";
+import { useCampaigns } from "@/hooks/useV2Data";
 import { BatchMatrix, expandMatrix, type MatrixSelection } from "@/components/create/BatchMatrix";
 import { loadPromptDraft, takeCreatePrefill, PREFILL_EVENT } from "@/lib/create-draft";
 import { CinemaControls } from "@/components/create/CinemaControls";
@@ -67,6 +68,7 @@ function CreatePage() {
   const [modelId, setModelId] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [campaignId, setCampaignId] = useState<string | null>(null);
+  const { data: campaigns = [] } = useCampaigns();
   const [matrix, setMatrix] = useState<MatrixSelection>({});
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [references, setReferences] = useState<ReferenceItem[]>([]);
@@ -242,7 +244,7 @@ function CreatePage() {
       // each carries its own idempotency key so none can be billed twice.
       const combos = expandMatrix(matrix);
       const payloads = combos.length ? combos : [{}];
-      let result = { generationId: "", status: "" as string, budgetWarning: null as string | null };
+      let result: { generationId: string; status: string; budgetWarning?: string | null } = { generationId: "", status: "" };
       for (let index = 0; index < payloads.length; index += 1) {
         result = await submitGeneration({
           data: {

@@ -125,7 +125,7 @@ export const submitGeneration = createServerFn({ method: "POST" })
         .select("id,status")
         .eq("client_request_id", clientRequestId)
         .maybeSingle();
-      if (existing) return { generationId: existing.id, status: existing.status };
+      if (existing) return { generationId: existing.id, status: existing.status, budgetWarning: null as string | null };
     }
 
     // Spending limits are checked atomically in the database (the owning row is
@@ -175,7 +175,7 @@ export const submitGeneration = createServerFn({ method: "POST" })
           .select("id,status")
           .eq("client_request_id", clientRequestId)
           .maybeSingle();
-        if (raced) return { generationId: raced.id, status: raced.status };
+        if (raced) return { generationId: raced.id, status: raced.status, budgetWarning: null as string | null };
       }
       throw new AppError("UNKNOWN", error?.message);
     }
