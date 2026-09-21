@@ -239,6 +239,7 @@ function CreatePage() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "The generation could not be submitted");
     } finally {
+      submitLock.current = false;
       setSubmitting(false);
     }
   }
