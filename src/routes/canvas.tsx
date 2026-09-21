@@ -69,6 +69,43 @@ function CanvasPage() {
     await queryClient.invalidateQueries({ queryKey: ["workflow_templates"] });
   }
 
+  /** Duplicating never mutates the original — built-in recipes stay intact. */
+  async function duplicateTemplate() {
+    if (!active || !user) return;
+    const { data: copy, error } = await supabase
+      .from("workflow_templates")
+      .insert({
+        name: `${active.name} (copy)`,
+        description: active.description,
+        category: active.category,
+        created_by: user.id,
+        is_system: false,
+      })
+      .select("id")
+      .single();
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    const nodes = active.workflow_nodes ?? [];
+    if (nodes.length) {
+      const { error: nodeError } = await supabase.from("workflow_nodes").insert(
+        nodes.map((node) => ({
+          workflow_template_id: copy.id,
+          node_key: node.node_key,
+          node_type: node.node_type,
+          label: node.label,
+          config: node.config,
+          position: node.position,
+        })),
+      );
+      if (nodeError) toast.error(nodeError.message);
+    }
+    await queryClient.invalidateQueries({ queryKey: ["workflow_templates"] });
+    setOpenId(copy.id);
+    toast.success("Editable copy created.");
+  }
+
   async function removeNode(id: string) {
     const { error } = await supabase.from("workflow_nodes").delete().eq("id", id);
     if (error) {
@@ -114,7 +151,12 @@ function CanvasPage() {
             <>
               <header className="mb-4 flex items-center justify-between">
                 <h2 className="font-display text-lg font-semibold">{active.name}</h2>
-                <span className="text-xs text-muted-foreground">v{active.current_version}</span>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="outline" onClick={() => void duplicateTemplate()}>
+                    Duplicate
+                  </Button>
+                  <span className="text-xs text-muted-foreground">v{active.current_version}</span>
+                </div>
               </header>
               {active.is_system && (
                 <p className="mb-3 rounded-md border border-border bg-surface-raised p-2 text-xs text-muted-foreground">
