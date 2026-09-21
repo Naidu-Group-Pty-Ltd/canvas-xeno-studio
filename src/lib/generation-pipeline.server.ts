@@ -26,7 +26,9 @@ export function appBaseUrl(): string {
 }
 
 export function webhookUrl(): string | undefined {
-  const base = process.env["PUBLIC_APP_URL"] || process.env["APP_BASE_URL"];
+  // Always attach a callback URL: the stable project URL is used when no
+  // explicit public URL is configured, otherwise webhooks would never arrive.
+  const base = process.env["PUBLIC_APP_URL"] || process.env["APP_BASE_URL"] || appBaseUrl();
   if (!base) return undefined;
   const token = process.env["LOVABLE_CRON_SECRET"];
   return `${base.replace(/\/$/, "")}/api/public/higgsfield-webhook${token ? `?token=${encodeURIComponent(token)}` : ""}`;
@@ -185,7 +187,9 @@ export async function submitToProvider(generationId: string): Promise<{ status: 
     return { status: "queued" };
   }
 
-  if (call.uncertain) {
+  // A transport failure or provider 5xx after the POST left is ambiguous: the
+  // request may already be running and charging, so it is never auto-retried.
+  if (call.uncertain || call.status === 0 || call.status >= 500) {
     await supabaseAdmin
       .from("generations")
       .update({
