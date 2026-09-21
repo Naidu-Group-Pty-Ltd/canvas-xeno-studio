@@ -50,12 +50,11 @@ export function MediaTaskPanel({ asset }: { asset: AssetRow }) {
       return submitMediaTask({
         data: {
           taskType: selected.type,
-          sourceAssetId: undefined as never,
           sourceAssetIds: [asset.id],
           params: buildParams(selected.type, params),
           projectId: asset.project_id,
           clientRequestId: crypto.randomUUID(),
-        } as never,
+        },
       });
     },
     onSuccess: async () => {
