@@ -89,26 +89,36 @@ function CreatePage() {
   }, []);
 
   // Default model from settings, and one-time prefill from Recreate / Animate / Use as reference.
-  useEffect(() => {
-    if (!models.length || prefillApplied.current) return;
-    prefillApplied.current = true;
-    const prefill = takeCreatePrefill();
-
-    if (prefill) {
+  const applyPrefill = useCallback(
+    (prefill: NonNullable<ReturnType<typeof takeCreatePrefill>>) => {
       const target =
         models.find((entry) => entry.id === prefill.modelId) ??
         models.find((entry) => entry.output_type === (prefill.mediaType ?? "image"));
       if (prefill.mediaType) setMediaType(prefill.mediaType);
       if (target) {
         setModelId(target.id);
-        setValues({ ...defaultsForModel(target), ...(prefill.parameters ?? {}) });
+        setValues({
+          ...defaultsForModel(target),
+          ...(prefill.parameters ?? {}),
+          ...(prefill.prompt !== undefined ? { prompt: prefill.prompt } : {}),
+        });
       }
-      if (prefill.prompt !== undefined)
-        setValues((current) => ({ ...current, prompt: prefill.prompt as string }));
       setProjectId(prefill.projectId ?? null);
       setParentGenerationId(prefill.parentGenerationId ?? null);
+      setReferences([]);
       if (prefill.inputs?.length) void hydrateReferences(prefill.inputs, setReferences);
       toast.info("Settings loaded. Review them and press Generate when ready.");
+    },
+    [models],
+  );
+
+  useEffect(() => {
+    if (!models.length || prefillApplied.current) return;
+    prefillApplied.current = true;
+    const prefill = takeCreatePrefill();
+
+    if (prefill) {
+      applyPrefill(prefill);
       return;
     }
 
@@ -118,7 +128,17 @@ function CreatePage() {
       setModelId(target.id);
       setValues({ ...defaultsForModel(target), prompt: loadPromptDraft() });
     }
-  }, [models, settings]);
+  }, [models, settings, applyPrefill]);
+
+  // Recreate / Animate / Use as reference fired while Create is already open.
+  useEffect(() => {
+    function onPrefill() {
+      const prefill = takeCreatePrefill();
+      if (prefill) applyPrefill(prefill);
+    }
+    window.addEventListener(PREFILL_EVENT, onPrefill);
+    return () => window.removeEventListener(PREFILL_EVENT, onPrefill);
+  }, [applyPrefill]);
 
   // Keep a valid model when the media type toggles.
   useEffect(() => {
