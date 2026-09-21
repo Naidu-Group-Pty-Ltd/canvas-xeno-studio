@@ -283,6 +283,9 @@ export function AssetDetailDialog({
                     ))}
                   </div>
                 )}
+
+                <MediaTaskPanel asset={asset} />
+
                 {asset.generation_id && (
                   <>
                     <Button
