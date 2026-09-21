@@ -226,7 +226,16 @@ export function extractRequestId(payload: unknown): string | null {
 export function extractCost(payload: unknown): number | null {
   if (!payload || typeof payload !== "object") return null;
   const record = payload as Record<string, unknown>;
-  for (const key of ["cost", "cost_usd", "price", "price_usd", "estimated_cost", "estimated_cost_usd", "amount"]) {
+  for (const key of [
+    "usd",
+    "cost",
+    "cost_usd",
+    "price",
+    "price_usd",
+    "estimated_cost",
+    "estimated_cost_usd",
+    "amount",
+  ]) {
     const value = record[key];
     if (typeof value === "number" && Number.isFinite(value)) return value;
     if (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value))) return Number(value);
@@ -238,6 +247,18 @@ export function extractCost(payload: unknown): number | null {
     }
   }
   return null;
+}
+
+/**
+ * Some models are metered rather than quoted (per second, per token). For those
+ * the provider answers with a pricing description instead of a figure, which is
+ * shown verbatim rather than guessed at.
+ */
+export function extractPricingDescription(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null;
+  const record = payload as Record<string, unknown>;
+  const value = record["pricing_description"];
+  return typeof value === "string" && value.trim() !== "" ? value.trim() : null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -331,10 +352,22 @@ export const higgsfieldProvider: GenerationProvider = {
 
 
   listPresets(cursor) {
-    const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
+    const query = `?size=50&cursor=${encodeURIComponent(cursor ?? "0")}`;
     return hfFetch(`${HF_ENDPOINTS.presets}${query}`, { timeoutMs: 20_000 });
   },
 };
+
+/**
+ * Cheap authenticated round-trip used for the provider health indicator.
+ * An estimate never charges the account.
+ */
+export async function providerHealthCheck(): Promise<ProviderCall<unknown>> {
+  return hfFetch(HF_ENDPOINTS.health, {
+    method: "POST",
+    body: { prompt: "health check" },
+    timeoutMs: 15_000,
+  });
+}
 
 /** Only provider result URLs are ever fetched during ingestion (SSRF guard). */
 export function isAllowedOutputUrl(url: string): boolean {
