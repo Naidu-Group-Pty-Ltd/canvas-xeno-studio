@@ -52,7 +52,8 @@ function StoryboardsPage() {
               icon={Clapperboard}
               title="No storyboards yet"
               description="Build a production plan in Director, then create a storyboard from it."
-              action={<Button onClick={() => navigate({ to: "/director" })}>Open Director</Button>}
+              actionLabel="Open Director"
+              onAction={() => navigate({ to: "/director" })}
             />
           )}
           {open && (

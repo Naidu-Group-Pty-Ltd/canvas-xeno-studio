@@ -173,6 +173,7 @@ function DirectorPage() {
           {isLoading && <Skeleton className="h-40 w-full" />}
           {!isLoading && !plan && (
             <EmptyState
+              icon={Sparkles}
               title="No production plan yet"
               description="Describe the campaign on the left and Director will structure scenes, shots and model routing."
             />
