@@ -11,8 +11,9 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
-import { useGenerations, useModels } from "@/hooks/useStudioData";
+import { useAssets, useGenerations, useModels } from "@/hooks/useStudioData";
 import { useArenaSessions, useModelMetrics } from "@/hooks/useV2Data";
+import { ArenaSessionCard } from "@/components/lab/ArenaSessionCard";
 import { estimateGeneration, submitGeneration } from "@/lib/generation.functions";
 import { defaultsForModel } from "@/lib/model-schema";
 
@@ -37,6 +38,7 @@ function ModelLabPage() {
   const { data: metrics } = useModelMetrics();
   const { data: sessions } = useArenaSessions();
   const { data: generations } = useGenerations({ limit: 60 });
+  const { data: assets } = useAssets({ limit: 120 });
 
   const [mediaType, setMediaType] = useState<"image" | "video">("image");
   const [prompt, setPrompt] = useState("");
@@ -186,23 +188,14 @@ function ModelLabPage() {
             <EmptyState icon={Swords} title="No comparisons yet" description="Run one prompt across several models to build routing evidence." />
           )}
           {(sessions ?? []).map((session) => (
-            <div key={session.id} className="panel p-4">
-              <p className="text-sm">{session.prompt}</p>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                {(session.arena_entries ?? []).map((entry) => {
-                  const generation = generations?.find((g) => g.id === entry.generation_id);
-                  const model = models?.find((m) => m.id === entry.model_registry_id);
-                  return (
-                    <div key={entry.id} className="rounded-md bg-surface-raised p-3 text-sm">
-                      <div className="flex items-center justify-between gap-2">
-                        <span>{model?.display_name ?? "Model"}</span>
-                        {generation ? <StatusBadge status={generation.status} /> : null}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            <ArenaSessionCard
+              key={session.id}
+              session={session}
+              entries={session.arena_entries ?? []}
+              models={models ?? []}
+              generations={generations ?? []}
+              assets={assets ?? []}
+            />
           ))}
         </section>
 

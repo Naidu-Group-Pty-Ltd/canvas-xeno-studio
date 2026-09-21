@@ -79,6 +79,8 @@ export interface ModelRegistryEntry {
   recommended_for: string | null;
   is_active: boolean;
   sort_order: number;
+  /** Router / Cinema Mode tags, e.g. "cinematic", "camera_control", "fast". */
+  capability_tags?: string[] | null;
 }
 
 export function normalizeOption(option: FieldOption): { value: string | number; label: string } {

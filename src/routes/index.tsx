@@ -17,6 +17,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { defaultsForModel, validateParameters, type ModelRegistryEntry } from "@/lib/model-schema";
 import { estimateGeneration, submitGeneration } from "@/lib/generation.functions";
 import { loadPromptDraft, takeCreatePrefill, PREFILL_EVENT } from "@/lib/create-draft";
+import { CinemaControls } from "@/components/create/CinemaControls";
+import { cinemaSupported, compileCinemaPrompt, promptCinemaGroups, type CinemaSelection } from "@/lib/cinema";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -71,6 +73,9 @@ function CreatePage() {
   const [submitting, setSubmitting] = useState(false);
   const [confirmHighCost, setConfirmHighCost] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<AssetRow | null>(null);
+  const [cinemaEnabled, setCinemaEnabled] = useState(true);
+  const [cinema, setCinema] = useState<CinemaSelection>({});
+  const [shotId, setShotId] = useState<string | null>(null);
   const prefillApplied = useRef(false);
   const submitLock = useRef(false);
   const requestIdRef = useRef<string | null>(null);
@@ -107,6 +112,7 @@ function CreatePage() {
       }
       setProjectId(prefill.projectId ?? null);
       setParentGenerationId(prefill.parentGenerationId ?? null);
+      setShotId(prefill.shotId ?? null);
       setReferences([]);
       if (prefill.inputs?.length) void hydrateReferences(prefill.inputs, setReferences);
       toast.info("Settings loaded. Review them and press Generate when ready.");
@@ -157,6 +163,18 @@ function CreatePage() {
   const issueMap = Object.fromEntries(issues.map((issue) => [issue.key, issue.message]));
   const promptField = model?.parameter_schema?.fields?.find((field) => field.key === "prompt");
 
+  // Cinema Mode compiles shot language into the prompt actually submitted, so the
+  // estimate and the generation always use the identical payload.
+  const cinemaOn = cinemaSupported(model) && cinemaEnabled;
+  const submitValues = useMemo(() => {
+    if (!model || !cinemaOn) return values;
+    return {
+      ...values,
+      prompt: compileCinemaPrompt((values["prompt"] as string) ?? "", cinema, promptCinemaGroups(model)),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model?.id, JSON.stringify(values), JSON.stringify(cinema), cinemaOn]);
+
   // Debounced live estimate; any parameter change invalidates the previous one.
   useEffect(() => {
     if (!model || !health?.configured || issues.length) {
@@ -175,7 +193,7 @@ function CreatePage() {
         const result = await estimateGeneration({
           data: {
             modelId: model.id,
-            parameters: values,
+            parameters: submitValues,
             inputs: references.map((item, index) => ({ assetId: item.assetId, role: item.role, position: index })),
           },
         });
@@ -187,7 +205,7 @@ function CreatePage() {
     }, 700);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [model?.id, JSON.stringify(values), JSON.stringify(inputRoles), health?.configured, issues.length]);
+  }, [model?.id, JSON.stringify(submitValues), JSON.stringify(inputRoles), health?.configured, issues.length]);
 
   const canGenerate =
     !!model &&
@@ -220,7 +238,7 @@ function CreatePage() {
       const result = await submitGeneration({
         data: {
           modelId: model.id,
-          parameters: values,
+          parameters: submitValues,
           inputs: references.map((item, index) => ({ assetId: item.assetId, role: item.role, position: index })),
           projectId,
           parentGenerationId,
@@ -241,6 +259,22 @@ function CreatePage() {
             ? "Queued — it will submit as soon as a provider slot frees up."
             : "Generation submitted. Track it in Activity.",
         );
+      // A generation launched from a storyboard shot is filed as the next take.
+      if (shotId && result.generationId) {
+        const { count } = await supabase
+          .from("shot_takes")
+          .select("id", { count: "exact", head: true })
+          .eq("shot_id", shotId);
+        await supabase.from("shot_takes").insert({
+          shot_id: shotId,
+          generation_id: result.generationId,
+          take_number: (count ?? 0) + 1,
+          created_by: user?.id ?? null,
+        });
+        await supabase.from("shots").update({ status: "shooting" }).eq("id", shotId);
+        queryClient.invalidateQueries({ queryKey: ["shot_takes", shotId] });
+        queryClient.invalidateQueries({ queryKey: ["storyboards"] });
+      }
       setParentGenerationId(null);
       queryClient.invalidateQueries({ queryKey: ["generations"] });
     } catch (error) {
@@ -312,6 +346,14 @@ function CreatePage() {
                 </Select>
 
                 {parentGenerationId && <Badge variant="outline">Variation</Badge>}
+                {shotId && (
+                  <Badge variant="outline" className="gap-2">
+                    Shooting a storyboard shot
+                    <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setShotId(null)}>
+                      ×
+                    </button>
+                  </Badge>
+                )}
               </div>
 
               <div className="mt-5 space-y-4">
@@ -374,6 +416,17 @@ function CreatePage() {
                 )}
               </div>
             </div>
+
+            {model && cinemaSupported(model) && (
+              <CinemaControls
+                model={model}
+                prompt={(values["prompt"] as string) ?? ""}
+                enabled={cinemaEnabled}
+                onEnabledChange={setCinemaEnabled}
+                selection={cinema}
+                onSelectionChange={setCinema}
+              />
+            )}
 
             <RecentOutputs projectId={projectId} onOpenAsset={setSelectedAsset} />
           </section>

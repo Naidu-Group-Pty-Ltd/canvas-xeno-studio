@@ -1,4 +1,8 @@
 import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { MediaPreview } from "@/components/studio/MediaPreview";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Clapperboard } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
@@ -83,6 +87,7 @@ function StoryboardsPage() {
                                 <span className="text-xs text-muted-foreground">{shot.status}</span>
                               </div>
                               <p className="mt-1 line-clamp-3 text-xs text-muted-foreground">{shot.prompt}</p>
+                              <ShotTakes shotId={shot.id} />
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -92,6 +97,7 @@ function StoryboardsPage() {
                                     prompt: shot.prompt ?? "",
                                     ...(shot.recommended_model_id ? { modelId: shot.recommended_model_id } : {}),
                                     projectId: open.project_id,
+                                    shotId: shot.id,
                                   });
                                   navigate({ to: "/" });
                                 }}
@@ -109,5 +115,70 @@ function StoryboardsPage() {
         </section>
       </div>
     </AppShell>
+  );
+}
+
+/** Every generation launched from a shot is filed here as a numbered take. */
+function ShotTakes({ shotId }: { shotId: string }) {
+  const queryClient = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ["shot_takes", shotId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("shot_takes")
+        .select("id,take_number,is_selected,generation_id")
+        .eq("shot_id", shotId)
+        .order("take_number");
+      if (error) throw error;
+      const generationIds = (data ?? []).map((take) => take.generation_id).filter((id): id is string => !!id);
+      // Outputs are linked through the generation, so a take shows its result as soon as ingestion finishes.
+      const { data: assets } = generationIds.length
+        ? await supabase
+            .from("assets")
+            .select("generation_id,asset_type,storage_bucket,storage_path")
+            .in("generation_id", generationIds)
+            .is("deleted_at", null)
+        : { data: [] };
+      return (data ?? []).map((take) => ({
+        ...take,
+        asset: (assets ?? []).find((asset) => asset.generation_id === take.generation_id) ?? null,
+      }));
+    },
+  });
+
+  if (!data?.length) return null;
+
+  async function select(takeId: string) {
+    await supabase.from("shot_takes").update({ is_selected: false }).eq("shot_id", shotId);
+    await supabase.from("shot_takes").update({ is_selected: true }).eq("id", takeId);
+    await supabase.from("shots").update({ selected_take_id: takeId, status: "approved" }).eq("id", shotId);
+    await queryClient.invalidateQueries({ queryKey: ["shot_takes", shotId] });
+    await queryClient.invalidateQueries({ queryKey: ["storyboards"] });
+    toast.success("Take selected for this shot.");
+  }
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-2">
+      {data.map((take) => {
+        const asset = take.asset;
+        return (
+          <button
+            key={take.id}
+            type="button"
+            onClick={() => void select(take.id)}
+            title={`Take ${take.take_number}`}
+            className={`h-14 w-20 overflow-hidden rounded border ${take.is_selected ? "border-primary" : "border-border"}`}
+          >
+            {asset ? (
+              <MediaPreview bucket={asset.storage_bucket} path={asset.storage_path} type={asset.asset_type} contain />
+            ) : (
+              <span className="flex size-full items-center justify-center text-[10px] text-muted-foreground">
+                Take {take.take_number}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
   );
 }

@@ -38,6 +38,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { GlobalSearch } from "@/components/layout/GlobalSearch";
+import { CommandPalette } from "@/components/layout/CommandPalette";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -248,6 +249,7 @@ export function AppShell({ children, title }: { children: ReactNode; title?: str
         </header>
         <main className="min-w-0 flex-1">{children}</main>
       </div>
+      <CommandPalette navItems={navItems} />
     </div>
   );
 }
