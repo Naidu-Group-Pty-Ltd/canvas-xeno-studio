@@ -57,6 +57,32 @@ export function AssetDetailDialog({
     },
   });
 
+  // Lineage: where this output came from, and everything derived from it.
+  const { data: lineage } = useQuery({
+    queryKey: ["asset-lineage", asset?.generation_id],
+    enabled: !!asset?.generation_id,
+    queryFn: async () => {
+      const { data: self } = await supabase
+        .from("generations")
+        .select("id,parent_generation_id")
+        .eq("id", asset!.generation_id!)
+        .maybeSingle();
+      const { data: children } = await supabase
+        .from("generations")
+        .select("id,model_path,operation,status,created_at")
+        .eq("parent_generation_id", asset!.generation_id!)
+        .order("created_at");
+      const { data: parent } = self?.parent_generation_id
+        ? await supabase
+            .from("generations")
+            .select("id,model_path,operation,status,created_at")
+            .eq("id", self.parent_generation_id)
+            .maybeSingle()
+        : { data: null };
+      return { parent, children: children ?? [] };
+    },
+  });
+
   if (!asset) return null;
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["assets"] });
@@ -189,6 +215,23 @@ export function AssetDetailDialog({
                   >
                     <Film className="mr-1.5 size-4" /> Animate
                   </Button>
+                )}
+                {(lineage?.parent || !!lineage?.children.length) && (
+                  <div className="rounded-md border border-border p-3">
+                    <h4 className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Lineage</h4>
+                    {lineage.parent && (
+                      <p className="text-xs text-muted-foreground">
+                        Derived from <span className="text-foreground">{lineage.parent.model_path}</span> ·{" "}
+                        {lineage.parent.operation}
+                      </p>
+                    )}
+                    {lineage.children.map((child) => (
+                      <p key={child.id} className="text-xs text-muted-foreground">
+                        Led to <span className="text-foreground">{child.model_path}</span> · {child.operation} ·{" "}
+                        {child.status}
+                      </p>
+                    ))}
+                  </div>
                 )}
                 {asset.generation_id && (
                   <>

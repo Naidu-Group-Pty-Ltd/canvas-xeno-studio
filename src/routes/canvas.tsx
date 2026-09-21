@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { Network, Plus } from "lucide-react";
+import { Network, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/layout/AppShell";
@@ -69,6 +69,50 @@ function CanvasPage() {
     await queryClient.invalidateQueries({ queryKey: ["workflow_templates"] });
   }
 
+  /** Duplicating never mutates the original — built-in recipes stay intact. */
+  async function duplicateTemplate() {
+    if (!active || !user) return;
+    const { data: copy, error } = await supabase
+      .from("workflow_templates")
+      .insert({
+        name: `${active.name} (copy)`,
+        description: active.description,
+        category: active.category,
+        created_by: user.id,
+        is_system: false,
+      })
+      .select("id")
+      .single();
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    const nodes = active.workflow_nodes ?? [];
+    if (nodes.length) {
+      const { error: nodeError } = await supabase.from("workflow_nodes").insert(
+        nodes.map((node) => ({
+          workflow_template_id: copy.id,
+          node_key: node.node_key,
+          node_type: node.node_type,
+          label: node.label,
+        })),
+      );
+      if (nodeError) toast.error(nodeError.message);
+    }
+    await queryClient.invalidateQueries({ queryKey: ["workflow_templates"] });
+    setOpenId(copy.id);
+    toast.success("Editable copy created.");
+  }
+
+  async function removeNode(id: string) {
+    const { error } = await supabase.from("workflow_nodes").delete().eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    await queryClient.invalidateQueries({ queryKey: ["workflow_templates"] });
+  }
+
   return (
     <AppShell title="Canvas">
       <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)]">
@@ -105,10 +149,20 @@ function CanvasPage() {
             <>
               <header className="mb-4 flex items-center justify-between">
                 <h2 className="font-display text-lg font-semibold">{active.name}</h2>
-                <span className="text-xs text-muted-foreground">v{active.current_version}</span>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="outline" onClick={() => void duplicateTemplate()}>
+                    Duplicate
+                  </Button>
+                  <span className="text-xs text-muted-foreground">v{active.current_version}</span>
+                </div>
               </header>
+              {active.is_system && (
+                <p className="mb-3 rounded-md border border-border bg-surface-raised p-2 text-xs text-muted-foreground">
+                  This is a built-in recipe. Duplicate it to make your own editable copy.
+                </p>
+              )}
               <div className="mb-4 flex flex-wrap gap-2">
-                {NODE_TYPES.map((type) => (
+                {!active.is_system && NODE_TYPES.map((type) => (
                   <Button key={type} size="sm" variant="outline" onClick={() => void addNode(type)}>
                     + {type.replace(/_/g, " ")}
                   </Button>
@@ -120,6 +174,14 @@ function CanvasPage() {
                     <span className="text-xs text-muted-foreground">{index + 1}</span>
                     <span className="font-medium">{node.label ?? node.node_type}</span>
                     <span className="ml-auto text-xs text-muted-foreground">{node.node_key}</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      aria-label={`Remove ${node.label ?? node.node_type}`}
+                      onClick={() => void removeNode(node.id)}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
                   </div>
                 ))}
                 {!active.workflow_nodes?.length && (
@@ -127,8 +189,8 @@ function CanvasPage() {
                 )}
               </div>
               <p className="mt-4 text-xs text-muted-foreground">
-                Workflows are saved as durable templates. Running them queues real operations — costs are always
-                estimated and confirmed before any billable step.
+                Workflows are saved as durable templates. Automatic execution is not enabled yet — open each step in
+                Create to run it, so nothing is ever charged without an explicit confirmation.
               </p>
             </>
           )}
