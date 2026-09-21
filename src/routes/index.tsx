@@ -16,7 +16,7 @@ import { useAssets, useGenerations, useModels, useProjects, useSettings, type As
 import { useAuth } from "@/hooks/useAuth";
 import { defaultsForModel, validateParameters, type ModelRegistryEntry } from "@/lib/model-schema";
 import { estimateGeneration, submitGeneration } from "@/lib/generation.functions";
-import { loadPromptDraft, takeCreatePrefill } from "@/lib/create-draft";
+import { loadPromptDraft, takeCreatePrefill, PREFILL_EVENT } from "@/lib/create-draft";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
