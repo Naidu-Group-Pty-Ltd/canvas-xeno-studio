@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { AppShell, useProviderHealth } from "@/components/layout/AppShell";
 import { useAuth } from "@/hooks/useAuth";
 import { useModels, useSettings, useTeam } from "@/hooks/useStudioData";
+import { getMediaWorkerStatus } from "@/lib/media.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -293,6 +294,47 @@ function NumberSetting({
           Save
         </Button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Media service status. Reports only Configured / Reachable — never any secret
+ * value — and states plainly when the service has not been deployed.
+ */
+function MediaWorkerStatus() {
+  const { data, isLoading, refetch, isFetching } = useQuery({
+    queryKey: ["media-worker-status"],
+    queryFn: () => getMediaWorkerStatus(),
+    staleTime: 30_000,
+  });
+
+  if (isLoading) return <p className="text-xs text-muted-foreground">Checking the media service…</p>;
+
+  return (
+    <div className="space-y-3 text-sm">
+      <div className="flex flex-wrap items-center gap-3">
+        <Badge variant={data?.reachable ? "default" : "outline"} className="gap-1.5">
+          {data?.reachable ? <CheckCircle2 className="size-3" /> : <AlertTriangle className="size-3" />}
+          {data?.configured ? (data.reachable ? "Reachable" : "Configured, unreachable") : "Not configured"}
+        </Badge>
+        <span className="text-xs text-muted-foreground">
+          Required secrets: MEDIA_WORKER_URL, MEDIA_WORKER_SHARED_SECRET
+        </span>
+        <Button size="sm" variant="outline" disabled={isFetching} onClick={() => void refetch()}>
+          Re-check
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">{data?.message}</p>
+      {data?.ffmpeg && <p className="text-xs text-muted-foreground">Renderer: {data.ffmpeg}</p>}
+      {!!data?.tasks?.length && (
+        <p className="text-xs text-muted-foreground">Available tasks: {data.tasks.join(", ")}</p>
+      )}
+      {data?.reachable && (
+        <p className="text-xs text-muted-foreground">
+          Queue: {data.running ?? 0} running · {data.queued ?? 0} waiting
+        </p>
+      )}
     </div>
   );
 }
