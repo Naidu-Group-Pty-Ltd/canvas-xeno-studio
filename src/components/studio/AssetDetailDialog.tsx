@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Film, Heart, Repeat, Shuffle, SquareStack, Trash2 } from "lucide-react";
+import { Brain, Download, Film, Heart, Loader2, Repeat, Shuffle, SquareStack, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { AssetRow } from "@/hooks/useStudioData";
@@ -17,6 +17,7 @@ import {
   softDeleteAsset,
   toggleFavorite,
 } from "@/lib/asset-actions";
+import { analyseAsset, type AssetAnalysis } from "@/lib/analysis.functions";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -43,6 +44,23 @@ export function AssetDetailDialog({
   const { data: models = [] } = useModels();
   const { data: projects = [] } = useProjects();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [analysing, setAnalysing] = useState(false);
+  const analysis = (asset?.metadata as { analysis?: AssetAnalysis } | null)?.analysis ?? null;
+
+  async function runAnalysis() {
+    if (!asset || analysing) return;
+    setAnalysing(true);
+    try {
+      await analyseAsset({ data: { assetId: asset.id } });
+      await queryClient.invalidateQueries({ queryKey: ["assets"] });
+      toast.success("Analysis complete.");
+    } catch (error) {
+      // A failed analysis never affects the media itself — it can be retried.
+      toast.error(error instanceof Error ? error.message : "The analysis could not be completed.");
+    } finally {
+      setAnalysing(false);
+    }
+  }
 
   const { data: generation } = useQuery({
     queryKey: ["asset-generation", asset?.generation_id],
@@ -216,6 +234,38 @@ export function AssetDetailDialog({
                     <Film className="mr-1.5 size-4" /> Animate
                   </Button>
                 )}
+                {asset.asset_type === "image" && (
+                  <div className="rounded-md border border-border p-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs uppercase tracking-wide text-muted-foreground">AI evaluation</h4>
+                      <Button size="sm" variant="outline" onClick={() => void runAnalysis()} disabled={analysing}>
+                        {analysing ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <Brain className="mr-1.5 size-3.5" />}
+                        {analysis ? "Re-analyse" : "Analyse"}
+                      </Button>
+                    </div>
+                    {analysis ? (
+                      <div className="mt-2 space-y-1 text-xs">
+                        <p>{analysis.summary}</p>
+                        <p className="text-muted-foreground">Style: {analysis.style}</p>
+                        <p className="text-muted-foreground">
+                          AI quality score: {analysis.quality_score}/5
+                          {analysis.prompt_adherence ? ` · prompt adherence ${analysis.prompt_adherence}/5` : ""}
+                        </p>
+                        {analysis.issues.length > 0 && (
+                          <p className="text-muted-foreground">Noted issues: {analysis.issues.join("; ")}</p>
+                        )}
+                        <p className="text-[11px] text-muted-foreground">
+                          Automated evaluation — it never sets an approval status on its own.
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Not analysed yet. Requires the reasoning key to be configured.
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {(lineage?.parent || !!lineage?.children.length) && (
                   <div className="rounded-md border border-border p-3">
                     <h4 className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Lineage</h4>
