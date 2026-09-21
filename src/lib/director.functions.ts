@@ -109,7 +109,7 @@ export const createDirectorPlan = createServerFn({ method: "POST" })
         project_id: data.projectId ?? null,
         created_by: context.userId,
         title: plan.title ?? "Untitled production",
-        plan: plan as unknown as Record<string, unknown>,
+        plan: plan as never,
         version: 1,
       })
       .select("id,title,plan,version")
@@ -119,7 +119,7 @@ export const createDirectorPlan = createServerFn({ method: "POST" })
     await supabaseAdmin.from("production_plan_versions").insert({
       plan_id: saved.id,
       version: 1,
-      plan: plan as unknown as Record<string, unknown>,
+      plan: plan as never,
       change_summary: "Initial plan",
       created_by: context.userId,
     });
@@ -171,7 +171,7 @@ export const reviseDirectorPlan = createServerFn({ method: "POST" })
     await supabaseAdmin.from("production_plan_versions").insert({
       plan_id: data.planId,
       version,
-      plan: result.data as unknown as Record<string, unknown>,
+      plan: result.data as never,
       change_summary: data.instruction.slice(0, 280),
       created_by: context.userId,
     });
@@ -214,7 +214,7 @@ export const createStoryboardFromPlan = createServerFn({ method: "POST" })
         project_id: data.projectId ?? row.project_id ?? null,
         title: plan.title ?? row.title,
         objective: plan.objective ?? null,
-        creative_direction: (plan.creative_direction ?? {}) as Record<string, unknown>,
+        creative_direction: (plan.creative_direction ?? {}) as never,
         target_duration_seconds: plan.target_duration ? Math.round(plan.target_duration) : null,
         primary_aspect_ratio: plan.primary_aspect_ratio ?? null,
         created_by: context.userId,
@@ -244,7 +244,7 @@ export const createStoryboardFromPlan = createServerFn({ method: "POST" })
           name: shot.name ?? null,
           description: shot.description ?? null,
           prompt: shot.prompt ?? null,
-          spec: shot as unknown as Record<string, unknown>,
+          spec: shot as never,
           duration_seconds: shot.duration ?? null,
           operation_type: shot.operation_type ?? null,
           recommended_model_id: shot.recommended_model_id ?? null,
