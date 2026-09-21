@@ -353,15 +353,17 @@ export async function ingestOutputs(generationId: string): Promise<number> {
   let created = existingPaths.size;
   for (const [index, output] of usable.entries()) {
     try {
-      const response = await fetch(output.url);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const mime = response.headers.get("content-type") ?? "application/octet-stream";
-      const buffer = await response.arrayBuffer();
       const extension = (output.url.split("?")[0]!.split(".").pop() ?? "bin").slice(0, 5).replace(/[^a-z0-9]/gi, "");
       const scope = generation.project_id
         ? `projects/${generation.project_id}`
         : `unassigned/${generation.user_id}`;
-      const path = `${scope}/outputs/${generationId}/${index}-${crypto.randomUUID()}.${extension}`;
+      const path = `${scope}/outputs/${generationId}/${index}.${extension || "bin"}`;
+      if (existingPaths.has(path)) continue;
+
+      const response = await fetch(output.url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const mime = response.headers.get("content-type") ?? "application/octet-stream";
+      const buffer = await response.arrayBuffer();
 
       const upload = await supabaseAdmin.storage
         .from("generated-assets")
