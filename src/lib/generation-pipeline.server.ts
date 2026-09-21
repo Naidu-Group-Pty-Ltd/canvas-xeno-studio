@@ -342,7 +342,15 @@ export async function ingestOutputs(generationId: string): Promise<number> {
     return 0;
   }
 
-  let created = 0;
+  // Deterministic paths + an existing-asset check make repeat deliveries safe:
+  // a duplicate webhook can never create a second asset row.
+  const { data: existing } = await supabaseAdmin
+    .from("assets")
+    .select("storage_path")
+    .eq("generation_id", generationId);
+  const existingPaths = new Set((existing ?? []).map((row) => row.storage_path));
+
+  let created = existingPaths.size;
   for (const [index, output] of usable.entries()) {
     try {
       const response = await fetch(output.url);
