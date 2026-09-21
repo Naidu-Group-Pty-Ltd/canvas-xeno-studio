@@ -146,10 +146,15 @@ export async function submitToProvider(generationId: string): Promise<{ status: 
     return { status: generation.status };
   }
 
-  await supabaseAdmin
+  // Atomic claim: only one caller can move this record into "submitting", so
+  // two concurrent dispatch/submit paths can never POST the same job twice.
+  const { data: claimed } = await supabaseAdmin
     .from("generations")
     .update({ status: "submitting", submission_started_at: new Date().toISOString() })
-    .eq("id", generationId);
+    .eq("id", generationId)
+    .in("status", ["ready", "local_queued", "draft", "estimating"])
+    .select("id");
+  if (!claimed?.length) return { status: generation.status };
   await logEvent(generationId, "submission_started");
 
   try {
@@ -166,6 +171,37 @@ export async function submitToProvider(generationId: string): Promise<{ status: 
 
   const model = generation.model_registry as unknown as ModelRegistryEntry;
   const params = await buildProviderParams(model, (generation.parameters ?? {}) as Json, generationId);
+
+  // Authoritative estimate: requested with the SAME payload that is submitted,
+  // so the stored figure always corresponds to the generation being run.
+  const settings = await getSettings();
+  await logEvent(generationId, "estimate_requested", { model_path: generation.model_path });
+  const estimateCall = await higgsfieldProvider.estimate(generation.model_path, params);
+  const serverCost = estimateCall.ok ? extractCost(estimateCall.data) : null;
+  if (serverCost !== null) {
+    await supabaseAdmin
+      .from("generations")
+      .update({ estimated_cost_usd: serverCost, cost_source: "provider_estimate" })
+      .eq("id", generationId);
+    await supabaseAdmin
+      .from("usage_ledger")
+      .update({ estimated_cost_usd: serverCost })
+      .eq("generation_id", generationId);
+    await logEvent(generationId, "estimate_received", { estimated_cost_usd: serverCost });
+  } else if (settings["require_cost_estimate"] === true) {
+    await supabaseAdmin
+      .from("generations")
+      .update({
+        status: "failed",
+        error_code: "ESTIMATE_FAILED",
+        error_message: "A valid cost estimate could not be obtained, so nothing was submitted",
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", generationId);
+    await logEvent(generationId, "failed", { code: "ESTIMATE_FAILED" });
+    return { status: "failed" };
+  }
+
   const call = await higgsfieldProvider.submit(generation.model_path, params, webhookUrl());
 
   if (call.ok) {
