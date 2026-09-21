@@ -64,7 +64,10 @@ function ProjectDetailPage() {
       .from("projects")
       .update({ name: name.trim(), description: description.trim() || null })
       .eq("id", projectId);
-    if (error) return toast.error(error.message);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     queryClient.invalidateQueries({ queryKey: ["project", projectId] });
     queryClient.invalidateQueries({ queryKey: ["projects"] });
     setRenaming(false);
@@ -186,7 +189,10 @@ function FolderManager({
     const { error } = await supabase
       .from("asset_folders")
       .insert({ project_id: projectId, name: name.trim(), created_by: userData.user?.id ?? null });
-    if (error) return toast.error(error.message);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     setName("");
     queryClient.invalidateQueries({ queryKey: ["folders", projectId] });
   }

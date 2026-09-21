@@ -66,7 +66,10 @@ function ProjectsPage() {
     const { error } = await supabase
       .from("projects")
       .insert({ name: name.trim(), description: description.trim() || null, created_by: user.id });
-    if (error) return toast.error(error.message);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     toast.success("Project created");
     setName("");
     setDescription("");
@@ -76,7 +79,10 @@ function ProjectsPage() {
 
   async function archiveProject(id: string, archived: boolean) {
     const { error } = await supabase.from("projects").update({ is_archived: archived }).eq("id", id);
-    if (error) return toast.error(error.message);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     queryClient.invalidateQueries({ queryKey: ["projects"] });
     toast.success(archived ? "Project archived" : "Project restored");
   }
