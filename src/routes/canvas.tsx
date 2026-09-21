@@ -95,8 +95,6 @@ function CanvasPage() {
           node_key: node.node_key,
           node_type: node.node_type,
           label: node.label,
-          config: node.config,
-          position: node.position,
         })),
       );
       if (nodeError) toast.error(nodeError.message);
