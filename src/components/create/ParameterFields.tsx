@@ -23,7 +23,7 @@ interface Props {
   inputRoles: string[];
   onChange: (key: string, value: unknown) => void;
   advanced?: boolean;
-  issues?: Record<string, string>;
+  issues?: Record<string, string> | undefined;
 }
 
 export function ParameterFields({ model, values, inputRoles, onChange, advanced = false, issues }: Props) {
@@ -77,7 +77,7 @@ function FieldControl({
   field: FieldSchema;
   value: unknown;
   onChange: (value: unknown) => void;
-  issue?: string;
+  issue?: string | undefined;
 }) {
   const options = (field.options ?? []).map(normalizeOption);
 
@@ -211,7 +211,7 @@ function PresetField({
   field: FieldSchema;
   value: unknown;
   onChange: (value: unknown) => void;
-  issue?: string;
+  issue?: string | undefined;
 }) {
   const { data, isLoading, isError } = useQuery({
     queryKey: ["marketing-presets"],
