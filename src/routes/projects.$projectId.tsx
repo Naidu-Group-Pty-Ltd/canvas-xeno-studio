@@ -74,6 +74,21 @@ function ProjectDetailPage() {
     toast.success("Project updated");
   }
 
+  const projectBudget = project as { budget_usd?: number | null; budget_mode?: string } | null | undefined;
+  const spentEstimated = generations
+    .filter((g) => g.status !== "failed" && g.status !== "canceled")
+    .reduce((total, g) => total + Number(g.estimated_cost_usd ?? 0), 0);
+
+  async function saveBudget(patch: { budget_usd?: number | null; budget_mode?: string }) {
+    const { error } = await supabase.from("projects").update(patch).eq("id", projectId);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    await queryClient.invalidateQueries({ queryKey: ["project", projectId] });
+    toast.success("Spending limit updated");
+  }
+
   return (
     <AppShell title={project?.name ?? "Project"}>
       <div className="space-y-6 p-6">
@@ -99,6 +114,41 @@ function ProjectDetailPage() {
           >
             <Pencil className="mr-1.5 size-4" /> Rename
           </Button>
+        </div>
+
+        <div className="panel flex flex-wrap items-end gap-4 p-4">
+          <div>
+            <Label htmlFor="project-budget" className="text-xs text-muted-foreground">
+              Spending limit (USD)
+            </Label>
+            <Input
+              id="project-budget"
+              type="number"
+              min="0"
+              className="mt-1 w-36"
+              defaultValue={projectBudget?.budget_usd ?? ""}
+              onBlur={(e) => void saveBudget({ budget_usd: e.target.value ? Number(e.target.value) : null })}
+            />
+          </div>
+          <div>
+            <Label htmlFor="project-budget-mode" className="text-xs text-muted-foreground">
+              When reached
+            </Label>
+            <select
+              id="project-budget-mode"
+              className="mt-1 h-9 rounded-md border border-border bg-surface-raised px-2 text-sm"
+              value={projectBudget?.budget_mode ?? "none"}
+              onChange={(e) => void saveBudget({ budget_mode: e.target.value })}
+            >
+              <option value="none">Not enforced</option>
+              <option value="soft">Warn only</option>
+              <option value="hard">Block new generations</option>
+            </select>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Spent so far: ${spentEstimated.toFixed(2)} estimated
+            {projectBudget?.budget_usd != null ? ` of $${Number(projectBudget.budget_usd).toFixed(2)}` : ""}
+          </p>
         </div>
 
         <Tabs defaultValue="assets">

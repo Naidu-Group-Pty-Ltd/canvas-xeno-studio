@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/hooks/useAuth";
 import { useProjects } from "@/hooks/useStudioData";
 import { useProductionPlans } from "@/hooks/useV2Data";
 import {
@@ -36,11 +37,16 @@ export const Route = createFileRoute("/director")({
 });
 
 function DirectorPage() {
+  const { profile } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: projects } = useProjects();
   const { data: plans, isLoading } = useProductionPlans();
-  const { data: health } = useQuery({ queryKey: ["reasoning-health"], queryFn: () => getReasoningHealth() });
+  const { data: health } = useQuery({
+    queryKey: ["reasoning-health"],
+    enabled: !!profile?.is_active,
+    queryFn: () => getReasoningHealth(),
+  });
 
   const [brief, setBrief] = useState("");
   const [projectId, setProjectId] = useState<string | null>(null);

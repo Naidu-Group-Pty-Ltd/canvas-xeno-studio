@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Megaphone, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,6 +40,36 @@ function CampaignsPage() {
   const [objective, setObjective] = useState("");
   const [budget, setBudget] = useState("");
   const [projectId, setProjectId] = useState("");
+  const [budgetMode, setBudgetMode] = useState("none");
+
+  // Spend attributed to each campaign, from real generation costs.
+  const { data: spend } = useQuery({
+    queryKey: ["campaign-spend"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("generations")
+        .select("campaign_id,estimated_cost_usd,actual_cost_usd,status")
+        .not("campaign_id", "is", null);
+      const totals: Record<string, { estimated: number; actual: number }> = {};
+      for (const row of data ?? []) {
+        if (!row.campaign_id || row.status === "failed" || row.status === "canceled") continue;
+        const bucket = (totals[row.campaign_id] ??= { estimated: 0, actual: 0 });
+        bucket.estimated += Number(row.estimated_cost_usd ?? 0);
+        bucket.actual += Number(row.actual_cost_usd ?? 0);
+      }
+      return totals;
+    },
+  });
+
+  async function updateBudget(id: string, patch: { budget_usd?: number | null; budget_mode?: string }) {
+    const { error } = await supabase.from("campaigns").update(patch).eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    await queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+    toast.success("Budget updated.");
+  }
 
   async function create() {
     if (!user || !name.trim()) return;
@@ -47,6 +77,7 @@ function CampaignsPage() {
       name: name.trim(),
       objective: objective.trim() || null,
       budget_usd: budget ? Number(budget) : null,
+      budget_mode: budgetMode,
       project_id: projectId || null,
       created_by: user.id,
     });
@@ -86,7 +117,26 @@ function CampaignsPage() {
               <p className="text-xs text-muted-foreground">
                 Budget: {campaign.budget_usd != null ? `$${Number(campaign.budget_usd).toFixed(2)}` : "Not set"}
               </p>
+              <p className="text-xs text-muted-foreground">
+                Spent: ${(spend?.[campaign.id]?.estimated ?? 0).toFixed(2)} estimated
+                {spend?.[campaign.id]?.actual ? ` · $${spend[campaign.id]!.actual.toFixed(2)} confirmed` : ""}
+              </p>
               <p className="text-xs text-muted-foreground">Status: {campaign.status}</p>
+              <div className="flex items-center gap-2 pt-1">
+                <Label htmlFor={`mode-${campaign.id}`} className="text-xs text-muted-foreground">
+                  Limit
+                </Label>
+                <select
+                  id={`mode-${campaign.id}`}
+                  className="h-8 flex-1 rounded-md border border-border bg-surface-raised px-2 text-xs"
+                  value={(campaign as { budget_mode?: string }).budget_mode ?? "none"}
+                  onChange={(e) => void updateBudget(campaign.id, { budget_mode: e.target.value })}
+                >
+                  <option value="none">Not enforced</option>
+                  <option value="soft">Warn when exceeded</option>
+                  <option value="hard">Block when exceeded</option>
+                </select>
+              </div>
             </div>
           ))}
         </div>
@@ -109,6 +159,19 @@ function CampaignsPage() {
             <div>
               <Label htmlFor="campaign-budget">Budget (USD)</Label>
               <Input id="campaign-budget" type="number" min="0" value={budget} onChange={(e) => setBudget(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="campaign-budget-mode">When the budget is reached</Label>
+              <select
+                id="campaign-budget-mode"
+                className="mt-1 h-9 w-full rounded-md border border-border bg-surface-raised px-2 text-sm"
+                value={budgetMode}
+                onChange={(e) => setBudgetMode(e.target.value)}
+              >
+                <option value="none">Do nothing</option>
+                <option value="soft">Warn only</option>
+                <option value="hard">Block new generations</option>
+              </select>
             </div>
             <div>
               <Label htmlFor="campaign-project">Project</Label>

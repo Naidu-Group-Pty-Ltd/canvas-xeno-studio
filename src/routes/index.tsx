@@ -16,6 +16,8 @@ import { useAssets, useGenerations, useModels, useProjects, useSettings, type As
 import { useAuth } from "@/hooks/useAuth";
 import { defaultsForModel, validateParameters, type ModelRegistryEntry } from "@/lib/model-schema";
 import { estimateGeneration, submitGeneration } from "@/lib/generation.functions";
+import { useCampaigns } from "@/hooks/useV2Data";
+import { BatchMatrix, expandMatrix, type MatrixSelection } from "@/components/create/BatchMatrix";
 import { loadPromptDraft, takeCreatePrefill, PREFILL_EVENT } from "@/lib/create-draft";
 import { CinemaControls } from "@/components/create/CinemaControls";
 import { cinemaSupported, compileCinemaPrompt, promptCinemaGroups, type CinemaSelection } from "@/lib/cinema";
@@ -65,6 +67,9 @@ function CreatePage() {
   const [mediaType, setMediaType] = useState<"image" | "video">("image");
   const [modelId, setModelId] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [campaignId, setCampaignId] = useState<string | null>(null);
+  const { data: campaigns = [] } = useCampaigns();
+  const [matrix, setMatrix] = useState<MatrixSelection>({});
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [references, setReferences] = useState<ReferenceItem[]>([]);
   const [parentGenerationId, setParentGenerationId] = useState<string | null>(null);
@@ -235,19 +240,31 @@ function CreatePage() {
     requestIdRef.current = clientRequestId;
     setSubmitting(true);
     try {
-      const result = await submitGeneration({
-        data: {
-          modelId: model.id,
-          parameters: submitValues,
-          inputs: references.map((item, index) => ({ assetId: item.assetId, role: item.role, position: index })),
-          projectId,
-          parentGenerationId,
-          estimatedCostUsd: estimate.kind === "ready" ? estimate.costUsd : null,
-          clientRequestId,
-        },
-      });
+      // A batch matrix turns into one independent generation per combination;
+      // each carries its own idempotency key so none can be billed twice.
+      const combos = expandMatrix(matrix);
+      const payloads = combos.length ? combos : [{}];
+      let result: { generationId: string; status: string; budgetWarning?: string | null } = { generationId: "", status: "" };
+      for (let index = 0; index < payloads.length; index += 1) {
+        result = await submitGeneration({
+          data: {
+            modelId: model.id,
+            parameters: { ...submitValues, ...payloads[index] },
+            inputs: references.map((item, i) => ({ assetId: item.assetId, role: item.role, position: i })),
+            projectId,
+            campaignId,
+            parentGenerationId,
+            estimatedCostUsd: estimate.kind === "ready" ? estimate.costUsd : null,
+            clientRequestId: payloads.length > 1 ? `${clientRequestId}-${index}` : clientRequestId,
+          },
+        });
+      }
+      if (result.budgetWarning) toast.warning(result.budgetWarning);
+      if (payloads.length > 1) toast.success(`${payloads.length} generations submitted. Track them in Activity.`);
       requestIdRef.current = null;
-      if (result.status === "submission_uncertain")
+      if (payloads.length > 1) {
+        // Per-combination outcomes are shown individually in Activity.
+      } else if (result.status === "submission_uncertain")
         toast.warning(
           "Submission status is uncertain. Automatic retry is disabled to prevent accidental duplicate generation charges. Review it in Activity.",
         );
@@ -285,9 +302,12 @@ function CreatePage() {
     }
   }
 
+  const batchCount = Math.max(expandMatrix(matrix).length, 1);
+
   function handleGenerate() {
     if (!canGenerate) return;
-    if (estimate.kind === "ready" && estimate.costUsd >= highCostThreshold) setConfirmHighCost(true);
+    if (batchCount > 1) setConfirmHighCost(true);
+    else if (estimate.kind === "ready" && estimate.costUsd >= highCostThreshold) setConfirmHighCost(true);
     else void runSubmit();
   }
 
@@ -345,6 +365,20 @@ function CreatePage() {
                   </SelectContent>
                 </Select>
 
+                <Select value={campaignId ?? "none"} onValueChange={(value) => setCampaignId(value === "none" ? null : value)}>
+                  <SelectTrigger className="h-9 w-48">
+                    <SelectValue placeholder="No campaign" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No campaign</SelectItem>
+                    {campaigns.map((campaign) => (
+                      <SelectItem key={campaign.id} value={campaign.id}>
+                        {campaign.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
                 {parentGenerationId && <Badge variant="outline">Variation</Badge>}
                 {shotId && (
                   <Badge variant="outline" className="gap-2">
@@ -394,6 +428,10 @@ function CreatePage() {
                       </button>
                     ))}
                   </div>
+                )}
+
+                {model && (
+                  <BatchMatrix model={model} values={values} selection={matrix} onChange={setMatrix} />
                 )}
 
                 {model && (
@@ -475,6 +513,12 @@ function CreatePage() {
                   {estimate.kind === "idle" && "—"}
                 </span>
               </div>
+              {batchCount > 1 && (
+                <p className="text-[11px] text-primary">
+                  Batch matrix: {batchCount} generations
+                  {estimate.kind === "ready" ? ` · approx. $${(estimate.costUsd * batchCount).toFixed(2)} total` : ""}
+                </p>
+              )}
               <Button
                 size="lg"
                 className="w-full accent-glow"
@@ -517,10 +561,13 @@ function CreatePage() {
       <AlertDialog open={confirmHighCost} onOpenChange={setConfirmHighCost}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirm this generation</AlertDialogTitle>
+            <AlertDialogTitle>{batchCount > 1 ? "Confirm this batch" : "Confirm this generation"}</AlertDialogTitle>
             <AlertDialogDescription>
-              This generation is estimated to cost $
-              {estimate.kind === "ready" ? estimate.costUsd.toFixed(2) : "0.00"}.
+              {batchCount > 1
+                ? `This runs ${batchCount} separate generations, approximately $${
+                    estimate.kind === "ready" ? (estimate.costUsd * batchCount).toFixed(2) : "0.00"
+                  } in total. Each one is estimated again by the provider before it is sent.`
+                : `This generation is estimated to cost $${estimate.kind === "ready" ? estimate.costUsd.toFixed(2) : "0.00"}.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -13,11 +13,13 @@ export type AppErrorCode =
   | "STORAGE_FAILED"
   | "RATE_LIMITED"
   | "NOT_AUTHORIZED"
+  | "BUDGET_EXCEEDED"
   | "UNKNOWN";
 
 export const ERROR_MESSAGES: Record<AppErrorCode, string> = {
   PROVIDER_NOT_CONFIGURED: "Higgsfield credentials are not configured yet. An admin must add them before generating.",
   PROVIDER_DISABLED: "The Higgsfield provider is currently disabled in settings.",
+  BUDGET_EXCEEDED: "This would exceed the spending limit set for this project or campaign.",
   INSUFFICIENT_PROVIDER_BALANCE:
     "Higgsfield API balance is insufficient. Top up the provider account before retrying.",
   INVALID_PARAMETERS: "Some generation settings are invalid. Review the highlighted fields.",

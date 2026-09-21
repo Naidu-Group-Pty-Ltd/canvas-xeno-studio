@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.check_spend_allowance(uuid, uuid, numeric) TO service_role;
