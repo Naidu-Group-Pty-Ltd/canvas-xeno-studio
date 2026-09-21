@@ -113,6 +113,15 @@ function SettingsPage() {
           </div>
         </Section>
 
+        <Section
+          title="Media service"
+          description="Optional rendering service for thumbnails, frames, trimming, reframing and assembly."
+        >
+          <MediaWorkerStatus />
+        </Section>
+
+
+
         <Section title="Generation settings" description="Defaults applied across the studio.">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
