@@ -49,7 +49,8 @@ function ProjectsPage() {
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
         .limit(400);
-      const map = new Map<string, { count: number; latest: (typeof data)[number] | null }>();
+      type Row = NonNullable<typeof data>[number];
+      const map = new Map<string, { count: number; latest: Row | null }>();
       for (const asset of data ?? []) {
         if (!asset.project_id) continue;
         const entry = map.get(asset.project_id) ?? { count: 0, latest: null };
