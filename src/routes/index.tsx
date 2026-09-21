@@ -391,6 +391,17 @@ function CreatePage() {
               </div>
             </div>
 
+            {model && cinemaSupported(model) && (
+              <CinemaControls
+                model={model}
+                prompt={(values["prompt"] as string) ?? ""}
+                enabled={cinemaEnabled}
+                onEnabledChange={setCinemaEnabled}
+                selection={cinema}
+                onSelectionChange={setCinema}
+              />
+            )}
+
             <RecentOutputs projectId={projectId} onOpenAsset={setSelectedAsset} />
           </section>
 
