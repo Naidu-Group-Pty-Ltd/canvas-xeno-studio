@@ -13,10 +13,13 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as AssetsRouteImport } from './routes/assets'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as CampaignsRouteImport } from './routes/campaigns'
 import { Route as DirectorRouteImport } from './routes/director'
+import { Route as EditLabRouteImport } from './routes/edit-lab'
 import { Route as LibraryRouteImport } from './routes/library'
 import { Route as ModelsRouteImport } from './routes/models'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as StoryboardsRouteImport } from './routes/storyboards'
 import { Route as UsageRouteImport } from './routes/usage'
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
@@ -43,9 +46,19 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CampaignsRoute = CampaignsRouteImport.update({
+  id: '/campaigns',
+  path: '/campaigns',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DirectorRoute = DirectorRouteImport.update({
   id: '/director',
   path: '/director',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EditLabRoute = EditLabRouteImport.update({
+  id: '/edit-lab',
+  path: '/edit-lab',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LibraryRoute = LibraryRouteImport.update({
@@ -61,6 +74,11 @@ const ModelsRoute = ModelsRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StoryboardsRoute = StoryboardsRouteImport.update({
+  id: '/storyboards',
+  path: '/storyboards',
   getParentRoute: () => rootRouteImport,
 } as any)
 const UsageRoute = UsageRouteImport.update({
@@ -96,10 +114,13 @@ export interface FileRoutesByFullPath {
   '/activity': typeof ActivityRoute
   '/assets': typeof AssetsRoute
   '/auth': typeof AuthRoute
+  '/campaigns': typeof CampaignsRoute
   '/director': typeof DirectorRoute
+  '/edit-lab': typeof EditLabRoute
   '/library': typeof LibraryRoute
   '/models': typeof ModelsRoute
   '/settings': typeof SettingsRoute
+  '/storyboards': typeof StoryboardsRoute
   '/usage': typeof UsageRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/': typeof ProjectsIndexRoute
@@ -111,10 +132,13 @@ export interface FileRoutesByTo {
   '/activity': typeof ActivityRoute
   '/assets': typeof AssetsRoute
   '/auth': typeof AuthRoute
+  '/campaigns': typeof CampaignsRoute
   '/director': typeof DirectorRoute
+  '/edit-lab': typeof EditLabRoute
   '/library': typeof LibraryRoute
   '/models': typeof ModelsRoute
   '/settings': typeof SettingsRoute
+  '/storyboards': typeof StoryboardsRoute
   '/usage': typeof UsageRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects': typeof ProjectsIndexRoute
@@ -127,10 +151,13 @@ export interface FileRoutesById {
   '/activity': typeof ActivityRoute
   '/assets': typeof AssetsRoute
   '/auth': typeof AuthRoute
+  '/campaigns': typeof CampaignsRoute
   '/director': typeof DirectorRoute
+  '/edit-lab': typeof EditLabRoute
   '/library': typeof LibraryRoute
   '/models': typeof ModelsRoute
   '/settings': typeof SettingsRoute
+  '/storyboards': typeof StoryboardsRoute
   '/usage': typeof UsageRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/': typeof ProjectsIndexRoute
@@ -144,10 +171,13 @@ export interface FileRouteTypes {
     | '/activity'
     | '/assets'
     | '/auth'
+    | '/campaigns'
     | '/director'
+    | '/edit-lab'
     | '/library'
     | '/models'
     | '/settings'
+    | '/storyboards'
     | '/usage'
     | '/projects/$projectId'
     | '/projects/'
@@ -159,10 +189,13 @@ export interface FileRouteTypes {
     | '/activity'
     | '/assets'
     | '/auth'
+    | '/campaigns'
     | '/director'
+    | '/edit-lab'
     | '/library'
     | '/models'
     | '/settings'
+    | '/storyboards'
     | '/usage'
     | '/projects/$projectId'
     | '/projects'
@@ -174,10 +207,13 @@ export interface FileRouteTypes {
     | '/activity'
     | '/assets'
     | '/auth'
+    | '/campaigns'
     | '/director'
+    | '/edit-lab'
     | '/library'
     | '/models'
     | '/settings'
+    | '/storyboards'
     | '/usage'
     | '/projects/$projectId'
     | '/projects/'
@@ -190,10 +226,13 @@ export interface RootRouteChildren {
   ActivityRoute: typeof ActivityRoute
   AssetsRoute: typeof AssetsRoute
   AuthRoute: typeof AuthRoute
+  CampaignsRoute: typeof CampaignsRoute
   DirectorRoute: typeof DirectorRoute
+  EditLabRoute: typeof EditLabRoute
   LibraryRoute: typeof LibraryRoute
   ModelsRoute: typeof ModelsRoute
   SettingsRoute: typeof SettingsRoute
+  StoryboardsRoute: typeof StoryboardsRoute
   UsageRoute: typeof UsageRoute
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
   ProjectsIndexRoute: typeof ProjectsIndexRoute
@@ -231,11 +270,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/campaigns': {
+      id: '/campaigns'
+      path: '/campaigns'
+      fullPath: '/campaigns'
+      preLoaderRoute: typeof CampaignsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/director': {
       id: '/director'
       path: '/director'
       fullPath: '/director'
       preLoaderRoute: typeof DirectorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/edit-lab': {
+      id: '/edit-lab'
+      path: '/edit-lab'
+      fullPath: '/edit-lab'
+      preLoaderRoute: typeof EditLabRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/library': {
@@ -257,6 +310,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/storyboards': {
+      id: '/storyboards'
+      path: '/storyboards'
+      fullPath: '/storyboards'
+      preLoaderRoute: typeof StoryboardsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/usage': {
@@ -302,10 +362,13 @@ const rootRouteChildren: RootRouteChildren = {
   ActivityRoute: ActivityRoute,
   AssetsRoute: AssetsRoute,
   AuthRoute: AuthRoute,
+  CampaignsRoute: CampaignsRoute,
   DirectorRoute: DirectorRoute,
+  EditLabRoute: EditLabRoute,
   LibraryRoute: LibraryRoute,
   ModelsRoute: ModelsRoute,
   SettingsRoute: SettingsRoute,
+  StoryboardsRoute: StoryboardsRoute,
   UsageRoute: UsageRoute,
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,
