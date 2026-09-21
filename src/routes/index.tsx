@@ -75,6 +75,7 @@ function CreatePage() {
   const [selectedAsset, setSelectedAsset] = useState<AssetRow | null>(null);
   const [cinemaEnabled, setCinemaEnabled] = useState(true);
   const [cinema, setCinema] = useState<CinemaSelection>({});
+  const [shotId, setShotId] = useState<string | null>(null);
   const prefillApplied = useRef(false);
   const submitLock = useRef(false);
   const requestIdRef = useRef<string | null>(null);
@@ -111,6 +112,7 @@ function CreatePage() {
       }
       setProjectId(prefill.projectId ?? null);
       setParentGenerationId(prefill.parentGenerationId ?? null);
+      setShotId(prefill.shotId ?? null);
       setReferences([]);
       if (prefill.inputs?.length) void hydrateReferences(prefill.inputs, setReferences);
       toast.info("Settings loaded. Review them and press Generate when ready.");
@@ -257,6 +259,22 @@ function CreatePage() {
             ? "Queued — it will submit as soon as a provider slot frees up."
             : "Generation submitted. Track it in Activity.",
         );
+      // A generation launched from a storyboard shot is filed as the next take.
+      if (shotId && result.generationId) {
+        const { count } = await supabase
+          .from("shot_takes")
+          .select("id", { count: "exact", head: true })
+          .eq("shot_id", shotId);
+        await supabase.from("shot_takes").insert({
+          shot_id: shotId,
+          generation_id: result.generationId,
+          take_number: (count ?? 0) + 1,
+          created_by: user?.id ?? null,
+        });
+        await supabase.from("shots").update({ status: "shooting" }).eq("id", shotId);
+        queryClient.invalidateQueries({ queryKey: ["shot_takes", shotId] });
+        queryClient.invalidateQueries({ queryKey: ["storyboards"] });
+      }
       setParentGenerationId(null);
       queryClient.invalidateQueries({ queryKey: ["generations"] });
     } catch (error) {
