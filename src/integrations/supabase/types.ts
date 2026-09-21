@@ -639,6 +639,12 @@ export type Database = {
         | "reference-to-video"
         | "video-to-video"
         | "video-extend"
+        | "video-edit"
+        | "motion-transfer"
+        | "object-swap"
+        | "motion-control"
+        | "cinematic-video"
+        | "image-edit"
       source_type: "generated" | "uploaded"
     }
     CompositeTypes: {
@@ -807,6 +813,12 @@ export const Constants = {
         "reference-to-video",
         "video-to-video",
         "video-extend",
+        "video-edit",
+        "motion-transfer",
+        "object-swap",
+        "motion-control",
+        "cinematic-video",
+        "image-edit",
       ],
       source_type: ["generated", "uploaded"],
     },
