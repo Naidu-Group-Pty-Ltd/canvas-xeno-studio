@@ -264,18 +264,24 @@ export const higgsfieldProvider: GenerationProvider = {
   isConfigured: providerConfigured,
 
   estimate(modelPath, params) {
-    return hfFetch(HF_ENDPOINTS.estimate, {
+    // The estimate endpoint takes exactly the generation body.
+    return hfFetch(HF_ENDPOINTS.estimate(modelPath), {
       method: "POST",
-      body: { model: modelPath, model_path: modelPath, params, parameters: params },
+      body: params,
       timeoutMs: 20_000,
     });
   },
 
   submit(modelPath, params, webhookUrl) {
-    const body: Record<string, unknown> = { params, ...params };
-    if (webhookUrl) body["webhook"] = { url: webhookUrl };
-    return hfFetch(HF_ENDPOINTS.submit(modelPath), { method: "POST", body, timeoutMs: 45_000 });
+    // Webhooks are configured through the hf_webhook query parameter.
+    const query = webhookUrl ? `?hf_webhook=${encodeURIComponent(webhookUrl)}` : "";
+    return hfFetch(`${HF_ENDPOINTS.submit(modelPath)}${query}`, {
+      method: "POST",
+      body: params,
+      timeoutMs: 45_000,
+    });
   },
+
 
   getStatus(requestId, statusUrl) {
     return statusUrl
@@ -308,14 +314,21 @@ export const higgsfieldProvider: GenerationProvider = {
 
     if (!uploadUrl) throw new AppError("UPLOAD_FAILED", "Provider did not return an upload destination");
 
-    const put = await fetch(uploadUrl, {
-      method: "PUT",
-      headers: { "Content-Type": mimeType },
-      body: bytes,
-    });
+    // Every header the provider returns must be replayed on the presigned PUT,
+    // and provider credentials must never be sent to the storage host.
+    const headers: Record<string, string> = { "Content-Type": mimeType };
+    const provided = data["upload_headers"];
+    if (provided && typeof provided === "object") {
+      for (const [key, value] of Object.entries(provided as Record<string, unknown>)) {
+        if (typeof value === "string") headers[key] = value;
+      }
+    }
+
+    const put = await fetch(uploadUrl, { method: "PUT", headers, body: bytes });
     if (!put.ok) throw new AppError("UPLOAD_FAILED", `Provider upload failed (HTTP ${put.status})`);
     return publicUrl;
   },
+
 
   listPresets(cursor) {
     const query = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
