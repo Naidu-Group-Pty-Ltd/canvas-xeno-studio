@@ -93,7 +93,7 @@ export async function hfFetch<T = unknown>(
     const response = await fetch(url, {
       method: init.method ?? "GET",
       headers: authHeaders(),
-      body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      body: init.body === undefined ? null : JSON.stringify(init.body),
       signal: controller.signal,
     });
     const raw = await response.text();
@@ -172,13 +172,11 @@ function collectUrls(node: unknown, out: NormalizedOutput[], depth = 0) {
     for (const key of ["url", "video_url", "image_url", "audio_url", "output_url", "signed_url"]) {
       const value = record[key];
       if (typeof value === "string" && /^https?:\/\//.test(value)) {
-        out.push({
-          url: value,
-          type: guessType(value),
-          width: typeof record["width"] === "number" ? record["width"] : undefined,
-          height: typeof record["height"] === "number" ? record["height"] : undefined,
-          durationSeconds: typeof record["duration"] === "number" ? record["duration"] : undefined,
-        });
+        const entry: NormalizedOutput = { url: value, type: guessType(value) };
+        if (typeof record["width"] === "number") entry.width = record["width"];
+        if (typeof record["height"] === "number") entry.height = record["height"];
+        if (typeof record["duration"] === "number") entry.durationSeconds = record["duration"];
+        out.push(entry);
       }
     }
     for (const key of ["results", "result", "outputs", "output", "images", "image", "videos", "video", "data", "assets"]) {
