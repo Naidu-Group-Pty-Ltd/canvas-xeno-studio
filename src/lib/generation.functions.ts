@@ -42,7 +42,8 @@ async function assertActiveMember(userId: string) {
 /** Provider configuration/health, safe for all members (never exposes secrets). */
 export const getProviderHealth = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async () => {
+  .handler(async ({ context }) => {
+    await assertActiveMember(context.userId);
     const { providerConfigured } = await import("./higgsfield/provider.server");
     const { getSettings } = await import("./generation-pipeline.server");
     const settings = await getSettings();
@@ -74,7 +75,8 @@ export const getProviderHealth = createServerFn({ method: "GET" })
 export const estimateGeneration = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => estimateInput.parse(data))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    await assertActiveMember(context.userId);
     const { higgsfieldProvider, extractCost, providerConfigured } = await import("./higgsfield/provider.server");
     if (!providerConfigured()) return { ok: false, code: "PROVIDER_NOT_CONFIGURED", costUsd: null };
 
@@ -181,7 +183,8 @@ export const submitGeneration = createServerFn({ method: "POST" })
 export const refreshGenerationStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ generationId: z.string().uuid() }).parse(data))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    await assertActiveMember(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { higgsfieldProvider } = await import("./higgsfield/provider.server");
     const pipeline = await import("./generation-pipeline.server");
@@ -202,7 +205,8 @@ export const refreshGenerationStatus = createServerFn({ method: "POST" })
 export const cancelGeneration = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ generationId: z.string().uuid() }).parse(data))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    await assertActiveMember(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { higgsfieldProvider } = await import("./higgsfield/provider.server");
     const pipeline = await import("./generation-pipeline.server");
@@ -297,7 +301,8 @@ export const resubmitGeneration = createServerFn({ method: "POST" })
 export const ingestGenerationOutputs = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ generationId: z.string().uuid() }).parse(data))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    await assertActiveMember(context.userId);
     const pipeline = await import("./generation-pipeline.server");
     const created = await pipeline.ingestOutputs(data.generationId);
     return { assets: created };
@@ -307,7 +312,8 @@ export const ingestGenerationOutputs = createServerFn({ method: "POST" })
 export const listMarketingPresets = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ cursor: z.string().optional() }).parse(data))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    await assertActiveMember(context.userId);
     const { higgsfieldProvider, providerConfigured } = await import("./higgsfield/provider.server");
     if (!providerConfigured()) return { ok: false, code: "PROVIDER_NOT_CONFIGURED", presets: [], nextCursor: null };
 
