@@ -10,33 +10,78 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as ApiPublicHiggsfieldReconcileRouteImport } from './routes/api/public/higgsfield-reconcile'
+import { Route as ApiPublicHiggsfieldWebhookRouteImport } from './routes/api/public/higgsfield-webhook'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicHiggsfieldReconcileRoute =
+  ApiPublicHiggsfieldReconcileRouteImport.update({
+    id: '/api/public/higgsfield-reconcile',
+    path: '/api/public/higgsfield-reconcile',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicHiggsfieldWebhookRoute =
+  ApiPublicHiggsfieldWebhookRouteImport.update({
+    id: '/api/public/higgsfield-webhook',
+    path: '/api/public/higgsfield-webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
+  '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
+  '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
+  '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/api/public/higgsfield-reconcile'
+    | '/api/public/higgsfield-webhook'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/auth'
+    | '/api/public/higgsfield-reconcile'
+    | '/api/public/higgsfield-webhook'
+  id:
+    | '__root__'
+    | '/'
+    | '/auth'
+    | '/api/public/higgsfield-reconcile'
+    | '/api/public/higgsfield-webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthRoute: typeof AuthRoute
+  ApiPublicHiggsfieldReconcileRoute: typeof ApiPublicHiggsfieldReconcileRoute
+  ApiPublicHiggsfieldWebhookRoute: typeof ApiPublicHiggsfieldWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +93,35 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/higgsfield-reconcile': {
+      id: '/api/public/higgsfield-reconcile'
+      path: '/api/public/higgsfield-reconcile'
+      fullPath: '/api/public/higgsfield-reconcile'
+      preLoaderRoute: typeof ApiPublicHiggsfieldReconcileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/higgsfield-webhook': {
+      id: '/api/public/higgsfield-webhook'
+      path: '/api/public/higgsfield-webhook'
+      fullPath: '/api/public/higgsfield-webhook'
+      preLoaderRoute: typeof ApiPublicHiggsfieldWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthRoute: AuthRoute,
+  ApiPublicHiggsfieldReconcileRoute: ApiPublicHiggsfieldReconcileRoute,
+  ApiPublicHiggsfieldWebhookRoute: ApiPublicHiggsfieldWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

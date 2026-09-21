@@ -1,0 +1,48 @@
+import { createFileRoute } from "@tanstack/react-router";
+
+/**
+ * Provider-facing webhook. Isolated from authenticated endpoints, idempotent,
+ * and returns quickly: heavy media ingestion is flagged, not performed inline.
+ */
+export const Route = createFileRoute("/api/public/higgsfield-webhook")({
+  server: {
+    handlers: {
+      POST: async ({ request }) => {
+        const token = new URL(request.url).searchParams.get("token");
+        const expected = process.env["LOVABLE_CRON_SECRET"];
+        if (expected && token !== expected) {
+          return new Response("Unauthorized", { status: 401 });
+        }
+
+        let payload: Record<string, unknown>;
+        try {
+          payload = (await request.json()) as Record<string, unknown>;
+        } catch {
+          return new Response(JSON.stringify({ error: "Invalid payload" }), { status: 400 });
+        }
+
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { applyProviderPayload, logEvent } = await import("@/lib/generation-pipeline.server");
+        const { extractRequestId } = await import("@/lib/higgsfield/provider.server");
+
+        const requestId = extractRequestId(payload);
+        if (!requestId) return new Response(JSON.stringify({ error: "Missing request id" }), { status: 400 });
+
+        const { data: generation } = await supabaseAdmin
+          .from("generations")
+          .select("id")
+          .eq("hf_request_id", requestId)
+          .maybeSingle();
+        if (!generation) return new Response(JSON.stringify({ received: true, matched: false }), { status: 200 });
+
+        await logEvent(generation.id, "webhook_received", { request_id: requestId });
+        await applyProviderPayload(generation.id, payload);
+
+        return new Response(JSON.stringify({ received: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      },
+    },
+  },
+});
