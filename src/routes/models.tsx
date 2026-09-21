@@ -180,7 +180,7 @@ function EditModelDialog({
               if (!model) return;
               setBusy(true);
               try {
-                const parsed = JSON.parse(defaults) as Record<string, unknown>;
+                const parsed = JSON.parse(defaults) as never;
                 const { error } = await supabase
                   .from("model_registry")
                   .update({
