@@ -471,6 +471,30 @@ export async function ingestPending(limit = 5): Promise<number> {
 
 export async function reconcileStaleGenerations(limit = 10): Promise<number> {
   const staleBefore = new Date(Date.now() - 60_000).toISOString();
+
+  // A record left in "submitting" (crashed worker, dropped connection) is
+  // ambiguous: it may already be running and charging. It becomes
+  // submission_uncertain and waits for a human decision — never auto-retried.
+  const stuckBefore = new Date(Date.now() - 10 * 60_000).toISOString();
+  const { data: stuck } = await supabaseAdmin
+    .from("generations")
+    .select("id")
+    .eq("status", "submitting")
+    .lt("submission_started_at", stuckBefore)
+    .limit(limit);
+  for (const row of stuck ?? []) {
+    await supabaseAdmin
+      .from("generations")
+      .update({
+        status: "submission_uncertain",
+        error_code: "SUBMISSION_UNCERTAIN",
+        error_message: "Submission did not complete and its provider outcome is unknown",
+      })
+      .eq("id", row.id)
+      .eq("status", "submitting");
+    await logEvent(row.id, "submission_uncertain", { reason: "stuck_submitting" });
+  }
+
   const { data } = await supabaseAdmin
     .from("generations")
     .select("id,hf_request_id,hf_status_url,poll_attempts,last_polled_at,submitted_at")
