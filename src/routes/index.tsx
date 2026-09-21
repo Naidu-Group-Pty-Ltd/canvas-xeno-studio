@@ -72,6 +72,8 @@ function CreatePage() {
   const [confirmHighCost, setConfirmHighCost] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<AssetRow | null>(null);
   const prefillApplied = useRef(false);
+  const submitLock = useRef(false);
+  const requestIdRef = useRef<string | null>(null);
 
   const mediaModels = useMemo(() => models.filter((model) => model.output_type === mediaType), [models, mediaType]);
   const model = useMemo(() => models.find((entry) => entry.id === modelId) ?? null, [models, modelId]);
@@ -208,6 +210,11 @@ function CreatePage() {
 
   async function runSubmit() {
     if (!model || !canGenerate) return;
+    // Synchronous lock + idempotency key: a double-click can never bill twice.
+    if (submitLock.current) return;
+    submitLock.current = true;
+    const clientRequestId = requestIdRef.current ?? crypto.randomUUID();
+    requestIdRef.current = clientRequestId;
     setSubmitting(true);
     try {
       const result = await submitGeneration({
@@ -218,18 +225,28 @@ function CreatePage() {
           projectId,
           parentGenerationId,
           estimatedCostUsd: estimate.kind === "ready" ? estimate.costUsd : null,
+          clientRequestId,
         },
       });
-      toast.success(
-        result.status === "local_queued"
-          ? "Queued — it will submit as soon as a provider slot frees up."
-          : "Generation submitted. Track it in Activity.",
-      );
+      requestIdRef.current = null;
+      if (result.status === "submission_uncertain")
+        toast.warning(
+          "Submission status is uncertain. Automatic retry is disabled to prevent accidental duplicate generation charges. Review it in Activity.",
+        );
+      else if (result.status === "failed")
+        toast.error("The provider rejected this generation. Open it in Activity for the reason.");
+      else
+        toast.success(
+          result.status === "local_queued"
+            ? "Queued — it will submit as soon as a provider slot frees up."
+            : "Generation submitted. Track it in Activity.",
+        );
       setParentGenerationId(null);
       queryClient.invalidateQueries({ queryKey: ["generations"] });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "The generation could not be submitted");
     } finally {
+      submitLock.current = false;
       setSubmitting(false);
     }
   }

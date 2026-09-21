@@ -16,6 +16,7 @@ const submitInput = estimateInput.extend({
   projectId: z.string().uuid().nullable().optional(),
   parentGenerationId: z.string().uuid().nullable().optional(),
   estimatedCostUsd: z.number().nullable().optional(),
+  clientRequestId: z.string().min(8).max(64).optional(),
 });
 
 type Json = Record<string, unknown>;
@@ -114,15 +115,21 @@ export const submitGeneration = createServerFn({ method: "POST" })
     const issues = validateParameters(model, data.parameters, roles);
     if (issues.length) throw new AppError("INVALID_PARAMETERS", issues.map((i) => i.message).join("; "));
 
-    // The browser's estimate is only a hint: the authoritative figure is
-    // re-fetched from the provider here with the parameters actually submitted.
-    const { higgsfieldProvider, extractCost } = await import("./higgsfield/provider.server");
-    const estimateCall = await higgsfieldProvider.estimate(model.model_path, data.parameters);
-    const serverCost = estimateCall.ok ? extractCost(estimateCall.data) : null;
-    const estimatedCost = serverCost ?? data.estimatedCostUsd ?? null;
+    // Idempotency: a retried or double-clicked submission carries the same
+    // client_request_id and can therefore never create a second billable job.
+    const clientRequestId = data.clientRequestId ?? null;
+    if (clientRequestId) {
+      const { data: existing } = await supabaseAdmin
+        .from("generations")
+        .select("id,status")
+        .eq("client_request_id", clientRequestId)
+        .maybeSingle();
+      if (existing) return { generationId: existing.id, status: existing.status };
+    }
 
-    if (settings["require_cost_estimate"] === true && serverCost === null)
-      throw new AppError("ESTIMATE_FAILED", "A valid cost estimate is required before generating");
+    // The provisional browser estimate is stored here; the pipeline re-requests
+    // the authoritative estimate with the exact serialized provider payload.
+    const estimatedCost = data.estimatedCostUsd ?? null;
 
     const { data: generation, error } = await supabaseAdmin
       .from("generations")
@@ -131,6 +138,7 @@ export const submitGeneration = createServerFn({ method: "POST" })
         project_id: data.projectId ?? null,
         model_registry_id: model.id,
         parent_generation_id: data.parentGenerationId ?? null,
+        client_request_id: clientRequestId,
         provider: model.provider,
         model_path: model.model_path,
         operation: model.operation as never,
@@ -143,7 +151,18 @@ export const submitGeneration = createServerFn({ method: "POST" })
       })
       .select("id")
       .single();
-    if (error || !generation) throw new AppError("UNKNOWN", error?.message);
+    if (error || !generation) {
+      // Unique violation = a concurrent duplicate of the same click.
+      if (error?.code === "23505" && clientRequestId) {
+        const { data: raced } = await supabaseAdmin
+          .from("generations")
+          .select("id,status")
+          .eq("client_request_id", clientRequestId)
+          .maybeSingle();
+        if (raced) return { generationId: raced.id, status: raced.status };
+      }
+      throw new AppError("UNKNOWN", error?.message);
+    }
 
     await pipeline.logEvent(generation.id, "created", { model_path: model.model_path });
 

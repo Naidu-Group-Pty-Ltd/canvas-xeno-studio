@@ -146,10 +146,15 @@ export async function submitToProvider(generationId: string): Promise<{ status: 
     return { status: generation.status };
   }
 
-  await supabaseAdmin
+  // Atomic claim: only one caller can move this record into "submitting", so
+  // two concurrent dispatch/submit paths can never POST the same job twice.
+  const { data: claimed } = await supabaseAdmin
     .from("generations")
     .update({ status: "submitting", submission_started_at: new Date().toISOString() })
-    .eq("id", generationId);
+    .eq("id", generationId)
+    .in("status", ["ready", "local_queued", "draft", "estimating"])
+    .select("id");
+  if (!claimed?.length) return { status: generation.status };
   await logEvent(generationId, "submission_started");
 
   try {
@@ -166,6 +171,37 @@ export async function submitToProvider(generationId: string): Promise<{ status: 
 
   const model = generation.model_registry as unknown as ModelRegistryEntry;
   const params = await buildProviderParams(model, (generation.parameters ?? {}) as Json, generationId);
+
+  // Authoritative estimate: requested with the SAME payload that is submitted,
+  // so the stored figure always corresponds to the generation being run.
+  const settings = await getSettings();
+  await logEvent(generationId, "estimate_requested", { model_path: generation.model_path });
+  const estimateCall = await higgsfieldProvider.estimate(generation.model_path, params);
+  const serverCost = estimateCall.ok ? extractCost(estimateCall.data) : null;
+  if (serverCost !== null) {
+    await supabaseAdmin
+      .from("generations")
+      .update({ estimated_cost_usd: serverCost, cost_source: "provider_estimate" })
+      .eq("id", generationId);
+    await supabaseAdmin
+      .from("usage_ledger")
+      .update({ estimated_cost_usd: serverCost })
+      .eq("generation_id", generationId);
+    await logEvent(generationId, "estimate_received", { estimated_cost_usd: serverCost });
+  } else if (settings["require_cost_estimate"] === true) {
+    await supabaseAdmin
+      .from("generations")
+      .update({
+        status: "failed",
+        error_code: "ESTIMATE_FAILED",
+        error_message: "A valid cost estimate could not be obtained, so nothing was submitted",
+        completed_at: new Date().toISOString(),
+      })
+      .eq("id", generationId);
+    await logEvent(generationId, "failed", { code: "ESTIMATE_FAILED" });
+    return { status: "failed" };
+  }
+
   const call = await higgsfieldProvider.submit(generation.model_path, params, webhookUrl());
 
   if (call.ok) {
@@ -351,6 +387,7 @@ export async function ingestOutputs(generationId: string): Promise<number> {
   const existingPaths = new Set((existing ?? []).map((row) => row.storage_path));
 
   let created = existingPaths.size;
+  let failures = 0;
   for (const [index, output] of usable.entries()) {
     try {
       const extension = (output.url.split("?")[0]!.split(".").pop() ?? "bin").slice(0, 5).replace(/[^a-z0-9]/gi, "");
@@ -391,15 +428,28 @@ export async function ingestOutputs(generationId: string): Promise<number> {
       if (error && !error.message.includes("duplicate")) throw new Error(error.message);
       created += 1;
     } catch (error) {
+      failures += 1;
       console.error("ingest failed", { generationId, message: (error as Error).message });
     }
   }
 
+  // A partially ingested generation stays "failed" so reconciliation retries it
+  // instead of quietly leaving an output only on the provider's servers.
+  const complete = failures === 0 && created > 0;
   await supabaseAdmin
     .from("generations")
-    .update({ ingest_status: created > 0 ? "completed" : "failed" })
+    .update({
+      ingest_status: complete ? "completed" : "failed",
+      ...(complete
+        ? {}
+        : { error_code: "INGEST_FAILED", error_message: "Some outputs could not be saved to storage" }),
+    })
     .eq("id", generationId);
-  await logEvent(generationId, "asset_ingest_completed", { assets: created });
+  await logEvent(generationId, complete ? "asset_ingest_completed" : "failed", {
+    assets: created,
+    failures,
+    code: complete ? undefined : "INGEST_FAILED",
+  });
   return created;
 }
 
@@ -421,6 +471,30 @@ export async function ingestPending(limit = 5): Promise<number> {
 
 export async function reconcileStaleGenerations(limit = 10): Promise<number> {
   const staleBefore = new Date(Date.now() - 60_000).toISOString();
+
+  // A record left in "submitting" (crashed worker, dropped connection) is
+  // ambiguous: it may already be running and charging. It becomes
+  // submission_uncertain and waits for a human decision — never auto-retried.
+  const stuckBefore = new Date(Date.now() - 10 * 60_000).toISOString();
+  const { data: stuck } = await supabaseAdmin
+    .from("generations")
+    .select("id")
+    .eq("status", "submitting")
+    .lt("submission_started_at", stuckBefore)
+    .limit(limit);
+  for (const row of stuck ?? []) {
+    await supabaseAdmin
+      .from("generations")
+      .update({
+        status: "submission_uncertain",
+        error_code: "SUBMISSION_UNCERTAIN",
+        error_message: "Submission did not complete and its provider outcome is unknown",
+      })
+      .eq("id", row.id)
+      .eq("status", "submitting");
+    await logEvent(row.id, "submission_uncertain", { reason: "stuck_submitting" });
+  }
+
   const { data } = await supabaseAdmin
     .from("generations")
     .select("id,hf_request_id,hf_status_url,poll_attempts,last_polled_at,submitted_at")
