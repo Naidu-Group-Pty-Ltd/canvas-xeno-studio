@@ -14,6 +14,7 @@ import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as AssetsRouteImport } from './routes/assets'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ModelsRouteImport } from './routes/models'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as UsageRouteImport } from './routes/usage'
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
@@ -43,6 +44,11 @@ const AuthRoute = AuthRouteImport.update({
 const ModelsRoute = ModelsRouteImport.update({
   id: '/models',
   path: '/models',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const UsageRoute = UsageRouteImport.update({
@@ -79,6 +85,7 @@ export interface FileRoutesByFullPath {
   '/assets': typeof AssetsRoute
   '/auth': typeof AuthRoute
   '/models': typeof ModelsRoute
+  '/settings': typeof SettingsRoute
   '/usage': typeof UsageRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/': typeof ProjectsIndexRoute
@@ -91,6 +98,7 @@ export interface FileRoutesByTo {
   '/assets': typeof AssetsRoute
   '/auth': typeof AuthRoute
   '/models': typeof ModelsRoute
+  '/settings': typeof SettingsRoute
   '/usage': typeof UsageRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects': typeof ProjectsIndexRoute
@@ -104,6 +112,7 @@ export interface FileRoutesById {
   '/assets': typeof AssetsRoute
   '/auth': typeof AuthRoute
   '/models': typeof ModelsRoute
+  '/settings': typeof SettingsRoute
   '/usage': typeof UsageRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/': typeof ProjectsIndexRoute
@@ -118,6 +127,7 @@ export interface FileRouteTypes {
     | '/assets'
     | '/auth'
     | '/models'
+    | '/settings'
     | '/usage'
     | '/projects/$projectId'
     | '/projects/'
@@ -130,6 +140,7 @@ export interface FileRouteTypes {
     | '/assets'
     | '/auth'
     | '/models'
+    | '/settings'
     | '/usage'
     | '/projects/$projectId'
     | '/projects'
@@ -142,6 +153,7 @@ export interface FileRouteTypes {
     | '/assets'
     | '/auth'
     | '/models'
+    | '/settings'
     | '/usage'
     | '/projects/$projectId'
     | '/projects/'
@@ -155,6 +167,7 @@ export interface RootRouteChildren {
   AssetsRoute: typeof AssetsRoute
   AuthRoute: typeof AuthRoute
   ModelsRoute: typeof ModelsRoute
+  SettingsRoute: typeof SettingsRoute
   UsageRoute: typeof UsageRoute
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
   ProjectsIndexRoute: typeof ProjectsIndexRoute
@@ -197,6 +210,13 @@ declare module '@tanstack/react-router' {
       path: '/models'
       fullPath: '/models'
       preLoaderRoute: typeof ModelsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/usage': {
@@ -243,6 +263,7 @@ const rootRouteChildren: RootRouteChildren = {
   AssetsRoute: AssetsRoute,
   AuthRoute: AuthRoute,
   ModelsRoute: ModelsRoute,
+  SettingsRoute: SettingsRoute,
   UsageRoute: UsageRoute,
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,
