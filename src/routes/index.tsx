@@ -522,10 +522,14 @@ function CreatePage() {
                 <span className="font-mono">
                   {estimate.kind === "loading" && "Calculating…"}
                   {estimate.kind === "ready" && `$${estimate.costUsd.toFixed(2)}`}
+                  {estimate.kind === "metered" && "Metered"}
                   {estimate.kind === "unavailable" && estimate.reason}
                   {estimate.kind === "idle" && "—"}
                 </span>
               </div>
+              {estimate.kind === "metered" && (
+                <p className="text-[11px] leading-relaxed text-muted-foreground">{estimate.description}</p>
+              )}
               {batchCount > 1 && (
                 <p className="text-[11px] text-primary">
                   Batch matrix: {batchCount} generations
