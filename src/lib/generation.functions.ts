@@ -51,7 +51,9 @@ export const getProviderHealth = createServerFn({ method: "GET" })
       enabled,
       state,
       lastSuccessAt: lastSuccess,
-      lastError: lastError ? { at: lastError["at"], message: lastError["message"] } : null,
+      lastError: lastError
+        ? { at: String(lastError["at"] ?? ""), message: String(lastError["message"] ?? "") }
+        : null,
       requiredSecrets: ["HF_KEY_ID", "HF_KEY_SECRET"],
     };
   });
