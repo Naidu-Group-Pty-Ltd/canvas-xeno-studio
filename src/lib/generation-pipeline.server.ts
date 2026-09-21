@@ -624,6 +624,29 @@ export async function reconcileStaleGenerations(limit = 10): Promise<number> {
       await applyProviderPayload(row.id, call.data);
     } else {
       await recordProviderHealth(false, call.errorMessage);
+      const attempts = (row.poll_attempts ?? 0) + 1;
+      const unknownJob = call.status === 404;
+      const exhausted = attempts >= 40; // ~several hours with backoff
+      // A job the provider no longer recognises, or one that never resolves, is
+      // closed out with a readable reason instead of hanging in the list forever.
+      if (unknownJob || exhausted) {
+        await supabaseAdmin
+          .from("generations")
+          .update({
+            status: "failed",
+            error_code: unknownJob ? "PROVIDER_REJECTED" : "PROVIDER_TIMEOUT",
+            error_message: unknownJob
+              ? "The provider no longer recognises this request. Retry it as a new generation."
+              : "The provider never reported a result for this request. Retry it as a new generation.",
+            completed_at: new Date().toISOString(),
+          })
+          .eq("id", row.id)
+          .in("status", ["queued", "in_progress"]);
+        await logEvent(row.id, "failed", {
+          reason: unknownJob ? "provider_unknown_request" : "poll_exhausted",
+          poll_attempts: attempts,
+        });
+      }
     }
   }
   return checked;

@@ -237,6 +237,12 @@ export function extractRequestId(payload: unknown): string | null {
   return null;
 }
 
+function numeric(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value))) return Number(value);
+  return null;
+}
+
 export function extractCost(payload: unknown): number | null {
   if (!payload || typeof payload !== "object") return null;
   const record = payload as Record<string, unknown>;
@@ -250,9 +256,14 @@ export function extractCost(payload: unknown): number | null {
     "estimated_cost_usd",
     "amount",
   ]) {
-    const value = record[key];
-    if (typeof value === "number" && Number.isFinite(value)) return value;
-    if (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value))) return Number(value);
+    const gross = numeric(record[key]);
+    if (gross === null) continue;
+    // Account discounts are returned separately; the figure shown to the team
+    // must be what the account is actually charged.
+    const discount = record["discount"];
+    const off = discount && typeof discount === "object" ? numeric((discount as Record<string, unknown>)["usd"]) : null;
+    const net = off !== null ? gross - off : gross;
+    return net > 0 ? Number(net.toFixed(4)) : 0;
   }
   for (const key of ["data", "estimate", "pricing", "result"]) {
     if (record[key] && typeof record[key] === "object") {
@@ -383,7 +394,13 @@ export async function providerHealthCheck(): Promise<ProviderCall<unknown>> {
   });
 }
 
-/** Only provider result URLs are ever fetched during ingestion (SSRF guard). */
+/**
+ * Only result URLs on the provider's own delivery hosts are ever fetched during
+ * ingestion, so a forged webhook cannot make the server fetch an arbitrary
+ * address (SSRF guard).
+ */
+const OUTPUT_HOST_SUFFIXES = ["higgsfield.ai", "cloudfront.net", "amazonaws.com"];
+
 export function isAllowedOutputUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
@@ -391,7 +408,7 @@ export function isAllowedOutputUrl(url: string): boolean {
     const host = parsed.hostname.toLowerCase();
     if (host === "localhost" || host.endsWith(".local")) return false;
     if (/^\d+\.\d+\.\d+\.\d+$/.test(host)) return false;
-    return true;
+    return OUTPUT_HOST_SUFFIXES.some((suffix) => host === suffix || host.endsWith(`.${suffix}`));
   } catch {
     return false;
   }

@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useAuth } from "@/hooks/useAuth";
 
 export const Route = createFileRoute("/projects/$projectId")({
   head: () => ({
@@ -33,6 +34,7 @@ export const Route = createFileRoute("/projects/$projectId")({
 function ProjectDetailPage() {
   const { projectId } = Route.useParams();
   const queryClient = useQueryClient();
+  const { isAdmin } = useAuth();
   const [selected, setSelected] = useState<AssetRow | null>(null);
   const [openGeneration, setOpenGeneration] = useState<string | null>(null);
   const [renaming, setRenaming] = useState(false);
@@ -117,34 +119,46 @@ function ProjectDetailPage() {
         </div>
 
         <div className="panel flex flex-wrap items-end gap-4 p-4">
-          <div>
-            <Label htmlFor="project-budget" className="text-xs text-muted-foreground">
-              Spending limit (USD)
-            </Label>
-            <Input
-              id="project-budget"
-              type="number"
-              min="0"
-              className="mt-1 w-36"
-              defaultValue={projectBudget?.budget_usd ?? ""}
-              onBlur={(e) => void saveBudget({ budget_usd: e.target.value ? Number(e.target.value) : null })}
-            />
-          </div>
-          <div>
-            <Label htmlFor="project-budget-mode" className="text-xs text-muted-foreground">
-              When reached
-            </Label>
-            <select
-              id="project-budget-mode"
-              className="mt-1 h-9 rounded-md border border-border bg-surface-raised px-2 text-sm"
-              value={projectBudget?.budget_mode ?? "none"}
-              onChange={(e) => void saveBudget({ budget_mode: e.target.value })}
-            >
-              <option value="none">Not enforced</option>
-              <option value="soft">Warn only</option>
-              <option value="hard">Block new generations</option>
-            </select>
-          </div>
+          {isAdmin ? (
+            <>
+              <div>
+                <Label htmlFor="project-budget" className="text-xs text-muted-foreground">
+                  Spending limit (USD)
+                </Label>
+                <Input
+                  id="project-budget"
+                  type="number"
+                  min="0"
+                  className="mt-1 w-36"
+                  defaultValue={projectBudget?.budget_usd ?? ""}
+                  onBlur={(e) => void saveBudget({ budget_usd: e.target.value ? Number(e.target.value) : null })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="project-budget-mode" className="text-xs text-muted-foreground">
+                  When reached
+                </Label>
+                <select
+                  id="project-budget-mode"
+                  className="mt-1 h-9 rounded-md border border-border bg-surface-raised px-2 text-sm"
+                  value={projectBudget?.budget_mode ?? "none"}
+                  onChange={(e) => void saveBudget({ budget_mode: e.target.value })}
+                >
+                  <option value="none">Not enforced</option>
+                  <option value="soft">Warn only</option>
+                  <option value="hard">Block new generations</option>
+                </select>
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Spending limit:{" "}
+              {projectBudget?.budget_usd != null
+                ? `$${Number(projectBudget.budget_usd).toFixed(2)} (${projectBudget.budget_mode ?? "none"})`
+                : "not set"}{" "}
+              · administrators only
+            </p>
+          )}
           <p className="text-xs text-muted-foreground">
             Spent so far: ${spentEstimated.toFixed(2)} estimated
             {projectBudget?.budget_usd != null ? ` of $${Number(projectBudget.budget_usd).toFixed(2)}` : ""}
