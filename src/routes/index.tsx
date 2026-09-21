@@ -16,6 +16,7 @@ import { useAssets, useGenerations, useModels, useProjects, useSettings, type As
 import { useAuth } from "@/hooks/useAuth";
 import { defaultsForModel, validateParameters, type ModelRegistryEntry } from "@/lib/model-schema";
 import { estimateGeneration, submitGeneration } from "@/lib/generation.functions";
+import { BatchMatrix, expandMatrix, type MatrixSelection } from "@/components/create/BatchMatrix";
 import { loadPromptDraft, takeCreatePrefill, PREFILL_EVENT } from "@/lib/create-draft";
 import { CinemaControls } from "@/components/create/CinemaControls";
 import { cinemaSupported, compileCinemaPrompt, promptCinemaGroups, type CinemaSelection } from "@/lib/cinema";
@@ -65,6 +66,8 @@ function CreatePage() {
   const [mediaType, setMediaType] = useState<"image" | "video">("image");
   const [modelId, setModelId] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [campaignId, setCampaignId] = useState<string | null>(null);
+  const [matrix, setMatrix] = useState<MatrixSelection>({});
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [references, setReferences] = useState<ReferenceItem[]>([]);
   const [parentGenerationId, setParentGenerationId] = useState<string | null>(null);
@@ -235,19 +238,31 @@ function CreatePage() {
     requestIdRef.current = clientRequestId;
     setSubmitting(true);
     try {
-      const result = await submitGeneration({
-        data: {
-          modelId: model.id,
-          parameters: submitValues,
-          inputs: references.map((item, index) => ({ assetId: item.assetId, role: item.role, position: index })),
-          projectId,
-          parentGenerationId,
-          estimatedCostUsd: estimate.kind === "ready" ? estimate.costUsd : null,
-          clientRequestId,
-        },
-      });
+      // A batch matrix turns into one independent generation per combination;
+      // each carries its own idempotency key so none can be billed twice.
+      const combos = expandMatrix(matrix);
+      const payloads = combos.length ? combos : [{}];
+      let result = { generationId: "", status: "" as string, budgetWarning: null as string | null };
+      for (let index = 0; index < payloads.length; index += 1) {
+        result = await submitGeneration({
+          data: {
+            modelId: model.id,
+            parameters: { ...submitValues, ...payloads[index] },
+            inputs: references.map((item, i) => ({ assetId: item.assetId, role: item.role, position: i })),
+            projectId,
+            campaignId,
+            parentGenerationId,
+            estimatedCostUsd: estimate.kind === "ready" ? estimate.costUsd : null,
+            clientRequestId: payloads.length > 1 ? `${clientRequestId}-${index}` : clientRequestId,
+          },
+        });
+      }
+      if (result.budgetWarning) toast.warning(result.budgetWarning);
+      if (payloads.length > 1) toast.success(`${payloads.length} generations submitted. Track them in Activity.`);
       requestIdRef.current = null;
-      if (result.status === "submission_uncertain")
+      if (payloads.length > 1) {
+        // Per-combination outcomes are shown individually in Activity.
+      } else if (result.status === "submission_uncertain")
         toast.warning(
           "Submission status is uncertain. Automatic retry is disabled to prevent accidental duplicate generation charges. Review it in Activity.",
         );
@@ -340,6 +355,20 @@ function CreatePage() {
                     {projects.map((project) => (
                       <SelectItem key={project.id} value={project.id}>
                         {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={campaignId ?? "none"} onValueChange={(value) => setCampaignId(value === "none" ? null : value)}>
+                  <SelectTrigger className="h-9 w-48">
+                    <SelectValue placeholder="No campaign" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No campaign</SelectItem>
+                    {campaigns.map((campaign) => (
+                      <SelectItem key={campaign.id} value={campaign.id}>
+                        {campaign.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
