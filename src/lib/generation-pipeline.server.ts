@@ -387,6 +387,7 @@ export async function ingestOutputs(generationId: string): Promise<number> {
   const existingPaths = new Set((existing ?? []).map((row) => row.storage_path));
 
   let created = existingPaths.size;
+  let failures = 0;
   for (const [index, output] of usable.entries()) {
     try {
       const extension = (output.url.split("?")[0]!.split(".").pop() ?? "bin").slice(0, 5).replace(/[^a-z0-9]/gi, "");
