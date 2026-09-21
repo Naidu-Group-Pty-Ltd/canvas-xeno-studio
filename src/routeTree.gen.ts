@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as AssetsRouteImport } from './routes/assets'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as LibraryRouteImport } from './routes/library'
 import { Route as ModelsRouteImport } from './routes/models'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as UsageRouteImport } from './routes/usage'
@@ -39,6 +40,11 @@ const AssetsRoute = AssetsRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LibraryRoute = LibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ModelsRoute = ModelsRouteImport.update({
@@ -84,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/activity': typeof ActivityRoute
   '/assets': typeof AssetsRoute
   '/auth': typeof AuthRoute
+  '/library': typeof LibraryRoute
   '/models': typeof ModelsRoute
   '/settings': typeof SettingsRoute
   '/usage': typeof UsageRoute
@@ -97,6 +104,7 @@ export interface FileRoutesByTo {
   '/activity': typeof ActivityRoute
   '/assets': typeof AssetsRoute
   '/auth': typeof AuthRoute
+  '/library': typeof LibraryRoute
   '/models': typeof ModelsRoute
   '/settings': typeof SettingsRoute
   '/usage': typeof UsageRoute
@@ -111,6 +119,7 @@ export interface FileRoutesById {
   '/activity': typeof ActivityRoute
   '/assets': typeof AssetsRoute
   '/auth': typeof AuthRoute
+  '/library': typeof LibraryRoute
   '/models': typeof ModelsRoute
   '/settings': typeof SettingsRoute
   '/usage': typeof UsageRoute
@@ -126,6 +135,7 @@ export interface FileRouteTypes {
     | '/activity'
     | '/assets'
     | '/auth'
+    | '/library'
     | '/models'
     | '/settings'
     | '/usage'
@@ -139,6 +149,7 @@ export interface FileRouteTypes {
     | '/activity'
     | '/assets'
     | '/auth'
+    | '/library'
     | '/models'
     | '/settings'
     | '/usage'
@@ -152,6 +163,7 @@ export interface FileRouteTypes {
     | '/activity'
     | '/assets'
     | '/auth'
+    | '/library'
     | '/models'
     | '/settings'
     | '/usage'
@@ -166,6 +178,7 @@ export interface RootRouteChildren {
   ActivityRoute: typeof ActivityRoute
   AssetsRoute: typeof AssetsRoute
   AuthRoute: typeof AuthRoute
+  LibraryRoute: typeof LibraryRoute
   ModelsRoute: typeof ModelsRoute
   SettingsRoute: typeof SettingsRoute
   UsageRoute: typeof UsageRoute
@@ -203,6 +216,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/library': {
+      id: '/library'
+      path: '/library'
+      fullPath: '/library'
+      preLoaderRoute: typeof LibraryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/models': {
@@ -262,6 +282,7 @@ const rootRouteChildren: RootRouteChildren = {
   ActivityRoute: ActivityRoute,
   AssetsRoute: AssetsRoute,
   AuthRoute: AuthRoute,
+  LibraryRoute: LibraryRoute,
   ModelsRoute: ModelsRoute,
   SettingsRoute: SettingsRoute,
   UsageRoute: UsageRoute,
