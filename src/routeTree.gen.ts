@@ -10,7 +10,14 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ActivityRouteImport } from './routes/activity'
+import { Route as AssetsRouteImport } from './routes/assets'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as ModelsRouteImport } from './routes/models'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as UsageRouteImport } from './routes/usage'
+import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
+import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
 import { Route as ApiPublicHiggsfieldReconcileRouteImport } from './routes/api/public/higgsfield-reconcile'
 import { Route as ApiPublicHiggsfieldWebhookRouteImport } from './routes/api/public/higgsfield-webhook'
 
@@ -19,9 +26,44 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ActivityRoute = ActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AssetsRoute = AssetsRouteImport.update({
+  id: '/assets',
+  path: '/assets',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ModelsRoute = ModelsRouteImport.update({
+  id: '/models',
+  path: '/models',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UsageRoute = UsageRouteImport.update({
+  id: '/usage',
+  path: '/usage',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectsIndexRoute = ProjectsIndexRouteImport.update({
+  id: '/projects/',
+  path: '/projects/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
+  id: '/projects/$projectId',
+  path: '/projects/$projectId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicHiggsfieldReconcileRoute =
@@ -39,20 +81,41 @@ const ApiPublicHiggsfieldWebhookRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/activity': typeof ActivityRoute
+  '/assets': typeof AssetsRoute
   '/auth': typeof AuthRoute
+  '/models': typeof ModelsRoute
+  '/settings': typeof SettingsRoute
+  '/usage': typeof UsageRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/projects/': typeof ProjectsIndexRoute
   '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
   '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/activity': typeof ActivityRoute
+  '/assets': typeof AssetsRoute
   '/auth': typeof AuthRoute
+  '/models': typeof ModelsRoute
+  '/settings': typeof SettingsRoute
+  '/usage': typeof UsageRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/projects': typeof ProjectsIndexRoute
   '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
   '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/activity': typeof ActivityRoute
+  '/assets': typeof AssetsRoute
   '/auth': typeof AuthRoute
+  '/models': typeof ModelsRoute
+  '/settings': typeof SettingsRoute
+  '/usage': typeof UsageRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/projects/': typeof ProjectsIndexRoute
   '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
   '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
 }
@@ -60,26 +123,54 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/activity'
+    | '/assets'
     | '/auth'
+    | '/models'
+    | '/settings'
+    | '/usage'
+    | '/projects/$projectId'
+    | '/projects/'
     | '/api/public/higgsfield-reconcile'
     | '/api/public/higgsfield-webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/activity'
+    | '/assets'
     | '/auth'
+    | '/models'
+    | '/settings'
+    | '/usage'
+    | '/projects/$projectId'
+    | '/projects'
     | '/api/public/higgsfield-reconcile'
     | '/api/public/higgsfield-webhook'
   id:
     | '__root__'
     | '/'
+    | '/activity'
+    | '/assets'
     | '/auth'
+    | '/models'
+    | '/settings'
+    | '/usage'
+    | '/projects/$projectId'
+    | '/projects/'
     | '/api/public/higgsfield-reconcile'
     | '/api/public/higgsfield-webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ActivityRoute: typeof ActivityRoute
+  AssetsRoute: typeof AssetsRoute
   AuthRoute: typeof AuthRoute
+  ModelsRoute: typeof ModelsRoute
+  SettingsRoute: typeof SettingsRoute
+  UsageRoute: typeof UsageRoute
+  ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
+  ProjectsIndexRoute: typeof ProjectsIndexRoute
   ApiPublicHiggsfieldReconcileRoute: typeof ApiPublicHiggsfieldReconcileRoute
   ApiPublicHiggsfieldWebhookRoute: typeof ApiPublicHiggsfieldWebhookRoute
 }
@@ -93,11 +184,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/activity': {
+      id: '/activity'
+      path: '/activity'
+      fullPath: '/activity'
+      preLoaderRoute: typeof ActivityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/assets': {
+      id: '/assets'
+      path: '/assets'
+      fullPath: '/assets'
+      preLoaderRoute: typeof AssetsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/models': {
+      id: '/models'
+      path: '/models'
+      fullPath: '/models'
+      preLoaderRoute: typeof ModelsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/usage': {
+      id: '/usage'
+      path: '/usage'
+      fullPath: '/usage'
+      preLoaderRoute: typeof UsageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projects/': {
+      id: '/projects/'
+      path: '/projects'
+      fullPath: '/projects/'
+      preLoaderRoute: typeof ProjectsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projects/$projectId': {
+      id: '/projects/$projectId'
+      path: '/projects/$projectId'
+      fullPath: '/projects/$projectId'
+      preLoaderRoute: typeof ProjectsProjectIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/higgsfield-reconcile': {
@@ -119,7 +259,14 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ActivityRoute: ActivityRoute,
+  AssetsRoute: AssetsRoute,
   AuthRoute: AuthRoute,
+  ModelsRoute: ModelsRoute,
+  SettingsRoute: SettingsRoute,
+  UsageRoute: UsageRoute,
+  ProjectsProjectIdRoute: ProjectsProjectIdRoute,
+  ProjectsIndexRoute: ProjectsIndexRoute,
   ApiPublicHiggsfieldReconcileRoute: ApiPublicHiggsfieldReconcileRoute,
   ApiPublicHiggsfieldWebhookRoute: ApiPublicHiggsfieldWebhookRoute,
 }
