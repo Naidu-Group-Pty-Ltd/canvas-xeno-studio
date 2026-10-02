@@ -334,6 +334,1619 @@ export type Database = {
           },
         ]
       }
+      avatar_asset_relationships: {
+        Row: {
+          created_at: string
+          id: string
+          relationship: string
+          source_asset_id: string
+          target_asset_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          relationship: string
+          source_asset_id: string
+          target_asset_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          relationship?: string
+          source_asset_id?: string
+          target_asset_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avatar_asset_relationships_source_asset_id_fkey"
+            columns: ["source_asset_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_asset_relationships_target_asset_id_fkey"
+            columns: ["target_asset_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avatar_assets: {
+        Row: {
+          asset_role: string
+          asset_type: string
+          consent_required: boolean
+          created_at: string
+          deleted_at: string | null
+          duration_seconds: number | null
+          file_size: number | null
+          folder_id: string | null
+          height: number | null
+          id: string
+          metadata: Json
+          mime_type: string | null
+          project_id: string | null
+          provider_asset_id: string | null
+          provider_url: string | null
+          sensitivity: string
+          source_type: string
+          storage_bucket: string
+          storage_path: string
+          title: string | null
+          uploaded_by: string | null
+          width: number | null
+        }
+        Insert: {
+          asset_role?: string
+          asset_type: string
+          consent_required?: boolean
+          created_at?: string
+          deleted_at?: string | null
+          duration_seconds?: number | null
+          file_size?: number | null
+          folder_id?: string | null
+          height?: number | null
+          id?: string
+          metadata?: Json
+          mime_type?: string | null
+          project_id?: string | null
+          provider_asset_id?: string | null
+          provider_url?: string | null
+          sensitivity?: string
+          source_type?: string
+          storage_bucket: string
+          storage_path: string
+          title?: string | null
+          uploaded_by?: string | null
+          width?: number | null
+        }
+        Update: {
+          asset_role?: string
+          asset_type?: string
+          consent_required?: boolean
+          created_at?: string
+          deleted_at?: string | null
+          duration_seconds?: number | null
+          file_size?: number | null
+          folder_id?: string | null
+          height?: number | null
+          id?: string
+          metadata?: Json
+          mime_type?: string | null
+          project_id?: string | null
+          provider_asset_id?: string | null
+          provider_url?: string | null
+          sensitivity?: string
+          source_type?: string
+          storage_bucket?: string
+          storage_path?: string
+          title?: string | null
+          uploaded_by?: string | null
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avatar_assets_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_assets_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_assets_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avatar_characters: {
+        Row: {
+          avatar_type: string
+          created_at: string
+          created_by: string | null
+          default_voice_id: string | null
+          deleted_at: string | null
+          description: string | null
+          display_name: string
+          id: string
+          is_active: boolean
+          local_consent_status: string
+          ownership_type: string
+          preview_asset_id: string | null
+          preview_url: string | null
+          project_id: string | null
+          provider: string
+          provider_consent_status: string | null
+          provider_group_id: string | null
+          provider_payload: Json
+          provider_training_status: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_type?: string
+          created_at?: string
+          created_by?: string | null
+          default_voice_id?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          display_name: string
+          id?: string
+          is_active?: boolean
+          local_consent_status?: string
+          ownership_type?: string
+          preview_asset_id?: string | null
+          preview_url?: string | null
+          project_id?: string | null
+          provider?: string
+          provider_consent_status?: string | null
+          provider_group_id?: string | null
+          provider_payload?: Json
+          provider_training_status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_type?: string
+          created_at?: string
+          created_by?: string | null
+          default_voice_id?: string | null
+          deleted_at?: string | null
+          description?: string | null
+          display_name?: string
+          id?: string
+          is_active?: boolean
+          local_consent_status?: string
+          ownership_type?: string
+          preview_asset_id?: string | null
+          preview_url?: string | null
+          project_id?: string | null
+          provider?: string
+          provider_consent_status?: string | null
+          provider_group_id?: string | null
+          provider_payload?: Json
+          provider_training_status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avatar_characters_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_characters_default_voice_fk"
+            columns: ["default_voice_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_voices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_characters_preview_asset_id_fkey"
+            columns: ["preview_asset_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_characters_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avatar_consents: {
+        Row: {
+          asset_id: string | null
+          attested_at: string | null
+          attested_by: string | null
+          character_id: string | null
+          consent_category: string
+          consent_method: string
+          created_at: string
+          id: string
+          internal_attestation: string | null
+          permission_description: string | null
+          provider_consent_expires_at: string | null
+          provider_consent_id: string | null
+          provider_consent_url: string | null
+          provider_payload: Json
+          provider_required: boolean
+          provider_status: string | null
+          subject_type: string
+          updated_at: string
+          voice_id: string | null
+          workflow: string | null
+        }
+        Insert: {
+          asset_id?: string | null
+          attested_at?: string | null
+          attested_by?: string | null
+          character_id?: string | null
+          consent_category: string
+          consent_method?: string
+          created_at?: string
+          id?: string
+          internal_attestation?: string | null
+          permission_description?: string | null
+          provider_consent_expires_at?: string | null
+          provider_consent_id?: string | null
+          provider_consent_url?: string | null
+          provider_payload?: Json
+          provider_required?: boolean
+          provider_status?: string | null
+          subject_type: string
+          updated_at?: string
+          voice_id?: string | null
+          workflow?: string | null
+        }
+        Update: {
+          asset_id?: string | null
+          attested_at?: string | null
+          attested_by?: string | null
+          character_id?: string | null
+          consent_category?: string
+          consent_method?: string
+          created_at?: string
+          id?: string
+          internal_attestation?: string | null
+          permission_description?: string | null
+          provider_consent_expires_at?: string | null
+          provider_consent_id?: string | null
+          provider_consent_url?: string | null
+          provider_payload?: Json
+          provider_required?: boolean
+          provider_status?: string | null
+          subject_type?: string
+          updated_at?: string
+          voice_id?: string | null
+          workflow?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avatar_consents_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_consents_attested_by_fkey"
+            columns: ["attested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_consents_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_characters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_consents_voice_id_fkey"
+            columns: ["voice_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_voices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avatar_creative_bridges: {
+        Row: {
+          avatar_asset_id: string
+          bridged_by: string | null
+          created_at: string
+          creative_asset_id: string | null
+          id: string
+        }
+        Insert: {
+          avatar_asset_id: string
+          bridged_by?: string | null
+          created_at?: string
+          creative_asset_id?: string | null
+          id?: string
+        }
+        Update: {
+          avatar_asset_id?: string
+          bridged_by?: string | null
+          created_at?: string
+          creative_asset_id?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avatar_creative_bridges_avatar_asset_id_fkey"
+            columns: ["avatar_asset_id"]
+            isOneToOne: true
+            referencedRelation: "avatar_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_creative_bridges_bridged_by_fkey"
+            columns: ["bridged_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avatar_folders: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          parent_id: string | null
+          project_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          parent_id?: string | null
+          project_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          parent_id?: string | null
+          project_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avatar_folders_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_folders_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_folders_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avatar_identity_audit: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          details: Json
+          id: string
+          subject_id: string | null
+          subject_type: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          details?: Json
+          id?: string
+          subject_id?: string | null
+          subject_type?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          details?: Json
+          id?: string
+          subject_id?: string | null
+          subject_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avatar_identity_audit_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avatar_job_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          job_id: string
+          payload: Json
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          job_id: string
+          payload?: Json
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          job_id?: string
+          payload?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avatar_job_events_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avatar_jobs: {
+        Row: {
+          attempt: number
+          client_request_id: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          error_code: string | null
+          error_message: string | null
+          failed_at: string | null
+          id: string
+          idempotency_key: string | null
+          input_payload: Json
+          job_type: string
+          last_polled_at: string | null
+          normalized_input: Json
+          output_payload: Json | null
+          parent_job_id: string | null
+          poll_attempts: number
+          project_id: string | null
+          provider: string
+          provider_batch_id: string | null
+          provider_payload: Json | null
+          provider_request_id: string | null
+          provider_resource_type: string | null
+          queued_at: string | null
+          retry_policy: Json
+          started_at: string | null
+          status: string
+          submission_started_at: string | null
+          submission_state: string
+          submitted_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          attempt?: number
+          client_request_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          failed_at?: string | null
+          id?: string
+          idempotency_key?: string | null
+          input_payload?: Json
+          job_type: string
+          last_polled_at?: string | null
+          normalized_input?: Json
+          output_payload?: Json | null
+          parent_job_id?: string | null
+          poll_attempts?: number
+          project_id?: string | null
+          provider?: string
+          provider_batch_id?: string | null
+          provider_payload?: Json | null
+          provider_request_id?: string | null
+          provider_resource_type?: string | null
+          queued_at?: string | null
+          retry_policy?: Json
+          started_at?: string | null
+          status?: string
+          submission_started_at?: string | null
+          submission_state?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attempt?: number
+          client_request_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          failed_at?: string | null
+          id?: string
+          idempotency_key?: string | null
+          input_payload?: Json
+          job_type?: string
+          last_polled_at?: string | null
+          normalized_input?: Json
+          output_payload?: Json | null
+          parent_job_id?: string | null
+          poll_attempts?: number
+          project_id?: string | null
+          provider?: string
+          provider_batch_id?: string | null
+          provider_payload?: Json | null
+          provider_request_id?: string | null
+          provider_resource_type?: string | null
+          queued_at?: string | null
+          retry_policy?: Json
+          started_at?: string | null
+          status?: string
+          submission_started_at?: string | null
+          submission_state?: string
+          submitted_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avatar_jobs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_jobs_parent_job_id_fkey"
+            columns: ["parent_job_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_jobs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avatar_localizations: {
+        Row: {
+          audio_asset_id: string | null
+          caption_asset_id: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          error_message: string | null
+          id: string
+          job_id: string | null
+          kind: string
+          mode: string | null
+          output_asset_id: string | null
+          project_id: string | null
+          provider_payload: Json
+          provider_resource_id: string | null
+          source_asset_id: string | null
+          status: string
+          target_language: string | null
+        }
+        Insert: {
+          audio_asset_id?: string | null
+          caption_asset_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          job_id?: string | null
+          kind: string
+          mode?: string | null
+          output_asset_id?: string | null
+          project_id?: string | null
+          provider_payload?: Json
+          provider_resource_id?: string | null
+          source_asset_id?: string | null
+          status?: string
+          target_language?: string | null
+        }
+        Update: {
+          audio_asset_id?: string | null
+          caption_asset_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          job_id?: string | null
+          kind?: string
+          mode?: string | null
+          output_asset_id?: string | null
+          project_id?: string | null
+          provider_payload?: Json
+          provider_resource_id?: string | null
+          source_asset_id?: string | null
+          status?: string
+          target_language?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avatar_localizations_audio_asset_id_fkey"
+            columns: ["audio_asset_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_localizations_caption_asset_id_fkey"
+            columns: ["caption_asset_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_localizations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_localizations_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_localizations_output_asset_id_fkey"
+            columns: ["output_asset_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_localizations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_localizations_source_asset_id_fkey"
+            columns: ["source_asset_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avatar_looks: {
+        Row: {
+          avatar_type: string | null
+          character_id: string
+          created_at: string
+          default_provider_voice_id: string | null
+          deleted_at: string | null
+          display_name: string
+          id: string
+          is_default: boolean
+          orientation: string | null
+          preview_asset_id: string | null
+          preview_url: string | null
+          preview_video_url: string | null
+          provider_look_id: string
+          provider_payload: Json
+          supported_engines: Json
+          training_status: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_type?: string | null
+          character_id: string
+          created_at?: string
+          default_provider_voice_id?: string | null
+          deleted_at?: string | null
+          display_name: string
+          id?: string
+          is_default?: boolean
+          orientation?: string | null
+          preview_asset_id?: string | null
+          preview_url?: string | null
+          preview_video_url?: string | null
+          provider_look_id: string
+          provider_payload?: Json
+          supported_engines?: Json
+          training_status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_type?: string | null
+          character_id?: string
+          created_at?: string
+          default_provider_voice_id?: string | null
+          deleted_at?: string | null
+          display_name?: string
+          id?: string
+          is_default?: boolean
+          orientation?: string | null
+          preview_asset_id?: string | null
+          preview_url?: string | null
+          preview_video_url?: string | null
+          provider_look_id?: string
+          provider_payload?: Json
+          supported_engines?: Json
+          training_status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avatar_looks_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_characters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_looks_preview_asset_id_fkey"
+            columns: ["preview_asset_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avatar_projects: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_archived: boolean
+          name: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_archived?: boolean
+          name: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_archived?: boolean
+          name?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avatar_projects_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avatar_provider_webhook_events: {
+        Row: {
+          event_type: string | null
+          id: string
+          payload: Json
+          payload_hash: string
+          processed_at: string | null
+          processing_result: string | null
+          provider: string
+          provider_event_id: string | null
+          received_at: string
+          resource_id: string | null
+        }
+        Insert: {
+          event_type?: string | null
+          id?: string
+          payload?: Json
+          payload_hash: string
+          processed_at?: string | null
+          processing_result?: string | null
+          provider?: string
+          provider_event_id?: string | null
+          received_at?: string
+          resource_id?: string | null
+        }
+        Update: {
+          event_type?: string | null
+          id?: string
+          payload?: Json
+          payload_hash?: string
+          processed_at?: string | null
+          processing_result?: string | null
+          provider?: string
+          provider_event_id?: string | null
+          received_at?: string
+          resource_id?: string | null
+        }
+        Relationships: []
+      }
+      avatar_realtime_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          payload: Json
+          session_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          payload?: Json
+          session_id: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          payload?: Json
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avatar_realtime_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_realtime_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avatar_realtime_personas: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          language: string
+          liveavatar_avatar_id: string | null
+          liveavatar_context_id: string | null
+          liveavatar_voice_id: string | null
+          max_session_seconds: number
+          mode: string
+          name: string
+          system_prompt: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          language?: string
+          liveavatar_avatar_id?: string | null
+          liveavatar_context_id?: string | null
+          liveavatar_voice_id?: string | null
+          max_session_seconds?: number
+          mode?: string
+          name: string
+          system_prompt?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          language?: string
+          liveavatar_avatar_id?: string | null
+          liveavatar_context_id?: string | null
+          liveavatar_voice_id?: string | null
+          max_session_seconds?: number
+          mode?: string
+          name?: string
+          system_prompt?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avatar_realtime_personas_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avatar_realtime_session_secrets: {
+        Row: {
+          created_at: string
+          session_id: string
+          session_token: string
+        }
+        Insert: {
+          created_at?: string
+          session_id: string
+          session_token: string
+        }
+        Update: {
+          created_at?: string
+          session_id?: string
+          session_token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avatar_realtime_session_secrets_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "avatar_realtime_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avatar_realtime_sessions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          duration_seconds: number | null
+          end_reason: string | null
+          ended_at: string | null
+          error_message: string | null
+          id: string
+          is_sandbox: boolean
+          job_id: string | null
+          last_heartbeat_at: string | null
+          mode: string
+          persona_id: string | null
+          provider_session_id: string | null
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          duration_seconds?: number | null
+          end_reason?: string | null
+          ended_at?: string | null
+          error_message?: string | null
+          id?: string
+          is_sandbox?: boolean
+          job_id?: string | null
+          last_heartbeat_at?: string | null
+          mode?: string
+          persona_id?: string | null
+          provider_session_id?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          duration_seconds?: number | null
+          end_reason?: string | null
+          ended_at?: string | null
+          error_message?: string | null
+          id?: string
+          is_sandbox?: boolean
+          job_id?: string | null
+          last_heartbeat_at?: string | null
+          mode?: string
+          persona_id?: string | null
+          provider_session_id?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avatar_realtime_sessions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_realtime_sessions_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_realtime_sessions_persona_id_fkey"
+            columns: ["persona_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_realtime_personas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avatar_resource_sync: {
+        Row: {
+          completed_at: string | null
+          counts: Json
+          error_message: string | null
+          id: string
+          resource_type: string
+          started_at: string
+          started_by: string | null
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          counts?: Json
+          error_message?: string | null
+          id?: string
+          resource_type: string
+          started_at?: string
+          started_by?: string | null
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          counts?: Json
+          error_message?: string | null
+          id?: string
+          resource_type?: string
+          started_at?: string
+          started_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avatar_resource_sync_started_by_fkey"
+            columns: ["started_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avatar_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avatar_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avatar_usage_ledger: {
+        Row: {
+          actual_cost_usd: number | null
+          balance_after: number | null
+          balance_before: number | null
+          created_at: string
+          id: string
+          job_id: string | null
+          metadata: Json
+          provider: string
+          provider_credits: number | null
+          quantity: number | null
+          realtime_session_id: string | null
+          source: string
+          unit: string | null
+          usage_type: string
+          user_id: string | null
+        }
+        Insert: {
+          actual_cost_usd?: number | null
+          balance_after?: number | null
+          balance_before?: number | null
+          created_at?: string
+          id?: string
+          job_id?: string | null
+          metadata?: Json
+          provider?: string
+          provider_credits?: number | null
+          quantity?: number | null
+          realtime_session_id?: string | null
+          source: string
+          unit?: string | null
+          usage_type: string
+          user_id?: string | null
+        }
+        Update: {
+          actual_cost_usd?: number | null
+          balance_after?: number | null
+          balance_before?: number | null
+          created_at?: string
+          id?: string
+          job_id?: string | null
+          metadata?: Json
+          provider?: string
+          provider_credits?: number | null
+          quantity?: number | null
+          realtime_session_id?: string | null
+          source?: string
+          unit?: string | null
+          usage_type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avatar_usage_ledger_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_usage_ledger_realtime_session_id_fkey"
+            columns: ["realtime_session_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_realtime_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_usage_ledger_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avatar_videos: {
+        Row: {
+          aspect_ratio: string | null
+          audio_asset_id: string | null
+          character_id: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          duration_seconds: number | null
+          engine: string | null
+          generated_asset_id: string | null
+          id: string
+          job_id: string | null
+          look_id: string | null
+          motion_prompt: string | null
+          output_format: string | null
+          project_id: string | null
+          provider_payload: Json
+          provider_status: string | null
+          provider_video_id: string | null
+          resolution: string | null
+          script: string | null
+          thumbnail_asset_id: string | null
+          video_type: string
+          voice_id: string | null
+        }
+        Insert: {
+          aspect_ratio?: string | null
+          audio_asset_id?: string | null
+          character_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          duration_seconds?: number | null
+          engine?: string | null
+          generated_asset_id?: string | null
+          id?: string
+          job_id?: string | null
+          look_id?: string | null
+          motion_prompt?: string | null
+          output_format?: string | null
+          project_id?: string | null
+          provider_payload?: Json
+          provider_status?: string | null
+          provider_video_id?: string | null
+          resolution?: string | null
+          script?: string | null
+          thumbnail_asset_id?: string | null
+          video_type: string
+          voice_id?: string | null
+        }
+        Update: {
+          aspect_ratio?: string | null
+          audio_asset_id?: string | null
+          character_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          duration_seconds?: number | null
+          engine?: string | null
+          generated_asset_id?: string | null
+          id?: string
+          job_id?: string | null
+          look_id?: string | null
+          motion_prompt?: string | null
+          output_format?: string | null
+          project_id?: string | null
+          provider_payload?: Json
+          provider_status?: string | null
+          provider_video_id?: string | null
+          resolution?: string | null
+          script?: string | null
+          thumbnail_asset_id?: string | null
+          video_type?: string
+          voice_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avatar_videos_audio_asset_id_fkey"
+            columns: ["audio_asset_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_videos_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_characters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_videos_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_videos_generated_asset_id_fkey"
+            columns: ["generated_asset_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_videos_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_videos_look_id_fkey"
+            columns: ["look_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_looks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_videos_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_videos_thumbnail_asset_id_fkey"
+            columns: ["thumbnail_asset_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_videos_voice_id_fkey"
+            columns: ["voice_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_voices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avatar_voice_samples: {
+        Row: {
+          asset_id: string
+          created_at: string
+          duration_seconds: number | null
+          id: string
+          sample_role: string
+          sort_order: number
+          training_id: string | null
+          voice_id: string | null
+        }
+        Insert: {
+          asset_id: string
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          sample_role?: string
+          sort_order?: number
+          training_id?: string | null
+          voice_id?: string | null
+        }
+        Update: {
+          asset_id?: string
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          sample_role?: string
+          sort_order?: number
+          training_id?: string | null
+          voice_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avatar_voice_samples_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_voice_samples_training_fk"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_voice_trainings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_voice_samples_voice_id_fkey"
+            columns: ["voice_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_voices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avatar_voice_trainings: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          error_code: string | null
+          error_message: string | null
+          id: string
+          idempotency_key: string | null
+          job_id: string | null
+          mode: string
+          provider_payload: Json
+          provider_training_id: string | null
+          requested_language: string | null
+          sample_count: number
+          status: string
+          submitted_at: string | null
+          total_duration_seconds: number | null
+          voice_id: string | null
+          voice_name: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          idempotency_key?: string | null
+          job_id?: string | null
+          mode: string
+          provider_payload?: Json
+          provider_training_id?: string | null
+          requested_language?: string | null
+          sample_count?: number
+          status?: string
+          submitted_at?: string | null
+          total_duration_seconds?: number | null
+          voice_id?: string | null
+          voice_name?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          idempotency_key?: string | null
+          job_id?: string | null
+          mode?: string
+          provider_payload?: Json
+          provider_training_id?: string | null
+          requested_language?: string | null
+          sample_count?: number
+          status?: string
+          submitted_at?: string | null
+          total_duration_seconds?: number | null
+          voice_id?: string | null
+          voice_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avatar_voice_trainings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_voice_trainings_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_voice_trainings_voice_id_fkey"
+            columns: ["voice_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_voices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avatar_voices: {
+        Row: {
+          character_id: string | null
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          display_name: string
+          engine: string | null
+          gender_metadata: string | null
+          id: string
+          is_default_for_character: boolean
+          is_owned: boolean
+          language: string | null
+          locale: string | null
+          preview_asset_id: string | null
+          preview_url: string | null
+          project_id: string | null
+          provider: string
+          provider_payload: Json
+          provider_slot_status: string | null
+          provider_voice_id: string
+          status: string
+          supports_pause: boolean | null
+          updated_at: string
+          voice_type: string
+        }
+        Insert: {
+          character_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          display_name: string
+          engine?: string | null
+          gender_metadata?: string | null
+          id?: string
+          is_default_for_character?: boolean
+          is_owned?: boolean
+          language?: string | null
+          locale?: string | null
+          preview_asset_id?: string | null
+          preview_url?: string | null
+          project_id?: string | null
+          provider?: string
+          provider_payload?: Json
+          provider_slot_status?: string | null
+          provider_voice_id: string
+          status?: string
+          supports_pause?: boolean | null
+          updated_at?: string
+          voice_type: string
+        }
+        Update: {
+          character_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          display_name?: string
+          engine?: string | null
+          gender_metadata?: string | null
+          id?: string
+          is_default_for_character?: boolean
+          is_owned?: boolean
+          language?: string | null
+          locale?: string | null
+          preview_asset_id?: string | null
+          preview_url?: string | null
+          project_id?: string | null
+          provider?: string
+          provider_payload?: Json
+          provider_slot_status?: string | null
+          provider_voice_id?: string
+          status?: string
+          supports_pause?: boolean | null
+          updated_at?: string
+          voice_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avatar_voices_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_characters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_voices_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_voices_preview_asset_id_fkey"
+            columns: ["preview_asset_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avatar_voices_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "avatar_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaigns: {
         Row: {
           budget_mode: string
@@ -2043,6 +3656,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      avatar_get_provider_secret: { Args: { _name: string }; Returns: string }
+      avatar_set_provider_secret: {
+        Args: { _meta: Json; _name: string; _value: string }
+        Returns: undefined
+      }
       check_spend_allowance: {
         Args: { _amount: number; _campaign_id: string; _project_id: string }
         Returns: Json

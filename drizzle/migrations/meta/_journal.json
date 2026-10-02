@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1790944075651,
+      "tag": "0000_avatar_studio_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790944130691,
+      "tag": "0001_avatar_storage_policies_and_reconcile",
+      "breakpoints": true
+    }
+  ]
+}
