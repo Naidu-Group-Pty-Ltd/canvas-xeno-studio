@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as AssetsRouteImport } from './routes/assets'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AvatarRouteImport } from './routes/avatar'
 import { Route as CampaignsRouteImport } from './routes/campaigns'
 import { Route as CanvasRouteImport } from './routes/canvas'
 import { Route as DirectorRouteImport } from './routes/director'
@@ -23,8 +24,19 @@ import { Route as ModelsRouteImport } from './routes/models'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as StoryboardsRouteImport } from './routes/storyboards'
 import { Route as UsageRouteImport } from './routes/usage'
+import { Route as AvatarIndexRouteImport } from './routes/avatar.index'
+import { Route as AvatarCharactersRouteImport } from './routes/avatar.characters'
+import { Route as AvatarGenerateRouteImport } from './routes/avatar.generate'
+import { Route as AvatarJobsRouteImport } from './routes/avatar.jobs'
+import { Route as AvatarLibraryRouteImport } from './routes/avatar.library'
+import { Route as AvatarLiveRouteImport } from './routes/avatar.live'
+import { Route as AvatarLocalizeRouteImport } from './routes/avatar.localize'
+import { Route as AvatarSettingsRouteImport } from './routes/avatar.settings'
+import { Route as AvatarVoicesRouteImport } from './routes/avatar.voices'
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
+import { Route as ApiPublicAvatarHeygenWebhookRouteImport } from './routes/api/public/avatar-heygen-webhook'
+import { Route as ApiPublicAvatarReconcileRouteImport } from './routes/api/public/avatar-reconcile'
 import { Route as ApiPublicHiggsfieldReconcileRouteImport } from './routes/api/public/higgsfield-reconcile'
 import { Route as ApiPublicHiggsfieldWebhookRouteImport } from './routes/api/public/higgsfield-webhook'
 import { Route as ApiPublicMediaWorkerCallbackRouteImport } from './routes/api/public/media-worker-callback'
@@ -47,6 +59,11 @@ const AssetsRoute = AssetsRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AvatarRoute = AvatarRouteImport.update({
+  id: '/avatar',
+  path: '/avatar',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CampaignsRoute = CampaignsRouteImport.update({
@@ -99,6 +116,51 @@ const UsageRoute = UsageRouteImport.update({
   path: '/usage',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AvatarIndexRoute = AvatarIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AvatarRoute,
+} as any)
+const AvatarCharactersRoute = AvatarCharactersRouteImport.update({
+  id: '/characters',
+  path: '/characters',
+  getParentRoute: () => AvatarRoute,
+} as any)
+const AvatarGenerateRoute = AvatarGenerateRouteImport.update({
+  id: '/generate',
+  path: '/generate',
+  getParentRoute: () => AvatarRoute,
+} as any)
+const AvatarJobsRoute = AvatarJobsRouteImport.update({
+  id: '/jobs',
+  path: '/jobs',
+  getParentRoute: () => AvatarRoute,
+} as any)
+const AvatarLibraryRoute = AvatarLibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
+  getParentRoute: () => AvatarRoute,
+} as any)
+const AvatarLiveRoute = AvatarLiveRouteImport.update({
+  id: '/live',
+  path: '/live',
+  getParentRoute: () => AvatarRoute,
+} as any)
+const AvatarLocalizeRoute = AvatarLocalizeRouteImport.update({
+  id: '/localize',
+  path: '/localize',
+  getParentRoute: () => AvatarRoute,
+} as any)
+const AvatarSettingsRoute = AvatarSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AvatarRoute,
+} as any)
+const AvatarVoicesRoute = AvatarVoicesRouteImport.update({
+  id: '/voices',
+  path: '/voices',
+  getParentRoute: () => AvatarRoute,
+} as any)
 const ProjectsIndexRoute = ProjectsIndexRouteImport.update({
   id: '/projects/',
   path: '/projects/',
@@ -109,6 +171,18 @@ const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
   path: '/projects/$projectId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicAvatarHeygenWebhookRoute =
+  ApiPublicAvatarHeygenWebhookRouteImport.update({
+    id: '/api/public/avatar-heygen-webhook',
+    path: '/api/public/avatar-heygen-webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicAvatarReconcileRoute =
+  ApiPublicAvatarReconcileRouteImport.update({
+    id: '/api/public/avatar-reconcile',
+    path: '/api/public/avatar-reconcile',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHiggsfieldReconcileRoute =
   ApiPublicHiggsfieldReconcileRouteImport.update({
     id: '/api/public/higgsfield-reconcile',
@@ -133,6 +207,7 @@ export interface FileRoutesByFullPath {
   '/activity': typeof ActivityRoute
   '/assets': typeof AssetsRoute
   '/auth': typeof AuthRoute
+  '/avatar': typeof AvatarRouteWithChildren
   '/campaigns': typeof CampaignsRoute
   '/canvas': typeof CanvasRoute
   '/director': typeof DirectorRoute
@@ -143,8 +218,19 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/storyboards': typeof StoryboardsRoute
   '/usage': typeof UsageRoute
+  '/avatar/characters': typeof AvatarCharactersRoute
+  '/avatar/generate': typeof AvatarGenerateRoute
+  '/avatar/jobs': typeof AvatarJobsRoute
+  '/avatar/library': typeof AvatarLibraryRoute
+  '/avatar/live': typeof AvatarLiveRoute
+  '/avatar/localize': typeof AvatarLocalizeRoute
+  '/avatar/settings': typeof AvatarSettingsRoute
+  '/avatar/voices': typeof AvatarVoicesRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/avatar/': typeof AvatarIndexRoute
   '/projects/': typeof ProjectsIndexRoute
+  '/api/public/avatar-heygen-webhook': typeof ApiPublicAvatarHeygenWebhookRoute
+  '/api/public/avatar-reconcile': typeof ApiPublicAvatarReconcileRoute
   '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
   '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
   '/api/public/media-worker-callback': typeof ApiPublicMediaWorkerCallbackRoute
@@ -164,8 +250,19 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/storyboards': typeof StoryboardsRoute
   '/usage': typeof UsageRoute
+  '/avatar/characters': typeof AvatarCharactersRoute
+  '/avatar/generate': typeof AvatarGenerateRoute
+  '/avatar/jobs': typeof AvatarJobsRoute
+  '/avatar/library': typeof AvatarLibraryRoute
+  '/avatar/live': typeof AvatarLiveRoute
+  '/avatar/localize': typeof AvatarLocalizeRoute
+  '/avatar/settings': typeof AvatarSettingsRoute
+  '/avatar/voices': typeof AvatarVoicesRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/avatar': typeof AvatarIndexRoute
   '/projects': typeof ProjectsIndexRoute
+  '/api/public/avatar-heygen-webhook': typeof ApiPublicAvatarHeygenWebhookRoute
+  '/api/public/avatar-reconcile': typeof ApiPublicAvatarReconcileRoute
   '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
   '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
   '/api/public/media-worker-callback': typeof ApiPublicMediaWorkerCallbackRoute
@@ -176,6 +273,7 @@ export interface FileRoutesById {
   '/activity': typeof ActivityRoute
   '/assets': typeof AssetsRoute
   '/auth': typeof AuthRoute
+  '/avatar': typeof AvatarRouteWithChildren
   '/campaigns': typeof CampaignsRoute
   '/canvas': typeof CanvasRoute
   '/director': typeof DirectorRoute
@@ -186,8 +284,19 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/storyboards': typeof StoryboardsRoute
   '/usage': typeof UsageRoute
+  '/avatar/characters': typeof AvatarCharactersRoute
+  '/avatar/generate': typeof AvatarGenerateRoute
+  '/avatar/jobs': typeof AvatarJobsRoute
+  '/avatar/library': typeof AvatarLibraryRoute
+  '/avatar/live': typeof AvatarLiveRoute
+  '/avatar/localize': typeof AvatarLocalizeRoute
+  '/avatar/settings': typeof AvatarSettingsRoute
+  '/avatar/voices': typeof AvatarVoicesRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/avatar/': typeof AvatarIndexRoute
   '/projects/': typeof ProjectsIndexRoute
+  '/api/public/avatar-heygen-webhook': typeof ApiPublicAvatarHeygenWebhookRoute
+  '/api/public/avatar-reconcile': typeof ApiPublicAvatarReconcileRoute
   '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
   '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
   '/api/public/media-worker-callback': typeof ApiPublicMediaWorkerCallbackRoute
@@ -199,6 +308,7 @@ export interface FileRouteTypes {
     | '/activity'
     | '/assets'
     | '/auth'
+    | '/avatar'
     | '/campaigns'
     | '/canvas'
     | '/director'
@@ -209,8 +319,19 @@ export interface FileRouteTypes {
     | '/settings'
     | '/storyboards'
     | '/usage'
+    | '/avatar/characters'
+    | '/avatar/generate'
+    | '/avatar/jobs'
+    | '/avatar/library'
+    | '/avatar/live'
+    | '/avatar/localize'
+    | '/avatar/settings'
+    | '/avatar/voices'
     | '/projects/$projectId'
+    | '/avatar/'
     | '/projects/'
+    | '/api/public/avatar-heygen-webhook'
+    | '/api/public/avatar-reconcile'
     | '/api/public/higgsfield-reconcile'
     | '/api/public/higgsfield-webhook'
     | '/api/public/media-worker-callback'
@@ -230,8 +351,19 @@ export interface FileRouteTypes {
     | '/settings'
     | '/storyboards'
     | '/usage'
+    | '/avatar/characters'
+    | '/avatar/generate'
+    | '/avatar/jobs'
+    | '/avatar/library'
+    | '/avatar/live'
+    | '/avatar/localize'
+    | '/avatar/settings'
+    | '/avatar/voices'
     | '/projects/$projectId'
+    | '/avatar'
     | '/projects'
+    | '/api/public/avatar-heygen-webhook'
+    | '/api/public/avatar-reconcile'
     | '/api/public/higgsfield-reconcile'
     | '/api/public/higgsfield-webhook'
     | '/api/public/media-worker-callback'
@@ -241,6 +373,7 @@ export interface FileRouteTypes {
     | '/activity'
     | '/assets'
     | '/auth'
+    | '/avatar'
     | '/campaigns'
     | '/canvas'
     | '/director'
@@ -251,8 +384,19 @@ export interface FileRouteTypes {
     | '/settings'
     | '/storyboards'
     | '/usage'
+    | '/avatar/characters'
+    | '/avatar/generate'
+    | '/avatar/jobs'
+    | '/avatar/library'
+    | '/avatar/live'
+    | '/avatar/localize'
+    | '/avatar/settings'
+    | '/avatar/voices'
     | '/projects/$projectId'
+    | '/avatar/'
     | '/projects/'
+    | '/api/public/avatar-heygen-webhook'
+    | '/api/public/avatar-reconcile'
     | '/api/public/higgsfield-reconcile'
     | '/api/public/higgsfield-webhook'
     | '/api/public/media-worker-callback'
@@ -263,6 +407,7 @@ export interface RootRouteChildren {
   ActivityRoute: typeof ActivityRoute
   AssetsRoute: typeof AssetsRoute
   AuthRoute: typeof AuthRoute
+  AvatarRoute: typeof AvatarRouteWithChildren
   CampaignsRoute: typeof CampaignsRoute
   CanvasRoute: typeof CanvasRoute
   DirectorRoute: typeof DirectorRoute
@@ -275,6 +420,8 @@ export interface RootRouteChildren {
   UsageRoute: typeof UsageRoute
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
   ProjectsIndexRoute: typeof ProjectsIndexRoute
+  ApiPublicAvatarHeygenWebhookRoute: typeof ApiPublicAvatarHeygenWebhookRoute
+  ApiPublicAvatarReconcileRoute: typeof ApiPublicAvatarReconcileRoute
   ApiPublicHiggsfieldReconcileRoute: typeof ApiPublicHiggsfieldReconcileRoute
   ApiPublicHiggsfieldWebhookRoute: typeof ApiPublicHiggsfieldWebhookRoute
   ApiPublicMediaWorkerCallbackRoute: typeof ApiPublicMediaWorkerCallbackRoute
@@ -308,6 +455,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/avatar': {
+      id: '/avatar'
+      path: '/avatar'
+      fullPath: '/avatar'
+      preLoaderRoute: typeof AvatarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/campaigns': {
@@ -380,6 +534,69 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UsageRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/avatar/': {
+      id: '/avatar/'
+      path: '/'
+      fullPath: '/avatar/'
+      preLoaderRoute: typeof AvatarIndexRouteImport
+      parentRoute: typeof AvatarRoute
+    }
+    '/avatar/characters': {
+      id: '/avatar/characters'
+      path: '/characters'
+      fullPath: '/avatar/characters'
+      preLoaderRoute: typeof AvatarCharactersRouteImport
+      parentRoute: typeof AvatarRoute
+    }
+    '/avatar/generate': {
+      id: '/avatar/generate'
+      path: '/generate'
+      fullPath: '/avatar/generate'
+      preLoaderRoute: typeof AvatarGenerateRouteImport
+      parentRoute: typeof AvatarRoute
+    }
+    '/avatar/jobs': {
+      id: '/avatar/jobs'
+      path: '/jobs'
+      fullPath: '/avatar/jobs'
+      preLoaderRoute: typeof AvatarJobsRouteImport
+      parentRoute: typeof AvatarRoute
+    }
+    '/avatar/library': {
+      id: '/avatar/library'
+      path: '/library'
+      fullPath: '/avatar/library'
+      preLoaderRoute: typeof AvatarLibraryRouteImport
+      parentRoute: typeof AvatarRoute
+    }
+    '/avatar/live': {
+      id: '/avatar/live'
+      path: '/live'
+      fullPath: '/avatar/live'
+      preLoaderRoute: typeof AvatarLiveRouteImport
+      parentRoute: typeof AvatarRoute
+    }
+    '/avatar/localize': {
+      id: '/avatar/localize'
+      path: '/localize'
+      fullPath: '/avatar/localize'
+      preLoaderRoute: typeof AvatarLocalizeRouteImport
+      parentRoute: typeof AvatarRoute
+    }
+    '/avatar/settings': {
+      id: '/avatar/settings'
+      path: '/settings'
+      fullPath: '/avatar/settings'
+      preLoaderRoute: typeof AvatarSettingsRouteImport
+      parentRoute: typeof AvatarRoute
+    }
+    '/avatar/voices': {
+      id: '/avatar/voices'
+      path: '/voices'
+      fullPath: '/avatar/voices'
+      preLoaderRoute: typeof AvatarVoicesRouteImport
+      parentRoute: typeof AvatarRoute
+    }
     '/projects/': {
       id: '/projects/'
       path: '/projects'
@@ -392,6 +609,20 @@ declare module '@tanstack/react-router' {
       path: '/projects/$projectId'
       fullPath: '/projects/$projectId'
       preLoaderRoute: typeof ProjectsProjectIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/avatar-heygen-webhook': {
+      id: '/api/public/avatar-heygen-webhook'
+      path: '/api/public/avatar-heygen-webhook'
+      fullPath: '/api/public/avatar-heygen-webhook'
+      preLoaderRoute: typeof ApiPublicAvatarHeygenWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/avatar-reconcile': {
+      id: '/api/public/avatar-reconcile'
+      path: '/api/public/avatar-reconcile'
+      fullPath: '/api/public/avatar-reconcile'
+      preLoaderRoute: typeof ApiPublicAvatarReconcileRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/higgsfield-reconcile': {
@@ -418,11 +649,39 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AvatarRouteChildren {
+  AvatarCharactersRoute: typeof AvatarCharactersRoute
+  AvatarGenerateRoute: typeof AvatarGenerateRoute
+  AvatarJobsRoute: typeof AvatarJobsRoute
+  AvatarLibraryRoute: typeof AvatarLibraryRoute
+  AvatarLiveRoute: typeof AvatarLiveRoute
+  AvatarLocalizeRoute: typeof AvatarLocalizeRoute
+  AvatarSettingsRoute: typeof AvatarSettingsRoute
+  AvatarVoicesRoute: typeof AvatarVoicesRoute
+  AvatarIndexRoute: typeof AvatarIndexRoute
+}
+
+const AvatarRouteChildren: AvatarRouteChildren = {
+  AvatarCharactersRoute: AvatarCharactersRoute,
+  AvatarGenerateRoute: AvatarGenerateRoute,
+  AvatarJobsRoute: AvatarJobsRoute,
+  AvatarLibraryRoute: AvatarLibraryRoute,
+  AvatarLiveRoute: AvatarLiveRoute,
+  AvatarLocalizeRoute: AvatarLocalizeRoute,
+  AvatarSettingsRoute: AvatarSettingsRoute,
+  AvatarVoicesRoute: AvatarVoicesRoute,
+  AvatarIndexRoute: AvatarIndexRoute,
+}
+
+const AvatarRouteWithChildren =
+  AvatarRoute._addFileChildren(AvatarRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ActivityRoute: ActivityRoute,
   AssetsRoute: AssetsRoute,
   AuthRoute: AuthRoute,
+  AvatarRoute: AvatarRouteWithChildren,
   CampaignsRoute: CampaignsRoute,
   CanvasRoute: CanvasRoute,
   DirectorRoute: DirectorRoute,
@@ -435,6 +694,8 @@ const rootRouteChildren: RootRouteChildren = {
   UsageRoute: UsageRoute,
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,
+  ApiPublicAvatarHeygenWebhookRoute: ApiPublicAvatarHeygenWebhookRoute,
+  ApiPublicAvatarReconcileRoute: ApiPublicAvatarReconcileRoute,
   ApiPublicHiggsfieldReconcileRoute: ApiPublicHiggsfieldReconcileRoute,
   ApiPublicHiggsfieldWebhookRoute: ApiPublicHiggsfieldWebhookRoute,
   ApiPublicMediaWorkerCallbackRoute: ApiPublicMediaWorkerCallbackRoute,

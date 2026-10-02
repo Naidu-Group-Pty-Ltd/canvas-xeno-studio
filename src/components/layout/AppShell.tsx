@@ -19,6 +19,14 @@ import {
   Swords,
   TrendingUp,
   Wand2,
+  UserRound,
+  Mic,
+  Video,
+  Languages,
+  Radio,
+  ListChecks,
+  FolderOpen,
+  Gauge,
 } from "lucide-react";
 import { APP_NAME } from "@/lib/app-config";
 import { useAuth } from "@/hooks/useAuth";
@@ -57,10 +65,45 @@ const NAV = [
   { to: "/settings", label: "Settings", icon: Settings, flag: null },
 ] as const;
 
-/** V2 sections only appear when their feature flag is enabled. */
-function useNavItems() {
+const AVATAR_NAV = [
+  { to: "/avatar", label: "Overview", icon: Gauge, flag: null },
+  { to: "/avatar/characters", label: "Characters", icon: UserRound, flag: null },
+  { to: "/avatar/voices", label: "Voices", icon: Mic, flag: null },
+  { to: "/avatar/generate", label: "Generate", icon: Video, flag: null },
+  { to: "/avatar/localize", label: "Localize", icon: Languages, flag: "avatar_localization_enabled" },
+  { to: "/avatar/live", label: "Live", icon: Radio, flag: "avatar_realtime_enabled" },
+  { to: "/avatar/library", label: "Library", icon: FolderOpen, flag: null },
+  { to: "/avatar/jobs", label: "Jobs", icon: ListChecks, flag: null },
+  { to: "/avatar/settings", label: "Avatar Settings", icon: Settings, flag: null },
+] as const;
+
+type NavItem = { to: string; label: string; icon: typeof Sparkles; flag: string | null };
+
+/** Sections only appear when their feature flag is enabled; the vertical follows the URL. */
+function useNavItems(): NavItem[] {
   const { data: flags } = useFeatureFlags();
-  return NAV.filter((item) => !item.flag || (flags?.find((f) => f.key === item.flag)?.enabled ?? false));
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const on = (flag: string | null) => !flag || (flags?.find((f) => f.key === flag)?.enabled ?? false);
+  const items: readonly NavItem[] = pathname.startsWith("/avatar") ? AVATAR_NAV : NAV;
+  return items.filter((item) => on(item.flag));
+}
+
+function VerticalSwitcher({ collapsed }: { collapsed: boolean }) {
+  const { data: flags } = useFeatureFlags();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const enabled = flags?.find((f) => f.key === "avatar_studio_enabled")?.enabled ?? false;
+  if (!enabled || collapsed) return null;
+  const avatar = pathname.startsWith("/avatar");
+  return (
+    <div className="mx-2 grid grid-cols-2 gap-1 rounded-md border border-sidebar-border p-1 text-xs" role="tablist" aria-label="Studio">
+      <Link to="/" role="tab" aria-selected={!avatar} className={cn("rounded px-2 py-1.5 text-center", !avatar ? "bg-sidebar-accent text-foreground" : "text-muted-foreground hover:text-foreground")}>
+        Creative
+      </Link>
+      <Link to="/avatar" role="tab" aria-selected={avatar} className={cn("rounded px-2 py-1.5 text-center", avatar ? "bg-sidebar-accent text-foreground" : "text-muted-foreground hover:text-foreground")}>
+        Avatar
+      </Link>
+    </div>
+  );
 }
 
 
@@ -179,13 +222,14 @@ export function AppShell({ children, title }: { children: ReactNode; title?: str
           </span>
           {!collapsed && <span className="font-display text-sm font-semibold tracking-tight">{APP_NAME}</span>}
         </div>
-        <nav className="flex-1 space-y-1 px-2 py-4">
+        <VerticalSwitcher collapsed={collapsed} />
+        <nav className="flex-1 space-y-1 overflow-y-auto px-2 py-4">
           {navItems.map((item) => {
-            const active = item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
+            const active = item.to === "/" || item.to === "/avatar" ? pathname === item.to || pathname === `${item.to}/` : pathname.startsWith(item.to);
             return (
               <Link
                 key={item.to}
-                to={item.to}
+                to={item.to as "/"}
                 className={cn(
                   "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
                   active
@@ -266,7 +310,7 @@ function MobileNav({ pathname }: { pathname: string }) {
       <DropdownMenuContent align="start" className="w-48">
         {navItems.map((item) => (
           <DropdownMenuItem key={item.to} asChild>
-            <Link to={item.to} className={cn(pathname === item.to && "text-primary")}>
+            <Link to={item.to as "/"} className={cn(pathname === item.to && "text-primary")}>
               <item.icon className="mr-2 size-4" />
               {item.label}
             </Link>
