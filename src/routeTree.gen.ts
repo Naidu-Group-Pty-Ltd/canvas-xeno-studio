@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ActivityRouteImport } from './routes/activity'
 import { Route as AssetsRouteImport } from './routes/assets'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AvatarRouteImport } from './routes/avatar'
 import { Route as CampaignsRouteImport } from './routes/campaigns'
 import { Route as CanvasRouteImport } from './routes/canvas'
 import { Route as DirectorRouteImport } from './routes/director'
@@ -23,6 +24,8 @@ import { Route as ModelsRouteImport } from './routes/models'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as StoryboardsRouteImport } from './routes/storyboards'
 import { Route as UsageRouteImport } from './routes/usage'
+import { Route as AvatarIndexRouteImport } from './routes/avatar.index'
+import { Route as AvatarCharactersRouteImport } from './routes/avatar.characters'
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
 import { Route as ApiPublicAvatarHeygenWebhookRouteImport } from './routes/api/public/avatar-heygen-webhook'
@@ -49,6 +52,11 @@ const AssetsRoute = AssetsRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AvatarRoute = AvatarRouteImport.update({
+  id: '/avatar',
+  path: '/avatar',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CampaignsRoute = CampaignsRouteImport.update({
@@ -101,6 +109,16 @@ const UsageRoute = UsageRouteImport.update({
   path: '/usage',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AvatarIndexRoute = AvatarIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AvatarRoute,
+} as any)
+const AvatarCharactersRoute = AvatarCharactersRouteImport.update({
+  id: '/characters',
+  path: '/characters',
+  getParentRoute: () => AvatarRoute,
+} as any)
 const ProjectsIndexRoute = ProjectsIndexRouteImport.update({
   id: '/projects/',
   path: '/projects/',
@@ -147,6 +165,7 @@ export interface FileRoutesByFullPath {
   '/activity': typeof ActivityRoute
   '/assets': typeof AssetsRoute
   '/auth': typeof AuthRoute
+  '/avatar': typeof AvatarRouteWithChildren
   '/campaigns': typeof CampaignsRoute
   '/canvas': typeof CanvasRoute
   '/director': typeof DirectorRoute
@@ -157,7 +176,9 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/storyboards': typeof StoryboardsRoute
   '/usage': typeof UsageRoute
+  '/avatar/characters': typeof AvatarCharactersRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/avatar/': typeof AvatarIndexRoute
   '/projects/': typeof ProjectsIndexRoute
   '/api/public/avatar-heygen-webhook': typeof ApiPublicAvatarHeygenWebhookRoute
   '/api/public/avatar-reconcile': typeof ApiPublicAvatarReconcileRoute
@@ -180,7 +201,9 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/storyboards': typeof StoryboardsRoute
   '/usage': typeof UsageRoute
+  '/avatar/characters': typeof AvatarCharactersRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/avatar': typeof AvatarIndexRoute
   '/projects': typeof ProjectsIndexRoute
   '/api/public/avatar-heygen-webhook': typeof ApiPublicAvatarHeygenWebhookRoute
   '/api/public/avatar-reconcile': typeof ApiPublicAvatarReconcileRoute
@@ -194,6 +217,7 @@ export interface FileRoutesById {
   '/activity': typeof ActivityRoute
   '/assets': typeof AssetsRoute
   '/auth': typeof AuthRoute
+  '/avatar': typeof AvatarRouteWithChildren
   '/campaigns': typeof CampaignsRoute
   '/canvas': typeof CanvasRoute
   '/director': typeof DirectorRoute
@@ -204,7 +228,9 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/storyboards': typeof StoryboardsRoute
   '/usage': typeof UsageRoute
+  '/avatar/characters': typeof AvatarCharactersRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/avatar/': typeof AvatarIndexRoute
   '/projects/': typeof ProjectsIndexRoute
   '/api/public/avatar-heygen-webhook': typeof ApiPublicAvatarHeygenWebhookRoute
   '/api/public/avatar-reconcile': typeof ApiPublicAvatarReconcileRoute
@@ -219,6 +245,7 @@ export interface FileRouteTypes {
     | '/activity'
     | '/assets'
     | '/auth'
+    | '/avatar'
     | '/campaigns'
     | '/canvas'
     | '/director'
@@ -229,7 +256,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/storyboards'
     | '/usage'
+    | '/avatar/characters'
     | '/projects/$projectId'
+    | '/avatar/'
     | '/projects/'
     | '/api/public/avatar-heygen-webhook'
     | '/api/public/avatar-reconcile'
@@ -252,7 +281,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/storyboards'
     | '/usage'
+    | '/avatar/characters'
     | '/projects/$projectId'
+    | '/avatar'
     | '/projects'
     | '/api/public/avatar-heygen-webhook'
     | '/api/public/avatar-reconcile'
@@ -265,6 +296,7 @@ export interface FileRouteTypes {
     | '/activity'
     | '/assets'
     | '/auth'
+    | '/avatar'
     | '/campaigns'
     | '/canvas'
     | '/director'
@@ -275,7 +307,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/storyboards'
     | '/usage'
+    | '/avatar/characters'
     | '/projects/$projectId'
+    | '/avatar/'
     | '/projects/'
     | '/api/public/avatar-heygen-webhook'
     | '/api/public/avatar-reconcile'
@@ -289,6 +323,7 @@ export interface RootRouteChildren {
   ActivityRoute: typeof ActivityRoute
   AssetsRoute: typeof AssetsRoute
   AuthRoute: typeof AuthRoute
+  AvatarRoute: typeof AvatarRouteWithChildren
   CampaignsRoute: typeof CampaignsRoute
   CanvasRoute: typeof CanvasRoute
   DirectorRoute: typeof DirectorRoute
@@ -336,6 +371,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/avatar': {
+      id: '/avatar'
+      path: '/avatar'
+      fullPath: '/avatar'
+      preLoaderRoute: typeof AvatarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/campaigns': {
@@ -408,6 +450,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UsageRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/avatar/': {
+      id: '/avatar/'
+      path: '/'
+      fullPath: '/avatar/'
+      preLoaderRoute: typeof AvatarIndexRouteImport
+      parentRoute: typeof AvatarRoute
+    }
+    '/avatar/characters': {
+      id: '/avatar/characters'
+      path: '/characters'
+      fullPath: '/avatar/characters'
+      preLoaderRoute: typeof AvatarCharactersRouteImport
+      parentRoute: typeof AvatarRoute
+    }
     '/projects/': {
       id: '/projects/'
       path: '/projects'
@@ -460,11 +516,25 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AvatarRouteChildren {
+  AvatarCharactersRoute: typeof AvatarCharactersRoute
+  AvatarIndexRoute: typeof AvatarIndexRoute
+}
+
+const AvatarRouteChildren: AvatarRouteChildren = {
+  AvatarCharactersRoute: AvatarCharactersRoute,
+  AvatarIndexRoute: AvatarIndexRoute,
+}
+
+const AvatarRouteWithChildren =
+  AvatarRoute._addFileChildren(AvatarRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ActivityRoute: ActivityRoute,
   AssetsRoute: AssetsRoute,
   AuthRoute: AuthRoute,
+  AvatarRoute: AvatarRouteWithChildren,
   CampaignsRoute: CampaignsRoute,
   CanvasRoute: CanvasRoute,
   DirectorRoute: DirectorRoute,
