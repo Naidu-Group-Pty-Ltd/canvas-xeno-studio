@@ -29,7 +29,9 @@ import { Route as AvatarCharactersRouteImport } from './routes/avatar.characters
 import { Route as AvatarGenerateRouteImport } from './routes/avatar.generate'
 import { Route as AvatarJobsRouteImport } from './routes/avatar.jobs'
 import { Route as AvatarLibraryRouteImport } from './routes/avatar.library'
+import { Route as AvatarLiveRouteImport } from './routes/avatar.live'
 import { Route as AvatarLocalizeRouteImport } from './routes/avatar.localize'
+import { Route as AvatarSettingsRouteImport } from './routes/avatar.settings'
 import { Route as AvatarVoicesRouteImport } from './routes/avatar.voices'
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
@@ -139,9 +141,19 @@ const AvatarLibraryRoute = AvatarLibraryRouteImport.update({
   path: '/library',
   getParentRoute: () => AvatarRoute,
 } as any)
+const AvatarLiveRoute = AvatarLiveRouteImport.update({
+  id: '/live',
+  path: '/live',
+  getParentRoute: () => AvatarRoute,
+} as any)
 const AvatarLocalizeRoute = AvatarLocalizeRouteImport.update({
   id: '/localize',
   path: '/localize',
+  getParentRoute: () => AvatarRoute,
+} as any)
+const AvatarSettingsRoute = AvatarSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AvatarRoute,
 } as any)
 const AvatarVoicesRoute = AvatarVoicesRouteImport.update({
@@ -210,7 +222,9 @@ export interface FileRoutesByFullPath {
   '/avatar/generate': typeof AvatarGenerateRoute
   '/avatar/jobs': typeof AvatarJobsRoute
   '/avatar/library': typeof AvatarLibraryRoute
+  '/avatar/live': typeof AvatarLiveRoute
   '/avatar/localize': typeof AvatarLocalizeRoute
+  '/avatar/settings': typeof AvatarSettingsRoute
   '/avatar/voices': typeof AvatarVoicesRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/avatar/': typeof AvatarIndexRoute
@@ -240,7 +254,9 @@ export interface FileRoutesByTo {
   '/avatar/generate': typeof AvatarGenerateRoute
   '/avatar/jobs': typeof AvatarJobsRoute
   '/avatar/library': typeof AvatarLibraryRoute
+  '/avatar/live': typeof AvatarLiveRoute
   '/avatar/localize': typeof AvatarLocalizeRoute
+  '/avatar/settings': typeof AvatarSettingsRoute
   '/avatar/voices': typeof AvatarVoicesRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/avatar': typeof AvatarIndexRoute
@@ -272,7 +288,9 @@ export interface FileRoutesById {
   '/avatar/generate': typeof AvatarGenerateRoute
   '/avatar/jobs': typeof AvatarJobsRoute
   '/avatar/library': typeof AvatarLibraryRoute
+  '/avatar/live': typeof AvatarLiveRoute
   '/avatar/localize': typeof AvatarLocalizeRoute
+  '/avatar/settings': typeof AvatarSettingsRoute
   '/avatar/voices': typeof AvatarVoicesRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/avatar/': typeof AvatarIndexRoute
@@ -305,7 +323,9 @@ export interface FileRouteTypes {
     | '/avatar/generate'
     | '/avatar/jobs'
     | '/avatar/library'
+    | '/avatar/live'
     | '/avatar/localize'
+    | '/avatar/settings'
     | '/avatar/voices'
     | '/projects/$projectId'
     | '/avatar/'
@@ -335,7 +355,9 @@ export interface FileRouteTypes {
     | '/avatar/generate'
     | '/avatar/jobs'
     | '/avatar/library'
+    | '/avatar/live'
     | '/avatar/localize'
+    | '/avatar/settings'
     | '/avatar/voices'
     | '/projects/$projectId'
     | '/avatar'
@@ -366,7 +388,9 @@ export interface FileRouteTypes {
     | '/avatar/generate'
     | '/avatar/jobs'
     | '/avatar/library'
+    | '/avatar/live'
     | '/avatar/localize'
+    | '/avatar/settings'
     | '/avatar/voices'
     | '/projects/$projectId'
     | '/avatar/'
@@ -545,11 +569,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AvatarLibraryRouteImport
       parentRoute: typeof AvatarRoute
     }
+    '/avatar/live': {
+      id: '/avatar/live'
+      path: '/live'
+      fullPath: '/avatar/live'
+      preLoaderRoute: typeof AvatarLiveRouteImport
+      parentRoute: typeof AvatarRoute
+    }
     '/avatar/localize': {
       id: '/avatar/localize'
       path: '/localize'
       fullPath: '/avatar/localize'
       preLoaderRoute: typeof AvatarLocalizeRouteImport
+      parentRoute: typeof AvatarRoute
+    }
+    '/avatar/settings': {
+      id: '/avatar/settings'
+      path: '/settings'
+      fullPath: '/avatar/settings'
+      preLoaderRoute: typeof AvatarSettingsRouteImport
       parentRoute: typeof AvatarRoute
     }
     '/avatar/voices': {
@@ -616,7 +654,9 @@ interface AvatarRouteChildren {
   AvatarGenerateRoute: typeof AvatarGenerateRoute
   AvatarJobsRoute: typeof AvatarJobsRoute
   AvatarLibraryRoute: typeof AvatarLibraryRoute
+  AvatarLiveRoute: typeof AvatarLiveRoute
   AvatarLocalizeRoute: typeof AvatarLocalizeRoute
+  AvatarSettingsRoute: typeof AvatarSettingsRoute
   AvatarVoicesRoute: typeof AvatarVoicesRoute
   AvatarIndexRoute: typeof AvatarIndexRoute
 }
@@ -626,7 +666,9 @@ const AvatarRouteChildren: AvatarRouteChildren = {
   AvatarGenerateRoute: AvatarGenerateRoute,
   AvatarJobsRoute: AvatarJobsRoute,
   AvatarLibraryRoute: AvatarLibraryRoute,
+  AvatarLiveRoute: AvatarLiveRoute,
   AvatarLocalizeRoute: AvatarLocalizeRoute,
+  AvatarSettingsRoute: AvatarSettingsRoute,
   AvatarVoicesRoute: AvatarVoicesRoute,
   AvatarIndexRoute: AvatarIndexRoute,
 }

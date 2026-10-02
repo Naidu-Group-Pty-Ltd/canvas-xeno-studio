@@ -48,12 +48,9 @@ function LivePage() {
       setLeft(s);
       if (s === 0) void stop();
     }, 1000);
-    const unload = () => navigator.sendBeacon?.("/") && undefined;
-    window.addEventListener("beforeunload", unload);
     return () => {
       clearInterval(hb);
       clearInterval(tick);
-      window.removeEventListener("beforeunload", unload);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
