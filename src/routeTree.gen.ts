@@ -25,6 +25,8 @@ import { Route as StoryboardsRouteImport } from './routes/storyboards'
 import { Route as UsageRouteImport } from './routes/usage'
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
+import { Route as ApiPublicAvatarHeygenWebhookRouteImport } from './routes/api/public/avatar-heygen-webhook'
+import { Route as ApiPublicAvatarReconcileRouteImport } from './routes/api/public/avatar-reconcile'
 import { Route as ApiPublicHiggsfieldReconcileRouteImport } from './routes/api/public/higgsfield-reconcile'
 import { Route as ApiPublicHiggsfieldWebhookRouteImport } from './routes/api/public/higgsfield-webhook'
 import { Route as ApiPublicMediaWorkerCallbackRouteImport } from './routes/api/public/media-worker-callback'
@@ -109,6 +111,18 @@ const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
   path: '/projects/$projectId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicAvatarHeygenWebhookRoute =
+  ApiPublicAvatarHeygenWebhookRouteImport.update({
+    id: '/api/public/avatar-heygen-webhook',
+    path: '/api/public/avatar-heygen-webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicAvatarReconcileRoute =
+  ApiPublicAvatarReconcileRouteImport.update({
+    id: '/api/public/avatar-reconcile',
+    path: '/api/public/avatar-reconcile',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHiggsfieldReconcileRoute =
   ApiPublicHiggsfieldReconcileRouteImport.update({
     id: '/api/public/higgsfield-reconcile',
@@ -145,6 +159,8 @@ export interface FileRoutesByFullPath {
   '/usage': typeof UsageRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/': typeof ProjectsIndexRoute
+  '/api/public/avatar-heygen-webhook': typeof ApiPublicAvatarHeygenWebhookRoute
+  '/api/public/avatar-reconcile': typeof ApiPublicAvatarReconcileRoute
   '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
   '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
   '/api/public/media-worker-callback': typeof ApiPublicMediaWorkerCallbackRoute
@@ -166,6 +182,8 @@ export interface FileRoutesByTo {
   '/usage': typeof UsageRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects': typeof ProjectsIndexRoute
+  '/api/public/avatar-heygen-webhook': typeof ApiPublicAvatarHeygenWebhookRoute
+  '/api/public/avatar-reconcile': typeof ApiPublicAvatarReconcileRoute
   '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
   '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
   '/api/public/media-worker-callback': typeof ApiPublicMediaWorkerCallbackRoute
@@ -188,6 +206,8 @@ export interface FileRoutesById {
   '/usage': typeof UsageRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/projects/': typeof ProjectsIndexRoute
+  '/api/public/avatar-heygen-webhook': typeof ApiPublicAvatarHeygenWebhookRoute
+  '/api/public/avatar-reconcile': typeof ApiPublicAvatarReconcileRoute
   '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
   '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
   '/api/public/media-worker-callback': typeof ApiPublicMediaWorkerCallbackRoute
@@ -211,6 +231,8 @@ export interface FileRouteTypes {
     | '/usage'
     | '/projects/$projectId'
     | '/projects/'
+    | '/api/public/avatar-heygen-webhook'
+    | '/api/public/avatar-reconcile'
     | '/api/public/higgsfield-reconcile'
     | '/api/public/higgsfield-webhook'
     | '/api/public/media-worker-callback'
@@ -232,6 +254,8 @@ export interface FileRouteTypes {
     | '/usage'
     | '/projects/$projectId'
     | '/projects'
+    | '/api/public/avatar-heygen-webhook'
+    | '/api/public/avatar-reconcile'
     | '/api/public/higgsfield-reconcile'
     | '/api/public/higgsfield-webhook'
     | '/api/public/media-worker-callback'
@@ -253,6 +277,8 @@ export interface FileRouteTypes {
     | '/usage'
     | '/projects/$projectId'
     | '/projects/'
+    | '/api/public/avatar-heygen-webhook'
+    | '/api/public/avatar-reconcile'
     | '/api/public/higgsfield-reconcile'
     | '/api/public/higgsfield-webhook'
     | '/api/public/media-worker-callback'
@@ -275,6 +301,8 @@ export interface RootRouteChildren {
   UsageRoute: typeof UsageRoute
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
   ProjectsIndexRoute: typeof ProjectsIndexRoute
+  ApiPublicAvatarHeygenWebhookRoute: typeof ApiPublicAvatarHeygenWebhookRoute
+  ApiPublicAvatarReconcileRoute: typeof ApiPublicAvatarReconcileRoute
   ApiPublicHiggsfieldReconcileRoute: typeof ApiPublicHiggsfieldReconcileRoute
   ApiPublicHiggsfieldWebhookRoute: typeof ApiPublicHiggsfieldWebhookRoute
   ApiPublicMediaWorkerCallbackRoute: typeof ApiPublicMediaWorkerCallbackRoute
@@ -394,6 +422,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsProjectIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/avatar-heygen-webhook': {
+      id: '/api/public/avatar-heygen-webhook'
+      path: '/api/public/avatar-heygen-webhook'
+      fullPath: '/api/public/avatar-heygen-webhook'
+      preLoaderRoute: typeof ApiPublicAvatarHeygenWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/avatar-reconcile': {
+      id: '/api/public/avatar-reconcile'
+      path: '/api/public/avatar-reconcile'
+      fullPath: '/api/public/avatar-reconcile'
+      preLoaderRoute: typeof ApiPublicAvatarReconcileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/higgsfield-reconcile': {
       id: '/api/public/higgsfield-reconcile'
       path: '/api/public/higgsfield-reconcile'
@@ -435,6 +477,8 @@ const rootRouteChildren: RootRouteChildren = {
   UsageRoute: UsageRoute,
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,
+  ApiPublicAvatarHeygenWebhookRoute: ApiPublicAvatarHeygenWebhookRoute,
+  ApiPublicAvatarReconcileRoute: ApiPublicAvatarReconcileRoute,
   ApiPublicHiggsfieldReconcileRoute: ApiPublicHiggsfieldReconcileRoute,
   ApiPublicHiggsfieldWebhookRoute: ApiPublicHiggsfieldWebhookRoute,
   ApiPublicMediaWorkerCallbackRoute: ApiPublicMediaWorkerCallbackRoute,
