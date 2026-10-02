@@ -13,7 +13,8 @@ export const Route = createFileRoute("/api/public/avatar-heygen-webhook")({
         if (raw.length > 256_000) return new Response("Payload too large", { status: 413 });
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { data: secret } = await supabaseAdmin.rpc("avatar_get_provider_secret", { _name: "HEYGEN_WEBHOOK_SECRET" });
-        if (!secret) return new Response("Not configured", { status: 503 });
+        // Not registered yet: nothing can be verified, so treat as unauthenticated.
+        if (!secret) return new Response("Unauthorized", { status: 401 });
         const { verifyHeyGenSignature } = await import("@/features/avatar-studio/server/heygen.server");
         const ok = await verifyHeyGenSignature(raw, request.headers.get("signature"), secret as string);
         if (!ok) return new Response("Invalid signature", { status: 401 });
