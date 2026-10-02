@@ -88,7 +88,7 @@ async function request<T>(
 
   if (res.ok) return { ok: true, status: res.status, data: (obj.data ?? (json as T)) as T };
 
-  const err: { code?: string; message?: string; param?: string } = typeof obj.error === "object" && obj.error ? obj.error : { message: typeof obj.error === "string" ? obj.error : obj.message };
+  const err: { code?: string; message?: string | undefined; param?: string } = typeof obj.error === "object" && obj.error ? obj.error : { message: typeof obj.error === "string" ? obj.error : obj.message };
   const result: HeyGenResult<T> = {
     ok: false,
     status: res.status,
