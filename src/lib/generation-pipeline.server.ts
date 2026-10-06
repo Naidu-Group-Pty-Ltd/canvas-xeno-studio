@@ -415,6 +415,8 @@ export async function dispatchQueue(): Promise<number> {
 /* Terminal state + ingestion                                          */
 /* ------------------------------------------------------------------ */
 
+const TERMINAL_STATUSES = ["completed", "failed", "nsfw", "canceled"];
+
 export async function applyProviderPayload(generationId: string, payload: unknown): Promise<string> {
   const record = (payload ?? {}) as Json;
   const statusValue =
@@ -427,7 +429,7 @@ export async function applyProviderPayload(generationId: string, payload: unknow
     .eq("id", generationId)
     .maybeSingle();
   if (!current) return "missing";
-  if (["completed", "failed", "nsfw", "canceled"].includes(current.status)) return current.status; // idempotent
+  if (TERMINAL_STATUSES.includes(current.status)) return current.status; // idempotent
 
   const update: Json = { provider_response: record, last_polled_at: new Date().toISOString() };
   if (status === "in_progress") {
@@ -459,7 +461,23 @@ export async function applyProviderPayload(generationId: string, payload: unknow
     }
   }
 
-  await supabaseAdmin.from("generations").update(update as never).eq("id", generationId);
+  // Overlapping deliveries of the same result can both pass the check above;
+  // only the first may apply it. A second write would reset a save that is
+  // already running back to "pending" and start it twice.
+  const { data: applied } = await supabaseAdmin
+    .from("generations")
+    .update(update as never)
+    .eq("id", generationId)
+    .not("status", "in", `(${TERMINAL_STATUSES.join(",")})`)
+    .select("id");
+  if (!applied?.length) {
+    const { data: latest } = await supabaseAdmin
+      .from("generations")
+      .select("status")
+      .eq("id", generationId)
+      .maybeSingle();
+    return latest?.status ?? current.status;
+  }
   await logEvent(generationId, status, { provider_status: statusValue });
 
   if (status === "completed") {
@@ -488,21 +506,23 @@ function claimableIngestFilter(): string {
 /**
  * Atomically claims a completed generation's outputs for saving. The webhook,
  * the reconcile job and a manual retry can all race here; only one wins, so an
- * output is never fetched and stored twice at the same time.
+ * output is never fetched and stored twice at the same time. Returns the
+ * claim's updated_at (stamped by the row trigger) as a fencing token, or null.
  */
-async function claimIngest(generationId: string): Promise<boolean> {
+async function claimIngest(generationId: string): Promise<string | null> {
   const { data } = await supabaseAdmin
     .from("generations")
     .update({ ingest_status: "processing" })
     .eq("id", generationId)
     .eq("status", "completed")
     .or(claimableIngestFilter())
-    .select("id");
-  return (data ?? []).length > 0;
+    .select("updated_at");
+  return data?.[0]?.updated_at ?? null;
 }
 
 export async function ingestOutputs(generationId: string): Promise<number> {
-  if (!(await claimIngest(generationId))) return 0;
+  const claim = await claimIngest(generationId);
+  if (!claim) return 0;
   const { data: generation } = await supabaseAdmin
     .from("generations")
     .select("*")
@@ -510,6 +530,14 @@ export async function ingestOutputs(generationId: string): Promise<number> {
     .maybeSingle();
   if (!generation) return 0;
   await logEvent(generationId, "asset_ingest_started");
+  // Results are written only while this worker still holds the claim, so a
+  // worker that outlived its claim can never overwrite a newer outcome.
+  const finish = (values: Json) =>
+    supabaseAdmin
+      .from("generations")
+      .update(values as never)
+      .eq("id", generationId)
+      .eq("updated_at", claim);
 
   let outputs: NormalizedOutput[] = normalizeResult(generation.provider_response);
   if (outputs.length === 0 && generation.hf_request_id) {
@@ -519,10 +547,11 @@ export async function ingestOutputs(generationId: string): Promise<number> {
 
   const usable = outputs.filter((output) => isAllowedOutputUrl(output.url));
   if (usable.length === 0) {
-    await supabaseAdmin
-      .from("generations")
-      .update({ ingest_status: "failed", error_code: "INGEST_FAILED", error_message: "No usable output URLs returned" })
-      .eq("id", generationId);
+    await finish({
+      ingest_status: "failed",
+      error_code: "INGEST_FAILED",
+      error_message: "No usable output URLs returned",
+    });
     await logEvent(generationId, "failed", { code: "INGEST_FAILED" });
     return 0;
   }
@@ -585,16 +614,16 @@ export async function ingestOutputs(generationId: string): Promise<number> {
   // A partially ingested generation stays "failed" so reconciliation retries it
   // instead of quietly leaving an output only on the provider's servers.
   const complete = failures === 0 && created > 0;
-  await supabaseAdmin
-    .from("generations")
-    .update({
-      ingest_status: complete ? "completed" : "failed",
-      // A successful retry clears the earlier save error.
-      ...(complete
-        ? { error_code: null, error_message: null }
-        : { error_code: "INGEST_FAILED", error_message: "Some outputs could not be saved to storage" }),
-    })
-    .eq("id", generationId);
+  await finish({
+    ingest_status: complete ? "completed" : "failed",
+    // A successful retry clears the earlier save error.
+    ...(complete
+      ? { error_code: null, error_message: null }
+      : {
+          error_code: "INGEST_FAILED",
+          error_message: "Some outputs could not be saved to storage",
+        }),
+  });
   await logEvent(generationId, complete ? "asset_ingest_completed" : "failed", {
     assets: created,
     failures,
@@ -603,14 +632,24 @@ export async function ingestOutputs(generationId: string): Promise<number> {
   return created;
 }
 
-async function ingestAttempts(generationId: string): Promise<number> {
-  const { count } = await supabaseAdmin
+/** Save attempts per generation, counted from their "asset_ingest_started" events. */
+async function ingestAttempts(generationIds: string[]): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  if (!generationIds.length) return counts;
+  const { data } = await supabaseAdmin
     .from("generation_events")
-    .select("id", { count: "exact", head: true })
-    .eq("generation_id", generationId)
-    .eq("event_type", "asset_ingest_started");
-  return count ?? 0;
+    .select("generation_id")
+    .in("generation_id", generationIds)
+    .eq("event_type", "asset_ingest_started")
+    .limit(5000);
+  for (const row of data ?? [])
+    counts.set(row.generation_id, (counts.get(row.generation_id) ?? 0) + 1);
+  return counts;
 }
+
+/** Failed or interrupted saves are scanned in pages so exhausted ones never hide the rest. */
+const RETRY_SCAN_PAGE = 50;
+const RETRY_SCAN_MAX = 1000;
 
 /**
  * Saves outputs nobody has saved yet (oldest first), then retries failed or
@@ -626,19 +665,23 @@ export async function ingestPending(limit = 5): Promise<number> {
     .limit(limit);
   const ids = (pending ?? []).map((row) => row.id);
 
-  if (ids.length < limit) {
-    const { data: retryable } = await supabaseAdmin
+  for (let offset = 0; ids.length < limit && offset < RETRY_SCAN_MAX; offset += RETRY_SCAN_PAGE) {
+    const { data: page } = await supabaseAdmin
       .from("generations")
       .select("id")
       .eq("status", "completed")
       .or(claimableIngestFilter())
       .neq("ingest_status", "pending")
       .order("updated_at", { ascending: false })
-      .limit(20);
-    for (const row of retryable ?? []) {
+      .order("id")
+      .range(offset, offset + RETRY_SCAN_PAGE - 1);
+    if (!page?.length) break;
+    const attempts = await ingestAttempts(page.map((row) => row.id));
+    for (const row of page) {
       if (ids.length >= limit) break;
-      if ((await ingestAttempts(row.id)) < MAX_AUTO_INGEST_ATTEMPTS) ids.push(row.id);
+      if ((attempts.get(row.id) ?? 0) < MAX_AUTO_INGEST_ATTEMPTS) ids.push(row.id);
     }
+    if (page.length < RETRY_SCAN_PAGE) break;
   }
 
   let total = 0;
