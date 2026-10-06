@@ -18,6 +18,8 @@ const submitInput = estimateInput.extend({
   parentGenerationId: z.string().uuid().nullable().optional(),
   estimatedCostUsd: z.number().nullable().optional(),
   clientRequestId: z.string().min(8).max(64).optional(),
+  /** Groups related generations, e.g. every draft run from one Supercomputer answer. */
+  generationGroupId: z.string().uuid().nullable().optional(),
 });
 
 type Json = Record<string, unknown>;
@@ -86,7 +88,8 @@ export const estimateGeneration = createServerFn({ method: "POST" })
       return { ok: false, code: "PROVIDER_NOT_CONFIGURED", costUsd: null, pricingDescription: null as string | null };
 
     const { model } = await loadContext(null as never, data.modelId);
-    const roles = data.inputs.map((i) => i.role);
+    const slotRoles = new Set((model.capabilities?.inputs ?? []).map((slot) => slot.role));
+    const roles = data.inputs.map((i) => i.role).filter((role) => slotRoles.has(role));
     const issues = validateParameters(model, data.parameters, roles);
     if (issues.length)
       return { ok: false, code: "INVALID_PARAMETERS", costUsd: null, pricingDescription: null as string | null, issues };
@@ -127,7 +130,11 @@ export const submitGeneration = createServerFn({ method: "POST" })
 
     await assertActiveMember(context.userId);
 
-    const roles = data.inputs.map((i) => i.role);
+    // Only inputs that map to a slot the model declares are kept, so a stray
+    // reference is never uploaded to the provider for nothing.
+    const slotRoles = new Set((model.capabilities?.inputs ?? []).map((slot) => slot.role));
+    const inputs = data.inputs.filter((input) => slotRoles.has(input.role));
+    const roles = inputs.map((i) => i.role);
     const issues = validateParameters(model, data.parameters, roles);
     if (issues.length) throw new AppError("INVALID_PARAMETERS", issues.map((i) => i.message).join("; "));
 
@@ -169,6 +176,7 @@ export const submitGeneration = createServerFn({ method: "POST" })
         campaign_id: data.campaignId ?? null,
         model_registry_id: model.id,
         parent_generation_id: data.parentGenerationId ?? null,
+        generation_group_id: data.generationGroupId ?? null,
         client_request_id: clientRequestId,
         provider: model.provider,
         model_path: model.model_path,
@@ -197,12 +205,12 @@ export const submitGeneration = createServerFn({ method: "POST" })
 
     await pipeline.logEvent(generation.id, "created", { model_path: model.model_path });
 
-    if (data.inputs.length) {
+    if (inputs.length) {
       const { data: assets } = await supabaseAdmin
         .from("assets")
         .select("id,storage_bucket,storage_path,mime_type")
-        .in("id", data.inputs.map((i) => i.assetId));
-      const rows = data.inputs
+        .in("id", inputs.map((i) => i.assetId));
+      const rows = inputs
         .map((input) => {
           const asset = (assets ?? []).find((a) => a.id === input.assetId);
           if (!asset) return null;

@@ -16,20 +16,20 @@ import {
   type NormalizedOutput,
 } from "./higgsfield/provider.server";
 import type { InputSlot, ModelRegistryEntry } from "./model-schema";
+import { LOVABLE_PROJECT_URL } from "./app-config";
 
 type Json = Record<string, unknown>;
 
 export function appBaseUrl(): string {
-  return (
-    process.env["PUBLIC_APP_URL"] ||
-    `https://project--${process.env["VITE_SUPABASE_PROJECT_ID"] ?? ""}.lovable.app`
-  );
+  // The fallback is the project's stable published address. (It is keyed by the
+  // Lovable project id, not the database project id, which has no app behind it.)
+  return (process.env["PUBLIC_APP_URL"] || process.env["APP_BASE_URL"] || LOVABLE_PROJECT_URL).replace(/\/$/, "");
 }
 
 export function webhookUrl(): string | undefined {
   // Always attach a callback URL: the stable project URL is used when no
   // explicit public URL is configured, otherwise webhooks would never arrive.
-  const base = process.env["PUBLIC_APP_URL"] || process.env["APP_BASE_URL"] || appBaseUrl();
+  const base = appBaseUrl();
   if (!base) return undefined;
   const token = process.env["LOVABLE_CRON_SECRET"];
   return `${base.replace(/\/$/, "")}/api/public/higgsfield-webhook${token ? `?token=${encodeURIComponent(token)}` : ""}`;
@@ -168,6 +168,23 @@ export async function recordProviderHealth(success: boolean, message?: string) {
 /* Media preparation                                                   */
 /* ------------------------------------------------------------------ */
 
+/** Reference media types the provider's upload endpoint accepts. */
+const PROVIDER_UPLOAD_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "video/mp4",
+  "audio/wav",
+  "audio/x-wav",
+]);
+
+function providerMime(mime: string): string {
+  if (mime === "image/jpg") return "image/jpeg";
+  if (mime === "audio/wave" || mime === "audio/vnd.wave") return "audio/wav";
+  return mime;
+}
+
 export async function prepareMediaForGeneration(generationId: string): Promise<void> {
   const { data: inputs } = await supabaseAdmin
     .from("generation_inputs")
@@ -182,14 +199,18 @@ export async function prepareMediaForGeneration(generationId: string): Promise<v
       .from(input.storage_bucket)
       .download(input.storage_path);
     if (error || !file) throw new AppError("UPLOAD_FAILED", "Reference file could not be read from storage");
-    const bytes = await file.arrayBuffer();
-    const mime = (input.metadata as Json)?.["mime_type"];
+    const declared = (input.metadata as Json)?.["mime_type"];
+    const mime = providerMime(typeof declared === "string" ? declared : file.type || "application/octet-stream");
     const filename = input.storage_path.split("/").pop() ?? "reference";
-    const url = await higgsfieldProvider.uploadMedia(
-      bytes,
-      typeof mime === "string" ? mime : file.type || "application/octet-stream",
-      filename.replace(/[^\w.-]/g, "_"),
-    );
+    // Rejected here, before any provider call, with a reason the team can act on.
+    if (!PROVIDER_UPLOAD_TYPES.has(mime)) {
+      throw new AppError(
+        "UPLOAD_FAILED",
+        `${filename} is ${mime}, which Higgsfield does not accept as a reference. Use MP4 video, WAV audio or a JPEG, PNG, WebP or GIF image.`,
+      );
+    }
+    const bytes = await file.arrayBuffer();
+    const url = await higgsfieldProvider.uploadMedia(bytes, mime, filename.replace(/[^\w.-]/g, "_"));
     await supabaseAdmin.from("generation_inputs").update({ hf_public_url: url }).eq("id", input.id);
   }
 }

@@ -38,6 +38,14 @@ export const config = {
     .split(",")
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean),
+  /**
+   * Hosts the worker may report results to. Kept separate from the media list:
+   * callbacks go to the app, which is hosted on Lovable (or a custom domain set here).
+   */
+  callbackHostSuffixes: (process.env["CALLBACK_HOST_SUFFIXES"] ?? "lovable.app,lovableproject.com")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean),
   workDir: process.env["WORK_DIR"] ?? "/tmp/xeno-media",
 };
 
