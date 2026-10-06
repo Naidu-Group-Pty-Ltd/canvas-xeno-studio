@@ -20,6 +20,7 @@ export const config = {
   concurrency: intEnv("CONCURRENCY", 2),
   /** Tasks waiting beyond this depth are rejected with 429 rather than queued forever. */
   maxQueueDepth: intEnv("MAX_QUEUE_DEPTH", 50),
+  heartbeatSeconds: intEnv("HEARTBEAT_SECONDS", 60),
   /** Hard wall-clock limit for a single FFmpeg invocation. */
   taskTimeoutSeconds: intEnv("TASK_TIMEOUT_SECONDS", 900),
   /** Refuse source media larger than this. */
