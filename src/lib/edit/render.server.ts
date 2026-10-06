@@ -16,6 +16,8 @@ import { buildRenderRequest, parseTimeline, renderBlockers, type Timeline } from
 
 const OUTPUT_BUCKET = "generated-assets";
 const SOURCE_URL_TTL = 3 * 60 * 60;
+/** Signed upload URLs last two hours, so a render's links are good for that long. */
+const LINKS_VALID_MS = 2 * 60 * 60 * 1000;
 
 interface RenderInput {
   sequenceId: string;
@@ -381,6 +383,7 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
     report_progress: true,
     // Signed URLs expire; if the render waits in the worker's queue they are re-signed.
     credentials_url: `${base}/api/public/media-worker-credentials`,
+    credentials_expire_at: new Date(Date.now() + LINKS_VALID_MS).toISOString(),
   });
   if (!submission.ok) {
     await fail(
@@ -409,15 +412,18 @@ export type RenderCredentials =
       status: 200;
       sources: { url: string }[];
       uploads: { url: string; method: "PUT"; storage_key: string }[];
+      expires_at: string;
     }
   | { status: 404 | 410 | 503 };
 
 /**
  * Re-signs a render's sources and upload slots for the media worker, which
- * asks when a render that waited in its queue starts (and before it uploads),
- * so queue time never outlives the signed URLs. Only an open render is
- * re-signed, only for its own sources and destinations, in the order first
- * sent. A render presumed lost may still be working, as with its late result.
+ * asks before starting a render that waited in its queue (and before it
+ * downloads or uploads with aging links), so queue time never outlives the
+ * signed URLs. Only an open render is re-signed, only for its own sources and
+ * destinations, in the order first sent. A render presumed lost is re-signed
+ * only while it is still the edit's current render: once a newer render has
+ * replaced it, the worker is told to drop it rather than render it again.
  */
 export async function refreshRenderCredentials(taskId: string): Promise<RenderCredentials> {
   const { data: task, error } = await supabaseAdmin
@@ -434,6 +440,18 @@ export async function refreshRenderCredentials(taskId: string): Promise<RenderCr
   if (!open) return { status: 410 };
 
   const input = (task.input_payload ?? {}) as Record<string, unknown>;
+  if (task.status === "failed") {
+    const renderId = typeof input["render_id"] === "string" ? input["render_id"] : null;
+    const sequenceId = typeof input["sequence_id"] === "string" ? input["sequence_id"] : null;
+    if (!renderId || !sequenceId) return { status: 410 };
+    const { data: sequence, error: sequenceError } = await supabaseAdmin
+      .from("sequences")
+      .select("last_render_id")
+      .eq("id", sequenceId)
+      .maybeSingle();
+    if (sequenceError) return { status: 503 };
+    if (sequence?.last_render_id !== renderId) return { status: 410 };
+  }
   const strings = (value: unknown) =>
     Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
   const ids = strings(input["sources"]);
@@ -460,5 +478,10 @@ export async function refreshRenderCredentials(taskId: string): Promise<RenderCr
     if (!url) return { status: 503 };
     uploads.push({ url, method: "PUT", storage_key: path });
   }
-  return { status: 200, sources, uploads };
+  return {
+    status: 200,
+    sources,
+    uploads,
+    expires_at: new Date(Date.now() + LINKS_VALID_MS).toISOString(),
+  };
 }

@@ -127,6 +127,7 @@ function CampaignsPage() {
               <VoiceAssignment
                 table="campaigns"
                 rowId={campaign.id}
+                projectId={campaign.project_id}
                 value={campaign.brand_voice_id}
                 className="pt-1"
               />

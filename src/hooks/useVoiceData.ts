@@ -14,9 +14,17 @@ export function useVoiceStatus() {
   });
 }
 
-export function useBrandVoices(includeArchived = false) {
+/**
+ * Brand voices. Pickers pass the project the work belongs to (null for work
+ * outside any project) and get only the voices that may speak for it: those
+ * for any project plus that project's own. Leaving it out lists every voice.
+ */
+export function useBrandVoices({
+  includeArchived = false,
+  projectId,
+}: { includeArchived?: boolean; projectId?: string | null } = {}) {
   return useQuery({
-    queryKey: ["brand_voices", includeArchived],
+    queryKey: ["brand_voices", includeArchived, projectId === undefined ? "all" : projectId],
     queryFn: async () => {
       let query = supabase
         .from("brand_voices")
@@ -24,6 +32,8 @@ export function useBrandVoices(includeArchived = false) {
         .order("is_default", { ascending: false })
         .order("name");
       if (!includeArchived) query = query.eq("is_archived", false);
+      if (projectId === null) query = query.is("project_id", null);
+      else if (projectId) query = query.or(`project_id.is.null,project_id.eq.${projectId}`);
       const { data, error } = await query;
       if (error) throw error;
       return (data ?? []) as unknown as BrandVoiceRow[];

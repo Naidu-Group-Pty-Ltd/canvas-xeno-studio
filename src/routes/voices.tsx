@@ -88,7 +88,13 @@ function VoicesPage() {
   const { user, isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const [showArchived, setShowArchived] = useState(false);
-  const { data: voices = [], isLoading, error } = useBrandVoices(showArchived);
+  const {
+    data: voices = [],
+    isLoading,
+    error,
+  } = useBrandVoices({
+    includeArchived: showArchived,
+  });
   const { data: status } = useVoiceStatus();
   const { data: campaigns = [] } = useCampaigns();
   const { data: projects = [] } = useProjects();
@@ -287,11 +293,14 @@ function VoicesPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        {isAdmin && !voice.is_default && !voice.is_archived && (
-                          <DropdownMenuItem onClick={() => void act(voice, "make_default")}>
-                            <Star className="mr-2 size-4" /> Make studio default
-                          </DropdownMenuItem>
-                        )}
+                        {isAdmin &&
+                          !voice.is_default &&
+                          !voice.is_archived &&
+                          !voice.project_id && (
+                            <DropdownMenuItem onClick={() => void act(voice, "make_default")}>
+                              <Star className="mr-2 size-4" /> Make studio default
+                            </DropdownMenuItem>
+                          )}
                         {isAdmin && voice.is_default && (
                           <DropdownMenuItem onClick={() => void act(voice, "clear_default")}>
                             <StarOff className="mr-2 size-4" /> Stop being the default

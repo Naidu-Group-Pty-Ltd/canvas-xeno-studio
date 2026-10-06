@@ -17,6 +17,7 @@ import {
   pronunciationSchema,
   spokenText,
   tokenizeScript,
+  voiceInScope,
   type BrandVoiceRow,
   type Pronunciation,
   type TimedWord,
@@ -150,7 +151,12 @@ export async function requireActiveMember(userId: string): Promise<{ isAdmin: bo
 
 export type VoiceOrigin = "chosen" | "campaign" | "project" | "default";
 
-/** The voice to use: the one asked for, else the campaign's, the project's, then the studio default. */
+/**
+ * The voice to use: the one asked for, else the campaign's, the project's,
+ * then the studio default. A voice kept for one project only speaks for that
+ * project's work: one chosen outside it is refused, and an inherited one
+ * outside it is passed over.
+ */
 export async function resolveVoiceWithOrigin(input: {
   voiceId?: string | null | undefined;
   campaignId?: string | null | undefined;
@@ -166,26 +172,36 @@ export async function resolveVoiceWithOrigin(input: {
       .maybeSingle();
     return (data ?? null) as unknown as BrandVoiceRow | null;
   };
-  const explicit = await load(input.voiceId);
-  if (explicit) return { voice: explicit, via: "chosen" };
   let projectId = input.projectId ?? null;
-  if (input.campaignId) {
-    const { data } = await supabaseAdmin
-      .from("campaigns")
-      .select("brand_voice_id,project_id")
-      .eq("id", input.campaignId)
-      .maybeSingle();
-    const fromCampaign = await load(data?.brand_voice_id);
-    if (fromCampaign) return { voice: fromCampaign, via: "campaign" };
-    projectId = projectId ?? data?.project_id ?? null;
+  const { data: campaign } = input.campaignId
+    ? await supabaseAdmin
+        .from("campaigns")
+        .select("brand_voice_id,project_id")
+        .eq("id", input.campaignId)
+        .maybeSingle()
+    : { data: null };
+  projectId = projectId ?? campaign?.project_id ?? null;
+  const usable = (voice: BrandVoiceRow | null) =>
+    voice && voiceInScope(voice, projectId) ? voice : null;
+
+  const explicit = await load(input.voiceId);
+  if (explicit) {
+    if (!usable(explicit))
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        `“${explicit.name}” is kept for another project. Choose a voice for this project, or one for any project.`,
+      );
+    return { voice: explicit, via: "chosen" };
   }
+  const fromCampaign = usable(await load(campaign?.brand_voice_id));
+  if (fromCampaign) return { voice: fromCampaign, via: "campaign" };
   if (projectId) {
     const { data } = await supabaseAdmin
       .from("projects")
       .select("brand_voice_id")
       .eq("id", projectId)
       .maybeSingle();
-    const fromProject = await load(data?.brand_voice_id);
+    const fromProject = usable(await load(data?.brand_voice_id));
     if (fromProject) return { voice: fromProject, via: "project" };
   }
   const { data: fallback } = await supabaseAdmin
@@ -194,7 +210,8 @@ export async function resolveVoiceWithOrigin(input: {
     .eq("is_default", true)
     .eq("is_archived", false)
     .maybeSingle();
-  return fallback ? { voice: fallback as unknown as BrandVoiceRow, via: "default" } : null;
+  const studioDefault = usable(fallback as unknown as BrandVoiceRow | null);
+  return studioDefault ? { voice: studioDefault, via: "default" } : null;
 }
 
 export async function resolveVoice(
@@ -233,10 +250,51 @@ function titleFor(voiceName: string, script: string): string {
 export const STALE_VOICEOVER_MS = 5 * 60_000;
 
 /**
+ * A take whose audio was stored but whose last update didn't land is finished
+ * from that file (each stored file names its take). Anything else comes back
+ * unchanged.
+ */
+async function relinkedTake<T extends { id: string; status: string; asset_id: string | null }>(
+  row: T,
+): Promise<T> {
+  if (row.status !== "generating" || row.asset_id) return row;
+  const { data: asset } = await supabaseAdmin
+    .from("assets")
+    .select("id,duration_seconds")
+    .eq("metadata->>voiceover_id", row.id)
+    .is("deleted_at", null)
+    .limit(1)
+    .maybeSingle();
+  if (!asset) return row;
+  const { data } = await supabaseAdmin
+    .from("voiceovers")
+    .update({
+      status: "completed",
+      asset_id: asset.id,
+      ...(asset.duration_seconds !== null ? { duration_seconds: asset.duration_seconds } : {}),
+      completed_at: new Date().toISOString(),
+    } as never)
+    .eq("id", row.id)
+    .eq("status", "generating")
+    .select("*")
+    .maybeSingle();
+  return (data ?? row) as unknown as T;
+}
+
+/**
  * Takes cut off mid-way (the server stopped before recording the result) are
  * marked uncertain: the provider may have been billed, so they are never retried.
+ * One whose audio was stored is finished instead.
  */
 async function settleInterrupted(): Promise<void> {
+  const cutoff = new Date(Date.now() - STALE_VOICEOVER_MS).toISOString();
+  const { data: stale } = await supabaseAdmin
+    .from("voiceovers")
+    .select("id,status,asset_id")
+    .eq("status", "generating")
+    .lt("created_at", cutoff)
+    .limit(50);
+  for (const row of stale ?? []) await relinkedTake(row);
   await supabaseAdmin
     .from("voiceovers")
     .update({
@@ -247,7 +305,7 @@ async function settleInterrupted(): Promise<void> {
       completed_at: new Date().toISOString(),
     } as never)
     .eq("status", "generating")
-    .lt("created_at", new Date(Date.now() - STALE_VOICEOVER_MS).toISOString());
+    .lt("created_at", cutoff);
 }
 
 export async function generateVoiceover(input: {
@@ -276,7 +334,7 @@ export async function generateVoiceover(input: {
     .eq("dedupe_key", input.clientRequestId)
     .maybeSingle();
   if (existing) {
-    const row = existing as unknown as {
+    const row = (await relinkedTake(existing as never)) as unknown as {
       id: string;
       status: VoiceoverResult["status"];
       error_message: string | null;
@@ -376,33 +434,65 @@ export async function generateVoiceover(input: {
       .from("voiceovers")
       .update(values as never)
       .eq("id", voiceoverId);
+  /** Writes to the take, checked and tried once more; false if it didn't land. */
+  const record = async (values: Record<string, unknown>) => {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const { data, error } = await finish(values).select("id").maybeSingle();
+      if (!error && data) return true;
+    }
+    return false;
+  };
+  /**
+   * A known outcome is returned only once it is recorded. If it can't be, the
+   * request fails, so the panel keeps the request id and asks about this take
+   * again rather than starting (and paying for) a new one.
+   */
+  const settle = async (
+    status: "failed" | "submission_uncertain",
+    code: string,
+    message: string,
+  ): Promise<VoiceoverResult> => {
+    const recorded = await record({
+      status,
+      error_code: code,
+      error_message: message,
+      completed_at: new Date().toISOString(),
+    });
+    if (!recorded)
+      throw new AppError(
+        "UNKNOWN",
+        "The take's outcome couldn't be recorded. Try again in a moment to see how it ended.",
+      );
+    return outcome(status, message);
+  };
 
   const spoken = await synthesize(config, script);
   if (!spoken.ok) {
-    await finish({
-      status: spoken.uncertain ? "submission_uncertain" : "failed",
-      error_code: spoken.code,
-      error_message: spoken.message,
-      completed_at: new Date().toISOString(),
-    });
-    return outcome(spoken.uncertain ? "submission_uncertain" : "failed", spoken.message);
+    return settle(
+      spoken.uncertain ? "submission_uncertain" : "failed",
+      spoken.code,
+      spoken.message,
+    );
   }
 
   const result = spoken.result;
+  // The details are kept with the take first, so a take recovered from its
+  // stored file (if the last update fails) still has its word timings.
+  await finish({
+    duration_seconds: result.durationSeconds,
+    alignment: { words: result.words } as never,
+    provider_request_id: result.requestId,
+    characters: result.characters,
+  });
   const scope = projectId ? `projects/${projectId}` : `unassigned/${input.userId}`;
   const path = `${scope}/voiceovers/${voiceoverId}.mp3`;
   const upload = await supabaseAdmin.storage
     .from(OUTPUT_BUCKET)
     .upload(path, result.audio, { contentType: result.mime, upsert: true });
   if (upload.error) {
-    await finish({
-      status: "failed",
-      error_code: "STORAGE_FAILED",
-      error_message: "The voiceover was made but could not be saved to the library.",
-      completed_at: new Date().toISOString(),
-    });
-    return outcome(
+    return settle(
       "failed",
+      "STORAGE_FAILED",
       "The voiceover was made but could not be saved to the library. Try again.",
     );
   }
@@ -432,16 +522,16 @@ export async function generateVoiceover(input: {
     .select("id")
     .single();
   if (assetError || !asset) {
-    await finish({
-      status: "failed",
-      error_code: "STORAGE_FAILED",
-      error_message: "The voiceover could not be added to the library.",
-      completed_at: new Date().toISOString(),
-    });
-    return outcome("failed", "The voiceover could not be added to the library. Try again.");
+    return settle(
+      "failed",
+      "STORAGE_FAILED",
+      "The voiceover could not be added to the library. Try again.",
+    );
   }
 
-  await finish({
+  // Success is only reported once it is recorded; if it can't be, the request
+  // fails and the same request id later finishes the take from its stored file.
+  const recorded = await record({
     status: "completed",
     asset_id: asset.id,
     duration_seconds: result.durationSeconds,
@@ -450,6 +540,11 @@ export async function generateVoiceover(input: {
     characters: result.characters,
     completed_at: new Date().toISOString(),
   });
+  if (!recorded)
+    throw new AppError(
+      "UNKNOWN",
+      "The voiceover was saved, but the take couldn't be recorded. Try again in a moment.",
+    );
 
   return {
     voiceoverId,

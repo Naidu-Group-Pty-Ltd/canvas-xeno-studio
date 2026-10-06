@@ -16,10 +16,14 @@ import { cn } from "@/lib/utils";
 
 const INHERIT = "inherit";
 
-/** Picks a brand voice, or none to fall back to the next level (project, then studio default). */
+/**
+ * Picks a brand voice, or none to fall back to the next level (project, then
+ * studio default). Only voices that may speak for the work's project are offered.
+ */
 export function BrandVoiceSelect({
   value,
   onChange,
+  projectId,
   inheritLabel = "Studio default",
   className,
   id,
@@ -27,12 +31,14 @@ export function BrandVoiceSelect({
 }: {
   value: string | null;
   onChange: (voiceId: string | null) => void;
+  /** The project the work belongs to; null for work outside any project. */
+  projectId: string | null;
   inheritLabel?: string;
   className?: string;
   id?: string;
   disabled?: boolean;
 }) {
-  const { data: voices = [] } = useBrandVoices();
+  const { data: voices = [] } = useBrandVoices({ projectId });
   return (
     <Select
       value={value ?? INHERIT}
@@ -50,9 +56,9 @@ export function BrandVoiceSelect({
             {voice.is_default ? " (studio default)" : ""}
           </SelectItem>
         ))}
-        {/* A voice that has since been archived still shows as the current choice. */}
+        {/* A voice since archived (or kept for another project) still shows as the current choice. */}
         {value && !voices.some((voice) => voice.id === value) && (
-          <SelectItem value={value}>Archived voice</SelectItem>
+          <SelectItem value={value}>A voice not available here</SelectItem>
         )}
       </SelectContent>
     </Select>
@@ -66,18 +72,22 @@ export function BrandVoiceSelect({
 export function VoiceAssignment({
   table,
   rowId,
+  projectId,
   value,
   inheritLabel,
   className,
 }: {
   table: "campaigns" | "projects";
   rowId: string;
+  /** For a campaign, its project (null if it has none); a project is its own. */
+  projectId?: string | null;
   value: string | null | undefined;
   inheritLabel?: string;
   className?: string;
 }) {
   const queryClient = useQueryClient();
-  const { data: voices, error } = useBrandVoices();
+  const scope = table === "projects" ? rowId : (projectId ?? null);
+  const { data: voices, error } = useBrandVoices({ projectId: scope });
   const [saving, setSaving] = useState(false);
   // Before the brand voice tables exist (or if they can't be read) there is nothing to pick.
   if (error || !voices) return null;
@@ -113,6 +123,7 @@ export function VoiceAssignment({
       </Link>
       <BrandVoiceSelect
         value={value ?? null}
+        projectId={scope}
         onChange={(voiceId) => void assign(voiceId)}
         inheritLabel={
           inheritLabel ?? (table === "campaigns" ? "Project or studio default" : "Studio default")

@@ -35,7 +35,7 @@ export const Route = createFileRoute("/api/public/media-worker-credentials")({
         const result = await refreshRenderCredentials(taskId);
         const body =
           result.status === 200
-            ? { sources: result.sources, uploads: result.uploads }
+            ? { sources: result.sources, uploads: result.uploads, expires_at: result.expires_at }
             : { error: result.status === 410 ? "Task closed" : "Unavailable" };
         return new Response(JSON.stringify(body), {
           status: result.status,

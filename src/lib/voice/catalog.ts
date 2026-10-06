@@ -145,6 +145,18 @@ export interface BrandVoiceRow {
   updated_at: string;
 }
 
+/**
+ * Whether a voice may speak for work in a project: a voice for any project
+ * can, a voice kept for one project only there (and not for work outside any
+ * project).
+ */
+export function voiceInScope(
+  voice: Pick<BrandVoiceRow, "project_id">,
+  projectId: string | null | undefined,
+): boolean {
+  return !voice.project_id || voice.project_id === (projectId ?? null);
+}
+
 /** Average speaking pace used to fit scripts to an edit's length. */
 export const WORDS_PER_SECOND = 2.5;
 

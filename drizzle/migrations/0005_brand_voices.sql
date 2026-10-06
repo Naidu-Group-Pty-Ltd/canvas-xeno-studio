@@ -24,7 +24,9 @@ CREATE TABLE IF NOT EXISTS public.brand_voices (
   is_archived boolean NOT NULL DEFAULT false,
   created_by uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  -- A voice kept for one project can't speak for the whole studio.
+  CONSTRAINT brand_voices_default_for_any_project CHECK (NOT is_default OR project_id IS NULL)
 );
 CREATE INDEX IF NOT EXISTS brand_voices_recent_idx ON public.brand_voices (updated_at DESC);
 -- At most one studio-wide default voice.
@@ -60,6 +62,44 @@ CREATE INDEX IF NOT EXISTS voiceovers_recent_idx ON public.voiceovers (created_a
 
 ALTER TABLE public.campaigns ADD COLUMN IF NOT EXISTS brand_voice_id uuid REFERENCES public.brand_voices(id) ON DELETE SET NULL;
 ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS brand_voice_id uuid REFERENCES public.brand_voices(id) ON DELETE SET NULL;
+
+-- A voice kept for one project can only be assigned within that project. Choosing
+-- another project's voice is refused; a campaign that moves to another project
+-- drops a voice that doesn't belong there (and falls back to the next level).
+CREATE OR REPLACE FUNCTION public.brand_voice_in_scope() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public AS $$
+DECLARE
+  voice_project uuid;
+  row_project uuid;
+BEGIN
+  IF NEW.brand_voice_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+  SELECT project_id INTO voice_project FROM public.brand_voices WHERE id = NEW.brand_voice_id;
+  IF voice_project IS NULL THEN
+    RETURN NEW;
+  END IF;
+  IF TG_TABLE_NAME = 'projects' THEN
+    row_project := NEW.id;
+  ELSE
+    row_project := NEW.project_id;
+  END IF;
+  IF row_project IS NOT DISTINCT FROM voice_project THEN
+    RETURN NEW;
+  END IF;
+  IF TG_OP = 'UPDATE' AND NEW.brand_voice_id IS NOT DISTINCT FROM OLD.brand_voice_id THEN
+    NEW.brand_voice_id := NULL;
+    RETURN NEW;
+  END IF;
+  RAISE EXCEPTION 'That brand voice is kept for another project. Choose a voice for this project, or one for any project.'
+    USING ERRCODE = 'check_violation';
+END $$;
+DROP TRIGGER IF EXISTS campaigns_brand_voice_in_scope ON public.campaigns;
+CREATE TRIGGER campaigns_brand_voice_in_scope BEFORE INSERT OR UPDATE OF brand_voice_id, project_id ON public.campaigns
+  FOR EACH ROW EXECUTE FUNCTION public.brand_voice_in_scope();
+DROP TRIGGER IF EXISTS projects_brand_voice_in_scope ON public.projects;
+CREATE TRIGGER projects_brand_voice_in_scope BEFORE INSERT OR UPDATE OF brand_voice_id ON public.projects
+  FOR EACH ROW EXECUTE FUNCTION public.brand_voice_in_scope();
 
 GRANT SELECT ON public.brand_voices, public.voiceovers TO authenticated;
 GRANT ALL ON public.brand_voices, public.voiceovers TO service_role;

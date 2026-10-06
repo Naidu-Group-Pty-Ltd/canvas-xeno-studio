@@ -155,9 +155,11 @@ export function useSignedMedia(assets: AssetRow[]) {
       const signed = new Map<string, string>();
       for (const [bucket, paths] of byBucket) {
         for (let index = 0; index < paths.length; index += 100) {
-          const { data } = await supabase.storage
+          const { data, error } = await supabase.storage
             .from(bucket)
             .createSignedUrls(paths.slice(index, index + 100), 3600);
+          // A failed request is retried by the query; a single missing file just isn't shown.
+          if (error) throw error;
           for (const entry of data ?? []) {
             if (entry.signedUrl && entry.path)
               signed.set(`${bucket}/${entry.path}`, entry.signedUrl);
