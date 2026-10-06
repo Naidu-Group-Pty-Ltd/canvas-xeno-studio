@@ -82,9 +82,15 @@ export function EditorWorkspace({ sequence }: { sequence: SequenceRow }) {
 
 function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Timeline }) {
   const history = useTimelineHistory(initial);
-  const { timeline, change, undo, redo, reset } = history;
+  const { timeline, change, update, undo, redo, reset } = history;
   const [title, setTitle] = useState(sequence.title);
-  const [selection, setSelection] = useState<Selection>(null);
+  const [selection, setSelectionState] = useState<Selection>(null);
+  // The selection as last set, for an addition that lands after a wait.
+  const selectionRef = useRef<Selection>(null);
+  const setSelection = useCallback((next: Selection) => {
+    selectionRef.current = next;
+    setSelectionState(next);
+  }, []);
   const [remote, setRemote] = useState<SequenceRow | null>(null);
   const clockRef = useRef<PlaybackClock | null>(null);
   clockRef.current ??= new PlaybackClock();
@@ -141,7 +147,7 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
       setRemote(null);
       setSelection(null);
     },
-    [reset, save],
+    [reset, save, setSelection],
   );
 
   /* -------------------------- adding media -------------------------- */
@@ -159,14 +165,18 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
         durationSeconds: duration,
         title: asset.title,
       });
-      const after =
-        selection?.kind === "clip"
-          ? timeline.clips.findIndex((item) => item.id === selection.id) + 1
-          : timeline.clips.length;
-      change(insertClips(timeline, [clip], after || timeline.clips.length));
+      // Probing the file takes a moment, and other changes (another clip added
+      // meanwhile) may land first: the clip goes into the timeline as it is by
+      // then, after the clip selected by then.
+      const anchor = selectionRef.current?.kind === "clip" ? selectionRef.current.id : null;
+      update((current) => {
+        if (current.clips.length >= LIMITS.clips) return current;
+        const after = anchor ? current.clips.findIndex((item) => item.id === anchor) + 1 : 0;
+        return insertClips(current, [clip], after || current.clips.length);
+      });
       setSelection({ kind: "clip", id: clip.id });
     },
-    [timeline, change, selection],
+    [timeline.clips.length, update, setSelection],
   );
 
   const addAudio = useCallback(
@@ -181,10 +191,15 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
         role,
         role === "music" ? 0 : Number(clock.getTime().toFixed(2)),
       );
-      change({ ...timeline, audio: [...timeline.audio, item] });
+      // Added to the timeline as it is once the file is probed (see addVisual).
+      update((current) =>
+        current.audio.length >= LIMITS.audio
+          ? current
+          : { ...current, audio: [...current.audio, item] },
+      );
       setSelection({ kind: "audio", id: item.id });
     },
-    [timeline, change, clock],
+    [timeline.audio.length, update, clock, setSelection],
   );
 
   /* ---------------------------- keyboard ---------------------------- */
@@ -257,7 +272,7 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [timeline, change, undo, redo, clock, selection]);
+  }, [timeline, change, undo, redo, clock, selection, setSelection]);
 
   /* ------------------------------ zoom ------------------------------ */
 

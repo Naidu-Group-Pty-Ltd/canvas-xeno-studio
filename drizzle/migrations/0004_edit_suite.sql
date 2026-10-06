@@ -81,6 +81,20 @@ CREATE POLICY "members update sequences" ON public.sequences FOR UPDATE TO authe
 CREATE POLICY "owner or admin delete sequences" ON public.sequences FOR DELETE TO authenticated
   USING (public.is_active_member() AND (created_by = auth.uid() OR public.is_admin()));
 
+-- An edit's owner (who may delete it) is fixed: members can change an edit
+-- but not take it over. The server (and database maintenance) still can.
+CREATE OR REPLACE FUNCTION public.keep_sequence_owner() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public AS $$
+BEGIN
+  IF NEW.created_by IS DISTINCT FROM OLD.created_by AND current_user IN ('authenticated', 'anon') THEN
+    RAISE EXCEPTION 'An edit''s owner can''t be changed.' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS sequences_keep_owner ON public.sequences;
+CREATE TRIGGER sequences_keep_owner BEFORE UPDATE OF created_by ON public.sequences
+  FOR EACH ROW EXECUTE FUNCTION public.keep_sequence_owner();
+
 DROP POLICY IF EXISTS "members read sequence renders" ON public.sequence_renders;
 CREATE POLICY "members read sequence renders" ON public.sequence_renders FOR SELECT TO authenticated
   USING (public.is_active_member());
@@ -128,6 +142,126 @@ AS $$
 $$;
 REVOKE ALL ON FUNCTION public.close_stalled_renders(uuid, timestamptz) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.close_stalled_renders(uuid, timestamptz) TO service_role;
+
+-- Starting a render records everything it needs in one transaction, so no
+-- failure can leave part of it behind. The edit is locked (a save waits) and
+-- must still be the version that was checked; earlier renders of it that
+-- stopped reporting are closed; the render takes the edit's one active slot;
+-- its operation and media task are created; and the edit is pointed at it.
+-- Outcome: started, duplicate (same request), busy (another render is
+-- active), changed (the edit was saved meanwhile) or missing. Server only.
+CREATE OR REPLACE FUNCTION public.start_sequence_render(
+  p_render_id uuid,
+  p_task_id uuid,
+  p_sequence_id uuid,
+  p_version integer,
+  p_timeline jsonb,
+  p_dedupe_key text,
+  p_user_id uuid,
+  p_stalled_before timestamptz,
+  p_task jsonb
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+VOLATILE
+SET search_path = public
+AS $$
+DECLARE
+  v_project uuid;
+  v_campaign uuid;
+  v_version integer;
+  v_operation uuid;
+  v_existing record;
+BEGIN
+  SELECT id, status INTO v_existing FROM public.sequence_renders WHERE dedupe_key = p_dedupe_key;
+  IF FOUND THEN
+    RETURN jsonb_build_object('outcome', 'duplicate', 'render_id', v_existing.id, 'status', v_existing.status);
+  END IF;
+
+  SELECT project_id, campaign_id, version INTO v_project, v_campaign, v_version
+    FROM public.sequences WHERE id = p_sequence_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('outcome', 'missing');
+  END IF;
+  IF v_version <> p_version THEN
+    RETURN jsonb_build_object('outcome', 'changed');
+  END IF;
+
+  PERFORM public.close_stalled_renders(p_sequence_id, p_stalled_before);
+
+  BEGIN
+    INSERT INTO public.sequence_renders (id, sequence_id, sequence_version, timeline, status, stage, dedupe_key, created_by)
+    VALUES (p_render_id, p_sequence_id, p_version, p_timeline, 'queued', 'Queued', p_dedupe_key, p_user_id);
+  EXCEPTION WHEN unique_violation THEN
+    SELECT id, status INTO v_existing FROM public.sequence_renders WHERE dedupe_key = p_dedupe_key;
+    IF FOUND THEN
+      RETURN jsonb_build_object('outcome', 'duplicate', 'render_id', v_existing.id, 'status', v_existing.status);
+    END IF;
+    RETURN jsonb_build_object('outcome', 'busy');
+  END;
+
+  INSERT INTO public.operations (created_by, project_id, campaign_id, operation_type, provider, status,
+                                 input_payload, dedupe_key, submitted_at)
+  VALUES (p_user_id, v_project, v_campaign, 'render_sequence', 'media_worker', 'running',
+          jsonb_build_object('sequence_id', p_sequence_id, 'render_id', p_render_id, 'version', p_version),
+          'render:' || p_dedupe_key, now())
+  RETURNING id INTO v_operation;
+
+  INSERT INTO public.media_tasks (id, operation_id, created_by, project_id, source_asset_id, task_type, status,
+                                  storage_bucket, storage_path, input_payload, dedupe_key, submitted_at)
+  VALUES (p_task_id, v_operation, p_user_id, v_project, NULLIF(p_task->>'source_asset_id', '')::uuid,
+          'render_sequence', 'submitting', p_task->>'storage_bucket', p_task->>'storage_path',
+          COALESCE(p_task->'input_payload', '{}'::jsonb), 'render:' || p_dedupe_key, now());
+
+  UPDATE public.sequence_renders SET media_task_id = p_task_id WHERE id = p_render_id;
+  UPDATE public.sequences SET status = 'rendering', last_render_id = p_render_id WHERE id = p_sequence_id;
+
+  RETURN jsonb_build_object('outcome', 'started', 'render_id', p_render_id, 'operation_id', v_operation);
+END $$;
+REVOKE ALL ON FUNCTION public.start_sequence_render(uuid, uuid, uuid, integer, jsonb, text, uuid, timestamptz, jsonb)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.start_sequence_render(uuid, uuid, uuid, integer, jsonb, text, uuid, timestamptz, jsonb)
+  TO service_role;
+
+-- A render that can't be sent is failed with its task, its operation and the
+-- edit's status in one statement. Server only.
+CREATE OR REPLACE FUNCTION public.fail_sequence_render(p_render_id uuid, p_error_code text, p_error_message text)
+RETURNS void
+LANGUAGE sql
+VOLATILE
+SET search_path = public
+AS $$
+  WITH render AS (
+    UPDATE public.sequence_renders
+       SET status = 'failed', error_code = p_error_code, error_message = p_error_message, completed_at = now()
+     WHERE id = p_render_id
+       AND status IN ('queued', 'rendering')
+    RETURNING sequence_id, media_task_id
+  ), task AS (
+    UPDATE public.media_tasks
+       SET status = 'failed', error_code = p_error_code, error_message = p_error_message, completed_at = now()
+     WHERE id IN (SELECT media_task_id FROM render)
+       AND status IN ('submitting', 'processing')
+    RETURNING operation_id
+  ), operation AS (
+    UPDATE public.operations
+       SET status = 'failed', error_code = p_error_code, error_message = p_error_message, failed_at = now()
+     WHERE id IN (SELECT operation_id FROM task)
+       AND status = 'running'
+    RETURNING id
+  )
+  UPDATE public.sequences
+     SET status = 'failed'
+   WHERE id IN (SELECT sequence_id FROM render)
+     AND last_render_id = p_render_id;
+$$;
+REVOKE ALL ON FUNCTION public.fail_sequence_render(uuid, text, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.fail_sequence_render(uuid, text, text) TO service_role;
+
+-- The media worker instance that took a render. A task delivered twice can
+-- reach two instances (a lost acknowledgement, then a resend); only the one
+-- that claims it first goes on, so a render never runs twice.
+ALTER TABLE public.media_tasks ADD COLUMN IF NOT EXISTS worker_id text;
 
 -- Live render progress and teammates' edits.
 DO $$

@@ -213,18 +213,30 @@ export const updateVoiceStatus = createServerFn({ method: "POST" })
           "This voice is kept for one project. Make it available to any project first, then make it the studio default.",
         );
       if (data.action === "make_default") {
-        // One default at a time (a unique index enforces it): clear the old one first.
-        const cleared = await supabaseAdmin
-          .from("brand_voices")
-          .update({ is_default: false } as never)
-          .eq("is_default", true)
-          .neq("id", data.id);
-        if (cleared.error) throw new AppError("UNKNOWN", cleared.error.message);
-        const set = await supabaseAdmin
-          .from("brand_voices")
-          .update({ is_default: true, is_archived: false } as never)
-          .eq("id", data.id);
-        if (set.error) throw new AppError("UNKNOWN", set.error.message);
+        // One default at a time (a unique index enforces it). The old one is
+        // cleared and this one set in one transaction (a database function),
+        // so a failure part-way never leaves the studio without a default.
+        const { data: outcome, error } = await supabaseAdmin.rpc(
+          "set_default_brand_voice" as never,
+          { p_voice_id: data.id } as never,
+        );
+        if (error)
+          throw new AppError(
+            "UNKNOWN",
+            "The studio default couldn't be changed. Try again in a moment.",
+          );
+        if (outcome === "missing")
+          throw new AppError("INVALID_PARAMETERS", "That voice no longer exists");
+        if (outcome === "project")
+          throw new AppError(
+            "INVALID_PARAMETERS",
+            "This voice is kept for one project. Make it available to any project first, then make it the studio default.",
+          );
+        if (outcome !== "set")
+          throw new AppError(
+            "UNKNOWN",
+            "The studio default couldn't be changed. Try again in a moment.",
+          );
       } else {
         const cleared = await supabaseAdmin
           .from("brand_voices")
@@ -392,48 +404,56 @@ export const writeVoiceoverScript = createServerFn({ method: "POST" })
     let campaignId: string | null = null;
     let projectId: string | null = null;
     if (data.sequenceId) {
-      const { data: sequence } = await supabaseAdmin
+      // The edit decides the voice, the shots and the brief: a failed lookup
+      // stops here rather than writing (and paying for) a script without them.
+      const { data: sequence, error: sequenceError } = await supabaseAdmin
         .from("sequences")
         .select("title,timeline,source,brief_id,project_id,campaign_id")
         .eq("id", data.sequenceId)
         .maybeSingle();
-      if (sequence) {
-        campaignId = sequence.campaign_id;
-        projectId = sequence.project_id;
-        lines.push(`## VIDEO: ${sequence.title}`);
-        const timeline = (sequence.timeline ?? {}) as {
-          clips?: { label?: string; duration?: number }[];
-        };
-        const shots = (timeline.clips ?? []).map(
-          (clip, index) =>
-            `${index + 1}. ${clip.label ?? "Shot"} (${Number(clip.duration ?? 0).toFixed(1)}s)`,
-        );
-        if (shots.length) lines.push(`Shot order:\n${shots.join("\n")}`);
-        const source = (sequence.source ?? {}) as Record<string, unknown>;
-        if (typeof source["music_direction"] === "string")
-          lines.push(`Music: ${source["music_direction"]}`);
-        if (sequence.brief_id) {
-          const { data: brief } = await supabaseAdmin
-            .from("creative_briefs")
-            .select("title,analysis")
-            .eq("id", sequence.brief_id)
-            .maybeSingle();
-          if (brief) {
-            const analysis = (brief.analysis ?? {}) as Record<string, unknown>;
-            const keep = [
-              "brand",
-              "objective",
-              "audience",
-              "key_message",
-              "supporting_messages",
-              "tone",
-              "mandatories",
-              "brand_guidelines",
-            ];
-            lines.push(
-              `## BRIEF: ${brief.title}\n${JSON.stringify(Object.fromEntries(keep.filter((key) => analysis[key]).map((key) => [key, analysis[key]])))}`,
-            );
-          }
+      if (sequenceError)
+        throw new AppError("UNKNOWN", "The edit couldn't be looked up. Try again in a moment.");
+      if (!sequence) throw new AppError("INVALID_PARAMETERS", "That edit no longer exists.");
+      campaignId = sequence.campaign_id;
+      projectId = sequence.project_id;
+      lines.push(`## VIDEO: ${sequence.title}`);
+      const timeline = (sequence.timeline ?? {}) as {
+        clips?: { label?: string; duration?: number }[];
+      };
+      const shots = (timeline.clips ?? []).map(
+        (clip, index) =>
+          `${index + 1}. ${clip.label ?? "Shot"} (${Number(clip.duration ?? 0).toFixed(1)}s)`,
+      );
+      if (shots.length) lines.push(`Shot order:\n${shots.join("\n")}`);
+      const source = (sequence.source ?? {}) as Record<string, unknown>;
+      if (typeof source["music_direction"] === "string")
+        lines.push(`Music: ${source["music_direction"]}`);
+      if (sequence.brief_id) {
+        const { data: brief, error: briefError } = await supabaseAdmin
+          .from("creative_briefs")
+          .select("title,analysis")
+          .eq("id", sequence.brief_id)
+          .maybeSingle();
+        if (briefError)
+          throw new AppError(
+            "UNKNOWN",
+            "The edit's brief couldn't be looked up. Try again in a moment.",
+          );
+        if (brief) {
+          const analysis = (brief.analysis ?? {}) as Record<string, unknown>;
+          const keep = [
+            "brand",
+            "objective",
+            "audience",
+            "key_message",
+            "supporting_messages",
+            "tone",
+            "mandatories",
+            "brand_guidelines",
+          ];
+          lines.push(
+            `## BRIEF: ${brief.title}\n${JSON.stringify(Object.fromEntries(keep.filter((key) => analysis[key]).map((key) => [key, analysis[key]])))}`,
+          );
         }
       }
     }
@@ -523,16 +543,21 @@ export const addElevenLabsLibraryVoice = createServerFn({ method: "POST" })
         publicOwnerId: z.string().min(1).max(200),
         voiceId: z.string().min(1).max(200),
         name: z.string().trim().min(1).max(100),
+        clientRequestId: z.string().min(8).max(64),
       })
       .parse(data),
   )
   .handler(async ({ data, context }) => {
     const { elevenLabsAddLibraryVoice } = await import("./voice/providers.server");
-    const { requireActiveMember } = await import("./voice/service.server");
+    const { requireActiveMember, voiceAddedOnce } = await import("./voice/service.server");
     await requireActiveMember(context.userId);
-    const result = await elevenLabsAddLibraryVoice(data.publicOwnerId, data.voiceId, data.name);
-    if (!result.ok) failure(result);
-    return { voiceId: result.voiceId };
+    const voiceId = await voiceAddedOnce({
+      userId: context.userId,
+      key: `elevenlabs-voice:library:${data.clientRequestId}`,
+      name: data.name,
+      create: () => elevenLabsAddLibraryVoice(data.publicOwnerId, data.voiceId, data.name),
+    });
+    return { voiceId };
   });
 
 export const designElevenLabsVoice = createServerFn({ method: "POST" })
@@ -567,11 +592,16 @@ export const saveDesignedVoice = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { elevenLabsSaveDesign } = await import("./voice/providers.server");
-    const { requireActiveMember } = await import("./voice/service.server");
+    const { requireActiveMember, voiceAddedOnce } = await import("./voice/service.server");
     await requireActiveMember(context.userId);
-    const result = await elevenLabsSaveDesign(data);
-    if (!result.ok) failure(result);
-    return { voiceId: result.voiceId };
+    // A designed option is kept once, however often "Keep this one" is pressed.
+    const voiceId = await voiceAddedOnce({
+      userId: context.userId,
+      key: `elevenlabs-voice:design:${data.generatedVoiceId}`,
+      name: data.name,
+      create: () => elevenLabsSaveDesign(data),
+    });
+    return { voiceId };
   });
 
 /**
@@ -591,13 +621,14 @@ export const cloneElevenLabsVoice = createServerFn({ method: "POST" })
           speakerName: z.string().trim().min(2).max(120),
         }),
         removeBackgroundNoise: z.boolean().default(true),
+        clientRequestId: z.string().min(8).max(64),
       })
       .parse(data),
   )
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { elevenLabsClone } = await import("./voice/providers.server");
-    const { requireActiveMember } = await import("./voice/service.server");
+    const { requireActiveMember, voiceAddedOnce } = await import("./voice/service.server");
     await requireActiveMember(context.userId);
     const { data: assets } = await supabaseAdmin
       .from("assets")
@@ -622,15 +653,20 @@ export const cloneElevenLabsVoice = createServerFn({ method: "POST" })
     // The consent statement also travels with the voice in the ElevenLabs account.
     const consentNote = `Cloned with the consent of ${data.consent.speakerName}, confirmed in the studio on ${new Date().toISOString().slice(0, 10)}.`;
     const description = [data.description, consentNote].filter(Boolean).join(" ");
-    const result = await elevenLabsClone({
+    const voiceId = await voiceAddedOnce({
+      userId: context.userId,
+      key: `elevenlabs-voice:clone:${data.clientRequestId}`,
       name: data.name,
-      description,
-      files,
-      removeBackgroundNoise: data.removeBackgroundNoise,
+      create: () =>
+        elevenLabsClone({
+          name: data.name,
+          description,
+          files,
+          removeBackgroundNoise: data.removeBackgroundNoise,
+        }),
     });
-    if (!result.ok) failure(result);
     return {
-      voiceId: result.voiceId,
+      voiceId,
       consent: {
         speakerName: data.consent.speakerName,
         confirmedBy: context.userId,

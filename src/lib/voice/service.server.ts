@@ -7,6 +7,7 @@
  * call is recorded first; an uncertain outcome is never retried by itself.
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { derivedUuid } from "../derived-id";
 import { AppError } from "../higgsfield/errors";
 import {
   alignScript,
@@ -25,6 +26,7 @@ import {
 } from "./catalog";
 import { mp3Duration } from "./audio";
 import {
+  elevenLabsAccountVoices,
   elevenLabsSpeech,
   openAISpeech,
   openAIWordTimings,
@@ -251,6 +253,12 @@ export interface VoiceoverResult {
   voiceId: string | null;
   voiceName: string | null;
   duplicate: boolean;
+  /**
+   * The request id the take answers to. It differs from the one sent when the
+   * same take was already being made for another request; asking with this
+   * id then follows that take.
+   */
+  requestId: string | null;
 }
 
 function titleFor(voiceName: string, script: string): string {
@@ -272,8 +280,16 @@ interface TakeRow {
   created_by: string | null;
   alignment: unknown;
   duration_seconds: number | null;
+  voice_id: string | null;
+  script: string;
+  provider: string | null;
+  model: string | null;
 }
-const TAKE_COLUMNS = "id,status,asset_id,project_id,created_by,alignment,duration_seconds";
+const TAKE_COLUMNS =
+  "id,status,asset_id,project_id,created_by,alignment,duration_seconds,voice_id,script,provider,model";
+
+const takeUnchecked = () =>
+  new AppError("UNKNOWN", "The take couldn't be checked. Try again in a moment.");
 
 /**
  * Where a take's audio (and, if needed, its details) is stored. Only the
@@ -287,6 +303,80 @@ function takePath(
   return `${scope}/voiceovers/${take.id}.${kind === "audio" ? "mp3" : "json"}`;
 }
 
+/**
+ * A stored file's listing entry, or null if it isn't there. Listed rather
+ * than probed: a listing says plainly whether the file is there, and any
+ * storage error is thrown, never read as "no file".
+ */
+async function storedFile(
+  path: string,
+): Promise<{ name: string; metadata?: Record<string, unknown> | null } | null> {
+  const slash = path.lastIndexOf("/");
+  const name = path.slice(slash + 1);
+  const { data: listed, error } = await supabaseAdmin.storage
+    .from(OUTPUT_BUCKET)
+    .list(path.slice(0, slash), { search: name, limit: 10 });
+  if (error) throw takeUnchecked();
+  return (listed ?? []).find((entry) => entry.name === name) ?? null;
+}
+
+/** The library record of a take's audio, apart from its id and place. */
+function takeAssetValues(
+  take: Pick<TakeRow, "id" | "project_id" | "created_by" | "voice_id" | "provider" | "model">,
+  file: { mime: string; size: number | null; durationSeconds: number | null; title: string },
+) {
+  return {
+    uploaded_by: take.created_by,
+    project_id: take.project_id,
+    asset_type: "audio",
+    mime_type: file.mime,
+    file_size: file.size,
+    duration_seconds: file.durationSeconds,
+    source_type: "generated",
+    title: file.title,
+    metadata: {
+      voiceover_id: take.id,
+      brand_voice_id: take.voice_id,
+      provider: take.provider,
+      model: take.model,
+      ai_generated_voice: true,
+    },
+  };
+}
+
+/**
+ * Adds a take's audio to the library, once. The record's id is derived from
+ * the take's, so trying again (after an insert whose answer was lost, or when
+ * the take is finished later from its file) finds the record already made
+ * instead of adding another. A record under that id counts only if it is the
+ * take's own file in the server-only bucket. Returns its id, or null if it
+ * couldn't be added just now; a lookup that fails is thrown.
+ */
+async function keptAsset(
+  take: Pick<TakeRow, "id" | "project_id" | "created_by">,
+  values: Record<string, unknown>,
+): Promise<string | null> {
+  const id = await derivedUuid(`voiceover-asset:${take.id}`);
+  const path = takePath(take, "audio");
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const { error } = await supabaseAdmin
+      .from("assets")
+      .insert({ ...values, id, storage_bucket: OUTPUT_BUCKET, storage_path: path } as never);
+    if (!error) return id;
+    const { data: existing, error: lookupError } = await supabaseAdmin
+      .from("assets")
+      .select("storage_bucket,storage_path")
+      .eq("id", id)
+      .maybeSingle();
+    if (lookupError) throw takeUnchecked();
+    if (existing) {
+      if (existing.storage_bucket === OUTPUT_BUCKET && existing.storage_path === path) return id;
+      throw takeUnchecked();
+    }
+  }
+  return null;
+}
+
 /** The take details kept beside its audio, if they couldn't be kept with the take. */
 async function carriedDetails(take: TakeRow): Promise<Record<string, unknown> | null> {
   const { data: file, error } = await supabaseAdmin.storage
@@ -295,7 +385,7 @@ async function carriedDetails(take: TakeRow): Promise<Record<string, unknown> | 
   if (error) {
     const { status, statusCode } = error as { status?: number; statusCode?: string };
     if (status === 404 || String(statusCode) === "404") return null;
-    throw new AppError("UNKNOWN", "The take couldn't be checked. Try again in a moment.");
+    throw takeUnchecked();
   }
   try {
     const parsed = JSON.parse(await file.text()) as Record<string, unknown>;
@@ -316,45 +406,45 @@ async function carriedDetails(take: TakeRow): Promise<Record<string, unknown> | 
 }
 
 /**
- * A take whose audio was stored but whose last update didn't land is finished
- * from that file. Only the take's own file counts: it is found at its fixed
- * place in the server-only bucket (and must really be there), so a library
- * record (which any member can create or edit) can't stand in for it.
- * Anything else comes back unchanged; a lookup that fails is thrown, so
- * nothing is decided without knowing.
+ * A take whose audio was stored but whose last steps didn't land is finished
+ * from that file: its library record is added if it is missing, and the take
+ * is completed with it. Only the take's own file counts: it is found at its
+ * fixed place in the server-only bucket (and must really be there), so a
+ * library record (which any member can create or edit) can't stand in for it.
+ * Anything else comes back unchanged; a lookup or write that fails is thrown,
+ * so nothing is decided without knowing.
  */
 async function relinkedTake<T extends TakeRow>(row: T): Promise<T> {
   if (row.status !== "generating" || row.asset_id) return row;
-  const unchecked = () =>
-    new AppError("UNKNOWN", "The take couldn't be checked. Try again in a moment.");
-  const path = takePath(row, "audio");
-  const { data: asset, error } = await supabaseAdmin
-    .from("assets")
-    .select("id,duration_seconds")
-    .eq("storage_bucket", OUTPUT_BUCKET)
-    .eq("storage_path", path)
-    .eq("asset_type", "audio")
-    .is("deleted_at", null)
-    .maybeSingle();
-  if (error) throw unchecked();
-  if (!asset) return row;
-  // Listed rather than probed: a listing says plainly whether the file is
-  // there, and any storage error is thrown, never read as "no file".
-  const slash = path.lastIndexOf("/");
-  const name = path.slice(slash + 1);
-  const { data: listed, error: listError } = await supabaseAdmin.storage
-    .from(OUTPUT_BUCKET)
-    .list(path.slice(0, slash), { search: name, limit: 10 });
-  if (listError) throw unchecked();
-  if (!(listed ?? []).some((entry) => entry.name === name)) return row;
+  const file = await storedFile(takePath(row, "audio"));
+  if (!file) return row;
   const carried = row.alignment ? null : await carriedDetails(row);
+  const carriedDuration = carried?.["duration_seconds"];
+  const durationSeconds =
+    row.duration_seconds ?? (typeof carriedDuration === "number" ? carriedDuration : null);
+  const { data: speaker, error: speakerError } = row.voice_id
+    ? await supabaseAdmin.from("brand_voices").select("name").eq("id", row.voice_id).maybeSingle()
+    : { data: null, error: null };
+  if (speakerError) throw takeUnchecked();
+  const size = Number(file.metadata?.["size"]);
+  const mime = file.metadata?.["mimetype"];
+  const assetId = await keptAsset(
+    row,
+    takeAssetValues(row, {
+      mime: typeof mime === "string" && mime ? mime : "audio/mpeg",
+      size: Number.isFinite(size) ? size : null,
+      durationSeconds,
+      title: titleFor(speaker?.name ?? "Brand voice", row.script),
+    }),
+  );
+  if (!assetId) throw takeUnchecked();
   const { data, error: linkError } = await supabaseAdmin
     .from("voiceovers")
     .update({
       status: "completed",
-      asset_id: asset.id,
-      ...(row.duration_seconds === null && asset.duration_seconds !== null
-        ? { duration_seconds: asset.duration_seconds }
+      asset_id: assetId,
+      ...(row.duration_seconds === null && durationSeconds !== null
+        ? { duration_seconds: durationSeconds }
         : {}),
       ...(carried ?? {}),
       completed_at: new Date().toISOString(),
@@ -364,7 +454,7 @@ async function relinkedTake<T extends TakeRow>(row: T): Promise<T> {
     .select("*")
     .maybeSingle();
   // Not finished after all: thrown, so the take is never written off meanwhile.
-  if (linkError) throw unchecked();
+  if (linkError) throw takeUnchecked();
   if (data) return data as unknown as T;
   // Settled by someone else in the meantime: as it is now.
   const { data: now, error: rereadError } = await supabaseAdmin
@@ -372,7 +462,7 @@ async function relinkedTake<T extends TakeRow>(row: T): Promise<T> {
     .select("*")
     .eq("id", row.id)
     .maybeSingle();
-  if (rereadError || !now) throw unchecked();
+  if (rereadError || !now) throw takeUnchecked();
   return now as unknown as T;
 }
 
@@ -430,22 +520,13 @@ export async function generateVoiceover(input: {
       `Scripts are limited to ${MAX_SCRIPT_CHARS} characters.`,
     );
 
-  // A repeated click returns the voiceover already made (or being made).
-  const { data: existing } = await supabaseAdmin
-    .from("voiceovers")
-    .select("*")
-    .eq("dedupe_key", input.clientRequestId)
-    .maybeSingle();
-  if (existing) {
-    const row = (await relinkedTake(existing as unknown as TakeRow)) as unknown as {
-      id: string;
+  // A take as the panel hears about it.
+  const reported = async (taken: TakeRow, duplicate: boolean): Promise<VoiceoverResult> => {
+    const row = taken as unknown as TakeRow & {
       status: VoiceoverResult["status"];
       error_message: string | null;
-      asset_id: string | null;
-      duration_seconds: number | null;
       alignment: { words?: TimedWord[] } | null;
-      voice_id: string | null;
-      script: string;
+      dedupe_key: string | null;
     };
     const { data: speaker } = row.voice_id
       ? await supabaseAdmin.from("brand_voices").select("name").eq("id", row.voice_id).maybeSingle()
@@ -460,9 +541,25 @@ export async function generateVoiceover(input: {
       title: titleFor(speaker?.name ?? "Brand voice", row.script),
       voiceId: row.voice_id,
       voiceName: speaker?.name ?? null,
-      duplicate: true,
+      duplicate,
+      requestId: row.dedupe_key,
     };
-  }
+  };
+  const unchecked = () =>
+    new AppError("UNKNOWN", "The voiceover couldn't be checked. Try again in a moment.");
+  const byRequest = async () => {
+    const { data, error } = await supabaseAdmin
+      .from("voiceovers")
+      .select("*")
+      .eq("dedupe_key", input.clientRequestId)
+      .maybeSingle();
+    if (error) throw unchecked();
+    return (data ?? null) as unknown as TakeRow | null;
+  };
+
+  // A repeated click returns the voiceover already made (or being made).
+  const existing = await byRequest();
+  if (existing) return reported(await relinkedTake(existing), true);
 
   let projectId = input.projectId ?? null;
   let campaignId = input.campaignId ?? null;
@@ -487,6 +584,27 @@ export async function generateVoiceover(input: {
       "Choose a brand voice first, or set a studio default in Brand voices.",
     );
 
+  // The same script, by the same voice, for the same work is made once at a
+  // time (a database index holds it): asked for again while it is being made
+  // (say its answer was lost and a reload forgot the request), that take is
+  // returned rather than paid for twice.
+  const inProgress = async () => {
+    let query = supabaseAdmin
+      .from("voiceovers")
+      .select("*")
+      .eq("status", "generating")
+      .eq("voice_id", voice.id);
+    query = input.sequenceId
+      ? query.eq("sequence_id", input.sequenceId)
+      : query.is("sequence_id", null);
+    query = projectId ? query.eq("project_id", projectId) : query.is("project_id", null);
+    const { data, error } = await query.order("created_at", { ascending: false }).limit(20);
+    if (error) throw unchecked();
+    return ((data ?? []) as unknown as TakeRow[]).find((row) => row.script === script) ?? null;
+  };
+  const making = await inProgress();
+  if (making) return reported(await relinkedTake(making), true);
+
   const config = configFromRow(voice);
   const tokens = tokenizeScript(script, config.pronunciations);
   const voiceoverId = crypto.randomUUID();
@@ -506,19 +624,12 @@ export async function generateVoiceover(input: {
     created_by: input.userId,
   } as never);
   if (insertError) {
-    if (insertError.code === "23505")
-      return {
-        voiceoverId: "",
-        status: "generating",
-        errorMessage: null,
-        assetId: null,
-        durationSeconds: null,
-        words: [],
-        title: "",
-        voiceId: voice.id,
-        voiceName: voice.name,
-        duplicate: true,
-      };
+    if (insertError.code === "23505") {
+      // Another request got there first: this one, or the same take.
+      const raced = (await byRequest()) ?? (await inProgress());
+      if (raced) return reported(await relinkedTake(raced), true);
+      throw new AppError("UNKNOWN", "This voiceover is already being made. Try again in a moment.");
+    }
     throw new AppError("UNKNOWN", "The voiceover could not be recorded");
   }
   const outcome = (
@@ -535,6 +646,7 @@ export async function generateVoiceover(input: {
     voiceId: voice.id,
     voiceName: voice.name,
     duplicate: false,
+    requestId: input.clientRequestId,
   });
 
   const finish = (values: Record<string, unknown>) =>
@@ -595,7 +707,14 @@ export async function generateVoiceover(input: {
     provider_request_id: result.requestId,
     characters: result.characters,
   };
-  const take = { id: voiceoverId, project_id: projectId, created_by: input.userId };
+  const take = {
+    id: voiceoverId,
+    project_id: projectId,
+    created_by: input.userId,
+    voice_id: voice.id,
+    provider: voice.provider,
+    model: voice.model,
+  };
   const keptBeside = async () => {
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const { error } = await supabaseAdmin.storage
@@ -614,55 +733,54 @@ export async function generateVoiceover(input: {
       "STORAGE_FAILED",
       "The voiceover was made but could not be saved to the library. Try again.",
     );
-  const path = takePath(take, "audio");
-  const upload = await supabaseAdmin.storage
-    .from(OUTPUT_BUCKET)
-    .upload(path, result.audio, { contentType: result.mime, upsert: true });
-  if (upload.error) {
-    return settle(
-      "failed",
-      "STORAGE_FAILED",
-      "The voiceover was made but could not be saved to the library. Try again.",
+
+  // Once its audio is stored, a take is never written off: anything after that
+  // which doesn't land leaves it being made, and the same request id (or the
+  // sweep of interrupted takes) finishes it from its file.
+  const stuck = () =>
+    new AppError(
+      "UNKNOWN",
+      "The voiceover was made, but it couldn't be added to the library just now. Try again in a moment.",
     );
+  const path = takePath(take, "audio");
+  let stored = false;
+  for (let attempt = 0; attempt < 2 && !stored; attempt += 1) {
+    const { error } = await supabaseAdmin.storage
+      .from(OUTPUT_BUCKET)
+      .upload(path, result.audio, { contentType: result.mime, upsert: true });
+    stored = !error;
+  }
+  if (!stored) {
+    // An upload whose answer was lost may still have landed: only a listing
+    // that shows the file missing fails the take.
+    const landed = await storedFile(path).catch(() => {
+      throw stuck();
+    });
+    if (!landed)
+      return settle(
+        "failed",
+        "STORAGE_FAILED",
+        "The voiceover was made but could not be saved to the library. Try again.",
+      );
   }
 
   const title = titleFor(voice.name, script);
-  const { data: asset, error: assetError } = await supabaseAdmin
-    .from("assets")
-    .insert({
-      uploaded_by: input.userId,
-      project_id: projectId,
-      asset_type: "audio",
-      storage_bucket: OUTPUT_BUCKET,
-      storage_path: path,
-      mime_type: result.mime,
-      file_size: result.audio.length,
-      duration_seconds: result.durationSeconds,
-      source_type: "generated",
+  const assetId = await keptAsset(
+    take,
+    takeAssetValues(take, {
+      mime: result.mime,
+      size: result.audio.length,
+      durationSeconds: result.durationSeconds,
       title,
-      metadata: {
-        voiceover_id: voiceoverId,
-        brand_voice_id: voice.id,
-        provider: voice.provider,
-        model: voice.model,
-        ai_generated_voice: true,
-      } as never,
-    })
-    .select("id")
-    .single();
-  if (assetError || !asset) {
-    return settle(
-      "failed",
-      "STORAGE_FAILED",
-      "The voiceover could not be added to the library. Try again.",
-    );
-  }
+    }),
+  ).catch(() => null);
+  if (!assetId) throw stuck();
 
   // Success is only reported once it is recorded; if it can't be, the request
   // fails and the same request id later finishes the take from its stored file.
   const recorded = await record({
     status: "completed",
-    asset_id: asset.id,
+    asset_id: assetId,
     duration_seconds: result.durationSeconds,
     alignment: { words: result.words } as never,
     provider_request_id: result.requestId,
@@ -679,12 +797,159 @@ export async function generateVoiceover(input: {
     voiceoverId,
     status: "completed",
     errorMessage: null,
-    assetId: asset.id,
+    assetId,
     durationSeconds: result.durationSeconds,
     words: result.words,
     title,
     voiceId: voice.id,
     voiceName: voice.name,
     duplicate: false,
+    requestId: input.clientRequestId,
   };
+}
+
+/** How long adding a voice to ElevenLabs may take before its answer is given up on. */
+const VOICE_ADD_SETTLE_MS = 2 * 60_000;
+
+/**
+ * Adds a voice to the ElevenLabs account (a designed voice, a clone, a library
+ * voice) once per attempt; ElevenLabs keeps no request ids of its own. The
+ * attempt is recorded first (an operation keyed by `key`), along with the
+ * voices of that name already in the account. If the answer is lost, the
+ * attempt is recorded as uncertain, and asking again with the same key looks
+ * for the voice of that name that appeared since, instead of adding a second
+ * one. Only when none turned up after a while is it added again.
+ */
+export async function voiceAddedOnce(input: {
+  userId: string;
+  key: string;
+  name: string;
+  create: () => Promise<{ ok: true; voiceId: string } | ProviderFailure>;
+}): Promise<string> {
+  const unchecked = () =>
+    new AppError("UNKNOWN", "The voice couldn't be checked in ElevenLabs. Try again in a moment.");
+  const named = async () => {
+    const result = await elevenLabsAccountVoices(input.name);
+    if (!result.ok) throw unchecked();
+    return result.voices.filter((voice) => voice.name === input.name).map((voice) => voice.voiceId);
+  };
+  interface Attempt {
+    id: string;
+    status: string;
+    output_payload: { voice_id?: string } | null;
+    input_payload: { before?: string[] } | null;
+    submitted_at: string | null;
+    updated_at: string;
+  }
+  const columns = "id,status,output_payload,input_payload,submitted_at,updated_at";
+  const load = async (): Promise<Attempt | null> => {
+    const { data, error } = await supabaseAdmin
+      .from("operations")
+      .select(columns)
+      .eq("dedupe_key", input.key)
+      .maybeSingle();
+    if (error) throw unchecked();
+    return (data ?? null) as unknown as Attempt | null;
+  };
+  const record = async (id: string, values: Record<string, unknown>) => {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const { data, error } = await supabaseAdmin
+        .from("operations")
+        .update(values as never)
+        .eq("id", id)
+        .select("id")
+        .maybeSingle();
+      if (!error && data) return true;
+    }
+    return false;
+  };
+  const add = async (id: string): Promise<string> => {
+    const result = await input.create();
+    const at = new Date().toISOString();
+    if (result.ok) {
+      // If this can't be recorded, the voice is still found by its name next time.
+      await record(id, {
+        status: "completed",
+        output_payload: { voice_id: result.voiceId },
+        completed_at: at,
+      });
+      return result.voiceId;
+    }
+    await record(id, {
+      status: result.uncertain ? "submission_uncertain" : "failed",
+      error_code: result.code,
+      error_message: result.message,
+      failed_at: at,
+    });
+    if (result.uncertain)
+      throw new AppError(
+        "SUBMISSION_UNCERTAIN",
+        "ElevenLabs may have added the voice, but its answer was lost. Try again: the studio looks for it in your account rather than adding it twice.",
+      );
+    throw new AppError(result.code as never, result.message);
+  };
+  // A new attempt (or a failed one tried again) records the voices of that name first.
+  const begin = async (existing: Attempt | null): Promise<string> => {
+    const before = await named();
+    const payload = {
+      status: "running",
+      input_payload: { name: input.name, before },
+      submitted_at: new Date().toISOString(),
+    };
+    if (existing) {
+      const restarted = await record(existing.id, {
+        ...payload,
+        error_code: null,
+        error_message: null,
+        failed_at: null,
+      });
+      if (!restarted) throw unchecked();
+      return add(existing.id);
+    }
+    const { data, error } = await supabaseAdmin
+      .from("operations")
+      .insert({
+        ...payload,
+        created_by: input.userId,
+        operation_type: "voice_add",
+        provider: "elevenlabs",
+        dedupe_key: input.key,
+      } as never)
+      .select("id")
+      .maybeSingle();
+    // Another request for the same attempt got there first.
+    if (error?.code === "23505") return settled(await load());
+    if (error || !data) throw new AppError("UNKNOWN", "The voice couldn't be recorded. Try again.");
+    return add(data.id);
+  };
+  // An earlier attempt: its voice, the voice that appeared for it, or a new try.
+  const settled = async (attempt: Attempt | null): Promise<string> => {
+    if (!attempt) return begin(null);
+    if (attempt.status === "completed" && attempt.output_payload?.voice_id)
+      return attempt.output_payload.voice_id;
+    if (attempt.status === "failed") return begin(attempt);
+    const before = new Set(attempt.input_payload?.before ?? []);
+    const appeared = (await named()).filter((id) => !before.has(id));
+    if (appeared.length === 1) {
+      await record(attempt.id, {
+        status: "completed",
+        output_payload: { voice_id: appeared[0] },
+        completed_at: new Date().toISOString(),
+      });
+      return appeared[0]!;
+    }
+    if (appeared.length > 1)
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        `More than one new voice called “${input.name}” is in your ElevenLabs account, so the studio can't tell which is this one. Choose it under My voices.`,
+      );
+    const age = Date.now() - Date.parse(attempt.submitted_at ?? attempt.updated_at);
+    if (age < VOICE_ADD_SETTLE_MS)
+      throw new AppError(
+        "UNKNOWN",
+        "This voice may still be on its way to ElevenLabs. Try again in a minute.",
+      );
+    return begin(attempt);
+  };
+  return settled(await load());
 }

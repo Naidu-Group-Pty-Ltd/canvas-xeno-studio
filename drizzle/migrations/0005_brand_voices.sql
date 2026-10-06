@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS public.brand_voices (
   pronunciations jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(pronunciations) = 'array'),
   script_guidelines text CHECK (script_guidelines IS NULL OR char_length(script_guidelines) <= 2000),
   sample_asset_id uuid REFERENCES public.assets(id) ON DELETE SET NULL,
-  project_id uuid REFERENCES public.projects(id) ON DELETE SET NULL,
+  project_id uuid REFERENCES public.projects(id) ON DELETE CASCADE,
   source jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(source) = 'object'),
   is_default boolean NOT NULL DEFAULT false,
   is_archived boolean NOT NULL DEFAULT false,
@@ -29,6 +29,20 @@ CREATE TABLE IF NOT EXISTS public.brand_voices (
   CONSTRAINT brand_voices_default_for_any_project CHECK (NOT is_default OR project_id IS NULL)
 );
 CREATE INDEX IF NOT EXISTS brand_voices_recent_idx ON public.brand_voices (updated_at DESC);
+-- A voice kept for one project goes with the project: if the project is
+-- deleted, so is the voice, rather than becoming a voice for every project
+-- (no project means "any project"). Its takes keep their provider voice id.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.brand_voices'::regclass AND conname = 'brand_voices_project_id_fkey' AND confdeltype <> 'c'
+  ) THEN
+    ALTER TABLE public.brand_voices DROP CONSTRAINT brand_voices_project_id_fkey;
+    ALTER TABLE public.brand_voices ADD CONSTRAINT brand_voices_project_id_fkey
+      FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+  END IF;
+END $$;
 -- At most one studio-wide default voice.
 CREATE UNIQUE INDEX IF NOT EXISTS brand_voices_one_default ON public.brand_voices (is_default) WHERE is_default;
 
@@ -59,6 +73,15 @@ CREATE TABLE IF NOT EXISTS public.voiceovers (
 );
 CREATE INDEX IF NOT EXISTS voiceovers_sequence_idx ON public.voiceovers (sequence_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS voiceovers_recent_idx ON public.voiceovers (created_at DESC);
+-- The same script, by the same voice, for the same work is made once at a
+-- time: asked for again while it is being made (say its answer was lost and a
+-- reload forgot the request), that take is returned rather than paid for twice.
+CREATE UNIQUE INDEX IF NOT EXISTS voiceovers_one_in_progress ON public.voiceovers (
+  COALESCE(sequence_id, '00000000-0000-0000-0000-000000000000'::uuid),
+  COALESCE(project_id, '00000000-0000-0000-0000-000000000000'::uuid),
+  voice_id,
+  md5(script)
+) WHERE status = 'generating';
 
 ALTER TABLE public.campaigns ADD COLUMN IF NOT EXISTS brand_voice_id uuid REFERENCES public.brand_voices(id) ON DELETE SET NULL;
 ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS brand_voice_id uuid REFERENCES public.brand_voices(id) ON DELETE SET NULL;
@@ -100,6 +123,34 @@ CREATE TRIGGER campaigns_brand_voice_in_scope BEFORE INSERT OR UPDATE OF brand_v
 DROP TRIGGER IF EXISTS projects_brand_voice_in_scope ON public.projects;
 CREATE TRIGGER projects_brand_voice_in_scope BEFORE INSERT OR UPDATE OF brand_voice_id ON public.projects
   FOR EACH ROW EXECUTE FUNCTION public.brand_voice_in_scope();
+
+-- The studio default changes in one transaction: the old default is cleared
+-- and the new one set together, so a failure part-way never leaves the studio
+-- without one, and changes are made one at a time. Outcome: set, missing, or
+-- project (a voice kept for one project can't be the default). Server only.
+CREATE OR REPLACE FUNCTION public.set_default_brand_voice(p_voice_id uuid)
+RETURNS text
+LANGUAGE plpgsql
+VOLATILE
+SET search_path = public
+AS $$
+DECLARE
+  v_project uuid;
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtext('public.brand_voices.is_default'));
+  SELECT project_id INTO v_project FROM public.brand_voices WHERE id = p_voice_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RETURN 'missing';
+  END IF;
+  IF v_project IS NOT NULL THEN
+    RETURN 'project';
+  END IF;
+  UPDATE public.brand_voices SET is_default = false WHERE is_default AND id <> p_voice_id;
+  UPDATE public.brand_voices SET is_default = true, is_archived = false WHERE id = p_voice_id;
+  RETURN 'set';
+END $$;
+REVOKE ALL ON FUNCTION public.set_default_brand_voice(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.set_default_brand_voice(uuid) TO service_role;
 
 GRANT SELECT ON public.brand_voices, public.voiceovers TO authenticated;
 GRANT ALL ON public.brand_voices, public.voiceovers TO service_role;
