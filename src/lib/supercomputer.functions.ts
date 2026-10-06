@@ -365,8 +365,8 @@ export const sendSupercomputerMessage = createServerFn({ method: "POST" })
 
     // The brand voice that will speak this work's voiceovers, so scripts are written for it.
     let voiceBlock = "";
+    const { resolveVoiceWithOrigin, VoicesNotSetUp } = await import("./voice/service.server");
     try {
-      const { resolveVoiceWithOrigin } = await import("./voice/service.server");
       const resolved = await resolveVoiceWithOrigin({
         campaignId: thread.campaign_id,
         projectId: thread.project_id,
@@ -388,8 +388,11 @@ export const sendSupercomputerMessage = createServerFn({ method: "POST" })
           .filter(Boolean)
           .join("\n");
       }
-    } catch {
-      // Brand voices are optional context; the conversation goes on without them.
+    } catch (error) {
+      // Without the brand-voice tables (their migration still to come) there is
+      // no voice to write for. Any other failed lookup stops here rather than
+      // writing scripts (and plans) that ignore the voice that applies.
+      if (!(error instanceof VoicesNotSetUp)) throw error;
     }
 
     // What the model can see: this message's attachments first, then brief imagery.
