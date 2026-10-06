@@ -146,43 +146,20 @@ async function musicRights(assetIds: string[]): Promise<{
 
 /**
  * Renders that stopped reporting (no progress or heartbeat for a while) are
- * closed as stalled, along with their task and operation. A result that still
+ * closed as stalled, with their task and operation, in one statement (a
+ * database function), so nothing ever sees half of it. A result that still
  * arrives later completes them anyway.
  */
-async function closeStalledRenders(sequenceId: string, now: string): Promise<void> {
-  const message = "This render stopped responding.";
-  const { data: stalled } = await supabaseAdmin
-    .from("sequence_renders")
-    .update({
-      status: "failed",
-      error_code: "STALLED",
-      error_message: message,
-      completed_at: now,
-    } as never)
-    .eq("sequence_id", sequenceId)
-    .in("status", ["queued", "rendering"])
-    .lt("updated_at", new Date(Date.now() - RENDER_STALL_MS).toISOString())
-    .select("id,media_task_id");
-  const taskIds = (stalled ?? [])
-    .map((row) => (row as { media_task_id: string | null }).media_task_id)
-    .filter((id): id is string => !!id);
-  if (!taskIds.length) return;
-  const { data: tasks } = await supabaseAdmin
-    .from("media_tasks")
-    .update({ status: "failed", error_code: "STALLED", error_message: message, completed_at: now })
-    .in("id", taskIds)
-    .in("status", ["submitting", "processing"])
-    .select("id,operation_id");
-  const operationIds = (tasks ?? [])
-    .map((row) => row.operation_id)
-    .filter((id): id is string => !!id);
-  if (operationIds.length) {
-    await supabaseAdmin
-      .from("operations")
-      .update({ status: "failed", error_code: "STALLED", error_message: message, failed_at: now })
-      .in("id", operationIds)
-      .eq("status", "running");
-  }
+async function closeStalledRenders(sequenceId: string): Promise<void> {
+  const { error } = await supabaseAdmin.rpc(
+    "close_stalled_renders" as never,
+    {
+      p_sequence_id: sequenceId,
+      p_stalled_before: new Date(Date.now() - RENDER_STALL_MS).toISOString(),
+    } as never,
+  );
+  if (error)
+    throw new AppError("UNKNOWN", "The edit's earlier renders couldn't be checked. Try again.");
 }
 
 export async function startSequenceRender(input: RenderInput): Promise<RenderStarted> {
@@ -247,7 +224,7 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
   const now = new Date().toISOString();
 
   // Earlier renders of this edit that stopped reporting are closed, with their task and operation.
-  await closeStalledRenders(sequence.id, now);
+  await closeStalledRenders(sequence.id);
 
   // One render per edit at a time; the claim is atomic (a unique index on active renders).
   const { error: claimError } = await supabaseAdmin.from("sequence_renders").insert({
@@ -325,13 +302,17 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
         .from("sequence_renders")
         .update({ media_task_id: taskId } as never)
         .eq("id", renderId);
+  // The edit is pointed at this render only if it is still the version that was
+  // checked and snapshotted: a save that landed meanwhile stops it.
   const marked =
     taskError || linked?.error
       ? null
       : await supabaseAdmin
           .from("sequences")
           .update({ status: "rendering", last_render_id: renderId } as never)
-          .eq("id", sequence.id);
+          .eq("id", sequence.id)
+          .eq("version", sequence.version)
+          .select("id");
   async function fail(code: string, message: string): Promise<never> {
     const at = new Date().toISOString();
     await supabaseAdmin
@@ -364,6 +345,11 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
   // Nothing is sent to the worker unless the render, its task and the edit all record it.
   if (taskError || linked?.error || !marked || marked.error)
     await fail("UNKNOWN", "The render could not be recorded. Try again.");
+  if (!marked!.data?.length)
+    await fail(
+      "INVALID_PARAMETERS",
+      "This edit changed while the render was starting. Let it save, then render again.",
+    );
 
   const sources: { role: string; url: string; mime?: string | null }[] = [];
   for (const source of request.sources) {
@@ -447,43 +433,56 @@ export type RenderCredentials =
   | { status: 404 | 410 | 503 };
 
 /**
- * A render presumed lost whose worker turns out to be alive takes the edit's
- * one active-render slot back before it may go on. The slot is the unique
- * index on active renders, so this and a replacement's claim can't both
- * succeed, whatever the timing: if the replacement claimed it first, the old
- * task is dropped (410); if this comes first, the replacement is refused as
- * "already rendering". Once the edit points at a newer render, the old one is
- * dropped too. Repeating it (the worker retries a 503) is harmless.
+ * Whether a render's worker may go on, decided by the render row (which holds
+ * the edit's one active-render slot), never by its task alone:
+ * - Still active: it is refreshed in the same step, so it can't be taken for
+ *   stalled (and replaced) while it goes on.
+ * - Presumed lost: it must take the slot back. The slot is the unique index
+ *   on active renders, so this and a replacement's claim can't both succeed,
+ *   whatever the timing: if the replacement claimed it first, the old task is
+ *   dropped (410); if this comes first, the replacement is refused as "already
+ *   rendering". Once the edit points at a newer render, the old one is dropped.
+ * Its task and operation then follow it. Repeating this (the worker retries a
+ * 503) is harmless.
  */
-async function resumeStalledRender(
+async function holdRenderSlot(
   task: { id: string; operation_id: string | null },
   input: Record<string, unknown>,
-): Promise<200 | 410 | 503> {
+): Promise<200 | 404 | 410 | 503> {
   const renderId = typeof input["render_id"] === "string" ? input["render_id"] : null;
   const sequenceId = typeof input["sequence_id"] === "string" ? input["sequence_id"] : null;
-  if (!renderId || !sequenceId) return 410;
-  const { data: sequence, error } = await supabaseAdmin
-    .from("sequences")
-    .select("last_render_id")
-    .eq("id", sequenceId)
-    .maybeSingle();
-  if (error) return 503;
-  if (sequence?.last_render_id !== renderId) return 410;
+  if (!renderId || !sequenceId) return 404;
 
-  const { data: resumed, error: claimError } = await supabaseAdmin
+  const { data: active, error: touchError } = await supabaseAdmin
     .from("sequence_renders")
-    .update({
-      status: "rendering",
-      stage: "Resuming",
-      error_code: null,
-      error_message: null,
-      completed_at: null,
-    } as never)
+    .update({ updated_at: new Date().toISOString() } as never)
     .eq("id", renderId)
-    .or("status.in.(queued,rendering),error_code.eq.STALLED")
+    .in("status", ["queued", "rendering"])
     .select("id");
-  if (claimError) return claimError.code === "23505" ? 410 : 503;
-  if (!resumed?.length) return 410;
+  if (touchError) return 503;
+  if (!active?.length) {
+    const { data: sequence, error } = await supabaseAdmin
+      .from("sequences")
+      .select("last_render_id")
+      .eq("id", sequenceId)
+      .maybeSingle();
+    if (error) return 503;
+    if (sequence?.last_render_id !== renderId) return 410;
+    const { data: resumed, error: claimError } = await supabaseAdmin
+      .from("sequence_renders")
+      .update({
+        status: "rendering",
+        stage: "Resuming",
+        error_code: null,
+        error_message: null,
+        completed_at: null,
+      } as never)
+      .eq("id", renderId)
+      .or("status.in.(queued,rendering),error_code.eq.STALLED")
+      .select("id");
+    if (claimError) return claimError.code === "23505" ? 410 : 503;
+    if (!resumed?.length) return 410;
+  }
 
   const { error: taskError } = await supabaseAdmin
     .from("media_tasks")
@@ -509,9 +508,8 @@ async function resumeStalledRender(
  * asks before starting a render that waited in its queue (and before it
  * downloads or uploads with aging links), so queue time never outlives the
  * signed URLs. Only an open render is re-signed, only for its own sources and
- * destinations, in the order first sent. A render presumed lost must first
- * take its edit's active slot back (see `resumeStalledRender`); once a newer
- * render has it, the worker is told to drop the old one rather than run it.
+ * destinations, in the order first sent, and only once it holds its edit's
+ * render slot (see `holdRenderSlot`); otherwise the worker is told to drop it.
  */
 export async function refreshRenderCredentials(taskId: string): Promise<RenderCredentials> {
   const { data: task, error } = await supabaseAdmin
@@ -528,10 +526,8 @@ export async function refreshRenderCredentials(taskId: string): Promise<RenderCr
   if (!open) return { status: 410 };
 
   const input = (task.input_payload ?? {}) as Record<string, unknown>;
-  if (task.status === "failed") {
-    const resumed = await resumeStalledRender(task, input);
-    if (resumed !== 200) return { status: resumed };
-  }
+  const held = await holdRenderSlot(task, input);
+  if (held !== 200) return { status: held };
   const strings = (value: unknown) =>
     Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
   const ids = strings(input["sources"]);

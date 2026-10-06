@@ -195,8 +195,9 @@ export const submitMediaTask = createServerFn({ method: "POST" })
     }
 
     // Where the results land is recorded before the worker is asked, so even a
-    // result that comes back instantly can be registered.
-    await supabaseAdmin
+    // result that comes back instantly can be registered. Nothing is sent
+    // unless it is recorded.
+    const { data: recorded, error: recordError } = await supabaseAdmin
       .from("media_tasks")
       .update({
         storage_bucket: OUTPUT_BUCKET,
@@ -209,7 +210,10 @@ export const submitMediaTask = createServerFn({ method: "POST" })
           output_kind: definition.outputKind,
         } as never,
       })
-      .eq("id", taskId);
+      .eq("id", taskId)
+      .select("id");
+    if (recordError || !recorded?.length)
+      await fail("UNKNOWN", "The media task could not be recorded. Try again.");
 
     const callbackUrl = `${appBaseUrl().replace(/\/$/, "")}/api/public/media-worker-callback`;
     const submission = await submitWorkerTask({
