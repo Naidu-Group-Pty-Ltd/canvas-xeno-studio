@@ -113,7 +113,7 @@ export const submitMediaTask = createServerFn({ method: "POST" })
 
     // Operation first: the task is visible in the operation graph even if the
     // worker never answers.
-    const { data: operation } = await supabaseAdmin
+    const { data: operation, error: operationError } = await supabaseAdmin
       .from("operations")
       .insert({
         created_by: context.userId,
@@ -127,10 +127,23 @@ export const submitMediaTask = createServerFn({ method: "POST" })
       } as never)
       .select("id")
       .maybeSingle();
+    if (operationError || !operation) {
+      // The same request, sent twice at once: answer with the task the other one started.
+      if (operationError?.code === "23505" && data.clientRequestId) {
+        const { data: raced } = await supabaseAdmin
+          .from("media_tasks")
+          .select("id,status")
+          .eq("dedupe_key", data.clientRequestId)
+          .maybeSingle();
+        if (raced) return { taskId: raced.id, status: raced.status, duplicate: true };
+        throw new AppError("UNKNOWN", "This task is already being started. Give it a moment.");
+      }
+      throw new AppError("UNKNOWN", "The media task could not be recorded. Try again.");
+    }
 
     const { error: taskError } = await supabaseAdmin.from("media_tasks").insert({
       id: taskId,
-      operation_id: operation?.id ?? null,
+      operation_id: operation.id,
       created_by: context.userId,
       project_id: projectId,
       source_asset_id: primary.id,

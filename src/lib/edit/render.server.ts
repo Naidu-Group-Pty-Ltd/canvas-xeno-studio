@@ -193,7 +193,7 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
     throw new AppError("UNKNOWN", "The render could not be recorded");
   }
 
-  const { data: operation } = await supabaseAdmin
+  const { data: operation, error: operationError } = await supabaseAdmin
     .from("operations")
     .insert({
       created_by: input.userId,
@@ -212,10 +212,23 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
     } as never)
     .select("id")
     .maybeSingle();
+  if (operationError || !operation) {
+    // The claimed render is released, so the edit isn't held by a render that never started.
+    await supabaseAdmin
+      .from("sequence_renders")
+      .update({
+        status: "failed",
+        error_code: "UNKNOWN",
+        error_message: "The render could not be recorded. Try again.",
+        completed_at: new Date().toISOString(),
+      } as never)
+      .eq("id", renderId);
+    throw new AppError("UNKNOWN", "The render could not be recorded. Try again.");
+  }
 
   const { error: taskError } = await supabaseAdmin.from("media_tasks").insert({
     id: taskId,
-    operation_id: operation?.id ?? null,
+    operation_id: operation.id,
     created_by: input.userId,
     project_id: sequence.project_id,
     source_asset_id: timeline.clips[0]?.assetId ?? null,
