@@ -76,9 +76,13 @@ CREATE INDEX IF NOT EXISTS voiceovers_recent_idx ON public.voiceovers (created_a
 -- The same script, by the same voice, for the same work is made once at a
 -- time: asked for again while it is being made (say its answer was lost and a
 -- reload forgot the request), that take is returned rather than paid for twice.
-CREATE UNIQUE INDEX IF NOT EXISTS voiceovers_one_in_progress ON public.voiceovers (
+-- (Rebuilt on every run, so an environment with an earlier version of it gets
+-- the campaign too: takes for two campaigns are never taken for one another.)
+DROP INDEX IF EXISTS public.voiceovers_one_in_progress;
+CREATE UNIQUE INDEX voiceovers_one_in_progress ON public.voiceovers (
   COALESCE(sequence_id, '00000000-0000-0000-0000-000000000000'::uuid),
   COALESCE(project_id, '00000000-0000-0000-0000-000000000000'::uuid),
+  COALESCE(campaign_id, '00000000-0000-0000-0000-000000000000'::uuid),
   voice_id,
   md5(script)
 ) WHERE status = 'generating';

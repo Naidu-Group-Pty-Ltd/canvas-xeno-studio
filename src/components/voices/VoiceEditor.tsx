@@ -934,14 +934,26 @@ function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => voi
   >([]);
   const [busy, setBusy] = useState<"design" | "save" | null>(null);
   const [name, setName] = useState("");
+  // A design that may have been made (and billed) without its options coming
+  // back: designing again waits until the person chooses to.
+  const [unsure, setUnsure] = useState<string | null>(null);
 
-  async function design() {
+  async function design(again = false) {
+    if (unsure && !again) return;
     setBusy("design");
     try {
       const result = await designElevenLabsVoice({ data: { description } });
+      if ("uncertain" in result) {
+        setUnsure(result.uncertain);
+        return;
+      }
+      setUnsure(null);
       setPreviews(result.previews);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "The voice could not be designed");
+      // No answer came back: the design may still have been made.
+      setUnsure(
+        `${error instanceof Error ? error.message : "The design's answer was lost."} It may still have been made (and billed).`,
+      );
     } finally {
       setBusy(null);
     }
@@ -1005,7 +1017,7 @@ function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => voi
         size="sm"
         variant="secondary"
         className="w-full"
-        disabled={busy !== null || description.trim().length < 20}
+        disabled={busy !== null || description.trim().length < 20 || unsure !== null}
         onClick={() => void design()}
       >
         {busy === "design" ? (
@@ -1015,6 +1027,27 @@ function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => voi
         )}
         Design three options
       </Button>
+      {unsure && (
+        <div
+          role="status"
+          data-testid="design-unsure"
+          className="space-y-1.5 rounded-md border border-warning/40 bg-warning/10 p-2 text-xs"
+        >
+          <p>{unsure}</p>
+          <p className="text-muted-foreground">
+            Designing again may be charged again. Do it only if you need new options.
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 text-xs"
+            disabled={busy !== null || description.trim().length < 20}
+            onClick={() => void design(true)}
+          >
+            Design again
+          </Button>
+        </div>
+      )}
       <PendingVoice pending={pending} busy={busy !== null} />
       {previews.map((preview, index) => (
         <div
