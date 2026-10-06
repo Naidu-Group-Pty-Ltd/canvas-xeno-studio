@@ -385,18 +385,76 @@ export type RenderCredentials =
   | { status: 404 | 410 | 503 };
 
 /**
+ * A render presumed lost whose worker turns out to be alive takes the edit's
+ * one active-render slot back before it may go on. The slot is the unique
+ * index on active renders, so this and a replacement's claim can't both
+ * succeed, whatever the timing: if the replacement claimed it first, the old
+ * task is dropped (410); if this comes first, the replacement is refused as
+ * "already rendering". Once the edit points at a newer render, the old one is
+ * dropped too. Repeating it (the worker retries a 503) is harmless.
+ */
+async function resumeStalledRender(
+  task: { id: string; operation_id: string | null },
+  input: Record<string, unknown>,
+): Promise<200 | 410 | 503> {
+  const renderId = typeof input["render_id"] === "string" ? input["render_id"] : null;
+  const sequenceId = typeof input["sequence_id"] === "string" ? input["sequence_id"] : null;
+  if (!renderId || !sequenceId) return 410;
+  const { data: sequence, error } = await supabaseAdmin
+    .from("sequences")
+    .select("last_render_id")
+    .eq("id", sequenceId)
+    .maybeSingle();
+  if (error) return 503;
+  if (sequence?.last_render_id !== renderId) return 410;
+
+  const { data: resumed, error: claimError } = await supabaseAdmin
+    .from("sequence_renders")
+    .update({
+      status: "rendering",
+      stage: "Resuming",
+      error_code: null,
+      error_message: null,
+      completed_at: null,
+    } as never)
+    .eq("id", renderId)
+    .or("status.in.(queued,rendering),error_code.eq.STALLED")
+    .select("id");
+  if (claimError) return claimError.code === "23505" ? 410 : 503;
+  if (!resumed?.length) return 410;
+
+  const { error: taskError } = await supabaseAdmin
+    .from("media_tasks")
+    .update({ status: "processing", error_code: null, error_message: null, completed_at: null })
+    .eq("id", task.id)
+    .eq("status", "failed")
+    .eq("error_code", "STALLED");
+  if (taskError) return 503;
+  if (task.operation_id) {
+    const { error: operationError } = await supabaseAdmin
+      .from("operations")
+      .update({ status: "running", error_code: null, error_message: null, failed_at: null })
+      .eq("id", task.operation_id)
+      .eq("status", "failed")
+      .eq("error_code", "STALLED");
+    if (operationError) return 503;
+  }
+  return 200;
+}
+
+/**
  * Re-signs a render's sources and upload slots for the media worker, which
  * asks before starting a render that waited in its queue (and before it
  * downloads or uploads with aging links), so queue time never outlives the
  * signed URLs. Only an open render is re-signed, only for its own sources and
- * destinations, in the order first sent. A render presumed lost is re-signed
- * only while it is still the edit's current render: once a newer render has
- * replaced it, the worker is told to drop it rather than render it again.
+ * destinations, in the order first sent. A render presumed lost must first
+ * take its edit's active slot back (see `resumeStalledRender`); once a newer
+ * render has it, the worker is told to drop the old one rather than run it.
  */
 export async function refreshRenderCredentials(taskId: string): Promise<RenderCredentials> {
   const { data: task, error } = await supabaseAdmin
     .from("media_tasks")
-    .select("id,task_type,status,error_code,storage_bucket,input_payload")
+    .select("id,task_type,status,error_code,operation_id,storage_bucket,input_payload")
     .eq("id", taskId)
     .maybeSingle();
   if (error) return { status: 503 };
@@ -409,24 +467,8 @@ export async function refreshRenderCredentials(taskId: string): Promise<RenderCr
 
   const input = (task.input_payload ?? {}) as Record<string, unknown>;
   if (task.status === "failed") {
-    const renderId = typeof input["render_id"] === "string" ? input["render_id"] : null;
-    const sequenceId = typeof input["sequence_id"] === "string" ? input["sequence_id"] : null;
-    if (!renderId || !sequenceId) return { status: 410 };
-    // Replaced: the edit points at a newer render, or one is already underway
-    // (it is claimed a moment before the edit is pointed at it).
-    const [sequence, active] = await Promise.all([
-      supabaseAdmin.from("sequences").select("last_render_id").eq("id", sequenceId).maybeSingle(),
-      supabaseAdmin
-        .from("sequence_renders")
-        .select("id")
-        .eq("sequence_id", sequenceId)
-        .in("status", ["queued", "rendering"])
-        .neq("id", renderId)
-        .limit(1),
-    ]);
-    if (sequence.error || active.error) return { status: 503 };
-    if (sequence.data?.last_render_id !== renderId || (active.data ?? []).length > 0)
-      return { status: 410 };
+    const resumed = await resumeStalledRender(task, input);
+    if (resumed !== 200) return { status: resumed };
   }
   const strings = (value: unknown) =>
     Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
