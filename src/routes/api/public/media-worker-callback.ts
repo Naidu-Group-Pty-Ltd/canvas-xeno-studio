@@ -207,7 +207,7 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
         }
 
         if (task.operation_id) {
-          const { data: changed, error } = await supabaseAdmin
+          const { error } = await supabaseAdmin
             .from("operations")
             .update({
               status: "completed",
@@ -215,18 +215,15 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
               output_payload: { asset_ids: assetIds, metadata } as never,
             })
             .eq("id", task.operation_id)
-            .neq("status", "completed")
-            .select("id");
+            .neq("status", "completed");
           if (error) return notRecorded("operation", error.message);
-          // Logged once, by the report that completed the operation.
-          if (changed?.length) {
-            const { error: eventError } = await supabaseAdmin.from("operation_events").insert({
-              operation_id: task.operation_id,
-              event_type: "completed",
-              payload: { asset_ids: assetIds, task_type: task.task_type } as never,
-            } as never);
-            if (eventError) return notRecorded("operation event", eventError.message);
-          }
+          // Logged once: a repeated report logs it only if it is still missing.
+          const { logOperationCompleted } = await import("@/lib/media/events.server");
+          const { error: eventError } = await logOperationCompleted(task.operation_id, {
+            asset_ids: assetIds,
+            task_type: task.task_type,
+          });
+          if (eventError) return notRecorded("operation event", eventError.message);
         }
 
         const { error: taskError } = await supabaseAdmin
