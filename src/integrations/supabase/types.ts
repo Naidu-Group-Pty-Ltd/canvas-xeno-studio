@@ -3354,6 +3354,192 @@ export type Database = {
           },
         ]
       }
+      sequence_renders: {
+        Row: {
+          asset_id: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          dedupe_key: string | null
+          duration_seconds: number | null
+          error_code: string | null
+          error_message: string | null
+          id: string
+          media_task_id: string | null
+          progress: number
+          sequence_id: string
+          sequence_version: number
+          stage: string | null
+          status: string
+          timeline: Json
+          updated_at: string
+        }
+        Insert: {
+          asset_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          dedupe_key?: string | null
+          duration_seconds?: number | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          media_task_id?: string | null
+          progress?: number
+          sequence_id: string
+          sequence_version: number
+          stage?: string | null
+          status?: string
+          timeline: Json
+          updated_at?: string
+        }
+        Update: {
+          asset_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          dedupe_key?: string | null
+          duration_seconds?: number | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          media_task_id?: string | null
+          progress?: number
+          sequence_id?: string
+          sequence_version?: number
+          stage?: string | null
+          status?: string
+          timeline?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sequence_renders_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sequence_renders_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sequence_renders_media_task_id_fkey"
+            columns: ["media_task_id"]
+            isOneToOne: false
+            referencedRelation: "media_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sequence_renders_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sequences: {
+        Row: {
+          brief_id: string | null
+          campaign_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_archived: boolean
+          last_render_id: string | null
+          project_id: string | null
+          source: Json
+          status: string
+          storyboard_id: string | null
+          timeline: Json
+          title: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          brief_id?: string | null
+          campaign_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_archived?: boolean
+          last_render_id?: string | null
+          project_id?: string | null
+          source?: Json
+          status?: string
+          storyboard_id?: string | null
+          timeline?: Json
+          title?: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          brief_id?: string | null
+          campaign_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_archived?: boolean
+          last_render_id?: string | null
+          project_id?: string | null
+          source?: Json
+          status?: string
+          storyboard_id?: string | null
+          timeline?: Json
+          title?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sequences_brief_id_fkey"
+            columns: ["brief_id"]
+            isOneToOne: false
+            referencedRelation: "creative_briefs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sequences_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sequences_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sequences_last_render_id_fkey"
+            columns: ["last_render_id"]
+            isOneToOne: false
+            referencedRelation: "sequence_renders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sequences_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sequences_storyboard_id_fkey"
+            columns: ["storyboard_id"]
+            isOneToOne: false
+            referencedRelation: "storyboards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shot_takes: {
         Row: {
           asset_id: string | null

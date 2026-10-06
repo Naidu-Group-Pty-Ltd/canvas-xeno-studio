@@ -27,6 +27,8 @@ export interface MediaWorkerTask {
   uploads: MediaWorkerUpload[];
   params: Record<string, unknown>;
   callback: { url: string };
+  /** Ask for best-effort progress reports while the task renders. */
+  report_progress?: boolean;
 }
 
 const SIGNATURE_WINDOW_SECONDS = 300;

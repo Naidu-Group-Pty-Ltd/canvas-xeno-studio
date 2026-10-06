@@ -34,10 +34,23 @@ export interface SupercomputerDraft {
   issues: string[];
 }
 
+/** How the agent would cut its drafts into one video. Indices refer to `drafts`. */
+export interface SupercomputerEditPlan {
+  title?: string;
+  aspectRatio?: string;
+  shots: { draftIndex: number; seconds?: number; transition?: string; note?: string }[];
+  voiceoverScript?: string;
+  musicDirection?: string;
+  captions?: boolean;
+  openingTitle?: string;
+  closingCta?: string;
+}
+
 export interface SupercomputerPayload {
   intent?: SupercomputerIntent;
   ideas?: SupercomputerIdea[];
   drafts?: SupercomputerDraft[];
+  editPlan?: SupercomputerEditPlan;
   questions?: string[];
   suggestions?: string[];
   /** Agent proposals that could not be turned into a valid draft. */

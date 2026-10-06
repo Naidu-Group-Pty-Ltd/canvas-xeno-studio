@@ -34,6 +34,8 @@ import { Route as AvatarLiveRouteImport } from './routes/avatar.live'
 import { Route as AvatarLocalizeRouteImport } from './routes/avatar.localize'
 import { Route as AvatarSettingsRouteImport } from './routes/avatar.settings'
 import { Route as AvatarVoicesRouteImport } from './routes/avatar.voices'
+import { Route as EditorIndexRouteImport } from './routes/editor.index'
+import { Route as EditorSequenceIdRouteImport } from './routes/editor.$sequenceId'
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
 import { Route as ApiPublicAvatarHeygenWebhookRouteImport } from './routes/api/public/avatar-heygen-webhook'
@@ -167,6 +169,16 @@ const AvatarVoicesRoute = AvatarVoicesRouteImport.update({
   path: '/voices',
   getParentRoute: () => AvatarRoute,
 } as any)
+const EditorIndexRoute = EditorIndexRouteImport.update({
+  id: '/editor/',
+  path: '/editor/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EditorSequenceIdRoute = EditorSequenceIdRouteImport.update({
+  id: '/editor/$sequenceId',
+  path: '/editor/$sequenceId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProjectsIndexRoute = ProjectsIndexRouteImport.update({
   id: '/projects/',
   path: '/projects/',
@@ -233,8 +245,10 @@ export interface FileRoutesByFullPath {
   '/avatar/localize': typeof AvatarLocalizeRoute
   '/avatar/settings': typeof AvatarSettingsRoute
   '/avatar/voices': typeof AvatarVoicesRoute
+  '/editor/$sequenceId': typeof EditorSequenceIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/avatar/': typeof AvatarIndexRoute
+  '/editor/': typeof EditorIndexRoute
   '/projects/': typeof ProjectsIndexRoute
   '/api/public/avatar-heygen-webhook': typeof ApiPublicAvatarHeygenWebhookRoute
   '/api/public/avatar-reconcile': typeof ApiPublicAvatarReconcileRoute
@@ -266,8 +280,10 @@ export interface FileRoutesByTo {
   '/avatar/localize': typeof AvatarLocalizeRoute
   '/avatar/settings': typeof AvatarSettingsRoute
   '/avatar/voices': typeof AvatarVoicesRoute
+  '/editor/$sequenceId': typeof EditorSequenceIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/avatar': typeof AvatarIndexRoute
+  '/editor': typeof EditorIndexRoute
   '/projects': typeof ProjectsIndexRoute
   '/api/public/avatar-heygen-webhook': typeof ApiPublicAvatarHeygenWebhookRoute
   '/api/public/avatar-reconcile': typeof ApiPublicAvatarReconcileRoute
@@ -301,8 +317,10 @@ export interface FileRoutesById {
   '/avatar/localize': typeof AvatarLocalizeRoute
   '/avatar/settings': typeof AvatarSettingsRoute
   '/avatar/voices': typeof AvatarVoicesRoute
+  '/editor/$sequenceId': typeof EditorSequenceIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/avatar/': typeof AvatarIndexRoute
+  '/editor/': typeof EditorIndexRoute
   '/projects/': typeof ProjectsIndexRoute
   '/api/public/avatar-heygen-webhook': typeof ApiPublicAvatarHeygenWebhookRoute
   '/api/public/avatar-reconcile': typeof ApiPublicAvatarReconcileRoute
@@ -337,8 +355,10 @@ export interface FileRouteTypes {
     | '/avatar/localize'
     | '/avatar/settings'
     | '/avatar/voices'
+    | '/editor/$sequenceId'
     | '/projects/$projectId'
     | '/avatar/'
+    | '/editor/'
     | '/projects/'
     | '/api/public/avatar-heygen-webhook'
     | '/api/public/avatar-reconcile'
@@ -370,8 +390,10 @@ export interface FileRouteTypes {
     | '/avatar/localize'
     | '/avatar/settings'
     | '/avatar/voices'
+    | '/editor/$sequenceId'
     | '/projects/$projectId'
     | '/avatar'
+    | '/editor'
     | '/projects'
     | '/api/public/avatar-heygen-webhook'
     | '/api/public/avatar-reconcile'
@@ -404,8 +426,10 @@ export interface FileRouteTypes {
     | '/avatar/localize'
     | '/avatar/settings'
     | '/avatar/voices'
+    | '/editor/$sequenceId'
     | '/projects/$projectId'
     | '/avatar/'
+    | '/editor/'
     | '/projects/'
     | '/api/public/avatar-heygen-webhook'
     | '/api/public/avatar-reconcile'
@@ -431,7 +455,9 @@ export interface RootRouteChildren {
   StoryboardsRoute: typeof StoryboardsRoute
   SupercomputerRoute: typeof SupercomputerRoute
   UsageRoute: typeof UsageRoute
+  EditorSequenceIdRoute: typeof EditorSequenceIdRoute
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
+  EditorIndexRoute: typeof EditorIndexRoute
   ProjectsIndexRoute: typeof ProjectsIndexRoute
   ApiPublicAvatarHeygenWebhookRoute: typeof ApiPublicAvatarHeygenWebhookRoute
   ApiPublicAvatarReconcileRoute: typeof ApiPublicAvatarReconcileRoute
@@ -617,6 +643,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AvatarVoicesRouteImport
       parentRoute: typeof AvatarRoute
     }
+    '/editor/': {
+      id: '/editor/'
+      path: '/editor'
+      fullPath: '/editor/'
+      preLoaderRoute: typeof EditorIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/editor/$sequenceId': {
+      id: '/editor/$sequenceId'
+      path: '/editor/$sequenceId'
+      fullPath: '/editor/$sequenceId'
+      preLoaderRoute: typeof EditorSequenceIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/projects/': {
       id: '/projects/'
       path: '/projects'
@@ -713,7 +753,9 @@ const rootRouteChildren: RootRouteChildren = {
   StoryboardsRoute: StoryboardsRoute,
   SupercomputerRoute: SupercomputerRoute,
   UsageRoute: UsageRoute,
+  EditorSequenceIdRoute: EditorSequenceIdRoute,
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,
+  EditorIndexRoute: EditorIndexRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,
   ApiPublicAvatarHeygenWebhookRoute: ApiPublicAvatarHeygenWebhookRoute,
   ApiPublicAvatarReconcileRoute: ApiPublicAvatarReconcileRoute,

@@ -86,6 +86,46 @@ await check("assemble_video (cross-fade)", async () => {
   if ((await stat(result.outputs[0].path)).size < 5000) throw new Error("assembled file too small");
 });
 
+await check("render_sequence (transitions, still, voice, ducked music, captions)", async () => {
+  const still = join(dir, "still.jpg");
+  const voice = join(dir, "voice.wav");
+  const music = join(dir, "music.wav");
+  await ffmpeg(["-f", "lavfi", "-i", "testsrc2=s=800x600:d=1", "-frames:v", "1", still]);
+  await ffmpeg(["-f", "lavfi", "-i", "sine=frequency=1000:duration=2", voice]);
+  await ffmpeg(["-f", "lavfi", "-i", "sine=frequency=200:duration=1", music]);
+  const marks = [];
+  const result = await TASKS.render_sequence.run({
+    sources: [
+      { path: clipA, role: "video" },
+      { path: clipB, role: "video" },
+      { path: still, role: "image" },
+      { path: voice, role: "audio" },
+      { path: music, role: "audio" },
+    ],
+    params: {
+      width: 360, height: 640, fps: 25,
+      clips: [
+        { source_index: 0, duration: 2 },
+        { source_index: 1, duration: 2, transition: { type: "fade", duration: 0.5 } },
+        { source_index: 2, kind: "image", duration: 1.5, motion: "zoom_in", transition: { type: "slideup", duration: 0.4 } },
+      ],
+      audio: [
+        { source_index: 3, role: "voiceover", start: 0.5 },
+        { source_index: 4, role: "music", loop: true, volume: 0.6 },
+      ],
+      captions: { segments: [{ start: 0.5, end: 2.5, text: "Self-test caption" }] },
+    },
+    dir,
+    progress: (value) => marks.push(value),
+  });
+  const info = await probe(result.outputs[0].path);
+  if (info.width !== 360 || info.height !== 640) throw new Error(`unexpected frame ${info.width}x${info.height}`);
+  if (Math.abs(info.duration_seconds - 4.6) > 0.1) throw new Error(`unexpected duration ${info.duration_seconds}`);
+  if (!info.has_audio) throw new Error("no soundtrack");
+  if ((await stat(result.outputs[1].path)).size < 1000) throw new Error("poster too small");
+  if (!marks.length) throw new Error("no progress reported");
+});
+
 await check("rejects an unsupported parameter value", async () => {
   try {
     await TASKS.reframe_video.run({ sources: [{ path: clipA }], params: { width: 540, height: 960, mode: "rm -rf /" }, dir });

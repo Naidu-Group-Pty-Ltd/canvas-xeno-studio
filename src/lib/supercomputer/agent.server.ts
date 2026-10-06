@@ -15,7 +15,13 @@ import {
 } from "../model-schema";
 import { normalizeParameters } from "../parameter-normalize";
 import { assignRoles, slotsFor, UNUSED_ROLE } from "../references";
-import type { DraftReference, MediaKind, SupercomputerDraft, SupercomputerIdea } from "./types";
+import type {
+  DraftReference,
+  MediaKind,
+  SupercomputerDraft,
+  SupercomputerEditPlan,
+  SupercomputerIdea,
+} from "./types";
 
 /* ------------------------------------------------------------------ */
 /* Instructions                                                        */
@@ -44,6 +50,12 @@ Choosing models and settings (MODEL CATALOGUE)
 - Reference only asset ids listed under REFERENCE MEDIA. Never invent ids.
 - Set "parameters" only to keys the chosen model lists, using values from its "options" or within min/max. Match aspect ratio to the channel: 9:16 for Reels, TikTok and Stories; 1:1 or a portrait ratio such as 4:5 or 3:4 for feeds; 16:9 for YouTube, web and presentations.
 - Never pick a model whose required inputs you cannot supply.
+
+Edit plans
+- When the drafts are shots of one video (a reel, ad, story, product film or teaser), also return "edit_plan": the cut order by draft number (0 is the first draft), how long each shot holds on screen, the transition into each shot ("cut" for most; "fade", "dissolve", "dip to black", "whip", "slide", "wipe" or "zoom" where they add meaning), and the music direction (genre, mood, tempo in BPM, instrumental or with vocals).
+- Write "voiceover_script" timed to the cut, at about 2.5 spoken words per second, in the brand's tone of voice, ending on the call to action. Leave it empty when the idea works better without a voice.
+- Add a short "opening_title" or "closing_cta" only when the brief or format calls for on-screen text. Set "captions" true for social formats.
+- Omit "edit_plan" for standalone images, alternatives of one asset, or unrelated deliverables.
 
 Reply style
 - "reply" is concise Markdown: short paragraphs, bullet lists, bold for key points, at most a few short headings. No tables, no HTML. Do not repeat the drafts' full prompts in "reply".
@@ -110,6 +122,33 @@ export const SUPERCOMPUTER_SCHEMA: Record<string, unknown> = {
         },
         required: ["title", "model_id", "prompt"],
       },
+    },
+    edit_plan: {
+      type: "object",
+      description: "Only when the drafts are shots of one video: how to cut them together.",
+      properties: {
+        title: { type: "string" },
+        aspect_ratio: { type: "string" },
+        shots: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              draft: { type: "number", description: "Draft number, starting at 0." },
+              seconds: { type: "number", description: "How long the shot holds on screen." },
+              transition: { type: "string", description: "Transition into this shot." },
+              note: { type: "string" },
+            },
+            required: ["draft"],
+          },
+        },
+        voiceover_script: { type: "string" },
+        music_direction: { type: "string" },
+        captions: { type: "boolean" },
+        opening_title: { type: "string" },
+        closing_cta: { type: "string" },
+      },
+      required: ["shots"],
     },
     questions: STRING_ARRAY,
     suggestions: STRING_ARRAY,
@@ -320,9 +359,12 @@ export function normalizeDrafts(
   value: unknown,
   models: ModelRegistryEntry[],
   allowed: Map<string, AllowedAsset>,
-): { drafts: SupercomputerDraft[]; dropped: string[] } {
+): { drafts: SupercomputerDraft[]; dropped: string[]; indexMap: (number | null)[] } {
   const drafts: SupercomputerDraft[] = [];
   const dropped: string[] = [];
+  // Where each proposal ended up, so an edit plan's draft numbers still point
+  // at the right draft after invalid proposals are dropped.
+  const indexMap: (number | null)[] = [];
 
   for (const raw of (Array.isArray(value) ? value : []).slice(0, 10)) {
     const proposal = (raw ?? {}) as Record<string, unknown>;
@@ -333,6 +375,7 @@ export function normalizeDrafts(
       models.find((entry) => entry.display_name.toLowerCase() === wanted.toLowerCase());
     if (!model) {
       dropped.push(`"${title}" named a model that is not active in the studio.`);
+      indexMap.push(null);
       continue;
     }
 
@@ -387,10 +430,60 @@ export function normalizeDrafts(
     const notes = text(proposal["notes"], 600);
     if (purpose) draft.purpose = purpose;
     if (notes) draft.notes = notes;
+    indexMap.push(drafts.length < 8 ? drafts.length : null);
     drafts.push(draft);
   }
 
-  return { drafts: drafts.slice(0, 8), dropped };
+  return { drafts: drafts.slice(0, 8), dropped, indexMap };
+}
+
+/**
+ * The agent's edit plan, limited to drafts that survived validation and to
+ * sane timings. Returns undefined when nothing usable is left.
+ */
+export function normalizeEditPlan(
+  value: unknown,
+  indexMap: (number | null)[],
+): SupercomputerEditPlan | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const plan = value as Record<string, unknown>;
+  const shots: SupercomputerEditPlan["shots"] = [];
+  for (const raw of (Array.isArray(plan["shots"]) ? plan["shots"] : []).slice(0, 20)) {
+    const shot = (raw ?? {}) as Record<string, unknown>;
+    const proposed = Number(shot["draft"]);
+    const draftIndex = Number.isInteger(proposed) ? indexMap[proposed] : null;
+    if (
+      draftIndex === null ||
+      draftIndex === undefined ||
+      shots.some((entry) => entry.draftIndex === draftIndex)
+    )
+      continue;
+    const entry: SupercomputerEditPlan["shots"][number] = { draftIndex };
+    const seconds = Number(shot["seconds"]);
+    if (Number.isFinite(seconds) && seconds > 0)
+      entry.seconds = Math.min(60, Math.max(0.5, Number(seconds.toFixed(2))));
+    const transition = text(shot["transition"], 40);
+    if (transition) entry.transition = transition;
+    const note = text(shot["note"], 200);
+    if (note) entry.note = note;
+    shots.push(entry);
+  }
+  if (!shots.length) return undefined;
+  const result: SupercomputerEditPlan = { shots };
+  const title = text(plan["title"], 120);
+  const aspect = text(plan["aspect_ratio"], 20);
+  const script = text(plan["voiceover_script"], 2000);
+  const music = text(plan["music_direction"], 400);
+  const opening = text(plan["opening_title"], 80);
+  const cta = text(plan["closing_cta"], 80);
+  if (title) result.title = title;
+  if (aspect) result.aspectRatio = aspect;
+  if (script) result.voiceoverScript = script;
+  if (music) result.musicDirection = music;
+  if (typeof plan["captions"] === "boolean") result.captions = plan["captions"];
+  if (opening) result.openingTitle = opening;
+  if (cta) result.closingCta = cta;
+  return result;
 }
 
 /* ------------------------------------------------------------------ */

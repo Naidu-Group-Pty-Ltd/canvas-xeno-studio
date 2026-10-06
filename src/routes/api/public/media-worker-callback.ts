@@ -43,8 +43,38 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
           return new Response(JSON.stringify({ received: true, duplicate: true }), { status: 200 });
         }
 
-        const now = new Date().toISOString();
         const status = payload["status"];
+
+        // Progress reports only move a running render's bar forward; they never
+        // change a task's state, so one arriving late is harmless.
+        if (status === "progress") {
+          const value = Number(payload["progress"]);
+          if (task.task_type === "render_sequence" && Number.isFinite(value)) {
+            const progress = Math.max(0, Math.min(0.99, value));
+            await supabaseAdmin
+              .from("sequence_renders")
+              .update({
+                status: "rendering",
+                progress,
+                stage: typeof payload["stage"] === "string" ? payload["stage"].slice(0, 80) : null,
+              } as never)
+              .eq("media_task_id", task.id)
+              .in("status", ["queued", "rendering"])
+              .lt("progress", progress);
+          }
+          return new Response(JSON.stringify({ received: true }), { status: 200 });
+        }
+
+        if (task.task_type === "render_sequence") {
+          const { finishSequenceRender } = await import("@/lib/edit/callback.server");
+          await finishSequenceRender(task, payload);
+          return new Response(JSON.stringify({ received: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        const now = new Date().toISOString();
 
         const settingsUpdate =
           status === "completed"

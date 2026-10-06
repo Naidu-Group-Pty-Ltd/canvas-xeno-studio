@@ -194,6 +194,23 @@ export const submitMediaTask = createServerFn({ method: "POST" })
       storagePaths.push(path);
     }
 
+    // Where the results land is recorded before the worker is asked, so even a
+    // result that comes back instantly can be registered.
+    await supabaseAdmin
+      .from("media_tasks")
+      .update({
+        storage_bucket: OUTPUT_BUCKET,
+        storage_path: storagePaths[0] ?? null,
+        input_payload: {
+          params: data.params,
+          sources: data.sourceAssetIds,
+          storage_paths: storagePaths,
+          mime_type: output.mime,
+          output_kind: definition.outputKind,
+        } as never,
+      })
+      .eq("id", taskId);
+
     const callbackUrl = `${appBaseUrl().replace(/\/$/, "")}/api/public/media-worker-callback`;
     const submission = await submitWorkerTask({
       task_id: taskId,
@@ -208,21 +225,12 @@ export const submitMediaTask = createServerFn({ method: "POST" })
       await fail(submission.errorCode ?? "UNKNOWN", submission.errorMessage ?? "The media service rejected the task");
     }
 
+    // Only a task still waiting moves on: a result that already arrived wins.
     await supabaseAdmin
       .from("media_tasks")
-      .update({
-        status: "processing",
-        storage_bucket: OUTPUT_BUCKET,
-        storage_path: storagePaths[0] ?? null,
-        input_payload: {
-          params: data.params,
-          sources: data.sourceAssetIds,
-          storage_paths: storagePaths,
-          mime_type: output.mime,
-          output_kind: definition.outputKind,
-        } as never,
-      })
-      .eq("id", taskId);
+      .update({ status: "processing" })
+      .eq("id", taskId)
+      .eq("status", "submitting");
 
     return { taskId, status: "processing", duplicate: false };
   });

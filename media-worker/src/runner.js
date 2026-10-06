@@ -37,7 +37,17 @@ export async function validateTask(body) {
   for (const upload of uploads) await assertAllowedUrl(upload?.url);
   if (body.callback?.url) await assertAllowedUrl(body.callback.url, config.callbackHostSuffixes);
 
-  return { taskId, definition, sources, params, uploads, callback: body.callback ?? null };
+  return {
+    taskId,
+    definition,
+    sources,
+    params,
+    uploads,
+    callback: body.callback ?? null,
+    // Progress reports are opt-in, so an app that only understands final
+    // results is never sent anything else.
+    reportProgress: body.report_progress === true,
+  };
 }
 
 /** Downloads, renders, uploads and reports. Never throws to the caller. */
@@ -54,7 +64,12 @@ export async function executeTask(task) {
       localSources.push({ path, role: source.role ?? "source", mime: source.mime ?? null, bytes });
     }
 
-    const result = await task.definition.run({ sources: localSources, params: task.params, dir });
+    const result = await task.definition.run({
+      sources: localSources,
+      params: task.params,
+      dir,
+      progress: progressReporter(task),
+    });
 
     const outputs = [];
     for (const [index, output] of result.outputs.entries()) {
@@ -89,6 +104,35 @@ export async function executeTask(task) {
   } finally {
     if (dir) await rm(dir, { recursive: true, force: true }).catch(() => {});
   }
+}
+
+/**
+ * Throttled, best-effort progress reports. They are never retried and never
+ * awaited by the render: only the final result has to arrive.
+ */
+function progressReporter(task) {
+  if (!task.reportProgress || !task.callback?.url) return () => {};
+  let lastSentAt = 0;
+  let lastValue = -1;
+  return (fraction, stage) => {
+    const value = Math.max(0, Math.min(0.99, Number(fraction) || 0));
+    const now = Date.now();
+    if (now - lastSentAt < 3000 || value - lastValue < 0.02) return;
+    lastSentAt = now;
+    lastValue = value;
+    const rawBody = JSON.stringify({
+      task_id: task.taskId,
+      status: "progress",
+      progress: Number(value.toFixed(3)),
+      stage: typeof stage === "string" ? stage.slice(0, 80) : null,
+    });
+    const { timestamp, signature } = sign(rawBody);
+    fetch(task.callback.url, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-xeno-timestamp": timestamp, "x-xeno-signature": signature },
+      body: rawBody,
+    }).catch(() => {});
+  };
 }
 
 /** Signed callback to the app, retried a few times for transient network faults only. */

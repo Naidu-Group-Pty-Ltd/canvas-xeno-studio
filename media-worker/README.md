@@ -1,10 +1,10 @@
 # Xeno media worker
 
 A small, stateless rendering service for Xeno Studio: thumbnails, frame
-extraction, trimming, transcoding, reframing, audio extraction/overlay and
-timeline assembly. It is deliberately dumb — it renders what the app tells it
-to and reports back. It holds no database access, no provider credentials and
-no user session.
+extraction, trimming, transcoding, reframing, audio extraction/overlay,
+timeline assembly and full sequence rendering for the Editor. It is
+deliberately dumb — it renders what the app tells it to and reports back. It
+holds no database access, no provider credentials and no user session.
 
 ## Security model
 
@@ -34,10 +34,41 @@ no user session.
 | POST   | `/tasks` | Submit a signed task; returns `202` immediately           |
 
 Results are reported to the `callback.url` supplied in the task, signed with the
-same scheme. Callback hosts have their own allow list, `CALLBACK_HOST_SUFFIXES`
+same scheme. A task that sets `"report_progress": true` also receives
+best-effort `{"status": "progress", "progress": 0.42, "stage": "…"}` reports
+while it renders (at most one every few seconds, never retried); the final
+`completed` or `failed` report is the only one that matters. Callback hosts have their own allow list, `CALLBACK_HOST_SUFFIXES`
 (default `lovable.app,lovableproject.com`); add the app's custom domain there if it
 uses one. The app's callback is idempotent, so the worker only repeats on
 transport faults and `5xx`.
+
+## Sequence rendering
+
+`render_sequence` turns an edited timeline into a finished video plus a poster
+frame. The app sends one source per distinct asset (role `video`, `image` or
+`audio`) and a timeline in `params`:
+
+- `width`, `height`, `fps` (24, 25, 30 or 60), default `fit` (`cover`,
+  `contain`, `blur_pad`)
+- `clips[]`: `source_index`, `kind` (`video`/`image`), `trim_start`,
+  `duration`, `speed` (0.25–4), `volume` (the clip's own sound, 0–2), `fit`,
+  `motion` for stills (`zoom_in`, `zoom_out`, `pan_left`, `pan_right`,
+  `pan_up`, `pan_down`), `transition` into the clip (`type` from the xfade
+  set or `cut`, `duration` up to 3 s; shortened when the clips are too short)
+- `audio[]`: `source_index`, `role` (`voiceover`, `music`, `sfx`), `start`,
+  `trim_start`, `duration`, `volume`, `fade_in`, `fade_out`, and for music
+  `loop` and `duck` / `duck_level` (music dips wherever the voiceover actually
+  speaks, found with silence detection)
+- `captions` (`segments[]` of `start`/`end`/`text`, `style`, `position`,
+  `size`, `uppercase`) and `overlays[]` (titles, subtitles, call-to-action
+  badges), burned in with the Inter typeface; text is written to an ASS file
+  by the worker and stripped of markup
+- `fade_in` / `fade_out` from and to black, and `normalize_loudness`
+  (two-pass EBU R128 to `loudness_lufs`, default −14 LUFS)
+
+Timings are snapped to the frame grid, so the output has exactly the planned
+number of frames. Clips are normalised one at a time, which keeps memory flat
+for long timelines.
 
 ## Configuration
 

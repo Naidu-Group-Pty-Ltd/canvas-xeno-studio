@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { probe, ffmpeg } from "./ffmpeg.js";
 import { TaskError } from "./net.js";
+import { renderSequence, SEQUENCE_LIMITS } from "./sequence.js";
 
 /**
  * Task catalogue.
@@ -326,6 +327,18 @@ export const TASKS = {
       ]);
       return { outputs: [{ path: out, mime: VIDEO_FORMATS[format], kind: "video" }], metadata: await probe(out) };
     },
+  },
+
+  /**
+   * An edited sequence rendered to a finished video: clips and stills with
+   * trims, speed and motion, per-cut transitions, the clips' own sound,
+   * voiceover, music ducked under the voice, captions, titles and loudness
+   * normalisation. Produces the video and a poster frame.
+   */
+  render_sequence: {
+    sources: { min: 1, max: SEQUENCE_LIMITS.clips + SEQUENCE_LIMITS.audio },
+    outputs: () => 2,
+    run: renderSequence,
   },
 };
 
