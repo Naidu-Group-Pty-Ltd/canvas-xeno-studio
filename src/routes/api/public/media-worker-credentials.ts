@@ -6,7 +6,8 @@ import { createFileRoute } from "@tanstack/react-router";
  * Signed URLs expire and a render can wait in the worker's queue, so the
  * worker asks again when it gets to the work. Authenticated by the worker's
  * HMAC signature; it answers only for open render tasks, and only with URLs
- * for that task's own sources and destinations.
+ * for that task's own sources and destinations. The asking worker instance
+ * claims the task, so a render delivered to two instances runs on one.
  */
 export const Route = createFileRoute("/api/public/media-worker-credentials")({
   server: {
@@ -22,17 +23,27 @@ export const Route = createFileRoute("/api/public/media-worker-credentials")({
         if (!check.ok) return new Response("Unauthorized", { status: 401 });
 
         let taskId: unknown;
+        let workerId: unknown;
         try {
-          taskId = (JSON.parse(raw) as Record<string, unknown>)["task_id"];
+          const body = JSON.parse(raw) as Record<string, unknown>;
+          taskId = body["task_id"];
+          workerId = body["worker_id"];
         } catch {
           return new Response(JSON.stringify({ error: "Invalid payload" }), { status: 400 });
         }
         if (typeof taskId !== "string" || !taskId) {
           return new Response(JSON.stringify({ error: "Missing task id" }), { status: 400 });
         }
+        // The worker instance asking (workers that predate it send none).
+        if (
+          workerId !== undefined &&
+          (typeof workerId !== "string" || !/^[\w-]{1,64}$/.test(workerId))
+        ) {
+          return new Response(JSON.stringify({ error: "Invalid worker id" }), { status: 400 });
+        }
 
         const { refreshRenderCredentials } = await import("@/lib/edit/render.server");
-        const result = await refreshRenderCredentials(taskId);
+        const result = await refreshRenderCredentials(taskId, workerId ?? null);
         const body =
           result.status === 200
             ? { sources: result.sources, uploads: result.uploads, expires_at: result.expires_at }
