@@ -585,7 +585,11 @@ function AudioInspector({
         <Field label="Use as">
           <Select
             value={item.role}
-            onValueChange={(value) => set({ role: value as TimelineAudio["role"] })}
+            onValueChange={(value) => {
+              const role = value as TimelineAudio["role"];
+              // Only music loops: the flag goes when a bed becomes a voiceover or effect.
+              set(role === "music" ? { role } : { role, loop: false });
+            }}
           >
             <SelectTrigger className="h-8">
               <SelectValue />
