@@ -81,6 +81,20 @@ CREATE POLICY "members update sequences" ON public.sequences FOR UPDATE TO authe
 CREATE POLICY "owner or admin delete sequences" ON public.sequences FOR DELETE TO authenticated
   USING (public.is_active_member() AND (created_by = auth.uid() OR public.is_admin()));
 
+-- An edit's owner (who may delete it) is fixed: members can change an edit
+-- but not take it over. The server (and database maintenance) still can.
+CREATE OR REPLACE FUNCTION public.keep_sequence_owner() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public AS $$
+BEGIN
+  IF NEW.created_by IS DISTINCT FROM OLD.created_by AND current_user IN ('authenticated', 'anon') THEN
+    RAISE EXCEPTION 'An edit''s owner can''t be changed.' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS sequences_keep_owner ON public.sequences;
+CREATE TRIGGER sequences_keep_owner BEFORE UPDATE OF created_by ON public.sequences
+  FOR EACH ROW EXECUTE FUNCTION public.keep_sequence_owner();
+
 DROP POLICY IF EXISTS "members read sequence renders" ON public.sequence_renders;
 CREATE POLICY "members read sequence renders" ON public.sequence_renders FOR SELECT TO authenticated
   USING (public.is_active_member());

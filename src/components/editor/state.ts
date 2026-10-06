@@ -126,6 +126,7 @@ interface HistoryState {
 
 type HistoryAction =
   | { type: "change"; timeline: Timeline; key?: string | undefined }
+  | { type: "update"; apply: (present: Timeline) => Timeline }
   | { type: "undo" }
   | { type: "redo" }
   | { type: "reset"; timeline: Timeline };
@@ -136,6 +137,8 @@ const COALESCE_MS = 900;
 
 function historyReducer(state: HistoryState, action: HistoryAction): HistoryState {
   switch (action.type) {
+    case "update":
+      return historyReducer(state, { type: "change", timeline: action.apply(state.present) });
     case "change": {
       if (action.timeline === state.present) return state;
       const now = Date.now();
@@ -189,6 +192,14 @@ export function useTimelineHistory(initial: Timeline) {
     (timeline: Timeline, key?: string) => dispatch({ type: "change", timeline, key }),
     [],
   );
+  /**
+   * A change worked out from the timeline as it is when the change lands, for
+   * changes that wait on something first (so changes made meanwhile are kept).
+   */
+  const update = useCallback(
+    (apply: (present: Timeline) => Timeline) => dispatch({ type: "update", apply }),
+    [],
+  );
   const undo = useCallback(() => dispatch({ type: "undo" }), []);
   const redo = useCallback(() => dispatch({ type: "redo" }), []);
   const reset = useCallback((timeline: Timeline) => dispatch({ type: "reset", timeline }), []);
@@ -197,6 +208,7 @@ export function useTimelineHistory(initial: Timeline) {
     canUndo: state.past.length > 0,
     canRedo: state.future.length > 0,
     change,
+    update,
     undo,
     redo,
     reset,
