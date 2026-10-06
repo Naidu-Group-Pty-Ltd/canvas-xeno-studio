@@ -497,6 +497,19 @@ const INGEST_STALE_MS = 10 * 60_000;
 /** Automatic retries of a failed save; a person can still retry from the UI. */
 const MAX_AUTO_INGEST_ATTEMPTS = 3;
 
+/** Stamped on a failed save once its automatic attempts are used up; only a person retries it then. */
+const INGEST_EXHAUSTED = "INGEST_RETRIES_EXHAUSTED";
+
+/** Failed or interrupted saves that automatic retries may still pick up. */
+function retryableIngestFilter(): string {
+  const staleBefore = new Date(Date.now() - INGEST_STALE_MS).toISOString();
+  const notExhausted = `or(error_code.is.null,error_code.neq.${INGEST_EXHAUSTED})`;
+  return [
+    `and(ingest_status.eq.failed,${notExhausted})`,
+    `and(ingest_status.eq.processing,updated_at.lt.${staleBefore},${notExhausted})`,
+  ].join(",");
+}
+
 /** Saves that may be (re)started: never started, failed, or interrupted mid-way. */
 function claimableIngestFilter(): string {
   const staleBefore = new Date(Date.now() - INGEST_STALE_MS).toISOString();
@@ -647,7 +660,7 @@ async function ingestAttempts(generationIds: string[]): Promise<Map<string, numb
   return counts;
 }
 
-/** Failed or interrupted saves are scanned in pages so exhausted ones never hide the rest. */
+/** Retry candidates are scanned in pages; the per-run bound only limits work per tick. */
 const RETRY_SCAN_PAGE = 50;
 const RETRY_SCAN_MAX = 1000;
 
@@ -665,22 +678,41 @@ export async function ingestPending(limit = 5): Promise<number> {
     .limit(limit);
   const ids = (pending ?? []).map((row) => row.id);
 
-  for (let offset = 0; ids.length < limit && offset < RETRY_SCAN_MAX; offset += RETRY_SCAN_PAGE) {
+  // Exhausted saves found here are stamped so every later scan excludes them in
+  // the query itself: each is skipped at most once, so none can crowd out an
+  // older save that still has attempts left. Stamped rows leave the result set,
+  // so the next page starts after the rows that remain.
+  let kept = 0;
+  for (let scanned = 0; ids.length < limit && scanned < RETRY_SCAN_MAX;) {
     const { data: page } = await supabaseAdmin
       .from("generations")
       .select("id")
       .eq("status", "completed")
-      .or(claimableIngestFilter())
-      .neq("ingest_status", "pending")
+      .or(retryableIngestFilter())
       .order("updated_at", { ascending: false })
       .order("id")
-      .range(offset, offset + RETRY_SCAN_PAGE - 1);
+      .range(kept, kept + RETRY_SCAN_PAGE - 1);
     if (!page?.length) break;
+    scanned += page.length;
     const attempts = await ingestAttempts(page.map((row) => row.id));
+    const exhausted: string[] = [];
     for (const row of page) {
-      if (ids.length >= limit) break;
-      if ((attempts.get(row.id) ?? 0) < MAX_AUTO_INGEST_ATTEMPTS) ids.push(row.id);
+      if ((attempts.get(row.id) ?? 0) >= MAX_AUTO_INGEST_ATTEMPTS) exhausted.push(row.id);
+      else {
+        kept += 1;
+        if (ids.length < limit) ids.push(row.id);
+      }
     }
+    if (exhausted.length)
+      await supabaseAdmin
+        .from("generations")
+        .update({
+          ingest_status: "failed",
+          error_code: INGEST_EXHAUSTED,
+          error_message: "Saving to the library failed 3 times. Use Retry to try again.",
+        })
+        .in("id", exhausted)
+        .or(retryableIngestFilter());
     if (page.length < RETRY_SCAN_PAGE) break;
   }
 
