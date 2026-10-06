@@ -88,21 +88,43 @@ const STALE_MS = 15 * 60_000;
 const isStale = (row: TrackRow) =>
   Date.now() - Date.parse(String(row["created_at"] ?? "")) > STALE_MS;
 
+/** Every type a track's file can be stored as (see `audioExtension`). */
+const STORED_EXTENSIONS = ["mp3", "wav", "ogg", "flac", "m4a", "bin"];
+
 /**
  * A track whose file was stored but whose last update didn't land is
- * finished from that file (each stored file names its track). Anything else
- * comes back unchanged.
+ * finished from that file. Only the track's own file counts: it is found at
+ * its fixed place in the server-only bucket (and must really be there), so a
+ * library record (which any member can create or edit) can't stand in for
+ * it. Anything else comes back unchanged; a lookup that fails is thrown, so
+ * nothing is decided without knowing.
  */
 async function relinked(row: TrackRow): Promise<TrackRow> {
   if (row["status"] !== "generating" || row["asset_id"]) return row;
-  const { data: asset } = await supabaseAdmin
+  const unchecked = () =>
+    new AppError("UNKNOWN", "The track couldn't be checked. Try again in a moment.");
+  const base = `${scopeFor(String(row["created_by"]), (row["project_id"] as string | null) ?? null)}/music/${row.id}`;
+  const { data: asset, error } = await supabaseAdmin
     .from("assets")
-    .select("id,duration_seconds")
-    .eq("metadata->>music_track_id", row.id)
+    .select("id,duration_seconds,storage_path")
+    .eq("storage_bucket", BUCKET)
+    .in(
+      "storage_path",
+      STORED_EXTENSIONS.map((extension) => `${base}.${extension}`),
+    )
+    .eq("asset_type", "audio")
     .is("deleted_at", null)
     .limit(1)
     .maybeSingle();
+  if (error) throw unchecked();
   if (!asset) return row;
+  const stored = await supabaseAdmin.storage
+    .from(BUCKET)
+    .exists(asset.storage_path)
+    .catch(() => {
+      throw unchecked();
+    });
+  if (stored.data !== true) return row;
   const { data } = await supabaseAdmin
     .from("music_tracks")
     .update({
@@ -139,30 +161,39 @@ async function markReady(trackId: string, values: Record<string, unknown>): Prom
   );
 }
 
-/** Interrupted generations may still have been billed, so they're settled as uncertain, never retried. */
+/**
+ * Interrupted generations may still have been billed, so they're settled as
+ * uncertain, never retried. One whose file was stored is finished instead,
+ * and one that can't be checked right now is left for the next sweep.
+ */
 async function settleInterrupted(): Promise<void> {
   const cutoff = new Date(Date.now() - STALE_MS).toISOString();
-  const { data: stale } = await supabaseAdmin
+  const { data: stale, error } = await supabaseAdmin
     .from("music_tracks")
     .select("*")
     .eq("status", "generating")
     .neq("source", "openverse")
     .lt("created_at", cutoff)
     .limit(50);
-  // One whose file was stored is finished, not uncertain.
-  for (const row of (stale ?? []) as TrackRow[]) await relinked(row);
-  await supabaseAdmin
-    .from("music_tracks")
-    .update({
-      status: "submission_uncertain",
-      error_code: "INTERRUPTED",
-      error_message:
-        "This was interrupted before it was saved. It may still have been billed, so it was not retried.",
-      completed_at: new Date().toISOString(),
-    } as never)
-    .eq("status", "generating")
-    .neq("source", "openverse")
-    .lt("created_at", cutoff);
+  if (error) return;
+  for (const row of (stale ?? []) as TrackRow[]) {
+    try {
+      if ((await relinked(row))["status"] !== "generating") continue;
+    } catch {
+      continue;
+    }
+    await supabaseAdmin
+      .from("music_tracks")
+      .update({
+        status: "submission_uncertain",
+        error_code: "INTERRUPTED",
+        error_message:
+          "This was interrupted before it was saved. It may still have been billed, so it was not retried.",
+        completed_at: new Date().toISOString(),
+      } as never)
+      .eq("id", row.id)
+      .eq("status", "generating");
+  }
 }
 
 async function loadTrack(id: string): Promise<TrackRow | null> {
