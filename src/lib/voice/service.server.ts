@@ -162,24 +162,30 @@ export async function resolveVoiceWithOrigin(input: {
   campaignId?: string | null | undefined;
   projectId?: string | null | undefined;
 }): Promise<{ voice: BrandVoiceRow; via: VoiceOrigin } | null> {
+  // A lookup that fails stops here: falling back would speak (and bill) with
+  // a different voice than the one that applies.
+  const unavailable = () =>
+    new AppError("UNKNOWN", "The brand voice couldn't be looked up. Try again in a moment.");
   const load = async (id: string | null | undefined) => {
     if (!id) return null;
-    const { data } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from("brand_voices")
       .select("*")
       .eq("id", id)
       .eq("is_archived", false)
       .maybeSingle();
+    if (error) throw unavailable();
     return (data ?? null) as unknown as BrandVoiceRow | null;
   };
   let projectId = input.projectId ?? null;
-  const { data: campaign } = input.campaignId
+  const { data: campaign, error: campaignError } = input.campaignId
     ? await supabaseAdmin
         .from("campaigns")
         .select("brand_voice_id,project_id")
         .eq("id", input.campaignId)
         .maybeSingle()
-    : { data: null };
+    : { data: null, error: null };
+  if (campaignError) throw unavailable();
   projectId = projectId ?? campaign?.project_id ?? null;
   const usable = (voice: BrandVoiceRow | null) =>
     voice && voiceInScope(voice, projectId) ? voice : null;
@@ -196,20 +202,22 @@ export async function resolveVoiceWithOrigin(input: {
   const fromCampaign = usable(await load(campaign?.brand_voice_id));
   if (fromCampaign) return { voice: fromCampaign, via: "campaign" };
   if (projectId) {
-    const { data } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from("projects")
       .select("brand_voice_id")
       .eq("id", projectId)
       .maybeSingle();
+    if (error) throw unavailable();
     const fromProject = usable(await load(data?.brand_voice_id));
     if (fromProject) return { voice: fromProject, via: "project" };
   }
-  const { data: fallback } = await supabaseAdmin
+  const { data: fallback, error: fallbackError } = await supabaseAdmin
     .from("brand_voices")
     .select("*")
     .eq("is_default", true)
     .eq("is_archived", false)
     .maybeSingle();
+  if (fallbackError) throw unavailable();
   const studioDefault = usable(fallback as unknown as BrandVoiceRow | null);
   return studioDefault ? { voice: studioDefault, via: "default" } : null;
 }
@@ -260,18 +268,22 @@ async function relinkedTake<T extends { id: string; status: string; asset_id: st
   if (row.status !== "generating" || row.asset_id) return row;
   const { data: asset } = await supabaseAdmin
     .from("assets")
-    .select("id,duration_seconds")
+    .select("id,duration_seconds,metadata")
     .eq("metadata->>voiceover_id", row.id)
     .is("deleted_at", null)
     .limit(1)
     .maybeSingle();
   if (!asset) return row;
+  // Details the take couldn't keep travel with its stored file.
+  const carried = (asset.metadata as { take_details?: Record<string, unknown> } | null)
+    ?.take_details;
   const { data } = await supabaseAdmin
     .from("voiceovers")
     .update({
       status: "completed",
       asset_id: asset.id,
       ...(asset.duration_seconds !== null ? { duration_seconds: asset.duration_seconds } : {}),
+      ...(carried ?? {}),
       completed_at: new Date().toISOString(),
     } as never)
     .eq("id", row.id)
@@ -476,14 +488,16 @@ export async function generateVoiceover(input: {
   }
 
   const result = spoken.result;
-  // The details are kept with the take first, so a take recovered from its
-  // stored file (if the last update fails) still has its word timings.
-  await finish({
+  // The details are kept with the take first, so a take finished later from
+  // its stored file (if the last update fails) still has its word timings. If
+  // they can't be kept with the take, the stored file's record carries them.
+  const details = {
     duration_seconds: result.durationSeconds,
-    alignment: { words: result.words } as never,
+    alignment: { words: result.words },
     provider_request_id: result.requestId,
     characters: result.characters,
-  });
+  };
+  const detailsKept = await record(details);
   const scope = projectId ? `projects/${projectId}` : `unassigned/${input.userId}`;
   const path = `${scope}/voiceovers/${voiceoverId}.mp3`;
   const upload = await supabaseAdmin.storage
@@ -517,6 +531,7 @@ export async function generateVoiceover(input: {
         provider: voice.provider,
         model: voice.model,
         ai_generated_voice: true,
+        ...(detailsKept ? {} : { take_details: details }),
       } as never,
     })
     .select("id")
