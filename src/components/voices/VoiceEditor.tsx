@@ -673,6 +673,57 @@ function ElevenLabsPicker({
   );
 }
 
+/** A voice addition ElevenLabs hasn't confirmed yet, and what can be done about it. */
+interface PendingAddition {
+  message: string;
+  /** Asks about the same attempt again. */
+  check: () => void;
+  /** Gives that attempt up and adds the voice anew. */
+  startOver: () => void;
+}
+
+/**
+ * Shown where the voice was asked for. The attempt is kept, so checking again
+ * picks the voice up once it shows in the account; it is never added again
+ * unless the person chooses to start over.
+ */
+function PendingVoice({ pending, busy }: { pending: PendingAddition | null; busy: boolean }) {
+  if (!pending) return null;
+  return (
+    <div
+      role="status"
+      data-testid="voice-pending"
+      className="space-y-1.5 rounded-md border border-warning/40 bg-warning/10 p-2 text-xs"
+    >
+      <p>{pending.message}</p>
+      <p className="text-muted-foreground">
+        Or start over to add it again. If the first one still turns up, it stays in your ElevenLabs
+        account as well.
+      </p>
+      <div className="flex gap-1.5">
+        <Button
+          size="sm"
+          variant="secondary"
+          className="h-7 px-2 text-xs"
+          disabled={busy}
+          onClick={pending.check}
+        >
+          Check again
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 px-2 text-xs"
+          disabled={busy}
+          onClick={pending.startOver}
+        >
+          Start over
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function VoiceBrowser({
   scope,
   onPick,
@@ -688,6 +739,7 @@ function VoiceBrowser({
   const [voices, setVoices] = useState<PickedVoice[]>([]);
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState<string | null>(null);
+  const [pending, setPending] = useState<PendingAddition | null>(null);
 
   async function load() {
     setLoading(true);
@@ -726,13 +778,14 @@ function VoiceBrowser({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scope]);
 
-  async function choose(voice: PickedVoice) {
+  async function choose(voice: PickedVoice, startOver = false) {
     if (scope === "library" && voice.publicOwnerId) {
       setAdding(voice.voiceId);
       try {
         // Kept until the voice is added (across reloads too), so trying again
         // after a lost answer finds it rather than adding it twice.
-        const key = `${voice.publicOwnerId}:${voice.voiceId}:${voice.name}`;
+        const key = `${voice.publicOwnerId}:${voice.voiceId}`;
+        if (startOver) keepAttempt("voice-library", key, null);
         const clientRequestId = savedAttempt("voice-library", key) ?? crypto.randomUUID();
         keepAttempt("voice-library", key, clientRequestId);
         const added = await addElevenLabsLibraryVoice({
@@ -743,10 +796,19 @@ function VoiceBrowser({
             clientRequestId,
           },
         });
+        if ("pending" in added) {
+          setPending({
+            message: added.pending,
+            check: () => void choose(voice),
+            startOver: () => void choose(voice, true),
+          });
+          return;
+        }
+        setPending(null);
         keepAttempt("voice-library", key, null);
         onPick({
           providerVoiceId: added.voiceId,
-          providerVoiceName: voice.name,
+          providerVoiceName: added.name,
           source: {
             kind: "library",
             library_voice_id: voice.voiceId,
@@ -813,6 +875,7 @@ function VoiceBrowser({
           />
         </div>
       )}
+      <PendingVoice pending={pending} busy={adding !== null} />
       <ul className="scroll-slim max-h-56 space-y-1 overflow-y-auto">
         {voices.map((voice) => (
           <li
@@ -865,6 +928,7 @@ function VoiceBrowser({
 
 function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => void }) {
   const [description, setDescription] = useState("");
+  const [pending, setPending] = useState<PendingAddition | null>(null);
   const [previews, setPreviews] = useState<
     { generatedVoiceId: string; audioBase64: string; mime: string }[]
   >([]);
@@ -884,15 +948,35 @@ function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => voi
     }
   }
 
-  async function keep(generatedVoiceId: string) {
+  async function keep(generatedVoiceId: string, startOver = false) {
     setBusy("save");
+    // Kept until the option is added (across reloads too), so trying again after
+    // a lost answer finds it rather than adding it twice.
+    if (startOver) keepAttempt("voice-design", generatedVoiceId, null);
+    const clientRequestId = savedAttempt("voice-design", generatedVoiceId) ?? crypto.randomUUID();
+    keepAttempt("voice-design", generatedVoiceId, clientRequestId);
     try {
       const saved = await saveDesignedVoice({
-        data: { name: name.trim() || "Designed voice", description, generatedVoiceId },
+        data: {
+          name: name.trim() || "Designed voice",
+          description,
+          generatedVoiceId,
+          clientRequestId,
+        },
       });
+      if ("pending" in saved) {
+        setPending({
+          message: saved.pending,
+          check: () => void keep(generatedVoiceId),
+          startOver: () => void keep(generatedVoiceId, true),
+        });
+        return;
+      }
+      setPending(null);
+      keepAttempt("voice-design", generatedVoiceId, null);
       onPick({
         providerVoiceId: saved.voiceId,
-        providerVoiceName: name.trim() || "Designed voice",
+        providerVoiceName: saved.name,
         description,
         source: { kind: "designed", prompt: description },
       });
@@ -932,6 +1016,7 @@ function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => voi
         )}
         Design three options
       </Button>
+      <PendingVoice pending={pending} busy={busy !== null} />
       {previews.map((preview, index) => (
         <div
           key={preview.generatedVoiceId}
@@ -964,6 +1049,7 @@ function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => voi
 
 function VoiceCloner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => void }) {
   const { user } = useAuth();
+  const [pending, setPending] = useState<PendingAddition | null>(null);
   const [samples, setSamples] = useState<{ id: string; title: string | null }[]>([]);
   const [speaker, setSpeaker] = useState("");
   const [consent, setConsent] = useState(false);
@@ -992,16 +1078,19 @@ function VoiceCloner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => void 
     }
   }
 
-  async function clone() {
+  async function clone(startOver = false) {
     setBusy("clone");
     // Kept until the clone is made (across reloads too), so trying again after
-    // a lost answer finds it rather than cloning twice.
+    // a lost answer finds it rather than cloning twice. A clone is of its
+    // recordings: asked again with another speaker name, the clone already
+    // asked for is still the one looked for.
     const request = {
       name: `${speaker.trim()} (brand voice)`,
       sampleAssetIds: samples.map((sample) => sample.id),
       speakerName: speaker.trim(),
     };
-    const key = JSON.stringify(request);
+    const key = [...request.sampleAssetIds].sort().join(",");
+    if (startOver) keepAttempt("voice-clone", key, null);
     const clientRequestId = savedAttempt("voice-clone", key) ?? crypto.randomUUID();
     keepAttempt("voice-clone", key, clientRequestId);
     try {
@@ -1015,10 +1104,19 @@ function VoiceCloner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => void 
           clientRequestId,
         },
       });
+      if ("pending" in result) {
+        setPending({
+          message: result.pending,
+          check: () => void clone(),
+          startOver: () => void clone(true),
+        });
+        return;
+      }
+      setPending(null);
       keepAttempt("voice-clone", key, null);
       onPick({
         providerVoiceId: result.voiceId,
-        providerVoiceName: `${speaker.trim()} (clone)`,
+        providerVoiceName: result.name,
         source: { kind: "cloned", consent: result.consent },
       });
       toast.success("Voice cloned");
@@ -1092,6 +1190,7 @@ function VoiceCloner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => void 
         )}
         Clone voice
       </Button>
+      <PendingVoice pending={pending} busy={busy !== null} />
     </div>
   );
 }

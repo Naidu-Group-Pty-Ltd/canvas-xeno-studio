@@ -179,7 +179,6 @@ export async function resolveVoiceWithOrigin(input: {
     if (error) throw unavailable();
     return (data ?? null) as unknown as BrandVoiceRow | null;
   };
-  let projectId = input.projectId ?? null;
   const { data: campaign, error: campaignError } = input.campaignId
     ? await supabaseAdmin
         .from("campaigns")
@@ -188,7 +187,9 @@ export async function resolveVoiceWithOrigin(input: {
         .maybeSingle()
     : { data: null, error: null };
   if (campaignError) throw unavailable();
-  projectId = projectId ?? campaign?.project_id ?? null;
+  // Work for a campaign is in the campaign's project, whatever project the
+  // request names.
+  const projectId = campaign ? (campaign.project_id ?? null) : (input.projectId ?? null);
   const usable = (voice: BrandVoiceRow | null) =>
     voice && voiceInScope(voice, projectId) ? voice : null;
 
@@ -577,6 +578,20 @@ export async function generateVoiceover(input: {
     projectId = sequence.project_id;
     campaignId = sequence.campaign_id;
   }
+  if (campaignId) {
+    // Likewise a take for a campaign belongs to the campaign's project, whatever
+    // the request says: its voice is checked against that project, and the take
+    // is kept there.
+    const { data: campaign, error } = await supabaseAdmin
+      .from("campaigns")
+      .select("project_id")
+      .eq("id", campaignId)
+      .maybeSingle();
+    if (error)
+      throw new AppError("UNKNOWN", "The campaign couldn't be looked up. Try again in a moment.");
+    if (!campaign) throw new AppError("INVALID_PARAMETERS", "That campaign no longer exists.");
+    projectId = campaign.project_id;
+  }
   const voice = await resolveVoice({ voiceId: input.voiceId, campaignId, projectId });
   if (!voice)
     throw new AppError(
@@ -808,40 +823,46 @@ export async function generateVoiceover(input: {
   };
 }
 
-/** How long adding a voice to ElevenLabs may take before its answer is given up on. */
-const VOICE_ADD_SETTLE_MS = 2 * 60_000;
+/**
+ * A voice added to ElevenLabs (with the name and details its attempt was
+ * recorded with), or one whose outcome isn't known yet: asking again with the
+ * same attempt picks it up once it shows in the account.
+ */
+export type VoiceAddition<Details> =
+  { voiceId: string; name: string; details: Details } | { pending: string };
 
 /**
  * Adds a voice to the ElevenLabs account (a designed voice, a clone, a library
  * voice) once per attempt; ElevenLabs keeps no request ids of its own. The
- * attempt is recorded first (an operation keyed by `key`), along with the
- * voices of that name already in the account. If the answer is lost, the
- * attempt is recorded as uncertain, and asking again with the same key looks
- * for the voice of that name that appeared since, instead of adding a second
- * one. Only when none turned up after a while is it added again.
+ * attempt is recorded first (an operation keyed by `key`), with its name and
+ * details and the voices of that name already in the account. If the answer is
+ * lost, the attempt stays pending: asking again with the same key looks for
+ * the voice of the recorded name that appeared since. It is never added again
+ * by itself, however long it takes to show, and a later request can't change
+ * what it was for; only the person can give it up (a new attempt, with a new
+ * key). Only an attempt that definitely failed is tried again as asked.
  */
-export async function voiceAddedOnce(input: {
+export async function voiceAddedOnce<Details extends Record<string, unknown>>(input: {
   userId: string;
   key: string;
   name: string;
+  details: Details;
   create: () => Promise<{ ok: true; voiceId: string } | ProviderFailure>;
-}): Promise<string> {
+}): Promise<VoiceAddition<Details>> {
   const unchecked = () =>
     new AppError("UNKNOWN", "The voice couldn't be checked in ElevenLabs. Try again in a moment.");
-  const named = async () => {
-    const result = await elevenLabsAccountVoices(input.name);
+  const named = async (name: string) => {
+    const result = await elevenLabsAccountVoices(name);
     if (!result.ok) throw unchecked();
-    return result.voices.filter((voice) => voice.name === input.name).map((voice) => voice.voiceId);
+    return result.voices.filter((voice) => voice.name === name).map((voice) => voice.voiceId);
   };
   interface Attempt {
     id: string;
     status: string;
     output_payload: { voice_id?: string } | null;
-    input_payload: { before?: string[] } | null;
-    submitted_at: string | null;
-    updated_at: string;
+    input_payload: { name?: string; details?: Details; before?: string[] } | null;
   }
-  const columns = "id,status,output_payload,input_payload,submitted_at,updated_at";
+  const columns = "id,status,output_payload,input_payload";
   const load = async (): Promise<Attempt | null> => {
     const { data, error } = await supabaseAdmin
       .from("operations")
@@ -863,7 +884,7 @@ export async function voiceAddedOnce(input: {
     }
     return false;
   };
-  const add = async (id: string): Promise<string> => {
+  const add = async (id: string): Promise<VoiceAddition<Details>> => {
     const result = await input.create();
     const at = new Date().toISOString();
     if (result.ok) {
@@ -873,8 +894,10 @@ export async function voiceAddedOnce(input: {
         output_payload: { voice_id: result.voiceId },
         completed_at: at,
       });
-      return result.voiceId;
+      return { voiceId: result.voiceId, name: input.name, details: input.details };
     }
+    // A failure that can't be recorded leaves the attempt pending, which is
+    // only ever looked for, never added again.
     await record(id, {
       status: result.uncertain ? "submission_uncertain" : "failed",
       error_code: result.code,
@@ -882,18 +905,19 @@ export async function voiceAddedOnce(input: {
       failed_at: at,
     });
     if (result.uncertain)
-      throw new AppError(
-        "SUBMISSION_UNCERTAIN",
-        "ElevenLabs may have added the voice, but its answer was lost. Try again: the studio looks for it in your account rather than adding it twice.",
-      );
+      return {
+        pending:
+          "ElevenLabs may have added this voice, but its answer was lost. Try again in a minute: the studio looks for it in your account rather than adding it twice.",
+      };
     throw new AppError(result.code as never, result.message);
   };
-  // A new attempt (or a failed one tried again) records the voices of that name first.
-  const begin = async (existing: Attempt | null): Promise<string> => {
-    const before = await named();
+  // A new attempt (or one that definitely failed, tried again as now asked)
+  // records the voices of that name first.
+  const begin = async (existing: Attempt | null): Promise<VoiceAddition<Details>> => {
+    const before = await named(input.name);
     const payload = {
       status: "running",
-      input_payload: { name: input.name, before },
+      input_payload: { name: input.name, details: input.details, before },
       submitted_at: new Date().toISOString(),
     };
     if (existing) {
@@ -922,34 +946,50 @@ export async function voiceAddedOnce(input: {
     if (error || !data) throw new AppError("UNKNOWN", "The voice couldn't be recorded. Try again.");
     return add(data.id);
   };
-  // An earlier attempt: its voice, the voice that appeared for it, or a new try.
-  const settled = async (attempt: Attempt | null): Promise<string> => {
+  // An earlier attempt: its voice, the voice that appeared for it, a new try
+  // after a definite failure, or still pending.
+  const settled = async (attempt: Attempt | null): Promise<VoiceAddition<Details>> => {
     if (!attempt) return begin(null);
-    if (attempt.status === "completed" && attempt.output_payload?.voice_id)
-      return attempt.output_payload.voice_id;
     if (attempt.status === "failed") return begin(attempt);
+    // What the attempt was for, not what this request says.
+    const name = attempt.input_payload?.name ?? input.name;
+    const details = attempt.input_payload?.details ?? input.details;
+    if (attempt.status === "completed" && attempt.output_payload?.voice_id)
+      return { voiceId: attempt.output_payload.voice_id, name, details };
     const before = new Set(attempt.input_payload?.before ?? []);
-    const appeared = (await named()).filter((id) => !before.has(id));
+    const fresh = (await named(name)).filter((id) => !before.has(id));
+    // New voices of that name that other attempts added are theirs.
+    const { data: claimed, error: claimedError } = fresh.length
+      ? await supabaseAdmin
+          .from("operations")
+          .select("output_payload")
+          .eq("operation_type", "voice_add")
+          .eq("status", "completed")
+          .in("output_payload->>voice_id" as never, fresh as never)
+      : { data: [], error: null };
+    if (claimedError) throw unchecked();
+    const taken = new Set(
+      ((claimed ?? []) as { output_payload: { voice_id?: string } | null }[]).map(
+        (row) => row.output_payload?.voice_id,
+      ),
+    );
+    const appeared = fresh.filter((id) => !taken.has(id));
     if (appeared.length === 1) {
       await record(attempt.id, {
         status: "completed",
         output_payload: { voice_id: appeared[0] },
         completed_at: new Date().toISOString(),
       });
-      return appeared[0]!;
+      return { voiceId: appeared[0]!, name, details };
     }
     if (appeared.length > 1)
       throw new AppError(
         "INVALID_PARAMETERS",
-        `More than one new voice called “${input.name}” is in your ElevenLabs account, so the studio can't tell which is this one. Choose it under My voices.`,
+        `More than one new voice called “${name}” is in your ElevenLabs account, so the studio can't tell which is this one. Choose it under My voices.`,
       );
-    const age = Date.now() - Date.parse(attempt.submitted_at ?? attempt.updated_at);
-    if (age < VOICE_ADD_SETTLE_MS)
-      throw new AppError(
-        "UNKNOWN",
-        "This voice may still be on its way to ElevenLabs. Try again in a minute.",
-      );
-    return begin(attempt);
+    return {
+      pending: `“${name}” hasn't appeared in your ElevenLabs account yet. Try again in a minute to pick it up.`,
+    };
   };
   return settled(await load());
 }

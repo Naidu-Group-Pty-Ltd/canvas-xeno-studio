@@ -551,13 +551,15 @@ export const addElevenLabsLibraryVoice = createServerFn({ method: "POST" })
     const { elevenLabsAddLibraryVoice } = await import("./voice/providers.server");
     const { requireActiveMember, voiceAddedOnce } = await import("./voice/service.server");
     await requireActiveMember(context.userId);
-    const voiceId = await voiceAddedOnce({
+    // Either the voice now in the account, or `pending` when ElevenLabs' answer
+    // was lost and the voice hasn't shown yet (asking again picks it up).
+    return voiceAddedOnce({
       userId: context.userId,
       key: `elevenlabs-voice:library:${data.clientRequestId}`,
       name: data.name,
+      details: {},
       create: () => elevenLabsAddLibraryVoice(data.publicOwnerId, data.voiceId, data.name),
     });
-    return { voiceId };
   });
 
 export const designElevenLabsVoice = createServerFn({ method: "POST" })
@@ -587,6 +589,7 @@ export const saveDesignedVoice = createServerFn({ method: "POST" })
         name: z.string().trim().min(1).max(100),
         description: z.string().trim().min(20).max(1000),
         generatedVoiceId: z.string().min(1).max(200),
+        clientRequestId: z.string().min(8).max(64),
       })
       .parse(data),
   )
@@ -594,14 +597,20 @@ export const saveDesignedVoice = createServerFn({ method: "POST" })
     const { elevenLabsSaveDesign } = await import("./voice/providers.server");
     const { requireActiveMember, voiceAddedOnce } = await import("./voice/service.server");
     await requireActiveMember(context.userId);
-    // A designed option is kept once, however often "Keep this one" is pressed.
-    const voiceId = await voiceAddedOnce({
+    // A designed option is kept once per attempt, however often "Keep this one"
+    // is pressed.
+    return voiceAddedOnce({
       userId: context.userId,
-      key: `elevenlabs-voice:design:${data.generatedVoiceId}`,
+      key: `elevenlabs-voice:design:${data.clientRequestId}`,
       name: data.name,
-      create: () => elevenLabsSaveDesign(data),
+      details: {},
+      create: () =>
+        elevenLabsSaveDesign({
+          name: data.name,
+          description: data.description,
+          generatedVoiceId: data.generatedVoiceId,
+        }),
     });
-    return { voiceId };
   });
 
 /**
@@ -630,48 +639,68 @@ export const cloneElevenLabsVoice = createServerFn({ method: "POST" })
     const { elevenLabsClone } = await import("./voice/providers.server");
     const { requireActiveMember, voiceAddedOnce } = await import("./voice/service.server");
     await requireActiveMember(context.userId);
-    const { data: assets } = await supabaseAdmin
+    const { data: assets, error: assetsError } = await supabaseAdmin
       .from("assets")
       .select("id,asset_type,storage_bucket,storage_path,mime_type,title")
       .in("id", data.sampleAssetIds)
       .is("deleted_at", null);
-    const files: { name: string; type: string; bytes: Uint8Array }[] = [];
-    for (const asset of assets ?? []) {
-      if (asset.asset_type !== "audio")
-        throw new AppError("INVALID_PARAMETERS", "Voice samples must be audio files");
-      const { data: blob, error } = await supabaseAdmin.storage
-        .from(asset.storage_bucket)
-        .download(asset.storage_path);
-      if (error || !blob) throw new AppError("STORAGE_FAILED", "A voice sample could not be read");
-      files.push({
-        name: (asset.title ?? "sample").replace(/[^\w.-]+/g, "_").slice(0, 80) || "sample",
-        type: asset.mime_type ?? "audio/mpeg",
-        bytes: new Uint8Array(await blob.arrayBuffer()),
-      });
-    }
-    if (!files.length) throw new AppError("INVALID_PARAMETERS", "Add at least one voice sample");
+    if (assetsError)
+      throw new AppError(
+        "UNKNOWN",
+        "The voice samples couldn't be looked up. Try again in a moment.",
+      );
+    const samples = assets ?? [];
+    if (samples.some((asset) => asset.asset_type !== "audio"))
+      throw new AppError("INVALID_PARAMETERS", "Voice samples must be audio files");
+    if (!samples.length) throw new AppError("INVALID_PARAMETERS", "Add at least one voice sample");
+    const confirmedAt = new Date().toISOString();
     // The consent statement also travels with the voice in the ElevenLabs account.
-    const consentNote = `Cloned with the consent of ${data.consent.speakerName}, confirmed in the studio on ${new Date().toISOString().slice(0, 10)}.`;
+    const consentNote = `Cloned with the consent of ${data.consent.speakerName}, confirmed in the studio on ${confirmedAt.slice(0, 10)}.`;
     const description = [data.description, consentNote].filter(Boolean).join(" ");
-    const voiceId = await voiceAddedOnce({
+    const added = await voiceAddedOnce({
       userId: context.userId,
       key: `elevenlabs-voice:clone:${data.clientRequestId}`,
       name: data.name,
-      create: () =>
-        elevenLabsClone({
+      // The consent is kept with the attempt: a voice found for it later is
+      // recorded with the consent it was made under.
+      details: {
+        speakerName: data.consent.speakerName,
+        confirmedBy: context.userId,
+        confirmedAt,
+        sampleAssetIds: samples.map((asset) => asset.id),
+      },
+      // The samples are read only when the voice is actually made.
+      create: async () => {
+        const files: { name: string; type: string; bytes: Uint8Array }[] = [];
+        try {
+          for (const asset of samples) {
+            const { data: blob, error } = await supabaseAdmin.storage
+              .from(asset.storage_bucket)
+              .download(asset.storage_path);
+            if (error || !blob) throw new Error("unreadable");
+            files.push({
+              name: (asset.title ?? "sample").replace(/[^\w.-]+/g, "_").slice(0, 80) || "sample",
+              type: asset.mime_type ?? "audio/mpeg",
+              bytes: new Uint8Array(await blob.arrayBuffer()),
+            });
+          }
+        } catch {
+          // Nothing was sent to ElevenLabs, so this attempt can be tried again.
+          return {
+            ok: false,
+            uncertain: false,
+            code: "STORAGE_FAILED",
+            message: "A voice sample could not be read. Try again.",
+          };
+        }
+        return elevenLabsClone({
           name: data.name,
           description,
           files,
           removeBackgroundNoise: data.removeBackgroundNoise,
-        }),
-    });
-    return {
-      voiceId,
-      consent: {
-        speakerName: data.consent.speakerName,
-        confirmedBy: context.userId,
-        confirmedAt: new Date().toISOString(),
-        sampleAssetIds: data.sampleAssetIds,
+        });
       },
-    };
+    });
+    if ("pending" in added) return added;
+    return { voiceId: added.voiceId, name: added.name, consent: added.details };
   });
