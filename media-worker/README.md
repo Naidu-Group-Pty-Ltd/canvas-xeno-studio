@@ -56,7 +56,11 @@ first instance to check in and answers with
 first sent (each URL is checked like the originals), or `410` if the task is
 closed or another instance has it; the task is then dropped without a report,
 so it never runs (or uploads) twice. Timeouts, `429` and `5xx` are retried a
-few times. If no fresh URLs arrive, the old ones are used only while they are
+few times (the first check-in, the claim, for about half a minute). Nothing
+starts without the claim: if the app can't confirm it (it can't be reached, or
+refuses), the task is left alone, neither run nor reported, because another
+instance may hold it; the app closes it as stalled if none does. Once claimed,
+a later check-in that gets no fresh URLs uses the old ones only while they are
 valid (the task's `credentials_expire_at`, less five minutes); after that the
 task fails with `CREDENTIALS_EXPIRED` rather than attempting a transfer that
 can't succeed.

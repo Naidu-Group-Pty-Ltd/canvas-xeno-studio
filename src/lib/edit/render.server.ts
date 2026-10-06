@@ -346,13 +346,19 @@ async function resumed(renderId: string): Promise<RenderStarted> {
   try {
     assets = await resolveAssets(timeline);
   } catch (problem) {
-    // Its media is gone (or can't be checked): it can't be sent, so it fails now.
-    const message =
-      problem instanceof Error ? problem.message : "The render's media couldn't be read";
-    await supabaseAdmin.rpc(
-      "fail_sequence_render" as never,
-      { p_render_id: renderId, p_error_code: "STORAGE_FAILED", p_error_message: message } as never,
-    );
+    // Its media is gone (or no longer fits the edit): it can't be sent, so it
+    // fails now. A lookup that merely failed leaves it as it is, to be sent
+    // when it is asked for again.
+    if (problem instanceof AppError && problem.code === "INVALID_PARAMETERS") {
+      await supabaseAdmin.rpc(
+        "fail_sequence_render" as never,
+        {
+          p_render_id: renderId,
+          p_error_code: "STORAGE_FAILED",
+          p_error_message: problem.message,
+        } as never,
+      );
+    }
     throw problem;
   }
   const sent = await submitRender({
