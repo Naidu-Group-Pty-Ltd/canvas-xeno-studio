@@ -583,6 +583,9 @@ export const designElevenLabsVoice = createServerFn({ method: "POST" })
     const { requireActiveMember } = await import("./voice/service.server");
     await requireActiveMember(context.userId);
     const result = await elevenLabsDesign(data);
+    // A design that may have been made (and billed) is returned as such, so
+    // the designer holds it rather than offering to design again at once.
+    if (!result.ok && result.uncertain) return { uncertain: result.message };
     if (!result.ok) failure(result);
     return { previews: result.previews, text: result.text };
   });
@@ -656,6 +659,12 @@ export const cloneElevenLabsVoice = createServerFn({ method: "POST" })
         "The voice samples couldn't be looked up. Try again in a moment.",
       );
     const samples = assets ?? [];
+    // A voice is never cloned from fewer recordings than were chosen.
+    if (samples.length < new Set(data.sampleAssetIds).size)
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        "A chosen recording is no longer in the library. Choose the recordings again.",
+      );
     if (samples.some((asset) => asset.asset_type !== "audio"))
       throw new AppError("INVALID_PARAMETERS", "Voice samples must be audio files");
     if (!samples.length) throw new AppError("INVALID_PARAMETERS", "Add at least one voice sample");

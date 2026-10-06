@@ -649,6 +649,7 @@ export async function generateVoiceover(input: {
       ? query.eq("sequence_id", input.sequenceId)
       : query.is("sequence_id", null);
     query = projectId ? query.eq("project_id", projectId) : query.is("project_id", null);
+    query = campaignId ? query.eq("campaign_id", campaignId) : query.is("campaign_id", null);
     const { data, error } = await query.order("created_at", { ascending: false }).limit(20);
     if (error) throw unchecked();
     return ((data ?? []) as unknown as TakeRow[]).find((row) => row.script === script) ?? null;
