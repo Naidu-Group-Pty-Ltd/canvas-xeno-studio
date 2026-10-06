@@ -10,6 +10,7 @@ import {
 import type { AssetRow } from "@/hooks/useStudioData";
 import type { SignedMedia } from "@/hooks/useEditorData";
 import {
+  audioLoops,
   audioPlayLength,
   clipsAt,
   frameSize,
@@ -358,7 +359,7 @@ interface AudioLayerProps {
 /** Position in the source for a timeline time, looping the way the render does. */
 function audioSourceTime(item: TimelineAudio, elapsed: number): number {
   const length = item.sourceDuration ?? null;
-  if (!item.loop || !length) return item.trimStart + elapsed;
+  if (!audioLoops(item) || !length) return item.trimStart + elapsed;
   const firstPass = Math.max(0.01, length - item.trimStart);
   if (elapsed < firstPass) return item.trimStart + elapsed;
   return (elapsed - firstPass) % length;
@@ -416,7 +417,7 @@ const AudioLayer = memo(function AudioLayer({
   }, []);
 
   if (!url) return null;
-  return <audio ref={audio} src={url} preload="auto" loop={item.loop} />;
+  return <audio ref={audio} src={url} preload="auto" loop={audioLoops(item)} />;
 });
 
 /* ------------------------------------------------------------------ */
