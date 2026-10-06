@@ -557,6 +557,7 @@ export async function registerUploadedTrack(input: {
   genres: string[];
   moods: string[];
   instrumental: boolean | null;
+  durationSeconds: number | null;
   projectId: string | null;
   campaignId: string | null;
 }): Promise<TrackRow> {
@@ -568,6 +569,18 @@ export async function registerUploadedTrack(input: {
     .maybeSingle();
   if (!asset || asset.deleted_at || asset.asset_type !== "audio")
     throw new AppError("INVALID_PARAMETERS", "Upload an audio file first.");
+  // An upload's length (needed to loop it on the beat) comes from the browser
+  // when the file record doesn't have one yet. The track row below carries it
+  // either way; copying it onto the file as well is a convenience, so a failed
+  // copy is left alone rather than failing the registration.
+  const duration =
+    asset.duration_seconds !== null ? Number(asset.duration_seconds) : input.durationSeconds;
+  if (asset.duration_seconds === null && duration !== null)
+    await supabaseAdmin
+      .from("assets")
+      .update({ duration_seconds: Number(duration.toFixed(3)) })
+      .eq("id", asset.id)
+      .is("duration_seconds", null);
   // The confirmation is stamped here, by the server, with who made it and when.
   const stamp = { confirmedBy: input.userId, confirmedAt: new Date().toISOString() };
   const rights =
@@ -585,7 +598,7 @@ export async function registerUploadedTrack(input: {
       license: input.license,
       usage_notes: MUSIC_LICENSES[input.license].note,
       rights: rights as never,
-      duration_seconds: asset.duration_seconds,
+      duration_seconds: duration === null ? null : Number(duration.toFixed(3)),
       genres: input.genres.slice(0, 8),
       moods: input.moods.slice(0, 8),
       instrumental: input.instrumental,
@@ -607,6 +620,7 @@ export async function saveTrackAnalysis(input: {
   trackId: string;
   bpm: number;
   beats: number[];
+  durationSeconds: number | null;
 }): Promise<void> {
   await requireActiveMember(input.userId);
   const beats = input.beats
@@ -618,6 +632,14 @@ export async function saveTrackAnalysis(input: {
     .update({ bpm: Number(input.bpm.toFixed(1)), beats } as never)
     .eq("id", input.trackId);
   if (error) throw new AppError("UNKNOWN", "The beat analysis could not be saved.");
+  // A track without a recorded length gets the one the analysis measured. Best
+  // effort: the editor fills the length from the analysis itself meanwhile.
+  if (input.durationSeconds !== null)
+    await supabaseAdmin
+      .from("music_tracks")
+      .update({ duration_seconds: Number(input.durationSeconds.toFixed(3)) } as never)
+      .eq("id", input.trackId)
+      .is("duration_seconds", null);
 }
 
 export async function setTrackArchived(input: {

@@ -116,6 +116,7 @@ export function MusicPanel({
       const track = trackFor(bed.assetId);
       let beats = track?.beats ?? null;
       let bpm = track?.bpm ? Number(track.bpm) : null;
+      let length = track?.duration_seconds ? Number(track.duration_seconds) : null;
       if (!beats?.length) {
         const url = await audioUrlFor(bed.assetId);
         if (!url) throw new Error("The music file couldn't be opened");
@@ -126,24 +127,41 @@ export function MusicPanel({
         }
         beats = analysis.beats;
         bpm = analysis.bpm;
+        length ??= analysis.duration;
         if (track) {
           // Worked out once per track; the next edit reuses it.
           void saveMusicAnalysis({
-            data: { trackId: track.id, bpm: analysis.bpm, beats: analysis.beats },
+            data: {
+              trackId: track.id,
+              bpm: analysis.bpm,
+              beats: analysis.beats,
+              durationSeconds: analysis.duration,
+            },
           })
             .then(() => queryClient.invalidateQueries({ queryKey: ["music_tracks"] }))
             .catch(() => undefined);
         }
       }
-      const { timeline, layout, onChange } = latest.current;
-      const current = timeline.audio.find((item) => item.id === bed.id);
-      if (!current || current.assetId !== bed.assetId) {
+      const { timeline: latestTimeline, layout, onChange } = latest.current;
+      const found = latestTimeline.audio.find((item) => item.id === bed.id);
+      if (!found || found.assetId !== bed.assetId) {
         toast.message("The music changed while its beat was being found. Try again.");
         return;
       }
+      // Without its length the bed can't loop on the beat: fill it in when known.
+      const current =
+        !found.sourceDuration && length ? { ...found, sourceDuration: length } : found;
+      const timeline =
+        current === found
+          ? latestTimeline
+          : {
+              ...latestTimeline,
+              audio: latestTimeline.audio.map((item) => (item.id === current.id ? current : item)),
+            };
       const times = beatTimesOnTimeline(current, beats, layout.total + 30);
       const { timeline: snapped, moved } = snapCutsToBeats(timeline, times);
       if (!moved) {
+        if (timeline !== latestTimeline) onChange(timeline);
         toast.message(
           `The cuts already land on the beat${bpm ? ` (${Math.round(bpm)} BPM)` : ""}.`,
         );

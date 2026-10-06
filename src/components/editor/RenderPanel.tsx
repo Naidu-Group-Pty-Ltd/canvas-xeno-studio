@@ -192,6 +192,7 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
                 {terms.excluded.length > 0 && (
                   <span className="text-warning"> · Not for {terms.excluded.join(", ")}</span>
                 )}
+                {terms.notes && <span> · Conditions: {terms.notes}</span>}
               </li>
             ))}
           </ul>

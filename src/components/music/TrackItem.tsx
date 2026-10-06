@@ -47,6 +47,7 @@ export function LicenceTerms({ track }: { track: Pick<MusicTrackRow, "license" |
         {terms.summary}
         {terms.reference ? ` · Ref ${terms.reference}` : ""}
       </p>
+      {terms.notes && <p className="text-muted-foreground">Conditions: {terms.notes}</p>}
       {terms.expired ? (
         <p className="text-destructive">
           This licence ran out on {terms.expiresOn}. It can't be added to edits or rendered until

@@ -82,7 +82,8 @@ export function FindMusic({
       });
       await queryClient.invalidateQueries({ queryKey: ["music_tracks"] });
       toast.success(added.duplicate ? "Already in the library" : "Added to the music library");
-      onAdded?.(added, kind);
+      // The result's own category, not the selector's (which may have changed since the search).
+      onAdded?.(added, track.category === "sound_effect" ? "sound_effect" : "music");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "The track could not be added");
     } finally {

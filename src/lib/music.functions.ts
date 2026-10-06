@@ -158,6 +158,8 @@ export const registerUploadedMusic = createServerFn({ method: "POST" })
         genres: z.array(z.string().max(40)).max(8).default([]),
         moods: z.array(z.string().max(40)).max(8).default([]),
         instrumental: z.boolean().nullable().default(null),
+        /** Measured by the browser when the file isn't one the server can measure. */
+        durationSeconds: z.number().positive().max(7200).nullable().default(null),
         ...scope,
       })
       .parse(data),
@@ -190,6 +192,7 @@ export const saveMusicAnalysis = createServerFn({ method: "POST" })
         trackId: z.string().uuid(),
         bpm: z.number().min(40).max(250),
         beats: z.array(z.number().min(0).max(36_000)).max(5000),
+        durationSeconds: z.number().positive().max(36_000).nullable().default(null),
       })
       .parse(data),
   )

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { registerUploadedMusic } from "@/lib/music.functions";
+import { audioFileDuration } from "@/lib/music/analyze";
 import { RIGHTS_SCOPES, type RightsScope } from "@/lib/music/catalog";
 import { ACCEPT_ATTRIBUTE, uploadReference } from "@/lib/storage";
 import { cn } from "@/lib/utils";
@@ -50,10 +51,14 @@ export function AddLicensedTrack({ projectId = null }: { projectId?: string | nu
     if (!file || !user) return;
     setSaving(true);
     try {
-      const asset = await uploadReference(file, { userId: user.id, projectId });
+      const [asset, durationSeconds] = await Promise.all([
+        uploadReference(file, { userId: user.id, projectId }),
+        audioFileDuration(file),
+      ]);
       await registerUploadedMusic({
         data: {
           assetId: asset.id,
+          durationSeconds,
           title: title.trim(),
           artist: artist.trim() || null,
           license,

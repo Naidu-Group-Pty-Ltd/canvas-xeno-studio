@@ -135,6 +135,7 @@ async function musicRights(assetIds: string[]): Promise<{
             uses: terms.uses,
             territories: terms.territories,
             expires_on: terms.expiresOn,
+            notes: terms.notes,
           },
         ]
       : [];

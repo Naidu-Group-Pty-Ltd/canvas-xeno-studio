@@ -247,6 +247,8 @@ export function licenceTerms(
   territories: string | null;
   expiresOn: string | null;
   expired: boolean;
+  /** Free-form conditions recorded with the licence (credit wording, edit rules, campaigns…). */
+  notes: string | null;
   summary: string;
 } | null {
   if (track.license !== "licensed") return null;
@@ -284,6 +286,7 @@ export function licenceTerms(
     territories,
     expiresOn,
     expired: rightsExpired(rights, now),
+    notes: text("notes"),
     summary,
   };
 }
