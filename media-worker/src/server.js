@@ -2,7 +2,7 @@ import { createServer } from "node:http";
 import { mkdir } from "node:fs/promises";
 import { config, assertConfigured } from "./config.js";
 import { verify } from "./signature.js";
-import { validateTask, executeTask } from "./runner.js";
+import { validateTask, executeTask, sendHeartbeat } from "./runner.js";
 import { describeTasks } from "./tasks.js";
 import { ffmpegVersion } from "./ffmpeg.js";
 import { TaskError } from "./net.js";
@@ -14,6 +14,7 @@ await mkdir(config.workDir, { recursive: true });
 const queue = [];
 let running = 0;
 const seen = new Map(); // task_id -> accepted at, for cheap duplicate suppression
+const active = new Set(); // accepted tasks, queued or running, for heartbeats
 
 function pump() {
   while (running < config.concurrency && queue.length > 0) {
@@ -21,10 +22,26 @@ function pump() {
     running += 1;
     executeTask(task).finally(() => {
       running -= 1;
+      active.delete(task);
       pump();
     });
   }
 }
+
+/**
+ * Tasks that opted into progress reports also get a heartbeat while they wait
+ * in the queue or work, so the app can tell a long queue from a lost task.
+ */
+setInterval(() => {
+  for (const task of active) {
+    const position = queue.indexOf(task);
+    const stage =
+      position >= 0
+        ? `Waiting for a free renderer${position > 0 ? ` (${position} ahead)` : ""}`
+        : (task.lastStage ?? "Working");
+    sendHeartbeat(task, stage);
+  }
+}, config.heartbeatSeconds * 1000).unref();
 
 function json(response, status, payload) {
   const body = JSON.stringify(payload);
@@ -109,6 +126,7 @@ const server = createServer(async (request, response) => {
 
   seen.set(task.taskId, now);
   queue.push(task);
+  if (task.reportProgress && task.callback?.url) active.add(task);
   // Accept and return immediately: rendering happens in the background and the
   // result is reported through the signed callback.
   json(response, 202, { accepted: true, task_id: task.taskId, queued: queue.length });

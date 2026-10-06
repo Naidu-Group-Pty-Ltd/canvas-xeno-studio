@@ -205,7 +205,13 @@ export async function resolveVoice(
 
 export interface VoiceoverResult {
   voiceoverId: string;
-  status: string;
+  /**
+   * "completed", "generating" (still being made), or a recorded "failed" /
+   * "submission_uncertain" outcome. Provider outcomes are returned, not thrown,
+   * so a thrown error always means the caller couldn't hear the answer.
+   */
+  status: "completed" | "generating" | "failed" | "submission_uncertain" | "pending";
+  errorMessage: string | null;
   assetId: string | null;
   durationSeconds: number | null;
   words: TimedWord[];
@@ -272,22 +278,27 @@ export async function generateVoiceover(input: {
   if (existing) {
     const row = existing as unknown as {
       id: string;
-      status: string;
+      status: VoiceoverResult["status"];
+      error_message: string | null;
       asset_id: string | null;
       duration_seconds: number | null;
       alignment: { words?: TimedWord[] } | null;
       voice_id: string | null;
       script: string;
     };
+    const { data: speaker } = row.voice_id
+      ? await supabaseAdmin.from("brand_voices").select("name").eq("id", row.voice_id).maybeSingle()
+      : { data: null };
     return {
       voiceoverId: row.id,
       status: row.status,
+      errorMessage: row.error_message,
       assetId: row.asset_id,
       durationSeconds: row.duration_seconds === null ? null : Number(row.duration_seconds),
       words: row.alignment?.words ?? [],
-      title: titleFor("Brand voice", row.script),
+      title: titleFor(speaker?.name ?? "Brand voice", row.script),
       voiceId: row.voice_id,
-      voiceName: null,
+      voiceName: speaker?.name ?? null,
       duplicate: true,
     };
   }
@@ -330,9 +341,35 @@ export async function generateVoiceover(input: {
   } as never);
   if (insertError) {
     if (insertError.code === "23505")
-      throw new AppError("UNKNOWN", "This voiceover is already being made. Give it a moment.");
+      return {
+        voiceoverId: "",
+        status: "generating",
+        errorMessage: null,
+        assetId: null,
+        durationSeconds: null,
+        words: [],
+        title: "",
+        voiceId: voice.id,
+        voiceName: voice.name,
+        duplicate: true,
+      };
     throw new AppError("UNKNOWN", "The voiceover could not be recorded");
   }
+  const outcome = (
+    status: "failed" | "submission_uncertain",
+    errorMessage: string,
+  ): VoiceoverResult => ({
+    voiceoverId,
+    status,
+    errorMessage,
+    assetId: null,
+    durationSeconds: null,
+    words: [],
+    title: "",
+    voiceId: voice.id,
+    voiceName: voice.name,
+    duplicate: false,
+  });
 
   const finish = (values: Record<string, unknown>) =>
     supabaseAdmin
@@ -348,10 +385,7 @@ export async function generateVoiceover(input: {
       error_message: spoken.message,
       completed_at: new Date().toISOString(),
     });
-    throw new AppError(
-      spoken.uncertain ? "SUBMISSION_UNCERTAIN" : (spoken.code as never),
-      spoken.message,
-    );
+    return outcome(spoken.uncertain ? "submission_uncertain" : "failed", spoken.message);
   }
 
   const result = spoken.result;
@@ -367,8 +401,8 @@ export async function generateVoiceover(input: {
       error_message: "The voiceover was made but could not be saved to the library.",
       completed_at: new Date().toISOString(),
     });
-    throw new AppError(
-      "STORAGE_FAILED",
+    return outcome(
+      "failed",
       "The voiceover was made but could not be saved to the library. Try again.",
     );
   }
@@ -404,7 +438,7 @@ export async function generateVoiceover(input: {
       error_message: "The voiceover could not be added to the library.",
       completed_at: new Date().toISOString(),
     });
-    throw new AppError("STORAGE_FAILED", "The voiceover could not be added to the library.");
+    return outcome("failed", "The voiceover could not be added to the library. Try again.");
   }
 
   await finish({
@@ -420,6 +454,7 @@ export async function generateVoiceover(input: {
   return {
     voiceoverId,
     status: "completed",
+    errorMessage: null,
     assetId: asset.id,
     durationSeconds: result.durationSeconds,
     words: result.words,

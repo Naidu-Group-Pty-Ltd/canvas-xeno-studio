@@ -1,9 +1,9 @@
 /**
- * A render that hasn't reported for this long has stopped (the media worker
- * gives up on a task after 15 minutes, and a running render reports progress
- * every few seconds).
+ * A render that hasn't been heard from for this long has stopped. The media
+ * worker reports progress while it works and sends a heartbeat every minute
+ * while a render waits in its queue or runs, so silence means it was lost.
  */
-export const RENDER_STALL_MS = 20 * 60_000;
+export const RENDER_STALL_MS = 5 * 60_000;
 
 export function renderInProgress(
   render: { status: string; updated_at?: string | null; created_at: string },

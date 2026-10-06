@@ -33,34 +33,43 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
 
         const { data: task } = await supabaseAdmin
           .from("media_tasks")
-          .select("id,status,task_type,operation_id,project_id,created_by,source_asset_id,input_payload,storage_bucket")
+          .select("id,status,error_code,task_type,operation_id,project_id,created_by,source_asset_id,input_payload,storage_bucket")
           .eq("id", taskId)
           .maybeSingle();
         if (!task) return new Response(JSON.stringify({ received: true, matched: false }), { status: 200 });
 
+        const status = payload["status"];
+        // A render presumed lost (no word for a while) can still deliver its result.
+        const presumedLost = task.status === "failed" && task.error_code === "STALLED";
+
         // A repeated delivery of an already-finished task changes nothing.
-        if (task.status === "completed" || task.status === "failed") {
+        if (task.status === "completed" || (task.status === "failed" && !presumedLost)) {
           return new Response(JSON.stringify({ received: true, duplicate: true }), { status: 200 });
         }
 
-        const status = payload["status"];
-
-        // Progress reports only move a running render's bar forward; they never
-        // change a task's state, so one arriving late is harmless.
-        if (status === "progress") {
-          const value = Number(payload["progress"]);
-          if (task.task_type === "render_sequence" && Number.isFinite(value)) {
-            const progress = Math.max(0, Math.min(0.99, value));
-            await supabaseAdmin
-              .from("sequence_renders")
-              .update({
-                status: "rendering",
-                progress,
-                stage: typeof payload["stage"] === "string" ? payload["stage"].slice(0, 80) : null,
-              } as never)
-              .eq("media_task_id", task.id)
-              .in("status", ["queued", "rendering"])
-              .lt("progress", progress);
+        // Anything other than a final result (progress, heartbeat) never changes a
+        // task's state, so one arriving late or out of order is harmless.
+        if (status !== "completed" && status !== "failed") {
+          const stage = typeof payload["stage"] === "string" ? payload["stage"].slice(0, 80) : null;
+          if (task.task_type === "render_sequence" && !presumedLost) {
+            const value = Number(payload["progress"]);
+            if (status === "progress" && Number.isFinite(value)) {
+              // Progress only moves the bar forward.
+              const progress = Math.max(0, Math.min(0.99, value));
+              await supabaseAdmin
+                .from("sequence_renders")
+                .update({ status: "rendering", progress, stage } as never)
+                .eq("media_task_id", task.id)
+                .in("status", ["queued", "rendering"])
+                .lt("progress", progress);
+            } else if (status === "heartbeat") {
+              // Still alive (queued or working): refreshes the render so it isn't taken for lost.
+              await supabaseAdmin
+                .from("sequence_renders")
+                .update((stage ? { stage } : { status: "rendering" }) as never)
+                .eq("media_task_id", task.id)
+                .in("status", ["queued", "rendering"]);
+            }
           }
           return new Response(JSON.stringify({ received: true }), { status: 200 });
         }

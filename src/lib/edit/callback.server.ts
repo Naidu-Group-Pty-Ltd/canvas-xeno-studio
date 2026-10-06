@@ -19,6 +19,10 @@ interface RenderTask {
   storage_bucket: string | null;
 }
 
+/** Rows a report may still finish: open ones, or ones presumed lost that turn out alive. */
+const OPEN_RENDER = "status.in.(queued,rendering),error_code.eq.STALLED";
+const OPEN_TASK = "status.in.(submitting,processing),error_code.eq.STALLED";
+
 const text = (value: unknown, fallback: string) =>
   typeof value === "string" && value ? value : fallback;
 const numberOrNull = (value: unknown) =>
@@ -56,7 +60,7 @@ export async function finishSequenceRender(
             completed_at: now,
           } as never)
           .eq("id", renderId)
-          .in("status", ["queued", "rendering"]),
+          .or(OPEN_RENDER),
         "render",
       );
     }
@@ -94,7 +98,7 @@ export async function finishSequenceRender(
           completed_at: now,
         })
         .eq("id", task.id)
-        .in("status", ["submitting", "processing"]),
+        .or(OPEN_TASK),
       "media task",
     );
     return;
@@ -190,7 +194,7 @@ export async function finishSequenceRender(
               }),
         } as never)
         .eq("id", renderId)
-        .in("status", ["queued", "rendering"]),
+        .or(OPEN_RENDER),
       "render",
     );
   }
@@ -248,7 +252,7 @@ export async function finishSequenceRender(
         } as never,
       })
       .eq("id", task.id)
-      .in("status", ["submitting", "processing"]),
+      .or(OPEN_TASK),
     "media task",
   );
 }
