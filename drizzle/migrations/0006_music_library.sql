@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS public.music_tracks (
   tags text[] NOT NULL DEFAULT '{}',
   instrumental boolean,
   prompt text CHECK (prompt IS NULL OR char_length(prompt) <= 4000),
+  model text CHECK (model IS NULL OR char_length(model) <= 100),
   status text NOT NULL DEFAULT 'ready' CHECK (status IN ('generating','ready','failed','submission_uncertain')),
   error_code text,
   error_message text,
@@ -45,17 +46,21 @@ CREATE TABLE IF NOT EXISTS public.music_tracks (
   updated_at timestamptz NOT NULL DEFAULT now(),
   completed_at timestamptz
 );
+-- The model a track was made with (for one made before this column existed: unknown).
+ALTER TABLE public.music_tracks ADD COLUMN IF NOT EXISTS model text;
 CREATE INDEX IF NOT EXISTS music_tracks_recent_idx ON public.music_tracks (created_at DESC);
 CREATE INDEX IF NOT EXISTS music_tracks_asset_idx ON public.music_tracks (asset_id);
 -- A track found through Openverse is imported once; importing it again reuses it.
 CREATE UNIQUE INDEX IF NOT EXISTS music_tracks_openverse_once
   ON public.music_tracks (source_id) WHERE source = 'openverse';
--- Billable work is made once at a time: the same music (prompt, length and
--- vocals, for the same project), or an instrumental of the same track, asked
--- for again while it is being made (say after a reload forgot the request)
--- returns the work in progress rather than paying for it twice.
-CREATE UNIQUE INDEX IF NOT EXISTS music_tracks_one_generation_in_progress ON public.music_tracks (
+-- Billable work is made once at a time: the same music (prompt, model, length
+-- and vocals, for the same project), or an instrumental of the same track,
+-- asked for again while it is being made (say after a reload forgot the
+-- request) returns the work in progress rather than paying for it twice.
+DROP INDEX IF EXISTS public.music_tracks_one_generation_in_progress;
+CREATE UNIQUE INDEX music_tracks_one_generation_in_progress ON public.music_tracks (
   COALESCE(project_id, '00000000-0000-0000-0000-000000000000'::uuid),
+  COALESCE(model, ''),
   duration_seconds,
   instrumental,
   md5(prompt)

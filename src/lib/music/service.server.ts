@@ -521,11 +521,13 @@ export async function generateMusic(input: {
   if (repeat) return { track: await relinked(repeat), duplicate: true };
   const seconds = Math.max(MUSIC_LENGTH.min, Math.min(MUSIC_LENGTH.max, input.seconds));
   const prompt = input.prompt.slice(0, 4000);
+  const model = input.model ?? DEFAULT_MUSIC_MODEL;
   const sameMusic = () =>
     inProgress(
       {
         source: "elevenlabs",
         project_id: input.projectId,
+        model,
         duration_seconds: seconds,
         instrumental: input.instrumental,
       },
@@ -543,6 +545,7 @@ export async function generateMusic(input: {
     license: "ai_generated",
     usage_notes: MUSIC_LICENSES.ai_generated.note,
     prompt,
+    model,
     instrumental: input.instrumental,
     genres: input.genres.slice(0, 8),
     moods: input.moods.slice(0, 8),
@@ -568,7 +571,7 @@ export async function generateMusic(input: {
   const made = await composeMusic({
     prompt: input.prompt,
     seconds,
-    model: input.model ?? DEFAULT_MUSIC_MODEL,
+    model,
     instrumental: input.instrumental,
   });
   if (!made.ok) {

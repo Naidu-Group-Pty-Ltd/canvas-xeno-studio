@@ -465,13 +465,7 @@ export async function composeMusic(input: {
     // The track was made (and billed) but didn't arrive in full.
     return transportFailure("ElevenLabs", error);
   }
-  if (!audio.length)
-    return {
-      ok: false,
-      code: "PROVIDER_REJECTED",
-      message: "ElevenLabs returned no audio.",
-      uncertain: false,
-    };
+  if (!audio.length) return acceptedButUnusable("no audio");
   return { ok: true, audio, mime: "audio/mpeg", songId: response.headers.get("song-id") };
 }
 
@@ -516,12 +510,19 @@ export async function separateInstrumental(input: {
   const instrumental =
     names.find((name) => /instrumental|accompaniment|no[_ -]?vocals|music/i.test(name)) ??
     (names.length === 2 ? names.find((name) => !/vocal/i.test(name)) : undefined);
-  if (!instrumental)
-    return {
-      ok: false,
-      code: "PROVIDER_REJECTED",
-      message: "ElevenLabs didn't return an instrumental stem.",
-      uncertain: false,
-    };
+  if (!instrumental) return acceptedButUnusable("no instrumental stem");
   return { ok: true, instrumental: files[instrumental]!, mime: "audio/mpeg" };
+}
+
+/**
+ * Music made (and billed) whose answer can't be used is uncertain, never a
+ * plain failure, so nothing is made again without the person deciding to.
+ */
+function acceptedButUnusable(what: string): ProviderFailure {
+  return {
+    ok: false,
+    code: "SUBMISSION_UNCERTAIN",
+    message: `ElevenLabs accepted the request but sent ${what}. It may still have been billed, so it was not retried automatically.`,
+    uncertain: true,
+  };
 }

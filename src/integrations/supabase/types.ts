@@ -2979,6 +2979,7 @@ export type Database = {
           license: string
           license_url: string | null
           license_version: string | null
+          model: string | null
           moods: string[]
           parent_track_id: string | null
           project_id: string | null
@@ -3017,6 +3018,7 @@ export type Database = {
           license: string
           license_url?: string | null
           license_version?: string | null
+          model?: string | null
           moods?: string[]
           parent_track_id?: string | null
           project_id?: string | null
@@ -3055,6 +3057,7 @@ export type Database = {
           license?: string
           license_url?: string | null
           license_version?: string | null
+          model?: string | null
           moods?: string[]
           parent_track_id?: string | null
           project_id?: string | null
