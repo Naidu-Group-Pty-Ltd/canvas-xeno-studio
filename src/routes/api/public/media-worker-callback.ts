@@ -31,11 +31,19 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-        const { data: task } = await supabaseAdmin
+        const { data: task, error: lookupError } = await supabaseAdmin
           .from("media_tasks")
           .select("id,status,error_code,task_type,operation_id,project_id,created_by,source_asset_id,input_payload,storage_bucket")
           .eq("id", taskId)
           .maybeSingle();
+        // A lookup that failed isn't an unknown task: answered 503, so the worker repeats the report.
+        if (lookupError) {
+          console.error("media task callback lookup failed", {
+            taskId,
+            message: lookupError.message,
+          });
+          return new Response(JSON.stringify({ received: false }), { status: 503 });
+        }
         if (!task) return new Response(JSON.stringify({ received: true, matched: false }), { status: 200 });
 
         const status = payload["status"];
@@ -93,6 +101,13 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
         }
 
         const now = new Date().toISOString();
+        // Anything that can't be recorded is answered 503, so the worker repeats the
+        // report. The media task is marked finished last: until then a repeat is
+        // processed again, never taken for a duplicate.
+        const notRecorded = (what: string, message?: string) => {
+          console.error("media task callback not recorded", { taskId: task.id, what, message });
+          return new Response(JSON.stringify({ received: false }), { status: 503 });
+        };
 
         const settingsUpdate =
           status === "completed"
@@ -107,16 +122,18 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
           const errorCode = typeof payload["error_code"] === "string" ? payload["error_code"] : "RENDER_FAILED";
           const errorMessage =
             typeof payload["error_message"] === "string" ? payload["error_message"] : "The media task failed";
-          await supabaseAdmin
-            .from("media_tasks")
-            .update({ status: "failed", error_code: errorCode, error_message: errorMessage, completed_at: now })
-            .eq("id", task.id);
           if (task.operation_id) {
-            await supabaseAdmin
+            const { error } = await supabaseAdmin
               .from("operations")
               .update({ status: "failed", error_code: errorCode, error_message: errorMessage, failed_at: now })
               .eq("id", task.operation_id);
+            if (error) return notRecorded("operation", error.message);
           }
+          const { error } = await supabaseAdmin
+            .from("media_tasks")
+            .update({ status: "failed", error_code: errorCode, error_message: errorMessage, completed_at: now })
+            .eq("id", task.id);
+          if (error) return notRecorded("media task", error.message);
           return new Response(JSON.stringify({ received: true }), { status: 200 });
         }
 
@@ -135,12 +152,15 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
 
           // The (bucket, path) pair is unique, so a replayed callback can never
           // create a second asset row for the same rendered file.
-          const { data: existing } = await supabaseAdmin
-            .from("assets")
-            .select("id")
-            .eq("storage_bucket", bucket)
-            .eq("storage_path", path)
-            .maybeSingle();
+          const findExisting = () =>
+            supabaseAdmin
+              .from("assets")
+              .select("id")
+              .eq("storage_bucket", bucket)
+              .eq("storage_path", path)
+              .maybeSingle();
+          const { data: existing, error: existingError } = await findExisting();
+          if (existingError) return notRecorded("asset lookup", existingError.message);
           if (existing) {
             assetIds.push(existing.id);
             continue;
@@ -175,11 +195,41 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
             })
             .select("id")
             .maybeSingle();
-          if (insertError) console.error("media task output not registered", { taskId: task.id, message: insertError.message });
-          if (inserted) assetIds.push(inserted.id);
+          if (insertError?.code === "23505") {
+            // A concurrent repeat of this report registered it a moment ago.
+            const { data: raced, error: racedError } = await findExisting();
+            if (racedError || !raced) return notRecorded("asset", racedError?.message);
+            assetIds.push(raced.id);
+            continue;
+          }
+          if (insertError || !inserted) return notRecorded("asset", insertError?.message);
+          assetIds.push(inserted.id);
         }
 
-        await supabaseAdmin
+        if (task.operation_id) {
+          const { data: changed, error } = await supabaseAdmin
+            .from("operations")
+            .update({
+              status: "completed",
+              completed_at: now,
+              output_payload: { asset_ids: assetIds, metadata } as never,
+            })
+            .eq("id", task.operation_id)
+            .neq("status", "completed")
+            .select("id");
+          if (error) return notRecorded("operation", error.message);
+          // Logged once, by the report that completed the operation.
+          if (changed?.length) {
+            const { error: eventError } = await supabaseAdmin.from("operation_events").insert({
+              operation_id: task.operation_id,
+              event_type: "completed",
+              payload: { asset_ids: assetIds, task_type: task.task_type } as never,
+            } as never);
+            if (eventError) return notRecorded("operation event", eventError.message);
+          }
+        }
+
+        const { error: taskError } = await supabaseAdmin
           .from("media_tasks")
           .update({
             status: "completed",
@@ -188,22 +238,7 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
             output_payload: { asset_ids: assetIds, metadata, duration_ms: payload["duration_ms"] ?? null } as never,
           })
           .eq("id", task.id);
-
-        if (task.operation_id) {
-          await supabaseAdmin
-            .from("operations")
-            .update({
-              status: "completed",
-              completed_at: now,
-              output_payload: { asset_ids: assetIds, metadata } as never,
-            })
-            .eq("id", task.operation_id);
-          await supabaseAdmin.from("operation_events").insert({
-            operation_id: task.operation_id,
-            event_type: "completed",
-            payload: { asset_ids: assetIds, task_type: task.task_type } as never,
-          } as never);
-        }
+        if (taskError) return notRecorded("media task", taskError.message);
 
         return new Response(JSON.stringify({ received: true }), {
           status: 200,

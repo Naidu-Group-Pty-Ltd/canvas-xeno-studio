@@ -240,13 +240,17 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
         .from("sequence_renders")
         .update({ media_task_id: taskId } as never)
         .eq("id", renderId);
+  // The edit is pointed at this render only if it is still the version that was
+  // checked and snapshotted: a save that landed meanwhile stops it.
   const marked =
     taskError || linked?.error
       ? null
       : await supabaseAdmin
           .from("sequences")
           .update({ status: "rendering", last_render_id: renderId } as never)
-          .eq("id", sequence.id);
+          .eq("id", sequence.id)
+          .eq("version", sequence.version)
+          .select("id");
   async function fail(code: string, message: string): Promise<never> {
     const at = new Date().toISOString();
     await supabaseAdmin
@@ -279,6 +283,11 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
   // Nothing is sent to the worker unless the render, its task and the edit all record it.
   if (taskError || linked?.error || !marked || marked.error)
     await fail("UNKNOWN", "The render could not be recorded. Try again.");
+  if (!marked!.data?.length)
+    await fail(
+      "INVALID_PARAMETERS",
+      "This edit changed while the render was starting. Let it save, then render again.",
+    );
 
   const sources: { role: string; url: string; mime?: string | null }[] = [];
   for (const source of request.sources) {
