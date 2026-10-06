@@ -171,6 +171,10 @@ export async function finishSequenceRender(
   }
   // Without a file there is nothing to retry for: the render failed.
   const finished = assetId !== null;
+  // A late result also clears the stall that was presumed (or records the missing file).
+  const outcome = finished
+    ? { error_code: null, error_message: null }
+    : { error_code: "STORAGE_FAILED", error_message: "The render finished without a video file" };
 
   if (renderId) {
     must(
@@ -183,12 +187,7 @@ export async function finishSequenceRender(
           asset_id: assetId,
           duration_seconds: numberOrNull(metadata?.["duration_seconds"]),
           completed_at: now,
-          ...(finished
-            ? {}
-            : {
-                error_code: "STORAGE_FAILED",
-                error_message: "The render finished without a video file",
-              }),
+          ...outcome,
         } as never)
         .eq("id", renderId)
         .or(OPEN_RENDER),
@@ -209,17 +208,23 @@ export async function finishSequenceRender(
   if (task.operation_id) {
     const { data: changed, error } = await supabaseAdmin
       .from("operations")
-      .update({
-        status: "completed",
-        completed_at: now,
-        output_payload: { asset_ids: assetId ? [assetId] : [], metadata } as never,
-      })
+      .update(
+        finished
+          ? {
+              status: "completed",
+              completed_at: now,
+              failed_at: null,
+              ...outcome,
+              output_payload: { asset_ids: [assetId], metadata } as never,
+            }
+          : { status: "failed", failed_at: now, ...outcome },
+      )
       .eq("id", task.operation_id)
       .neq("status", "completed")
       .select("id");
     must({ error }, "operation");
     // Logged once, by the report that completed the operation.
-    if (changed?.length) {
+    if (finished && changed?.length) {
       must(
         await supabaseAdmin.from("operation_events").insert({
           operation_id: task.operation_id,
@@ -239,9 +244,10 @@ export async function finishSequenceRender(
     await supabaseAdmin
       .from("media_tasks")
       .update({
-        status: "completed",
+        status: finished ? "completed" : "failed",
         completed_at: now,
         result_asset_id: assetId,
+        ...outcome,
         output_payload: {
           asset_ids: assetId ? [assetId] : [],
           metadata,

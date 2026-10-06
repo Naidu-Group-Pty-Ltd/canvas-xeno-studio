@@ -15,6 +15,8 @@ import { buildRenderRequest, parseTimeline, renderBlockers, type Timeline } from
 
 const OUTPUT_BUCKET = "generated-assets";
 const SOURCE_URL_TTL = 3 * 60 * 60;
+/** Signed upload URLs last two hours, so a render's links are good for that long. */
+const LINKS_VALID_MS = 2 * 60 * 60 * 1000;
 
 interface RenderInput {
   sequenceId: string;
@@ -27,6 +29,18 @@ export interface RenderStarted {
   renderId: string;
   status: string;
   duplicate: boolean;
+}
+
+async function signSource(asset: { storage_bucket: string; storage_path: string }) {
+  const { data } = await supabaseAdmin.storage
+    .from(asset.storage_bucket)
+    .createSignedUrl(asset.storage_path, SOURCE_URL_TTL);
+  return data?.signedUrl ?? null;
+}
+
+async function signUpload(bucket: string, path: string) {
+  const { data, error } = await supabaseAdmin.storage.from(bucket).createSignedUploadUrl(path);
+  return error ? null : (data?.signedUrl ?? null);
 }
 
 /** Checks every clip and track against the library before anything is recorded. */
@@ -292,32 +306,32 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
   const sources: { role: string; url: string; mime?: string | null }[] = [];
   for (const source of request.sources) {
     const asset = assets.get(source.assetId)!;
-    const { data: signed } = await supabaseAdmin.storage
-      .from(asset.storage_bucket)
-      .createSignedUrl(asset.storage_path, SOURCE_URL_TTL);
-    if (!signed?.signedUrl)
+    const url = await signSource(asset);
+    if (!url)
       await fail("STORAGE_FAILED", `"${asset.title ?? "A file"}" could not be read from storage`);
-    sources.push({ role: source.role, url: signed!.signedUrl, mime: asset.mime_type });
+    sources.push({ role: source.role, url: url!, mime: asset.mime_type });
   }
 
   const uploads: { url: string; method: "PUT"; storage_key: string }[] = [];
   for (const path of [videoPath, posterPath]) {
-    const { data: signed, error } = await supabaseAdmin.storage
-      .from(OUTPUT_BUCKET)
-      .createSignedUploadUrl(path);
-    if (error || !signed?.signedUrl)
+    const url = await signUpload(OUTPUT_BUCKET, path);
+    if (!url)
       await fail("STORAGE_FAILED", "A destination for the rendered video could not be prepared");
-    uploads.push({ url: signed!.signedUrl, method: "PUT", storage_key: path });
+    uploads.push({ url: url!, method: "PUT", storage_key: path });
   }
 
+  const base = appBaseUrl().replace(/\/$/, "");
   const submission = await submitWorkerTask({
     task_id: taskId,
     task_type: "render_sequence",
     sources,
     uploads,
     params: request.params,
-    callback: { url: `${appBaseUrl().replace(/\/$/, "")}/api/public/media-worker-callback` },
+    callback: { url: `${base}/api/public/media-worker-callback` },
     report_progress: true,
+    // Signed URLs expire; if the render waits in the worker's queue they are re-signed.
+    credentials_url: `${base}/api/public/media-worker-credentials`,
+    credentials_expire_at: new Date(Date.now() + LINKS_VALID_MS).toISOString(),
   });
   if (!submission.ok) {
     await fail(
@@ -339,4 +353,83 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
     .eq("status", "queued");
 
   return { renderId, status: "rendering", duplicate: false };
+}
+
+export type RenderCredentials =
+  | {
+      status: 200;
+      sources: { url: string }[];
+      uploads: { url: string; method: "PUT"; storage_key: string }[];
+      expires_at: string;
+    }
+  | { status: 404 | 410 | 503 };
+
+/**
+ * Re-signs a render's sources and upload slots for the media worker, which
+ * asks before starting a render that waited in its queue (and before it
+ * downloads or uploads with aging links), so queue time never outlives the
+ * signed URLs. Only an open render is re-signed, only for its own sources and
+ * destinations, in the order first sent. A render presumed lost is re-signed
+ * only while it is still the edit's current render: once a newer render has
+ * replaced it, the worker is told to drop it rather than render it again.
+ */
+export async function refreshRenderCredentials(taskId: string): Promise<RenderCredentials> {
+  const { data: task, error } = await supabaseAdmin
+    .from("media_tasks")
+    .select("id,task_type,status,error_code,storage_bucket,input_payload")
+    .eq("id", taskId)
+    .maybeSingle();
+  if (error) return { status: 503 };
+  if (!task || task.task_type !== "render_sequence") return { status: 404 };
+  const open =
+    task.status === "submitting" ||
+    task.status === "processing" ||
+    (task.status === "failed" && task.error_code === "STALLED");
+  if (!open) return { status: 410 };
+
+  const input = (task.input_payload ?? {}) as Record<string, unknown>;
+  if (task.status === "failed") {
+    const renderId = typeof input["render_id"] === "string" ? input["render_id"] : null;
+    const sequenceId = typeof input["sequence_id"] === "string" ? input["sequence_id"] : null;
+    if (!renderId || !sequenceId) return { status: 410 };
+    const { data: sequence, error: sequenceError } = await supabaseAdmin
+      .from("sequences")
+      .select("last_render_id")
+      .eq("id", sequenceId)
+      .maybeSingle();
+    if (sequenceError) return { status: 503 };
+    if (sequence?.last_render_id !== renderId) return { status: 410 };
+  }
+  const strings = (value: unknown) =>
+    Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+  const ids = strings(input["sources"]);
+  const paths = strings(input["storage_paths"]);
+  if (!ids.length || !paths.length) return { status: 404 };
+
+  const { data: rows, error: assetError } = await supabaseAdmin
+    .from("assets")
+    .select("id,storage_bucket,storage_path")
+    .in("id", [...new Set(ids)]);
+  if (assetError) return { status: 503 };
+  const assets = new Map((rows ?? []).map((row) => [row.id, row]));
+
+  const sources: { url: string }[] = [];
+  for (const id of ids) {
+    const asset = assets.get(id);
+    const url = asset ? await signSource(asset) : null;
+    if (!url) return { status: 503 };
+    sources.push({ url });
+  }
+  const uploads: { url: string; method: "PUT"; storage_key: string }[] = [];
+  for (const path of paths) {
+    const url = await signUpload(task.storage_bucket ?? OUTPUT_BUCKET, path);
+    if (!url) return { status: 503 };
+    uploads.push({ url, method: "PUT", storage_key: path });
+  }
+  return {
+    status: 200,
+    sources,
+    uploads,
+    expires_at: new Date(Date.now() + LINKS_VALID_MS).toISOString(),
+  };
 }
