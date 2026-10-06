@@ -46,13 +46,17 @@ uses one. The app's callback is idempotent, so the worker only repeats on
 transport faults and `5xx`.
 
 Signed URLs expire, and a task can wait in the queue. A task that also gives a
-`credentials_url` (same host allow list) has them re-signed: before downloading
-and again before uploading, once they are older than
-`CREDENTIALS_REFRESH_SECONDS` (default 900), the worker posts a signed
-`{"task_id": "…"}` there. The app answers with `{"sources": [{"url"}],
-"uploads": [{"url"}]}` in the order first sent (each URL is checked like the
-originals), or `410` if it no longer wants the task, which is then dropped
-without a report. Any other answer, or none, leaves the URLs as they were.
+`credentials_url` (same host allow list) has them re-signed: the worker posts a
+signed `{"task_id": "…"}` there before starting a task that waited in the queue,
+and before downloading or uploading once its URLs are older than
+`CREDENTIALS_REFRESH_SECONDS` (default 900). The app answers with
+`{"sources": [{"url"}], "uploads": [{"url"}], "expires_at": "…"}` in the order
+first sent (each URL is checked like the originals), or `410` if it no longer
+wants the task, which is then dropped without a report. Timeouts, `429` and
+`5xx` are retried a few times. If no fresh URLs arrive, the old ones are used
+only while they are valid (the task's `credentials_expire_at`, less five
+minutes); after that the task fails with `CREDENTIALS_EXPIRED` rather than
+attempting a transfer that can't succeed.
 
 ## Sequence rendering
 

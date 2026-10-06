@@ -31,6 +31,8 @@ export interface MediaWorkerTask {
   report_progress?: boolean;
   /** Where the worker gets the URLs re-signed if they age in its queue. */
   credentials_url?: string;
+  /** When the signed URLs sent with the task stop working. */
+  credentials_expire_at?: string;
 }
 
 const SIGNATURE_WINDOW_SECONDS = 300;
