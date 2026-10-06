@@ -36,8 +36,11 @@ holds no database access, no provider credentials and no user session.
 Results are reported to the `callback.url` supplied in the task, signed with the
 same scheme. A task that sets `"report_progress": true` also receives
 best-effort `{"status": "progress", "progress": 0.42, "stage": "…"}` reports
-while it renders (at most one every few seconds, never retried); the final
-`completed` or `failed` report is the only one that matters. Callback hosts have their own allow list, `CALLBACK_HOST_SUFFIXES`
+while it renders (at most one every few seconds, never retried), and a
+`{"status": "heartbeat", "stage": "…"}` every `HEARTBEAT_SECONDS` (default 60)
+while it waits in the queue or works, so the app can tell a long queue from a
+lost task. The final `completed` or `failed` report is the only one that
+matters; an app that opts in must treat any other status as informational. Callback hosts have their own allow list, `CALLBACK_HOST_SUFFIXES`
 (default `lovable.app,lovableproject.com`); add the app's custom domain there if it
 uses one. The app's callback is idempotent, so the worker only repeats on
 transport faults and `5xx`.

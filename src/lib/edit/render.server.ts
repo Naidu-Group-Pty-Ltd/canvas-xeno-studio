@@ -73,6 +73,47 @@ async function resolveAssets(timeline: Timeline) {
   return assets;
 }
 
+/**
+ * Renders that stopped reporting (no progress or heartbeat for a while) are
+ * closed as stalled, along with their task and operation. A result that still
+ * arrives later completes them anyway.
+ */
+async function closeStalledRenders(sequenceId: string, now: string): Promise<void> {
+  const message = "This render stopped responding.";
+  const { data: stalled } = await supabaseAdmin
+    .from("sequence_renders")
+    .update({
+      status: "failed",
+      error_code: "STALLED",
+      error_message: message,
+      completed_at: now,
+    } as never)
+    .eq("sequence_id", sequenceId)
+    .in("status", ["queued", "rendering"])
+    .lt("updated_at", new Date(Date.now() - RENDER_STALL_MS).toISOString())
+    .select("id,media_task_id");
+  const taskIds = (stalled ?? [])
+    .map((row) => (row as { media_task_id: string | null }).media_task_id)
+    .filter((id): id is string => !!id);
+  if (!taskIds.length) return;
+  const { data: tasks } = await supabaseAdmin
+    .from("media_tasks")
+    .update({ status: "failed", error_code: "STALLED", error_message: message, completed_at: now })
+    .in("id", taskIds)
+    .in("status", ["submitting", "processing"])
+    .select("id,operation_id");
+  const operationIds = (tasks ?? [])
+    .map((row) => row.operation_id)
+    .filter((id): id is string => !!id);
+  if (operationIds.length) {
+    await supabaseAdmin
+      .from("operations")
+      .update({ status: "failed", error_code: "STALLED", error_message: message, failed_at: now })
+      .in("id", operationIds)
+      .eq("status", "running");
+  }
+}
+
 export async function startSequenceRender(input: RenderInput): Promise<RenderStarted> {
   const { data: profile } = await supabaseAdmin
     .from("profiles")
@@ -131,18 +172,35 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
   const posterPath = `${scope}/edits/${sequence.id}/${renderId}.jpg`;
   const now = new Date().toISOString();
 
-  // Earlier renders of this edit that stopped reporting are closed as failed.
-  await supabaseAdmin
-    .from("sequence_renders")
-    .update({
-      status: "failed",
-      error_code: "STALLED",
-      error_message: "This render stopped responding.",
-      completed_at: now,
-    } as never)
-    .eq("sequence_id", sequence.id)
-    .in("status", ["queued", "rendering"])
-    .lt("updated_at", new Date(Date.now() - RENDER_STALL_MS).toISOString());
+  // Earlier renders of this edit that stopped reporting are closed, with their task and operation.
+  await closeStalledRenders(sequence.id, now);
+
+  // One render per edit at a time; the claim is atomic (a unique index on active renders).
+  const { error: claimError } = await supabaseAdmin.from("sequence_renders").insert({
+    id: renderId,
+    sequence_id: sequence.id,
+    sequence_version: sequence.version,
+    timeline: timeline as never,
+    status: "queued",
+    stage: "Queued",
+    dedupe_key: input.clientRequestId,
+    created_by: input.userId,
+  } as never);
+  if (claimError) {
+    if (claimError.code === "23505") {
+      const { data: raced } = await supabaseAdmin
+        .from("sequence_renders")
+        .select("id,status")
+        .eq("dedupe_key", input.clientRequestId)
+        .maybeSingle();
+      if (raced) return { renderId: raced.id, status: raced.status, duplicate: true };
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        "This edit is already rendering. Wait for that render to finish, then render again.",
+      );
+    }
+    throw new AppError("UNKNOWN", "The render could not be recorded");
+  }
 
   const { data: operation } = await supabaseAdmin
     .from("operations")
@@ -185,48 +243,19 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
     dedupe_key: `render:${input.clientRequestId}`,
     submitted_at: now,
   } as never);
-  if (taskError) {
-    if (taskError.code === "23505") {
-      const { data: raced } = await supabaseAdmin
+  const linked = taskError
+    ? null
+    : await supabaseAdmin
         .from("sequence_renders")
-        .select("id,status")
-        .eq("dedupe_key", input.clientRequestId)
-        .maybeSingle();
-      if (raced) return { renderId: raced.id, status: raced.status, duplicate: true };
-      throw new AppError("UNKNOWN", "This render is already starting. Give it a moment.");
-    }
-    throw new AppError("UNKNOWN", "The render could not be recorded");
-  }
-
-  const { error: renderError } = await supabaseAdmin.from("sequence_renders").insert({
-    id: renderId,
-    sequence_id: sequence.id,
-    sequence_version: sequence.version,
-    timeline: timeline as never,
-    status: "queued",
-    stage: "Queued",
-    media_task_id: taskId,
-    dedupe_key: input.clientRequestId,
-    created_by: input.userId,
-  } as never);
-  if (renderError) {
-    await supabaseAdmin.from("media_tasks").delete().eq("id", taskId);
-    if (renderError.code === "23505") {
-      const { data: raced } = await supabaseAdmin
-        .from("sequence_renders")
-        .select("id,status")
-        .eq("dedupe_key", input.clientRequestId)
-        .maybeSingle();
-      if (raced) return { renderId: raced.id, status: raced.status, duplicate: true };
-    }
-    throw new AppError("UNKNOWN", "The render could not be recorded");
-  }
-
-  await supabaseAdmin
-    .from("sequences")
-    .update({ status: "rendering", last_render_id: renderId } as never)
-    .eq("id", sequence.id);
-
+        .update({ media_task_id: taskId } as never)
+        .eq("id", renderId);
+  const marked =
+    taskError || linked?.error
+      ? null
+      : await supabaseAdmin
+          .from("sequences")
+          .update({ status: "rendering", last_render_id: renderId } as never)
+          .eq("id", sequence.id);
   async function fail(code: string, message: string): Promise<never> {
     const at = new Date().toISOString();
     await supabaseAdmin
@@ -255,6 +284,10 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
     }
     throw new AppError(code as never, message);
   }
+
+  // Nothing is sent to the worker unless the render, its task and the edit all record it.
+  if (taskError || linked?.error || !marked || marked.error)
+    await fail("UNKNOWN", "The render could not be recorded. Try again.");
 
   const sources: { role: string; url: string; mime?: string | null }[] = [];
   for (const source of request.sources) {

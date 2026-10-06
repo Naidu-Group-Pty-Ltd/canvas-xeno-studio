@@ -46,6 +46,9 @@ CREATE TABLE IF NOT EXISTS public.sequence_renders (
 );
 CREATE INDEX IF NOT EXISTS sequence_renders_sequence_idx ON public.sequence_renders (sequence_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS sequence_renders_task_idx ON public.sequence_renders (media_task_id);
+-- One render per edit at a time: two people pressing Render together can't start two.
+CREATE UNIQUE INDEX IF NOT EXISTS sequence_renders_one_active
+  ON public.sequence_renders (sequence_id) WHERE status IN ('queued','rendering');
 
 DO $$
 BEGIN

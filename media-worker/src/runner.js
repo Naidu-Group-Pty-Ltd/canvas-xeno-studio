@@ -115,6 +115,7 @@ function progressReporter(task) {
   let lastSentAt = 0;
   let lastValue = -1;
   return (fraction, stage) => {
+    if (typeof stage === "string") task.lastStage = stage.slice(0, 80);
     const value = Math.max(0, Math.min(0.99, Number(fraction) || 0));
     const now = Date.now();
     if (now - lastSentAt < 3000 || value - lastValue < 0.02) return;
@@ -160,4 +161,16 @@ async function report(task, payload) {
     }
     await new Promise((resolve) => setTimeout(resolve, attempt * 2000));
   }
+}
+
+/** "Still here": a signed, best-effort report for a task that is queued or working. */
+export function sendHeartbeat(task, stage) {
+  if (!task.reportProgress || !task.callback?.url) return;
+  const rawBody = JSON.stringify({ task_id: task.taskId, status: "heartbeat", stage: String(stage).slice(0, 80) });
+  const { timestamp, signature } = sign(rawBody);
+  fetch(task.callback.url, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-xeno-timestamp": timestamp, "x-xeno-signature": signature },
+    body: rawBody,
+  }).catch(() => {});
 }
