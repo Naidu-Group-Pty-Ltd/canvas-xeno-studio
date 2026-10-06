@@ -21,6 +21,11 @@ export const config = {
   /** Tasks waiting beyond this depth are rejected with 429 rather than queued forever. */
   maxQueueDepth: intEnv("MAX_QUEUE_DEPTH", 50),
   heartbeatSeconds: intEnv("HEARTBEAT_SECONDS", 60),
+  /**
+   * Signed URLs older than this are re-signed by the app (for tasks that give
+   * a `credentials_url`) before downloading and again before uploading.
+   */
+  credentialsRefreshSeconds: intEnv("CREDENTIALS_REFRESH_SECONDS", 900),
   /** Hard wall-clock limit for a single FFmpeg invocation. */
   taskTimeoutSeconds: intEnv("TASK_TIMEOUT_SECONDS", 900),
   /** Refuse source media larger than this. */

@@ -36,6 +36,8 @@ export async function validateTask(body) {
   }
   for (const upload of uploads) await assertAllowedUrl(upload?.url);
   if (body.callback?.url) await assertAllowedUrl(body.callback.url, config.callbackHostSuffixes);
+  const credentialsUrl = typeof body.credentials_url === "string" ? body.credentials_url : null;
+  if (credentialsUrl) await assertAllowedUrl(credentialsUrl, config.callbackHostSuffixes);
 
   return {
     taskId,
@@ -47,7 +49,44 @@ export async function validateTask(body) {
     // Progress reports are opt-in, so an app that only understands final
     // results is never sent anything else.
     reportProgress: body.report_progress === true,
+    credentialsUrl,
+    credentialsAt: Date.now(),
   };
+}
+
+/**
+ * Signed URLs age while a task waits in the queue or renders. A task that
+ * names a `credentials_url` has the app re-sign its sources and upload slots
+ * (same order, same destinations) once they are older than the refresh
+ * interval. Best effort: if the app can't be reached, the URLs already held
+ * are used. Returns false only when the app says it no longer wants the task.
+ */
+async function freshCredentials(task) {
+  if (!task.credentialsUrl) return true;
+  if (Date.now() - task.credentialsAt < config.credentialsRefreshSeconds * 1000) return true;
+  const rawBody = JSON.stringify({ task_id: task.taskId });
+  const { timestamp, signature } = sign(rawBody);
+  try {
+    const response = await fetch(task.credentialsUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-xeno-timestamp": timestamp, "x-xeno-signature": signature },
+      body: rawBody,
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (response.status === 410) return false;
+    if (!response.ok) return true;
+    const body = await response.json();
+    const sources = Array.isArray(body?.sources) ? body.sources : [];
+    const uploads = Array.isArray(body?.uploads) ? body.uploads : [];
+    if (sources.length !== task.sources.length || uploads.length !== task.uploads.length) return true;
+    for (const item of [...sources, ...uploads]) await assertAllowedUrl(item?.url);
+    task.sources = task.sources.map((source, index) => ({ ...source, url: sources[index].url }));
+    task.uploads = task.uploads.map((slot, index) => ({ ...slot, url: uploads[index].url }));
+    task.credentialsAt = Date.now();
+  } catch {
+    // Unreachable, slow or malformed: carry on with the URLs already held.
+  }
+  return true;
 }
 
 /** Downloads, renders, uploads and reports. Never throws to the caller. */
@@ -55,6 +94,7 @@ export async function executeTask(task) {
   const startedAt = Date.now();
   let dir = null;
   try {
+    if (!(await freshCredentials(task))) return dropped(task);
     dir = await mkdtemp(join(config.workDir, "task-"));
 
     const localSources = [];
@@ -71,6 +111,7 @@ export async function executeTask(task) {
       progress: progressReporter(task),
     });
 
+    if (!(await freshCredentials(task))) return dropped(task);
     const outputs = [];
     for (const [index, output] of result.outputs.entries()) {
       const slot = task.uploads[index];
@@ -104,6 +145,11 @@ export async function executeTask(task) {
   } finally {
     if (dir) await rm(dir, { recursive: true, force: true }).catch(() => {});
   }
+}
+
+/** The app closed the task (it was cancelled or already failed): nothing is reported. */
+function dropped(task) {
+  console.log(`[xeno-media-worker] task ${task.taskId} dropped: the app no longer wants it`);
 }
 
 /**
