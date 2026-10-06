@@ -516,16 +516,24 @@ export async function elevenLabsDesign(input: {
     120_000,
   );
   if (!result.ok) return result;
-  return {
-    ok: true,
-    text: result.data.text ?? null,
-    previews: (result.data.previews ?? []).map((preview) => ({
+  // Designing is billed when accepted: an answer without a usable option is
+  // uncertain, never a reason to design again by itself.
+  const previews = (Array.isArray(result.data.previews) ? result.data.previews : [])
+    .filter(
+      (preview) =>
+        typeof preview?.generated_voice_id === "string" &&
+        preview.generated_voice_id.length > 0 &&
+        typeof preview.audio_base_64 === "string" &&
+        preview.audio_base_64.length > 0,
+    )
+    .map((preview) => ({
       generatedVoiceId: preview.generated_voice_id,
       audioBase64: preview.audio_base_64,
       mime: preview.media_type ?? "audio/mpeg",
       durationSeconds: preview.duration_secs ?? null,
-    })),
-  };
+    }));
+  if (!previews.length) return unreadable("ElevenLabs", true, "no usable voice options");
+  return { ok: true, text: result.data.text ?? null, previews };
 }
 
 export async function elevenLabsSaveDesign(input: {

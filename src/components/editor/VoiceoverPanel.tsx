@@ -114,15 +114,21 @@ export function VoiceoverPanel({
   onChange: (timeline: Timeline, key?: string) => void;
 }) {
   const queryClient = useQueryClient();
+  const { data: resolved } = useResolvedVoice({
+    sequenceId: context.sequenceId,
+    campaignId: context.campaignId,
+    projectId: context.projectId,
+  });
+  const inherited = resolved?.voice ?? null;
+  // The voices offered are those that may speak in the project the edit's
+  // takes are kept in (the server decides it), so none is refused as kept
+  // for another project.
+  const scopeProjectId = resolved ? resolved.projectId : context.projectId;
   const {
     data: voices = [],
     error: voicesError,
     isLoading: voicesLoading,
-  } = useBrandVoices({ projectId: context.projectId });
-  const { data: inherited } = useResolvedVoice({
-    campaignId: context.campaignId,
-    projectId: context.projectId,
-  });
+  } = useBrandVoices({ projectId: scopeProjectId });
   const { data: takes = [], isFetched: takesLoaded } = useVoiceovers(context.sequenceId);
   const [voiceId, setVoiceId] = useState<string | null>(null);
   const [script, setScript] = useState("");
@@ -347,7 +353,7 @@ export function VoiceoverPanel({
           <>
             <BrandVoiceSelect
               value={voiceId}
-              projectId={context.projectId}
+              projectId={scopeProjectId}
               onChange={setVoiceId}
               inheritLabel={
                 inherited ? `${inherited.name} (${VIA_LABEL[inherited.via]})` : "No default voice"
