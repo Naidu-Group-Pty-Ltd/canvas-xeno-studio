@@ -107,7 +107,6 @@ export const generateMusicTrack = createServerFn({ method: "POST" })
         genres: z.array(z.string().max(40)).max(8).default([]),
         moods: z.array(z.string().max(40)).max(8).default([]),
         bpm: z.number().min(40).max(250).nullable().default(null),
-        seed: z.number().int().min(0).max(4_294_967_295).nullable().default(null),
         clientRequestId: z.string().min(8).max(64),
         ...scope,
       })

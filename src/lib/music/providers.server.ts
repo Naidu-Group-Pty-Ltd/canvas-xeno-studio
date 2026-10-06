@@ -418,13 +418,15 @@ export { elevenLabsConfigured as elevenMusicConfigured };
 
 const MUSIC_TIMEOUT_MS = 300_000;
 
-/** One billable generation: a finished track in MP3. */
+/**
+ * One billable generation from a prompt: a finished track in MP3. No seed is
+ * sent: the API refuses one alongside a prompt (seeds are for composition plans).
+ */
 export async function composeMusic(input: {
   prompt: string;
   seconds: number;
   model: string;
   instrumental: boolean;
-  seed?: number | null | undefined;
 }): Promise<
   { ok: true; audio: Uint8Array; mime: string; songId: string | null } | ProviderFailure
 > {
@@ -441,7 +443,6 @@ export async function composeMusic(input: {
     model_id: input.model,
     force_instrumental: input.instrumental,
   };
-  if (typeof input.seed === "number") body["seed"] = input.seed;
   let response: Response;
   try {
     response = await eleven(

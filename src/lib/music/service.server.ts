@@ -374,7 +374,6 @@ export async function generateMusic(input: {
   genres: string[];
   moods: string[];
   bpm: number | null;
-  seed: number | null;
   projectId: string | null;
   campaignId: string | null;
   clientRequestId: string;
@@ -419,7 +418,6 @@ export async function generateMusic(input: {
     seconds,
     model: input.model ?? DEFAULT_MUSIC_MODEL,
     instrumental: input.instrumental,
-    seed: input.seed,
   });
   if (!made.ok) {
     return settle({

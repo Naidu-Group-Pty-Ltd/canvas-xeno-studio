@@ -85,7 +85,6 @@ export function GenerateMusic({
       genres: [genre],
       moods: [mood],
       bpm,
-      seed: null,
       projectId,
       campaignId,
     };
