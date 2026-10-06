@@ -751,6 +751,32 @@ export function buildSubtitles(plan) {
 /* Task                                                                */
 /* ------------------------------------------------------------------ */
 
+/**
+ * A track that doesn't loop plays only what its file holds from its trim
+ * point, so its length (and with it where its fade-out falls) is fitted to
+ * that, the way the preview plays it. A track with nothing left to play is
+ * dropped. `durationOf` gives a source's length in seconds, or null if unknown.
+ */
+export async function fitAudioToSources(audio, durationOf) {
+  const fitted = [];
+  for (const item of audio) {
+    const duration = item.loop ? null : await durationOf(item.source);
+    const available = duration === null ? null : duration - item.trimStart;
+    if (available !== null && available < 0.05) continue;
+    if (available === null || available >= item.length) {
+      fitted.push(item);
+      continue;
+    }
+    fitted.push({
+      ...item,
+      length: available,
+      fadeIn: Math.min(item.fadeIn, available / 2),
+      fadeOut: Math.min(item.fadeOut, available / 2),
+    });
+  }
+  return fitted;
+}
+
 export async function renderSequence({ sources, params, dir, progress = () => {} }) {
   const plan = planSequence(params, sources);
   const probes = new Map();
@@ -758,6 +784,7 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
     if (!probes.has(index)) probes.set(index, await probe(sources[index].path));
     return probes.get(index);
   };
+  plan.audio = await fitAudioToSources(plan.audio, async (index) => (await inspect(index)).duration_seconds ?? null);
 
   // Pass 1: every clip normalised to the output format at its exact length.
   const intermediates = [];

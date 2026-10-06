@@ -518,11 +518,16 @@ export function clampAudio(item: TimelineAudio): TimelineAudio {
   };
 }
 
+/** Whether an audio item loops: only music beds do, in the preview and the render alike. */
+export function audioLoops(item: Pick<TimelineAudio, "role" | "loop">): boolean {
+  return item.role === "music" && item.loop;
+}
+
 /** Seconds of an audio item that actually play within a picture of `total` seconds. */
 export function audioPlayLength(item: TimelineAudio, total: number): number {
   if (item.start >= total) return 0;
   const available =
-    item.loop || !item.sourceDuration
+    audioLoops(item) || !item.sourceDuration
       ? Infinity
       : Math.max(0, item.sourceDuration - item.trimStart);
   return Math.max(0, Math.min(item.duration ?? Infinity, available, total - item.start));
@@ -694,7 +699,7 @@ export function buildRenderRequest(timeline: Timeline): {
       volume: item.volume,
       fade_in: item.fadeIn,
       fade_out: item.fadeOut,
-      loop: item.role === "music" ? item.loop : false,
+      loop: audioLoops(item),
       duck: item.role === "music" ? item.duck : false,
       duck_level: item.duckLevel,
     }));
