@@ -483,6 +483,15 @@ export function splitClipAt(timeline: Timeline, time: number): Timeline {
   return { ...timeline, clips };
 }
 
+/**
+ * A time taken from the playhead for something placed on the edit. The picture
+ * may run past what an edit can hold while it is being cut down, and with it
+ * the playhead: what is placed stays within the limit.
+ */
+export function placeAt(seconds: number): number {
+  return Number(Math.min(LIMITS.totalSeconds, Math.max(0, seconds)).toFixed(2));
+}
+
 export function audioFromSource(
   source: { assetId: string; durationSeconds: number | null; title?: string | null },
   role: AudioRole,
@@ -492,7 +501,7 @@ export function audioFromSource(
     id: newId(),
     assetId: source.assetId,
     role,
-    start,
+    start: placeAt(start),
     volume: role === "music" ? 0.6 : 1,
     fadeIn: role === "music" ? 0.5 : 0,
     fadeOut: role === "music" ? 1.5 : 0,

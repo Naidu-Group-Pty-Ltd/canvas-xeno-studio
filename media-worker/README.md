@@ -127,3 +127,9 @@ FFmpeg is CPU bound. Two vCPUs handle `CONCURRENCY=2` comfortably for short
 social-length clips. Raise `TASK_TIMEOUT_SECONDS` before rendering long
 timelines, and give the container a writable `/tmp` at least twice the size of
 the largest job's sources plus outputs.
+
+Each source file is capped at `MAX_DOWNLOAD_MB` (1024), and all of one task's
+sources together at `MAX_TASK_DOWNLOAD_MB` (2048): an edit can name dozens of
+files, so a task past its budget stops downloading and fails with
+`SOURCES_TOO_LARGE`. Sources then take at most `CONCURRENCY ×
+MAX_TASK_DOWNLOAD_MB` of disk; size `/tmp` for that plus the renders' outputs.

@@ -22,6 +22,7 @@ import {
   MOTIONS,
   moveClip,
   newId,
+  placeAt,
   OVERLAY_POSITIONS,
   OVERLAY_STYLE_LABELS,
   OVERLAY_STYLES,
@@ -520,7 +521,7 @@ function AudioInspector({
             variant="outline"
             size="sm"
             className="h-8"
-            onClick={() => set({ start: Number(clock.getTime().toFixed(2)) })}
+            onClick={() => set({ start: placeAt(clock.getTime()) })}
           >
             Start at playhead
           </Button>
@@ -848,12 +849,13 @@ function TextPanel({ timeline, layout, clock, selection, onSelect, onChange }: I
     );
 
   const addOverlay = (style: Overlay["style"]) => {
-    const at = clock.getTime();
+    // At the playhead for 2.5 seconds, within what an edit can hold.
+    const at = Math.min(placeAt(clock.getTime()), LIMITS.totalSeconds - 2.5);
     const overlay: Overlay = {
       id: newId(),
       text: style === "cta" ? "Shop now" : style === "subtitle" ? "Subtitle" : "Title",
-      start: Number(at.toFixed(2)),
-      end: Number(Math.min(layout.total || at + 2.5, at + 2.5).toFixed(2)),
+      start: at,
+      end: Number(Math.min(layout.total || at + 2.5, at + 2.5, LIMITS.totalSeconds).toFixed(2)),
       style,
       position: style === "cta" ? "bottom" : "center",
     };

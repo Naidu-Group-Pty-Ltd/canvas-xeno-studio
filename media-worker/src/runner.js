@@ -136,9 +136,20 @@ export async function executeTask(task) {
     dir = await mkdtemp(join(config.workDir, "task-"));
 
     const localSources = [];
+    // The sources share one budget: past it, the task stops downloading and fails.
+    let room = config.maxTaskDownloadBytes;
     for (const [index, source] of task.sources.entries()) {
       const path = join(dir, `source-${index}`);
-      const bytes = await downloadTo(source.url, path);
+      const allowance = Math.min(config.maxDownloadBytes, room);
+      const bytes = await downloadTo(source.url, path, allowance).catch((error) => {
+        if (error instanceof TaskError && error.code === "SOURCE_TOO_LARGE" && allowance < config.maxDownloadBytes)
+          throw new TaskError(
+            "SOURCES_TOO_LARGE",
+            `The media for this task is more than ${Math.round(config.maxTaskDownloadBytes / (1024 * 1024))} MB together. Use fewer or shorter clips.`,
+          );
+        throw error;
+      });
+      room -= bytes;
       localSources.push({ path, role: source.role ?? "source", mime: source.mime ?? null, bytes });
     }
 
