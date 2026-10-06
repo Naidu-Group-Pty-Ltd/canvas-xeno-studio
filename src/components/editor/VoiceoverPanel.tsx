@@ -23,6 +23,7 @@ import {
   type TimelineLayout,
 } from "@/lib/edit/timeline";
 import { isMissingTableError } from "@/lib/edit/errors";
+import { keepAttempt, savedAttempt } from "@/lib/attempts";
 import { BrandVoiceSelect } from "@/components/voices/VoiceAssignment";
 import { VoiceEditor } from "@/components/voices/VoiceEditor";
 import { Button } from "@/components/ui/button";
@@ -68,6 +69,14 @@ function writeDraft(sequenceId: string, script: string) {
     // Drafts are a convenience; without storage the script lives in the panel only.
   }
 }
+
+interface Attempt {
+  key: string;
+  id: string;
+}
+
+/** Where an edit's voiceover attempts are kept across reloads (see `@/lib/attempts`). */
+const attemptPlace = (sequenceId: string) => `voiceover:${sequenceId}`;
 
 async function playAsset(assetId: string) {
   const { data: asset } = await supabase
@@ -122,7 +131,7 @@ export function VoiceoverPanel({
   const [withCaptions, setWithCaptions] = useState(true);
   const [busy, setBusy] = useState<"write" | "speak" | null>(null);
   const [creating, setCreating] = useState(false);
-  const attempt = useRef<{ key: string; id: string } | null>(null);
+  const attempt = useRef<Attempt | null>(null);
   const latest = useRef({ timeline, layout, start, replace, withCaptions, onChange });
   useEffect(() => {
     latest.current = { timeline, layout, start, replace, withCaptions, onChange };
@@ -233,8 +242,16 @@ export function VoiceoverPanel({
     setBusy("speak");
     // One logical attempt keeps its request id until it has a known outcome, so
     // a retry after a lost response returns that take instead of paying again.
+    // The id is kept for the edit across reloads too (and shared by its tabs).
     const key = `${voiceId ?? `inherit:${inherited?.id ?? ""}`}|${script.trim()}`;
-    if (attempt.current?.key !== key) attempt.current = { key, id: crypto.randomUUID() };
+    const kept = attemptPlace(context.sequenceId);
+    if (attempt.current?.key !== key)
+      attempt.current = { key, id: savedAttempt(kept, key) ?? crypto.randomUUID() };
+    keepAttempt(kept, key, attempt.current.id);
+    const settled = () => {
+      attempt.current = null;
+      keepAttempt(kept, key, null);
+    };
     try {
       const result = await generateVoiceover({
         data: {
@@ -244,8 +261,13 @@ export function VoiceoverPanel({
           clientRequestId: attempt.current.id,
         },
       });
+      // The same take was already being made for another request: follow it.
+      if (result.requestId && result.requestId !== attempt.current.id) {
+        attempt.current = { key, id: result.requestId };
+        keepAttempt(kept, key, result.requestId);
+      }
       if (result.status === "failed" || result.status === "submission_uncertain") {
-        attempt.current = null;
+        settled();
         toast.error(result.errorMessage ?? "The voiceover could not be made");
         return;
       }
@@ -255,7 +277,7 @@ export function VoiceoverPanel({
         });
         return;
       }
-      attempt.current = null;
+      settled();
       place({
         assetId: result.assetId,
         durationSeconds: result.durationSeconds,

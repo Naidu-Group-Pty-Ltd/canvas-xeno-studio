@@ -213,18 +213,30 @@ export const updateVoiceStatus = createServerFn({ method: "POST" })
           "This voice is kept for one project. Make it available to any project first, then make it the studio default.",
         );
       if (data.action === "make_default") {
-        // One default at a time (a unique index enforces it): clear the old one first.
-        const cleared = await supabaseAdmin
-          .from("brand_voices")
-          .update({ is_default: false } as never)
-          .eq("is_default", true)
-          .neq("id", data.id);
-        if (cleared.error) throw new AppError("UNKNOWN", cleared.error.message);
-        const set = await supabaseAdmin
-          .from("brand_voices")
-          .update({ is_default: true, is_archived: false } as never)
-          .eq("id", data.id);
-        if (set.error) throw new AppError("UNKNOWN", set.error.message);
+        // One default at a time (a unique index enforces it). The old one is
+        // cleared and this one set in one transaction (a database function),
+        // so a failure part-way never leaves the studio without a default.
+        const { data: outcome, error } = await supabaseAdmin.rpc(
+          "set_default_brand_voice" as never,
+          { p_voice_id: data.id } as never,
+        );
+        if (error)
+          throw new AppError(
+            "UNKNOWN",
+            "The studio default couldn't be changed. Try again in a moment.",
+          );
+        if (outcome === "missing")
+          throw new AppError("INVALID_PARAMETERS", "That voice no longer exists");
+        if (outcome === "project")
+          throw new AppError(
+            "INVALID_PARAMETERS",
+            "This voice is kept for one project. Make it available to any project first, then make it the studio default.",
+          );
+        if (outcome !== "set")
+          throw new AppError(
+            "UNKNOWN",
+            "The studio default couldn't be changed. Try again in a moment.",
+          );
       } else {
         const cleared = await supabaseAdmin
           .from("brand_voices")
