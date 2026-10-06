@@ -748,14 +748,28 @@ export async function ingestPending(limit = 5): Promise<number> {
 type WaitUntil = (promise: Promise<unknown>) => void;
 
 /**
- * Runs work after the HTTP response when the runtime can keep the request
- * alive, otherwise before responding. Failures are logged, never thrown.
+ * The runtime's waitUntil for this request, or null where there is none.
  *
  * On Cloudflare, nitro's module runtime copies the execution context's
  * waitUntil onto the incoming Request (`request.waitUntil`, and the context
  * itself onto `request.runtime.cloudflare.context`) before routing, and that
- * same Request object reaches server route handlers. Local dev has neither,
- * so the work runs inline there.
+ * same Request object reaches server route handlers. Local dev has neither.
+ */
+function waitUntilFor(request: Request): WaitUntil | null {
+  const carrier = request as Request & {
+    waitUntil?: WaitUntil;
+    runtime?: { cloudflare?: { context?: { waitUntil?: WaitUntil } } };
+  };
+  if (typeof carrier.waitUntil === "function") return carrier.waitUntil.bind(carrier);
+  const context = carrier.runtime?.cloudflare?.context;
+  if (typeof context?.waitUntil === "function") return context.waitUntil.bind(context);
+  return null;
+}
+
+/**
+ * Runs work after the HTTP response when the runtime can keep the request
+ * alive, otherwise before responding. Failures are logged, never thrown.
+ * Cloudflare gives such work about 30 s after the response.
  */
 export async function runAfterResponse(
   request: Request,
@@ -769,14 +783,22 @@ export async function runAfterResponse(
       });
     },
   );
-  const carrier = request as Request & {
-    waitUntil?: WaitUntil;
-    runtime?: { cloudflare?: { context?: { waitUntil?: WaitUntil } } };
-  };
-  const context = carrier.runtime?.cloudflare?.context;
-  if (typeof carrier.waitUntil === "function") carrier.waitUntil(task);
-  else if (typeof context?.waitUntil === "function") context.waitUntil(task);
+  const waitUntil = waitUntilFor(request);
+  if (waitUntil) waitUntil(task);
   else await task;
+}
+
+/**
+ * Runs work while the caller waits for it, with no time cap while the caller
+ * stays connected. The work is also registered with the runtime's waitUntil:
+ * a caller that hangs up first (an HTTP client timeout) would otherwise
+ * cancel it with the request, whereas this gives it about 30 s more to
+ * finish. Failures reach the caller.
+ */
+export async function runWhileConnected<T>(request: Request, work: () => Promise<T>): Promise<T> {
+  const task = work();
+  waitUntilFor(request)?.(task.catch(() => undefined));
+  return task;
 }
 
 /* ------------------------------------------------------------------ */
