@@ -9,6 +9,7 @@
  * unfinished behind a finished task.
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { logOperationCompleted } from "../media/events.server";
 
 interface RenderTask {
   id: string;
@@ -229,14 +230,13 @@ export async function finishSequenceRender(
       .neq("status", "completed")
       .select("id");
     must({ error }, "operation");
-    // Logged once, by the report that completed the operation.
-    if (finished && changed?.length) {
+    // Logged once: a repeated report logs it only if it is still missing.
+    if (finished) {
       must(
-        await supabaseAdmin.from("operation_events").insert({
-          operation_id: task.operation_id,
-          event_type: "completed",
-          payload: { asset_ids: assetId ? [assetId] : [], task_type: "render_sequence" } as never,
-        } as never),
+        await logOperationCompleted(task.operation_id, {
+          asset_ids: assetId ? [assetId] : [],
+          task_type: "render_sequence",
+        }),
         "operation event",
       );
     }
