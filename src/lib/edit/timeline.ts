@@ -648,6 +648,11 @@ export interface RenderSource {
   role: "video" | "image" | "audio";
 }
 
+/** The audio heard in a render: it starts before the picture ends and isn't muted. */
+export function audibleAudio(timeline: Timeline, total = layoutTimeline(timeline).total) {
+  return timeline.audio.filter((item) => item.start < total && item.volume > 0);
+}
+
 /**
  * The media worker's render_sequence parameters for a timeline, plus the
  * ordered list of distinct assets it needs (one download per asset).
@@ -683,21 +688,19 @@ export function buildRenderRequest(timeline: Timeline): {
     },
   }));
 
-  const audio = timeline.audio
-    .filter((item) => item.start < layout.total && item.volume > 0)
-    .map((item) => ({
-      source_index: indexFor(item.assetId, "audio"),
-      role: item.role,
-      start: item.start,
-      trim_start: item.trimStart,
-      duration: item.duration,
-      volume: item.volume,
-      fade_in: item.fadeIn,
-      fade_out: item.fadeOut,
-      loop: item.role === "music" ? item.loop : false,
-      duck: item.role === "music" ? item.duck : false,
-      duck_level: item.duckLevel,
-    }));
+  const audio = audibleAudio(timeline, layout.total).map((item) => ({
+    source_index: indexFor(item.assetId, "audio"),
+    role: item.role,
+    start: item.start,
+    trim_start: item.trimStart,
+    duration: item.duration,
+    volume: item.volume,
+    fade_in: item.fadeIn,
+    fade_out: item.fadeOut,
+    loop: item.role === "music" ? item.loop : false,
+    duck: item.role === "music" ? item.duck : false,
+    duck_level: item.duckLevel,
+  }));
 
   const segments = timeline.captions.enabled
     ? timeline.captions.segments

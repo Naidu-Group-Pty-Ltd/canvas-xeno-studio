@@ -122,9 +122,13 @@ async function resolveName(host: string): Promise<string[] | null> {
   return addresses;
 }
 
-/** The URL if it is safe to fetch from the server, else why not. */
+/**
+ * The URL if it is safe to fetch from the server, else why not. With `hosts`,
+ * the name must also be one of those domains (or under one).
+ */
 export async function checkPublicUrl(
   raw: string,
+  hosts?: string[],
 ): Promise<{ ok: true; url: URL } | { ok: false; reason: string }> {
   let url: URL;
   try {
@@ -141,6 +145,8 @@ export async function checkPublicUrl(
     return { ok: false, reason: "an IP address rather than a name" };
   if (!host.includes(".") || LOCAL_SUFFIXES.some((suffix) => `.${host}`.endsWith(suffix)))
     return { ok: false, reason: "a local name" };
+  if (hosts && !hosts.some((domain) => host === domain || host.endsWith(`.${domain}`)))
+    return { ok: false, reason: `${host}, which isn't a source the studio downloads from` };
   const addresses = await resolveName(host);
   if (addresses === null) return { ok: false, reason: "a name that couldn't be looked up" };
   if (!addresses.length) return { ok: false, reason: "a name with no address" };
@@ -151,16 +157,22 @@ export async function checkPublicUrl(
 /**
  * Fetches an outside address, following up to five redirects by hand and
  * checking every hop. The caller reads (or cancels) the returned body.
+ *
+ * `fetch` resolves the name again itself and, on the platforms the app runs
+ * on, can't be held to the address checked here. So for addresses taken from
+ * outside, pass `hosts`: every hop must then stay on those domains, whose DNS
+ * an outsider doesn't control, and the address check remains a second line.
  */
 export async function fetchPublic(
   raw: string,
-  init: Omit<RequestInit, "redirect"> & { signal?: AbortSignal } = {},
+  init: Omit<RequestInit, "redirect"> & { signal?: AbortSignal; hosts?: string[] } = {},
 ): Promise<{ ok: true; response: Response; url: string } | { ok: false; reason: string }> {
+  const { hosts, ...request } = init;
   let current = raw;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
-    const checked = await checkPublicUrl(current);
+    const checked = await checkPublicUrl(current, hosts);
     if (!checked.ok) return checked;
-    const response = await fetch(checked.url.href, { ...init, redirect: "manual" });
+    const response = await fetch(checked.url.href, { ...request, redirect: "manual" });
     const location = response.headers.get("location");
     if (response.status >= 300 && response.status < 400 && location) {
       await response.body?.cancel().catch(() => {});

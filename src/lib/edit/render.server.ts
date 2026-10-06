@@ -12,7 +12,14 @@ import { appBaseUrl } from "../generation-pipeline.server";
 import { mediaWorkerConfigured, submitWorkerTask } from "../media/worker.server";
 import { creditLine, licenceBlocker, licenceTerms, type MusicTrackRow } from "../music/catalog";
 import { RENDER_STALL_MS } from "./renders";
-import { buildRenderRequest, parseTimeline, renderBlockers, type Timeline } from "./timeline";
+import { isMissingTableError } from "./errors";
+import {
+  audibleAudio,
+  buildRenderRequest,
+  parseTimeline,
+  renderBlockers,
+  type Timeline,
+} from "./timeline";
 
 const OUTPUT_BUCKET = "generated-assets";
 const SOURCE_URL_TTL = 3 * 60 * 60;
@@ -100,39 +107,40 @@ async function musicRights(assetIds: string[]): Promise<{
 }> {
   const none = { credits: [], licences: [], blocker: null };
   if (!assetIds.length) return none;
-  try {
-    const { data } = await supabaseAdmin
-      .from("music_tracks")
-      .select("title,artist,license,license_version,license_url,attribution,rights")
-      .in("asset_id", [...new Set(assetIds)]);
-    const rows = (data ?? []) as unknown as Pick<
-      MusicTrackRow,
-      "title" | "artist" | "license" | "license_version" | "license_url" | "attribution" | "rights"
-    >[];
-    const credits = [
-      ...new Set(rows.map((row) => creditLine(row)).filter((line): line is string => !!line)),
-    ];
-    const licences = rows.flatMap((row) => {
-      const terms = licenceTerms(row);
-      return terms
-        ? [
-            {
-              title: row.title,
-              licensor: terms.licensor,
-              reference: terms.reference,
-              uses: terms.uses,
-              territories: terms.territories,
-              expires_on: terms.expiresOn,
-            },
-          ]
-        : [];
-    });
-    const blocker = rows.map((row) => licenceBlocker(row)).find((reason) => reason) ?? null;
-    return { credits, licences, blocker };
-  } catch {
-    // The music library is optional; without it there is nothing to credit or check.
-    return none;
+  const { data, error } = await supabaseAdmin
+    .from("music_tracks")
+    .select("title,artist,license,license_version,license_url,attribution,rights")
+    .in("asset_id", [...new Set(assetIds)]);
+  if (error) {
+    // Before the music library exists there is nothing to credit or check;
+    // any other failure stops the render rather than skipping the check.
+    if (isMissingTableError(error)) return none;
+    throw new AppError("UNKNOWN", "The music licences couldn't be checked. Try again.");
   }
+  const rows = (data ?? []) as unknown as Pick<
+    MusicTrackRow,
+    "title" | "artist" | "license" | "license_version" | "license_url" | "attribution" | "rights"
+  >[];
+  const credits = [
+    ...new Set(rows.map((row) => creditLine(row)).filter((line): line is string => !!line)),
+  ];
+  const licences = rows.flatMap((row) => {
+    const terms = licenceTerms(row);
+    return terms
+      ? [
+          {
+            title: row.title,
+            licensor: terms.licensor,
+            reference: terms.reference,
+            uses: terms.uses,
+            territories: terms.territories,
+            expires_on: terms.expiresOn,
+          },
+        ]
+      : [];
+  });
+  const blocker = rows.map((row) => licenceBlocker(row)).find((reason) => reason) ?? null;
+  return { credits, licences, blocker };
 }
 
 /**
@@ -223,7 +231,8 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
   if (blockers.length) throw new AppError("INVALID_PARAMETERS", blockers[0]);
 
   const assets = await resolveAssets(timeline);
-  const music = await musicRights(timeline.audio.map((item) => item.assetId));
+  // Only audio that is heard in the render needs crediting or licence checks.
+  const music = await musicRights(audibleAudio(timeline).map((item) => item.assetId));
   if (music.blocker) throw new AppError("INVALID_PARAMETERS", music.blocker);
   const request = buildRenderRequest(timeline);
 

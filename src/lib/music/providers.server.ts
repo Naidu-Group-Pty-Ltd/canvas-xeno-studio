@@ -259,6 +259,7 @@ const AUDIO_TYPES: Record<string, string> = {
   wav: "audio/wav",
   ogg: "audio/ogg",
   oga: "audio/ogg",
+  ogx: "audio/ogg",
   opus: "audio/ogg",
   flac: "audio/flac",
   m4a: "audio/mp4",
@@ -291,9 +292,22 @@ export function looksLikeAudio(bytes: Uint8Array): boolean {
 }
 
 /**
+ * Where catalogue audio is downloaded from: the file hosts of the sources
+ * Openverse lists (Jamendo, Freesound, Wikimedia Commons). More can be added
+ * with MUSIC_DOWNLOAD_HOSTS (comma-separated domains).
+ */
+export function catalogueHosts(): string[] {
+  const extra = (process.env["MUSIC_DOWNLOAD_HOSTS"] ?? "")
+    .split(",")
+    .map((host) => host.trim().toLowerCase())
+    .filter(Boolean);
+  return ["jamendo.com", "freesound.org", "wikimedia.org", ...extra];
+}
+
+/**
  * Downloads an audio file named by a catalogue. Every hop (redirects
- * included) must be https on a public address, and only real audio within
- * the size limit is kept.
+ * included) must be https on one of the catalogue's file hosts and resolve to
+ * public addresses, and only real audio within the size limit is kept.
  */
 export async function downloadAudio(
   url: string,
@@ -302,7 +316,10 @@ export async function downloadAudio(
 ): Promise<{ ok: true; bytes: Uint8Array; mime: string } | ProviderFailure> {
   let fetched: Awaited<ReturnType<typeof fetchPublic>>;
   try {
-    fetched = await fetchPublic(url, { signal: AbortSignal.timeout(90_000) });
+    fetched = await fetchPublic(url, {
+      signal: AbortSignal.timeout(90_000),
+      hosts: catalogueHosts(),
+    });
   } catch {
     return {
       ok: false,
@@ -315,7 +332,7 @@ export async function downloadAudio(
     return {
       ok: false,
       code: "INVALID_PARAMETERS",
-      message: `The track's file isn't on a public HTTPS address (${fetched.reason}).`,
+      message: `The track's file can't be downloaded safely (${fetched.reason}).`,
       uncertain: false,
     };
   const response = fetched.response;
@@ -343,7 +360,9 @@ export async function downloadAudio(
     ? type === "audio/mp3"
       ? "audio/mpeg"
       : type
-    : (AUDIO_TYPES[(hint ?? "").toLowerCase()] ?? null);
+    : type === "application/ogg"
+      ? "audio/ogg"
+      : (AUDIO_TYPES[(hint ?? "").toLowerCase()] ?? null);
   const notAudio = {
     ok: false as const,
     code: "INVALID_PARAMETERS",

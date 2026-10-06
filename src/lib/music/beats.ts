@@ -189,19 +189,25 @@ export function analyzeBeats(samples: Float32Array, sampleRate: number): BeatAna
   };
 }
 
-/** Where a music item's beats fall on the edit's timeline (loops included). */
+/**
+ * Where a music item's beats fall on the edit's timeline. Like the render and
+ * the preview, the first pass plays from the trim point to the end of the
+ * source, and a loop then repeats the whole source from its start.
+ */
 export function beatTimesOnTimeline(item: TimelineAudio, beats: number[], total: number): number[] {
-  const available = item.sourceDuration ? Math.max(0, item.sourceDuration - item.trimStart) : null;
+  const length = item.sourceDuration ?? null;
   const plays = Math.min(item.duration ?? Infinity, total - item.start);
-  const inSource = beats.filter(
-    (beat) => beat >= item.trimStart && (available === null || beat < item.trimStart + available),
-  );
   const times: number[] = [];
-  const cycles = item.loop && available ? Math.ceil(plays / available) : 1;
-  for (let cycle = 0; cycle < cycles; cycle += 1) {
-    for (const beat of inSource) {
-      const offset = beat - item.trimStart + cycle * (available ?? 0);
-      if (offset <= plays + 1e-6) times.push(Number((item.start + offset).toFixed(3)));
+  const add = (offset: number) => {
+    if (offset >= 0 && offset <= plays + 1e-6) times.push(Number((item.start + offset).toFixed(3)));
+  };
+  for (const beat of beats) {
+    if (beat >= item.trimStart && (length === null || beat < length)) add(beat - item.trimStart);
+  }
+  if (item.loop && length) {
+    const firstPass = Math.max(0.01, length - item.trimStart);
+    for (let pass = firstPass; pass < plays; pass += length) {
+      for (const beat of beats) if (beat < length) add(pass + beat);
     }
   }
   return [...new Set(times)].sort((a, b) => a - b);

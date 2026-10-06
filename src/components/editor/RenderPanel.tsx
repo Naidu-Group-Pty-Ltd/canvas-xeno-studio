@@ -16,7 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSequenceRenders, type RenderRow } from "@/hooks/useEditorData";
 import { getMediaWorkerStatus } from "@/lib/media.functions";
 import { renderSequence } from "@/lib/edit.functions";
-import { formatTime, renderBlockers, type Timeline } from "@/lib/edit/timeline";
+import { audibleAudio, formatTime, renderBlockers, type Timeline } from "@/lib/edit/timeline";
 import { signedUrl } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -51,7 +51,8 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
   });
   const blockers = renderBlockers(timeline);
   const active = renders.find((render) => renderInProgress(render));
-  const audioIds = useMemo(() => timeline.audio.map((item) => item.assetId), [timeline.audio]);
+  // Only audio heard in the render needs a credit or a licence check.
+  const audioIds = useMemo(() => audibleAudio(timeline).map((item) => item.assetId), [timeline]);
   const { data: musicTracks = [] } = useTracksForAssets(audioIds);
   const credits = [
     ...new Set(

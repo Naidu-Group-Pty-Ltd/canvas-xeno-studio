@@ -299,22 +299,30 @@ async function existingByKey(key: string): Promise<TrackRow | null> {
 }
 
 /**
- * Records how a track ended and returns it. Outcomes (failed, uncertain) are
- * returned, not thrown: a thrown error then always means the caller didn't
- * hear the answer, so it may ask again with the same request id and get this
- * track back instead of paying for another.
+ * Records how a track ended and returns it once recorded. Outcomes (failed,
+ * uncertain) are returned, not thrown: a thrown error always means the caller
+ * didn't get a recorded answer, so it may ask again with the same request id
+ * and get this track back instead of paying for another.
  */
 async function settleTrack(
   trackId: string,
   values: Record<string, unknown>,
 ): Promise<{ track: TrackRow; duplicate: boolean }> {
-  const { data } = await supabaseAdmin
-    .from("music_tracks")
-    .update(values as never)
-    .eq("id", trackId)
-    .select("*")
-    .maybeSingle();
-  return { track: (data ?? { id: trackId, ...values }) as TrackRow, duplicate: false };
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const { data, error } = await supabaseAdmin
+      .from("music_tracks")
+      .update(values as never)
+      .eq("id", trackId)
+      .select("*")
+      .maybeSingle();
+    if (!error && data) return { track: data as TrackRow, duplicate: false };
+  }
+  // Unrecorded, the outcome isn't reported: the caller keeps its request id and
+  // asks about this track again instead of starting (and paying for) another.
+  throw new AppError(
+    "UNKNOWN",
+    "The outcome couldn't be recorded. Try again in a moment to see how it ended.",
+  );
 }
 
 export async function generateMusic(input: {
