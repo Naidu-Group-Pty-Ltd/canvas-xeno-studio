@@ -321,7 +321,7 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
   }
 
   const base = appBaseUrl().replace(/\/$/, "");
-  const submission = await submitWorkerTask({
+  const task = {
     task_id: taskId,
     task_type: "render_sequence",
     sources,
@@ -332,8 +332,18 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
     // Signed URLs expire; if the render waits in the worker's queue they are re-signed.
     credentials_url: `${base}/api/public/media-worker-credentials`,
     credentials_expire_at: new Date(Date.now() + LINKS_VALID_MS).toISOString(),
-  });
-  if (!submission.ok) {
+  };
+  // No answer (or one from the infrastructure in front of the worker) doesn't
+  // mean the worker didn't take the task. It acknowledges a repeated task id
+  // without running it twice, so the same task is simply sent again.
+  const unanswered = (call: { ok: boolean; status: number }) =>
+    !call.ok && (call.status === 0 || call.status >= 500);
+  let submission = await submitWorkerTask(task);
+  if (unanswered(submission)) {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    submission = await submitWorkerTask(task);
+  }
+  if (!submission.ok && !unanswered(submission)) {
     await fail(
       submission.errorCode ?? "UNKNOWN",
       submission.errorMessage ?? "The media service rejected the render",
@@ -346,6 +356,16 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
     .update({ status: "processing" })
     .eq("id", taskId)
     .eq("status", "submitting");
+  if (!submission.ok) {
+    // Still unanswered: the render stays open, so the worker's heartbeats and
+    // result still count. If it never reports, it is closed as stalled.
+    await supabaseAdmin
+      .from("sequence_renders")
+      .update({ stage: "Waiting for the media service to confirm" } as never)
+      .eq("id", renderId)
+      .eq("status", "queued");
+    return { renderId, status: "queued", duplicate: false };
+  }
   await supabaseAdmin
     .from("sequence_renders")
     .update({ status: "rendering", stage: "Starting" } as never)
@@ -392,13 +412,21 @@ export async function refreshRenderCredentials(taskId: string): Promise<RenderCr
     const renderId = typeof input["render_id"] === "string" ? input["render_id"] : null;
     const sequenceId = typeof input["sequence_id"] === "string" ? input["sequence_id"] : null;
     if (!renderId || !sequenceId) return { status: 410 };
-    const { data: sequence, error: sequenceError } = await supabaseAdmin
-      .from("sequences")
-      .select("last_render_id")
-      .eq("id", sequenceId)
-      .maybeSingle();
-    if (sequenceError) return { status: 503 };
-    if (sequence?.last_render_id !== renderId) return { status: 410 };
+    // Replaced: the edit points at a newer render, or one is already underway
+    // (it is claimed a moment before the edit is pointed at it).
+    const [sequence, active] = await Promise.all([
+      supabaseAdmin.from("sequences").select("last_render_id").eq("id", sequenceId).maybeSingle(),
+      supabaseAdmin
+        .from("sequence_renders")
+        .select("id")
+        .eq("sequence_id", sequenceId)
+        .in("status", ["queued", "rendering"])
+        .neq("id", renderId)
+        .limit(1),
+    ]);
+    if (sequence.error || active.error) return { status: 503 };
+    if (sequence.data?.last_render_id !== renderId || (active.data ?? []).length > 0)
+      return { status: 410 };
   }
   const strings = (value: unknown) =>
     Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
