@@ -92,6 +92,43 @@ DROP TRIGGER IF EXISTS sequence_renders_updated ON public.sequence_renders;
 CREATE TRIGGER sequence_renders_updated BEFORE UPDATE ON public.sequence_renders
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
+-- Closing a render that stopped reporting closes its media task and operation
+-- with it, in one statement, so nothing can see (or act on) half of it.
+-- Called by the server only.
+CREATE OR REPLACE FUNCTION public.close_stalled_renders(p_sequence_id uuid, p_stalled_before timestamptz)
+RETURNS integer
+LANGUAGE sql
+VOLATILE
+SET search_path = public
+AS $$
+  WITH closed AS (
+    UPDATE public.sequence_renders
+       SET status = 'failed', error_code = 'STALLED',
+           error_message = 'This render stopped responding.', completed_at = now()
+     WHERE sequence_id = p_sequence_id
+       AND status IN ('queued', 'rendering')
+       AND updated_at < p_stalled_before
+    RETURNING media_task_id
+  ), tasks AS (
+    UPDATE public.media_tasks
+       SET status = 'failed', error_code = 'STALLED',
+           error_message = 'This render stopped responding.', completed_at = now()
+     WHERE id IN (SELECT media_task_id FROM closed)
+       AND status IN ('submitting', 'processing')
+    RETURNING operation_id
+  ), operations_closed AS (
+    UPDATE public.operations
+       SET status = 'failed', error_code = 'STALLED',
+           error_message = 'This render stopped responding.', failed_at = now()
+     WHERE id IN (SELECT operation_id FROM tasks)
+       AND status = 'running'
+    RETURNING id
+  )
+  SELECT count(*)::integer FROM closed;
+$$;
+REVOKE ALL ON FUNCTION public.close_stalled_renders(uuid, timestamptz) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.close_stalled_renders(uuid, timestamptz) TO service_role;
+
 -- Live render progress and teammates' edits.
 DO $$
 BEGIN
