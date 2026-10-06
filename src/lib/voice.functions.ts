@@ -129,12 +129,34 @@ export const saveBrandVoice = createServerFn({ method: "POST" })
     if (data.id) {
       const { data: current } = await supabaseAdmin
         .from("brand_voices")
-        .select("id,created_by,provider,provider_voice_id,source")
+        .select("id,created_by,provider,provider_voice_id,source,project_id,is_default")
         .eq("id", data.id)
         .maybeSingle();
       if (!current) throw new AppError("INVALID_PARAMETERS", "That voice no longer exists");
       if (current.created_by !== context.userId && !isAdmin)
         throw new AppError("NOT_AUTHORIZED", "Only the voice's creator or an admin can change it");
+      // Keeping a voice for one project can't strand the places that already use it elsewhere.
+      if (voice.projectId && voice.projectId !== current.project_id) {
+        if (current.is_default)
+          throw new AppError(
+            "INVALID_PARAMETERS",
+            "This is the studio default voice, so it has to stay available to every project.",
+          );
+        const [campaigns, projects] = await Promise.all([
+          supabaseAdmin.from("campaigns").select("id,project_id").eq("brand_voice_id", data.id),
+          supabaseAdmin.from("projects").select("id").eq("brand_voice_id", data.id),
+        ]);
+        if (campaigns.error || projects.error)
+          throw new AppError("UNKNOWN", "The voice's current uses couldn't be checked");
+        const elsewhere =
+          (campaigns.data ?? []).filter((row) => row.project_id !== voice.projectId).length +
+          (projects.data ?? []).filter((row) => row.id !== voice.projectId).length;
+        if (elsewhere)
+          throw new AppError(
+            "INVALID_PARAMETERS",
+            `This voice is the brand voice of ${elsewhere} campaign${elsewhere === 1 ? "" : "s"} or project${elsewhere === 1 ? "" : "s"} outside that project. Give ${elsewhere === 1 ? "it" : "them"} another voice first, or keep this one for any project.`,
+          );
+      }
       // Same underlying voice: keep its recorded origin (and any consent) as it was.
       const sameVoice =
         current.provider === voice.provider && current.provider_voice_id === voice.providerVoiceId;
@@ -178,13 +200,18 @@ export const updateVoiceStatus = createServerFn({ method: "POST" })
     const { isAdmin } = await requireActiveMember(context.userId);
     const { data: current } = await supabaseAdmin
       .from("brand_voices")
-      .select("id,created_by,is_default")
+      .select("id,created_by,is_default,project_id")
       .eq("id", data.id)
       .maybeSingle();
     if (!current) throw new AppError("INVALID_PARAMETERS", "That voice no longer exists");
     if (data.action === "make_default" || data.action === "clear_default") {
       if (!isAdmin)
         throw new AppError("NOT_AUTHORIZED", "Only an admin can change the studio default voice");
+      if (data.action === "make_default" && current.project_id)
+        throw new AppError(
+          "INVALID_PARAMETERS",
+          "This voice is kept for one project. Make it available to any project first, then make it the studio default.",
+        );
       if (data.action === "make_default") {
         // One default at a time (a unique index enforces it): clear the old one first.
         const cleared = await supabaseAdmin

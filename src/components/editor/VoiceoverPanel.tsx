@@ -104,7 +104,11 @@ export function VoiceoverPanel({
   onChange: (timeline: Timeline, key?: string) => void;
 }) {
   const queryClient = useQueryClient();
-  const { data: voices = [], error: voicesError, isLoading: voicesLoading } = useBrandVoices();
+  const {
+    data: voices = [],
+    error: voicesError,
+    isLoading: voicesLoading,
+  } = useBrandVoices({ projectId: context.projectId });
   const { data: inherited } = useResolvedVoice({
     campaignId: context.campaignId,
     projectId: context.projectId,
@@ -310,6 +314,7 @@ export function VoiceoverPanel({
           <>
             <BrandVoiceSelect
               value={voiceId}
+              projectId={context.projectId}
               onChange={setVoiceId}
               inheritLabel={
                 inherited ? `${inherited.name} (${VIA_LABEL[inherited.via]})` : "No default voice"
