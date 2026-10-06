@@ -45,6 +45,7 @@ import { Route as ApiPublicAvatarReconcileRouteImport } from './routes/api/publi
 import { Route as ApiPublicHiggsfieldReconcileRouteImport } from './routes/api/public/higgsfield-reconcile'
 import { Route as ApiPublicHiggsfieldWebhookRouteImport } from './routes/api/public/higgsfield-webhook'
 import { Route as ApiPublicMediaWorkerCallbackRouteImport } from './routes/api/public/media-worker-callback'
+import { Route as ApiPublicMediaWorkerCredentialsRouteImport } from './routes/api/public/media-worker-credentials'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -231,6 +232,12 @@ const ApiPublicMediaWorkerCallbackRoute =
     path: '/api/public/media-worker-callback',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicMediaWorkerCredentialsRoute =
+  ApiPublicMediaWorkerCredentialsRouteImport.update({
+    id: '/api/public/media-worker-credentials',
+    path: '/api/public/media-worker-credentials',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -269,6 +276,7 @@ export interface FileRoutesByFullPath {
   '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
   '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
   '/api/public/media-worker-callback': typeof ApiPublicMediaWorkerCallbackRoute
+  '/api/public/media-worker-credentials': typeof ApiPublicMediaWorkerCredentialsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -306,6 +314,7 @@ export interface FileRoutesByTo {
   '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
   '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
   '/api/public/media-worker-callback': typeof ApiPublicMediaWorkerCallbackRoute
+  '/api/public/media-worker-credentials': typeof ApiPublicMediaWorkerCredentialsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -345,6 +354,7 @@ export interface FileRoutesById {
   '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
   '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
   '/api/public/media-worker-callback': typeof ApiPublicMediaWorkerCallbackRoute
+  '/api/public/media-worker-credentials': typeof ApiPublicMediaWorkerCredentialsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -385,6 +395,7 @@ export interface FileRouteTypes {
     | '/api/public/higgsfield-reconcile'
     | '/api/public/higgsfield-webhook'
     | '/api/public/media-worker-callback'
+    | '/api/public/media-worker-credentials'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -422,6 +433,7 @@ export interface FileRouteTypes {
     | '/api/public/higgsfield-reconcile'
     | '/api/public/higgsfield-webhook'
     | '/api/public/media-worker-callback'
+    | '/api/public/media-worker-credentials'
   id:
     | '__root__'
     | '/'
@@ -460,6 +472,7 @@ export interface FileRouteTypes {
     | '/api/public/higgsfield-reconcile'
     | '/api/public/higgsfield-webhook'
     | '/api/public/media-worker-callback'
+    | '/api/public/media-worker-credentials'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -490,6 +503,7 @@ export interface RootRouteChildren {
   ApiPublicHiggsfieldReconcileRoute: typeof ApiPublicHiggsfieldReconcileRoute
   ApiPublicHiggsfieldWebhookRoute: typeof ApiPublicHiggsfieldWebhookRoute
   ApiPublicMediaWorkerCallbackRoute: typeof ApiPublicMediaWorkerCallbackRoute
+  ApiPublicMediaWorkerCredentialsRoute: typeof ApiPublicMediaWorkerCredentialsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -746,6 +760,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMediaWorkerCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/media-worker-credentials': {
+      id: '/api/public/media-worker-credentials'
+      path: '/api/public/media-worker-credentials'
+      fullPath: '/api/public/media-worker-credentials'
+      preLoaderRoute: typeof ApiPublicMediaWorkerCredentialsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -804,6 +825,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHiggsfieldReconcileRoute: ApiPublicHiggsfieldReconcileRoute,
   ApiPublicHiggsfieldWebhookRoute: ApiPublicHiggsfieldWebhookRoute,
   ApiPublicMediaWorkerCallbackRoute: ApiPublicMediaWorkerCallbackRoute,
+  ApiPublicMediaWorkerCredentialsRoute: ApiPublicMediaWorkerCredentialsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -45,6 +45,15 @@ matters; an app that opts in must treat any other status as informational. Callb
 uses one. The app's callback is idempotent, so the worker only repeats on
 transport faults and `5xx`.
 
+Signed URLs expire, and a task can wait in the queue. A task that also gives a
+`credentials_url` (same host allow list) has them re-signed: before downloading
+and again before uploading, once they are older than
+`CREDENTIALS_REFRESH_SECONDS` (default 900), the worker posts a signed
+`{"task_id": "…"}` there. The app answers with `{"sources": [{"url"}],
+"uploads": [{"url"}]}` in the order first sent (each URL is checked like the
+originals), or `410` if it no longer wants the task, which is then dropped
+without a report. Any other answer, or none, leaves the URLs as they were.
+
 ## Sequence rendering
 
 `render_sequence` turns an edited timeline into a finished video plus a poster
