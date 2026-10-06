@@ -338,13 +338,15 @@ async function relinkedTake<T extends TakeRow>(row: T): Promise<T> {
     .maybeSingle();
   if (error) throw unchecked();
   if (!asset) return row;
-  const stored = await supabaseAdmin.storage
+  // Listed rather than probed: a listing says plainly whether the file is
+  // there, and any storage error is thrown, never read as "no file".
+  const slash = path.lastIndexOf("/");
+  const name = path.slice(slash + 1);
+  const { data: listed, error: listError } = await supabaseAdmin.storage
     .from(OUTPUT_BUCKET)
-    .exists(path)
-    .catch(() => {
-      throw unchecked();
-    });
-  if (stored.data !== true) return row;
+    .list(path.slice(0, slash), { search: name, limit: 10 });
+  if (listError) throw unchecked();
+  if (!(listed ?? []).some((entry) => entry.name === name)) return row;
   const carried = row.alignment ? null : await carriedDetails(row);
   const { data, error: linkError } = await supabaseAdmin
     .from("voiceovers")
