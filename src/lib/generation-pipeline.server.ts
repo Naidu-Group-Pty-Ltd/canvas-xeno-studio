@@ -528,14 +528,20 @@ function claimableIngestFilter(): string {
  * The previous save error (including an exhausted stamp) is cleared, so an
  * interrupted attempt is recovered like any other.
  */
-async function claimIngest(generationId: string, freshOnly: boolean): Promise<string | null> {
-  const query = supabaseAdmin
+async function claimIngest(
+  generationId: string,
+  options: { freshOnly?: boolean; expectVersion?: string },
+): Promise<string | null> {
+  let query = supabaseAdmin
     .from("generations")
     .update({ ingest_status: "processing", error_code: null, error_message: null })
     .eq("id", generationId)
     .eq("status", "completed");
+  // The row must be exactly as it was when its attempts were counted; any
+  // change in between (another worker's attempt) voids this claim.
+  if (options.expectVersion) query = query.eq("updated_at", options.expectVersion);
   const { data } = await (
-    freshOnly ? query.eq("ingest_status", "pending") : query.or(claimableIngestFilter())
+    options.freshOnly ? query.eq("ingest_status", "pending") : query.or(claimableIngestFilter())
   ).select("updated_at");
   return data?.[0]?.updated_at ?? null;
 }
@@ -548,9 +554,9 @@ async function claimIngest(generationId: string, freshOnly: boolean): Promise<st
  */
 export async function ingestOutputs(
   generationId: string,
-  options: { freshOnly?: boolean } = {},
+  options: { freshOnly?: boolean; expectVersion?: string } = {},
 ): Promise<number> {
-  const claim = await claimIngest(generationId, options.freshOnly ?? false);
+  const claim = await claimIngest(generationId, options);
   if (!claim) return 0;
   const { data: generation } = await supabaseAdmin
     .from("generations")
@@ -687,22 +693,24 @@ const RETRY_SCAN_MAX = 1000;
 export async function ingestPending(limit = 5): Promise<number> {
   const { data: pending } = await supabaseAdmin
     .from("generations")
-    .select("id")
+    .select("id,updated_at")
     .eq("status", "completed")
     .eq("ingest_status", "pending")
     .order("completed_at", { ascending: true })
     .limit(limit);
-  const ids = (pending ?? []).map((row) => row.id);
+  // Each pick carries the row version its attempt count was based on, so an
+  // overlapping run that already used an attempt can never push it past the budget.
+  const picks = (pending ?? []).map((row) => ({ id: row.id, version: row.updated_at }));
 
   // Exhausted saves found here are stamped so every later scan excludes them in
   // the query itself: each is skipped at most once, so none can crowd out an
   // older save that still has attempts left. Stamped rows leave the result set,
   // so the next page starts after the rows that remain.
   let kept = 0;
-  for (let scanned = 0; ids.length < limit && scanned < RETRY_SCAN_MAX;) {
+  for (let scanned = 0; picks.length < limit && scanned < RETRY_SCAN_MAX;) {
     const { data: page } = await supabaseAdmin
       .from("generations")
-      .select("id")
+      .select("id,updated_at")
       .eq("status", "completed")
       .or(retryableIngestFilter())
       .order("updated_at", { ascending: false })
@@ -716,7 +724,7 @@ export async function ingestPending(limit = 5): Promise<number> {
       if ((attempts.get(row.id) ?? 0) >= MAX_AUTO_INGEST_ATTEMPTS) exhausted.push(row.id);
       else {
         kept += 1;
-        if (ids.length < limit) ids.push(row.id);
+        if (picks.length < limit) picks.push({ id: row.id, version: row.updated_at });
       }
     }
     if (exhausted.length)
@@ -733,7 +741,7 @@ export async function ingestPending(limit = 5): Promise<number> {
   }
 
   let total = 0;
-  for (const id of ids) total += await ingestOutputs(id);
+  for (const pick of picks) total += await ingestOutputs(pick.id, { expectVersion: pick.version });
   return total;
 }
 
