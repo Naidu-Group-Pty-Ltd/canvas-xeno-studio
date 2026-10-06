@@ -191,6 +191,13 @@ export async function resolveVoiceWithOrigin(input: {
     voice && voiceInScope(voice, projectId) ? voice : null;
 
   const explicit = await load(input.voiceId);
+  // A chosen voice that has since been archived or removed is never swapped
+  // for another speaker.
+  if (input.voiceId && !explicit)
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      "The chosen brand voice is no longer available. Choose another voice.",
+    );
   if (explicit) {
     if (!usable(explicit))
       throw new AppError(
@@ -257,32 +264,96 @@ function titleFor(voiceName: string, script: string): string {
 /** How long a voiceover may stay "generating" before it counts as interrupted. */
 export const STALE_VOICEOVER_MS = 5 * 60_000;
 
+interface TakeRow {
+  id: string;
+  status: string;
+  asset_id: string | null;
+  project_id: string | null;
+  created_by: string | null;
+  alignment: unknown;
+  duration_seconds: number | null;
+}
+const TAKE_COLUMNS = "id,status,asset_id,project_id,created_by,alignment,duration_seconds";
+
+/**
+ * Where a take's audio (and, if needed, its details) is stored. Only the
+ * server writes to this bucket, and each take has a fixed place in it.
+ */
+function takePath(
+  take: Pick<TakeRow, "id" | "project_id" | "created_by">,
+  kind: "audio" | "details",
+) {
+  const scope = take.project_id ? `projects/${take.project_id}` : `unassigned/${take.created_by}`;
+  return `${scope}/voiceovers/${take.id}.${kind === "audio" ? "mp3" : "json"}`;
+}
+
+/** The take details kept beside its audio, if they couldn't be kept with the take. */
+async function carriedDetails(take: TakeRow): Promise<Record<string, unknown> | null> {
+  const { data: file, error } = await supabaseAdmin.storage
+    .from(OUTPUT_BUCKET)
+    .download(takePath(take, "details"));
+  if (error) {
+    const { status, statusCode } = error as { status?: number; statusCode?: string };
+    if (status === 404 || String(statusCode) === "404") return null;
+    throw new AppError("UNKNOWN", "The take couldn't be checked. Try again in a moment.");
+  }
+  try {
+    const parsed = JSON.parse(await file.text()) as Record<string, unknown>;
+    const words = (parsed["alignment"] as { words?: unknown } | null)?.words;
+    return {
+      ...(typeof parsed["duration_seconds"] === "number"
+        ? { duration_seconds: parsed["duration_seconds"] }
+        : {}),
+      ...(Array.isArray(words) ? { alignment: { words } } : {}),
+      ...(typeof parsed["provider_request_id"] === "string"
+        ? { provider_request_id: parsed["provider_request_id"] }
+        : {}),
+      ...(typeof parsed["characters"] === "number" ? { characters: parsed["characters"] } : {}),
+    };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * A take whose audio was stored but whose last update didn't land is finished
- * from that file (each stored file names its take). Anything else comes back
- * unchanged.
+ * from that file. Only the take's own file counts: it is found at its fixed
+ * place in the server-only bucket (and must really be there), so a library
+ * record (which any member can create or edit) can't stand in for it.
+ * Anything else comes back unchanged; a lookup that fails is thrown, so
+ * nothing is decided without knowing.
  */
-async function relinkedTake<T extends { id: string; status: string; asset_id: string | null }>(
-  row: T,
-): Promise<T> {
+async function relinkedTake<T extends TakeRow>(row: T): Promise<T> {
   if (row.status !== "generating" || row.asset_id) return row;
-  const { data: asset } = await supabaseAdmin
+  const unchecked = () =>
+    new AppError("UNKNOWN", "The take couldn't be checked. Try again in a moment.");
+  const path = takePath(row, "audio");
+  const { data: asset, error } = await supabaseAdmin
     .from("assets")
-    .select("id,duration_seconds,metadata")
-    .eq("metadata->>voiceover_id", row.id)
+    .select("id,duration_seconds")
+    .eq("storage_bucket", OUTPUT_BUCKET)
+    .eq("storage_path", path)
+    .eq("asset_type", "audio")
     .is("deleted_at", null)
-    .limit(1)
     .maybeSingle();
+  if (error) throw unchecked();
   if (!asset) return row;
-  // Details the take couldn't keep travel with its stored file.
-  const carried = (asset.metadata as { take_details?: Record<string, unknown> } | null)
-    ?.take_details;
+  const stored = await supabaseAdmin.storage
+    .from(OUTPUT_BUCKET)
+    .exists(path)
+    .catch(() => {
+      throw unchecked();
+    });
+  if (stored.data !== true) return row;
+  const carried = row.alignment ? null : await carriedDetails(row);
   const { data } = await supabaseAdmin
     .from("voiceovers")
     .update({
       status: "completed",
       asset_id: asset.id,
-      ...(asset.duration_seconds !== null ? { duration_seconds: asset.duration_seconds } : {}),
+      ...(row.duration_seconds === null && asset.duration_seconds !== null
+        ? { duration_seconds: asset.duration_seconds }
+        : {}),
       ...(carried ?? {}),
       completed_at: new Date().toISOString(),
     } as never)
@@ -296,28 +367,36 @@ async function relinkedTake<T extends { id: string; status: string; asset_id: st
 /**
  * Takes cut off mid-way (the server stopped before recording the result) are
  * marked uncertain: the provider may have been billed, so they are never retried.
- * One whose audio was stored is finished instead.
+ * One whose audio was stored is finished instead, and one that can't be checked
+ * right now is left for the next sweep.
  */
 async function settleInterrupted(): Promise<void> {
   const cutoff = new Date(Date.now() - STALE_VOICEOVER_MS).toISOString();
-  const { data: stale } = await supabaseAdmin
+  const { data: stale, error } = await supabaseAdmin
     .from("voiceovers")
-    .select("id,status,asset_id")
+    .select(TAKE_COLUMNS)
     .eq("status", "generating")
     .lt("created_at", cutoff)
     .limit(50);
-  for (const row of stale ?? []) await relinkedTake(row);
-  await supabaseAdmin
-    .from("voiceovers")
-    .update({
-      status: "submission_uncertain",
-      error_code: "INTERRUPTED",
-      error_message:
-        "This take was interrupted before it was saved. It may still have been billed, so it was not retried.",
-      completed_at: new Date().toISOString(),
-    } as never)
-    .eq("status", "generating")
-    .lt("created_at", cutoff);
+  if (error) return;
+  for (const row of (stale ?? []) as unknown as TakeRow[]) {
+    try {
+      if ((await relinkedTake(row)).status !== "generating") continue;
+    } catch {
+      continue;
+    }
+    await supabaseAdmin
+      .from("voiceovers")
+      .update({
+        status: "submission_uncertain",
+        error_code: "INTERRUPTED",
+        error_message:
+          "This take was interrupted before it was saved. It may still have been billed, so it was not retried.",
+        completed_at: new Date().toISOString(),
+      } as never)
+      .eq("id", row.id)
+      .eq("status", "generating");
+  }
 }
 
 export async function generateVoiceover(input: {
@@ -346,7 +425,7 @@ export async function generateVoiceover(input: {
     .eq("dedupe_key", input.clientRequestId)
     .maybeSingle();
   if (existing) {
-    const row = (await relinkedTake(existing as never)) as unknown as {
+    const row = (await relinkedTake(existing as unknown as TakeRow)) as unknown as {
       id: string;
       status: VoiceoverResult["status"];
       error_message: string | null;
@@ -376,13 +455,18 @@ export async function generateVoiceover(input: {
   let projectId = input.projectId ?? null;
   let campaignId = input.campaignId ?? null;
   if (input.sequenceId) {
-    const { data: sequence } = await supabaseAdmin
+    // A take for an edit belongs to the edit's project and campaign, whatever
+    // the request says: that is what its voice is checked against.
+    const { data: sequence, error } = await supabaseAdmin
       .from("sequences")
       .select("project_id,campaign_id")
       .eq("id", input.sequenceId)
       .maybeSingle();
-    projectId = projectId ?? sequence?.project_id ?? null;
-    campaignId = campaignId ?? sequence?.campaign_id ?? null;
+    if (error)
+      throw new AppError("UNKNOWN", "The edit couldn't be looked up. Try again in a moment.");
+    if (!sequence) throw new AppError("INVALID_PARAMETERS", "That edit no longer exists.");
+    projectId = sequence.project_id;
+    campaignId = sequence.campaign_id;
   }
   const voice = await resolveVoice({ voiceId: input.voiceId, campaignId, projectId });
   if (!voice)
@@ -490,16 +574,23 @@ export async function generateVoiceover(input: {
   const result = spoken.result;
   // The details are kept with the take first, so a take finished later from
   // its stored file (if the last update fails) still has its word timings. If
-  // they can't be kept with the take, the stored file's record carries them.
+  // they can't be kept with the take, they are stored beside its audio, where
+  // only the server can write.
   const details = {
     duration_seconds: result.durationSeconds,
     alignment: { words: result.words },
     provider_request_id: result.requestId,
     characters: result.characters,
   };
-  const detailsKept = await record(details);
-  const scope = projectId ? `projects/${projectId}` : `unassigned/${input.userId}`;
-  const path = `${scope}/voiceovers/${voiceoverId}.mp3`;
+  const take = { id: voiceoverId, project_id: projectId, created_by: input.userId };
+  if (!(await record(details)))
+    await supabaseAdmin.storage
+      .from(OUTPUT_BUCKET)
+      .upload(takePath(take, "details"), JSON.stringify(details), {
+        contentType: "application/json",
+        upsert: true,
+      });
+  const path = takePath(take, "audio");
   const upload = await supabaseAdmin.storage
     .from(OUTPUT_BUCKET)
     .upload(path, result.audio, { contentType: result.mime, upsert: true });
@@ -531,7 +622,6 @@ export async function generateVoiceover(input: {
         provider: voice.provider,
         model: voice.model,
         ai_generated_voice: true,
-        ...(detailsKept ? {} : { take_details: details }),
       } as never,
     })
     .select("id")
