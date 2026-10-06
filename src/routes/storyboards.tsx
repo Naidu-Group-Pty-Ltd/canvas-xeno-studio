@@ -59,6 +59,9 @@ async function loadTakes(board: StoryboardWithScenes): Promise<CompileTake[]> {
           .is("deleted_at", null)
       : Promise.resolve({ data: [] }),
   ]);
+  // A failed lookup is an error to retry, never "no finished takes".
+  for (const result of [byId, byGeneration])
+    if ("error" in result && result.error) throw result.error;
   const assets = [...(byId.data ?? []), ...(byGeneration.data ?? [])] as (CompileAsset & {
     generation_id: string | null;
   })[];

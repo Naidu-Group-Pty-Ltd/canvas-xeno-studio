@@ -123,6 +123,10 @@ export function VoiceoverPanel({
   const [busy, setBusy] = useState<"write" | "speak" | null>(null);
   const [creating, setCreating] = useState(false);
   const attempt = useRef<{ key: string; id: string } | null>(null);
+  const latest = useRef({ timeline, layout, start, replace, withCaptions, onChange });
+  useEffect(() => {
+    latest.current = { timeline, layout, start, replace, withCaptions, onChange };
+  });
   const missingTables = isMissingTableError(voicesError);
 
   // Start from the saved draft, else the latest take's script, else the edit's planned script.
@@ -192,6 +196,9 @@ export function VoiceoverPanel({
     words: TimedWord[];
     title: string;
   }) {
+    // A take can finish long after it was asked for: it goes onto the edit as it
+    // is now, so changes made while it was being made are kept.
+    const { timeline, layout, start, replace, withCaptions, onChange } = latest.current;
     const at = Math.max(0, Math.min(start, layout.total - 0.5, LIMITS.totalSeconds));
     const kept = replace
       ? timeline.audio.filter((item) => item.role !== "voiceover")
