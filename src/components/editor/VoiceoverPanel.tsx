@@ -17,6 +17,7 @@ import { estimatedSeconds, wordCount, type TimedWord } from "@/lib/voice/catalog
 import {
   audioFromSource,
   captionsFromWords,
+  mergeCaptions,
   formatTime,
   LIMITS,
   type Timeline,
@@ -223,10 +224,13 @@ export function VoiceoverPanel({
     );
     const next: Timeline = { ...timeline, audio: [...kept, item] };
     if (withCaptions && take.words.length) {
+      const segments = captionsFromWords(take.words, item.start, { until: layout.total });
       next.captions = {
         ...timeline.captions,
         enabled: true,
-        segments: captionsFromWords(take.words, item.start, { until: layout.total }),
+        // Replacing the voiceover replaces its captions; a take added alongside
+        // keeps the captions already on the edit outside its own words.
+        segments: replace ? segments : mergeCaptions(timeline.captions.segments, segments),
       };
     }
     onChange(next);

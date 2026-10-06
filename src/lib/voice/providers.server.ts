@@ -123,14 +123,13 @@ export async function openAISpeech(input: {
     return transportFailure("OpenAI", error);
   }
   if (!response.ok) return openAIFailure(response.status, await response.text().catch(() => ""));
-  const audio = new Uint8Array(await response.arrayBuffer());
-  if (!audio.length)
-    return {
-      ok: false,
-      code: "PROVIDER_REJECTED",
-      message: "OpenAI returned empty audio.",
-      uncertain: false,
-    };
+  let audio: Uint8Array;
+  try {
+    audio = new Uint8Array(await response.arrayBuffer());
+  } catch (error) {
+    return transportFailure("OpenAI", error);
+  }
+  if (!audio.length) return unreadable("OpenAI", true, "no audio");
   return {
     ok: true,
     audio,
@@ -254,24 +253,55 @@ export async function elevenJson<T>(
       message: "ElevenLabs is not connected. Add ELEVENLABS_API_KEY to the backend secrets.",
       uncertain: false,
     };
+  // A request that makes something (speech, a voice) and was accepted may have
+  // been carried out even when its answer can't be read: that is uncertain,
+  // never a failure that could be tried again.
+  const mutating = (init.method ?? "GET").toUpperCase() !== "GET";
   let response: Response;
   try {
     response = await eleven(path, init, timeoutMs);
   } catch (error) {
     return transportFailure("ElevenLabs", error);
   }
-  const body = await response.text();
+  let body: string;
+  try {
+    body = await response.text();
+  } catch (error) {
+    if (response.ok && mutating) return transportFailure("ElevenLabs", error);
+    return {
+      ok: false,
+      code: "PROVIDER_REJECTED",
+      message: "ElevenLabs' answer was cut off.",
+      uncertain: false,
+    };
+  }
   if (!response.ok) return elevenFailure(response.status, body);
   try {
     return { ok: true, data: JSON.parse(body) as T };
   } catch {
-    return {
-      ok: false,
-      code: "PROVIDER_REJECTED",
-      message: "ElevenLabs sent an unreadable answer.",
-      uncertain: false,
-    };
+    return unreadable("ElevenLabs", mutating);
   }
+}
+
+/** An accepted answer that can't be used: uncertain when the request made something. */
+function unreadable(
+  provider: string,
+  mutating: boolean,
+  what = "an unreadable answer",
+): ProviderFailure {
+  return mutating
+    ? {
+        ok: false,
+        code: "SUBMISSION_UNCERTAIN",
+        message: `${provider} accepted the request but sent ${what}. It may still have been carried out (and billed), so it was not retried automatically.`,
+        uncertain: true,
+      }
+    : {
+        ok: false,
+        code: "PROVIDER_REJECTED",
+        message: `${provider} sent ${what}.`,
+        uncertain: false,
+      };
 }
 
 export async function elevenLabsSpeech(input: {
@@ -313,13 +343,7 @@ export async function elevenLabsSpeech(input: {
     SPEECH_TIMEOUT_MS,
   );
   if (!result.ok) return result;
-  if (!result.data.audio_base64)
-    return {
-      ok: false,
-      code: "PROVIDER_REJECTED",
-      message: "ElevenLabs returned no audio.",
-      uncertain: false,
-    };
+  if (!result.data.audio_base64) return unreadable("ElevenLabs", true, "no audio");
   const alignment = result.data.alignment;
   const words =
     alignment?.characters &&
@@ -457,12 +481,7 @@ export async function elevenLabsAddLibraryVoice(
   if (!result.ok) return result;
   return result.data.voice_id
     ? { ok: true, voiceId: result.data.voice_id }
-    : {
-        ok: false,
-        code: "PROVIDER_REJECTED",
-        message: "ElevenLabs did not return the new voice.",
-        uncertain: false,
-      };
+    : unreadable("ElevenLabs", true, "no id for the new voice");
 }
 
 export interface DesignPreview {
@@ -526,12 +545,7 @@ export async function elevenLabsSaveDesign(input: {
   if (!result.ok) return result;
   return result.data.voice_id
     ? { ok: true, voiceId: result.data.voice_id }
-    : {
-        ok: false,
-        code: "PROVIDER_REJECTED",
-        message: "ElevenLabs did not return the new voice.",
-        uncertain: false,
-      };
+    : unreadable("ElevenLabs", true, "no id for the new voice");
 }
 
 export async function elevenLabsClone(input: {
@@ -554,10 +568,5 @@ export async function elevenLabsClone(input: {
   if (!result.ok) return result;
   return result.data.voice_id
     ? { ok: true, voiceId: result.data.voice_id }
-    : {
-        ok: false,
-        code: "PROVIDER_REJECTED",
-        message: "ElevenLabs did not return the new voice.",
-        uncertain: false,
-      };
+    : unreadable("ElevenLabs", true, "no id for the new voice");
 }
