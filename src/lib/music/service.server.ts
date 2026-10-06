@@ -118,14 +118,16 @@ async function relinked(row: TrackRow): Promise<TrackRow> {
     .maybeSingle();
   if (error) throw unchecked();
   if (!asset) return row;
-  const stored = await supabaseAdmin.storage
+  // Listed rather than probed: a listing says plainly whether the file is
+  // there, and any storage error is thrown, never read as "no file".
+  const slash = asset.storage_path.lastIndexOf("/");
+  const name = asset.storage_path.slice(slash + 1);
+  const { data: listed, error: listError } = await supabaseAdmin.storage
     .from(BUCKET)
-    .exists(asset.storage_path)
-    .catch(() => {
-      throw unchecked();
-    });
-  if (stored.data !== true) return row;
-  const { data } = await supabaseAdmin
+    .list(asset.storage_path.slice(0, slash), { search: name, limit: 10 });
+  if (listError) throw unchecked();
+  if (!(listed ?? []).some((entry) => entry.name === name)) return row;
+  const { data, error: linkError } = await supabaseAdmin
     .from("music_tracks")
     .update({
       asset_id: asset.id,
@@ -137,7 +139,13 @@ async function relinked(row: TrackRow): Promise<TrackRow> {
     .eq("status", "generating")
     .select("*")
     .maybeSingle();
-  return (data ?? row) as TrackRow;
+  // Not finished after all: thrown, so the track is never written off meanwhile.
+  if (linkError) throw unchecked();
+  if (data) return data as TrackRow;
+  // Settled by someone else in the meantime: as it is now.
+  const current = await loadTrack(row.id).catch(() => null);
+  if (!current) throw unchecked();
+  return current;
 }
 
 /**
