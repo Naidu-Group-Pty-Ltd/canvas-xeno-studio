@@ -12,6 +12,7 @@
  * recorded as such upstream and never retried automatically.
  */
 import { unzipSync } from "fflate";
+import { fetchPublic } from "../net/public-url.server";
 import { SAFE_OPENVERSE_LICENSES, isSafeOpenverseLicense } from "./catalog";
 import {
   eleven,
@@ -99,6 +100,8 @@ function toTrack(raw: RawOpenverseAudio): OpenverseTrack | null {
 }
 
 let openverseToken: { value: string; expires: number } | null = null;
+/** After a failed token request, anonymous access is used for a while before asking again. */
+let openverseTokenRetryAt = 0;
 
 /** Registered apps get higher rate limits; anonymous use works without one. */
 export function openverseAuthenticated(): boolean {
@@ -110,7 +113,10 @@ export function openverseAuthenticated(): boolean {
 async function openverseHeaders(): Promise<Record<string, string>> {
   const headers: Record<string, string> = { Accept: "application/json" };
   if (!openverseAuthenticated()) return headers;
-  if (!openverseToken || openverseToken.expires < Date.now() + 60_000) {
+  // An expired (or nearly expired) token is never sent: without a fresh one, access is anonymous.
+  if (openverseToken && openverseToken.expires < Date.now() + 60_000) openverseToken = null;
+  if (!openverseToken && Date.now() >= openverseTokenRetryAt) {
+    openverseTokenRetryAt = Date.now() + 5 * 60_000;
     try {
       const response = await timed(
         `${OPENVERSE}/auth_tokens/token/`,
@@ -127,11 +133,13 @@ async function openverseHeaders(): Promise<Record<string, string>> {
       );
       if (response.ok) {
         const data = (await response.json()) as { access_token?: string; expires_in?: number };
-        if (data.access_token)
+        if (data.access_token) {
           openverseToken = {
             value: data.access_token,
             expires: Date.now() + (data.expires_in ?? 3600) * 1000,
           };
+          openverseTokenRetryAt = 0;
+        }
       }
     } catch {
       // Fall back to anonymous access.
@@ -139,6 +147,16 @@ async function openverseHeaders(): Promise<Record<string, string>> {
   }
   if (openverseToken) headers["Authorization"] = `Bearer ${openverseToken.value}`;
   return headers;
+}
+
+/** An Openverse GET; a token it refuses is dropped and the request repeated anonymously. */
+async function openverseGet(url: string): Promise<Response> {
+  const headers = await openverseHeaders();
+  const response = await timed(url, { headers }, 20_000);
+  if (response.status !== 401 || !headers["Authorization"]) return response;
+  openverseToken = null;
+  openverseTokenRetryAt = Date.now() + 5 * 60_000;
+  return timed(url, { headers: { Accept: "application/json" } }, 20_000);
 }
 
 function openverseFailure(status: number): ProviderFailure {
@@ -174,11 +192,7 @@ export async function searchOpenverse(input: {
   if (input.length) params.set("length", input.length);
   let response: Response;
   try {
-    response = await timed(
-      `${OPENVERSE}/audio/?${params}`,
-      { headers: await openverseHeaders() },
-      20_000,
-    );
+    response = await openverseGet(`${OPENVERSE}/audio/?${params}`);
   } catch {
     return {
       ok: false,
@@ -210,11 +224,7 @@ export async function openverseTrack(
 ): Promise<{ ok: true; track: OpenverseTrack } | ProviderFailure> {
   let response: Response;
   try {
-    response = await timed(
-      `${OPENVERSE}/audio/${encodeURIComponent(id)}/`,
-      { headers: await openverseHeaders() },
-      20_000,
-    );
+    response = await openverseGet(`${OPENVERSE}/audio/${encodeURIComponent(id)}/`);
   } catch {
     return {
       ok: false,
@@ -264,37 +274,35 @@ export function audioExtension(mime: string): string {
   return "bin";
 }
 
-/** Downloads a public audio file over HTTPS, refusing anything that isn't audio or is too large. */
+/** Whether the bytes start like an audio file (so a page or an API answer is never stored as music). */
+export function looksLikeAudio(bytes: Uint8Array): boolean {
+  const text = (start: number, value: string) =>
+    [...value].every((char, index) => bytes[start + index] === char.charCodeAt(0));
+  return (
+    text(0, "ID3") || // MP3 with tags
+    (bytes[0] === 0xff && ((bytes[1] ?? 0) & 0xe0) === 0xe0) || // MPEG / AAC frames
+    text(0, "OggS") ||
+    text(0, "fLaC") ||
+    (text(0, "RIFF") && text(8, "WAVE")) ||
+    (text(0, "FORM") && (text(8, "AIFF") || text(8, "AIFC"))) ||
+    text(4, "ftyp") || // MP4 / M4A
+    (bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3) // WebM
+  );
+}
+
+/**
+ * Downloads an audio file named by a catalogue. Every hop (redirects
+ * included) must be https on a public address, and only real audio within
+ * the size limit is kept.
+ */
 export async function downloadAudio(
   url: string,
   hint: string | null,
   maxBytes = 40 * 1024 * 1024,
 ): Promise<{ ok: true; bytes: Uint8Array; mime: string } | ProviderFailure> {
-  let parsed: URL;
+  let fetched: Awaited<ReturnType<typeof fetchPublic>>;
   try {
-    parsed = new URL(url);
-  } catch {
-    return {
-      ok: false,
-      code: "INVALID_PARAMETERS",
-      message: "The track has no downloadable file.",
-      uncertain: false,
-    };
-  }
-  if (
-    parsed.protocol !== "https:" ||
-    /^(localhost|127\.|10\.|192\.168\.|169\.254\.|\[)/i.test(parsed.hostname)
-  ) {
-    return {
-      ok: false,
-      code: "INVALID_PARAMETERS",
-      message: "The track's file isn't on a public HTTPS address.",
-      uncertain: false,
-    };
-  }
-  let response: Response;
-  try {
-    response = await timed(parsed.href, { redirect: "follow" }, 90_000);
+    fetched = await fetchPublic(url, { signal: AbortSignal.timeout(90_000) });
   } catch {
     return {
       ok: false,
@@ -303,51 +311,75 @@ export async function downloadAudio(
       uncertain: false,
     };
   }
-  if (!response.ok || !response.body)
+  if (!fetched.ok)
+    return {
+      ok: false,
+      code: "INVALID_PARAMETERS",
+      message: `The track's file isn't on a public HTTPS address (${fetched.reason}).`,
+      uncertain: false,
+    };
+  const response = fetched.response;
+  if (!response.ok || !response.body) {
+    await response.body?.cancel().catch(() => undefined);
     return {
       ok: false,
       code: "PROVIDER_UNAVAILABLE",
       message: `The track's file couldn't be downloaded (HTTP ${response.status}).`,
       uncertain: false,
     };
+  }
   const declared = Number(response.headers.get("content-length") ?? 0);
-  if (declared > maxBytes)
+  if (declared > maxBytes) {
+    await response.body.cancel().catch(() => undefined);
     return {
       ok: false,
       code: "INVALID_PARAMETERS",
       message: "The track's file is too large to import.",
       uncertain: false,
     };
+  }
   const type = (response.headers.get("content-type") ?? "").split(";")[0]!.trim().toLowerCase();
   const mime = type.startsWith("audio/")
     ? type === "audio/mp3"
       ? "audio/mpeg"
       : type
     : (AUDIO_TYPES[(hint ?? "").toLowerCase()] ?? null);
-  if (!mime)
-    return {
-      ok: false,
-      code: "INVALID_PARAMETERS",
-      message: "The track's file isn't audio.",
-      uncertain: false,
-    };
+  const notAudio = {
+    ok: false as const,
+    code: "INVALID_PARAMETERS",
+    message: "The track's file isn't audio.",
+    uncertain: false,
+  };
+  if (!mime) {
+    await response.body.cancel().catch(() => undefined);
+    return notAudio;
+  }
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];
   let size = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > maxBytes) {
-      await reader.cancel().catch(() => undefined);
-      return {
-        ok: false,
-        code: "INVALID_PARAMETERS",
-        message: "The track's file is too large to import.",
-        uncertain: false,
-      };
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > maxBytes) {
+        await reader.cancel().catch(() => undefined);
+        return {
+          ok: false,
+          code: "INVALID_PARAMETERS",
+          message: "The track's file is too large to import.",
+          uncertain: false,
+        };
+      }
+      chunks.push(value);
     }
-    chunks.push(value);
+  } catch {
+    return {
+      ok: false,
+      code: "PROVIDER_UNAVAILABLE",
+      message: "The track's file couldn't be downloaded. Try again.",
+      uncertain: false,
+    };
   }
   const bytes = new Uint8Array(size);
   let offset = 0;
@@ -355,6 +387,7 @@ export async function downloadAudio(
     bytes.set(chunk, offset);
     offset += chunk.byteLength;
   }
+  if (!looksLikeAudio(bytes)) return notAudio;
   return { ok: true, bytes, mime };
 }
 

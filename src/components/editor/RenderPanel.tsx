@@ -23,7 +23,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { renderInProgress } from "@/lib/edit/renders";
 import { useTracksForAssets } from "@/hooks/useMusicData";
-import { creditLine } from "@/lib/music/catalog";
+import { creditLine, licenceBlocker, licenceTerms } from "@/lib/music/catalog";
 
 interface RenderPanelProps {
   sequenceId: string;
@@ -58,6 +58,17 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
       musicTracks.map((track) => creditLine(track)).filter((line): line is string => !!line),
     ),
   ];
+  // Licensed music: an expired licence stops the render; limits are shown before rendering.
+  const licenceProblem =
+    musicTracks.map((track) => licenceBlocker(track)).find((reason) => reason) ?? null;
+  const limits = musicTracks
+    .map((track) => ({ track, terms: licenceTerms(track) }))
+    .filter(
+      (
+        entry,
+      ): entry is { track: (typeof musicTracks)[number]; terms: NonNullable<typeof entry.terms> } =>
+        !!entry.terms && !entry.terms.expired,
+    );
 
   async function start() {
     setStarting(true);
@@ -88,7 +99,12 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
       <Button
         className="w-full"
         disabled={
-          disabled || starting || Boolean(active) || blockers.length > 0 || Boolean(workerProblem)
+          disabled ||
+          starting ||
+          Boolean(active) ||
+          blockers.length > 0 ||
+          Boolean(workerProblem) ||
+          Boolean(licenceProblem)
         }
         onClick={() => void start()}
         data-testid="render-button"
@@ -100,8 +116,16 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
         )}
         {active ? "Rendering…" : "Render video"}
       </Button>
-      {(blockers[0] ?? workerProblem) && (
-        <p className="text-xs text-muted-foreground">{blockers[0] ?? workerProblem}</p>
+      {(blockers[0] ?? licenceProblem ?? workerProblem) && (
+        <p
+          className={cn(
+            "text-xs",
+            !blockers[0] && licenceProblem ? "text-destructive" : "text-muted-foreground",
+          )}
+          data-testid="render-blocker"
+        >
+          {blockers[0] ?? licenceProblem ?? workerProblem}
+        </p>
       )}
 
       {active && (
@@ -145,6 +169,29 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
           <ul className="space-y-1">
             {credits.map((line) => (
               <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {limits.length > 0 && (
+        <div
+          className="space-y-1.5 rounded-md border border-warning/40 bg-warning/5 p-2.5 text-xs"
+          data-testid="music-licence-limits"
+        >
+          <p className="font-medium">Music licence terms</p>
+          <p className="text-muted-foreground">
+            Use this video only where its music is licensed. The terms are kept with the finished
+            video.
+          </p>
+          <ul className="space-y-1">
+            {limits.map(({ track, terms }) => (
+              <li key={track.id}>
+                <span className="font-medium">{track.title}</span>: {terms.summary}
+                {terms.excluded.length > 0 && (
+                  <span className="text-warning"> · Not for {terms.excluded.join(", ")}</span>
+                )}
+              </li>
             ))}
           </ul>
         </div>

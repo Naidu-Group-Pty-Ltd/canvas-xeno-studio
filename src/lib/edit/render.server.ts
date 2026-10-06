@@ -10,7 +10,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { AppError } from "../higgsfield/errors";
 import { appBaseUrl } from "../generation-pipeline.server";
 import { mediaWorkerConfigured, submitWorkerTask } from "../media/worker.server";
-import { creditLine } from "../music/catalog";
+import { creditLine, licenceBlocker, licenceTerms, type MusicTrackRow } from "../music/catalog";
 import { RENDER_STALL_MS } from "./renders";
 import { buildRenderRequest, parseTimeline, renderBlockers, type Timeline } from "./timeline";
 
@@ -86,21 +86,50 @@ async function resolveAssets(timeline: Timeline) {
   return assets;
 }
 
-/** Credits the edit's music asks for (Creative Commons BY), kept with the finished video. */
-async function musicCredits(assetIds: string[]): Promise<string[]> {
-  if (!assetIds.length) return [];
+/**
+ * What the edit's music asks for: the credits Creative Commons BY needs and
+ * the terms of licensed tracks, both kept with the finished video, and an
+ * expired licence, which stops the render.
+ */
+async function musicRights(assetIds: string[]): Promise<{
+  credits: string[];
+  licences: Record<string, unknown>[];
+  blocker: string | null;
+}> {
+  const none = { credits: [], licences: [], blocker: null };
+  if (!assetIds.length) return none;
   try {
     const { data } = await supabaseAdmin
       .from("music_tracks")
-      .select("title,artist,license,license_version,license_url,attribution")
+      .select("title,artist,license,license_version,license_url,attribution,rights")
       .in("asset_id", [...new Set(assetIds)]);
-    const lines = (data ?? [])
-      .map((row) => creditLine(row as never))
-      .filter((line): line is string => !!line);
-    return [...new Set(lines)];
+    const rows = (data ?? []) as unknown as Pick<
+      MusicTrackRow,
+      "title" | "artist" | "license" | "license_version" | "license_url" | "attribution" | "rights"
+    >[];
+    const credits = [
+      ...new Set(rows.map((row) => creditLine(row)).filter((line): line is string => !!line)),
+    ];
+    const licences = rows.flatMap((row) => {
+      const terms = licenceTerms(row);
+      return terms
+        ? [
+            {
+              title: row.title,
+              licensor: terms.licensor,
+              reference: terms.reference,
+              uses: terms.uses,
+              territories: terms.territories,
+              expires_on: terms.expiresOn,
+            },
+          ]
+        : [];
+    });
+    const blocker = rows.map((row) => licenceBlocker(row)).find((reason) => reason) ?? null;
+    return { credits, licences, blocker };
   } catch {
-    // The music library is optional; a render never fails over credits.
-    return [];
+    // The music library is optional; without it there is nothing to credit or check.
+    return none;
   }
 }
 
@@ -192,7 +221,8 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
   if (blockers.length) throw new AppError("INVALID_PARAMETERS", blockers[0]);
 
   const assets = await resolveAssets(timeline);
-  const credits = await musicCredits(timeline.audio.map((item) => item.assetId));
+  const music = await musicRights(timeline.audio.map((item) => item.assetId));
+  if (music.blocker) throw new AppError("INVALID_PARAMETERS", music.blocker);
   const request = buildRenderRequest(timeline);
 
   const renderId = crypto.randomUUID();
@@ -271,7 +301,8 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
       mime_type: "video/mp4",
       output_kind: "video",
       sources: request.sources.map((source) => source.assetId),
-      ...(credits.length ? { music_credits: credits } : {}),
+      ...(music.credits.length ? { music_credits: music.credits } : {}),
+      ...(music.licences.length ? { music_licences: music.licences } : {}),
     } as never,
     dedupe_key: `render:${input.clientRequestId}`,
     submitted_at: now,

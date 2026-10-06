@@ -216,13 +216,87 @@ export function creditLine(
   return `“${track.title}” by ${track.artist?.trim() || "unknown artist"}, licensed under ${licence}${track.license_url ? ` (${track.license_url})` : ""}.`;
 }
 
+/** Whether a recorded licence has run out (it covers the whole of its last day, UTC). */
+export function rightsExpired(
+  rights: Record<string, unknown> | null | undefined,
+  now = Date.now(),
+): boolean {
+  const day = typeof rights?.["expiresOn"] === "string" ? rights["expiresOn"] : null;
+  if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return false;
+  return now > Date.parse(`${day}T23:59:59.999Z`);
+}
+
 /** Whether a recorded licence covers a use, for licensed tracks. */
 export function rightsCover(rights: Record<string, unknown>, scope: RightsScope): boolean | null {
   const scopes = Array.isArray(rights["scopes"]) ? (rights["scopes"] as string[]) : null;
   if (!scopes) return null;
-  const expires = typeof rights["expiresOn"] === "string" ? Date.parse(rights["expiresOn"]) : NaN;
-  if (Number.isFinite(expires) && expires < Date.now()) return false;
+  if (rightsExpired(rights)) return false;
   return scopes.includes("all") || scopes.includes(scope);
+}
+
+/** A licensed track's recorded terms, ready to show; null for tracks without recorded terms. */
+export function licenceTerms(
+  track: Pick<MusicTrackRow, "license" | "rights">,
+  now = Date.now(),
+): {
+  licensor: string | null;
+  reference: string | null;
+  uses: string[];
+  /** Uses the licence doesn't cover (empty when it covers all media). */
+  excluded: string[];
+  territories: string | null;
+  expiresOn: string | null;
+  expired: boolean;
+  summary: string;
+} | null {
+  if (track.license !== "licensed") return null;
+  const rights = track.rights ?? {};
+  const text = (key: string) =>
+    typeof rights[key] === "string" && (rights[key] as string).trim()
+      ? (rights[key] as string).trim()
+      : null;
+  const scopes = Array.isArray(rights["scopes"]) ? (rights["scopes"] as string[]) : [];
+  const all = scopes.includes("all");
+  const uses = all
+    ? ["All media"]
+    : RIGHTS_SCOPES.filter((scope) => scopes.includes(scope.id)).map((scope) => scope.label);
+  const excluded = all
+    ? []
+    : RIGHTS_SCOPES.filter((scope) => scope.id !== "all" && !scopes.includes(scope.id)).map(
+        (scope) => scope.label,
+      );
+  const expiresOn = text("expiresOn");
+  const territories = text("territories");
+  const licensor = text("licensor");
+  const summary = [
+    licensor ? `From ${licensor}` : "Licensed",
+    uses.length ? uses.join(", ") : "no uses recorded",
+    territories,
+    expiresOn ? `until ${expiresOn}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return {
+    licensor,
+    reference: text("reference"),
+    uses,
+    excluded,
+    territories,
+    expiresOn,
+    expired: rightsExpired(rights, now),
+    summary,
+  };
+}
+
+/** Why a track can't go into new work, or null when it can. */
+export function licenceBlocker(
+  track: Pick<MusicTrackRow, "title" | "license" | "rights">,
+  now = Date.now(),
+): string | null {
+  const terms = licenceTerms(track, now);
+  if (terms?.expired)
+    return `The licence for “${track.title}” ran out on ${terms.expiresOn}. Renew it, then add the track again with the new terms.`;
+  return null;
 }
 
 /** Short guidance on commercial recordings (chart songs), shown in the library. */

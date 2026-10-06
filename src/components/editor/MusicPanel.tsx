@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { FindMusic } from "@/components/music/FindMusic";
 import { GenerateMusic } from "@/components/music/GenerateMusic";
 import { MusicLibrary } from "@/components/music/MusicLibrary";
-import { LicenseBadge } from "@/components/music/TrackItem";
+import { LicenceTerms, LicenseBadge } from "@/components/music/TrackItem";
 import { audioUrlFor, useMusicTracks, useTracksForAssets } from "@/hooks/useMusicData";
 import { saveMusicAnalysis } from "@/lib/music.functions";
 import { analyzeAudioUrl } from "@/lib/music/analyze";
@@ -185,7 +185,7 @@ export function MusicPanel({
                     </span>
                   </button>
                   {track ? (
-                    <LicenseBadge license={track.license} />
+                    <LicenseBadge track={track} />
                   ) : (
                     <span
                       className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px]"
@@ -211,6 +211,7 @@ export function MusicPanel({
                 {credit && (
                   <p className="mt-1 text-[11px] text-muted-foreground">Credit: {credit}</p>
                 )}
+                {track && <LicenceTerms track={track} />}
               </li>
             );
           })}

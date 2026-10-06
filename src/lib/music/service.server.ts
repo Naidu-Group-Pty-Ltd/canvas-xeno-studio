@@ -88,8 +88,69 @@ const STALE_MS = 15 * 60_000;
 const isStale = (row: TrackRow) =>
   Date.now() - Date.parse(String(row["created_at"] ?? "")) > STALE_MS;
 
+/**
+ * A track whose file was stored but whose last update didn't land is
+ * finished from that file (each stored file names its track). Anything else
+ * comes back unchanged.
+ */
+async function relinked(row: TrackRow): Promise<TrackRow> {
+  if (row["status"] !== "generating" || row["asset_id"]) return row;
+  const { data: asset } = await supabaseAdmin
+    .from("assets")
+    .select("id,duration_seconds")
+    .eq("metadata->>music_track_id", row.id)
+    .is("deleted_at", null)
+    .limit(1)
+    .maybeSingle();
+  if (!asset) return row;
+  const { data } = await supabaseAdmin
+    .from("music_tracks")
+    .update({
+      asset_id: asset.id,
+      status: "ready",
+      duration_seconds: asset.duration_seconds ?? row["duration_seconds"] ?? null,
+      completed_at: new Date().toISOString(),
+    } as never)
+    .eq("id", row.id)
+    .eq("status", "generating")
+    .select("*")
+    .maybeSingle();
+  return (data ?? row) as TrackRow;
+}
+
+/**
+ * The last step of every track: recorded as ready with its stored file. The
+ * update is checked and tried once more; if it still fails the call throws,
+ * and the next request for the track links the file it already has.
+ */
+async function markReady(trackId: string, values: Record<string, unknown>): Promise<TrackRow> {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const { data, error } = await supabaseAdmin
+      .from("music_tracks")
+      .update({ ...values, status: "ready", completed_at: new Date().toISOString() } as never)
+      .eq("id", trackId)
+      .select("*")
+      .single();
+    if (!error && data) return data as TrackRow;
+  }
+  throw new AppError(
+    "UNKNOWN",
+    "The track was saved, but the library couldn't be updated. Try again in a moment.",
+  );
+}
+
 /** Interrupted generations may still have been billed, so they're settled as uncertain, never retried. */
 async function settleInterrupted(): Promise<void> {
+  const cutoff = new Date(Date.now() - STALE_MS).toISOString();
+  const { data: stale } = await supabaseAdmin
+    .from("music_tracks")
+    .select("*")
+    .eq("status", "generating")
+    .neq("source", "openverse")
+    .lt("created_at", cutoff)
+    .limit(50);
+  // One whose file was stored is finished, not uncertain.
+  for (const row of (stale ?? []) as TrackRow[]) await relinked(row);
   await supabaseAdmin
     .from("music_tracks")
     .update({
@@ -101,7 +162,7 @@ async function settleInterrupted(): Promise<void> {
     } as never)
     .eq("status", "generating")
     .neq("source", "openverse")
-    .lt("created_at", new Date(Date.now() - STALE_MS).toISOString());
+    .lt("created_at", cutoff);
 }
 
 async function loadTrack(id: string): Promise<TrackRow | null> {
@@ -130,6 +191,7 @@ export async function importOpenverseTrack(input: {
         .maybeSingle()
     ).data as TrackRow | null;
   let found = await existing();
+  if (found) found = await relinked(found);
   // An import that was cut off (nothing billable) is cleared so it can be tried again.
   if (found && found["status"] !== "ready" && isStale(found)) {
     await supabaseAdmin.from("music_tracks").delete().eq("id", found.id);
@@ -191,10 +253,11 @@ export async function importOpenverseTrack(input: {
     throw new AppError("UNKNOWN", "The track could not be recorded.");
   }
 
+  let stored: Awaited<ReturnType<typeof storeAudio>>;
   try {
     const file = await downloadAudio(source.audioUrl, source.filetype);
     if (!file.ok) throw new AppError(file.code as never, file.message);
-    const stored = await storeAudio({
+    stored = await storeAudio({
       userId: input.userId,
       projectId: input.projectId,
       trackId,
@@ -210,23 +273,16 @@ export async function importOpenverseTrack(input: {
         source_url: source.landingUrl,
       },
     });
-    const { data: ready } = await supabaseAdmin
-      .from("music_tracks")
-      .update({
-        asset_id: stored.assetId,
-        status: "ready",
-        duration_seconds: stored.durationSeconds ?? source.durationSeconds,
-        completed_at: new Date().toISOString(),
-      } as never)
-      .eq("id", trackId)
-      .select("*")
-      .single();
-    return { track: (ready ?? { id: trackId }) as TrackRow, duplicate: false };
   } catch (error) {
-    // Nothing billable happened: free the claim so the import can be tried again.
+    // Nothing billable happened and nothing was stored: free the claim so it can be tried again.
     await supabaseAdmin.from("music_tracks").delete().eq("id", trackId);
     throw error;
   }
+  const ready = await markReady(trackId, {
+    asset_id: stored.assetId,
+    duration_seconds: stored.durationSeconds ?? source.durationSeconds,
+  });
+  return { track: ready, duplicate: false };
 }
 
 /* ------------------------------------------------------------------ */
@@ -279,7 +335,7 @@ export async function generateMusic(input: {
   await requireActiveMember(input.userId);
   await settleInterrupted();
   const repeat = await existingByKey(input.clientRequestId);
-  if (repeat) return { track: repeat, duplicate: true };
+  if (repeat) return { track: await relinked(repeat), duplicate: true };
   const seconds = Math.max(MUSIC_LENGTH.min, Math.min(MUSIC_LENGTH.max, input.seconds));
 
   const trackId = crypto.randomUUID();
@@ -305,16 +361,11 @@ export async function generateMusic(input: {
   if (insertError) {
     if (insertError.code === "23505") {
       const winner = await existingByKey(input.clientRequestId);
-      if (winner) return { track: winner, duplicate: true };
+      if (winner) return { track: await relinked(winner), duplicate: true };
     }
     throw new AppError("UNKNOWN", "The music could not be recorded.");
   }
 
-  const finish = (values: Record<string, unknown>) =>
-    supabaseAdmin
-      .from("music_tracks")
-      .update(values as never)
-      .eq("id", trackId);
   const settle = (values: Record<string, unknown>) => settleTrack(trackId, values);
   const made = await composeMusic({
     prompt: input.prompt,
@@ -332,8 +383,9 @@ export async function generateMusic(input: {
     });
   }
 
+  let stored: Awaited<ReturnType<typeof storeAudio>>;
   try {
-    const stored = await storeAudio({
+    stored = await storeAudio({
       userId: input.userId,
       projectId: input.projectId,
       trackId,
@@ -347,16 +399,6 @@ export async function generateMusic(input: {
         prompt: input.prompt.slice(0, 500),
       },
     });
-    const { data: ready } = await finish({
-      asset_id: stored.assetId,
-      status: "ready",
-      duration_seconds: stored.durationSeconds ?? seconds,
-      provider_request_id: made.songId,
-      completed_at: new Date().toISOString(),
-    })
-      .select("*")
-      .single();
-    return { track: (ready ?? { id: trackId }) as TrackRow, duplicate: false };
   } catch {
     return settle({
       status: "failed",
@@ -365,6 +407,12 @@ export async function generateMusic(input: {
       completed_at: new Date().toISOString(),
     });
   }
+  const ready = await markReady(trackId, {
+    asset_id: stored.assetId,
+    duration_seconds: stored.durationSeconds ?? seconds,
+    provider_request_id: made.songId,
+  });
+  return { track: ready, duplicate: false };
 }
 
 /** A new track with the vocals removed (one billable stem separation). */
@@ -376,7 +424,7 @@ export async function makeInstrumental(input: {
   await requireActiveMember(input.userId);
   await settleInterrupted();
   const repeat = await existingByKey(input.clientRequestId);
-  if (repeat) return { track: repeat, duplicate: true };
+  if (repeat) return { track: await relinked(repeat), duplicate: true };
   const parent = await loadTrack(input.trackId);
   if (!parent || parent["status"] !== "ready" || !parent["asset_id"])
     throw new AppError("INVALID_PARAMETERS", "That track isn't ready.");
@@ -428,15 +476,10 @@ export async function makeInstrumental(input: {
   if (insertError) {
     if (insertError.code === "23505") {
       const winner = await existingByKey(input.clientRequestId);
-      if (winner) return { track: winner, duplicate: true };
+      if (winner) return { track: await relinked(winner), duplicate: true };
     }
     throw new AppError("UNKNOWN", "The instrumental could not be recorded.");
   }
-  const finish = (values: Record<string, unknown>) =>
-    supabaseAdmin
-      .from("music_tracks")
-      .update(values as never)
-      .eq("id", trackId);
   const settle = (values: Record<string, unknown>) => settleTrack(trackId, values);
 
   const { data: blob, error: downloadError } = await supabaseAdmin.storage
@@ -464,8 +507,9 @@ export async function makeInstrumental(input: {
       completed_at: new Date().toISOString(),
     });
   }
+  let stored: Awaited<ReturnType<typeof storeAudio>>;
   try {
-    const stored = await storeAudio({
+    stored = await storeAudio({
       userId: input.userId,
       projectId,
       trackId,
@@ -475,15 +519,6 @@ export async function makeInstrumental(input: {
       generated: true,
       metadata: { derived_from_track: parent.id, stems: "two_stems_v1", license },
     });
-    const { data: ready } = await finish({
-      asset_id: stored.assetId,
-      status: "ready",
-      duration_seconds: stored.durationSeconds ?? parent["duration_seconds"] ?? null,
-      completed_at: new Date().toISOString(),
-    })
-      .select("*")
-      .single();
-    return { track: (ready ?? { id: trackId }) as TrackRow, duplicate: false };
   } catch {
     return settle({
       status: "failed",
@@ -492,6 +527,11 @@ export async function makeInstrumental(input: {
       completed_at: new Date().toISOString(),
     });
   }
+  const ready = await markReady(trackId, {
+    asset_id: stored.assetId,
+    duration_seconds: stored.durationSeconds ?? parent["duration_seconds"] ?? null,
+  });
+  return { track: ready, duplicate: false };
 }
 
 /* ------------------------------------------------------------------ */

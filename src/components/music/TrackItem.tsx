@@ -6,26 +6,58 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { audioUrlFor, trackInProgress } from "@/hooks/useMusicData";
 import { formatTime } from "@/lib/edit/timeline";
-import { creditLine, MUSIC_LICENSES, type MusicTrackRow } from "@/lib/music/catalog";
+import { creditLine, licenceTerms, MUSIC_LICENSES, type MusicTrackRow } from "@/lib/music/catalog";
 import { cn } from "@/lib/utils";
 
-export function LicenseBadge({ license }: { license: MusicTrackRow["license"] }) {
-  const info = MUSIC_LICENSES[license];
+export function LicenseBadge({ track }: { track: Pick<MusicTrackRow, "license" | "rights"> }) {
+  const info = MUSIC_LICENSES[track.license];
+  const terms = licenceTerms(track);
+  const limited = !!terms && (terms.excluded.length > 0 || !!terms.expiresOn);
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <span
           className={cn(
             "inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[10px] font-medium",
-            info.credit ? "bg-warning/15 text-warning" : "bg-success/15 text-success",
+            terms?.expired
+              ? "bg-destructive/15 text-destructive"
+              : info.credit || limited
+                ? "bg-warning/15 text-warning"
+                : "bg-success/15 text-success",
           )}
         >
-          {info.short}
-          {info.credit ? " · credit" : ""}
+          {terms?.expired ? "Licence expired" : info.short}
+          {info.credit ? " · credit" : limited && !terms?.expired ? " · limits" : ""}
         </span>
       </TooltipTrigger>
-      <TooltipContent className="max-w-xs text-xs">{info.note}</TooltipContent>
+      <TooltipContent className="max-w-xs text-xs">
+        {terms ? `${info.note} ${terms.summary}.` : info.note}
+      </TooltipContent>
     </Tooltip>
+  );
+}
+
+/** A licensed track's recorded terms, with what they don't cover. */
+export function LicenceTerms({ track }: { track: Pick<MusicTrackRow, "license" | "rights"> }) {
+  const terms = licenceTerms(track);
+  if (!terms) return null;
+  return (
+    <div className="mt-1 space-y-0.5 text-[11px]" data-testid="licence-terms">
+      <p className="text-muted-foreground">
+        {terms.summary}
+        {terms.reference ? ` · Ref ${terms.reference}` : ""}
+      </p>
+      {terms.expired ? (
+        <p className="text-destructive">
+          This licence ran out on {terms.expiresOn}. It can't be added to edits or rendered until
+          it's renewed.
+        </p>
+      ) : (
+        terms.excluded.length > 0 && (
+          <p className="text-warning">Not licensed for: {terms.excluded.join(", ")}.</p>
+        )
+      )}
+    </div>
   );
 }
 
@@ -57,6 +89,7 @@ export function TrackItem({
     track.status === "submission_uncertain" ||
     (track.status === "generating" && !busy);
   const credit = creditLine(track);
+  const expired = !!licenceTerms(track)?.expired;
   const meta = [
     track.artist,
     track.duration_seconds ? formatTime(Number(track.duration_seconds), false) : null,
@@ -94,15 +127,16 @@ export function TrackItem({
           </Button>
         )}
         <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-1.5">
-            <span className="truncate font-medium">{track.title}</span>
-            {track.instrumental && (
-              <span className="shrink-0 text-[10px] text-muted-foreground">instrumental</span>
-            )}
+          <p className="truncate font-medium" title={track.title}>
+            {track.title}
           </p>
-          <p className="truncate text-[11px] text-muted-foreground">{meta.join(" · ")}</p>
+          <p className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+            <LicenseBadge track={track} />
+            <span className="truncate">
+              {[track.instrumental ? "instrumental" : null, ...meta].filter(Boolean).join(" · ")}
+            </span>
+          </p>
         </div>
-        <LicenseBadge license={track.license} />
         {onAdd &&
           !busy &&
           !broken &&
@@ -113,6 +147,8 @@ export function TrackItem({
               size="sm"
               variant="outline"
               className="h-7 px-2 text-xs"
+              disabled={expired}
+              title={expired ? "This track's licence has run out" : undefined}
               onClick={() => onAdd(track)}
             >
               <Plus className="mr-0.5 size-3" /> {addLabel}
@@ -121,6 +157,7 @@ export function TrackItem({
         {actions}
       </div>
       {busy && <p className="mt-1 text-[11px] text-muted-foreground">Being made…</p>}
+      <LicenceTerms track={track} />
       {broken && (
         <p className="mt-1 text-[11px] text-destructive">
           {track.error_message ??

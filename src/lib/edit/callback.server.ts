@@ -162,6 +162,9 @@ export async function finishSequenceRender(
             ...(Array.isArray(input["music_credits"]) && input["music_credits"].length
               ? { music_credits: input["music_credits"] }
               : {}),
+            ...(Array.isArray(input["music_licences"]) && input["music_licences"].length
+              ? { music_licences: input["music_licences"] }
+              : {}),
           } as never,
         })
         .select("id")
