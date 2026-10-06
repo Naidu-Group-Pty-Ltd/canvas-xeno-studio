@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { RefreshCw } from "lucide-react";
 import {
   fieldVisible,
@@ -213,40 +214,75 @@ function PresetField({
   onChange: (value: unknown) => void;
   issue?: string | undefined;
 }) {
-  const { data, isLoading, isError } = useQuery({
+  const [term, setTerm] = useState("");
+  const { data, isLoading, isError, hasNextPage, fetchNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ["marketing-presets"],
-    queryFn: () => listMarketingPresets({ data: {} }),
+    queryFn: ({ pageParam }) => listMarketingPresets({ data: pageParam ? { cursor: pageParam } : {} }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
     staleTime: 5 * 60_000,
   });
 
-  const presets = (data?.presets ?? []) as { id: string; name: string; type?: string }[];
+  const firstPage = data?.pages[0];
+  const presets = (data?.pages ?? []).flatMap(
+    (page) => page.presets as { id: string; name: string; type?: string | null; previewUrl?: string | null }[],
+  );
+  const visible = term.trim()
+    ? presets.filter((preset) => `${preset.name} ${preset.type ?? ""}`.toLowerCase().includes(term.trim().toLowerCase()))
+    : presets;
 
   return (
     <div className="space-y-2">
       <FieldLabel field={field} issue={issue} />
       {isLoading && <p className="text-xs text-muted-foreground">Loading presets…</p>}
-      {isError && <p className="text-xs text-primary">Presets are unavailable right now.</p>}
-      {!isLoading && !isError && presets.length === 0 && (
+      {(isError || (firstPage && !firstPage.ok)) && (
+        <p className="text-xs text-primary">
+          {firstPage?.code === "PROVIDER_NOT_CONFIGURED"
+            ? "Presets load once Higgsfield credentials are configured."
+            : "Presets are unavailable right now."}
+        </p>
+      )}
+      {!isLoading && firstPage?.ok && presets.length === 0 && (
         <p className="text-xs text-muted-foreground">No presets returned by the provider.</p>
       )}
-      <div className="grid max-h-56 grid-cols-2 gap-1.5 overflow-y-auto scroll-slim">
-        {presets.map((preset) => (
+      {presets.length > 12 && (
+        <Input value={term} onChange={(event) => setTerm(event.target.value)} placeholder="Search presets" className="h-8 text-xs" />
+      )}
+      <div className="grid max-h-72 grid-cols-2 gap-1.5 overflow-y-auto scroll-slim">
+        {visible.map((preset) => (
           <button
             key={preset.id}
             type="button"
             onClick={() => onChange(preset.id)}
             className={cn(
-              "rounded-md border px-2.5 py-2 text-left text-xs transition-colors",
+              "overflow-hidden rounded-md border text-left text-xs transition-colors",
               value === preset.id
                 ? "border-primary/60 bg-primary/10"
                 : "border-border text-muted-foreground hover:text-foreground",
             )}
           >
-            <span className="block truncate">{preset.name}</span>
-            {preset.type && <span className="block truncate text-[10px] opacity-70">{preset.type}</span>}
+            {preset.previewUrl && (
+              <img
+                src={preset.previewUrl}
+                alt=""
+                loading="lazy"
+                referrerPolicy="no-referrer"
+                className="aspect-[4/3] w-full bg-surface-raised object-cover"
+                onError={(event) => {
+                  event.currentTarget.style.display = "none";
+                }}
+              />
+            )}
+            <span className="block truncate px-2 pt-1.5">{preset.name}</span>
+            <span className="block truncate px-2 pb-1.5 text-[10px] opacity-70">{preset.type ?? "\u00a0"}</span>
           </button>
         ))}
       </div>
+      {hasNextPage && (
+        <Button type="button" variant="outline" size="sm" className="w-full" disabled={isFetchingNextPage} onClick={() => void fetchNextPage()}>
+          {isFetchingNextPage ? "Loading…" : "Load more presets"}
+        </Button>
+      )}
     </div>
   );
 }

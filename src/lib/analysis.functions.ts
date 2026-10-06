@@ -53,8 +53,9 @@ export const analyseAsset = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!profile?.is_active) throw new AppError("NOT_AUTHORIZED", "Your account is not an active team member");
 
-    const { openAIReasoningProvider, reasoningConfigured } = await import("./reasoning/provider.server");
-    if (!reasoningConfigured())
+    const { resolveReasoning } = await import("./reasoning/provider.server");
+    const reasoning = await resolveReasoning("qc");
+    if (!reasoning)
       throw new AppError("UNKNOWN", "Reasoning provider not configured — add the reasoning key to enable analysis.");
 
     const { data: asset } = await supabaseAdmin
@@ -81,14 +82,9 @@ export const analyseAsset = createServerFn({ method: "POST" })
       prompt = generation?.prompt ?? null;
     }
 
-    const { data: settingRow } = await supabaseAdmin
-      .from("app_settings")
-      .select("value")
-      .eq("key", "qc_model")
-      .maybeSingle();
-    const model = typeof settingRow?.value === "string" ? settingRow.value : "gpt-5.6-sol";
+    const model = reasoning.model;
 
-    const result = await openAIReasoningProvider.generateStructured<Omit<AssetAnalysis, "analysed_at" | "model" | "source">>({
+    const result = await reasoning.provider.generateStructured<Omit<AssetAnalysis, "analysed_at" | "model" | "source">>({
       system:
         "You are a senior creative director reviewing a generated image for an internal studio. Be concise, concrete and honest. Never invent technical metadata.",
       input: prompt

@@ -8,6 +8,7 @@ export interface CreatePrefill {
   parameters?: Record<string, unknown>;
   prompt?: string;
   projectId?: string | null;
+  campaignId?: string | null;
   parentGenerationId?: string | null;
   inputs?: { assetId: string; role: string }[];
   /** Set when the hand-off came from a storyboard shot, so the result is filed as a take. */

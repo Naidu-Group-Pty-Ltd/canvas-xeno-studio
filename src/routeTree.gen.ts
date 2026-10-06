@@ -23,6 +23,7 @@ import { Route as ModelLabRouteImport } from './routes/model-lab'
 import { Route as ModelsRouteImport } from './routes/models'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as StoryboardsRouteImport } from './routes/storyboards'
+import { Route as SupercomputerRouteImport } from './routes/supercomputer'
 import { Route as UsageRouteImport } from './routes/usage'
 import { Route as AvatarIndexRouteImport } from './routes/avatar.index'
 import { Route as AvatarCharactersRouteImport } from './routes/avatar.characters'
@@ -109,6 +110,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const StoryboardsRoute = StoryboardsRouteImport.update({
   id: '/storyboards',
   path: '/storyboards',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SupercomputerRoute = SupercomputerRouteImport.update({
+  id: '/supercomputer',
+  path: '/supercomputer',
   getParentRoute: () => rootRouteImport,
 } as any)
 const UsageRoute = UsageRouteImport.update({
@@ -217,6 +223,7 @@ export interface FileRoutesByFullPath {
   '/models': typeof ModelsRoute
   '/settings': typeof SettingsRoute
   '/storyboards': typeof StoryboardsRoute
+  '/supercomputer': typeof SupercomputerRoute
   '/usage': typeof UsageRoute
   '/avatar/characters': typeof AvatarCharactersRoute
   '/avatar/generate': typeof AvatarGenerateRoute
@@ -249,6 +256,7 @@ export interface FileRoutesByTo {
   '/models': typeof ModelsRoute
   '/settings': typeof SettingsRoute
   '/storyboards': typeof StoryboardsRoute
+  '/supercomputer': typeof SupercomputerRoute
   '/usage': typeof UsageRoute
   '/avatar/characters': typeof AvatarCharactersRoute
   '/avatar/generate': typeof AvatarGenerateRoute
@@ -283,6 +291,7 @@ export interface FileRoutesById {
   '/models': typeof ModelsRoute
   '/settings': typeof SettingsRoute
   '/storyboards': typeof StoryboardsRoute
+  '/supercomputer': typeof SupercomputerRoute
   '/usage': typeof UsageRoute
   '/avatar/characters': typeof AvatarCharactersRoute
   '/avatar/generate': typeof AvatarGenerateRoute
@@ -318,6 +327,7 @@ export interface FileRouteTypes {
     | '/models'
     | '/settings'
     | '/storyboards'
+    | '/supercomputer'
     | '/usage'
     | '/avatar/characters'
     | '/avatar/generate'
@@ -350,6 +360,7 @@ export interface FileRouteTypes {
     | '/models'
     | '/settings'
     | '/storyboards'
+    | '/supercomputer'
     | '/usage'
     | '/avatar/characters'
     | '/avatar/generate'
@@ -383,6 +394,7 @@ export interface FileRouteTypes {
     | '/models'
     | '/settings'
     | '/storyboards'
+    | '/supercomputer'
     | '/usage'
     | '/avatar/characters'
     | '/avatar/generate'
@@ -417,6 +429,7 @@ export interface RootRouteChildren {
   ModelsRoute: typeof ModelsRoute
   SettingsRoute: typeof SettingsRoute
   StoryboardsRoute: typeof StoryboardsRoute
+  SupercomputerRoute: typeof SupercomputerRoute
   UsageRoute: typeof UsageRoute
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
   ProjectsIndexRoute: typeof ProjectsIndexRoute
@@ -525,6 +538,13 @@ declare module '@tanstack/react-router' {
       path: '/storyboards'
       fullPath: '/storyboards'
       preLoaderRoute: typeof StoryboardsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/supercomputer': {
+      id: '/supercomputer'
+      path: '/supercomputer'
+      fullPath: '/supercomputer'
+      preLoaderRoute: typeof SupercomputerRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/usage': {
@@ -691,6 +711,7 @@ const rootRouteChildren: RootRouteChildren = {
   ModelsRoute: ModelsRoute,
   SettingsRoute: SettingsRoute,
   StoryboardsRoute: StoryboardsRoute,
+  SupercomputerRoute: SupercomputerRoute,
   UsageRoute: UsageRoute,
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,

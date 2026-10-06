@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { AppError } from "./higgsfield/errors";
 import { PRODUCTION_PLAN_JSON_SCHEMA, type ProductionPlan } from "./production-plan-schema";
+import type { ModelRegistryEntry } from "./model-schema";
 
 async function admin() {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -16,11 +17,12 @@ async function assertActiveMember(userId: string) {
   return data;
 }
 
-async function reasoningModel(key: "director_model" | "qc_model" | "router_model") {
-  const supabaseAdmin = await admin();
-  const { data } = await supabaseAdmin.from("app_settings").select("value").eq("key", key).maybeSingle();
-  const value = data?.value;
-  return typeof value === "string" ? value : "gpt-5.6-sol";
+/** The configured reasoning backend for Director, or a clear "not configured" error. */
+async function directorReasoning() {
+  const { resolveReasoning } = await import("./reasoning/provider.server");
+  const route = await resolveReasoning("director");
+  if (!route) throw new AppError("PROVIDER_NOT_CONFIGURED", "Reasoning provider not configured");
+  return route;
 }
 
 /** Reasoning availability — never returns the key itself. */
@@ -28,12 +30,18 @@ export const getReasoningHealth = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertActiveMember(context.userId);
-    const { reasoningConfigured } = await import("./reasoning/provider.server");
+    const { reasoningStatus } = await import("./reasoning/provider.server");
+    const [director, qc, router] = await Promise.all([
+      reasoningStatus("director"),
+      reasoningStatus("qc"),
+      reasoningStatus("router"),
+    ]);
     return {
-      configured: reasoningConfigured(),
-      directorModel: await reasoningModel("director_model"),
-      qcModel: await reasoningModel("qc_model"),
-      routerModel: await reasoningModel("router_model"),
+      configured: !!director.backend,
+      backend: director.backend,
+      directorModel: director.model,
+      qcModel: qc.model,
+      routerModel: router.model,
     };
   });
 
@@ -65,11 +73,7 @@ export const createDirectorPlan = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertActiveMember(context.userId);
     const supabaseAdmin = await admin();
-    const { openAIReasoningProvider } = await import("./reasoning/provider.server");
-
-    if (!openAIReasoningProvider.isConfigured()) {
-      throw new AppError("PROVIDER_NOT_CONFIGURED", "Reasoning provider not configured");
-    }
+    const reasoning = await directorReasoning();
 
     let sessionId = data.sessionId ?? null;
     if (!sessionId) {
@@ -89,12 +93,12 @@ export const createDirectorPlan = createServerFn({ method: "POST" })
     await supabaseAdmin.from("director_messages").insert({ session_id: sessionId, role: "user", content: data.brief });
 
     const catalogue = await activeModelCatalogue();
-    const result = await openAIReasoningProvider.generateStructured<ProductionPlan>({
+    const result = await reasoning.provider.generateStructured<ProductionPlan>({
       system: DIRECTOR_SYSTEM,
       input: `BRIEF:\n${data.brief}\n\nMODEL CATALOGUE (JSON):\n${JSON.stringify(catalogue)}`,
       schemaName: "production_plan",
       schema: PRODUCTION_PLAN_JSON_SCHEMA,
-      model: await reasoningModel("director_model"),
+      model: reasoning.model,
     });
 
     if (!result.ok || !result.data) {
@@ -141,9 +145,7 @@ export const reviseDirectorPlan = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertActiveMember(context.userId);
     const supabaseAdmin = await admin();
-    const { openAIReasoningProvider } = await import("./reasoning/provider.server");
-    if (!openAIReasoningProvider.isConfigured())
-      throw new AppError("PROVIDER_NOT_CONFIGURED", "Reasoning provider not configured");
+    const reasoning = await directorReasoning();
 
     const { data: existing } = await supabaseAdmin
       .from("production_plans")
@@ -153,12 +155,12 @@ export const reviseDirectorPlan = createServerFn({ method: "POST" })
     if (!existing) throw new AppError("INVALID_PARAMETERS", "Plan not found");
 
     const catalogue = await activeModelCatalogue();
-    const result = await openAIReasoningProvider.generateStructured<ProductionPlan>({
+    const result = await reasoning.provider.generateStructured<ProductionPlan>({
       system: DIRECTOR_SYSTEM,
       input: `EXISTING PLAN (JSON):\n${JSON.stringify(existing.plan)}\n\nREVISION REQUEST:\n${data.instruction}\n\nMODEL CATALOGUE (JSON):\n${JSON.stringify(catalogue)}\n\nReturn the full revised plan, changing only what the request implies.`,
       schemaName: "production_plan",
       schema: PRODUCTION_PLAN_JSON_SCHEMA,
-      model: await reasoningModel("director_model"),
+      model: reasoning.model,
     });
     if (!result.ok || !result.data)
       throw new AppError("PROVIDER_REJECTED", result.errorMessage ?? "Director could not revise the plan");
@@ -271,24 +273,28 @@ export const estimateProductionPlan = createServerFn({ method: "POST" })
     if (!higgsfieldProvider.isConfigured()) throw new AppError("PROVIDER_NOT_CONFIGURED");
     const plan = row.plan as unknown as ProductionPlan;
 
-    const { data: models } = await supabaseAdmin.from("model_registry").select("id,model_path").eq("is_active", true);
-    const pathById = new Map((models ?? []).map((m) => [m.id as string, m.model_path as string]));
+    const { data: models } = await supabaseAdmin.from("model_registry").select("*").eq("is_active", true);
+    const { defaultsForModel } = await import("./model-schema");
+    const modelById = new Map(
+      ((models ?? []) as unknown as ModelRegistryEntry[]).map((model) => [model.id, model]),
+    );
 
     let total = 0;
     let unknown = 0;
     const perShot: { shot: string; cost: number | null }[] = [];
     for (const scene of plan.scenes ?? []) {
       for (const shot of scene.shots ?? []) {
-        const modelPath = shot.recommended_model_id ? pathById.get(shot.recommended_model_id) : undefined;
-        if (!modelPath) {
+        const model = shot.recommended_model_id ? modelById.get(shot.recommended_model_id) : undefined;
+        if (!model) {
           unknown += 1;
           perShot.push({ shot: `${scene.scene_number}.${shot.shot_number}`, cost: null });
           continue;
         }
-        const call = await higgsfieldProvider.estimate(modelPath, {
-          prompt: shot.prompt,
-          duration: shot.duration,
-        });
+        // Estimate with the model's own defaults so the quote matches what Create would send.
+        const fields = model.parameter_schema?.fields ?? [];
+        const params: Record<string, unknown> = { ...defaultsForModel(model), prompt: shot.prompt };
+        if (shot.duration && fields.some((field) => field.key === "duration")) params["duration"] = shot.duration;
+        const call = await higgsfieldProvider.estimate(model.model_path, params);
         const cost = call.ok ? extractCost(call.data) : null;
         if (cost === null) unknown += 1;
         else total += cost;

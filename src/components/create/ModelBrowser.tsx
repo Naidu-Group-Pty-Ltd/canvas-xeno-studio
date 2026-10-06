@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { Check, Search } from "lucide-react";
-import type { ModelRegistryEntry } from "@/lib/model-schema";
+import { Check, Paperclip, Search } from "lucide-react";
+import type { InputMediaType, ModelRegistryEntry } from "@/lib/model-schema";
+import { inputCapabilityLabels, modelFitsReferences, slotsFor } from "@/lib/references";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,12 @@ export const OPERATION_LABELS: Record<string, string> = {
   "reference-to-video": "Reference to video",
   "video-to-video": "Video to video",
   "video-extend": "Video extend",
+  "video-edit": "Video edit",
+  "image-edit": "Image edit",
+  "motion-transfer": "Motion transfer",
+  "object-swap": "Object swap",
+  "motion-control": "Motion control",
+  "cinematic-video": "Cinematic video",
 };
 
 interface Props {
@@ -23,11 +30,15 @@ interface Props {
   mediaType: "image" | "video";
   selectedId?: string;
   onSelect: (model: ModelRegistryEntry) => void;
+  /** Media types currently attached in Create, to highlight models that can use them. */
+  referenceTypes?: InputMediaType[];
 }
 
-export function ModelBrowser({ open, onOpenChange, models, mediaType, selectedId, onSelect }: Props) {
+export function ModelBrowser({ open, onOpenChange, models, mediaType, selectedId, onSelect, referenceTypes = [] }: Props) {
   const [term, setTerm] = useState("");
   const [operation, setOperation] = useState<string | null>(null);
+  const [withReferences, setWithReferences] = useState(false);
+  const typesKey = referenceTypes.join(",");
 
   const operations = useMemo(
     () => Array.from(new Set(models.filter((m) => m.output_type === mediaType).map((m) => m.operation))),
@@ -38,6 +49,9 @@ export function ModelBrowser({ open, onOpenChange, models, mediaType, selectedId
     const filtered = models.filter((model) => {
       if (model.output_type !== mediaType) return false;
       if (operation && model.operation !== operation) return false;
+      if (withReferences) {
+        if (referenceTypes.length ? !modelFitsReferences(model, referenceTypes) : !slotsFor(model).length) return false;
+      }
       if (!term.trim()) return true;
       const haystack = `${model.display_name} ${model.family} ${model.recommended_for ?? ""} ${model.model_path}`;
       return haystack.toLowerCase().includes(term.trim().toLowerCase());
@@ -47,7 +61,8 @@ export function ModelBrowser({ open, onOpenChange, models, mediaType, selectedId
       grouped.set(model.family, [...(grouped.get(model.family) ?? []), model]);
     }
     return [...grouped.entries()];
-  }, [models, mediaType, operation, term]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [models, mediaType, operation, term, withReferences, typesKey]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -75,6 +90,10 @@ export function ModelBrowser({ open, onOpenChange, models, mediaType, selectedId
                 {OPERATION_LABELS[op] ?? op}
               </FilterChip>
             ))}
+            <FilterChip active={withReferences} onClick={() => setWithReferences((value) => !value)}>
+              <Paperclip className="mr-1 inline size-3" />
+              {referenceTypes.length ? "Fits my references" : "Takes references"}
+            </FilterChip>
           </div>
         </div>
         <div className="max-h-[52vh] space-y-6 overflow-y-auto px-6 pb-6 scroll-slim">
@@ -106,6 +125,14 @@ export function ModelBrowser({ open, onOpenChange, models, mediaType, selectedId
                       {model.recommended_for ?? model.description}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-1">
+                      {referenceTypes.length > 0 && modelFitsReferences(model, referenceTypes) && (
+                        <Badge className="text-[10px]">Uses your references</Badge>
+                      )}
+                      {inputCapabilityLabels(model).map((label) => (
+                        <Badge key={label} variant="secondary" className="text-[10px]">
+                          {label}
+                        </Badge>
+                      ))}
                       <Badge variant="outline" className="text-[10px]">
                         {model.provider}
                       </Badge>
