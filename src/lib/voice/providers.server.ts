@@ -84,18 +84,6 @@ function openAIFailure(status: number, body: string): ProviderFailure {
   };
 }
 
-/**
- * gpt-4o-mini-tts ignores the `speed` parameter, so the pace is directed in
- * words alongside the voice's delivery instructions.
- */
-export function paceInstruction(speed: number): string {
-  if (speed >= 1.2) return "Pace: brisk and fast, without rushing the words.";
-  if (speed >= 1.07) return "Pace: a little quicker than a relaxed read.";
-  if (speed <= 0.8) return "Pace: slow and deliberate, with room between phrases.";
-  if (speed <= 0.93) return "Pace: a little slower than a normal read.";
-  return "";
-}
-
 export async function openAISpeech(input: {
   text: string;
   voice: string;
@@ -111,9 +99,8 @@ export async function openAISpeech(input: {
       message: "OpenAI is not configured.",
       uncertain: false,
     };
-  const instructions = [input.instructions.trim(), paceInstruction(input.speed)]
-    .filter(Boolean)
-    .join("\n");
+  const instructions = input.instructions.trim();
+  const speed = Math.min(4, Math.max(0.25, input.speed));
   let response: Response;
   try {
     response = await timed(
@@ -127,6 +114,7 @@ export async function openAISpeech(input: {
           input: input.text,
           response_format: "mp3",
           ...(instructions ? { instructions } : {}),
+          ...(speed !== 1 ? { speed } : {}),
         }),
       },
       SPEECH_TIMEOUT_MS,

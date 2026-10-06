@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Check, Loader2, Mic, Play, Plus, Sparkles } from "lucide-react";
@@ -118,6 +118,7 @@ export function VoiceoverPanel({
   const [withCaptions, setWithCaptions] = useState(true);
   const [busy, setBusy] = useState<"write" | "speak" | null>(null);
   const [creating, setCreating] = useState(false);
+  const attempt = useRef<{ key: string; id: string } | null>(null);
   const missingTables = isMissingTableError(voicesError);
 
   // Start from the saved draft, else the latest take's script, else the edit's planned script.
@@ -219,19 +220,31 @@ export function VoiceoverPanel({
 
   async function speak() {
     setBusy("speak");
+    // One logical attempt keeps its request id until it has a known outcome, so
+    // a retry after a lost response returns that take instead of paying again.
+    const key = `${voiceId ?? `inherit:${inherited?.id ?? ""}`}|${script.trim()}`;
+    if (attempt.current?.key !== key) attempt.current = { key, id: crypto.randomUUID() };
     try {
       const result = await generateVoiceover({
         data: {
           script: script.trim(),
           voiceId,
           sequenceId: context.sequenceId,
-          clientRequestId: crypto.randomUUID(),
+          clientRequestId: attempt.current.id,
         },
       });
-      if (result.status !== "completed" || !result.assetId) {
-        toast.message("This voiceover is still being made");
+      if (result.status === "failed" || result.status === "submission_uncertain") {
+        attempt.current = null;
+        toast.error(result.errorMessage ?? "The voiceover could not be made");
         return;
       }
+      if (result.status !== "completed" || !result.assetId) {
+        toast.message("This voiceover is still being made", {
+          description: "It appears under Takes when it's ready.",
+        });
+        return;
+      }
+      attempt.current = null;
       place({
         assetId: result.assetId,
         durationSeconds: result.durationSeconds,
@@ -242,6 +255,8 @@ export function VoiceoverPanel({
         `Voiceover added${result.durationSeconds ? ` · ${formatTime(result.durationSeconds)}` : ""}`,
       );
     } catch (error) {
+      // The request may still have been recorded (or finished): the same id
+      // is kept, so trying again returns that take rather than a new one.
       toast.error(error instanceof Error ? error.message : "The voiceover could not be made");
     } finally {
       setBusy(null);
