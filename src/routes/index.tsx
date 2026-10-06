@@ -17,6 +17,7 @@ import { assignRoles, pickModelForReferences, usableReferences } from "@/lib/ref
 import { conversionHint } from "@/lib/storage";
 import { setSupercomputerHandoff } from "@/lib/supercomputer/handoff";
 import { AssetCard } from "@/components/studio/AssetCard";
+import { SaveStatus } from "@/components/studio/SaveStatus";
 import { AssetDetailDialog } from "@/components/studio/AssetDetailDialog";
 import { StatusBadge } from "@/components/studio/StatusBadge";
 import { useAssets, useGenerations, useModels, useProjects, useSettings, type AssetRow } from "@/hooks/useStudioData";
@@ -851,7 +852,12 @@ function RecentOutputs({
   const { data: assets = [], isLoading } = useAssets({ limit: 12, projectId, sourceType: "generated" });
   const { data: generations = [] } = useGenerations({ limit: 6, projectId });
 
-  const running = generations.filter((generation) => generation.status !== "completed");
+  // Completed generations stay listed until their output is saved (or the save needs a retry).
+  const running = generations.filter(
+    (generation) =>
+      generation.status !== "completed" ||
+      ["pending", "processing", "failed"].includes(generation.ingest_status),
+  );
 
   return (
     <section className="panel space-y-4 p-5">
@@ -873,9 +879,7 @@ function RecentOutputs({
               <span className="min-w-0 flex-1 truncate text-muted-foreground">
                 {generation.prompt ?? generation.model_path}
               </span>
-              {generation.status === "completed" && generation.ingest_status !== "completed" && (
-                <span className="text-muted-foreground">Saving to library…</span>
-              )}
+              <SaveStatus generation={generation} />
             </div>
           ))}
         </div>

@@ -12,13 +12,16 @@ export const Route = createFileRoute("/api/public/higgsfield-reconcile")({
         const unauthorized = await authenticateCronRequest(request);
         if (unauthorized) return unauthorized;
 
-        const { dispatchQueue, reconcileStaleGenerations, ingestPending } = await import(
-          "@/lib/generation-pipeline.server"
-        );
+        const { dispatchQueue, reconcileStaleGenerations, ingestPending, runWhileConnected } =
+          await import("@/lib/generation-pipeline.server");
 
         const dispatched = await dispatchQueue();
         const polled = await reconcileStaleGenerations();
-        const ingested = await ingestPending();
+        // Saving runs while the scheduler waits for this call (up to two
+        // minutes), so large outputs aren't held to the ~30 s Cloudflare allows
+        // after a response. A save that outlasts the scheduler still gets that
+        // time to finish instead of being cancelled with the request.
+        const ingested = await runWhileConnected(request, () => ingestPending());
 
         return new Response(JSON.stringify({ dispatched, polled, ingested }), {
           status: 200,

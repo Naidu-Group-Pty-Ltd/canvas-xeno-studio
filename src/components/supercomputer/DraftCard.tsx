@@ -25,6 +25,7 @@ import { setCreatePrefill } from "@/lib/create-draft";
 import type { SupercomputerDraft } from "@/lib/supercomputer/types";
 import { ParameterFields } from "@/components/create/ParameterFields";
 import { MediaPreview } from "@/components/studio/MediaPreview";
+import { SaveStatus } from "@/components/studio/SaveStatus";
 import { StatusBadge } from "@/components/studio/StatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -260,9 +261,7 @@ export function DraftCard({
               <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                 <span>Take {runIndex + 1}</span>
                 <StatusBadge status={generation.status} />
-                {generation.status === "completed" && generation.ingest_status !== "completed" && (
-                  <span>Saving to library…</span>
-                )}
+                <SaveStatus generation={generation} />
                 {generation.error_message && generation.status !== "completed" && (
                   <span className="truncate text-primary">{generation.error_message}</span>
                 )}
