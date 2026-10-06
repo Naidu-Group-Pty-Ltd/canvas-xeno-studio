@@ -8,6 +8,7 @@ import { AppShell, useProviderHealth } from "@/components/layout/AppShell";
 import { useAuth } from "@/hooks/useAuth";
 import { useModels, useSettings, useTeam } from "@/hooks/useStudioData";
 import { getMediaWorkerStatus } from "@/lib/media.functions";
+import { useSupercomputerStatus } from "@/hooks/useSupercomputerData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -112,6 +113,13 @@ function SettingsPage() {
               </div>
             )}
           </div>
+        </Section>
+
+        <Section
+          title="AI (Supercomputer, Director, analysis)"
+          description="Reasoning models for brainstorming, brief analysis, prompt help and planning. Keys live only in backend secrets."
+        >
+          <AiSettings isAdmin={isAdmin} settings={draft} />
         </Section>
 
         <Section
@@ -245,6 +253,125 @@ function SettingsPage() {
         </Section>
       </div>
     </AppShell>
+  );
+}
+
+/**
+ * Which reasoning backend is live, and the admin choices behind it. Values are
+ * upserted so the controls also work before every setting row exists.
+ */
+function AiSettings({ isAdmin, settings }: { isAdmin: boolean; settings: Record<string, unknown> }) {
+  const queryClient = useQueryClient();
+  const { data: status, isLoading, isError, refetch } = useSupercomputerStatus();
+
+  async function save(key: string, value: unknown) {
+    const { error } = await supabase.from("app_settings").upsert({ key, value: value as never });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    await queryClient.invalidateQueries({ queryKey: ["app_settings"] });
+    await queryClient.invalidateQueries({ queryKey: ["supercomputer-status"] });
+    await queryClient.invalidateQueries({ queryKey: ["reasoning-health"] });
+    toast.success("Setting saved");
+  }
+
+  if (isLoading) return <p className="text-xs text-muted-foreground">Checking AI configuration…</p>;
+  if (isError)
+    return (
+      <p className="text-xs text-warning">
+        Could not load the AI status.{" "}
+        <button type="button" className="underline" onClick={() => void refetch()}>
+          Try again
+        </button>
+      </p>
+    );
+
+  const backendLabel = status?.backend === "openai" ? "OpenAI" : status?.backend === "lovable" ? "Lovable AI" : null;
+  return (
+    <div className="space-y-4 text-sm">
+      <div className="flex flex-wrap items-center gap-3">
+        <Badge variant={backendLabel ? "default" : "outline"} className="gap-1.5">
+          {backendLabel ? <CheckCircle2 className="size-3" /> : <AlertTriangle className="size-3" />}
+          {backendLabel ? `Using ${backendLabel} · ${status?.model}` : status?.enabled === false ? "Switched off" : "Not configured"}
+        </Badge>
+        <span className="text-xs text-muted-foreground">
+          OpenAI key {status?.backends.openai ? "configured" : "not set"} · Lovable AI {status?.backends.lovable ? "available" : "not available"}
+        </span>
+      </div>
+      {status && !status.tablesReady && (
+        <p className="text-xs text-warning">
+          Supercomputer and brief import need migration 0002_supercomputer_and_creative_briefs to be applied.
+        </p>
+      )}
+      <p className="text-xs text-muted-foreground">
+        Add an <code>OPENAI_API_KEY</code> backend secret to bill AI to your OpenAI account. Without it, the project's
+        built-in Lovable AI is used and draws on Lovable workspace credits. Planning never spends Higgsfield credits.
+      </p>
+      {isAdmin && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label className="text-xs">Provider</Label>
+            <Select value={String(settings["reasoning_provider"] ?? "auto")} onValueChange={(value) => void save("reasoning_provider", value)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">Automatic (OpenAI if its key is set)</SelectItem>
+                <SelectItem value="openai">OpenAI</SelectItem>
+                <SelectItem value="lovable">Lovable AI</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+            <Label htmlFor="reasoning-enabled" className="text-xs">
+              AI features enabled
+            </Label>
+            <Switch
+              id="reasoning-enabled"
+              checked={settings["reasoning_enabled"] !== false}
+              onCheckedChange={(checked) => void save("reasoning_enabled", checked)}
+            />
+          </div>
+          <TextSetting
+            label="OpenAI model · Supercomputer"
+            value={String(settings["supercomputer_model"] ?? "gpt-5.6-sol")}
+            onSave={(value) => void save("supercomputer_model", value)}
+          />
+          <TextSetting
+            label="OpenAI model · Director"
+            value={String(settings["director_model"] ?? "gpt-5.6-sol")}
+            onSave={(value) => void save("director_model", value)}
+          />
+          <TextSetting
+            label="OpenAI model · image analysis"
+            value={String(settings["qc_model"] ?? "gpt-5.6-sol")}
+            onSave={(value) => void save("qc_model", value)}
+          />
+          <TextSetting
+            label="Lovable AI model"
+            value={String(settings["lovable_ai_model"] ?? "google/gemini-3-flash-preview")}
+            onSave={(value) => void save("lovable_ai_model", value)}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TextSetting({ label, value, onSave }: { label: string; value: string; onSave: (value: string) => void }) {
+  const [local, setLocal] = useState(value);
+  useEffect(() => setLocal(value), [value]);
+  return (
+    <div className="space-y-2">
+      <Label className="text-xs">{label}</Label>
+      <div className="flex gap-2">
+        <Input value={local} onChange={(event) => setLocal(event.target.value)} />
+        <Button variant="outline" disabled={!local.trim() || local.trim() === value} onClick={() => onSave(local.trim())}>
+          Save
+        </Button>
+      </div>
+    </div>
   );
 }
 

@@ -34,7 +34,9 @@ no user session.
 | POST   | `/tasks` | Submit a signed task; returns `202` immediately           |
 
 Results are reported to the `callback.url` supplied in the task, signed with the
-same scheme. The app's callback is idempotent, so the worker only repeats on
+same scheme. Callback hosts have their own allow list, `CALLBACK_HOST_SUFFIXES`
+(default `lovable.app,lovableproject.com`); add the app's custom domain there if it
+uses one. The app's callback is idempotent, so the worker only repeats on
 transport faults and `5xx`.
 
 ## Configuration

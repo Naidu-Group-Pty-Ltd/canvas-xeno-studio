@@ -102,12 +102,41 @@ export function fieldVisible(
   return true;
 }
 
+export const TRUE_WORDS = new Set(["true", "yes", "on", "1", "enabled"]);
+export const FALSE_WORDS = new Set(["false", "no", "off", "0", "disabled"]);
+
+/** Maps a boolean onto a two-state text choice such as "on"/"off" or "yes"/"no". */
+export function booleanOption(field: FieldSchema, value: boolean): string | undefined {
+  const words = value ? TRUE_WORDS : FALSE_WORDS;
+  const match = (field.options ?? [])
+    .map(normalizeOption)
+    .find((option) => typeof option.value === "string" && words.has(option.value.toLowerCase()));
+  return match?.value as string | undefined;
+}
+
+/**
+ * Registry defaults overlaid with the row's default_parameters. A stored
+ * default that the field's own choices cannot represent (e.g. `true` for an
+ * "on"/"off" control) is mapped when unambiguous, otherwise the field default
+ * wins, so a freshly selected model always validates.
+ */
 export function defaultsForModel(model: ModelRegistryEntry): Record<string, unknown> {
+  const fields = model.parameter_schema?.fields ?? [];
   const values: Record<string, unknown> = {};
-  for (const field of model.parameter_schema?.fields ?? []) {
+  for (const field of fields) {
     if (field.default !== undefined) values[field.key] = field.default;
   }
-  return { ...values, ...(model.default_parameters ?? {}) };
+  for (const [key, value] of Object.entries(model.default_parameters ?? {})) {
+    const field = fields.find((entry) => entry.key === key);
+    const allowed = (field?.options ?? []).map((option) => normalizeOption(option).value);
+    if (!field || !allowed.length || allowed.includes(value as string | number)) {
+      values[key] = value;
+      continue;
+    }
+    const mapped = typeof value === "boolean" ? booleanOption(field, value) : undefined;
+    if (mapped !== undefined) values[key] = mapped;
+  }
+  return values;
 }
 
 export interface ValidationIssue {
@@ -142,9 +171,10 @@ export function validateParameters(
         issues.push({ key: field.key, message: `${field.label} must be under ${field.maxLength} characters` });
     }
     if (typeof value === "number") {
-      if (field.min !== undefined && value < field.min)
+      // Registry rows can store null bounds; only numeric bounds apply.
+      if (typeof field.min === "number" && value < field.min)
         issues.push({ key: field.key, message: `${field.label} must be at least ${field.min}` });
-      if (field.max !== undefined && value > field.max)
+      if (typeof field.max === "number" && value > field.max)
         issues.push({ key: field.key, message: `${field.label} must be at most ${field.max}` });
     }
     if (field.options?.length) {

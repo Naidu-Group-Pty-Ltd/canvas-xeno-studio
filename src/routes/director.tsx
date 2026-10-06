@@ -128,8 +128,8 @@ function DirectorPage() {
           </h2>
           {health && !health.configured && (
             <p className="rounded-md border border-warning/40 bg-warning/10 p-3 text-xs text-warning">
-              Reasoning provider not configured. Add the OPENAI_API_KEY backend secret to enable Director. Manual
-              creation is unaffected.
+              Reasoning provider not configured. Add an OPENAI_API_KEY backend secret, or enable Lovable AI for
+              this project, to use Director. Manual creation is unaffected.
             </p>
           )}
           <Textarea

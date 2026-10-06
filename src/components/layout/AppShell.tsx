@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   CircleDot,
   Clapperboard,
+  Cpu,
   Images,
   LayoutGrid,
   LogOut,
@@ -50,6 +51,7 @@ import { CommandPalette } from "@/components/layout/CommandPalette";
 import { cn } from "@/lib/utils";
 
 const NAV = [
+  { to: "/supercomputer", label: "Supercomputer", icon: Cpu, flag: "v2_supercomputer" },
   { to: "/director", label: "Director", icon: Wand2, flag: "v2_director" },
   { to: "/", label: "Create", icon: Sparkles, flag: null },
   { to: "/storyboards", label: "Storyboards", icon: Clapperboard, flag: "v2_storyboards" },
@@ -79,11 +81,15 @@ const AVATAR_NAV = [
 
 type NavItem = { to: string; label: string; icon: typeof Sparkles; flag: string | null };
 
+/** Flags that count as enabled until an admin has stored a value for them. */
+const DEFAULT_ON_FLAGS = new Set(["v2_supercomputer"]);
+
 /** Sections only appear when their feature flag is enabled; the vertical follows the URL. */
 function useNavItems(): NavItem[] {
   const { data: flags } = useFeatureFlags();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const on = (flag: string | null) => !flag || (flags?.find((f) => f.key === flag)?.enabled ?? false);
+  const on = (flag: string | null) =>
+    !flag || (flags?.find((f) => f.key === flag)?.enabled ?? DEFAULT_ON_FLAGS.has(flag));
   const items: readonly NavItem[] = pathname.startsWith("/avatar") ? AVATAR_NAV : NAV;
   return items.filter((item) => on(item.flag));
 }

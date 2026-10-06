@@ -2092,6 +2092,139 @@ export type Database = {
           },
         ]
       }
+      creative_brief_assets: {
+        Row: {
+          asset_id: string
+          brief_id: string
+          caption: string | null
+          created_at: string
+          id: string
+          page_number: number | null
+          position: number
+          source: string
+        }
+        Insert: {
+          asset_id: string
+          brief_id: string
+          caption?: string | null
+          created_at?: string
+          id?: string
+          page_number?: number | null
+          position?: number
+          source?: string
+        }
+        Update: {
+          asset_id?: string
+          brief_id?: string
+          caption?: string | null
+          created_at?: string
+          id?: string
+          page_number?: number | null
+          position?: number
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creative_brief_assets_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creative_brief_assets_brief_id_fkey"
+            columns: ["brief_id"]
+            isOneToOne: false
+            referencedRelation: "creative_briefs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      creative_briefs: {
+        Row: {
+          analysis: Json
+          campaign_id: string | null
+          created_at: string
+          created_by: string | null
+          error_message: string | null
+          extracted_text: string
+          id: string
+          is_archived: boolean
+          page_count: number | null
+          project_id: string | null
+          source_bucket: string | null
+          source_filename: string | null
+          source_mime: string | null
+          source_path: string | null
+          source_size: number | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          analysis?: Json
+          campaign_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          extracted_text?: string
+          id?: string
+          is_archived?: boolean
+          page_count?: number | null
+          project_id?: string | null
+          source_bucket?: string | null
+          source_filename?: string | null
+          source_mime?: string | null
+          source_path?: string | null
+          source_size?: number | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          analysis?: Json
+          campaign_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          extracted_text?: string
+          id?: string
+          is_archived?: boolean
+          page_count?: number | null
+          project_id?: string | null
+          source_bucket?: string | null
+          source_filename?: string | null
+          source_mime?: string | null
+          source_path?: string | null
+          source_size?: number | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creative_briefs_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creative_briefs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creative_briefs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       director_messages: {
         Row: {
           content: string
@@ -3404,6 +3537,131 @@ export type Database = {
           },
           {
             foreignKeyName: "storyboards_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supercomputer_messages: {
+        Row: {
+          attachments: Json
+          content: string
+          created_at: string
+          created_by: string | null
+          error_message: string | null
+          id: string
+          model: string | null
+          payload: Json
+          role: string
+          status: string
+          thread_id: string
+        }
+        Insert: {
+          attachments?: Json
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          model?: string | null
+          payload?: Json
+          role: string
+          status?: string
+          thread_id: string
+        }
+        Update: {
+          attachments?: Json
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          model?: string | null
+          payload?: Json
+          role?: string
+          status?: string
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supercomputer_messages_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supercomputer_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "supercomputer_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supercomputer_threads: {
+        Row: {
+          brief_id: string | null
+          campaign_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_archived: boolean
+          last_message_at: string
+          project_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          brief_id?: string | null
+          campaign_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_archived?: boolean
+          last_message_at?: string
+          project_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          brief_id?: string | null
+          campaign_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_archived?: boolean
+          last_message_at?: string
+          project_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supercomputer_threads_brief_id_fkey"
+            columns: ["brief_id"]
+            isOneToOne: false
+            referencedRelation: "creative_briefs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supercomputer_threads_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supercomputer_threads_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supercomputer_threads_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"

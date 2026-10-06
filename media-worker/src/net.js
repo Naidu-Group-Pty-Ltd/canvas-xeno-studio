@@ -34,7 +34,7 @@ function isPrivateAddress(address) {
  * must be public. This blocks the worker from being used as a proxy into the
  * network it runs in (SSRF).
  */
-export async function assertAllowedUrl(rawUrl) {
+export async function assertAllowedUrl(rawUrl, suffixes = config.allowedHostSuffixes) {
   let url;
   try {
     url = new URL(String(rawUrl));
@@ -44,7 +44,7 @@ export async function assertAllowedUrl(rawUrl) {
   if (url.protocol !== "https:") throw new TaskError("INVALID_SOURCE", "Only https media URLs are accepted");
 
   const host = url.hostname.toLowerCase();
-  const allowed = config.allowedHostSuffixes.some((suffix) => host === suffix || host.endsWith(`.${suffix}`));
+  const allowed = suffixes.some((suffix) => host === suffix || host.endsWith(`.${suffix}`));
   if (!allowed) throw new TaskError("INVALID_SOURCE", `Host ${host} is not on the media allow list`);
 
   const resolved = isIP(host) ? [{ address: host }] : await lookup(host, { all: true }).catch(() => []);

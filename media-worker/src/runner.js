@@ -35,7 +35,7 @@ export async function validateTask(body) {
     throw new TaskError("INVALID_PARAMETERS", `${body.task_type} produces ${expectedOutputs} file(s) but ${uploads.length} upload slot(s) were supplied`);
   }
   for (const upload of uploads) await assertAllowedUrl(upload?.url);
-  if (body.callback?.url) await assertAllowedUrl(body.callback.url);
+  if (body.callback?.url) await assertAllowedUrl(body.callback.url, config.callbackHostSuffixes);
 
   return { taskId, definition, sources, params, uploads, callback: body.callback ?? null };
 }

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Brain, Download, Film, Heart, Loader2, Repeat, Shuffle, SquareStack, Trash2 } from "lucide-react";
+import { Brain, Cpu, Download, Film, Heart, Loader2, Repeat, Shuffle, SquareStack, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { AssetRow } from "@/hooks/useStudioData";
@@ -19,6 +19,7 @@ import {
   toggleFavorite,
 } from "@/lib/asset-actions";
 import { analyseAsset, type AssetAnalysis } from "@/lib/analysis.functions";
+import { setSupercomputerHandoff } from "@/lib/supercomputer/handoff";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -221,6 +222,33 @@ export function AssetDetailDialog({
                   }}
                 >
                   <SquareStack className="mr-1.5 size-4" /> Use as reference
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setSupercomputerHandoff({
+                      text:
+                        asset.source_type === "generated"
+                          ? "Review this output and suggest how to push it further, with ready-to-run drafts."
+                          : "Brainstorm what we could make from this reference, with ready-to-run drafts.",
+                      intent: asset.source_type === "generated" ? "review" : "brainstorm",
+                      attachments: [
+                        {
+                          assetId: asset.id,
+                          type: asset.asset_type,
+                          title: asset.title,
+                          bucket: asset.storage_bucket,
+                          path: asset.storage_path,
+                        },
+                      ],
+                      projectId: asset.project_id,
+                    });
+                    onOpenChange(false);
+                    navigate({ to: "/supercomputer" });
+                  }}
+                >
+                  <Cpu className="mr-1.5 size-4" /> Ask Supercomputer
                 </Button>
                 {asset.asset_type === "image" && (
                   <Button

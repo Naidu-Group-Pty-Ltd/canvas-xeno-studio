@@ -98,28 +98,36 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
             continue;
           }
 
-          const { data: inserted } = await supabaseAdmin
+          // Rendered files are studio-made media; their origin is kept in metadata.
+          const probe = metadata ?? {};
+          const { data: inserted, error: insertError } = await supabaseAdmin
             .from("assets")
             .insert({
-              user_id: task.created_by,
+              uploaded_by: task.created_by,
               project_id: task.project_id,
-              asset_type: outputKind,
+              asset_type: outputKind as "image" | "video" | "audio",
               storage_bucket: bucket,
               storage_path: path,
               mime_type: typeof output["mime_type"] === "string" ? output["mime_type"] : mimeType,
-              file_size_bytes: typeof output["bytes"] === "number" ? output["bytes"] : null,
-              source_type: "derived",
+              file_size: typeof output["bytes"] === "number" ? output["bytes"] : null,
+              width: typeof probe["width"] === "number" && outputs.length === 1 ? probe["width"] : null,
+              height: typeof probe["height"] === "number" && outputs.length === 1 ? probe["height"] : null,
+              duration_seconds:
+                typeof probe["duration_seconds"] === "number" && outputs.length === 1 ? probe["duration_seconds"] : null,
+              source_type: "generated",
               title: `${task.task_type.replace(/_/g, " ")} ${outputs.length > 1 ? index + 1 : ""}`.trim(),
               metadata: {
+                derived: true,
                 media_task_id: task.id,
                 task_type: task.task_type,
                 derived_from_asset_id: task.source_asset_id,
                 ...(output["timestamp_seconds"] !== undefined ? { timestamp_seconds: output["timestamp_seconds"] } : {}),
                 ...(metadata ? { probe: metadata } : {}),
               } as never,
-            } as never)
+            })
             .select("id")
             .maybeSingle();
+          if (insertError) console.error("media task output not registered", { taskId: task.id, message: insertError.message });
           if (inserted) assetIds.push(inserted.id);
         }
 

@@ -1,14 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ChevronDown, Loader2, Sparkles, Wand2 } from "lucide-react";
+import { AlertTriangle, ChevronDown, Cpu, Loader2, Paperclip, Sparkles, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell, useProviderHealth } from "@/components/layout/AppShell";
 import { ModelBrowser, OPERATION_LABELS } from "@/components/create/ModelBrowser";
 import { ParameterFields } from "@/components/create/ParameterFields";
 import { PromptComposer } from "@/components/create/PromptComposer";
-import { ReferenceRail, type ReferenceItem } from "@/components/create/ReferenceRail";
+import { ReferenceTray } from "@/components/create/ReferenceTray";
+import { MAX_REFERENCES, useReferenceFiles, type ReferenceItem } from "@/components/create/reference-files";
+import { LibraryPicker } from "@/components/studio/LibraryPicker";
+import { BriefImportDialog } from "@/components/briefs/BriefImportDialog";
+import { useBriefs, useSupercomputerStatus } from "@/hooks/useSupercomputerData";
+import { assignRoles, pickModelForReferences, usableReferences } from "@/lib/references";
+import { conversionHint } from "@/lib/storage";
+import { setSupercomputerHandoff } from "@/lib/supercomputer/handoff";
 import { AssetCard } from "@/components/studio/AssetCard";
 import { AssetDetailDialog } from "@/components/studio/AssetDetailDialog";
 import { StatusBadge } from "@/components/studio/StatusBadge";
@@ -83,6 +90,14 @@ function CreatePage() {
   const [cinemaEnabled, setCinemaEnabled] = useState(true);
   const [cinema, setCinema] = useState<CinemaSelection>({});
   const [shotId, setShotId] = useState<string | null>(null);
+  const [briefId, setBriefId] = useState<string | null>(null);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const navigate = useNavigate();
+  const { data: assistantStatus } = useSupercomputerStatus();
+  const briefsReady = assistantStatus?.tablesReady === true;
+  const { data: briefs = [] } = useBriefs(briefsReady);
   const prefillApplied = useRef(false);
   const submitLock = useRef(false);
   const requestIdRef = useRef<string | null>(null);
@@ -93,6 +108,17 @@ function CreatePage() {
     () => (model ? mediaModels.filter((entry) => entry.family === model.family) : []),
     [mediaModels, model],
   );
+  const [pickerBriefMode, setPickerBriefMode] = useState(false);
+  const referenceFiles = useReferenceFiles({
+    model,
+    projectId,
+    items: references,
+    onChange: setReferences,
+    onDocument: (file) => {
+      setImportFile(file);
+      setImportOpen(true);
+    },
+  });
 
   const requireEstimate = settings?.["require_cost_estimate"] === true;
   const highCostThreshold = Number(settings?.["high_cost_warning_usd"] ?? 2);
@@ -100,31 +126,55 @@ function CreatePage() {
   const applyModel = useCallback((next: ModelRegistryEntry, keep?: Record<string, unknown>) => {
     setModelId(next.id);
     setValues({ ...defaultsForModel(next), ...(keep ?? {}) });
+    // References stay attached and are re-mapped onto the new model's inputs.
+    setReferences((current) => assignRoles(current, next));
   }, []);
 
   // Default model from settings, and one-time prefill from Recreate / Animate / Use as reference.
   const applyPrefill = useCallback(
     (prefill: NonNullable<ReturnType<typeof takeCreatePrefill>>) => {
-      const target =
-        models.find((entry) => entry.id === prefill.modelId) ??
-        models.find((entry) => entry.output_type === (prefill.mediaType ?? "image"));
+      const kind = prefill.mediaType ?? "image";
       if (prefill.mediaType) setMediaType(prefill.mediaType);
-      if (target) {
+      setProjectId(prefill.projectId ?? null);
+      if (prefill.campaignId !== undefined) setCampaignId(prefill.campaignId ?? null);
+      setParentGenerationId(prefill.parentGenerationId ?? null);
+      setShotId(prefill.shotId ?? null);
+      setReferences([]);
+
+      const explicit = prefill.modelId ? models.find((entry) => entry.id === prefill.modelId) : undefined;
+      const fallback =
+        models.find((entry) => entry.id === settings?.[kind === "video" ? "default_video_model" : "default_image_model"]) ??
+        models.find((entry) => entry.output_type === kind);
+      const load = (target: ModelRegistryEntry | undefined) => {
+        if (!target) return;
         setModelId(target.id);
         setValues({
           ...defaultsForModel(target),
           ...(prefill.parameters ?? {}),
           ...(prefill.prompt !== undefined ? { prompt: prefill.prompt } : {}),
         });
+      };
+
+      if (!prefill.inputs?.length) {
+        load(explicit ?? fallback);
+      } else {
+        if (explicit) load(explicit);
+        // Without an explicit model, pick one that can actually use the hand-off's media.
+        void loadReferenceItems(prefill.inputs).then((items) => {
+          const target =
+            explicit ??
+            pickModelForReferences(items, models, {
+              outputType: kind,
+              fallback,
+              preferredRole: prefill.inputs?.[0]?.role,
+            });
+          if (!explicit) load(target);
+          setReferences(assignRoles(items, target ?? null));
+        });
       }
-      setProjectId(prefill.projectId ?? null);
-      setParentGenerationId(prefill.parentGenerationId ?? null);
-      setShotId(prefill.shotId ?? null);
-      setReferences([]);
-      if (prefill.inputs?.length) void hydrateReferences(prefill.inputs, setReferences);
       toast.info("Settings loaded. Review them and press Generate when ready.");
     },
-    [models],
+    [models, settings],
   );
 
   useEffect(() => {
@@ -155,18 +205,26 @@ function CreatePage() {
     return () => window.removeEventListener(PREFILL_EVENT, onPrefill);
   }, [applyPrefill]);
 
-  // Keep a valid model when the media type toggles.
+  // Keep a valid model when the media type toggles. The first model is chosen by
+  // the prefill/default effect above; acting before that would overwrite a
+  // hand-off (Recreate, Animate, Open in Create) with the default model.
   useEffect(() => {
-    if (!models.length) return;
-    if (model && model.output_type === mediaType) return;
+    if (!models.length || !model) return;
+    if (model.output_type === mediaType) return;
     const defaultKey = mediaType === "image" ? "default_image_model" : "default_video_model";
     const preferred = models.find((entry) => entry.id === settings?.[defaultKey]) ?? mediaModels[0];
     if (preferred) applyModel(preferred, { prompt: values["prompt"] });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaType, models]);
 
-  const inputRoles = references.map((item) => item.role);
-  const issues = model ? validateParameters(model, values, inputRoles) : [];
+  // Only references mapped onto one of the model's inputs are estimated and submitted.
+  const usable = usableReferences(references);
+  const inputRoles = usable.map((item) => item.role);
+  const conversionIssues = usable.flatMap((item) => {
+    const hint = conversionHint(item.assetType, item.mimeType);
+    return hint ? [{ key: item.role, message: `${item.title ?? "A reference"}: ${hint}` }] : [];
+  });
+  const issues = model ? [...validateParameters(model, values, inputRoles), ...conversionIssues] : [];
   const issueMap = Object.fromEntries(issues.map((issue) => [issue.key, issue.message]));
   const promptField = model?.parameter_schema?.fields?.find((field) => field.key === "prompt");
 
@@ -201,7 +259,7 @@ function CreatePage() {
           data: {
             modelId: model.id,
             parameters: submitValues,
-            inputs: references.map((item, index) => ({ assetId: item.assetId, role: item.role, position: index })),
+            inputs: usable.map((item, index) => ({ assetId: item.assetId, role: item.role, position: index })),
           },
         });
         if (result.ok && result.costUsd !== null) setEstimate({ kind: "ready", costUsd: result.costUsd });
@@ -263,7 +321,7 @@ function CreatePage() {
           data: {
             modelId: model.id,
             parameters: { ...submitValues, ...payloads[index] },
-            inputs: references.map((item, i) => ({ assetId: item.assetId, role: item.role, position: i })),
+            inputs: usable.map((item, i) => ({ assetId: item.assetId, role: item.role, position: i })),
             projectId,
             campaignId,
             parentGenerationId,
@@ -317,6 +375,26 @@ function CreatePage() {
 
   const batchCount = Math.max(expandMatrix(matrix).length, 1);
 
+  /** Hands the current prompt, references and context to Supercomputer (nothing is sent automatically). */
+  function openInSupercomputer() {
+    const prompt = typeof values["prompt"] === "string" ? values["prompt"].trim() : "";
+    setSupercomputerHandoff({
+      text: prompt ? `Help me push this further, with sharper concepts and ready-to-run drafts:\n\n${prompt}` : "",
+      intent: prompt ? "drafts" : "brainstorm",
+      attachments: references.map((item) => ({
+        assetId: item.assetId,
+        type: item.assetType,
+        title: item.title,
+        bucket: item.bucket,
+        path: item.path,
+      })),
+      briefId,
+      projectId,
+      campaignId,
+    });
+    void navigate({ to: "/supercomputer" });
+  }
+
   function handleGenerate() {
     if (!canGenerate) return;
     if (batchCount > 1) setConfirmHighCost(true);
@@ -347,7 +425,17 @@ function CreatePage() {
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
           <section className="space-y-6">
-            <div className="panel p-5">
+            <div
+              className="panel p-5"
+              onDragOver={(event) => {
+                if (event.dataTransfer.types.includes("Files")) event.preventDefault();
+              }}
+              onDrop={(event) => {
+                if (!event.dataTransfer.files?.length) return;
+                event.preventDefault();
+                void referenceFiles.addFiles(Array.from(event.dataTransfer.files));
+              }}
+            >
               <div className="flex flex-wrap items-center gap-3">
                 <div className="inline-flex rounded-lg border border-border p-0.5">
                   {(["image", "video"] as const).map((type) => (
@@ -392,6 +480,22 @@ function CreatePage() {
                   </SelectContent>
                 </Select>
 
+                {briefsReady && briefs.length > 0 && (
+                  <Select value={briefId ?? "none"} onValueChange={(value) => setBriefId(value === "none" ? null : value)}>
+                    <SelectTrigger className="h-9 w-48" aria-label="Brief">
+                      <SelectValue placeholder="No brief" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No brief</SelectItem>
+                      {briefs.map((brief) => (
+                        <SelectItem key={brief.id} value={brief.id}>
+                          {brief.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
                 {parentGenerationId && <Badge variant="outline">Variation</Badge>}
                 {shotId && (
                   <Badge variant="outline" className="gap-2">
@@ -401,6 +505,10 @@ function CreatePage() {
                     </button>
                   </Badge>
                 )}
+
+                <Button variant="outline" size="sm" className="ml-auto h-9" onClick={openInSupercomputer}>
+                  <Cpu className="mr-1.5 size-4 text-primary" /> Brainstorm
+                </Button>
               </div>
 
               <div className="mt-5 space-y-4">
@@ -448,11 +556,32 @@ function CreatePage() {
                 )}
 
                 {model && (
-                  <ReferenceRail
+                  <ReferenceTray
                     model={model}
+                    models={models}
                     projectId={projectId}
                     items={references}
                     onChange={setReferences}
+                    onSwitchModel={(next) => {
+                      setMediaType(next.output_type === "video" ? "video" : "image");
+                      applyModel(next, { prompt: values["prompt"] });
+                    }}
+                    onOpenLibrary={() => {
+                      setPickerBriefMode(false);
+                      setLibraryOpen(true);
+                    }}
+                    onImportBrief={() => {
+                      // With briefs on file, pick from their images; otherwise import one.
+                      if (briefsReady && briefs.length) {
+                        setPickerBriefMode(true);
+                        setLibraryOpen(true);
+                      } else {
+                        setImportFile(null);
+                        setImportOpen(true);
+                      }
+                    }}
+                    addFiles={referenceFiles.addFiles}
+                    uploading={referenceFiles.uploading}
                   />
                 )}
 
@@ -463,6 +592,21 @@ function CreatePage() {
                     {...(promptField.maxLength ? { maxLength: promptField.maxLength } : {})}
                     required={promptField.required ?? false}
                     onSubmitShortcut={handleGenerate}
+                    onPasteFiles={(files) => void referenceFiles.addFiles(files)}
+                    {...(model
+                      ? {
+                          assist: {
+                            modelId: model.id,
+                            referenceAssetIds: references
+                              .filter((item) => item.assetType !== "audio")
+                              .map((item) => item.assetId),
+                            briefId,
+                            unavailableReason: assistantStatus?.backend
+                              ? null
+                              : "Add an AI key in Settings → AI to use the assistant",
+                          },
+                        }
+                      : {})}
                   />
                 )}
               </div>
@@ -479,7 +623,18 @@ function CreatePage() {
               />
             )}
 
-            <RecentOutputs projectId={projectId} onOpenAsset={setSelectedAsset} />
+            <RecentOutputs
+              projectId={projectId}
+              onOpenAsset={setSelectedAsset}
+              onUseAsReference={(asset) => {
+                setReferences((current) =>
+                  current.some((item) => item.assetId === asset.id)
+                    ? current
+                    : assignRoles([...current, assetToReference(asset)], model),
+                );
+                toast.success("Added as a reference.");
+              }}
+            />
           </section>
 
           <aside className="space-y-4">
@@ -566,10 +721,47 @@ function CreatePage() {
         models={models}
         mediaType={mediaType}
         {...(model ? { selectedId: model.id } : {})}
+        referenceTypes={[...new Set(references.map((item) => item.assetType))]}
         onSelect={(next) => {
           setMediaType(next.output_type === "video" ? "video" : "image");
           applyModel(next, { prompt: values["prompt"] });
-          setReferences([]);
+        }}
+      />
+
+      <LibraryPicker
+        open={libraryOpen}
+        onOpenChange={(open) => {
+          setLibraryOpen(open);
+          if (!open) setPickerBriefMode(false);
+        }}
+        briefsEnabled={briefsReady}
+        initialBriefId={pickerBriefMode ? (briefId ?? briefs[0]?.id ?? null) : null}
+        title="Add references"
+        max={Math.max(1, MAX_REFERENCES - references.length)}
+        onConfirm={(assets) =>
+          setReferences((current) =>
+            assignRoles(
+              [
+                ...current,
+                ...assets.filter((asset) => !current.some((item) => item.assetId === asset.id)).map(assetToReference),
+              ],
+              model,
+            ),
+          )
+        }
+      />
+
+      <BriefImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        initialFile={importFile}
+        projectId={projectId}
+        campaignId={campaignId}
+        aiReady={!!assistantStatus?.backend}
+        onImported={(id) => {
+          setBriefId(id);
+          setPickerBriefMode(true);
+          setLibraryOpen(true);
         }}
       />
 
@@ -604,13 +796,23 @@ function CreatePage() {
   );
 }
 
-async function hydrateReferences(
-  inputs: { assetId: string; role: string }[],
-  setReferences: (items: ReferenceItem[]) => void,
-) {
+function assetToReference(asset: AssetRow): ReferenceItem {
+  return {
+    assetId: asset.id,
+    role: "",
+    assetType: asset.asset_type,
+    bucket: asset.storage_bucket,
+    path: asset.storage_path,
+    title: asset.title,
+    mimeType: asset.mime_type,
+  };
+}
+
+/** Loads hand-off inputs (Recreate, Animate, Use as reference) as reference items, in order. */
+async function loadReferenceItems(inputs: { assetId: string; role: string }[]): Promise<ReferenceItem[]> {
   const { data } = await supabase
     .from("assets")
-    .select("id,asset_type,storage_bucket,storage_path,title")
+    .select("id,asset_type,storage_bucket,storage_path,title,mime_type")
     .in(
       "id",
       inputs.map((input) => input.assetId),
@@ -622,21 +824,29 @@ async function hydrateReferences(
     items.push({
       assetId: asset.id,
       role: input.role,
-      assetType: asset.asset_type as "image" | "video" | "audio",
+      assetType: asset.asset_type as ReferenceItem["assetType"],
       bucket: asset.storage_bucket,
       path: asset.storage_path,
       title: asset.title,
+      mimeType: asset.mime_type,
     });
   }
-  setReferences(items);
+  return items;
 }
 
+/**
+ * The model a hand-off should open with when none was named: the default model
+ * if it can use the media, otherwise the best registry match (preferring a slot
+ * with the requested role, e.g. "reference" over "source").
+ */
 function RecentOutputs({
   projectId,
   onOpenAsset,
+  onUseAsReference,
 }: {
   projectId: string | null;
   onOpenAsset: (asset: AssetRow) => void;
+  onUseAsReference: (asset: AssetRow) => void;
 }) {
   const { data: assets = [], isLoading } = useAssets({ limit: 12, projectId, sourceType: "generated" });
   const { data: generations = [] } = useGenerations({ limit: 6, projectId });
@@ -688,7 +898,17 @@ function RecentOutputs({
       {!isLoading && !!assets.length && (
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
           {assets.map((asset) => (
-            <AssetCard key={asset.id} asset={asset} onOpen={onOpenAsset} />
+            <div key={asset.id} className="group/output relative">
+              <AssetCard asset={asset} onOpen={onOpenAsset} />
+              <button
+                type="button"
+                onClick={() => onUseAsReference(asset)}
+                aria-label="Use as reference"
+                className="absolute right-1.5 bottom-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-background/90 px-2 py-0.5 text-[10px] opacity-0 transition-opacity group-hover/output:opacity-100 focus:opacity-100"
+              >
+                <Paperclip className="size-3" /> Reference
+              </button>
+            </div>
           ))}
         </div>
       )}
