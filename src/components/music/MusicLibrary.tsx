@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Archive, ArchiveRestore, Loader2, MoreHorizontal, Search, Wand2 } from "lucide-react";
 import { toast } from "sonner";
@@ -31,32 +31,33 @@ export function MusicLibrary({
 }) {
   const { user, isAdmin } = useAuth();
   const queryClient = useQueryClient();
-  const { data: tracks = [], isLoading } = useMusicTracks({ includeArchived: showArchived });
+  const [search, setSearch] = useState("");
+  const [searched, setSearched] = useState("");
+  const [kind, setKind] = useState<"all" | "music" | "sound_effect">("all");
+  // The search runs in the database (the whole library, not just what's
+  // loaded), once typing pauses.
+  useEffect(() => {
+    const timer = setTimeout(() => setSearched(search), 250);
+    return () => clearTimeout(timer);
+  }, [search]);
+  const {
+    tracks: shown,
+    isLoading,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useMusicTracks({
+    includeArchived: showArchived,
+    search: searched,
+    kind: kind === "all" ? null : kind,
+    // Only finished tracks can go into an edit.
+    readyOnly: !!onAdd,
+  });
+  const filtered = searched.trim().length > 0 || kind !== "all";
   const { data: status } = useMusicStatus();
   const preview = usePreview();
-  const [search, setSearch] = useState("");
-  const [kind, setKind] = useState<"all" | "music" | "sound_effect">("all");
   const [working, setWorking] = useState<string | null>(null);
   const attempts = useRef(new Map<string, string>());
-
-  const shown = useMemo(() => {
-    const words = search.toLowerCase().split(/\s+/).filter(Boolean);
-    return tracks.filter((track) => {
-      if (kind !== "all" && track.kind !== kind) return false;
-      if (onAdd && track.status !== "ready") return false;
-      const haystack = [
-        track.title,
-        track.artist,
-        ...track.genres,
-        ...track.moods,
-        ...track.tags,
-        track.license,
-      ]
-        .join(" ")
-        .toLowerCase();
-      return words.every((word) => haystack.includes(word));
-    });
-  }, [tracks, search, kind, onAdd]);
 
   async function instrumental(track: MusicTrackRow) {
     setWorking(track.id);
@@ -214,12 +215,25 @@ export function MusicLibrary({
         })}
         {!isLoading && shown.length === 0 && (
           <li className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
-            {tracks.length
+            {filtered
               ? "No tracks match."
               : "No music yet. Find free music, make some, or add a licensed track."}
           </li>
         )}
       </ul>
+      {hasNextPage && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 w-full text-xs"
+          disabled={isFetchingNextPage}
+          onClick={() => void fetchNextPage()}
+          data-testid="music-show-more"
+        >
+          {isFetchingNextPage && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
+          Show more
+        </Button>
+      )}
     </div>
   );
 }

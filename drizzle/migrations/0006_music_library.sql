@@ -78,6 +78,41 @@ DROP POLICY IF EXISTS "members read music tracks" ON public.music_tracks;
 CREATE POLICY "members read music tracks" ON public.music_tracks FOR SELECT TO authenticated
   USING (public.is_active_member());
 
+-- The library is searched and paged here, so every track stays reachable
+-- however large it grows. Each word of the query must appear in the title,
+-- artist, licence, genres, moods or tags (any case). It runs as the caller,
+-- so the read policy above still decides what can be seen.
+CREATE OR REPLACE FUNCTION public.search_music_tracks(
+  p_query text DEFAULT '',
+  p_kind text DEFAULT NULL,
+  p_include_archived boolean DEFAULT false,
+  p_ready_only boolean DEFAULT false,
+  p_limit integer DEFAULT 100,
+  p_offset integer DEFAULT 0
+) RETURNS SETOF public.music_tracks
+LANGUAGE sql STABLE SECURITY INVOKER SET search_path = public AS $$
+  SELECT track.*
+    FROM public.music_tracks AS track
+   WHERE (p_include_archived OR NOT track.is_archived)
+     AND (p_kind IS NULL OR track.kind = p_kind)
+     AND (NOT p_ready_only OR track.status = 'ready')
+     AND NOT EXISTS (
+       SELECT 1
+         FROM unnest(regexp_split_to_array(lower(btrim(coalesce(p_query, ''))), '\s+')) AS word
+        WHERE word <> ''
+          AND strpos(
+                lower(concat_ws(' ', track.title, track.artist, track.license,
+                  array_to_string(track.genres, ' '), array_to_string(track.moods, ' '),
+                  array_to_string(track.tags, ' '))),
+                word) = 0
+     )
+   ORDER BY track.created_at DESC, track.id
+   LIMIT least(greatest(coalesce(p_limit, 100), 1), 200)
+  OFFSET greatest(coalesce(p_offset, 0), 0);
+$$;
+REVOKE ALL ON FUNCTION public.search_music_tracks(text, text, boolean, boolean, integer, integer) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.search_music_tracks(text, text, boolean, boolean, integer, integer) TO authenticated, service_role;
+
 DROP TRIGGER IF EXISTS music_tracks_updated ON public.music_tracks;
 CREATE TRIGGER music_tracks_updated BEFORE UPDATE ON public.music_tracks
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();

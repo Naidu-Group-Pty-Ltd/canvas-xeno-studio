@@ -26,6 +26,7 @@ export function AddLicensedTrack({ projectId = null }: { projectId?: string | nu
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
   const [artist, setArtist] = useState("");
+  const [kind, setKind] = useState<"music" | "sound_effect">("music");
   const [license, setLicense] = useState<"licensed" | "owned">("licensed");
   const [licensor, setLicensor] = useState("");
   const [reference, setReference] = useState("");
@@ -61,6 +62,7 @@ export function AddLicensedTrack({ projectId = null }: { projectId?: string | nu
           durationSeconds,
           title: title.trim(),
           artist: artist.trim() || null,
+          kind,
           license,
           confirmed: true,
           projectId,
@@ -134,6 +136,33 @@ export function AddLicensedTrack({ projectId = null }: { projectId?: string | nu
             className="h-8 text-xs"
           />
         </div>
+      </div>
+      {/* A sound effect is placed at the playhead once; music is a bed that loops, fades and ducks. */}
+      <div
+        className="grid grid-cols-2 gap-1 rounded-md border border-border p-0.5"
+        role="radiogroup"
+        aria-label="Kind of audio"
+      >
+        {(
+          [
+            ["music", "Music"],
+            ["sound_effect", "Sound effect"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="radio"
+            aria-checked={kind === id}
+            onClick={() => setKind(id)}
+            className={cn(
+              "rounded px-2 py-1.5",
+              kind === id ? "bg-surface-raised text-foreground" : "text-muted-foreground",
+            )}
+          >
+            {label}
+          </button>
+        ))}
       </div>
       <div
         className="grid grid-cols-2 gap-1 rounded-md border border-border p-0.5"

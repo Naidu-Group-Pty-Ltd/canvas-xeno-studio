@@ -9,6 +9,7 @@
 import {
   audioLoops,
   layoutTimeline,
+  LIMITS,
   maxClipDuration,
   updateClip,
   type Timeline,
@@ -217,8 +218,9 @@ export function beatTimesOnTimeline(item: TimelineAudio, beats: number[], total:
 /**
  * Moves each cut to the nearest beat by lengthening or shortening the clip
  * before it (a transition's midpoint counts as its cut). Clips keep at least
- * `minClip` seconds and never run past their footage. The final frame lands
- * on a beat too, when one is close.
+ * `minClip` seconds and never run past their footage, and the edit never
+ * grows past the render limit. The final frame lands on a beat too, when one
+ * is close.
  */
 export function snapCutsToBeats(
   timeline: Timeline,
@@ -242,7 +244,10 @@ export function snapCutsToBeats(
       .map((time) => ({ time, shift: time - cut }))
       .filter(({ shift }) => Math.abs(shift) <= maxShift)
       .filter(
-        ({ shift }) => clip.duration + shift >= minClip && clip.duration + shift <= ceiling + 1e-6,
+        ({ shift }) =>
+          clip.duration + shift >= minClip &&
+          clip.duration + shift <= ceiling + 1e-6 &&
+          (shift <= 0 || layout.total + shift <= LIMITS.totalSeconds + 1e-6),
       )
       .sort((a, b) => Math.abs(a.shift) - Math.abs(b.shift));
     const best = candidates[0];

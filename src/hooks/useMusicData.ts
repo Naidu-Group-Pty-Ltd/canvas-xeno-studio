@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { getMusicStatus } from "@/lib/music.functions";
@@ -22,24 +22,63 @@ export function trackInProgress(track: Pick<MusicTrackRow, "status" | "created_a
   return track.status === "generating" && Date.now() - Date.parse(track.created_at) < STALE_MS;
 }
 
-export function useMusicTracks(options: { includeArchived?: boolean } = {}) {
+/** Tracks fetched at a time; "Show more" fetches the next page. */
+export const MUSIC_PAGE = 100;
+
+/**
+ * The library, newest first, searched and paged by the database
+ * (search_music_tracks): every track stays reachable however large the
+ * library grows. Each word of `search` must appear in the title, artist,
+ * licence, genres, moods or tags.
+ */
+export function useMusicTracks(
+  options: {
+    includeArchived?: boolean;
+    search?: string;
+    kind?: "music" | "sound_effect" | null;
+    readyOnly?: boolean;
+  } = {},
+) {
   const includeArchived = options.includeArchived ?? false;
-  return useQuery({
-    queryKey: ["music_tracks", includeArchived],
-    queryFn: async () => {
-      let query = supabase
-        .from("music_tracks")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(300);
-      if (!includeArchived) query = query.eq("is_archived", false);
-      const { data, error } = await query;
+  const search = (options.search ?? "").trim().toLowerCase();
+  const kind = options.kind ?? null;
+  const readyOnly = options.readyOnly ?? false;
+  const query = useInfiniteQuery({
+    queryKey: ["music_tracks", includeArchived, search, kind, readyOnly],
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
+      const { data, error } = await supabase.rpc(
+        "search_music_tracks" as never,
+        {
+          p_query: search,
+          p_kind: kind,
+          p_include_archived: includeArchived,
+          p_ready_only: readyOnly,
+          p_limit: MUSIC_PAGE,
+          p_offset: pageParam,
+        } as never,
+      );
       if (error) throw error;
       return (data ?? []) as unknown as MusicTrackRow[];
     },
+    getNextPageParam: (last, pages) =>
+      last.length < MUSIC_PAGE ? undefined : pages.length * MUSIC_PAGE,
+    // While a new search runs, the last results stay on screen.
+    placeholderData: keepPreviousData,
     // New AI music and instrumentals appear when they're ready.
-    refetchInterval: (query) => (query.state.data?.some(trackInProgress) ? 4000 : false),
+    refetchInterval: (current) =>
+      current.state.data?.pages.some((page) => page.some(trackInProgress)) ? 4000 : false,
   });
+  // A track added while paging can shift a later page by one: each is listed once.
+  const tracks = useMemo(() => {
+    const seen = new Set<string>();
+    return (query.data?.pages ?? []).flat().filter((track) => {
+      if (seen.has(track.id)) return false;
+      seen.add(track.id);
+      return true;
+    });
+  }, [query.data]);
+  return { ...query, tracks };
 }
 
 /** Library tracks behind audio files used in an edit (for credits and beats). */
