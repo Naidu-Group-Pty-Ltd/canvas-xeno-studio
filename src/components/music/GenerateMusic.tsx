@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
@@ -64,6 +64,7 @@ export function GenerateMusic({
   const [title, setTitle] = useState("");
   const [custom, setCustom] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const attempt = useRef<{ key: string; id: string } | null>(null);
 
   useEffect(() => setNotes(direction), [direction]);
 
@@ -75,31 +76,46 @@ export function GenerateMusic({
 
   async function generate() {
     setBusy(true);
+    const request = {
+      prompt,
+      title: title.trim() || `${mood} ${genre.toLowerCase()} · ${seconds}s`,
+      seconds,
+      model: model as never,
+      instrumental: !vocals,
+      genres: [genre],
+      moods: [mood],
+      bpm,
+      seed: null,
+      projectId,
+      campaignId,
+    };
+    // One logical attempt keeps its request id until it has a known outcome, so
+    // a retry after a lost response returns that track instead of paying again.
+    const key = JSON.stringify(request);
+    if (attempt.current?.key !== key) attempt.current = { key, id: crypto.randomUUID() };
     try {
       const made = await generateMusicTrack({
-        data: {
-          prompt,
-          title: title.trim() || `${mood} ${genre.toLowerCase()} · ${seconds}s`,
-          seconds,
-          model: model as never,
-          instrumental: !vocals,
-          genres: [genre],
-          moods: [mood],
-          bpm,
-          seed: null,
-          clientRequestId: crypto.randomUUID(),
-          projectId,
-          campaignId,
-        },
+        data: { ...request, clientRequestId: attempt.current.id },
       });
-      await queryClient.invalidateQueries({ queryKey: ["music_tracks"] });
-      toast.success("Music ready in the library");
-      onGenerated?.(made);
+      if (made.status === "ready") {
+        attempt.current = null;
+        toast.success("Music ready in the library");
+        onGenerated?.(made);
+      } else if (made.status === "failed" || made.status === "submission_uncertain") {
+        attempt.current = null;
+        toast.error(made.errorMessage ?? "The music could not be made");
+      } else {
+        toast.message("This music is still being made", {
+          description: "It appears in the library when it's ready.",
+        });
+      }
     } catch (error) {
-      await queryClient.invalidateQueries({ queryKey: ["music_tracks"] });
+      // The request may still have been recorded (or finished): the same id is
+      // kept, so trying again returns that track rather than making another.
       toast.error(error instanceof Error ? error.message : "The music could not be made");
     } finally {
       setBusy(false);
+      await queryClient.invalidateQueries({ queryKey: ["music_tracks"] });
     }
   }
 

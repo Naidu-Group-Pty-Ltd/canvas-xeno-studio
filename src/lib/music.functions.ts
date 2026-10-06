@@ -9,7 +9,9 @@ interface TrackSummary {
   id: string;
   assetId: string | null;
   title: string;
+  /** "ready", "generating" (still being made), or a recorded "failed" / "submission_uncertain". */
   status: string;
+  errorMessage: string | null;
   durationSeconds: number | null;
   duplicate: boolean;
 }
@@ -24,6 +26,7 @@ function summary(result: {
     assetId: typeof track["asset_id"] === "string" ? track["asset_id"] : null,
     title: String(track["title"] ?? ""),
     status: String(track["status"] ?? ""),
+    errorMessage: typeof track["error_message"] === "string" ? track["error_message"] : null,
     durationSeconds: track["duration_seconds"] == null ? null : Number(track["duration_seconds"]),
     duplicate: result.duplicate,
   };

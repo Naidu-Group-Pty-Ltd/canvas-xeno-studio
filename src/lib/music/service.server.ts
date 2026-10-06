@@ -242,6 +242,25 @@ async function existingByKey(key: string): Promise<TrackRow | null> {
   return (data ?? null) as TrackRow | null;
 }
 
+/**
+ * Records how a track ended and returns it. Outcomes (failed, uncertain) are
+ * returned, not thrown: a thrown error then always means the caller didn't
+ * hear the answer, so it may ask again with the same request id and get this
+ * track back instead of paying for another.
+ */
+async function settleTrack(
+  trackId: string,
+  values: Record<string, unknown>,
+): Promise<{ track: TrackRow; duplicate: boolean }> {
+  const { data } = await supabaseAdmin
+    .from("music_tracks")
+    .update(values as never)
+    .eq("id", trackId)
+    .select("*")
+    .maybeSingle();
+  return { track: (data ?? { id: trackId, ...values }) as TrackRow, duplicate: false };
+}
+
 export async function generateMusic(input: {
   userId: string;
   prompt: string;
@@ -296,6 +315,7 @@ export async function generateMusic(input: {
       .from("music_tracks")
       .update(values as never)
       .eq("id", trackId);
+  const settle = (values: Record<string, unknown>) => settleTrack(trackId, values);
   const made = await composeMusic({
     prompt: input.prompt,
     seconds,
@@ -304,16 +324,12 @@ export async function generateMusic(input: {
     seed: input.seed,
   });
   if (!made.ok) {
-    await finish({
+    return settle({
       status: made.uncertain ? "submission_uncertain" : "failed",
       error_code: made.code,
       error_message: made.message,
       completed_at: new Date().toISOString(),
     });
-    throw new AppError(
-      made.uncertain ? "SUBMISSION_UNCERTAIN" : (made.code as never),
-      made.message,
-    );
   }
 
   try {
@@ -341,14 +357,13 @@ export async function generateMusic(input: {
       .select("*")
       .single();
     return { track: (ready ?? { id: trackId }) as TrackRow, duplicate: false };
-  } catch (error) {
-    await finish({
+  } catch {
+    return settle({
       status: "failed",
       error_code: "STORAGE_FAILED",
-      error_message: "The music was made but could not be saved to the library.",
+      error_message: "The music was made but could not be saved to the library. Try again.",
       completed_at: new Date().toISOString(),
     });
-    throw error;
   }
 }
 
@@ -422,18 +437,18 @@ export async function makeInstrumental(input: {
       .from("music_tracks")
       .update(values as never)
       .eq("id", trackId);
+  const settle = (values: Record<string, unknown>) => settleTrack(trackId, values);
 
   const { data: blob, error: downloadError } = await supabaseAdmin.storage
     .from(asset.storage_bucket)
     .download(asset.storage_path);
   if (downloadError || !blob) {
-    await finish({
+    return settle({
       status: "failed",
       error_code: "STORAGE_FAILED",
-      error_message: "The original track couldn't be read.",
+      error_message: "The original track couldn't be read. Try again.",
       completed_at: new Date().toISOString(),
     });
-    throw new AppError("STORAGE_FAILED", "The original track couldn't be read.");
   }
   const mime = asset.mime_type ?? "audio/mpeg";
   const split = await separateInstrumental({
@@ -442,16 +457,12 @@ export async function makeInstrumental(input: {
     filename: `track.${audioExtension(mime)}`,
   });
   if (!split.ok) {
-    await finish({
+    return settle({
       status: split.uncertain ? "submission_uncertain" : "failed",
       error_code: split.code,
       error_message: split.message,
       completed_at: new Date().toISOString(),
     });
-    throw new AppError(
-      split.uncertain ? "SUBMISSION_UNCERTAIN" : (split.code as never),
-      split.message,
-    );
   }
   try {
     const stored = await storeAudio({
@@ -473,14 +484,13 @@ export async function makeInstrumental(input: {
       .select("*")
       .single();
     return { track: (ready ?? { id: trackId }) as TrackRow, duplicate: false };
-  } catch (error) {
-    await finish({
+  } catch {
+    return settle({
       status: "failed",
       error_code: "STORAGE_FAILED",
-      error_message: "The instrumental was made but could not be saved to the library.",
+      error_message: "The instrumental was made but could not be saved to the library. Try again.",
       completed_at: new Date().toISOString(),
     });
-    throw error;
   }
 }
 

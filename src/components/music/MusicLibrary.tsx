@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Archive, ArchiveRestore, Loader2, MoreHorizontal, Search, Wand2 } from "lucide-react";
 import { toast } from "sonner";
@@ -36,6 +36,7 @@ export function MusicLibrary({
   const [search, setSearch] = useState("");
   const [kind, setKind] = useState<"all" | "music" | "sound_effect">("all");
   const [working, setWorking] = useState<string | null>(null);
+  const attempts = useRef(new Map<string, string>());
 
   const shown = useMemo(() => {
     const words = search.toLowerCase().split(/\s+/).filter(Boolean);
@@ -58,12 +59,27 @@ export function MusicLibrary({
 
   async function instrumental(track: MusicTrackRow) {
     setWorking(track.id);
+    // Each track's request keeps its id until it has a known outcome, so a retry
+    // after a lost response returns that instrumental instead of paying again.
+    const id = attempts.current.get(track.id) ?? crypto.randomUUID();
+    attempts.current.set(track.id, id);
     try {
-      await makeInstrumentalTrack({
-        data: { trackId: track.id, clientRequestId: crypto.randomUUID() },
+      const made = await makeInstrumentalTrack({
+        data: { trackId: track.id, clientRequestId: id },
       });
-      toast.success("Instrumental added to the library");
+      if (made.status === "ready") {
+        attempts.current.delete(track.id);
+        toast.success("Instrumental added to the library");
+      } else if (made.status === "failed" || made.status === "submission_uncertain") {
+        attempts.current.delete(track.id);
+        toast.error(made.errorMessage ?? "The instrumental could not be made");
+      } else {
+        toast.message("This instrumental is still being made", {
+          description: "It appears in the library when it's ready.",
+        });
+      }
     } catch (error) {
+      // The request may still have been recorded (or finished): the same id is kept.
       toast.error(error instanceof Error ? error.message : "The instrumental could not be made");
     } finally {
       setWorking(null);
