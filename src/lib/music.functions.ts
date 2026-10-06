@@ -14,6 +14,12 @@ interface TrackSummary {
   errorMessage: string | null;
   durationSeconds: number | null;
   duplicate: boolean;
+  /**
+   * The request id the track answers to. It differs from the one sent when the
+   * same work was already being made for another request; asking with this id
+   * then follows that work.
+   */
+  requestId: string | null;
 }
 
 function summary(result: {
@@ -29,6 +35,7 @@ function summary(result: {
     errorMessage: typeof track["error_message"] === "string" ? track["error_message"] : null,
     durationSeconds: track["duration_seconds"] == null ? null : Number(track["duration_seconds"]),
     duplicate: result.duplicate,
+    requestId: typeof track["dedupe_key"] === "string" ? track["dedupe_key"] : null,
   };
 }
 

@@ -7,6 +7,7 @@
  * tempos of stock, AI and pop music, which is what reels are cut to.
  */
 import {
+  audioLoops,
   layoutTimeline,
   maxClipDuration,
   updateClip,
@@ -204,7 +205,7 @@ export function beatTimesOnTimeline(item: TimelineAudio, beats: number[], total:
   for (const beat of beats) {
     if (beat >= item.trimStart && (length === null || beat < length)) add(beat - item.trimStart);
   }
-  if (item.loop && length) {
+  if (audioLoops(item) && length) {
     const firstPass = Math.max(0.01, length - item.trimStart);
     for (let pass = firstPass; pass < plays; pass += length) {
       for (const beat of beats) if (beat < length) add(pass + beat);

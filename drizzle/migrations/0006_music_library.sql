@@ -50,6 +50,18 @@ CREATE INDEX IF NOT EXISTS music_tracks_asset_idx ON public.music_tracks (asset_
 -- A track found through Openverse is imported once; importing it again reuses it.
 CREATE UNIQUE INDEX IF NOT EXISTS music_tracks_openverse_once
   ON public.music_tracks (source_id) WHERE source = 'openverse';
+-- Billable work is made once at a time: the same music (prompt, length and
+-- vocals, for the same project), or an instrumental of the same track, asked
+-- for again while it is being made (say after a reload forgot the request)
+-- returns the work in progress rather than paying for it twice.
+CREATE UNIQUE INDEX IF NOT EXISTS music_tracks_one_generation_in_progress ON public.music_tracks (
+  COALESCE(project_id, '00000000-0000-0000-0000-000000000000'::uuid),
+  duration_seconds,
+  instrumental,
+  md5(prompt)
+) WHERE status = 'generating' AND source = 'elevenlabs';
+CREATE UNIQUE INDEX IF NOT EXISTS music_tracks_one_instrumental_in_progress
+  ON public.music_tracks (parent_track_id) WHERE status = 'generating' AND source = 'derived';
 
 GRANT SELECT ON public.music_tracks TO authenticated;
 GRANT ALL ON public.music_tracks TO service_role;

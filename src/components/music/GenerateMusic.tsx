@@ -17,6 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useMusicStatus } from "@/hooks/useMusicData";
 import { generateMusicTrack } from "@/lib/music.functions";
+import { keepAttempt, savedAttempt } from "@/lib/attempts";
 import {
   DEFAULT_MUSIC_MODEL,
   MUSIC_GENRES,
@@ -88,20 +89,32 @@ export function GenerateMusic({
       projectId,
       campaignId,
     };
-    // One logical attempt keeps its request id until it has a known outcome, so
-    // a retry after a lost response returns that track instead of paying again.
+    // One logical attempt keeps its request id until it has a known outcome
+    // (across reloads too), so a retry after a lost response returns that track
+    // instead of paying again.
     const key = JSON.stringify(request);
-    if (attempt.current?.key !== key) attempt.current = { key, id: crypto.randomUUID() };
+    if (attempt.current?.key !== key)
+      attempt.current = { key, id: savedAttempt("music", key) ?? crypto.randomUUID() };
+    keepAttempt("music", key, attempt.current.id);
+    const settled = () => {
+      attempt.current = null;
+      keepAttempt("music", key, null);
+    };
     try {
       const made = await generateMusicTrack({
         data: { ...request, clientRequestId: attempt.current.id },
       });
+      // The same music was already being made for another request: follow it.
+      if (made.requestId && made.requestId !== attempt.current.id) {
+        attempt.current = { key, id: made.requestId };
+        keepAttempt("music", key, made.requestId);
+      }
       if (made.status === "ready") {
-        attempt.current = null;
+        settled();
         toast.success("Music ready in the library");
         onGenerated?.(made);
       } else if (made.status === "failed" || made.status === "submission_uncertain") {
-        attempt.current = null;
+        settled();
         toast.error(made.errorMessage ?? "The music could not be made");
       } else {
         toast.message("This music is still being made", {

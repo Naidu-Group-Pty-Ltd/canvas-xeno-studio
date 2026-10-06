@@ -13,7 +13,8 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
 import { useMusicStatus, useMusicTracks } from "@/hooks/useMusicData";
 import { makeInstrumentalTrack, setMusicArchived } from "@/lib/music.functions";
-import type { MusicTrackRow } from "@/lib/music/catalog";
+import { keepAttempt, savedAttempt } from "@/lib/attempts";
+import { licenceBlocker, type MusicTrackRow } from "@/lib/music/catalog";
 import { cn } from "@/lib/utils";
 import { TrackItem } from "./TrackItem";
 import { usePreview } from "./preview";
@@ -59,19 +60,33 @@ export function MusicLibrary({
 
   async function instrumental(track: MusicTrackRow) {
     setWorking(track.id);
-    // Each track's request keeps its id until it has a known outcome, so a retry
-    // after a lost response returns that instrumental instead of paying again.
-    const id = attempts.current.get(track.id) ?? crypto.randomUUID();
+    // Each track's request keeps its id until it has a known outcome (across
+    // reloads too), so a retry after a lost response returns that instrumental
+    // instead of paying again.
+    const id =
+      attempts.current.get(track.id) ??
+      savedAttempt("instrumental", track.id) ??
+      crypto.randomUUID();
     attempts.current.set(track.id, id);
+    keepAttempt("instrumental", track.id, id);
+    const settled = () => {
+      attempts.current.delete(track.id);
+      keepAttempt("instrumental", track.id, null);
+    };
     try {
       const made = await makeInstrumentalTrack({
         data: { trackId: track.id, clientRequestId: id },
       });
+      // Another request was already making it: follow that one.
+      if (made.requestId && made.requestId !== id) {
+        attempts.current.set(track.id, made.requestId);
+        keepAttempt("instrumental", track.id, made.requestId);
+      }
       if (made.status === "ready") {
-        attempts.current.delete(track.id);
+        settled();
         toast.success("Instrumental added to the library");
       } else if (made.status === "failed" || made.status === "submission_uncertain") {
-        attempts.current.delete(track.id);
+        settled();
         toast.error(made.errorMessage ?? "The instrumental could not be made");
       } else {
         toast.message("This instrumental is still being made", {
@@ -141,12 +156,14 @@ export function MusicLibrary({
       <ul className="space-y-1.5">
         {shown.map((track) => {
           const canChange = isAdmin || track.created_by === user?.id;
+          // No instrumental of a track whose licence has run out: it couldn't be used.
           const canSplit =
             !onAdd &&
             status?.elevenlabs &&
             track.status === "ready" &&
             track.instrumental !== true &&
-            track.asset_id;
+            track.asset_id &&
+            !licenceBlocker(track);
           return (
             <TrackItem
               key={track.id}
