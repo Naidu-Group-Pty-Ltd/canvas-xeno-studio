@@ -406,16 +406,22 @@ export async function importOpenverseTrack(input: {
 
   // Nothing billable happens here. While nothing is stored the claim is freed
   // on failure, so the import can be tried again; once the file is stored the
-  // claim stays, and the next import finishes the track from that file.
-  const release = () => supabaseAdmin.from("music_tracks").delete().eq("id", trackId);
-  const file = await downloadAudio(source.audioUrl, source.filetype).catch(async (error) => {
-    await release();
-    throw error;
-  });
-  if (!file.ok) {
-    await release();
-    throw new AppError(file.code as never, file.message);
-  }
+  // claim stays, and the next import finishes the track from that file. A
+  // claim that can't be freed is said so: the track can then be added again
+  // only once the claim is old enough to be cleared.
+  const giveUp = async (problem: unknown): Promise<never> => {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const { error } = await supabaseAdmin.from("music_tracks").delete().eq("id", trackId);
+      if (!error) throw problem;
+    }
+    const message = problem instanceof Error ? problem.message : "The track could not be added.";
+    throw new AppError(
+      problem instanceof AppError ? problem.code : "UNKNOWN",
+      `${message} This attempt couldn't be cleared up, so the track can be added again in about ${STALE_MS / 60_000} minutes.`,
+    );
+  };
+  const file = await downloadAudio(source.audioUrl, source.filetype).catch(giveUp);
+  if (!file.ok) return giveUp(new AppError(file.code as never, file.message));
   const stored = await storeAudio({
     userId: input.userId,
     projectId: input.projectId,
@@ -432,10 +438,8 @@ export async function importOpenverseTrack(input: {
       source_url: source.landingUrl,
     },
   });
-  if (!stored) {
-    await release();
-    throw new AppError("STORAGE_FAILED", "The track could not be saved to the library.");
-  }
+  if (!stored)
+    return giveUp(new AppError("STORAGE_FAILED", "The track could not be saved to the library."));
   const ready = await markReady(trackId, {
     asset_id: stored.assetId,
     duration_seconds: stored.durationSeconds ?? source.durationSeconds,
