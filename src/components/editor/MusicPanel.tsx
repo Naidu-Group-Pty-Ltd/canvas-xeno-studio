@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, AudioWaveform, Loader2, Music, Trash2 } from "lucide-react";
@@ -65,6 +65,12 @@ export function MusicPanel({
   );
   const bed = timeline.audio.find((item) => item.role === "music");
   const trackFor = (assetId: string) => tracks.find((track) => track.asset_id === assetId);
+  // Music can arrive after the edit has moved on (a track being made, a beat
+  // being found): it is applied to the edit as it is then, not as it was.
+  const latest = useRef({ timeline, layout, replace, onChange });
+  useEffect(() => {
+    latest.current = { timeline, layout, replace, onChange };
+  });
 
   if (isMissingTableError(error)) {
     return (
@@ -80,6 +86,7 @@ export function MusicPanel({
 
   function add(source: Source) {
     if (!source.assetId) return;
+    const { timeline, replace, onChange } = latest.current;
     const role = source.kind === "sound_effect" ? "sfx" : "music";
     const kept =
       role === "music" && replace
@@ -128,7 +135,13 @@ export function MusicPanel({
             .catch(() => undefined);
         }
       }
-      const times = beatTimesOnTimeline(bed, beats, layout.total + 30);
+      const { timeline, layout, onChange } = latest.current;
+      const current = timeline.audio.find((item) => item.id === bed.id);
+      if (!current || current.assetId !== bed.assetId) {
+        toast.message("The music changed while its beat was being found. Try again.");
+        return;
+      }
+      const times = beatTimesOnTimeline(current, beats, layout.total + 30);
       const { timeline: snapped, moved } = snapCutsToBeats(timeline, times);
       if (!moved) {
         toast.message(
