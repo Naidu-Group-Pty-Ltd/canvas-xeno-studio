@@ -50,9 +50,7 @@ export async function validateTask(body) {
     // results is never sent anything else.
     reportProgress: body.report_progress === true,
     credentialsUrl,
-    credentialsAt: Date.now(),
     credentialsExpireAt: expiry(body.credentials_expire_at),
-    acceptedAt: Date.now(),
   };
 }
 
@@ -61,28 +59,24 @@ function expiry(value) {
   return Number.isFinite(at) ? at : null;
 }
 
-/** A task that waited in the queue longer than this is checked with the app before it starts. */
-const QUEUE_CHECK_MS = 10_000;
 /** URLs this close to expiry aren't trusted for a download or upload. */
 const EXPIRY_MARGIN_MS = 5 * 60_000;
 
 /**
- * Signed URLs age while a task waits in the queue or renders. A task that
- * names a `credentials_url` has the app re-sign its sources and upload slots
- * (same order, same destinations): before it starts, if it waited in the
- * queue (the app may have closed it meanwhile), and before downloading or
- * uploading once its URLs are older than the refresh interval. Transient
- * failures are retried. If the app still can't be reached, the URLs held are
- * used only while they are valid; otherwise the task fails with a clear
- * reason instead of a download or upload that can't succeed.
+ * A task that names a `credentials_url` checks in with the app when it starts
+ * and again before it uploads. The app claims the task for this instance (a
+ * task delivered to two instances, after a lost acknowledgement, runs on only
+ * one), can tell it to drop a task it has closed meanwhile, and re-signs its
+ * sources and upload slots (same order, same destinations), so time spent in
+ * the queue or rendering never outlives them. Transient failures are retried.
+ * If the app still can't be reached, the URLs held are used only while they
+ * are valid; otherwise the task fails with a clear reason instead of a
+ * download or upload that can't succeed.
  *
- * Returns "dropped" when the app says it no longer wants the task.
+ * Returns "dropped" when the app says the task isn't this instance's to run.
  */
-async function freshCredentials(task, { starting = false } = {}) {
+async function checkIn(task) {
   if (!task.credentialsUrl) return "ok";
-  const old = Date.now() - task.credentialsAt >= config.credentialsRefreshSeconds * 1000;
-  const waited = starting && Date.now() - task.acceptedAt >= QUEUE_CHECK_MS;
-  if (!old && !waited) return "ok";
   for (let attempt = 1; attempt <= 4; attempt += 1) {
     const answer = await askForCredentials(task);
     if (answer === "dropped") return "dropped";
@@ -101,7 +95,7 @@ async function freshCredentials(task, { starting = false } = {}) {
 
 /** One request for fresh URLs: "ok", "dropped", "retry" (transient) or "refused" (won't change). */
 async function askForCredentials(task) {
-  const rawBody = JSON.stringify({ task_id: task.taskId });
+  const rawBody = JSON.stringify({ task_id: task.taskId, worker_id: config.workerId });
   const { timestamp, signature } = sign(rawBody);
   let response;
   try {
@@ -125,7 +119,6 @@ async function askForCredentials(task) {
     for (const item of [...sources, ...uploads]) await assertAllowedUrl(item?.url);
     task.sources = task.sources.map((source, index) => ({ ...source, url: sources[index].url }));
     task.uploads = task.uploads.map((slot, index) => ({ ...slot, url: uploads[index].url }));
-    task.credentialsAt = Date.now();
     task.credentialsExpireAt = expiry(body.expires_at) ?? task.credentialsExpireAt;
     return "ok";
   } catch {
@@ -139,7 +132,7 @@ export async function executeTask(task) {
   const startedAt = Date.now();
   let dir = null;
   try {
-    if ((await freshCredentials(task, { starting: true })) === "dropped") return dropped(task);
+    if ((await checkIn(task)) === "dropped") return dropped(task);
     dir = await mkdtemp(join(config.workDir, "task-"));
 
     const localSources = [];
@@ -156,7 +149,7 @@ export async function executeTask(task) {
       progress: progressReporter(task),
     });
 
-    if ((await freshCredentials(task)) === "dropped") return dropped(task);
+    if ((await checkIn(task)) === "dropped") return dropped(task);
     const outputs = [];
     for (const [index, output] of result.outputs.entries()) {
       const slot = task.uploads[index];
@@ -192,9 +185,9 @@ export async function executeTask(task) {
   }
 }
 
-/** The app closed the task (it was cancelled or already failed): nothing is reported. */
+/** The app closed the task, or another instance has it: nothing is reported. */
 function dropped(task) {
-  console.log(`[xeno-media-worker] task ${task.taskId} dropped: the app no longer wants it`);
+  console.log(`[xeno-media-worker] task ${task.taskId} dropped: the app no longer wants it from this instance`);
 }
 
 /**

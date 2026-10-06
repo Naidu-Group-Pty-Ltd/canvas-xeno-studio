@@ -2,6 +2,10 @@
  * Worker configuration. Everything is read from the environment; nothing is
  * baked into the image and no credential is ever accepted inside a task body.
  */
+import { randomUUID } from "node:crypto";
+
+const instanceId = (value) =>
+  typeof value === "string" && /^[\w-]{1,64}$/.test(value) ? value : null;
 
 function intEnv(name, fallback) {
   const raw = process.env[name];
@@ -22,10 +26,15 @@ export const config = {
   maxQueueDepth: intEnv("MAX_QUEUE_DEPTH", 50),
   heartbeatSeconds: intEnv("HEARTBEAT_SECONDS", 60),
   /**
-   * Signed URLs older than this are re-signed by the app (for tasks that give
-   * a `credentials_url`) before downloading and again before uploading.
+   * This instance, as it names itself to the app: a task delivered to two
+   * instances (an acknowledgement lost, then the task sent again) runs only on
+   * the one that checks in first. The Fly machine id, else WORKER_ID, else a
+   * fresh id for this process.
    */
-  credentialsRefreshSeconds: intEnv("CREDENTIALS_REFRESH_SECONDS", 900),
+  workerId:
+    instanceId(process.env["FLY_MACHINE_ID"]) ??
+    instanceId(process.env["WORKER_ID"]) ??
+    randomUUID(),
   /** Hard wall-clock limit for a single FFmpeg invocation. */
   taskTimeoutSeconds: intEnv("TASK_TIMEOUT_SECONDS", 900),
   /** Refuse source media larger than this. */

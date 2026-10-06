@@ -45,18 +45,21 @@ matters; an app that opts in must treat any other status as informational. Callb
 uses one. The app's callback is idempotent, so the worker only repeats on
 transport faults and `5xx`.
 
-Signed URLs expire, and a task can wait in the queue. A task that also gives a
-`credentials_url` (same host allow list) has them re-signed: the worker posts a
-signed `{"task_id": "…"}` there before starting a task that waited in the queue,
-and before downloading or uploading once its URLs are older than
-`CREDENTIALS_REFRESH_SECONDS` (default 900). The app answers with
+Signed URLs expire, a task can wait in the queue, and a task sent twice (its
+acknowledgement lost) can reach two instances behind one address. A task that
+also gives a `credentials_url` (same host allow list) checks in there when it
+starts and again before it uploads: the worker posts a signed
+`{"task_id": "…", "worker_id": "…"}`, naming this instance (`FLY_MACHINE_ID`,
+else `WORKER_ID`, else an id for the process). The app claims the task for the
+first instance to check in and answers with
 `{"sources": [{"url"}], "uploads": [{"url"}], "expires_at": "…"}` in the order
-first sent (each URL is checked like the originals), or `410` if it no longer
-wants the task, which is then dropped without a report. Timeouts, `429` and
-`5xx` are retried a few times. If no fresh URLs arrive, the old ones are used
-only while they are valid (the task's `credentials_expire_at`, less five
-minutes); after that the task fails with `CREDENTIALS_EXPIRED` rather than
-attempting a transfer that can't succeed.
+first sent (each URL is checked like the originals), or `410` if the task is
+closed or another instance has it; the task is then dropped without a report,
+so it never runs (or uploads) twice. Timeouts, `429` and `5xx` are retried a
+few times. If no fresh URLs arrive, the old ones are used only while they are
+valid (the task's `credentials_expire_at`, less five minutes); after that the
+task fails with `CREDENTIALS_EXPIRED` rather than attempting a transfer that
+can't succeed.
 
 ## Sequence rendering
 

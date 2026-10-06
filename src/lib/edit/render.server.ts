@@ -87,24 +87,6 @@ async function resolveAssets(timeline: Timeline) {
   return assets;
 }
 
-/**
- * Renders that stopped reporting (no progress or heartbeat for a while) are
- * closed as stalled, with their task and operation, in one statement (a
- * database function), so nothing ever sees half of it. A result that still
- * arrives later completes them anyway.
- */
-async function closeStalledRenders(sequenceId: string): Promise<void> {
-  const { error } = await supabaseAdmin.rpc(
-    "close_stalled_renders" as never,
-    {
-      p_sequence_id: sequenceId,
-      p_stalled_before: new Date(Date.now() - RENDER_STALL_MS).toISOString(),
-    } as never,
-  );
-  if (error)
-    throw new AppError("UNKNOWN", "The edit's earlier renders couldn't be checked. Try again.");
-}
-
 export async function startSequenceRender(input: RenderInput): Promise<RenderStarted> {
   const { data: profile } = await supabaseAdmin
     .from("profiles")
@@ -161,146 +143,75 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
     : `unassigned/${input.userId}`;
   const videoPath = `${scope}/edits/${sequence.id}/${renderId}.mp4`;
   const posterPath = `${scope}/edits/${sequence.id}/${renderId}.jpg`;
-  const now = new Date().toISOString();
 
-  // Earlier renders of this edit that stopped reporting are closed, with their task and operation.
-  await closeStalledRenders(sequence.id);
-
-  // One render per edit at a time; the claim is atomic (a unique index on active renders).
-  const { error: claimError } = await supabaseAdmin.from("sequence_renders").insert({
-    id: renderId,
-    sequence_id: sequence.id,
-    sequence_version: sequence.version,
-    timeline: timeline as never,
-    status: "queued",
-    stage: "Queued",
-    dedupe_key: input.clientRequestId,
-    created_by: input.userId,
-  } as never);
-  if (claimError) {
-    if (claimError.code === "23505") {
-      const { data: raced } = await supabaseAdmin
-        .from("sequence_renders")
-        .select("id,status")
-        .eq("dedupe_key", input.clientRequestId)
-        .maybeSingle();
-      if (raced) return { renderId: raced.id, status: raced.status, duplicate: true };
-      throw new AppError(
-        "INVALID_PARAMETERS",
-        "This edit is already rendering. Wait for that render to finish, then render again.",
-      );
-    }
-    throw new AppError("UNKNOWN", "The render could not be recorded");
-  }
-
-  const { data: operation, error: operationError } = await supabaseAdmin
-    .from("operations")
-    .insert({
-      created_by: input.userId,
-      project_id: sequence.project_id,
-      campaign_id: sequence.campaign_id,
-      operation_type: "render_sequence",
-      provider: "media_worker",
-      status: "running",
-      input_payload: {
-        sequence_id: sequence.id,
-        render_id: renderId,
-        version: sequence.version,
-      } as never,
-      dedupe_key: `render:${input.clientRequestId}`,
-      submitted_at: now,
-    } as never)
-    .select("id")
-    .maybeSingle();
-  if (operationError || !operation) {
-    // The claimed render is released, so the edit isn't held by a render that never started.
-    await supabaseAdmin
-      .from("sequence_renders")
-      .update({
-        status: "failed",
-        error_code: "UNKNOWN",
-        error_message: "The render could not be recorded. Try again.",
-        completed_at: new Date().toISOString(),
-      } as never)
-      .eq("id", renderId);
-    throw new AppError("UNKNOWN", "The render could not be recorded. Try again.");
-  }
-
-  const { error: taskError } = await supabaseAdmin.from("media_tasks").insert({
-    id: taskId,
-    operation_id: operation.id,
-    created_by: input.userId,
-    project_id: sequence.project_id,
-    source_asset_id: timeline.clips[0]?.assetId ?? null,
-    task_type: "render_sequence",
-    status: "submitting",
-    storage_bucket: OUTPUT_BUCKET,
-    storage_path: videoPath,
-    input_payload: {
-      sequence_id: sequence.id,
-      render_id: renderId,
-      storage_paths: [videoPath, posterPath],
-      mime_type: "video/mp4",
-      output_kind: "video",
-      sources: request.sources.map((source) => source.assetId),
+  // Everything the render needs is recorded in one transaction (see the
+  // start_sequence_render database function): stalled renders of the edit are
+  // closed, the render takes the edit's one active slot, its operation and
+  // task are created and the edit is pointed at it, only while the edit is
+  // still the version checked above. Nothing is left half-made if it fails.
+  const { data: started, error: startError } = await supabaseAdmin.rpc(
+    "start_sequence_render" as never,
+    {
+      p_render_id: renderId,
+      p_task_id: taskId,
+      p_sequence_id: sequence.id,
+      p_version: sequence.version,
+      p_timeline: timeline,
+      p_dedupe_key: input.clientRequestId,
+      p_user_id: input.userId,
+      p_stalled_before: new Date(Date.now() - RENDER_STALL_MS).toISOString(),
+      p_task: {
+        source_asset_id: timeline.clips[0]?.assetId ?? null,
+        storage_bucket: OUTPUT_BUCKET,
+        storage_path: videoPath,
+        input_payload: {
+          sequence_id: sequence.id,
+          render_id: renderId,
+          storage_paths: [videoPath, posterPath],
+          mime_type: "video/mp4",
+          output_kind: "video",
+          sources: request.sources.map((source) => source.assetId),
+        },
+      },
     } as never,
-    dedupe_key: `render:${input.clientRequestId}`,
-    submitted_at: now,
-  } as never);
-  const linked = taskError
-    ? null
-    : await supabaseAdmin
-        .from("sequence_renders")
-        .update({ media_task_id: taskId } as never)
-        .eq("id", renderId);
-  // The edit is pointed at this render only if it is still the version that was
-  // checked and snapshotted: a save that landed meanwhile stops it.
-  const marked =
-    taskError || linked?.error
-      ? null
-      : await supabaseAdmin
-          .from("sequences")
-          .update({ status: "rendering", last_render_id: renderId } as never)
-          .eq("id", sequence.id)
-          .eq("version", sequence.version)
-          .select("id");
-  async function fail(code: string, message: string): Promise<never> {
-    const at = new Date().toISOString();
-    await supabaseAdmin
-      .from("media_tasks")
-      .update({ status: "failed", error_code: code, error_message: message, completed_at: at })
-      .eq("id", taskId);
-    await supabaseAdmin
-      .from("sequence_renders")
-      .update({
-        status: "failed",
-        error_code: code,
-        error_message: message,
-        completed_at: at,
-      } as never)
-      .eq("id", renderId);
-    await supabaseAdmin
-      .from("sequences")
-      .update({ status: "failed" } as never)
-      .eq("id", sequence!.id)
-      .eq("last_render_id", renderId);
-    if (operation?.id) {
-      await supabaseAdmin
-        .from("operations")
-        .update({ status: "failed", error_code: code, error_message: message, failed_at: at })
-        .eq("id", operation.id);
-    }
-    throw new AppError(code as never, message);
-  }
-
-  // Nothing is sent to the worker unless the render, its task and the edit all record it.
-  if (taskError || linked?.error || !marked || marked.error)
-    await fail("UNKNOWN", "The render could not be recorded. Try again.");
-  if (!marked!.data?.length)
-    await fail(
+  );
+  const outcome = (started ?? null) as {
+    outcome?: string;
+    render_id?: string;
+    status?: string;
+  } | null;
+  if (startError || !outcome?.outcome)
+    throw new AppError("UNKNOWN", "The render could not be recorded. Try again.");
+  if (outcome.outcome === "duplicate")
+    return { renderId: outcome.render_id!, status: outcome.status!, duplicate: true };
+  if (outcome.outcome === "busy")
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      "This edit is already rendering. Wait for that render to finish, then render again.",
+    );
+  if (outcome.outcome === "changed")
+    throw new AppError(
       "INVALID_PARAMETERS",
       "This edit changed while the render was starting. Let it save, then render again.",
     );
+  if (outcome.outcome !== "started")
+    throw new AppError("INVALID_PARAMETERS", "That edit no longer exists");
+
+  /**
+   * A render that can't be sent is failed with its task, its operation and the
+   * edit's status in one statement. If even that can't be recorded, it stops
+   * reporting and is closed as stalled.
+   */
+  async function fail(code: string, message: string): Promise<never> {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const { error } = await supabaseAdmin.rpc(
+        "fail_sequence_render" as never,
+        { p_render_id: renderId, p_error_code: code, p_error_message: message } as never,
+      );
+      if (!error) break;
+    }
+    throw new AppError(code as never, message);
+  }
 
   const sources: { role: string; url: string; mime?: string | null }[] = [];
   for (const source of request.sources) {
@@ -456,13 +367,17 @@ async function holdRenderSlot(
 
 /**
  * Re-signs a render's sources and upload slots for the media worker, which
- * asks before starting a render that waited in its queue (and before it
- * downloads or uploads with aging links), so queue time never outlives the
- * signed URLs. Only an open render is re-signed, only for its own sources and
- * destinations, in the order first sent, and only once it holds its edit's
- * render slot (see `holdRenderSlot`); otherwise the worker is told to drop it.
+ * checks in when it starts a render and again before it uploads, so queue
+ * and render time never outlive the signed URLs. Only an open render is
+ * re-signed, only for its own sources and
+ * destinations, in the order first sent, only for the worker instance that
+ * claimed it, and only once it holds its edit's render slot (see
+ * `holdRenderSlot`); otherwise the worker is told to drop it.
  */
-export async function refreshRenderCredentials(taskId: string): Promise<RenderCredentials> {
+export async function refreshRenderCredentials(
+  taskId: string,
+  workerId: string | null = null,
+): Promise<RenderCredentials> {
   const { data: task, error } = await supabaseAdmin
     .from("media_tasks")
     .select("id,task_type,status,error_code,operation_id,storage_bucket,input_payload")
@@ -475,6 +390,21 @@ export async function refreshRenderCredentials(taskId: string): Promise<RenderCr
     task.status === "processing" ||
     (task.status === "failed" && task.error_code === "STALLED");
   if (!open) return { status: 410 };
+
+  // A task can reach two worker instances (an acknowledgement is lost and the
+  // task is sent again, and the second send lands elsewhere). The first one to
+  // ask claims it; any other is told to drop it, so a render never runs twice.
+  if (workerId !== null && !/^[\w-]{1,64}$/.test(workerId)) return { status: 404 };
+  if (workerId) {
+    const { data: claimed, error: claimError } = await supabaseAdmin
+      .from("media_tasks")
+      .update({ worker_id: workerId } as never)
+      .eq("id", task.id)
+      .or(`worker_id.is.null,worker_id.eq.${workerId}`)
+      .select("id");
+    if (claimError) return { status: 503 };
+    if (!claimed?.length) return { status: 410 };
+  }
 
   const input = (task.input_payload ?? {}) as Record<string, unknown>;
   const held = await holdRenderSlot(task, input);
