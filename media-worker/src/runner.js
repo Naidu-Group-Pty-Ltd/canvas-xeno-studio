@@ -62,6 +62,8 @@ function expiry(value) {
 
 /** URLs this close to expiry aren't trusted for a download or upload. */
 const EXPIRY_MARGIN_MS = 5 * 60_000;
+/** How long a claim keeps trying when the task doesn't say how long its links last. */
+const CLAIM_PATIENCE_MS = 2 * 60 * 60_000;
 
 /**
  * A task that names a `credentials_url` checks in with the app when it starts
@@ -71,25 +73,27 @@ const EXPIRY_MARGIN_MS = 5 * 60_000;
  * sources and upload slots (same order, same destinations), so time spent in
  * the queue or rendering never outlives them. Transient failures are retried.
  *
- * The first check-in is the claim, and nothing starts without it: if the app
- * can't confirm the task is this instance's (it can't be reached, or refuses),
- * the task is left alone, neither run nor reported, since another instance
- * may hold it (the app closes it as stalled if none does). Once claimed, a
- * later check-in that can't reach the app falls back to the URLs held while
- * they are valid; otherwise the task fails with a clear reason instead of an
- * upload that can't succeed.
+ * The first check-in is the claim, and nothing starts without it. While the
+ * app can't be reached the claim keeps trying (the task's id is already taken
+ * here, so a resend would be ignored: giving up after a short outage would
+ * strand it), with waits growing to 30 seconds apart, until the app answers or
+ * the task's links are past use. If the app refuses, or never answers in that
+ * time, the task is left alone, neither run nor reported, since another
+ * instance may hold it (the app closes it as stalled if none does). Once
+ * claimed, a later check-in that can't reach the app falls back to the URLs
+ * held while they are valid; otherwise the task fails with a clear reason
+ * instead of an upload that can't succeed.
  *
  * Returns "dropped" when the app says the task isn't this instance's to run,
  * and "unclaimed" when a claim couldn't be confirmed.
  */
 async function checkIn(task, { claim = false } = {}) {
   if (!task.credentialsUrl) return "ok";
-  // A claim waits longer for the app (about half a minute) before giving up.
-  const attempts = claim ? 6 : 4;
+  const deadline = claim ? (task.credentialsExpireAt ?? Date.now() + CLAIM_PATIENCE_MS) : null;
   // The app answering at all (2xx) confirms the claim, even when the links it
   // sent can't be used (then the ones held are kept).
   let answered = false;
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+  for (let attempt = 1; ; attempt += 1) {
     const answer = await askForCredentials(task);
     if (answer === "dropped") return "dropped";
     if (answer === "ok") return "ok";
@@ -98,7 +102,10 @@ async function checkIn(task, { claim = false } = {}) {
       break;
     }
     if (answer === "refused") break;
-    if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, 1000 * 2 ** (attempt - 1)));
+    const wait = Math.min(30_000, 1000 * 2 ** (attempt - 1));
+    if (claim ? Date.now() + wait > deadline : attempt >= 4) break;
+    if (claim && attempt === 3) task.lastStage = "Waiting for the app to confirm this render";
+    await new Promise((resolve) => setTimeout(resolve, wait));
   }
   if (claim && !answered) return "unclaimed";
   if (task.credentialsExpireAt !== null && Date.now() > task.credentialsExpireAt - EXPIRY_MARGIN_MS) {
