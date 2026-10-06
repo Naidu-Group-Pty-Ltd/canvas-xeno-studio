@@ -95,6 +95,21 @@ DROP TRIGGER IF EXISTS sequences_keep_owner ON public.sequences;
 CREATE TRIGGER sequences_keep_owner BEFORE UPDATE OF created_by ON public.sequences
   FOR EACH ROW EXECUTE FUNCTION public.keep_sequence_owner();
 
+-- "Rendered" and "Render failed" describe the version that was rendered: a
+-- save after the render ended makes the edit a draft again. (A save during a
+-- render leaves it rendering; the render's end then settles it.)
+CREATE OR REPLACE FUNCTION public.sequence_saved_as_draft() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public AS $$
+BEGIN
+  IF NEW.version IS DISTINCT FROM OLD.version AND OLD.status IN ('rendered', 'failed') THEN
+    NEW.status := 'draft';
+  END IF;
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS sequences_saved_as_draft ON public.sequences;
+CREATE TRIGGER sequences_saved_as_draft BEFORE UPDATE OF version ON public.sequences
+  FOR EACH ROW EXECUTE FUNCTION public.sequence_saved_as_draft();
+
 DROP POLICY IF EXISTS "members read sequence renders" ON public.sequence_renders;
 CREATE POLICY "members read sequence renders" ON public.sequence_renders FOR SELECT TO authenticated
   USING (public.is_active_member());
@@ -236,7 +251,7 @@ AS $$
        SET status = 'failed', error_code = p_error_code, error_message = p_error_message, completed_at = now()
      WHERE id = p_render_id
        AND status IN ('queued', 'rendering')
-    RETURNING sequence_id, media_task_id
+    RETURNING sequence_id, media_task_id, sequence_version
   ), task AS (
     UPDATE public.media_tasks
        SET status = 'failed', error_code = p_error_code, error_message = p_error_message, completed_at = now()
@@ -250,10 +265,13 @@ AS $$
        AND status = 'running'
     RETURNING id
   )
-  UPDATE public.sequences
-     SET status = 'failed'
-   WHERE id IN (SELECT sequence_id FROM render)
-     AND last_render_id = p_render_id;
+  -- Failed only while the edit is still the version the render was of: saved
+  -- since, it is a draft again.
+  UPDATE public.sequences AS edit
+     SET status = CASE WHEN edit.version = render.sequence_version THEN 'failed' ELSE 'draft' END
+    FROM render
+   WHERE edit.id = render.sequence_id
+     AND edit.last_render_id = p_render_id;
 $$;
 REVOKE ALL ON FUNCTION public.fail_sequence_render(uuid, text, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.fail_sequence_render(uuid, text, text) TO service_role;

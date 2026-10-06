@@ -103,13 +103,15 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
     );
   }
 
-  // A repeated click or a retried request returns the render already started.
-  const { data: existing } = await supabaseAdmin
+  // A repeated click or a retried request returns the render already started
+  // (and sends it, if it was recorded but never handed to the worker).
+  const { data: existing, error: existingError } = await supabaseAdmin
     .from("sequence_renders")
-    .select("id,status")
+    .select("id")
     .eq("dedupe_key", input.clientRequestId)
     .maybeSingle();
-  if (existing) return { renderId: existing.id, status: existing.status, duplicate: true };
+  if (existingError) throw new AppError("UNKNOWN", "The render could not be checked. Try again.");
+  if (existing) return resumed(existing.id);
 
   const { data: sequence } = await supabaseAdmin
     .from("sequences")
@@ -182,8 +184,7 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
   } | null;
   if (startError || !outcome?.outcome)
     throw new AppError("UNKNOWN", "The render could not be recorded. Try again.");
-  if (outcome.outcome === "duplicate")
-    return { renderId: outcome.render_id!, status: outcome.status!, duplicate: true };
+  if (outcome.outcome === "duplicate") return resumed(outcome.render_id!);
   if (outcome.outcome === "busy")
     throw new AppError(
       "INVALID_PARAMETERS",
@@ -197,6 +198,23 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
   if (outcome.outcome !== "started")
     throw new AppError("INVALID_PARAMETERS", "That edit no longer exists");
 
+  return submitRender({ renderId, taskId, assets, request, videoPath, posterPath });
+}
+
+/**
+ * Hands a recorded render to the worker. Its task id is the render's own, and
+ * the worker runs a task id once, so sending it again (a retried request
+ * whose first try was cut off) is harmless.
+ */
+async function submitRender(input: {
+  renderId: string;
+  taskId: string;
+  assets: Awaited<ReturnType<typeof resolveAssets>>;
+  request: ReturnType<typeof buildRenderRequest>;
+  videoPath: string;
+  posterPath: string;
+}): Promise<RenderStarted> {
+  const { renderId, taskId, assets, request, videoPath, posterPath } = input;
   /**
    * A render that can't be sent is failed with its task, its operation and the
    * edit's status in one statement. If even that can't be recorded, it stops
@@ -283,6 +301,69 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
     .eq("status", "queued");
 
   return { renderId, status: "rendering", duplicate: false };
+}
+
+/**
+ * A render asked for again: returned as it is, unless it was recorded but
+ * never handed to the worker (the answer to its start was lost, or the
+ * server stopped before sending it). Then it is sent now; otherwise it would
+ * wait, unsent, until it is closed as stalled.
+ */
+async function resumed(renderId: string): Promise<RenderStarted> {
+  const unchecked = () => new AppError("UNKNOWN", "The render could not be checked. Try again.");
+  const { data: render, error } = await supabaseAdmin
+    .from("sequence_renders")
+    .select("id,status,timeline,media_task_id")
+    .eq("id", renderId)
+    .maybeSingle();
+  if (error || !render) throw unchecked();
+  const row = render as unknown as {
+    id: string;
+    status: string;
+    timeline: unknown;
+    media_task_id: string | null;
+  };
+  const as = (status: string): RenderStarted => ({ renderId, status, duplicate: true });
+  if (row.status !== "queued" || !row.media_task_id) return as(row.status);
+  const { data: task, error: taskError } = await supabaseAdmin
+    .from("media_tasks")
+    .select("id,status,input_payload")
+    .eq("id", row.media_task_id)
+    .maybeSingle();
+  if (taskError) throw unchecked();
+  // "submitting" until a send was tried: anything else is on its way already.
+  if (!task || task.status !== "submitting") return as(row.status);
+  const paths = ((task.input_payload ?? {}) as { storage_paths?: unknown }).storage_paths;
+  const timeline = parseTimeline(row.timeline);
+  if (
+    !timeline ||
+    !Array.isArray(paths) ||
+    typeof paths[0] !== "string" ||
+    typeof paths[1] !== "string"
+  )
+    return as(row.status);
+  let assets: Awaited<ReturnType<typeof resolveAssets>>;
+  try {
+    assets = await resolveAssets(timeline);
+  } catch (problem) {
+    // Its media is gone (or can't be checked): it can't be sent, so it fails now.
+    const message =
+      problem instanceof Error ? problem.message : "The render's media couldn't be read";
+    await supabaseAdmin.rpc(
+      "fail_sequence_render" as never,
+      { p_render_id: renderId, p_error_code: "STORAGE_FAILED", p_error_message: message } as never,
+    );
+    throw problem;
+  }
+  const sent = await submitRender({
+    renderId,
+    taskId: task.id,
+    assets,
+    request: buildRenderRequest(timeline),
+    videoPath: paths[0],
+    posterPath: paths[1],
+  });
+  return { ...sent, duplicate: true };
 }
 
 export type RenderCredentials =

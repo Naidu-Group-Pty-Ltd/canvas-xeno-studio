@@ -65,16 +65,7 @@ export async function finishSequenceRender(
         "render",
       );
     }
-    if (sequenceId && renderId) {
-      must(
-        await supabaseAdmin
-          .from("sequences")
-          .update({ status: "failed" } as never)
-          .eq("id", sequenceId)
-          .eq("last_render_id", renderId),
-        "sequence",
-      );
-    }
+    if (sequenceId && renderId) await settleEdit(sequenceId, renderId, "failed");
     if (task.operation_id) {
       must(
         await supabaseAdmin
@@ -195,16 +186,8 @@ export async function finishSequenceRender(
       "render",
     );
   }
-  if (sequenceId && renderId) {
-    must(
-      await supabaseAdmin
-        .from("sequences")
-        .update({ status: finished ? "rendered" : "failed" } as never)
-        .eq("id", sequenceId)
-        .eq("last_render_id", renderId),
-      "sequence",
-    );
-  }
+  if (sequenceId && renderId)
+    await settleEdit(sequenceId, renderId, finished ? "rendered" : "failed");
 
   if (task.operation_id) {
     const { data: changed, error } = await supabaseAdmin
@@ -257,6 +240,40 @@ export async function finishSequenceRender(
       .eq("id", task.id)
       .or(OPEN_TASK),
     "media task",
+  );
+}
+
+/**
+ * The edit's status once its render has ended: "rendered" or "failed" only
+ * while it is still the version that was rendered. Saved since (editing goes
+ * on during a render), it is a draft again, its last render kept for download.
+ */
+async function settleEdit(sequenceId: string, renderId: string, status: "rendered" | "failed") {
+  const { data: rendered, error } = await supabaseAdmin
+    .from("sequence_renders")
+    .select("sequence_version")
+    .eq("id", renderId)
+    .maybeSingle();
+  must({ error }, "render version");
+  const version = (rendered as { sequence_version?: number } | null)?.sequence_version;
+  if (typeof version !== "number") return;
+  must(
+    await supabaseAdmin
+      .from("sequences")
+      .update({ status } as never)
+      .eq("id", sequenceId)
+      .eq("last_render_id", renderId)
+      .eq("version", version),
+    "sequence",
+  );
+  must(
+    await supabaseAdmin
+      .from("sequences")
+      .update({ status: "draft" } as never)
+      .eq("id", sequenceId)
+      .eq("last_render_id", renderId)
+      .neq("version", version),
+    "sequence",
   );
 }
 
