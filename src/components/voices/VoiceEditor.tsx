@@ -25,6 +25,7 @@ import {
   saveBrandVoice,
   saveDesignedVoice,
 } from "@/lib/voice.functions";
+import { keepAttempt, savedAttempt } from "@/lib/attempts";
 import {
   DEFAULT_ELEVENLABS_MODEL,
   DELIVERY_PRESETS,
@@ -729,9 +730,20 @@ function VoiceBrowser({
     if (scope === "library" && voice.publicOwnerId) {
       setAdding(voice.voiceId);
       try {
+        // Kept until the voice is added (across reloads too), so trying again
+        // after a lost answer finds it rather than adding it twice.
+        const key = `${voice.publicOwnerId}:${voice.voiceId}:${voice.name}`;
+        const clientRequestId = savedAttempt("voice-library", key) ?? crypto.randomUUID();
+        keepAttempt("voice-library", key, clientRequestId);
         const added = await addElevenLabsLibraryVoice({
-          data: { publicOwnerId: voice.publicOwnerId, voiceId: voice.voiceId, name: voice.name },
+          data: {
+            publicOwnerId: voice.publicOwnerId,
+            voiceId: voice.voiceId,
+            name: voice.name,
+            clientRequestId,
+          },
         });
+        keepAttempt("voice-library", key, null);
         onPick({
           providerVoiceId: added.voiceId,
           providerVoiceName: voice.name,
@@ -982,16 +994,28 @@ function VoiceCloner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => void 
 
   async function clone() {
     setBusy("clone");
+    // Kept until the clone is made (across reloads too), so trying again after
+    // a lost answer finds it rather than cloning twice.
+    const request = {
+      name: `${speaker.trim()} (brand voice)`,
+      sampleAssetIds: samples.map((sample) => sample.id),
+      speakerName: speaker.trim(),
+    };
+    const key = JSON.stringify(request);
+    const clientRequestId = savedAttempt("voice-clone", key) ?? crypto.randomUUID();
+    keepAttempt("voice-clone", key, clientRequestId);
     try {
       const result = await cloneElevenLabsVoice({
         data: {
-          name: `${speaker.trim()} (brand voice)`,
+          name: request.name,
           description: "",
-          sampleAssetIds: samples.map((sample) => sample.id),
-          consent: { confirmed: true, speakerName: speaker.trim() },
+          sampleAssetIds: request.sampleAssetIds,
+          consent: { confirmed: true, speakerName: request.speakerName },
           removeBackgroundNoise: true,
+          clientRequestId,
         },
       });
+      keepAttempt("voice-clone", key, null);
       onPick({
         providerVoiceId: result.voiceId,
         providerVoiceName: `${speaker.trim()} (clone)`,

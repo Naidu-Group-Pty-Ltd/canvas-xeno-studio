@@ -26,6 +26,7 @@ import {
 } from "./catalog";
 import { mp3Duration } from "./audio";
 import {
+  elevenLabsAccountVoices,
   elevenLabsSpeech,
   openAISpeech,
   openAIWordTimings,
@@ -805,4 +806,150 @@ export async function generateVoiceover(input: {
     duplicate: false,
     requestId: input.clientRequestId,
   };
+}
+
+/** How long adding a voice to ElevenLabs may take before its answer is given up on. */
+const VOICE_ADD_SETTLE_MS = 2 * 60_000;
+
+/**
+ * Adds a voice to the ElevenLabs account (a designed voice, a clone, a library
+ * voice) once per attempt; ElevenLabs keeps no request ids of its own. The
+ * attempt is recorded first (an operation keyed by `key`), along with the
+ * voices of that name already in the account. If the answer is lost, the
+ * attempt is recorded as uncertain, and asking again with the same key looks
+ * for the voice of that name that appeared since, instead of adding a second
+ * one. Only when none turned up after a while is it added again.
+ */
+export async function voiceAddedOnce(input: {
+  userId: string;
+  key: string;
+  name: string;
+  create: () => Promise<{ ok: true; voiceId: string } | ProviderFailure>;
+}): Promise<string> {
+  const unchecked = () =>
+    new AppError("UNKNOWN", "The voice couldn't be checked in ElevenLabs. Try again in a moment.");
+  const named = async () => {
+    const result = await elevenLabsAccountVoices(input.name);
+    if (!result.ok) throw unchecked();
+    return result.voices.filter((voice) => voice.name === input.name).map((voice) => voice.voiceId);
+  };
+  interface Attempt {
+    id: string;
+    status: string;
+    output_payload: { voice_id?: string } | null;
+    input_payload: { before?: string[] } | null;
+    submitted_at: string | null;
+    updated_at: string;
+  }
+  const columns = "id,status,output_payload,input_payload,submitted_at,updated_at";
+  const load = async (): Promise<Attempt | null> => {
+    const { data, error } = await supabaseAdmin
+      .from("operations")
+      .select(columns)
+      .eq("dedupe_key", input.key)
+      .maybeSingle();
+    if (error) throw unchecked();
+    return (data ?? null) as unknown as Attempt | null;
+  };
+  const record = async (id: string, values: Record<string, unknown>) => {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const { data, error } = await supabaseAdmin
+        .from("operations")
+        .update(values as never)
+        .eq("id", id)
+        .select("id")
+        .maybeSingle();
+      if (!error && data) return true;
+    }
+    return false;
+  };
+  const add = async (id: string): Promise<string> => {
+    const result = await input.create();
+    const at = new Date().toISOString();
+    if (result.ok) {
+      // If this can't be recorded, the voice is still found by its name next time.
+      await record(id, {
+        status: "completed",
+        output_payload: { voice_id: result.voiceId },
+        completed_at: at,
+      });
+      return result.voiceId;
+    }
+    await record(id, {
+      status: result.uncertain ? "submission_uncertain" : "failed",
+      error_code: result.code,
+      error_message: result.message,
+      failed_at: at,
+    });
+    if (result.uncertain)
+      throw new AppError(
+        "SUBMISSION_UNCERTAIN",
+        "ElevenLabs may have added the voice, but its answer was lost. Try again: the studio looks for it in your account rather than adding it twice.",
+      );
+    throw new AppError(result.code as never, result.message);
+  };
+  // A new attempt (or a failed one tried again) records the voices of that name first.
+  const begin = async (existing: Attempt | null): Promise<string> => {
+    const before = await named();
+    const payload = {
+      status: "running",
+      input_payload: { name: input.name, before },
+      submitted_at: new Date().toISOString(),
+    };
+    if (existing) {
+      const restarted = await record(existing.id, {
+        ...payload,
+        error_code: null,
+        error_message: null,
+        failed_at: null,
+      });
+      if (!restarted) throw unchecked();
+      return add(existing.id);
+    }
+    const { data, error } = await supabaseAdmin
+      .from("operations")
+      .insert({
+        ...payload,
+        created_by: input.userId,
+        operation_type: "voice_add",
+        provider: "elevenlabs",
+        dedupe_key: input.key,
+      } as never)
+      .select("id")
+      .maybeSingle();
+    // Another request for the same attempt got there first.
+    if (error?.code === "23505") return settled(await load());
+    if (error || !data) throw new AppError("UNKNOWN", "The voice couldn't be recorded. Try again.");
+    return add(data.id);
+  };
+  // An earlier attempt: its voice, the voice that appeared for it, or a new try.
+  const settled = async (attempt: Attempt | null): Promise<string> => {
+    if (!attempt) return begin(null);
+    if (attempt.status === "completed" && attempt.output_payload?.voice_id)
+      return attempt.output_payload.voice_id;
+    if (attempt.status === "failed") return begin(attempt);
+    const before = new Set(attempt.input_payload?.before ?? []);
+    const appeared = (await named()).filter((id) => !before.has(id));
+    if (appeared.length === 1) {
+      await record(attempt.id, {
+        status: "completed",
+        output_payload: { voice_id: appeared[0] },
+        completed_at: new Date().toISOString(),
+      });
+      return appeared[0]!;
+    }
+    if (appeared.length > 1)
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        `More than one new voice called “${input.name}” is in your ElevenLabs account, so the studio can't tell which is this one. Choose it under My voices.`,
+      );
+    const age = Date.now() - Date.parse(attempt.submitted_at ?? attempt.updated_at);
+    if (age < VOICE_ADD_SETTLE_MS)
+      throw new AppError(
+        "UNKNOWN",
+        "This voice may still be on its way to ElevenLabs. Try again in a minute.",
+      );
+    return begin(attempt);
+  };
+  return settled(await load());
 }

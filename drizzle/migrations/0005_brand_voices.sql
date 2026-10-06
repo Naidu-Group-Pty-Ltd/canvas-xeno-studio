@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS public.brand_voices (
   pronunciations jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(pronunciations) = 'array'),
   script_guidelines text CHECK (script_guidelines IS NULL OR char_length(script_guidelines) <= 2000),
   sample_asset_id uuid REFERENCES public.assets(id) ON DELETE SET NULL,
-  project_id uuid REFERENCES public.projects(id) ON DELETE SET NULL,
+  project_id uuid REFERENCES public.projects(id) ON DELETE CASCADE,
   source jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(source) = 'object'),
   is_default boolean NOT NULL DEFAULT false,
   is_archived boolean NOT NULL DEFAULT false,
@@ -29,6 +29,20 @@ CREATE TABLE IF NOT EXISTS public.brand_voices (
   CONSTRAINT brand_voices_default_for_any_project CHECK (NOT is_default OR project_id IS NULL)
 );
 CREATE INDEX IF NOT EXISTS brand_voices_recent_idx ON public.brand_voices (updated_at DESC);
+-- A voice kept for one project goes with the project: if the project is
+-- deleted, so is the voice, rather than becoming a voice for every project
+-- (no project means "any project"). Its takes keep their provider voice id.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.brand_voices'::regclass AND conname = 'brand_voices_project_id_fkey' AND confdeltype <> 'c'
+  ) THEN
+    ALTER TABLE public.brand_voices DROP CONSTRAINT brand_voices_project_id_fkey;
+    ALTER TABLE public.brand_voices ADD CONSTRAINT brand_voices_project_id_fkey
+      FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+  END IF;
+END $$;
 -- At most one studio-wide default voice.
 CREATE UNIQUE INDEX IF NOT EXISTS brand_voices_one_default ON public.brand_voices (is_default) WHERE is_default;
 
