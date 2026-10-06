@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { getVoiceStatus, resolveBrandVoice } from "@/lib/voice.functions";
@@ -75,12 +76,33 @@ export function takeInProgress(take: Pick<VoiceoverRow, "status" | "created_at">
 }
 
 export function useVoiceovers(sequenceId: string | null) {
+  const queryClient = useQueryClient();
+  // A take started or finished anywhere (here or by a teammate) is fetched as
+  // it changes; a slow poll covers a moment the live connection is down.
+  useEffect(() => {
+    if (!sequenceId) return;
+    const channel = supabase
+      .channel(`voiceovers-${sequenceId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "voiceovers",
+          filter: `sequence_id=eq.${sequenceId}`,
+        },
+        () => void queryClient.invalidateQueries({ queryKey: ["voiceovers", sequenceId] }),
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [sequenceId, queryClient]);
   return useQuery({
     queryKey: ["voiceovers", sequenceId],
     enabled: !!sequenceId,
-    // A take being made (here or by a teammate) shows up when it's done.
     refetchInterval: (query) =>
-      query.state.data?.some((take) => takeInProgress(take)) ? 4000 : false,
+      query.state.data?.some((take) => takeInProgress(take)) ? 4000 : 30_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("voiceovers")

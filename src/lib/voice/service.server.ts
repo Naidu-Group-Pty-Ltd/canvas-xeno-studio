@@ -7,6 +7,7 @@
  * call is recorded first; an uncertain outcome is never retried by itself.
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { isMissingTableError } from "@/lib/edit/errors";
 import { derivedUuid } from "../derived-id";
 import { AppError } from "../higgsfield/errors";
 import {
@@ -159,6 +160,13 @@ export type VoiceOrigin = "chosen" | "campaign" | "project" | "default";
  * project's work: one chosen outside it is refused, and an inherited one
  * outside it is passed over.
  */
+/** The brand-voice tables aren't there yet: their migration is still to be applied. */
+export class VoicesNotSetUp extends AppError {
+  constructor() {
+    super("UNKNOWN", "Brand voices aren't set up yet: a database update is still to be applied.");
+  }
+}
+
 export async function resolveVoiceWithOrigin(input: {
   voiceId?: string | null | undefined;
   campaignId?: string | null | undefined;
@@ -166,8 +174,10 @@ export async function resolveVoiceWithOrigin(input: {
 }): Promise<{ voice: BrandVoiceRow; via: VoiceOrigin } | null> {
   // A lookup that fails stops here: falling back would speak (and bill) with
   // a different voice than the one that applies.
-  const unavailable = () =>
-    new AppError("UNKNOWN", "The brand voice couldn't be looked up. Try again in a moment.");
+  const unavailable = (error: unknown) =>
+    isMissingTableError(error)
+      ? new VoicesNotSetUp()
+      : new AppError("UNKNOWN", "The brand voice couldn't be looked up. Try again in a moment.");
   const load = async (id: string | null | undefined) => {
     if (!id) return null;
     const { data, error } = await supabaseAdmin
@@ -176,7 +186,7 @@ export async function resolveVoiceWithOrigin(input: {
       .eq("id", id)
       .eq("is_archived", false)
       .maybeSingle();
-    if (error) throw unavailable();
+    if (error) throw unavailable(error);
     return (data ?? null) as unknown as BrandVoiceRow | null;
   };
   const { data: campaign, error: campaignError } = input.campaignId
@@ -186,7 +196,7 @@ export async function resolveVoiceWithOrigin(input: {
         .eq("id", input.campaignId)
         .maybeSingle()
     : { data: null, error: null };
-  if (campaignError) throw unavailable();
+  if (campaignError) throw unavailable(campaignError);
   // Work for a campaign is in the campaign's project, whatever project the
   // request names.
   const projectId = campaign ? (campaign.project_id ?? null) : (input.projectId ?? null);
@@ -217,7 +227,7 @@ export async function resolveVoiceWithOrigin(input: {
       .select("brand_voice_id")
       .eq("id", projectId)
       .maybeSingle();
-    if (error) throw unavailable();
+    if (error) throw unavailable(error);
     const fromProject = usable(await load(data?.brand_voice_id));
     if (fromProject) return { voice: fromProject, via: "project" };
   }
@@ -227,7 +237,7 @@ export async function resolveVoiceWithOrigin(input: {
     .eq("is_default", true)
     .eq("is_archived", false)
     .maybeSingle();
-  if (fallbackError) throw unavailable();
+  if (fallbackError) throw unavailable(fallbackError);
   const studioDefault = usable(fallback as unknown as BrandVoiceRow | null);
   return studioDefault ? { voice: studioDefault, via: "default" } : null;
 }
@@ -921,13 +931,17 @@ export async function voiceAddedOnce<Details extends Record<string, unknown>>(in
       submitted_at: new Date().toISOString(),
     };
     if (existing) {
-      const restarted = await record(existing.id, {
-        ...payload,
-        error_code: null,
-        error_message: null,
-        failed_at: null,
-      });
-      if (!restarted) throw unchecked();
+      // Only one request takes a failed attempt up again: the one whose
+      // update still finds it failed. Another, meanwhile, follows that one.
+      const { data: claimed, error: claimError } = await supabaseAdmin
+        .from("operations")
+        .update({ ...payload, error_code: null, error_message: null, failed_at: null } as never)
+        .eq("id", existing.id)
+        .eq("status", "failed")
+        .select("id")
+        .maybeSingle();
+      if (claimError) throw unchecked();
+      if (!claimed) return settled(await load(), true);
       return add(existing.id);
     }
     const { data, error } = await supabaseAdmin
@@ -948,9 +962,16 @@ export async function voiceAddedOnce<Details extends Record<string, unknown>>(in
   };
   // An earlier attempt: its voice, the voice that appeared for it, a new try
   // after a definite failure, or still pending.
-  const settled = async (attempt: Attempt | null): Promise<VoiceAddition<Details>> => {
+  const settled = async (
+    attempt: Attempt | null,
+    alreadyTakenUp = false,
+  ): Promise<VoiceAddition<Details>> => {
     if (!attempt) return begin(null);
-    if (attempt.status === "failed") return begin(attempt);
+    if (attempt.status === "failed") {
+      // Still failed although another request just took it up: ask again later.
+      if (alreadyTakenUp) throw unchecked();
+      return begin(attempt);
+    }
     // What the attempt was for, not what this request says.
     const name = attempt.input_payload?.name ?? input.name;
     const details = attempt.input_payload?.details ?? input.details;
