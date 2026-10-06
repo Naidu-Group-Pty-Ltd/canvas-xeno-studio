@@ -12,13 +12,18 @@ export const Route = createFileRoute("/api/public/higgsfield-reconcile")({
         const unauthorized = await authenticateCronRequest(request);
         if (unauthorized) return unauthorized;
 
-        const { dispatchQueue, reconcileStaleGenerations, ingestPending } = await import(
-          "@/lib/generation-pipeline.server"
-        );
+        const { dispatchQueue, reconcileStaleGenerations, ingestPending, runAfterResponse } =
+          await import("@/lib/generation-pipeline.server");
 
         const dispatched = await dispatchQueue();
         const polled = await reconcileStaleGenerations();
-        const ingested = await ingestPending();
+        // Saving outputs can outlast the scheduler's short HTTP timeout, and a
+        // caller that hangs up cancels the request. Where the runtime allows it,
+        // saving continues after the response instead.
+        let ingested: number | "background" = "background";
+        await runAfterResponse(request, async () => {
+          ingested = await ingestPending();
+        });
 
         return new Response(JSON.stringify({ dispatched, polled, ingested }), {
           status: 200,

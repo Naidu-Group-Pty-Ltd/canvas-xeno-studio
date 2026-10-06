@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 
 /**
  * Provider-facing webhook. Isolated from authenticated endpoints, idempotent,
- * and returns quickly: heavy media ingestion is flagged, not performed inline.
+ * and returns quickly: a completed output is saved to the library right after
+ * the response (the reconcile job remains the fallback).
  */
 export const Route = createFileRoute("/api/public/higgsfield-webhook")({
   server: {
@@ -22,7 +23,8 @@ export const Route = createFileRoute("/api/public/higgsfield-webhook")({
         }
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const { applyProviderPayload, logEvent } = await import("@/lib/generation-pipeline.server");
+        const { applyProviderPayload, ingestOutputs, logEvent, runAfterResponse } =
+          await import("@/lib/generation-pipeline.server");
         const { extractRequestId } = await import("@/lib/higgsfield/provider.server");
 
         const requestId = extractRequestId(payload);
@@ -36,7 +38,11 @@ export const Route = createFileRoute("/api/public/higgsfield-webhook")({
         if (!generation) return new Response(JSON.stringify({ received: true, matched: false }), { status: 200 });
 
         await logEvent(generation.id, "webhook_received", { request_id: requestId });
-        await applyProviderPayload(generation.id, payload);
+        const status = await applyProviderPayload(generation.id, payload);
+        // Save the output now instead of waiting up to five minutes for the
+        // reconcile job. The claim inside ingestOutputs makes repeats no-ops.
+        if (status === "completed")
+          await runAfterResponse(request, () => ingestOutputs(generation.id));
 
         return new Response(JSON.stringify({ received: true }), {
           status: 200,

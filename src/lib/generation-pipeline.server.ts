@@ -474,16 +474,41 @@ export async function applyProviderPayload(generationId: string, payload: unknow
   return status;
 }
 
+/** A save still "processing" after this long was interrupted and may be retried. */
+const INGEST_STALE_MS = 10 * 60_000;
+/** Automatic retries of a failed save; a person can still retry from the UI. */
+const MAX_AUTO_INGEST_ATTEMPTS = 3;
+
+/** Saves that may be (re)started: never started, failed, or interrupted mid-way. */
+function claimableIngestFilter(): string {
+  const staleBefore = new Date(Date.now() - INGEST_STALE_MS).toISOString();
+  return `ingest_status.in.(pending,failed),and(ingest_status.eq.processing,updated_at.lt.${staleBefore})`;
+}
+
+/**
+ * Atomically claims a completed generation's outputs for saving. The webhook,
+ * the reconcile job and a manual retry can all race here; only one wins, so an
+ * output is never fetched and stored twice at the same time.
+ */
+async function claimIngest(generationId: string): Promise<boolean> {
+  const { data } = await supabaseAdmin
+    .from("generations")
+    .update({ ingest_status: "processing" })
+    .eq("id", generationId)
+    .eq("status", "completed")
+    .or(claimableIngestFilter())
+    .select("id");
+  return (data ?? []).length > 0;
+}
+
 export async function ingestOutputs(generationId: string): Promise<number> {
+  if (!(await claimIngest(generationId))) return 0;
   const { data: generation } = await supabaseAdmin
     .from("generations")
     .select("*")
     .eq("id", generationId)
     .maybeSingle();
-  if (!generation || generation.status !== "completed") return 0;
-  if (generation.ingest_status === "completed" || generation.ingest_status === "processing") return 0;
-
-  await supabaseAdmin.from("generations").update({ ingest_status: "processing" }).eq("id", generationId);
+  if (!generation) return 0;
   await logEvent(generationId, "asset_ingest_started");
 
   let outputs: NormalizedOutput[] = normalizeResult(generation.provider_response);
@@ -564,8 +589,9 @@ export async function ingestOutputs(generationId: string): Promise<number> {
     .from("generations")
     .update({
       ingest_status: complete ? "completed" : "failed",
+      // A successful retry clears the earlier save error.
       ...(complete
-        ? {}
+        ? { error_code: null, error_message: null }
         : { error_code: "INGEST_FAILED", error_message: "Some outputs could not be saved to storage" }),
     })
     .eq("id", generationId);
@@ -577,16 +603,70 @@ export async function ingestOutputs(generationId: string): Promise<number> {
   return created;
 }
 
+async function ingestAttempts(generationId: string): Promise<number> {
+  const { count } = await supabaseAdmin
+    .from("generation_events")
+    .select("id", { count: "exact", head: true })
+    .eq("generation_id", generationId)
+    .eq("event_type", "asset_ingest_started");
+  return count ?? 0;
+}
+
+/**
+ * Saves outputs nobody has saved yet (oldest first), then retries failed or
+ * interrupted saves a limited number of times (most recent first).
+ */
 export async function ingestPending(limit = 5): Promise<number> {
-  const { data } = await supabaseAdmin
+  const { data: pending } = await supabaseAdmin
     .from("generations")
     .select("id")
     .eq("status", "completed")
     .eq("ingest_status", "pending")
+    .order("completed_at", { ascending: true })
     .limit(limit);
+  const ids = (pending ?? []).map((row) => row.id);
+
+  if (ids.length < limit) {
+    const { data: retryable } = await supabaseAdmin
+      .from("generations")
+      .select("id")
+      .eq("status", "completed")
+      .or(claimableIngestFilter())
+      .neq("ingest_status", "pending")
+      .order("updated_at", { ascending: false })
+      .limit(20);
+    for (const row of retryable ?? []) {
+      if (ids.length >= limit) break;
+      if ((await ingestAttempts(row.id)) < MAX_AUTO_INGEST_ATTEMPTS) ids.push(row.id);
+    }
+  }
+
   let total = 0;
-  for (const row of data ?? []) total += await ingestOutputs(row.id);
+  for (const id of ids) total += await ingestOutputs(id);
   return total;
+}
+
+/**
+ * Runs work after the HTTP response when the runtime can keep the request
+ * alive (Cloudflare's waitUntil, which the server adapter puts on the request),
+ * otherwise before responding. Failures are logged, never thrown.
+ */
+export async function runAfterResponse(
+  request: Request,
+  work: () => Promise<unknown>,
+): Promise<void> {
+  const task = work().then(
+    () => undefined,
+    (error: unknown) => {
+      console.error("background task failed", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    },
+  );
+  const waitUntil = (request as Request & { waitUntil?: (promise: Promise<unknown>) => void })
+    .waitUntil;
+  if (typeof waitUntil === "function") waitUntil.call(request, task);
+  else await task;
 }
 
 /* ------------------------------------------------------------------ */
