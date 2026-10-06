@@ -155,6 +155,9 @@ export async function finishSequenceRender(
             render_id: renderId,
             ...(posterPath ? { poster_path: posterPath } : {}),
             ...(metadata ? { probe: metadata } : {}),
+            ...(Array.isArray(input["music_credits"]) && input["music_credits"].length
+              ? { music_credits: input["music_credits"] }
+              : {}),
           } as never,
         })
         .select("id")

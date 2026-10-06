@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   CheckCircle2,
+  Copy,
   Download,
   ExternalLink,
   Film,
@@ -21,6 +22,8 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { renderInProgress } from "@/lib/edit/renders";
+import { useTracksForAssets } from "@/hooks/useMusicData";
+import { creditLine } from "@/lib/music/catalog";
 
 interface RenderPanelProps {
   sequenceId: string;
@@ -48,6 +51,13 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
   });
   const blockers = renderBlockers(timeline);
   const active = renders.find((render) => renderInProgress(render));
+  const audioIds = useMemo(() => timeline.audio.map((item) => item.assetId), [timeline.audio]);
+  const { data: musicTracks = [] } = useTracksForAssets(audioIds);
+  const credits = [
+    ...new Set(
+      musicTracks.map((track) => creditLine(track)).filter((line): line is string => !!line),
+    ),
+  ];
 
   async function start() {
     setStarting(true);
@@ -106,6 +116,37 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
           <p className="text-[11px] text-muted-foreground">
             You can keep editing; this render uses the version you saved when you pressed Render.
           </p>
+        </div>
+      )}
+
+      {credits.length > 0 && (
+        <div
+          className="space-y-1.5 rounded-md border border-warning/40 bg-warning/5 p-2.5 text-xs"
+          data-testid="music-credits"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-medium">Music credit to publish</p>
+            <button
+              type="button"
+              className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                void navigator.clipboard?.writeText(credits.join("\n")).then(
+                  () => toast.success("Credit copied"),
+                  () => toast.error("Couldn't copy"),
+                );
+              }}
+            >
+              <Copy className="size-3" /> Copy
+            </button>
+          </div>
+          <p className="text-muted-foreground">
+            The licence asks for this credit wherever the video is posted (caption or description).
+          </p>
+          <ul className="space-y-1">
+            {credits.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
         </div>
       )}
 

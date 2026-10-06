@@ -1,0 +1,474 @@
+/**
+ * Music sources for the Creative Studio library. Server-only: keys stay on
+ * the server, and these modules are loaded only inside server functions.
+ *
+ * - Openverse: Creative Commons music and sound effects, searched with only
+ *   the licences that allow commercial use and edits (CC0, public domain,
+ *   CC BY).
+ * - Eleven Music: AI music made to a brief, and stem separation for
+ *   instrumentals.
+ *
+ * Billable calls report whether a failure is certain; an uncertain one is
+ * recorded as such upstream and never retried automatically.
+ */
+import { unzipSync } from "fflate";
+import { SAFE_OPENVERSE_LICENSES, isSafeOpenverseLicense } from "./catalog";
+import {
+  eleven,
+  elevenFailure,
+  elevenLabsConfigured,
+  timed,
+  transportFailure,
+  type ProviderFailure,
+} from "../voice/providers.server";
+
+/* ------------------------------------------------------------------ */
+/* Openverse                                                           */
+/* ------------------------------------------------------------------ */
+
+const OPENVERSE = "https://api.openverse.org/v1";
+
+export interface OpenverseTrack {
+  id: string;
+  title: string;
+  creator: string | null;
+  creatorUrl: string | null;
+  license: string;
+  licenseVersion: string | null;
+  licenseUrl: string | null;
+  landingUrl: string | null;
+  audioUrl: string | null;
+  provider: string | null;
+  category: string | null;
+  genres: string[];
+  tags: string[];
+  durationSeconds: number | null;
+  filetype: string | null;
+  attribution: string | null;
+  waveformUrl: string | null;
+}
+
+interface RawOpenverseAudio {
+  id?: string;
+  title?: string | null;
+  creator?: string | null;
+  creator_url?: string | null;
+  license?: string;
+  license_version?: string | null;
+  license_url?: string | null;
+  foreign_landing_url?: string | null;
+  url?: string | null;
+  provider?: string | null;
+  source?: string | null;
+  category?: string | null;
+  genres?: string[] | null;
+  tags?: { name?: string }[] | null;
+  duration?: number | null;
+  filetype?: string | null;
+  attribution?: string | null;
+  waveform?: string | null;
+  mature?: boolean;
+}
+
+function toTrack(raw: RawOpenverseAudio): OpenverseTrack | null {
+  if (!raw.id || !raw.license || raw.mature) return null;
+  return {
+    id: raw.id,
+    title: (raw.title ?? "").trim() || "Untitled",
+    creator: raw.creator?.trim() || null,
+    creatorUrl: raw.creator_url ?? null,
+    license: raw.license.toLowerCase(),
+    licenseVersion: raw.license_version ?? null,
+    licenseUrl: raw.license_url ?? null,
+    landingUrl: raw.foreign_landing_url ?? null,
+    audioUrl: raw.url ?? null,
+    provider: raw.source ?? raw.provider ?? null,
+    category: raw.category ?? null,
+    genres: (raw.genres ?? [])
+      .filter((genre): genre is string => typeof genre === "string")
+      .slice(0, 8),
+    tags: (raw.tags ?? [])
+      .map((tag) => tag.name ?? "")
+      .filter(Boolean)
+      .slice(0, 12),
+    durationSeconds: typeof raw.duration === "number" ? Math.round(raw.duration / 100) / 10 : null,
+    filetype: raw.filetype ?? null,
+    attribution: raw.attribution?.trim() || null,
+    waveformUrl: raw.waveform ?? null,
+  };
+}
+
+let openverseToken: { value: string; expires: number } | null = null;
+
+/** Registered apps get higher rate limits; anonymous use works without one. */
+export function openverseAuthenticated(): boolean {
+  return !!(
+    process.env["OPENVERSE_CLIENT_ID"]?.trim() && process.env["OPENVERSE_CLIENT_SECRET"]?.trim()
+  );
+}
+
+async function openverseHeaders(): Promise<Record<string, string>> {
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (!openverseAuthenticated()) return headers;
+  if (!openverseToken || openverseToken.expires < Date.now() + 60_000) {
+    try {
+      const response = await timed(
+        `${OPENVERSE}/auth_tokens/token/`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            grant_type: "client_credentials",
+            client_id: process.env["OPENVERSE_CLIENT_ID"]!.trim(),
+            client_secret: process.env["OPENVERSE_CLIENT_SECRET"]!.trim(),
+          }),
+        },
+        15_000,
+      );
+      if (response.ok) {
+        const data = (await response.json()) as { access_token?: string; expires_in?: number };
+        if (data.access_token)
+          openverseToken = {
+            value: data.access_token,
+            expires: Date.now() + (data.expires_in ?? 3600) * 1000,
+          };
+      }
+    } catch {
+      // Fall back to anonymous access.
+    }
+  }
+  if (openverseToken) headers["Authorization"] = `Bearer ${openverseToken.value}`;
+  return headers;
+}
+
+function openverseFailure(status: number): ProviderFailure {
+  return {
+    ok: false,
+    code: status === 429 ? "RATE_LIMITED" : "PROVIDER_REJECTED",
+    message:
+      status === 429
+        ? "Openverse is limiting searches right now. Wait a minute, or add Openverse app credentials for higher limits."
+        : `Openverse could not answer (HTTP ${status}).`,
+    uncertain: false,
+  };
+}
+
+export const OPENVERSE_LENGTHS = ["shortest", "short", "medium", "long"] as const;
+
+export async function searchOpenverse(input: {
+  query: string;
+  kind: "music" | "sound_effect";
+  length?: (typeof OPENVERSE_LENGTHS)[number] | undefined;
+  page: number;
+}): Promise<
+  { ok: true; tracks: OpenverseTrack[]; total: number; pages: number } | ProviderFailure
+> {
+  const params = new URLSearchParams({
+    license: SAFE_OPENVERSE_LICENSES.join(","),
+    category: input.kind,
+    page_size: "20",
+    page: String(Math.max(1, input.page)),
+    mature: "false",
+  });
+  if (input.query.trim()) params.set("q", input.query.trim().slice(0, 200));
+  if (input.length) params.set("length", input.length);
+  let response: Response;
+  try {
+    response = await timed(
+      `${OPENVERSE}/audio/?${params}`,
+      { headers: await openverseHeaders() },
+      20_000,
+    );
+  } catch {
+    return {
+      ok: false,
+      code: "PROVIDER_UNAVAILABLE",
+      message: "Openverse didn't answer. Try again.",
+      uncertain: false,
+    };
+  }
+  if (!response.ok) return openverseFailure(response.status);
+  const data = (await response.json()) as {
+    result_count?: number;
+    page_count?: number;
+    results?: RawOpenverseAudio[];
+  };
+  const tracks = (data.results ?? [])
+    .map(toTrack)
+    .filter((track): track is OpenverseTrack => !!track && isSafeOpenverseLicense(track.license));
+  return {
+    ok: true,
+    tracks,
+    total: data.result_count ?? tracks.length,
+    pages: data.page_count ?? 1,
+  };
+}
+
+/** The authoritative record for one track (never trust a licence sent by the browser). */
+export async function openverseTrack(
+  id: string,
+): Promise<{ ok: true; track: OpenverseTrack } | ProviderFailure> {
+  let response: Response;
+  try {
+    response = await timed(
+      `${OPENVERSE}/audio/${encodeURIComponent(id)}/`,
+      { headers: await openverseHeaders() },
+      20_000,
+    );
+  } catch {
+    return {
+      ok: false,
+      code: "PROVIDER_UNAVAILABLE",
+      message: "Openverse didn't answer. Try again.",
+      uncertain: false,
+    };
+  }
+  if (response.status === 404)
+    return {
+      ok: false,
+      code: "INVALID_PARAMETERS",
+      message: "That track is no longer on Openverse.",
+      uncertain: false,
+    };
+  if (!response.ok) return openverseFailure(response.status);
+  const track = toTrack((await response.json()) as RawOpenverseAudio);
+  if (!track)
+    return {
+      ok: false,
+      code: "INVALID_PARAMETERS",
+      message: "That track can't be used.",
+      uncertain: false,
+    };
+  return { ok: true, track };
+}
+
+const AUDIO_TYPES: Record<string, string> = {
+  mp3: "audio/mpeg",
+  mp32: "audio/mpeg",
+  mpeg: "audio/mpeg",
+  wav: "audio/wav",
+  ogg: "audio/ogg",
+  oga: "audio/ogg",
+  opus: "audio/ogg",
+  flac: "audio/flac",
+  m4a: "audio/mp4",
+  aac: "audio/aac",
+};
+
+export function audioExtension(mime: string): string {
+  if (mime.includes("mpeg")) return "mp3";
+  if (mime.includes("wav")) return "wav";
+  if (mime.includes("ogg")) return "ogg";
+  if (mime.includes("flac")) return "flac";
+  if (mime.includes("mp4") || mime.includes("aac")) return "m4a";
+  return "bin";
+}
+
+/** Downloads a public audio file over HTTPS, refusing anything that isn't audio or is too large. */
+export async function downloadAudio(
+  url: string,
+  hint: string | null,
+  maxBytes = 40 * 1024 * 1024,
+): Promise<{ ok: true; bytes: Uint8Array; mime: string } | ProviderFailure> {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return {
+      ok: false,
+      code: "INVALID_PARAMETERS",
+      message: "The track has no downloadable file.",
+      uncertain: false,
+    };
+  }
+  if (
+    parsed.protocol !== "https:" ||
+    /^(localhost|127\.|10\.|192\.168\.|169\.254\.|\[)/i.test(parsed.hostname)
+  ) {
+    return {
+      ok: false,
+      code: "INVALID_PARAMETERS",
+      message: "The track's file isn't on a public HTTPS address.",
+      uncertain: false,
+    };
+  }
+  let response: Response;
+  try {
+    response = await timed(parsed.href, { redirect: "follow" }, 90_000);
+  } catch {
+    return {
+      ok: false,
+      code: "PROVIDER_UNAVAILABLE",
+      message: "The track's file couldn't be downloaded. Try again.",
+      uncertain: false,
+    };
+  }
+  if (!response.ok || !response.body)
+    return {
+      ok: false,
+      code: "PROVIDER_UNAVAILABLE",
+      message: `The track's file couldn't be downloaded (HTTP ${response.status}).`,
+      uncertain: false,
+    };
+  const declared = Number(response.headers.get("content-length") ?? 0);
+  if (declared > maxBytes)
+    return {
+      ok: false,
+      code: "INVALID_PARAMETERS",
+      message: "The track's file is too large to import.",
+      uncertain: false,
+    };
+  const type = (response.headers.get("content-type") ?? "").split(";")[0]!.trim().toLowerCase();
+  const mime = type.startsWith("audio/")
+    ? type === "audio/mp3"
+      ? "audio/mpeg"
+      : type
+    : (AUDIO_TYPES[(hint ?? "").toLowerCase()] ?? null);
+  if (!mime)
+    return {
+      ok: false,
+      code: "INVALID_PARAMETERS",
+      message: "The track's file isn't audio.",
+      uncertain: false,
+    };
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > maxBytes) {
+      await reader.cancel().catch(() => undefined);
+      return {
+        ok: false,
+        code: "INVALID_PARAMETERS",
+        message: "The track's file is too large to import.",
+        uncertain: false,
+      };
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return { ok: true, bytes, mime };
+}
+
+/* ------------------------------------------------------------------ */
+/* Eleven Music                                                        */
+/* ------------------------------------------------------------------ */
+
+export { elevenLabsConfigured as elevenMusicConfigured };
+
+const MUSIC_TIMEOUT_MS = 300_000;
+
+/** One billable generation: a finished track in MP3. */
+export async function composeMusic(input: {
+  prompt: string;
+  seconds: number;
+  model: string;
+  instrumental: boolean;
+  seed?: number | null | undefined;
+}): Promise<
+  { ok: true; audio: Uint8Array; mime: string; songId: string | null } | ProviderFailure
+> {
+  if (!elevenLabsConfigured())
+    return {
+      ok: false,
+      code: "PROVIDER_NOT_CONFIGURED",
+      message: "ElevenLabs is not connected. Add ELEVENLABS_API_KEY to the backend secrets.",
+      uncertain: false,
+    };
+  const body: Record<string, unknown> = {
+    prompt: input.prompt,
+    music_length_ms: Math.round(input.seconds * 1000),
+    model_id: input.model,
+    force_instrumental: input.instrumental,
+  };
+  if (typeof input.seed === "number") body["seed"] = input.seed;
+  let response: Response;
+  try {
+    response = await eleven(
+      "/v1/music?output_format=mp3_44100_128",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+      MUSIC_TIMEOUT_MS,
+    );
+  } catch (error) {
+    return transportFailure("ElevenLabs", error);
+  }
+  if (!response.ok) return elevenFailure(response.status, await response.text().catch(() => ""));
+  let audio: Uint8Array;
+  try {
+    audio = new Uint8Array(await response.arrayBuffer());
+  } catch (error) {
+    // The track was made (and billed) but didn't arrive in full.
+    return transportFailure("ElevenLabs", error);
+  }
+  if (!audio.length)
+    return {
+      ok: false,
+      code: "PROVIDER_REJECTED",
+      message: "ElevenLabs returned no audio.",
+      uncertain: false,
+    };
+  return { ok: true, audio, mime: "audio/mpeg", songId: response.headers.get("song-id") };
+}
+
+/** Splits a track into vocals and the instrumental (one billable call). */
+export async function separateInstrumental(input: {
+  audio: Uint8Array;
+  mime: string;
+  filename: string;
+}): Promise<{ ok: true; instrumental: Uint8Array; mime: string } | ProviderFailure> {
+  if (!elevenLabsConfigured())
+    return {
+      ok: false,
+      code: "PROVIDER_NOT_CONFIGURED",
+      message: "ElevenLabs is not connected. Add ELEVENLABS_API_KEY to the backend secrets.",
+      uncertain: false,
+    };
+  const form = new FormData();
+  form.append(
+    "file",
+    new Blob([new Uint8Array(input.audio)], { type: input.mime }),
+    input.filename,
+  );
+  form.append("stem_variation_id", "two_stems_v1");
+  let response: Response;
+  try {
+    response = await eleven(
+      "/v1/music/stem-separation?output_format=mp3_44100_128",
+      { method: "POST", body: form },
+      MUSIC_TIMEOUT_MS,
+    );
+  } catch (error) {
+    return transportFailure("ElevenLabs", error);
+  }
+  if (!response.ok) return elevenFailure(response.status, await response.text().catch(() => ""));
+  let files: Record<string, Uint8Array>;
+  try {
+    files = unzipSync(new Uint8Array(await response.arrayBuffer()));
+  } catch (error) {
+    return transportFailure("ElevenLabs", error);
+  }
+  const names = Object.keys(files).filter((name) => !name.endsWith("/") && files[name]!.length);
+  const instrumental =
+    names.find((name) => /instrumental|accompaniment|no[_ -]?vocals|music/i.test(name)) ??
+    (names.length === 2 ? names.find((name) => !/vocal/i.test(name)) : undefined);
+  if (!instrumental)
+    return {
+      ok: false,
+      code: "PROVIDER_REJECTED",
+      message: "ElevenLabs didn't return an instrumental stem.",
+      uncertain: false,
+    };
+  return { ok: true, instrumental: files[instrumental]!, mime: "audio/mpeg" };
+}

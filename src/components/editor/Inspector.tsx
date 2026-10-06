@@ -57,6 +57,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import type { PlaybackClock, Selection } from "./state";
 import { VoiceoverPanel, type VoiceoverContext } from "./VoiceoverPanel";
+import { MusicPanel, type MusicContext } from "./MusicPanel";
 
 interface InspectorProps {
   timeline: Timeline;
@@ -68,7 +69,15 @@ interface InspectorProps {
   onChange: (timeline: Timeline, key?: string) => void;
   /** The edit this timeline belongs to, for voiceovers in its brand voice. */
   voiceover?: VoiceoverContext | undefined;
+  /** The edit's project, campaign and planned music direction. */
+  music?: MusicContext | undefined;
 }
+
+const TAB_COLUMNS: Record<number, string> = {
+  2: "grid-cols-2",
+  3: "grid-cols-3",
+  4: "grid-cols-4",
+};
 
 export function Inspector(props: InspectorProps) {
   const { selection, timeline } = props;
@@ -80,6 +89,7 @@ export function Inspector(props: InspectorProps) {
     const item = timeline.audio.find((entry) => entry.id === selection.id);
     if (item) return <AudioInspector {...props} item={item} />;
   }
+  const tabCount = 2 + Number(!!props.voiceover) + Number(!!props.music);
   return (
     <Tabs
       defaultValue={
@@ -87,10 +97,13 @@ export function Inspector(props: InspectorProps) {
       }
       className="flex h-full flex-col"
     >
-      <TabsList className={`mx-3 mt-3 grid ${props.voiceover ? "grid-cols-3" : "grid-cols-2"}`}>
+      <TabsList className={`mx-3 mt-3 grid ${TAB_COLUMNS[tabCount]}`}>
         <TabsTrigger value="format">Format</TabsTrigger>
-        {props.voiceover && <TabsTrigger value="voice">Voiceover</TabsTrigger>}
-        <TabsTrigger value="text">{props.voiceover ? "Text" : "Captions & titles"}</TabsTrigger>
+        {props.voiceover && <TabsTrigger value="voice">Voice</TabsTrigger>}
+        {props.music && <TabsTrigger value="music">Music</TabsTrigger>}
+        <TabsTrigger value="text">
+          {props.voiceover || props.music ? "Text" : "Captions & titles"}
+        </TabsTrigger>
       </TabsList>
       <TabsContent value="format" className="min-h-0 flex-1 overflow-y-auto">
         <SequenceSettings {...props} />
@@ -103,6 +116,18 @@ export function Inspector(props: InspectorProps) {
             layout={props.layout}
             playhead={() => props.clock.getTime()}
             onChange={props.onChange}
+          />
+        </TabsContent>
+      )}
+      {props.music && (
+        <TabsContent value="music" className="min-h-0 flex-1 overflow-y-auto">
+          <MusicPanel
+            context={props.music}
+            timeline={timeline}
+            layout={props.layout}
+            playhead={() => props.clock.getTime()}
+            onChange={props.onChange}
+            onSelect={props.onSelect}
           />
         </TabsContent>
       )}

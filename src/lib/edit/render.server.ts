@@ -10,6 +10,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { AppError } from "../higgsfield/errors";
 import { appBaseUrl } from "../generation-pipeline.server";
 import { mediaWorkerConfigured, submitWorkerTask } from "../media/worker.server";
+import { creditLine } from "../music/catalog";
 import { RENDER_STALL_MS } from "./renders";
 import { buildRenderRequest, parseTimeline, renderBlockers, type Timeline } from "./timeline";
 
@@ -73,6 +74,24 @@ async function resolveAssets(timeline: Timeline) {
   return assets;
 }
 
+/** Credits the edit's music asks for (Creative Commons BY), kept with the finished video. */
+async function musicCredits(assetIds: string[]): Promise<string[]> {
+  if (!assetIds.length) return [];
+  try {
+    const { data } = await supabaseAdmin
+      .from("music_tracks")
+      .select("title,artist,license,license_version,license_url,attribution")
+      .in("asset_id", [...new Set(assetIds)]);
+    const lines = (data ?? [])
+      .map((row) => creditLine(row as never))
+      .filter((line): line is string => !!line);
+    return [...new Set(lines)];
+  } catch {
+    // The music library is optional; a render never fails over credits.
+    return [];
+  }
+}
+
 export async function startSequenceRender(input: RenderInput): Promise<RenderStarted> {
   const { data: profile } = await supabaseAdmin
     .from("profiles")
@@ -120,6 +139,7 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
   if (blockers.length) throw new AppError("INVALID_PARAMETERS", blockers[0]);
 
   const assets = await resolveAssets(timeline);
+  const credits = await musicCredits(timeline.audio.map((item) => item.assetId));
   const request = buildRenderRequest(timeline);
 
   const renderId = crypto.randomUUID();
@@ -181,6 +201,7 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
       mime_type: "video/mp4",
       output_kind: "video",
       sources: request.sources.map((source) => source.assetId),
+      ...(credits.length ? { music_credits: credits } : {}),
     } as never,
     dedupe_key: `render:${input.clientRequestId}`,
     submitted_at: now,

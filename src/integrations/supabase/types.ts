@@ -2956,6 +2956,159 @@ export type Database = {
         }
         Relationships: []
       }
+      music_tracks: {
+        Row: {
+          artist: string | null
+          asset_id: string | null
+          attribution: string | null
+          beats: Json | null
+          bpm: number | null
+          campaign_id: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          dedupe_key: string | null
+          duration_seconds: number | null
+          error_code: string | null
+          error_message: string | null
+          genres: string[]
+          id: string
+          instrumental: boolean | null
+          is_archived: boolean
+          kind: string
+          license: string
+          license_url: string | null
+          license_version: string | null
+          moods: string[]
+          parent_track_id: string | null
+          project_id: string | null
+          prompt: string | null
+          provider: string | null
+          provider_request_id: string | null
+          rights: Json
+          source: string
+          source_id: string | null
+          source_url: string | null
+          status: string
+          tags: string[]
+          title: string
+          updated_at: string
+          usage_notes: string | null
+        }
+        Insert: {
+          artist?: string | null
+          asset_id?: string | null
+          attribution?: string | null
+          beats?: Json | null
+          bpm?: number | null
+          campaign_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          dedupe_key?: string | null
+          duration_seconds?: number | null
+          error_code?: string | null
+          error_message?: string | null
+          genres?: string[]
+          id?: string
+          instrumental?: boolean | null
+          is_archived?: boolean
+          kind?: string
+          license: string
+          license_url?: string | null
+          license_version?: string | null
+          moods?: string[]
+          parent_track_id?: string | null
+          project_id?: string | null
+          prompt?: string | null
+          provider?: string | null
+          provider_request_id?: string | null
+          rights?: Json
+          source: string
+          source_id?: string | null
+          source_url?: string | null
+          status?: string
+          tags?: string[]
+          title: string
+          updated_at?: string
+          usage_notes?: string | null
+        }
+        Update: {
+          artist?: string | null
+          asset_id?: string | null
+          attribution?: string | null
+          beats?: Json | null
+          bpm?: number | null
+          campaign_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          dedupe_key?: string | null
+          duration_seconds?: number | null
+          error_code?: string | null
+          error_message?: string | null
+          genres?: string[]
+          id?: string
+          instrumental?: boolean | null
+          is_archived?: boolean
+          kind?: string
+          license?: string
+          license_url?: string | null
+          license_version?: string | null
+          moods?: string[]
+          parent_track_id?: string | null
+          project_id?: string | null
+          prompt?: string | null
+          provider?: string | null
+          provider_request_id?: string | null
+          rights?: Json
+          source?: string
+          source_id?: string | null
+          source_url?: string | null
+          status?: string
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          usage_notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "music_tracks_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "music_tracks_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "music_tracks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "music_tracks_parent_track_id_fkey"
+            columns: ["parent_track_id"]
+            isOneToOne: false
+            referencedRelation: "music_tracks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "music_tracks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       operation_dependencies: {
         Row: {
           created_at: string
