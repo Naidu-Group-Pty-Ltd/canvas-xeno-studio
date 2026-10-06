@@ -721,10 +721,17 @@ export async function ingestPending(limit = 5): Promise<number> {
   return total;
 }
 
+type WaitUntil = (promise: Promise<unknown>) => void;
+
 /**
  * Runs work after the HTTP response when the runtime can keep the request
- * alive (Cloudflare's waitUntil, which the server adapter puts on the request),
- * otherwise before responding. Failures are logged, never thrown.
+ * alive, otherwise before responding. Failures are logged, never thrown.
+ *
+ * On Cloudflare, nitro's module runtime copies the execution context's
+ * waitUntil onto the incoming Request (`request.waitUntil`, and the context
+ * itself onto `request.runtime.cloudflare.context`) before routing, and that
+ * same Request object reaches server route handlers. Local dev has neither,
+ * so the work runs inline there.
  */
 export async function runAfterResponse(
   request: Request,
@@ -738,9 +745,13 @@ export async function runAfterResponse(
       });
     },
   );
-  const waitUntil = (request as Request & { waitUntil?: (promise: Promise<unknown>) => void })
-    .waitUntil;
-  if (typeof waitUntil === "function") waitUntil.call(request, task);
+  const carrier = request as Request & {
+    waitUntil?: WaitUntil;
+    runtime?: { cloudflare?: { context?: { waitUntil?: WaitUntil } } };
+  };
+  const context = carrier.runtime?.cloudflare?.context;
+  if (typeof carrier.waitUntil === "function") carrier.waitUntil(task);
+  else if (typeof context?.waitUntil === "function") context.waitUntil(task);
   else await task;
 }
 
