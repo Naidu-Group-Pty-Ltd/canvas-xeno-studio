@@ -500,13 +500,17 @@ const MAX_AUTO_INGEST_ATTEMPTS = 3;
 /** Stamped on a failed save once its automatic attempts are used up; only a person retries it then. */
 const INGEST_EXHAUSTED = "INGEST_RETRIES_EXHAUSTED";
 
-/** Failed or interrupted saves that automatic retries may still pick up. */
+/**
+ * Failed saves automatic retries may still pick up, plus any interrupted save
+ * (an interrupted save is always reconsidered, so it can never stay
+ * "processing"; if its attempts are used up the scan stamps it exhausted).
+ */
 function retryableIngestFilter(): string {
   const staleBefore = new Date(Date.now() - INGEST_STALE_MS).toISOString();
   const notExhausted = `or(error_code.is.null,error_code.neq.${INGEST_EXHAUSTED})`;
   return [
     `and(ingest_status.eq.failed,${notExhausted})`,
-    `and(ingest_status.eq.processing,updated_at.lt.${staleBefore},${notExhausted})`,
+    `and(ingest_status.eq.processing,updated_at.lt.${staleBefore})`,
   ].join(",");
 }
 
@@ -521,20 +525,32 @@ function claimableIngestFilter(): string {
  * the reconcile job and a manual retry can all race here; only one wins, so an
  * output is never fetched and stored twice at the same time. Returns the
  * claim's updated_at (stamped by the row trigger) as a fencing token, or null.
+ * The previous save error (including an exhausted stamp) is cleared, so an
+ * interrupted attempt is recovered like any other.
  */
-async function claimIngest(generationId: string): Promise<string | null> {
-  const { data } = await supabaseAdmin
+async function claimIngest(generationId: string, freshOnly: boolean): Promise<string | null> {
+  const query = supabaseAdmin
     .from("generations")
-    .update({ ingest_status: "processing" })
+    .update({ ingest_status: "processing", error_code: null, error_message: null })
     .eq("id", generationId)
-    .eq("status", "completed")
-    .or(claimableIngestFilter())
-    .select("updated_at");
+    .eq("status", "completed");
+  const { data } = await (
+    freshOnly ? query.eq("ingest_status", "pending") : query.or(claimableIngestFilter())
+  ).select("updated_at");
   return data?.[0]?.updated_at ?? null;
 }
 
-export async function ingestOutputs(generationId: string): Promise<number> {
-  const claim = await claimIngest(generationId);
+/**
+ * Saves a completed generation's outputs to the library. `freshOnly` limits it
+ * to a save nobody has attempted yet: provider deliveries use it, so repeated
+ * webhooks never spend retries; retries belong to the reconcile job's budget
+ * and to people.
+ */
+export async function ingestOutputs(
+  generationId: string,
+  options: { freshOnly?: boolean } = {},
+): Promise<number> {
+  const claim = await claimIngest(generationId, options.freshOnly ?? false);
   if (!claim) return 0;
   const { data: generation } = await supabaseAdmin
     .from("generations")

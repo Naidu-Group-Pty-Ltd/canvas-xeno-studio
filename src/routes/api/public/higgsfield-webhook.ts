@@ -40,9 +40,10 @@ export const Route = createFileRoute("/api/public/higgsfield-webhook")({
         await logEvent(generation.id, "webhook_received", { request_id: requestId });
         const status = await applyProviderPayload(generation.id, payload);
         // Save the output now instead of waiting up to five minutes for the
-        // reconcile job. The claim inside ingestOutputs makes repeats no-ops.
+        // reconcile job. Only a save nobody has attempted yet is claimed, so a
+        // repeated delivery is a no-op and never spends a retry.
         if (status === "completed")
-          await runAfterResponse(request, () => ingestOutputs(generation.id));
+          await runAfterResponse(request, () => ingestOutputs(generation.id, { freshOnly: true }));
 
         return new Response(JSON.stringify({ received: true }), {
           status: 200,
