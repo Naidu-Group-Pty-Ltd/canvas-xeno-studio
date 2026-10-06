@@ -340,27 +340,33 @@ export const generateVoiceover = createServerFn({ method: "POST" })
     return runWhileConnected(getRequest(), () => run({ ...data, userId: context.userId }));
   });
 
-/** The brand voice that applies to some work, for showing which voice will speak. */
+/**
+ * The brand voice that applies to some work, for showing which voice will
+ * speak, and the project its takes are kept in (whose voices may be chosen).
+ */
 export const resolveBrandVoice = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) =>
     z
       .object({
+        sequenceId: z.string().uuid().nullable().optional(),
         campaignId: z.string().uuid().nullable().optional(),
         projectId: z.string().uuid().nullable().optional(),
       })
       .parse(data ?? {}),
   )
   .handler(async ({ data, context }) => {
-    const { requireActiveMember, resolveVoiceWithOrigin } = await import("./voice/service.server");
+    const { requireActiveMember, voiceForScope, voiceScope } =
+      await import("./voice/service.server");
     await requireActiveMember(context.userId);
-    const resolved = await resolveVoiceWithOrigin({
-      campaignId: data.campaignId ?? null,
-      projectId: data.projectId ?? null,
-    });
-    return resolved
-      ? { id: resolved.voice.id, name: resolved.voice.name, via: resolved.via }
-      : null;
+    const scope = await voiceScope(data);
+    const resolved = await voiceForScope(scope);
+    return {
+      projectId: scope.projectId,
+      voice: resolved
+        ? { id: resolved.voice.id, name: resolved.voice.name, via: resolved.via }
+        : null,
+    };
   });
 
 /* ------------------------------------------------------------------ */
@@ -401,8 +407,6 @@ export const writeVoiceoverScript = createServerFn({ method: "POST" })
       );
 
     const lines: string[] = [];
-    let campaignId: string | null = null;
-    let projectId: string | null = null;
     if (data.sequenceId) {
       // The edit decides the voice, the shots and the brief: a failed lookup
       // stops here rather than writing (and paying for) a script without them.
@@ -414,8 +418,6 @@ export const writeVoiceoverScript = createServerFn({ method: "POST" })
       if (sequenceError)
         throw new AppError("UNKNOWN", "The edit couldn't be looked up. Try again in a moment.");
       if (!sequence) throw new AppError("INVALID_PARAMETERS", "That edit no longer exists.");
-      campaignId = sequence.campaign_id;
-      projectId = sequence.project_id;
       lines.push(`## VIDEO: ${sequence.title}`);
       const timeline = (sequence.timeline ?? {}) as {
         clips?: { label?: string; duration?: number }[];
@@ -457,7 +459,11 @@ export const writeVoiceoverScript = createServerFn({ method: "POST" })
         }
       }
     }
-    const voice = await resolveVoice({ voiceId: data.voiceId ?? null, campaignId, projectId });
+    // The voice that will speak it, in the edit's scope (the same one the take uses).
+    const voice = await resolveVoice({
+      voiceId: data.voiceId ?? null,
+      sequenceId: data.sequenceId ?? null,
+    });
     if (voice) {
       lines.push(
         `## BRAND VOICE: ${voice.name}${voice.description ? ` — ${voice.description}` : ""}`,

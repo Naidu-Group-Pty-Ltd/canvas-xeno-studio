@@ -154,12 +154,6 @@ export async function requireActiveMember(userId: string): Promise<{ isAdmin: bo
 
 export type VoiceOrigin = "chosen" | "campaign" | "project" | "default";
 
-/**
- * The voice to use: the one asked for, else the campaign's, the project's,
- * then the studio default. A voice kept for one project only speaks for that
- * project's work: one chosen outside it is refused, and an inherited one
- * outside it is passed over.
- */
 /** The brand-voice tables aren't there yet: their migration is still to be applied. */
 export class VoicesNotSetUp extends AppError {
   constructor() {
@@ -167,17 +161,77 @@ export class VoicesNotSetUp extends AppError {
   }
 }
 
-export async function resolveVoiceWithOrigin(input: {
-  voiceId?: string | null | undefined;
+/**
+ * A lookup that fails stops here: going on would speak (and bill) with a
+ * different voice than the one that applies.
+ */
+function lookupFailed(error: unknown): AppError {
+  return isMissingTableError(error)
+    ? new VoicesNotSetUp()
+    : new AppError("UNKNOWN", "The brand voice couldn't be looked up. Try again in a moment.");
+}
+
+/** Where some work's voiceovers are kept, and so which voices may speak for it. */
+export interface VoiceScope {
+  projectId: string | null;
+  campaignId: string | null;
+  /** The campaign's own voice, when it has one. */
+  campaignVoiceId: string | null;
+}
+
+/**
+ * The scope of some work. An edit decides for itself, whatever the request
+ * says: its takes are kept in its own project (its campaign's, when the edit
+ * has none), so the voices the editor offers, the voice that speaks and the
+ * project the take is kept in always agree. Other work for a campaign is in
+ * the campaign's project, whatever project the request names.
+ */
+export async function voiceScope(input: {
+  sequenceId?: string | null | undefined;
   campaignId?: string | null | undefined;
   projectId?: string | null | undefined;
-}): Promise<{ voice: BrandVoiceRow; via: VoiceOrigin } | null> {
-  // A lookup that fails stops here: falling back would speak (and bill) with
-  // a different voice than the one that applies.
-  const unavailable = (error: unknown) =>
-    isMissingTableError(error)
-      ? new VoicesNotSetUp()
-      : new AppError("UNKNOWN", "The brand voice couldn't be looked up. Try again in a moment.");
+}): Promise<VoiceScope> {
+  let projectId = input.projectId ?? null;
+  let campaignId = input.campaignId ?? null;
+  let editsProject = false;
+  if (input.sequenceId) {
+    const { data: sequence, error } = await supabaseAdmin
+      .from("sequences")
+      .select("project_id,campaign_id")
+      .eq("id", input.sequenceId)
+      .maybeSingle();
+    if (error)
+      throw new AppError("UNKNOWN", "The edit couldn't be looked up. Try again in a moment.");
+    if (!sequence) throw new AppError("INVALID_PARAMETERS", "That edit no longer exists.");
+    projectId = sequence.project_id;
+    campaignId = sequence.campaign_id;
+    editsProject = projectId !== null;
+  }
+  if (!campaignId) return { projectId, campaignId: null, campaignVoiceId: null };
+  const { data: campaign, error } = await supabaseAdmin
+    .from("campaigns")
+    .select("brand_voice_id,project_id")
+    .eq("id", campaignId)
+    .maybeSingle();
+  if (error) throw lookupFailed(error);
+  if (!campaign) throw new AppError("INVALID_PARAMETERS", "That campaign no longer exists.");
+  return {
+    projectId: editsProject ? projectId : (campaign.project_id ?? null),
+    campaignId,
+    campaignVoiceId: campaign.brand_voice_id ?? null,
+  };
+}
+
+/**
+ * The voice to use: the one asked for, else the campaign's, the project's,
+ * then the studio default. A voice kept for one project only speaks for that
+ * project's work: one chosen outside it is refused, and an inherited one
+ * outside it is passed over.
+ */
+export async function voiceForScope(
+  scope: VoiceScope,
+  voiceId?: string | null,
+): Promise<{ voice: BrandVoiceRow; via: VoiceOrigin } | null> {
   const load = async (id: string | null | undefined) => {
     if (!id) return null;
     const { data, error } = await supabaseAdmin
@@ -186,27 +240,16 @@ export async function resolveVoiceWithOrigin(input: {
       .eq("id", id)
       .eq("is_archived", false)
       .maybeSingle();
-    if (error) throw unavailable(error);
+    if (error) throw lookupFailed(error);
     return (data ?? null) as unknown as BrandVoiceRow | null;
   };
-  const { data: campaign, error: campaignError } = input.campaignId
-    ? await supabaseAdmin
-        .from("campaigns")
-        .select("brand_voice_id,project_id")
-        .eq("id", input.campaignId)
-        .maybeSingle()
-    : { data: null, error: null };
-  if (campaignError) throw unavailable(campaignError);
-  // Work for a campaign is in the campaign's project, whatever project the
-  // request names.
-  const projectId = campaign ? (campaign.project_id ?? null) : (input.projectId ?? null);
   const usable = (voice: BrandVoiceRow | null) =>
-    voice && voiceInScope(voice, projectId) ? voice : null;
+    voice && voiceInScope(voice, scope.projectId) ? voice : null;
 
-  const explicit = await load(input.voiceId);
+  const explicit = await load(voiceId);
   // A chosen voice that has since been archived or removed is never swapped
   // for another speaker.
-  if (input.voiceId && !explicit)
+  if (voiceId && !explicit)
     throw new AppError(
       "INVALID_PARAMETERS",
       "The chosen brand voice is no longer available. Choose another voice.",
@@ -219,15 +262,15 @@ export async function resolveVoiceWithOrigin(input: {
       );
     return { voice: explicit, via: "chosen" };
   }
-  const fromCampaign = usable(await load(campaign?.brand_voice_id));
+  const fromCampaign = usable(await load(scope.campaignVoiceId));
   if (fromCampaign) return { voice: fromCampaign, via: "campaign" };
-  if (projectId) {
+  if (scope.projectId) {
     const { data, error } = await supabaseAdmin
       .from("projects")
       .select("brand_voice_id")
-      .eq("id", projectId)
+      .eq("id", scope.projectId)
       .maybeSingle();
-    if (error) throw unavailable(error);
+    if (error) throw lookupFailed(error);
     const fromProject = usable(await load(data?.brand_voice_id));
     if (fromProject) return { voice: fromProject, via: "project" };
   }
@@ -237,9 +280,19 @@ export async function resolveVoiceWithOrigin(input: {
     .eq("is_default", true)
     .eq("is_archived", false)
     .maybeSingle();
-  if (fallbackError) throw unavailable(fallbackError);
+  if (fallbackError) throw lookupFailed(fallbackError);
   const studioDefault = usable(fallback as unknown as BrandVoiceRow | null);
   return studioDefault ? { voice: studioDefault, via: "default" } : null;
+}
+
+/** The voice for some work, in its scope (see voiceScope and voiceForScope). */
+export async function resolveVoiceWithOrigin(input: {
+  voiceId?: string | null | undefined;
+  sequenceId?: string | null | undefined;
+  campaignId?: string | null | undefined;
+  projectId?: string | null | undefined;
+}): Promise<{ voice: BrandVoiceRow; via: VoiceOrigin } | null> {
+  return voiceForScope(await voiceScope(input), input.voiceId);
 }
 
 export async function resolveVoice(
@@ -572,37 +625,10 @@ export async function generateVoiceover(input: {
   const existing = await byRequest();
   if (existing) return reported(await relinkedTake(existing), true);
 
-  let projectId = input.projectId ?? null;
-  let campaignId = input.campaignId ?? null;
-  if (input.sequenceId) {
-    // A take for an edit belongs to the edit's project and campaign, whatever
-    // the request says: that is what its voice is checked against.
-    const { data: sequence, error } = await supabaseAdmin
-      .from("sequences")
-      .select("project_id,campaign_id")
-      .eq("id", input.sequenceId)
-      .maybeSingle();
-    if (error)
-      throw new AppError("UNKNOWN", "The edit couldn't be looked up. Try again in a moment.");
-    if (!sequence) throw new AppError("INVALID_PARAMETERS", "That edit no longer exists.");
-    projectId = sequence.project_id;
-    campaignId = sequence.campaign_id;
-  }
-  if (campaignId) {
-    // Likewise a take for a campaign belongs to the campaign's project, whatever
-    // the request says: its voice is checked against that project, and the take
-    // is kept there.
-    const { data: campaign, error } = await supabaseAdmin
-      .from("campaigns")
-      .select("project_id")
-      .eq("id", campaignId)
-      .maybeSingle();
-    if (error)
-      throw new AppError("UNKNOWN", "The campaign couldn't be looked up. Try again in a moment.");
-    if (!campaign) throw new AppError("INVALID_PARAMETERS", "That campaign no longer exists.");
-    projectId = campaign.project_id;
-  }
-  const voice = await resolveVoice({ voiceId: input.voiceId, campaignId, projectId });
+  // Where the take is kept, and so which voices may speak it (see voiceScope).
+  const scope = await voiceScope(input);
+  const { projectId, campaignId } = scope;
+  const voice = (await voiceForScope(scope, input.voiceId))?.voice ?? null;
   if (!voice)
     throw new AppError(
       "INVALID_PARAMETERS",

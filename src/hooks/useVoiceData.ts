@@ -54,11 +54,19 @@ export interface VoiceoverRow {
   created_at: string;
 }
 
-/** The brand voice that speaks for a campaign or project when nobody picks one. */
-export function useResolvedVoice(scope: { campaignId: string | null; projectId: string | null }) {
+/**
+ * The brand voice that speaks for some work when nobody picks one, and the
+ * project the work's takes are kept in (whose voices may be picked). An edit
+ * decides both for itself, whatever project and campaign are passed with it.
+ */
+export function useResolvedVoice(scope: {
+  sequenceId?: string | null;
+  campaignId: string | null;
+  projectId: string | null;
+}) {
   const { profile } = useAuth();
   return useQuery({
-    queryKey: ["brand-voice-for", scope.campaignId, scope.projectId],
+    queryKey: ["brand-voice-for", scope.sequenceId ?? null, scope.campaignId, scope.projectId],
     enabled: !!profile?.is_active,
     queryFn: () => resolveBrandVoice({ data: scope }),
     staleTime: 30_000,

@@ -940,7 +940,6 @@ function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => voi
     try {
       const result = await designElevenLabsVoice({ data: { description } });
       setPreviews(result.previews);
-      if (!result.previews.length) toast.error("No previews came back. Try a fuller description.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "The voice could not be designed");
     } finally {
