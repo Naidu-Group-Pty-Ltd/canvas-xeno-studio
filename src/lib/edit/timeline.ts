@@ -576,6 +576,69 @@ export function captionsFromScript(
   return segments;
 }
 
+/**
+ * Caption cards timed to the words of a voiceover, placed `offset` seconds
+ * into the edit. A card ends at a sentence, at a pause, or before it gets too
+ * long to read at a glance, and stays up until the next one replaces it.
+ */
+export function captionsFromWords(
+  words: { text: string; start: number; end: number }[],
+  offset: number,
+  options: { maxChars?: number; until?: number } = {},
+): CaptionSegment[] {
+  const maxChars = options.maxChars ?? 32;
+  const until = Math.min(options.until ?? LIMITS.totalSeconds, LIMITS.totalSeconds);
+  const timed = words
+    .map((word) => ({ text: word.text.trim(), start: word.start, end: word.end }))
+    .filter((word) => word.text && Number.isFinite(word.start) && Number.isFinite(word.end))
+    .map((word) => ({
+      ...word,
+      start: Math.max(0, word.start),
+      end: Math.max(word.start, word.end),
+    }));
+
+  const cards: { text: string; start: number; end: number }[] = [];
+  let line: typeof timed = [];
+  const lineText = () => line.map((word) => word.text).join(" ");
+  const flush = () => {
+    if (line.length) cards.push({ text: lineText(), start: line[0]!.start, end: line.at(-1)!.end });
+    line = [];
+  };
+  const endsSentence = (text: string) => /[.!?;:]["”’)]?$/.test(text);
+  for (const word of timed) {
+    const previous = line.at(-1);
+    const length = `${lineText()} ${word.text}`.length;
+    // A sentence's last word may run a little long rather than sit alone on a card.
+    const tooLong = length > maxChars && !(endsSentence(word.text) && length <= maxChars + 12);
+    if (previous && (word.start - previous.end > 0.45 || tooLong)) flush();
+    line.push(word);
+    if (
+      endsSentence(word.text) ||
+      (/,["”’)]?$/.test(word.text) && lineText().length > maxChars * 0.6)
+    )
+      flush();
+  }
+  flush();
+
+  const segments: CaptionSegment[] = [];
+  cards.forEach((card, index) => {
+    const start = card.start + offset;
+    if (start >= until) return;
+    const nextStart = cards[index + 1] ? cards[index + 1]!.start + offset : Infinity;
+    // Linger a moment after the last word, and long enough to read.
+    let end = Math.max(card.end + offset + 0.2, start + 0.6);
+    if (nextStart - end < 0.3) end = nextStart;
+    end = Math.min(end, nextStart, until);
+    if (end - start < 0.05) return;
+    segments.push({
+      start: Number(start.toFixed(3)),
+      end: Number(end.toFixed(3)),
+      text: card.text.slice(0, LIMITS.captionChars),
+    });
+  });
+  return segments.slice(0, LIMITS.captions);
+}
+
 /* ------------------------------------------------------------------ */
 /* Render request                                                      */
 /* ------------------------------------------------------------------ */

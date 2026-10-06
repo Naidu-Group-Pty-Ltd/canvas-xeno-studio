@@ -36,6 +36,13 @@
       "when": 1791284208607,
       "tag": "0004_edit_suite",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791286405140,
+      "tag": "0005_brand_voices",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,110 @@
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { getVoiceStatus, resolveBrandVoice } from "@/lib/voice.functions";
+import type { BrandVoiceRow } from "@/lib/voice/catalog";
+
+export function useVoiceStatus() {
+  const { profile } = useAuth();
+  return useQuery({
+    queryKey: ["voice-status"],
+    enabled: !!profile?.is_active,
+    queryFn: () => getVoiceStatus(),
+    staleTime: 5 * 60_000,
+  });
+}
+
+export function useBrandVoices(includeArchived = false) {
+  return useQuery({
+    queryKey: ["brand_voices", includeArchived],
+    queryFn: async () => {
+      let query = supabase
+        .from("brand_voices")
+        .select("*")
+        .order("is_default", { ascending: false })
+        .order("name");
+      if (!includeArchived) query = query.eq("is_archived", false);
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data ?? []) as unknown as BrandVoiceRow[];
+    },
+  });
+}
+
+export interface VoiceoverRow {
+  id: string;
+  voice_id: string | null;
+  script: string;
+  status: "pending" | "generating" | "completed" | "failed" | "submission_uncertain";
+  asset_id: string | null;
+  duration_seconds: number | null;
+  alignment: { words?: { text: string; start: number; end: number }[] } | null;
+  error_message: string | null;
+  created_at: string;
+}
+
+/** The brand voice that speaks for a campaign or project when nobody picks one. */
+export function useResolvedVoice(scope: { campaignId: string | null; projectId: string | null }) {
+  const { profile } = useAuth();
+  return useQuery({
+    queryKey: ["brand-voice-for", scope.campaignId, scope.projectId],
+    enabled: !!profile?.is_active,
+    queryFn: () => resolveBrandVoice({ data: scope }),
+    staleTime: 30_000,
+  });
+}
+
+/** Matches the server's STALE_VOICEOVER_MS: a take "generating" for longer was interrupted. */
+const STALE_TAKE_MS = 5 * 60_000;
+
+export function takeInProgress(take: Pick<VoiceoverRow, "status" | "created_at">): boolean {
+  return (
+    (take.status === "generating" || take.status === "pending") &&
+    Date.now() - Date.parse(take.created_at) < STALE_TAKE_MS
+  );
+}
+
+export function useVoiceovers(sequenceId: string | null) {
+  return useQuery({
+    queryKey: ["voiceovers", sequenceId],
+    enabled: !!sequenceId,
+    // A take being made (here or by a teammate) shows up when it's done.
+    refetchInterval: (query) =>
+      query.state.data?.some((take) => takeInProgress(take)) ? 4000 : false,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("voiceovers")
+        .select(
+          "id,voice_id,script,status,asset_id,duration_seconds,alignment,error_message,created_at",
+        )
+        .eq("sequence_id", sequenceId!)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return (data ?? []) as unknown as VoiceoverRow[];
+    },
+  });
+}
+
+/** Plays base64 audio returned by a preview, one at a time. */
+let current: HTMLAudioElement | null = null;
+export function playBase64(audioBase64: string, mime: string): HTMLAudioElement {
+  current?.pause();
+  const element = new Audio(`data:${mime};base64,${audioBase64}`);
+  current = element;
+  void element.play().catch(() => undefined);
+  return element;
+}
+
+export function playUrl(url: string): HTMLAudioElement {
+  current?.pause();
+  const element = new Audio(url);
+  current = element;
+  void element.play().catch(() => undefined);
+  return element;
+}
+
+export function stopPlayback() {
+  current?.pause();
+  current = null;
+}

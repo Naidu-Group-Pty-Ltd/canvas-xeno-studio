@@ -282,6 +282,19 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
       <span className="size-1.5 rounded-full bg-warning" />
     );
 
+  const voiceover = useMemo(
+    () => ({
+      sequenceId: sequence.id,
+      projectId: sequence.project_id,
+      campaignId: sequence.campaign_id,
+      suggestedScript:
+        typeof sequence.source?.["voiceover_script"] === "string"
+          ? (sequence.source["voiceover_script"] as string)
+          : null,
+    }),
+    [sequence.id, sequence.project_id, sequence.campaign_id, sequence.source],
+  );
+
   const bin = (
     <MediaBin
       projectId={sequence.project_id}
@@ -451,6 +464,7 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
               clock={clock}
               onSelect={setSelection}
               onChange={change}
+              voiceover={voiceover}
             />
           </div>
           <div className="max-h-[45%] shrink-0 overflow-y-auto border-t border-border">
@@ -484,7 +498,7 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
         <Sheet>
           <SheetTrigger asChild>
             <Button variant="outline" size="sm" className="w-full">
-              {selection ? "Edit selection" : "Format, captions & render"}
+              {selection ? "Edit selection" : "Format, voiceover, text & render"}
             </Button>
           </SheetTrigger>
           <SheetContent side="bottom" className="h-[75vh] p-0">
@@ -500,6 +514,7 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
                 clock={clock}
                 onSelect={setSelection}
                 onChange={change}
+                voiceover={voiceover}
               />
               <RenderPanel
                 sequenceId={sequence.id}
