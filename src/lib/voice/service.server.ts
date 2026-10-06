@@ -346,7 +346,7 @@ async function relinkedTake<T extends TakeRow>(row: T): Promise<T> {
     });
   if (stored.data !== true) return row;
   const carried = row.alignment ? null : await carriedDetails(row);
-  const { data } = await supabaseAdmin
+  const { data, error: linkError } = await supabaseAdmin
     .from("voiceovers")
     .update({
       status: "completed",
@@ -361,7 +361,17 @@ async function relinkedTake<T extends TakeRow>(row: T): Promise<T> {
     .eq("status", "generating")
     .select("*")
     .maybeSingle();
-  return (data ?? row) as unknown as T;
+  // Not finished after all: thrown, so the take is never written off meanwhile.
+  if (linkError) throw unchecked();
+  if (data) return data as unknown as T;
+  // Settled by someone else in the meantime: as it is now.
+  const { data: now, error: rereadError } = await supabaseAdmin
+    .from("voiceovers")
+    .select("*")
+    .eq("id", row.id)
+    .maybeSingle();
+  if (rereadError || !now) throw unchecked();
+  return now as unknown as T;
 }
 
 /**
@@ -575,7 +585,8 @@ export async function generateVoiceover(input: {
   // The details are kept with the take first, so a take finished later from
   // its stored file (if the last update fails) still has its word timings. If
   // they can't be kept with the take, they are stored beside its audio, where
-  // only the server can write.
+  // only the server can write. If they can't be kept anywhere, the audio isn't
+  // stored either: a take is never finished without its word timings.
   const details = {
     duration_seconds: result.durationSeconds,
     alignment: { words: result.words },
@@ -583,13 +594,24 @@ export async function generateVoiceover(input: {
     characters: result.characters,
   };
   const take = { id: voiceoverId, project_id: projectId, created_by: input.userId };
-  if (!(await record(details)))
-    await supabaseAdmin.storage
-      .from(OUTPUT_BUCKET)
-      .upload(takePath(take, "details"), JSON.stringify(details), {
-        contentType: "application/json",
-        upsert: true,
-      });
+  const keptBeside = async () => {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const { error } = await supabaseAdmin.storage
+        .from(OUTPUT_BUCKET)
+        .upload(takePath(take, "details"), JSON.stringify(details), {
+          contentType: "application/json",
+          upsert: true,
+        });
+      if (!error) return true;
+    }
+    return false;
+  };
+  if (!(await record(details)) && !(await keptBeside()))
+    return settle(
+      "failed",
+      "STORAGE_FAILED",
+      "The voiceover was made but could not be saved to the library. Try again.",
+    );
   const path = takePath(take, "audio");
   const upload = await supabaseAdmin.storage
     .from(OUTPUT_BUCKET)
