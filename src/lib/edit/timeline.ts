@@ -549,14 +549,17 @@ export function audioPlayLength(item: TimelineAudio, total: number): number {
 /**
  * Splits a script into caption cards of a few words each and spreads them
  * over [start, end] in proportion to their length, breaking at punctuation
- * where it can. Used when no word timing is available.
+ * where it can. Used when no word timing is available. The cards stay within
+ * what an edit can hold, even while the picture runs longer.
  */
 export function captionsFromScript(
   script: string,
-  start: number,
-  end: number,
+  from: number,
+  until: number,
   maxChars = 42,
 ): CaptionSegment[] {
+  const start = Math.min(Math.max(0, from), LIMITS.totalSeconds);
+  const end = Math.min(until, LIMITS.totalSeconds);
   const words = script.replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
   if (!words.length || end - start < 0.2) return [];
   const cards: string[] = [];
@@ -587,7 +590,7 @@ export function captionsFromScript(
     });
     cursor += length;
   });
-  return segments;
+  return segments.slice(0, LIMITS.captions);
 }
 
 /* ------------------------------------------------------------------ */

@@ -4,6 +4,7 @@ import { config } from "./config.js";
 import { TASKS } from "./tasks.js";
 import { downloadTo, TaskError, uploadFile, assertAllowedUrl } from "./net.js";
 import { sign } from "./signature.js";
+import { withWorkspace } from "./workspace.js";
 
 /**
  * Validates a task body before anything is downloaded or executed. This is the
@@ -134,30 +135,36 @@ export async function executeTask(task) {
   try {
     if ((await checkIn(task)) === "dropped") return dropped(task);
     dir = await mkdtemp(join(config.workDir, "task-"));
+    const workspace = dir;
 
-    const localSources = [];
-    // The sources share one budget: past it, the task stops downloading and fails.
-    let room = config.maxTaskDownloadBytes;
-    for (const [index, source] of task.sources.entries()) {
-      const path = join(dir, `source-${index}`);
-      const allowance = Math.min(config.maxDownloadBytes, room);
-      const bytes = await downloadTo(source.url, path, allowance).catch((error) => {
-        if (error instanceof TaskError && error.code === "SOURCE_TOO_LARGE" && allowance < config.maxDownloadBytes)
-          throw new TaskError(
-            "SOURCES_TOO_LARGE",
-            `The media for this task is more than ${Math.round(config.maxTaskDownloadBytes / (1024 * 1024))} MB together. Use fewer or shorter clips.`,
-          );
-        throw error;
+    // Everything the task keeps on disk is watched against its budget.
+    const result = await withWorkspace(workspace, async () => {
+      const localSources = [];
+      // The sources share one budget (within the workspace's): past it, the
+      // task stops downloading and fails.
+      const sourceBudget = Math.min(config.maxTaskDownloadBytes, config.maxTaskWorkspaceBytes);
+      let room = sourceBudget;
+      for (const [index, source] of task.sources.entries()) {
+        const path = join(workspace, `source-${index}`);
+        const allowance = Math.min(config.maxDownloadBytes, room);
+        const bytes = await downloadTo(source.url, path, allowance).catch((error) => {
+          if (error instanceof TaskError && error.code === "SOURCE_TOO_LARGE" && allowance < config.maxDownloadBytes)
+            throw new TaskError(
+              "SOURCES_TOO_LARGE",
+              `The media for this task is more than ${Math.round(sourceBudget / (1024 * 1024))} MB together. Use fewer or shorter clips.`,
+            );
+          throw error;
+        });
+        room -= bytes;
+        localSources.push({ path, role: source.role ?? "source", mime: source.mime ?? null, bytes });
+      }
+
+      return task.definition.run({
+        sources: localSources,
+        params: task.params,
+        dir: workspace,
+        progress: progressReporter(task),
       });
-      room -= bytes;
-      localSources.push({ path, role: source.role ?? "source", mime: source.mime ?? null, bytes });
-    }
-
-    const result = await task.definition.run({
-      sources: localSources,
-      params: task.params,
-      dir,
-      progress: progressReporter(task),
     });
 
     if ((await checkIn(task)) === "dropped") return dropped(task);

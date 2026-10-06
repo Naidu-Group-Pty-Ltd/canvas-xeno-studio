@@ -45,6 +45,12 @@ export const config = {
    * the disk they share: CONCURRENCY × this, at most.
    */
   maxTaskDownloadBytes: intEnv("MAX_TASK_DOWNLOAD_MB", 2048) * 1024 * 1024,
+  /**
+   * Everything one task keeps on disk at once (sources, intermediates, the mix
+   * and its outputs) may take at most this much: CONCURRENCY × this, at most,
+   * for the tasks running together.
+   */
+  maxTaskWorkspaceBytes: intEnv("MAX_TASK_WORKSPACE_MB", 4096) * 1024 * 1024,
   /** Refuse to upload a result larger than this. */
   maxOutputBytes: intEnv("MAX_OUTPUT_MB", 2048) * 1024 * 1024,
   /**

@@ -131,5 +131,9 @@ the largest job's sources plus outputs.
 Each source file is capped at `MAX_DOWNLOAD_MB` (1024), and all of one task's
 sources together at `MAX_TASK_DOWNLOAD_MB` (2048): an edit can name dozens of
 files, so a task past its budget stops downloading and fails with
-`SOURCES_TOO_LARGE`. Sources then take at most `CONCURRENCY ×
-MAX_TASK_DOWNLOAD_MB` of disk; size `/tmp` for that plus the renders' outputs.
+`SOURCES_TOO_LARGE`. Everything a task keeps on disk at once (sources,
+intermediates, the sound mix and its outputs) is capped at
+`MAX_TASK_WORKSPACE_MB` (4096): past it, the task's processes are stopped and it
+fails with `WORKSPACE_TOO_LARGE`. Renders also delete their sources and
+intermediates as soon as they're done with them. Size `/tmp` for `CONCURRENCY ×
+MAX_TASK_WORKSPACE_MB`.
