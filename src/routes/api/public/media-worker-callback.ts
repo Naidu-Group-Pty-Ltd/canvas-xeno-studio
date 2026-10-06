@@ -67,7 +67,16 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
 
         if (task.task_type === "render_sequence") {
           const { finishSequenceRender } = await import("@/lib/edit/callback.server");
-          await finishSequenceRender(task, payload);
+          try {
+            await finishSequenceRender(task, payload);
+          } catch (error) {
+            // Nothing was marked finished, so the worker's retry records it.
+            console.error("render callback not recorded", {
+              taskId: task.id,
+              message: error instanceof Error ? error.message : String(error),
+            });
+            return new Response(JSON.stringify({ received: false }), { status: 503 });
+          }
           return new Response(JSON.stringify({ received: true }), {
             status: 200,
             headers: { "Content-Type": "application/json" },

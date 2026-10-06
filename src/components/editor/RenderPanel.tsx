@@ -20,6 +20,7 @@ import { signedUrl } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { renderInProgress } from "@/lib/edit/renders";
 
 interface RenderPanelProps {
   sequenceId: string;
@@ -46,9 +47,7 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
     staleTime: 60_000,
   });
   const blockers = renderBlockers(timeline);
-  const active = renders.find(
-    (render) => render.status === "queued" || render.status === "rendering",
-  );
+  const active = renders.find((render) => renderInProgress(render));
 
   async function start() {
     setStarting(true);
@@ -126,6 +125,8 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
 
 function RenderItem({ render, title }: { render: RenderRow; title: string }) {
   const [opening, setOpening] = useState(false);
+  const stalled =
+    (render.status === "queued" || render.status === "rendering") && !renderInProgress(render);
   const when = new Date(render.created_at).toLocaleString(undefined, {
     month: "short",
     day: "numeric",
@@ -168,7 +169,7 @@ function RenderItem({ render, title }: { render: RenderRow; title: string }) {
       <div className="flex items-center gap-1.5">
         {render.status === "completed" ? (
           <CheckCircle2 className="size-3.5 text-success" />
-        ) : render.status === "failed" ? (
+        ) : render.status === "failed" || stalled ? (
           <AlertTriangle className="size-3.5 text-destructive" />
         ) : (
           <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
@@ -212,6 +213,9 @@ function RenderItem({ render, title }: { render: RenderRow; title: string }) {
       )}
       {render.status === "failed" && (
         <p className="mt-1 text-destructive">{render.error_message ?? "The render failed."}</p>
+      )}
+      {stalled && (
+        <p className="mt-1 text-destructive">This render stopped responding. Render again.</p>
       )}
     </li>
   );

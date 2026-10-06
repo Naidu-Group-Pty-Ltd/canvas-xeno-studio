@@ -12,6 +12,7 @@ import type { AssetRow } from "@/hooks/useStudioData";
 import type { SignedMedia } from "@/hooks/useEditorData";
 import {
   audioPlayLength,
+  clampAudio,
   formatTime,
   maxClipDuration,
   moveClip,
@@ -152,7 +153,7 @@ export function TimelineView(props: TimelineViewProps) {
             ...timeline,
             audio: timeline.audio.map((item) =>
               item.id === current.id
-                ? { ...item, start: Math.max(0, Number((current.origin.start + delta).toFixed(3))) }
+                ? clampAudio({ ...item, start: current.origin.start + delta })
                 : item,
             ),
           },
@@ -167,20 +168,20 @@ export function TimelineView(props: TimelineViewProps) {
             audio: timeline.audio.map((item) => {
               if (item.id !== current.id) return item;
               if (current.edge === "end")
-                return {
+                return clampAudio({
                   ...item,
-                  duration: Math.max(0.2, Number((current.origin.duration + delta).toFixed(3))),
-                };
+                  duration: Math.max(0.2, current.origin.duration + delta),
+                });
               const shift = Math.max(
                 -Math.min(current.origin.start, current.origin.trimStart),
                 Math.min(delta, current.origin.duration - 0.2),
               );
-              return {
+              return clampAudio({
                 ...item,
-                start: Number((current.origin.start + shift).toFixed(3)),
-                trimStart: Number((current.origin.trimStart + shift).toFixed(3)),
-                duration: Number((current.origin.duration - shift).toFixed(3)),
-              };
+                start: current.origin.start + shift,
+                trimStart: current.origin.trimStart + shift,
+                duration: current.origin.duration - shift,
+              });
             }),
           },
           `audio:${current.id}`,

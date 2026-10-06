@@ -10,6 +10,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { AppError } from "../higgsfield/errors";
 import { appBaseUrl } from "../generation-pipeline.server";
 import { mediaWorkerConfigured, submitWorkerTask } from "../media/worker.server";
+import { RENDER_STALL_MS } from "./renders";
 import { buildRenderRequest, parseTimeline, renderBlockers, type Timeline } from "./timeline";
 
 const OUTPUT_BUCKET = "generated-assets";
@@ -129,6 +130,19 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
   const videoPath = `${scope}/edits/${sequence.id}/${renderId}.mp4`;
   const posterPath = `${scope}/edits/${sequence.id}/${renderId}.jpg`;
   const now = new Date().toISOString();
+
+  // Earlier renders of this edit that stopped reporting are closed as failed.
+  await supabaseAdmin
+    .from("sequence_renders")
+    .update({
+      status: "failed",
+      error_code: "STALLED",
+      error_message: "This render stopped responding.",
+      completed_at: now,
+    } as never)
+    .eq("sequence_id", sequence.id)
+    .in("status", ["queued", "rendering"])
+    .lt("updated_at", new Date(Date.now() - RENDER_STALL_MS).toISOString());
 
   const { data: operation } = await supabaseAdmin
     .from("operations")

@@ -114,14 +114,19 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
   const { data: media = new Map() } = useSignedMedia(assetList);
   const usedAssetIds = useMemo(() => new Set(assetIds), [assetIds]);
 
-  // A teammate's save arrives over realtime; ours are recognised by version.
+  // A teammate's save arrives over realtime; ours (even an early echo) are recognised by version.
+  const { isOwnSave } = save;
   const onRemoteSave = useCallback(
     (row: SequenceRow) => {
-      if (row.version > save.currentVersion()) setRemote(row);
+      if (!isOwnSave(row.version)) setRemote(row);
     },
-    [save],
+    [isOwnSave],
   );
   useEditorRealtime(sequence.id, onRemoteSave);
+  // Once our save lands on or past a version, that version was never a teammate's.
+  useEffect(() => {
+    if (remote && remote.version <= save.version) setRemote(null);
+  }, [remote, save.version]);
 
   const loadRemote = useCallback(
     (row: SequenceRow) => {
@@ -332,6 +337,23 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
           </Sheet>
         </div>
       </div>
+
+      {save.status === "error" && save.error && (
+        <div
+          className="flex flex-wrap items-center gap-2 border-b border-destructive/40 bg-destructive/10 px-3 py-2 text-xs"
+          role="alert"
+        >
+          <span>Your latest changes aren't saved: {save.error}</span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="ml-auto h-7"
+            onClick={() => void save.saveNow().catch(() => undefined)}
+          >
+            Try again
+          </Button>
+        </div>
+      )}
 
       {(save.status === "conflict" || remote) && (
         <div

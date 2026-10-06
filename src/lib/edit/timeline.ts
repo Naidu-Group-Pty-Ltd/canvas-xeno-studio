@@ -504,6 +504,20 @@ export function audioFromSource(
   });
 }
 
+/** Keeps an audio item inside the limits the schema (and the renderer) accept. */
+export function clampAudio(item: TimelineAudio): TimelineAudio {
+  const round = (value: number) => Number(value.toFixed(3));
+  return {
+    ...item,
+    start: round(Math.min(LIMITS.totalSeconds, Math.max(0, item.start))),
+    trimStart: round(Math.min(86_400, Math.max(0, item.trimStart))),
+    duration:
+      item.duration === null
+        ? null
+        : round(Math.min(LIMITS.totalSeconds, Math.max(0.1, item.duration))),
+  };
+}
+
 /** Seconds of an audio item that actually play within a picture of `total` seconds. */
 export function audioPlayLength(item: TimelineAudio, total: number): number {
   if (item.start >= total) return 0;

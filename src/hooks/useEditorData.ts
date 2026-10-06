@@ -1,9 +1,10 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { AssetRow } from "@/hooks/useStudioData";
 import type { Timeline } from "@/lib/edit/timeline";
 import { isMissingTableError } from "@/lib/edit/errors";
+import { renderInProgress } from "@/lib/edit/renders";
 
 export interface SequenceRow {
   id: string;
@@ -36,6 +37,7 @@ export interface RenderRow {
   error_message: string | null;
   created_by: string | null;
   created_at: string;
+  updated_at: string;
   completed_at: string | null;
 }
 
@@ -86,7 +88,7 @@ export function useSequenceRenders(sequenceId: string | null) {
       const { data, error } = await supabase
         .from("sequence_renders")
         .select(
-          "id,sequence_id,sequence_version,status,progress,stage,asset_id,duration_seconds,error_code,error_message,created_by,created_at,completed_at",
+          "id,sequence_id,sequence_version,status,progress,stage,asset_id,duration_seconds,error_code,error_message,created_by,created_at,updated_at,completed_at",
         )
         .eq("sequence_id", sequenceId!)
         .order("created_at", { ascending: false })
@@ -96,11 +98,7 @@ export function useSequenceRenders(sequenceId: string | null) {
     },
     // Realtime carries progress; polling covers a dropped socket while rendering.
     refetchInterval: (query) =>
-      (query.state.data ?? []).some(
-        (render) => render.status === "queued" || render.status === "rendering",
-      )
-        ? 5000
-        : false,
+      (query.state.data ?? []).some((render) => renderInProgress(render)) ? 5000 : false,
   });
 }
 
@@ -190,6 +188,9 @@ export function useEditorRealtime(
   onRemoteSave: (row: SequenceRow) => void,
 ) {
   const queryClient = useQueryClient();
+  // The latest handler is read at event time, so the channel isn't re-opened when it changes.
+  const handler = useRef(onRemoteSave);
+  handler.current = onRemoteSave;
   useEffect(() => {
     if (!sequenceId) return;
     const channel = supabase
@@ -211,14 +212,14 @@ export function useEditorRealtime(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "sequences", filter: `id=eq.${sequenceId}` },
         (change) => {
-          if (change.new) onRemoteSave(change.new as unknown as SequenceRow);
+          if (change.new) handler.current(change.new as unknown as SequenceRow);
         },
       )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [sequenceId, onRemoteSave, queryClient]);
+  }, [sequenceId, queryClient]);
 }
 
 /** Creates an edit and returns its id. Edits are team records, owned by their creator. */

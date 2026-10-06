@@ -1,6 +1,14 @@
-import { useCallback, useEffect, useReducer, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { supabase } from "@/integrations/supabase/client";
-import type { Timeline } from "@/lib/edit/timeline";
+import { timelineSchema, type Timeline } from "@/lib/edit/timeline";
 
 /* ------------------------------------------------------------------ */
 /* Playback clock                                                      */
@@ -217,11 +225,14 @@ export function useAutosave(options: {
 }) {
   const { sequenceId, timeline, title, enabled } = options;
   const [status, setStatus] = useState<SaveStatus>("saved");
+  const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(options.initialVersion);
   const versionRef = useRef(options.initialVersion);
   const lastSaved = useRef({ timeline: JSON.stringify(timeline), title });
   const latest = useRef({ timeline, title });
   const inFlight = useRef<Promise<number> | null>(null);
+  /** The version the in-flight save writes, so its own realtime echo is recognised. */
+  const savingVersion = useRef<number | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const blocked = useRef(false);
 
@@ -241,12 +252,21 @@ export function useAutosave(options: {
     if (blocked.current)
       throw new Error("This edit changed elsewhere. Reload it or keep your version first.");
     if (!isDirty()) return versionRef.current;
+    // Never store an edit that can't be opened again.
+    if (!timelineSchema.safeParse(latest.current.timeline).success) {
+      const message =
+        "This change can't be saved because part of the edit is out of range. Undo it to keep saving.";
+      setStatus("error");
+      setError(message);
+      throw new Error(message);
+    }
 
     const snapshot = {
       timeline: JSON.stringify(latest.current.timeline),
       title: latest.current.title,
     };
     const base = versionRef.current;
+    savingVersion.current = base + 1;
     setStatus("saving");
     const run = (async () => {
       const { data, error } = await supabase
@@ -261,6 +281,7 @@ export function useAutosave(options: {
         .select("version");
       if (error) {
         setStatus("error");
+        setError(error.message);
         throw new Error(error.message);
       }
       if (!data?.length) {
@@ -270,6 +291,7 @@ export function useAutosave(options: {
       }
       versionRef.current = base + 1;
       setVersion(base + 1);
+      setError(null);
       lastSaved.current = snapshot;
       setStatus(isDirty() ? "pending" : "saved");
       return base + 1;
@@ -279,6 +301,7 @@ export function useAutosave(options: {
       return await run;
     } finally {
       inFlight.current = null;
+      savingVersion.current = null;
     }
   }, [sequenceId, isDirty]);
 
@@ -341,5 +364,18 @@ export function useAutosave(options: {
 
   const currentVersion = useCallback(() => versionRef.current, []);
 
-  return { status, version, saveNow, keepMine, adopt, currentVersion };
+  /**
+   * Whether a stored version is this editor's own save. A realtime echo can
+   * arrive before the save call returns; a teammate's save of that same
+   * version would make ours fail, which shows the conflict banner anyway.
+   */
+  const isOwnSave = useCallback(
+    (stored: number) => stored <= versionRef.current || stored === savingVersion.current,
+    [],
+  );
+
+  return useMemo(
+    () => ({ status, error, version, saveNow, keepMine, adopt, currentVersion, isOwnSave }),
+    [status, error, version, saveNow, keepMine, adopt, currentVersion, isOwnSave],
+  );
 }
