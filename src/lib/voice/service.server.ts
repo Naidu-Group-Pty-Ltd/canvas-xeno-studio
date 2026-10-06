@@ -434,16 +434,45 @@ export async function generateVoiceover(input: {
       .from("voiceovers")
       .update(values as never)
       .eq("id", voiceoverId);
+  /** Writes to the take, checked and tried once more; false if it didn't land. */
+  const record = async (values: Record<string, unknown>) => {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const { data, error } = await finish(values).select("id").maybeSingle();
+      if (!error && data) return true;
+    }
+    return false;
+  };
+  /**
+   * A known outcome is returned only once it is recorded. If it can't be, the
+   * request fails, so the panel keeps the request id and asks about this take
+   * again rather than starting (and paying for) a new one.
+   */
+  const settle = async (
+    status: "failed" | "submission_uncertain",
+    code: string,
+    message: string,
+  ): Promise<VoiceoverResult> => {
+    const recorded = await record({
+      status,
+      error_code: code,
+      error_message: message,
+      completed_at: new Date().toISOString(),
+    });
+    if (!recorded)
+      throw new AppError(
+        "UNKNOWN",
+        "The take's outcome couldn't be recorded. Try again in a moment to see how it ended.",
+      );
+    return outcome(status, message);
+  };
 
   const spoken = await synthesize(config, script);
   if (!spoken.ok) {
-    await finish({
-      status: spoken.uncertain ? "submission_uncertain" : "failed",
-      error_code: spoken.code,
-      error_message: spoken.message,
-      completed_at: new Date().toISOString(),
-    });
-    return outcome(spoken.uncertain ? "submission_uncertain" : "failed", spoken.message);
+    return settle(
+      spoken.uncertain ? "submission_uncertain" : "failed",
+      spoken.code,
+      spoken.message,
+    );
   }
 
   const result = spoken.result;
@@ -461,14 +490,9 @@ export async function generateVoiceover(input: {
     .from(OUTPUT_BUCKET)
     .upload(path, result.audio, { contentType: result.mime, upsert: true });
   if (upload.error) {
-    await finish({
-      status: "failed",
-      error_code: "STORAGE_FAILED",
-      error_message: "The voiceover was made but could not be saved to the library.",
-      completed_at: new Date().toISOString(),
-    });
-    return outcome(
+    return settle(
       "failed",
+      "STORAGE_FAILED",
       "The voiceover was made but could not be saved to the library. Try again.",
     );
   }
@@ -498,32 +522,24 @@ export async function generateVoiceover(input: {
     .select("id")
     .single();
   if (assetError || !asset) {
-    await finish({
-      status: "failed",
-      error_code: "STORAGE_FAILED",
-      error_message: "The voiceover could not be added to the library.",
-      completed_at: new Date().toISOString(),
-    });
-    return outcome("failed", "The voiceover could not be added to the library. Try again.");
+    return settle(
+      "failed",
+      "STORAGE_FAILED",
+      "The voiceover could not be added to the library. Try again.",
+    );
   }
 
   // Success is only reported once it is recorded; if it can't be, the request
   // fails and the same request id later finishes the take from its stored file.
-  let recorded = false;
-  for (let attempt = 0; attempt < 2 && !recorded; attempt += 1) {
-    const { data: done, error: doneError } = await finish({
-      status: "completed",
-      asset_id: asset.id,
-      duration_seconds: result.durationSeconds,
-      alignment: { words: result.words } as never,
-      provider_request_id: result.requestId,
-      characters: result.characters,
-      completed_at: new Date().toISOString(),
-    })
-      .select("id")
-      .maybeSingle();
-    recorded = !doneError && !!done;
-  }
+  const recorded = await record({
+    status: "completed",
+    asset_id: asset.id,
+    duration_seconds: result.durationSeconds,
+    alignment: { words: result.words } as never,
+    provider_request_id: result.requestId,
+    characters: result.characters,
+    completed_at: new Date().toISOString(),
+  });
   if (!recorded)
     throw new AppError(
       "UNKNOWN",
