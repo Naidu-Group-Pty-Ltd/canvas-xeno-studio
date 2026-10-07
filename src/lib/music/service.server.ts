@@ -449,8 +449,8 @@ export async function importOpenverseTrack(input: {
   openverseId: string;
   projectId: string | null;
   campaignId: string | null;
-}): Promise<{ track: TrackRow; duplicate: boolean }> {
-  await requireActiveMember(input.userId);
+}): Promise<{ track: TrackRow; duplicate: boolean; restored?: boolean }> {
+  const { isAdmin } = await requireActiveMember(input.userId);
   const existing = async () => {
     const { data, error } = await supabaseAdmin
       .from("music_tracks")
@@ -470,12 +470,17 @@ export async function importOpenverseTrack(input: {
     found = null;
   }
   if (found?.["status"] === "ready") {
+    // Imported before and archived since: only whoever may archive it (whoever
+    // added it, or an admin, as setTrackArchived allows) brings it back. Anyone
+    // else gets it as it is, archived, with nothing changed.
+    const archived = found["is_archived"] === true;
+    if (archived && found["created_by"] !== input.userId && !isAdmin)
+      return { track: found, duplicate: true };
     // Imported before: its audio comes back if it was deleted from the library
     // since, so importing it again never answers with a track that can't be used.
     found = await withOpenverseAudio(found, input);
-    if (!found["is_archived"]) return { track: found, duplicate: true };
-    // Imported before and archived since: it is restored, and only reported
-    // restored once that is recorded.
+    if (!archived) return { track: found, duplicate: true };
+    // Restored, and only reported restored once that is recorded.
     const { data: restored, error } = await supabaseAdmin
       .from("music_tracks")
       .update({ is_archived: false } as never)
@@ -487,7 +492,7 @@ export async function importOpenverseTrack(input: {
         "UNKNOWN",
         "This track is already in the library but couldn't be restored. Try again in a moment.",
       );
-    return { track: restored as TrackRow, duplicate: true };
+    return { track: restored as TrackRow, duplicate: true, restored: true };
   }
   if (found) throw new AppError("UNKNOWN", "This track is already being added. Give it a moment.");
 

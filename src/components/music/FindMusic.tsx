@@ -105,7 +105,21 @@ export function FindMusic({
         data: { openverseId: track.id, projectId, campaignId },
       });
       await queryClient.invalidateQueries({ queryKey: ["music_tracks"] });
-      toast.success(added.duplicate ? "Already in the library" : "Added to the music library");
+      // Archived by someone else: it stays archived (and off the edit) until
+      // whoever added it, or an admin, restores it.
+      if (added.archived) {
+        toast.message(`“${added.title}” is in the library, but it's archived`, {
+          description: "Ask whoever added it, or an admin, to restore it.",
+        });
+        return;
+      }
+      toast.success(
+        !added.duplicate
+          ? "Added to the music library"
+          : added.restored
+            ? "It was archived, and it's back in the library now"
+            : "Already in the library",
+      );
       // The result's own category, not the selector's (which may have changed since the search).
       onAdded?.(added, track.category === "sound_effect" ? "sound_effect" : "music");
     } catch (error) {
