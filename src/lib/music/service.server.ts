@@ -36,6 +36,13 @@ const tooLargeToSplit = () =>
     "INVALID_PARAMETERS",
     `This track is too large to make an instrumental of (over ${MAX_SPLIT_BYTES / 1024 / 1024} MB). Add a compressed copy (MP3) of it and make the instrumental from that.`,
   );
+/** The longest track an instrumental is made of: as long as the music the studio makes (its stems are held in memory too). */
+const MAX_SPLIT_SECONDS = MUSIC_LENGTH.max;
+const tooLongToSplit = () =>
+  new AppError(
+    "INVALID_PARAMETERS",
+    `This track is too long to make an instrumental of (over ${MAX_SPLIT_SECONDS / 60} minutes). Use a shorter edit of it.`,
+  );
 
 export async function requireActiveMember(userId: string): Promise<{ isAdmin: boolean }> {
   const { data: profile } = await supabaseAdmin
@@ -846,6 +853,9 @@ export async function makeInstrumental(input: {
     throw new AppError("INVALID_PARAMETERS", "The track's audio is no longer in the library.");
   const originalSize = Number(original.metadata?.["size"]);
   if (!Number.isFinite(originalSize) || originalSize > MAX_SPLIT_BYTES) throw tooLargeToSplit();
+  // Nor one longer than the studio splits (whatever its length, the stems
+  // that come back are read only up to a size).
+  if (Number(parent["duration_seconds"] ?? 0) > MAX_SPLIT_SECONDS) throw tooLongToSplit();
 
   const license = parent["license"] as MusicLicense;
   const attribution =

@@ -476,13 +476,14 @@ export async function composeMusic(input: {
   // A server error may hide a track that was made (and billed): uncertain.
   if (!response.ok)
     return elevenFailure(response.status, await response.text().catch(() => ""), true);
-  let audio: Uint8Array;
+  let audio: Uint8Array | null;
   try {
-    audio = new Uint8Array(await response.arrayBuffer());
+    audio = await readUpTo(response, MAX_ANSWER_BYTES);
   } catch (error) {
     // The track was made (and billed) but didn't arrive in full.
     return transportFailure("ElevenLabs", error);
   }
+  if (audio === null) return acceptedButUnusable("more audio than the studio keeps");
   if (!audio.length) return acceptedButUnusable("no audio");
   if ((await probeBytes(audio, ["mp3"])) !== "mp3")
     return acceptedButUnusable("something other than audio");
@@ -519,20 +520,79 @@ export async function separateInstrumental(input: {
   // A server error may hide a split that was made (and billed): uncertain.
   if (!response.ok)
     return elevenFailure(response.status, await response.text().catch(() => ""), true);
-  let files: Record<string, Uint8Array>;
+  // The stems' archive is read up to a size, and only the instrumental is
+  // taken out of it, if it is of a size the studio keeps, so a long original
+  // can't fill the server's memory with stems.
+  let archive: Uint8Array | null;
   try {
-    files = unzipSync(new Uint8Array(await response.arrayBuffer()));
+    archive = await readUpTo(response, MAX_ANSWER_BYTES);
   } catch (error) {
     return transportFailure("ElevenLabs", error);
   }
-  const names = Object.keys(files).filter((name) => !name.endsWith("/") && files[name]!.length);
-  const instrumental =
-    names.find((name) => /instrumental|accompaniment|no[_ -]?vocals|music/i.test(name)) ??
-    (names.length === 2 ? names.find((name) => !/vocal/i.test(name)) : undefined);
-  if (!instrumental) return acceptedButUnusable("no instrumental stem");
-  if ((await probeBytes(files[instrumental]!, ["mp3"])) !== "mp3")
+  if (archive === null) return acceptedButUnusable("stems larger than the studio keeps");
+  const stems: { name: string; size: number }[] = [];
+  let instrumental: Uint8Array | undefined;
+  try {
+    // Listed first, with nothing inflated.
+    unzipSync(archive, {
+      filter: (file) => {
+        if (!file.name.endsWith("/") && file.originalSize > 0)
+          stems.push({ name: file.name, size: file.originalSize });
+        return false;
+      },
+    });
+    const names = stems.map((stem) => stem.name);
+    const chosen =
+      names.find((name) => /instrumental|accompaniment|no[_ -]?vocals|music/i.test(name)) ??
+      (names.length === 2 ? names.find((name) => !/vocal/i.test(name)) : undefined);
+    if (!chosen) return acceptedButUnusable("no instrumental stem");
+    if ((stems.find((stem) => stem.name === chosen)?.size ?? 0) > MAX_STEM_BYTES)
+      return acceptedButUnusable("an instrumental stem larger than the studio keeps");
+    instrumental = unzipSync(archive, { filter: (file) => file.name === chosen })[chosen];
+  } catch (error) {
+    return transportFailure("ElevenLabs", error);
+  }
+  if (!instrumental || (await probeBytes(instrumental, ["mp3"])) !== "mp3")
     return acceptedButUnusable("an instrumental stem that isn't audio");
-  return { ok: true, instrumental: files[instrumental]!, mime: "audio/mpeg" };
+  return { ok: true, instrumental, mime: "audio/mpeg" };
+}
+
+/**
+ * The most read of an answer from Eleven Music: ten minutes of music (the
+ * longest the studio makes or splits), or its two stems, at 128 kbps come to
+ * under 20 MB.
+ */
+const MAX_ANSWER_BYTES = 32 * 1024 * 1024;
+/** The largest instrumental stem taken out of the stems' archive. */
+const MAX_STEM_BYTES = 16 * 1024 * 1024;
+
+/** An answer's body, read up to `limit` bytes; null when it is larger (the rest isn't read). */
+async function readUpTo(response: Response, limit: number): Promise<Uint8Array | null> {
+  if (Number(response.headers.get("content-length")) > limit) {
+    await response.body?.cancel().catch(() => undefined);
+    return null;
+  }
+  if (!response.body) return new Uint8Array(0);
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > limit) {
+      await reader.cancel().catch(() => undefined);
+      return null;
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
 }
 
 /**
