@@ -167,6 +167,8 @@ export const saveBrandVoice = createServerFn({ method: "POST" })
         .from("brand_voices")
         .update({ ...row, source } as never)
         .eq("id", data.id);
+      // Assigned elsewhere since the check above: the database refuses the move.
+      if (error?.code === "23514") throw new AppError("INVALID_PARAMETERS", error.message);
       if (error) throw new AppError("UNKNOWN", error.message);
       return { id: data.id };
     }

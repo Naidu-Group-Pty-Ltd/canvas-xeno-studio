@@ -107,6 +107,8 @@ ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS brand_voice_id uuid REFEREN
 -- A voice kept for one project can only be assigned within that project. Choosing
 -- another project's voice is refused; a campaign that moves to another project
 -- drops a voice that doesn't belong there (and falls back to the next level).
+-- An assignment takes turns with a move of the voice to a project
+-- (brand_voice_keeps_uses, below), so the two can't pass each other.
 CREATE OR REPLACE FUNCTION public.brand_voice_in_scope() RETURNS trigger
 LANGUAGE plpgsql SET search_path = public AS $$
 DECLARE
@@ -116,6 +118,7 @@ BEGIN
   IF NEW.brand_voice_id IS NULL THEN
     RETURN NEW;
   END IF;
+  PERFORM pg_advisory_xact_lock(hashtext('public.brand_voices.scope'), hashtext(NEW.brand_voice_id::text));
   SELECT project_id INTO voice_project FROM public.brand_voices WHERE id = NEW.brand_voice_id;
   IF voice_project IS NULL THEN
     RETURN NEW;
@@ -141,6 +144,28 @@ CREATE TRIGGER campaigns_brand_voice_in_scope BEFORE INSERT OR UPDATE OF brand_v
 DROP TRIGGER IF EXISTS projects_brand_voice_in_scope ON public.projects;
 CREATE TRIGGER projects_brand_voice_in_scope BEFORE INSERT OR UPDATE OF brand_voice_id ON public.projects
   FOR EACH ROW EXECUTE FUNCTION public.brand_voice_in_scope();
+
+-- The other way round: a voice moved into one project can't leave campaigns
+-- or projects elsewhere using it. Checked when it moves, taking turns with
+-- assignments of the voice (brand_voice_in_scope), so a move and an
+-- assignment made at the same moment can't both go through.
+CREATE OR REPLACE FUNCTION public.brand_voice_keeps_uses() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public AS $$
+BEGIN
+  IF NEW.project_id IS NULL OR NEW.project_id IS NOT DISTINCT FROM OLD.project_id THEN
+    RETURN NEW;
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtext('public.brand_voices.scope'), hashtext(NEW.id::text));
+  IF EXISTS (SELECT 1 FROM public.campaigns WHERE brand_voice_id = NEW.id AND project_id IS DISTINCT FROM NEW.project_id)
+     OR EXISTS (SELECT 1 FROM public.projects WHERE brand_voice_id = NEW.id AND id <> NEW.project_id) THEN
+    RAISE EXCEPTION 'This voice is the brand voice of campaigns or projects outside that project. Give them another voice first, or keep this one for any project.'
+      USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS brand_voices_keep_uses ON public.brand_voices;
+CREATE TRIGGER brand_voices_keep_uses BEFORE UPDATE OF project_id ON public.brand_voices
+  FOR EACH ROW EXECUTE FUNCTION public.brand_voice_keeps_uses();
 
 -- The studio default changes in one transaction: the old default is cleared
 -- and the new one set together, so a failure part-way never leaves the studio
