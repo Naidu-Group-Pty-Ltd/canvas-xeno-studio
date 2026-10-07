@@ -108,9 +108,20 @@ export function MusicLibrary({
         settled();
         holdSplit(track.id, false);
         markMade(track.id);
-        toast.message(`This track already has an instrumental: “${made.title}”`, {
-          description: "It's in the library. Making a new one is charged again.",
-        });
+        if (made.archived)
+          toast.message(
+            `This track already has an instrumental, “${made.title}”, but it's archived`,
+            {
+              description:
+                "Ask whoever made it, or an admin, to restore it. Making a new one is charged again.",
+            },
+          );
+        else
+          toast.message(`This track already has an instrumental: “${made.title}”`, {
+            description: made.restored
+              ? "It was archived, and it's back in the library now. Making a new one is charged again."
+              : "It's in the library. Making a new one is charged again.",
+          });
       } else if (made.status === "ready") {
         settled();
         holdSplit(track.id, false);

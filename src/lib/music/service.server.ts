@@ -728,10 +728,10 @@ export async function generateMusic(input: {
 }
 
 /**
- * An instrumental of this track that is already in the library: made, with
- * its audio still there (archived or not), the newest first.
+ * Instrumentals of this track already in the library: made, with their audio
+ * still there (archived ones too), the newest first.
  */
-async function readyInstrumental(parentId: string): Promise<TrackRow | null> {
+async function readyInstrumentals(parentId: string): Promise<TrackRow[]> {
   const { data, error } = await supabaseAdmin
     .from("music_tracks")
     .select("*")
@@ -742,7 +742,7 @@ async function readyInstrumental(parentId: string): Promise<TrackRow | null> {
     .order("created_at", { ascending: false });
   if (error) throw trackUnchecked();
   const children = (data ?? []) as TrackRow[];
-  if (!children.length) return null;
+  if (!children.length) return [];
   const { data: kept, error: keptError } = await supabaseAdmin
     .from("assets")
     .select("id")
@@ -753,21 +753,24 @@ async function readyInstrumental(parentId: string): Promise<TrackRow | null> {
     .is("deleted_at", null);
   if (keptError) throw trackUnchecked();
   const inLibrary = new Set(((kept ?? []) as { id: string }[]).map((row) => row.id));
-  return children.find((child) => inLibrary.has(String(child["asset_id"]))) ?? null;
+  return children.filter((child) => inLibrary.has(String(child["asset_id"])));
 }
 
 /**
  * A new track with the vocals removed (one billable stem separation). If the
  * track already has an instrumental in the library, that one is returned
  * instead, unless a new one is asked for (`again`), which is charged again.
+ * One that was archived is put back first, by whoever may archive it (its
+ * maker or an admin); anyone else gets it back as it is (archived), to ask
+ * them, and nothing is made.
  */
 export async function makeInstrumental(input: {
   userId: string;
   trackId: string;
   clientRequestId: string;
   again?: boolean;
-}): Promise<{ track: TrackRow; duplicate: boolean; reused?: boolean }> {
-  await requireActiveMember(input.userId);
+}): Promise<{ track: TrackRow; duplicate: boolean; reused?: boolean; restored?: boolean }> {
+  const { isAdmin } = await requireActiveMember(input.userId);
   await settleInterrupted();
   const repeat = await existingByKey(input.clientRequestId);
   if (repeat) return { track: await relinked(repeat), duplicate: true };
@@ -790,8 +793,26 @@ export async function makeInstrumental(input: {
   if (making) return { track: await relinked(making), duplicate: true };
   // One already made is used rather than paid for again, unless a new one is asked for.
   if (!input.again) {
-    const made = await readyInstrumental(parent.id);
-    if (made) return { track: made, duplicate: true, reused: true };
+    const made = await readyInstrumentals(parent.id);
+    const shown = made.find((child) => child["is_archived"] !== true);
+    if (shown) return { track: shown, duplicate: true, reused: true };
+    const archived = made[0];
+    if (archived && (isAdmin || archived["created_by"] === input.userId)) {
+      const { data: restored, error: restoreError } = await supabaseAdmin
+        .from("music_tracks")
+        .update({ is_archived: false } as never)
+        .eq("id", archived.id)
+        .select("*")
+        .maybeSingle();
+      if (restoreError || !restored) throw trackUnchecked();
+      return {
+        track: restored as unknown as TrackRow,
+        duplicate: true,
+        reused: true,
+        restored: true,
+      };
+    }
+    if (archived) return { track: archived, duplicate: true, reused: true };
   }
   const { data: asset, error: assetError } = await supabaseAdmin
     .from("assets")

@@ -22,12 +22,17 @@ interface TrackSummary {
   requestId: string | null;
   /** An instrumental already in the library, returned instead of making (and paying for) another. */
   reused: boolean;
+  /** Archived: hidden from the library and the editor until it is restored. */
+  archived: boolean;
+  /** An archived instrumental this request put back in the library. */
+  restored: boolean;
 }
 
 function summary(result: {
   track: Record<string, unknown> & { id: string };
   duplicate: boolean;
   reused?: boolean;
+  restored?: boolean;
 }): TrackSummary {
   const { track } = result;
   return {
@@ -40,6 +45,8 @@ function summary(result: {
     duplicate: result.duplicate,
     requestId: typeof track["dedupe_key"] === "string" ? track["dedupe_key"] : null,
     reused: result.reused === true,
+    archived: track["is_archived"] === true,
+    restored: result.restored === true,
   };
 }
 
