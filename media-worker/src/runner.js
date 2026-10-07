@@ -271,13 +271,22 @@ function progressReporter(task) {
   };
 }
 
-/** Signed callback to the app, retried a few times for transient network faults only. */
+/**
+ * Signed callback to the app with a task's result, repeated until the app
+ * answers. The callback is idempotent on the app side, so a 2xx or a 4xx is an
+ * answer; a 5xx, no answer, or a request that hangs past its timeout is tried
+ * again, signed afresh each time, for up to REPORT_RETRY_SECONDS. The first
+ * tries are awaited; then delivery goes on in the background, so the task's
+ * slot is freed for the next one. (The app can also finish a render from the
+ * files it uploaded, should the report never arrive.)
+ */
 async function report(task, payload) {
   if (!task.callback?.url) return;
   const rawBody = JSON.stringify(payload);
-  const { timestamp, signature } = sign(rawBody);
-
-  for (let attempt = 1; attempt <= 4; attempt += 1) {
+  const deadline = Date.now() + config.reportRetrySeconds * 1000;
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const answered = async () => {
+    const { timestamp, signature } = sign(rawBody);
     try {
       const response = await fetch(task.callback.url, {
         method: "POST",
@@ -287,15 +296,25 @@ async function report(task, payload) {
           "x-xeno-signature": signature,
         },
         body: rawBody,
+        signal: AbortSignal.timeout(config.reportTimeoutSeconds * 1000),
       });
-      // The callback is idempotent on the app side, so a 2xx or a 4xx both end the loop:
-      // only transport faults and 5xx are worth repeating.
-      if (response.status < 500) return;
+      return response.status < 500;
     } catch {
-      /* retry below */
+      return false;
     }
-    await new Promise((resolve) => setTimeout(resolve, attempt * 2000));
+  };
+
+  for (let attempt = 1; attempt <= 4; attempt += 1) {
+    if (await answered()) return;
+    if (attempt < 4) await sleep(attempt * 2000);
   }
+  void (async () => {
+    for (let attempt = 5; Date.now() < deadline; attempt += 1) {
+      await sleep(Math.min(60_000, 1000 * 2 ** (attempt - 1)));
+      if (await answered()) return;
+    }
+    console.log(`[xeno-media-worker] task ${task.taskId}: the app never took its result`);
+  })();
 }
 
 /**

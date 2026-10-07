@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSequenceRenders, type RenderRow } from "@/hooks/useEditorData";
 import { getMediaWorkerStatus } from "@/lib/media.functions";
-import { renderSequence, resendRender } from "@/lib/edit.functions";
+import { recoverRender, renderSequence, resendRender } from "@/lib/edit.functions";
 import { keepAttempt, savedAttempt } from "@/lib/attempts";
 import { formatTime, renderBlockers, type Timeline } from "@/lib/edit/timeline";
 import { signedUrl } from "@/lib/storage";
@@ -55,6 +55,35 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
   });
   const blockers = renderBlockers(timeline);
   const active = renders.find((render) => renderInProgress(render));
+
+  // A render that stopped reporting may still have finished (its result just
+  // never arrived): each one is checked once for the video it uploaded, and
+  // finished from it if it's there.
+  const checkedLost = useRef(new Set<string>());
+  const lostKey = renders
+    .filter(
+      (render) =>
+        ((render.status === "queued" || render.status === "rendering") &&
+          !renderInProgress(render)) ||
+        (render.status === "failed" && render.error_code === "STALLED"),
+    )
+    .map((render) => render.id)
+    .join(",");
+  useEffect(() => {
+    for (const renderId of lostKey ? lostKey.split(",") : []) {
+      if (checkedLost.current.has(renderId)) continue;
+      checkedLost.current.add(renderId);
+      void recoverRender({ data: { renderId } })
+        .then(async (outcome) => {
+          if (!outcome.recovered) return;
+          toast.success(
+            "A render that stopped responding had finished. Its video is in your library.",
+          );
+          await queryClient.invalidateQueries({ queryKey: ["sequence_renders", sequenceId] });
+        })
+        .catch(() => {});
+    }
+  }, [lostKey, queryClient, sequenceId]);
 
   async function start() {
     setStarting(true);
