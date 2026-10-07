@@ -5,6 +5,20 @@
  */
 export const RENDER_STALL_MS = 5 * 60_000;
 
+/**
+ * The stage of a render the media service hasn't confirmed taking: it can be
+ * sent again (the worker runs a task id once).
+ */
+export const RENDER_UNCONFIRMED_STAGE = "Waiting for the media service to confirm";
+
+/**
+ * The stage of a render the media service turned away because its queue was
+ * full. It took nothing, so the render is sent again shortly: the Render
+ * panel does so by itself, every RENDER_BUSY_RETRY_MS, while it is open.
+ */
+export const RENDER_BUSY_STAGE = "Waiting for room in the media service's queue";
+export const RENDER_BUSY_RETRY_MS = 20_000;
+
 export function renderInProgress(
   render: { status: string; updated_at?: string | null; created_at: string },
   now = Date.now(),
