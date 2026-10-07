@@ -53,7 +53,9 @@ starts and again before it uploads: the worker posts a signed
 else `WORKER_ID`, else an id for the process). The app claims the task for the
 first instance to check in and answers with
 `{"sources": [{"url"}], "uploads": [{"url"}], "expires_at": "…"}` in the order
-first sent (each URL is checked like the originals), or `410` if the task is
+first sent (each URL is checked like the originals), `202` with no links if the
+claim holds but the links couldn't be renewed just then (the instance goes on
+with the ones it has), or `410` if the task is
 closed or another instance has it; the task is then dropped without a report,
 so it never runs (or uploads) twice. Timeouts, `429` and `5xx` are retried a
 few times. Nothing starts without the claim, and the claim keeps retrying (up

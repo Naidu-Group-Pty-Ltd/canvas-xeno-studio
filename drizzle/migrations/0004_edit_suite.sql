@@ -276,6 +276,43 @@ $$;
 REVOKE ALL ON FUNCTION public.fail_sequence_render(uuid, text, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.fail_sequence_render(uuid, text, text) TO service_role;
 
+-- A render that was presumed lost (its worker reports in after all) takes the
+-- edit's render slot back only while the edit still points at it. The edit is
+-- locked for the check and the claim, as starting a render locks it, so the
+-- two happen one after the other: a replacement started first has moved the
+-- edit on, and the old render stays closed even if the replacement has
+-- already finished; a claim made first holds the slot, and the replacement is
+-- refused as busy. Outcome: held, or closed. Server only.
+CREATE OR REPLACE FUNCTION public.reclaim_sequence_render(p_render_id uuid, p_sequence_id uuid)
+RETURNS text
+LANGUAGE plpgsql
+VOLATILE
+SET search_path = public
+AS $$
+DECLARE
+  v_current uuid;
+  v_claimed integer;
+BEGIN
+  SELECT last_render_id INTO v_current FROM public.sequences WHERE id = p_sequence_id FOR UPDATE;
+  IF NOT FOUND OR v_current IS DISTINCT FROM p_render_id THEN
+    RETURN 'closed';
+  END IF;
+  BEGIN
+    UPDATE public.sequence_renders
+       SET status = 'rendering', stage = 'Resuming', error_code = NULL, error_message = NULL, completed_at = NULL
+     WHERE id = p_render_id
+       AND sequence_id = p_sequence_id
+       AND (status IN ('queued', 'rendering') OR error_code = 'STALLED');
+    GET DIAGNOSTICS v_claimed = ROW_COUNT;
+  EXCEPTION WHEN unique_violation THEN
+    -- Another render holds the slot.
+    RETURN 'closed';
+  END;
+  RETURN CASE WHEN v_claimed > 0 THEN 'held' ELSE 'closed' END;
+END $$;
+REVOKE ALL ON FUNCTION public.reclaim_sequence_render(uuid, uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.reclaim_sequence_render(uuid, uuid) TO service_role;
+
 -- The media worker instance that took a render. A task delivered twice can
 -- reach two instances (a lost acknowledgement, then a resend); only the one
 -- that claims it first goes on, so a render never runs twice.

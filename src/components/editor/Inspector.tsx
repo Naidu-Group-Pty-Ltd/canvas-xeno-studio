@@ -139,6 +139,16 @@ function Field({
   );
 }
 
+/** Above 100%, the preview turns everything down so the boost can be heard (see PreviewPlayer). */
+function BoostNote() {
+  return (
+    <p className="text-[11px] text-muted-foreground" data-testid="volume-boost-note">
+      Browsers can't play above 100%, so the preview plays the whole edit quieter to keep this
+      louder than the rest. The finished video gets the full boost.
+    </p>
+  );
+}
+
 function Seconds({
   value,
   min,
@@ -452,6 +462,7 @@ function ClipInspector({
               onValueChange={([value]) => set({ volume: value ?? 1 }, `volume:${clip.id}`)}
               aria-label="Clip volume"
             />
+            {clip.volume > 1 && <BoostNote />}
           </Field>
           <div className="flex items-center justify-between">
             <Label className="text-xs" htmlFor={`mute-${clip.id}`}>
@@ -631,6 +642,7 @@ function AudioInspector({
             onValueChange={([value]) => set({ volume: value ?? 1 }, `volume:${item.id}`)}
             aria-label="Track volume"
           />
+          {item.volume > 1 && <BoostNote />}
         </Field>
         <div className="grid grid-cols-2 gap-2">
           <Field label="Fade in">
