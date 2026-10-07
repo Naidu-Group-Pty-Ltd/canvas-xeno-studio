@@ -18,7 +18,7 @@ import {
   MUSIC_LICENSES,
   type MusicLicense,
 } from "./catalog";
-import { PROBED_MIME, probeAudio, type ReadRange } from "./probe";
+import { PROBED_MIME, probeAudio, type ProbedAudio, type ReadRange } from "./probe";
 import {
   audioExtension,
   composeMusic,
@@ -968,6 +968,9 @@ const UPLOAD_TYPES: Record<string, { mime: string; extension: string }> = {
   "audio/x-m4a": { mime: "audio/mp4", extension: "m4a" },
 };
 
+/** What a recording uploaded for its licence may be (the form asks for WAV, MP3 or M4A). */
+const UPLOAD_KINDS: readonly ProbedAudio[] = ["mp3", "wav", "m4a"];
+
 /** Uploads whose licence was never recorded are cleared after this long (the form keeps one for a day). */
 const UPLOAD_TTL_MS = 2 * 24 * 60 * 60_000;
 
@@ -1232,7 +1235,11 @@ async function uploadedAsset(input: {
   const tooLarge = size > MAX_UPLOAD_BYTES;
   const kind = tooLarge
     ? null
-    : await probeAudio(await storedRanges(place.storage_bucket, place.storage_path), size);
+    : await probeAudio(
+        await storedRanges(place.storage_bucket, place.storage_path),
+        size,
+        UPLOAD_KINDS,
+      );
   if (!kind) {
     const { error: dropError } = await supabaseAdmin.storage
       .from(place.storage_bucket)

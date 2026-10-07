@@ -76,7 +76,11 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
   const { data: renderedFiles } = useAssetsByIds(renderedIds);
   // Only audio heard in the render needs a credit or a licence check.
   const audioIds = useMemo(() => audibleAudio(timeline).map((item) => item.assetId), [timeline]);
-  const { data: musicTracks = [], isSuccess: tracksKnown } = useTracksForAssets(audioIds);
+  const {
+    data: musicTracks = [],
+    isSuccess: tracksKnown,
+    isError: tracksUnknown,
+  } = useTracksForAssets(audioIds);
   const credits = [
     ...new Set(
       musicTracks.map((track) => videoCreditLine(track)).filter((line): line is string => !!line),
@@ -84,15 +88,20 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
   ];
   // Music or a sound effect with no licence on record (added from the media
   // bin, say) can't be rendered until its licence is recorded, as the server
-  // checks too; and an expired licence stops the render. Limits are shown
-  // before rendering.
+  // checks too; nor can it while its licences can't be looked up (before the
+  // music library is set up, say). An expired licence stops the render.
+  // Limits are shown before rendering.
   const recorded = new Set(musicTracks.map((track) => track.asset_id));
+  const heardMusic = audibleAudio(timeline).filter(
+    (item) => item.role === "music" || item.role === "sfx",
+  );
   const unrecorded = tracksKnown
-    ? audibleAudio(timeline).find(
-        (item) => (item.role === "music" || item.role === "sfx") && !recorded.has(item.assetId),
-      )
+    ? heardMusic.find((item) => !recorded.has(item.assetId))
     : undefined;
   const licenceProblem =
+    (tracksUnknown && heardMusic.length
+      ? "The music's licences couldn't be looked up, so this edit can't be rendered just now."
+      : null) ??
     (unrecorded
       ? `“${unrecorded.label ?? "Some audio"}” has no licence on record. Record its licence in the Music tab, or use music from the library.`
       : null) ??

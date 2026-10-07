@@ -14,6 +14,7 @@
 import { unzipSync } from "fflate";
 import { fetchPublic } from "../net/public-url.server";
 import { SAFE_OPENVERSE_LICENSES, isSafeOpenverseLicense } from "./catalog";
+import { PROBED_MIME, probeBytes } from "./probe";
 import {
   eleven,
   elevenFailure,
@@ -422,8 +423,11 @@ export async function downloadAudio(
     bytes.set(chunk, offset);
     offset += chunk.byteLength;
   }
-  if (!looksLikeAudio(bytes)) return notAudio;
-  return { ok: true, bytes, mime };
+  // Audio by what it holds (its structure), not its first bytes or its label;
+  // the type it really is is the one kept.
+  const kind = await probeBytes(bytes);
+  if (!kind) return notAudio;
+  return { ok: true, bytes, mime: PROBED_MIME[kind] };
 }
 
 /* ------------------------------------------------------------------ */
@@ -484,7 +488,8 @@ export async function composeMusic(input: {
     return transportFailure("ElevenLabs", error);
   }
   if (!audio.length) return acceptedButUnusable("no audio");
-  if (!looksLikeAudio(audio)) return acceptedButUnusable("something other than audio");
+  if ((await probeBytes(audio, ["mp3"])) !== "mp3")
+    return acceptedButUnusable("something other than audio");
   return { ok: true, audio, mime: "audio/mpeg", songId: response.headers.get("song-id") };
 }
 
@@ -529,7 +534,7 @@ export async function separateInstrumental(input: {
     names.find((name) => /instrumental|accompaniment|no[_ -]?vocals|music/i.test(name)) ??
     (names.length === 2 ? names.find((name) => !/vocal/i.test(name)) : undefined);
   if (!instrumental) return acceptedButUnusable("no instrumental stem");
-  if (!looksLikeAudio(files[instrumental]!))
+  if ((await probeBytes(files[instrumental]!, ["mp3"])) !== "mp3")
     return acceptedButUnusable("an instrumental stem that isn't audio");
   return { ok: true, instrumental: files[instrumental]!, mime: "audio/mpeg" };
 }

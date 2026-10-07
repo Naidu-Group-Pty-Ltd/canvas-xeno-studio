@@ -1,22 +1,29 @@
 /**
- * Whether a stored recording holds audio that browsers and the renderer can
- * decode, read from its structure rather than its name or its first bytes:
- * MP3 frames that follow one another, a WAV's format and its data, or an
- * MP4/M4A with a sound track and media data. Only small parts of the file are
- * read (`read`), so a large upload is never fetched whole to check it.
+ * Whether a recording holds audio that browsers and the renderer can decode,
+ * read from its structure rather than its name or its first bytes: MP3 frames
+ * that follow one another, a WAV's format and its data, an MP4/M4A with a
+ * sound track and media data, an Ogg stream of Vorbis, Opus or FLAC with
+ * pages after its headers, or FLAC with its stream description and frames.
+ * Only small parts of the file are read (`read`), so a large file is never
+ * fetched whole to check it.
  */
 
 /** Reads up to `length` bytes from `offset` (fewer at the end of the file). */
 export type ReadRange = (offset: number, length: number) => Promise<Uint8Array>;
 
-export type ProbedAudio = "mp3" | "wav" | "m4a";
+export type ProbedAudio = "mp3" | "wav" | "m4a" | "ogg" | "flac";
 
 /** The media type each kind of audio is recorded as. */
 export const PROBED_MIME: Record<ProbedAudio, string> = {
   mp3: "audio/mpeg",
   wav: "audio/wav",
   m4a: "audio/mp4",
+  ogg: "audio/ogg",
+  flac: "audio/flac",
 };
+
+/** Every kind recognised (catalogue files come in all of them). */
+export const ALL_AUDIO: readonly ProbedAudio[] = ["mp3", "wav", "m4a", "ogg", "flac"];
 
 const HEAD_BYTES = 64 * 1024;
 /** A sound track's description is small; one larger than this isn't read. */
@@ -45,13 +52,41 @@ async function bytesAt(
   return read(offset, length);
 }
 
-export async function probeAudio(read: ReadRange, size: number): Promise<ProbedAudio | null> {
+/** The kind of audio a file holds, of those accepted (`kinds`), or null if it holds none of them. */
+export async function probeAudio(
+  read: ReadRange,
+  size: number,
+  kinds: readonly ProbedAudio[] = ALL_AUDIO,
+): Promise<ProbedAudio | null> {
   if (!Number.isFinite(size) || size < 64) return null;
   const head = await read(0, Math.min(size, HEAD_BYTES));
   if (head.length < 64) return null;
+  const kind = await probed(head, read, size);
+  return kind && kinds.includes(kind) ? kind : null;
+}
+
+/** The same, for a file already in memory. */
+export function probeBytes(
+  bytes: Uint8Array,
+  kinds: readonly ProbedAudio[] = ALL_AUDIO,
+): Promise<ProbedAudio | null> {
+  return probeAudio(
+    async (offset, length) => bytes.subarray(offset, Math.min(bytes.length, offset + length)),
+    bytes.length,
+    kinds,
+  );
+}
+
+async function probed(
+  head: Uint8Array,
+  read: ReadRange,
+  size: number,
+): Promise<ProbedAudio | null> {
   if (ascii(head, 0, 4) === "RIFF" && ascii(head, 8, 4) === "WAVE")
     return (await isWav(head, read, size)) ? "wav" : null;
   if (ascii(head, 4, 4) === "ftyp") return (await isMp4Audio(head, read, size)) ? "m4a" : null;
+  if (ascii(head, 0, 4) === "OggS") return (await isOggAudio(head, read, size)) ? "ogg" : null;
+  if (ascii(head, 0, 4) === "fLaC") return (await isFlac(head, read, size)) ? "flac" : null;
   if (ascii(head, 0, 3) === "ID3" || (head[0] === 0xff && ((head[1] ?? 0) & 0xe0) === 0xe0))
     return (await isMp3(head, read, size)) ? "mp3" : null;
   return null;
@@ -187,6 +222,85 @@ async function isMp4Audio(head: Uint8Array, read: ReadRange, size: number): Prom
       ascii(movie, at + 12, 4) === "soun"
     )
       return true;
+  }
+  return false;
+}
+
+/* ---------------------------------------------------------------- Ogg */
+
+/** One Ogg page: where its packet data starts and where the next page starts. */
+async function oggPage(
+  head: Uint8Array,
+  read: ReadRange,
+  offset: number,
+  size: number,
+): Promise<{ flags: number; data: number; next: number } | null> {
+  if (offset + 27 > size) return null;
+  const header = await bytesAt(head, read, offset, 27);
+  if (header.length < 27 || ascii(header, 0, 4) !== "OggS" || header[4] !== 0) return null;
+  const segments = header[26] ?? 0;
+  const table = await bytesAt(head, read, offset + 27, segments);
+  if (table.length < segments) return null;
+  let body = 0;
+  for (const length of table) body += length;
+  const data = offset + 27 + segments;
+  return { flags: header[5] ?? 0, data, next: data + body };
+}
+
+/**
+ * An Ogg stream that starts with a Vorbis, Opus or FLAC stream (a video-only
+ * one, say Theora, has none), and goes on past its opening pages.
+ */
+async function isOggAudio(head: Uint8Array, read: ReadRange, size: number): Promise<boolean> {
+  let offset = 0;
+  let audio = false;
+  for (let part = 0; part < MAX_PARTS; part += 1) {
+    const page = await oggPage(head, read, offset, size);
+    if (!page || page.next > size) return false;
+    // Opening pages (one per stream) say what each stream holds.
+    if (page.flags & 0x02) {
+      const packet = await bytesAt(head, read, page.data, 8);
+      const id = ascii(packet, 0, 8);
+      if (id.startsWith("\u0001vorbis") || id === "OpusHead" || id.startsWith("\u007fFLAC"))
+        audio = true;
+    } else {
+      // A page past the opening ones: the streams carry data.
+      return audio;
+    }
+    offset = page.next;
+  }
+  return false;
+}
+
+/* ---------------------------------------------------------------- FLAC */
+
+/** A FLAC stream: its stream description, then a frame where the descriptions end. */
+async function isFlac(head: Uint8Array, read: ReadRange, size: number): Promise<boolean> {
+  let offset = 4;
+  let first = true;
+  for (let part = 0; part < MAX_PARTS && offset + 4 <= size; part += 1) {
+    const header = await bytesAt(head, read, offset, 4);
+    if (header.length < 4) return false;
+    const last = ((header[0] ?? 0) & 0x80) !== 0;
+    const type = (header[0] ?? 0) & 0x7f;
+    const length = ((header[1] ?? 0) << 16) | ((header[2] ?? 0) << 8) | (header[3] ?? 0);
+    if (first) {
+      // STREAMINFO: a sample rate and channels that make sense.
+      if (type !== 0 || length !== 34) return false;
+      const info = await bytesAt(head, read, offset + 4, 18);
+      if (info.length < 18) return false;
+      const rate = ((info[10] ?? 0) << 12) | ((info[11] ?? 0) << 4) | ((info[12] ?? 0) >> 4);
+      const channels = (((info[12] ?? 0) >> 1) & 0x07) + 1;
+      if (rate < 1 || rate > 655_350 || channels > 8) return false;
+      first = false;
+    }
+    offset += 4 + length;
+    if (last) {
+      // The first audio frame starts with its sync code.
+      if (offset + 2 > size) return false;
+      const frame = await bytesAt(head, read, offset, 2);
+      return frame[0] === 0xff && ((frame[1] ?? 0) & 0xfe) === 0xf8;
+    }
   }
   return false;
 }

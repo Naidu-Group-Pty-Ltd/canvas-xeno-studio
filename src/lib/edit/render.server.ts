@@ -133,9 +133,18 @@ async function musicRights(
     )
     .in("asset_id", [...new Set(items.map((item) => item.assetId))]);
   if (error) {
-    // Before the music library exists there is nothing to credit or check;
-    // any other failure stops the render rather than skipping the check.
-    if (isMissingTableError(error)) return none;
+    // Before the music library is set up nothing shows what music may be
+    // used, so music or a sound effect in the edit stops the render (a
+    // voiceover alone doesn't need it). Any other failure stops the render
+    // too, rather than skipping the check.
+    if (isMissingTableError(error))
+      return items.some((item) => item.role === "music" || item.role === "sfx")
+        ? {
+            ...none,
+            blocker:
+              "Music and sound effects can't be rendered until the music library is set up (its database update hasn't been applied yet).",
+          }
+        : none;
     throw new AppError("UNKNOWN", "The music licences couldn't be checked. Try again.");
   }
   const rows = (data ?? []) as unknown as Pick<
