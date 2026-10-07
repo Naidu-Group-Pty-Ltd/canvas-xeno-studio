@@ -947,6 +947,56 @@ function VoiceBrowser({
  */
 const designHold = (userId: string) => `voice-design-held:${userId}`;
 
+const UNANSWERED_DESIGN =
+  "This design's answer didn't come back, so it may still have been made (and billed).";
+
+interface SaveRequest {
+  generatedVoiceId: string;
+  name: string;
+  description: string;
+}
+
+/**
+ * A designed option being kept ("Keep this one") whose outcome is still
+ * waited for, with the name and description it was asked with. Kept like its
+ * request id (see attempts), for the person who asked: the option exists only
+ * in the answer that offered it, so after the form was closed or the page
+ * reloaded, checking again still asks about that same addition rather than
+ * designing (and paying) again.
+ */
+const pendingSave = (userId: string) => `voice-design-save-pending:${userId}`;
+
+function savedSave(userId: string): (SaveRequest & { message: string }) | null {
+  const saved = savedAttempt(pendingSave(userId), "current");
+  if (!saved) return null;
+  try {
+    const value = JSON.parse(saved) as Partial<SaveRequest & { message: string }>;
+    if (
+      typeof value.generatedVoiceId !== "string" ||
+      !value.generatedVoiceId ||
+      typeof value.name !== "string" ||
+      typeof value.description !== "string" ||
+      typeof value.message !== "string"
+    )
+      return null;
+    return {
+      generatedVoiceId: value.generatedVoiceId,
+      name: value.name,
+      description: value.description,
+      message: value.message,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function keepSave(userId: string, value: (SaveRequest & { message: string }) | null) {
+  keepAttempt(pendingSave(userId), "current", value ? JSON.stringify(value) : null);
+}
+
+const UNANSWERED_SAVE =
+  "Keeping this option didn't get an answer, so it may still have been added. Check again to find out: it won't be added twice.";
+
 function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => void }) {
   const [description, setDescription] = useState("");
   const [pending, setPending] = useState<PendingAddition | null>(null);
@@ -964,6 +1014,39 @@ function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => voi
   useEffect(() => {
     setUnsureShown(userId ? savedAttempt(designHold(userId), "held") : null);
   }, [userId]);
+  // An option still being kept comes back with its name and description, with
+  // the choice to check again. If someone else signs in, nothing of the last
+  // person's form stays.
+  const shownFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!userId || shownFor.current === userId) return;
+    if (shownFor.current) {
+      setPending(null);
+      setPreviews([]);
+      setName("");
+      setDescription("");
+    }
+    shownFor.current = userId;
+    const saved = savedSave(userId);
+    if (!saved) return;
+    setName(saved.name);
+    setDescription(saved.description);
+    setPending(waitingSave(userId, saved, saved.message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  function waitingSave(owner: string, request: SaveRequest, message: string): PendingAddition {
+    return {
+      message,
+      check: () => void keep(request),
+      startOver: () => void keep(request, true),
+      discard: () => {
+        keepAttempt("voice-design", request.generatedVoiceId, null);
+        keepSave(owner, null);
+        setPending(null);
+      },
+    };
+  }
 
   async function design(again = false) {
     // Held here, in another tab or on an earlier visit: only "Design again" goes on.
@@ -973,6 +1056,9 @@ function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => voi
       return;
     }
     setBusy("design");
+    // Held from the moment it is asked for: the design may be made (and billed)
+    // whatever happens to this page, so a reload meanwhile still finds the hold.
+    if (userId) keepAttempt(designHold(userId), "held", UNANSWERED_DESIGN);
     try {
       const result = await designElevenLabsVoice({ data: { description } });
       if ("uncertain" in result) {
@@ -991,40 +1077,52 @@ function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => voi
     }
   }
 
-  async function keep(generatedVoiceId: string, startOver = false) {
+  async function keep(request: SaveRequest, startOver = false) {
+    if (!userId) return;
     setBusy("save");
     // Kept until the option is added (across reloads too), so trying again after
     // a lost answer finds it rather than adding it twice.
+    const { generatedVoiceId } = request;
     if (startOver) keepAttempt("voice-design", generatedVoiceId, null);
     const clientRequestId = savedAttempt("voice-design", generatedVoiceId) ?? crypto.randomUUID();
     keepAttempt("voice-design", generatedVoiceId, clientRequestId);
+    keepSave(userId, { ...request, message: UNANSWERED_SAVE });
     try {
       const saved = await saveDesignedVoice({
         data: {
-          name: name.trim() || "Designed voice",
-          description,
+          name: request.name,
+          description: request.description,
           generatedVoiceId,
           clientRequestId,
         },
       });
+      if ("failed" in saved) {
+        // Not added, so nothing to check on: the options stay, to keep another.
+        keepSave(userId, null);
+        setPending(null);
+        toast.error(saved.failed);
+        return;
+      }
       if ("pending" in saved) {
-        setPending({
-          message: saved.pending,
-          check: () => void keep(generatedVoiceId),
-          startOver: () => void keep(generatedVoiceId, true),
-        });
+        keepSave(userId, { ...request, message: saved.pending });
+        setPending(waitingSave(userId, request, saved.pending));
         return;
       }
       setPending(null);
+      keepSave(userId, null);
       keepAttempt("voice-design", generatedVoiceId, null);
       onPick({
         providerVoiceId: saved.voiceId,
         providerVoiceName: saved.name,
-        description,
-        source: { kind: "designed", prompt: description },
+        description: request.description,
+        source: { kind: "designed", prompt: request.description },
       });
       toast.success("Designed voice added to ElevenLabs");
     } catch (error) {
+      // Its outcome isn't known here: the addition stays to be checked again.
+      const message = `${error instanceof Error ? error.message : "The voice could not be saved."} If it was added after all, checking again finds it.`;
+      keepSave(userId, { ...request, message });
+      setPending(waitingSave(userId, request, message));
       toast.error(error instanceof Error ? error.message : "The voice could not be saved");
     } finally {
       setBusy(null);
@@ -1101,7 +1199,13 @@ function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => voi
             variant="outline"
             className="h-7 px-2 text-xs"
             disabled={busy !== null}
-            onClick={() => void keep(preview.generatedVoiceId)}
+            onClick={() =>
+              void keep({
+                generatedVoiceId: preview.generatedVoiceId,
+                name: name.trim() || "Designed voice",
+                description,
+              })
+            }
           >
             {busy === "save" ? <Loader2 className="size-3 animate-spin" /> : "Keep this one"}
           </Button>
