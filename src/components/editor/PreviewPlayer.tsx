@@ -10,9 +10,11 @@ import {
 import type { AssetRow } from "@/hooks/useStudioData";
 import type { SignedMedia } from "@/hooks/useEditorData";
 import {
+  audioFades,
   audioLoops,
   audioPlayLength,
   clipsAt,
+  editFadeLevel,
   frameSize,
   sourceTimeFor,
   type LaidOutClip,
@@ -80,12 +82,9 @@ export function PreviewPlayer({ timeline, layout, assets, media, clock }: Previe
 
   const level = useMemo(() => previewLevel(timeline), [timeline]);
   const scale = frame.width / target.width || 0;
-  const fadeOpacity =
-    timeline.fadeIn > 0 && time < timeline.fadeIn
-      ? 1 - time / timeline.fadeIn
-      : timeline.fadeOut > 0 && time > layout.total - timeline.fadeOut
-        ? (time - (layout.total - timeline.fadeOut)) / timeline.fadeOut
-        : 0;
+  // The opening and closing fades take the sound down with the picture, as in the render.
+  const fadeLevel = editFadeLevel(timeline, layout.total, time);
+  const fadeOpacity = 1 - fadeLevel;
 
   return (
     <div ref={box} className="flex size-full items-center justify-center">
@@ -111,7 +110,7 @@ export function PreviewPlayer({ timeline, layout, assets, media, clock }: Previe
               time={time}
               playing={playing}
               mix={mix}
-              level={level}
+              level={level * fadeLevel}
               transition={incoming?.transitionType ?? "cut"}
               fit={entry.clip.fit ?? timeline.fit}
             />
@@ -126,7 +125,7 @@ export function PreviewPlayer({ timeline, layout, assets, media, clock }: Previe
             playing={playing}
             total={layout.total}
             voiceRanges={voiceRanges(timeline.audio, layout.total)}
-            level={level}
+            level={level * fadeLevel}
           />
         ))}
         <TextLayer
@@ -140,6 +139,7 @@ export function PreviewPlayer({ timeline, layout, assets, media, clock }: Previe
           <div
             className="pointer-events-none absolute inset-0 bg-black"
             style={{ opacity: Math.min(1, fadeOpacity) }}
+            data-testid="edit-fade"
           />
         )}
       </div>
@@ -165,7 +165,7 @@ interface ClipLayerProps {
   time: number;
   playing: boolean;
   mix: number;
-  /** See `previewLevel`. */
+  /** See `previewLevel`, times the edit's opening or closing fade. */
   level: number;
   transition: TransitionType;
   fit: "cover" | "contain" | "blur_pad";
@@ -377,6 +377,7 @@ interface AudioLayerProps {
   playing: boolean;
   total: number;
   voiceRanges: [number, number][];
+  /** See `previewLevel`, times the edit's opening or closing fade. */
   level: number;
 }
 
@@ -410,10 +411,11 @@ const AudioLayer = memo(function AudioLayer({
       if (!element.paused) element.pause();
       return;
     }
+    const { fadeIn, fadeOut } = audioFades(item, total);
     let gain = item.volume;
-    if (item.fadeIn > 0 && elapsed < item.fadeIn) gain *= elapsed / item.fadeIn;
-    if (item.fadeOut > 0 && elapsed > length - item.fadeOut)
-      gain *= Math.max(0, (length - elapsed) / item.fadeOut);
+    if (fadeIn > 0 && elapsed < fadeIn) gain *= elapsed / fadeIn;
+    if (fadeOut > 0 && elapsed > length - fadeOut)
+      gain *= Math.max(0, (length - elapsed) / fadeOut);
     if (
       item.role === "music" &&
       item.duck &&

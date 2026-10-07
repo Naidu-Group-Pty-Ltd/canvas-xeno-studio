@@ -548,6 +548,35 @@ export function audioPlayLength(item: TimelineAudio, total: number): number {
   return Math.max(0, Math.min(item.duration ?? Infinity, available, total - item.start));
 }
 
+/**
+ * The fades an audio item plays with in a picture of `total` seconds. The
+ * render shortens each to at most half of what the item plays.
+ */
+export function audioFades(
+  item: TimelineAudio,
+  total: number,
+): { fadeIn: number; fadeOut: number } {
+  const length = audioPlayLength(item, total);
+  return { fadeIn: Math.min(item.fadeIn, length / 2), fadeOut: Math.min(item.fadeOut, length / 2) };
+}
+
+/**
+ * How much of the picture and sound the edit's opening and closing fades let
+ * through at `time` (0–1). The render shortens each fade to at most a third
+ * of the edit.
+ */
+export function editFadeLevel(
+  timeline: Pick<Timeline, "fadeIn" | "fadeOut">,
+  total: number,
+  time: number,
+): number {
+  const fadeIn = Math.min(timeline.fadeIn, total / 3);
+  const fadeOut = Math.min(timeline.fadeOut, total / 3);
+  if (fadeIn > 0 && time < fadeIn) return Math.max(0, time / fadeIn);
+  if (fadeOut > 0 && time > total - fadeOut) return Math.max(0, (total - time) / fadeOut);
+  return 1;
+}
+
 /* ------------------------------------------------------------------ */
 /* Captions                                                            */
 /* ------------------------------------------------------------------ */
