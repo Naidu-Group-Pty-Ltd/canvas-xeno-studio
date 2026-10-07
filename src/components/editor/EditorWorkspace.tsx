@@ -248,7 +248,9 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
         return;
       }
       if (event.key.toLowerCase() === "s" && !mod) {
-        change(splitClipAt(timeline, clock.getTime()));
+        change(
+          splitClipAt(timeline, clock.getTime(), selection?.kind === "clip" ? selection.id : null),
+        );
         return;
       }
       if (mod && event.key.toLowerCase() === "d" && selection?.kind === "clip") {
@@ -448,7 +450,15 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
             total={layout.total}
             fps={timeline.fps}
             canSplit={timeline.clips.length > 0}
-            onSplit={() => change(splitClipAt(timeline, clock.getTime()))}
+            onSplit={() =>
+              change(
+                splitClipAt(
+                  timeline,
+                  clock.getTime(),
+                  selection?.kind === "clip" ? selection.id : null,
+                ),
+              )
+            }
             canDelete={Boolean(selection && selection.kind !== "caption")}
             onDelete={() => {
               if (!selection) return;

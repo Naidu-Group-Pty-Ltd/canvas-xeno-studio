@@ -462,11 +462,17 @@ export function duplicateClip(timeline: Timeline, id: string): Timeline {
 
 /**
  * Splits the clip under a timeline time into two clips that play the same
- * footage back to back. The second half starts with a cut.
+ * footage back to back. The second half starts with a cut. During a
+ * transition two clips are under the playhead: `clipId` names the one meant
+ * (the one selected); without it, or if it isn't under the playhead, it is
+ * the earlier one.
  */
-export function splitClipAt(timeline: Timeline, time: number): Timeline {
+export function splitClipAt(timeline: Timeline, time: number, clipId?: string | null): Timeline {
   const layout = layoutTimeline(timeline);
-  const entry = layout.clips.find((item) => time > item.start + 0.1 && time < item.end - 0.1);
+  const under = (item: LaidOutClip) => time > item.start + 0.1 && time < item.end - 0.1;
+  const entry =
+    (clipId ? layout.clips.find((item) => item.clip.id === clipId && under(item)) : undefined) ??
+    layout.clips.find(under);
   if (!entry || timeline.clips.length >= LIMITS.clips) return timeline;
   const clip = entry.clip;
   const firstDuration = time - entry.start;
