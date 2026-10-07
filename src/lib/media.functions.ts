@@ -113,7 +113,8 @@ export const submitMediaTask = createServerFn({ method: "POST" })
 
     // Operation first: the task is visible in the operation graph even if the
     // worker never answers.
-    const { data: operation } = await supabaseAdmin
+    let operation: { id: string } | null = null;
+    const { data: inserted, error: operationError } = await supabaseAdmin
       .from("operations")
       .insert({
         created_by: context.userId,
@@ -127,10 +128,34 @@ export const submitMediaTask = createServerFn({ method: "POST" })
       } as never)
       .select("id")
       .maybeSingle();
+    operation = inserted ?? null;
+    if (operationError || !operation) {
+      if (operationError?.code !== "23505" || !data.clientRequestId) {
+        throw new AppError("UNKNOWN", "The media task could not be recorded. Try again.");
+      }
+      // The same request again: the task it started, if it got that far (also
+      // when it was sent twice at once)...
+      const { data: raced } = await supabaseAdmin
+        .from("media_tasks")
+        .select("id,status")
+        .eq("dedupe_key", data.clientRequestId)
+        .maybeSingle();
+      if (raced) return { taskId: raced.id, status: raced.status, duplicate: true };
+      // ...or else the operation an earlier try recorded before its task could
+      // be: this try carries on with it, so the request can still go through.
+      const { data: earlier, error: earlierError } = await supabaseAdmin
+        .from("operations")
+        .select("id")
+        .eq("dedupe_key", data.clientRequestId)
+        .maybeSingle();
+      if (earlierError || !earlier)
+        throw new AppError("UNKNOWN", "This task is already being started. Give it a moment.");
+      operation = earlier;
+    }
 
     const { error: taskError } = await supabaseAdmin.from("media_tasks").insert({
       id: taskId,
-      operation_id: operation?.id ?? null,
+      operation_id: operation.id,
       created_by: context.userId,
       project_id: projectId,
       source_asset_id: primary.id,
@@ -194,6 +219,27 @@ export const submitMediaTask = createServerFn({ method: "POST" })
       storagePaths.push(path);
     }
 
+    // Where the results land is recorded before the worker is asked, so even a
+    // result that comes back instantly can be registered. Nothing is sent
+    // unless it is recorded.
+    const { data: recorded, error: recordError } = await supabaseAdmin
+      .from("media_tasks")
+      .update({
+        storage_bucket: OUTPUT_BUCKET,
+        storage_path: storagePaths[0] ?? null,
+        input_payload: {
+          params: data.params,
+          sources: data.sourceAssetIds,
+          storage_paths: storagePaths,
+          mime_type: output.mime,
+          output_kind: definition.outputKind,
+        } as never,
+      })
+      .eq("id", taskId)
+      .select("id");
+    if (recordError || !recorded?.length)
+      await fail("UNKNOWN", "The media task could not be recorded. Try again.");
+
     const callbackUrl = `${appBaseUrl().replace(/\/$/, "")}/api/public/media-worker-callback`;
     const submission = await submitWorkerTask({
       task_id: taskId,
@@ -208,21 +254,12 @@ export const submitMediaTask = createServerFn({ method: "POST" })
       await fail(submission.errorCode ?? "UNKNOWN", submission.errorMessage ?? "The media service rejected the task");
     }
 
+    // Only a task still waiting moves on: a result that already arrived wins.
     await supabaseAdmin
       .from("media_tasks")
-      .update({
-        status: "processing",
-        storage_bucket: OUTPUT_BUCKET,
-        storage_path: storagePaths[0] ?? null,
-        input_payload: {
-          params: data.params,
-          sources: data.sourceAssetIds,
-          storage_paths: storagePaths,
-          mime_type: output.mime,
-          output_kind: definition.outputKind,
-        } as never,
-      })
-      .eq("id", taskId);
+      .update({ status: "processing" })
+      .eq("id", taskId)
+      .eq("status", "submitting");
 
     return { taskId, status: "processing", duplicate: false };
   });

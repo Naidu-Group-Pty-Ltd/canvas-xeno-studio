@@ -18,6 +18,7 @@ import { Markdown } from "@/components/studio/Markdown";
 import { MediaPreview } from "@/components/studio/MediaPreview";
 import { Button } from "@/components/ui/button";
 import { useProviderHealth } from "@/components/layout/AppShell";
+import { CompileVideo, EditPlanCard } from "./CompileVideo";
 import { DraftCard } from "./DraftCard";
 import { providerBlockReason } from "./draft-runner";
 import { GenerateAllDialog } from "./GenerateAllDialog";
@@ -50,7 +51,12 @@ export function UserMessage({ message }: { message: MessageRow }) {
 interface AssistantProps {
   message: MessageRow;
   models: ModelRegistryEntry[];
-  context: { projectId: string | null; campaignId: string | null };
+  context: {
+    projectId: string | null;
+    campaignId: string | null;
+    briefId?: string | null | undefined;
+    threadId?: string | null | undefined;
+  };
   busy: boolean;
   onSend: (text: string, intent: SupercomputerIntent) => void;
   onRetry: (messageId: string) => void;
@@ -120,15 +126,37 @@ export function AssistantMessage({
 
         {drafts.length > 0 && (
           <div className="space-y-3">
-            <div className="flex items-center justify-between gap-2">
+            {payload.editPlan && (
+              <EditPlanCard plan={payload.editPlan} drafts={drafts}>
+                <CompileVideo
+                  messageId={message.id}
+                  drafts={drafts}
+                  byDraft={byDraft}
+                  plan={payload.editPlan}
+                  context={context}
+                />
+              </EditPlanCard>
+            )}
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="label-eyebrow flex items-center gap-1.5">
                 <Layers className="size-3.5" /> Ready to generate ({drafts.length})
               </span>
-              {runnable.length > 1 && !providerBlocked && (
-                <Button size="sm" variant="outline" onClick={() => setGenerateAll(true)}>
-                  <Sparkles className="mr-1.5 size-3.5" /> Generate all ({runnable.length})
-                </Button>
-              )}
+              <div className="flex flex-wrap gap-1.5">
+                {runnable.length > 1 && !providerBlocked && (
+                  <Button size="sm" variant="outline" onClick={() => setGenerateAll(true)}>
+                    <Sparkles className="mr-1.5 size-3.5" /> Generate all ({runnable.length})
+                  </Button>
+                )}
+                {!payload.editPlan && drafts.length > 1 && (
+                  <CompileVideo
+                    messageId={message.id}
+                    drafts={drafts}
+                    byDraft={byDraft}
+                    plan={undefined}
+                    context={context}
+                  />
+                )}
+              </div>
             </div>
             {providerBlocked && (
               <p className="flex items-start gap-1.5 text-[11px] text-muted-foreground">

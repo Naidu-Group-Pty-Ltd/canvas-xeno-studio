@@ -2,6 +2,10 @@
  * Worker configuration. Everything is read from the environment; nothing is
  * baked into the image and no credential is ever accepted inside a task body.
  */
+import { randomUUID } from "node:crypto";
+
+const instanceId = (value) =>
+  typeof value === "string" && /^[\w-]{1,64}$/.test(value) ? value : null;
 
 function intEnv(name, fallback) {
   const raw = process.env[name];
@@ -20,10 +24,41 @@ export const config = {
   concurrency: intEnv("CONCURRENCY", 2),
   /** Tasks waiting beyond this depth are rejected with 429 rather than queued forever. */
   maxQueueDepth: intEnv("MAX_QUEUE_DEPTH", 50),
+  heartbeatSeconds: intEnv("HEARTBEAT_SECONDS", 60),
+  /**
+   * How long a task's result keeps being reported while the app can't take it
+   * (a 5xx, no answer, or a request that hangs). After the first few tries this
+   * goes on in the background, so it doesn't hold a render slot.
+   */
+  reportRetrySeconds: intEnv("REPORT_RETRY_SECONDS", 6 * 60 * 60),
+  /** One try at reporting a result is abandoned (and tried again) after this long. */
+  reportTimeoutSeconds: intEnv("REPORT_TIMEOUT_SECONDS", 30),
+  /**
+   * This instance, as it names itself to the app: a task delivered to two
+   * instances (an acknowledgement lost, then the task sent again) runs only on
+   * the one that checks in first. The Fly machine id, else WORKER_ID, else a
+   * fresh id for this process.
+   */
+  workerId:
+    instanceId(process.env["FLY_MACHINE_ID"]) ??
+    instanceId(process.env["WORKER_ID"]) ??
+    randomUUID(),
   /** Hard wall-clock limit for a single FFmpeg invocation. */
   taskTimeoutSeconds: intEnv("TASK_TIMEOUT_SECONDS", 900),
   /** Refuse source media larger than this. */
   maxDownloadBytes: intEnv("MAX_DOWNLOAD_MB", 1024) * 1024 * 1024,
+  /**
+   * All of one task's sources together may take at most this much disk (an
+   * edit can name dozens of files), so the tasks running at once can't fill
+   * the disk they share: CONCURRENCY × this, at most.
+   */
+  maxTaskDownloadBytes: intEnv("MAX_TASK_DOWNLOAD_MB", 2048) * 1024 * 1024,
+  /**
+   * Everything one task keeps on disk at once (sources, intermediates, the mix
+   * and its outputs) may take at most this much: CONCURRENCY × this, at most,
+   * for the tasks running together.
+   */
+  maxTaskWorkspaceBytes: intEnv("MAX_TASK_WORKSPACE_MB", 4096) * 1024 * 1024,
   /** Refuse to upload a result larger than this. */
   maxOutputBytes: intEnv("MAX_OUTPUT_MB", 2048) * 1024 * 1024,
   /**

@@ -1,13 +1,21 @@
 import { spawn } from "node:child_process";
 import { config } from "./config.js";
 import { TaskError } from "./net.js";
+import { enterWorkspace } from "./workspace.js";
 
 /**
  * FFmpeg is only ever invoked with an argument array the worker builds itself.
  * No task field is ever interpolated into a shell command, and no task may
  * supply raw FFmpeg arguments.
  */
-export function run(binary, args, { timeoutSeconds = config.taskTimeoutSeconds } = {}) {
+export async function run(binary, args, options = {}) {
+  // A task's processes start only while its workspace has room, and are
+  // stopped if it runs out.
+  const track = await enterWorkspace();
+  return spawned(binary, args, options, track);
+}
+
+function spawned(binary, args, { timeoutSeconds = config.taskTimeoutSeconds, onStdoutLine } = {}, track) {
   return new Promise((resolve, reject) => {
     if (!Array.isArray(args) || args.some((arg) => typeof arg !== "string")) {
       reject(new TaskError("INVALID_PARAMETERS", "Internal argument construction error"));
@@ -15,8 +23,10 @@ export function run(binary, args, { timeoutSeconds = config.taskTimeoutSeconds }
     }
 
     const child = spawn(binary, args, { stdio: ["ignore", "pipe", "pipe"], shell: false });
+    track(child);
     let stdout = "";
     let stderr = "";
+    let pending = "";
     const timer = setTimeout(() => {
       child.kill("SIGKILL");
       reject(new TaskError("TASK_TIMEOUT", `${binary} exceeded ${timeoutSeconds}s and was stopped`));
@@ -25,6 +35,18 @@ export function run(binary, args, { timeoutSeconds = config.taskTimeoutSeconds }
     child.stdout.on("data", (chunk) => {
       stdout += chunk;
       if (stdout.length > 2_000_000) stdout = stdout.slice(-1_000_000);
+      if (onStdoutLine) {
+        pending += chunk;
+        const lines = pending.split("\n");
+        pending = lines.pop() ?? "";
+        for (const line of lines) {
+          try {
+            onStdoutLine(line.trim());
+          } catch {
+            /* a progress listener never breaks a render */
+          }
+        }
+      }
     });
     child.stderr.on("data", (chunk) => {
       stderr += chunk;
@@ -42,7 +64,20 @@ export function run(binary, args, { timeoutSeconds = config.taskTimeoutSeconds }
   });
 }
 
-export const ffmpeg = (args, options) => run("ffmpeg", ["-hide_banner", "-nostdin", "-y", ...args], options);
+/**
+ * Runs FFmpeg. With `onProgress`, FFmpeg reports how much output it has
+ * written (in seconds of media) as it goes.
+ */
+export function ffmpeg(args, { onProgress, ...options } = {}) {
+  if (!onProgress) return run("ffmpeg", ["-hide_banner", "-nostdin", "-y", ...args], options);
+  return run("ffmpeg", ["-hide_banner", "-nostdin", "-y", "-progress", "pipe:1", "-nostats", ...args], {
+    ...options,
+    onStdoutLine: (line) => {
+      const match = /^out_time_(?:us|ms)=(\d+)$/.exec(line);
+      if (match) onProgress(Number(match[1]) / 1_000_000);
+    },
+  });
+}
 
 export async function probe(filePath) {
   const { stdout } = await run(

@@ -1,8 +1,9 @@
 FROM node:22-bookworm-slim
 
 # FFmpeg is the only system dependency; everything else is Node built-ins.
+# Inter is the typeface for burned-in captions and titles.
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ffmpeg ca-certificates \
+  && apt-get install -y --no-install-recommends ffmpeg ca-certificates fonts-inter \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

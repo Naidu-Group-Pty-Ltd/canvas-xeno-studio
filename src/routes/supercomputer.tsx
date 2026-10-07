@@ -548,7 +548,12 @@ function SupercomputerPage() {
                     key={message.id}
                     message={message}
                     models={models}
-                    context={{ projectId: context.projectId, campaignId: context.campaignId }}
+                    context={{
+                      projectId: context.projectId,
+                      campaignId: context.campaignId,
+                      briefId: context.briefId,
+                      threadId,
+                    }}
                     busy={!!pending || !!disabledReason}
                     onSend={(body, chosen) => void send(body, chosen)}
                     onRetry={(id) => void retry(id)}

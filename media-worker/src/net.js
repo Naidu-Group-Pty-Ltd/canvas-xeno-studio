@@ -55,8 +55,11 @@ export async function assertAllowedUrl(rawUrl, suffixes = config.allowedHostSuff
   return url;
 }
 
-/** Streams a source file to disk with a hard size cap. */
-export async function downloadTo(rawUrl, destination) {
+/**
+ * Streams a source file to disk with a hard size cap: the per-file limit, or
+ * less when the caller has less room left.
+ */
+export async function downloadTo(rawUrl, destination, maxBytes = config.maxDownloadBytes) {
   await assertAllowedUrl(rawUrl);
 
   const response = await fetch(rawUrl, { redirect: "follow" });
@@ -66,7 +69,8 @@ export async function downloadTo(rawUrl, destination) {
   if (response.url !== rawUrl) await assertAllowedUrl(response.url);
 
   const declared = Number(response.headers.get("content-length") ?? 0);
-  if (declared && declared > config.maxDownloadBytes) {
+  if (declared && declared > maxBytes) {
+    await response.body.cancel().catch(() => {});
     throw new TaskError("SOURCE_TOO_LARGE", "Source media exceeds the size limit");
   }
 
@@ -74,7 +78,7 @@ export async function downloadTo(rawUrl, destination) {
   const counter = new TransformStream({
     transform(chunk, controller) {
       received += chunk.byteLength;
-      if (received > config.maxDownloadBytes) {
+      if (received > maxBytes) {
         controller.error(new TaskError("SOURCE_TOO_LARGE", "Source media exceeds the size limit"));
         return;
       }

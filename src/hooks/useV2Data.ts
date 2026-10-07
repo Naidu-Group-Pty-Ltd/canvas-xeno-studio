@@ -37,7 +37,7 @@ export function useStoryboards() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("storyboards")
-        .select("*, scenes(id, scene_number, name, purpose, environment, shots(id, shot_number, name, description, prompt, duration_seconds, operation_type, recommended_model_id, status))")
+        .select("*, scenes(id, scene_number, name, purpose, environment, shots(id, shot_number, name, description, prompt, duration_seconds, operation_type, recommended_model_id, status, selected_take_id))")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data ?? [];

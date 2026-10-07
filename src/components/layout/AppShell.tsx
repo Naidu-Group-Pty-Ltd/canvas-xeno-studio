@@ -8,6 +8,7 @@ import {
   CircleDot,
   Clapperboard,
   Cpu,
+  Film,
   Images,
   LayoutGrid,
   LogOut,
@@ -55,6 +56,7 @@ const NAV = [
   { to: "/director", label: "Director", icon: Wand2, flag: "v2_director" },
   { to: "/", label: "Create", icon: Sparkles, flag: null },
   { to: "/storyboards", label: "Storyboards", icon: Clapperboard, flag: "v2_storyboards" },
+  { to: "/editor", label: "Editor", icon: Film, flag: "v2_editor" },
   { to: "/edit-lab", label: "Edit Lab", icon: Scissors, flag: "v2_edit_lab" },
   { to: "/canvas", label: "Canvas", icon: Network, flag: "v2_canvas" },
   { to: "/campaigns", label: "Campaigns", icon: Megaphone, flag: "v2_campaigns" },
@@ -82,7 +84,7 @@ const AVATAR_NAV = [
 type NavItem = { to: string; label: string; icon: typeof Sparkles; flag: string | null };
 
 /** Flags that count as enabled until an admin has stored a value for them. */
-const DEFAULT_ON_FLAGS = new Set(["v2_supercomputer"]);
+const DEFAULT_ON_FLAGS = new Set(["v2_supercomputer", "v2_editor"]);
 
 /** Sections only appear when their feature flag is enabled; the vertical follows the URL. */
 function useNavItems(): NavItem[] {

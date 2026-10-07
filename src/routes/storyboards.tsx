@@ -4,13 +4,16 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { MediaPreview } from "@/components/studio/MediaPreview";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Clapperboard } from "lucide-react";
+import { Clapperboard, Film, Loader2 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { EmptyState } from "@/components/studio/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useStoryboards } from "@/hooks/useV2Data";
 import { setCreatePrefill } from "@/lib/create-draft";
+import { useAuth } from "@/hooks/useAuth";
+import { createSequence } from "@/hooks/useEditorData";
+import { compileFromStoryboard, type CompileAsset, type CompileTake } from "@/lib/edit/compile";
 
 export const Route = createFileRoute("/storyboards")({
   head: () => ({
@@ -26,11 +29,117 @@ export const Route = createFileRoute("/storyboards")({
   component: StoryboardsPage,
 });
 
+type StoryboardWithScenes = NonNullable<ReturnType<typeof useStoryboards>["data"]>[number];
+
+/** The takes of every shot in a storyboard, each with the library file it produced. */
+async function loadTakes(board: StoryboardWithScenes): Promise<CompileTake[]> {
+  const shotIds = (board.scenes ?? []).flatMap((scene) =>
+    (scene.shots ?? []).map((shot) => shot.id),
+  );
+  if (!shotIds.length) return [];
+  const { data: takes, error } = await supabase
+    .from("shot_takes")
+    .select("id,shot_id,take_number,is_selected,asset_id,generation_id")
+    .in("shot_id", shotIds);
+  if (error) throw error;
+  const assetIds = (takes ?? []).map((take) => take.asset_id).filter((id): id is string => !!id);
+  const generationIds = (takes ?? [])
+    .map((take) => take.generation_id)
+    .filter((id): id is string => !!id);
+  const columns = "id,asset_type,title,duration_seconds,created_at,generation_id";
+  const [byId, byGeneration] = await Promise.all([
+    assetIds.length
+      ? supabase.from("assets").select(columns).in("id", assetIds).is("deleted_at", null)
+      : Promise.resolve({ data: [] }),
+    generationIds.length
+      ? supabase
+          .from("assets")
+          .select(columns)
+          .in("generation_id", generationIds)
+          .is("deleted_at", null)
+      : Promise.resolve({ data: [] }),
+  ]);
+  // A failed lookup is an error to retry, never "no finished takes".
+  for (const result of [byId, byGeneration])
+    if ("error" in result && result.error) throw result.error;
+  const assets = [...(byId.data ?? []), ...(byGeneration.data ?? [])] as (CompileAsset & {
+    generation_id: string | null;
+  })[];
+  return (takes ?? []).map((take) => {
+    const fromGeneration = assets.filter(
+      (asset) => take.generation_id && asset.generation_id === take.generation_id,
+    );
+    const asset =
+      assets.find((candidate) => candidate.id === take.asset_id) ??
+      fromGeneration.find((candidate) => candidate.asset_type === "video") ??
+      fromGeneration.find((candidate) => candidate.asset_type === "image") ??
+      null;
+    return {
+      id: take.id,
+      shot_id: take.shot_id,
+      take_number: take.take_number,
+      is_selected: take.is_selected,
+      asset,
+    };
+  });
+}
+
 function StoryboardsPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { data, isLoading } = useStoryboards();
   const [openId, setOpenId] = useState<string | null>(null);
+  const [compiling, setCompiling] = useState(false);
   const open = data?.find((s) => s.id === openId) ?? data?.[0] ?? null;
+
+  async function compile(board: StoryboardWithScenes) {
+    if (!user) return;
+    setCompiling(true);
+    try {
+      const takes = await loadTakes(board);
+      const result = compileFromStoryboard(
+        {
+          title: board.title,
+          primary_aspect_ratio: board.primary_aspect_ratio,
+          scenes: (board.scenes ?? []).map((scene) => ({
+            scene_number: scene.scene_number,
+            shots: (scene.shots ?? []).map((shot) => ({
+              id: shot.id,
+              shot_number: shot.shot_number,
+              name: shot.name,
+              duration_seconds: shot.duration_seconds,
+              selected_take_id: shot.selected_take_id,
+            })),
+          })),
+        },
+        takes,
+      );
+      if (!result.timeline.clips.length) {
+        toast.error("No shot has a finished take yet. Shoot a shot first.");
+        return;
+      }
+      const id = await createSequence({
+        userId: user.id,
+        title: result.title,
+        timeline: result.timeline,
+        projectId: board.project_id,
+        campaignId: board.campaign_id,
+        storyboardId: board.id,
+        source: { kind: "storyboard", storyboard_id: board.id },
+      });
+      if (result.missing.length) {
+        const count = result.timeline.clips.length;
+        toast.message(`Compiled ${count} shot${count === 1 ? "" : "s"}`, {
+          description: `No take yet for: ${result.missing.join(", ")}.`,
+        });
+      }
+      navigate({ to: "/editor/$sequenceId", params: { sequenceId: id } });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The storyboard could not be compiled");
+    } finally {
+      setCompiling(false);
+    }
+  }
 
   return (
     <AppShell title="Storyboards">
@@ -62,9 +171,24 @@ function StoryboardsPage() {
           )}
           {open && (
             <>
-              <header className="mb-4">
-                <h2 className="font-display text-lg font-semibold">{open.title}</h2>
-                <p className="text-sm text-muted-foreground">{open.objective}</p>
+              <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="font-display text-lg font-semibold">{open.title}</h2>
+                  <p className="text-sm text-muted-foreground">{open.objective}</p>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => void compile(open)}
+                  disabled={compiling}
+                  data-testid="compile-storyboard"
+                >
+                  {compiling ? (
+                    <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                  ) : (
+                    <Film className="mr-1.5 size-3.5" />
+                  )}
+                  Compile selected takes
+                </Button>
               </header>
               <div className="space-y-4">
                 {[...(open.scenes ?? [])]

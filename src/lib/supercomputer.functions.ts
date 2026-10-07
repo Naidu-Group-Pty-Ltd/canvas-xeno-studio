@@ -107,6 +107,10 @@ function assistantSummary(content: string, payload: SupercomputerPayload): strin
     parts.push(
       `[Drafts: ${payload.drafts.map((draft, i) => `${i + 1}) ${draft.title} — ${draft.modelName}`).join("; ")}]`,
     );
+  if (payload.editPlan)
+    parts.push(
+      `[Edit plan: ${payload.editPlan.shots.map((shot) => `draft ${shot.draftIndex + 1}${shot.seconds ? ` ${shot.seconds}s` : ""}`).join(" → ")}${payload.editPlan.voiceoverScript ? `; voiceover: "${payload.editPlan.voiceoverScript.slice(0, 300)}"` : ""}${payload.editPlan.musicDirection ? `; music: ${payload.editPlan.musicDirection}` : ""}]`,
+    );
   return parts.join("\n");
 }
 
@@ -432,11 +436,14 @@ export const sendSupercomputerMessage = createServerFn({ method: "POST" })
     } else {
       const raw = result.data;
       const ideas = agent.normalizeIdeas(raw["ideas"]);
-      const { drafts, dropped } = agent.normalizeDrafts(raw["drafts"], models, allowed);
+      const { drafts, dropped, indexMap } = agent.normalizeDrafts(raw["drafts"], models, allowed);
+      const editPlan =
+        drafts.length > 1 ? agent.normalizeEditPlan(raw["edit_plan"], indexMap) : undefined;
       const payload: SupercomputerPayload = {
         intent: data.intent,
         ideas,
         drafts,
+        ...(editPlan ? { editPlan } : {}),
         questions: agent.textList(raw["questions"], 5, 300),
         suggestions: agent.textList(raw["suggestions"], 4, 120),
         dropped,
