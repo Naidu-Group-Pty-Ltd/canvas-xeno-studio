@@ -8,7 +8,6 @@
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { isMissingTableError } from "@/lib/edit/errors";
-import { derivedUuid } from "../derived-id";
 import { AppError } from "../higgsfield/errors";
 import {
   alignScript,
@@ -412,34 +411,34 @@ function takeAssetValues(
 }
 
 /**
- * Adds a take's audio to the library, once. The record's id is derived from
- * the take's, so trying again (after an insert whose answer was lost, or when
- * the take is finished later from its file) finds the record already made
- * instead of adding another. A record under that id counts only if it is the
- * take's own file in the server-only bucket. Returns its id, or null if it
- * couldn't be added just now; a lookup that fails is thrown.
+ * Adds a take's audio to the library, once. A file has one library record
+ * (its place is unique), so trying again (after an insert whose answer was
+ * lost, or when the take is finished later from its file) finds the record
+ * already made instead of adding another. Only the server adds records in the
+ * output bucket, so the record at the take's place there is the take's own,
+ * whatever anyone else adds. Returns its id, or null if it couldn't be added
+ * just now; a lookup that fails is thrown.
  */
 async function keptAsset(
   take: Pick<TakeRow, "id" | "project_id" | "created_by">,
   values: Record<string, unknown>,
 ): Promise<string | null> {
-  const id = await derivedUuid(`voiceover-asset:${take.id}`);
   const path = takePath(take, "audio");
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const { error } = await supabaseAdmin
+    const { data: inserted, error } = await supabaseAdmin
       .from("assets")
-      .insert({ ...values, id, storage_bucket: OUTPUT_BUCKET, storage_path: path } as never);
-    if (!error) return id;
+      .insert({ ...values, storage_bucket: OUTPUT_BUCKET, storage_path: path } as never)
+      .select("id")
+      .maybeSingle();
+    if (!error && inserted) return (inserted as { id: string }).id;
     const { data: existing, error: lookupError } = await supabaseAdmin
       .from("assets")
-      .select("storage_bucket,storage_path")
-      .eq("id", id)
+      .select("id")
+      .eq("storage_bucket", OUTPUT_BUCKET)
+      .eq("storage_path", path)
       .maybeSingle();
     if (lookupError) throw takeUnchecked();
-    if (existing) {
-      if (existing.storage_bucket === OUTPUT_BUCKET && existing.storage_path === path) return id;
-      throw takeUnchecked();
-    }
+    if (existing) return (existing as { id: string }).id;
   }
   return null;
 }
