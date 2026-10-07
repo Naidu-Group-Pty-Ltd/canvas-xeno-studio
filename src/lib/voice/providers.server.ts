@@ -43,6 +43,19 @@ async function timed(url: string, init: RequestInit, timeoutMs: number): Promise
   }
 }
 
+/**
+ * A server error (5xx) in answer to a request that makes something (speech, a
+ * voice) may hide a request that went through: uncertain, never tried again.
+ */
+function serverError(provider: string, status: number): ProviderFailure {
+  return {
+    ok: false,
+    code: "SUBMISSION_UNCERTAIN",
+    uncertain: true,
+    message: `${provider} had a server error (HTTP ${status}). It may still have been carried out (and billed), so it was not retried automatically.`,
+  };
+}
+
 function transportFailure(provider: string, error: unknown): ProviderFailure {
   const aborted = error instanceof Error && error.name === "AbortError";
   return {
@@ -64,6 +77,8 @@ export function openAIVoiceConfigured(): boolean {
 }
 
 function openAIFailure(status: number, body: string): ProviderFailure {
+  // Speech is the only request sent this way, and it makes (and bills) audio.
+  if (status >= 500) return serverError("OpenAI", status);
   let detail = "";
   try {
     detail = String((JSON.parse(body) as { error?: { message?: string } }).error?.message ?? "");
@@ -190,7 +205,8 @@ export function elevenLabsConfigured(): boolean {
   return !!process.env["ELEVENLABS_API_KEY"]?.trim();
 }
 
-function elevenFailure(status: number, body: string): ProviderFailure {
+function elevenFailure(status: number, body: string, mutating = false): ProviderFailure {
+  if (mutating && status >= 500) return serverError("ElevenLabs", status);
   let message = "";
   let code = "";
   try {
@@ -271,7 +287,7 @@ async function elevenJson<T>(
       uncertain: false,
     };
   }
-  if (!response.ok) return elevenFailure(response.status, body);
+  if (!response.ok) return elevenFailure(response.status, body, mutating);
   try {
     return { ok: true, data: JSON.parse(body) as T };
   } catch {
