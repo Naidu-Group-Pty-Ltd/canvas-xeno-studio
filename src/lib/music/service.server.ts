@@ -265,47 +265,65 @@ async function markReady(trackId: string, values: Record<string, unknown>): Prom
   );
 }
 
+/** Interrupted generations are looked at this many at a time. */
+const STALE_BATCH = 50;
+const STALE_BATCHES = 20;
+/** Interrupted work couldn't be checked or settled, so nothing new was started. */
+const interruptedUnchecked = () =>
+  new AppError(
+    "UNKNOWN",
+    "Music that was interrupted earlier couldn't be checked just now, so nothing new was started. Try again in a moment.",
+  );
+
 /**
  * Interrupted generations may still have been billed, so they're settled as
- * uncertain, never retried. One whose file was stored is finished instead,
- * and one that can't be checked right now is left for the next sweep. This
- * runs before anything new is made: if the interrupted work can't be looked
- * up or settled right now, nothing new starts (or is billed), and the request
- * says to try again, rather than taking an interrupted track for one still
- * being made.
+ * uncertain, never retried. One whose file was stored is finished instead.
+ * This runs before anything new is made, and works through every interrupted
+ * generation: if one can't be checked right now (its file looked up, or the
+ * track finished or settled), it is left as it is, never written off, and
+ * nothing new starts (or is billed) until it can be. The request says to try
+ * again, rather than taking an interrupted track for one still being made.
  */
 async function settleInterrupted(): Promise<void> {
   const cutoff = new Date(Date.now() - STALE_MS).toISOString();
-  const { data: stale, error } = await supabaseAdmin
-    .from("music_tracks")
-    .select("*")
-    .eq("status", "generating")
-    .neq("source", "openverse")
-    .lt("created_at", cutoff)
-    .limit(50);
-  if (error) throw trackUnchecked();
-  for (const row of (stale ?? []) as TrackRow[]) {
-    try {
-      if ((await relinked(row))["status"] !== "generating") continue;
-    } catch {
-      continue;
+  for (let batch = 1; ; batch += 1) {
+    const { data: stale, error } = await supabaseAdmin
+      .from("music_tracks")
+      .select("*")
+      .eq("status", "generating")
+      .neq("source", "openverse")
+      .lt("created_at", cutoff)
+      .limit(STALE_BATCH);
+    if (error) throw interruptedUnchecked();
+    const rows = (stale ?? []) as TrackRow[];
+    for (const row of rows) {
+      let current: TrackRow;
+      try {
+        current = await relinked(row);
+      } catch {
+        throw interruptedUnchecked();
+      }
+      if (current["status"] !== "generating") continue;
+      let settled = false;
+      for (let attempt = 0; attempt < 2 && !settled; attempt += 1) {
+        const { error: settleError } = await supabaseAdmin
+          .from("music_tracks")
+          .update({
+            status: "submission_uncertain",
+            error_code: "INTERRUPTED",
+            error_message:
+              "This was interrupted before it was saved. It may still have been billed, so it was not retried.",
+            completed_at: new Date().toISOString(),
+          } as never)
+          .eq("id", row.id)
+          .eq("status", "generating");
+        settled = !settleError;
+      }
+      if (!settled) throw interruptedUnchecked();
     }
-    let settled = false;
-    for (let attempt = 0; attempt < 2 && !settled; attempt += 1) {
-      const { error: settleError } = await supabaseAdmin
-        .from("music_tracks")
-        .update({
-          status: "submission_uncertain",
-          error_code: "INTERRUPTED",
-          error_message:
-            "This was interrupted before it was saved. It may still have been billed, so it was not retried.",
-          completed_at: new Date().toISOString(),
-        } as never)
-        .eq("id", row.id)
-        .eq("status", "generating");
-      settled = !settleError;
-    }
-    if (!settled) throw trackUnchecked();
+    // None of a batch is left interrupted, so a full one means more may be waiting.
+    if (rows.length < STALE_BATCH) return;
+    if (batch >= STALE_BATCHES) throw interruptedUnchecked();
   }
 }
 
