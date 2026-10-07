@@ -145,6 +145,10 @@ export function VoiceoverPanel({
   const [busy, setBusy] = useState<"write" | "speak" | null>(null);
   const [creating, setCreating] = useState(false);
   const attempt = useRef<Attempt | null>(null);
+  // A take that may have been made (and charged) without coming back: its
+  // attempt is kept, and a new take of the same script and voice waits until
+  // the person chooses to make one.
+  const [held, setHeld] = useState<{ key: string; message: string } | null>(null);
   const latest = useRef({ start, replace, withCaptions });
   useEffect(() => {
     latest.current = { start, replace, withCaptions };
@@ -265,12 +269,15 @@ export function VoiceoverPanel({
     return true;
   }
 
+  const attemptKey = `${voiceId ?? `inherit:${inherited?.id ?? ""}`}|${script.trim()}`;
+  const heldNow = held !== null && held.key === attemptKey;
+
   async function speak() {
     setBusy("speak");
     // One logical attempt keeps its request id until it has a known outcome, so
     // a retry after a lost response returns that take instead of paying again.
     // The id is kept for the edit across reloads too (and shared by its tabs).
-    const key = `${voiceId ?? `inherit:${inherited?.id ?? ""}`}|${script.trim()}`;
+    const key = attemptKey;
     const kept = attemptPlace(context.sequenceId);
     if (attempt.current?.key !== key)
       attempt.current = { key, id: savedAttempt(kept, key) ?? crypto.randomUUID() };
@@ -293,7 +300,15 @@ export function VoiceoverPanel({
         attempt.current = { key, id: result.requestId };
         keepAttempt(kept, key, result.requestId);
       }
-      if (result.status === "failed" || result.status === "submission_uncertain") {
+      if (result.status === "submission_uncertain") {
+        // It may have been made (and charged): the attempt is kept, so asking
+        // again returns this take rather than making (and paying for) another.
+        const message = result.errorMessage ?? "This take may still have been made (and charged).";
+        setHeld({ key, message });
+        toast.error(message);
+        return;
+      }
+      if (result.status === "failed") {
         settled();
         toast.error(result.errorMessage ?? "The voiceover could not be made");
         return;
@@ -323,6 +338,14 @@ export function VoiceoverPanel({
       setBusy(null);
       await queryClient.invalidateQueries({ queryKey: ["voiceovers", context.sequenceId] });
     }
+  }
+
+  /** A new take, on the person's say-so, where the last one may have been made (and charged). */
+  function startOver() {
+    if (attempt.current?.key === attemptKey) attempt.current = null;
+    keepAttempt(attemptPlace(context.sequenceId), attemptKey, null);
+    setHeld(null);
+    void speak();
   }
 
   function applyTake(take: VoiceoverRow) {
@@ -486,7 +509,13 @@ export function VoiceoverPanel({
 
       <Button
         className="w-full"
-        disabled={busy !== null || !script.trim() || (!voiceId && !inherited) || layout.total <= 0}
+        disabled={
+          busy !== null ||
+          !script.trim() ||
+          (!voiceId && !inherited) ||
+          layout.total <= 0 ||
+          heldNow
+        }
         onClick={() => void speak()}
         data-testid="generate-voiceover"
       >
@@ -501,6 +530,28 @@ export function VoiceoverPanel({
             ? `Voice it as ${speakerName}`
             : "Generate voiceover"}
       </Button>
+      {heldNow && held && (
+        <div
+          role="status"
+          data-testid="voiceover-held"
+          className="space-y-1.5 rounded-md border border-warning/40 bg-warning/10 p-2 text-xs"
+        >
+          <p>{held.message}</p>
+          <p className="text-muted-foreground">
+            Making it again starts a new take, which is charged again even if this one was.
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 text-xs"
+            disabled={busy !== null}
+            onClick={startOver}
+            data-testid="voiceover-start-over"
+          >
+            Make a new take
+          </Button>
+        </div>
+      )}
       {layout.total <= 0 && (
         <p className="text-[11px] text-muted-foreground">
           Add shots first so the voice has a cut to fit.

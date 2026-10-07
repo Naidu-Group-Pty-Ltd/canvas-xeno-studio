@@ -783,7 +783,16 @@ export async function generateVoiceover(input: {
   // its stored file (if the last update fails) still has its word timings. If
   // they can't be kept with the take, they are stored beside its audio, where
   // only the server can write. If they can't be kept anywhere, the audio isn't
-  // stored either: a take is never finished without its word timings.
+  // stored either: a take is never finished without its word timings. It was
+  // made (and charged) all the same, so it is answered as uncertain, not as a
+  // failure to simply try again: the panel holds it until the person chooses
+  // to make a new one.
+  const madeNotSaved = () =>
+    settle(
+      "submission_uncertain",
+      "STORAGE_FAILED",
+      "The voiceover was made, and charged, but it couldn't be saved to the library. It wasn't made again by itself.",
+    );
   const details = {
     duration_seconds: result.durationSeconds,
     alignment: { words: result.words },
@@ -810,12 +819,7 @@ export async function generateVoiceover(input: {
     }
     return false;
   };
-  if (!(await record(details)) && !(await keptBeside()))
-    return settle(
-      "failed",
-      "STORAGE_FAILED",
-      "The voiceover was made but could not be saved to the library. Try again.",
-    );
+  if (!(await record(details)) && !(await keptBeside())) return madeNotSaved();
 
   // Once its audio is stored, a take is never written off: anything after that
   // which doesn't land leaves it being made, and the same request id (or the
@@ -839,12 +843,7 @@ export async function generateVoiceover(input: {
     const landed = await storedFile(path).catch(() => {
       throw stuck();
     });
-    if (!landed)
-      return settle(
-        "failed",
-        "STORAGE_FAILED",
-        "The voiceover was made but could not be saved to the library. Try again.",
-      );
+    if (!landed) return madeNotSaved();
   }
 
   const title = titleFor(voice.name, script);
