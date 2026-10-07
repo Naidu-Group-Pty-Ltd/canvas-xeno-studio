@@ -5,6 +5,12 @@
  */
 export const RENDER_STALL_MS = 5 * 60_000;
 
+/**
+ * The stage of a render the media service hasn't confirmed taking: it can be
+ * sent again (the worker runs a task id once).
+ */
+export const RENDER_UNCONFIRMED_STAGE = "Waiting for the media service to confirm";
+
 export function renderInProgress(
   render: { status: string; updated_at?: string | null; created_at: string },
   now = Date.now(),

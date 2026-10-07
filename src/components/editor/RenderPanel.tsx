@@ -14,14 +14,14 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSequenceRenders, type RenderRow } from "@/hooks/useEditorData";
 import { getMediaWorkerStatus } from "@/lib/media.functions";
-import { renderSequence } from "@/lib/edit.functions";
+import { renderSequence, resendRender } from "@/lib/edit.functions";
 import { keepAttempt, savedAttempt } from "@/lib/attempts";
 import { formatTime, renderBlockers, type Timeline } from "@/lib/edit/timeline";
 import { signedUrl } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { renderInProgress } from "@/lib/edit/renders";
+import { RENDER_UNCONFIRMED_STAGE, renderInProgress } from "@/lib/edit/renders";
 
 interface RenderPanelProps {
   sequenceId: string;
@@ -40,6 +40,7 @@ function newRequestId() {
 /** Render the final video and keep every version that was rendered. */
 export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: RenderPanelProps) {
   const [starting, setStarting] = useState(false);
+  const [resending, setResending] = useState(false);
   const queryClient = useQueryClient();
   const { data: renders = [] } = useSequenceRenders(sequenceId);
   const { data: worker } = useQuery({
@@ -75,6 +76,22 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
       toast.error(error instanceof Error ? error.message : "The render could not be started");
     } finally {
       setStarting(false);
+    }
+  }
+
+  // A render the media service never confirmed taking can be sent again: the
+  // worker runs a task id once, and one it already has isn't sent again.
+  async function resend(renderId: string) {
+    setResending(true);
+    try {
+      const sent = await resendRender({ data: { renderId } });
+      if (sent.status === "queued")
+        toast.message("Sent again. Waiting for the media service to confirm.");
+      await queryClient.invalidateQueries({ queryKey: ["sequence_renders", sequenceId] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The render could not be sent again");
+    } finally {
+      setResending(false);
     }
   }
 
@@ -118,6 +135,19 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
           <p className="text-[11px] text-muted-foreground">
             You can keep editing; this render uses the version you saved when you pressed Render.
           </p>
+          {active.status === "queued" && active.stage === RENDER_UNCONFIRMED_STAGE && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 w-full text-xs"
+              disabled={resending}
+              onClick={() => void resend(active.id)}
+              data-testid="render-resend"
+            >
+              {resending && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
+              Send again
+            </Button>
+          )}
         </div>
       )}
 
