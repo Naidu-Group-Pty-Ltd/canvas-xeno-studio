@@ -66,6 +66,10 @@ export function GenerateMusic({
   const [custom, setCustom] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const attempt = useRef<{ key: string; id: string } | null>(null);
+  // Music that may have been made (and charged) without coming back keeps its
+  // request: making it again asks about that one, and only "Make it again"
+  // starts (and pays for) new music.
+  const [held, setHeld] = useState<{ key: string; message: string } | null>(null);
 
   useEffect(() => setNotes(direction), [direction]);
 
@@ -75,24 +79,27 @@ export function GenerateMusic({
   );
   const prompt = custom ?? built;
 
+  const request = {
+    prompt,
+    title: title.trim() || `${mood} ${genre.toLowerCase()} · ${seconds}s`,
+    seconds,
+    model: model as never,
+    instrumental: !vocals,
+    genres: [genre],
+    moods: [mood],
+    bpm,
+    projectId,
+    campaignId,
+  };
+  // One logical attempt keeps its request id until it has a known outcome
+  // (across reloads too), so a retry after a lost response returns that track
+  // instead of paying again.
+  const requestKey = JSON.stringify(request);
+  const heldNow = held?.key === requestKey;
+
   async function generate() {
     setBusy(true);
-    const request = {
-      prompt,
-      title: title.trim() || `${mood} ${genre.toLowerCase()} · ${seconds}s`,
-      seconds,
-      model: model as never,
-      instrumental: !vocals,
-      genres: [genre],
-      moods: [mood],
-      bpm,
-      projectId,
-      campaignId,
-    };
-    // One logical attempt keeps its request id until it has a known outcome
-    // (across reloads too), so a retry after a lost response returns that track
-    // instead of paying again.
-    const key = JSON.stringify(request);
+    const key = requestKey;
     if (attempt.current?.key !== key)
       attempt.current = { key, id: savedAttempt("music", key) ?? crypto.randomUUID() };
     keepAttempt("music", key, attempt.current.id);
@@ -113,9 +120,16 @@ export function GenerateMusic({
         settled();
         toast.success("Music ready in the library");
         onGenerated?.(made);
-      } else if (made.status === "failed" || made.status === "submission_uncertain") {
+      } else if (made.status === "failed") {
         settled();
         toast.error(made.errorMessage ?? "The music could not be made");
+      } else if (made.status === "submission_uncertain") {
+        // Kept: asked again, it answers the same; only the person starts over.
+        const message =
+          made.errorMessage ??
+          "This music may have been made (and charged) without coming back. It wasn't made again by itself.";
+        setHeld({ key, message });
+        toast.error(message);
       } else {
         toast.message("This music is still being made", {
           description: "It appears in the library when it's ready.",
@@ -129,6 +143,14 @@ export function GenerateMusic({
       setBusy(false);
       await queryClient.invalidateQueries({ queryKey: ["music_tracks"] });
     }
+  }
+
+  function startOver() {
+    if (!held) return;
+    if (attempt.current?.key === held.key) attempt.current = null;
+    keepAttempt("music", held.key, null);
+    setHeld(null);
+    void generate();
   }
 
   if (status && !status.elevenlabs) {
@@ -280,7 +302,7 @@ export function GenerateMusic({
       <Button
         className="w-full"
         onClick={() => void generate()}
-        disabled={busy || prompt.trim().length < 10}
+        disabled={busy || heldNow || prompt.trim().length < 10}
         data-testid="generate-music-button"
       >
         {busy ? (
@@ -290,6 +312,28 @@ export function GenerateMusic({
         )}
         {busy ? "Composing… (up to a minute or two)" : `Make ${seconds}s of music`}
       </Button>
+      {heldNow && held && (
+        <div
+          role="status"
+          data-testid="music-held"
+          className="space-y-1.5 rounded-md border border-warning/40 bg-warning/10 p-2 text-xs"
+        >
+          <p>{held.message}</p>
+          <p className="text-muted-foreground">
+            Making it again starts new music, which is charged again even if this was.
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 text-xs"
+            disabled={busy}
+            onClick={startOver}
+            data-testid="music-start-over"
+          >
+            Make it again
+          </Button>
+        </div>
+      )}
       <p className="text-[11px] text-muted-foreground">{MUSIC_LICENSES.ai_generated.note}</p>
     </div>
   );

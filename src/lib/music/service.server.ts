@@ -624,11 +624,15 @@ export async function generateMusic(input: {
       prompt: input.prompt.slice(0, 500),
     },
   });
+  // Made, and charged, but not kept: never answered as a failure to simply try
+  // again. It is uncertain, so the form holds it until the person chooses to
+  // make (and pay for) it again.
   if (!stored)
     return settle({
-      status: "failed",
+      status: "submission_uncertain",
       error_code: "STORAGE_FAILED",
-      error_message: "The music was made but could not be saved to the library. Try again.",
+      error_message:
+        "The music was made, and charged, but it couldn't be saved to the library. It wasn't made again by itself.",
       completed_at: new Date().toISOString(),
     });
   const ready = await markReady(trackId, {
@@ -761,11 +765,13 @@ export async function makeInstrumental(input: {
     generated: true,
     metadata: { derived_from_track: parent.id, stems: "two_stems_v1", license },
   });
+  // Split, and charged, but not kept: uncertain, as for music made but not kept.
   if (!stored)
     return settle({
-      status: "failed",
+      status: "submission_uncertain",
       error_code: "STORAGE_FAILED",
-      error_message: "The instrumental was made but could not be saved to the library. Try again.",
+      error_message:
+        "The instrumental was made, and charged, but it couldn't be saved to the library. It wasn't made again by itself.",
       completed_at: new Date().toISOString(),
     });
   const ready = await markReady(trackId, {

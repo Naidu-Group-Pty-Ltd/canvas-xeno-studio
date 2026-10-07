@@ -58,9 +58,25 @@ export function MusicLibrary({
   const preview = usePreview();
   const [working, setWorking] = useState<string | null>(null);
   const attempts = useRef(new Map<string, string>());
+  // Tracks whose instrumental may have been made (and charged) without coming
+  // back: its request is kept, so asking again asks about that one, and only
+  // "Make a new instrumental" starts (and pays for) another.
+  const [heldSplits, setHeldSplits] = useState<ReadonlySet<string>>(new Set());
+  const holdSplit = (trackId: string, held: boolean) =>
+    setHeldSplits((current) => {
+      const next = new Set(current);
+      if (held) next.add(trackId);
+      else next.delete(trackId);
+      return next;
+    });
 
-  async function instrumental(track: MusicTrackRow) {
+  async function instrumental(track: MusicTrackRow, startOver = false) {
     setWorking(track.id);
+    if (startOver) {
+      attempts.current.delete(track.id);
+      keepAttempt("instrumental", track.id, null);
+      holdSplit(track.id, false);
+    }
     // Each track's request keeps its id until it has a known outcome (across
     // reloads too), so a retry after a lost response returns that instrumental
     // instead of paying again.
@@ -85,10 +101,20 @@ export function MusicLibrary({
       }
       if (made.status === "ready") {
         settled();
+        holdSplit(track.id, false);
         toast.success("Instrumental added to the library");
-      } else if (made.status === "failed" || made.status === "submission_uncertain") {
+      } else if (made.status === "failed") {
         settled();
+        holdSplit(track.id, false);
         toast.error(made.errorMessage ?? "The instrumental could not be made");
+      } else if (made.status === "submission_uncertain") {
+        // Kept: asked again, it answers the same; only the person starts over.
+        holdSplit(track.id, true);
+        toast.error(
+          made.errorMessage ??
+            "This instrumental may have been made (and charged) without coming back. It wasn't made again by itself.",
+          { description: "Making a new one is charged again, even if this one was." },
+        );
       } else {
         toast.message("This instrumental is still being made", {
           description: "It appears in the library when it's ready.",
@@ -191,9 +217,14 @@ export function MusicLibrary({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      {canSplit && (
+                      {canSplit && !heldSplits.has(track.id) && (
                         <DropdownMenuItem onClick={() => void instrumental(track)}>
                           <Wand2 className="mr-2 size-4" /> Make instrumental
+                        </DropdownMenuItem>
+                      )}
+                      {canSplit && heldSplits.has(track.id) && (
+                        <DropdownMenuItem onClick={() => void instrumental(track, true)}>
+                          <Wand2 className="mr-2 size-4" /> Make a new instrumental (charged again)
                         </DropdownMenuItem>
                       )}
                       {canChange &&
