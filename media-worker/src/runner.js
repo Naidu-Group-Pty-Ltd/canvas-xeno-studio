@@ -4,6 +4,7 @@ import { config } from "./config.js";
 import { TASKS } from "./tasks.js";
 import { downloadTo, TaskError, uploadFile, assertAllowedUrl } from "./net.js";
 import { sign } from "./signature.js";
+import { withWorkspace } from "./workspace.js";
 
 /**
  * Validates a task body before anything is downloaded or executed. This is the
@@ -61,6 +62,8 @@ function expiry(value) {
 
 /** URLs this close to expiry aren't trusted for a download or upload. */
 const EXPIRY_MARGIN_MS = 5 * 60_000;
+/** How long a claim keeps trying when the task doesn't say how long its links last. */
+const CLAIM_PATIENCE_MS = 2 * 60 * 60_000;
 
 /**
  * A task that names a `credentials_url` checks in with the app when it starts
@@ -69,21 +72,42 @@ const EXPIRY_MARGIN_MS = 5 * 60_000;
  * one), can tell it to drop a task it has closed meanwhile, and re-signs its
  * sources and upload slots (same order, same destinations), so time spent in
  * the queue or rendering never outlives them. Transient failures are retried.
- * If the app still can't be reached, the URLs held are used only while they
- * are valid; otherwise the task fails with a clear reason instead of a
- * download or upload that can't succeed.
  *
- * Returns "dropped" when the app says the task isn't this instance's to run.
+ * The first check-in is the claim, and nothing starts without it. While the
+ * app can't be reached the claim keeps trying (the task's id is already taken
+ * here, so a resend would be ignored: giving up after a short outage would
+ * strand it), with waits growing to 30 seconds apart, until the app answers or
+ * the task's links are past use. If the app refuses, or never answers in that
+ * time, the task is left alone, neither run nor reported, since another
+ * instance may hold it (the app closes it as stalled if none does). Once
+ * claimed, a later check-in that can't reach the app falls back to the URLs
+ * held while they are valid; otherwise the task fails with a clear reason
+ * instead of an upload that can't succeed.
+ *
+ * Returns "dropped" when the app says the task isn't this instance's to run,
+ * and "unclaimed" when a claim couldn't be confirmed.
  */
-async function checkIn(task) {
+async function checkIn(task, { claim = false } = {}) {
   if (!task.credentialsUrl) return "ok";
-  for (let attempt = 1; attempt <= 4; attempt += 1) {
+  const deadline = claim ? (task.credentialsExpireAt ?? Date.now() + CLAIM_PATIENCE_MS) : null;
+  // The app answering at all (2xx) confirms the claim, even when the links it
+  // sent can't be used (then the ones held are kept).
+  let answered = false;
+  for (let attempt = 1; ; attempt += 1) {
     const answer = await askForCredentials(task);
     if (answer === "dropped") return "dropped";
     if (answer === "ok") return "ok";
+    if (answer === "unusable") {
+      answered = true;
+      break;
+    }
     if (answer === "refused") break;
-    await new Promise((resolve) => setTimeout(resolve, 1000 * 2 ** (attempt - 1)));
+    const wait = Math.min(30_000, 1000 * 2 ** (attempt - 1));
+    if (claim ? Date.now() + wait > deadline : attempt >= 4) break;
+    if (claim && attempt === 3) task.lastStage = "Waiting for the app to confirm this render";
+    await new Promise((resolve) => setTimeout(resolve, wait));
   }
+  if (claim && !answered) return "unclaimed";
   if (task.credentialsExpireAt !== null && Date.now() > task.credentialsExpireAt - EXPIRY_MARGIN_MS) {
     throw new TaskError(
       "CREDENTIALS_EXPIRED",
@@ -93,7 +117,10 @@ async function checkIn(task) {
   return "ok";
 }
 
-/** One request for fresh URLs: "ok", "dropped", "retry" (transient) or "refused" (won't change). */
+/**
+ * One request for fresh URLs: "ok", "dropped", "retry" (transient), "refused"
+ * (won't change) or "unusable" (answered, but with links that can't be used).
+ */
 async function askForCredentials(task) {
   const rawBody = JSON.stringify({ task_id: task.taskId, worker_id: config.workerId });
   const { timestamp, signature } = sign(rawBody);
@@ -115,7 +142,7 @@ async function askForCredentials(task) {
     const body = await response.json();
     const sources = Array.isArray(body?.sources) ? body.sources : [];
     const uploads = Array.isArray(body?.uploads) ? body.uploads : [];
-    if (sources.length !== task.sources.length || uploads.length !== task.uploads.length) return "refused";
+    if (sources.length !== task.sources.length || uploads.length !== task.uploads.length) return "unusable";
     for (const item of [...sources, ...uploads]) await assertAllowedUrl(item?.url);
     task.sources = task.sources.map((source, index) => ({ ...source, url: sources[index].url }));
     task.uploads = task.uploads.map((slot, index) => ({ ...slot, url: uploads[index].url }));
@@ -123,7 +150,7 @@ async function askForCredentials(task) {
     return "ok";
   } catch {
     // Malformed, or a URL off the allow list: not usable.
-    return "refused";
+    return "unusable";
   }
 }
 
@@ -132,21 +159,40 @@ export async function executeTask(task) {
   const startedAt = Date.now();
   let dir = null;
   try {
-    if ((await checkIn(task)) === "dropped") return dropped(task);
+    const claimed = await checkIn(task, { claim: true });
+    if (claimed === "dropped") return dropped(task);
+    if (claimed === "unclaimed") return unclaimed(task);
     dir = await mkdtemp(join(config.workDir, "task-"));
+    const workspace = dir;
 
-    const localSources = [];
-    for (const [index, source] of task.sources.entries()) {
-      const path = join(dir, `source-${index}`);
-      const bytes = await downloadTo(source.url, path);
-      localSources.push({ path, role: source.role ?? "source", mime: source.mime ?? null, bytes });
-    }
+    // Everything the task keeps on disk is watched against its budget.
+    const result = await withWorkspace(workspace, async () => {
+      const localSources = [];
+      // The sources share one budget (within the workspace's): past it, the
+      // task stops downloading and fails.
+      const sourceBudget = Math.min(config.maxTaskDownloadBytes, config.maxTaskWorkspaceBytes);
+      let room = sourceBudget;
+      for (const [index, source] of task.sources.entries()) {
+        const path = join(workspace, `source-${index}`);
+        const allowance = Math.min(config.maxDownloadBytes, room);
+        const bytes = await downloadTo(source.url, path, allowance).catch((error) => {
+          if (error instanceof TaskError && error.code === "SOURCE_TOO_LARGE" && allowance < config.maxDownloadBytes)
+            throw new TaskError(
+              "SOURCES_TOO_LARGE",
+              `The media for this task is more than ${Math.round(sourceBudget / (1024 * 1024))} MB together. Use fewer or shorter clips.`,
+            );
+          throw error;
+        });
+        room -= bytes;
+        localSources.push({ path, role: source.role ?? "source", mime: source.mime ?? null, bytes });
+      }
 
-    const result = await task.definition.run({
-      sources: localSources,
-      params: task.params,
-      dir,
-      progress: progressReporter(task),
+      return task.definition.run({
+        sources: localSources,
+        params: task.params,
+        dir: workspace,
+        progress: progressReporter(task),
+      });
     });
 
     if ((await checkIn(task)) === "dropped") return dropped(task);
@@ -188,6 +234,11 @@ export async function executeTask(task) {
 /** The app closed the task, or another instance has it: nothing is reported. */
 function dropped(task) {
   console.log(`[xeno-media-worker] task ${task.taskId} dropped: the app no longer wants it from this instance`);
+}
+
+/** The app couldn't confirm this instance holds the task: it isn't run, and nothing is reported. */
+function unclaimed(task) {
+  console.log(`[xeno-media-worker] task ${task.taskId} not started: the app couldn't confirm it is this instance's to run`);
 }
 
 /**

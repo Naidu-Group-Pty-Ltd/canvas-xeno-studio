@@ -22,6 +22,7 @@ import {
   MOTIONS,
   moveClip,
   newId,
+  placeAt,
   OVERLAY_POSITIONS,
   OVERLAY_STYLE_LABELS,
   OVERLAY_STYLES,
@@ -150,6 +151,16 @@ function Field({
       </div>
       {children}
     </div>
+  );
+}
+
+/** Above 100%, the preview turns everything down so the boost can be heard (see PreviewPlayer). */
+function BoostNote() {
+  return (
+    <p className="text-[11px] text-muted-foreground" data-testid="volume-boost-note">
+      Browsers can't play above 100%, so the preview plays the whole edit quieter to keep this
+      louder than the rest. The finished video gets the full boost.
+    </p>
   );
 }
 
@@ -466,6 +477,7 @@ function ClipInspector({
               onValueChange={([value]) => set({ volume: value ?? 1 }, `volume:${clip.id}`)}
               aria-label="Clip volume"
             />
+            {clip.volume > 1 && <BoostNote />}
           </Field>
           <div className="flex items-center justify-between">
             <Label className="text-xs" htmlFor={`mute-${clip.id}`}>
@@ -535,7 +547,7 @@ function AudioInspector({
             variant="outline"
             size="sm"
             className="h-8"
-            onClick={() => set({ start: Number(clock.getTime().toFixed(2)) })}
+            onClick={() => set({ start: placeAt(clock.getTime()) })}
           >
             Start at playhead
           </Button>
@@ -645,6 +657,7 @@ function AudioInspector({
             onValueChange={([value]) => set({ volume: value ?? 1 }, `volume:${item.id}`)}
             aria-label="Track volume"
           />
+          {item.volume > 1 && <BoostNote />}
         </Field>
         <div className="grid grid-cols-2 gap-2">
           <Field label="Fade in">
@@ -863,12 +876,13 @@ function TextPanel({ timeline, layout, clock, selection, onSelect, onChange }: I
     );
 
   const addOverlay = (style: Overlay["style"]) => {
-    const at = clock.getTime();
+    // At the playhead for 2.5 seconds, within what an edit can hold.
+    const at = Math.min(placeAt(clock.getTime()), LIMITS.totalSeconds - 2.5);
     const overlay: Overlay = {
       id: newId(),
       text: style === "cta" ? "Shop now" : style === "subtitle" ? "Subtitle" : "Title",
-      start: Number(at.toFixed(2)),
-      end: Number(Math.min(layout.total || at + 2.5, at + 2.5).toFixed(2)),
+      start: at,
+      end: Number(Math.min(layout.total || at + 2.5, at + 2.5, LIMITS.totalSeconds).toFixed(2)),
       style,
       position: style === "cta" ? "bottom" : "center",
     };

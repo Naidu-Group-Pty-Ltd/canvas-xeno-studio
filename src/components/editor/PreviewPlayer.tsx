@@ -78,6 +78,7 @@ export function PreviewPlayer({ timeline, layout, assets, media, clock }: Previe
     return list;
   }, [current, incoming, layout.clips]);
 
+  const level = useMemo(() => previewLevel(timeline), [timeline]);
   const scale = frame.width / target.width || 0;
   const fadeOpacity =
     timeline.fadeIn > 0 && time < timeline.fadeIn
@@ -110,6 +111,7 @@ export function PreviewPlayer({ timeline, layout, assets, media, clock }: Previe
               time={time}
               playing={playing}
               mix={mix}
+              level={level}
               transition={incoming?.transitionType ?? "cut"}
               fit={entry.clip.fit ?? timeline.fit}
             />
@@ -124,6 +126,7 @@ export function PreviewPlayer({ timeline, layout, assets, media, clock }: Previe
             playing={playing}
             total={layout.total}
             voiceRanges={voiceRanges(timeline.audio, layout.total)}
+            level={level}
           />
         ))}
         <TextLayer
@@ -162,6 +165,8 @@ interface ClipLayerProps {
   time: number;
   playing: boolean;
   mix: number;
+  /** See `previewLevel`. */
+  level: number;
   transition: TransitionType;
   fit: "cover" | "contain" | "blur_pad";
 }
@@ -209,6 +214,23 @@ function transitionStyle(
   }
 }
 
+/**
+ * The share of full volume the preview plays at. A browser can't play louder
+ * than full volume, but a clip or track can be turned up to 200%, as the
+ * render does; so the preview plays everything at the same fraction, and a
+ * boosted sound is still heard that much louder than the rest, as it is mixed
+ * in the render (whose overall loudness is evened out at the end). Only the
+ * preview as a whole is quieter.
+ */
+function previewLevel(timeline: Timeline): number {
+  let loudest = 1;
+  for (const clip of timeline.clips) {
+    if (clip.kind === "video") loudest = Math.max(loudest, clip.volume);
+  }
+  for (const item of timeline.audio) loudest = Math.max(loudest, item.volume);
+  return 1 / loudest;
+}
+
 /** Ken Burns motion for stills, matching the render's 12% zoom and pans. */
 function motionStyle(motion: string, progress: number): CSSProperties {
   const p = Math.max(0, Math.min(1, progress));
@@ -239,6 +261,7 @@ const ClipLayer = memo(function ClipLayer({
   time,
   playing,
   mix,
+  level,
   transition,
   fit,
 }: ClipLayerProps) {
@@ -252,7 +275,7 @@ const ClipLayer = memo(function ClipLayer({
     const audible = role !== "preload" && clip.volume > 0;
     const gain = role === "incoming" ? mix : role === "current" && mix > 0 ? 1 - mix : 1;
     element.muted = !audible;
-    element.volume = Math.max(0, Math.min(1, clip.volume * gain));
+    element.volume = Math.max(0, Math.min(1, clip.volume * gain * level));
     if (element.playbackRate !== clip.speed) element.playbackRate = clip.speed;
     if (role === "preload") {
       if (!element.paused) element.pause();
@@ -270,7 +293,7 @@ const ClipLayer = memo(function ClipLayer({
       if (element.readyState >= 1 && Math.abs(element.currentTime - expected) > 0.03)
         element.currentTime = expected;
     }
-  }, [time, playing, role, mix, clip.kind, clip.volume, clip.speed, clip.trimStart, entry]);
+  }, [time, playing, role, mix, level, clip.kind, clip.volume, clip.speed, clip.trimStart, entry]);
 
   useEffect(() => {
     const element = video.current;
@@ -354,6 +377,7 @@ interface AudioLayerProps {
   playing: boolean;
   total: number;
   voiceRanges: [number, number][];
+  level: number;
 }
 
 /** Position in the source for a timeline time, looping the way the render does. */
@@ -372,6 +396,7 @@ const AudioLayer = memo(function AudioLayer({
   playing,
   total,
   voiceRanges,
+  level,
 }: AudioLayerProps) {
   const audio = useRef<HTMLAudioElement>(null);
 
@@ -396,7 +421,7 @@ const AudioLayer = memo(function AudioLayer({
     ) {
       gain *= item.duckLevel;
     }
-    element.volume = Math.max(0, Math.min(1, gain));
+    element.volume = Math.max(0, Math.min(1, gain * level));
     const expected = audioSourceTime(item, elapsed);
     if (playing) {
       if (element.readyState >= 1 && Math.abs(element.currentTime - expected) > 0.3)
@@ -407,7 +432,7 @@ const AudioLayer = memo(function AudioLayer({
       if (element.readyState >= 1 && Math.abs(element.currentTime - expected) > 0.05)
         element.currentTime = expected;
     }
-  }, [item, time, playing, total, voiceRanges]);
+  }, [item, time, playing, total, voiceRanges, level]);
 
   useEffect(() => {
     const element = audio.current;

@@ -53,10 +53,17 @@ starts and again before it uploads: the worker posts a signed
 else `WORKER_ID`, else an id for the process). The app claims the task for the
 first instance to check in and answers with
 `{"sources": [{"url"}], "uploads": [{"url"}], "expires_at": "…"}` in the order
-first sent (each URL is checked like the originals), or `410` if the task is
+first sent (each URL is checked like the originals), `202` with no links if the
+claim holds but the links couldn't be renewed just then (the instance goes on
+with the ones it has), or `410` if the task is
 closed or another instance has it; the task is then dropped without a report,
 so it never runs (or uploads) twice. Timeouts, `429` and `5xx` are retried a
-few times. If no fresh URLs arrive, the old ones are used only while they are
+few times. Nothing starts without the claim, and the claim keeps retrying (up
+to 30 seconds apart) until the app answers or the task's links are past use,
+so a short outage doesn't strand a task. If the app refuses, or never answers
+in that time, the task is left alone, neither run nor reported, because
+another instance may hold it; the app closes it as stalled if none does. Once claimed,
+a later check-in that gets no fresh URLs uses the old ones only while they are
 valid (the task's `credentials_expire_at`, less five minutes); after that the
 task fails with `CREDENTIALS_EXPIRED` rather than attempting a transfer that
 can't succeed.
@@ -127,3 +134,13 @@ FFmpeg is CPU bound. Two vCPUs handle `CONCURRENCY=2` comfortably for short
 social-length clips. Raise `TASK_TIMEOUT_SECONDS` before rendering long
 timelines, and give the container a writable `/tmp` at least twice the size of
 the largest job's sources plus outputs.
+
+Each source file is capped at `MAX_DOWNLOAD_MB` (1024), and all of one task's
+sources together at `MAX_TASK_DOWNLOAD_MB` (2048): an edit can name dozens of
+files, so a task past its budget stops downloading and fails with
+`SOURCES_TOO_LARGE`. Everything a task keeps on disk at once (sources,
+intermediates, the sound mix and its outputs) is capped at
+`MAX_TASK_WORKSPACE_MB` (4096): past it, the task's processes are stopped and it
+fails with `WORKSPACE_TOO_LARGE`. Renders also delete their sources and
+intermediates as soon as they're done with them. Size `/tmp` for `CONCURRENCY ×
+MAX_TASK_WORKSPACE_MB`.

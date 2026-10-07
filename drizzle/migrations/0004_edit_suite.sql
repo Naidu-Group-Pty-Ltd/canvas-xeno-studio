@@ -95,6 +95,21 @@ DROP TRIGGER IF EXISTS sequences_keep_owner ON public.sequences;
 CREATE TRIGGER sequences_keep_owner BEFORE UPDATE OF created_by ON public.sequences
   FOR EACH ROW EXECUTE FUNCTION public.keep_sequence_owner();
 
+-- "Rendered" and "Render failed" describe the version that was rendered: a
+-- save after the render ended makes the edit a draft again. (A save during a
+-- render leaves it rendering; the render's end then settles it.)
+CREATE OR REPLACE FUNCTION public.sequence_saved_as_draft() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public AS $$
+BEGIN
+  IF NEW.version IS DISTINCT FROM OLD.version AND OLD.status IN ('rendered', 'failed') THEN
+    NEW.status := 'draft';
+  END IF;
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS sequences_saved_as_draft ON public.sequences;
+CREATE TRIGGER sequences_saved_as_draft BEFORE UPDATE OF version ON public.sequences
+  FOR EACH ROW EXECUTE FUNCTION public.sequence_saved_as_draft();
+
 DROP POLICY IF EXISTS "members read sequence renders" ON public.sequence_renders;
 CREATE POLICY "members read sequence renders" ON public.sequence_renders FOR SELECT TO authenticated
   USING (public.is_active_member());
@@ -236,7 +251,7 @@ AS $$
        SET status = 'failed', error_code = p_error_code, error_message = p_error_message, completed_at = now()
      WHERE id = p_render_id
        AND status IN ('queued', 'rendering')
-    RETURNING sequence_id, media_task_id
+    RETURNING sequence_id, media_task_id, sequence_version
   ), task AS (
     UPDATE public.media_tasks
        SET status = 'failed', error_code = p_error_code, error_message = p_error_message, completed_at = now()
@@ -250,13 +265,53 @@ AS $$
        AND status = 'running'
     RETURNING id
   )
-  UPDATE public.sequences
-     SET status = 'failed'
-   WHERE id IN (SELECT sequence_id FROM render)
-     AND last_render_id = p_render_id;
+  -- Failed only while the edit is still the version the render was of: saved
+  -- since, it is a draft again.
+  UPDATE public.sequences AS edit
+     SET status = CASE WHEN edit.version = render.sequence_version THEN 'failed' ELSE 'draft' END
+    FROM render
+   WHERE edit.id = render.sequence_id
+     AND edit.last_render_id = p_render_id;
 $$;
 REVOKE ALL ON FUNCTION public.fail_sequence_render(uuid, text, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.fail_sequence_render(uuid, text, text) TO service_role;
+
+-- A render that was presumed lost (its worker reports in after all) takes the
+-- edit's render slot back only while the edit still points at it. The edit is
+-- locked for the check and the claim, as starting a render locks it, so the
+-- two happen one after the other: a replacement started first has moved the
+-- edit on, and the old render stays closed even if the replacement has
+-- already finished; a claim made first holds the slot, and the replacement is
+-- refused as busy. Outcome: held, or closed. Server only.
+CREATE OR REPLACE FUNCTION public.reclaim_sequence_render(p_render_id uuid, p_sequence_id uuid)
+RETURNS text
+LANGUAGE plpgsql
+VOLATILE
+SET search_path = public
+AS $$
+DECLARE
+  v_current uuid;
+  v_claimed integer;
+BEGIN
+  SELECT last_render_id INTO v_current FROM public.sequences WHERE id = p_sequence_id FOR UPDATE;
+  IF NOT FOUND OR v_current IS DISTINCT FROM p_render_id THEN
+    RETURN 'closed';
+  END IF;
+  BEGIN
+    UPDATE public.sequence_renders
+       SET status = 'rendering', stage = 'Resuming', error_code = NULL, error_message = NULL, completed_at = NULL
+     WHERE id = p_render_id
+       AND sequence_id = p_sequence_id
+       AND (status IN ('queued', 'rendering') OR error_code = 'STALLED');
+    GET DIAGNOSTICS v_claimed = ROW_COUNT;
+  EXCEPTION WHEN unique_violation THEN
+    -- Another render holds the slot.
+    RETURN 'closed';
+  END;
+  RETURN CASE WHEN v_claimed > 0 THEN 'held' ELSE 'closed' END;
+END $$;
+REVOKE ALL ON FUNCTION public.reclaim_sequence_render(uuid, uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.reclaim_sequence_render(uuid, uuid) TO service_role;
 
 -- The media worker instance that took a render. A task delivered twice can
 -- reach two instances (a lost acknowledgement, then a resend); only the one

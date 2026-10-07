@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { writeFile } from "node:fs/promises";
+import { rm, writeFile } from "node:fs/promises";
 import { ffmpeg, probe } from "./ffmpeg.js";
 import { TaskError } from "./net.js";
 
@@ -798,6 +798,12 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
     await ffmpeg(clipArgs(clip, plan, sources[clip.source].path, Boolean(info?.has_audio), out));
     intermediates.push(out);
   }
+  // The pictures' sources aren't needed again (only the audio's are): their
+  // room goes to the mix and the final cut.
+  const audioSources = new Set(plan.audio.map((item) => item.source));
+  for (const [index, source] of sources.entries()) {
+    if (!audioSources.has(index)) await rm(source.path, { force: true });
+  }
 
   // Pass 2: the soundtrack. Music ducks where the voiceover actually speaks,
   // found by listening for silence in each voice track.
@@ -839,6 +845,8 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
   await ffmpeg(finalArgs(plan, intermediates, mixPath, subtitlePath, loudness, out), {
     onProgress: (done) => progress(0.6 + 0.38 * Math.min(1, done / plan.total), "Rendering the final cut"),
   });
+  // Only the finished cut is kept from here.
+  for (const path of [...intermediates, mixPath]) await rm(path, { force: true });
 
   const poster = join(dir, "poster.jpg");
   await ffmpeg([

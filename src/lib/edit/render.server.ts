@@ -103,13 +103,15 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
     );
   }
 
-  // A repeated click or a retried request returns the render already started.
-  const { data: existing } = await supabaseAdmin
+  // A repeated click or a retried request returns the render already started
+  // (and sends it, if it was recorded but never handed to the worker).
+  const { data: existing, error: existingError } = await supabaseAdmin
     .from("sequence_renders")
-    .select("id,status")
+    .select("id")
     .eq("dedupe_key", input.clientRequestId)
     .maybeSingle();
-  if (existing) return { renderId: existing.id, status: existing.status, duplicate: true };
+  if (existingError) throw new AppError("UNKNOWN", "The render could not be checked. Try again.");
+  if (existing) return resumed(existing.id);
 
   const { data: sequence } = await supabaseAdmin
     .from("sequences")
@@ -182,8 +184,7 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
   } | null;
   if (startError || !outcome?.outcome)
     throw new AppError("UNKNOWN", "The render could not be recorded. Try again.");
-  if (outcome.outcome === "duplicate")
-    return { renderId: outcome.render_id!, status: outcome.status!, duplicate: true };
+  if (outcome.outcome === "duplicate") return resumed(outcome.render_id!);
   if (outcome.outcome === "busy")
     throw new AppError(
       "INVALID_PARAMETERS",
@@ -197,6 +198,23 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
   if (outcome.outcome !== "started")
     throw new AppError("INVALID_PARAMETERS", "That edit no longer exists");
 
+  return submitRender({ renderId, taskId, assets, request, videoPath, posterPath });
+}
+
+/**
+ * Hands a recorded render to the worker. Its task id is the render's own, and
+ * the worker runs a task id once, so sending it again (a retried request
+ * whose first try was cut off) is harmless.
+ */
+async function submitRender(input: {
+  renderId: string;
+  taskId: string;
+  assets: Awaited<ReturnType<typeof resolveAssets>>;
+  request: ReturnType<typeof buildRenderRequest>;
+  videoPath: string;
+  posterPath: string;
+}): Promise<RenderStarted> {
+  const { renderId, taskId, assets, request, videoPath, posterPath } = input;
   /**
    * A render that can't be sent is failed with its task, its operation and the
    * edit's status in one statement. If even that can't be recorded, it stops
@@ -285,6 +303,75 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
   return { renderId, status: "rendering", duplicate: false };
 }
 
+/**
+ * A render asked for again: returned as it is, unless it was recorded but
+ * never handed to the worker (the answer to its start was lost, or the
+ * server stopped before sending it). Then it is sent now; otherwise it would
+ * wait, unsent, until it is closed as stalled.
+ */
+async function resumed(renderId: string): Promise<RenderStarted> {
+  const unchecked = () => new AppError("UNKNOWN", "The render could not be checked. Try again.");
+  const { data: render, error } = await supabaseAdmin
+    .from("sequence_renders")
+    .select("id,status,timeline,media_task_id")
+    .eq("id", renderId)
+    .maybeSingle();
+  if (error || !render) throw unchecked();
+  const row = render as unknown as {
+    id: string;
+    status: string;
+    timeline: unknown;
+    media_task_id: string | null;
+  };
+  const as = (status: string): RenderStarted => ({ renderId, status, duplicate: true });
+  if (row.status !== "queued" || !row.media_task_id) return as(row.status);
+  const { data: task, error: taskError } = await supabaseAdmin
+    .from("media_tasks")
+    .select("id,status,input_payload")
+    .eq("id", row.media_task_id)
+    .maybeSingle();
+  if (taskError) throw unchecked();
+  // "submitting" until a send was tried: anything else is on its way already.
+  if (!task || task.status !== "submitting") return as(row.status);
+  const paths = ((task.input_payload ?? {}) as { storage_paths?: unknown }).storage_paths;
+  const timeline = parseTimeline(row.timeline);
+  if (
+    !timeline ||
+    !Array.isArray(paths) ||
+    typeof paths[0] !== "string" ||
+    typeof paths[1] !== "string"
+  )
+    return as(row.status);
+  let assets: Awaited<ReturnType<typeof resolveAssets>>;
+  try {
+    assets = await resolveAssets(timeline);
+  } catch (problem) {
+    // Its media is gone (or no longer fits the edit): it can't be sent, so it
+    // fails now. A lookup that merely failed leaves it as it is, to be sent
+    // when it is asked for again.
+    if (problem instanceof AppError && problem.code === "INVALID_PARAMETERS") {
+      await supabaseAdmin.rpc(
+        "fail_sequence_render" as never,
+        {
+          p_render_id: renderId,
+          p_error_code: "STORAGE_FAILED",
+          p_error_message: problem.message,
+        } as never,
+      );
+    }
+    throw problem;
+  }
+  const sent = await submitRender({
+    renderId,
+    taskId: task.id,
+    assets,
+    request: buildRenderRequest(timeline),
+    videoPath: paths[0],
+    posterPath: paths[1],
+  });
+  return { ...sent, duplicate: true };
+}
+
 export type RenderCredentials =
   | {
       status: 200;
@@ -292,6 +379,9 @@ export type RenderCredentials =
       uploads: { url: string; method: "PUT"; storage_key: string }[];
       expires_at: string;
     }
+  // Claimed, but its links couldn't be renewed just now: the worker goes on
+  // with the ones it has (or reports them expired).
+  | { status: 202 }
   | { status: 404 | 410 | 503 };
 
 /**
@@ -299,11 +389,12 @@ export type RenderCredentials =
  * the edit's one active-render slot), never by its task alone:
  * - Still active: it is refreshed in the same step, so it can't be taken for
  *   stalled (and replaced) while it goes on.
- * - Presumed lost: it must take the slot back. The slot is the unique index
- *   on active renders, so this and a replacement's claim can't both succeed,
- *   whatever the timing: if the replacement claimed it first, the old task is
- *   dropped (410); if this comes first, the replacement is refused as "already
- *   rendering". Once the edit points at a newer render, the old one is dropped.
+ * - Presumed lost: it must take the slot back, in one step with checking that
+ *   the edit still points at it (`reclaim_sequence_render`, which locks the
+ *   edit as starting a render does). So this and a replacement can't both go
+ *   on, whatever the timing: once the edit points at a newer render, the old
+ *   task is dropped (410), even if the newer one has already finished; if
+ *   this comes first, the replacement is refused as "already rendering".
  * Its task and operation then follow it. Repeating this (the worker retries a
  * 503) is harmless.
  */
@@ -323,27 +414,12 @@ async function holdRenderSlot(
     .select("id");
   if (touchError) return 503;
   if (!active?.length) {
-    const { data: sequence, error } = await supabaseAdmin
-      .from("sequences")
-      .select("last_render_id")
-      .eq("id", sequenceId)
-      .maybeSingle();
+    const { data: reclaimed, error } = await supabaseAdmin.rpc(
+      "reclaim_sequence_render" as never,
+      { p_render_id: renderId, p_sequence_id: sequenceId } as never,
+    );
     if (error) return 503;
-    if (sequence?.last_render_id !== renderId) return 410;
-    const { data: resumed, error: claimError } = await supabaseAdmin
-      .from("sequence_renders")
-      .update({
-        status: "rendering",
-        stage: "Resuming",
-        error_code: null,
-        error_message: null,
-        completed_at: null,
-      } as never)
-      .eq("id", renderId)
-      .or("status.in.(queued,rendering),error_code.eq.STALLED")
-      .select("id");
-    if (claimError) return claimError.code === "23505" ? 410 : 503;
-    if (!resumed?.length) return 410;
+    if ((reclaimed as unknown as string) !== "held") return 410;
   }
 
   const { error: taskError } = await supabaseAdmin
@@ -372,7 +448,10 @@ async function holdRenderSlot(
  * re-signed, only for its own sources and
  * destinations, in the order first sent, only for the worker instance that
  * claimed it, and only once it holds its edit's render slot (see
- * `holdRenderSlot`); otherwise the worker is told to drop it.
+ * `holdRenderSlot`); otherwise the worker is told to drop it. Once it holds
+ * the slot, a failure to re-sign is answered as claimed without new links
+ * (202), not as unavailable: asked again and again, each check-in would keep
+ * the render looking alive (so nobody could replace it) while it never starts.
  */
 export async function refreshRenderCredentials(
   taskId: string,
@@ -390,6 +469,12 @@ export async function refreshRenderCredentials(
     task.status === "processing" ||
     (task.status === "failed" && task.error_code === "STALLED");
   if (!open) return { status: 410 };
+  const input = (task.input_payload ?? {}) as Record<string, unknown>;
+  const strings = (value: unknown) =>
+    Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+  const ids = strings(input["sources"]);
+  const paths = strings(input["storage_paths"]);
+  if (!ids.length || !paths.length) return { status: 404 };
 
   // A task can reach two worker instances (an acknowledgement is lost and the
   // task is sent again, and the second send lands elsewhere). The first one to
@@ -406,33 +491,27 @@ export async function refreshRenderCredentials(
     if (!claimed?.length) return { status: 410 };
   }
 
-  const input = (task.input_payload ?? {}) as Record<string, unknown>;
   const held = await holdRenderSlot(task, input);
   if (held !== 200) return { status: held };
-  const strings = (value: unknown) =>
-    Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
-  const ids = strings(input["sources"]);
-  const paths = strings(input["storage_paths"]);
-  if (!ids.length || !paths.length) return { status: 404 };
 
   const { data: rows, error: assetError } = await supabaseAdmin
     .from("assets")
     .select("id,storage_bucket,storage_path")
     .in("id", [...new Set(ids)]);
-  if (assetError) return { status: 503 };
+  if (assetError) return { status: 202 };
   const assets = new Map((rows ?? []).map((row) => [row.id, row]));
 
   const sources: { url: string }[] = [];
   for (const id of ids) {
     const asset = assets.get(id);
     const url = asset ? await signSource(asset) : null;
-    if (!url) return { status: 503 };
+    if (!url) return { status: 202 };
     sources.push({ url });
   }
   const uploads: { url: string; method: "PUT"; storage_key: string }[] = [];
   for (const path of paths) {
     const url = await signUpload(task.storage_bucket ?? OUTPUT_BUCKET, path);
-    if (!url) return { status: 503 };
+    if (!url) return { status: 202 };
     uploads.push({ url, method: "PUT", storage_key: path });
   }
   return {

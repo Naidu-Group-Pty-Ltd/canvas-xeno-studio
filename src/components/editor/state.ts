@@ -258,7 +258,10 @@ export function useAutosave(options: {
   );
 
   const save = useCallback(async (): Promise<number> => {
-    if (inFlight.current) {
+    // One save at a time: callers that arrive while one is on its way wait
+    // their turn, and each looks again once it ends (another caller may have
+    // started the next save meanwhile), so two never write from one version.
+    while (inFlight.current) {
       await inFlight.current.catch(() => undefined);
     }
     if (blocked.current)
