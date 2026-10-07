@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
+import { keepAttempt, savedAttempt } from "@/lib/attempts";
 import { registerUploadedMusic } from "@/lib/music.functions";
 import { audioFileDuration } from "@/lib/music/analyze";
 import { RIGHTS_SCOPES, type RightsScope } from "@/lib/music/catalog";
@@ -15,18 +16,65 @@ import { ACCEPT_ATTRIBUTE, uploadReference } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 
 /**
+ * A recording uploaded for its licence, until the licence is recorded: kept in
+ * the browser for a day (see attempts), so trying again after a failure, even
+ * after a reload, reuses it rather than uploading another copy. Uploads whose
+ * licence is never recorded are cleared on the server after two days.
+ */
+const stagedPlace = (userId: string) => `licensed-upload:${userId}`;
+
+function savedStaged(
+  userId: string,
+  upload: string,
+): { assetId: string; durationSeconds: number | null } | null {
+  const saved = savedAttempt(stagedPlace(userId), upload);
+  if (!saved) return null;
+  try {
+    const value = JSON.parse(saved) as { assetId?: unknown; durationSeconds?: unknown };
+    if (typeof value.assetId !== "string" || !value.assetId) return null;
+    return {
+      assetId: value.assetId,
+      durationSeconds: typeof value.durationSeconds === "number" ? value.durationSeconds : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function keepStaged(
+  userId: string,
+  upload: string,
+  value: { assetId: string; durationSeconds: number | null } | null,
+) {
+  keepAttempt(stagedPlace(userId), upload, value ? JSON.stringify(value) : null);
+}
+
+/**
  * Adds a track the brand owns or has licensed (for example from a stock
  * library or a sync deal), recording the licence so everyone knows where it
- * may be used.
+ * may be used. Given audio already in the library (added to an edit from the
+ * media bin, say), it records that recording's licence instead of uploading.
  */
-export function AddLicensedTrack({ projectId = null }: { projectId?: string | null }) {
+export function AddLicensedTrack({
+  projectId = null,
+  asset = null,
+  defaultKind = "music",
+  onAdded,
+}: {
+  projectId?: string | null;
+  asset?: { id: string; title: string | null } | null;
+  defaultKind?: "music" | "sound_effect";
+  onAdded?: () => void;
+}) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const input = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
-  const [title, setTitle] = useState("");
+  const [title, setTitle] = useState(() =>
+    (asset?.title ?? "").replace(/\.[^.]+$/, "").replace(/[_-]+/g, " "),
+  );
   const [artist, setArtist] = useState("");
-  const [kind, setKind] = useState<"music" | "sound_effect">("music");
+  const [kind, setKind] = useState<"music" | "sound_effect">(defaultKind);
   const [license, setLicense] = useState<"licensed" | "owned">("licensed");
   const [licensor, setLicensor] = useState("");
   const [reference, setReference] = useState("");
@@ -35,17 +83,10 @@ export function AddLicensedTrack({ projectId = null }: { projectId?: string | nu
   const [expiresOn, setExpiresOn] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
-  // The recording is uploaded once, kept out of the library until its licence
-  // is recorded: trying again after a failure reuses it rather than uploading
-  // another copy, and one whose licence is never recorded never shows up in
-  // the library without it.
-  const staged = useRef<{ file: string; assetId: string; durationSeconds: number | null } | null>(
-    null,
-  );
   // The confirmation covers this recording and these terms as they stood when
   // it was given: changing any of them asks for it again.
   const declaration = JSON.stringify([
-    file ? [file.name, file.size, file.lastModified] : null,
+    asset ? ["library", asset.id] : file ? [file.name, file.size, file.lastModified] : null,
     license,
     license === "licensed"
       ? [
@@ -62,7 +103,7 @@ export function AddLicensedTrack({ projectId = null }: { projectId?: string | nu
   const confirmed = confirmedFor === declaration;
 
   const ready =
-    !!file &&
+    (!!asset || !!file) &&
     title.trim().length > 0 &&
     confirmed &&
     (license === "owned" || (licensor.trim().length >= 2 && scopes.length > 0));
@@ -73,18 +114,34 @@ export function AddLicensedTrack({ projectId = null }: { projectId?: string | nu
   }
 
   async function save() {
-    if (!file || !user) return;
+    if ((!asset && !file) || !user) return;
     setSaving(true);
+    // The form's own upload is kept out of the library until its licence is
+    // recorded, and reused when trying again (see savedStaged).
+    const upload = file
+      ? JSON.stringify([projectId, file.name, file.size, file.lastModified])
+      : null;
+    let reused = false;
     try {
-      const upload = JSON.stringify([user.id, projectId, file.name, file.size, file.lastModified]);
-      if (staged.current?.file !== upload) {
-        const [asset, durationSeconds] = await Promise.all([
-          uploadReference(file, { userId: user.id, projectId, stagedFor: "music" }),
-          audioFileDuration(file),
-        ]);
-        staged.current = { file: upload, assetId: asset.id, durationSeconds };
+      let assetId: string;
+      let durationSeconds: number | null = null;
+      if (asset) {
+        assetId = asset.id;
+      } else {
+        const kept = savedStaged(user.id, upload!);
+        if (kept) {
+          ({ assetId, durationSeconds } = kept);
+          reused = true;
+        } else {
+          const [uploaded, measured] = await Promise.all([
+            uploadReference(file!, { userId: user.id, projectId, stagedFor: "music" }),
+            audioFileDuration(file!),
+          ]);
+          assetId = uploaded.id;
+          durationSeconds = measured;
+          keepStaged(user.id, upload!, { assetId, durationSeconds });
+        }
       }
-      const { assetId, durationSeconds } = staged.current;
       await registerUploadedMusic({
         data: {
           assetId,
@@ -110,9 +167,10 @@ export function AddLicensedTrack({ projectId = null }: { projectId?: string | nu
             : {}),
         },
       });
-      staged.current = null;
+      if (upload) keepStaged(user.id, upload, null);
       await queryClient.invalidateQueries({ queryKey: ["music_tracks"] });
-      toast.success("Track added with its licence");
+      toast.success(asset ? "Licence recorded" : "Track added with its licence");
+      onAdded?.();
       setFile(null);
       setTitle("");
       setArtist("");
@@ -121,7 +179,11 @@ export function AddLicensedTrack({ projectId = null }: { projectId?: string | nu
       setConfirmedFor(null);
       if (input.current) input.current.value = "";
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "The track could not be added");
+      const message = error instanceof Error ? error.message : "The track could not be added";
+      // A kept upload that is no longer there is forgotten, so the next try uploads it again.
+      if (reused && upload && /Upload an audio file first/.test(message))
+        keepStaged(user.id, upload, null);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -129,26 +191,33 @@ export function AddLicensedTrack({ projectId = null }: { projectId?: string | nu
 
   return (
     <div className="space-y-3 text-xs" data-testid="add-licensed-track">
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={() => input.current?.click()}>
-          <Upload className="mr-1.5 size-3.5" /> Choose audio file
-        </Button>
-        {file ? (
-          <span className="flex min-w-0 items-center gap-1 text-muted-foreground">
-            <FileAudio className="size-3.5 shrink-0" />
-            <span className="truncate">{file.name}</span>
-          </span>
-        ) : (
-          <span className="text-muted-foreground">WAV, MP3 or M4A</span>
-        )}
-        <input
-          ref={input}
-          type="file"
-          accept={ACCEPT_ATTRIBUTE.audio}
-          className="hidden"
-          onChange={(event) => pick(event.target.files?.[0] ?? null)}
-        />
-      </div>
+      {asset ? (
+        <p className="flex min-w-0 items-center gap-1 text-muted-foreground">
+          <FileAudio className="size-3.5 shrink-0" />
+          <span className="truncate">Recording: {asset.title ?? "audio from the library"}</span>
+        </p>
+      ) : (
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => input.current?.click()}>
+            <Upload className="mr-1.5 size-3.5" /> Choose audio file
+          </Button>
+          {file ? (
+            <span className="flex min-w-0 items-center gap-1 text-muted-foreground">
+              <FileAudio className="size-3.5 shrink-0" />
+              <span className="truncate">{file.name}</span>
+            </span>
+          ) : (
+            <span className="text-muted-foreground">WAV, MP3 or M4A</span>
+          )}
+          <input
+            ref={input}
+            type="file"
+            accept={ACCEPT_ATTRIBUTE.audio}
+            className="hidden"
+            onChange={(event) => pick(event.target.files?.[0] ?? null)}
+          />
+        </div>
+      )}
       <div className="grid gap-2 sm:grid-cols-2">
         <div className="space-y-1">
           <Label className="text-xs">Title</Label>
@@ -315,7 +384,7 @@ export function AddLicensedTrack({ projectId = null }: { projectId?: string | nu
         data-testid="add-licensed-button"
       >
         {saving && <Loader2 className="mr-1.5 size-4 animate-spin" />}
-        Add to the music library
+        {asset ? "Record its licence" : "Add to the music library"}
       </Button>
     </div>
   );

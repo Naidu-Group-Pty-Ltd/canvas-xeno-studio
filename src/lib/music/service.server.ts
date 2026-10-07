@@ -869,6 +869,50 @@ export async function makeInstrumental(input: {
 /* Licensed and owned uploads                                          */
 /* ------------------------------------------------------------------ */
 
+/** Uploads staged for a licence that was never recorded are cleared after this long (the form keeps one for a day). */
+const STAGED_TTL_MS = 2 * 24 * 60 * 60_000;
+
+/**
+ * Clears uploads staged for a licence that was never recorded (see
+ * registerUploadedTrack), a few at a time: their file and record go, so a
+ * registration that kept failing doesn't keep storage forever. Their age is
+ * the record's own (set by the database, not the browser). Never one a track
+ * has. Best effort: anything not cleared now is left for the next
+ * registration.
+ */
+async function clearAbandonedStaging(): Promise<void> {
+  const { data, error } = await supabaseAdmin
+    .from("assets")
+    .select("id,storage_bucket,storage_path")
+    .eq("metadata->>staged_for", "music")
+    .not("deleted_at", "is", null)
+    .lt("created_at", new Date(Date.now() - STAGED_TTL_MS).toISOString())
+    .limit(25);
+  if (error) return;
+  for (const asset of (data ?? []) as {
+    id: string;
+    storage_bucket: string;
+    storage_path: string;
+  }[]) {
+    const { data: track, error: trackError } = await supabaseAdmin
+      .from("music_tracks")
+      .select("id")
+      .eq("asset_id", asset.id)
+      .maybeSingle();
+    if (trackError || track) continue;
+    const { error: removeError } = await supabaseAdmin.storage
+      .from(asset.storage_bucket)
+      .remove([asset.storage_path]);
+    if (removeError) continue;
+    await supabaseAdmin
+      .from("assets")
+      .delete()
+      .eq("id", asset.id)
+      .eq("metadata->>staged_for", "music")
+      .not("deleted_at", "is", null);
+  }
+}
+
 export async function registerUploadedTrack(input: {
   userId: string;
   assetId: string;
@@ -885,6 +929,8 @@ export async function registerUploadedTrack(input: {
   campaignId: string | null;
 }): Promise<TrackRow> {
   await requireActiveMember(input.userId);
+  // Never in the way of this registration.
+  await clearAbandonedStaging().catch(() => {});
   const { data: asset, error: assetError } = await supabaseAdmin
     .from("assets")
     .select("id,asset_type,duration_seconds,deleted_at,uploaded_by,metadata")

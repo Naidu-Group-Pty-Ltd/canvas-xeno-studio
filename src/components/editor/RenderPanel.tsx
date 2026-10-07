@@ -76,15 +76,28 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
   const { data: renderedFiles } = useAssetsByIds(renderedIds);
   // Only audio heard in the render needs a credit or a licence check.
   const audioIds = useMemo(() => audibleAudio(timeline).map((item) => item.assetId), [timeline]);
-  const { data: musicTracks = [] } = useTracksForAssets(audioIds);
+  const { data: musicTracks = [], isSuccess: tracksKnown } = useTracksForAssets(audioIds);
   const credits = [
     ...new Set(
       musicTracks.map((track) => videoCreditLine(track)).filter((line): line is string => !!line),
     ),
   ];
-  // Licensed music: an expired licence stops the render; limits are shown before rendering.
+  // Music or a sound effect with no licence on record (added from the media
+  // bin, say) can't be rendered until its licence is recorded, as the server
+  // checks too; and an expired licence stops the render. Limits are shown
+  // before rendering.
+  const recorded = new Set(musicTracks.map((track) => track.asset_id));
+  const unrecorded = tracksKnown
+    ? audibleAudio(timeline).find(
+        (item) => (item.role === "music" || item.role === "sfx") && !recorded.has(item.assetId),
+      )
+    : undefined;
   const licenceProblem =
-    musicTracks.map((track) => licenceBlocker(track)).find((reason) => reason) ?? null;
+    (unrecorded
+      ? `“${unrecorded.label ?? "Some audio"}” has no licence on record. Record its licence in the Music tab, or use music from the library.`
+      : null) ??
+    musicTracks.map((track) => licenceBlocker(track)).find((reason) => reason) ??
+    null;
   const limits = musicTracks
     .map((track) => ({ track, terms: licenceTerms(track) }))
     .filter(

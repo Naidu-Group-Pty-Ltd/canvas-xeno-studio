@@ -113,21 +113,25 @@ async function resolveAssets(timeline: Timeline) {
  * What the edit's music asks for: the credits Creative Commons BY needs, and
  * the terms of licensed tracks and the usage limits of AI music (where it may
  * run depends on the plan it was made on), all kept with the finished video;
- * and an expired licence, which stops the render.
+ * and what stops the render: an expired licence, or music or a sound effect
+ * heard in the edit with no licence on record (audio added from the media
+ * bin, say), since nothing then says it may be used.
  */
-async function musicRights(assetIds: string[]): Promise<{
+async function musicRights(
+  items: { assetId: string; role: string; title: string | null }[],
+): Promise<{
   credits: string[];
   licences: Record<string, unknown>[];
   blocker: string | null;
 }> {
   const none = { credits: [], licences: [], blocker: null };
-  if (!assetIds.length) return none;
+  if (!items.length) return none;
   const { data, error } = await supabaseAdmin
     .from("music_tracks")
     .select(
-      "title,artist,license,license_version,license_url,attribution,rights,usage_notes,source_url",
+      "asset_id,title,artist,license,license_version,license_url,attribution,rights,usage_notes,source_url",
     )
-    .in("asset_id", [...new Set(assetIds)]);
+    .in("asset_id", [...new Set(items.map((item) => item.assetId))]);
   if (error) {
     // Before the music library exists there is nothing to credit or check;
     // any other failure stops the render rather than skipping the check.
@@ -136,6 +140,7 @@ async function musicRights(assetIds: string[]): Promise<{
   }
   const rows = (data ?? []) as unknown as Pick<
     MusicTrackRow,
+    | "asset_id"
     | "title"
     | "artist"
     | "license"
@@ -175,7 +180,16 @@ async function musicRights(assetIds: string[]): Promise<{
       ];
     return [];
   });
-  const blocker = rows.map((row) => licenceBlocker(row)).find((reason) => reason) ?? null;
+  const recorded = new Set(rows.map((row) => row.asset_id));
+  const unrecorded = items.find(
+    (item) => (item.role === "music" || item.role === "sfx") && !recorded.has(item.assetId),
+  );
+  const blocker =
+    (unrecorded
+      ? `“${unrecorded.title ?? "Some audio"}” is used as ${unrecorded.role === "sfx" ? "a sound effect" : "music"}, but no licence is on record for it. Record its licence in the edit's Music tab, or use music from the library.`
+      : null) ??
+    rows.map((row) => licenceBlocker(row)).find((reason) => reason) ??
+    null;
   return { credits, licences, blocker };
 }
 
@@ -229,7 +243,13 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
 
   const assets = await resolveAssets(timeline);
   // Only audio that is heard in the render needs crediting or licence checks.
-  const music = await musicRights(audibleAudio(timeline).map((item) => item.assetId));
+  const music = await musicRights(
+    audibleAudio(timeline).map((item) => ({
+      assetId: item.assetId,
+      role: item.role,
+      title: assets.get(item.assetId)?.title ?? item.label ?? null,
+    })),
+  );
   if (music.blocker) throw new AppError("INVALID_PARAMETERS", music.blocker);
   const request = buildRenderRequest(timeline);
 

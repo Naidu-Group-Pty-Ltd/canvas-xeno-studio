@@ -4,7 +4,15 @@ import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, AudioWaveform, Loader2, Music, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
+import { AddLicensedTrack } from "@/components/music/AddLicensedTrack";
 import { FindMusic } from "@/components/music/FindMusic";
 import { GenerateMusic } from "@/components/music/GenerateMusic";
 import { MusicLibrary } from "@/components/music/MusicLibrary";
@@ -69,6 +77,9 @@ export function MusicPanel({
   const sound = timeline.audio.filter((item) => item.role === "music" || item.role === "sfx");
   const { data: tracks = [] } = useTracksForAssets(sound.map((item) => item.assetId));
   const [mode, setMode] = useState<"library" | "find" | "make">("library");
+  // Audio on the edit with no licence on record (added from the media bin,
+  // say) has its licence recorded here before the edit can be rendered.
+  const [recording, setRecording] = useState<(typeof sound)[number] | null>(null);
   const [replace, setReplace] = useState(true);
   const [syncing, setSyncing] = useState(false);
   // A music bed is added once; a sound effect can be placed again, at another moment.
@@ -249,12 +260,22 @@ export function MusicPanel({
                   {track ? (
                     <LicenseBadge track={track} />
                   ) : (
-                    <span
-                      className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px]"
-                      title="This audio isn't in the music library, so its licence isn't recorded."
-                    >
-                      Licence unknown
-                    </span>
+                    <>
+                      <span
+                        className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px]"
+                        title="This audio isn't in the music library, so its licence isn't recorded. The edit can't be rendered until it is."
+                      >
+                        Licence unknown
+                      </span>
+                      <button
+                        type="button"
+                        className="shrink-0 text-[10px] text-primary hover:underline"
+                        onClick={() => setRecording(item)}
+                        data-testid="record-licence"
+                      >
+                        Record licence
+                      </button>
+                    </>
                   )}
                   <button
                     type="button"
@@ -377,6 +398,26 @@ export function MusicPanel({
           />
         )}
       </div>
+      <Dialog open={recording !== null} onOpenChange={(open) => !open && setRecording(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Record its licence</DialogTitle>
+            <DialogDescription>
+              This audio isn't in the music library yet. Say who owns or licensed it and where it
+              may be used; the edit can be rendered once that's on record.
+            </DialogDescription>
+          </DialogHeader>
+          {recording && (
+            <AddLicensedTrack
+              key={recording.id}
+              asset={{ id: recording.assetId, title: recording.label ?? null }}
+              defaultKind={recording.role === "sfx" ? "sound_effect" : "music"}
+              projectId={context.projectId}
+              onAdded={() => setRecording(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
