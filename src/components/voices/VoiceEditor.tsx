@@ -966,6 +966,57 @@ const designedOptions = new Map<
 /** The open designers, told when a design comes back. */
 const designShown = new Set<(owner: string) => void>();
 
+/**
+ * The options last designed for a person are kept in the browser as well, so a
+ * reload doesn't lose them (or call for a new, charged design) until one is
+ * kept or a new design replaces them. Their audio is kept too where the
+ * browser has room for it; without it the options can still be kept, just not
+ * played.
+ */
+const designedKey = (userId: string) => `xeno:voice-designed-options:${userId}`;
+
+function keepDesigned(
+  userId: string,
+  value: { description: string; previews: DesignPreview[] } | null,
+) {
+  try {
+    if (!value) {
+      window.localStorage.removeItem(designedKey(userId));
+      return;
+    }
+    try {
+      window.localStorage.setItem(designedKey(userId), JSON.stringify(value));
+    } catch {
+      const silent = value.previews.map((preview) => ({ ...preview, audioBase64: "" }));
+      window.localStorage.setItem(
+        designedKey(userId),
+        JSON.stringify({ ...value, previews: silent }),
+      );
+    }
+  } catch {
+    // Without storage the options are kept for the page only.
+  }
+}
+
+function savedDesigned(userId: string): { description: string; previews: DesignPreview[] } | null {
+  try {
+    const raw = window.localStorage.getItem(designedKey(userId));
+    if (!raw) return null;
+    const value = JSON.parse(raw) as { description?: unknown; previews?: unknown };
+    if (typeof value.description !== "string" || !Array.isArray(value.previews)) return null;
+    const previews = (value.previews as Partial<DesignPreview>[]).filter(
+      (preview): preview is DesignPreview =>
+        typeof preview?.generatedVoiceId === "string" &&
+        preview.generatedVoiceId.length > 0 &&
+        typeof preview.audioBase64 === "string" &&
+        typeof preview.mime === "string",
+    );
+    return previews.length ? { description: value.description, previews } : null;
+  } catch {
+    return null;
+  }
+}
+
 interface SaveRequest {
   generatedVoiceId: string;
   name: string;
@@ -1053,6 +1104,11 @@ function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => voi
   // are shown, a design is no longer held.
   useEffect(() => {
     if (!userId) return;
+    // Options designed before a reload (or in another tab) come back from the browser.
+    if (!designedOptions.has(userId)) {
+      const saved = savedDesigned(userId);
+      if (saved) designedOptions.set(userId, { ...saved, unseen: true });
+    }
     const show = (owner: string) => {
       const kept = designedOptions.get(owner);
       if (owner !== userId || !kept) return;
@@ -1099,7 +1155,10 @@ function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => voi
     const owner = userId;
     const asked = description;
     setPreviews([]);
-    if (owner) designedOptions.delete(owner);
+    if (owner) {
+      designedOptions.delete(owner);
+      keepDesigned(owner, null);
+    }
     try {
       const result = await designElevenLabsVoice({ data: { description: asked } });
       if ("uncertain" in result) {
@@ -1113,6 +1172,7 @@ function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => voi
       // Shown by the designer if it is still open (which ends the hold), else
       // kept until one opens: the design stays held until its options are seen.
       designedOptions.set(owner, { description: asked, previews: result.previews, unseen: true });
+      keepDesigned(owner, { description: asked, previews: result.previews });
       for (const show of designShown) show(owner);
     } catch (error) {
       // No answer came back: the design may still have been made.
@@ -1161,6 +1221,8 @@ function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => voi
       setPending(null);
       keepSave(userId, null);
       keepAttempt("voice-design", generatedVoiceId, null);
+      // One of them is kept: the rest no longer need to outlast a reload.
+      keepDesigned(userId, null);
       onPick({
         providerVoiceId: saved.voiceId,
         providerVoiceName: saved.name,
@@ -1239,6 +1301,7 @@ function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => voi
             size="sm"
             className="h-7 w-7 p-0"
             onClick={() => playBase64(preview.audioBase64, preview.mime)}
+            disabled={!preview.audioBase64}
             aria-label={`Play option ${index + 1}`}
           >
             <Play className="size-3.5" />
