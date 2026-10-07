@@ -53,7 +53,7 @@ Choosing models and settings (MODEL CATALOGUE)
 
 Edit plans
 - When the drafts are shots of one video (a reel, ad, story, product film or teaser), also return "edit_plan": the cut order by draft number (0 is the first draft), how long each shot holds on screen, the transition into each shot ("cut" for most; "fade", "dissolve", "dip to black", "whip", "slide", "wipe" or "zoom" where they add meaning), and the music direction (genre, mood, tempo in BPM, instrumental or with vocals).
-- Write "voiceover_script" timed to the cut, at about 2.5 spoken words per second, in the brand's tone of voice, ending on the call to action. Leave it empty when the idea works better without a voice.
+- Write "voiceover_script" timed to the cut, at about 2.5 spoken words per second, in the brand's tone of voice, ending on the call to action. When a BRAND VOICE is given, write for that speaker and follow its script guidelines exactly. Leave it empty when the idea works better without a voice.
 - Add a short "opening_title" or "closing_cta" only when the brief or format calls for on-screen text. Set "captions" true for social formats.
 - Omit "edit_plan" for standalone images, alternatives of one asset, or unrelated deliverables.
 

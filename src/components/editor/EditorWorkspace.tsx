@@ -99,6 +99,13 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
 
   const layout = useMemo(() => layoutTimeline(timeline), [timeline]);
   useEffect(() => clock.setTotal(layout.total), [clock, layout.total]);
+  // The timeline as it is now, for a change that lands after a wait (a take
+  // being made) from a panel that may have closed meanwhile.
+  const timelineNow = useRef(timeline);
+  useEffect(() => {
+    timelineNow.current = timeline;
+  });
+  const getTimeline = useCallback(() => timelineNow.current, []);
   useEffect(() => () => clock.dispose(), [clock]);
 
   const save = useAutosave({
@@ -300,6 +307,19 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
       <span className="size-1.5 rounded-full bg-warning" />
     );
 
+  const voiceover = useMemo(
+    () => ({
+      sequenceId: sequence.id,
+      projectId: sequence.project_id,
+      campaignId: sequence.campaign_id,
+      suggestedScript:
+        typeof sequence.source?.["voiceover_script"] === "string"
+          ? (sequence.source["voiceover_script"] as string)
+          : null,
+    }),
+    [sequence.id, sequence.project_id, sequence.campaign_id, sequence.source],
+  );
+
   const bin = (
     <MediaBin
       projectId={sequence.project_id}
@@ -477,6 +497,9 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
               clock={clock}
               onSelect={setSelection}
               onChange={change}
+              onUpdate={update}
+              getTimeline={getTimeline}
+              voiceover={voiceover}
             />
           </div>
           <div className="max-h-[45%] shrink-0 overflow-y-auto border-t border-border">
@@ -510,7 +533,7 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
         <Sheet>
           <SheetTrigger asChild>
             <Button variant="outline" size="sm" className="w-full">
-              {selection ? "Edit selection" : "Format, captions & render"}
+              {selection ? "Edit selection" : "Format, voiceover, text & render"}
             </Button>
           </SheetTrigger>
           <SheetContent side="bottom" className="h-[75vh] p-0">
@@ -526,6 +549,9 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
                 clock={clock}
                 onSelect={setSelection}
                 onChange={change}
+                onUpdate={update}
+                getTimeline={getTimeline}
+                voiceover={voiceover}
               />
               <RenderPanel
                 sequenceId={sequence.id}

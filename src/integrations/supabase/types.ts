@@ -1947,8 +1947,94 @@ export type Database = {
           },
         ]
       }
+      brand_voices: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_archived: boolean
+          is_default: boolean
+          language: string | null
+          model: string
+          name: string
+          project_id: string | null
+          pronunciations: Json
+          provider: string
+          provider_voice_id: string
+          sample_asset_id: string | null
+          script_guidelines: string | null
+          settings: Json
+          source: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_archived?: boolean
+          is_default?: boolean
+          language?: string | null
+          model: string
+          name: string
+          project_id?: string | null
+          pronunciations?: Json
+          provider: string
+          provider_voice_id: string
+          sample_asset_id?: string | null
+          script_guidelines?: string | null
+          settings?: Json
+          source?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_archived?: boolean
+          is_default?: boolean
+          language?: string | null
+          model?: string
+          name?: string
+          project_id?: string | null
+          pronunciations?: Json
+          provider?: string
+          provider_voice_id?: string
+          sample_asset_id?: string | null
+          script_guidelines?: string | null
+          settings?: Json
+          source?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_voices_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_voices_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_voices_sample_asset_id_fkey"
+            columns: ["sample_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaigns: {
         Row: {
+          brand_voice_id: string | null
           budget_mode: string
           budget_usd: number | null
           created_at: string
@@ -1964,6 +2050,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          brand_voice_id?: string | null
           budget_mode?: string
           budget_usd?: number | null
           created_at?: string
@@ -1979,6 +2066,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          brand_voice_id?: string | null
           budget_mode?: string
           budget_usd?: number | null
           created_at?: string
@@ -1994,6 +2082,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "campaigns_brand_voice_id_fkey"
+            columns: ["brand_voice_id"]
+            isOneToOne: false
+            referencedRelation: "brand_voices"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "campaigns_project_id_fkey"
             columns: ["project_id"]
@@ -3271,6 +3366,7 @@ export type Database = {
       }
       projects: {
         Row: {
+          brand_voice_id: string | null
           budget_mode: string
           budget_usd: number | null
           created_at: string
@@ -3282,6 +3378,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          brand_voice_id?: string | null
           budget_mode?: string
           budget_usd?: number | null
           created_at?: string
@@ -3293,6 +3390,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          brand_voice_id?: string | null
           budget_mode?: string
           budget_usd?: number | null
           created_at?: string
@@ -3304,6 +3402,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "projects_brand_voice_id_fkey"
+            columns: ["brand_voice_id"]
+            isOneToOne: false
+            referencedRelation: "brand_voices"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "projects_created_by_fkey"
             columns: ["created_by"]
@@ -3909,6 +4014,127 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      voiceovers: {
+        Row: {
+          alignment: Json | null
+          asset_id: string | null
+          campaign_id: string | null
+          characters: number | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          dedupe_key: string | null
+          duration_seconds: number | null
+          error_code: string | null
+          error_message: string | null
+          id: string
+          model: string | null
+          project_id: string | null
+          provider: string | null
+          provider_request_id: string | null
+          provider_voice_id: string | null
+          script: string
+          sequence_id: string | null
+          spoken_text: string | null
+          status: string
+          updated_at: string
+          voice_id: string | null
+        }
+        Insert: {
+          alignment?: Json | null
+          asset_id?: string | null
+          campaign_id?: string | null
+          characters?: number | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          dedupe_key?: string | null
+          duration_seconds?: number | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          model?: string | null
+          project_id?: string | null
+          provider?: string | null
+          provider_request_id?: string | null
+          provider_voice_id?: string | null
+          script: string
+          sequence_id?: string | null
+          spoken_text?: string | null
+          status?: string
+          updated_at?: string
+          voice_id?: string | null
+        }
+        Update: {
+          alignment?: Json | null
+          asset_id?: string | null
+          campaign_id?: string | null
+          characters?: number | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          dedupe_key?: string | null
+          duration_seconds?: number | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          model?: string | null
+          project_id?: string | null
+          provider?: string | null
+          provider_request_id?: string | null
+          provider_voice_id?: string | null
+          script?: string
+          sequence_id?: string | null
+          spoken_text?: string | null
+          status?: string
+          updated_at?: string
+          voice_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voiceovers_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voiceovers_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voiceovers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voiceovers_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voiceovers_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "sequences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voiceovers_voice_id_fkey"
+            columns: ["voice_id"]
+            isOneToOne: false
+            referencedRelation: "brand_voices"
             referencedColumns: ["id"]
           },
         ]

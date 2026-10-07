@@ -248,12 +248,17 @@ function SupercomputerPage() {
           text: content,
           attachmentAssetIds: files.map((item) => item.assetId),
           intent: chosenIntent,
-          briefId: brief ?? null,
+          // An open thread that hasn't loaded yet keeps its brief, project and campaign.
+          briefId: options.briefId !== undefined || !target || thread ? (brief ?? null) : undefined,
           projectId: target
-            ? context.projectId
+            ? thread
+              ? context.projectId
+              : undefined
             : (context.projectId ?? briefRow?.project_id ?? null),
           campaignId: target
-            ? context.campaignId
+            ? thread
+              ? context.campaignId
+              : undefined
             : (context.campaignId ?? briefRow?.campaign_id ?? null),
         },
       });

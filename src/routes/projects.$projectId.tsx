@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
+import { VoiceAssignment } from "@/components/voices/VoiceAssignment";
 
 export const Route = createFileRoute("/projects/$projectId")({
   head: () => ({
@@ -163,6 +164,14 @@ function ProjectDetailPage() {
             Spent so far: ${spentEstimated.toFixed(2)} estimated
             {projectBudget?.budget_usd != null ? ` of $${Number(projectBudget.budget_usd).toFixed(2)}` : ""}
           </p>
+          {project && (
+            <VoiceAssignment
+              table="projects"
+              rowId={projectId}
+              value={project.brand_voice_id}
+              className="ml-auto w-64"
+            />
+          )}
         </div>
 
         <Tabs defaultValue="assets">

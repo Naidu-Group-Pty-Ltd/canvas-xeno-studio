@@ -363,6 +363,38 @@ export const sendSupercomputerMessage = createServerFn({ method: "POST" })
         : Promise.resolve({ data: null }),
     ]);
 
+    // The brand voice that will speak this work's voiceovers, so scripts are written for it.
+    let voiceBlock = "";
+    const { resolveVoiceWithOrigin, VoicesNotSetUp } = await import("./voice/service.server");
+    try {
+      const resolved = await resolveVoiceWithOrigin({
+        campaignId: thread.campaign_id,
+        projectId: thread.project_id,
+      });
+      if (resolved) {
+        const { voice } = resolved;
+        const terms = (Array.isArray(voice.pronunciations) ? voice.pronunciations : [])
+          .map((rule) => rule.term)
+          .filter(Boolean)
+          .slice(0, 30);
+        voiceBlock = [
+          "## BRAND VOICE (speaks every voiceover)",
+          `${voice.name}${voice.description ? ` — ${voice.description}` : ""}`,
+          voice.script_guidelines ? `Script guidelines: ${voice.script_guidelines}` : "",
+          terms.length
+            ? `Brand terms (write them exactly like this; the voice knows how to say them): ${terms.join(", ")}`
+            : "",
+        ]
+          .filter(Boolean)
+          .join("\n");
+      }
+    } catch (error) {
+      // Without the brand-voice tables (their migration still to come) there is
+      // no voice to write for. Any other failed lookup stops here rather than
+      // writing scripts (and plans) that ignore the voice that applies.
+      if (!(error instanceof VoicesNotSetUp)) throw error;
+    }
+
     // What the model can see: this message's attachments first, then brief imagery.
     const { data: attachedRows } = userMessage.attachments.length
       ? await db
@@ -400,6 +432,7 @@ export const sendSupercomputerMessage = createServerFn({ method: "POST" })
       `Project: ${project ? `${project.name}${project.description ? ` — ${project.description}` : ""}` : "none"}`,
       `Campaign: ${campaign ? `${campaign.name}${campaign.objective ? ` — objective: ${campaign.objective}` : ""}` : "none"}`,
       briefBlock,
+      voiceBlock,
       "## REFERENCE MEDIA (asset ids usable in drafts)",
       mediaLines.length ? mediaLines.join("\n") : "(none)",
       "## MODEL CATALOGUE (JSON)",

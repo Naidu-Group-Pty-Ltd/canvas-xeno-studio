@@ -57,6 +57,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import type { PlaybackClock, Selection } from "./state";
+import { VoiceoverPanel, type VoiceoverContext } from "./VoiceoverPanel";
 
 interface InspectorProps {
   timeline: Timeline;
@@ -66,6 +67,15 @@ interface InspectorProps {
   clock: PlaybackClock;
   onSelect: (selection: Selection) => void;
   onChange: (timeline: Timeline, key?: string) => void;
+  /**
+   * Applies a change to the timeline as it is when the change lands, for
+   * changes that wait on something first (a take being made).
+   */
+  onUpdate: (apply: (timeline: Timeline) => Timeline) => void;
+  /** The timeline as it is now, for those changes. */
+  getTimeline: () => Timeline;
+  /** The edit this timeline belongs to, for voiceovers in its brand voice. */
+  voiceover?: VoiceoverContext | undefined;
 }
 
 export function Inspector(props: InspectorProps) {
@@ -85,13 +95,26 @@ export function Inspector(props: InspectorProps) {
       }
       className="flex h-full flex-col"
     >
-      <TabsList className="mx-3 mt-3 grid grid-cols-2">
+      <TabsList className={`mx-3 mt-3 grid ${props.voiceover ? "grid-cols-3" : "grid-cols-2"}`}>
         <TabsTrigger value="format">Format</TabsTrigger>
-        <TabsTrigger value="text">Captions & titles</TabsTrigger>
+        {props.voiceover && <TabsTrigger value="voice">Voiceover</TabsTrigger>}
+        <TabsTrigger value="text">{props.voiceover ? "Text" : "Captions & titles"}</TabsTrigger>
       </TabsList>
       <TabsContent value="format" className="min-h-0 flex-1 overflow-y-auto">
         <SequenceSettings {...props} />
       </TabsContent>
+      {props.voiceover && (
+        <TabsContent value="voice" className="min-h-0 flex-1 overflow-y-auto">
+          <VoiceoverPanel
+            context={props.voiceover}
+            timeline={timeline}
+            layout={props.layout}
+            playhead={() => props.clock.getTime()}
+            onUpdate={props.onUpdate}
+            getTimeline={props.getTimeline}
+          />
+        </TabsContent>
+      )}
       <TabsContent value="text" className="min-h-0 flex-1 overflow-y-auto">
         <TextPanel {...props} />
       </TabsContent>

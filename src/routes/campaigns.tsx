@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useAuth } from "@/hooks/useAuth";
 import { useProjects } from "@/hooks/useStudioData";
 import { useCampaigns } from "@/hooks/useV2Data";
+import { VoiceAssignment } from "@/components/voices/VoiceAssignment";
 
 export const Route = createFileRoute("/campaigns")({
   head: () => ({
@@ -123,6 +124,13 @@ function CampaignsPage() {
                 {spend?.[campaign.id]?.actual ? ` · $${spend[campaign.id]!.actual.toFixed(2)} confirmed` : ""}
               </p>
               <p className="text-xs text-muted-foreground">Status: {campaign.status}</p>
+              <VoiceAssignment
+                table="campaigns"
+                rowId={campaign.id}
+                projectId={campaign.project_id}
+                value={campaign.brand_voice_id}
+                className="pt-1"
+              />
               <div className="flex items-center gap-2 pt-1">
                 <Label htmlFor={`mode-${campaign.id}`} className="text-xs text-muted-foreground">
                   Limit
