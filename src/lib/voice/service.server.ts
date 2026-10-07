@@ -964,15 +964,21 @@ export async function voiceAddedOnce<Details extends Record<string, unknown>>(in
     if (result.ok) {
       // Recorded taking turns with claims of found voices (record_added_voice),
       // which wait meanwhile, so none takes this voice for another attempt.
-      // If this can't be recorded, the voice is still found by its name next time.
+      // Success is only answered once it is recorded. If it can't be, the
+      // attempt stays open and is answered as pending: asking again with it
+      // finds the voice by its name and takes it, rather than adding another.
       for (let tries = 0; tries < 2; tries += 1) {
         const { data, error } = await supabaseAdmin.rpc(
           "record_added_voice" as never,
           { p_attempt: id, p_voice: result.voiceId } as never,
         );
-        if (!error && data) break;
+        if (!error && data)
+          return { voiceId: result.voiceId, name: input.name, details: input.details };
       }
-      return { voiceId: result.voiceId, name: input.name, details: input.details };
+      return {
+        pending:
+          "ElevenLabs added this voice, but the studio couldn't record it just now. Check again in a moment to pick it up: it won't be added twice.",
+      };
     }
     // A failure that can't be recorded leaves the attempt pending, which is
     // only ever looked for, never added again. A definite one is still
