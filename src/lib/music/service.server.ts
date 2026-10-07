@@ -930,13 +930,12 @@ export async function makeInstrumental(input: {
       error_message: tooLargeToSplit().message,
       completed_at: new Date().toISOString(),
     });
-  // Its length, from the file itself (what's on record may be missing or
-  // wrong), read in parts of the copy already held: one too long, or whose
-  // length can't be told at all, isn't sent.
+  // Its length, from the file itself, never from what's on record (which may
+  // be missing or wrong), read in parts of the copy already held: one too
+  // long, or whose length the file doesn't tell, isn't sent.
   const originalBytes: ReadRange = async (offset, length) =>
     new Uint8Array(await blob.slice(offset, offset + length).arrayBuffer());
-  const recorded = parent["duration_seconds"] == null ? null : Number(parent["duration_seconds"]);
-  const seconds = (await probeDuration(originalBytes, blob.size)) ?? recorded;
+  const seconds = await probeDuration(originalBytes, blob.size);
   if (seconds === null || !Number.isFinite(seconds) || seconds > MAX_SPLIT_SECONDS)
     return settle({
       status: "failed",
@@ -1175,8 +1174,10 @@ type UploadAsset = {
   asset_type: string;
   duration_seconds: number | string | null;
   deleted_at: string | null;
+  storage_bucket: string;
+  storage_path: string;
 };
-const ASSET_FIELDS = "id,asset_type,duration_seconds,deleted_at";
+const ASSET_FIELDS = "id,asset_type,duration_seconds,deleted_at,storage_bucket,storage_path";
 
 /**
  * Reads parts of a stored file (a few kilobytes at a time, by range) without
@@ -1357,7 +1358,14 @@ async function uploadedAsset(input: {
   return kept;
 }
 
-/** Audio already in the library (added to an edit from the media bin, say), for its licence. */
+/**
+ * Audio already in the library (added to an edit from the media bin, say), for
+ * its licence: only audio no track holds yet. A catalogue import, music made
+ * or an instrumental carries its licence with it, so a second record would
+ * conflict with it; its file sits at its track's place in the server's bucket,
+ * which is refused too, even before its track is finished. (A recording
+ * already recorded by upload is found by the insert: see registerUploadedTrack.)
+ */
 async function libraryAsset(assetId: string): Promise<UploadAsset> {
   const { data: asset, error } = await supabaseAdmin
     .from("assets")
@@ -1368,6 +1376,22 @@ async function libraryAsset(assetId: string): Promise<UploadAsset> {
   const found = asset as unknown as UploadAsset | null;
   if (!found || found.deleted_at || found.asset_type !== "audio")
     throw new AppError("INVALID_PARAMETERS", "That recording is no longer in the library.");
+  const tracked = (title: string | null) =>
+    new AppError(
+      "INVALID_PARAMETERS",
+      `This recording is already in the music library${title ? ` as “${title}”` : ""}, with its licence on record.`,
+    );
+  if (found.storage_bucket === BUCKET && /\/music\/[^/]+$/.test(found.storage_path))
+    throw tracked(null);
+  const { data: holders, error: holdersError } = await supabaseAdmin
+    .from("music_tracks")
+    .select("title")
+    .eq("asset_id", found.id)
+    .neq("source", "upload")
+    .limit(1);
+  if (holdersError) throw uploadUnchecked();
+  const holder = (holders ?? [])[0] as { title: string | null } | undefined;
+  if (holder) throw tracked(holder.title);
   return found;
 }
 

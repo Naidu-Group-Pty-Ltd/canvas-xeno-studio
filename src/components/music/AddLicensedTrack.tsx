@@ -206,6 +206,14 @@ export function AddLicensedTrack({
       // so the next try starts again.
       if (upload && /Upload an audio file first|isn't audio|too large|expired/.test(message))
         keepStaged(user.id, upload, null);
+      // Audio whose licence is already on record (its track wasn't known
+      // here): the library is looked at again, which shows that licence.
+      if (asset && /already in the music library/.test(message)) {
+        await queryClient.invalidateQueries({ queryKey: ["music_tracks"] });
+        toast.message(message);
+        onAdded?.();
+        return;
+      }
       toast.error(message);
     } finally {
       setSaving(false);

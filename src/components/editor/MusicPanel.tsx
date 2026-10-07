@@ -75,7 +75,14 @@ export function MusicPanel({
   const queryClient = useQueryClient();
   const { error } = useMusicTracks();
   const sound = timeline.audio.filter((item) => item.role === "music" || item.role === "sfx");
-  const { data: tracks = [] } = useTracksForAssets(sound.map((item) => item.assetId));
+  // Which audio has its licence on record is known only once the lookup has
+  // answered: until then, or when it fails, nothing is offered to record.
+  const {
+    data: tracks = [],
+    isPending: tracksPending,
+    isError: tracksFailed,
+    refetch: refetchTracks,
+  } = useTracksForAssets(sound.map((item) => item.assetId));
   const [mode, setMode] = useState<"library" | "find" | "make">("library");
   // Audio on the edit with no licence on record (added from the media bin,
   // say) has its licence recorded here before the edit can be rendered.
@@ -259,6 +266,27 @@ export function MusicPanel({
                   </button>
                   {track ? (
                     <LicenseBadge track={track} />
+                  ) : tracksFailed ? (
+                    <>
+                      <span
+                        className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px]"
+                        title="Its licence couldn't be looked up just now."
+                      >
+                        Licence not checked
+                      </span>
+                      <button
+                        type="button"
+                        className="shrink-0 text-[10px] text-primary hover:underline"
+                        onClick={() => void refetchTracks()}
+                        data-testid="check-licence-again"
+                      >
+                        Check again
+                      </button>
+                    </>
+                  ) : tracksPending ? (
+                    <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px]">
+                      Checking licence…
+                    </span>
                   ) : (
                     <>
                       <span
