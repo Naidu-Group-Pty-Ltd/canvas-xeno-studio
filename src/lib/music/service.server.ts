@@ -268,7 +268,11 @@ async function markReady(trackId: string, values: Record<string, unknown>): Prom
 /**
  * Interrupted generations may still have been billed, so they're settled as
  * uncertain, never retried. One whose file was stored is finished instead,
- * and one that can't be checked right now is left for the next sweep.
+ * and one that can't be checked right now is left for the next sweep. This
+ * runs before anything new is made: if the interrupted work can't be looked
+ * up or settled right now, nothing new starts (or is billed), and the request
+ * says to try again, rather than taking an interrupted track for one still
+ * being made.
  */
 async function settleInterrupted(): Promise<void> {
   const cutoff = new Date(Date.now() - STALE_MS).toISOString();
@@ -279,24 +283,29 @@ async function settleInterrupted(): Promise<void> {
     .neq("source", "openverse")
     .lt("created_at", cutoff)
     .limit(50);
-  if (error) return;
+  if (error) throw trackUnchecked();
   for (const row of (stale ?? []) as TrackRow[]) {
     try {
       if ((await relinked(row))["status"] !== "generating") continue;
     } catch {
       continue;
     }
-    await supabaseAdmin
-      .from("music_tracks")
-      .update({
-        status: "submission_uncertain",
-        error_code: "INTERRUPTED",
-        error_message:
-          "This was interrupted before it was saved. It may still have been billed, so it was not retried.",
-        completed_at: new Date().toISOString(),
-      } as never)
-      .eq("id", row.id)
-      .eq("status", "generating");
+    let settled = false;
+    for (let attempt = 0; attempt < 2 && !settled; attempt += 1) {
+      const { error: settleError } = await supabaseAdmin
+        .from("music_tracks")
+        .update({
+          status: "submission_uncertain",
+          error_code: "INTERRUPTED",
+          error_message:
+            "This was interrupted before it was saved. It may still have been billed, so it was not retried.",
+          completed_at: new Date().toISOString(),
+        } as never)
+        .eq("id", row.id)
+        .eq("status", "generating");
+      settled = !settleError;
+    }
+    if (!settled) throw trackUnchecked();
   }
 }
 
