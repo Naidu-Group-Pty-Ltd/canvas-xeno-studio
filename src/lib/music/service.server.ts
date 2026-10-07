@@ -18,7 +18,7 @@ import {
   MUSIC_LICENSES,
   type MusicLicense,
 } from "./catalog";
-import { PROBED_MIME, probeAudio, type ProbedAudio, type ReadRange } from "./probe";
+import { PROBED_MIME, probeAudio, probeDuration, type ProbedAudio, type ReadRange } from "./probe";
 import {
   audioExtension,
   composeMusic,
@@ -42,6 +42,11 @@ const tooLongToSplit = () =>
   new AppError(
     "INVALID_PARAMETERS",
     `This track is too long to make an instrumental of (over ${MAX_SPLIT_SECONDS / 60} minutes). Use a shorter edit of it.`,
+  );
+const lengthUnknown = () =>
+  new AppError(
+    "INVALID_PARAMETERS",
+    "This track's length can't be read, so an instrumental isn't made of it. Add it as an MP3, WAV, M4A, Ogg or FLAC file and make the instrumental from that.",
   );
 
 export async function requireActiveMember(userId: string): Promise<{ isAdmin: boolean }> {
@@ -923,6 +928,23 @@ export async function makeInstrumental(input: {
       status: "failed",
       error_code: "INVALID_PARAMETERS",
       error_message: tooLargeToSplit().message,
+      completed_at: new Date().toISOString(),
+    });
+  // Its length, from the file itself (what's on record may be missing or
+  // wrong), read in parts of the copy already held: one too long, or whose
+  // length can't be told at all, isn't sent.
+  const originalBytes: ReadRange = async (offset, length) =>
+    new Uint8Array(await blob.slice(offset, offset + length).arrayBuffer());
+  const recorded = parent["duration_seconds"] == null ? null : Number(parent["duration_seconds"]);
+  const seconds = (await probeDuration(originalBytes, blob.size)) ?? recorded;
+  if (seconds === null || !Number.isFinite(seconds) || seconds > MAX_SPLIT_SECONDS)
+    return settle({
+      status: "failed",
+      error_code: "INVALID_PARAMETERS",
+      error_message: (seconds === null || !Number.isFinite(seconds)
+        ? lengthUnknown()
+        : tooLongToSplit()
+      ).message,
       completed_at: new Date().toISOString(),
     });
   const mime = asset.mime_type ?? "audio/mpeg";

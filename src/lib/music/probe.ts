@@ -149,6 +149,15 @@ function mp3FrameAt(bytes: Uint8Array, at: number): number | null {
 
 /** Audio frames after any ID3 tag: at least three in a row, each where the one before says. */
 async function isMp3(head: Uint8Array, read: ReadRange, size: number): Promise<boolean> {
+  return (await firstMp3Frame(head, read, size)) !== null;
+}
+
+/** Where the first of three MPEG Layer III frames in a row starts, after any ID3 tag. */
+async function firstMp3Frame(
+  head: Uint8Array,
+  read: ReadRange,
+  size: number,
+): Promise<number | null> {
   let start = 0;
   if (ascii(head, 0, 3) === "ID3") {
     const tag =
@@ -158,7 +167,7 @@ async function isMp3(head: Uint8Array, read: ReadRange, size: number): Promise<b
       ((head[9] ?? 0) & 0x7f);
     start = 10 + tag + ((head[5] ?? 0) & 0x10 ? 10 : 0);
   }
-  if (start + 4 > size) return false;
+  if (start + 4 > size) return null;
   const window = await bytesAt(head, read, start, Math.min(size - start, 16 * 1024));
   // Encoders may leave a little padding before the first frame.
   for (let first = 0; first < Math.min(window.length - 4, 4096); first += 1) {
@@ -167,10 +176,17 @@ async function isMp3(head: Uint8Array, read: ReadRange, size: number): Promise<b
     for (let length = mp3FrameAt(window, at); length !== null; length = mp3FrameAt(window, at)) {
       frames += 1;
       at += length;
-      if (frames >= 3) return true;
+      if (frames >= 3) return start + first;
     }
   }
-  return false;
+  return null;
+}
+
+/** How long the MPEG Layer III frame whose (valid) header starts here plays, in seconds. */
+function mp3FrameSeconds(bytes: Uint8Array, at: number): number {
+  const version = ((bytes[at + 1] ?? 0) >> 3) & 0x03;
+  const rate = SAMPLE_RATES[version]![((bytes[at + 2] ?? 0) >> 2) & 0x03]!;
+  return (version === 3 ? 1152 : 576) / rate;
 }
 
 /* ---------------------------------------------------------------- WAV */
@@ -242,15 +258,22 @@ function boxIn(bytes: Uint8Array, parent: Box | null, type: string): Box | null 
   return boxesIn(bytes, parent.start, parent.end).find((box) => box.type === type) ?? null;
 }
 
+/** The content of a movie box (moov) read whole, header and all. */
+const movieContent = (movie: Uint8Array): Box => ({
+  type: "moov",
+  start: u32be(movie, 0) === 1 ? 16 : 8,
+  end: movie.length,
+});
+
 /**
- * Where the samples of the movie's sound track end in the file, "fragments"
- * when they come in fragments after the movie, or null when it has no sound
- * track the studio can use: one in a codec browsers and the renderer decode,
- * with samples.
+ * Where the samples of the movie's sound track end in the file, or null when
+ * it has no sound track the studio can use: one in a codec browsers and the
+ * renderer decode, with its samples listed in the movie. (A fragmented file
+ * lists none there: its samples are in fragments the studio doesn't check, so
+ * it isn't taken.)
  */
-function soundTrackEnd(movie: Uint8Array): number | "fragments" | null {
-  const moov: Box = { type: "moov", start: u32be(movie, 0) === 1 ? 16 : 8, end: movie.length };
-  const fragmented = boxIn(movie, moov, "mvex") !== null;
+function soundTrackEnd(movie: Uint8Array): number | null {
+  const moov = movieContent(movie);
   for (const trak of boxesIn(movie, moov.start, moov.end)) {
     if (trak.type !== "trak") continue;
     const mdia = boxIn(movie, trak, "mdia");
@@ -267,11 +290,7 @@ function soundTrackEnd(movie: Uint8Array): number | "fragments" | null {
     if (!stsz || stsz.start + 12 > stsz.end) continue;
     const everySample = u32be(movie, stsz.start + 4);
     const samples = u32be(movie, stsz.start + 8);
-    if (samples === 0) {
-      // A fragmented file's samples come in fragments after the movie.
-      if (fragmented) return "fragments";
-      continue;
-    }
+    if (samples === 0) continue;
     if (!everySample && stsz.start + 12 + samples * 4 > stsz.end) continue;
     const sampleSize = (index: number) => everySample || u32be(movie, stsz.start + 12 + index * 4);
     // stco / co64: where each chunk of samples is in the file (32 or 64 bits).
@@ -308,45 +327,55 @@ function soundTrackEnd(movie: Uint8Array): number | "fragments" | null {
 }
 
 /**
- * An MP4 or M4A with a sound track the studio can use (not, say, picture only,
- * an empty track, or a codec browsers can't play such as Apple Lossless), and
- * all of its samples in the file (a file cut off has them run past its end),
- * or in fragments after the movie.
+ * An MP4's movie box (moov, read whole) and whether it has media data, from
+ * its top-level boxes; null when they don't add up or there is no movie.
  */
-async function isMp4Audio(head: Uint8Array, read: ReadRange, size: number): Promise<boolean> {
+async function mp4Parts(
+  head: Uint8Array,
+  read: ReadRange,
+  size: number,
+): Promise<{ movie: Uint8Array; media: boolean } | null> {
   let offset = 0;
   let movie: Uint8Array | null = null;
   let media = false;
-  let fragments = false;
   for (let part = 0; part < MAX_PARTS && offset + 8 <= size; part += 1) {
     const header = await bytesAt(head, read, offset, Math.min(16, size - offset));
-    if (header.length < 8) return false;
+    if (header.length < 8) return null;
     let length = u32be(header, 0);
     const type = ascii(header, 4, 4);
     let headerLength = 8;
     if (length === 1) {
-      if (header.length < 16) return false;
+      if (header.length < 16) return null;
       length = u32be(header, 8) * 0x100000000 + u32be(header, 12);
       headerLength = 16;
     } else if (length === 0) {
       length = size - offset;
     }
-    if (length < headerLength || offset + length > size) return false;
+    if (length < headerLength || offset + length > size) return null;
     if (type === "moov") {
-      if (length > MAX_MOOV_BYTES) return false;
+      if (length > MAX_MOOV_BYTES) return null;
       movie = await bytesAt(head, read, offset, length);
-      if (movie.length < length) return false;
+      if (movie.length < length) return null;
     } else if (type === "mdat" && length > headerLength) {
       media = true;
-    } else if (type === "moof") {
-      fragments = true;
     }
     if (movie && media) break;
     offset += length;
   }
-  if (!movie || !media) return false;
-  const end = soundTrackEnd(movie);
-  return end === "fragments" ? fragments : end !== null && end <= size;
+  return movie ? { movie, media } : null;
+}
+
+/**
+ * An MP4 or M4A with a sound track the studio can use (not, say, picture only,
+ * an empty track, a fragmented file, or a codec browsers can't play such as
+ * Apple Lossless), and all of its samples in the file (a file cut off has them
+ * run past its end).
+ */
+async function isMp4Audio(head: Uint8Array, read: ReadRange, size: number): Promise<boolean> {
+  const parts = await mp4Parts(head, read, size);
+  if (!parts?.media) return false;
+  const end = soundTrackEnd(parts.movie);
+  return end !== null && end <= size;
 }
 
 /* ---------------------------------------------------------------- Ogg */
@@ -521,4 +550,140 @@ async function isFlac(head: Uint8Array, read: ReadRange, size: number): Promise<
     }
   }
   return false;
+}
+
+/* ---------------------------------------------------------------- Length */
+
+/** How much of an MP3 is read at a time to count its frames. */
+const COUNT_BYTES = 1024 * 1024;
+/** An Ogg page is at most this long, so the last one starts within it of the end. */
+const OGG_TAIL_BYTES = 27 + 255 + 255 * 255;
+
+/**
+ * How long a recording plays, in seconds, from its own structure rather than
+ * anything on record about it: an MP3's frames counted, a WAV's data over its
+ * byte rate, an MP4/M4A's movie duration, an Ogg stream's last position over
+ * its rate (Vorbis, Opus or FLAC), or FLAC's sample count. Null when it's none
+ * of these, or doesn't say.
+ */
+export async function probeDuration(read: ReadRange, size: number): Promise<number | null> {
+  if (!Number.isFinite(size) || size < 64) return null;
+  const head = await read(0, Math.min(size, HEAD_BYTES));
+  if (head.length < 64) return null;
+  switch (claimedKind(head)) {
+    case "mp3":
+      return mp3Seconds(head, read, size);
+    case "wav":
+      return wavSeconds(head, read, size);
+    case "m4a":
+      return mp4Seconds(head, read, size);
+    case "ogg":
+      return oggSeconds(head, read, size);
+    case "flac":
+      return flacSeconds(head);
+    default:
+      return null;
+  }
+}
+
+/** Every frame from the first, counted until the frames stop (a tag or the end). */
+async function mp3Seconds(head: Uint8Array, read: ReadRange, size: number): Promise<number | null> {
+  const first = await firstMp3Frame(head, read, size);
+  if (first === null) return null;
+  let seconds = 0;
+  let at = first;
+  while (at + 4 <= size) {
+    const chunk = await bytesAt(head, read, at, Math.min(COUNT_BYTES, size - at));
+    let local = 0;
+    for (
+      let length = mp3FrameAt(chunk, local);
+      length !== null;
+      length = mp3FrameAt(chunk, local)
+    ) {
+      seconds += mp3FrameSeconds(chunk, local);
+      local += length;
+    }
+    // Nothing more where a frame should start: the frames have stopped.
+    if (local === 0) break;
+    at += local;
+  }
+  return seconds;
+}
+
+/** Its data's size over the byte rate its format gives (to the end, if it doesn't say). */
+async function wavSeconds(head: Uint8Array, read: ReadRange, size: number): Promise<number | null> {
+  let offset = 12;
+  let byteRate = 0;
+  for (let part = 0; part < MAX_PARTS && offset + 8 <= size; part += 1) {
+    const header = await bytesAt(head, read, offset, 8);
+    if (header.length < 8) return null;
+    const length = u32le(header, 4);
+    if (ascii(header, 0, 4) === "fmt ") {
+      const format = await bytesAt(head, read, offset + 8, 16);
+      if (format.length < 16) return null;
+      byteRate = u32le(format, 8);
+    } else if (ascii(header, 0, 4) === "data") {
+      return byteRate ? Math.min(length, size - offset - 8) / byteRate : null;
+    }
+    offset += 8 + length + (length & 1);
+  }
+  return null;
+}
+
+/** The movie's duration over its timescale (mvhd). */
+async function mp4Seconds(head: Uint8Array, read: ReadRange, size: number): Promise<number | null> {
+  const parts = await mp4Parts(head, read, size);
+  if (!parts) return null;
+  const mvhd = boxIn(parts.movie, movieContent(parts.movie), "mvhd");
+  if (!mvhd || mvhd.start + 32 > mvhd.end) return null;
+  // [version, flags][created][modified][timescale][duration], times 64-bit in version 1.
+  const wide = parts.movie[mvhd.start] === 1;
+  const timescale = u32be(parts.movie, mvhd.start + (wide ? 20 : 12));
+  const duration = wide
+    ? u32be(parts.movie, mvhd.start + 24) * 0x100000000 + u32be(parts.movie, mvhd.start + 28)
+    : u32be(parts.movie, mvhd.start + 16);
+  return timescale && duration ? duration / timescale : null;
+}
+
+/** The last position its pages reach, over the rate its opening page gives. */
+async function oggSeconds(head: Uint8Array, read: ReadRange, size: number): Promise<number | null> {
+  const first = await oggPage(head, read, 0, size);
+  if (!first?.opens) return null;
+  const packet = await bytesAt(head, read, first.data, 40);
+  const id = ascii(packet, 0, 8);
+  let rate = 0;
+  let skip = 0;
+  if (id.startsWith("\u0001vorbis")) rate = u32le(packet, 12);
+  else if (id === "OpusHead") {
+    // Opus counts at 48 kHz, after the samples it skips at the start.
+    rate = 48_000;
+    skip = u16le(packet, 10);
+  } else if (id.startsWith("\u007fFLAC")) {
+    // [7F]FLAC[major][minor][header count: 2], fLaC, a block header, then STREAMINFO.
+    rate = ((packet[27] ?? 0) << 12) | ((packet[28] ?? 0) << 4) | ((packet[29] ?? 0) >> 4);
+  }
+  if (!rate) return null;
+  const start = Math.max(0, size - OGG_TAIL_BYTES);
+  const tail = await bytesAt(head, read, start, size - start);
+  for (let at = tail.length - 27; at >= 0; at -= 1) {
+    if (tail[at] !== 0x4f || ascii(tail, at, 4) !== "OggS" || tail[at + 4] !== 0) continue;
+    const low = u32le(tail, at + 6);
+    const high = u32le(tail, at + 10);
+    // A page with no packet ending on it says -1: the one before it counts.
+    if (high < 0x80000000 && (high > 0 || low > 0))
+      return Math.max(0, high * 0x100000000 + low - skip) / rate;
+  }
+  return null;
+}
+
+/** STREAMINFO's sample count over its sample rate. */
+function flacSeconds(head: Uint8Array): number | null {
+  // "fLaC", a block header, then STREAMINFO: [sizes: 10][rate: 20 bits]
+  // [channels: 3][bits: 5][samples: 36]…
+  const info = 8;
+  if (head.length < info + 18) return null;
+  const rate =
+    ((head[info + 10] ?? 0) << 12) | ((head[info + 11] ?? 0) << 4) | ((head[info + 12] ?? 0) >> 4);
+  const samples = ((head[info + 13] ?? 0) & 0x0f) * 0x100000000 + u32be(head, info + 14);
+  return rate && samples ? samples / rate : null;
 }
