@@ -300,10 +300,16 @@ function soundTrackInMedia(movie: Uint8Array, media: readonly Box[]): boolean {
     const hdlr = boxIn(movie, mdia, "hdlr");
     if (!hdlr || hdlr.start + 12 > hdlr.end || ascii(movie, hdlr.start + 8, 4) !== "soun") continue;
     const stbl = boxIn(movie, boxIn(movie, mdia, "minf"), "stbl");
-    // stsd: [version, flags][entry count], then the first entry: [size][codec]…
+    // stsd: [version, flags][entry count], then its sample descriptions, each a
+    // box of its codec. Every one the chunks use must be in a codec decoded here.
     const stsd = boxIn(movie, stbl, "stsd");
     if (!stsd || stsd.start + 16 > stsd.end || u32be(movie, stsd.start + 4) < 1) continue;
-    if (!MP4_SOUND.has(ascii(movie, stsd.start + 12, 4))) continue;
+    const descriptions = boxesIn(movie, stsd.start + 8, stsd.end).slice(
+      0,
+      u32be(movie, stsd.start + 4),
+    );
+    const decoded = (index: number) =>
+      index >= 1 && index <= descriptions.length && MP4_SOUND.has(descriptions[index - 1]!.type);
     // stsz: [version, flags][one size for every sample, or 0][sample count][sizes…]
     const stsz = boxIn(movie, stbl, "stsz");
     if (!stsz || stsz.start + 12 > stsz.end) continue;
@@ -328,14 +334,19 @@ function soundTrackInMedia(movie: Uint8Array, media: readonly Box[]): boolean {
     let ordered = runStart(0) === 1;
     for (let run = 1; run < runs && ordered; run += 1) ordered = runStart(run) > runStart(run - 1);
     if (!ordered) continue;
-    // Every chunk, with the samples its run gives it, inside media data; and
-    // the chunks hold every sample. (With one size for every sample, a chunk's
+    // Every chunk, with the samples its run gives it, inside media data, and in
+    // a sample description decoded here (each run names its own); and the
+    // chunks hold every sample. (With one size for every sample, a chunk's
     // length is worked out rather than counted: the counts come from the file.)
     let sample = 0;
     let run = 0;
     let placed = true;
     for (let chunk = 0; chunk < chunks && sample < samples && placed; chunk += 1) {
       while (run + 1 < runs && runStart(run + 1) <= chunk + 1) run += 1;
+      if (!decoded(u32be(movie, stsc.start + 16 + run * 12))) {
+        placed = false;
+        break;
+      }
       const inChunk = Math.min(u32be(movie, stsc.start + 12 + run * 12), samples - sample);
       if (inChunk < 1) break;
       const at = offsets.start + 8 + chunk * step;
@@ -1128,27 +1139,37 @@ async function mp4Layout(
     const mdia = boxIn(movie, trak, "mdia");
     const hdlr = boxIn(movie, mdia, "hdlr");
     if (!hdlr || hdlr.start + 12 > hdlr.end || ascii(movie, hdlr.start + 8, 4) !== "soun") continue;
-    // stsd: [version, flags][entry count], then entries. The first holds [reserved: 6][reference: 2]
+    // stsd: [version, flags][entry count], then entries, each holding [reserved: 6][reference: 2]
     // [version: 2][revision: 2][vendor: 4][channels: 2][sample size: 2][compression: 2]
-    // [packet size: 2][rate: 16.16], more in versions 1 and 2, then its own boxes.
+    // [packet size: 2][rate: 16.16], more in versions 1 and 2, then its own boxes. The most of
+    // any entry counts (its chunks may use any of them).
     const stsd = boxIn(movie, boxIn(movie, boxIn(movie, mdia, "minf"), "stbl"), "stsd");
-    const entry = stsd ? boxesIn(movie, stsd.start + 8, stsd.end)[0] : undefined;
-    if (!entry || entry.start + 28 > entry.end) continue;
-    const version = u16be(movie, entry.start + 8);
-    let trackChannels = version < 2 ? u16be(movie, entry.start + 16) : 0;
-    let trackRate = version < 2 ? Math.floor(u32be(movie, entry.start + 24) / 65536) : 0;
-    const inner = entry.start + 28 + (version === 1 ? 16 : version === 2 ? 36 : 0);
-    for (const box of boxesIn(movie, inner, entry.end)) {
-      if (box.type === "esds") trackChannels = Math.max(trackChannels, aacChannels(movie, box));
-      else if (box.type === "dOps" && box.start + 2 <= box.end) {
-        // [version][output channels][pre-skip: 2][input rate: 4]…; Opus decodes at 48 kHz.
-        trackChannels = Math.max(trackChannels, movie[box.start + 1] ?? 0);
-        trackRate = Math.max(trackRate, 48_000);
-      } else if (box.type === "dfLa") {
-        // [version, flags], then FLAC's metadata blocks, STREAMINFO first.
-        const flac = flacLayout(movie.subarray(0, box.end), box.start + 8);
-        trackChannels = Math.max(trackChannels, flac?.channels ?? 0);
-        trackRate = Math.max(trackRate, flac?.rate ?? 0);
+    if (!stsd || stsd.start + 8 > stsd.end) continue;
+    let trackChannels = 0;
+    let trackRate = 0;
+    for (const entry of boxesIn(movie, stsd.start + 8, stsd.end).slice(
+      0,
+      u32be(movie, stsd.start + 4),
+    )) {
+      if (entry.start + 28 > entry.end) continue;
+      const version = u16be(movie, entry.start + 8);
+      if (version < 2) {
+        trackChannels = Math.max(trackChannels, u16be(movie, entry.start + 16));
+        trackRate = Math.max(trackRate, Math.floor(u32be(movie, entry.start + 24) / 65536));
+      }
+      const inner = entry.start + 28 + (version === 1 ? 16 : version === 2 ? 36 : 0);
+      for (const box of boxesIn(movie, inner, entry.end)) {
+        if (box.type === "esds") trackChannels = Math.max(trackChannels, aacChannels(movie, box));
+        else if (box.type === "dOps" && box.start + 2 <= box.end) {
+          // [version][output channels][pre-skip: 2][input rate: 4]…; Opus decodes at 48 kHz.
+          trackChannels = Math.max(trackChannels, movie[box.start + 1] ?? 0);
+          trackRate = Math.max(trackRate, 48_000);
+        } else if (box.type === "dfLa") {
+          // [version, flags], then FLAC's metadata blocks, STREAMINFO first.
+          const flac = flacLayout(movie.subarray(0, box.end), box.start + 8);
+          trackChannels = Math.max(trackChannels, flac?.channels ?? 0);
+          trackRate = Math.max(trackRate, flac?.rate ?? 0);
+        }
       }
     }
     // mdhd: [version, flags][created][modified][timescale]…, times 64-bit in version 1.
