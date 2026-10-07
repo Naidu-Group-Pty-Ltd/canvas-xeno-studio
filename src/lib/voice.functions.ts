@@ -311,7 +311,7 @@ export const previewVoice = createServerFn({ method: "POST" })
     } else {
       throw new AppError("INVALID_PARAMETERS", "Choose a voice to preview");
     }
-    const spoken = await service.synthesize(config, data.text);
+    const spoken = await service.synthesize(config, data.text, { wordTimings: false });
     if (!spoken.ok)
       throw new AppError(
         spoken.uncertain ? "SUBMISSION_UNCERTAIN" : (spoken.code as never),

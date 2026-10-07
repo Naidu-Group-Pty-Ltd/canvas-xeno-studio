@@ -80,6 +80,7 @@ export interface Synthesis {
 export async function synthesize(
   config: VoiceConfig,
   script: string,
+  options: { wordTimings?: boolean } = {},
 ): Promise<{ ok: true; result: Synthesis } | ProviderFailure> {
   const tokens = tokenizeScript(script, config.pronunciations);
   const text = spokenText(tokens);
@@ -101,7 +102,9 @@ export async function synthesize(
       speed: settings.speed,
     });
     if (!speech.ok) return speech;
-    const timing = await openAIWordTimings(speech.audio);
+    // Word timings take a second (transcription) request: only for a take,
+    // which needs them for its captions, not for a preview.
+    const timing = options.wordTimings === false ? null : await openAIWordTimings(speech.audio);
     const duration = mp3Duration(speech.audio) ?? timing?.duration ?? null;
     return {
       ok: true,

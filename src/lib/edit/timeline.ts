@@ -695,7 +695,8 @@ export function captionsFromWords(
  * Captions with a new take's cards laid in alongside those already on the
  * edit (another voiceover's, or written by hand). Cards outside the time the
  * new ones cover keep their place; one that runs into it is cut back to where
- * the new cards start or end.
+ * the new cards start or end, and one that runs right across it keeps both
+ * sides.
  */
 export function mergeCaptions(
   existing: CaptionSegment[],
@@ -706,10 +707,14 @@ export function mergeCaptions(
   const to = Math.max(...added.map((segment) => segment.end));
   const kept: CaptionSegment[] = [];
   for (const segment of existing) {
-    if (segment.end <= from || segment.start >= to) kept.push(segment);
-    else if (segment.start < from && from - segment.start >= 0.3)
-      kept.push({ ...segment, end: from });
-    else if (segment.end > to && segment.end - to >= 0.3) kept.push({ ...segment, start: to });
+    if (segment.end <= from || segment.start >= to) {
+      kept.push(segment);
+      continue;
+    }
+    // What is left of a caption either side of the new words stays (both
+    // sides of one that runs right across them).
+    if (segment.start < from && from - segment.start >= 0.3) kept.push({ ...segment, end: from });
+    if (segment.end > to && segment.end - to >= 0.3) kept.push({ ...segment, start: to });
   }
   return [...kept, ...added].sort((a, b) => a.start - b.start).slice(0, LIMITS.captions);
 }
