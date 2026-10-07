@@ -22,11 +22,20 @@ import {
   audioExtension,
   composeMusic,
   downloadAudio,
+  looksLikeAudio,
   openverseTrack,
   separateInstrumental,
 } from "./providers.server";
 
 const BUCKET = "generated-assets";
+
+/** The largest original an instrumental is made from (it is held in memory to send it off), as for catalogue downloads. */
+const MAX_SPLIT_BYTES = 40 * 1024 * 1024;
+const tooLargeToSplit = () =>
+  new AppError(
+    "INVALID_PARAMETERS",
+    `This track is too large to make an instrumental of (over ${MAX_SPLIT_BYTES / 1024 / 1024} MB). Add a compressed copy (MP3) of it and make the instrumental from that.`,
+  );
 
 export async function requireActiveMember(userId: string): Promise<{ isAdmin: boolean }> {
   const { data: profile } = await supabaseAdmin
@@ -59,11 +68,12 @@ const trackStuck = () =>
  */
 async function storedFile(
   path: string,
+  bucket = BUCKET,
 ): Promise<{ name: string; metadata?: Record<string, unknown> | null } | null> {
   const slash = path.lastIndexOf("/");
   const name = path.slice(slash + 1);
   const { data: listed, error } = await supabaseAdmin.storage
-    .from(BUCKET)
+    .from(bucket)
     .list(path.slice(0, slash), { search: name, limit: 10 });
   if (error) throw trackUnchecked();
   return (listed ?? []).find((entry) => entry.name === name) ?? null;
@@ -824,6 +834,13 @@ export async function makeInstrumental(input: {
   if (assetError) throw trackUnchecked();
   if (!asset)
     throw new AppError("INVALID_PARAMETERS", "The track's audio is no longer in the library.");
+  // The original is held in memory to send it off, so only one of a size
+  // that's safe to hold is split: its size as storage itself lists it.
+  const original = await storedFile(asset.storage_path, asset.storage_bucket);
+  if (!original)
+    throw new AppError("INVALID_PARAMETERS", "The track's audio is no longer in the library.");
+  const originalSize = Number(original.metadata?.["size"]);
+  if (!Number.isFinite(originalSize) || originalSize > MAX_SPLIT_BYTES) throw tooLargeToSplit();
 
   const license = parent["license"] as MusicLicense;
   const attribution =
@@ -885,9 +902,17 @@ export async function makeInstrumental(input: {
       completed_at: new Date().toISOString(),
     });
   }
+  // Nothing was sent (or billed) yet.
+  if (blob.size > MAX_SPLIT_BYTES)
+    return settle({
+      status: "failed",
+      error_code: "INVALID_PARAMETERS",
+      error_message: tooLargeToSplit().message,
+      completed_at: new Date().toISOString(),
+    });
   const mime = asset.mime_type ?? "audio/mpeg";
   const split = await separateInstrumental({
-    audio: new Uint8Array(await blob.arrayBuffer()),
+    audio: blob,
     mime,
     filename: `track.${audioExtension(mime)}`,
   });
@@ -946,6 +971,19 @@ const UPLOAD_TYPES: Record<string, { mime: string; extension: string }> = {
 /** Uploads whose licence was never recorded are cleared after this long (the form keeps one for a day). */
 const UPLOAD_TTL_MS = 2 * 24 * 60 * 60_000;
 
+/** The largest recording uploaded for its licence. */
+const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
+const uploadTooLarge = () =>
+  new AppError(
+    "INVALID_PARAMETERS",
+    `That file is too large (over ${MAX_UPLOAD_BYTES / 1024 / 1024} MB). Upload a compressed copy (MP3 or M4A).`,
+  );
+const notAudio = () =>
+  new AppError(
+    "INVALID_PARAMETERS",
+    "That file isn't audio the studio can use. Upload a WAV, MP3 or M4A file.",
+  );
+
 type MusicUploadRow = {
   id: string;
   user_id: string | null;
@@ -957,6 +995,7 @@ type MusicUploadRow = {
   file_size: number | null;
   asset_id: string | null;
   registered_at: string | null;
+  cleanup_tried_at: string | null;
 };
 
 const uploadUnchecked = () =>
@@ -982,6 +1021,7 @@ export async function stageUpload(input: {
   await requireActiveMember(input.userId);
   const type = UPLOAD_TYPES[input.mimeType];
   if (!type) throw new AppError("INVALID_PARAMETERS", "Upload a WAV, MP3 or M4A file.");
+  if (input.size > MAX_UPLOAD_BYTES) throw uploadTooLarge();
   const uploadId = crypto.randomUUID();
   const path = `${scopeFor(input.userId, input.projectId)}/music-uploads/${uploadId}.${type.extension}`;
   const { error } = await supabaseAdmin.from("music_uploads").insert({
@@ -1016,15 +1056,27 @@ export async function clearAbandonedMusicUploads(): Promise<number> {
     .select("id,storage_bucket,storage_path,asset_id")
     .is("registered_at", null)
     .lt("created_at", new Date(Date.now() - UPLOAD_TTL_MS).toISOString())
+    // Ones not tried yet first, then those tried longest ago: one that keeps
+    // failing goes to the back, so it never holds up the rest.
+    .order("cleanup_tried_at", { ascending: true, nullsFirst: true })
     .order("created_at", { ascending: true })
     .limit(10);
   // Before the music library is set up there is nothing to clear.
   if (error) return 0;
-  let cleared = 0;
-  for (const upload of (data ?? []) as Pick<
+  const uploads = (data ?? []) as Pick<
     MusicUploadRow,
     "id" | "storage_bucket" | "storage_path" | "asset_id"
-  >[]) {
+  >[];
+  if (!uploads.length) return 0;
+  await supabaseAdmin
+    .from("music_uploads")
+    .update({ cleanup_tried_at: new Date().toISOString() } as never)
+    .in(
+      "id",
+      uploads.map((upload) => upload.id),
+    );
+  let cleared = 0;
+  for (const upload of uploads) {
     if (upload.asset_id) {
       const { data: track, error: trackError } = await supabaseAdmin
         .from("music_tracks")
@@ -1080,6 +1132,42 @@ type UploadAsset = {
 const ASSET_FIELDS = "id,asset_type,duration_seconds,deleted_at";
 
 /**
+ * Whether a stored file starts like audio (its first few kilobytes, read
+ * without fetching the rest). A file that can't be read just now is thrown,
+ * never taken for one that isn't audio.
+ */
+async function startsLikeAudio(bucket: string, path: string): Promise<boolean> {
+  const { data: signed, error } = await supabaseAdmin.storage
+    .from(bucket)
+    .createSignedUrl(path, 60);
+  if (error || !signed?.signedUrl) throw uploadUnchecked();
+  let response: Response;
+  try {
+    response = await fetch(signed.signedUrl, { headers: { Range: "bytes=0-4095" } });
+  } catch {
+    throw uploadUnchecked();
+  }
+  if (!response.ok || !response.body) throw uploadUnchecked();
+  const head = new Uint8Array(4096);
+  let filled = 0;
+  const reader = response.body.getReader();
+  try {
+    while (filled < head.length) {
+      const { done, value } = await reader.read();
+      if (done || !value) break;
+      const take = Math.min(value.length, head.length - filled);
+      head.set(value.subarray(0, take), filled);
+      filled += take;
+    }
+  } catch {
+    throw uploadUnchecked();
+  } finally {
+    await reader.cancel().catch(() => {});
+  }
+  return looksLikeAudio(head.subarray(0, filled));
+}
+
+/**
  * An upload's library record, added by the server from its own record of the
  * upload once the file is in its place, and kept out of the library until the
  * licence is recorded. Trying again (say after an answer was lost) finds the
@@ -1122,6 +1210,28 @@ async function uploadedAsset(input: {
   const file = (listed ?? []).find((entry) => entry.name === name);
   if (!file) throw new AppError("INVALID_PARAMETERS", "Upload an audio file first.");
   const size = Number(file.metadata?.["size"]);
+  // What was stored must be audio of a size the studio takes, whatever the
+  // browser said about it. One that isn't is dropped now (file and upload)
+  // rather than left for the cleanup, and never joins the library.
+  const refusal =
+    Number.isFinite(size) && size > MAX_UPLOAD_BYTES
+      ? uploadTooLarge()
+      : !(await startsLikeAudio(place.storage_bucket, place.storage_path))
+        ? notAudio()
+        : null;
+  if (refusal) {
+    const { error: dropError } = await supabaseAdmin.storage
+      .from(place.storage_bucket)
+      .remove([place.storage_path]);
+    if (!dropError)
+      await supabaseAdmin
+        .from("music_uploads")
+        .delete()
+        .eq("id", upload.id)
+        .is("asset_id", null)
+        .is("registered_at", null);
+    throw refusal;
+  }
   const values = {
     uploaded_by: input.userId,
     project_id: upload.project_id,

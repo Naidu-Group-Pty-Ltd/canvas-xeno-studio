@@ -102,8 +102,12 @@ CREATE TABLE IF NOT EXISTS public.music_uploads (
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (storage_bucket, storage_path)
 );
-CREATE INDEX IF NOT EXISTS music_uploads_open_idx
-  ON public.music_uploads (created_at) WHERE registered_at IS NULL;
+-- When the cleanup last tried an abandoned upload: one that keeps failing
+-- goes to the back of the queue, so it never holds up the rest.
+ALTER TABLE public.music_uploads ADD COLUMN IF NOT EXISTS cleanup_tried_at timestamptz;
+DROP INDEX IF EXISTS public.music_uploads_open_idx;
+CREATE INDEX music_uploads_open_idx
+  ON public.music_uploads (cleanup_tried_at NULLS FIRST, created_at) WHERE registered_at IS NULL;
 REVOKE ALL ON public.music_uploads FROM PUBLIC, anon, authenticated;
 GRANT ALL ON public.music_uploads TO service_role;
 ALTER TABLE public.music_uploads ENABLE ROW LEVEL SECURITY;

@@ -3118,6 +3118,7 @@ export type Database = {
       music_uploads: {
         Row: {
           asset_id: string | null
+          cleanup_tried_at: string | null
           created_at: string
           file_name: string
           file_size: number | null
@@ -3131,6 +3132,7 @@ export type Database = {
         }
         Insert: {
           asset_id?: string | null
+          cleanup_tried_at?: string | null
           created_at?: string
           file_name: string
           file_size?: number | null
@@ -3144,6 +3146,7 @@ export type Database = {
         }
         Update: {
           asset_id?: string | null
+          cleanup_tried_at?: string | null
           created_at?: string
           file_name?: string
           file_size?: number | null

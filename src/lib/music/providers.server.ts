@@ -490,7 +490,8 @@ export async function composeMusic(input: {
 
 /** Splits a track into vocals and the instrumental (one billable call). */
 export async function separateInstrumental(input: {
-  audio: Uint8Array;
+  /** The original as stored (sent as it is, not copied). */
+  audio: Blob;
   mime: string;
   filename: string;
 }): Promise<{ ok: true; instrumental: Uint8Array; mime: string } | ProviderFailure> {
@@ -502,11 +503,7 @@ export async function separateInstrumental(input: {
       uncertain: false,
     };
   const form = new FormData();
-  form.append(
-    "file",
-    new Blob([new Uint8Array(input.audio)], { type: input.mime }),
-    input.filename,
-  );
+  form.append("file", input.audio, input.filename);
   form.append("stem_variation_id", "two_stems_v1");
   let response: Response;
   try {
