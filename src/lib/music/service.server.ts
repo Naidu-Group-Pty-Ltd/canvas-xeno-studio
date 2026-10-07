@@ -973,6 +973,12 @@ const UPLOAD_KINDS: readonly ProbedAudio[] = ["mp3", "wav", "m4a"];
 
 /** Uploads whose licence was never recorded are cleared after this long (the form keeps one for a day). */
 const UPLOAD_TTL_MS = 2 * 24 * 60 * 60_000;
+/**
+ * How long an upload's licence can be recorded for: well inside the time the
+ * cleanup waits, so a registration and the cleanup of the same upload never
+ * overlap.
+ */
+const REGISTER_WINDOW_MS = UPLOAD_TTL_MS - 6 * 60 * 60_000;
 
 /** The largest recording uploaded for its licence. */
 const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
@@ -999,6 +1005,7 @@ type MusicUploadRow = {
   asset_id: string | null;
   registered_at: string | null;
   cleanup_tried_at: string | null;
+  created_at: string;
 };
 
 const uploadUnchecked = () =>
@@ -1183,6 +1190,19 @@ async function storedRanges(bucket: string, path: string): Promise<ReadRange> {
   };
 }
 
+/** Whether an upload's library record already has its track (a registration whose answer was lost). */
+async function uploadHasTrack(upload: MusicUploadRow): Promise<boolean> {
+  if (!upload.asset_id) return false;
+  const { data, error } = await supabaseAdmin
+    .from("music_tracks")
+    .select("id")
+    .eq("asset_id", upload.asset_id)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw uploadUnchecked();
+  return !!data;
+}
+
 /**
  * An upload's library record, added by the server from its own record of the
  * upload once the file is in its place, and kept out of the library until the
@@ -1204,6 +1224,15 @@ async function uploadedAsset(input: {
   const upload = data as MusicUploadRow | null;
   if (!upload || upload.user_id !== input.userId)
     throw new AppError("INVALID_PARAMETERS", "Upload an audio file first.");
+  // Past its window an upload's licence can't be recorded any more, as the
+  // cleanup may be clearing it; only a retry for a track already recorded
+  // (its answer lost) still finds that track.
+  if (
+    !upload.registered_at &&
+    !(Date.parse(upload.created_at) > Date.now() - REGISTER_WINDOW_MS) &&
+    !(await uploadHasTrack(upload))
+  )
+    throw new AppError("INVALID_PARAMETERS", "That upload has expired. Upload the file again.");
   const place = { storage_bucket: upload.storage_bucket, storage_path: upload.storage_path };
   if (upload.asset_id) {
     const { data: added, error: addedError } = await supabaseAdmin

@@ -208,13 +208,16 @@ export async function searchOpenverse(input: {
     page_count?: number;
     results?: RawOpenverseAudio[];
   };
-  // Only tracks that can be added: a safe licence, and a file on a host the
-  // studio downloads from (catalogueHosts).
+  // Only tracks that can be added: a safe licence, and a file of a type the
+  // studio imports on a host it downloads from (catalogueHosts).
   const tracks = (data.results ?? [])
     .map(toTrack)
     .filter(
       (track): track is OpenverseTrack =>
-        !!track && isSafeOpenverseLicense(track.license) && onCatalogueHost(track.audioUrl),
+        !!track &&
+        isSafeOpenverseLicense(track.license) &&
+        importableType(track.filetype) &&
+        onCatalogueHost(track.audioUrl),
     );
   return {
     ok: true,
@@ -258,43 +261,36 @@ export async function openverseTrack(
   return { ok: true, track };
 }
 
-const AUDIO_TYPES: Record<string, string> = {
-  mp3: "audio/mpeg",
-  mp32: "audio/mpeg",
-  mpeg: "audio/mpeg",
-  wav: "audio/wav",
-  ogg: "audio/ogg",
-  oga: "audio/ogg",
-  ogx: "audio/ogg",
-  opus: "audio/ogg",
-  flac: "audio/flac",
-  m4a: "audio/mp4",
-  aac: "audio/aac",
-};
+/**
+ * The catalogue's file types the studio imports, by Openverse's `filetype`:
+ * those whose audio it checks and keeps (see probe.ts). Others (MIDI, WebM,
+ * raw AAC…) aren't offered.
+ */
+const AUDIO_TYPES = new Map<string, string>([
+  ["mp3", "audio/mpeg"],
+  ["mp32", "audio/mpeg"],
+  ["mpeg", "audio/mpeg"],
+  ["wav", "audio/wav"],
+  ["ogg", "audio/ogg"],
+  ["oga", "audio/ogg"],
+  ["ogx", "audio/ogg"],
+  ["opus", "audio/ogg"],
+  ["flac", "audio/flac"],
+  ["m4a", "audio/mp4"],
+]);
+
+/** Whether a catalogue file is of a type the studio imports (one whose type isn't stated is checked on import). */
+function importableType(filetype: string | null): boolean {
+  return !filetype || AUDIO_TYPES.has(filetype.toLowerCase());
+}
 
 export function audioExtension(mime: string): string {
   if (mime.includes("mpeg")) return "mp3";
   if (mime.includes("wav")) return "wav";
   if (mime.includes("ogg")) return "ogg";
   if (mime.includes("flac")) return "flac";
-  if (mime.includes("mp4") || mime.includes("aac")) return "m4a";
+  if (mime.includes("mp4")) return "m4a";
   return "bin";
-}
-
-/** Whether the bytes start like an audio file (so a page or an API answer is never stored as music). */
-export function looksLikeAudio(bytes: Uint8Array): boolean {
-  const text = (start: number, value: string) =>
-    [...value].every((char, index) => bytes[start + index] === char.charCodeAt(0));
-  return (
-    text(0, "ID3") || // MP3 with tags
-    (bytes[0] === 0xff && ((bytes[1] ?? 0) & 0xe0) === 0xe0) || // MPEG / AAC frames
-    text(0, "OggS") ||
-    text(0, "fLaC") ||
-    (text(0, "RIFF") && text(8, "WAVE")) ||
-    (text(0, "FORM") && (text(8, "AIFF") || text(8, "AIFC"))) ||
-    text(4, "ftyp") || // MP4 / M4A
-    (bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3) // WebM
-  );
 }
 
 /**
@@ -379,7 +375,7 @@ export async function downloadAudio(
       : type
     : type === "application/ogg"
       ? "audio/ogg"
-      : (AUDIO_TYPES[(hint ?? "").toLowerCase()] ?? null);
+      : (AUDIO_TYPES.get((hint ?? "").toLowerCase()) ?? null);
   const notAudio = {
     ok: false as const,
     code: "INVALID_PARAMETERS",

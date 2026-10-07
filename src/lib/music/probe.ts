@@ -4,8 +4,9 @@
  * that follow one another, a WAV's format and its data, an MP4/M4A with a
  * sound track and media data, an Ogg stream of Vorbis, Opus or FLAC with
  * sound after its headers, or FLAC with its stream description and a whole
- * first frame. Only small parts of the file are read (`read`), and only a few
- * times, so a large file is never fetched whole to check it.
+ * first frame (its checksums right). Only small parts of the file are read
+ * (`read`), and only a few times, so a large file is never fetched whole to
+ * check it.
  */
 
 /** Reads up to `length` bytes from `offset` (fewer at the end of the file). */
@@ -323,15 +324,77 @@ async function isOggAudio(head: Uint8Array, read: ReadRange, size: number): Prom
 
 /* ---------------------------------------------------------------- FLAC */
 
+/** The largest a FLAC frame can be: 65535 samples of 8 channels at 32 bits, and its headers. */
+const MAX_FLAC_FRAME = 2 * 1024 * 1024 + 64 * 1024;
+
+/** FLAC's checksums: CRC-8 (x⁸+x²+x+1) over a frame's header, CRC-16 (x¹⁶+x¹⁵+x²+1) over the frame. */
+const CRC8 = new Uint8Array(256);
+const CRC16 = new Uint16Array(256);
+for (let byte = 0; byte < 256; byte += 1) {
+  let crc8 = byte;
+  let crc16 = byte << 8;
+  for (let bit = 0; bit < 8; bit += 1) {
+    crc8 = crc8 & 0x80 ? ((crc8 << 1) ^ 0x07) & 0xff : (crc8 << 1) & 0xff;
+    crc16 = crc16 & 0x8000 ? ((crc16 << 1) ^ 0x8005) & 0xffff : (crc16 << 1) & 0xffff;
+  }
+  CRC8[byte] = crc8;
+  CRC16[byte] = crc16;
+}
+
+/** The length of the FLAC frame header that starts here, its fields allowed and its CRC-8 right, or null. */
+function flacFrameHeader(bytes: Uint8Array, at: number): number | null {
+  if (at + 6 > bytes.length || bytes[at] !== 0xff || ((bytes[at + 1] ?? 0) & 0xfe) !== 0xf8)
+    return null;
+  const sizes = bytes[at + 2] ?? 0;
+  const layout = bytes[at + 3] ?? 0;
+  const blockBits = sizes >> 4;
+  const rateBits = sizes & 0x0f;
+  if (blockBits === 0 || rateBits === 0x0f || layout >> 4 > 10) return null;
+  if (((layout >> 1) & 0x07) === 3 || (layout & 0x01) !== 0) return null;
+  // The frame's (or first sample's) number, coded like UTF-8 in 1 to 7 bytes.
+  const lead = bytes[at + 4] ?? 0;
+  let more = 0;
+  while (more < 7 && lead & (0x80 >> more)) more += 1;
+  if (more === 1 || (more === 7 && lead !== 0xfe)) return null;
+  let end = at + 5;
+  for (let next = 1; next < more; next += 1, end += 1)
+    if (((bytes[end] ?? 0) & 0xc0) !== 0x80) return null;
+  // A block size or sample rate given after the number.
+  end += blockBits === 6 ? 1 : blockBits === 7 ? 2 : 0;
+  end += rateBits === 12 ? 1 : rateBits === 13 || rateBits === 14 ? 2 : 0;
+  if (end >= bytes.length) return null;
+  let crc = 0;
+  for (let index = at; index < end; index += 1) crc = CRC8[crc ^ (bytes[index] ?? 0)] ?? 0;
+  return crc === bytes[end] ? end + 1 - at : null;
+}
+
+/**
+ * Whether `bytes` starts with a whole FLAC frame: its header, then where the
+ * next frame starts (or, when `bytes` runs to the end of the file, where it
+ * ends), the CRC-16 over the frame matches its footer. A frame cut off, or
+ * damaged, has none.
+ */
+function wholeFlacFrame(bytes: Uint8Array, toTheEnd: boolean): boolean {
+  const header = flacFrameHeader(bytes, 0);
+  if (header === null) return false;
+  // A CRC-16 run on through the footer that holds it comes to 0.
+  let crc = 0;
+  for (let index = 0; index < bytes.length; index += 1) {
+    if (index > header + 2 && crc === 0 && bytes[index] === 0xff && flacFrameHeader(bytes, index))
+      return true;
+    crc = ((crc << 8) & 0xffff) ^ (CRC16[(crc >> 8) ^ (bytes[index] ?? 0)] ?? 0);
+  }
+  return toTheEnd && bytes.length > header + 2 && crc === 0;
+}
+
 /**
  * A FLAC stream: its stream description, then where the descriptions end, a
- * first frame with a valid header and at least as many bytes as the stream's
- * smallest frame.
+ * whole first frame (its checksums right).
  */
 async function isFlac(head: Uint8Array, read: ReadRange, size: number): Promise<boolean> {
   let offset = 4;
   let first = true;
-  let smallestFrame = 0;
+  let largestFrame = 0;
   for (let part = 0; part < MAX_PARTS && offset + 4 <= size; part += 1) {
     const header = await bytesAt(head, read, offset, 4);
     if (header.length < 4) return false;
@@ -340,11 +403,11 @@ async function isFlac(head: Uint8Array, read: ReadRange, size: number): Promise<
     const length = ((header[1] ?? 0) << 16) | ((header[2] ?? 0) << 8) | (header[3] ?? 0);
     if (first) {
       // STREAMINFO: a sample rate and channels that make sense, and the size
-      // of the smallest frame (0 when it isn't known).
+      // of the largest frame (0 when it isn't known).
       if (type !== 0 || length !== 34) return false;
       const info = await bytesAt(head, read, offset + 4, 18);
       if (info.length < 18) return false;
-      smallestFrame = ((info[4] ?? 0) << 16) | ((info[5] ?? 0) << 8) | (info[6] ?? 0);
+      largestFrame = ((info[7] ?? 0) << 16) | ((info[8] ?? 0) << 8) | (info[9] ?? 0);
       const rate = ((info[10] ?? 0) << 12) | ((info[11] ?? 0) << 4) | ((info[12] ?? 0) >> 4);
       const channels = (((info[12] ?? 0) >> 1) & 0x07) + 1;
       if (rate < 1 || rate > 655_350 || channels > 8) return false;
@@ -352,23 +415,14 @@ async function isFlac(head: Uint8Array, read: ReadRange, size: number): Promise<
     }
     offset += 4 + length;
     if (last) {
-      // The first frame: its sync code, then a block size, sample rate,
-      // channels and sample size that are allowed.
-      if (offset + 4 > size) return false;
-      const frame = await bytesAt(head, read, offset, 4);
-      if (frame.length < 4) return false;
-      const sizes = frame[2] ?? 0;
-      const layout = frame[3] ?? 0;
-      return (
-        frame[0] === 0xff &&
-        ((frame[1] ?? 0) & 0xfe) === 0xf8 &&
-        sizes >> 4 !== 0 &&
-        (sizes & 0x0f) !== 0x0f &&
-        layout >> 4 <= 10 &&
-        ((layout >> 1) & 0x07) !== 3 &&
-        (layout & 0x01) === 0 &&
-        offset + Math.max(smallestFrame, 16) <= size
+      // The first frame, and the start of the one after it, in one read.
+      const span = Math.min(
+        size - offset,
+        largestFrame ? Math.max(largestFrame + 16, 64 * 1024) : MAX_FLAC_FRAME,
       );
+      if (span < 8) return false;
+      const frame = await bytesAt(head, read, offset, span);
+      return wholeFlacFrame(frame, offset + frame.length >= size);
     }
   }
   return false;

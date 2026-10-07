@@ -204,7 +204,7 @@ export function AddLicensedTrack({
       const message = error instanceof Error ? error.message : "The track could not be added";
       // An upload the server doesn't have (any more), or refused, is forgotten,
       // so the next try starts again.
-      if (upload && /Upload an audio file first|isn't audio|too large/.test(message))
+      if (upload && /Upload an audio file first|isn't audio|too large|expired/.test(message))
         keepStaged(user.id, upload, null);
       toast.error(message);
     } finally {
