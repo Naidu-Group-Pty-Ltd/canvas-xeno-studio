@@ -15,7 +15,13 @@ import { analyzeAudioUrl } from "@/lib/music/analyze";
 import { beatTimesOnTimeline, snapCutsToBeats } from "@/lib/music/beats";
 import { creditLine } from "@/lib/music/catalog";
 import { isMissingTableError } from "@/lib/edit/errors";
-import { audioFromSource, LIMITS, type Timeline, type TimelineLayout } from "@/lib/edit/timeline";
+import {
+  audioFromSource,
+  layoutTimeline,
+  LIMITS,
+  type Timeline,
+  type TimelineLayout,
+} from "@/lib/edit/timeline";
 import { cn } from "@/lib/utils";
 import type { Selection } from "./state";
 
@@ -43,6 +49,8 @@ export function MusicPanel({
   layout,
   playhead,
   onChange,
+  onUpdate,
+  getTimeline,
   onSelect,
 }: {
   context: MusicContext;
@@ -50,6 +58,10 @@ export function MusicPanel({
   layout: TimelineLayout;
   playhead: () => number;
   onChange: (timeline: Timeline, key?: string) => void;
+  /** Applies a change to the timeline as it is when the change lands. */
+  onUpdate: (apply: (timeline: Timeline) => Timeline) => void;
+  /** The edit's timeline as it is now, even once this panel has closed. */
+  getTimeline: () => Timeline;
   onSelect: (selection: Selection) => void;
 }) {
   const queryClient = useQueryClient();
@@ -66,10 +78,11 @@ export function MusicPanel({
   const bed = timeline.audio.find((item) => item.role === "music");
   const trackFor = (assetId: string) => tracks.find((track) => track.asset_id === assetId);
   // Music can arrive after the edit has moved on (a track being made, a beat
-  // being found): it is applied to the edit as it is then, not as it was.
-  const latest = useRef({ timeline, layout, replace, onChange });
+  // being found), by when this panel may have closed (another tab, a clip
+  // selected): it is applied to the edit as it is then, not as it was.
+  const latest = useRef({ replace });
   useEffect(() => {
-    latest.current = { timeline, layout, replace, onChange };
+    latest.current = { replace };
   });
 
   if (isMissingTableError(error)) {
@@ -86,13 +99,13 @@ export function MusicPanel({
 
   function add(source: Source) {
     if (!source.assetId) return;
-    const { timeline, replace, onChange } = latest.current;
+    const { replace } = latest.current;
     const role = source.kind === "sound_effect" ? "sfx" : "music";
-    const kept =
+    const kept = (timeline: Timeline) =>
       role === "music" && replace
         ? timeline.audio.filter((item) => item.role !== "music")
         : timeline.audio;
-    if (kept.length >= LIMITS.audio) {
+    if (kept(getTimeline()).length >= LIMITS.audio) {
       toast.error(`An edit can hold up to ${LIMITS.audio} audio tracks`);
       return;
     }
@@ -103,7 +116,10 @@ export function MusicPanel({
       role,
       start,
     );
-    onChange({ ...timeline, audio: [...kept, item] });
+    onUpdate((timeline) => {
+      const rest = kept(timeline);
+      return rest.length >= LIMITS.audio ? timeline : { ...timeline, audio: [...rest, item] };
+    });
     toast.success(
       role === "music" ? "Music added under the whole edit" : "Sound effect added at the playhead",
     );
@@ -142,32 +158,45 @@ export function MusicPanel({
             .catch(() => undefined);
         }
       }
-      const { timeline: latestTimeline, layout, onChange } = latest.current;
-      const found = latestTimeline.audio.find((item) => item.id === bed.id);
-      if (!found || found.assetId !== bed.assetId) {
+      const beatsFound = beats;
+      const knownLength = length;
+      const snap = (latestTimeline: Timeline) => {
+        const found = latestTimeline.audio.find((item) => item.id === bed.id);
+        if (!found || found.assetId !== bed.assetId) return null;
+        // Without its length the bed can't loop on the beat: fill it in when known.
+        const current =
+          !found.sourceDuration && knownLength ? { ...found, sourceDuration: knownLength } : found;
+        const timeline =
+          current === found
+            ? latestTimeline
+            : {
+                ...latestTimeline,
+                audio: latestTimeline.audio.map((item) =>
+                  item.id === current.id ? current : item,
+                ),
+              };
+        const times = beatTimesOnTimeline(current, beatsFound, layoutTimeline(timeline).total + 30);
+        const { timeline: snapped, moved } = snapCutsToBeats(timeline, times);
+        return { base: timeline, snapped, moved };
+      };
+      // What to say is worked out from the edit as it is now, and the change
+      // itself from the edit as it is when the change is applied.
+      const now = snap(getTimeline());
+      if (!now) {
         toast.message("The music changed while its beat was being found. Try again.");
         return;
       }
-      // Without its length the bed can't loop on the beat: fill it in when known.
-      const current =
-        !found.sourceDuration && length ? { ...found, sourceDuration: length } : found;
-      const timeline =
-        current === found
-          ? latestTimeline
-          : {
-              ...latestTimeline,
-              audio: latestTimeline.audio.map((item) => (item.id === current.id ? current : item)),
-            };
-      const times = beatTimesOnTimeline(current, beats, layout.total + 30);
-      const { timeline: snapped, moved } = snapCutsToBeats(timeline, times);
+      onUpdate((latestTimeline) => {
+        const result = snap(latestTimeline);
+        return !result ? latestTimeline : result.moved ? result.snapped : result.base;
+      });
+      const { moved } = now;
       if (!moved) {
-        if (timeline !== latestTimeline) onChange(timeline);
         toast.message(
           `The cuts already land on the beat${bpm ? ` (${Math.round(bpm)} BPM)` : ""}.`,
         );
         return;
       }
-      onChange(snapped);
       toast.success(
         `Moved ${moved} cut${moved === 1 ? "" : "s"} to the beat${bpm ? ` · ${Math.round(bpm)} BPM` : ""}`,
       );

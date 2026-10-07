@@ -136,6 +136,8 @@ export function Inspector(props: InspectorProps) {
             layout={props.layout}
             playhead={() => props.clock.getTime()}
             onChange={props.onChange}
+            onUpdate={props.onUpdate}
+            getTimeline={props.getTimeline}
             onSelect={props.onSelect}
           />
         </TabsContent>
