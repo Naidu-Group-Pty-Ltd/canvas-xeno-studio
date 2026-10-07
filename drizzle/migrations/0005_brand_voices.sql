@@ -107,6 +107,8 @@ ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS brand_voice_id uuid REFEREN
 -- A voice kept for one project can only be assigned within that project. Choosing
 -- another project's voice is refused; a campaign that moves to another project
 -- drops a voice that doesn't belong there (and falls back to the next level).
+-- An assignment takes turns with a move of the voice to a project
+-- (brand_voice_keeps_uses, below), so the two can't pass each other.
 CREATE OR REPLACE FUNCTION public.brand_voice_in_scope() RETURNS trigger
 LANGUAGE plpgsql SET search_path = public AS $$
 DECLARE
@@ -116,6 +118,7 @@ BEGIN
   IF NEW.brand_voice_id IS NULL THEN
     RETURN NEW;
   END IF;
+  PERFORM pg_advisory_xact_lock(hashtext('public.brand_voices.scope'), hashtext(NEW.brand_voice_id::text));
   SELECT project_id INTO voice_project FROM public.brand_voices WHERE id = NEW.brand_voice_id;
   IF voice_project IS NULL THEN
     RETURN NEW;
@@ -141,6 +144,28 @@ CREATE TRIGGER campaigns_brand_voice_in_scope BEFORE INSERT OR UPDATE OF brand_v
 DROP TRIGGER IF EXISTS projects_brand_voice_in_scope ON public.projects;
 CREATE TRIGGER projects_brand_voice_in_scope BEFORE INSERT OR UPDATE OF brand_voice_id ON public.projects
   FOR EACH ROW EXECUTE FUNCTION public.brand_voice_in_scope();
+
+-- The other way round: a voice moved into one project can't leave campaigns
+-- or projects elsewhere using it. Checked when it moves, taking turns with
+-- assignments of the voice (brand_voice_in_scope), so a move and an
+-- assignment made at the same moment can't both go through.
+CREATE OR REPLACE FUNCTION public.brand_voice_keeps_uses() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public AS $$
+BEGIN
+  IF NEW.project_id IS NULL OR NEW.project_id IS NOT DISTINCT FROM OLD.project_id THEN
+    RETURN NEW;
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtext('public.brand_voices.scope'), hashtext(NEW.id::text));
+  IF EXISTS (SELECT 1 FROM public.campaigns WHERE brand_voice_id = NEW.id AND project_id IS DISTINCT FROM NEW.project_id)
+     OR EXISTS (SELECT 1 FROM public.projects WHERE brand_voice_id = NEW.id AND id <> NEW.project_id) THEN
+    RAISE EXCEPTION 'This voice is the brand voice of campaigns or projects outside that project. Give them another voice first, or keep this one for any project.'
+      USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS brand_voices_keep_uses ON public.brand_voices;
+CREATE TRIGGER brand_voices_keep_uses BEFORE UPDATE OF project_id ON public.brand_voices
+  FOR EACH ROW EXECUTE FUNCTION public.brand_voice_keeps_uses();
 
 -- The studio default changes in one transaction: the old default is cleared
 -- and the new one set together, so a failure part-way never leaves the studio
@@ -170,6 +195,58 @@ END $$;
 REVOKE ALL ON FUNCTION public.set_default_brand_voice(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.set_default_brand_voice(uuid) TO service_role;
 
+-- A voice added to ElevenLabs whose answer was lost is found later as a new
+-- voice of its name. Each such voice goes to one attempt only: checks take
+-- turns, and a voice another attempt already has is passed over, so two
+-- attempts checked at the same moment can't both take the same voice.
+-- Outcome: claimed (with the attempt's voice, also when it already had one),
+-- pending (none of these is free yet), many (more than one is, so it can't
+-- tell which), changed (the attempt was settled otherwise meanwhile) or
+-- missing. Server only.
+CREATE OR REPLACE FUNCTION public.claim_added_voice(p_attempt uuid, p_fresh text[])
+RETURNS jsonb
+LANGUAGE plpgsql
+VOLATILE
+SET search_path = public
+AS $$
+DECLARE
+  v_status text;
+  v_voice text;
+  v_free text[];
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtext('public.claim_added_voice'));
+  SELECT status, output_payload->>'voice_id' INTO v_status, v_voice
+    FROM public.operations WHERE id = p_attempt AND operation_type = 'voice_add';
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('outcome', 'missing');
+  END IF;
+  IF v_status = 'completed' AND v_voice IS NOT NULL THEN
+    RETURN jsonb_build_object('outcome', 'claimed', 'voice_id', v_voice);
+  END IF;
+  IF v_status NOT IN ('running', 'submission_uncertain') THEN
+    RETURN jsonb_build_object('outcome', 'changed');
+  END IF;
+  SELECT array_agg(DISTINCT candidate) INTO v_free
+    FROM unnest(p_fresh) AS candidate
+    WHERE NOT EXISTS (
+      SELECT 1 FROM public.operations
+      WHERE operation_type = 'voice_add' AND status = 'completed' AND output_payload->>'voice_id' = candidate
+    );
+  IF v_free IS NULL THEN
+    RETURN jsonb_build_object('outcome', 'pending');
+  END IF;
+  IF cardinality(v_free) > 1 THEN
+    RETURN jsonb_build_object('outcome', 'many');
+  END IF;
+  UPDATE public.operations
+    SET status = 'completed', output_payload = jsonb_build_object('voice_id', v_free[1]),
+        completed_at = now(), error_code = NULL, error_message = NULL, failed_at = NULL
+    WHERE id = p_attempt;
+  RETURN jsonb_build_object('outcome', 'claimed', 'voice_id', v_free[1]);
+END $$;
+REVOKE ALL ON FUNCTION public.claim_added_voice(uuid, text[]) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_added_voice(uuid, text[]) TO service_role;
+
 GRANT SELECT ON public.brand_voices, public.voiceovers TO authenticated;
 GRANT ALL ON public.brand_voices, public.voiceovers TO service_role;
 
@@ -187,24 +264,30 @@ CREATE POLICY "members read voiceovers" ON public.voiceovers FOR SELECT TO authe
 
 -- Files the server makes (a take's audio, a music track it imports or makes,
 -- a rendered edit) go to set places in the output bucket, and the server adds
--- each one's library record once the file is there. Members add records for
--- their own uploads only, never in the output bucket, and can't point a record
--- at another file, so nobody can take a place the server is about to fill
--- (which would leave billed work looking unfinished). The server is unaffected.
+-- each one's library record once the file is there, finding it again by that
+-- place. Members add records for their own uploads only, never in the output
+-- bucket, and can't point a record at another file or give it another id, so
+-- nobody can take a place the server is about to fill (which would leave
+-- billed work looking unfinished) or pass one record off as another. The
+-- server is unaffected.
 DROP POLICY IF EXISTS "members create assets" ON public.assets;
 CREATE POLICY "members create assets" ON public.assets FOR INSERT TO authenticated
   WITH CHECK (public.is_active_member() AND storage_bucket <> 'generated-assets');
 CREATE OR REPLACE FUNCTION public.keep_asset_location() RETURNS trigger
 LANGUAGE plpgsql SET search_path = public AS $$
 BEGIN
-  IF (NEW.storage_bucket IS DISTINCT FROM OLD.storage_bucket OR NEW.storage_path IS DISTINCT FROM OLD.storage_path)
-     AND current_user IN ('authenticated', 'anon') THEN
-    RAISE EXCEPTION 'A library record can''t be pointed at another file.' USING ERRCODE = 'insufficient_privilege';
+  IF current_user IN ('authenticated', 'anon') THEN
+    IF NEW.id IS DISTINCT FROM OLD.id THEN
+      RAISE EXCEPTION 'A library record keeps its id.' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    IF NEW.storage_bucket IS DISTINCT FROM OLD.storage_bucket OR NEW.storage_path IS DISTINCT FROM OLD.storage_path THEN
+      RAISE EXCEPTION 'A library record can''t be pointed at another file.' USING ERRCODE = 'insufficient_privilege';
+    END IF;
   END IF;
   RETURN NEW;
 END $$;
 DROP TRIGGER IF EXISTS assets_keep_location ON public.assets;
-CREATE TRIGGER assets_keep_location BEFORE UPDATE OF storage_bucket, storage_path ON public.assets
+CREATE TRIGGER assets_keep_location BEFORE UPDATE OF id, storage_bucket, storage_path ON public.assets
   FOR EACH ROW EXECUTE FUNCTION public.keep_asset_location();
 
 DROP TRIGGER IF EXISTS brand_voices_updated ON public.brand_voices;

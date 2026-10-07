@@ -8,7 +8,6 @@
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { isMissingTableError } from "@/lib/edit/errors";
-import { derivedUuid } from "../derived-id";
 import { AppError } from "../higgsfield/errors";
 import {
   alignScript,
@@ -412,34 +411,34 @@ function takeAssetValues(
 }
 
 /**
- * Adds a take's audio to the library, once. The record's id is derived from
- * the take's, so trying again (after an insert whose answer was lost, or when
- * the take is finished later from its file) finds the record already made
- * instead of adding another. A record under that id counts only if it is the
- * take's own file in the server-only bucket. Returns its id, or null if it
- * couldn't be added just now; a lookup that fails is thrown.
+ * Adds a take's audio to the library, once. A file has one library record
+ * (its place is unique), so trying again (after an insert whose answer was
+ * lost, or when the take is finished later from its file) finds the record
+ * already made instead of adding another. Only the server adds records in the
+ * output bucket, so the record at the take's place there is the take's own,
+ * whatever anyone else adds. Returns its id, or null if it couldn't be added
+ * just now; a lookup that fails is thrown.
  */
 async function keptAsset(
   take: Pick<TakeRow, "id" | "project_id" | "created_by">,
   values: Record<string, unknown>,
 ): Promise<string | null> {
-  const id = await derivedUuid(`voiceover-asset:${take.id}`);
   const path = takePath(take, "audio");
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const { error } = await supabaseAdmin
+    const { data: inserted, error } = await supabaseAdmin
       .from("assets")
-      .insert({ ...values, id, storage_bucket: OUTPUT_BUCKET, storage_path: path } as never);
-    if (!error) return id;
+      .insert({ ...values, storage_bucket: OUTPUT_BUCKET, storage_path: path } as never)
+      .select("id")
+      .maybeSingle();
+    if (!error && inserted) return (inserted as { id: string }).id;
     const { data: existing, error: lookupError } = await supabaseAdmin
       .from("assets")
-      .select("storage_bucket,storage_path")
-      .eq("id", id)
+      .select("id")
+      .eq("storage_bucket", OUTPUT_BUCKET)
+      .eq("storage_path", path)
       .maybeSingle();
     if (lookupError) throw takeUnchecked();
-    if (existing) {
-      if (existing.storage_bucket === OUTPUT_BUCKET && existing.storage_path === path) return id;
-      throw takeUnchecked();
-    }
+    if (existing) return (existing as { id: string }).id;
   }
   return null;
 }
@@ -1047,38 +1046,35 @@ export async function voiceAddedOnce<Details extends Record<string, unknown>>(in
       return { voiceId: attempt.output_payload.voice_id, name, details };
     const before = new Set(attempt.input_payload?.before ?? []);
     const fresh = (await named(name)).filter((id) => !before.has(id));
-    // New voices of that name that other attempts added are theirs.
-    const { data: claimed, error: claimedError } = fresh.length
-      ? await supabaseAdmin
-          .from("operations")
-          .select("output_payload")
-          .eq("operation_type", "voice_add")
-          .eq("status", "completed")
-          .in("output_payload->>voice_id" as never, fresh as never)
-      : { data: [], error: null };
-    if (claimedError) throw unchecked();
-    const taken = new Set(
-      ((claimed ?? []) as { output_payload: { voice_id?: string } | null }[]).map(
-        (row) => row.output_payload?.voice_id,
-      ),
+    const pending = {
+      pending: `“${name}” hasn't appeared in your ElevenLabs account yet. Try again in a minute to pick it up.`,
+    };
+    if (!fresh.length) return pending;
+    // Taken in one step by the database (claim_added_voice): new voices of
+    // that name that other attempts have are theirs, and two attempts checked
+    // at once can't both take the same one.
+    const { data: claim, error: claimError } = await supabaseAdmin.rpc(
+      "claim_added_voice" as never,
+      { p_attempt: attempt.id, p_fresh: fresh } as never,
     );
-    const appeared = fresh.filter((id) => !taken.has(id));
-    if (appeared.length === 1) {
-      await record(attempt.id, {
-        status: "completed",
-        output_payload: { voice_id: appeared[0] },
-        completed_at: new Date().toISOString(),
-      });
-      return { voiceId: appeared[0]!, name, details };
+    if (claimError) throw unchecked();
+    const outcome = (claim ?? null) as { outcome?: string; voice_id?: string } | null;
+    if (outcome?.outcome === "claimed" && outcome.voice_id)
+      return { voiceId: outcome.voice_id, name, details };
+    // Settled otherwise meanwhile (another request finished or failed it): as it is now.
+    if (outcome?.outcome === "changed") {
+      const now = await load();
+      if (now?.status === "failed" || (now?.status === "completed" && now.output_payload?.voice_id))
+        return settled(now, alreadyTakenUp);
+      throw unchecked();
     }
-    if (appeared.length > 1)
+    if (outcome?.outcome === "many")
       throw new AppError(
         "INVALID_PARAMETERS",
         `More than one new voice called “${name}” is in your ElevenLabs account, so the studio can't tell which is this one. Choose it under My voices.`,
       );
-    return {
-      pending: `“${name}” hasn't appeared in your ElevenLabs account yet. Try again in a minute to pick it up.`,
-    };
+    if (outcome?.outcome === "pending") return pending;
+    throw unchecked();
   };
   return settled(await load());
 }
