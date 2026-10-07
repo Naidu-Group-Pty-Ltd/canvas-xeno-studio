@@ -95,7 +95,11 @@ LANGUAGE sql STABLE SECURITY INVOKER SET search_path = public AS $$
     FROM public.music_tracks AS track
    WHERE (p_include_archived OR NOT track.is_archived)
      AND (p_kind IS NULL OR track.kind = p_kind)
-     AND (NOT p_ready_only OR track.status = 'ready')
+     -- Addable means ready, with its audio still in the library (not deleted).
+     AND (NOT p_ready_only OR (track.status = 'ready' AND EXISTS (
+       SELECT 1 FROM public.assets AS asset
+        WHERE asset.id = track.asset_id AND asset.deleted_at IS NULL
+     )))
      AND NOT EXISTS (
        SELECT 1
          FROM unnest(regexp_split_to_array(lower(btrim(coalesce(p_query, ''))), '\s+')) AS word
