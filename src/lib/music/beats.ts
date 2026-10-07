@@ -14,6 +14,7 @@ import {
   updateClip,
   type Timeline,
   type TimelineAudio,
+  type TimelineLayout,
 } from "@/lib/edit/timeline";
 
 export interface BeatAnalysis {
@@ -215,12 +216,27 @@ export function beatTimesOnTimeline(item: TimelineAudio, beats: number[], total:
   return [...new Set(times)].sort((a, b) => a - b);
 }
 
+/** Where a clip's cut falls: the midpoint of the transition out of it, else its end. */
+function cutAfter(layout: TimelineLayout, index: number): number {
+  const entry = layout.clips[index]!;
+  const next = layout.clips[index + 1];
+  return next ? entry.end - next.transitionIn / 2 : entry.end;
+}
+
 /**
  * Moves each cut to the nearest beat by lengthening or shortening the clip
  * before it (a transition's midpoint counts as its cut). Clips keep at least
  * `minClip` seconds and never run past their footage, and the edit never
  * grows past the render limit. The final frame lands on a beat too, when one
  * is close.
+ *
+ * A clip's length can also change the transitions either side of it, since
+ * they are shortened to fit their clips: a transition held short by this clip
+ * grows with it, moving its midpoint by only half as much. So each length is
+ * tried in the layout as it would then be. The cut must land on the beat
+ * (within half a frame), and the clip must still start where it did, so cuts
+ * already on the beat stay there. A cut that can't be placed that way stays
+ * where it is.
  */
 export function snapCutsToBeats(
   timeline: Timeline,
@@ -231,30 +247,39 @@ export function snapCutsToBeats(
   const spacing =
     beatTimes.length > 1 ? (beatTimes.at(-1)! - beatTimes[0]!) / (beatTimes.length - 1) : 1;
   const maxShift = options.maxShift ?? Math.max(0.15, spacing * 0.75);
+  const fps = timeline.fps;
+  const onBeat = 0.5 / fps + 1e-9;
+  // A cut moves at least half as far as its clip's length changes.
+  const reach = Math.ceil(2 * maxShift * fps) + 1;
   let result = timeline;
   let moved = 0;
   for (let index = 0; index < result.clips.length; index += 1) {
     const layout = layoutTimeline(result);
-    const entry = layout.clips[index]!;
-    const next = layout.clips[index + 1];
-    const cut = next ? entry.end - next.transitionIn / 2 : entry.end;
+    const cut = cutAfter(layout, index);
+    const start = layout.clips[index]!.start;
     const clip = result.clips[index]!;
     const ceiling = maxClipDuration(clip);
-    const candidates = beatTimes
-      .map((time) => ({ time, shift: time - cut }))
-      .filter(({ shift }) => Math.abs(shift) <= maxShift)
-      .filter(
-        ({ shift }) =>
-          clip.duration + shift >= minClip &&
-          clip.duration + shift <= ceiling + 1e-6 &&
-          (shift <= 0 || layout.total + shift <= LIMITS.totalSeconds + 1e-6),
-      )
-      .sort((a, b) => Math.abs(a.shift) - Math.abs(b.shift));
-    const best = candidates[0];
-    if (!best || Math.abs(best.shift) < 0.5 / timeline.fps) continue;
-    result = updateClip(result, clip.id, {
-      duration: Number((clip.duration + best.shift).toFixed(3)),
-    });
+    const frames = Math.round(clip.duration * fps);
+    const beats = beatTimes
+      .filter((time) => Math.abs(time - cut) <= maxShift)
+      .sort((a, b) => Math.abs(a - cut) - Math.abs(b - cut));
+    if (!beats.length || Math.abs(beats[0]! - cut) < onBeat) continue;
+    let best: { duration: number; miss: number } | null = null;
+    for (const beat of beats) {
+      for (let count = frames - reach; count <= frames + reach; count += 1) {
+        const duration = Number((count / fps).toFixed(3));
+        if (count === frames || count < 2 || duration < minClip || duration > ceiling + 1e-6)
+          continue;
+        const laid = layoutTimeline(updateClip(result, clip.id, { duration }));
+        if (Math.abs(laid.clips[index]!.start - start) > 1e-9) continue;
+        if (laid.total > layout.total && laid.total > LIMITS.totalSeconds + 1e-6) continue;
+        const miss = Math.abs(cutAfter(laid, index) - beat);
+        if (miss < onBeat && (!best || miss < best.miss)) best = { duration, miss };
+      }
+      if (best) break;
+    }
+    if (!best) continue;
+    result = updateClip(result, clip.id, { duration: best.duration });
     moved += 1;
   }
   return { timeline: result, moved };
