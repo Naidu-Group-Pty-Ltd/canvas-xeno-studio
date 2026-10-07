@@ -973,7 +973,8 @@ const designShown = new Set<(owner: string) => void>();
  * browser has room for it; without it the options can still be kept, just not
  * played.
  */
-const designedKey = (userId: string) => `xeno:voice-designed-options:${userId}`;
+const DESIGNED_PREFIX = "xeno:voice-designed-options:";
+const designedKey = (userId: string) => `${DESIGNED_PREFIX}${userId}`;
 
 function keepDesigned(
   userId: string,
@@ -1016,6 +1017,26 @@ function savedDesigned(userId: string): { description: string; previews: DesignP
     return null;
   }
 }
+
+// Options kept, or replaced by a new design, in another tab are done with here
+// too, and the new ones show here as well: an option already kept is never
+// offered again.
+if (typeof window !== "undefined")
+  window.addEventListener("storage", (event) => {
+    if (event.storageArea !== window.localStorage) return;
+    const owners =
+      event.key === null
+        ? [...designedOptions.keys()]
+        : event.key.startsWith(DESIGNED_PREFIX)
+          ? [event.key.slice(DESIGNED_PREFIX.length)]
+          : [];
+    for (const owner of owners) {
+      const saved = savedDesigned(owner);
+      if (saved) designedOptions.set(owner, { ...saved, unseen: true });
+      else designedOptions.delete(owner);
+      for (const show of designShown) show(owner);
+    }
+  });
 
 interface SaveRequest {
   generatedVoiceId: string;
@@ -1110,8 +1131,13 @@ function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => voi
       if (saved) designedOptions.set(userId, { ...saved, unseen: true });
     }
     const show = (owner: string) => {
+      if (owner !== userId) return;
       const kept = designedOptions.get(owner);
-      if (owner !== userId || !kept) return;
+      // None now (one was kept, or a new design began, in another tab): none shown.
+      if (!kept) {
+        setPreviews([]);
+        return;
+      }
       setPreviews(kept.previews);
       setDescription((current) => current || kept.description);
       if (kept.unseen) {
@@ -1221,8 +1247,12 @@ function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => voi
       setPending(null);
       keepSave(userId, null);
       keepAttempt("voice-design", generatedVoiceId, null);
-      // One of them is kept: the rest no longer need to outlast a reload.
+      // One of them is kept, so the options are done with: they aren't offered
+      // again (here, in a designer opened later, or after a reload), where the
+      // one kept could be added a second time.
+      designedOptions.delete(userId);
       keepDesigned(userId, null);
+      setPreviews([]);
       onPick({
         providerVoiceId: saved.voiceId,
         providerVoiceName: saved.name,
