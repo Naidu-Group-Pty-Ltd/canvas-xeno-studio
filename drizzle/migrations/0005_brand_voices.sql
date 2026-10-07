@@ -195,6 +195,58 @@ END $$;
 REVOKE ALL ON FUNCTION public.set_default_brand_voice(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.set_default_brand_voice(uuid) TO service_role;
 
+-- A voice added to ElevenLabs whose answer was lost is found later as a new
+-- voice of its name. Each such voice goes to one attempt only: checks take
+-- turns, and a voice another attempt already has is passed over, so two
+-- attempts checked at the same moment can't both take the same voice.
+-- Outcome: claimed (with the attempt's voice, also when it already had one),
+-- pending (none of these is free yet), many (more than one is, so it can't
+-- tell which), changed (the attempt was settled otherwise meanwhile) or
+-- missing. Server only.
+CREATE OR REPLACE FUNCTION public.claim_added_voice(p_attempt uuid, p_fresh text[])
+RETURNS jsonb
+LANGUAGE plpgsql
+VOLATILE
+SET search_path = public
+AS $$
+DECLARE
+  v_status text;
+  v_voice text;
+  v_free text[];
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtext('public.claim_added_voice'));
+  SELECT status, output_payload->>'voice_id' INTO v_status, v_voice
+    FROM public.operations WHERE id = p_attempt AND operation_type = 'voice_add';
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('outcome', 'missing');
+  END IF;
+  IF v_status = 'completed' AND v_voice IS NOT NULL THEN
+    RETURN jsonb_build_object('outcome', 'claimed', 'voice_id', v_voice);
+  END IF;
+  IF v_status NOT IN ('running', 'submission_uncertain') THEN
+    RETURN jsonb_build_object('outcome', 'changed');
+  END IF;
+  SELECT array_agg(DISTINCT candidate) INTO v_free
+    FROM unnest(p_fresh) AS candidate
+    WHERE NOT EXISTS (
+      SELECT 1 FROM public.operations
+      WHERE operation_type = 'voice_add' AND status = 'completed' AND output_payload->>'voice_id' = candidate
+    );
+  IF v_free IS NULL THEN
+    RETURN jsonb_build_object('outcome', 'pending');
+  END IF;
+  IF cardinality(v_free) > 1 THEN
+    RETURN jsonb_build_object('outcome', 'many');
+  END IF;
+  UPDATE public.operations
+    SET status = 'completed', output_payload = jsonb_build_object('voice_id', v_free[1]),
+        completed_at = now(), error_code = NULL, error_message = NULL, failed_at = NULL
+    WHERE id = p_attempt;
+  RETURN jsonb_build_object('outcome', 'claimed', 'voice_id', v_free[1]);
+END $$;
+REVOKE ALL ON FUNCTION public.claim_added_voice(uuid, text[]) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_added_voice(uuid, text[]) TO service_role;
+
 GRANT SELECT ON public.brand_voices, public.voiceovers TO authenticated;
 GRANT ALL ON public.brand_voices, public.voiceovers TO service_role;
 

@@ -1046,38 +1046,35 @@ export async function voiceAddedOnce<Details extends Record<string, unknown>>(in
       return { voiceId: attempt.output_payload.voice_id, name, details };
     const before = new Set(attempt.input_payload?.before ?? []);
     const fresh = (await named(name)).filter((id) => !before.has(id));
-    // New voices of that name that other attempts added are theirs.
-    const { data: claimed, error: claimedError } = fresh.length
-      ? await supabaseAdmin
-          .from("operations")
-          .select("output_payload")
-          .eq("operation_type", "voice_add")
-          .eq("status", "completed")
-          .in("output_payload->>voice_id" as never, fresh as never)
-      : { data: [], error: null };
-    if (claimedError) throw unchecked();
-    const taken = new Set(
-      ((claimed ?? []) as { output_payload: { voice_id?: string } | null }[]).map(
-        (row) => row.output_payload?.voice_id,
-      ),
+    const pending = {
+      pending: `“${name}” hasn't appeared in your ElevenLabs account yet. Try again in a minute to pick it up.`,
+    };
+    if (!fresh.length) return pending;
+    // Taken in one step by the database (claim_added_voice): new voices of
+    // that name that other attempts have are theirs, and two attempts checked
+    // at once can't both take the same one.
+    const { data: claim, error: claimError } = await supabaseAdmin.rpc(
+      "claim_added_voice" as never,
+      { p_attempt: attempt.id, p_fresh: fresh } as never,
     );
-    const appeared = fresh.filter((id) => !taken.has(id));
-    if (appeared.length === 1) {
-      await record(attempt.id, {
-        status: "completed",
-        output_payload: { voice_id: appeared[0] },
-        completed_at: new Date().toISOString(),
-      });
-      return { voiceId: appeared[0]!, name, details };
+    if (claimError) throw unchecked();
+    const outcome = (claim ?? null) as { outcome?: string; voice_id?: string } | null;
+    if (outcome?.outcome === "claimed" && outcome.voice_id)
+      return { voiceId: outcome.voice_id, name, details };
+    // Settled otherwise meanwhile (another request finished or failed it): as it is now.
+    if (outcome?.outcome === "changed") {
+      const now = await load();
+      if (now?.status === "failed" || (now?.status === "completed" && now.output_payload?.voice_id))
+        return settled(now, alreadyTakenUp);
+      throw unchecked();
     }
-    if (appeared.length > 1)
+    if (outcome?.outcome === "many")
       throw new AppError(
         "INVALID_PARAMETERS",
         `More than one new voice called “${name}” is in your ElevenLabs account, so the studio can't tell which is this one. Choose it under My voices.`,
       );
-    return {
-      pending: `“${name}” hasn't appeared in your ElevenLabs account yet. Try again in a minute to pick it up.`,
-    };
+    if (outcome?.outcome === "pending") return pending;
+    throw unchecked();
   };
   return settled(await load());
 }
