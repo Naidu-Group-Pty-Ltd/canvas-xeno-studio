@@ -283,14 +283,6 @@ export function licenceTerms(
   const expiresOn = text("expiresOn");
   const territories = text("territories");
   const licensor = text("licensor");
-  const summary = [
-    licensor ? `From ${licensor}` : "Licensed",
-    uses.length ? uses.join(", ") : "no uses recorded",
-    territories,
-    expiresOn ? `until ${expiresOn}` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
   return {
     licensor,
     reference: text("reference"),
@@ -300,8 +292,53 @@ export function licenceTerms(
     expiresOn,
     expired: rightsExpired(rights, now),
     notes: text("notes"),
-    summary,
+    summary: licenceSummary({ licensor, uses, territories, expiresOn }),
   };
+}
+
+/** "From Epidemic Sound · Paid social and online ads · Worldwide · until 2027-01-31". */
+function licenceSummary(terms: {
+  licensor: string | null;
+  uses: string[];
+  territories: string | null;
+  expiresOn: string | null;
+}): string {
+  return [
+    terms.licensor ? `From ${terms.licensor}` : "Licensed",
+    terms.uses.length ? terms.uses.join(", ") : "no uses recorded",
+    terms.territories,
+    terms.expiresOn ? `until ${terms.expiresOn}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/**
+ * One licence kept with a rendered video (its `music_licences` metadata),
+ * worded as the track's terms were when it was rendered: what it was licensed
+ * for and where, its reference and conditions; for AI music, who made it and
+ * its usage limits.
+ */
+export function keptLicenceLine(entry: Record<string, unknown>): string {
+  const text = (key: string) =>
+    typeof entry[key] === "string" && (entry[key] as string).trim()
+      ? (entry[key] as string).trim()
+      : null;
+  const name = text("title") ?? "Music";
+  const notes = text("notes");
+  if (entry["licence"] !== "licensed")
+    return `${name}: ${text("licensor") ?? "licensed"}${notes ? ` · ${notes}` : ""}`;
+  const uses = Array.isArray(entry["uses"])
+    ? (entry["uses"] as unknown[]).filter((use): use is string => typeof use === "string")
+    : [];
+  const summary = licenceSummary({
+    licensor: text("licensor"),
+    uses,
+    territories: text("territories"),
+    expiresOn: text("expires_on"),
+  });
+  const reference = text("reference");
+  return `${name}: ${summary}${reference ? ` · Ref ${reference}` : ""}${notes ? ` · Conditions: ${notes}` : ""}`;
 }
 
 /** Why a track can't go into new work, or null when it can. */

@@ -29,7 +29,13 @@ import {
   renderInProgress,
 } from "@/lib/edit/renders";
 import { useTracksForAssets } from "@/hooks/useMusicData";
-import { licenceBlocker, licenceTerms, MUSIC_LICENSES, videoCreditLine } from "@/lib/music/catalog";
+import {
+  keptLicenceLine,
+  licenceBlocker,
+  licenceTerms,
+  MUSIC_LICENSES,
+  videoCreditLine,
+} from "@/lib/music/catalog";
 
 interface RenderPanelProps {
   sequenceId: string;
@@ -319,12 +325,7 @@ function keptMusic(metadata: unknown): { credits: string[]; terms: string[] } {
     : [];
   const terms = (Array.isArray(record.music_licences) ? record.music_licences : [])
     .filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === "object")
-    .map((entry) => {
-      const text = (key: string) => (typeof entry[key] === "string" ? (entry[key] as string) : "");
-      const until = text("expires_on") ? `, until ${text("expires_on")}` : "";
-      const notes = text("notes") ? ` · ${text("notes")}` : "";
-      return `${text("title") || "Music"}: ${text("licensor") || "licensed"}${until}${notes}`;
-    });
+    .map(keptLicenceLine);
   return { credits, terms };
 }
 

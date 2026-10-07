@@ -56,6 +56,7 @@ export function FindMusic({
   const [searching, setSearching] = useState(false);
   const [adding, setAdding] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
+  const morePages = page < Math.min(pages, 12);
 
   async function search(nextPage = 1) {
     setSearching(true);
@@ -215,11 +216,15 @@ export function FindMusic({
         })}
         {searched && !searching && results.length === 0 && (
           <li className="p-3 text-center text-xs text-muted-foreground">
-            Nothing found. Try broader words.
+            {morePages
+              ? "Nothing on this page can be added. Try more results or broader words."
+              : "Nothing found. Try broader words."}
           </li>
         )}
       </ul>
-      {results.length > 0 && page < Math.min(pages, 12) && (
+      {/* Results the studio can't download are left out, so a page can come
+          back empty while later pages still have tracks. */}
+      {searched && morePages && (
         <Button
           variant="ghost"
           size="sm"
