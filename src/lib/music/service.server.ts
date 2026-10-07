@@ -649,6 +649,8 @@ export async function makeInstrumental(input: {
     .from("assets")
     .select("storage_bucket,storage_path,mime_type,project_id")
     .eq("id", parent["asset_id"] as string)
+    // Audio removed from the library isn't sent off (and paid for) again.
+    .is("deleted_at", null)
     .maybeSingle();
   if (assetError) throw trackUnchecked();
   if (!asset)
