@@ -20,11 +20,14 @@ interface TrackSummary {
    * then follows that work.
    */
   requestId: string | null;
+  /** An instrumental already in the library, returned instead of making (and paying for) another. */
+  reused: boolean;
 }
 
 function summary(result: {
   track: Record<string, unknown> & { id: string };
   duplicate: boolean;
+  reused?: boolean;
 }): TrackSummary {
   const { track } = result;
   return {
@@ -36,6 +39,7 @@ function summary(result: {
     durationSeconds: track["duration_seconds"] == null ? null : Number(track["duration_seconds"]),
     duplicate: result.duplicate,
     requestId: typeof track["dedupe_key"] === "string" ? track["dedupe_key"] : null,
+    reused: result.reused === true,
   };
 }
 
@@ -135,7 +139,12 @@ export const makeInstrumentalTrack = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) =>
     z
-      .object({ trackId: z.string().uuid(), clientRequestId: z.string().min(8).max(64) })
+      .object({
+        trackId: z.string().uuid(),
+        clientRequestId: z.string().min(8).max(64),
+        /** A new instrumental even if the track has one already (charged again). */
+        again: z.boolean().default(false),
+      })
       .parse(data),
   )
   .handler(async ({ data, context }) => {

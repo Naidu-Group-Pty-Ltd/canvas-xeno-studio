@@ -727,12 +727,46 @@ export async function generateMusic(input: {
   return { track: ready, duplicate: false };
 }
 
-/** A new track with the vocals removed (one billable stem separation). */
+/**
+ * An instrumental of this track that is already in the library: made, with
+ * its audio still there (archived or not), the newest first.
+ */
+async function readyInstrumental(parentId: string): Promise<TrackRow | null> {
+  const { data, error } = await supabaseAdmin
+    .from("music_tracks")
+    .select("*")
+    .eq("parent_track_id", parentId)
+    .eq("source", "derived")
+    .eq("status", "ready")
+    .not("asset_id", "is", null)
+    .order("created_at", { ascending: false });
+  if (error) throw trackUnchecked();
+  const children = (data ?? []) as TrackRow[];
+  if (!children.length) return null;
+  const { data: kept, error: keptError } = await supabaseAdmin
+    .from("assets")
+    .select("id")
+    .in(
+      "id",
+      children.map((child) => String(child["asset_id"])),
+    )
+    .is("deleted_at", null);
+  if (keptError) throw trackUnchecked();
+  const inLibrary = new Set(((kept ?? []) as { id: string }[]).map((row) => row.id));
+  return children.find((child) => inLibrary.has(String(child["asset_id"]))) ?? null;
+}
+
+/**
+ * A new track with the vocals removed (one billable stem separation). If the
+ * track already has an instrumental in the library, that one is returned
+ * instead, unless a new one is asked for (`again`), which is charged again.
+ */
 export async function makeInstrumental(input: {
   userId: string;
   trackId: string;
   clientRequestId: string;
-}): Promise<{ track: TrackRow; duplicate: boolean }> {
+  again?: boolean;
+}): Promise<{ track: TrackRow; duplicate: boolean; reused?: boolean }> {
   await requireActiveMember(input.userId);
   await settleInterrupted();
   const repeat = await existingByKey(input.clientRequestId);
@@ -754,6 +788,11 @@ export async function makeInstrumental(input: {
   const sameSplit = () => inProgress({ source: "derived", parent_track_id: parent.id });
   const making = await sameSplit();
   if (making) return { track: await relinked(making), duplicate: true };
+  // One already made is used rather than paid for again, unless a new one is asked for.
+  if (!input.again) {
+    const made = await readyInstrumental(parent.id);
+    if (made) return { track: made, duplicate: true, reused: true };
+  }
   const { data: asset, error: assetError } = await supabaseAdmin
     .from("assets")
     .select("storage_bucket,storage_path,mime_type,project_id")

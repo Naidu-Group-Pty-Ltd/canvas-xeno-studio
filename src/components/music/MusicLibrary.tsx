@@ -69,6 +69,11 @@ export function MusicLibrary({
       else next.delete(trackId);
       return next;
     });
+  // Tracks found to have an instrumental in the library already: asking for
+  // one returned it (not made, or paid for, again), and another is offered as
+  // "Make a new instrumental (charged again)".
+  const [madeSplits, setMadeSplits] = useState<ReadonlySet<string>>(new Set());
+  const markMade = (trackId: string) => setMadeSplits((current) => new Set(current).add(trackId));
 
   async function instrumental(track: MusicTrackRow, startOver = false) {
     setWorking(track.id);
@@ -92,14 +97,21 @@ export function MusicLibrary({
     };
     try {
       const made = await makeInstrumentalTrack({
-        data: { trackId: track.id, clientRequestId: id },
+        data: { trackId: track.id, clientRequestId: id, again: startOver },
       });
       // Another request was already making it: follow that one.
       if (made.requestId && made.requestId !== id) {
         attempts.current.set(track.id, made.requestId);
         keepAttempt("instrumental", track.id, made.requestId);
       }
-      if (made.status === "ready") {
+      if (made.reused) {
+        settled();
+        holdSplit(track.id, false);
+        markMade(track.id);
+        toast.message(`This track already has an instrumental: “${made.title}”`, {
+          description: "It's in the library. Making a new one is charged again.",
+        });
+      } else if (made.status === "ready") {
         settled();
         holdSplit(track.id, false);
         toast.success("Instrumental added to the library");
@@ -217,12 +229,12 @@ export function MusicLibrary({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      {canSplit && !heldSplits.has(track.id) && (
+                      {canSplit && !heldSplits.has(track.id) && !madeSplits.has(track.id) && (
                         <DropdownMenuItem onClick={() => void instrumental(track)}>
                           <Wand2 className="mr-2 size-4" /> Make instrumental
                         </DropdownMenuItem>
                       )}
-                      {canSplit && heldSplits.has(track.id) && (
+                      {canSplit && (heldSplits.has(track.id) || madeSplits.has(track.id)) && (
                         <DropdownMenuItem onClick={() => void instrumental(track, true)}>
                           <Wand2 className="mr-2 size-4" /> Make a new instrumental (charged again)
                         </DropdownMenuItem>
