@@ -71,8 +71,10 @@ export function MusicPanel({
   const [mode, setMode] = useState<"library" | "find" | "make">("library");
   const [replace, setReplace] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  // A music bed is added once; a sound effect can be placed again, at another moment.
   const added = useMemo(
-    () => new Set(timeline.audio.map((item) => item.assetId)),
+    () =>
+      new Set(timeline.audio.filter((item) => item.role === "music").map((item) => item.assetId)),
     [timeline.audio],
   );
   const bed = timeline.audio.find((item) => item.role === "music");

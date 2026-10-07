@@ -27,6 +27,13 @@ const LENGTHS = [
   { id: "medium", label: "2 – 10 min" },
 ] as const;
 
+/** What a search was for. */
+interface SearchCriteria {
+  query: string;
+  kind: "music" | "sound_effect";
+  length: (typeof LENGTHS)[number]["id"];
+}
+
 /**
  * Free music and sound effects from Openverse, limited to licences that
  * allow commercial use and edits. Adding one copies it into the library with
@@ -56,15 +63,25 @@ export function FindMusic({
   const [searching, setSearching] = useState(false);
   const [adding, setAdding] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
+  // What the results shown were searched for: more results go on with it,
+  // whatever has been typed or picked since (a new search starts over).
+  const [shownFor, setShownFor] = useState<SearchCriteria | null>(null);
   const morePages = page < Math.min(pages, 12);
 
   async function search(nextPage = 1) {
+    const criteria: SearchCriteria = nextPage > 1 && shownFor ? shownFor : { query, kind, length };
     setSearching(true);
     try {
       const result = await searchOpenverseMusic({
-        data: { query, kind, page: nextPage, ...(length !== "any" ? { length } : {}) },
+        data: {
+          query: criteria.query,
+          kind: criteria.kind,
+          page: nextPage,
+          ...(criteria.length !== "any" ? { length: criteria.length } : {}),
+        },
       });
       setResults((current) => (nextPage === 1 ? result.tracks : [...current, ...result.tracks]));
+      setShownFor(criteria);
       setPage(nextPage);
       setPages(result.pages);
       setSearched(true);
