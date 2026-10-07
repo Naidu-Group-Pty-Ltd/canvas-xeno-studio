@@ -10,7 +10,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { AppError } from "../higgsfield/errors";
 import { appBaseUrl } from "../generation-pipeline.server";
 import { mediaWorkerConfigured, submitWorkerTask } from "../media/worker.server";
-import { RENDER_STALL_MS, RENDER_UNCONFIRMED_STAGE } from "./renders";
+import { RENDER_BUSY_STAGE, RENDER_STALL_MS, RENDER_UNCONFIRMED_STAGE } from "./renders";
 import { buildRenderRequest, parseTimeline, renderBlockers, type Timeline } from "./timeline";
 
 const OUTPUT_BUCKET = "generated-assets";
@@ -266,12 +266,14 @@ async function submitRender(input: {
   // without running it twice, so the same task is simply sent again.
   const unanswered = (call: { ok: boolean; status: number }) =>
     !call.ok && (call.status === 0 || call.status >= 500);
+  // A full queue (429) took nothing and asks for the task again shortly.
+  const busy = (call: { ok: boolean; status: number }) => !call.ok && call.status === 429;
   let submission = await submitWorkerTask(task);
-  if (unanswered(submission)) {
+  if (unanswered(submission) || busy(submission)) {
     await new Promise((resolve) => setTimeout(resolve, 2000));
     submission = await submitWorkerTask(task);
   }
-  if (!submission.ok && !unanswered(submission)) {
+  if (!submission.ok && !unanswered(submission) && !busy(submission)) {
     await fail(
       submission.errorCode ?? "UNKNOWN",
       submission.errorMessage ?? "The media service rejected the render",
@@ -279,13 +281,14 @@ async function submitRender(input: {
   }
 
   if (!submission.ok) {
-    // Still unanswered: the render stays open, so the worker's heartbeats and
-    // result still count. Its task stays "submitting", so it can be sent again
-    // (see resendSequenceRender) if the service never got it; if it never
+    // Still unanswered, or the queue is still full: the render stays open, so
+    // the worker's heartbeats and result still count. Its task stays
+    // "submitting", so it can be sent again (see resendSequenceRender; the
+    // Render panel does so by itself while the queue is full). If it never
     // reports, it is closed as stalled.
     await supabaseAdmin
       .from("sequence_renders")
-      .update({ stage: RENDER_UNCONFIRMED_STAGE } as never)
+      .update({ stage: busy(submission) ? RENDER_BUSY_STAGE : RENDER_UNCONFIRMED_STAGE } as never)
       .eq("id", renderId)
       .eq("status", "queued");
     return { renderId, status: "queued", duplicate: false };

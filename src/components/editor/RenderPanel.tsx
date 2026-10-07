@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -21,7 +21,12 @@ import { signedUrl } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { RENDER_UNCONFIRMED_STAGE, renderInProgress } from "@/lib/edit/renders";
+import {
+  RENDER_BUSY_RETRY_MS,
+  RENDER_BUSY_STAGE,
+  RENDER_UNCONFIRMED_STAGE,
+  renderInProgress,
+} from "@/lib/edit/renders";
 
 interface RenderPanelProps {
   sequenceId: string;
@@ -79,21 +84,44 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
     }
   }
 
-  // A render the media service never confirmed taking can be sent again: the
-  // worker runs a task id once, and one it already has isn't sent again.
-  async function resend(renderId: string) {
+  // A render the media service never confirmed taking, or was too busy to
+  // take, can be sent again: the worker runs a task id once, and one it
+  // already has isn't sent again.
+  const sending = useRef(false);
+  async function resend(renderId: string, quietly = false) {
+    if (sending.current) return;
+    sending.current = true;
     setResending(true);
     try {
       const sent = await resendRender({ data: { renderId } });
-      if (sent.status === "queued")
-        toast.message("Sent again. Waiting for the media service to confirm.");
+      if (sent.status === "queued" && !quietly)
+        toast.message("Sent again. Still waiting for the media service.");
       await queryClient.invalidateQueries({ queryKey: ["sequence_renders", sequenceId] });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "The render could not be sent again");
+      if (!quietly)
+        toast.error(error instanceof Error ? error.message : "The render could not be sent again");
     } finally {
+      sending.current = false;
       setResending(false);
     }
   }
+
+  // While the media service's queue is full, the render is sent again by
+  // itself for as long as this panel is open.
+  const resendLatest = useRef(resend);
+  useEffect(() => {
+    resendLatest.current = resend;
+  });
+  const waitingForRoom =
+    active?.status === "queued" && active.stage === RENDER_BUSY_STAGE ? active.id : null;
+  useEffect(() => {
+    if (!waitingForRoom) return;
+    const timer = setInterval(
+      () => void resendLatest.current(waitingForRoom, true),
+      RENDER_BUSY_RETRY_MS,
+    );
+    return () => clearInterval(timer);
+  }, [waitingForRoom]);
 
   const workerProblem =
     worker && !worker.configured
@@ -135,19 +163,26 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
           <p className="text-[11px] text-muted-foreground">
             You can keep editing; this render uses the version you saved when you pressed Render.
           </p>
-          {active.status === "queued" && active.stage === RENDER_UNCONFIRMED_STAGE && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 w-full text-xs"
-              disabled={resending}
-              onClick={() => void resend(active.id)}
-              data-testid="render-resend"
-            >
-              {resending && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
-              Send again
-            </Button>
+          {waitingForRoom && (
+            <p className="text-[11px] text-muted-foreground" data-testid="render-busy">
+              The media service&apos;s queue is full. This render is sent again every{" "}
+              {RENDER_BUSY_RETRY_MS / 1000} seconds while this panel is open.
+            </p>
           )}
+          {active.status === "queued" &&
+            (active.stage === RENDER_UNCONFIRMED_STAGE || active.stage === RENDER_BUSY_STAGE) && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 w-full text-xs"
+                disabled={resending}
+                onClick={() => void resend(active.id)}
+                data-testid="render-resend"
+              >
+                {resending && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
+                Send again
+              </Button>
+            )}
         </div>
       )}
 
