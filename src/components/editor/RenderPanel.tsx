@@ -13,7 +13,7 @@ import {
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useSequenceRenders, type RenderRow } from "@/hooks/useEditorData";
+import { useAssetsByIds, useSequenceRenders, type RenderRow } from "@/hooks/useEditorData";
 import { getMediaWorkerStatus } from "@/lib/media.functions";
 import { renderSequence } from "@/lib/edit.functions";
 import { keepAttempt, savedAttempt } from "@/lib/attempts";
@@ -24,7 +24,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { renderInProgress } from "@/lib/edit/renders";
 import { useTracksForAssets } from "@/hooks/useMusicData";
-import { creditLine, licenceBlocker, licenceTerms, MUSIC_LICENSES } from "@/lib/music/catalog";
+import { licenceBlocker, licenceTerms, MUSIC_LICENSES, videoCreditLine } from "@/lib/music/catalog";
 
 interface RenderPanelProps {
   sequenceId: string;
@@ -52,12 +52,20 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
   });
   const blockers = renderBlockers(timeline);
   const active = renders.find((render) => renderInProgress(render));
+  const renderedIds = useMemo(
+    () =>
+      renders
+        .filter((render) => render.status === "completed" && render.asset_id)
+        .map((render) => render.asset_id!),
+    [renders],
+  );
+  const { data: renderedFiles } = useAssetsByIds(renderedIds);
   // Only audio heard in the render needs a credit or a licence check.
   const audioIds = useMemo(() => audibleAudio(timeline).map((item) => item.assetId), [timeline]);
   const { data: musicTracks = [] } = useTracksForAssets(audioIds);
   const credits = [
     ...new Set(
-      musicTracks.map((track) => creditLine(track)).filter((line): line is string => !!line),
+      musicTracks.map((track) => videoCreditLine(track)).filter((line): line is string => !!line),
     ),
   ];
   // Licensed music: an expired licence stops the render; limits are shown before rendering.
@@ -224,7 +232,12 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
           <h3 className="label-eyebrow">Renders</h3>
           <ul className="space-y-1.5">
             {renders.map((render) => (
-              <RenderItem key={render.id} render={render} title={title} />
+              <RenderItem
+                key={render.id}
+                render={render}
+                title={title}
+                kept={render.asset_id ? renderedFiles?.get(render.asset_id)?.metadata : undefined}
+              />
             ))}
           </ul>
         </div>
@@ -233,8 +246,37 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
   );
 }
 
-function RenderItem({ render, title }: { render: RenderRow; title: string }) {
+/** The music credit and terms kept with a rendered video, ready to show. */
+function keptMusic(metadata: unknown): { credits: string[]; terms: string[] } {
+  const record = (metadata ?? {}) as { music_credits?: unknown; music_licences?: unknown };
+  const credits = Array.isArray(record.music_credits)
+    ? record.music_credits.filter((line): line is string => typeof line === "string")
+    : [];
+  const terms = (Array.isArray(record.music_licences) ? record.music_licences : [])
+    .filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === "object")
+    .map((entry) => {
+      const text = (key: string) => (typeof entry[key] === "string" ? (entry[key] as string) : "");
+      const until = text("expires_on") ? `, until ${text("expires_on")}` : "";
+      const notes = text("notes") ? ` · ${text("notes")}` : "";
+      return `${text("title") || "Music"}: ${text("licensor") || "licensed"}${until}${notes}`;
+    });
+  return { credits, terms };
+}
+
+function RenderItem({
+  render,
+  title,
+  kept,
+}: {
+  render: RenderRow;
+  title: string;
+  /** The rendered video's library record metadata, with its music credit and terms. */
+  kept?: unknown;
+}) {
   const [opening, setOpening] = useState(false);
+  // What this version's music asks for, as kept when it was rendered (the edit
+  // may use other music by now).
+  const music = keptMusic(kept);
   const stalled =
     (render.status === "queued" || render.status === "rendering") && !renderInProgress(render);
   const when = new Date(render.created_at).toLocaleString(undefined, {
@@ -320,6 +362,35 @@ function RenderItem({ render, title }: { render: RenderRow; title: string }) {
             </Link>
           </Button>
         </div>
+      )}
+      {render.status === "completed" && music.credits.length > 0 && (
+        <div className="mt-1.5 space-y-0.5" data-testid="render-music-credit">
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-medium">Music credit for this version</span>
+            <button
+              type="button"
+              className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                void navigator.clipboard?.writeText(music.credits.join("\n")).then(
+                  () => toast.success("Credit copied"),
+                  () => toast.error("Couldn't copy"),
+                );
+              }}
+            >
+              <Copy className="size-3" /> Copy
+            </button>
+          </div>
+          {music.credits.map((line) => (
+            <p key={line} className="text-muted-foreground">
+              {line}
+            </p>
+          ))}
+        </div>
+      )}
+      {render.status === "completed" && music.terms.length > 0 && (
+        <p className="mt-1 text-[11px] text-muted-foreground" data-testid="render-music-terms">
+          Music terms: {music.terms.join(" · ")}
+        </p>
       )}
       {render.status === "failed" && (
         <p className="mt-1 text-destructive">{render.error_message ?? "The render failed."}</p>

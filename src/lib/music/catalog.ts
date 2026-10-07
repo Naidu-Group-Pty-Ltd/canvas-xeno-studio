@@ -203,6 +203,15 @@ export interface MusicTrackRow {
   updated_at: string;
 }
 
+/**
+ * The credit to publish with a video that uses the track. CC BY asks for
+ * changes to be noted, and music set to picture always counts as changed.
+ */
+export function videoCreditLine(track: Parameters<typeof creditLine>[0]): string | null {
+  const line = creditLine(track);
+  return line ? `${line} Edited and synced to this video.` : null;
+}
+
 /** The credit to publish with a track whose licence asks for one. */
 export function creditLine(
   track: Pick<
@@ -216,14 +225,18 @@ export function creditLine(
   return `“${track.title}” by ${track.artist?.trim() || "unknown artist"}, licensed under ${licence}${track.license_url ? ` (${track.license_url})` : ""}.`;
 }
 
-/** Whether a recorded licence has run out (it covers the whole of its last day, UTC). */
+/**
+ * Whether a recorded licence has run out. It covers its last day until that
+ * day ends in the first time zone to end it (UTC+14), so it is never used past
+ * its end wherever the team is (in Sydney, until about 9 pm).
+ */
 export function rightsExpired(
   rights: Record<string, unknown> | null | undefined,
   now = Date.now(),
 ): boolean {
   const day = typeof rights?.["expiresOn"] === "string" ? rights["expiresOn"] : null;
   if (!day || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return false;
-  return now > Date.parse(`${day}T23:59:59.999Z`);
+  return now > Date.parse(`${day}T23:59:59.999+14:00`);
 }
 
 /** Whether a recorded licence covers a use, for licensed tracks. */

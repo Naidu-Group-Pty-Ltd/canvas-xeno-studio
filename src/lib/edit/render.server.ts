@@ -11,10 +11,10 @@ import { AppError } from "../higgsfield/errors";
 import { appBaseUrl } from "../generation-pipeline.server";
 import { mediaWorkerConfigured, submitWorkerTask } from "../media/worker.server";
 import {
-  creditLine,
   licenceBlocker,
   licenceTerms,
   MUSIC_LICENSES,
+  videoCreditLine,
   type MusicTrackRow,
 } from "../music/catalog";
 import { RENDER_STALL_MS } from "./renders";
@@ -136,7 +136,7 @@ async function musicRights(assetIds: string[]): Promise<{
     | "usage_notes"
   >[];
   const credits = [
-    ...new Set(rows.map((row) => creditLine(row)).filter((line): line is string => !!line)),
+    ...new Set(rows.map((row) => videoCreditLine(row)).filter((line): line is string => !!line)),
   ];
   const licences = rows.flatMap((row): Record<string, unknown>[] => {
     const terms = licenceTerms(row);
