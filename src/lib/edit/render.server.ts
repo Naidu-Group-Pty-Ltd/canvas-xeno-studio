@@ -124,7 +124,9 @@ async function musicRights(assetIds: string[]): Promise<{
   if (!assetIds.length) return none;
   const { data, error } = await supabaseAdmin
     .from("music_tracks")
-    .select("title,artist,license,license_version,license_url,attribution,rights,usage_notes")
+    .select(
+      "title,artist,license,license_version,license_url,attribution,rights,usage_notes,source_url",
+    )
     .in("asset_id", [...new Set(assetIds)]);
   if (error) {
     // Before the music library exists there is nothing to credit or check;
@@ -142,6 +144,7 @@ async function musicRights(assetIds: string[]): Promise<{
     | "attribution"
     | "rights"
     | "usage_notes"
+    | "source_url"
   >[];
   const credits = [
     ...new Set(rows.map((row) => videoCreditLine(row)).filter((line): line is string => !!line)),

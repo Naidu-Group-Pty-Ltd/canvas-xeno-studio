@@ -212,17 +212,38 @@ export function videoCreditLine(track: Parameters<typeof creditLine>[0]): string
   return line ? `${line} Edited and synced to this video.` : null;
 }
 
-/** The credit to publish with a track whose licence asks for one. */
+/**
+ * The credit to publish with a track whose licence asks for one. CC BY asks
+ * for a link to the work wherever one was supplied, which a provider's
+ * attribution (Openverse's among them) can leave out, so the work's page is
+ * added unless the credit already has it.
+ */
 export function creditLine(
   track: Pick<
     MusicTrackRow,
-    "title" | "artist" | "license" | "license_version" | "license_url" | "attribution"
+    | "title"
+    | "artist"
+    | "license"
+    | "license_version"
+    | "license_url"
+    | "attribution"
+    | "source_url"
   >,
 ): string | null {
   if (!MUSIC_LICENSES[track.license]?.credit) return null;
-  if (track.attribution?.trim()) return track.attribution.trim();
   const licence = `CC BY${track.license_version ? ` ${track.license_version}` : ""}`;
-  return `“${track.title}” by ${track.artist?.trim() || "unknown artist"}, licensed under ${licence}${track.license_url ? ` (${track.license_url})` : ""}.`;
+  const line =
+    track.attribution?.trim() ||
+    `“${track.title}” by ${track.artist?.trim() || "unknown artist"}, licensed under ${licence}${track.license_url ? ` (${track.license_url})` : ""}.`;
+  const source = track.source_url?.trim();
+  if (!source || linksTo(line, source)) return line;
+  return `${/[.!?]$/.test(line) ? line : `${line}.`} Source: ${source}.`;
+}
+
+/** Whether a credit already gives this address (with or without a closing slash). */
+function linksTo(line: string, address: string): boolean {
+  const bare = address.replace(/\/+$/, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`${bare}(?![\\w-])`).test(line);
 }
 
 /**
