@@ -941,11 +941,11 @@ function VoiceBrowser({
 
 /**
  * A design that may have been made (and billed) without its options coming
- * back. Kept in the browser like an attempt (see attempts), so closing the form,
- * switching tabs or reloading doesn't quietly allow another design: that waits
- * until the person chooses to design again.
+ * back. Kept in the browser like an attempt (see attempts), for the person who
+ * asked for it, so closing the form, switching tabs or reloading doesn't
+ * quietly allow another design: that waits until they choose to design again.
  */
-const DESIGN_HOLD = { place: "voice-design-held", key: "held" } as const;
+const designHold = (userId: string) => `voice-design-held:${userId}`;
 
 function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => void }) {
   const [description, setDescription] = useState("");
@@ -955,18 +955,19 @@ function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => voi
   >([]);
   const [busy, setBusy] = useState<"design" | "save" | null>(null);
   const [name, setName] = useState("");
+  const userId = useAuth().user?.id ?? null;
   const [unsure, setUnsureShown] = useState<string | null>(null);
   const setUnsure = (message: string | null) => {
-    keepAttempt(DESIGN_HOLD.place, DESIGN_HOLD.key, message);
+    if (userId) keepAttempt(designHold(userId), "held", message);
     setUnsureShown(message);
   };
   useEffect(() => {
-    setUnsureShown(savedAttempt(DESIGN_HOLD.place, DESIGN_HOLD.key));
-  }, []);
+    setUnsureShown(userId ? savedAttempt(designHold(userId), "held") : null);
+  }, [userId]);
 
   async function design(again = false) {
     // Held here, in another tab or on an earlier visit: only "Design again" goes on.
-    const held = unsure ?? savedAttempt(DESIGN_HOLD.place, DESIGN_HOLD.key);
+    const held = unsure ?? (userId ? savedAttempt(designHold(userId), "held") : null);
     if (held && !again) {
       setUnsureShown(held);
       return;
@@ -1117,15 +1118,17 @@ interface CloneRequest {
 
 /**
  * A clone still waiting for its outcome, with the recordings and speaker it
- * was asked with. Kept in the browser like its request id (see attempts): the
+ * was asked with. Kept in the browser like its request id (see attempts), for
+ * the person who asked for it (and confirmed the speaker's consent): the
  * recordings are what the clone is known by, so after the form was closed or
  * the page reloaded, checking again still asks about that clone rather than
- * cloning again from new uploads.
+ * cloning again from new uploads. Someone else signed in on the same browser
+ * never sees it.
  */
-const PENDING_CLONE = { place: "voice-clone-pending", key: "current" } as const;
+const pendingClone = (userId: string) => `voice-clone-pending:${userId}`;
 
-function savedClone(): (CloneRequest & { message: string }) | null {
-  const saved = savedAttempt(PENDING_CLONE.place, PENDING_CLONE.key);
+function savedClone(userId: string): (CloneRequest & { message: string }) | null {
+  const saved = savedAttempt(pendingClone(userId), "current");
   if (!saved) return null;
   try {
     const value = JSON.parse(saved) as Partial<CloneRequest & { message: string }>;
@@ -1150,8 +1153,8 @@ function savedClone(): (CloneRequest & { message: string }) | null {
   }
 }
 
-function keepClone(value: (CloneRequest & { message: string }) | null) {
-  keepAttempt(PENDING_CLONE.place, PENDING_CLONE.key, value ? JSON.stringify(value) : null);
+function keepClone(userId: string, value: (CloneRequest & { message: string }) | null) {
+  keepAttempt(pendingClone(userId), "current", value ? JSON.stringify(value) : null);
 }
 
 const UNANSWERED_CLONE =
@@ -1159,6 +1162,7 @@ const UNANSWERED_CLONE =
 
 function VoiceCloner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => void }) {
   const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [pending, setPending] = useState<PendingAddition | null>(null);
   const [samples, setSamples] = useState<{ id: string; title: string | null }[]>([]);
   const [speaker, setSpeaker] = useState("");
@@ -1171,16 +1175,26 @@ function VoiceCloner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => void 
   );
 
   // A clone still waiting for its outcome comes back as it was asked (its
-  // consent was confirmed then), with the choice to check again.
+  // consent was confirmed then, by this person), with the choice to check
+  // again. If someone else signs in, nothing of the last person's form stays.
+  const shownFor = useRef<string | null>(null);
   useEffect(() => {
-    const saved = savedClone();
+    if (!userId || shownFor.current === userId) return;
+    if (shownFor.current) {
+      setPending(null);
+      setSamples([]);
+      setSpeaker("");
+      setConsent(false);
+    }
+    shownFor.current = userId;
+    const saved = savedClone(userId);
     if (!saved) return;
     setSamples(saved.samples);
     setSpeaker(saved.speaker);
     setConsent(true);
-    setPending(waiting(saved, saved.message));
+    setPending(waiting(userId, saved, saved.message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [userId]);
 
   const keyFor = (request: CloneRequest) =>
     request.samples
@@ -1188,14 +1202,14 @@ function VoiceCloner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => void 
       .sort()
       .join(",");
 
-  function waiting(request: CloneRequest, message: string): PendingAddition {
+  function waiting(owner: string, request: CloneRequest, message: string): PendingAddition {
     return {
       message,
       check: () => void clone(request),
       startOver: () => void clone(request, true),
       discard: () => {
         keepAttempt("voice-clone", keyFor(request), null);
-        keepClone(null);
+        keepClone(owner, null);
         setPending(null);
         setSamples([]);
         setSpeaker("");
@@ -1223,6 +1237,7 @@ function VoiceCloner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => void 
   }
 
   async function clone(request: CloneRequest, startOver = false) {
+    if (!userId) return;
     setBusy("clone");
     // Kept until the clone is made (across reloads too), so trying again after
     // a lost answer finds it rather than cloning twice. A clone is of its
@@ -1232,7 +1247,7 @@ function VoiceCloner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => void 
     if (startOver) keepAttempt("voice-clone", key, null);
     const clientRequestId = savedAttempt("voice-clone", key) ?? crypto.randomUUID();
     keepAttempt("voice-clone", key, clientRequestId);
-    keepClone({ ...request, message: UNANSWERED_CLONE });
+    keepClone(userId, { ...request, message: UNANSWERED_CLONE });
     try {
       const result = await cloneElevenLabsVoice({
         data: {
@@ -1246,18 +1261,18 @@ function VoiceCloner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => void 
       });
       if ("failed" in result) {
         // Not made, so nothing to check on: the form stays as it is, to change or try again.
-        keepClone(null);
+        keepClone(userId, null);
         setPending(null);
         toast.error(result.failed);
         return;
       }
       if ("pending" in result) {
-        keepClone({ ...request, message: result.pending });
-        setPending(waiting(request, result.pending));
+        keepClone(userId, { ...request, message: result.pending });
+        setPending(waiting(userId, request, result.pending));
         return;
       }
       setPending(null);
-      keepClone(null);
+      keepClone(userId, null);
       keepAttempt("voice-clone", key, null);
       onPick({
         providerVoiceId: result.voiceId,
@@ -1268,8 +1283,8 @@ function VoiceCloner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => void 
     } catch (error) {
       // Its outcome isn't known here: the clone stays to be checked again.
       const message = `${error instanceof Error ? error.message : "The voice could not be cloned."} If the clone was made after all, checking again finds it.`;
-      keepClone({ ...request, message });
-      setPending(waiting(request, message));
+      keepClone(userId, { ...request, message });
+      setPending(waiting(userId, request, message));
       toast.error(error instanceof Error ? error.message : "The voice could not be cloned");
     } finally {
       setBusy(null);
