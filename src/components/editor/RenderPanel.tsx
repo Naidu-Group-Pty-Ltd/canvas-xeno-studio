@@ -24,6 +24,8 @@ import { cn } from "@/lib/utils";
 import {
   RENDER_BUSY_RETRY_MS,
   RENDER_BUSY_STAGE,
+  RENDER_RECOVERY_RETRY_MS,
+  RENDER_RECOVERY_WINDOW_MS,
   RENDER_UNCONFIRMED_STAGE,
   renderInProgress,
 } from "@/lib/edit/renders";
@@ -57,9 +59,12 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
   const active = renders.find((render) => renderInProgress(render));
 
   // A render that stopped reporting may still have finished (its result just
-  // never arrived): each one is checked once for the video it uploaded, and
-  // finished from it if it's there.
-  const checkedLost = useRef(new Set<string>());
+  // never arrived): it is checked for the video it uploaded, and finished from
+  // it if it's there. While it went quiet recently enough that its worker may
+  // still be uploading, it is checked again every RENDER_RECOVERY_RETRY_MS;
+  // an older one is checked once.
+  const checking = useRef(new Set<string>());
+  const checkedOnce = useRef(new Set<string>());
   const lostKey = renders
     .filter(
       (render) =>
@@ -67,12 +72,22 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
           !renderInProgress(render)) ||
         (render.status === "failed" && render.error_code === "STALLED"),
     )
-    .map((render) => render.id)
+    .map((render) => `${render.id}@${render.updated_at ?? render.created_at}`)
     .join(",");
   useEffect(() => {
-    for (const renderId of lostKey ? lostKey.split(",") : []) {
-      if (checkedLost.current.has(renderId)) continue;
-      checkedLost.current.add(renderId);
+    const lost = (lostKey ? lostKey.split(",") : []).map((entry) => {
+      const at = entry.indexOf("@");
+      const quietSince = Date.parse(entry.slice(at + 1));
+      return {
+        renderId: entry.slice(0, at),
+        recent: () => Date.now() - quietSince < RENDER_RECOVERY_WINDOW_MS,
+      };
+    });
+    if (!lost.length) return;
+    const check = (renderId: string) => {
+      if (checking.current.has(renderId)) return;
+      checking.current.add(renderId);
+      checkedOnce.current.add(renderId);
       void recoverRender({ data: { renderId } })
         .then(async (outcome) => {
           if (!outcome.recovered) return;
@@ -81,8 +96,15 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
           );
           await queryClient.invalidateQueries({ queryKey: ["sequence_renders", sequenceId] });
         })
-        .catch(() => {});
-    }
+        .catch(() => {})
+        .finally(() => checking.current.delete(renderId));
+    };
+    for (const { renderId, recent } of lost)
+      if (recent() || !checkedOnce.current.has(renderId)) check(renderId);
+    const timer = setInterval(() => {
+      for (const { renderId, recent } of lost) if (recent()) check(renderId);
+    }, RENDER_RECOVERY_RETRY_MS);
+    return () => clearInterval(timer);
   }, [lostKey, queryClient, sequenceId]);
 
   async function start() {
