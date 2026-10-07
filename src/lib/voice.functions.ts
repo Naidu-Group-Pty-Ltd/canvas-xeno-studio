@@ -604,7 +604,8 @@ export const saveDesignedVoice = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { elevenLabsSaveDesign } = await import("./voice/providers.server");
-    const { requireActiveMember, voiceAddedOnce } = await import("./voice/service.server");
+    const { requireActiveMember, voiceAddedOnce, VoiceNotAdded } =
+      await import("./voice/service.server");
     await requireActiveMember(context.userId);
     // A designed option is kept once per attempt, however often "Keep this one"
     // is pressed.
@@ -619,6 +620,11 @@ export const saveDesignedVoice = createServerFn({ method: "POST" })
           description: data.description,
           generatedVoiceId: data.generatedVoiceId,
         }),
+    }).catch((error: unknown) => {
+      // Definitely not added: answered as such, so the form knows there is
+      // nothing to check on (any other error may still have added it).
+      if (error instanceof VoiceNotAdded) return { failed: error.message };
+      throw error;
     });
   });
 

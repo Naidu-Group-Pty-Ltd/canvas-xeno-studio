@@ -298,10 +298,20 @@ async function report(task, payload) {
   }
 }
 
-/** "Still here": a signed, best-effort report for a task that is queued or working. */
+/**
+ * "Still here": a signed, best-effort report for a task that is queued or
+ * working. It names this instance, so the app only takes it as word from the
+ * task when this is the instance that claimed it (a duplicate waiting in
+ * another instance's queue can't keep a lost task looking alive).
+ */
 export function sendHeartbeat(task, stage) {
   if (!task.reportProgress || !task.callback?.url) return;
-  const rawBody = JSON.stringify({ task_id: task.taskId, status: "heartbeat", stage: String(stage).slice(0, 80) });
+  const rawBody = JSON.stringify({
+    task_id: task.taskId,
+    status: "heartbeat",
+    stage: String(stage).slice(0, 80),
+    worker_id: config.workerId,
+  });
   const { timestamp, signature } = sign(rawBody);
   fetch(task.callback.url, {
     method: "POST",

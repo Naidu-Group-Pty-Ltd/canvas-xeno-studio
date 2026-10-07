@@ -60,6 +60,26 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
         if (status !== "completed" && status !== "failed") {
           const stage = typeof payload["stage"] === "string" ? payload["stage"].slice(0, 80) : null;
           if (task.task_type === "render_sequence" && !presumedLost) {
+            // Word from an instance other than the one that claimed the task (a
+            // duplicate still waiting in another queue) says nothing about the
+            // render, so it doesn't keep it looking alive. Reports that name no
+            // instance come from workers that predate claims.
+            const reporter = typeof payload["worker_id"] === "string" ? payload["worker_id"] : null;
+            if (reporter) {
+              const { data: claim, error: claimError } = await supabaseAdmin
+                .from("media_tasks")
+                .select("worker_id")
+                .eq("id", task.id)
+                .maybeSingle();
+              if (claimError) {
+                return new Response(JSON.stringify({ received: false }), { status: 503 });
+              }
+              if (claim?.worker_id && claim.worker_id !== reporter) {
+                return new Response(JSON.stringify({ received: true, claimed_elsewhere: true }), {
+                  status: 200,
+                });
+              }
+            }
             const value = Number(payload["progress"]);
             if (status === "progress" && Number.isFinite(value)) {
               // Progress only moves the bar forward.

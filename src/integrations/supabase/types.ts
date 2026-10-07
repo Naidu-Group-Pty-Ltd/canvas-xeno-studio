@@ -2678,6 +2678,7 @@ export type Database = {
           submitted_at: string | null
           task_type: string
           updated_at: string
+          worker_id: string | null
         }
         Insert: {
           completed_at?: string | null
@@ -2699,6 +2700,7 @@ export type Database = {
           submitted_at?: string | null
           task_type: string
           updated_at?: string
+          worker_id?: string | null
         }
         Update: {
           completed_at?: string | null
@@ -2720,6 +2722,7 @@ export type Database = {
           submitted_at?: string | null
           task_type?: string
           updated_at?: string
+          worker_id?: string | null
         }
         Relationships: [
           {

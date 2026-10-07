@@ -113,7 +113,8 @@ export const submitMediaTask = createServerFn({ method: "POST" })
 
     // Operation first: the task is visible in the operation graph even if the
     // worker never answers.
-    const { data: operation, error: operationError } = await supabaseAdmin
+    let operation: { id: string } | null = null;
+    const { data: inserted, error: operationError } = await supabaseAdmin
       .from("operations")
       .insert({
         created_by: context.userId,
@@ -127,18 +128,29 @@ export const submitMediaTask = createServerFn({ method: "POST" })
       } as never)
       .select("id")
       .maybeSingle();
+    operation = inserted ?? null;
     if (operationError || !operation) {
-      // The same request, sent twice at once: answer with the task the other one started.
-      if (operationError?.code === "23505" && data.clientRequestId) {
-        const { data: raced } = await supabaseAdmin
-          .from("media_tasks")
-          .select("id,status")
-          .eq("dedupe_key", data.clientRequestId)
-          .maybeSingle();
-        if (raced) return { taskId: raced.id, status: raced.status, duplicate: true };
-        throw new AppError("UNKNOWN", "This task is already being started. Give it a moment.");
+      if (operationError?.code !== "23505" || !data.clientRequestId) {
+        throw new AppError("UNKNOWN", "The media task could not be recorded. Try again.");
       }
-      throw new AppError("UNKNOWN", "The media task could not be recorded. Try again.");
+      // The same request again: the task it started, if it got that far (also
+      // when it was sent twice at once)...
+      const { data: raced } = await supabaseAdmin
+        .from("media_tasks")
+        .select("id,status")
+        .eq("dedupe_key", data.clientRequestId)
+        .maybeSingle();
+      if (raced) return { taskId: raced.id, status: raced.status, duplicate: true };
+      // ...or else the operation an earlier try recorded before its task could
+      // be: this try carries on with it, so the request can still go through.
+      const { data: earlier, error: earlierError } = await supabaseAdmin
+        .from("operations")
+        .select("id")
+        .eq("dedupe_key", data.clientRequestId)
+        .maybeSingle();
+      if (earlierError || !earlier)
+        throw new AppError("UNKNOWN", "This task is already being started. Give it a moment.");
+      operation = earlier;
     }
 
     const { error: taskError } = await supabaseAdmin.from("media_tasks").insert({
