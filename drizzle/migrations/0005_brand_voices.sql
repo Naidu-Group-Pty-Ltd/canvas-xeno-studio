@@ -43,6 +43,20 @@ BEGIN
       FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
   END IF;
 END $$;
+-- A voice kept for one project can't be the studio default: where the table
+-- was made before that rule, it is added here, and a project's voice marked
+-- the default stops being it (outside its project it was never used as one).
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.brand_voices'::regclass AND conname = 'brand_voices_default_for_any_project'
+  ) THEN
+    UPDATE public.brand_voices SET is_default = false WHERE is_default AND project_id IS NOT NULL;
+    ALTER TABLE public.brand_voices ADD CONSTRAINT brand_voices_default_for_any_project
+      CHECK (NOT is_default OR project_id IS NULL);
+  END IF;
+END $$;
 -- At most one studio-wide default voice.
 CREATE UNIQUE INDEX IF NOT EXISTS brand_voices_one_default ON public.brand_voices (is_default) WHERE is_default;
 

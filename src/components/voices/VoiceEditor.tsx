@@ -107,7 +107,8 @@ function draftFrom(row: BrandVoiceRow | null): VoiceDraft {
     style: number("style", 0),
     speakerBoost: settings["use_speaker_boost"] !== false,
     seed: typeof settings["seed"] === "number" ? (settings["seed"] as number) : null,
-    language: row?.language ?? "en",
+    // A voice saved with no language (none forced) keeps none; a new one starts in English.
+    language: row ? (row.language ?? "") : "en",
     pronunciations: row?.pronunciations ?? [],
     scriptGuidelines: row?.script_guidelines ?? "",
     projectId: row?.project_id ?? null,
@@ -950,6 +951,21 @@ const designHold = (userId: string) => `voice-design-held:${userId}`;
 const UNANSWERED_DESIGN =
   "This design's answer didn't come back, so it may still have been made (and billed).";
 
+type DesignPreview = { generatedVoiceId: string; audioBase64: string; mime: string };
+
+/**
+ * The options last designed for each person, kept while the page is open: they
+ * were paid for, so the designer closing (another tab, the dialog) doesn't lose
+ * them. A design that comes back while no designer is open is unseen, and stays
+ * held until a designer opens and shows it.
+ */
+const designedOptions = new Map<
+  string,
+  { description: string; previews: DesignPreview[]; unseen: boolean }
+>();
+/** The open designers, told when a design comes back. */
+const designShown = new Set<(owner: string) => void>();
+
 interface SaveRequest {
   generatedVoiceId: string;
   name: string;
@@ -1000,9 +1016,7 @@ const UNANSWERED_SAVE =
 function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => void }) {
   const [description, setDescription] = useState("");
   const [pending, setPending] = useState<PendingAddition | null>(null);
-  const [previews, setPreviews] = useState<
-    { generatedVoiceId: string; audioBase64: string; mime: string }[]
-  >([]);
+  const [previews, setPreviews] = useState<DesignPreview[]>([]);
   const [busy, setBusy] = useState<"design" | "save" | null>(null);
   const [name, setName] = useState("");
   const userId = useAuth().user?.id ?? null;
@@ -1034,6 +1048,28 @@ function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => voi
     setPending(waitingSave(userId, saved, saved.message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
+  // Options designed earlier on this page show when the designer opens, and a
+  // design that comes back while it is open shows at once. Once its options
+  // are shown, a design is no longer held.
+  useEffect(() => {
+    if (!userId) return;
+    const show = (owner: string) => {
+      const kept = designedOptions.get(owner);
+      if (owner !== userId || !kept) return;
+      setPreviews(kept.previews);
+      setDescription((current) => current || kept.description);
+      if (kept.unseen) {
+        kept.unseen = false;
+        keepAttempt(designHold(owner), "held", null);
+        setUnsureShown(null);
+      }
+    };
+    show(userId);
+    designShown.add(show);
+    return () => {
+      designShown.delete(show);
+    };
+  }, [userId]);
 
   function waitingSave(owner: string, request: SaveRequest, message: string): PendingAddition {
     return {
@@ -1059,14 +1095,25 @@ function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => voi
     // Held from the moment it is asked for: the design may be made (and billed)
     // whatever happens to this page, so a reload meanwhile still finds the hold.
     if (userId) keepAttempt(designHold(userId), "held", UNANSWERED_DESIGN);
+    // The options of an earlier design make way for the new ones.
+    const owner = userId;
+    const asked = description;
+    setPreviews([]);
+    if (owner) designedOptions.delete(owner);
     try {
-      const result = await designElevenLabsVoice({ data: { description } });
+      const result = await designElevenLabsVoice({ data: { description: asked } });
       if ("uncertain" in result) {
         setUnsure(result.uncertain);
         return;
       }
-      setUnsure(null);
-      setPreviews(result.previews);
+      if (!owner) {
+        setPreviews(result.previews);
+        return;
+      }
+      // Shown by the designer if it is still open (which ends the hold), else
+      // kept until one opens: the design stays held until its options are seen.
+      designedOptions.set(owner, { description: asked, previews: result.previews, unseen: true });
+      for (const show of designShown) show(owner);
     } catch (error) {
       // No answer came back: the design may still have been made.
       setUnsure(

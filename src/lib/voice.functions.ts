@@ -248,6 +248,12 @@ export const updateVoiceStatus = createServerFn({ method: "POST" })
     }
     if (current.created_by !== context.userId && !isAdmin)
       throw new AppError("NOT_AUTHORIZED", "Only the voice's creator or an admin can change it");
+    // Archiving the studio default clears it, which only an admin may do.
+    if (data.action === "archive" && current.is_default && !isAdmin)
+      throw new AppError(
+        "NOT_AUTHORIZED",
+        "This voice is the studio default, so only an admin can archive it.",
+      );
     const { error } = await supabaseAdmin
       .from("brand_voices")
       .update(
