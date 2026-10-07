@@ -29,9 +29,16 @@ const text = (value: unknown, fallback: string) =>
 const numberOrNull = (value: unknown) =>
   typeof value === "number" && Number.isFinite(value) ? value : null;
 
+/**
+ * `renderLast`: the render is marked finished after everything else rather
+ * than first. Recovery uses it (there is no worker to repeat a report, and its
+ * task may already be finished): until every write has landed, the render
+ * still looks lost, so the Render panel's next check finishes the rest.
+ */
 export async function finishSequenceRender(
   task: RenderTask,
   payload: Record<string, unknown>,
+  options: { renderLast?: boolean } = {},
 ): Promise<void> {
   const now = new Date().toISOString();
   const input = (task.input_payload ?? {}) as Record<string, unknown>;
@@ -174,7 +181,8 @@ export async function finishSequenceRender(
     ? { error_code: null, error_message: null }
     : { error_code: "STORAGE_FAILED", error_message: "The render finished without a video file" };
 
-  if (renderId) {
+  const finishRender = async () => {
+    if (!renderId) return;
     must(
       await supabaseAdmin
         .from("sequence_renders")
@@ -191,7 +199,8 @@ export async function finishSequenceRender(
         .or(OPEN_RENDER),
       "render",
     );
-  }
+  };
+  if (!options.renderLast) await finishRender();
   if (sequenceId && renderId)
     await settleEdit(sequenceId, renderId, finished ? "rendered" : "failed");
 
@@ -247,6 +256,7 @@ export async function finishSequenceRender(
       .or(OPEN_TASK),
     "media task",
   );
+  if (options.renderLast) await finishRender();
 }
 
 /**
