@@ -1098,7 +1098,10 @@ function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => voi
       });
       if ("failed" in saved) {
         // Not added, so nothing to check on: the options stay, to keep another.
+        // Keeping it again is a new attempt, since this one's failure may not
+        // have been recorded and would only be waited on.
         keepSave(userId, null);
+        keepAttempt("voice-design", generatedVoiceId, null);
         setPending(null);
         toast.error(saved.failed);
         return;
@@ -1365,7 +1368,10 @@ function VoiceCloner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => void 
       });
       if ("failed" in result) {
         // Not made, so nothing to check on: the form stays as it is, to change or try again.
+        // Trying again is a new attempt, since this one's failure may not have
+        // been recorded and would only be waited on.
         keepClone(userId, null);
+        keepAttempt("voice-clone", key, null);
         setPending(null);
         toast.error(result.failed);
         return;

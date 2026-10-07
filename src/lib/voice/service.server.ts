@@ -872,7 +872,8 @@ export type VoiceAddition<Details> =
 
 /**
  * A voice that definitely wasn't added (nothing reached ElevenLabs, or it said
- * no). Its attempt is recorded as failed, so asking again tries it again.
+ * no). Its attempt is recorded as failed, so asking again tries it again; the
+ * form, told so, starts a new attempt instead, in case that record didn't land.
  */
 export class VoiceNotAdded extends AppError {}
 
@@ -942,7 +943,9 @@ export async function voiceAddedOnce<Details extends Record<string, unknown>>(in
       return { voiceId: result.voiceId, name: input.name, details: input.details };
     }
     // A failure that can't be recorded leaves the attempt pending, which is
-    // only ever looked for, never added again.
+    // only ever looked for, never added again. A definite one is still
+    // answered as such: the form then forgets the attempt, so the next try is a
+    // new one rather than a wait for a voice that was never added.
     await record(id, {
       status: result.uncertain ? "submission_uncertain" : "failed",
       error_code: result.code,
