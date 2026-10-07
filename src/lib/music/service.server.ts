@@ -18,11 +18,11 @@ import {
   MUSIC_LICENSES,
   type MusicLicense,
 } from "./catalog";
+import { PROBED_MIME, probeAudio, type ReadRange } from "./probe";
 import {
   audioExtension,
   composeMusic,
   downloadAudio,
-  looksLikeAudio,
   openverseTrack,
   separateInstrumental,
 } from "./providers.server";
@@ -1132,39 +1132,52 @@ type UploadAsset = {
 const ASSET_FIELDS = "id,asset_type,duration_seconds,deleted_at";
 
 /**
- * Whether a stored file starts like audio (its first few kilobytes, read
- * without fetching the rest). A file that can't be read just now is thrown,
- * never taken for one that isn't audio.
+ * Reads parts of a stored file (a few kilobytes at a time, by range) without
+ * fetching the rest. A part that can't be read just now is thrown, never
+ * taken for a file that isn't audio.
  */
-async function startsLikeAudio(bucket: string, path: string): Promise<boolean> {
+async function storedRanges(bucket: string, path: string): Promise<ReadRange> {
   const { data: signed, error } = await supabaseAdmin.storage
     .from(bucket)
-    .createSignedUrl(path, 60);
+    .createSignedUrl(path, 120);
   if (error || !signed?.signedUrl) throw uploadUnchecked();
-  let response: Response;
-  try {
-    response = await fetch(signed.signedUrl, { headers: { Range: "bytes=0-4095" } });
-  } catch {
-    throw uploadUnchecked();
-  }
-  if (!response.ok || !response.body) throw uploadUnchecked();
-  const head = new Uint8Array(4096);
-  let filled = 0;
-  const reader = response.body.getReader();
-  try {
-    while (filled < head.length) {
-      const { done, value } = await reader.read();
-      if (done || !value) break;
-      const take = Math.min(value.length, head.length - filled);
-      head.set(value.subarray(0, take), filled);
-      filled += take;
+  const url = signed.signedUrl;
+  return async (offset, length) => {
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        headers: { Range: `bytes=${offset}-${offset + length - 1}` },
+      });
+    } catch {
+      throw uploadUnchecked();
     }
-  } catch {
-    throw uploadUnchecked();
-  } finally {
-    await reader.cancel().catch(() => {});
-  }
-  return looksLikeAudio(head.subarray(0, filled));
+    if (!response.ok || !response.body) throw uploadUnchecked();
+    // A server that ignores the range sends the whole file: skip to the part asked for.
+    let skip = response.status === 206 ? 0 : offset;
+    const part = new Uint8Array(length);
+    let filled = 0;
+    const reader = response.body.getReader();
+    try {
+      while (filled < length) {
+        const { done, value } = await reader.read();
+        if (done || !value) break;
+        let chunk = value;
+        if (skip > 0) {
+          const dropped = Math.min(skip, chunk.length);
+          skip -= dropped;
+          chunk = chunk.subarray(dropped);
+        }
+        const take = Math.min(chunk.length, length - filled);
+        part.set(chunk.subarray(0, take), filled);
+        filled += take;
+      }
+    } catch {
+      throw uploadUnchecked();
+    } finally {
+      await reader.cancel().catch(() => {});
+    }
+    return part.subarray(0, filled);
+  };
 }
 
 /**
@@ -1210,16 +1223,17 @@ async function uploadedAsset(input: {
   const file = (listed ?? []).find((entry) => entry.name === name);
   if (!file) throw new AppError("INVALID_PARAMETERS", "Upload an audio file first.");
   const size = Number(file.metadata?.["size"]);
-  // What was stored must be audio of a size the studio takes, whatever the
-  // browser said about it. One that isn't is dropped now (file and upload)
-  // rather than left for the cleanup, and never joins the library.
-  const refusal =
-    Number.isFinite(size) && size > MAX_UPLOAD_BYTES
-      ? uploadTooLarge()
-      : !(await startsLikeAudio(place.storage_bucket, place.storage_path))
-        ? notAudio()
-        : null;
-  if (refusal) {
+  if (!Number.isFinite(size)) throw uploadUnchecked();
+  // What was stored must be audio browsers and the renderer can decode (by its
+  // structure: MP3 frames, a WAV's format and data, an M4A's sound track), of
+  // a size the studio takes, whatever the browser said about it. One that
+  // isn't is dropped now (file and upload) rather than left for the cleanup,
+  // and never joins the library.
+  const tooLarge = size > MAX_UPLOAD_BYTES;
+  const kind = tooLarge
+    ? null
+    : await probeAudio(await storedRanges(place.storage_bucket, place.storage_path), size);
+  if (!kind) {
     const { error: dropError } = await supabaseAdmin.storage
       .from(place.storage_bucket)
       .remove([place.storage_path]);
@@ -1230,7 +1244,7 @@ async function uploadedAsset(input: {
         .eq("id", upload.id)
         .is("asset_id", null)
         .is("registered_at", null);
-    throw refusal;
+    throw tooLarge ? uploadTooLarge() : notAudio();
   }
   const values = {
     uploaded_by: input.userId,
@@ -1238,7 +1252,8 @@ async function uploadedAsset(input: {
     asset_type: "audio",
     source_type: "uploaded",
     title: upload.file_name.slice(0, 200),
-    mime_type: upload.mime_type,
+    // What the file really is, which may differ from what the browser called it.
+    mime_type: PROBED_MIME[kind],
     file_size: Number.isFinite(size) && size > 0 ? size : upload.file_size,
     duration_seconds:
       input.durationSeconds === null ? null : Number(input.durationSeconds.toFixed(2)),

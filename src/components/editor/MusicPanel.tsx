@@ -149,7 +149,7 @@ export function MusicPanel({
       if (!beats?.length) {
         const url = await audioUrlFor(bed.assetId);
         if (!url) throw new Error("The music file couldn't be opened");
-        const analysis = await analyzeAudioUrl(url);
+        const analysis = await analyzeAudioUrl(url, length);
         if (!analysis || analysis.confidence < 0.15 || analysis.beats.length < 4) {
           toast.error("This music has no steady beat to cut to.");
           return;
