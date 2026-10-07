@@ -7,7 +7,6 @@
  * retried by itself.
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { derivedUuid } from "../derived-id";
 import { AppError } from "../higgsfield/errors";
 import { mp3Duration } from "../voice/audio";
 import {
@@ -71,42 +70,37 @@ async function storedFile(
 }
 
 /**
- * Adds a track's file to the library, once. The record's id is derived from
- * the track's, so trying again (after an insert whose answer was lost, or when
- * the track is finished later from its file) finds the record already made
- * instead of adding another. A record under that id counts only if it is the
- * track's own file in the server-only bucket. Returns it, or null if it
- * couldn't be added just now; a lookup that fails is thrown.
+ * Adds a track's file to the library, once. A file has one library record
+ * (its place is unique), so trying again (after an insert whose answer was
+ * lost, or when the track is finished later from its file) finds the record
+ * already made instead of adding another. Only the server adds records in the
+ * output bucket, so the record at the track's place there is the track's own,
+ * whatever anyone else adds. Returns it, or null if it couldn't be added just
+ * now; a lookup that fails is thrown.
  */
 async function keptAsset(
-  trackId: string,
   path: string,
   values: Record<string, unknown>,
 ): Promise<{ id: string; durationSeconds: number | null } | null> {
-  const id = await derivedUuid(`music-asset:${trackId}`);
+  const kept = (row: { id: string; duration_seconds: number | string | null }) => ({
+    id: row.id,
+    durationSeconds: row.duration_seconds === null ? null : Number(row.duration_seconds),
+  });
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const { error } = await supabaseAdmin
+    const { data: inserted, error } = await supabaseAdmin
       .from("assets")
-      .insert({ ...values, id, storage_bucket: BUCKET, storage_path: path } as never);
-    if (!error) {
-      const seconds = values["duration_seconds"];
-      return { id, durationSeconds: typeof seconds === "number" ? seconds : null };
-    }
+      .insert({ ...values, storage_bucket: BUCKET, storage_path: path } as never)
+      .select("id,duration_seconds")
+      .maybeSingle();
+    if (!error && inserted) return kept(inserted as never);
     const { data: existing, error: lookupError } = await supabaseAdmin
       .from("assets")
-      .select("storage_bucket,storage_path,duration_seconds")
-      .eq("id", id)
+      .select("id,duration_seconds")
+      .eq("storage_bucket", BUCKET)
+      .eq("storage_path", path)
       .maybeSingle();
     if (lookupError) throw trackUnchecked();
-    if (existing) {
-      if (existing.storage_bucket !== BUCKET || existing.storage_path !== path)
-        throw trackUnchecked();
-      return {
-        id,
-        durationSeconds:
-          existing.duration_seconds === null ? null : Number(existing.duration_seconds),
-      };
-    }
+    if (existing) return kept(existing as never);
   }
   return null;
 }
@@ -145,7 +139,7 @@ async function storeAudio(input: {
     if (!landed) return null;
   }
   const durationSeconds = input.mime === "audio/mpeg" ? mp3Duration(input.bytes) : null;
-  const asset = await keptAsset(input.trackId, path, {
+  const asset = await keptAsset(path, {
     uploaded_by: input.userId,
     project_id: input.projectId,
     asset_type: "audio",
@@ -203,7 +197,7 @@ async function relinked(row: TrackRow): Promise<TrackRow> {
   const size = Number(file.metadata?.["size"]);
   const mime = file.metadata?.["mimetype"];
   const generated = row["source"] !== "openverse" && row["source"] !== "upload";
-  const asset = await keptAsset(row.id, `${base}.${extension}`, {
+  const asset = await keptAsset(`${base}.${extension}`, {
     uploaded_by: row["created_by"] ?? null,
     project_id: row["project_id"] ?? null,
     asset_type: "audio",
