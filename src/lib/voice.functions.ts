@@ -251,12 +251,15 @@ export const updateVoiceStatus = createServerFn({ method: "POST" })
     if (current.created_by !== context.userId && !isAdmin)
       throw new AppError("NOT_AUTHORIZED", "Only the voice's creator or an admin can change it");
     // Archiving the studio default clears it, which only an admin may do.
-    if (data.action === "archive" && current.is_default && !isAdmin)
-      throw new AppError(
+    const defaultOnly = () =>
+      new AppError(
         "NOT_AUTHORIZED",
         "This voice is the studio default, so only an admin can archive it.",
       );
-    const { error } = await supabaseAdmin
+    if (data.action === "archive" && current.is_default && !isAdmin) throw defaultOnly();
+    // For anyone else the archive lands only while the voice still isn't the
+    // default, so a voice an admin made the default meanwhile stays it.
+    let change = supabaseAdmin
       .from("brand_voices")
       .update(
         (data.action === "archive"
@@ -264,7 +267,23 @@ export const updateVoiceStatus = createServerFn({ method: "POST" })
           : { is_archived: false }) as never,
       )
       .eq("id", data.id);
+    if (data.action === "archive" && !isAdmin) change = change.eq("is_default", false);
+    const { data: changed, error } = await change.select("id").maybeSingle();
     if (error) throw new AppError("UNKNOWN", error.message);
+    if (!changed) {
+      const { data: now, error: nowError } = await supabaseAdmin
+        .from("brand_voices")
+        .select("is_default")
+        .eq("id", data.id)
+        .maybeSingle();
+      if (nowError)
+        throw new AppError(
+          "UNKNOWN",
+          "The voice couldn't be changed just now. Try again in a moment.",
+        );
+      if (now?.is_default) throw defaultOnly();
+      throw new AppError("INVALID_PARAMETERS", "That voice no longer exists");
+    }
     return { ok: true };
   });
 
