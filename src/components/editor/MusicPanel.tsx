@@ -272,8 +272,10 @@ export function MusicPanel({
                     <>
                       <LicenseBadge track={track} />
                       {licenceTerms(track)?.expired &&
-                        track.source === "upload" &&
-                        (isAdmin || track.created_by === user?.id) && (
+                        (track.parent_track_id
+                          ? true
+                          : track.source === "upload" &&
+                            (isAdmin || track.created_by === user?.id)) && (
                           <button
                             type="button"
                             className="shrink-0 text-[10px] text-primary hover:underline"

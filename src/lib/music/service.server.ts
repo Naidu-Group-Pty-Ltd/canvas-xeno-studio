@@ -1401,7 +1401,8 @@ async function libraryAsset(assetId: string): Promise<UploadAsset> {
  * in the library. Registering a recording again (say after an answer was
  * lost, or to renew a licence that has run out) updates its track's terms as
  * now confirmed, for whoever added the track or an admin; never anyone else.
- * Only the terms change: the track keeps its project, tags and length.
+ * Only the terms change: the track keeps its project, tags and length. Its
+ * instrumentals, which carry its licence, take the same terms.
  */
 export async function registerUploadedTrack(input: {
   userId: string;
@@ -1497,6 +1498,22 @@ export async function registerUploadedTrack(input: {
       .maybeSingle();
     if (updateError || !updated) throw notAdded();
     track = updated as unknown as TrackRow;
+    // Its instrumentals carry its licence, copied when they were made: they
+    // take the terms as now confirmed too, so the edits using them render
+    // with them. (Trying again, if this doesn't land, records the same.)
+    const { error: derivedError } = await supabaseAdmin
+      .from("music_tracks")
+      .update({
+        license: terms.license,
+        usage_notes: terms.usage_notes,
+        rights: terms.rights,
+      } as never)
+      .eq("parent_track_id", earlier.id);
+    if (derivedError)
+      throw new AppError(
+        "UNKNOWN",
+        "The licence was recorded, but its instrumentals couldn't take it just now. Try again.",
+      );
   } else if (error || !track) throw notAdded();
   // Only now, with its licence recorded, does an upload join the library.
   if (input.uploadId) {

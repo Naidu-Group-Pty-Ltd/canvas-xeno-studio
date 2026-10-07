@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Archive,
   ArchiveRestore,
@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { useMusicStatus, useMusicTracks } from "@/hooks/useMusicData";
 import { makeInstrumentalTrack, setMusicArchived } from "@/lib/music.functions";
 import { keepAttempt, savedAttempt } from "@/lib/attempts";
@@ -269,12 +270,16 @@ export function MusicLibrary({
                           <Wand2 className="mr-2 size-4" /> Make a new instrumental (charged again)
                         </DropdownMenuItem>
                       )}
-                      {canChange && track.source === "upload" && track.asset_id && (
-                        <DropdownMenuItem onClick={() => setRenewing(track)}>
-                          <ShieldCheck className="mr-2 size-4" />{" "}
-                          {licenceTerms(track)?.expired ? "Renew licence" : "Update licence"}
-                        </DropdownMenuItem>
-                      )}
+                      {canChange &&
+                        (track.source === "upload" || track.parent_track_id) &&
+                        // (Owned or licensed: recorded by the brand, or an instrumental of such a recording.)
+                        (track.license === "licensed" || track.license === "owned") &&
+                        track.asset_id && (
+                          <DropdownMenuItem onClick={() => setRenewing(track)}>
+                            <ShieldCheck className="mr-2 size-4" />{" "}
+                            {licenceTerms(track)?.expired ? "Renew licence" : "Update licence"}
+                          </DropdownMenuItem>
+                        )}
                       {canChange &&
                         (track.is_archived ? (
                           <DropdownMenuItem onClick={() => void archive(track, false)}>
@@ -319,8 +324,10 @@ export function MusicLibrary({
 
 /**
  * Records a recorded track's licence terms as they now stand (say once it has
- * been renewed), starting from the terms on record. Edits that use the track
- * render with them.
+ * been renewed), starting from the terms on record. Edits that use the track,
+ * or its instrumentals, render with them. An instrumental's licence is its
+ * original's, so for one it's the original's that is renewed, by whoever
+ * added the original or an admin.
  */
 export function RenewLicence({
   track,
@@ -329,6 +336,23 @@ export function RenewLicence({
   track: MusicTrackRow | null;
   onClose: () => void;
 }) {
+  const { user, isAdmin } = useAuth();
+  const parentId = track?.parent_track_id ?? null;
+  const { data: parent, isError: parentFailed } = useQuery({
+    queryKey: ["music_tracks", "one", parentId],
+    enabled: !!parentId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("music_tracks")
+        .select("*")
+        .eq("id", parentId!)
+        .maybeSingle();
+      if (error) throw error;
+      return (data ?? null) as unknown as MusicTrackRow | null;
+    },
+  });
+  const original = parentId ? (parent ?? null) : track;
+  const allowed = !!original && (isAdmin || original.created_by === user?.id);
   return (
     <Dialog open={track !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-lg">
@@ -337,11 +361,26 @@ export function RenewLicence({
             {track && licenceTerms(track)?.expired ? "Renew its licence" : "Update its licence"}
           </DialogTitle>
           <DialogDescription>
+            {parentId && original
+              ? `This is an instrumental of “${original.title}”, whose licence it carries: renewing that renews both. `
+              : ""}
             Record the licence's terms as they now stand. Edits that use this track render with
             them.
           </DialogDescription>
         </DialogHeader>
-        {track && <AddLicensedTrack key={track.id} renewing={track} onAdded={onClose} />}
+        {parentId && !original ? (
+          <p className="text-xs text-muted-foreground">
+            {parentFailed || parent === null
+              ? "Its original couldn't be found just now, so its licence can't be renewed here."
+              : "Looking up its original…"}
+          </p>
+        ) : original && !allowed ? (
+          <p className="text-xs text-muted-foreground">
+            Only whoever added “{original.title}”, or an admin, can renew its licence.
+          </p>
+        ) : (
+          original && <AddLicensedTrack key={original.id} renewing={original} onAdded={onClose} />
+        )}
       </DialogContent>
     </Dialog>
   );
