@@ -680,6 +680,8 @@ interface PendingAddition {
   check: () => void;
   /** Gives that attempt up and adds the voice anew. */
   startOver: () => void;
+  /** Gives that attempt up and clears the form, to begin with something else. */
+  discard?: () => void;
 }
 
 /**
@@ -719,6 +721,17 @@ function PendingVoice({ pending, busy }: { pending: PendingAddition | null; busy
         >
           Start over
         </Button>
+        {pending.discard && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-xs"
+            disabled={busy}
+            onClick={pending.discard}
+          >
+            Discard
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -926,6 +939,14 @@ function VoiceBrowser({
   );
 }
 
+/**
+ * A design that may have been made (and billed) without its options coming
+ * back. Kept in the browser like an attempt (see attempts), so closing the form,
+ * switching tabs or reloading doesn't quietly allow another design: that waits
+ * until the person chooses to design again.
+ */
+const DESIGN_HOLD = { place: "voice-design-held", key: "held" } as const;
+
 function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => void }) {
   const [description, setDescription] = useState("");
   const [pending, setPending] = useState<PendingAddition | null>(null);
@@ -934,12 +955,22 @@ function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => voi
   >([]);
   const [busy, setBusy] = useState<"design" | "save" | null>(null);
   const [name, setName] = useState("");
-  // A design that may have been made (and billed) without its options coming
-  // back: designing again waits until the person chooses to.
-  const [unsure, setUnsure] = useState<string | null>(null);
+  const [unsure, setUnsureShown] = useState<string | null>(null);
+  const setUnsure = (message: string | null) => {
+    keepAttempt(DESIGN_HOLD.place, DESIGN_HOLD.key, message);
+    setUnsureShown(message);
+  };
+  useEffect(() => {
+    setUnsureShown(savedAttempt(DESIGN_HOLD.place, DESIGN_HOLD.key));
+  }, []);
 
   async function design(again = false) {
-    if (unsure && !again) return;
+    // Held here, in another tab or on an earlier visit: only "Design again" goes on.
+    const held = unsure ?? savedAttempt(DESIGN_HOLD.place, DESIGN_HOLD.key);
+    if (held && !again) {
+      setUnsureShown(held);
+      return;
+    }
     setBusy("design");
     try {
       const result = await designElevenLabsVoice({ data: { description } });
@@ -1079,6 +1110,53 @@ function VoiceDesigner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => voi
   );
 }
 
+interface CloneRequest {
+  samples: { id: string; title: string | null }[];
+  speaker: string;
+}
+
+/**
+ * A clone still waiting for its outcome, with the recordings and speaker it
+ * was asked with. Kept in the browser like its request id (see attempts): the
+ * recordings are what the clone is known by, so after the form was closed or
+ * the page reloaded, checking again still asks about that clone rather than
+ * cloning again from new uploads.
+ */
+const PENDING_CLONE = { place: "voice-clone-pending", key: "current" } as const;
+
+function savedClone(): (CloneRequest & { message: string }) | null {
+  const saved = savedAttempt(PENDING_CLONE.place, PENDING_CLONE.key);
+  if (!saved) return null;
+  try {
+    const value = JSON.parse(saved) as Partial<CloneRequest & { message: string }>;
+    if (
+      !Array.isArray(value.samples) ||
+      !value.samples.length ||
+      !value.samples.every((sample) => typeof sample?.id === "string") ||
+      typeof value.speaker !== "string" ||
+      typeof value.message !== "string"
+    )
+      return null;
+    return {
+      samples: value.samples.map((sample) => ({
+        id: sample.id,
+        title: typeof sample.title === "string" ? sample.title : null,
+      })),
+      speaker: value.speaker,
+      message: value.message,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function keepClone(value: (CloneRequest & { message: string }) | null) {
+  keepAttempt(PENDING_CLONE.place, PENDING_CLONE.key, value ? JSON.stringify(value) : null);
+}
+
+const UNANSWERED_CLONE =
+  "This clone's answer didn't come back, so it may still have been made. Check again to find out: it won't be cloned twice.";
+
 function VoiceCloner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => void }) {
   const { user } = useAuth();
   const [pending, setPending] = useState<PendingAddition | null>(null);
@@ -1091,6 +1169,40 @@ function VoiceCloner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => void 
     () => samples.length > 0 && consent && speaker.trim().length >= 2,
     [samples, consent, speaker],
   );
+
+  // A clone still waiting for its outcome comes back as it was asked (its
+  // consent was confirmed then), with the choice to check again.
+  useEffect(() => {
+    const saved = savedClone();
+    if (!saved) return;
+    setSamples(saved.samples);
+    setSpeaker(saved.speaker);
+    setConsent(true);
+    setPending(waiting(saved, saved.message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const keyFor = (request: CloneRequest) =>
+    request.samples
+      .map((sample) => sample.id)
+      .sort()
+      .join(",");
+
+  function waiting(request: CloneRequest, message: string): PendingAddition {
+    return {
+      message,
+      check: () => void clone(request),
+      startOver: () => void clone(request, true),
+      discard: () => {
+        keepAttempt("voice-clone", keyFor(request), null);
+        keepClone(null);
+        setPending(null);
+        setSamples([]);
+        setSpeaker("");
+        setConsent(false);
+      },
+    };
+  }
 
   async function upload(files: FileList | null) {
     if (!files?.length || !user) return;
@@ -1110,41 +1222,42 @@ function VoiceCloner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => void 
     }
   }
 
-  async function clone(startOver = false) {
+  async function clone(request: CloneRequest, startOver = false) {
     setBusy("clone");
     // Kept until the clone is made (across reloads too), so trying again after
     // a lost answer finds it rather than cloning twice. A clone is of its
     // recordings: asked again with another speaker name, the clone already
     // asked for is still the one looked for.
-    const request = {
-      name: `${speaker.trim()} (brand voice)`,
-      sampleAssetIds: samples.map((sample) => sample.id),
-      speakerName: speaker.trim(),
-    };
-    const key = [...request.sampleAssetIds].sort().join(",");
+    const key = keyFor(request);
     if (startOver) keepAttempt("voice-clone", key, null);
     const clientRequestId = savedAttempt("voice-clone", key) ?? crypto.randomUUID();
     keepAttempt("voice-clone", key, clientRequestId);
+    keepClone({ ...request, message: UNANSWERED_CLONE });
     try {
       const result = await cloneElevenLabsVoice({
         data: {
-          name: request.name,
+          name: `${request.speaker} (brand voice)`,
           description: "",
-          sampleAssetIds: request.sampleAssetIds,
-          consent: { confirmed: true, speakerName: request.speakerName },
+          sampleAssetIds: request.samples.map((sample) => sample.id),
+          consent: { confirmed: true, speakerName: request.speaker },
           removeBackgroundNoise: true,
           clientRequestId,
         },
       });
+      if ("failed" in result) {
+        // Not made, so nothing to check on: the form stays as it is, to change or try again.
+        keepClone(null);
+        setPending(null);
+        toast.error(result.failed);
+        return;
+      }
       if ("pending" in result) {
-        setPending({
-          message: result.pending,
-          check: () => void clone(),
-          startOver: () => void clone(true),
-        });
+        keepClone({ ...request, message: result.pending });
+        setPending(waiting(request, result.pending));
         return;
       }
       setPending(null);
+      keepClone(null);
       keepAttempt("voice-clone", key, null);
       onPick({
         providerVoiceId: result.voiceId,
@@ -1153,6 +1266,10 @@ function VoiceCloner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => void 
       });
       toast.success("Voice cloned");
     } catch (error) {
+      // Its outcome isn't known here: the clone stays to be checked again.
+      const message = `${error instanceof Error ? error.message : "The voice could not be cloned."} If the clone was made after all, checking again finds it.`;
+      keepClone({ ...request, message });
+      setPending(waiting(request, message));
       toast.error(error instanceof Error ? error.message : "The voice could not be cloned");
     } finally {
       setBusy(null);
@@ -1168,7 +1285,7 @@ function VoiceCloner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => void 
         size="sm"
         variant="outline"
         className="w-full"
-        disabled={busy !== null || samples.length >= 10}
+        disabled={busy !== null || samples.length >= 10 || pending !== null}
         onClick={() => input.current?.click()}
       >
         {busy === "upload" ? (
@@ -1187,7 +1304,7 @@ function VoiceCloner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => void 
         onChange={(event) => void upload(event.target.files)}
       />
       {samples.map((sample) => (
-        <p key={sample.id} className="flex items-center gap-1.5">
+        <p key={sample.id} className="flex items-center gap-1.5" data-testid="clone-sample">
           <Mic className="size-3" /> {sample.title ?? "Recording"}
         </p>
       ))}
@@ -1213,7 +1330,7 @@ function VoiceCloner({ onPick }: { onPick: (patch: Partial<VoiceDraft>) => void 
         size="sm"
         className="w-full"
         disabled={!ready || busy !== null}
-        onClick={() => void clone()}
+        onClick={() => void clone({ samples, speaker: speaker.trim() })}
       >
         {busy === "clone" ? (
           <Loader2 className="mr-1.5 size-3.5 animate-spin" />

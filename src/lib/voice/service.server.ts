@@ -650,7 +650,9 @@ export async function generateVoiceover(input: {
       : query.is("sequence_id", null);
     query = projectId ? query.eq("project_id", projectId) : query.is("project_id", null);
     query = campaignId ? query.eq("campaign_id", campaignId) : query.is("campaign_id", null);
-    const { data, error } = await query.order("created_at", { ascending: false }).limit(20);
+    // Every take being made by this voice here (only ever a few at once), not a
+    // first page of them: the matching one can't be crowded out by the rest.
+    const { data, error } = await query.order("created_at", { ascending: false });
     if (error) throw unchecked();
     return ((data ?? []) as unknown as TakeRow[]).find((row) => row.script === script) ?? null;
   };
@@ -869,6 +871,12 @@ export type VoiceAddition<Details> =
   { voiceId: string; name: string; details: Details } | { pending: string };
 
 /**
+ * A voice that definitely wasn't added (nothing reached ElevenLabs, or it said
+ * no). Its attempt is recorded as failed, so asking again tries it again.
+ */
+export class VoiceNotAdded extends AppError {}
+
+/**
  * Adds a voice to the ElevenLabs account (a designed voice, a clone, a library
  * voice) once per attempt; ElevenLabs keeps no request ids of its own. The
  * attempt is recorded first (an operation keyed by `key`), with its name and
@@ -946,7 +954,7 @@ export async function voiceAddedOnce<Details extends Record<string, unknown>>(in
         pending:
           "ElevenLabs may have added this voice, but its answer was lost. Try again in a minute: the studio looks for it in your account rather than adding it twice.",
       };
-    throw new AppError(result.code as never, result.message);
+    throw new VoiceNotAdded(result.code as never, result.message);
   };
   // A new attempt (or one that definitely failed, tried again as now asked)
   // records the voices of that name first.
