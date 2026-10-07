@@ -962,12 +962,16 @@ export async function voiceAddedOnce<Details extends Record<string, unknown>>(in
     const result = await input.create();
     const at = new Date().toISOString();
     if (result.ok) {
+      // Recorded taking turns with claims of found voices (record_added_voice),
+      // which wait meanwhile, so none takes this voice for another attempt.
       // If this can't be recorded, the voice is still found by its name next time.
-      await record(id, {
-        status: "completed",
-        output_payload: { voice_id: result.voiceId },
-        completed_at: at,
-      });
+      for (let tries = 0; tries < 2; tries += 1) {
+        const { data, error } = await supabaseAdmin.rpc(
+          "record_added_voice" as never,
+          { p_attempt: id, p_voice: result.voiceId } as never,
+        );
+        if (!error && data) break;
+      }
       return { voiceId: result.voiceId, name: input.name, details: input.details };
     }
     // A failure that can't be recorded leaves the attempt pending, which is

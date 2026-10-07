@@ -197,8 +197,10 @@ GRANT EXECUTE ON FUNCTION public.set_default_brand_voice(uuid) TO service_role;
 
 -- A voice added to ElevenLabs whose answer was lost is found later as a new
 -- voice of its name. Each such voice goes to one attempt only: checks take
--- turns, and a voice another attempt already has is passed over, so two
--- attempts checked at the same moment can't both take the same voice.
+-- turns with each other and with recording an addition that was answered
+-- (record_added_voice); a voice another attempt already has, or that is
+-- already a brand voice, is passed over; and while another attempt of that
+-- name is still being added (its answer may still come), nothing is taken.
 -- Outcome: claimed (with the attempt's voice, also when it already had one),
 -- pending (none of these is free yet), many (more than one is, so it can't
 -- tell which), changed (the attempt was settled otherwise meanwhile) or
@@ -212,10 +214,11 @@ AS $$
 DECLARE
   v_status text;
   v_voice text;
+  v_name text;
   v_free text[];
 BEGIN
   PERFORM pg_advisory_xact_lock(hashtext('public.claim_added_voice'));
-  SELECT status, output_payload->>'voice_id' INTO v_status, v_voice
+  SELECT status, output_payload->>'voice_id', input_payload->>'name' INTO v_status, v_voice, v_name
     FROM public.operations WHERE id = p_attempt AND operation_type = 'voice_add';
   IF NOT FOUND THEN
     RETURN jsonb_build_object('outcome', 'missing');
@@ -226,11 +229,21 @@ BEGIN
   IF v_status NOT IN ('running', 'submission_uncertain') THEN
     RETURN jsonb_build_object('outcome', 'changed');
   END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.operations
+    WHERE operation_type = 'voice_add' AND status = 'running' AND id <> p_attempt
+      AND input_payload->>'name' = v_name AND submitted_at > now() - interval '10 minutes'
+  ) THEN
+    RETURN jsonb_build_object('outcome', 'pending');
+  END IF;
   SELECT array_agg(DISTINCT candidate) INTO v_free
     FROM unnest(p_fresh) AS candidate
     WHERE NOT EXISTS (
       SELECT 1 FROM public.operations
       WHERE operation_type = 'voice_add' AND status = 'completed' AND output_payload->>'voice_id' = candidate
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM public.brand_voices WHERE provider = 'elevenlabs' AND provider_voice_id = candidate
     );
   IF v_free IS NULL THEN
     RETURN jsonb_build_object('outcome', 'pending');
@@ -246,6 +259,25 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.claim_added_voice(uuid, text[]) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.claim_added_voice(uuid, text[]) TO service_role;
+
+-- An addition ElevenLabs answered is recorded with the voice it answered with,
+-- taking turns with claims (claim_added_voice). Server only.
+CREATE OR REPLACE FUNCTION public.record_added_voice(p_attempt uuid, p_voice text)
+RETURNS boolean
+LANGUAGE plpgsql
+VOLATILE
+SET search_path = public
+AS $$
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtext('public.claim_added_voice'));
+  UPDATE public.operations
+    SET status = 'completed', output_payload = jsonb_build_object('voice_id', p_voice),
+        completed_at = now(), error_code = NULL, error_message = NULL, failed_at = NULL
+    WHERE id = p_attempt AND operation_type = 'voice_add';
+  RETURN FOUND;
+END $$;
+REVOKE ALL ON FUNCTION public.record_added_voice(uuid, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.record_added_voice(uuid, text) TO service_role;
 
 GRANT SELECT ON public.brand_voices, public.voiceovers TO authenticated;
 GRANT ALL ON public.brand_voices, public.voiceovers TO service_role;
