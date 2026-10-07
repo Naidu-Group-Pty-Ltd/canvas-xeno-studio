@@ -325,7 +325,7 @@ function ClipInspector({
           disabled={
             !entry || clock.getTime() <= entry.start + 0.1 || clock.getTime() >= entry.end - 0.1
           }
-          onClick={() => onChange(splitClipAt(timeline, clock.getTime()))}
+          onClick={() => onChange(splitClipAt(timeline, clock.getTime(), clip.id))}
         >
           <Scissors className="mr-1.5 size-3.5" /> Split at playhead (S)
         </Button>
