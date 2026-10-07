@@ -1004,6 +1004,21 @@ const UPLOAD_TYPES: Record<string, { mime: string; extension: string }> = {
   "audio/x-m4a": { mime: "audio/mp4", extension: "m4a" },
 };
 
+/**
+ * The type of an upload whose browser gave none, or only a generic one, from
+ * its file's name (its structure is checked once it's uploaded either way).
+ */
+function uploadTypeByName(fileName: string): { mime: string; extension: string } | undefined {
+  const extension = fileName.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1];
+  return extension === "wav"
+    ? UPLOAD_TYPES["audio/wav"]
+    : extension === "mp3"
+      ? UPLOAD_TYPES["audio/mpeg"]
+      : extension === "m4a"
+        ? UPLOAD_TYPES["audio/mp4"]
+        : undefined;
+}
+
 /** What a recording uploaded for its licence may be (the form asks for WAV, MP3 or M4A). */
 const UPLOAD_KINDS: readonly ProbedAudio[] = ["mp3", "wav", "m4a"];
 
@@ -1065,7 +1080,9 @@ export async function stageUpload(input: {
   projectId: string | null;
 }): Promise<{ uploadId: string; bucket: string; path: string }> {
   await requireActiveMember(input.userId);
-  const type = UPLOAD_TYPES[input.mimeType];
+  const untyped = input.mimeType === "" || input.mimeType === "application/octet-stream";
+  const type =
+    UPLOAD_TYPES[input.mimeType] ?? (untyped ? uploadTypeByName(input.fileName) : undefined);
   if (!type) throw new AppError("INVALID_PARAMETERS", "Upload a WAV, MP3 or M4A file.");
   if (input.size > MAX_UPLOAD_BYTES) throw uploadTooLarge();
   const uploadId = crypto.randomUUID();

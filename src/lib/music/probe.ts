@@ -196,6 +196,11 @@ function mp3FrameSeconds(bytes: Uint8Array, at: number): number {
 
 /* ---------------------------------------------------------------- WAV */
 
+/** The fixed part of a WAVE_FORMAT_EXTENSIBLE subformat GUID (xxxxxxxx-0000-0010-8000-00AA00389B71), after its format code. */
+const EXTENSIBLE_TAIL = [
+  0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71,
+];
+
 /** A WAV whose format browsers decode (PCM or float), followed by data that is really there. */
 async function isWav(head: Uint8Array, read: ReadRange, size: number): Promise<boolean> {
   let offset = 12;
@@ -208,17 +213,26 @@ async function isWav(head: Uint8Array, read: ReadRange, size: number): Promise<b
     if (id === "fmt ") {
       const format = await bytesAt(head, read, offset + 8, Math.min(length, 40));
       if (format.length < 16) return false;
-      const code = u16le(format, 0);
+      // [code][channels][rate][byte rate][block align][bits a sample], and for
+      // WAVE_FORMAT_EXTENSIBLE (0xFFFE) [extra size: 22][valid bits][channel
+      // mask: 4][subformat: a GUID whose first two bytes are its format code].
+      let code = u16le(format, 0);
       const channels = u16le(format, 2);
       const rate = u32le(format, 4);
       const bits = u16le(format, 14);
+      if (code === 0xfffe) {
+        if (format.length < 40 || u16le(format, 16) < 22) return false;
+        if (!EXTENSIBLE_TAIL.every((byte, index) => format[26 + index] === byte)) return false;
+        code = u16le(format, 24);
+      }
+      // PCM (1) at 8 to 32 bits, or floating point (3) at 32 or 64.
       formatOk =
-        [1, 3, 0xfffe].includes(code) &&
+        ((code === 1 && [8, 16, 24, 32].includes(bits)) ||
+          (code === 3 && [32, 64].includes(bits))) &&
         channels >= 1 &&
         channels <= 32 &&
         rate >= 8000 &&
-        rate <= 384_000 &&
-        [8, 16, 24, 32, 64].includes(bits);
+        rate <= 384_000;
       if (!formatOk) return false;
     } else if (id === "data") {
       // Audio bytes must follow (a streamed WAV may not know its length: all ones).
@@ -285,11 +299,11 @@ function inMedia(media: readonly Box[], start: number, end: number): boolean {
 }
 
 /**
- * Whether the movie has a sound track the studio can use: one in a codec
- * browsers and the renderer decode, every one of whose samples is listed in
- * the movie and lies inside the file's media data (mdat), chunk by chunk. (A
- * fragmented file lists none in its movie: its samples are in fragments the
- * studio doesn't check, so it isn't taken.)
+ * Whether the movie's sound track can be played: the first sound track with
+ * samples, the one browsers play (one with none, as a fragmented file's movie
+ * has, plays nothing, and the next is looked at). Every one of its samples
+ * must be listed in the movie, in a sample description decoded here, and lie
+ * inside the file's media data (mdat), chunk by chunk.
  */
 function soundTrackInMedia(movie: Uint8Array, media: readonly Box[]): boolean {
   const moov = movieContent(movie);
@@ -300,67 +314,104 @@ function soundTrackInMedia(movie: Uint8Array, media: readonly Box[]): boolean {
     const hdlr = boxIn(movie, mdia, "hdlr");
     if (!hdlr || hdlr.start + 12 > hdlr.end || ascii(movie, hdlr.start + 8, 4) !== "soun") continue;
     const stbl = boxIn(movie, boxIn(movie, mdia, "minf"), "stbl");
-    // stsd: [version, flags][entry count], then its sample descriptions, each a
-    // box of its codec. Every one the chunks use must be in a codec decoded here.
-    const stsd = boxIn(movie, stbl, "stsd");
-    if (!stsd || stsd.start + 16 > stsd.end || u32be(movie, stsd.start + 4) < 1) continue;
-    const descriptions = boxesIn(movie, stsd.start + 8, stsd.end).slice(
-      0,
-      u32be(movie, stsd.start + 4),
-    );
-    const decoded = (index: number) =>
-      index >= 1 && index <= descriptions.length && MP4_SOUND.has(descriptions[index - 1]!.type);
     // stsz: [version, flags][one size for every sample, or 0][sample count][sizes…]
     const stsz = boxIn(movie, stbl, "stsz");
-    if (!stsz || stsz.start + 12 > stsz.end) continue;
-    const everySample = u32be(movie, stsz.start + 4);
-    const samples = u32be(movie, stsz.start + 8);
-    if (samples === 0) continue;
-    if (!everySample && stsz.start + 12 + samples * 4 > stsz.end) continue;
-    // stco / co64: where each chunk of samples is in the file (32 or 64 bits).
-    const stco = boxIn(movie, stbl, "stco");
-    const offsets = stco ?? boxIn(movie, stbl, "co64");
-    if (!offsets || offsets.start + 8 > offsets.end) continue;
-    const step = stco ? 4 : 8;
-    const chunks = u32be(movie, offsets.start + 4);
-    if (chunks === 0 || offsets.start + 8 + chunks * step > offsets.end) continue;
-    // stsc: runs of chunks, each [its first chunk, counted from 1][samples in
-    // each of its chunks][description], the first starting at chunk 1.
-    const stsc = boxIn(movie, stbl, "stsc");
-    if (!stsc || stsc.start + 8 > stsc.end) continue;
-    const runs = u32be(movie, stsc.start + 4);
-    if (runs === 0 || stsc.start + 8 + runs * 12 > stsc.end) continue;
-    const runStart = (run: number) => u32be(movie, stsc.start + 8 + run * 12);
-    let ordered = runStart(0) === 1;
-    for (let run = 1; run < runs && ordered; run += 1) ordered = runStart(run) > runStart(run - 1);
-    if (!ordered) continue;
-    // Every chunk, with the samples its run gives it, inside media data, and in
-    // a sample description decoded here (each run names its own); and the
-    // chunks hold every sample. (With one size for every sample, a chunk's
-    // length is worked out rather than counted: the counts come from the file.)
-    let sample = 0;
-    let run = 0;
-    let placed = true;
-    for (let chunk = 0; chunk < chunks && sample < samples && placed; chunk += 1) {
-      while (run + 1 < runs && runStart(run + 1) <= chunk + 1) run += 1;
-      if (!decoded(u32be(movie, stsc.start + 16 + run * 12))) {
-        placed = false;
-        break;
-      }
-      const inChunk = Math.min(u32be(movie, stsc.start + 12 + run * 12), samples - sample);
-      if (inChunk < 1) break;
-      const at = offsets.start + 8 + chunk * step;
-      const start = stco ? u32be(movie, at) : u32be(movie, at) * 0x100000000 + u32be(movie, at + 4);
-      let length = inChunk * everySample;
-      if (!everySample)
-        for (let index = sample; index < sample + inChunk; index += 1)
-          length += u32be(movie, stsz.start + 12 + index * 4);
-      placed = inMedia(media, start, start + length);
-      sample += inChunk;
-    }
-    if (placed && sample === samples) return true;
+    const samples = stsz && stsz.start + 12 <= stsz.end ? u32be(movie, stsz.start + 8) : 0;
+    if (!stbl || !stsz || samples === 0) continue;
+    return soundTrackPlays(movie, media, stbl, stsz, samples);
   }
   return false;
+}
+
+/** The checks of soundTrackInMedia, for one sound track with samples. */
+function soundTrackPlays(
+  movie: Uint8Array,
+  media: readonly Box[],
+  stbl: Box,
+  stsz: Box,
+  samples: number,
+): boolean {
+  // stsd: [version, flags][entry count], then its sample descriptions, each a
+  // box of its codec. Every one the chunks use must be decoded here.
+  const stsd = boxIn(movie, stbl, "stsd");
+  if (!stsd || stsd.start + 16 > stsd.end || u32be(movie, stsd.start + 4) < 1) return false;
+  const descriptions = boxesIn(movie, stsd.start + 8, stsd.end).slice(
+    0,
+    u32be(movie, stsd.start + 4),
+  );
+  const decoded = (index: number) =>
+    index >= 1 && index <= descriptions.length && decodedHere(movie, descriptions[index - 1]!);
+  const everySample = u32be(movie, stsz.start + 4);
+  if (!everySample && stsz.start + 12 + samples * 4 > stsz.end) return false;
+  // stco / co64: where each chunk of samples is in the file (32 or 64 bits).
+  const stco = boxIn(movie, stbl, "stco");
+  const offsets = stco ?? boxIn(movie, stbl, "co64");
+  if (!offsets || offsets.start + 8 > offsets.end) return false;
+  const step = stco ? 4 : 8;
+  const chunks = u32be(movie, offsets.start + 4);
+  if (chunks === 0 || offsets.start + 8 + chunks * step > offsets.end) return false;
+  // stsc: runs of chunks, each [its first chunk, counted from 1][samples in
+  // each of its chunks][description], the first starting at chunk 1.
+  const stsc = boxIn(movie, stbl, "stsc");
+  if (!stsc || stsc.start + 8 > stsc.end) return false;
+  const runs = u32be(movie, stsc.start + 4);
+  if (runs === 0 || stsc.start + 8 + runs * 12 > stsc.end) return false;
+  const runStart = (run: number) => u32be(movie, stsc.start + 8 + run * 12);
+  let ordered = runStart(0) === 1;
+  for (let run = 1; run < runs && ordered; run += 1) ordered = runStart(run) > runStart(run - 1);
+  if (!ordered) return false;
+  // Every chunk, with the samples its run gives it, inside media data, and in
+  // a sample description decoded here (each run names its own); and the
+  // chunks hold every sample. (With one size for every sample, a chunk's
+  // length is worked out rather than counted: the counts come from the file.)
+  let sample = 0;
+  let run = 0;
+  for (let chunk = 0; chunk < chunks && sample < samples; chunk += 1) {
+    while (run + 1 < runs && runStart(run + 1) <= chunk + 1) run += 1;
+    if (!decoded(u32be(movie, stsc.start + 16 + run * 12))) return false;
+    const inChunk = Math.min(u32be(movie, stsc.start + 12 + run * 12), samples - sample);
+    if (inChunk < 1) break;
+    const at = offsets.start + 8 + chunk * step;
+    const start = stco ? u32be(movie, at) : u32be(movie, at) * 0x100000000 + u32be(movie, at + 4);
+    let length = inChunk * everySample;
+    if (!everySample)
+      for (let index = sample; index < sample + inChunk; index += 1)
+        length += u32be(movie, stsz.start + 12 + index * 4);
+    if (!inMedia(media, start, start + length)) return false;
+    sample += inChunk;
+  }
+  return sample === samples;
+}
+
+/**
+ * Whether an MP4 sample description is one browsers and the renderer decode:
+ * AAC (LC, or HE-AAC over an LC core) or MP3 in an mp4a entry whose decoder
+ * configuration says so, Opus with its dOps box, or FLAC with its dfLa box.
+ */
+function decodedHere(movie: Uint8Array, entry: Box): boolean {
+  if (!MP4_SOUND.has(entry.type) || entry.start + 28 > entry.end) return false;
+  // [reserved: 6][reference: 2][version: 2]…, 28 bytes in version 0 (more in 1 and 2), then its own boxes.
+  const version = u16be(movie, entry.start + 8);
+  const own = boxesIn(
+    movie,
+    entry.start + 28 + (version === 1 ? 16 : version === 2 ? 36 : 0),
+    entry.end,
+  );
+  if (entry.type === "Opus")
+    return own.some((box) => box.type === "dOps" && box.start + 11 <= box.end);
+  if (entry.type === "fLaC")
+    return own.some(
+      (box) =>
+        box.type === "dfLa" && flacLayout(movie.subarray(0, box.end), box.start + 8) !== null,
+    );
+  const esds = own.find((box) => box.type === "esds");
+  const config = esds ? esdsConfig(movie, esds) : null;
+  if (!config) return false;
+  // MPEG-4 audio: AAC LC (2), or HE-AAC (5, 29) over an LC core.
+  if (config.objectType === 0x40)
+    return config.coreType === 2 && [2, 5, 29].includes(config.audioType);
+  // MPEG-2 AAC LC, and MPEG-2 and MPEG-1 audio (MP3).
+  return [0x67, 0x69, 0x6b].includes(config.objectType);
 }
 
 /**
@@ -1083,8 +1134,18 @@ function flacLayout(bytes: Uint8Array, info: number): AudioLayout | null {
 /** AAC's channel configurations (in its AudioSpecificConfig) and the channels each decodes to. */
 const AAC_CHANNELS = [0, 1, 2, 3, 4, 5, 6, 8, 0, 0, 0, 7, 8, 24, 8, 0];
 
-/** The channels an AAC stream's AudioSpecificConfig (in its esds box) says it decodes to; 0 if it doesn't say. */
-function aacChannels(movie: Uint8Array, esds: Box): number {
+/**
+ * What an MP4 audio entry's esds box says of its stream: the object type of its
+ * decoder configuration (0x40 for MPEG-4 audio such as AAC, 0x67 for MPEG-2
+ * AAC LC, 0x69 and 0x6B for MPEG audio such as MP3) and, for MPEG-4 audio, its
+ * AudioSpecificConfig's object type (2 for AAC LC; 5 and 29 for HE-AAC, over a
+ * core whose type follows) and the channels it decodes to. Null when it holds
+ * no decoder configuration.
+ */
+function esdsConfig(
+  movie: Uint8Array,
+  esds: Box,
+): { objectType: number; audioType: number; coreType: number; channels: number } | null {
   // [version, flags], then descriptors, each [tag][length: 1-4 bytes of 7 bits][content].
   let at = esds.start + 4;
   const open = (tag: number) => {
@@ -1095,17 +1156,20 @@ function aacChannels(movie: Uint8Array, esds: Box): number {
     return true;
   };
   // ES_Descriptor: [ES_ID: 2][flags], then what its flags say follows.
-  if (!open(0x03)) return 0;
+  if (!open(0x03)) return null;
   const flags = movie[at + 2] ?? 0;
   at += 3;
   if (flags & 0x80) at += 2;
   if (flags & 0x40) at += 1 + (movie[at] ?? 0);
   if (flags & 0x20) at += 2;
   // DecoderConfigDescriptor: [object type][stream type][buffer size: 3][top rate: 4][average rate: 4].
-  if (!open(0x04)) return 0;
+  if (!open(0x04) || at + 13 > esds.end) return null;
+  const objectType = movie[at] ?? 0;
   at += 13;
-  // AudioSpecificConfig: [object type: 5 bits (31: 6 more)][rate: 4 bits (15: 24 more)][channels: 4 bits]…
-  if (!open(0x05) || at + 5 > esds.end) return 0;
+  if (objectType !== 0x40) return { objectType, audioType: 0, coreType: 0, channels: 0 };
+  // AudioSpecificConfig: [object type: 5 bits (31: 6 more)][rate: 4 bits (15: 24 more)][channels:
+  // 4 bits], and for HE-AAC [its rate: 4 bits (15: 24 more)][the core's object type].
+  if (!open(0x05) || at + 2 > esds.end) return null;
   let bit = at * 8;
   const take = (count: number) => {
     let value = 0;
@@ -1113,9 +1177,22 @@ function aacChannels(movie: Uint8Array, esds: Box): number {
       value = value * 2 + (((movie[bit >> 3] ?? 0) >> (7 - (bit & 7))) & 1);
     return value;
   };
-  if (take(5) === 31) take(6);
-  if (take(4) === 15) take(24);
-  return AAC_CHANNELS[take(4)] ?? 0;
+  const audioObjectType = () => {
+    const type = take(5);
+    return type === 31 ? 32 + take(6) : type;
+  };
+  const rate = () => {
+    if (take(4) === 15) take(24);
+  };
+  const audioType = audioObjectType();
+  rate();
+  const channels = AAC_CHANNELS[take(4)] ?? 0;
+  let coreType = audioType;
+  if (audioType === 5 || audioType === 29) {
+    rate();
+    coreType = audioObjectType();
+  }
+  return { objectType, audioType, coreType, channels };
 }
 
 /**
@@ -1159,7 +1236,8 @@ async function mp4Layout(
       }
       const inner = entry.start + 28 + (version === 1 ? 16 : version === 2 ? 36 : 0);
       for (const box of boxesIn(movie, inner, entry.end)) {
-        if (box.type === "esds") trackChannels = Math.max(trackChannels, aacChannels(movie, box));
+        if (box.type === "esds")
+          trackChannels = Math.max(trackChannels, esdsConfig(movie, box)?.channels ?? 0);
         else if (box.type === "dOps" && box.start + 2 <= box.end) {
           // [version][output channels][pre-skip: 2][input rate: 4]…; Opus decodes at 48 kHz.
           trackChannels = Math.max(trackChannels, movie[box.start + 1] ?? 0);

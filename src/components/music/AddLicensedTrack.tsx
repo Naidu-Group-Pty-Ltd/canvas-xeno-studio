@@ -62,6 +62,24 @@ function savedStaged(userId: string, upload: string): Staged | null {
   }
 }
 
+/**
+ * The type a picked file is uploaded as: the browser's, or, when it gives none
+ * (or only a generic one, as some systems do for .m4a), its name's. The server
+ * checks the file's structure once it's uploaded either way.
+ */
+function uploadType(file: File): string {
+  const given = normalizeMime(file.type);
+  if (given && given !== "application/octet-stream") return given;
+  const extension = file.name.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1];
+  return extension === "wav"
+    ? "audio/wav"
+    : extension === "mp3"
+      ? "audio/mpeg"
+      : extension === "m4a"
+        ? "audio/mp4"
+        : given;
+}
+
 function keepStaged(userId: string, upload: string, value: Staged | null) {
   keepAttempt(stagedPlace(userId), upload, value ? JSON.stringify(value) : null);
 }
@@ -168,7 +186,7 @@ export function AddLicensedTrack({
           const started = await stageMusicUpload({
             data: {
               fileName: file.name,
-              mimeType: normalizeMime(file.type),
+              mimeType: uploadType(file),
               size: file.size,
               projectId,
             },
@@ -179,7 +197,7 @@ export function AddLicensedTrack({
         if (!staged.uploaded) {
           const [stored, measured] = await Promise.all([
             supabase.storage.from(staged.bucket).upload(staged.path, file, {
-              contentType: normalizeMime(file.type),
+              contentType: uploadType(file),
               upsert: false,
             }),
             audioFileDuration(file),
