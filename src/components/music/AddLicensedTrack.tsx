@@ -34,8 +34,25 @@ export function AddLicensedTrack({ projectId = null }: { projectId?: string | nu
   const [territories, setTerritories] = useState("Worldwide");
   const [expiresOn, setExpiresOn] = useState("");
   const [notes, setNotes] = useState("");
-  const [confirmed, setConfirmed] = useState(false);
   const [saving, setSaving] = useState(false);
+  // The confirmation covers this recording and these terms as they stood when
+  // it was given: changing any of them asks for it again.
+  const declaration = JSON.stringify([
+    file ? [file.name, file.size, file.lastModified] : null,
+    license,
+    license === "licensed"
+      ? [
+          licensor.trim(),
+          reference.trim(),
+          [...scopes].sort(),
+          territories.trim(),
+          expiresOn,
+          notes.trim(),
+        ]
+      : null,
+  ]);
+  const [confirmedFor, setConfirmedFor] = useState<string | null>(null);
+  const confirmed = confirmedFor === declaration;
 
   const ready =
     !!file &&
@@ -88,7 +105,7 @@ export function AddLicensedTrack({ projectId = null }: { projectId?: string | nu
       setArtist("");
       setReference("");
       setNotes("");
-      setConfirmed(false);
+      setConfirmedFor(null);
       if (input.current) input.current.value = "";
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "The track could not be added");
@@ -268,7 +285,7 @@ export function AddLicensedTrack({ projectId = null }: { projectId?: string | nu
       <label className="flex items-start gap-2 rounded-md border border-border p-2">
         <Checkbox
           checked={confirmed}
-          onCheckedChange={(checked) => setConfirmed(checked === true)}
+          onCheckedChange={(checked) => setConfirmedFor(checked === true ? declaration : null)}
           className="mt-0.5"
         />
         <span>

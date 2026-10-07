@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, Pause, Play, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
@@ -67,9 +67,13 @@ export function FindMusic({
   // whatever has been typed or picked since (a new search starts over).
   const [shownFor, setShownFor] = useState<SearchCriteria | null>(null);
   const morePages = page < Math.min(pages, 12);
+  // Only the latest search writes the results: one started meanwhile (Enter
+  // while more results were loading) makes the older answer stale.
+  const latest = useRef(0);
 
   async function search(nextPage = 1) {
     const criteria: SearchCriteria = nextPage > 1 && shownFor ? shownFor : { query, kind, length };
+    const asked = ++latest.current;
     setSearching(true);
     try {
       const result = await searchOpenverseMusic({
@@ -80,15 +84,17 @@ export function FindMusic({
           ...(criteria.length !== "any" ? { length: criteria.length } : {}),
         },
       });
+      if (asked !== latest.current) return;
       setResults((current) => (nextPage === 1 ? result.tracks : [...current, ...result.tracks]));
       setShownFor(criteria);
       setPage(nextPage);
       setPages(result.pages);
       setSearched(true);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "The search failed");
+      if (asked === latest.current)
+        toast.error(error instanceof Error ? error.message : "The search failed");
     } finally {
-      setSearching(false);
+      if (asked === latest.current) setSearching(false);
     }
   }
 
