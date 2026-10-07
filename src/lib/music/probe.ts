@@ -3,9 +3,9 @@
  * read from its structure rather than its name or its first bytes: MP3 frames
  * that follow one another, a WAV's format and its data, an MP4/M4A with a
  * sound track and media data, an Ogg stream of Vorbis, Opus or FLAC with
- * pages after its headers, or FLAC with its stream description and frames.
- * Only small parts of the file are read (`read`), so a large file is never
- * fetched whole to check it.
+ * sound after its headers, or FLAC with its stream description and a whole
+ * first frame. Only small parts of the file are read (`read`), and only a few
+ * times, so a large file is never fetched whole to check it.
  */
 
 /** Reads up to `length` bytes from `offset` (fewer at the end of the file). */
@@ -30,6 +30,10 @@ const HEAD_BYTES = 64 * 1024;
 const MAX_MOOV_BYTES = 16 * 1024 * 1024;
 /** How many boxes or chunks are walked before giving up. */
 const MAX_PARTS = 64;
+/** How many Ogg pages are walked to reach sound (headers with cover art can span many). */
+const MAX_OGG_PAGES = 1024;
+/** How many reads a check may make past the first part, however the file is laid out. */
+const MAX_READS = 16;
 
 const ascii = (bytes: Uint8Array, start: number, length: number) =>
   String.fromCharCode(...bytes.subarray(start, start + length));
@@ -61,35 +65,58 @@ export async function probeAudio(
   if (!Number.isFinite(size) || size < 64) return null;
   const head = await read(0, Math.min(size, HEAD_BYTES));
   if (head.length < 64) return null;
-  const kind = await probed(head, read, size);
-  return kind && kinds.includes(kind) ? kind : null;
+  // A file that needs more reads than this to show it holds audio isn't taken.
+  let reads = 0;
+  const limited: ReadRange = async (offset, length) =>
+    (reads += 1) > MAX_READS ? new Uint8Array(0) : read(offset, length);
+  return probed(head, limited, size, kinds);
 }
 
-/** The same, for a file already in memory. */
-export function probeBytes(
+/** The same, for a file already in memory (all of it is at hand, so nothing is read). */
+export async function probeBytes(
   bytes: Uint8Array,
   kinds: readonly ProbedAudio[] = ALL_AUDIO,
 ): Promise<ProbedAudio | null> {
-  return probeAudio(
+  if (bytes.length < 64) return null;
+  return probed(
+    bytes,
     async (offset, length) => bytes.subarray(offset, Math.min(bytes.length, offset + length)),
     bytes.length,
     kinds,
   );
 }
 
+/** What a file's first bytes say it is (its structure says whether it is). */
+function claimedKind(head: Uint8Array): ProbedAudio | null {
+  if (ascii(head, 0, 4) === "RIFF" && ascii(head, 8, 4) === "WAVE") return "wav";
+  if (ascii(head, 4, 4) === "ftyp") return "m4a";
+  if (ascii(head, 0, 4) === "OggS") return "ogg";
+  if (ascii(head, 0, 4) === "fLaC") return "flac";
+  if (ascii(head, 0, 3) === "ID3" || (head[0] === 0xff && ((head[1] ?? 0) & 0xe0) === 0xe0))
+    return "mp3";
+  return null;
+}
+
+type Check = (head: Uint8Array, read: ReadRange, size: number) => Promise<boolean>;
+
+const CHECKS: Record<ProbedAudio, Check> = {
+  mp3: isMp3,
+  wav: isWav,
+  m4a: isMp4Audio,
+  ogg: isOggAudio,
+  flac: isFlac,
+};
+
 async function probed(
   head: Uint8Array,
   read: ReadRange,
   size: number,
+  kinds: readonly ProbedAudio[],
 ): Promise<ProbedAudio | null> {
-  if (ascii(head, 0, 4) === "RIFF" && ascii(head, 8, 4) === "WAVE")
-    return (await isWav(head, read, size)) ? "wav" : null;
-  if (ascii(head, 4, 4) === "ftyp") return (await isMp4Audio(head, read, size)) ? "m4a" : null;
-  if (ascii(head, 0, 4) === "OggS") return (await isOggAudio(head, read, size)) ? "ogg" : null;
-  if (ascii(head, 0, 4) === "fLaC") return (await isFlac(head, read, size)) ? "flac" : null;
-  if (ascii(head, 0, 3) === "ID3" || (head[0] === 0xff && ((head[1] ?? 0) & 0xe0) === 0xe0))
-    return (await isMp3(head, read, size)) ? "mp3" : null;
-  return null;
+  const kind = claimedKind(head);
+  // A kind that isn't accepted is refused without walking the file.
+  if (!kind || !kinds.includes(kind)) return null;
+  return (await CHECKS[kind](head, read, size)) ? kind : null;
 }
 
 /* ---------------------------------------------------------------- MP3 */
@@ -228,44 +255,66 @@ async function isMp4Audio(head: Uint8Array, read: ReadRange, size: number): Prom
 
 /* ---------------------------------------------------------------- Ogg */
 
-/** One Ogg page: where its packet data starts and where the next page starts. */
+/**
+ * One Ogg page: its stream, whether it opens the stream, whether sound ends
+ * on it, where its packet data starts and where the next page starts.
+ */
 async function oggPage(
   head: Uint8Array,
   read: ReadRange,
   offset: number,
   size: number,
-): Promise<{ flags: number; data: number; next: number } | null> {
+): Promise<{
+  serial: number;
+  opens: boolean;
+  endsSound: boolean;
+  data: number;
+  next: number;
+} | null> {
   if (offset + 27 > size) return null;
-  const header = await bytesAt(head, read, offset, 27);
+  // The page's header and its segment table, read together.
+  const header = await bytesAt(head, read, offset, Math.min(27 + 255, size - offset));
   if (header.length < 27 || ascii(header, 0, 4) !== "OggS" || header[4] !== 0) return null;
   const segments = header[26] ?? 0;
-  const table = await bytesAt(head, read, offset + 27, segments);
-  if (table.length < segments) return null;
+  if (header.length < 27 + segments) return null;
   let body = 0;
-  for (const length of table) body += length;
+  for (const length of header.subarray(27, 27 + segments)) body += length;
+  // Its granule position (64 bits): 0 on header pages, -1 when no packet ends
+  // on the page, and past 0 once sound has been decoded.
+  const low = u32le(header, 6);
+  const high = u32le(header, 10);
   const data = offset + 27 + segments;
-  return { flags: header[5] ?? 0, data, next: data + body };
+  return {
+    serial: u32le(header, 14),
+    opens: ((header[5] ?? 0) & 0x02) !== 0,
+    endsSound: high < 0x80000000 && (high > 0 || low > 0),
+    data,
+    next: data + body,
+  };
 }
 
 /**
- * An Ogg stream that starts with a Vorbis, Opus or FLAC stream (a video-only
- * one, say Theora, has none), and goes on past its opening pages.
+ * An Ogg file that opens a Vorbis, Opus or FLAC stream (a video-only one, say
+ * Theora, has none) and has a page of that stream on which sound ends. Its
+ * header pages don't count, so a file cut off after its headers has none.
  */
 async function isOggAudio(head: Uint8Array, read: ReadRange, size: number): Promise<boolean> {
+  const sound = new Set<number>();
   let offset = 0;
-  let audio = false;
-  for (let part = 0; part < MAX_PARTS; part += 1) {
+  for (let part = 0; part < MAX_OGG_PAGES; part += 1) {
     const page = await oggPage(head, read, offset, size);
     if (!page || page.next > size) return false;
-    // Opening pages (one per stream) say what each stream holds.
-    if (page.flags & 0x02) {
+    if (page.opens) {
+      // Each stream opens (before any data) with a page that says what it holds.
       const packet = await bytesAt(head, read, page.data, 8);
       const id = ascii(packet, 0, 8);
       if (id.startsWith("\u0001vorbis") || id === "OpusHead" || id.startsWith("\u007fFLAC"))
-        audio = true;
-    } else {
-      // A page past the opening ones: the streams carry data.
-      return audio;
+        sound.add(page.serial);
+    } else if (!sound.size) {
+      // Every stream has opened and none of them is sound.
+      return false;
+    } else if (sound.has(page.serial) && page.endsSound) {
+      return true;
     }
     offset = page.next;
   }
@@ -274,10 +323,15 @@ async function isOggAudio(head: Uint8Array, read: ReadRange, size: number): Prom
 
 /* ---------------------------------------------------------------- FLAC */
 
-/** A FLAC stream: its stream description, then a frame where the descriptions end. */
+/**
+ * A FLAC stream: its stream description, then where the descriptions end, a
+ * first frame with a valid header and at least as many bytes as the stream's
+ * smallest frame.
+ */
 async function isFlac(head: Uint8Array, read: ReadRange, size: number): Promise<boolean> {
   let offset = 4;
   let first = true;
+  let smallestFrame = 0;
   for (let part = 0; part < MAX_PARTS && offset + 4 <= size; part += 1) {
     const header = await bytesAt(head, read, offset, 4);
     if (header.length < 4) return false;
@@ -285,10 +339,12 @@ async function isFlac(head: Uint8Array, read: ReadRange, size: number): Promise<
     const type = (header[0] ?? 0) & 0x7f;
     const length = ((header[1] ?? 0) << 16) | ((header[2] ?? 0) << 8) | (header[3] ?? 0);
     if (first) {
-      // STREAMINFO: a sample rate and channels that make sense.
+      // STREAMINFO: a sample rate and channels that make sense, and the size
+      // of the smallest frame (0 when it isn't known).
       if (type !== 0 || length !== 34) return false;
       const info = await bytesAt(head, read, offset + 4, 18);
       if (info.length < 18) return false;
+      smallestFrame = ((info[4] ?? 0) << 16) | ((info[5] ?? 0) << 8) | (info[6] ?? 0);
       const rate = ((info[10] ?? 0) << 12) | ((info[11] ?? 0) << 4) | ((info[12] ?? 0) >> 4);
       const channels = (((info[12] ?? 0) >> 1) & 0x07) + 1;
       if (rate < 1 || rate > 655_350 || channels > 8) return false;
@@ -296,10 +352,23 @@ async function isFlac(head: Uint8Array, read: ReadRange, size: number): Promise<
     }
     offset += 4 + length;
     if (last) {
-      // The first audio frame starts with its sync code.
-      if (offset + 2 > size) return false;
-      const frame = await bytesAt(head, read, offset, 2);
-      return frame[0] === 0xff && ((frame[1] ?? 0) & 0xfe) === 0xf8;
+      // The first frame: its sync code, then a block size, sample rate,
+      // channels and sample size that are allowed.
+      if (offset + 4 > size) return false;
+      const frame = await bytesAt(head, read, offset, 4);
+      if (frame.length < 4) return false;
+      const sizes = frame[2] ?? 0;
+      const layout = frame[3] ?? 0;
+      return (
+        frame[0] === 0xff &&
+        ((frame[1] ?? 0) & 0xfe) === 0xf8 &&
+        sizes >> 4 !== 0 &&
+        (sizes & 0x0f) !== 0x0f &&
+        layout >> 4 <= 10 &&
+        ((layout >> 1) & 0x07) !== 3 &&
+        (layout & 0x01) === 0 &&
+        offset + Math.max(smallestFrame, 16) <= size
+      );
     }
   }
   return false;
