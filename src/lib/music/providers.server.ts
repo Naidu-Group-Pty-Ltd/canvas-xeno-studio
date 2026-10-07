@@ -207,9 +207,14 @@ export async function searchOpenverse(input: {
     page_count?: number;
     results?: RawOpenverseAudio[];
   };
+  // Only tracks that can be added: a safe licence, and a file on a host the
+  // studio downloads from (catalogueHosts).
   const tracks = (data.results ?? [])
     .map(toTrack)
-    .filter((track): track is OpenverseTrack => !!track && isSafeOpenverseLicense(track.license));
+    .filter(
+      (track): track is OpenverseTrack =>
+        !!track && isSafeOpenverseLicense(track.license) && onCatalogueHost(track.audioUrl),
+    );
   return {
     ok: true,
     tracks,
@@ -296,6 +301,17 @@ export function looksLikeAudio(bytes: Uint8Array): boolean {
  * Openverse lists (Jamendo, Freesound, Wikimedia Commons). More can be added
  * with MUSIC_DOWNLOAD_HOSTS (comma-separated domains).
  */
+/** Whether a catalogue file is on one of the hosts audio is downloaded from. */
+function onCatalogueHost(url: string | null): boolean {
+  if (!url) return false;
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return catalogueHosts().some((domain) => host === domain || host.endsWith(`.${domain}`));
+  } catch {
+    return false;
+  }
+}
+
 export function catalogueHosts(): string[] {
   const extra = (process.env["MUSIC_DOWNLOAD_HOSTS"] ?? "")
     .split(",")
@@ -457,7 +473,9 @@ export async function composeMusic(input: {
   } catch (error) {
     return transportFailure("ElevenLabs", error);
   }
-  if (!response.ok) return elevenFailure(response.status, await response.text().catch(() => ""));
+  // A server error may hide a track that was made (and billed): uncertain.
+  if (!response.ok)
+    return elevenFailure(response.status, await response.text().catch(() => ""), true);
   let audio: Uint8Array;
   try {
     audio = new Uint8Array(await response.arrayBuffer());
@@ -466,6 +484,7 @@ export async function composeMusic(input: {
     return transportFailure("ElevenLabs", error);
   }
   if (!audio.length) return acceptedButUnusable("no audio");
+  if (!looksLikeAudio(audio)) return acceptedButUnusable("something other than audio");
   return { ok: true, audio, mime: "audio/mpeg", songId: response.headers.get("song-id") };
 }
 
@@ -499,7 +518,9 @@ export async function separateInstrumental(input: {
   } catch (error) {
     return transportFailure("ElevenLabs", error);
   }
-  if (!response.ok) return elevenFailure(response.status, await response.text().catch(() => ""));
+  // A server error may hide a split that was made (and billed): uncertain.
+  if (!response.ok)
+    return elevenFailure(response.status, await response.text().catch(() => ""), true);
   let files: Record<string, Uint8Array>;
   try {
     files = unzipSync(new Uint8Array(await response.arrayBuffer()));
@@ -511,6 +532,8 @@ export async function separateInstrumental(input: {
     names.find((name) => /instrumental|accompaniment|no[_ -]?vocals|music/i.test(name)) ??
     (names.length === 2 ? names.find((name) => !/vocal/i.test(name)) : undefined);
   if (!instrumental) return acceptedButUnusable("no instrumental stem");
+  if (!looksLikeAudio(files[instrumental]!))
+    return acceptedButUnusable("an instrumental stem that isn't audio");
   return { ok: true, instrumental: files[instrumental]!, mime: "audio/mpeg" };
 }
 
