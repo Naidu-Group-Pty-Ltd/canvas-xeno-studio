@@ -67,6 +67,13 @@ interface InspectorProps {
   clock: PlaybackClock;
   onSelect: (selection: Selection) => void;
   onChange: (timeline: Timeline, key?: string) => void;
+  /**
+   * Applies a change to the timeline as it is when the change lands, for
+   * changes that wait on something first (a take being made).
+   */
+  onUpdate: (apply: (timeline: Timeline) => Timeline) => void;
+  /** The timeline as it is now, for those changes. */
+  getTimeline: () => Timeline;
   /** The edit this timeline belongs to, for voiceovers in its brand voice. */
   voiceover?: VoiceoverContext | undefined;
 }
@@ -103,7 +110,8 @@ export function Inspector(props: InspectorProps) {
             timeline={timeline}
             layout={props.layout}
             playhead={() => props.clock.getTime()}
-            onChange={props.onChange}
+            onUpdate={props.onUpdate}
+            getTimeline={props.getTimeline}
           />
         </TabsContent>
       )}

@@ -19,7 +19,9 @@ import {
   captionsFromWords,
   mergeCaptions,
   formatTime,
+  layoutTimeline,
   LIMITS,
+  placeAt,
   type Timeline,
   type TimelineLayout,
 } from "@/lib/edit/timeline";
@@ -105,13 +107,17 @@ export function VoiceoverPanel({
   timeline,
   layout,
   playhead,
-  onChange,
+  onUpdate,
+  getTimeline,
 }: {
   context: VoiceoverContext;
   timeline: Timeline;
   layout: TimelineLayout;
   playhead: () => number;
-  onChange: (timeline: Timeline, key?: string) => void;
+  /** Applies a change to the timeline as it is when the change lands. */
+  onUpdate: (apply: (timeline: Timeline) => Timeline) => void;
+  /** The edit's timeline as it is now, even once this panel has closed. */
+  getTimeline: () => Timeline;
 }) {
   const queryClient = useQueryClient();
   const { data: resolved } = useResolvedVoice({
@@ -139,9 +145,9 @@ export function VoiceoverPanel({
   const [busy, setBusy] = useState<"write" | "speak" | null>(null);
   const [creating, setCreating] = useState(false);
   const attempt = useRef<Attempt | null>(null);
-  const latest = useRef({ timeline, layout, start, replace, withCaptions, onChange });
+  const latest = useRef({ start, replace, withCaptions });
   useEffect(() => {
-    latest.current = { timeline, layout, start, replace, withCaptions, onChange };
+    latest.current = { start, replace, withCaptions };
   });
   const missingTables = isMissingTableError(voicesError);
 
@@ -211,41 +217,52 @@ export function VoiceoverPanel({
     durationSeconds: number | null;
     words: TimedWord[];
     title: string;
-  }) {
-    // A take can finish long after it was asked for: it goes onto the edit as it
-    // is now, so changes made while it was being made are kept.
-    const { timeline, layout, start, replace, withCaptions, onChange } = latest.current;
-    const at = Math.max(0, Math.min(start, layout.total - 0.5, LIMITS.totalSeconds));
-    const kept = replace
-      ? timeline.audio.filter((item) => item.role !== "voiceover")
-      : timeline.audio;
-    if (kept.length >= LIMITS.audio) {
-      toast.error(`An edit can hold up to ${LIMITS.audio} audio tracks`);
-      return;
-    }
+  }): boolean {
+    // A take can finish long after it was asked for, by when this panel may have
+    // closed (another tab, a clip selected): it goes onto the edit as it is when
+    // it lands, so changes made while it was being made are kept.
+    const { start, replace, withCaptions } = latest.current;
     const item = audioFromSource(
       { assetId: take.assetId, durationSeconds: take.durationSeconds, title: take.title },
       "voiceover",
-      Number(at.toFixed(2)),
     );
-    const next: Timeline = { ...timeline, audio: [...kept, item] };
-    if (withCaptions && take.words.length) {
-      const segments = captionsFromWords(take.words, item.start, { until: layout.total });
-      next.captions = {
-        ...timeline.captions,
-        enabled: true,
-        // Replacing the voiceover replaces its captions; a take added alongside
-        // keeps the captions already on the edit outside its own words.
-        segments: replace ? segments : mergeCaptions(timeline.captions.segments, segments),
+    const placed = (timeline: Timeline) => {
+      const total = layoutTimeline(timeline).total;
+      const kept = replace
+        ? timeline.audio.filter((entry) => entry.role !== "voiceover")
+        : timeline.audio;
+      if (kept.length >= LIMITS.audio) return null;
+      const voice = {
+        ...item,
+        start: placeAt(Math.max(0, Math.min(start, total - 0.5, LIMITS.totalSeconds))),
       };
+      const next: Timeline = { ...timeline, audio: [...kept, voice] };
+      if (withCaptions && take.words.length) {
+        const segments = captionsFromWords(take.words, voice.start, { until: total });
+        next.captions = {
+          ...timeline.captions,
+          enabled: true,
+          // Replacing the voiceover replaces its captions; a take added alongside
+          // keeps the captions already on the edit outside its own words.
+          segments: replace ? segments : mergeCaptions(timeline.captions.segments, segments),
+        };
+      }
+      return { next, over: voice.start + (take.durationSeconds ?? 0) - total };
+    };
+    // What to say is worked out from the edit as it is now, and the change
+    // itself from the edit as it is when the change is applied.
+    const now = placed(getTimeline());
+    if (!now) {
+      toast.error(`An edit can hold up to ${LIMITS.audio} audio tracks`);
+      return false;
     }
-    onChange(next);
-    const over = item.start + (take.durationSeconds ?? 0) - layout.total;
-    if (over > 0.25) {
+    onUpdate((timeline) => placed(timeline)?.next ?? timeline);
+    if (now.over > 0.25) {
       toast.message("The voiceover runs past the picture", {
-        description: `It ends ${over.toFixed(1)}s after the last shot. Shorten the script or lengthen a shot.`,
+        description: `It ends ${now.over.toFixed(1)}s after the last shot. Shorten the script or lengthen a shot.`,
       });
     }
+    return true;
   }
 
   async function speak() {
@@ -288,15 +305,16 @@ export function VoiceoverPanel({
         return;
       }
       settled();
-      place({
+      const added = place({
         assetId: result.assetId,
         durationSeconds: result.durationSeconds,
         words: result.words,
         title: result.title,
       });
-      toast.success(
-        `Voiceover added${result.durationSeconds ? ` · ${formatTime(result.durationSeconds)}` : ""}`,
-      );
+      if (added)
+        toast.success(
+          `Voiceover added${result.durationSeconds ? ` · ${formatTime(result.durationSeconds)}` : ""}`,
+        );
     } catch (error) {
       // The request may still have been recorded (or finished): the same id
       // is kept, so trying again returns that take rather than a new one.

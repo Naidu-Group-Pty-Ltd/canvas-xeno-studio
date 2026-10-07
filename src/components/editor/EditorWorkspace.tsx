@@ -99,6 +99,13 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
 
   const layout = useMemo(() => layoutTimeline(timeline), [timeline]);
   useEffect(() => clock.setTotal(layout.total), [clock, layout.total]);
+  // The timeline as it is now, for a change that lands after a wait (a take
+  // being made) from a panel that may have closed meanwhile.
+  const timelineNow = useRef(timeline);
+  useEffect(() => {
+    timelineNow.current = timeline;
+  });
+  const getTimeline = useCallback(() => timelineNow.current, []);
   useEffect(() => () => clock.dispose(), [clock]);
 
   const save = useAutosave({
@@ -490,6 +497,8 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
               clock={clock}
               onSelect={setSelection}
               onChange={change}
+              onUpdate={update}
+              getTimeline={getTimeline}
               voiceover={voiceover}
             />
           </div>
@@ -540,6 +549,8 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
                 clock={clock}
                 onSelect={setSelection}
                 onChange={change}
+                onUpdate={update}
+                getTimeline={getTimeline}
                 voiceover={voiceover}
               />
               <RenderPanel
