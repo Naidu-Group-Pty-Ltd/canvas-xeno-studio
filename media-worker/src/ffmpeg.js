@@ -1,13 +1,21 @@
 import { spawn } from "node:child_process";
 import { config } from "./config.js";
 import { TaskError } from "./net.js";
+import { enterWorkspace } from "./workspace.js";
 
 /**
  * FFmpeg is only ever invoked with an argument array the worker builds itself.
  * No task field is ever interpolated into a shell command, and no task may
  * supply raw FFmpeg arguments.
  */
-export function run(binary, args, { timeoutSeconds = config.taskTimeoutSeconds, onStdoutLine } = {}) {
+export async function run(binary, args, options = {}) {
+  // A task's processes start only while its workspace has room, and are
+  // stopped if it runs out.
+  const track = await enterWorkspace();
+  return spawned(binary, args, options, track);
+}
+
+function spawned(binary, args, { timeoutSeconds = config.taskTimeoutSeconds, onStdoutLine } = {}, track) {
   return new Promise((resolve, reject) => {
     if (!Array.isArray(args) || args.some((arg) => typeof arg !== "string")) {
       reject(new TaskError("INVALID_PARAMETERS", "Internal argument construction error"));
@@ -15,6 +23,7 @@ export function run(binary, args, { timeoutSeconds = config.taskTimeoutSeconds, 
     }
 
     const child = spawn(binary, args, { stdio: ["ignore", "pipe", "pipe"], shell: false });
+    track(child);
     let stdout = "";
     let stderr = "";
     let pending = "";

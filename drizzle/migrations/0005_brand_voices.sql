@@ -171,6 +171,28 @@ DROP POLICY IF EXISTS "members read voiceovers" ON public.voiceovers;
 CREATE POLICY "members read voiceovers" ON public.voiceovers FOR SELECT TO authenticated
   USING (public.is_active_member());
 
+-- Files the server makes (a take's audio, a music track it imports or makes,
+-- a rendered edit) go to set places in the output bucket, and the server adds
+-- each one's library record once the file is there. Members add records for
+-- their own uploads only, never in the output bucket, and can't point a record
+-- at another file, so nobody can take a place the server is about to fill
+-- (which would leave billed work looking unfinished). The server is unaffected.
+DROP POLICY IF EXISTS "members create assets" ON public.assets;
+CREATE POLICY "members create assets" ON public.assets FOR INSERT TO authenticated
+  WITH CHECK (public.is_active_member() AND storage_bucket <> 'generated-assets');
+CREATE OR REPLACE FUNCTION public.keep_asset_location() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public AS $$
+BEGIN
+  IF (NEW.storage_bucket IS DISTINCT FROM OLD.storage_bucket OR NEW.storage_path IS DISTINCT FROM OLD.storage_path)
+     AND current_user IN ('authenticated', 'anon') THEN
+    RAISE EXCEPTION 'A library record can''t be pointed at another file.' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS assets_keep_location ON public.assets;
+CREATE TRIGGER assets_keep_location BEFORE UPDATE OF storage_bucket, storage_path ON public.assets
+  FOR EACH ROW EXECUTE FUNCTION public.keep_asset_location();
+
 DROP TRIGGER IF EXISTS brand_voices_updated ON public.brand_voices;
 CREATE TRIGGER brand_voices_updated BEFORE UPDATE ON public.brand_voices
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();

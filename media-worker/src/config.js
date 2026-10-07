@@ -39,6 +39,18 @@ export const config = {
   taskTimeoutSeconds: intEnv("TASK_TIMEOUT_SECONDS", 900),
   /** Refuse source media larger than this. */
   maxDownloadBytes: intEnv("MAX_DOWNLOAD_MB", 1024) * 1024 * 1024,
+  /**
+   * All of one task's sources together may take at most this much disk (an
+   * edit can name dozens of files), so the tasks running at once can't fill
+   * the disk they share: CONCURRENCY × this, at most.
+   */
+  maxTaskDownloadBytes: intEnv("MAX_TASK_DOWNLOAD_MB", 2048) * 1024 * 1024,
+  /**
+   * Everything one task keeps on disk at once (sources, intermediates, the mix
+   * and its outputs) may take at most this much: CONCURRENCY × this, at most,
+   * for the tasks running together.
+   */
+  maxTaskWorkspaceBytes: intEnv("MAX_TASK_WORKSPACE_MB", 4096) * 1024 * 1024,
   /** Refuse to upload a result larger than this. */
   maxOutputBytes: intEnv("MAX_OUTPUT_MB", 2048) * 1024 * 1024,
   /**

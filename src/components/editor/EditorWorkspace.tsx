@@ -31,6 +31,7 @@ import {
   insertClips,
   layoutTimeline,
   LIMITS,
+  placeAt,
   parseTimeline,
   removeClip,
   splitClipAt,
@@ -189,7 +190,7 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
       const item = audioFromSource(
         { assetId: asset.id, durationSeconds: duration, title: asset.title },
         role,
-        role === "music" ? 0 : Number(clock.getTime().toFixed(2)),
+        role === "music" ? 0 : placeAt(clock.getTime()),
       );
       // Added to the timeline as it is once the file is probed (see addVisual).
       update((current) =>

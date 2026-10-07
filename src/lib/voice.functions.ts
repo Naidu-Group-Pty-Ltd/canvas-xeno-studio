@@ -646,28 +646,17 @@ export const cloneElevenLabsVoice = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { elevenLabsClone } = await import("./voice/providers.server");
-    const { requireActiveMember, voiceAddedOnce } = await import("./voice/service.server");
+    const { requireActiveMember, voiceAddedOnce, VoiceNotAdded } =
+      await import("./voice/service.server");
     await requireActiveMember(context.userId);
-    const { data: assets, error: assetsError } = await supabaseAdmin
-      .from("assets")
-      .select("id,asset_type,storage_bucket,storage_path,mime_type,title")
-      .in("id", data.sampleAssetIds)
-      .is("deleted_at", null);
-    if (assetsError)
-      throw new AppError(
-        "UNKNOWN",
-        "The voice samples couldn't be looked up. Try again in a moment.",
-      );
-    const samples = assets ?? [];
-    // A voice is never cloned from fewer recordings than were chosen.
-    if (samples.length < new Set(data.sampleAssetIds).size)
-      throw new AppError(
-        "INVALID_PARAMETERS",
-        "A chosen recording is no longer in the library. Choose the recordings again.",
-      );
-    if (samples.some((asset) => asset.asset_type !== "audio"))
-      throw new AppError("INVALID_PARAMETERS", "Voice samples must be audio files");
-    if (!samples.length) throw new AppError("INVALID_PARAMETERS", "Add at least one voice sample");
+    const chosen = [...new Set(data.sampleAssetIds)];
+    // Nothing was sent to ElevenLabs, so the attempt can be tried again.
+    const notMade = (code: string, message: string) => ({
+      ok: false as const,
+      uncertain: false,
+      code,
+      message,
+    });
     const confirmedAt = new Date().toISOString();
     // The consent statement also travels with the voice in the ElevenLabs account.
     const consentNote = `Cloned with the consent of ${data.consent.speakerName}, confirmed in the studio on ${confirmedAt.slice(0, 10)}.`;
@@ -682,10 +671,31 @@ export const cloneElevenLabsVoice = createServerFn({ method: "POST" })
         speakerName: data.consent.speakerName,
         confirmedBy: context.userId,
         confirmedAt,
-        sampleAssetIds: samples.map((asset) => asset.id),
+        sampleAssetIds: chosen,
       },
-      // The samples are read only when the voice is actually made.
+      // The recordings are looked up and read only when the voice is actually
+      // made: asked about again, an earlier attempt is still found (or its
+      // voice), even if one of its recordings has left the library since.
       create: async () => {
+        const { data: assets, error: assetsError } = await supabaseAdmin
+          .from("assets")
+          .select("id,asset_type,storage_bucket,storage_path,mime_type,title")
+          .in("id", chosen)
+          .is("deleted_at", null);
+        if (assetsError)
+          return notMade(
+            "UNKNOWN",
+            "The voice samples couldn't be looked up. Try again in a moment.",
+          );
+        const samples = assets ?? [];
+        // A voice is never cloned from fewer recordings than were chosen.
+        if (samples.length < chosen.length)
+          return notMade(
+            "INVALID_PARAMETERS",
+            "A chosen recording is no longer in the library. Choose the recordings again.",
+          );
+        if (samples.some((asset) => asset.asset_type !== "audio"))
+          return notMade("INVALID_PARAMETERS", "Voice samples must be audio files");
         const files: { name: string; type: string; bytes: Uint8Array }[] = [];
         try {
           for (const asset of samples) {
@@ -700,13 +710,7 @@ export const cloneElevenLabsVoice = createServerFn({ method: "POST" })
             });
           }
         } catch {
-          // Nothing was sent to ElevenLabs, so this attempt can be tried again.
-          return {
-            ok: false,
-            uncertain: false,
-            code: "STORAGE_FAILED",
-            message: "A voice sample could not be read. Try again.",
-          };
+          return notMade("STORAGE_FAILED", "A voice sample could not be read. Try again.");
         }
         return elevenLabsClone({
           name: data.name,
@@ -715,7 +719,12 @@ export const cloneElevenLabsVoice = createServerFn({ method: "POST" })
           removeBackgroundNoise: data.removeBackgroundNoise,
         });
       },
+    }).catch((error: unknown) => {
+      // Definitely not made: answered as such, so the form knows there is no
+      // clone to check on (any other error may still have made one).
+      if (error instanceof VoiceNotAdded) return { failed: error.message };
+      throw error;
     });
-    if ("pending" in added) return added;
+    if ("failed" in added || "pending" in added) return added;
     return { voiceId: added.voiceId, name: added.name, consent: added.details };
   });

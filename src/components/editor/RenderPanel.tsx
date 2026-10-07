@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSequenceRenders, type RenderRow } from "@/hooks/useEditorData";
 import { getMediaWorkerStatus } from "@/lib/media.functions";
 import { renderSequence } from "@/lib/edit.functions";
+import { keepAttempt, savedAttempt } from "@/lib/attempts";
 import { audibleAudio, formatTime, renderBlockers, type Timeline } from "@/lib/edit/timeline";
 import { signedUrl } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
@@ -75,13 +76,24 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
     setStarting(true);
     try {
       const version = await saveNow();
-      await renderSequence({
-        data: { sequenceId, expectedVersion: version, clientRequestId: newRequestId() },
-      });
-      toast.success("Rendering started. The finished video lands in your library.");
+      // A render of this version keeps its request id until the server
+      // answers (across reloads too), so pressing again after a lost answer
+      // reaches the render already recorded (and sends it, if it never was).
+      const key = `${sequenceId}:${version}`;
+      const ask = (clientRequestId: string) => {
+        keepAttempt("render", key, clientRequestId);
+        return renderSequence({ data: { sequenceId, expectedVersion: version, clientRequestId } });
+      };
+      let started = await ask(savedAttempt("render", key) ?? newRequestId());
+      // That request's render had already failed for good: this press is a new render.
+      if (started.duplicate && started.status === "failed") started = await ask(newRequestId());
+      keepAttempt("render", key, null);
+      if (started.status === "completed") toast.success("This version is already rendered.");
+      else toast.success("Rendering started. The finished video lands in your library.");
       // Live updates also announce it; fetching now shows progress at once.
       await queryClient.invalidateQueries({ queryKey: ["sequence_renders", sequenceId] });
     } catch (error) {
+      // The answer may have been lost: the request id stays for the next press.
       toast.error(error instanceof Error ? error.message : "The render could not be started");
     } finally {
       setStarting(false);

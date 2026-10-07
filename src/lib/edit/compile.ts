@@ -257,7 +257,11 @@ export interface CompileTake {
   asset: CompileAsset | null;
 }
 
-/** Selected takes in scene and shot order; a shot with no selection uses its newest take. */
+/**
+ * Selected takes in scene and shot order; a shot with no selection uses its
+ * newest finished take. A selected take whose file isn't ready (or is gone)
+ * leaves its shot missing, never replaced by another take.
+ */
 export function compileFromStoryboard(
   storyboard: { title: string; primary_aspect_ratio: string | null; scenes: CompileScene[] },
   takes: CompileTake[],
@@ -268,11 +272,16 @@ export function compileFromStoryboard(
   const scenes = [...storyboard.scenes].sort((a, b) => a.scene_number - b.scene_number);
   for (const scene of scenes) {
     for (const shot of [...scene.shots].sort((a, b) => a.shot_number - b.shot_number)) {
-      const shotTakes = takes.filter((take) => take.shot_id === shot.id && take.asset);
+      const shotTakes = takes.filter((take) => take.shot_id === shot.id);
+      const chosen = shot.selected_take_id
+        ? shotTakes.find((candidate) => candidate.id === shot.selected_take_id)
+        : shotTakes.find((candidate) => candidate.is_selected);
       const take =
-        shotTakes.find((candidate) => candidate.id === shot.selected_take_id) ??
-        shotTakes.find((candidate) => candidate.is_selected) ??
-        [...shotTakes].sort((a, b) => b.take_number - a.take_number)[0];
+        shot.selected_take_id || chosen
+          ? chosen
+          : shotTakes
+              .filter((candidate) => candidate.asset)
+              .sort((a, b) => b.take_number - a.take_number)[0];
       const clip = take?.asset ? clipFor(take.asset, shot.duration_seconds) : null;
       const label = shot.name
         ? `${scene.scene_number}.${shot.shot_number} ${shot.name}`

@@ -7,7 +7,9 @@ import { createFileRoute } from "@tanstack/react-router";
  * worker asks again when it gets to the work. Authenticated by the worker's
  * HMAC signature; it answers only for open render tasks, and only with URLs
  * for that task's own sources and destinations. The asking worker instance
- * claims the task, so a render delivered to two instances runs on one.
+ * claims the task, so a render delivered to two instances runs on one. A
+ * claimed task whose links couldn't be renewed just now is answered 202 with
+ * no links: the worker goes on with the ones it has.
  */
 export const Route = createFileRoute("/api/public/media-worker-credentials")({
   server: {
@@ -47,7 +49,9 @@ export const Route = createFileRoute("/api/public/media-worker-credentials")({
         const body =
           result.status === 200
             ? { sources: result.sources, uploads: result.uploads, expires_at: result.expires_at }
-            : { error: result.status === 410 ? "Task closed" : "Unavailable" };
+            : result.status === 202
+              ? { claimed: true }
+              : { error: result.status === 410 ? "Task closed" : "Unavailable" };
         return new Response(JSON.stringify(body), {
           status: result.status,
           headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
