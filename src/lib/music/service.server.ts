@@ -920,8 +920,6 @@ export async function stageUpload(input: {
   projectId: string | null;
 }): Promise<{ uploadId: string; bucket: string; path: string }> {
   await requireActiveMember(input.userId);
-  // Never in the way of this upload.
-  await clearAbandonedUploads().catch(() => {});
   const type = UPLOAD_TYPES[input.mimeType];
   if (!type) throw new AppError("INVALID_PARAMETERS", "Upload a WAV, MP3 or M4A file.");
   const uploadId = crypto.randomUUID();
@@ -942,23 +940,27 @@ export async function stageUpload(input: {
 }
 
 /**
- * Clears uploads whose licence was never recorded, oldest first, a few at a
- * time: the file at the place the server picked for it, the library record
- * the server added for it (if it got that far), then the server's own record.
- * Only these server records decide what goes, so nothing a member can change
- * points the cleanup at anyone's file. One whose licence was recorded (its
- * last step didn't land) is finished instead. Best effort: anything not
- * cleared now is left for the next upload.
+ * Clears uploads whose licence was never recorded, two days on, oldest first
+ * and a few at a time. Run by the studio's recovery job (every five minutes),
+ * so it doesn't wait on anyone uploading again. For each: the file at the
+ * place the server picked for it, the library record the server added for it
+ * (if it got that far), then the server's own record. Only these server
+ * records decide what goes, so nothing a member can change points the cleanup
+ * at anyone's file. One whose licence was recorded (its last step didn't
+ * land) is finished instead. Best effort: anything not cleared now is left
+ * for the next run. Returns how many were cleared.
  */
-async function clearAbandonedUploads(): Promise<void> {
+export async function clearAbandonedMusicUploads(): Promise<number> {
   const { data, error } = await supabaseAdmin
     .from("music_uploads")
     .select("id,storage_bucket,storage_path,asset_id")
     .is("registered_at", null)
     .lt("created_at", new Date(Date.now() - UPLOAD_TTL_MS).toISOString())
     .order("created_at", { ascending: true })
-    .limit(25);
-  if (error) return;
+    .limit(10);
+  // Before the music library is set up there is nothing to clear.
+  if (error) return 0;
+  let cleared = 0;
   for (const upload of (data ?? []) as Pick<
     MusicUploadRow,
     "id" | "storage_bucket" | "storage_path" | "asset_id"
@@ -999,12 +1001,14 @@ async function clearAbandonedUploads(): Promise<void> {
         .eq("storage_path", upload.storage_path);
       if (assetError) continue;
     }
-    await supabaseAdmin
+    const { error: forgetError } = await supabaseAdmin
       .from("music_uploads")
       .delete()
       .eq("id", upload.id)
       .is("registered_at", null);
+    if (!forgetError) cleared += 1;
   }
+  return cleared;
 }
 
 type UploadAsset = {
@@ -1133,8 +1137,6 @@ export async function registerUploadedTrack(input: {
   campaignId: string | null;
 }): Promise<TrackRow> {
   await requireActiveMember(input.userId);
-  // Never in the way of this registration.
-  await clearAbandonedUploads().catch(() => {});
   const asset = input.uploadId
     ? await uploadedAsset({
         userId: input.userId,
