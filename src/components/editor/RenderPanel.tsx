@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSequenceRenders, type RenderRow } from "@/hooks/useEditorData";
 import { getMediaWorkerStatus } from "@/lib/media.functions";
-import { renderSequence, resendRender } from "@/lib/edit.functions";
+import { recoverRender, renderSequence, resendRender } from "@/lib/edit.functions";
 import { keepAttempt, savedAttempt } from "@/lib/attempts";
 import { formatTime, renderBlockers, type Timeline } from "@/lib/edit/timeline";
 import { signedUrl } from "@/lib/storage";
@@ -24,6 +24,8 @@ import { cn } from "@/lib/utils";
 import {
   RENDER_BUSY_RETRY_MS,
   RENDER_BUSY_STAGE,
+  RENDER_RECOVERY_RETRY_MS,
+  RENDER_RECOVERY_WINDOW_MS,
   RENDER_UNCONFIRMED_STAGE,
   renderInProgress,
 } from "@/lib/edit/renders";
@@ -55,6 +57,55 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
   });
   const blockers = renderBlockers(timeline);
   const active = renders.find((render) => renderInProgress(render));
+
+  // A render that stopped reporting may still have finished (its result just
+  // never arrived): it is checked for the video it uploaded, and finished from
+  // it if it's there. While it went quiet recently enough that its worker may
+  // still be uploading, it is checked again every RENDER_RECOVERY_RETRY_MS;
+  // an older one is checked once.
+  const checking = useRef(new Set<string>());
+  const checkedOnce = useRef(new Set<string>());
+  const lostKey = renders
+    .filter(
+      (render) =>
+        ((render.status === "queued" || render.status === "rendering") &&
+          !renderInProgress(render)) ||
+        (render.status === "failed" && render.error_code === "STALLED"),
+    )
+    .map((render) => `${render.id}@${render.updated_at ?? render.created_at}`)
+    .join(",");
+  useEffect(() => {
+    const lost = (lostKey ? lostKey.split(",") : []).map((entry) => {
+      const at = entry.indexOf("@");
+      const quietSince = Date.parse(entry.slice(at + 1));
+      return {
+        renderId: entry.slice(0, at),
+        recent: () => Date.now() - quietSince < RENDER_RECOVERY_WINDOW_MS,
+      };
+    });
+    if (!lost.length) return;
+    const check = (renderId: string) => {
+      if (checking.current.has(renderId)) return;
+      checking.current.add(renderId);
+      checkedOnce.current.add(renderId);
+      void recoverRender({ data: { renderId } })
+        .then(async (outcome) => {
+          if (!outcome.recovered) return;
+          toast.success(
+            "A render that stopped responding had finished. Its video is in your library.",
+          );
+          await queryClient.invalidateQueries({ queryKey: ["sequence_renders", sequenceId] });
+        })
+        .catch(() => {})
+        .finally(() => checking.current.delete(renderId));
+    };
+    for (const { renderId, recent } of lost)
+      if (recent() || !checkedOnce.current.has(renderId)) check(renderId);
+    const timer = setInterval(() => {
+      for (const { renderId, recent } of lost) if (recent()) check(renderId);
+    }, RENDER_RECOVERY_RETRY_MS);
+    return () => clearInterval(timer);
+  }, [lostKey, queryClient, sequenceId]);
 
   async function start() {
     setStarting(true);

@@ -30,3 +30,12 @@ export const resendRender = createServerFn({ method: "POST" })
     const { resendSequenceRender } = await import("./edit/render.server");
     return resendSequenceRender({ renderId: data.renderId, userId: context.userId });
   });
+
+/** Finishes a render that stopped reporting from the video it uploaded, if it did. */
+export const recoverRender = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => z.object({ renderId: z.string().uuid() }).parse(data))
+  .handler(async ({ data, context }) => {
+    const { recoverSequenceRender } = await import("./edit/render.server");
+    return recoverSequenceRender({ renderId: data.renderId, userId: context.userId });
+  });

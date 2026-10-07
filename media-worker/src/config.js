@@ -26,6 +26,14 @@ export const config = {
   maxQueueDepth: intEnv("MAX_QUEUE_DEPTH", 50),
   heartbeatSeconds: intEnv("HEARTBEAT_SECONDS", 60),
   /**
+   * How long a task's result keeps being reported while the app can't take it
+   * (a 5xx, no answer, or a request that hangs). After the first few tries this
+   * goes on in the background, so it doesn't hold a render slot.
+   */
+  reportRetrySeconds: intEnv("REPORT_RETRY_SECONDS", 6 * 60 * 60),
+  /** One try at reporting a result is abandoned (and tried again) after this long. */
+  reportTimeoutSeconds: intEnv("REPORT_TIMEOUT_SECONDS", 30),
+  /**
    * This instance, as it names itself to the app: a task delivered to two
    * instances (an acknowledgement lost, then the task sent again) runs only on
    * the one that checks in first. The Fly machine id, else WORKER_ID, else a
