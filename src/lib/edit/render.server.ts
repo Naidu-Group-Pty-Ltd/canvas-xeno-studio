@@ -408,32 +408,38 @@ export async function recoverSequenceRender(input: {
   const size = timeline ? frameSize(timeline.aspectRatio, timeline.resolution) : null;
   const bytes = (file: { metadata?: Record<string, unknown> | null }) =>
     typeof file.metadata?.["size"] === "number" ? file.metadata["size"] : null;
-  await finishSequenceRender(task, {
-    task_id: task.id,
-    status: "completed",
-    outputs: [
-      {
-        index: 0,
-        kind: "video",
-        mime_type: "video/mp4",
-        bytes: bytes(videoFile),
-        storage_key: video,
+  // The render is marked finished last: if a write fails on the way, it still
+  // looks lost, so the next check (the Render panel keeps checking) finishes the rest.
+  await finishSequenceRender(
+    task,
+    {
+      task_id: task.id,
+      status: "completed",
+      outputs: [
+        {
+          index: 0,
+          kind: "video",
+          mime_type: "video/mp4",
+          bytes: bytes(videoFile),
+          storage_key: video,
+        },
+        {
+          index: 1,
+          kind: "image",
+          mime_type: "image/jpeg",
+          bytes: bytes(posterFile),
+          storage_key: poster,
+        },
+      ],
+      // What the render was asked for: the worker's own measurements didn't arrive.
+      metadata: {
+        ...(timeline ? { duration_seconds: layoutTimeline(timeline).total } : {}),
+        ...(size ? { width: size.width, height: size.height } : {}),
+        recovered_from_storage: true,
       },
-      {
-        index: 1,
-        kind: "image",
-        mime_type: "image/jpeg",
-        bytes: bytes(posterFile),
-        storage_key: poster,
-      },
-    ],
-    // What the render was asked for: the worker's own measurements didn't arrive.
-    metadata: {
-      ...(timeline ? { duration_seconds: layoutTimeline(timeline).total } : {}),
-      ...(size ? { width: size.width, height: size.height } : {}),
-      recovered_from_storage: true,
     },
-  });
+    { renderLast: true },
+  );
   return as(true, "completed");
 }
 
