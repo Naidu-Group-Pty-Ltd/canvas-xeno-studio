@@ -17,11 +17,19 @@ import {
   videoCreditLine,
   type MusicTrackRow,
 } from "../music/catalog";
-import { RENDER_BUSY_STAGE, RENDER_STALL_MS, RENDER_UNCONFIRMED_STAGE } from "./renders";
+import { finishSequenceRender } from "./callback.server";
+import {
+  RENDER_BUSY_STAGE,
+  RENDER_STALL_MS,
+  RENDER_UNCONFIRMED_STAGE,
+  renderInProgress,
+} from "./renders";
 import { isMissingTableError } from "./errors";
 import {
   audibleAudio,
   buildRenderRequest,
+  frameSize,
+  layoutTimeline,
   parseTimeline,
   renderBlockers,
   type Timeline,
@@ -412,6 +420,119 @@ export async function resendSequenceRender(input: {
   if (!mediaWorkerConfigured())
     throw new AppError("UNKNOWN", "Rendering needs the media service, which isn't set up.");
   return resumed(input.renderId);
+}
+
+/**
+ * Finishes a render presumed lost from the files it left. The worker uploads
+ * the video and its poster before it reports, so a render whose report never
+ * arrived (the app couldn't take it for longer than the worker kept trying)
+ * is completed from them, rather than rendered (and paid for) again. Only a
+ * render that stopped reporting is looked at, and only its own two files, at
+ * the paths recorded when it started, in the server-only output bucket.
+ */
+export async function recoverSequenceRender(input: {
+  renderId: string;
+  userId: string;
+}): Promise<{ renderId: string; status: string; recovered: boolean }> {
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("id,is_active")
+    .eq("id", input.userId)
+    .maybeSingle();
+  if (!profile?.is_active)
+    throw new AppError("NOT_AUTHORIZED", "Your account is not an active team member");
+  const unchecked = () => new AppError("UNKNOWN", "The render could not be checked. Try again.");
+  const { data: render, error } = await supabaseAdmin
+    .from("sequence_renders")
+    .select("id,status,error_code,timeline,media_task_id,created_at,updated_at")
+    .eq("id", input.renderId)
+    .maybeSingle();
+  if (error || !render) throw unchecked();
+  const row = render as unknown as {
+    status: string;
+    error_code: string | null;
+    timeline: unknown;
+    media_task_id: string | null;
+    created_at: string;
+    updated_at: string | null;
+  };
+  const as = (recovered: boolean, status = row.status) => ({
+    renderId: input.renderId,
+    status,
+    recovered,
+  });
+  const presumedLost =
+    ((row.status === "queued" || row.status === "rendering") && !renderInProgress(row)) ||
+    (row.status === "failed" && row.error_code === "STALLED");
+  if (!presumedLost || !row.media_task_id) return as(false);
+
+  const { data: task, error: taskError } = await supabaseAdmin
+    .from("media_tasks")
+    .select("id,operation_id,project_id,created_by,input_payload,storage_bucket")
+    .eq("id", row.media_task_id)
+    .maybeSingle();
+  if (taskError || !task) throw unchecked();
+  const paths = ((task.input_payload ?? {}) as { storage_paths?: unknown }).storage_paths;
+  if (
+    (task.storage_bucket ?? OUTPUT_BUCKET) !== OUTPUT_BUCKET ||
+    !Array.isArray(paths) ||
+    typeof paths[0] !== "string" ||
+    typeof paths[1] !== "string"
+  )
+    return as(false);
+  const [video, poster] = [paths[0], paths[1]];
+  const [videoFile, posterFile] = await Promise.all([outputFile(video), outputFile(poster)]);
+  // Not both there: it didn't finish (or is still uploading), so nothing to finish it from.
+  if (!videoFile || !posterFile) return as(false);
+
+  const timeline = parseTimeline(row.timeline);
+  const size = timeline ? frameSize(timeline.aspectRatio, timeline.resolution) : null;
+  const bytes = (file: { metadata?: Record<string, unknown> | null }) =>
+    typeof file.metadata?.["size"] === "number" ? file.metadata["size"] : null;
+  await finishSequenceRender(task, {
+    task_id: task.id,
+    status: "completed",
+    outputs: [
+      {
+        index: 0,
+        kind: "video",
+        mime_type: "video/mp4",
+        bytes: bytes(videoFile),
+        storage_key: video,
+      },
+      {
+        index: 1,
+        kind: "image",
+        mime_type: "image/jpeg",
+        bytes: bytes(posterFile),
+        storage_key: poster,
+      },
+    ],
+    // What the render was asked for: the worker's own measurements didn't arrive.
+    metadata: {
+      ...(timeline ? { duration_seconds: layoutTimeline(timeline).total } : {}),
+      ...(size ? { width: size.width, height: size.height } : {}),
+      recovered_from_storage: true,
+    },
+  });
+  return as(true, "completed");
+}
+
+/**
+ * A file in the output bucket, or null if it isn't there. Listed rather than
+ * probed: a listing says plainly whether the file is there, and a storage
+ * error is thrown, never read as "no file".
+ */
+async function outputFile(
+  path: string,
+): Promise<{ name: string; metadata?: Record<string, unknown> | null } | null> {
+  const slash = path.lastIndexOf("/");
+  const name = path.slice(slash + 1);
+  const { data: listed, error } = await supabaseAdmin.storage
+    .from(OUTPUT_BUCKET)
+    .list(path.slice(0, slash), { search: name, limit: 10 });
+  if (error) throw new AppError("UNKNOWN", "The render's files could not be checked. Try again.");
+  return (listed ?? []).find((entry) => entry.name === name) ?? null;
 }
 
 /**

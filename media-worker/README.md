@@ -43,7 +43,13 @@ lost task. The final `completed` or `failed` report is the only one that
 matters; an app that opts in must treat any other status as informational. Callback hosts have their own allow list, `CALLBACK_HOST_SUFFIXES`
 (default `lovable.app,lovableproject.com`); add the app's custom domain there if it
 uses one. The app's callback is idempotent, so the worker only repeats on
-transport faults and `5xx`.
+transport faults, `5xx` and a request that hangs (each try is abandoned after
+`REPORT_TIMEOUT_SECONDS`, default 30). The final report is signed afresh for
+each try and repeated until the app answers: after four tries it goes on in the
+background (backing off to a minute apart) for `REPORT_RETRY_SECONDS` (default
+six hours), so the next task isn't held up. A render's video and poster are
+uploaded before it reports, so the app can also finish a render from them if
+the report never arrives.
 
 Signed URLs expire, a task can wait in the queue, and a task sent twice (its
 acknowledgement lost) can reach two instances behind one address. A task that

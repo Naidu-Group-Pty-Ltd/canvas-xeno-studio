@@ -537,7 +537,10 @@ async function relinkedTake<T extends TakeRow>(row: T): Promise<T> {
  * Takes cut off mid-way (the server stopped before recording the result) are
  * marked uncertain: the provider may have been billed, so they are never retried.
  * One whose audio was stored is finished instead, and one that can't be checked
- * right now is left for the next sweep.
+ * right now is left for the next sweep. This runs before anything new is made:
+ * if the interrupted takes can't be looked up or settled right now, nothing new
+ * starts (or is billed), and the request says to try again, rather than taking
+ * an interrupted take for one still being made.
  */
 async function settleInterrupted(): Promise<void> {
   const cutoff = new Date(Date.now() - STALE_VOICEOVER_MS).toISOString();
@@ -547,24 +550,29 @@ async function settleInterrupted(): Promise<void> {
     .eq("status", "generating")
     .lt("created_at", cutoff)
     .limit(50);
-  if (error) return;
+  if (error) throw takeUnchecked();
   for (const row of (stale ?? []) as unknown as TakeRow[]) {
     try {
       if ((await relinkedTake(row)).status !== "generating") continue;
     } catch {
       continue;
     }
-    await supabaseAdmin
-      .from("voiceovers")
-      .update({
-        status: "submission_uncertain",
-        error_code: "INTERRUPTED",
-        error_message:
-          "This take was interrupted before it was saved. It may still have been billed, so it was not retried.",
-        completed_at: new Date().toISOString(),
-      } as never)
-      .eq("id", row.id)
-      .eq("status", "generating");
+    let settled = false;
+    for (let attempt = 0; attempt < 2 && !settled; attempt += 1) {
+      const { error: settleError } = await supabaseAdmin
+        .from("voiceovers")
+        .update({
+          status: "submission_uncertain",
+          error_code: "INTERRUPTED",
+          error_message:
+            "This take was interrupted before it was saved. It may still have been billed, so it was not retried.",
+          completed_at: new Date().toISOString(),
+        } as never)
+        .eq("id", row.id)
+        .eq("status", "generating");
+      settled = !settleError;
+    }
+    if (!settled) throw takeUnchecked();
   }
 }
 
