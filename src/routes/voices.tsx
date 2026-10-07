@@ -254,6 +254,8 @@ function VoicesPage() {
           {voices.map((voice) => {
             const used = usage.get(voice.id);
             const canEdit = isAdmin || voice.created_by === user?.id;
+            // Archiving the studio default clears it, which only an admin may do.
+            const canArchive = canEdit && (isAdmin || !voice.is_default);
             const origin = originLabel(voice);
             return (
               <div
@@ -280,7 +282,7 @@ function VoicesPage() {
                       {voiceLabel(voice)}
                     </p>
                   </div>
-                  {(canEdit || isAdmin) && (
+                  {(isAdmin || (canEdit && (voice.is_archived || canArchive))) && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button
@@ -311,11 +313,11 @@ function VoicesPage() {
                             <DropdownMenuItem onClick={() => void act(voice, "restore")}>
                               <ArchiveRestore className="mr-2 size-4" /> Restore
                             </DropdownMenuItem>
-                          ) : (
+                          ) : canArchive ? (
                             <DropdownMenuItem onClick={() => void act(voice, "archive")}>
                               <Archive className="mr-2 size-4" /> Archive
                             </DropdownMenuItem>
-                          ))}
+                          ) : null)}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   )}

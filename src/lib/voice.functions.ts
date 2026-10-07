@@ -248,6 +248,12 @@ export const updateVoiceStatus = createServerFn({ method: "POST" })
     }
     if (current.created_by !== context.userId && !isAdmin)
       throw new AppError("NOT_AUTHORIZED", "Only the voice's creator or an admin can change it");
+    // Archiving the studio default clears it, which only an admin may do.
+    if (data.action === "archive" && current.is_default && !isAdmin)
+      throw new AppError(
+        "NOT_AUTHORIZED",
+        "This voice is the studio default, so only an admin can archive it.",
+      );
     const { error } = await supabaseAdmin
       .from("brand_voices")
       .update(
@@ -305,7 +311,7 @@ export const previewVoice = createServerFn({ method: "POST" })
     } else {
       throw new AppError("INVALID_PARAMETERS", "Choose a voice to preview");
     }
-    const spoken = await service.synthesize(config, data.text);
+    const spoken = await service.synthesize(config, data.text, { wordTimings: false });
     if (!spoken.ok)
       throw new AppError(
         spoken.uncertain ? "SUBMISSION_UNCERTAIN" : (spoken.code as never),

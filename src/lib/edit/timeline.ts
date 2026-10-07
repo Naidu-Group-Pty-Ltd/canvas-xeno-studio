@@ -548,6 +548,35 @@ export function audioPlayLength(item: TimelineAudio, total: number): number {
   return Math.max(0, Math.min(item.duration ?? Infinity, available, total - item.start));
 }
 
+/**
+ * The fades an audio item plays with in a picture of `total` seconds. The
+ * render shortens each to at most half of what the item plays.
+ */
+export function audioFades(
+  item: TimelineAudio,
+  total: number,
+): { fadeIn: number; fadeOut: number } {
+  const length = audioPlayLength(item, total);
+  return { fadeIn: Math.min(item.fadeIn, length / 2), fadeOut: Math.min(item.fadeOut, length / 2) };
+}
+
+/**
+ * How much of the picture and sound the edit's opening and closing fades let
+ * through at `time` (0–1). The render shortens each fade to at most a third
+ * of the edit.
+ */
+export function editFadeLevel(
+  timeline: Pick<Timeline, "fadeIn" | "fadeOut">,
+  total: number,
+  time: number,
+): number {
+  const fadeIn = Math.min(timeline.fadeIn, total / 3);
+  const fadeOut = Math.min(timeline.fadeOut, total / 3);
+  if (fadeIn > 0 && time < fadeIn) return Math.max(0, time / fadeIn);
+  if (fadeOut > 0 && time > total - fadeOut) return Math.max(0, (total - time) / fadeOut);
+  return 1;
+}
+
 /* ------------------------------------------------------------------ */
 /* Captions                                                            */
 /* ------------------------------------------------------------------ */
@@ -666,7 +695,8 @@ export function captionsFromWords(
  * Captions with a new take's cards laid in alongside those already on the
  * edit (another voiceover's, or written by hand). Cards outside the time the
  * new ones cover keep their place; one that runs into it is cut back to where
- * the new cards start or end.
+ * the new cards start or end, and one that runs right across it keeps both
+ * sides.
  */
 export function mergeCaptions(
   existing: CaptionSegment[],
@@ -677,10 +707,14 @@ export function mergeCaptions(
   const to = Math.max(...added.map((segment) => segment.end));
   const kept: CaptionSegment[] = [];
   for (const segment of existing) {
-    if (segment.end <= from || segment.start >= to) kept.push(segment);
-    else if (segment.start < from && from - segment.start >= 0.3)
-      kept.push({ ...segment, end: from });
-    else if (segment.end > to && segment.end - to >= 0.3) kept.push({ ...segment, start: to });
+    if (segment.end <= from || segment.start >= to) {
+      kept.push(segment);
+      continue;
+    }
+    // What is left of a caption either side of the new words stays (both
+    // sides of one that runs right across them).
+    if (segment.start < from && from - segment.start >= 0.3) kept.push({ ...segment, end: from });
+    if (segment.end > to && segment.end - to >= 0.3) kept.push({ ...segment, start: to });
   }
   return [...kept, ...added].sort((a, b) => a.start - b.start).slice(0, LIMITS.captions);
 }
