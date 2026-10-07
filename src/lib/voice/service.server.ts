@@ -533,46 +533,65 @@ async function relinkedTake<T extends TakeRow>(row: T): Promise<T> {
   return now as unknown as T;
 }
 
+/** Interrupted takes are looked at this many at a time. */
+const STALE_TAKE_BATCH = 50;
+const STALE_TAKE_BATCHES = 20;
+/** Interrupted takes couldn't be checked or settled, so no new take was started. */
+const interruptedTakeUnchecked = () =>
+  new AppError(
+    "UNKNOWN",
+    "A take that was interrupted earlier couldn't be checked just now, so no new take was started. Try again in a moment.",
+  );
+
 /**
  * Takes cut off mid-way (the server stopped before recording the result) are
  * marked uncertain: the provider may have been billed, so they are never retried.
- * One whose audio was stored is finished instead, and one that can't be checked
- * right now is left for the next sweep. This runs before anything new is made:
- * if the interrupted takes can't be looked up or settled right now, nothing new
- * starts (or is billed), and the request says to try again, rather than taking
- * an interrupted take for one still being made.
+ * One whose audio was stored is finished instead. This runs before anything new
+ * is made, and works through every interrupted take: if one can't be checked
+ * right now (its audio looked up, or the take finished or settled), it is left
+ * as it is, never written off, and nothing new starts (or is billed) until it
+ * can be. The request says to try again, rather than taking an interrupted
+ * take for one still being made.
  */
 async function settleInterrupted(): Promise<void> {
   const cutoff = new Date(Date.now() - STALE_VOICEOVER_MS).toISOString();
-  const { data: stale, error } = await supabaseAdmin
-    .from("voiceovers")
-    .select(TAKE_COLUMNS)
-    .eq("status", "generating")
-    .lt("created_at", cutoff)
-    .limit(50);
-  if (error) throw takeUnchecked();
-  for (const row of (stale ?? []) as unknown as TakeRow[]) {
-    try {
-      if ((await relinkedTake(row)).status !== "generating") continue;
-    } catch {
-      continue;
+  for (let batch = 1; ; batch += 1) {
+    const { data: stale, error } = await supabaseAdmin
+      .from("voiceovers")
+      .select(TAKE_COLUMNS)
+      .eq("status", "generating")
+      .lt("created_at", cutoff)
+      .limit(STALE_TAKE_BATCH);
+    if (error) throw interruptedTakeUnchecked();
+    const rows = (stale ?? []) as unknown as TakeRow[];
+    for (const row of rows) {
+      let current: TakeRow;
+      try {
+        current = await relinkedTake(row);
+      } catch {
+        throw interruptedTakeUnchecked();
+      }
+      if (current.status !== "generating") continue;
+      let settled = false;
+      for (let attempt = 0; attempt < 2 && !settled; attempt += 1) {
+        const { error: settleError } = await supabaseAdmin
+          .from("voiceovers")
+          .update({
+            status: "submission_uncertain",
+            error_code: "INTERRUPTED",
+            error_message:
+              "This take was interrupted before it was saved. It may still have been billed, so it was not retried.",
+            completed_at: new Date().toISOString(),
+          } as never)
+          .eq("id", row.id)
+          .eq("status", "generating");
+        settled = !settleError;
+      }
+      if (!settled) throw interruptedTakeUnchecked();
     }
-    let settled = false;
-    for (let attempt = 0; attempt < 2 && !settled; attempt += 1) {
-      const { error: settleError } = await supabaseAdmin
-        .from("voiceovers")
-        .update({
-          status: "submission_uncertain",
-          error_code: "INTERRUPTED",
-          error_message:
-            "This take was interrupted before it was saved. It may still have been billed, so it was not retried.",
-          completed_at: new Date().toISOString(),
-        } as never)
-        .eq("id", row.id)
-        .eq("status", "generating");
-      settled = !settleError;
-    }
-    if (!settled) throw takeUnchecked();
+    // None of a batch is left interrupted, so a full one means more may be waiting.
+    if (rows.length < STALE_TAKE_BATCH) return;
+    if (batch >= STALE_TAKE_BATCHES) throw interruptedTakeUnchecked();
   }
 }
 
