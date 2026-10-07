@@ -473,7 +473,9 @@ async function inProgress(
   let query = supabaseAdmin.from("music_tracks").select("*").eq("status", "generating");
   for (const [column, value] of Object.entries(match))
     query = value === null ? query.is(column, null) : query.eq(column, value as never);
-  const { data, error } = await query.order("created_at", { ascending: false }).limit(20);
+  // Every match still being made (only ever a few at once), not a first page of
+  // them: the one asked for again can't be crowded out by the rest.
+  const { data, error } = await query.order("created_at", { ascending: false });
   if (error) throw trackUnchecked();
   return ((data ?? []) as TrackRow[]).find(extra) ?? null;
 }
