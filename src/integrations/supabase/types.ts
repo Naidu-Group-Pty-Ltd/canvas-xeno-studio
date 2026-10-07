@@ -3115,6 +3115,70 @@ export type Database = {
           },
         ]
       }
+      music_uploads: {
+        Row: {
+          asset_id: string | null
+          created_at: string
+          file_name: string
+          file_size: number | null
+          id: string
+          mime_type: string
+          project_id: string | null
+          registered_at: string | null
+          storage_bucket: string
+          storage_path: string
+          user_id: string | null
+        }
+        Insert: {
+          asset_id?: string | null
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          id?: string
+          mime_type: string
+          project_id?: string | null
+          registered_at?: string | null
+          storage_bucket: string
+          storage_path: string
+          user_id?: string | null
+        }
+        Update: {
+          asset_id?: string | null
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string
+          project_id?: string | null
+          registered_at?: string | null
+          storage_bucket?: string
+          storage_path?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "music_uploads_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "music_uploads_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "music_uploads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       operation_dependencies: {
         Row: {
           created_at: string

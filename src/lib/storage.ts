@@ -112,20 +112,12 @@ export async function uploadAssetBlob(
     height?: number | null;
     durationSeconds?: number | null;
     metadata?: Record<string, unknown>;
-    /**
-     * Kept out of the library (recorded as removed, marked for this purpose)
-     * until a server function that records what the file is for adds it.
-     */
-    stagedFor?: string;
   },
 ): Promise<UploadedAsset> {
   const upload = await supabase.storage
     .from(UPLOAD_BUCKET)
     .upload(opts.path, blob, { contentType: opts.mimeType, upsert: false });
   if (upload.error) throw new Error(upload.error.message);
-  const metadata = opts.stagedFor
-    ? { ...(opts.metadata ?? {}), staged_for: opts.stagedFor }
-    : (opts.metadata ?? {});
 
   const { data, error } = await supabase
     .from("assets")
@@ -142,8 +134,7 @@ export async function uploadAssetBlob(
       width: opts.width ?? null,
       height: opts.height ?? null,
       duration_seconds: opts.durationSeconds ?? null,
-      metadata: metadata as never,
-      ...(opts.stagedFor ? { deleted_at: new Date().toISOString() } : {}),
+      metadata: (opts.metadata ?? {}) as never,
     })
     .select("id,asset_type,storage_bucket,storage_path,title,mime_type,metadata")
     .single();
@@ -154,7 +145,7 @@ export async function uploadAssetBlob(
 /** Uploads a reference file into private storage and registers it as an asset. */
 export async function uploadReference(
   file: File,
-  opts: { userId: string; projectId?: string | null; stagedFor?: string },
+  opts: { userId: string; projectId?: string | null },
 ): Promise<UploadedAsset> {
   const kind = mediaKindFor(file.type);
   if (!kind) throw new Error("Unsupported file type");

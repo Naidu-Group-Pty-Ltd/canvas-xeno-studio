@@ -82,6 +82,32 @@ DROP POLICY IF EXISTS "members read music tracks" ON public.music_tracks;
 CREATE POLICY "members read music tracks" ON public.music_tracks FOR SELECT TO authenticated
   USING (public.is_active_member());
 
+-- A recording uploaded for its licence is recorded here by the server before
+-- the browser uploads it: the server picks the file's place, and adds its
+-- library record once the licence is recorded. Only the server reads or
+-- writes this table (no member policies), so what it says (the place, whose
+-- upload it is, how old it is) can be trusted when uploads whose licence was
+-- never recorded are cleared.
+CREATE TABLE IF NOT EXISTS public.music_uploads (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+  project_id uuid REFERENCES public.projects(id) ON DELETE SET NULL,
+  storage_bucket text NOT NULL,
+  storage_path text NOT NULL,
+  file_name text NOT NULL CHECK (char_length(file_name) BETWEEN 1 AND 200),
+  mime_type text NOT NULL,
+  file_size bigint,
+  asset_id uuid REFERENCES public.assets(id) ON DELETE SET NULL,
+  registered_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (storage_bucket, storage_path)
+);
+CREATE INDEX IF NOT EXISTS music_uploads_open_idx
+  ON public.music_uploads (created_at) WHERE registered_at IS NULL;
+REVOKE ALL ON public.music_uploads FROM PUBLIC, anon, authenticated;
+GRANT ALL ON public.music_uploads TO service_role;
+ALTER TABLE public.music_uploads ENABLE ROW LEVEL SECURITY;
+
 -- The library is searched and paged here, so every track stays reachable
 -- however large it grows. Each word of the query must appear in the title,
 -- artist, licence, genres, moods or tags (any case). It runs as the caller,

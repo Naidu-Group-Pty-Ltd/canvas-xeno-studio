@@ -869,53 +869,257 @@ export async function makeInstrumental(input: {
 /* Licensed and owned uploads                                          */
 /* ------------------------------------------------------------------ */
 
-/** Uploads staged for a licence that was never recorded are cleared after this long (the form keeps one for a day). */
-const STAGED_TTL_MS = 2 * 24 * 60 * 60_000;
+/** Where the browser uploads a recording for its licence (the library's own upload bucket). */
+const UPLOAD_BUCKET = "generation-inputs";
+
+/** Audio the library takes as an upload (as the browser's ACCEPTED_MIME), stored under one name each. */
+const UPLOAD_TYPES: Record<string, { mime: string; extension: string }> = {
+  "audio/wav": { mime: "audio/wav", extension: "wav" },
+  "audio/x-wav": { mime: "audio/wav", extension: "wav" },
+  "audio/wave": { mime: "audio/wav", extension: "wav" },
+  "audio/vnd.wave": { mime: "audio/wav", extension: "wav" },
+  "audio/mpeg": { mime: "audio/mpeg", extension: "mp3" },
+  "audio/mp4": { mime: "audio/mp4", extension: "m4a" },
+  "audio/x-m4a": { mime: "audio/mp4", extension: "m4a" },
+};
+
+/** Uploads whose licence was never recorded are cleared after this long (the form keeps one for a day). */
+const UPLOAD_TTL_MS = 2 * 24 * 60 * 60_000;
+
+type MusicUploadRow = {
+  id: string;
+  user_id: string | null;
+  project_id: string | null;
+  storage_bucket: string;
+  storage_path: string;
+  file_name: string;
+  mime_type: string;
+  file_size: number | null;
+  asset_id: string | null;
+  registered_at: string | null;
+};
+
+const uploadUnchecked = () =>
+  new AppError("UNKNOWN", "The upload couldn't be checked. Try again in a moment.");
+const uploadNotAdded = () =>
+  new AppError("UNKNOWN", "The upload couldn't be added to the library just now. Try again.");
 
 /**
- * Clears uploads staged for a licence that was never recorded (see
- * registerUploadedTrack), a few at a time: their file and record go, so a
- * registration that kept failing doesn't keep storage forever. Their age is
- * the record's own (set by the database, not the browser). Never one a track
- * has. Best effort: anything not cleared now is left for the next
- * registration.
+ * Starts a recording's upload for its licence. The server records it first
+ * (`music_uploads`, which only the server can read or write) and picks its
+ * place; the browser then uploads the file there, and registering its licence
+ * adds it to the library. So what an upload is, whose it is and how old it is
+ * comes from the server's own record, never from a library record a member
+ * could have changed.
  */
-async function clearAbandonedStaging(): Promise<void> {
+export async function stageUpload(input: {
+  userId: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  projectId: string | null;
+}): Promise<{ uploadId: string; bucket: string; path: string }> {
+  await requireActiveMember(input.userId);
+  // Never in the way of this upload.
+  await clearAbandonedUploads().catch(() => {});
+  const type = UPLOAD_TYPES[input.mimeType];
+  if (!type) throw new AppError("INVALID_PARAMETERS", "Upload a WAV, MP3 or M4A file.");
+  const uploadId = crypto.randomUUID();
+  const path = `${scopeFor(input.userId, input.projectId)}/music-uploads/${uploadId}.${type.extension}`;
+  const { error } = await supabaseAdmin.from("music_uploads").insert({
+    id: uploadId,
+    user_id: input.userId,
+    project_id: input.projectId,
+    storage_bucket: UPLOAD_BUCKET,
+    storage_path: path,
+    file_name: input.fileName.slice(0, 200),
+    mime_type: type.mime,
+    file_size: input.size,
+  } as never);
+  if (error)
+    throw new AppError("UNKNOWN", "The upload couldn't be started. Try again in a moment.");
+  return { uploadId, bucket: UPLOAD_BUCKET, path };
+}
+
+/**
+ * Clears uploads whose licence was never recorded, oldest first, a few at a
+ * time: the file at the place the server picked for it, the library record
+ * the server added for it (if it got that far), then the server's own record.
+ * Only these server records decide what goes, so nothing a member can change
+ * points the cleanup at anyone's file. One whose licence was recorded (its
+ * last step didn't land) is finished instead. Best effort: anything not
+ * cleared now is left for the next upload.
+ */
+async function clearAbandonedUploads(): Promise<void> {
   const { data, error } = await supabaseAdmin
-    .from("assets")
-    .select("id,storage_bucket,storage_path")
-    .eq("metadata->>staged_for", "music")
-    .not("deleted_at", "is", null)
-    .lt("created_at", new Date(Date.now() - STAGED_TTL_MS).toISOString())
+    .from("music_uploads")
+    .select("id,storage_bucket,storage_path,asset_id")
+    .is("registered_at", null)
+    .lt("created_at", new Date(Date.now() - UPLOAD_TTL_MS).toISOString())
+    .order("created_at", { ascending: true })
     .limit(25);
   if (error) return;
-  for (const asset of (data ?? []) as {
-    id: string;
-    storage_bucket: string;
-    storage_path: string;
-  }[]) {
-    const { data: track, error: trackError } = await supabaseAdmin
-      .from("music_tracks")
-      .select("id")
-      .eq("asset_id", asset.id)
-      .maybeSingle();
-    if (trackError || track) continue;
+  for (const upload of (data ?? []) as Pick<
+    MusicUploadRow,
+    "id" | "storage_bucket" | "storage_path" | "asset_id"
+  >[]) {
+    if (upload.asset_id) {
+      const { data: track, error: trackError } = await supabaseAdmin
+        .from("music_tracks")
+        .select("id")
+        .eq("asset_id", upload.asset_id)
+        .limit(1)
+        .maybeSingle();
+      if (trackError) continue;
+      if (track) {
+        const { error: shownError } = await supabaseAdmin
+          .from("assets")
+          .update({ deleted_at: null } as never)
+          .eq("id", upload.asset_id)
+          .eq("storage_bucket", upload.storage_bucket)
+          .eq("storage_path", upload.storage_path);
+        if (!shownError)
+          await supabaseAdmin
+            .from("music_uploads")
+            .update({ registered_at: new Date().toISOString() } as never)
+            .eq("id", upload.id);
+        continue;
+      }
+    }
     const { error: removeError } = await supabaseAdmin.storage
-      .from(asset.storage_bucket)
-      .remove([asset.storage_path]);
+      .from(upload.storage_bucket)
+      .remove([upload.storage_path]);
     if (removeError) continue;
+    if (upload.asset_id) {
+      const { error: assetError } = await supabaseAdmin
+        .from("assets")
+        .delete()
+        .eq("id", upload.asset_id)
+        .eq("storage_bucket", upload.storage_bucket)
+        .eq("storage_path", upload.storage_path);
+      if (assetError) continue;
+    }
     await supabaseAdmin
-      .from("assets")
+      .from("music_uploads")
       .delete()
-      .eq("id", asset.id)
-      .eq("metadata->>staged_for", "music")
-      .not("deleted_at", "is", null);
+      .eq("id", upload.id)
+      .is("registered_at", null);
   }
 }
 
+type UploadAsset = {
+  id: string;
+  asset_type: string;
+  duration_seconds: number | string | null;
+  deleted_at: string | null;
+};
+const ASSET_FIELDS = "id,asset_type,duration_seconds,deleted_at";
+
+/**
+ * An upload's library record, added by the server from its own record of the
+ * upload once the file is in its place, and kept out of the library until the
+ * licence is recorded. Trying again (say after an answer was lost) finds the
+ * record already added. A record someone else put at that place first is
+ * taken over with the server's values, so it can't stand in for the upload.
+ */
+async function uploadedAsset(input: {
+  userId: string;
+  uploadId: string;
+  durationSeconds: number | null;
+}): Promise<UploadAsset> {
+  const { data, error } = await supabaseAdmin
+    .from("music_uploads")
+    .select("*")
+    .eq("id", input.uploadId)
+    .maybeSingle();
+  if (error) throw uploadUnchecked();
+  const upload = data as MusicUploadRow | null;
+  if (!upload || upload.user_id !== input.userId)
+    throw new AppError("INVALID_PARAMETERS", "Upload an audio file first.");
+  const place = { storage_bucket: upload.storage_bucket, storage_path: upload.storage_path };
+  if (upload.asset_id) {
+    const { data: added, error: addedError } = await supabaseAdmin
+      .from("assets")
+      .select(ASSET_FIELDS)
+      .eq("id", upload.asset_id)
+      .eq("storage_bucket", place.storage_bucket)
+      .eq("storage_path", place.storage_path)
+      .maybeSingle();
+    if (addedError) throw uploadUnchecked();
+    if (added) return added as unknown as UploadAsset;
+  }
+  // The file must be in its place.
+  const slash = place.storage_path.lastIndexOf("/");
+  const name = place.storage_path.slice(slash + 1);
+  const { data: listed, error: listError } = await supabaseAdmin.storage
+    .from(place.storage_bucket)
+    .list(place.storage_path.slice(0, slash), { search: name, limit: 10 });
+  if (listError) throw uploadUnchecked();
+  const file = (listed ?? []).find((entry) => entry.name === name);
+  if (!file) throw new AppError("INVALID_PARAMETERS", "Upload an audio file first.");
+  const size = Number(file.metadata?.["size"]);
+  const values = {
+    uploaded_by: input.userId,
+    project_id: upload.project_id,
+    asset_type: "audio",
+    source_type: "uploaded",
+    title: upload.file_name.slice(0, 200),
+    mime_type: upload.mime_type,
+    file_size: Number.isFinite(size) && size > 0 ? size : upload.file_size,
+    duration_seconds:
+      input.durationSeconds === null ? null : Number(input.durationSeconds.toFixed(2)),
+    metadata: { music_upload_id: upload.id },
+    // Out of the library until its licence is recorded.
+    deleted_at: new Date().toISOString(),
+  };
+  let { data: asset, error: assetError } = await supabaseAdmin
+    .from("assets")
+    .insert({ ...values, ...place } as never)
+    .select(ASSET_FIELDS)
+    .maybeSingle();
+  if (assetError?.code === "23505")
+    ({ data: asset, error: assetError } = await supabaseAdmin
+      .from("assets")
+      .update(values as never)
+      .eq("storage_bucket", place.storage_bucket)
+      .eq("storage_path", place.storage_path)
+      .select(ASSET_FIELDS)
+      .maybeSingle());
+  if (assetError || !asset) throw uploadNotAdded();
+  const kept = asset as unknown as UploadAsset;
+  const { error: linkError } = await supabaseAdmin
+    .from("music_uploads")
+    .update({ asset_id: kept.id } as never)
+    .eq("id", upload.id);
+  if (linkError) throw uploadNotAdded();
+  return kept;
+}
+
+/** Audio already in the library (added to an edit from the media bin, say), for its licence. */
+async function libraryAsset(assetId: string): Promise<UploadAsset> {
+  const { data: asset, error } = await supabaseAdmin
+    .from("assets")
+    .select(ASSET_FIELDS)
+    .eq("id", assetId)
+    .maybeSingle();
+  if (error) throw uploadUnchecked();
+  const found = asset as unknown as UploadAsset | null;
+  if (!found || found.deleted_at || found.asset_type !== "audio")
+    throw new AppError("INVALID_PARAMETERS", "That recording is no longer in the library.");
+  return found;
+}
+
+/**
+ * Records the licence of a recording the brand owns or licensed: one it just
+ * uploaded (see stageUpload), which then joins the library, or audio already
+ * in the library. Registering a recording again (say after an answer was
+ * lost) updates its track with the terms as now confirmed, if it is this
+ * person's; never another's.
+ */
 export async function registerUploadedTrack(input: {
   userId: string;
-  assetId: string;
+  uploadId: string | null;
+  assetId: string | null;
   title: string;
   artist: string | null;
   kind: "music" | "sound_effect";
@@ -930,21 +1134,14 @@ export async function registerUploadedTrack(input: {
 }): Promise<TrackRow> {
   await requireActiveMember(input.userId);
   // Never in the way of this registration.
-  await clearAbandonedStaging().catch(() => {});
-  const { data: asset, error: assetError } = await supabaseAdmin
-    .from("assets")
-    .select("id,asset_type,duration_seconds,deleted_at,uploaded_by,metadata")
-    .eq("id", input.assetId)
-    .maybeSingle();
-  if (assetError)
-    throw new AppError("UNKNOWN", "The upload couldn't be checked. Try again in a moment.");
-  // The form's own upload is kept out of the library (staged) until its
-  // licence is recorded here; any other removed file can't be registered.
-  const metadata = (asset?.metadata ?? {}) as Record<string, unknown>;
-  const staged =
-    !!asset?.deleted_at && metadata["staged_for"] === "music" && asset.uploaded_by === input.userId;
-  if (!asset || (asset.deleted_at && !staged) || asset.asset_type !== "audio")
-    throw new AppError("INVALID_PARAMETERS", "Upload an audio file first.");
+  await clearAbandonedUploads().catch(() => {});
+  const asset = input.uploadId
+    ? await uploadedAsset({
+        userId: input.userId,
+        uploadId: input.uploadId,
+        durationSeconds: input.durationSeconds,
+      })
+    : await libraryAsset(input.assetId ?? "");
   // An upload's length (needed to loop it on the beat) comes from the browser
   // when the file record doesn't have one yet. The track row below carries it
   // either way; copying it onto the file as well is a convenience, so a failed
@@ -1012,18 +1209,22 @@ export async function registerUploadedTrack(input: {
     if (updateError || !updated) throw notAdded();
     track = updated as unknown as TrackRow;
   } else if (error || !track) throw notAdded();
-  // Only now, with its licence recorded, does the recording join the library.
-  if (staged) {
-    const { staged_for: _staged, ...shown } = metadata;
+  // Only now, with its licence recorded, does an upload join the library.
+  if (input.uploadId) {
     const { error: shownError } = await supabaseAdmin
       .from("assets")
-      .update({ deleted_at: null, metadata: shown } as never)
+      .update({ deleted_at: null } as never)
       .eq("id", asset.id);
     if (shownError)
       throw new AppError(
         "UNKNOWN",
         "The licence was recorded, but the track couldn't be added to the library just now. Try again.",
       );
+    // Done with. If this doesn't land, the cleanup finds the track and marks it.
+    await supabaseAdmin
+      .from("music_uploads")
+      .update({ registered_at: new Date().toISOString() } as never)
+      .eq("id", input.uploadId);
   }
   return track;
 }

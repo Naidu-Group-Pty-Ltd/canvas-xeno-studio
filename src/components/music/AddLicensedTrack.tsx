@@ -8,32 +8,48 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { keepAttempt, savedAttempt } from "@/lib/attempts";
-import { registerUploadedMusic } from "@/lib/music.functions";
+import { registerUploadedMusic, stageMusicUpload } from "@/lib/music.functions";
 import { audioFileDuration } from "@/lib/music/analyze";
 import { RIGHTS_SCOPES, type RightsScope } from "@/lib/music/catalog";
-import { ACCEPT_ATTRIBUTE, uploadReference } from "@/lib/storage";
+import { ACCEPT_ATTRIBUTE, normalizeMime } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 
 /**
- * A recording uploaded for its licence, until the licence is recorded: kept in
- * the browser for a day (see attempts), so trying again after a failure, even
- * after a reload, reuses it rather than uploading another copy. Uploads whose
- * licence is never recorded are cleared on the server after two days.
+ * A recording being uploaded for its licence: the upload the server started
+ * for it (see stageMusicUpload), whether the file is there yet, and its
+ * measured length. Kept in the browser for a day (see attempts) until the
+ * licence is recorded, so trying again after a failure, even after a reload,
+ * reuses it rather than uploading another copy. The server clears uploads
+ * whose licence is never recorded after two days.
  */
+type Staged = {
+  uploadId: string;
+  bucket: string;
+  path: string;
+  uploaded: boolean;
+  durationSeconds: number | null;
+};
+
 const stagedPlace = (userId: string) => `licensed-upload:${userId}`;
 
-function savedStaged(
-  userId: string,
-  upload: string,
-): { assetId: string; durationSeconds: number | null } | null {
+function savedStaged(userId: string, upload: string): Staged | null {
   const saved = savedAttempt(stagedPlace(userId), upload);
   if (!saved) return null;
   try {
-    const value = JSON.parse(saved) as { assetId?: unknown; durationSeconds?: unknown };
-    if (typeof value.assetId !== "string" || !value.assetId) return null;
+    const value = JSON.parse(saved) as Partial<Record<keyof Staged, unknown>>;
+    if (
+      typeof value.uploadId !== "string" ||
+      typeof value.bucket !== "string" ||
+      typeof value.path !== "string"
+    )
+      return null;
     return {
-      assetId: value.assetId,
+      uploadId: value.uploadId,
+      bucket: value.bucket,
+      path: value.path,
+      uploaded: value.uploaded === true,
       durationSeconds: typeof value.durationSeconds === "number" ? value.durationSeconds : null,
     };
   } catch {
@@ -41,11 +57,7 @@ function savedStaged(
   }
 }
 
-function keepStaged(
-  userId: string,
-  upload: string,
-  value: { assetId: string; durationSeconds: number | null } | null,
-) {
+function keepStaged(userId: string, upload: string, value: Staged | null) {
   keepAttempt(stagedPlace(userId), upload, value ? JSON.stringify(value) : null);
 }
 
@@ -116,36 +128,46 @@ export function AddLicensedTrack({
   async function save() {
     if ((!asset && !file) || !user) return;
     setSaving(true);
-    // The form's own upload is kept out of the library until its licence is
-    // recorded, and reused when trying again (see savedStaged).
+    // The form's own upload joins the library once its licence is recorded,
+    // and is reused when trying again (see Staged).
     const upload = file
       ? JSON.stringify([projectId, file.name, file.size, file.lastModified])
       : null;
-    let reused = false;
     try {
-      let assetId: string;
-      let durationSeconds: number | null = null;
-      if (asset) {
-        assetId = asset.id;
-      } else {
-        const kept = savedStaged(user.id, upload!);
-        if (kept) {
-          ({ assetId, durationSeconds } = kept);
-          reused = true;
-        } else {
-          const [uploaded, measured] = await Promise.all([
-            uploadReference(file!, { userId: user.id, projectId, stagedFor: "music" }),
-            audioFileDuration(file!),
+      let staged: Staged | null = null;
+      if (file && upload) {
+        staged = savedStaged(user.id, upload);
+        if (!staged) {
+          const started = await stageMusicUpload({
+            data: {
+              fileName: file.name,
+              mimeType: normalizeMime(file.type),
+              size: file.size,
+              projectId,
+            },
+          });
+          staged = { ...started, uploaded: false, durationSeconds: null };
+          keepStaged(user.id, upload, staged);
+        }
+        if (!staged.uploaded) {
+          const [stored, measured] = await Promise.all([
+            supabase.storage.from(staged.bucket).upload(staged.path, file, {
+              contentType: normalizeMime(file.type),
+              upsert: false,
+            }),
+            audioFileDuration(file),
           ]);
-          assetId = uploaded.id;
-          durationSeconds = measured;
-          keepStaged(user.id, upload!, { assetId, durationSeconds });
+          // An earlier try may have stored it already (its answer lost): that is this file.
+          if (stored.error && !/already exists|duplicate/i.test(stored.error.message))
+            throw new Error(stored.error.message);
+          staged = { ...staged, uploaded: true, durationSeconds: measured };
+          keepStaged(user.id, upload, staged);
         }
       }
       await registerUploadedMusic({
         data: {
-          assetId,
-          durationSeconds,
+          ...(staged ? { uploadId: staged.uploadId } : { assetId: asset!.id }),
+          durationSeconds: staged?.durationSeconds ?? null,
           title: title.trim(),
           artist: artist.trim() || null,
           kind,
@@ -180,9 +202,8 @@ export function AddLicensedTrack({
       if (input.current) input.current.value = "";
     } catch (error) {
       const message = error instanceof Error ? error.message : "The track could not be added";
-      // A kept upload that is no longer there is forgotten, so the next try uploads it again.
-      if (reused && upload && /Upload an audio file first/.test(message))
-        keepStaged(user.id, upload, null);
+      // An upload the server doesn't have (any more) is forgotten, so the next try uploads it again.
+      if (upload && /Upload an audio file first/.test(message)) keepStaged(user.id, upload, null);
       toast.error(message);
     } finally {
       setSaving(false);

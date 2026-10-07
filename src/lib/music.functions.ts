@@ -149,12 +149,42 @@ export const makeInstrumentalTrack = createServerFn({ method: "POST" })
     );
   });
 
+/**
+ * Starts uploading a recording for its licence: the server records the upload
+ * and picks where the file goes, and the browser uploads it there.
+ */
+export const stageMusicUpload = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        fileName: z.string().trim().min(1).max(300),
+        mimeType: z.string().max(100),
+        size: z
+          .number()
+          .int()
+          .positive()
+          .max(2 * 1024 ** 3),
+        projectId: z.string().uuid().nullable().default(null),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    const { stageUpload } = await import("./music/service.server");
+    return stageUpload({ ...data, userId: context.userId });
+  });
+
+/**
+ * Records the licence of a recording: one just uploaded (`uploadId`, from
+ * stageMusicUpload), or audio already in the library (`assetId`).
+ */
 export const registerUploadedMusic = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) =>
     z
       .object({
-        assetId: z.string().uuid(),
+        uploadId: z.string().uuid().nullable().default(null),
+        assetId: z.string().uuid().nullable().default(null),
         title: z.string().trim().min(1).max(300),
         artist: z.string().trim().max(300).nullable().default(null),
         kind: z.enum(["music", "sound_effect"]).default("music"),
@@ -167,6 +197,9 @@ export const registerUploadedMusic = createServerFn({ method: "POST" })
         /** Measured by the browser when the file isn't one the server can measure. */
         durationSeconds: z.number().positive().max(7200).nullable().default(null),
         ...scope,
+      })
+      .refine((value) => (value.uploadId === null) !== (value.assetId === null), {
+        message: "Upload an audio file first.",
       })
       .parse(data),
   )
