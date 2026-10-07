@@ -95,6 +95,30 @@ DROP TRIGGER IF EXISTS sequences_keep_owner ON public.sequences;
 CREATE TRIGGER sequences_keep_owner BEFORE UPDATE OF created_by ON public.sequences
   FOR EACH ROW EXECUTE FUNCTION public.keep_sequence_owner();
 
+-- An edit's render state (its status and the render it points at) is written
+-- only by the server: a member who could change it could keep a render's
+-- outcome from being recorded, or show an edit as rendered when it isn't. A
+-- new edit starts as a draft. A save still makes a rendered edit a draft again
+-- (sequences_saved_as_draft does that as part of the save).
+CREATE OR REPLACE FUNCTION public.keep_sequence_render_state() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public AS $$
+BEGIN
+  IF current_user NOT IN ('authenticated', 'anon') THEN
+    RETURN NEW;
+  END IF;
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.status IS DISTINCT FROM 'draft' OR NEW.last_render_id IS NOT NULL THEN
+      RAISE EXCEPTION 'An edit''s render state is set by the server.' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+  ELSIF NEW.status IS DISTINCT FROM OLD.status OR NEW.last_render_id IS DISTINCT FROM OLD.last_render_id THEN
+    RAISE EXCEPTION 'An edit''s render state is set by the server.' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  RETURN NEW;
+END $$;
+DROP TRIGGER IF EXISTS sequences_keep_render_state ON public.sequences;
+CREATE TRIGGER sequences_keep_render_state BEFORE INSERT OR UPDATE OF status, last_render_id ON public.sequences
+  FOR EACH ROW EXECUTE FUNCTION public.keep_sequence_render_state();
+
 -- "Rendered" and "Render failed" describe the version that was rendered: a
 -- save after the render ended makes the edit a draft again. (A save during a
 -- render leaves it rendering; the render's end then settles it.)
