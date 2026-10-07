@@ -1,12 +1,12 @@
 /**
  * Whether a recording holds audio that browsers and the renderer can decode,
  * read from its structure rather than its name or its first bytes: MP3 frames
- * that follow one another, a WAV's format and its data, an MP4/M4A with a
- * sound track and media data, an Ogg stream of Vorbis, Opus or FLAC with
- * sound after its headers, or FLAC with its stream description and a whole
- * first frame (its checksums right). Only small parts of the file are read
- * (`read`), and only a few times, so a large file is never fetched whole to
- * check it.
+ * that follow one another, a WAV's format and its data, an MP4/M4A whose sound
+ * track (AAC, MP3, Opus or FLAC) has its samples in the file, an Ogg stream of
+ * Vorbis, Opus or FLAC with sound after its headers, or FLAC with its stream
+ * description and a whole first frame (its checksums right). Only small parts
+ * of the file are read (`read`), and only a few times, so a large file is
+ * never fetched whole to check it.
  */
 
 /** Reads up to `length` bytes from `offset` (fewer at the end of the file). */
@@ -210,11 +210,114 @@ async function isWav(head: Uint8Array, read: ReadRange, size: number): Promise<b
 
 /* ---------------------------------------------------------------- MP4 / M4A */
 
-/** An MP4 or M4A with media data and a sound track (not, say, picture only). */
+/** Sound in MP4 that browsers and the renderer decode: AAC (or MP3) as `mp4a`, Opus and FLAC. */
+const MP4_SOUND = new Set(["mp4a", "Opus", "fLaC"]);
+
+type Box = { type: string; start: number; end: number };
+
+/** The boxes directly inside `bytes[start, end)`, each with where its content starts and ends. */
+function boxesIn(bytes: Uint8Array, start: number, end: number): Box[] {
+  const found: Box[] = [];
+  let at = start;
+  while (at + 8 <= end && found.length < 4096) {
+    let length = u32be(bytes, at);
+    let header = 8;
+    if (length === 1) {
+      if (at + 16 > end) break;
+      length = u32be(bytes, at + 8) * 0x100000000 + u32be(bytes, at + 12);
+      header = 16;
+    } else if (length === 0) {
+      length = end - at;
+    }
+    if (length < header || at + length > end) break;
+    found.push({ type: ascii(bytes, at + 4, 4), start: at + header, end: at + length });
+    at += length;
+  }
+  return found;
+}
+
+/** The first box of a type inside another, if there is one. */
+function boxIn(bytes: Uint8Array, parent: Box | null, type: string): Box | null {
+  if (!parent) return null;
+  return boxesIn(bytes, parent.start, parent.end).find((box) => box.type === type) ?? null;
+}
+
+/**
+ * Where the samples of the movie's sound track end in the file, "fragments"
+ * when they come in fragments after the movie, or null when it has no sound
+ * track the studio can use: one in a codec browsers and the renderer decode,
+ * with samples.
+ */
+function soundTrackEnd(movie: Uint8Array): number | "fragments" | null {
+  const moov: Box = { type: "moov", start: u32be(movie, 0) === 1 ? 16 : 8, end: movie.length };
+  const fragmented = boxIn(movie, moov, "mvex") !== null;
+  for (const trak of boxesIn(movie, moov.start, moov.end)) {
+    if (trak.type !== "trak") continue;
+    const mdia = boxIn(movie, trak, "mdia");
+    // hdlr: [version, flags][pre-defined][handler type].
+    const hdlr = boxIn(movie, mdia, "hdlr");
+    if (!hdlr || hdlr.start + 12 > hdlr.end || ascii(movie, hdlr.start + 8, 4) !== "soun") continue;
+    const stbl = boxIn(movie, boxIn(movie, mdia, "minf"), "stbl");
+    // stsd: [version, flags][entry count], then the first entry: [size][codec]…
+    const stsd = boxIn(movie, stbl, "stsd");
+    if (!stsd || stsd.start + 16 > stsd.end || u32be(movie, stsd.start + 4) < 1) continue;
+    if (!MP4_SOUND.has(ascii(movie, stsd.start + 12, 4))) continue;
+    // stsz: [version, flags][one size for every sample, or 0][sample count][sizes…]
+    const stsz = boxIn(movie, stbl, "stsz");
+    if (!stsz || stsz.start + 12 > stsz.end) continue;
+    const everySample = u32be(movie, stsz.start + 4);
+    const samples = u32be(movie, stsz.start + 8);
+    if (samples === 0) {
+      // A fragmented file's samples come in fragments after the movie.
+      if (fragmented) return "fragments";
+      continue;
+    }
+    if (!everySample && stsz.start + 12 + samples * 4 > stsz.end) continue;
+    const sampleSize = (index: number) => everySample || u32be(movie, stsz.start + 12 + index * 4);
+    // stco / co64: where each chunk of samples is in the file (32 or 64 bits).
+    const stco = boxIn(movie, stbl, "stco");
+    const offsets = stco ?? boxIn(movie, stbl, "co64");
+    if (!offsets || offsets.start + 8 > offsets.end) continue;
+    const step = stco ? 4 : 8;
+    const chunks = u32be(movie, offsets.start + 4);
+    if (chunks === 0 || offsets.start + 8 + chunks * step > offsets.end) continue;
+    const chunkAt = (index: number) => {
+      const at = offsets.start + 8 + index * step;
+      return stco ? u32be(movie, at) : u32be(movie, at) * 0x100000000 + u32be(movie, at + 4);
+    };
+    // stsc: runs of [first chunk][samples per chunk][description]; the last
+    // chunk holds as many as the last run starting at or before it says.
+    const stsc = boxIn(movie, stbl, "stsc");
+    if (!stsc || stsc.start + 8 > stsc.end) continue;
+    const runs = u32be(movie, stsc.start + 4);
+    if (runs === 0 || stsc.start + 8 + runs * 12 > stsc.end) continue;
+    let perChunk = 0;
+    for (let run = 0; run < runs; run += 1)
+      if (u32be(movie, stsc.start + 8 + run * 12) <= chunks)
+        perChunk = u32be(movie, stsc.start + 12 + run * 12);
+    const inLast = Math.min(perChunk, samples);
+    if (inLast < 1) continue;
+    // (With one size for every sample, worked out rather than counted: the
+    // counts come from the file.)
+    let end = chunkAt(chunks - 1);
+    if (everySample) end += inLast * everySample;
+    else for (let index = samples - inLast; index < samples; index += 1) end += sampleSize(index);
+    return Math.max(end, chunkAt(0) + sampleSize(0));
+  }
+  return null;
+}
+
+/**
+ * An MP4 or M4A with a sound track the studio can use (not, say, picture only,
+ * an empty track, or a codec browsers can't play such as Apple Lossless), and
+ * all of its samples in the file (a file cut off has them run past its end),
+ * or in fragments after the movie.
+ */
 async function isMp4Audio(head: Uint8Array, read: ReadRange, size: number): Promise<boolean> {
   let offset = 0;
   let movie: Uint8Array | null = null;
   let media = false;
+  let fragments = false;
   for (let part = 0; part < MAX_PARTS && offset + 8 <= size; part += 1) {
     const header = await bytesAt(head, read, offset, Math.min(16, size - offset));
     if (header.length < 8) return false;
@@ -235,23 +338,15 @@ async function isMp4Audio(head: Uint8Array, read: ReadRange, size: number): Prom
       if (movie.length < length) return false;
     } else if (type === "mdat" && length > headerLength) {
       media = true;
+    } else if (type === "moof") {
+      fragments = true;
     }
     if (movie && media) break;
     offset += length;
   }
   if (!movie || !media) return false;
-  // A track whose handler is sound: [size][hdlr][version, flags][pre-defined][handler type].
-  for (let at = 4; at + 16 <= movie.length; at += 1) {
-    if (
-      movie[at] === 0x68 &&
-      movie[at + 1] === 0x64 &&
-      movie[at + 2] === 0x6c &&
-      movie[at + 3] === 0x72 &&
-      ascii(movie, at + 12, 4) === "soun"
-    )
-      return true;
-  }
-  return false;
+  const end = soundTrackEnd(movie);
+  return end === "fragments" ? fragments : end !== null && end <= size;
 }
 
 /* ---------------------------------------------------------------- Ogg */

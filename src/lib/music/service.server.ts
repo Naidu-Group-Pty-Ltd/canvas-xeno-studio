@@ -995,7 +995,7 @@ const uploadTooLarge = () =>
 const notAudio = () =>
   new AppError(
     "INVALID_PARAMETERS",
-    "That file isn't audio the studio can use. Upload a WAV, MP3 or M4A file.",
+    "That file isn't audio the studio can use. Upload a WAV, MP3 or M4A (AAC) file.",
   );
 
 type MusicUploadRow = {
