@@ -335,6 +335,105 @@ async function loadTrack(id: string): Promise<TrackRow | null> {
 /* Openverse                                                           */
 /* ------------------------------------------------------------------ */
 
+/** A track as Openverse itself describes it (not the browser), if its licence allows commercial use and edits. */
+async function safeOpenverseSource(openverseId: string) {
+  const detail = await openverseTrack(openverseId);
+  if (!detail.ok) throw new AppError(detail.code as never, detail.message);
+  const source = detail.track;
+  if (!isSafeOpenverseLicense(source.license))
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      `This track's licence (${source.license.toUpperCase()}) doesn't allow commercial use and edits, so it can't be added.`,
+    );
+  if (!source.audioUrl)
+    throw new AppError("INVALID_PARAMETERS", "This track has no downloadable file.");
+  return { ...source, audioUrl: source.audioUrl };
+}
+
+/** How an Openverse track's file is described in the library. */
+function openverseFile(source: Awaited<ReturnType<typeof safeOpenverseSource>>) {
+  return {
+    title: source.creator ? `${source.title} — ${source.creator}` : source.title,
+    generated: false,
+    metadata: {
+      imported_from: "openverse",
+      license: source.license,
+      license_url: source.licenseUrl,
+      attribution: source.attribution,
+      source_url: source.landingUrl,
+    },
+  };
+}
+
+/**
+ * An imported track whose audio was deleted from the library since gets it
+ * back, since importing it again asks for it again. Deleting a library record
+ * keeps its file, so the record is restored; if the record or its file is gone
+ * too, the audio is downloaded again into the track's place. Reported only
+ * once that is recorded.
+ */
+async function withOpenverseAudio(
+  track: TrackRow,
+  input: { userId: string; openverseId: string; projectId: string | null },
+): Promise<TrackRow> {
+  const notRestored = () =>
+    new AppError(
+      "UNKNOWN",
+      "This track is already in the library, but its audio couldn't be restored just now. Try again in a moment.",
+    );
+  const assetId = (track["asset_id"] as string | null) ?? null;
+  let asset: {
+    id: string;
+    deleted_at: string | null;
+    storage_bucket: string;
+    storage_path: string;
+  } | null = null;
+  if (assetId) {
+    const { data, error } = await supabaseAdmin
+      .from("assets")
+      .select("id,deleted_at,storage_bucket,storage_path")
+      .eq("id", assetId)
+      .maybeSingle();
+    if (error) throw trackUnchecked();
+    asset = data;
+  }
+  if (asset && !asset.deleted_at) return track;
+  const restore = async (id: string) => {
+    const { error } = await supabaseAdmin
+      .from("assets")
+      .update({ deleted_at: null } as never)
+      .eq("id", id);
+    if (error) throw notRestored();
+  };
+  if (asset && asset.storage_bucket === BUCKET && (await storedFile(asset.storage_path))) {
+    await restore(asset.id);
+    return track;
+  }
+  // The file is gone as well: downloaded again, as an import would.
+  const source = await safeOpenverseSource(input.openverseId);
+  const file = await downloadAudio(source.audioUrl, source.filetype);
+  if (!file.ok) throw new AppError(file.code as never, file.message);
+  const stored = await storeAudio({
+    userId: input.userId,
+    projectId: input.projectId,
+    trackId: track.id,
+    bytes: file.bytes,
+    mime: file.mime,
+    ...openverseFile(source),
+  });
+  if (!stored) throw notRestored();
+  // The record at that place may be the one deleted earlier.
+  await restore(stored.assetId);
+  const { data: linked, error: linkError } = await supabaseAdmin
+    .from("music_tracks")
+    .update({ asset_id: stored.assetId } as never)
+    .eq("id", track.id)
+    .select("*")
+    .maybeSingle();
+  if (linkError || !linked) throw notRestored();
+  return linked as TrackRow;
+}
+
 export async function importOpenverseTrack(input: {
   userId: string;
   openverseId: string;
@@ -361,6 +460,9 @@ export async function importOpenverseTrack(input: {
     found = null;
   }
   if (found?.["status"] === "ready") {
+    // Imported before: its audio comes back if it was deleted from the library
+    // since, so importing it again never answers with a track that can't be used.
+    found = await withOpenverseAudio(found, input);
     if (!found["is_archived"]) return { track: found, duplicate: true };
     // Imported before and archived since: it is restored, and only reported
     // restored once that is recorded.
@@ -379,17 +481,7 @@ export async function importOpenverseTrack(input: {
   }
   if (found) throw new AppError("UNKNOWN", "This track is already being added. Give it a moment.");
 
-  // The licence comes from Openverse itself, not from the browser.
-  const detail = await openverseTrack(input.openverseId);
-  if (!detail.ok) throw new AppError(detail.code as never, detail.message);
-  const source = detail.track;
-  if (!isSafeOpenverseLicense(source.license))
-    throw new AppError(
-      "INVALID_PARAMETERS",
-      `This track's licence (${source.license.toUpperCase()}) doesn't allow commercial use and edits, so it can't be added.`,
-    );
-  if (!source.audioUrl)
-    throw new AppError("INVALID_PARAMETERS", "This track has no downloadable file.");
+  const source = await safeOpenverseSource(input.openverseId);
 
   // Claim the import first, so two people adding the same track don't both download it.
   const trackId = crypto.randomUUID();
@@ -449,15 +541,7 @@ export async function importOpenverseTrack(input: {
     trackId,
     bytes: file.bytes,
     mime: file.mime,
-    title: source.creator ? `${source.title} — ${source.creator}` : source.title,
-    generated: false,
-    metadata: {
-      imported_from: "openverse",
-      license,
-      license_url: source.licenseUrl,
-      attribution: source.attribution,
-      source_url: source.landingUrl,
-    },
+    ...openverseFile(source),
   });
   if (!stored)
     return giveUp(new AppError("STORAGE_FAILED", "The track could not be saved to the library."));
