@@ -10,7 +10,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { AppError } from "../higgsfield/errors";
 import { appBaseUrl } from "../generation-pipeline.server";
 import { mediaWorkerConfigured, submitWorkerTask } from "../media/worker.server";
-import { RENDER_STALL_MS } from "./renders";
+import { RENDER_BUSY_STAGE, RENDER_STALL_MS, RENDER_UNCONFIRMED_STAGE } from "./renders";
 import { buildRenderRequest, parseTimeline, renderBlockers, type Timeline } from "./timeline";
 
 const OUTPUT_BUCKET = "generated-assets";
@@ -266,34 +266,39 @@ async function submitRender(input: {
   // without running it twice, so the same task is simply sent again.
   const unanswered = (call: { ok: boolean; status: number }) =>
     !call.ok && (call.status === 0 || call.status >= 500);
+  // A full queue (429) took nothing and asks for the task again shortly.
+  const busy = (call: { ok: boolean; status: number }) => !call.ok && call.status === 429;
   let submission = await submitWorkerTask(task);
-  if (unanswered(submission)) {
+  if (unanswered(submission) || busy(submission)) {
     await new Promise((resolve) => setTimeout(resolve, 2000));
     submission = await submitWorkerTask(task);
   }
-  if (!submission.ok && !unanswered(submission)) {
+  if (!submission.ok && !unanswered(submission) && !busy(submission)) {
     await fail(
       submission.errorCode ?? "UNKNOWN",
       submission.errorMessage ?? "The media service rejected the render",
     );
   }
 
+  if (!submission.ok) {
+    // Still unanswered, or the queue is still full: the render stays open, so
+    // the worker's heartbeats and result still count. Its task stays
+    // "submitting", so it can be sent again (see resendSequenceRender; the
+    // Render panel does so by itself while the queue is full). If it never
+    // reports, it is closed as stalled.
+    await supabaseAdmin
+      .from("sequence_renders")
+      .update({ stage: busy(submission) ? RENDER_BUSY_STAGE : RENDER_UNCONFIRMED_STAGE } as never)
+      .eq("id", renderId)
+      .eq("status", "queued");
+    return { renderId, status: "queued", duplicate: false };
+  }
   // Only a task still waiting moves on: a result that already arrived wins.
   await supabaseAdmin
     .from("media_tasks")
     .update({ status: "processing" })
     .eq("id", taskId)
     .eq("status", "submitting");
-  if (!submission.ok) {
-    // Still unanswered: the render stays open, so the worker's heartbeats and
-    // result still count. If it never reports, it is closed as stalled.
-    await supabaseAdmin
-      .from("sequence_renders")
-      .update({ stage: "Waiting for the media service to confirm" } as never)
-      .eq("id", renderId)
-      .eq("status", "queued");
-    return { renderId, status: "queued", duplicate: false };
-  }
   await supabaseAdmin
     .from("sequence_renders")
     .update({ status: "rendering", stage: "Starting" } as never)
@@ -301,6 +306,26 @@ async function submitRender(input: {
     .eq("status", "queued");
 
   return { renderId, status: "rendering", duplicate: false };
+}
+
+/**
+ * Sends again a render the media service never confirmed taking (its task is
+ * still "submitting"); any other render is returned as it is.
+ */
+export async function resendSequenceRender(input: {
+  renderId: string;
+  userId: string;
+}): Promise<RenderStarted> {
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("id,is_active")
+    .eq("id", input.userId)
+    .maybeSingle();
+  if (!profile?.is_active)
+    throw new AppError("NOT_AUTHORIZED", "Your account is not an active team member");
+  if (!mediaWorkerConfigured())
+    throw new AppError("UNKNOWN", "Rendering needs the media service, which isn't set up.");
+  return resumed(input.renderId);
 }
 
 /**

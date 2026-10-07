@@ -611,12 +611,14 @@ export function captionsFromScript(
   }
   flush();
 
-  const weights = cards.map((card) => card.length + 6);
+  // Only the cards an edit can hold are timed, so they span the whole range.
+  const kept = cards.slice(0, LIMITS.captions);
+  const weights = kept.map((card) => card.length + 6);
   const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
   const span = end - start;
   const segments: CaptionSegment[] = [];
   let cursor = start;
-  cards.forEach((card, index) => {
+  kept.forEach((card, index) => {
     const length = (span * weights[index]!) / totalWeight;
     segments.push({
       start: Number(cursor.toFixed(3)),
@@ -625,7 +627,7 @@ export function captionsFromScript(
     });
     cursor += length;
   });
-  return segments.slice(0, LIMITS.captions);
+  return segments;
 }
 
 /**
