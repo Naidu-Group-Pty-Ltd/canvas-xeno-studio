@@ -24,7 +24,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { renderInProgress } from "@/lib/edit/renders";
 import { useTracksForAssets } from "@/hooks/useMusicData";
-import { creditLine, licenceBlocker, licenceTerms } from "@/lib/music/catalog";
+import { creditLine, licenceBlocker, licenceTerms, MUSIC_LICENSES } from "@/lib/music/catalog";
 
 interface RenderPanelProps {
   sequenceId: string;
@@ -71,6 +71,8 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
       ): entry is { track: (typeof musicTracks)[number]; terms: NonNullable<typeof entry.terms> } =>
         !!entry.terms && !entry.terms.expired,
     );
+  // AI music: where it may run depends on the plan it was made on.
+  const aiMusic = musicTracks.filter((track) => track.license === "ai_generated");
 
   async function start() {
     setStarting(true);
@@ -187,7 +189,7 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
         </div>
       )}
 
-      {limits.length > 0 && (
+      {(limits.length > 0 || aiMusic.length > 0) && (
         <div
           className="space-y-1.5 rounded-md border border-warning/40 bg-warning/5 p-2.5 text-xs"
           data-testid="music-licence-limits"
@@ -205,6 +207,12 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
                   <span className="text-warning"> · Not for {terms.excluded.join(", ")}</span>
                 )}
                 {terms.notes && <span> · Conditions: {terms.notes}</span>}
+              </li>
+            ))}
+            {aiMusic.map((track) => (
+              <li key={track.id} data-testid="music-ai-usage">
+                <span className="font-medium">{track.title}</span>:{" "}
+                {track.usage_notes ?? MUSIC_LICENSES.ai_generated.note}
               </li>
             ))}
           </ul>

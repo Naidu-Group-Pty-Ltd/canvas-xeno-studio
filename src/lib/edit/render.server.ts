@@ -10,7 +10,13 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { AppError } from "../higgsfield/errors";
 import { appBaseUrl } from "../generation-pipeline.server";
 import { mediaWorkerConfigured, submitWorkerTask } from "../media/worker.server";
-import { creditLine, licenceBlocker, licenceTerms, type MusicTrackRow } from "../music/catalog";
+import {
+  creditLine,
+  licenceBlocker,
+  licenceTerms,
+  MUSIC_LICENSES,
+  type MusicTrackRow,
+} from "../music/catalog";
 import { RENDER_STALL_MS } from "./renders";
 import { isMissingTableError } from "./errors";
 import {
@@ -96,9 +102,10 @@ async function resolveAssets(timeline: Timeline) {
 }
 
 /**
- * What the edit's music asks for: the credits Creative Commons BY needs and
- * the terms of licensed tracks, both kept with the finished video, and an
- * expired licence, which stops the render.
+ * What the edit's music asks for: the credits Creative Commons BY needs, and
+ * the terms of licensed tracks and the usage limits of AI music (where it may
+ * run depends on the plan it was made on), all kept with the finished video;
+ * and an expired licence, which stops the render.
  */
 async function musicRights(assetIds: string[]): Promise<{
   credits: string[];
@@ -109,7 +116,7 @@ async function musicRights(assetIds: string[]): Promise<{
   if (!assetIds.length) return none;
   const { data, error } = await supabaseAdmin
     .from("music_tracks")
-    .select("title,artist,license,license_version,license_url,attribution,rights")
+    .select("title,artist,license,license_version,license_url,attribution,rights,usage_notes")
     .in("asset_id", [...new Set(assetIds)]);
   if (error) {
     // Before the music library exists there is nothing to credit or check;
@@ -119,26 +126,43 @@ async function musicRights(assetIds: string[]): Promise<{
   }
   const rows = (data ?? []) as unknown as Pick<
     MusicTrackRow,
-    "title" | "artist" | "license" | "license_version" | "license_url" | "attribution" | "rights"
+    | "title"
+    | "artist"
+    | "license"
+    | "license_version"
+    | "license_url"
+    | "attribution"
+    | "rights"
+    | "usage_notes"
   >[];
   const credits = [
     ...new Set(rows.map((row) => creditLine(row)).filter((line): line is string => !!line)),
   ];
-  const licences = rows.flatMap((row) => {
+  const licences = rows.flatMap((row): Record<string, unknown>[] => {
     const terms = licenceTerms(row);
-    return terms
-      ? [
-          {
-            title: row.title,
-            licensor: terms.licensor,
-            reference: terms.reference,
-            uses: terms.uses,
-            territories: terms.territories,
-            expires_on: terms.expiresOn,
-            notes: terms.notes,
-          },
-        ]
-      : [];
+    if (terms)
+      return [
+        {
+          title: row.title,
+          licence: row.license,
+          licensor: terms.licensor,
+          reference: terms.reference,
+          uses: terms.uses,
+          territories: terms.territories,
+          expires_on: terms.expiresOn,
+          notes: terms.notes,
+        },
+      ];
+    if (row.license === "ai_generated")
+      return [
+        {
+          title: row.title,
+          licence: row.license,
+          licensor: "ElevenLabs (Eleven Music)",
+          notes: row.usage_notes ?? MUSIC_LICENSES.ai_generated.note,
+        },
+      ];
+    return [];
   });
   const blocker = rows.map((row) => licenceBlocker(row)).find((reason) => reason) ?? null;
   return { credits, licences, blocker };
