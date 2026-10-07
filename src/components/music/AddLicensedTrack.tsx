@@ -35,6 +35,13 @@ export function AddLicensedTrack({ projectId = null }: { projectId?: string | nu
   const [expiresOn, setExpiresOn] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  // The recording is uploaded once, kept out of the library until its licence
+  // is recorded: trying again after a failure reuses it rather than uploading
+  // another copy, and one whose licence is never recorded never shows up in
+  // the library without it.
+  const staged = useRef<{ file: string; assetId: string; durationSeconds: number | null } | null>(
+    null,
+  );
   // The confirmation covers this recording and these terms as they stood when
   // it was given: changing any of them asks for it again.
   const declaration = JSON.stringify([
@@ -69,13 +76,18 @@ export function AddLicensedTrack({ projectId = null }: { projectId?: string | nu
     if (!file || !user) return;
     setSaving(true);
     try {
-      const [asset, durationSeconds] = await Promise.all([
-        uploadReference(file, { userId: user.id, projectId }),
-        audioFileDuration(file),
-      ]);
+      const upload = JSON.stringify([user.id, projectId, file.name, file.size, file.lastModified]);
+      if (staged.current?.file !== upload) {
+        const [asset, durationSeconds] = await Promise.all([
+          uploadReference(file, { userId: user.id, projectId, stagedFor: "music" }),
+          audioFileDuration(file),
+        ]);
+        staged.current = { file: upload, assetId: asset.id, durationSeconds };
+      }
+      const { assetId, durationSeconds } = staged.current;
       await registerUploadedMusic({
         data: {
-          assetId: asset.id,
+          assetId,
           durationSeconds,
           title: title.trim(),
           artist: artist.trim() || null,
@@ -98,6 +110,7 @@ export function AddLicensedTrack({ projectId = null }: { projectId?: string | nu
             : {}),
         },
       });
+      staged.current = null;
       await queryClient.invalidateQueries({ queryKey: ["music_tracks"] });
       toast.success("Track added with its licence");
       setFile(null);

@@ -67,6 +67,10 @@ CREATE UNIQUE INDEX music_tracks_one_generation_in_progress ON public.music_trac
 ) WHERE status = 'generating' AND source = 'elevenlabs';
 CREATE UNIQUE INDEX IF NOT EXISTS music_tracks_one_instrumental_in_progress
   ON public.music_tracks (parent_track_id) WHERE status = 'generating' AND source = 'derived';
+-- An uploaded recording is registered once: registering it again (say after
+-- an answer was lost) finds that track rather than adding another.
+CREATE UNIQUE INDEX IF NOT EXISTS music_tracks_upload_once
+  ON public.music_tracks (asset_id) WHERE source = 'upload';
 
 GRANT SELECT ON public.music_tracks TO authenticated;
 GRANT ALL ON public.music_tracks TO service_role;

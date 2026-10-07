@@ -801,12 +801,19 @@ export async function registerUploadedTrack(input: {
   campaignId: string | null;
 }): Promise<TrackRow> {
   await requireActiveMember(input.userId);
-  const { data: asset } = await supabaseAdmin
+  const { data: asset, error: assetError } = await supabaseAdmin
     .from("assets")
-    .select("id,asset_type,duration_seconds,deleted_at")
+    .select("id,asset_type,duration_seconds,deleted_at,uploaded_by,metadata")
     .eq("id", input.assetId)
     .maybeSingle();
-  if (!asset || asset.deleted_at || asset.asset_type !== "audio")
+  if (assetError)
+    throw new AppError("UNKNOWN", "The upload couldn't be checked. Try again in a moment.");
+  // The form's own upload is kept out of the library (staged) until its
+  // licence is recorded here; any other removed file can't be registered.
+  const metadata = (asset?.metadata ?? {}) as Record<string, unknown>;
+  const staged =
+    !!asset?.deleted_at && metadata["staged_for"] === "music" && asset.uploaded_by === input.userId;
+  if (!asset || (asset.deleted_at && !staged) || asset.asset_type !== "audio")
     throw new AppError("INVALID_PARAMETERS", "Upload an audio file first.");
   // An upload's length (needed to loop it on the beat) comes from the browser
   // when the file record doesn't have one yet. The track row below carries it
@@ -826,31 +833,69 @@ export async function registerUploadedTrack(input: {
     input.license === "licensed"
       ? { ...licensedRightsSchema.parse(input.rights), ...stamp }
       : { statement: "The brand owns this recording and its composition.", ...stamp };
-  const { data, error } = await supabaseAdmin
+  const values = {
+    title: input.title.slice(0, 300),
+    artist: input.artist?.slice(0, 300) ?? null,
+    kind: input.kind,
+    license: input.license,
+    usage_notes: MUSIC_LICENSES[input.license].note,
+    rights: rights as never,
+    duration_seconds: duration === null ? null : Number(duration.toFixed(3)),
+    genres: input.genres.slice(0, 8),
+    moods: input.moods.slice(0, 8),
+    instrumental: input.instrumental,
+    project_id: input.projectId,
+    campaign_id: input.campaignId,
+  };
+  const notAdded = () => new AppError("UNKNOWN", "The track could not be added.");
+  const { data: added, error } = await supabaseAdmin
     .from("music_tracks")
     .insert({
+      ...values,
       asset_id: asset.id,
-      title: input.title.slice(0, 300),
-      artist: input.artist?.slice(0, 300) ?? null,
-      kind: input.kind,
       source: "upload",
-      license: input.license,
-      usage_notes: MUSIC_LICENSES[input.license].note,
-      rights: rights as never,
-      duration_seconds: duration === null ? null : Number(duration.toFixed(3)),
-      genres: input.genres.slice(0, 8),
-      moods: input.moods.slice(0, 8),
-      instrumental: input.instrumental,
       status: "ready",
-      project_id: input.projectId,
-      campaign_id: input.campaignId,
       created_by: input.userId,
       completed_at: new Date().toISOString(),
     } as never)
     .select("*")
-    .single();
-  if (error || !data) throw new AppError("UNKNOWN", "The track could not be added.");
-  return data as unknown as TrackRow;
+    .maybeSingle();
+  let track = (added ?? null) as TrackRow | null;
+  if (error?.code === "23505") {
+    // Registered already (an earlier answer may have been lost): that track,
+    // with the terms as now confirmed, if it is this person's; never another's.
+    const { data: earlier, error: earlierError } = await supabaseAdmin
+      .from("music_tracks")
+      .select("id,created_by")
+      .eq("asset_id", asset.id)
+      .eq("source", "upload")
+      .maybeSingle();
+    if (earlierError || !earlier) throw notAdded();
+    if (earlier.created_by !== input.userId)
+      throw new AppError("INVALID_PARAMETERS", "This recording is already in the music library.");
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from("music_tracks")
+      .update(values as never)
+      .eq("id", earlier.id)
+      .select("*")
+      .maybeSingle();
+    if (updateError || !updated) throw notAdded();
+    track = updated as unknown as TrackRow;
+  } else if (error || !track) throw notAdded();
+  // Only now, with its licence recorded, does the recording join the library.
+  if (staged) {
+    const { staged_for: _staged, ...shown } = metadata;
+    const { error: shownError } = await supabaseAdmin
+      .from("assets")
+      .update({ deleted_at: null, metadata: shown } as never)
+      .eq("id", asset.id);
+    if (shownError)
+      throw new AppError(
+        "UNKNOWN",
+        "The licence was recorded, but the track couldn't be added to the library just now. Try again.",
+      );
+  }
+  return track;
 }
 
 /** Caches the tempo and beats measured in the browser, so they're worked out once per track. */
