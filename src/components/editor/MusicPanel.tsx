@@ -15,13 +15,14 @@ import { Switch } from "@/components/ui/switch";
 import { AddLicensedTrack } from "@/components/music/AddLicensedTrack";
 import { FindMusic } from "@/components/music/FindMusic";
 import { GenerateMusic } from "@/components/music/GenerateMusic";
-import { MusicLibrary } from "@/components/music/MusicLibrary";
+import { MusicLibrary, RenewLicence } from "@/components/music/MusicLibrary";
 import { LicenceTerms, LicenseBadge } from "@/components/music/TrackItem";
+import { useAuth } from "@/hooks/useAuth";
 import { audioUrlFor, useMusicTracks, useTracksForAssets } from "@/hooks/useMusicData";
 import { saveMusicAnalysis } from "@/lib/music.functions";
 import { analyzeAudioUrl } from "@/lib/music/analyze";
 import { beatTimesOnTimeline, snapCutsToBeats } from "@/lib/music/beats";
-import { creditLine } from "@/lib/music/catalog";
+import { creditLine, licenceTerms, type MusicTrackRow } from "@/lib/music/catalog";
 import { isMissingTableError } from "@/lib/edit/errors";
 import {
   audioFromSource,
@@ -87,6 +88,9 @@ export function MusicPanel({
   // Audio on the edit with no licence on record (added from the media bin,
   // say) has its licence recorded here before the edit can be rendered.
   const [recording, setRecording] = useState<(typeof sound)[number] | null>(null);
+  // A recorded track in the edit whose licence has run out, being renewed here.
+  const { user, isAdmin } = useAuth();
+  const [renewing, setRenewing] = useState<MusicTrackRow | null>(null);
   const [replace, setReplace] = useState(true);
   const [syncing, setSyncing] = useState(false);
   // A music bed is added once; a sound effect can be placed again, at another moment.
@@ -265,7 +269,21 @@ export function MusicPanel({
                     </span>
                   </button>
                   {track ? (
-                    <LicenseBadge track={track} />
+                    <>
+                      <LicenseBadge track={track} />
+                      {licenceTerms(track)?.expired &&
+                        track.source === "upload" &&
+                        (isAdmin || track.created_by === user?.id) && (
+                          <button
+                            type="button"
+                            className="shrink-0 text-[10px] text-primary hover:underline"
+                            onClick={() => setRenewing(track)}
+                            data-testid="renew-licence"
+                          >
+                            Renew licence
+                          </button>
+                        )}
+                    </>
                   ) : tracksFailed ? (
                     <>
                       <span
@@ -426,6 +444,7 @@ export function MusicPanel({
           />
         )}
       </div>
+      <RenewLicence track={renewing} onClose={() => setRenewing(null)} />
       <Dialog open={recording !== null} onOpenChange={(open) => !open && setRecording(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>

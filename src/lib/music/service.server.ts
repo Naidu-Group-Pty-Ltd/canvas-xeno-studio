@@ -1399,8 +1399,9 @@ async function libraryAsset(assetId: string): Promise<UploadAsset> {
  * Records the licence of a recording the brand owns or licensed: one it just
  * uploaded (see stageUpload), which then joins the library, or audio already
  * in the library. Registering a recording again (say after an answer was
- * lost) updates its track with the terms as now confirmed, if it is this
- * person's; never another's.
+ * lost, or to renew a licence that has run out) updates its track's terms as
+ * now confirmed, for whoever added the track or an admin; never anyone else.
+ * Only the terms change: the track keeps its project, tags and length.
  */
 export async function registerUploadedTrack(input: {
   userId: string;
@@ -1418,7 +1419,7 @@ export async function registerUploadedTrack(input: {
   projectId: string | null;
   campaignId: string | null;
 }): Promise<TrackRow> {
-  await requireActiveMember(input.userId);
+  const { isAdmin } = await requireActiveMember(input.userId);
   const asset = input.uploadId
     ? await uploadedAsset({
         userId: input.userId,
@@ -1444,13 +1445,16 @@ export async function registerUploadedTrack(input: {
     input.license === "licensed"
       ? { ...licensedRightsSchema.parse(input.rights), ...stamp }
       : { statement: "The brand owns this recording and its composition.", ...stamp };
-  const values = {
+  const terms = {
     title: input.title.slice(0, 300),
     artist: input.artist?.slice(0, 300) ?? null,
     kind: input.kind,
     license: input.license,
     usage_notes: MUSIC_LICENSES[input.license].note,
     rights: rights as never,
+  };
+  const values = {
+    ...terms,
     duration_seconds: duration === null ? null : Number(duration.toFixed(3)),
     genres: input.genres.slice(0, 8),
     moods: input.moods.slice(0, 8),
@@ -1473,8 +1477,9 @@ export async function registerUploadedTrack(input: {
     .maybeSingle();
   let track = (added ?? null) as TrackRow | null;
   if (error?.code === "23505") {
-    // Registered already (an earlier answer may have been lost): that track,
-    // with the terms as now confirmed, if it is this person's; never another's.
+    // Registered already (an earlier answer may have been lost, or its licence
+    // is being renewed): that track, with the terms as now confirmed, if it is
+    // this person's or they're an admin; never anyone else's.
     const { data: earlier, error: earlierError } = await supabaseAdmin
       .from("music_tracks")
       .select("id,created_by")
@@ -1482,11 +1487,11 @@ export async function registerUploadedTrack(input: {
       .eq("source", "upload")
       .maybeSingle();
     if (earlierError || !earlier) throw notAdded();
-    if (earlier.created_by !== input.userId)
+    if (earlier.created_by !== input.userId && !isAdmin)
       throw new AppError("INVALID_PARAMETERS", "This recording is already in the music library.");
     const { data: updated, error: updateError } = await supabaseAdmin
       .from("music_tracks")
-      .update(values as never)
+      .update(terms as never)
       .eq("id", earlier.id)
       .select("*")
       .maybeSingle();

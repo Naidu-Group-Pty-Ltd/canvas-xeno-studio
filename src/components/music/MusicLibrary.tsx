@@ -1,8 +1,23 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Archive, ArchiveRestore, Loader2, MoreHorizontal, Search, Wand2 } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  Loader2,
+  MoreHorizontal,
+  Search,
+  ShieldCheck,
+  Wand2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,8 +29,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useMusicStatus, useMusicTracks } from "@/hooks/useMusicData";
 import { makeInstrumentalTrack, setMusicArchived } from "@/lib/music.functions";
 import { keepAttempt, savedAttempt } from "@/lib/attempts";
-import { licenceBlocker, type MusicTrackRow } from "@/lib/music/catalog";
+import { licenceBlocker, licenceTerms, type MusicTrackRow } from "@/lib/music/catalog";
 import { cn } from "@/lib/utils";
+import { AddLicensedTrack } from "./AddLicensedTrack";
 import { TrackItem } from "./TrackItem";
 import { usePreview } from "./preview";
 
@@ -30,6 +46,8 @@ export function MusicLibrary({
   showArchived?: boolean;
 }) {
   const { user, isAdmin } = useAuth();
+  // A recorded track whose licence's terms are being updated (say renewed once run out).
+  const [renewing, setRenewing] = useState<MusicTrackRow | null>(null);
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [searched, setSearched] = useState("");
@@ -163,6 +181,7 @@ export function MusicLibrary({
 
   return (
     <div className="space-y-2.5" data-testid="music-library">
+      <RenewLicence track={renewing} onClose={() => setRenewing(null)} />
       <div className="flex gap-1.5">
         <div className="relative flex-1">
           <Search className="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -250,6 +269,12 @@ export function MusicLibrary({
                           <Wand2 className="mr-2 size-4" /> Make a new instrumental (charged again)
                         </DropdownMenuItem>
                       )}
+                      {canChange && track.source === "upload" && track.asset_id && (
+                        <DropdownMenuItem onClick={() => setRenewing(track)}>
+                          <ShieldCheck className="mr-2 size-4" />{" "}
+                          {licenceTerms(track)?.expired ? "Renew licence" : "Update licence"}
+                        </DropdownMenuItem>
+                      )}
                       {canChange &&
                         (track.is_archived ? (
                           <DropdownMenuItem onClick={() => void archive(track, false)}>
@@ -289,5 +314,35 @@ export function MusicLibrary({
         </Button>
       )}
     </div>
+  );
+}
+
+/**
+ * Records a recorded track's licence terms as they now stand (say once it has
+ * been renewed), starting from the terms on record. Edits that use the track
+ * render with them.
+ */
+export function RenewLicence({
+  track,
+  onClose,
+}: {
+  track: MusicTrackRow | null;
+  onClose: () => void;
+}) {
+  return (
+    <Dialog open={track !== null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>
+            {track && licenceTerms(track)?.expired ? "Renew its licence" : "Update its licence"}
+          </DialogTitle>
+          <DialogDescription>
+            Record the licence's terms as they now stand. Edits that use this track render with
+            them.
+          </DialogDescription>
+        </DialogHeader>
+        {track && <AddLicensedTrack key={track.id} renewing={track} onAdded={onClose} />}
+      </DialogContent>
+    </Dialog>
   );
 }

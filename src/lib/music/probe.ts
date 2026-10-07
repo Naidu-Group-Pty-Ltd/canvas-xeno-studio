@@ -39,6 +39,7 @@ const MAX_READS = 16;
 const ascii = (bytes: Uint8Array, start: number, length: number) =>
   String.fromCharCode(...bytes.subarray(start, start + length));
 const u16le = (bytes: Uint8Array, at: number) => (bytes[at] ?? 0) | ((bytes[at + 1] ?? 0) << 8);
+const u16be = (bytes: Uint8Array, at: number) => ((bytes[at] ?? 0) << 8) | (bytes[at + 1] ?? 0);
 const u32le = (bytes: Uint8Array, at: number) =>
   ((bytes[at] ?? 0) | ((bytes[at + 1] ?? 0) << 8) | ((bytes[at + 2] ?? 0) << 16)) +
   (bytes[at + 3] ?? 0) * 0x1000000;
@@ -831,25 +832,28 @@ function nextOggPage(bytes: Uint8Array, from: number): number {
   return Math.max(from, bytes.length - 3);
 }
 
+/** A sound stream of an Ogg file: its rate, channels, the samples it skips at the start, its group, and how far it reaches. */
+type OggStream = { rate: number; channels: number; skip: number; group: number; reached: number };
+
 /**
- * How long its sound plays: in each sound stream (Vorbis, Opus or FLAC), the
- * furthest position its pages reach, over the rate its opening page gives
- * (less the samples Opus skips at the start). Streams opened together play
- * together, so the longest of them counts; a chained file, one group of
- * streams after another (say a recorded broadcast), adds each group's. Every
- * page is walked, in parts; where something other than a page comes between
- * them (damage), on from the next one.
+ * Every sound stream (Vorbis, Opus or FLAC) an Ogg file opens, with the
+ * furthest position its pages reach. Streams opened together form a group (and
+ * play together); a chained file, one group after another (say a recorded
+ * broadcast), has several. Every page is walked, in parts; where something
+ * other than a page comes between them (damage), on from the next one.
  */
-async function oggSeconds(head: Uint8Array, read: ReadRange, size: number): Promise<number | null> {
-  type Stream = { rate: number; skip: number; group: number; reached: number };
-  const streams: Stream[] = [];
-  const bySerial = new Map<number, Stream>();
+async function oggSoundStreams(
+  head: Uint8Array,
+  read: ReadRange,
+  size: number,
+): Promise<OggStream[]> {
+  const streams: OggStream[] = [];
+  const bySerial = new Map<number, OggStream>();
   let groups = 0;
   let opening = false;
   let at = 0;
   while (at + 27 <= size) {
     const part = await bytesAt(head, read, at, Math.min(COUNT_BYTES, size - at));
-    const toTheEnd = at + part.length >= size;
     let local = 0;
     while (local + 27 <= part.length) {
       if (part[local] !== 0x4f || ascii(part, local, 4) !== "OggS" || part[local + 4] !== 0) {
@@ -868,10 +872,14 @@ async function oggSeconds(head: Uint8Array, read: ReadRange, size: number): Prom
         if (!opening) groups += 1;
         const id = ascii(part, data, 8);
         let rate = 0;
+        let channels = 0;
         let skip = 0;
-        if (id.startsWith("\u0001vorbis")) rate = u32le(part, data + 12);
-        else if (id === "OpusHead") {
-          // Opus counts at 48 kHz, after the samples it skips at the start.
+        if (id.startsWith("\u0001vorbis")) {
+          channels = part[data + 11] ?? 0;
+          rate = u32le(part, data + 12);
+        } else if (id === "OpusHead") {
+          // Opus decodes at 48 kHz, after the samples it skips at the start.
+          channels = part[data + 9] ?? 0;
           rate = 48_000;
           skip = u16le(part, data + 10);
         } else if (id.startsWith("\u007fFLAC")) {
@@ -881,9 +889,10 @@ async function oggSeconds(head: Uint8Array, read: ReadRange, size: number): Prom
             ((part[info + 10] ?? 0) << 12) |
             ((part[info + 11] ?? 0) << 4) |
             ((part[info + 12] ?? 0) >> 4);
+          channels = (((part[info + 12] ?? 0) >> 1) & 0x07) + 1;
         }
         if (rate) {
-          const stream = { rate, skip, group: groups, reached: 0 };
+          const stream = { rate, channels, skip, group: groups, reached: 0 };
           streams.push(stream);
           bySerial.set(serial, stream);
         } else bySerial.delete(serial);
@@ -901,6 +910,17 @@ async function oggSeconds(head: Uint8Array, read: ReadRange, size: number): Prom
     if (local === 0) break;
     at += local;
   }
+  return streams;
+}
+
+/**
+ * How long its sound plays: in each sound stream, the furthest position its
+ * pages reach over its rate (less the samples Opus skips at the start). The
+ * streams of a group play together, so the longest of them counts; the groups
+ * of a chained file are added.
+ */
+async function oggSeconds(head: Uint8Array, read: ReadRange, size: number): Promise<number | null> {
+  const streams = await oggSoundStreams(head, read, size);
   if (!streams.length) return null;
   const longest = new Map<number, number>();
   for (const { rate, skip, group, reached } of streams)
@@ -974,4 +994,172 @@ async function flacSeconds(
   }
   const samples = Math.max(stated, reached);
   return samples ? samples / rate : null;
+}
+
+/* ---------------------------------------------------------------- Layout */
+
+/** How many channels a recording decodes to, and at what rate. */
+export type AudioLayout = { channels: number; rate: number };
+
+/**
+ * How many channels a recording decodes to and at what rate, from its
+ * structure (the most of any of its sound streams or tracks), so what it takes
+ * to decode it is known before it's done. Null when it's none of the kinds
+ * read here, or doesn't say.
+ */
+export async function probeLayout(read: ReadRange, size: number): Promise<AudioLayout | null> {
+  if (!Number.isFinite(size) || size < 64) return null;
+  const head = await read(0, Math.min(size, HEAD_BYTES));
+  if (head.length < 64) return null;
+  switch (claimedKind(head)) {
+    case "mp3":
+      // MPEG audio holds at most two channels, at most at 48 kHz.
+      return (await firstMp3Frame(head, read, size)) === null
+        ? null
+        : { channels: 2, rate: 48_000 };
+    case "wav":
+      return wavLayout(head, read, size);
+    case "m4a":
+      return mp4Layout(head, read, size);
+    case "ogg": {
+      const streams = await oggSoundStreams(head, read, size);
+      const channels = Math.max(0, ...streams.map((stream) => stream.channels));
+      const rate = Math.max(0, ...streams.map((stream) => stream.rate));
+      return channels && rate ? { channels, rate } : null;
+    }
+    case "flac":
+      return flacLayout(head, 8);
+    default:
+      return null;
+  }
+}
+
+/** A WAV's channels and rate, from its format. */
+async function wavLayout(
+  head: Uint8Array,
+  read: ReadRange,
+  size: number,
+): Promise<AudioLayout | null> {
+  let offset = 12;
+  for (let part = 0; part < MAX_PARTS && offset + 8 <= size; part += 1) {
+    const header = await bytesAt(head, read, offset, 8);
+    if (header.length < 8) return null;
+    const length = u32le(header, 4);
+    if (ascii(header, 0, 4) === "fmt ") {
+      // [code][channels][rate]…
+      const format = await bytesAt(head, read, offset + 8, 8);
+      const channels = u16le(format, 2);
+      const rate = u32le(format, 4);
+      return format.length === 8 && channels && rate ? { channels, rate } : null;
+    }
+    offset += 8 + length + (length & 1);
+  }
+  return null;
+}
+
+/** FLAC's channels and rate, from the STREAMINFO at `info`. */
+function flacLayout(bytes: Uint8Array, info: number): AudioLayout | null {
+  // STREAMINFO: [block sizes: 4][frame sizes: 6][rate: 20 bits][channels - 1: 3 bits]…
+  if (info + 13 > bytes.length) return null;
+  const rate =
+    ((bytes[info + 10] ?? 0) << 12) |
+    ((bytes[info + 11] ?? 0) << 4) |
+    ((bytes[info + 12] ?? 0) >> 4);
+  const channels = (((bytes[info + 12] ?? 0) >> 1) & 0x07) + 1;
+  return rate ? { channels, rate } : null;
+}
+
+/** AAC's channel configurations (in its AudioSpecificConfig) and the channels each decodes to. */
+const AAC_CHANNELS = [0, 1, 2, 3, 4, 5, 6, 8, 0, 0, 0, 7, 8, 24, 8, 0];
+
+/** The channels an AAC stream's AudioSpecificConfig (in its esds box) says it decodes to; 0 if it doesn't say. */
+function aacChannels(movie: Uint8Array, esds: Box): number {
+  // [version, flags], then descriptors, each [tag][length: 1-4 bytes of 7 bits][content].
+  let at = esds.start + 4;
+  const open = (tag: number) => {
+    if (at >= esds.end || movie[at] !== tag) return false;
+    at += 1;
+    for (let index = 0; index < 4 && at < esds.end; index += 1)
+      if (!((movie[at++] ?? 0) & 0x80)) break;
+    return true;
+  };
+  // ES_Descriptor: [ES_ID: 2][flags], then what its flags say follows.
+  if (!open(0x03)) return 0;
+  const flags = movie[at + 2] ?? 0;
+  at += 3;
+  if (flags & 0x80) at += 2;
+  if (flags & 0x40) at += 1 + (movie[at] ?? 0);
+  if (flags & 0x20) at += 2;
+  // DecoderConfigDescriptor: [object type][stream type][buffer size: 3][top rate: 4][average rate: 4].
+  if (!open(0x04)) return 0;
+  at += 13;
+  // AudioSpecificConfig: [object type: 5 bits (31: 6 more)][rate: 4 bits (15: 24 more)][channels: 4 bits]…
+  if (!open(0x05) || at + 5 > esds.end) return 0;
+  let bit = at * 8;
+  const take = (count: number) => {
+    let value = 0;
+    for (let index = 0; index < count; index += 1, bit += 1)
+      value = value * 2 + (((movie[bit >> 3] ?? 0) >> (7 - (bit & 7))) & 1);
+    return value;
+  };
+  if (take(5) === 31) take(6);
+  if (take(4) === 15) take(24);
+  return AAC_CHANNELS[take(4)] ?? 0;
+}
+
+/**
+ * An MP4/M4A's channels and rate, the most of any of its sound tracks: each
+ * one's sample description, what its codec's own configuration says (AAC's
+ * esds, Opus's dOps, FLAC's dfLa), and its media's timescale.
+ */
+async function mp4Layout(
+  head: Uint8Array,
+  read: ReadRange,
+  size: number,
+): Promise<AudioLayout | null> {
+  const parts = await mp4Parts(head, read, size);
+  if (!parts) return null;
+  const { movie } = parts;
+  const moov = movieContent(movie);
+  let channels = 0;
+  let rate = 0;
+  for (const trak of boxesIn(movie, moov.start, moov.end)) {
+    if (trak.type !== "trak") continue;
+    const mdia = boxIn(movie, trak, "mdia");
+    const hdlr = boxIn(movie, mdia, "hdlr");
+    if (!hdlr || hdlr.start + 12 > hdlr.end || ascii(movie, hdlr.start + 8, 4) !== "soun") continue;
+    // stsd: [version, flags][entry count], then entries. The first holds [reserved: 6][reference: 2]
+    // [version: 2][revision: 2][vendor: 4][channels: 2][sample size: 2][compression: 2]
+    // [packet size: 2][rate: 16.16], more in versions 1 and 2, then its own boxes.
+    const stsd = boxIn(movie, boxIn(movie, boxIn(movie, mdia, "minf"), "stbl"), "stsd");
+    const entry = stsd ? boxesIn(movie, stsd.start + 8, stsd.end)[0] : undefined;
+    if (!entry || entry.start + 28 > entry.end) continue;
+    const version = u16be(movie, entry.start + 8);
+    let trackChannels = version < 2 ? u16be(movie, entry.start + 16) : 0;
+    let trackRate = version < 2 ? Math.floor(u32be(movie, entry.start + 24) / 65536) : 0;
+    const inner = entry.start + 28 + (version === 1 ? 16 : version === 2 ? 36 : 0);
+    for (const box of boxesIn(movie, inner, entry.end)) {
+      if (box.type === "esds") trackChannels = Math.max(trackChannels, aacChannels(movie, box));
+      else if (box.type === "dOps" && box.start + 2 <= box.end) {
+        // [version][output channels][pre-skip: 2][input rate: 4]…; Opus decodes at 48 kHz.
+        trackChannels = Math.max(trackChannels, movie[box.start + 1] ?? 0);
+        trackRate = Math.max(trackRate, 48_000);
+      } else if (box.type === "dfLa") {
+        // [version, flags], then FLAC's metadata blocks, STREAMINFO first.
+        const flac = flacLayout(movie.subarray(0, box.end), box.start + 8);
+        trackChannels = Math.max(trackChannels, flac?.channels ?? 0);
+        trackRate = Math.max(trackRate, flac?.rate ?? 0);
+      }
+    }
+    // mdhd: [version, flags][created][modified][timescale]…, times 64-bit in version 1.
+    const mdhd = boxIn(movie, mdia, "mdhd");
+    if (mdhd && mdhd.start + 24 <= mdhd.end)
+      trackRate = Math.max(
+        trackRate,
+        u32be(movie, mdhd.start + (movie[mdhd.start] === 1 ? 20 : 12)),
+      );
+    channels = Math.max(channels, trackChannels);
+    rate = Math.max(rate, trackRate);
+  }
+  return channels && rate ? { channels, rate } : null;
 }

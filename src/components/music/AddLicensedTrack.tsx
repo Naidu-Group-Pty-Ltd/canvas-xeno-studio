@@ -12,7 +12,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { keepAttempt, savedAttempt } from "@/lib/attempts";
 import { registerUploadedMusic, stageMusicUpload } from "@/lib/music.functions";
 import { audioFileDuration } from "@/lib/music/analyze";
-import { RIGHTS_SCOPES, type RightsScope } from "@/lib/music/catalog";
+import {
+  licenceTerms,
+  RIGHTS_SCOPES,
+  type MusicTrackRow,
+  type RightsScope,
+} from "@/lib/music/catalog";
 import { ACCEPT_ATTRIBUTE, normalizeMime } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 
@@ -66,34 +71,56 @@ function keepStaged(userId: string, upload: string, value: Staged | null) {
  * library or a sync deal), recording the licence so everyone knows where it
  * may be used. Given audio already in the library (added to an edit from the
  * media bin, say), it records that recording's licence instead of uploading.
+ * Given a track whose licence was recorded (`renewing`), it records that
+ * licence's terms as they now stand, say once it has been renewed, starting
+ * from the terms on record.
  */
 export function AddLicensedTrack({
   projectId = null,
-  asset = null,
+  asset: given = null,
+  renewing = null,
   defaultKind = "music",
   onAdded,
 }: {
   projectId?: string | null;
   asset?: { id: string; title: string | null } | null;
+  renewing?: MusicTrackRow | null;
   defaultKind?: "music" | "sound_effect";
   onAdded?: () => void;
 }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const input = useRef<HTMLInputElement>(null);
+  const asset = renewing?.asset_id ? { id: renewing.asset_id, title: renewing.title } : given;
+  // The terms on record, when renewing.
+  const recorded = (key: string) => {
+    const value = (renewing?.rights ?? {})[key];
+    return typeof value === "string" ? value : "";
+  };
+  const recordedScopes = Array.isArray((renewing?.rights ?? {})["scopes"])
+    ? RIGHTS_SCOPES.map((scope) => scope.id).filter((id) =>
+        ((renewing?.rights ?? {})["scopes"] as unknown[]).includes(id),
+      )
+    : [];
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState(() =>
-    (asset?.title ?? "").replace(/\.[^.]+$/, "").replace(/[_-]+/g, " "),
+    renewing ? renewing.title : (asset?.title ?? "").replace(/\.[^.]+$/, "").replace(/[_-]+/g, " "),
   );
-  const [artist, setArtist] = useState("");
-  const [kind, setKind] = useState<"music" | "sound_effect">(defaultKind);
-  const [license, setLicense] = useState<"licensed" | "owned">("licensed");
-  const [licensor, setLicensor] = useState("");
-  const [reference, setReference] = useState("");
-  const [scopes, setScopes] = useState<RightsScope[]>(["organic_social", "paid_social", "web"]);
-  const [territories, setTerritories] = useState("Worldwide");
-  const [expiresOn, setExpiresOn] = useState("");
-  const [notes, setNotes] = useState("");
+  const [artist, setArtist] = useState(renewing?.artist ?? "");
+  const [kind, setKind] = useState<"music" | "sound_effect">(
+    renewing ? (renewing.kind === "sound_effect" ? "sound_effect" : "music") : defaultKind,
+  );
+  const [license, setLicense] = useState<"licensed" | "owned">(
+    renewing?.license === "owned" ? "owned" : "licensed",
+  );
+  const [licensor, setLicensor] = useState(recorded("licensor"));
+  const [reference, setReference] = useState(recorded("reference"));
+  const [scopes, setScopes] = useState<RightsScope[]>(
+    recordedScopes.length ? recordedScopes : ["organic_social", "paid_social", "web"],
+  );
+  const [territories, setTerritories] = useState(recorded("territories") || "Worldwide");
+  const [expiresOn, setExpiresOn] = useState(recorded("expiresOn"));
+  const [notes, setNotes] = useState(recorded("notes"));
   const [saving, setSaving] = useState(false);
   // The confirmation covers this recording and these terms as they stood when
   // it was given: changing any of them asks for it again.
@@ -191,7 +218,9 @@ export function AddLicensedTrack({
       });
       if (upload) keepStaged(user.id, upload, null);
       await queryClient.invalidateQueries({ queryKey: ["music_tracks"] });
-      toast.success(asset ? "Licence recorded" : "Track added with its licence");
+      toast.success(
+        renewing ? "Licence updated" : asset ? "Licence recorded" : "Track added with its licence",
+      );
       onAdded?.();
       setFile(null);
       setTitle("");
@@ -208,7 +237,7 @@ export function AddLicensedTrack({
         keepStaged(user.id, upload, null);
       // Audio whose licence is already on record (its track wasn't known
       // here): the library is looked at again, which shows that licence.
-      if (asset && /already in the music library/.test(message)) {
+      if (asset && !renewing && /already in the music library/.test(message)) {
         await queryClient.invalidateQueries({ queryKey: ["music_tracks"] });
         toast.message(message);
         onAdded?.();
@@ -415,7 +444,13 @@ export function AddLicensedTrack({
         data-testid="add-licensed-button"
       >
         {saving && <Loader2 className="mr-1.5 size-4 animate-spin" />}
-        {asset ? "Record its licence" : "Add to the music library"}
+        {renewing
+          ? licenceTerms(renewing)?.expired
+            ? "Renew its licence"
+            : "Update its licence"
+          : asset
+            ? "Record its licence"
+            : "Add to the music library"}
       </Button>
     </div>
   );

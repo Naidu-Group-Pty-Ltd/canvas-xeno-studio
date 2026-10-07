@@ -1,4 +1,5 @@
 import { analyzeBeats, type BeatAnalysis } from "./beats";
+import { probeDuration, probeLayout, type ReadRange } from "./probe";
 
 const RATE = 22050;
 
@@ -10,6 +11,13 @@ const RATE = 22050;
 export const MAX_ANALYSIS_SECONDS = 600;
 /** The largest file read for its beats. */
 const MAX_ANALYSIS_BYTES = 120 * 1024 * 1024;
+/**
+ * The most a recording may take to decode (32-bit samples, every channel, at
+ * its own rate or the analysis rate if higher): ten minutes of stereo at
+ * 48 kHz, but not of 5.1 or 7.1, whose channels a browser decodes in full
+ * before they're mixed down.
+ */
+const MAX_DECODED_BYTES = 256 * 1024 * 1024;
 
 /** How long the audio at a URL plays, from its metadata alone; null if the browser can't tell (or takes too long). */
 function mediaDuration(src: string, timeoutMs: number): Promise<number | null> {
@@ -48,7 +56,8 @@ export async function audioFileDuration(file: File, timeoutMs = 10_000): Promise
  * Decodes an audio file in the browser and finds its tempo and beats (and its
  * length). Its length is checked first, from its metadata (or, failing that,
  * the length on record), so a recording too long to decode here is never
- * fetched; the file itself is read only up to a size limit.
+ * fetched; the file itself is read only up to a size limit, and decoded only
+ * if its structure shows that decoding it stays within a memory limit.
  */
 export async function analyzeAudioUrl(
   url: string,
@@ -94,6 +103,24 @@ export async function analyzeAudioUrl(
     encoded.set(value, filled);
     filled += value.length;
   }
+  // What decoding it takes, from its structure, before it's decoded: its
+  // length as a decoder plays it, its channels and its rate.
+  const bytes = encoded.subarray(0, filled);
+  const read: ReadRange = async (offset, length) =>
+    bytes.subarray(offset, Math.min(filled, offset + length));
+  const [seconds, layout] = await Promise.all([
+    probeDuration(read, filled),
+    probeLayout(read, filled),
+  ]);
+  if (seconds === null || layout === null)
+    throw new Error(
+      "This music's length and channels couldn't be read from its file, so its beats can't be found here. Use an MP3 or WAV copy of it.",
+    );
+  if (seconds > MAX_ANALYSIS_SECONDS + 1) throw tooLong();
+  if (seconds * Math.max(layout.rate, RATE) * layout.channels * 4 > MAX_DECODED_BYTES)
+    throw new Error(
+      `This music has too many channels (${layout.channels}), or too high a rate, to find its beats here at its length. Use a stereo copy of it, or a shorter edit.`,
+    );
   // An offline context decodes straight to the analysis rate.
   const context = new OfflineAudioContext({ numberOfChannels: 1, length: 1, sampleRate: RATE });
   const decoded = await context.decodeAudioData(

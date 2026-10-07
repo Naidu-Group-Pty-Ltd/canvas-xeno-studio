@@ -369,7 +369,7 @@ export function licenceBlocker(
 ): string | null {
   const terms = licenceTerms(track, now);
   if (terms?.expired)
-    return `The licence for “${track.title}” ran out on ${terms.expiresOn}. Renew it, then add the track again with the new terms.`;
+    return `The licence for “${track.title}” ran out on ${terms.expiresOn}. Renew its licence (Renew licence, on the track) to use it again.`;
   return null;
 }
 
