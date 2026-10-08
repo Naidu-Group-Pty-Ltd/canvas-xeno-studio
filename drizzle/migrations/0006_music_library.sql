@@ -115,14 +115,20 @@ ALTER TABLE public.music_uploads ENABLE ROW LEVEL SECURITY;
 -- The library is searched and paged here, so every track stays reachable
 -- however large it grows. Each word of the query must appear in the title,
 -- artist, licence, genres, moods or tags (any case). It runs as the caller,
--- so the read policy above still decides what can be seen.
+-- so the read policy above still decides what can be seen. A page starts
+-- after the last track of the one before (p_after_created_at, p_after_id),
+-- not at a count of rows, so a track archived or deleted meanwhile doesn't
+-- move another past the page boundary unseen. (An earlier version paged by
+-- offset; it is dropped so only this one is called.)
+DROP FUNCTION IF EXISTS public.search_music_tracks(text, text, boolean, boolean, integer, integer);
 CREATE OR REPLACE FUNCTION public.search_music_tracks(
   p_query text DEFAULT '',
   p_kind text DEFAULT NULL,
   p_include_archived boolean DEFAULT false,
   p_ready_only boolean DEFAULT false,
   p_limit integer DEFAULT 100,
-  p_offset integer DEFAULT 0
+  p_after_created_at timestamptz DEFAULT NULL,
+  p_after_id uuid DEFAULT NULL
 ) RETURNS SETOF public.music_tracks
 LANGUAGE sql STABLE SECURITY INVOKER SET search_path = public AS $$
   SELECT track.*
@@ -144,12 +150,15 @@ LANGUAGE sql STABLE SECURITY INVOKER SET search_path = public AS $$
                   array_to_string(track.tags, ' '))),
                 word) = 0
      )
+     -- After the given track in this order: older, or as old with a greater id.
+     AND (p_after_created_at IS NULL
+          OR track.created_at < p_after_created_at
+          OR (track.created_at = p_after_created_at AND track.id > p_after_id))
    ORDER BY track.created_at DESC, track.id
-   LIMIT least(greatest(coalesce(p_limit, 100), 1), 200)
-  OFFSET greatest(coalesce(p_offset, 0), 0);
+   LIMIT least(greatest(coalesce(p_limit, 100), 1), 200);
 $$;
-REVOKE ALL ON FUNCTION public.search_music_tracks(text, text, boolean, boolean, integer, integer) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.search_music_tracks(text, text, boolean, boolean, integer, integer) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.search_music_tracks(text, text, boolean, boolean, integer, timestamptz, uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.search_music_tracks(text, text, boolean, boolean, integer, timestamptz, uuid) TO authenticated, service_role;
 
 DROP TRIGGER IF EXISTS music_tracks_updated ON public.music_tracks;
 CREATE TRIGGER music_tracks_updated BEFORE UPDATE ON public.music_tracks

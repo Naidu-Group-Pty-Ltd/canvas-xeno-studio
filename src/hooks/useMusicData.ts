@@ -25,11 +25,16 @@ export function trackInProgress(track: Pick<MusicTrackRow, "status" | "created_a
 /** Tracks fetched at a time; "Show more" fetches the next page. */
 export const MUSIC_PAGE = 100;
 
+/** Where a page of the library starts: after this track (none for the first page). */
+type MusicPageStart = { createdAt: string; id: string } | null;
+
 /**
  * The library, newest first, searched and paged by the database
  * (search_music_tracks): every track stays reachable however large the
  * library grows. Each word of `search` must appear in the title, artist,
- * licence, genres, moods or tags.
+ * licence, genres, moods or tags. Each page starts after the last track
+ * shown rather than at a count of rows, so a track archived or deleted
+ * meanwhile doesn't move another past the page boundary unseen.
  */
 export function useMusicTracks(
   options: {
@@ -45,7 +50,7 @@ export function useMusicTracks(
   const readyOnly = options.readyOnly ?? false;
   const query = useInfiniteQuery({
     queryKey: ["music_tracks", includeArchived, search, kind, readyOnly],
-    initialPageParam: 0,
+    initialPageParam: null as MusicPageStart,
     queryFn: async ({ pageParam }) => {
       const { data, error } = await supabase.rpc(
         "search_music_tracks" as never,
@@ -55,29 +60,26 @@ export function useMusicTracks(
           p_include_archived: includeArchived,
           p_ready_only: readyOnly,
           p_limit: MUSIC_PAGE,
-          p_offset: pageParam,
+          p_after_created_at: pageParam?.createdAt ?? null,
+          p_after_id: pageParam?.id ?? null,
         } as never,
       );
       if (error) throw error;
       return (data ?? []) as unknown as MusicTrackRow[];
     },
-    getNextPageParam: (last, pages) =>
-      last.length < MUSIC_PAGE ? undefined : pages.length * MUSIC_PAGE,
+    getNextPageParam: (last): MusicPageStart | undefined => {
+      const end = last.at(-1);
+      return last.length < MUSIC_PAGE || !end
+        ? undefined
+        : { createdAt: end.created_at, id: end.id };
+    },
     // While a new search runs, the last results stay on screen.
     placeholderData: keepPreviousData,
     // New AI music and instrumentals appear when they're ready.
     refetchInterval: (current) =>
       current.state.data?.pages.some((page) => page.some(trackInProgress)) ? 4000 : false,
   });
-  // A track added while paging can shift a later page by one: each is listed once.
-  const tracks = useMemo(() => {
-    const seen = new Set<string>();
-    return (query.data?.pages ?? []).flat().filter((track) => {
-      if (seen.has(track.id)) return false;
-      seen.add(track.id);
-      return true;
-    });
-  }, [query.data]);
+  const tracks = useMemo(() => (query.data?.pages ?? []).flat(), [query.data]);
   return { ...query, tracks };
 }
 
