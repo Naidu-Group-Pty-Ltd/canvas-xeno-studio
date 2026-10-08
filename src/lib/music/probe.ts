@@ -569,9 +569,13 @@ type OggSound = "vorbis" | "opus" | "flac";
  * and how many header packets follow it (for FLAC, null: they run to the
  * metadata block marked last).
  */
-function oggIdentification(
-  packet: Uint8Array,
-): { sound: OggSound; headers: number | null; streams: number } | null {
+function oggIdentification(packet: Uint8Array): {
+  sound: OggSound;
+  headers: number | null;
+  streams: number;
+  /** Vorbis: its channels, and its larger block size, which its setup header is checked against. */
+  vorbis?: { channels: number; largeBlock: number };
+} | null {
   const id = ascii(packet, 0, 8);
   if (id.startsWith("\u0001vorbis")) {
     // [1]vorbis[version: 4][channels][rate: 4][bit rates: 12][block sizes: 2 × 4 bits][framing]
@@ -586,7 +590,13 @@ function oggIdentification(
       small <= large &&
       large <= 13 &&
       ((packet[29] ?? 0) & 0x01) === 1;
-    return formed ? { sound: "vorbis", headers: 2, streams: 1 } : null;
+    if (!formed) return null;
+    return {
+      sound: "vorbis",
+      headers: 2,
+      streams: 1,
+      vorbis: { channels: packet[11] ?? 0, largeBlock: 2 ** large },
+    };
   }
   if (id === "OpusHead") {
     // OpusHead[version][channels][samples skipped: 2][rate: 4][gain: 2][mapping family], and
@@ -622,15 +632,236 @@ function oggIdentification(
   return null;
 }
 
+/** A Vorbis packet read past its end. */
+class PacketEnded extends Error {}
+
+/** Reads a Vorbis packet's bits from byte `from` on, least significant first; past its end, throws. */
+function vorbisBits(bytes: Uint8Array, from: number) {
+  let bit = from * 8;
+  const available = (count: number) => {
+    if (bit + count > bytes.length * 8) throw new PacketEnded();
+  };
+  return {
+    read(count: number): number {
+      available(count);
+      let value = 0;
+      for (let index = 0; index < count; index += 1, bit += 1)
+        if (((bytes[bit >> 3] ?? 0) >> (bit & 7)) & 1) value += 2 ** index;
+      return value;
+    },
+    skip(count: number) {
+      available(count);
+      bit += count;
+    },
+  };
+}
+
+/** How many bits a value takes: 0 for 0, 1 for 1, 2 for 2 and 3, and so on. */
+const ilog = (value: number) => 32 - Math.clz32(value);
+
+/** How many values a type 1 lookup holds: the most whose power by its dimensions stays within its entries. */
+function lookup1Values(entries: number, dimensions: number): number {
+  let values = Math.floor(entries ** (1 / dimensions));
+  while ((values + 1) ** dimensions <= entries) values += 1;
+  while (values > 0 && values ** dimensions > entries) values -= 1;
+  return values;
+}
+
+/** Whether a Vorbis float (21-bit mantissa, sign, 10-bit exponent) is finite as a 32-bit float, as FFmpeg needs. */
+function finiteVorbisFloat(value: number): boolean {
+  const exponent = Math.floor(value / 0x200000) % 0x400;
+  return Number.isFinite(Math.fround((value % 0x200000) * 2 ** (exponent - 788)));
+}
+
+/**
+ * Whether codeword lengths (0 for an unused entry) make a whole prefix code,
+ * neither over- nor under-filled, as FFmpeg and libvorbis require (a book of
+ * one used entry or none needs no code).
+ */
+function wholePrefixCode(lengths: number[]): boolean {
+  const used = lengths.filter((length) => length > 0);
+  if (used.length <= 1) return true;
+  return used.reduce((sum, length) => sum + 2 ** (32 - length), 0) === 2 ** 32;
+}
+
+/**
+ * The modes a Vorbis setup header declares, when the whole header reads as
+ * decoders read it (FFmpeg's checks, which Chrome's decoder makes, and
+ * libvorbis's, which Firefox's makes): its codebooks (each a whole prefix
+ * code, with a lookup of type 0 or 1), time transforms, floors, residues,
+ * mappings and modes, each naming only books, floors, residues, mappings and
+ * channels there are, then its framing bit. Null when any part doesn't, or the
+ * header ends before it.
+ */
+function vorbisModes(packet: Uint8Array, channels: number, largeBlock: number): number | null {
+  if (ascii(packet, 0, 7) !== "\u0005vorbis") return null;
+  const { read, skip } = vorbisBits(packet, 7);
+  try {
+    // Codebooks: [sync "BCV": 24][dimensions: 16][entries: 24], their codeword lengths, then a lookup.
+    const books: { dimensions: number; entries: number; lookup: number }[] = [];
+    for (let count = read(8) + 1; books.length < count;) {
+      if (read(24) !== 0x564342) return null;
+      const dimensions = read(16);
+      const entries = read(24);
+      // FFmpeg keeps a book's dimensions in 8 bits, which must come to 1 to 16; libvorbis
+      // takes no more entries than 24 bits hold with them.
+      if (entries > 65_536 || ilog(dimensions) + ilog(entries) > 24) return null;
+      if ((dimensions & 0xff) < 1 || (dimensions & 0xff) > 16) return null;
+      const lengths: number[] = [];
+      if (read(1) === 0) {
+        // Each entry's length (sparse: if it's used at all).
+        const sparse = read(1) === 1;
+        for (let entry = 0; entry < entries; entry += 1)
+          lengths.push(!sparse || read(1) === 1 ? read(5) + 1 : 0);
+      } else {
+        // Ordered: how many entries have each length, from the first given on.
+        for (let length = read(5) + 1; lengths.length < entries; length += 1) {
+          const number = read(ilog(entries - lengths.length));
+          if (length > 32 || number > entries - lengths.length || number > 2 ** length) return null;
+          for (let entry = 0; entry < number; entry += 1) lengths.push(length);
+        }
+      }
+      if (!wholePrefixCode(lengths)) return null;
+      // Lookup type 1: [minimum: 32][delta: 32][value bits - 1: 4][sequence: 1], then its values.
+      // FFmpeg decodes no type 2 (nor libvorbis anything past it).
+      const lookup = read(4);
+      if (lookup > 1) return null;
+      if (lookup === 1) {
+        // Vectors of 1 to 16 values, which both decoders then read alike.
+        if (dimensions > 16) return null;
+        if (!finiteVorbisFloat(read(32)) || !finiteVorbisFloat(read(32))) return null;
+        const bits = read(4) + 1;
+        skip(1);
+        skip(lookup1Values(entries, dimensions) * bits);
+      }
+      books.push({ dimensions, entries, lookup });
+    }
+    const book = (index: number) => books[index] ?? null;
+    // Time domain transforms: each 16 bits of 0.
+    for (let count = read(6) + 1; count > 0; count -= 1) if (read(16) !== 0) return null;
+    // Floors, of type 0 or 1.
+    const floors = read(6) + 1;
+    for (let floor = 0; floor < floors; floor += 1) {
+      const type = read(16);
+      if (type === 0) {
+        // [order: 8][rate: 16][bark map size: 16][amplitude bits: 6][amplitude offset: 8][books - 1: 4][each book: 8]
+        const order = read(8);
+        const rate = read(16);
+        const barkMap = read(16);
+        skip(14);
+        if (!order || !rate || !barkMap) return null;
+        for (let count = read(4) + 1; count > 0; count -= 1)
+          if (!book(read(8))?.lookup) return null;
+      } else if (type === 1) {
+        // [partitions: 5][each one's class: 4]; each class [dimensions - 1: 3][subclasses: 2]
+        // [master book: 8, with subclasses][each subclass's book + 1: 8]; [multiplier - 1: 2]
+        // [range bits: 4], then an X of that many bits for each dimension of each partition.
+        const classes: number[] = [];
+        for (let count = read(5); count > 0; count -= 1) classes.push(read(4));
+        const dimensions: number[] = [];
+        for (let each = 0; each <= Math.max(-1, ...classes); each += 1) {
+          dimensions.push(read(3) + 1);
+          const subclasses = read(2);
+          if (subclasses && !book(read(8))) return null;
+          for (let subclass = 0; subclass < 1 << subclasses; subclass += 1)
+            if (read(8) - 1 >= books.length) return null;
+        }
+        skip(2);
+        const rangeBits = read(4);
+        // FFmpeg takes no range past half the larger block; libvorbis no more than 63 posts.
+        if (2 ** rangeBits > largeBlock / 2) return null;
+        const xs = new Set([0, 2 ** rangeBits]);
+        for (const each of classes)
+          for (let dimension = 0; dimension < (dimensions[each] ?? 0); dimension += 1) {
+            const x = read(rangeBits);
+            if (xs.has(x)) return null;
+            xs.add(x);
+          }
+        if (xs.size - 2 > 63) return null;
+      } else return null;
+    }
+    // Residues: [type: 16, 0 to 2][begin: 24][end: 24][partition size - 1: 24]
+    // [classifications - 1: 6][class book: 8], each classification's cascade
+    // [low bits: 3][more: 1][high bits: 5, with more], then a book for each bit set.
+    const residues = read(6) + 1;
+    for (let residue = 0; residue < residues; residue += 1) {
+      const type = read(16);
+      const begin = read(24);
+      const end = read(24);
+      const size = read(24) + 1;
+      const classifications = read(6) + 1;
+      const classBook = book(read(8));
+      if (type > 2 || begin > end || Math.floor((end - begin) / size) > 65_535) return null;
+      // libvorbis: the class book's entries must hold every combination of classifications.
+      if (!classBook || classBook.dimensions > 16) return null;
+      if (classifications ** classBook.dimensions > classBook.entries) return null;
+      const cascades: number[] = [];
+      for (let count = classifications; count > 0; count -= 1) {
+        const low = read(3);
+        cascades.push(read(1) ? read(5) * 8 + low : low);
+      }
+      for (const cascade of cascades)
+        for (let bit = 0; bit < 8; bit += 1)
+          if (cascade & (1 << bit) && !book(read(8))?.lookup) return null;
+    }
+    // Mappings: [type: 16, 0][submaps: 1, then 4][coupling: 1, then steps - 1: 8, each
+    // [magnitude][angle] channels apart][reserved: 2, 0][each channel's submap: 4, with
+    // submaps], then each submap's [time: 8][floor: 8][residue: 8].
+    const mappings = read(6) + 1;
+    for (let mapping = 0; mapping < mappings; mapping += 1) {
+      if (read(16) !== 0) return null;
+      const submaps = read(1) ? read(4) + 1 : 1;
+      if (read(1)) {
+        if (channels < 2) return null;
+        for (let steps = read(8) + 1; steps > 0; steps -= 1) {
+          const magnitude = read(ilog(channels - 1));
+          const angle = read(ilog(channels - 1));
+          if (magnitude === angle || magnitude >= channels || angle >= channels) return null;
+        }
+      }
+      if (read(2) !== 0) return null;
+      if (submaps > 1)
+        for (let channel = 0; channel < channels; channel += 1) if (read(4) >= submaps) return null;
+      for (let submap = 0; submap < submaps; submap += 1) {
+        skip(8);
+        if (read(8) >= floors || read(8) >= residues) return null;
+      }
+    }
+    // Modes: [block flag: 1][window type: 16, 0][transform type: 16, 0][mapping: 8].
+    const modes = read(6) + 1;
+    for (let mode = 0; mode < modes; mode += 1) {
+      skip(1);
+      if (read(16) !== 0 || read(16) !== 0 || read(8) >= mappings) return null;
+    }
+    // The framing bit.
+    return read(1) === 1 ? modes : null;
+  } catch (error) {
+    if (error instanceof PacketEnded) return null;
+    throw error;
+  }
+}
+
+/** Whether a Vorbis audio packet opens as one: its first bit 0 (its headers' is 1), then a mode its setup header declares. */
+function vorbisAudio(packet: Uint8Array, modes: number): boolean {
+  try {
+    const { read } = vorbisBits(packet, 0);
+    return read(1) === 0 && read(ilog(modes - 1)) < modes;
+  } catch (error) {
+    if (error instanceof PacketEnded) return false;
+    throw error;
+  }
+}
+
 /** Whether a header packet (its first bytes, and its length) is the one its stream needs at this place. */
 function oggHeader(sound: OggSound, index: number, start: Uint8Array, length: number): boolean {
-  if (sound === "vorbis") {
-    // The comment header, [3]vorbis[vendor: its length, 4][comments: their count, 4, then each][framing],
-    // then the setup header, [5]vorbis[codebooks - 1], its first codebook opening "BCV".
-    if (index === 1)
-      return ascii(start, 0, 7) === "\u0003vorbis" && 7 + 4 + u32le(start, 7) + 4 + 1 <= length;
-    return ascii(start, 0, 7) === "\u0005vorbis" && ascii(start, 8, 3) === "BCV";
-  }
+  // Vorbis's comment header, [3]vorbis[vendor: its length, 4][comments: their count, 4, then
+  // each][framing] (its setup header, the one after it, is read whole: see vorbisModes).
+  if (sound === "vorbis")
+    return (
+      index === 1 &&
+      ascii(start, 0, 7) === "\u0003vorbis" &&
+      7 + 4 + u32le(start, 7) + 4 + 1 <= length
+    );
   // OpusTags[vendor: its length, 4][comments: their count, 4, then each]
   if (sound === "opus")
     return ascii(start, 0, 8) === "OpusTags" && 8 + 4 + u32le(start, 8) + 4 <= length;
@@ -742,13 +973,18 @@ function opusDelimitedEnd(packet: Uint8Array, at: number): number | null {
 }
 
 /**
- * Whether a stream's first sound packet, whole, reads as its codec's. An Opus
- * stream of several (its channels past two) carries a packet of each in one,
- * all but the last self-delimited.
+ * Whether a stream's first sound packet, whole, reads as its codec's: Vorbis
+ * in a mode its setup header declares; Opus laid out as RFC 6716 requires (a
+ * stream of several, its channels past two, carries a packet of each in one,
+ * all but the last self-delimited); FLAC a whole frame.
  */
-function oggSoundPacket(sound: OggSound, packet: Uint8Array, streams: number): boolean {
-  // Vorbis: an audio packet's first bit is 0 (its headers' is 1).
-  if (sound === "vorbis") return packet.length > 0 && ((packet[0] ?? 0) & 0x01) === 0;
+function oggSoundPacket(
+  sound: OggSound,
+  packet: Uint8Array,
+  streams: number,
+  modes: number,
+): boolean {
+  if (sound === "vorbis") return vorbisAudio(packet, modes);
   if (sound === "opus") {
     let at = 0;
     for (let stream = 1; stream < streams; stream += 1) {
@@ -777,6 +1013,9 @@ async function isOggAudio(head: Uint8Array, read: ReadRange, size: number): Prom
   let sound: OggSound = "vorbis";
   let headers: number | null = 0;
   let streams = 1;
+  // Vorbis: what its setup header is checked against, and the modes it declares.
+  let vorbis: { channels: number; largeBlock: number } | null = null;
+  let modes = 0;
   // The stream's packet being put together (its identification header is 0): its length so
   // far, and its parts (a header's first bytes, which say what it is; the sound packet whole).
   let index = 0;
@@ -805,6 +1044,7 @@ async function isOggAudio(head: Uint8Array, read: ReadRange, size: number): Prom
           : null;
       if (!id) return false;
       ({ sound, headers, streams } = id);
+      vorbis = id.vorbis ?? null;
       serial = page.serial;
       index = 1;
       continue;
@@ -816,10 +1056,13 @@ async function isOggAudio(head: Uint8Array, read: ReadRange, size: number): Prom
       const piece = page.bytes.subarray(at, at + segment);
       at += segment;
       const sounding = headers !== null && index > headers;
-      if (sounding) parts.push(piece);
+      // Kept whole: the first sound packet, and a Vorbis setup header (at most as long as
+      // the longest FLAC frame); of any other header, its first bytes say what it is.
+      const whole = sounding || (sound === "vorbis" && index === 2);
+      if (whole) parts.push(piece);
       else if (length < 64) parts.push(piece.subarray(0, 64 - length));
       length += segment;
-      if (sounding && length > MAX_FLAC_FRAME) return false;
+      if (whole && length > MAX_FLAC_FRAME) return false;
       if (segment === 255) continue;
       // The packet ends here.
       const packet = new Uint8Array(parts.reduce((sum, each) => sum + each.length, 0));
@@ -828,8 +1071,11 @@ async function isOggAudio(head: Uint8Array, read: ReadRange, size: number): Prom
         packet.set(each, filled);
         filled += each.length;
       }
-      if (sounding) return oggSoundPacket(sound, packet, streams);
-      if (!oggHeader(sound, index, packet, length)) return false;
+      if (sounding) return oggSoundPacket(sound, packet, streams, modes);
+      if (sound === "vorbis" && index === 2) {
+        modes = vorbis ? (vorbisModes(packet, vorbis.channels, vorbis.largeBlock) ?? 0) : 0;
+        if (!modes) return false;
+      } else if (!oggHeader(sound, index, packet, length)) return false;
       // FLAC's headers run to the metadata block marked last.
       if (sound === "flac" && (packet[0] ?? 0) & 0x80) headers = index;
       index += 1;
