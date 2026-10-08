@@ -33,7 +33,7 @@ export interface ProviderFailure {
 
 const SPEECH_TIMEOUT_MS = 90_000;
 
-async function timed(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+export async function timed(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -56,7 +56,7 @@ function serverError(provider: string, status: number): ProviderFailure {
   };
 }
 
-function transportFailure(provider: string, error: unknown): ProviderFailure {
+export function transportFailure(provider: string, error: unknown): ProviderFailure {
   const aborted = error instanceof Error && error.name === "AbortError";
   return {
     ok: false,
@@ -205,7 +205,7 @@ export function elevenLabsConfigured(): boolean {
   return !!process.env["ELEVENLABS_API_KEY"]?.trim();
 }
 
-function elevenFailure(status: number, body: string, mutating = false): ProviderFailure {
+export function elevenFailure(status: number, body: string, mutating = false): ProviderFailure {
   if (mutating && status >= 500) return serverError("ElevenLabs", status);
   let message = "";
   let code = "";
@@ -246,14 +246,18 @@ function elevenFailure(status: number, body: string, mutating = false): Provider
   };
 }
 
-async function eleven(path: string, init: RequestInit = {}, timeoutMs = 30_000): Promise<Response> {
+export async function eleven(
+  path: string,
+  init: RequestInit = {},
+  timeoutMs = 30_000,
+): Promise<Response> {
   const key = process.env["ELEVENLABS_API_KEY"]?.trim() ?? "";
   const headers = new Headers(init.headers);
   headers.set("xi-api-key", key);
   return timed(`${ELEVEN}${path}`, { ...init, headers }, timeoutMs);
 }
 
-async function elevenJson<T>(
+export async function elevenJson<T>(
   path: string,
   init: RequestInit = {},
   timeoutMs = 30_000,

@@ -43,6 +43,13 @@
       "when": 1791286405140,
       "tag": "0005_brand_voices",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791288405140,
+      "tag": "0006_music_library",
+      "breakpoints": true
     }
   ]
 }

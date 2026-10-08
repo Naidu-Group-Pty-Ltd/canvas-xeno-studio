@@ -10,6 +10,13 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { AppError } from "../higgsfield/errors";
 import { appBaseUrl } from "../generation-pipeline.server";
 import { mediaWorkerConfigured, submitWorkerTask } from "../media/worker.server";
+import {
+  licenceBlocker,
+  licenceTerms,
+  MUSIC_LICENSES,
+  videoCreditLine,
+  type MusicTrackRow,
+} from "../music/catalog";
 import { finishSequenceRender } from "./callback.server";
 import {
   RENDER_BUSY_STAGE,
@@ -17,7 +24,9 @@ import {
   RENDER_UNCONFIRMED_STAGE,
   renderInProgress,
 } from "./renders";
+import { isMissingTableError } from "./errors";
 import {
+  audibleAudio,
   buildRenderRequest,
   frameSize,
   layoutTimeline,
@@ -100,6 +109,127 @@ async function resolveAssets(timeline: Timeline) {
   return assets;
 }
 
+/**
+ * Which of these recordings are voiceovers the studio made: takes finished by
+ * the server, which alone writes them, in files members can't change or
+ * repoint. What an edit calls a voiceover is taken as one only when it is one.
+ */
+async function studioVoiceovers(assetIds: string[]): Promise<Set<string>> {
+  const { data, error } = await supabaseAdmin
+    .from("voiceovers")
+    .select("asset_id")
+    .eq("status", "completed")
+    .in("asset_id", assetIds);
+  if (error) {
+    // Before brand voices are set up the studio has made none.
+    if (isMissingTableError(error)) return new Set();
+    throw new AppError("UNKNOWN", "The edit's voiceovers couldn't be checked. Try again.");
+  }
+  return new Set((data ?? []).flatMap((row) => (row.asset_id ? [row.asset_id] : [])));
+}
+
+/** Why audio heard in the edit, neither a voiceover the studio made nor on record, can't be rendered. */
+function unrecordedReason(item: { role: string; title: string | null }): string {
+  const title = item.title ?? "Some audio";
+  return item.role === "voiceover"
+    ? `“${title}” is used as a voiceover, but it wasn't made in the Voice tab and no licence is on record for it. Record its licence in the edit's Music tab, or make the voiceover in the Voice tab.`
+    : `“${title}” is used as ${item.role === "sfx" ? "a sound effect" : "music"}, but no licence is on record for it. Record its licence in the edit's Music tab, or use music from the library.`;
+}
+
+/**
+ * What the edit's music asks for: the credits Creative Commons BY needs, and
+ * the terms of licensed tracks and the usage limits of AI music (where it may
+ * run depends on the plan it was made on), all kept with the finished video;
+ * and what stops the render: an expired licence, or audio heard in the edit
+ * that is neither a voiceover the studio made nor on record with a licence
+ * (audio added from the media bin, say, whatever it is used as), since nothing
+ * then says it may be used.
+ */
+async function musicRights(
+  items: { assetId: string; role: string; title: string | null }[],
+): Promise<{
+  credits: string[];
+  licences: Record<string, unknown>[];
+  blocker: string | null;
+}> {
+  const none = { credits: [], licences: [], blocker: null };
+  if (!items.length) return none;
+  const assetIds = [...new Set(items.map((item) => item.assetId))];
+  const made = await studioVoiceovers(assetIds);
+  const { data, error } = await supabaseAdmin
+    .from("music_tracks")
+    .select(
+      "asset_id,title,artist,license,license_version,license_url,attribution,rights,usage_notes,source_url",
+    )
+    .in("asset_id", assetIds);
+  if (error) {
+    // Before the music library is set up nothing shows what other audio may
+    // be used, so only voiceovers the studio made are rendered. Any other
+    // failure stops the render too, rather than skipping the check.
+    if (isMissingTableError(error)) {
+      const other = items.find((item) => !made.has(item.assetId));
+      if (!other) return none;
+      return {
+        ...none,
+        blocker:
+          other.role === "voiceover"
+            ? `“${other.title ?? "Some audio"}” is used as a voiceover, but it wasn't made in the Voice tab, and audio from elsewhere can't be rendered until the music library is set up (its database update hasn't been applied yet).`
+            : "Music and sound effects can't be rendered until the music library is set up (its database update hasn't been applied yet).",
+      };
+    }
+    throw new AppError("UNKNOWN", "The music licences couldn't be checked. Try again.");
+  }
+  const rows = (data ?? []) as unknown as Pick<
+    MusicTrackRow,
+    | "asset_id"
+    | "title"
+    | "artist"
+    | "license"
+    | "license_version"
+    | "license_url"
+    | "attribution"
+    | "rights"
+    | "usage_notes"
+    | "source_url"
+  >[];
+  const credits = [
+    ...new Set(rows.map((row) => videoCreditLine(row)).filter((line): line is string => !!line)),
+  ];
+  const licences = rows.flatMap((row): Record<string, unknown>[] => {
+    const terms = licenceTerms(row);
+    if (terms)
+      return [
+        {
+          title: row.title,
+          licence: row.license,
+          licensor: terms.licensor,
+          reference: terms.reference,
+          uses: terms.uses,
+          territories: terms.territories,
+          expires_on: terms.expiresOn,
+          notes: terms.notes,
+        },
+      ];
+    if (row.license === "ai_generated")
+      return [
+        {
+          title: row.title,
+          licence: row.license,
+          licensor: "ElevenLabs (Eleven Music)",
+          notes: row.usage_notes ?? MUSIC_LICENSES.ai_generated.note,
+        },
+      ];
+    return [];
+  });
+  const recorded = new Set(rows.map((row) => row.asset_id));
+  const unrecorded = items.find((item) => !recorded.has(item.assetId) && !made.has(item.assetId));
+  const blocker =
+    (unrecorded ? unrecordedReason(unrecorded) : null) ??
+    rows.map((row) => licenceBlocker(row)).find((reason) => reason) ??
+    null;
+  return { credits, licences, blocker };
+}
+
 export async function startSequenceRender(input: RenderInput): Promise<RenderStarted> {
   const { data: profile } = await supabaseAdmin
     .from("profiles")
@@ -149,6 +279,15 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
   if (blockers.length) throw new AppError("INVALID_PARAMETERS", blockers[0]);
 
   const assets = await resolveAssets(timeline);
+  // Only audio that is heard in the render needs crediting or licence checks.
+  const music = await musicRights(
+    audibleAudio(timeline).map((item) => ({
+      assetId: item.assetId,
+      role: item.role,
+      title: assets.get(item.assetId)?.title ?? item.label ?? null,
+    })),
+  );
+  if (music.blocker) throw new AppError("INVALID_PARAMETERS", music.blocker);
   const request = buildRenderRequest(timeline);
 
   const renderId = crypto.randomUUID();
@@ -186,6 +325,8 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
           mime_type: "video/mp4",
           output_kind: "video",
           sources: request.sources.map((source) => source.assetId),
+          ...(music.credits.length ? { music_credits: music.credits } : {}),
+          ...(music.licences.length ? { music_licences: music.licences } : {}),
         },
       },
     } as never,

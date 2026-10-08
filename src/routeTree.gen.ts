@@ -21,6 +21,7 @@ import { Route as EditLabRouteImport } from './routes/edit-lab'
 import { Route as LibraryRouteImport } from './routes/library'
 import { Route as ModelLabRouteImport } from './routes/model-lab'
 import { Route as ModelsRouteImport } from './routes/models'
+import { Route as MusicRouteImport } from './routes/music'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as StoryboardsRouteImport } from './routes/storyboards'
 import { Route as SupercomputerRouteImport } from './routes/supercomputer'
@@ -104,6 +105,11 @@ const ModelLabRoute = ModelLabRouteImport.update({
 const ModelsRoute = ModelsRouteImport.update({
   id: '/models',
   path: '/models',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MusicRoute = MusicRouteImport.update({
+  id: '/music',
+  path: '/music',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -246,6 +252,7 @@ export interface FileRoutesByFullPath {
   '/library': typeof LibraryRoute
   '/model-lab': typeof ModelLabRoute
   '/models': typeof ModelsRoute
+  '/music': typeof MusicRoute
   '/settings': typeof SettingsRoute
   '/storyboards': typeof StoryboardsRoute
   '/supercomputer': typeof SupercomputerRoute
@@ -283,6 +290,7 @@ export interface FileRoutesByTo {
   '/library': typeof LibraryRoute
   '/model-lab': typeof ModelLabRoute
   '/models': typeof ModelsRoute
+  '/music': typeof MusicRoute
   '/settings': typeof SettingsRoute
   '/storyboards': typeof StoryboardsRoute
   '/supercomputer': typeof SupercomputerRoute
@@ -322,6 +330,7 @@ export interface FileRoutesById {
   '/library': typeof LibraryRoute
   '/model-lab': typeof ModelLabRoute
   '/models': typeof ModelsRoute
+  '/music': typeof MusicRoute
   '/settings': typeof SettingsRoute
   '/storyboards': typeof StoryboardsRoute
   '/supercomputer': typeof SupercomputerRoute
@@ -362,6 +371,7 @@ export interface FileRouteTypes {
     | '/library'
     | '/model-lab'
     | '/models'
+    | '/music'
     | '/settings'
     | '/storyboards'
     | '/supercomputer'
@@ -399,6 +409,7 @@ export interface FileRouteTypes {
     | '/library'
     | '/model-lab'
     | '/models'
+    | '/music'
     | '/settings'
     | '/storyboards'
     | '/supercomputer'
@@ -437,6 +448,7 @@ export interface FileRouteTypes {
     | '/library'
     | '/model-lab'
     | '/models'
+    | '/music'
     | '/settings'
     | '/storyboards'
     | '/supercomputer'
@@ -476,6 +488,7 @@ export interface RootRouteChildren {
   LibraryRoute: typeof LibraryRoute
   ModelLabRoute: typeof ModelLabRoute
   ModelsRoute: typeof ModelsRoute
+  MusicRoute: typeof MusicRoute
   SettingsRoute: typeof SettingsRoute
   StoryboardsRoute: typeof StoryboardsRoute
   SupercomputerRoute: typeof SupercomputerRoute
@@ -577,6 +590,13 @@ declare module '@tanstack/react-router' {
       path: '/models'
       fullPath: '/models'
       preLoaderRoute: typeof ModelsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/music': {
+      id: '/music'
+      path: '/music'
+      fullPath: '/music'
+      preLoaderRoute: typeof MusicRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -790,6 +810,7 @@ const rootRouteChildren: RootRouteChildren = {
   LibraryRoute: LibraryRoute,
   ModelLabRoute: ModelLabRoute,
   ModelsRoute: ModelsRoute,
+  MusicRoute: MusicRoute,
   SettingsRoute: SettingsRoute,
   StoryboardsRoute: StoryboardsRoute,
   SupercomputerRoute: SupercomputerRoute,

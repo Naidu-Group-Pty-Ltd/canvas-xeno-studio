@@ -319,6 +319,17 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
     }),
     [sequence.id, sequence.project_id, sequence.campaign_id, sequence.source],
   );
+  const music = useMemo(
+    () => ({
+      projectId: sequence.project_id,
+      campaignId: sequence.campaign_id,
+      direction:
+        typeof sequence.source?.["music_direction"] === "string"
+          ? (sequence.source["music_direction"] as string)
+          : null,
+    }),
+    [sequence.project_id, sequence.campaign_id, sequence.source],
+  );
 
   const bin = (
     <MediaBin
@@ -500,6 +511,7 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
               onUpdate={update}
               getTimeline={getTimeline}
               voiceover={voiceover}
+              music={music}
             />
           </div>
           <div className="max-h-[45%] shrink-0 overflow-y-auto border-t border-border">
@@ -533,7 +545,7 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
         <Sheet>
           <SheetTrigger asChild>
             <Button variant="outline" size="sm" className="w-full">
-              {selection ? "Edit selection" : "Format, voiceover, text & render"}
+              {selection ? "Edit selection" : "Format, voice, music, text & render"}
             </Button>
           </SheetTrigger>
           <SheetContent side="bottom" className="h-[75vh] p-0">
@@ -552,6 +564,7 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
                 onUpdate={update}
                 getTimeline={getTimeline}
                 voiceover={voiceover}
+                music={music}
               />
               <RenderPanel
                 sequenceId={sequence.id}

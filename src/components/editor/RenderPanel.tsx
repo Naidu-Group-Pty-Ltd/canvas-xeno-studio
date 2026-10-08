@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   CheckCircle2,
+  Copy,
   Download,
   ExternalLink,
   Film,
@@ -12,11 +13,11 @@ import {
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useSequenceRenders, type RenderRow } from "@/hooks/useEditorData";
+import { useAssetsByIds, useSequenceRenders, type RenderRow } from "@/hooks/useEditorData";
 import { getMediaWorkerStatus } from "@/lib/media.functions";
 import { recoverRender, renderSequence, resendRender } from "@/lib/edit.functions";
 import { keepAttempt, savedAttempt } from "@/lib/attempts";
-import { formatTime, renderBlockers, type Timeline } from "@/lib/edit/timeline";
+import { audibleAudio, formatTime, renderBlockers, type Timeline } from "@/lib/edit/timeline";
 import { signedUrl } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -29,6 +30,15 @@ import {
   RENDER_UNCONFIRMED_STAGE,
   renderInProgress,
 } from "@/lib/edit/renders";
+import { useTracksForAssets } from "@/hooks/useMusicData";
+import { useStudioVoiceovers } from "@/hooks/useVoiceData";
+import {
+  keptLicenceLine,
+  licenceBlocker,
+  licenceTerms,
+  MUSIC_LICENSES,
+  videoCreditLine,
+} from "@/lib/music/catalog";
 
 interface RenderPanelProps {
   sequenceId: string;
@@ -57,6 +67,67 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
   });
   const blockers = renderBlockers(timeline);
   const active = renders.find((render) => renderInProgress(render));
+  const renderedIds = useMemo(
+    () =>
+      renders
+        .filter((render) => render.status === "completed" && render.asset_id)
+        .map((render) => render.asset_id!),
+    [renders],
+  );
+  const { data: renderedFiles } = useAssetsByIds(renderedIds);
+  // Only audio heard in the render needs a credit or a licence check.
+  const audioIds = useMemo(() => audibleAudio(timeline).map((item) => item.assetId), [timeline]);
+  const {
+    data: musicTracks = [],
+    isSuccess: tracksKnown,
+    isError: tracksUnknown,
+  } = useTracksForAssets(audioIds);
+  const credits = [
+    ...new Set(
+      musicTracks.map((track) => videoCreditLine(track)).filter((line): line is string => !!line),
+    ),
+  ];
+  const {
+    data: madeHere,
+    isSuccess: voiceoversKnown,
+    isError: voiceoversUnknown,
+  } = useStudioVoiceovers(audioIds);
+  // Audio heard in the edit that isn't a voiceover the studio made, whatever
+  // it is used as (music, a sound effect, or a recording from the media bin
+  // called a voiceover), can't be rendered until its licence is recorded, as
+  // the server checks too; nor while that can't be looked up (before the
+  // music library is set up, say). An expired licence stops the render.
+  // Limits are shown before rendering.
+  const recorded = new Set(musicTracks.map((track) => track.asset_id));
+  const heard = audibleAudio(timeline);
+  const needsLicence = voiceoversKnown ? heard.filter((item) => !madeHere?.has(item.assetId)) : [];
+  const unrecorded = tracksKnown
+    ? needsLicence.find((item) => !recorded.has(item.assetId))
+    : undefined;
+  const licenceProblem =
+    (voiceoversUnknown && heard.length
+      ? "The edit's voiceovers couldn't be checked, so this edit can't be rendered just now."
+      : null) ??
+    (tracksUnknown && needsLicence.length
+      ? "The music's licences couldn't be looked up, so this edit can't be rendered just now."
+      : null) ??
+    (unrecorded
+      ? unrecorded.role === "voiceover"
+        ? `“${unrecorded.label ?? "Some audio"}” is used as a voiceover, but it wasn't made in the Voice tab and has no licence on record. Record its licence in the Music tab, or make the voiceover in the Voice tab.`
+        : `“${unrecorded.label ?? "Some audio"}” has no licence on record. Record its licence in the Music tab, or use music from the library.`
+      : null) ??
+    musicTracks.map((track) => licenceBlocker(track)).find((reason) => reason) ??
+    null;
+  const limits = musicTracks
+    .map((track) => ({ track, terms: licenceTerms(track) }))
+    .filter(
+      (
+        entry,
+      ): entry is { track: (typeof musicTracks)[number]; terms: NonNullable<typeof entry.terms> } =>
+        !!entry.terms && !entry.terms.expired,
+    );
+  // AI music: where it may run depends on the plan it was made on.
+  const aiMusic = musicTracks.filter((track) => track.license === "ai_generated");
 
   // A render that stopped reporting may still have finished (its result just
   // never arrived): it is checked for the video it uploaded, and finished from
@@ -186,7 +257,12 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
       <Button
         className="w-full"
         disabled={
-          disabled || starting || Boolean(active) || blockers.length > 0 || Boolean(workerProblem)
+          disabled ||
+          starting ||
+          Boolean(active) ||
+          blockers.length > 0 ||
+          Boolean(workerProblem) ||
+          Boolean(licenceProblem)
         }
         onClick={() => void start()}
         data-testid="render-button"
@@ -198,8 +274,16 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
         )}
         {active ? "Rendering…" : "Render video"}
       </Button>
-      {(blockers[0] ?? workerProblem) && (
-        <p className="text-xs text-muted-foreground">{blockers[0] ?? workerProblem}</p>
+      {(blockers[0] ?? licenceProblem ?? workerProblem) && (
+        <p
+          className={cn(
+            "text-xs",
+            !blockers[0] && licenceProblem ? "text-destructive" : "text-muted-foreground",
+          )}
+          data-testid="render-blocker"
+        >
+          {blockers[0] ?? licenceProblem ?? workerProblem}
+        </p>
       )}
 
       {active && (
@@ -237,12 +321,78 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
         </div>
       )}
 
+      {credits.length > 0 && (
+        <div
+          className="space-y-1.5 rounded-md border border-warning/40 bg-warning/5 p-2.5 text-xs"
+          data-testid="music-credits"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <p className="font-medium">Music credit to publish</p>
+            <button
+              type="button"
+              className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                void navigator.clipboard?.writeText(credits.join("\n")).then(
+                  () => toast.success("Credit copied"),
+                  () => toast.error("Couldn't copy"),
+                );
+              }}
+            >
+              <Copy className="size-3" /> Copy
+            </button>
+          </div>
+          <p className="text-muted-foreground">
+            The licence asks for this credit wherever the video is posted (caption or description).
+          </p>
+          <ul className="space-y-1">
+            {credits.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {(limits.length > 0 || aiMusic.length > 0) && (
+        <div
+          className="space-y-1.5 rounded-md border border-warning/40 bg-warning/5 p-2.5 text-xs"
+          data-testid="music-licence-limits"
+        >
+          <p className="font-medium">Music licence terms</p>
+          <p className="text-muted-foreground">
+            Use this video only where its music is licensed. The terms are kept with the finished
+            video.
+          </p>
+          <ul className="space-y-1">
+            {limits.map(({ track, terms }) => (
+              <li key={track.id}>
+                <span className="font-medium">{track.title}</span>: {terms.summary}
+                {terms.excluded.length > 0 && (
+                  <span className="text-warning"> · Not for {terms.excluded.join(", ")}</span>
+                )}
+                {terms.notes && <span> · Conditions: {terms.notes}</span>}
+              </li>
+            ))}
+            {aiMusic.map((track) => (
+              <li key={track.id} data-testid="music-ai-usage">
+                <span className="font-medium">{track.title}</span>:{" "}
+                {track.usage_notes ?? MUSIC_LICENSES.ai_generated.note}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {renders.length > 0 && (
         <div className="space-y-1.5">
           <h3 className="label-eyebrow">Renders</h3>
           <ul className="space-y-1.5">
             {renders.map((render) => (
-              <RenderItem key={render.id} render={render} title={title} />
+              <RenderItem
+                key={render.id}
+                render={render}
+                title={title}
+                kept={render.asset_id ? renderedFiles?.get(render.asset_id)?.metadata : undefined}
+              />
             ))}
           </ul>
         </div>
@@ -251,8 +401,32 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
   );
 }
 
-function RenderItem({ render, title }: { render: RenderRow; title: string }) {
+/** The music credit and terms kept with a rendered video, ready to show. */
+function keptMusic(metadata: unknown): { credits: string[]; terms: string[] } {
+  const record = (metadata ?? {}) as { music_credits?: unknown; music_licences?: unknown };
+  const credits = Array.isArray(record.music_credits)
+    ? record.music_credits.filter((line): line is string => typeof line === "string")
+    : [];
+  const terms = (Array.isArray(record.music_licences) ? record.music_licences : [])
+    .filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === "object")
+    .map(keptLicenceLine);
+  return { credits, terms };
+}
+
+function RenderItem({
+  render,
+  title,
+  kept,
+}: {
+  render: RenderRow;
+  title: string;
+  /** The rendered video's library record metadata, with its music credit and terms. */
+  kept?: unknown;
+}) {
   const [opening, setOpening] = useState(false);
+  // What this version's music asks for, as kept when it was rendered (the edit
+  // may use other music by now).
+  const music = keptMusic(kept);
   const stalled =
     (render.status === "queued" || render.status === "rendering") && !renderInProgress(render);
   const when = new Date(render.created_at).toLocaleString(undefined, {
@@ -338,6 +512,35 @@ function RenderItem({ render, title }: { render: RenderRow; title: string }) {
             </Link>
           </Button>
         </div>
+      )}
+      {render.status === "completed" && music.credits.length > 0 && (
+        <div className="mt-1.5 space-y-0.5" data-testid="render-music-credit">
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-medium">Music credit for this version</span>
+            <button
+              type="button"
+              className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                void navigator.clipboard?.writeText(music.credits.join("\n")).then(
+                  () => toast.success("Credit copied"),
+                  () => toast.error("Couldn't copy"),
+                );
+              }}
+            >
+              <Copy className="size-3" /> Copy
+            </button>
+          </div>
+          {music.credits.map((line) => (
+            <p key={line} className="text-muted-foreground">
+              {line}
+            </p>
+          ))}
+        </div>
+      )}
+      {render.status === "completed" && music.terms.length > 0 && (
+        <p className="mt-1 text-[11px] text-muted-foreground" data-testid="render-music-terms">
+          Music terms: {music.terms.join(" · ")}
+        </p>
       )}
       {render.status === "failed" && (
         <p className="mt-1 text-destructive">{render.error_message ?? "The render failed."}</p>
