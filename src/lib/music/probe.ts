@@ -579,6 +579,7 @@ function oggIdentification(packet: Uint8Array): {
   const id = ascii(packet, 0, 8);
   if (id.startsWith("\u0001vorbis")) {
     // [1]vorbis[version: 4][channels][rate: 4][bit rates: 12][block sizes: 2 × 4 bits][framing]
+    // (FFmpeg's demuxer takes the framing byte whole: 1, nothing else set).
     const small = (packet[28] ?? 0) & 0x0f;
     const large = (packet[28] ?? 0) >> 4;
     const formed =
@@ -589,7 +590,7 @@ function oggIdentification(packet: Uint8Array): {
       small >= 6 &&
       small <= large &&
       large <= 13 &&
-      ((packet[29] ?? 0) & 0x01) === 1;
+      packet[29] === 1;
     if (!formed) return null;
     return {
       sound: "vorbis",
@@ -675,23 +676,23 @@ function finiteVorbisFloat(value: number): boolean {
 
 /**
  * Whether codeword lengths (0 for an unused entry) make a whole prefix code,
- * neither over- nor under-filled, as FFmpeg and libvorbis require (a book of
- * one used entry or none needs no code).
+ * neither over- nor under-filled, as FFmpeg and libvorbis require. A book of no
+ * used entry needs no code; libvorbis takes a book of one only as a 1-bit code.
  */
 function wholePrefixCode(lengths: number[]): boolean {
   const used = lengths.filter((length) => length > 0);
-  if (used.length <= 1) return true;
+  if (used.length <= 1) return used.every((length) => length === 1);
   return used.reduce((sum, length) => sum + 2 ** (32 - length), 0) === 2 ** 32;
 }
 
 /**
  * The modes a Vorbis setup header declares, when the whole header reads as
  * decoders read it (FFmpeg's checks, which Chrome's decoder makes, and
- * libvorbis's, which Firefox's makes): its codebooks (each a whole prefix
- * code, with a lookup of type 0 or 1), time transforms, floors, residues,
- * mappings and modes, each naming only books, floors, residues, mappings and
- * channels there are, then its framing bit. Null when any part doesn't, or the
- * header ends before it.
+ * libvorbis's, which Firefox's Ogg reader makes): its codebooks (each a
+ * whole prefix code, with a lookup of type 0 or 1), time transforms, floors,
+ * residues, mappings and modes, each naming only books, floors, residues,
+ * mappings and channels there are, then its framing bit. Null when any part
+ * doesn't, or the header ends before it.
  */
 function vorbisModes(packet: Uint8Array, channels: number, largeBlock: number): number | null {
   if (ascii(packet, 0, 7) !== "\u0005vorbis") return null;
@@ -839,6 +840,46 @@ function vorbisModes(packet: Uint8Array, channels: number, largeBlock: number): 
     if (error instanceof PacketEnded) return null;
     throw error;
   }
+}
+
+/**
+ * Whether FFmpeg's Ogg demuxer, which Chrome opens files with, finds a Vorbis
+ * setup header's modes. It doesn't parse the header: it takes the last bit set
+ * as the framing bit, then reads mode records backwards for as long as they
+ * look like ones, keeping the last count that the 6 bits before them match
+ * (libavcodec/vorbis_parser.c). It gives up when no count matches or the last
+ * is over 63, so a header with anything set after its framing bit, or with 64
+ * modes, keeps the file from opening (a count it gets wrong but keeps under 64
+ * doesn't).
+ */
+function ffmpegFindsModes(packet: Uint8Array): boolean {
+  const size = packet.length * 8;
+  // Bits read so far, from the packet's last bit back.
+  let done = 0;
+  const read = (count: number) => {
+    let value = 0;
+    for (let each = 0; each < count; each += 1, done += 1) {
+      const at = size - 1 - done;
+      value = value * 2 + (at >= 0 ? ((packet[at >> 3] ?? 0) >> (at & 7)) & 1 : 0);
+    }
+    return value;
+  };
+  let framing = false;
+  while (!framing && size - done > 97) framing = read(1) === 1;
+  if (!framing) return false;
+  let count = 0;
+  let found = 0;
+  while (size - done >= 97) {
+    // [mapping: 8, under 64][transform: 16, 0][window: 16, 0][block flag: 1], read backwards.
+    if (read(8) > 63 || read(16) !== 0 || read(16) !== 0) break;
+    read(1);
+    count += 1;
+    if (count > 64) break;
+    const at = done;
+    if (read(6) + 1 === count) found = count;
+    done = at;
+  }
+  return found > 0 && found <= 63;
 }
 
 /** Whether a Vorbis audio packet opens as one: its first bit 0 (its headers' is 1), then a mode its setup header declares. */
@@ -1073,7 +1114,11 @@ async function isOggAudio(head: Uint8Array, read: ReadRange, size: number): Prom
       }
       if (sounding) return oggSoundPacket(sound, packet, streams, modes);
       if (sound === "vorbis" && index === 2) {
-        modes = vorbis ? (vorbisModes(packet, vorbis.channels, vorbis.largeBlock) ?? 0) : 0;
+        // Read whole as decoders read it, with its modes where FFmpeg's demuxer finds them.
+        modes =
+          vorbis && ffmpegFindsModes(packet)
+            ? (vorbisModes(packet, vorbis.channels, vorbis.largeBlock) ?? 0)
+            : 0;
         if (!modes) return false;
       } else if (!oggHeader(sound, index, packet, length)) return false;
       // FLAC's headers run to the metadata block marked last.
