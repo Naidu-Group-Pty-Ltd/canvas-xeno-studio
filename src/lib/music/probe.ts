@@ -214,6 +214,7 @@ const EXTENSIBLE_TAIL = [
 async function isWav(head: Uint8Array, read: ReadRange, size: number): Promise<boolean> {
   let offset = 12;
   let formatOk = false;
+  let frame = 0;
   for (let part = 0; part < MAX_PARTS && offset + 8 <= size; part += 1) {
     const header = await bytesAt(head, read, offset, 8);
     if (header.length < 8) return false;
@@ -252,9 +253,12 @@ async function isWav(head: Uint8Array, read: ReadRange, size: number): Promise<b
         block === channels * (bits / 8) &&
         byteRate === rate * block;
       if (!formatOk) return false;
+      frame = block;
     } else if (id === "data") {
-      // Audio bytes must follow (a streamed WAV may not know its length: all ones).
-      return formatOk && length > 0 && offset + 8 + 64 <= size;
+      // Audio bytes must follow, and the chunk itself must hold a whole frame of
+      // them as far as the file goes (a streamed WAV may not know its length:
+      // all ones; one cut short plays to where it ends).
+      return formatOk && Math.min(length, size - offset - 8) >= frame && offset + 8 + 64 <= size;
     }
     offset += 8 + length + (length & 1);
   }
@@ -400,6 +404,7 @@ function soundTrackPlays(
   // length is worked out rather than counted: the counts come from the file.)
   let sample = 0;
   let run = 0;
+  let bytes = 0;
   for (let chunk = 0; chunk < chunks && sample < samples; chunk += 1) {
     while (run + 1 < runs && runStart(run + 1) <= chunk + 1) run += 1;
     if (!decoded(u32be(movie, stsc.start + 16 + run * 12))) return false;
@@ -413,8 +418,10 @@ function soundTrackPlays(
         length += u32be(movie, stsz.start + 12 + index * 4);
     if (!inMedia(media, start, start + length)) return false;
     sample += inChunk;
+    bytes += length;
   }
-  return sample === samples;
+  // And something to decode: samples all of no size hold no sound.
+  return sample === samples && bytes > 0;
 }
 
 /** The codec configuration box each kind of MP4 sound entry carries. */
