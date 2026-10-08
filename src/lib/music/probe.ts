@@ -36,6 +36,8 @@ const MAX_PARTS = 64;
 const MAX_OGG_PAGES = 1024;
 /** How many reads a check may make past the first part, however the file is laid out. */
 const MAX_READS = 16;
+/** Whether both browsers play sound at this rate: Chrome takes 3 kHz to 768 kHz, Firefox up to 768 kHz. */
+const ratePlays = (rate: number) => rate >= 3000 && rate <= 768_000;
 
 const ascii = (bytes: Uint8Array, start: number, length: number) =>
   String.fromCharCode(...bytes.subarray(start, start + length));
@@ -418,15 +420,15 @@ function decodedHere(movie: Uint8Array, entry: Box): boolean {
     return own.some((box) => box.type === "dOps" && box.start + 11 <= box.end);
   if (entry.type === "fLaC")
     return own.some(
-      (box) =>
-        box.type === "dfLa" && flacLayout(movie.subarray(0, box.end), box.start + 8) !== null,
+      (box) => box.type === "dfLa" && flacPlays(movie.subarray(0, box.end), box.start + 8),
     );
   const esds = own.find((box) => box.type === "esds");
   const config = esds ? esdsConfig(movie, esds) : null;
   if (!config) return false;
-  // MPEG-4 audio: AAC LC (2), or HE-AAC (5, 29) over an LC core.
+  // MPEG-4 audio: AAC LC (2), or HE-AAC (5, 29) over an LC core, at a rate from AAC's table
+  // (FFmpeg's decoder takes no other: "invalid sampling rate index" past 12).
   if (config.objectType === 0x40)
-    return config.coreType === 2 && [2, 5, 29].includes(config.audioType);
+    return config.coreType === 2 && [2, 5, 29].includes(config.audioType) && config.rateIndex <= 12;
   // MPEG-2 AAC LC, and MPEG-2 and MPEG-1 audio (MP3).
   return [0x67, 0x69, 0x6b].includes(config.objectType);
 }
@@ -586,7 +588,7 @@ function oggIdentification(packet: Uint8Array): {
       packet.length === 30 &&
       u32le(packet, 7) === 0 &&
       (packet[11] ?? 0) >= 1 &&
-      u32le(packet, 12) > 0 &&
+      ratePlays(u32le(packet, 12)) &&
       small >= 6 &&
       small <= large &&
       large <= 13 &&
@@ -626,7 +628,7 @@ function oggIdentification(packet: Uint8Array): {
       block === 34 &&
       smallest >= 16 &&
       u16be(packet, 19) >= smallest &&
-      flacLayout(packet, 17) !== null;
+      flacPlays(packet, 17);
     if (!formed) return null;
     return { sound: "flac", headers: (packet[13] ?? 0) & 0x80 ? 0 : null, streams: 1 };
   }
@@ -1221,7 +1223,7 @@ async function isFlac(head: Uint8Array, read: ReadRange, size: number): Promise<
       largestFrame = ((info[7] ?? 0) << 16) | ((info[8] ?? 0) << 8) | (info[9] ?? 0);
       const rate = ((info[10] ?? 0) << 12) | ((info[11] ?? 0) << 4) | ((info[12] ?? 0) >> 4);
       const channels = (((info[12] ?? 0) >> 1) & 0x07) + 1;
-      if (rate < 1 || rate > 655_350 || channels > 8) return false;
+      if (!ratePlays(rate) || rate > 655_350 || channels > 8) return false;
       first = false;
     }
     offset += 4 + length;
@@ -1729,6 +1731,12 @@ function flacLayout(bytes: Uint8Array, info: number): AudioLayout | null {
   return rate ? { channels, rate } : null;
 }
 
+/** Whether a FLAC STREAMINFO's rate is one both browsers play, and within FLAC's own 655,350 Hz. */
+function flacPlays(bytes: Uint8Array, info: number): boolean {
+  const rate = flacLayout(bytes, info)?.rate ?? 0;
+  return ratePlays(rate) && rate <= 655_350;
+}
+
 /** AAC's channel configurations (in its AudioSpecificConfig) and the channels each decodes to. */
 const AAC_CHANNELS = [0, 1, 2, 3, 4, 5, 6, 8, 0, 0, 0, 7, 8, 24, 8, 0];
 
@@ -1737,13 +1745,20 @@ const AAC_CHANNELS = [0, 1, 2, 3, 4, 5, 6, 8, 0, 0, 0, 7, 8, 24, 8, 0];
  * decoder configuration (0x40 for MPEG-4 audio such as AAC, 0x67 for MPEG-2
  * AAC LC, 0x69 and 0x6B for MPEG audio such as MP3) and, for MPEG-4 audio, its
  * AudioSpecificConfig's object type (2 for AAC LC; 5 and 29 for HE-AAC, over a
- * core whose type follows) and the channels it decodes to. Null when it holds
- * no decoder configuration.
+ * core whose type follows), the channels it decodes to and its rate's index in
+ * AAC's table (15: a rate given outright). Null when it holds no decoder
+ * configuration.
  */
 function esdsConfig(
   movie: Uint8Array,
   esds: Box,
-): { objectType: number; audioType: number; coreType: number; channels: number } | null {
+): {
+  objectType: number;
+  audioType: number;
+  coreType: number;
+  channels: number;
+  rateIndex: number;
+} | null {
   // [version, flags], then descriptors, each [tag][length: 1-4 bytes of 7 bits][content].
   let at = esds.start + 4;
   const open = (tag: number) => {
@@ -1764,7 +1779,8 @@ function esdsConfig(
   if (!open(0x04) || at + 13 > esds.end) return null;
   const objectType = movie[at] ?? 0;
   at += 13;
-  if (objectType !== 0x40) return { objectType, audioType: 0, coreType: 0, channels: 0 };
+  if (objectType !== 0x40)
+    return { objectType, audioType: 0, coreType: 0, channels: 0, rateIndex: 0 };
   // AudioSpecificConfig: [object type: 5 bits (31: 6 more)][rate: 4 bits (15: 24 more)][channels:
   // 4 bits], and for HE-AAC [its rate: 4 bits (15: 24 more)][the core's object type].
   if (!open(0x05) || at + 2 > esds.end) return null;
@@ -1780,17 +1796,19 @@ function esdsConfig(
     return type === 31 ? 32 + take(6) : type;
   };
   const rate = () => {
-    if (take(4) === 15) take(24);
+    const index = take(4);
+    if (index === 15) take(24);
+    return index;
   };
   const audioType = audioObjectType();
-  rate();
+  const rateIndex = rate();
   const channels = AAC_CHANNELS[take(4)] ?? 0;
   let coreType = audioType;
   if (audioType === 5 || audioType === 29) {
     rate();
     coreType = audioObjectType();
   }
-  return { objectType, audioType, coreType, channels };
+  return { objectType, audioType, coreType, channels, rateIndex };
 }
 
 /**
