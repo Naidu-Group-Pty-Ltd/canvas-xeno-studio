@@ -54,12 +54,14 @@ CREATE INDEX IF NOT EXISTS music_tracks_asset_idx ON public.music_tracks (asset_
 CREATE UNIQUE INDEX IF NOT EXISTS music_tracks_openverse_once
   ON public.music_tracks (source_id) WHERE source = 'openverse';
 -- Billable work is made once at a time: the same music (prompt, model, length
--- and vocals, for the same project), or an instrumental of the same track,
--- asked for again while it is being made (say after a reload forgot the
+-- and vocals, in the same place: a project, or outside one the same member's
+-- own work, which is stored under their name), or an instrumental of the same
+-- track, asked for again while it is being made (say after a reload forgot the
 -- request) returns the work in progress rather than paying for it twice.
 DROP INDEX IF EXISTS public.music_tracks_one_generation_in_progress;
 CREATE UNIQUE INDEX music_tracks_one_generation_in_progress ON public.music_tracks (
   COALESCE(project_id, '00000000-0000-0000-0000-000000000000'::uuid),
+  COALESCE(CASE WHEN project_id IS NULL THEN created_by END, '00000000-0000-0000-0000-000000000000'::uuid),
   COALESCE(model, ''),
   duration_seconds,
   instrumental,

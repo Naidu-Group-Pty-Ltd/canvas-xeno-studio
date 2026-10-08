@@ -660,11 +660,14 @@ export async function generateMusic(input: {
   const seconds = Math.max(MUSIC_LENGTH.min, Math.min(MUSIC_LENGTH.max, input.seconds));
   const prompt = input.prompt.slice(0, 4000);
   const model = input.model ?? DEFAULT_MUSIC_MODEL;
+  // The same music in the same place: a project's, or outside one this member's
+  // own (stored under their name), never another member's.
   const sameMusic = () =>
     inProgress(
       {
         source: "elevenlabs",
         project_id: input.projectId,
+        ...(input.projectId ? {} : { created_by: input.userId }),
         model,
         duration_seconds: seconds,
         instrumental: input.instrumental,
@@ -1230,6 +1233,21 @@ type UploadAsset = {
 };
 const ASSET_FIELDS = "id,asset_type,duration_seconds,deleted_at,storage_bucket,storage_path";
 
+/** A stored file's size as storage lists it, or null when it isn't there. */
+async function storedSize(bucket: string, path: string): Promise<number | null> {
+  const slash = path.lastIndexOf("/");
+  const name = path.slice(slash + 1);
+  const { data: listed, error } = await supabaseAdmin.storage
+    .from(bucket)
+    .list(slash < 0 ? "" : path.slice(0, slash), { search: name, limit: 10 });
+  if (error) throw uploadUnchecked();
+  const file = (listed ?? []).find((entry) => entry.name === name);
+  if (!file) return null;
+  const size = Number(file.metadata?.["size"]);
+  if (!Number.isFinite(size)) throw uploadUnchecked();
+  return size;
+}
+
 /**
  * Reads parts of a stored file (a few kilobytes at a time, by range) without
  * fetching the rest. A part that can't be read just now is thrown, never
@@ -1335,16 +1353,8 @@ async function uploadedAsset(input: {
     if (added) return added as unknown as UploadAsset;
   }
   // The file must be in its place.
-  const slash = place.storage_path.lastIndexOf("/");
-  const name = place.storage_path.slice(slash + 1);
-  const { data: listed, error: listError } = await supabaseAdmin.storage
-    .from(place.storage_bucket)
-    .list(place.storage_path.slice(0, slash), { search: name, limit: 10 });
-  if (listError) throw uploadUnchecked();
-  const file = (listed ?? []).find((entry) => entry.name === name);
-  if (!file) throw new AppError("INVALID_PARAMETERS", "Upload an audio file first.");
-  const size = Number(file.metadata?.["size"]);
-  if (!Number.isFinite(size)) throw uploadUnchecked();
+  const size = await storedSize(place.storage_bucket, place.storage_path);
+  if (size === null) throw new AppError("INVALID_PARAMETERS", "Upload an audio file first.");
   // What was stored must be audio browsers and the renderer can decode (by its
   // structure: MP3 frames, a WAV's format and data, an M4A's sound track), of
   // a size the studio takes, whatever the browser said about it. One that
@@ -1411,11 +1421,12 @@ async function uploadedAsset(input: {
 
 /**
  * Audio already in the library (added to an edit from the media bin, say), for
- * its licence: only audio no track holds yet. A catalogue import, music made
- * or an instrumental carries its licence with it, so a second record would
- * conflict with it; its file sits at its track's place in the server's bucket,
- * which is refused too, even before its track is finished. (A recording
- * already recorded by upload is found by the insert: see registerUploadedTrack.)
+ * its licence: only real audio, and only audio no track holds yet. A catalogue
+ * import, music made or an instrumental carries its licence with it, so a
+ * second record would conflict with it; its file sits at its track's place in
+ * the server's bucket, which is refused too, even before its track is
+ * finished. (A recording already recorded by upload is found by the insert:
+ * see registerUploadedTrack.)
  */
 async function libraryAsset(assetId: string): Promise<UploadAsset> {
   const { data: asset, error } = await supabaseAdmin
@@ -1443,6 +1454,16 @@ async function libraryAsset(assetId: string): Promise<UploadAsset> {
   if (holdersError) throw uploadUnchecked();
   const holder = (holders ?? [])[0] as { title: string | null } | undefined;
   if (holder) throw tracked(holder.title);
+  // What it holds must be audio browsers and the renderer can decode, as an
+  // upload's must, whatever its record says: a media-bin file's type is only
+  // what the browser called it. (Its size isn't held to an upload's limit: the
+  // renderer takes larger files, and every other use of a track bounds its
+  // own reads.)
+  const size = await storedSize(found.storage_bucket, found.storage_path);
+  if (size === null)
+    throw new AppError("INVALID_PARAMETERS", "That recording is no longer in the library.");
+  if (!(await probeAudio(await storedRanges(found.storage_bucket, found.storage_path), size)))
+    throw notAudio();
   return found;
 }
 
