@@ -38,6 +38,12 @@ const MAX_OGG_PAGES = 1024;
 const MAX_READS = 16;
 /** Whether both browsers play sound at this rate: Chrome takes 3 kHz to 768 kHz, Firefox up to 768 kHz. */
 const ratePlays = (rate: number) => rate >= 3000 && rate <= 768_000;
+/**
+ * The most channels both browsers play. Chrome decodes no more: its
+ * decodeAudioData refuses 9 or more in any format, and its <audio> plays them
+ * only at the output device's own rate.
+ */
+const MAX_CHANNELS = 8;
 
 const ascii = (bytes: Uint8Array, start: number, length: number) =>
   String.fromCharCode(...bytes.subarray(start, start + length));
@@ -233,7 +239,7 @@ async function isWav(head: Uint8Array, read: ReadRange, size: number): Promise<b
       formatOk =
         ((code === 1 && [8, 16, 24, 32].includes(bits)) || (code === 3 && bits === 32)) &&
         channels >= 1 &&
-        channels <= 32 &&
+        channels <= MAX_CHANNELS &&
         rate >= 8000 &&
         rate <= 384_000;
       if (!formatOk) return false;
@@ -402,35 +408,91 @@ function soundTrackPlays(
   return sample === samples;
 }
 
+/** The codec configuration box each kind of MP4 sound entry carries. */
+const MP4_CONFIG: Record<string, string> = { mp4a: "esds", Opus: "dOps", fLaC: "dfLa" };
+
 /**
  * Whether an MP4 sample description is one browsers and the renderer decode:
  * AAC (LC, or HE-AAC over an LC core) or MP3 in an mp4a entry whose decoder
- * configuration says so, Opus with its dOps box, or FLAC with its dfLa box.
+ * configuration says so, Opus with its dOps box, or FLAC with its dfLa box,
+ * each configuration whole and one both browsers and the renderer set up.
  */
 function decodedHere(movie: Uint8Array, entry: Box): boolean {
   if (!MP4_SOUND.has(entry.type) || entry.start + 28 > entry.end) return false;
-  // [reserved: 6][reference: 2][version: 2]…, 28 bytes in version 0 (more in 1 and 2), then its own boxes.
+  // [reserved: 6][reference: 2][version: 2][revision: 2][vendor: 4][channels: 2][sample size: 2]
+  // [compression: 2][packet size: 2][rate: 16.16], 28 bytes in version 0. Version 1 adds 16
+  // bytes, and version 2 36 with its own [rate: 64-bit float at 4][channels: 4 at 12]; then
+  // its own boxes. Firefox's MP4 reader takes no other version.
   const version = u16be(movie, entry.start + 8);
-  const own = boxesIn(
-    movie,
-    entry.start + 28 + (version === 1 ? 16 : version === 2 ? 36 : 0),
-    entry.end,
+  const inner = entry.start + 28 + (version === 1 ? 16 : version === 2 ? 36 : 0);
+  if (version > 2 || inner > entry.end) return false;
+  // Where Firefox takes a stream's channels or rate from the entry rather than from its
+  // configuration (Opus's both, FLAC's channels, MP3's both), it refuses a track of none.
+  const channels = u16be(movie, entry.start + (version === 2 ? 42 : 16));
+  const rate =
+    version === 2
+      ? new DataView(movie.buffer, movie.byteOffset + entry.start + 32, 8).getFloat64(0)
+      : u32be(movie, entry.start + 24) / 65536;
+  // One configuration box, of its own kind: Firefox's MP4 reader refuses a second, or one of
+  // another kind.
+  const configs = boxesIn(movie, inner, entry.end).filter((box) =>
+    ["esds", "dOps", "dfLa", "alac"].includes(box.type),
   );
-  if (entry.type === "Opus")
-    return own.some((box) => box.type === "dOps" && box.start + 11 <= box.end);
-  if (entry.type === "fLaC")
-    return own.some(
-      (box) => box.type === "dfLa" && flacPlays(movie.subarray(0, box.end), box.start + 8),
+  const config = configs[0];
+  if (configs.length !== 1 || !config || config.type !== MP4_CONFIG[entry.type]) return false;
+  if (entry.type === "Opus") return channels >= 1 && rate >= 1 && opusConfigPlays(movie, config);
+  if (entry.type === "fLaC") return channels >= 1 && flacConfigPlays(movie, config);
+  const stream = esdsConfig(movie, config);
+  if (!stream) return false;
+  // AAC, in MPEG-4 audio or as MPEG-2 AAC LC: LC (2), or HE-AAC (5, 29) over an LC core, at a
+  // rate from AAC's table (FFmpeg's decoder takes no other: "invalid sampling rate index" past
+  // 12), and in channels its configuration (or program) gives.
+  if (stream.objectType === 0x40 || stream.objectType === 0x67)
+    return (
+      stream.coreType === 2 &&
+      [2, 5, 29].includes(stream.audioType) &&
+      stream.rateIndex <= 12 &&
+      stream.channels >= 1 &&
+      stream.channels <= MAX_CHANNELS
     );
-  const esds = own.find((box) => box.type === "esds");
-  const config = esds ? esdsConfig(movie, esds) : null;
-  if (!config) return false;
-  // MPEG-4 audio: AAC LC (2), or HE-AAC (5, 29) over an LC core, at a rate from AAC's table
-  // (FFmpeg's decoder takes no other: "invalid sampling rate index" past 12).
-  if (config.objectType === 0x40)
-    return config.coreType === 2 && [2, 5, 29].includes(config.audioType) && config.rateIndex <= 12;
-  // MPEG-2 AAC LC, and MPEG-2 and MPEG-1 audio (MP3).
-  return [0x67, 0x69, 0x6b].includes(config.objectType);
+  // MPEG-2 and MPEG-1 audio (MP3).
+  return [0x69, 0x6b].includes(stream.objectType) && channels >= 1 && rate >= 1;
+}
+
+/**
+ * Whether an MP4's Opus configuration (its dOps box) is whole and one both
+ * browsers and the renderer set up: version 0, exactly its fields (Firefox's
+ * MP4 reader refuses a box with more or fewer bytes), and, read as the OpusHead
+ * every decoder is given in its place, one that passes the checks Ogg's does.
+ */
+function opusConfigPlays(movie: Uint8Array, box: Box): boolean {
+  // [version][output channels][pre-skip: 2][input rate: 4][gain: 2][mapping family], and past
+  // family 0 [streams][coupled streams][the stream each channel is in]: OpusHead's fields
+  // after its version, in its order (the longer ones big-endian, and none of those checked).
+  const config = movie.subarray(box.start, box.end);
+  const channels = config[1] ?? 0;
+  if (config[0] !== 0 || config.length !== (config[10] ? 13 + channels : 11)) return false;
+  const head = new Uint8Array(8 + config.length);
+  head.set([0x4f, 0x70, 0x75, 0x73, 0x48, 0x65, 0x61, 0x64, 1]); // OpusHead, version 1
+  head.set(config.subarray(1), 9);
+  return opusHeadStreams(head) !== null;
+}
+
+/**
+ * Whether an MP4's FLAC configuration (its dfLa box) is whole and describes a
+ * stream both browsers and the renderer decode: version and flags 0, then the
+ * STREAMINFO block first, of its own size, and one that `streamInfoPlays`.
+ */
+function flacConfigPlays(movie: Uint8Array, box: Box): boolean {
+  // [version][flags: 3], then FLAC's metadata blocks, each [last: 1 bit][type: 7 bits][length: 3].
+  const config = movie.subarray(box.start, box.end);
+  return (
+    u32be(config, 0) === 0 &&
+    ((config[4] ?? 0) & 0x7f) === 0 &&
+    (((config[5] ?? 0) << 16) | ((config[6] ?? 0) << 8) | (config[7] ?? 0)) === 34 &&
+    config.length >= 42 &&
+    streamInfoPlays(config, 8)
+  );
 }
 
 /**
@@ -577,6 +639,8 @@ function oggIdentification(packet: Uint8Array): {
   streams: number;
   /** Vorbis: its channels, and its larger block size, which its setup header is checked against. */
   vorbis?: { channels: number; largeBlock: number };
+  /** FLAC: its STREAMINFO, which its first frame is checked against. */
+  flac?: Uint8Array;
 } | null {
   const id = ascii(packet, 0, 8);
   if (id.startsWith("\u0001vorbis")) {
@@ -588,6 +652,7 @@ function oggIdentification(packet: Uint8Array): {
       packet.length === 30 &&
       u32le(packet, 7) === 0 &&
       (packet[11] ?? 0) >= 1 &&
+      (packet[11] ?? 0) <= MAX_CHANNELS &&
       ratePlays(u32le(packet, 12)) &&
       small >= 6 &&
       small <= large &&
@@ -602,30 +667,8 @@ function oggIdentification(packet: Uint8Array): {
     };
   }
   if (id === "OpusHead") {
-    // OpusHead[version][channels][samples skipped: 2][rate: 4][gain: 2][mapping family], and
-    // past family 0 [streams][coupled streams][the stream each channel is in].
-    const channels = packet[9] ?? 0;
-    if (packet.length < 19 || ((packet[8] ?? 0) & 0xf0) !== 0 || channels < 1) return null;
-    const family = packet[18] ?? 0;
-    if (family === 0) return channels <= 2 ? { sound: "opus", headers: 1, streams: 1 } : null;
-    // Firefox reads families 1 (at most 8 channels), 2 (ambisonics: (1 + order)² channels, with
-    // or without 2 more, up to 227) and 255 besides; no other.
-    const order = Math.floor(Math.sqrt(channels));
-    if (
-      family === 1
-        ? channels > 8
-        : family === 2
-          ? !(channels <= 227 && (order * order === channels || order * order + 2 === channels))
-          : family !== 255
-    )
-      return null;
-    const streams = packet[19] ?? 0;
-    const coupled = packet[20] ?? 0;
-    if (packet.length < 21 + channels || streams < 1 || coupled > streams) return null;
-    if (streams + coupled > 255) return null;
-    for (const stream of packet.subarray(21, 21 + channels))
-      if (stream !== 255 && stream >= streams + coupled) return null;
-    return { sound: "opus", headers: 1, streams };
+    const streams = opusHeadStreams(packet);
+    return streams === null ? null : { sound: "opus", headers: 1, streams };
   }
   if (id.startsWith("\u007fFLAC")) {
     // [7F]FLAC[version: 1, minor][header packets: 2]fLaC, then the STREAMINFO metadata block:
@@ -640,12 +683,47 @@ function oggIdentification(packet: Uint8Array): {
       block === 34 &&
       smallest >= 16 &&
       u16be(packet, 19) >= smallest &&
-      flacPlays(packet, 17) &&
-      flacBits(packet, 17) <= 24;
+      streamInfoPlays(packet, 17);
     if (!formed) return null;
-    return { sound: "flac", headers: (packet[13] ?? 0) & 0x80 ? 0 : null, streams: 1 };
+    return {
+      sound: "flac",
+      headers: (packet[13] ?? 0) & 0x80 ? 0 : null,
+      streams: 1,
+      flac: packet.slice(17, 51),
+    };
   }
   return null;
+}
+
+/**
+ * How many streams an Opus identification header (OpusHead) declares, when it
+ * is one both browsers and the renderer set up; else null. An MP4's dOps box
+ * holds the same fields and is read as one.
+ */
+function opusHeadStreams(head: Uint8Array): number | null {
+  // OpusHead[version][channels][samples skipped: 2][rate: 4][gain: 2][mapping family], and
+  // past family 0 [streams][coupled streams][the stream each channel is in].
+  const channels = head[9] ?? 0;
+  if (head.length < 19 || ((head[8] ?? 0) & 0xf0) !== 0) return null;
+  if (channels < 1 || channels > MAX_CHANNELS) return null;
+  const family = head[18] ?? 0;
+  if (family === 0) return channels <= 2 ? 1 : null;
+  // Families 1, 2 (ambisonics: (1 + order)² channels, with or without 2 more) and 255
+  // besides; no other (FFmpeg's decoder, the renderer's, and Firefox's Ogg reader refuse them).
+  const order = Math.floor(Math.sqrt(channels));
+  if (
+    family === 2
+      ? order * order !== channels && order * order + 2 !== channels
+      : family !== 1 && family !== 255
+  )
+    return null;
+  const streams = head[19] ?? 0;
+  const coupled = head[20] ?? 0;
+  if (head.length < 21 + channels || streams < 1 || coupled > streams) return null;
+  if (streams + coupled > 255) return null;
+  for (const stream of head.subarray(21, 21 + channels))
+    if (stream !== 255 && stream >= streams + coupled) return null;
+  return streams;
 }
 
 /** A Vorbis packet read past its end. */
@@ -1090,6 +1168,7 @@ function oggSoundPacket(
   packet: Uint8Array,
   streams: number,
   modes: number,
+  flac: Uint8Array | null,
 ): boolean {
   if (sound === "vorbis") return vorbisAudio(packet, modes);
   if (sound === "opus") {
@@ -1101,8 +1180,8 @@ function oggSoundPacket(
     }
     return opusPacket(packet.subarray(at));
   }
-  // FLAC: one whole frame, its checksums right.
-  return wholeFlacFrame(packet, true);
+  // FLAC: one whole frame, its checksums right, that agrees with its STREAMINFO.
+  return !!flac && wholeFlacFrame(packet, true, flac);
 }
 
 /**
@@ -1123,6 +1202,8 @@ async function isOggAudio(head: Uint8Array, read: ReadRange, size: number): Prom
   // Vorbis: what its setup header is checked against, and the modes it declares.
   let vorbis: { channels: number; largeBlock: number } | null = null;
   let modes = 0;
+  // FLAC: its STREAMINFO, which its first frame must agree with.
+  let flac: Uint8Array | null = null;
   // The stream's packet being put together (its identification header is 0): its length so
   // far, and its parts (a header's first bytes, which say what it is; the sound packet whole).
   let index = 0;
@@ -1155,6 +1236,7 @@ async function isOggAudio(head: Uint8Array, read: ReadRange, size: number): Prom
       if (!id) return false;
       ({ sound, headers, streams } = id);
       vorbis = id.vorbis ?? null;
+      flac = id.flac ?? null;
       serial = page.serial;
       index = 1;
       continue;
@@ -1193,7 +1275,7 @@ async function isOggAudio(head: Uint8Array, read: ReadRange, size: number): Prom
         packet.set(each, filled);
         filled += each.length;
       }
-      if (sounding) return oggSoundPacket(sound, packet, streams, modes);
+      if (sounding) return oggSoundPacket(sound, packet, streams, modes, flac);
       if (sound === "vorbis" && index === 2) {
         // Read whole as decoders read it, with its modes where FFmpeg's demuxer finds them.
         modes =
@@ -1237,6 +1319,18 @@ for (let byte = 0; byte < 256; byte += 1) {
 
 /** The length of the FLAC frame header that starts here, its fields allowed and its CRC-8 right, or null. */
 function flacFrameHeader(bytes: Uint8Array, at: number): number | null {
+  return flacFrameFields(bytes, at)?.length ?? null;
+}
+
+/**
+ * The FLAC frame header that starts here, its fields allowed and its CRC-8
+ * right: its length, its block's samples, and its bits a sample (0: the
+ * stream's); or null.
+ */
+function flacFrameFields(
+  bytes: Uint8Array,
+  at: number,
+): { length: number; block: number; bits: number } | null {
   if (at + 6 > bytes.length || bytes[at] !== 0xff || ((bytes[at + 1] ?? 0) & 0xfe) !== 0xf8)
     return null;
   const sizes = bytes[at + 2] ?? 0;
@@ -1244,7 +1338,7 @@ function flacFrameHeader(bytes: Uint8Array, at: number): number | null {
   const blockBits = sizes >> 4;
   const rateBits = sizes & 0x0f;
   if (blockBits === 0 || rateBits === 0x0f || layout >> 4 > 10) return null;
-  // Sample sizes 3 (reserved) and 7 (32 bits, which Firefox doesn't play) refused.
+  // Sample sizes 3 (reserved) and 7 (32 bits: Firefox and the renderer's FFmpeg 5.1 refuse them).
   if ([3, 7].includes((layout >> 1) & 0x07) || (layout & 0x01) !== 0) return null;
   // The frame's (or first sample's) number, coded like UTF-8 in 1 to 7 bytes.
   const lead = bytes[at + 4] ?? 0;
@@ -1254,24 +1348,41 @@ function flacFrameHeader(bytes: Uint8Array, at: number): number | null {
   let end = at + 5;
   for (let next = 1; next < more; next += 1, end += 1)
     if (((bytes[end] ?? 0) & 0xc0) !== 0x80) return null;
-  // A block size or sample rate given after the number.
+  // A block size (less 1) or sample rate given after the number.
+  const block =
+    blockBits === 1
+      ? 192
+      : blockBits <= 5
+        ? 576 << (blockBits - 2)
+        : blockBits === 6
+          ? (bytes[end] ?? 0) + 1
+          : blockBits === 7
+            ? u16be(bytes, end) + 1
+            : 256 << (blockBits - 8);
   end += blockBits === 6 ? 1 : blockBits === 7 ? 2 : 0;
   end += rateBits === 12 ? 1 : rateBits === 13 || rateBits === 14 ? 2 : 0;
   if (end >= bytes.length) return null;
   let crc = 0;
   for (let index = at; index < end; index += 1) crc = CRC8[crc ^ (bytes[index] ?? 0)] ?? 0;
-  return crc === bytes[end] ? end + 1 - at : null;
+  const bits = [0, 8, 12, 0, 16, 20, 24, 32][(layout >> 1) & 0x07] ?? 0;
+  return crc === bytes[end] ? { length: end + 1 - at, block, bits } : null;
 }
 
 /**
  * Whether `bytes` starts with a whole FLAC frame: its header, then where the
  * next frame starts (or, when `bytes` runs to the end of the file, where it
  * ends), the CRC-16 over the frame matches its footer. A frame cut off, or
- * damaged, has none.
+ * damaged, has none. Given its stream's STREAMINFO (`info`), the frame must
+ * also agree with it as FFmpeg's decoder requires: the stream's bits a sample
+ * where the frame gives its own, and a block no larger than the largest it
+ * states.
  */
-function wholeFlacFrame(bytes: Uint8Array, toTheEnd: boolean): boolean {
-  const header = flacFrameHeader(bytes, 0);
-  if (header === null) return false;
+function wholeFlacFrame(bytes: Uint8Array, toTheEnd: boolean, info?: Uint8Array): boolean {
+  const fields = flacFrameFields(bytes, 0);
+  if (!fields) return false;
+  if (info && ((fields.bits && fields.bits !== flacBits(info, 0)) || fields.block > u16be(info, 2)))
+    return false;
+  const header = fields.length;
   // A CRC-16 run on through the footer that holds it comes to 0.
   let crc = 0;
   for (let index = 0; index < bytes.length; index += 1) {
@@ -1288,7 +1399,7 @@ function wholeFlacFrame(bytes: Uint8Array, toTheEnd: boolean): boolean {
  */
 async function isFlac(head: Uint8Array, read: ReadRange, size: number): Promise<boolean> {
   let offset = 4;
-  let first = true;
+  let info: Uint8Array | null = null;
   let largestFrame = 0;
   for (let part = 0; part < MAX_PARTS && offset + 4 <= size; part += 1) {
     const header = await bytesAt(head, read, offset, 4);
@@ -1296,18 +1407,13 @@ async function isFlac(head: Uint8Array, read: ReadRange, size: number): Promise<
     const last = ((header[0] ?? 0) & 0x80) !== 0;
     const type = (header[0] ?? 0) & 0x7f;
     const length = ((header[1] ?? 0) << 16) | ((header[2] ?? 0) << 8) | (header[3] ?? 0);
-    if (first) {
-      // STREAMINFO: a sample rate and channels that make sense, and the size
-      // of the largest frame (0 when it isn't known).
+    if (!info) {
+      // STREAMINFO: a stream both browsers decode, and the size of the largest
+      // frame (0 when it isn't known).
       if (type !== 0 || length !== 34) return false;
-      const info = await bytesAt(head, read, offset + 4, 18);
-      if (info.length < 18) return false;
+      info = await bytesAt(head, read, offset + 4, 18);
+      if (!streamInfoPlays(info, 0)) return false;
       largestFrame = ((info[7] ?? 0) << 16) | ((info[8] ?? 0) << 8) | (info[9] ?? 0);
-      const rate = ((info[10] ?? 0) << 12) | ((info[11] ?? 0) << 4) | ((info[12] ?? 0) >> 4);
-      const channels = (((info[12] ?? 0) >> 1) & 0x07) + 1;
-      if (!ratePlays(rate) || rate > 655_350 || channels > 8 || flacBits(info, 0) > 24)
-        return false;
-      first = false;
     }
     offset += 4 + length;
     if (last) {
@@ -1318,7 +1424,7 @@ async function isFlac(head: Uint8Array, read: ReadRange, size: number): Promise<
       );
       if (span < 8) return false;
       const frame = await bytesAt(head, read, offset, span);
-      return wholeFlacFrame(frame, offset + frame.length >= size);
+      return wholeFlacFrame(frame, offset + frame.length >= size, info);
     }
   }
   return false;
@@ -1820,22 +1926,48 @@ function flacPlays(bytes: Uint8Array, info: number): boolean {
   return ratePlays(rate) && rate <= 655_350;
 }
 
-/** The bits a sample a FLAC STREAMINFO states (Firefox plays at most 24: it refuses more). */
+/** The bits a sample a FLAC STREAMINFO states. */
 function flacBits(bytes: Uint8Array, info: number): number {
   return ((((bytes[info + 12] ?? 0) & 0x01) << 4) | ((bytes[info + 13] ?? 0) >> 4)) + 1;
 }
 
-/** AAC's channel configurations (in its AudioSpecificConfig) and the channels each decodes to. */
+/**
+ * Whether a FLAC STREAMINFO (at `info`, whichever container carries it) describes
+ * a stream both browsers and the renderer decode: a rate both browsers play, a
+ * largest block of at least 16 samples, and 4 to 24 bits a sample. FFmpeg's
+ * decoder (Chrome's, Firefox's and the renderer's) refuses a smaller block or
+ * fewer bits; Firefox's FLAC readers refuse more than 24 bits, and so does the
+ * renderer's FFmpeg 5.1 in any container ("invalid sample size code").
+ */
+function streamInfoPlays(bytes: Uint8Array, info: number): boolean {
+  // STREAMINFO: [smallest block: 2][largest block: 2][frame sizes: 6][rate: 20 bits]
+  // [channels - 1: 3 bits][bits a sample - 1: 5 bits]…
+  const bits = flacBits(bytes, info);
+  return (
+    info + 18 <= bytes.length &&
+    flacPlays(bytes, info) &&
+    u16be(bytes, info + 2) >= 16 &&
+    bits >= 4 &&
+    bits <= 24
+  );
+}
+
+/**
+ * AAC's channel configurations (in its AudioSpecificConfig) and the channels each
+ * decodes to: 0 for configuration 0, whose channels its program gives, and for
+ * those reserved, which no decoder takes.
+ */
 const AAC_CHANNELS = [0, 1, 2, 3, 4, 5, 6, 8, 0, 0, 0, 7, 8, 24, 8, 0];
 
 /**
  * What an MP4 audio entry's esds box says of its stream: the object type of its
  * decoder configuration (0x40 for MPEG-4 audio such as AAC, 0x67 for MPEG-2
- * AAC LC, 0x69 and 0x6B for MPEG audio such as MP3) and, for MPEG-4 audio, its
+ * AAC LC, 0x69 and 0x6B for MPEG audio such as MP3) and, for AAC, its
  * AudioSpecificConfig's object type (2 for AAC LC; 5 and 29 for HE-AAC, over a
  * core whose type follows), the channels it decodes to and its rate's index in
- * AAC's table (15: a rate given outright). Null when it holds no decoder
- * configuration.
+ * AAC's table (15: a rate given outright). Configuration 0's channels are its
+ * program's (0 when the program isn't whole within the configuration, which
+ * FFmpeg's decoder refuses). Null when it holds no decoder configuration.
  */
 function esdsConfig(
   movie: Uint8Array,
@@ -1849,11 +1981,16 @@ function esdsConfig(
 } | null {
   // [version, flags], then descriptors, each [tag][length: 1-4 bytes of 7 bits][content].
   let at = esds.start + 4;
+  let length = 0;
   const open = (tag: number) => {
     if (at >= esds.end || movie[at] !== tag) return false;
     at += 1;
-    for (let index = 0; index < 4 && at < esds.end; index += 1)
-      if (!((movie[at++] ?? 0) & 0x80)) break;
+    length = 0;
+    for (let index = 0; index < 4 && at < esds.end; index += 1) {
+      const byte = movie[at++] ?? 0;
+      length = length * 128 + (byte & 0x7f);
+      if (!(byte & 0x80)) break;
+    }
     return true;
   };
   // ES_Descriptor: [ES_ID: 2][flags], then what its flags say follows.
@@ -1867,11 +2004,12 @@ function esdsConfig(
   if (!open(0x04) || at + 13 > esds.end) return null;
   const objectType = movie[at] ?? 0;
   at += 13;
-  if (objectType !== 0x40)
+  if (objectType !== 0x40 && objectType !== 0x67)
     return { objectType, audioType: 0, coreType: 0, channels: 0, rateIndex: 0 };
   // AudioSpecificConfig: [object type: 5 bits (31: 6 more)][rate: 4 bits (15: 24 more)][channels:
   // 4 bits], and for HE-AAC [its rate: 4 bits (15: 24 more)][the core's object type].
   if (!open(0x05) || at + 2 > esds.end) return null;
+  const end = Math.min(at + length, esds.end) * 8;
   let bit = at * 8;
   const take = (count: number) => {
     let value = 0;
@@ -1890,11 +2028,41 @@ function esdsConfig(
   };
   const audioType = audioObjectType();
   const rateIndex = rate();
-  const channels = AAC_CHANNELS[take(4)] ?? 0;
+  const configuration = take(4);
+  let channels = AAC_CHANNELS[configuration] ?? 0;
   let coreType = audioType;
   if (audioType === 5 || audioType === 29) {
     rate();
     coreType = audioObjectType();
+  }
+  if (configuration === 0) {
+    // The core's GASpecificConfig: [frame length: 1][on a core coder: 1 (then its delay: 14)]
+    // [extension: 1], then its program: [tag: 4][object type: 2][rate index: 4][front, side
+    // and back elements: 4 each][LFE elements: 2][data elements: 3][coupling elements: 4]
+    // [mono, stereo and matrix mixdowns: 1 each, then 4, 4 and 3 bits when there], the
+    // elements ([pair: 1][tag: 4] each; LFE and data [tag: 4]; coupling [1][tag: 4]), and
+    // after byte alignment [comment length][comment].
+    take(1);
+    if (take(1)) take(14);
+    take(1 + 4 + 2 + 4);
+    const placed = take(4) + take(4) + take(4);
+    const lfe = take(2);
+    const data = take(3);
+    const coupling = take(4);
+    for (const extra of [4, 4, 3]) if (take(1)) take(extra);
+    // FFmpeg's decoder wants room for the elements first, a coupling one counted as 9 bits.
+    const room = end - bit >= 5 * (placed + coupling) + 4 * (lfe + data + coupling);
+    channels = lfe;
+    for (let element = 0; element < placed; element += 1) {
+      channels += take(1) + 1; // a pair is two channels
+      take(4);
+    }
+    bit += 4 * (lfe + data) + 5 * coupling;
+    // The configuration starts on a byte, so its program's alignment is the file's.
+    bit = Math.ceil(bit / 8) * 8;
+    const comment = take(8);
+    bit += comment * 8;
+    if (!room || bit > end) channels = 0;
   }
   return { objectType, audioType, coreType, channels, rateIndex };
 }
