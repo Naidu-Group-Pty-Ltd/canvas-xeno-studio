@@ -84,6 +84,32 @@ function keepStaged(userId: string, upload: string, value: Staged | null) {
   keepAttempt(stagedPlace(userId), upload, value ? JSON.stringify(value) : null);
 }
 
+/** How much of a file is digested at a time. */
+const DIGEST_PART = 4 * 1024 * 1024;
+
+/**
+ * What a picked file holds, as a digest: SHA-256 over each 4 MB part's SHA-256,
+ * so a large file is read a part at a time. An upload staged for one file is
+ * reused only for a file with the same digest, never for another that just has
+ * the same name, size and time. Where the browser can't digest it, each pick
+ * is its own (nothing staged is reused for it).
+ */
+async function fileDigest(file: File): Promise<string> {
+  try {
+    const parts: Uint8Array[] = [];
+    for (let at = 0; at < file.size; at += DIGEST_PART) {
+      const part = await file.slice(at, at + DIGEST_PART).arrayBuffer();
+      parts.push(new Uint8Array(await crypto.subtle.digest("SHA-256", part)));
+    }
+    const joined = new Uint8Array(parts.length * 32);
+    parts.forEach((part, index) => joined.set(part, index * 32));
+    const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", joined));
+    return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  } catch {
+    return `unread-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+}
+
 /**
  * Adds a track the brand owns or has licensed (for example from a stock
  * library or a sync deal), recording the licence so everyone knows where it
@@ -121,6 +147,10 @@ export function AddLicensedTrack({
       )
     : [];
   const [file, setFile] = useState<File | null>(null);
+  // What the picked file holds (see fileDigest), once read; the latest pick decides.
+  const picked = useRef<File | null>(null);
+  const [digest, setDigest] = useState<{ file: File; value: string } | null>(null);
+  const contentId = file && digest?.file === file ? digest.value : null;
   const [title, setTitle] = useState(() =>
     renewing ? renewing.title : (asset?.title ?? "").replace(/\.[^.]+$/, "").replace(/[_-]+/g, " "),
   );
@@ -161,23 +191,31 @@ export function AddLicensedTrack({
 
   const ready =
     (!!asset || !!file) &&
+    (!file || contentId !== null) &&
     title.trim().length > 0 &&
     confirmed &&
     (license === "owned" || (licensor.trim().length >= 2 && scopes.length > 0));
 
   function pick(next: File | null) {
     setFile(next);
+    // A confirmation given before covers the file picked then, not this one.
+    setConfirmedFor(null);
+    picked.current = next;
+    if (next)
+      void fileDigest(next).then((value) => {
+        if (picked.current === next) setDigest({ file: next, value });
+      });
     if (next && !title.trim()) setTitle(next.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " "));
   }
 
   async function save() {
-    if ((!asset && !file) || !user) return;
+    if ((!asset && !file) || (file && !contentId) || !user) return;
     setSaving(true);
     // The form's own upload joins the library once its licence is recorded,
-    // and is reused when trying again (see Staged).
-    const upload = file
-      ? JSON.stringify([projectId, file.name, file.size, file.lastModified])
-      : null;
+    // and is reused when trying again (see Staged) with a file that holds the
+    // same audio (see fileDigest).
+    const upload =
+      file && contentId ? JSON.stringify([projectId, file.name, file.size, contentId]) : null;
     try {
       let staged: Staged | null = null;
       if (file && upload) {
@@ -461,7 +499,7 @@ export function AddLicensedTrack({
         onClick={() => void save()}
         data-testid="add-licensed-button"
       >
-        {saving && <Loader2 className="mr-1.5 size-4 animate-spin" />}
+        {(saving || (!!file && !contentId)) && <Loader2 className="mr-1.5 size-4 animate-spin" />}
         {renewing
           ? licenceTerms(renewing)?.expired
             ? "Renew its licence"
