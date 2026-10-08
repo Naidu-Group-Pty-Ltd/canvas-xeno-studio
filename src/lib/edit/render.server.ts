@@ -110,12 +110,40 @@ async function resolveAssets(timeline: Timeline) {
 }
 
 /**
+ * Which of these recordings are voiceovers the studio made: takes finished by
+ * the server, which alone writes them, in files members can't change or
+ * repoint. What an edit calls a voiceover is taken as one only when it is one.
+ */
+async function studioVoiceovers(assetIds: string[]): Promise<Set<string>> {
+  const { data, error } = await supabaseAdmin
+    .from("voiceovers")
+    .select("asset_id")
+    .eq("status", "completed")
+    .in("asset_id", assetIds);
+  if (error) {
+    // Before brand voices are set up the studio has made none.
+    if (isMissingTableError(error)) return new Set();
+    throw new AppError("UNKNOWN", "The edit's voiceovers couldn't be checked. Try again.");
+  }
+  return new Set((data ?? []).flatMap((row) => (row.asset_id ? [row.asset_id] : [])));
+}
+
+/** Why audio heard in the edit, neither a voiceover the studio made nor on record, can't be rendered. */
+function unrecordedReason(item: { role: string; title: string | null }): string {
+  const title = item.title ?? "Some audio";
+  return item.role === "voiceover"
+    ? `“${title}” is used as a voiceover, but it wasn't made in the Voice tab and no licence is on record for it. Record its licence in the edit's Music tab, or make the voiceover in the Voice tab.`
+    : `“${title}” is used as ${item.role === "sfx" ? "a sound effect" : "music"}, but no licence is on record for it. Record its licence in the edit's Music tab, or use music from the library.`;
+}
+
+/**
  * What the edit's music asks for: the credits Creative Commons BY needs, and
  * the terms of licensed tracks and the usage limits of AI music (where it may
  * run depends on the plan it was made on), all kept with the finished video;
- * and what stops the render: an expired licence, or music or a sound effect
- * heard in the edit with no licence on record (audio added from the media
- * bin, say), since nothing then says it may be used.
+ * and what stops the render: an expired licence, or audio heard in the edit
+ * that is neither a voiceover the studio made nor on record with a licence
+ * (audio added from the media bin, say, whatever it is used as), since nothing
+ * then says it may be used.
  */
 async function musicRights(
   items: { assetId: string; role: string; title: string | null }[],
@@ -126,25 +154,29 @@ async function musicRights(
 }> {
   const none = { credits: [], licences: [], blocker: null };
   if (!items.length) return none;
+  const assetIds = [...new Set(items.map((item) => item.assetId))];
+  const made = await studioVoiceovers(assetIds);
   const { data, error } = await supabaseAdmin
     .from("music_tracks")
     .select(
       "asset_id,title,artist,license,license_version,license_url,attribution,rights,usage_notes,source_url",
     )
-    .in("asset_id", [...new Set(items.map((item) => item.assetId))]);
+    .in("asset_id", assetIds);
   if (error) {
-    // Before the music library is set up nothing shows what music may be
-    // used, so music or a sound effect in the edit stops the render (a
-    // voiceover alone doesn't need it). Any other failure stops the render
-    // too, rather than skipping the check.
-    if (isMissingTableError(error))
-      return items.some((item) => item.role === "music" || item.role === "sfx")
-        ? {
-            ...none,
-            blocker:
-              "Music and sound effects can't be rendered until the music library is set up (its database update hasn't been applied yet).",
-          }
-        : none;
+    // Before the music library is set up nothing shows what other audio may
+    // be used, so only voiceovers the studio made are rendered. Any other
+    // failure stops the render too, rather than skipping the check.
+    if (isMissingTableError(error)) {
+      const other = items.find((item) => !made.has(item.assetId));
+      if (!other) return none;
+      return {
+        ...none,
+        blocker:
+          other.role === "voiceover"
+            ? `“${other.title ?? "Some audio"}” is used as a voiceover, but it wasn't made in the Voice tab, and audio from elsewhere can't be rendered until the music library is set up (its database update hasn't been applied yet).`
+            : "Music and sound effects can't be rendered until the music library is set up (its database update hasn't been applied yet).",
+      };
+    }
     throw new AppError("UNKNOWN", "The music licences couldn't be checked. Try again.");
   }
   const rows = (data ?? []) as unknown as Pick<
@@ -190,13 +222,9 @@ async function musicRights(
     return [];
   });
   const recorded = new Set(rows.map((row) => row.asset_id));
-  const unrecorded = items.find(
-    (item) => (item.role === "music" || item.role === "sfx") && !recorded.has(item.assetId),
-  );
+  const unrecorded = items.find((item) => !recorded.has(item.assetId) && !made.has(item.assetId));
   const blocker =
-    (unrecorded
-      ? `“${unrecorded.title ?? "Some audio"}” is used as ${unrecorded.role === "sfx" ? "a sound effect" : "music"}, but no licence is on record for it. Record its licence in the edit's Music tab, or use music from the library.`
-      : null) ??
+    (unrecorded ? unrecordedReason(unrecorded) : null) ??
     rows.map((row) => licenceBlocker(row)).find((reason) => reason) ??
     null;
   return { credits, licences, blocker };

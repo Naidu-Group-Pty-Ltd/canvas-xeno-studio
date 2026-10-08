@@ -19,6 +19,7 @@ import { MusicLibrary, RenewLicence } from "@/components/music/MusicLibrary";
 import { LicenceTerms, LicenseBadge } from "@/components/music/TrackItem";
 import { useAuth } from "@/hooks/useAuth";
 import { audioUrlFor, useMusicTracks, useTracksForAssets } from "@/hooks/useMusicData";
+import { useStudioVoiceovers } from "@/hooks/useVoiceData";
 import { saveMusicAnalysis } from "@/lib/music.functions";
 import { analyzeAudioUrl } from "@/lib/music/analyze";
 import { beatTimesOnTimeline, snapCutsToBeats } from "@/lib/music/beats";
@@ -75,7 +76,24 @@ export function MusicPanel({
 }) {
   const queryClient = useQueryClient();
   const { error } = useMusicTracks();
-  const sound = timeline.audio.filter((item) => item.role === "music" || item.role === "sfx");
+  // A recording used as a voiceover that wasn't made in the Voice tab (added
+  // from the media bin, say) needs its licence on record like music; the
+  // studio's own takes don't, and stay in the Voice tab.
+  const {
+    data: madeHere,
+    isSuccess: voiceoversKnown,
+    isError: voiceoversFailed,
+    refetch: refetchVoiceovers,
+  } = useStudioVoiceovers(
+    timeline.audio.filter((item) => item.role === "voiceover").map((item) => item.assetId),
+  );
+  const sound = timeline.audio.filter(
+    (item) =>
+      item.role === "music" ||
+      item.role === "sfx" ||
+      (item.role === "voiceover" &&
+        (voiceoversFailed || (voiceoversKnown && !madeHere?.has(item.assetId)))),
+  );
   // Which audio has its licence on record is known only once the lookup has
   // answered: until then, or when it fails, nothing is offered to record.
   const {
@@ -265,7 +283,12 @@ export function MusicPanel({
                     {track?.title ?? item.label ?? "Audio"}
                     <span className="text-muted-foreground">
                       {" "}
-                      · {item.role === "sfx" ? "sound effect" : "music"}
+                      ·{" "}
+                      {item.role === "sfx"
+                        ? "sound effect"
+                        : item.role === "voiceover"
+                          ? "voiceover"
+                          : "music"}
                     </span>
                   </button>
                   {track ? (
@@ -286,7 +309,7 @@ export function MusicPanel({
                           </button>
                         )}
                     </>
-                  ) : tracksFailed ? (
+                  ) : tracksFailed || (item.role === "voiceover" && voiceoversFailed) ? (
                     <>
                       <span
                         className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px]"
@@ -297,7 +320,10 @@ export function MusicPanel({
                       <button
                         type="button"
                         className="shrink-0 text-[10px] text-primary hover:underline"
-                        onClick={() => void refetchTracks()}
+                        onClick={() => {
+                          void refetchTracks();
+                          if (voiceoversFailed) void refetchVoiceovers();
+                        }}
                         data-testid="check-licence-again"
                       >
                         Check again

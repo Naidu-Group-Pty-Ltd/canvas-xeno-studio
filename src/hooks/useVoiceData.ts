@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { isMissingTableError } from "@/lib/edit/errors";
 import { getVoiceStatus, resolveBrandVoice } from "@/lib/voice.functions";
 import type { BrandVoiceRow } from "@/lib/voice/catalog";
 
@@ -122,6 +123,29 @@ export function useVoiceovers(sequenceId: string | null) {
         .limit(20);
       if (error) throw error;
       return (data ?? []) as unknown as VoiceoverRow[];
+    },
+  });
+}
+
+/**
+ * Which of these library recordings are voiceovers the studio made (a take
+ * it finished): only those are rendered as voiceovers without a licence on
+ * record, whatever an edit calls them.
+ */
+export function useStudioVoiceovers(assetIds: string[]) {
+  const key = useMemo(() => [...new Set(assetIds)].sort(), [assetIds]);
+  return useQuery({
+    queryKey: ["voiceovers", "assets", key],
+    enabled: key.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("voiceovers")
+        .select("asset_id")
+        .eq("status", "completed")
+        .in("asset_id", key);
+      // Before brand voices are set up the studio has made none.
+      if (error && !isMissingTableError(error)) throw error;
+      return new Set((data ?? []).flatMap((row) => (row.asset_id ? [row.asset_id] : [])));
     },
   });
 }

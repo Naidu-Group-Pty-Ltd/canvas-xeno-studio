@@ -31,6 +31,7 @@ import {
   renderInProgress,
 } from "@/lib/edit/renders";
 import { useTracksForAssets } from "@/hooks/useMusicData";
+import { useStudioVoiceovers } from "@/hooks/useVoiceData";
 import {
   keptLicenceLine,
   licenceBlocker,
@@ -86,24 +87,34 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
       musicTracks.map((track) => videoCreditLine(track)).filter((line): line is string => !!line),
     ),
   ];
-  // Music or a sound effect with no licence on record (added from the media
-  // bin, say) can't be rendered until its licence is recorded, as the server
-  // checks too; nor can it while its licences can't be looked up (before the
+  const {
+    data: madeHere,
+    isSuccess: voiceoversKnown,
+    isError: voiceoversUnknown,
+  } = useStudioVoiceovers(audioIds);
+  // Audio heard in the edit that isn't a voiceover the studio made, whatever
+  // it is used as (music, a sound effect, or a recording from the media bin
+  // called a voiceover), can't be rendered until its licence is recorded, as
+  // the server checks too; nor while that can't be looked up (before the
   // music library is set up, say). An expired licence stops the render.
   // Limits are shown before rendering.
   const recorded = new Set(musicTracks.map((track) => track.asset_id));
-  const heardMusic = audibleAudio(timeline).filter(
-    (item) => item.role === "music" || item.role === "sfx",
-  );
+  const heard = audibleAudio(timeline);
+  const needsLicence = voiceoversKnown ? heard.filter((item) => !madeHere?.has(item.assetId)) : [];
   const unrecorded = tracksKnown
-    ? heardMusic.find((item) => !recorded.has(item.assetId))
+    ? needsLicence.find((item) => !recorded.has(item.assetId))
     : undefined;
   const licenceProblem =
-    (tracksUnknown && heardMusic.length
+    (voiceoversUnknown && heard.length
+      ? "The edit's voiceovers couldn't be checked, so this edit can't be rendered just now."
+      : null) ??
+    (tracksUnknown && needsLicence.length
       ? "The music's licences couldn't be looked up, so this edit can't be rendered just now."
       : null) ??
     (unrecorded
-      ? `“${unrecorded.label ?? "Some audio"}” has no licence on record. Record its licence in the Music tab, or use music from the library.`
+      ? unrecorded.role === "voiceover"
+        ? `“${unrecorded.label ?? "Some audio"}” is used as a voiceover, but it wasn't made in the Voice tab and has no licence on record. Record its licence in the Music tab, or make the voiceover in the Voice tab.`
+        : `“${unrecorded.label ?? "Some audio"}” has no licence on record. Record its licence in the Music tab, or use music from the library.`
       : null) ??
     musicTracks.map((track) => licenceBlocker(track)).find((reason) => reason) ??
     null;
