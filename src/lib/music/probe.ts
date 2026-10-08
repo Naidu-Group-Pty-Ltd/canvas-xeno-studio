@@ -606,7 +606,19 @@ function oggIdentification(packet: Uint8Array): {
     // past family 0 [streams][coupled streams][the stream each channel is in].
     const channels = packet[9] ?? 0;
     if (packet.length < 19 || ((packet[8] ?? 0) & 0xf0) !== 0 || channels < 1) return null;
-    if (packet[18] === 0) return channels <= 2 ? { sound: "opus", headers: 1, streams: 1 } : null;
+    const family = packet[18] ?? 0;
+    if (family === 0) return channels <= 2 ? { sound: "opus", headers: 1, streams: 1 } : null;
+    // Firefox reads families 1 (at most 8 channels), 2 (ambisonics: (1 + order)² channels, with
+    // or without 2 more, up to 227) and 255 besides; no other.
+    const order = Math.floor(Math.sqrt(channels));
+    if (
+      family === 1
+        ? channels > 8
+        : family === 2
+          ? !(channels <= 227 && (order * order === channels || order * order + 2 === channels))
+          : family !== 255
+    )
+      return null;
     const streams = packet[19] ?? 0;
     const coupled = packet[20] ?? 0;
     if (packet.length < 21 + channels || streams < 1 || coupled > streams) return null;
@@ -628,7 +640,8 @@ function oggIdentification(packet: Uint8Array): {
       block === 34 &&
       smallest >= 16 &&
       u16be(packet, 19) >= smallest &&
-      flacPlays(packet, 17);
+      flacPlays(packet, 17) &&
+      flacBits(packet, 17) <= 24;
     if (!formed) return null;
     return { sound: "flac", headers: (packet[13] ?? 0) & 0x80 ? 0 : null, streams: 1 };
   }
@@ -895,19 +908,70 @@ function vorbisAudio(packet: Uint8Array, modes: number): boolean {
   }
 }
 
-/** Whether a header packet (its first bytes, and its length) is the one its stream needs at this place. */
+/**
+ * A header's comment list read as its packet arrives, a part at a time: [vendor: its length,
+ * 4][comments: their count, 4], then each comment [its length, 4][its text], from byte
+ * `startsAt` of the packet on. Firefox takes the header only when every comment it declares is
+ * there (libvorbis for Vorbis, which also wants the framing bit, the lowest of the byte after
+ * them, set; its own reader for Opus and for FLAC's VORBIS_COMMENT block). Bytes after that
+ * are passed over, as they are there.
+ */
+function commentList(startsAt: number, framed: boolean) {
+  let taken = 0;
+  let field = 0;
+  let fieldBytes = 0;
+  let skip = 0;
+  let stage: "vendor" | "count" | "comments" | "whole" = "vendor";
+  let left = 0;
+  let after: number | null = null;
+  return {
+    take(piece: Uint8Array) {
+      let index = Math.max(0, startsAt - taken);
+      taken += piece.length;
+      while (index < piece.length) {
+        if (skip > 0) {
+          const passed = Math.min(skip, piece.length - index);
+          skip -= passed;
+          index += passed;
+        } else if (stage === "whole") {
+          after ??= piece[index] ?? 0;
+          return;
+        } else {
+          field += (piece[index] ?? 0) * 2 ** (8 * fieldBytes);
+          fieldBytes += 1;
+          index += 1;
+          if (fieldBytes < 4) continue;
+          if (stage === "vendor") {
+            skip = field;
+            stage = "count";
+          } else if (stage === "count") {
+            left = field;
+            stage = left > 0 ? "comments" : "whole";
+          } else {
+            skip = field;
+            left -= 1;
+            if (left === 0) stage = "whole";
+          }
+          field = 0;
+          fieldBytes = 0;
+        }
+      }
+    },
+    /** Whether every comment declared is there (and, where it must be, the framing bit set). */
+    whole: () => stage === "whole" && skip === 0 && (!framed || ((after ?? 0) & 0x01) === 1),
+  };
+}
+
+/**
+ * Whether a header packet (its first bytes, and its length) is the one its stream needs at this
+ * place. Its comments, where it has them, are read as it arrives (see commentList).
+ */
 function oggHeader(sound: OggSound, index: number, start: Uint8Array, length: number): boolean {
-  // Vorbis's comment header, [3]vorbis[vendor: its length, 4][comments: their count, 4, then
-  // each][framing] (its setup header, the one after it, is read whole: see vorbisModes).
-  if (sound === "vorbis")
-    return (
-      index === 1 &&
-      ascii(start, 0, 7) === "\u0003vorbis" &&
-      7 + 4 + u32le(start, 7) + 4 + 1 <= length
-    );
-  // OpusTags[vendor: its length, 4][comments: their count, 4, then each]
-  if (sound === "opus")
-    return ascii(start, 0, 8) === "OpusTags" && 8 + 4 + u32le(start, 8) + 4 <= length;
+  // Vorbis's comment header, [3]vorbis then its comments and framing bit (its setup header,
+  // the one after it, is read whole: see vorbisModes).
+  if (sound === "vorbis") return index === 1 && ascii(start, 0, 7) === "\u0003vorbis";
+  // OpusTags, then its comments.
+  if (sound === "opus") return ascii(start, 0, 8) === "OpusTags";
   // A FLAC metadata block after STREAMINFO, [marked last, type][length: 3], as long as it says.
   const type = (start[0] ?? 0) & 0x7f;
   const stated = ((start[1] ?? 0) << 16) | ((start[2] ?? 0) << 8) | (start[3] ?? 0);
@@ -1064,6 +1128,9 @@ async function isOggAudio(head: Uint8Array, read: ReadRange, size: number): Prom
   let index = 0;
   let length = 0;
   let parts: Uint8Array[] = [];
+  // The header's comment list, where it has one (Vorbis's comment header, OpusTags, FLAC's
+  // VORBIS_COMMENT block), read as it arrives.
+  let comments: ReturnType<typeof commentList> | null = null;
   let offset = 0;
   for (let count = 0; count < MAX_OGG_PAGES; count += 1) {
     const page = await oggPage(pages, offset, size);
@@ -1102,6 +1169,18 @@ async function isOggAudio(head: Uint8Array, read: ReadRange, size: number): Prom
       // Kept whole: the first sound packet, and a Vorbis setup header (at most as long as
       // the longest FLAC frame); of any other header, its first bytes say what it is.
       const whole = sounding || (sound === "vorbis" && index === 2);
+      if (!sounding && length === 0) {
+        const kind = (piece[0] ?? 0) & 0x7f;
+        comments =
+          sound === "flac"
+            ? kind === 4
+              ? commentList(4, false)
+              : null
+            : index === 1
+              ? commentList(sound === "vorbis" ? 7 : 8, sound === "vorbis")
+              : null;
+      }
+      comments?.take(piece);
       if (whole) parts.push(piece);
       else if (length < 64) parts.push(piece.subarray(0, 64 - length));
       length += segment;
@@ -1122,12 +1201,14 @@ async function isOggAudio(head: Uint8Array, read: ReadRange, size: number): Prom
             ? (vorbisModes(packet, vorbis.channels, vorbis.largeBlock) ?? 0)
             : 0;
         if (!modes) return false;
-      } else if (!oggHeader(sound, index, packet, length)) return false;
+      } else if (!oggHeader(sound, index, packet, length) || (comments && !comments.whole()))
+        return false;
       // FLAC's headers run to the metadata block marked last.
       if (sound === "flac" && (packet[0] ?? 0) & 0x80) headers = index;
       index += 1;
       length = 0;
       parts = [];
+      comments = null;
     }
     // The stream ended before its sound.
     if (page.closes) return false;
@@ -1163,7 +1244,8 @@ function flacFrameHeader(bytes: Uint8Array, at: number): number | null {
   const blockBits = sizes >> 4;
   const rateBits = sizes & 0x0f;
   if (blockBits === 0 || rateBits === 0x0f || layout >> 4 > 10) return null;
-  if (((layout >> 1) & 0x07) === 3 || (layout & 0x01) !== 0) return null;
+  // Sample sizes 3 (reserved) and 7 (32 bits, which Firefox doesn't play) refused.
+  if ([3, 7].includes((layout >> 1) & 0x07) || (layout & 0x01) !== 0) return null;
   // The frame's (or first sample's) number, coded like UTF-8 in 1 to 7 bytes.
   const lead = bytes[at + 4] ?? 0;
   let more = 0;
@@ -1223,7 +1305,8 @@ async function isFlac(head: Uint8Array, read: ReadRange, size: number): Promise<
       largestFrame = ((info[7] ?? 0) << 16) | ((info[8] ?? 0) << 8) | (info[9] ?? 0);
       const rate = ((info[10] ?? 0) << 12) | ((info[11] ?? 0) << 4) | ((info[12] ?? 0) >> 4);
       const channels = (((info[12] ?? 0) >> 1) & 0x07) + 1;
-      if (!ratePlays(rate) || rate > 655_350 || channels > 8) return false;
+      if (!ratePlays(rate) || rate > 655_350 || channels > 8 || flacBits(info, 0) > 24)
+        return false;
       first = false;
     }
     offset += 4 + length;
@@ -1735,6 +1818,11 @@ function flacLayout(bytes: Uint8Array, info: number): AudioLayout | null {
 function flacPlays(bytes: Uint8Array, info: number): boolean {
   const rate = flacLayout(bytes, info)?.rate ?? 0;
   return ratePlays(rate) && rate <= 655_350;
+}
+
+/** The bits a sample a FLAC STREAMINFO states (Firefox plays at most 24: it refuses more). */
+function flacBits(bytes: Uint8Array, info: number): number {
+  return ((((bytes[info + 12] ?? 0) & 0x01) << 4) | ((bytes[info + 13] ?? 0) >> 4)) + 1;
 }
 
 /** AAC's channel configurations (in its AudioSpecificConfig) and the channels each decodes to. */
