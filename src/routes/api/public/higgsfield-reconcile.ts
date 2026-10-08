@@ -4,15 +4,6 @@ import { authenticateCronRequest } from "@/integrations/supabase/cron-auth";
 /** The most time the music upload cleanup may take in one run. */
 const CLEANUP_MS = 20_000;
 
-/** What `work` comes to, or `fallback` if it fails or takes longer than `ms`. */
-function settleWithin<T>(work: Promise<T>, ms: number, fallback: T): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const late = new Promise<T>((resolve) => {
-    timer = setTimeout(() => resolve(fallback), ms);
-  });
-  return Promise.race([work.catch(() => fallback), late]).finally(() => clearTimeout(timer));
-}
-
 /**
  * Recovery worker: dispatches locally queued jobs, polls stale provider jobs
  * whose webhook may have been missed, and ingests pending outputs. It also
@@ -31,10 +22,13 @@ export const Route = createFileRoute("/api/public/higgsfield-reconcile")({
 
         // Alongside the generation work rather than ahead of it: a slow or
         // stalled storage call there never holds up dispatch, polling or
-        // saving, and a failure of theirs doesn't cut it short (the response
-        // waits for it). What it hasn't cleared within CLEANUP_MS is left for
-        // the next run.
-        const musicUploads = settleWithin(clearAbandonedMusicUploads(), CLEANUP_MS, 0);
+        // saving, and a failure of theirs doesn't cut it short. At CLEANUP_MS
+        // it stops, taking no further step, and the job answers only once it
+        // has: nothing of it runs on after the response. What it hasn't
+        // cleared is left for the next run.
+        const musicUploads = clearAbandonedMusicUploads(AbortSignal.timeout(CLEANUP_MS)).catch(
+          () => 0,
+        );
         try {
           const dispatched = await dispatchQueue();
           const polled = await reconcileStaleGenerations();

@@ -1112,8 +1112,14 @@ export async function stageUpload(input: {
  * at anyone's file. One whose licence was recorded (its last step didn't
  * land) is finished instead. Best effort: anything not cleared now is left
  * for the next run. Returns how many were cleared.
+ *
+ * Once `stop` aborts it takes no further step: its database requests are
+ * cancelled, and it stops waiting for a file's removal (storage's client
+ * can't cancel one). Every step is safe to repeat, a file or record already
+ * gone being no error, so the next run finishes whatever was cut short.
  */
-export async function clearAbandonedMusicUploads(): Promise<number> {
+export async function clearAbandonedMusicUploads(stop?: AbortSignal): Promise<number> {
+  const signal = stop ?? new AbortController().signal;
   const { data, error } = await supabaseAdmin
     .from("music_uploads")
     .select("id,storage_bucket,storage_path,asset_id")
@@ -1123,7 +1129,8 @@ export async function clearAbandonedMusicUploads(): Promise<number> {
     // failing goes to the back, so it never holds up the rest.
     .order("cleanup_tried_at", { ascending: true, nullsFirst: true })
     .order("created_at", { ascending: true })
-    .limit(10);
+    .limit(10)
+    .abortSignal(signal);
   // Before the music library is set up there is nothing to clear.
   if (error) return 0;
   const uploads = (data ?? []) as Pick<
@@ -1137,15 +1144,18 @@ export async function clearAbandonedMusicUploads(): Promise<number> {
     .in(
       "id",
       uploads.map((upload) => upload.id),
-    );
+    )
+    .abortSignal(signal);
   let cleared = 0;
   for (const upload of uploads) {
+    if (signal.aborted) break;
     if (upload.asset_id) {
       const { data: track, error: trackError } = await supabaseAdmin
         .from("music_tracks")
         .select("id")
         .eq("asset_id", upload.asset_id)
         .limit(1)
+        .abortSignal(signal)
         .maybeSingle();
       if (trackError) continue;
       if (track) {
@@ -1154,36 +1164,60 @@ export async function clearAbandonedMusicUploads(): Promise<number> {
           .update({ deleted_at: null } as never)
           .eq("id", upload.asset_id)
           .eq("storage_bucket", upload.storage_bucket)
-          .eq("storage_path", upload.storage_path);
+          .eq("storage_path", upload.storage_path)
+          .abortSignal(signal);
         if (!shownError)
           await supabaseAdmin
             .from("music_uploads")
             .update({ registered_at: new Date().toISOString() } as never)
-            .eq("id", upload.id);
+            .eq("id", upload.id)
+            .abortSignal(signal);
         continue;
       }
     }
-    const { error: removeError } = await supabaseAdmin.storage
-      .from(upload.storage_bucket)
-      .remove([upload.storage_path]);
-    if (removeError) continue;
+    const removed = await unlessStopped(
+      supabaseAdmin.storage.from(upload.storage_bucket).remove([upload.storage_path]),
+      signal,
+    );
+    if (!removed || removed.error) continue;
     if (upload.asset_id) {
       const { error: assetError } = await supabaseAdmin
         .from("assets")
         .delete()
         .eq("id", upload.asset_id)
         .eq("storage_bucket", upload.storage_bucket)
-        .eq("storage_path", upload.storage_path);
+        .eq("storage_path", upload.storage_path)
+        .abortSignal(signal);
       if (assetError) continue;
     }
     const { error: forgetError } = await supabaseAdmin
       .from("music_uploads")
       .delete()
       .eq("id", upload.id)
-      .is("registered_at", null);
+      .is("registered_at", null)
+      .abortSignal(signal);
     if (!forgetError) cleared += 1;
   }
   return cleared;
+}
+
+/** What `work` comes to, or null once `signal` aborts (`work` itself isn't cancelled). */
+function unlessStopped<T>(work: PromiseLike<T>, signal: AbortSignal): Promise<T | null> {
+  if (signal.aborted) return Promise.resolve(null);
+  return new Promise<T | null>((resolve, reject) => {
+    const stopped = () => resolve(null);
+    signal.addEventListener("abort", stopped, { once: true });
+    work.then(
+      (value) => {
+        signal.removeEventListener("abort", stopped);
+        resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener("abort", stopped);
+        reject(error);
+      },
+    );
+  });
 }
 
 type UploadAsset = {
