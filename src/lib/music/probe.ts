@@ -2,11 +2,12 @@
  * Whether a recording holds audio that browsers and the renderer can decode,
  * read from its structure rather than its name or its first bytes: MP3 frames
  * that follow one another, a WAV's format and its data, an MP4/M4A whose sound
- * track (AAC, MP3, Opus or FLAC) has its samples in the file, an Ogg stream of
- * Vorbis, Opus or FLAC with sound after its headers, or FLAC with its stream
- * description and a whole first frame (its checksums right). Only small parts
- * of the file are read (`read`), and only a few times, so a large file is
- * never fetched whole to check it.
+ * track (AAC, MP3, Opus or FLAC) has its samples timed and in the file, an Ogg
+ * stream of Vorbis, Opus or FLAC whose headers and first sound packet are whole
+ * (its pages' checksums right), or FLAC with its stream description and a
+ * whole first frame (its checksums right). Only small parts of the file are
+ * read (`read`), and only a few times, so a large file is never fetched whole
+ * to check it.
  */
 
 /** Reads up to `length` bytes from `offset` (fewer at the end of the file). */
@@ -302,8 +303,8 @@ function inMedia(media: readonly Box[], start: number, end: number): boolean {
  * Whether the movie's sound track can be played: the first sound track with
  * samples, the one browsers play (one with none, as a fragmented file's movie
  * has, plays nothing, and the next is looked at). Every one of its samples
- * must be listed in the movie, in a sample description decoded here, and lie
- * inside the file's media data (mdat), chunk by chunk.
+ * must be listed in the movie, timed, in a sample description decoded here,
+ * and lie inside the file's media data (mdat), chunk by chunk.
  */
 function soundTrackInMedia(movie: Uint8Array, media: readonly Box[]): boolean {
   const moov = movieContent(movie);
@@ -343,6 +344,22 @@ function soundTrackPlays(
     index >= 1 && index <= descriptions.length && decodedHere(movie, descriptions[index - 1]!);
   const everySample = u32be(movie, stsz.start + 4);
   if (!everySample && stsz.start + 12 + samples * 4 > stsz.end) return false;
+  // stts: runs of samples, each [how many][how long each lasts]. Every sample
+  // must be timed (decoders drop a track without it). Samples of no length
+  // leave decoders next to nothing to play (all of them, or all but the last:
+  // 0.02 s of two seconds in FFmpeg and Chrome), so each but the last has one.
+  const stts = boxIn(movie, stbl, "stts");
+  if (!stts || stts.start + 8 > stts.end) return false;
+  const timings = u32be(movie, stts.start + 4);
+  if (stts.start + 8 + timings * 8 > stts.end) return false;
+  let timed = 0;
+  for (let timing = 0; timing < timings && timed < samples; timing += 1) {
+    const inRun = u32be(movie, stts.start + 8 + timing * 8);
+    if (inRun > 0 && timed < samples - 1 && u32be(movie, stts.start + 12 + timing * 8) === 0)
+      return false;
+    timed += inRun;
+  }
+  if (timed < samples) return false;
   // stco / co64: where each chunk of samples is in the file (32 or 64 bits).
   const stco = boxIn(movie, stbl, "stco");
   const offsets = stco ?? boxIn(movie, stbl, "co64");
@@ -469,68 +486,358 @@ async function isMp4Audio(head: Uint8Array, read: ReadRange, size: number): Prom
 
 /* ---------------------------------------------------------------- Ogg */
 
-/**
- * One Ogg page: its stream, whether it opens the stream, whether sound ends
- * on it, where its packet data starts and where the next page starts.
- */
-async function oggPage(
-  head: Uint8Array,
-  read: ReadRange,
-  offset: number,
-  size: number,
-): Promise<{
-  serial: number;
-  opens: boolean;
-  endsSound: boolean;
-  data: number;
-  next: number;
-} | null> {
-  if (offset + 27 > size) return null;
-  // The page's header and its segment table, read together.
-  const header = await bytesAt(head, read, offset, Math.min(27 + 255, size - offset));
-  if (header.length < 27 || ascii(header, 0, 4) !== "OggS" || header[4] !== 0) return null;
-  const segments = header[26] ?? 0;
-  if (header.length < 27 + segments) return null;
-  let body = 0;
-  for (const length of header.subarray(27, 27 + segments)) body += length;
-  // Its granule position (64 bits): 0 on header pages, -1 when no packet ends
-  // on the page, and past 0 once sound has been decoded.
-  const low = u32le(header, 6);
-  const high = u32le(header, 10);
-  const data = offset + 27 + segments;
-  return {
-    serial: u32le(header, 14),
-    opens: ((header[5] ?? 0) & 0x02) !== 0,
-    endsSound: high < 0x80000000 && (high > 0 || low > 0),
-    data,
-    next: data + body,
+/** The largest an Ogg page can be: its header, 255 segment lengths, and 255 segments of 255 bytes. */
+const MAX_OGG_PAGE = 27 + 255 + 255 * 255;
+
+/** Ogg's page checksum: CRC-32 (0x04C11DB7, not reflected, from 0). */
+const OGG_CRC = new Uint32Array(256);
+for (let byte = 0; byte < 256; byte += 1) {
+  let crc = byte << 24;
+  for (let bit = 0; bit < 8; bit += 1) crc = crc & 0x80000000 ? (crc << 1) ^ 0x04c11db7 : crc << 1;
+  OGG_CRC[byte] = crc >>> 0;
+}
+
+/** Whether a whole Ogg page carries its own checksum (worked out with the checksum's place as zeros). */
+function oggPageIntact(page: Uint8Array): boolean {
+  let crc = 0;
+  for (let index = 0; index < page.length; index += 1) {
+    const byte = index >= 22 && index < 26 ? 0 : (page[index] ?? 0);
+    crc = ((crc << 8) ^ (OGG_CRC[((crc >>> 24) ^ byte) & 0xff] ?? 0)) >>> 0;
+  }
+  return crc === u32le(page, 22);
+}
+
+/** Reads a file in parts that each hold two whole Ogg pages or more, keeping the part read last. */
+function oggReader(head: Uint8Array, read: ReadRange, size: number): ReadRange {
+  let start = 0;
+  let part = head;
+  return async (offset, length) => {
+    if (offset < start || offset + length > start + part.length) {
+      start = offset;
+      part = await read(offset, Math.min(Math.max(length, 2 * MAX_OGG_PAGE), size - offset));
+    }
+    return part.subarray(offset - start, offset - start + length);
   };
 }
 
+/** One Ogg page, read whole. */
+type OggPage = {
+  serial: number;
+  /** It opens its stream: the stream's first page. */
+  opens: boolean;
+  /** Its first packet goes on from the stream's page before. */
+  continues: boolean;
+  /** It closes its stream: the stream's last page. */
+  closes: boolean;
+  /** Its segments' lengths: a packet ends with a segment shorter than 255. */
+  lengths: Uint8Array;
+  /** The whole page, its packet data from `data` on. */
+  bytes: Uint8Array;
+  data: number;
+};
+
+/** The Ogg page that starts at `offset`, read whole, or null if there isn't one there. */
+async function oggPage(pages: ReadRange, offset: number, size: number): Promise<OggPage | null> {
+  if (offset + 27 > size) return null;
+  // [OggS][version][flags][position: 8][serial: 4][page number: 4][checksum: 4][segments][their lengths]
+  const header = await pages(offset, 27);
+  if (header.length < 27 || ascii(header, 0, 4) !== "OggS" || header[4] !== 0) return null;
+  const segments = header[26] ?? 0;
+  const table = await pages(offset, 27 + segments);
+  if (table.length < 27 + segments) return null;
+  let body = 0;
+  for (const length of table.subarray(27)) body += length;
+  const bytes = await pages(offset, 27 + segments + body);
+  if (bytes.length < 27 + segments + body) return null;
+  const flags = header[5] ?? 0;
+  return {
+    serial: u32le(header, 14),
+    opens: (flags & 0x02) !== 0,
+    continues: (flags & 0x01) !== 0,
+    closes: (flags & 0x04) !== 0,
+    lengths: bytes.subarray(27, 27 + segments),
+    bytes,
+    data: 27 + segments,
+  };
+}
+
+type OggSound = "vorbis" | "opus" | "flac";
+
 /**
- * An Ogg file that opens a Vorbis, Opus or FLAC stream (a video-only one, say
- * Theora, has none) and has a page of that stream on which sound ends. Its
- * header pages don't count, so a file cut off after its headers has none.
+ * What an Ogg stream's identification header (its first packet, whole) says
+ * it holds, when that is sound browsers decode and the header is well formed,
+ * and how many header packets follow it (for FLAC, null: they run to the
+ * metadata block marked last).
+ */
+function oggIdentification(
+  packet: Uint8Array,
+): { sound: OggSound; headers: number | null; streams: number } | null {
+  const id = ascii(packet, 0, 8);
+  if (id.startsWith("\u0001vorbis")) {
+    // [1]vorbis[version: 4][channels][rate: 4][bit rates: 12][block sizes: 2 × 4 bits][framing]
+    const small = (packet[28] ?? 0) & 0x0f;
+    const large = (packet[28] ?? 0) >> 4;
+    const formed =
+      packet.length === 30 &&
+      u32le(packet, 7) === 0 &&
+      (packet[11] ?? 0) >= 1 &&
+      u32le(packet, 12) > 0 &&
+      small >= 6 &&
+      small <= large &&
+      large <= 13 &&
+      ((packet[29] ?? 0) & 0x01) === 1;
+    return formed ? { sound: "vorbis", headers: 2, streams: 1 } : null;
+  }
+  if (id === "OpusHead") {
+    // OpusHead[version][channels][samples skipped: 2][rate: 4][gain: 2][mapping family], and
+    // past family 0 [streams][coupled streams][the stream each channel is in].
+    const channels = packet[9] ?? 0;
+    if (packet.length < 19 || ((packet[8] ?? 0) & 0xf0) !== 0 || channels < 1) return null;
+    if (packet[18] === 0) return channels <= 2 ? { sound: "opus", headers: 1, streams: 1 } : null;
+    const streams = packet[19] ?? 0;
+    const coupled = packet[20] ?? 0;
+    if (packet.length < 21 + channels || streams < 1 || coupled > streams) return null;
+    if (streams + coupled > 255) return null;
+    for (const stream of packet.subarray(21, 21 + channels))
+      if (stream !== 255 && stream >= streams + coupled) return null;
+    return { sound: "opus", headers: 1, streams };
+  }
+  if (id.startsWith("\u007fFLAC")) {
+    // [7F]FLAC[version: 1, minor][header packets: 2]fLaC, then the STREAMINFO metadata block:
+    // [marked last, type 0][length: 3, 34][block sizes: 2 × 2]…[rate and channels]…
+    const block = ((packet[14] ?? 0) << 16) | ((packet[15] ?? 0) << 8) | (packet[16] ?? 0);
+    const smallest = u16be(packet, 17);
+    const formed =
+      packet.length === 51 &&
+      packet[5] === 1 &&
+      ascii(packet, 9, 4) === "fLaC" &&
+      ((packet[13] ?? 0) & 0x7f) === 0 &&
+      block === 34 &&
+      smallest >= 16 &&
+      u16be(packet, 19) >= smallest &&
+      flacLayout(packet, 17) !== null;
+    if (!formed) return null;
+    return { sound: "flac", headers: (packet[13] ?? 0) & 0x80 ? 0 : null, streams: 1 };
+  }
+  return null;
+}
+
+/** Whether a header packet (its first bytes, and its length) is the one its stream needs at this place. */
+function oggHeader(sound: OggSound, index: number, start: Uint8Array, length: number): boolean {
+  if (sound === "vorbis") {
+    // The comment header, [3]vorbis[vendor: its length, 4][comments: their count, 4, then each][framing],
+    // then the setup header, [5]vorbis[codebooks - 1], its first codebook opening "BCV".
+    if (index === 1)
+      return ascii(start, 0, 7) === "\u0003vorbis" && 7 + 4 + u32le(start, 7) + 4 + 1 <= length;
+    return ascii(start, 0, 7) === "\u0005vorbis" && ascii(start, 8, 3) === "BCV";
+  }
+  // OpusTags[vendor: its length, 4][comments: their count, 4, then each]
+  if (sound === "opus")
+    return ascii(start, 0, 8) === "OpusTags" && 8 + 4 + u32le(start, 8) + 4 <= length;
+  // A FLAC metadata block after STREAMINFO, [marked last, type][length: 3], as long as it says.
+  const type = (start[0] ?? 0) & 0x7f;
+  const stated = ((start[1] ?? 0) << 16) | ((start[2] ?? 0) << 8) | (start[3] ?? 0);
+  return type >= 1 && type <= 126 && 4 + stated === length;
+}
+
+/** An Opus frame's length, in one byte (under 252) or two, and how many bytes it takes; null past the packet. */
+function opusFrameLength(packet: Uint8Array, at: number): [number, number] | null {
+  const first = packet[at];
+  if (first === undefined) return null;
+  if (first < 252) return [first, 1];
+  const second = packet[at + 1];
+  return second === undefined ? null : [first + 4 * second, 2];
+}
+
+/** How long an Opus frame of the configuration its TOC byte gives lasts, in tenths of a millisecond. */
+function opusFrameTenths(toc: number): number {
+  const config = toc >> 3;
+  if (config < 12) return [100, 200, 400, 600][config & 3]!;
+  if (config < 16) return [100, 200][config & 1]!;
+  return [25, 50, 100, 200][config & 3]!;
+}
+
+/** Whether an Opus packet is laid out as RFC 6716 (3.4, R1 to R7) requires: its frames fit it. */
+function opusPacket(packet: Uint8Array): boolean {
+  const toc = packet[0];
+  if (toc === undefined) return false;
+  const rest = packet.length - 1;
+  // Code 0: one frame; code 1: two of the same length; code 2: two, the first's length given.
+  if ((toc & 0x03) === 0) return rest <= 1275;
+  if ((toc & 0x03) === 1) return rest % 2 === 0 && rest / 2 <= 1275;
+  if ((toc & 0x03) === 2) {
+    const first = opusFrameLength(packet, 1);
+    return first !== null && first[0] <= rest - first[1] && rest - first[1] - first[0] <= 1275;
+  }
+  // Code 3: [frame count, with whether it pads and whether its frames' lengths vary], what pads
+  // it, and (varying) the lengths of all its frames but the last: up to 120 ms of them.
+  const count = (packet[1] ?? 0) & 0x3f;
+  if (packet.length < 2 || count < 1 || count * opusFrameTenths(toc) > 1200) return false;
+  let at = 2;
+  let padding = 0;
+  if ((packet[1] ?? 0) & 0x40)
+    for (let more = true; more; at += 1) {
+      const byte = packet[at];
+      if (byte === undefined) return false;
+      padding += byte === 255 ? 254 : byte;
+      more = byte === 255;
+    }
+  if ((packet[1] ?? 0) & 0x80) {
+    let frames = 0;
+    for (let frame = 1; frame < count; frame += 1) {
+      const length = opusFrameLength(packet, at);
+      if (length === null) return false;
+      frames += length[0];
+      at += length[1];
+    }
+    const last = packet.length - at - frames - padding;
+    return last >= 0 && last <= 1275;
+  }
+  const frames = packet.length - at - padding;
+  return frames >= 0 && frames % count === 0 && frames / count <= 1275;
+}
+
+/**
+ * Where the self-delimited Opus packet (RFC 6716, appendix B) that starts at
+ * `at` ends, its frames' lengths all given; null if they don't fit.
+ */
+function opusDelimitedEnd(packet: Uint8Array, at: number): number | null {
+  const toc = packet[at];
+  if (toc === undefined) return null;
+  let next = at + 1;
+  const take = (): number | null => {
+    const length = opusFrameLength(packet, next);
+    if (length === null) return null;
+    next += length[1];
+    return length[0];
+  };
+  let frames = 0;
+  let padding = 0;
+  if ((toc & 0x03) < 3) {
+    // Code 0: [its frame's length]; code 1: [the length of each of two]; code 2: [the first's][the second's].
+    const first = take();
+    const second = (toc & 0x03) === 2 && first !== null ? take() : first;
+    if (first === null || second === null) return null;
+    frames = (toc & 0x03) === 0 ? first : first + second;
+  } else {
+    // Code 3: [frame count…][what pads it], then each frame's length (varying) or one for all.
+    const flags = packet[next];
+    const count = (flags ?? 0) & 0x3f;
+    if (flags === undefined || count < 1 || count * opusFrameTenths(toc) > 1200) return null;
+    next += 1;
+    if (flags & 0x40)
+      for (let more = true; more; next += 1) {
+        const byte = packet[next];
+        if (byte === undefined) return null;
+        padding += byte === 255 ? 254 : byte;
+        more = byte === 255;
+      }
+    for (let frame = 0; frame < (flags & 0x80 ? count : 1); frame += 1) {
+      const length = take();
+      if (length === null) return null;
+      frames += flags & 0x80 ? length : count * length;
+    }
+  }
+  return next + frames + padding <= packet.length ? next + frames + padding : null;
+}
+
+/**
+ * Whether a stream's first sound packet, whole, reads as its codec's. An Opus
+ * stream of several (its channels past two) carries a packet of each in one,
+ * all but the last self-delimited.
+ */
+function oggSoundPacket(sound: OggSound, packet: Uint8Array, streams: number): boolean {
+  // Vorbis: an audio packet's first bit is 0 (its headers' is 1).
+  if (sound === "vorbis") return packet.length > 0 && ((packet[0] ?? 0) & 0x01) === 0;
+  if (sound === "opus") {
+    let at = 0;
+    for (let stream = 1; stream < streams; stream += 1) {
+      const end = opusDelimitedEnd(packet, at);
+      if (end === null) return false;
+      at = end;
+    }
+    return opusPacket(packet.subarray(at));
+  }
+  // FLAC: one whole frame, its checksums right.
+  return wholeFlacFrame(packet, true);
+}
+
+/**
+ * An Ogg file whose first sound stream (Vorbis, Opus or FLAC; a video-only
+ * file, say Theora, has none), the one played, can be decoded: its
+ * identification header well formed and alone on the stream's first page, the
+ * headers its codec needs whole after it, then a whole first sound packet that
+ * reads as its codec's, with every page of the stream up to there carrying its
+ * checksum and its packets in order. A file cut off before its sound, or with
+ * a page in that stretch damaged or made up, has none.
  */
 async function isOggAudio(head: Uint8Array, read: ReadRange, size: number): Promise<boolean> {
-  const sound = new Set<number>();
+  const pages = oggReader(head, read, size);
+  let serial = -1;
+  let sound: OggSound = "vorbis";
+  let headers: number | null = 0;
+  let streams = 1;
+  // The stream's packet being put together (its identification header is 0): its length so
+  // far, and its parts (a header's first bytes, which say what it is; the sound packet whole).
+  let index = 0;
+  let length = 0;
+  let parts: Uint8Array[] = [];
   let offset = 0;
-  for (let part = 0; part < MAX_OGG_PAGES; part += 1) {
-    const page = await oggPage(head, read, offset, size);
-    if (!page || page.next > size) return false;
-    if (page.opens) {
-      // Each stream opens (before any data) with a page that says what it holds.
-      const packet = await bytesAt(head, read, page.data, 8);
-      const id = ascii(packet, 0, 8);
-      if (id.startsWith("\u0001vorbis") || id === "OpusHead" || id.startsWith("\u007fFLAC"))
-        sound.add(page.serial);
-    } else if (!sound.size) {
-      // Every stream has opened and none of them is sound.
-      return false;
-    } else if (sound.has(page.serial) && page.endsSound) {
-      return true;
+  for (let count = 0; count < MAX_OGG_PAGES; count += 1) {
+    const page = await oggPage(pages, offset, size);
+    if (!page) return false;
+    offset += page.bytes.length;
+    if (serial === -1) {
+      // Each stream opens, before any data, with a page that says what it holds.
+      if (!page.opens) return false;
+      const claimed = ascii(page.bytes, page.data, 8);
+      if (
+        !claimed.startsWith("\u0001vorbis") &&
+        claimed !== "OpusHead" &&
+        !claimed.startsWith("\u007fFLAC")
+      )
+        continue;
+      const ends = page.lengths.findIndex((segment) => segment < 255);
+      const alone = ends === page.lengths.length - 1 && !page.continues;
+      const id =
+        alone && oggPageIntact(page.bytes)
+          ? oggIdentification(page.bytes.subarray(page.data))
+          : null;
+      if (!id) return false;
+      ({ sound, headers, streams } = id);
+      serial = page.serial;
+      index = 1;
+      continue;
     }
-    offset = page.next;
+    if (page.serial !== serial) continue;
+    if (!oggPageIntact(page.bytes) || page.continues !== length > 0) return false;
+    let at = page.data;
+    for (const segment of page.lengths) {
+      const piece = page.bytes.subarray(at, at + segment);
+      at += segment;
+      const sounding = headers !== null && index > headers;
+      if (sounding) parts.push(piece);
+      else if (length < 64) parts.push(piece.subarray(0, 64 - length));
+      length += segment;
+      if (sounding && length > MAX_FLAC_FRAME) return false;
+      if (segment === 255) continue;
+      // The packet ends here.
+      const packet = new Uint8Array(parts.reduce((sum, each) => sum + each.length, 0));
+      let filled = 0;
+      for (const each of parts) {
+        packet.set(each, filled);
+        filled += each.length;
+      }
+      if (sounding) return oggSoundPacket(sound, packet, streams);
+      if (!oggHeader(sound, index, packet, length)) return false;
+      // FLAC's headers run to the metadata block marked last.
+      if (sound === "flac" && (packet[0] ?? 0) & 0x80) headers = index;
+      index += 1;
+      length = 0;
+      parts = [];
+    }
+    // The stream ended before its sound.
+    if (page.closes) return false;
   }
   return false;
 }
