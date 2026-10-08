@@ -228,6 +228,8 @@ async function isWav(head: Uint8Array, read: ReadRange, size: number): Promise<b
       let code = u16le(format, 0);
       const channels = u16le(format, 2);
       const rate = u32le(format, 4);
+      const byteRate = u32le(format, 8);
+      const block = u16le(format, 12);
       const bits = u16le(format, 14);
       if (code === 0xfffe) {
         if (format.length < 40 || u16le(format, 16) < 22) return false;
@@ -235,13 +237,20 @@ async function isWav(head: Uint8Array, read: ReadRange, size: number): Promise<b
         code = u16le(format, 24);
       }
       // PCM (1) at 8 to 32 bits, or 32-bit floating point (3). Chrome decodes no
-      // 64-bit samples, and Firefox reads any floating point as 32-bit.
+      // 64-bit samples, and Firefox reads any floating point as 32-bit. Its block
+      // alignment must be one frame and its byte rate a second of them, as FFmpeg
+      // (Chrome's demuxer, and the renderer) uses both: it reads whole blocks and
+      // drops a packet's partial frame, so other blocks scramble the samples, and
+      // it seeks by the byte rate, so another misplaces seeks (the renderer's
+      // trims among them).
       formatOk =
         ((code === 1 && [8, 16, 24, 32].includes(bits)) || (code === 3 && bits === 32)) &&
         channels >= 1 &&
         channels <= MAX_CHANNELS &&
         rate >= 8000 &&
-        rate <= 384_000;
+        rate <= 384_000 &&
+        block === channels * (bits / 8) &&
+        byteRate === rate * block;
       if (!formatOk) return false;
     } else if (id === "data") {
       // Audio bytes must follow (a streamed WAV may not know its length: all ones).
