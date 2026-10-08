@@ -201,7 +201,7 @@ const EXTENSIBLE_TAIL = [
   0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71,
 ];
 
-/** A WAV whose format browsers decode (PCM or float), followed by data that is really there. */
+/** A WAV whose format browsers decode (PCM, or 32-bit floating point), followed by data that is really there. */
 async function isWav(head: Uint8Array, read: ReadRange, size: number): Promise<boolean> {
   let offset = 12;
   let formatOk = false;
@@ -225,10 +225,10 @@ async function isWav(head: Uint8Array, read: ReadRange, size: number): Promise<b
         if (!EXTENSIBLE_TAIL.every((byte, index) => format[26 + index] === byte)) return false;
         code = u16le(format, 24);
       }
-      // PCM (1) at 8 to 32 bits, or floating point (3) at 32 or 64.
+      // PCM (1) at 8 to 32 bits, or 32-bit floating point (3). Chrome decodes no
+      // 64-bit samples, and Firefox reads any floating point as 32-bit.
       formatOk =
-        ((code === 1 && [8, 16, 24, 32].includes(bits)) ||
-          (code === 3 && [32, 64].includes(bits))) &&
+        ((code === 1 && [8, 16, 24, 32].includes(bits)) || (code === 3 && bits === 32)) &&
         channels >= 1 &&
         channels <= 32 &&
         rate >= 8000 &&
