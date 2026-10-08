@@ -1,6 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { authenticateCronRequest } from "@/integrations/supabase/cron-auth";
 
+/** The most time the music upload cleanup may take in one run. */
+const CLEANUP_MS = 20_000;
+
+/** What `work` comes to, or `fallback` if it fails or takes longer than `ms`. */
+function settleWithin<T>(work: Promise<T>, ms: number, fallback: T): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<T>((resolve) => {
+    timer = setTimeout(() => resolve(fallback), ms);
+  });
+  return Promise.race([work.catch(() => fallback), late]).finally(() => clearTimeout(timer));
+}
+
 /**
  * Recovery worker: dispatches locally queued jobs, polls stale provider jobs
  * whose webhook may have been missed, and ingests pending outputs. It also
@@ -17,20 +29,28 @@ export const Route = createFileRoute("/api/public/higgsfield-reconcile")({
           await import("@/lib/generation-pipeline.server");
         const { clearAbandonedMusicUploads } = await import("@/lib/music/service.server");
 
-        // First and on its own, so a problem elsewhere never holds it up (or the reverse).
-        const musicUploads = await clearAbandonedMusicUploads().catch(() => 0);
-        const dispatched = await dispatchQueue();
-        const polled = await reconcileStaleGenerations();
-        // Saving runs while the scheduler waits for this call (up to two
-        // minutes), so large outputs aren't held to the ~30 s Cloudflare allows
-        // after a response. A save that outlasts the scheduler still gets that
-        // time to finish instead of being cancelled with the request.
-        const ingested = await runWhileConnected(request, () => ingestPending());
+        // Alongside the generation work rather than ahead of it: a slow or
+        // stalled storage call there never holds up dispatch, polling or
+        // saving, and a failure of theirs doesn't cut it short (the response
+        // waits for it). What it hasn't cleared within CLEANUP_MS is left for
+        // the next run.
+        const musicUploads = settleWithin(clearAbandonedMusicUploads(), CLEANUP_MS, 0);
+        try {
+          const dispatched = await dispatchQueue();
+          const polled = await reconcileStaleGenerations();
+          // Saving runs while the scheduler waits for this call (up to two
+          // minutes), so large outputs aren't held to the ~30 s Cloudflare allows
+          // after a response. A save that outlasts the scheduler still gets that
+          // time to finish instead of being cancelled with the request.
+          const ingested = await runWhileConnected(request, () => ingestPending());
 
-        return new Response(JSON.stringify({ dispatched, polled, ingested, musicUploads }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
+          return new Response(
+            JSON.stringify({ dispatched, polled, ingested, musicUploads: await musicUploads }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        } finally {
+          await musicUploads;
+        }
       },
     },
   },
