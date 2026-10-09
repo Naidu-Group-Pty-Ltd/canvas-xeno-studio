@@ -20,7 +20,7 @@ import type { AssetRow, GenerationRow } from "@/hooks/useStudioData";
 import type { ModelRegistryEntry } from "@/lib/model-schema";
 import { validateParameters } from "@/lib/model-schema";
 import { summarizeParameters } from "@/lib/parameter-normalize";
-import { ROLE_LABELS } from "@/lib/references";
+import { ROLE_LABELS, slotLabel } from "@/lib/references";
 import { setCreatePrefill } from "@/lib/create-draft";
 import type { SupercomputerDraft } from "@/lib/supercomputer/types";
 import { ParameterFields } from "@/components/create/ParameterFields";
@@ -160,7 +160,12 @@ export function DraftCard({
                   <span className="size-5 overflow-hidden rounded">
                     <ReferenceThumb assetId={ref.assetId} type={ref.assetType} />
                   </span>
-                  {ROLE_LABELS[ref.role] ?? ref.role}
+                  {(() => {
+                    const slot = model?.capabilities?.inputs?.find(
+                      (entry) => entry.role === ref.role,
+                    );
+                    return slot ? slotLabel(slot) : (ROLE_LABELS[ref.role] ?? ref.role);
+                  })()}
                 </span>
               </TooltipTrigger>
               <TooltipContent>{ref.title ?? "Reference"}</TooltipContent>

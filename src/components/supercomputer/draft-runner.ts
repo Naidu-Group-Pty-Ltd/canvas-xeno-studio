@@ -60,14 +60,19 @@ export function useDraftRunner(context: {
         if (result.ok && result.costUsd !== null) return { kind: "ready", costUsd: result.costUsd };
         if (result.ok && result.pricingDescription)
           return { kind: "metered", description: result.pricingDescription };
+        const detail = result.message?.trim();
         return {
           kind: "unavailable",
           reason:
             result.code === "INSUFFICIENT_PROVIDER_BALANCE"
-              ? "The provider account is out of credits"
+              ? "The Higgsfield account is out of credits"
               : result.code === "INVALID_PARAMETERS"
-                ? "Some settings are not valid for this model"
-                : "Estimate unavailable",
+                ? detail
+                  ? `Higgsfield rejected these settings: ${detail}`
+                  : "Some settings are not valid for this model"
+                : result.code === "UPLOAD_FAILED"
+                  ? (detail ?? "A reference file couldn't be sent to Higgsfield")
+                  : "Estimate unavailable",
         };
       } catch {
         return { kind: "unavailable", reason: "Estimate unavailable" };

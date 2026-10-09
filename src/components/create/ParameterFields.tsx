@@ -7,7 +7,7 @@ import {
   type FieldSchema,
   type ModelRegistryEntry,
 } from "@/lib/model-schema";
-import { listMarketingPresets } from "@/lib/generation.functions";
+import { listProviderPresets } from "@/lib/generation.functions";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -69,6 +69,9 @@ function FieldLabel({ field, issue }: { field: FieldSchema; issue?: string | und
   );
 }
 
+/** Shown for an optional choice with no default: nothing is sent and the model decides. */
+const AUTO = "__auto__";
+
 function FieldControl({
   field,
   value,
@@ -81,6 +84,9 @@ function FieldControl({
   issue?: string | undefined;
 }) {
   const options = (field.options ?? []).map(normalizeOption);
+  // An optional choice without a default can be left to the model.
+  const auto = !field.required && field.default === undefined;
+  const unset = value === undefined || value === null || value === "";
 
   if (field.type === "boolean") {
     return (
@@ -119,11 +125,15 @@ function FieldControl({
 
       {(field.type === "select" || field.type === "segmented" || field.type === "aspect_ratio") &&
         (options.length > 6 || field.type === "select" ? (
-          <Select value={value === undefined || value === null ? "" : String(value)} onValueChange={(next) => onChange(coerce(next, options))}>
+          <Select
+            value={unset ? (auto ? AUTO : "") : String(value)}
+            onValueChange={(next) => onChange(next === AUTO ? undefined : coerce(next, options))}
+          >
             <SelectTrigger id={field.key}>
               <SelectValue placeholder={`Select ${field.label.toLowerCase()}`} />
             </SelectTrigger>
             <SelectContent>
+              {auto && <SelectItem value={AUTO}>Auto</SelectItem>}
               {options.map((option) => (
                 <SelectItem key={String(option.value)} value={String(option.value)}>
                   {option.label}
@@ -133,6 +143,20 @@ function FieldControl({
           </Select>
         ) : (
           <div className="flex flex-wrap gap-1.5">
+            {auto && (
+              <button
+                type="button"
+                onClick={() => onChange(undefined)}
+                className={cn(
+                  "rounded-md border px-2.5 py-1.5 text-xs transition-colors",
+                  unset
+                    ? "border-primary/60 bg-primary/10 text-foreground"
+                    : "border-border text-muted-foreground hover:border-input hover:text-foreground",
+                )}
+              >
+                Auto
+              </button>
+            )}
             {options.map((option) => (
               <button
                 key={String(option.value)}
@@ -158,6 +182,7 @@ function FieldControl({
             type="number"
             inputMode="numeric"
             value={value === undefined || value === null ? "" : String(value)}
+            placeholder={auto ? "Auto" : undefined}
             min={field.min}
             max={field.max}
             step={field.step ?? 1}
@@ -169,7 +194,12 @@ function FieldControl({
               variant="outline"
               size="icon"
               aria-label="Randomize seed"
-              onClick={() => onChange(Math.floor(Math.random() * (field.max ?? 1_000_000)))}
+              onClick={() => {
+                // Within the model's own range: some seeds start at 1, some go to 2^31.
+                const min = Math.max(field.min ?? 0, 0);
+                const max = Math.min(field.max ?? 1_000_000, 1_000_000);
+                onChange(min + Math.floor(Math.random() * (max - min + 1)));
+              }}
             >
               <RefreshCw className="size-4" />
             </Button>
@@ -202,7 +232,7 @@ function coerce(raw: string, options: { value: string | number }[]) {
   return match ? match.value : raw;
 }
 
-/** Marketing Studio presets are always fetched live — never hardcoded. */
+/** Presets are always fetched live from the catalogue the field names — never hardcoded. */
 function PresetField({
   field,
   value,
@@ -215,13 +245,16 @@ function PresetField({
   issue?: string | undefined;
 }) {
   const [term, setTerm] = useState("");
-  const { data, isLoading, isError, hasNextPage, fetchNextPage, isFetchingNextPage } = useInfiniteQuery({
-    queryKey: ["marketing-presets"],
-    queryFn: ({ pageParam }) => listMarketingPresets({ data: pageParam ? { cursor: pageParam } : {} }),
-    initialPageParam: null as string | null,
-    getNextPageParam: (last) => last.nextCursor ?? undefined,
-    staleTime: 5 * 60_000,
-  });
+  const source = field.source === "genjutsu-restyle" ? "genjutsu-restyle" : "marketing-studio";
+  const { data, isLoading, isError, hasNextPage, fetchNextPage, isFetchingNextPage } =
+    useInfiniteQuery({
+      queryKey: ["provider-presets", source],
+      queryFn: ({ pageParam }) =>
+        listProviderPresets({ data: pageParam ? { source, cursor: pageParam } : { source } }),
+      initialPageParam: null as string | null,
+      getNextPageParam: (last) => last.nextCursor ?? undefined,
+      staleTime: 5 * 60_000,
+    });
 
   const firstPage = data?.pages[0];
   const presets = (data?.pages ?? []).flatMap(

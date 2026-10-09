@@ -64,7 +64,88 @@ type EstimateState =
   | { kind: "ready"; costUsd: number }
   /** Metered models are quoted as a rate rather than a single figure. */
   | { kind: "metered"; description: string }
-  | { kind: "unavailable"; reason: string };
+  /** `label` fits the cost line; `reason` says what is wrong and what to do. */
+  | { kind: "unavailable"; label: string; reason: string; code?: string };
+
+/** Why the provider couldn't quote, said so a person knows what to do next. */
+function estimateProblem(
+  result: { code: string | null; message?: string | null },
+  isAdmin: boolean,
+): Extract<EstimateState, { kind: "unavailable" }> {
+  const detail = result.message?.trim();
+  switch (result.code) {
+    case "INSUFFICIENT_PROVIDER_BALANCE":
+      return {
+        kind: "unavailable",
+        code: result.code,
+        label: "Out of credits",
+        reason: isAdmin
+          ? "The Higgsfield account is out of credits. Top it up in the Higgsfield console, then try again."
+          : "The Higgsfield account is out of credits. Ask an admin to top it up.",
+      };
+    case "INVALID_PARAMETERS":
+      return {
+        kind: "unavailable",
+        code: result.code,
+        label: "Settings rejected",
+        reason: detail
+          ? `Higgsfield rejected these settings: ${detail}`
+          : "Higgsfield rejected these settings.",
+      };
+    case "UPLOAD_FAILED":
+      return {
+        kind: "unavailable",
+        code: result.code,
+        label: "Reference problem",
+        reason: detail ?? "A reference file couldn't be sent to Higgsfield.",
+      };
+    case "RATE_LIMITED":
+      return {
+        kind: "unavailable",
+        code: result.code,
+        label: "Busy",
+        reason:
+          "Higgsfield is limiting requests right now. Change a setting or wait a moment to retry.",
+      };
+    case "PROVIDER_TIMEOUT":
+      return {
+        kind: "unavailable",
+        code: result.code,
+        label: "No answer",
+        reason: "Higgsfield didn't answer in time. Change a setting or wait a moment to retry.",
+      };
+    case "PROVIDER_REJECTED":
+      return {
+        kind: "unavailable",
+        code: result.code,
+        label: "Unavailable",
+        reason: detail ?? "Higgsfield can't run this model for the account right now.",
+      };
+    default:
+      return {
+        kind: "unavailable",
+        code: result.code ?? "ESTIMATE_FAILED",
+        label: "Unavailable",
+        reason: detail
+          ? `No estimate: ${detail}`
+          : "Higgsfield didn't return an estimate for these settings.",
+      };
+  }
+}
+
+/** A model's name without its workflow, e.g. "Seedance 2.5" for "Seedance 2.5 (Image to video)". */
+function modelLine(model: ModelRegistryEntry): string {
+  return model.display_name.replace(/\s*\([^)]*\)\s*$/, "");
+}
+
+/** The workflow a model's name ends with, or its operation for the model's main workflow. */
+function workflowLabel(model: ModelRegistryEntry): string {
+  return (
+    /\(([^)]*)\)\s*$/.exec(model.display_name)?.[1] ??
+    OPERATION_LABELS[model.operation] ??
+    model.operation
+  );
+}
 
 function CreatePage() {
   const { user, isAdmin } = useAuth();
@@ -105,8 +186,14 @@ function CreatePage() {
 
   const mediaModels = useMemo(() => models.filter((model) => model.output_type === mediaType), [models, mediaType]);
   const model = useMemo(() => models.find((entry) => entry.id === modelId) ?? null, [models, modelId]);
+  // The selected model's other workflows (image to video, reference to video, …).
   const familyModels = useMemo(
-    () => (model ? mediaModels.filter((entry) => entry.family === model.family) : []),
+    () =>
+      model
+        ? mediaModels.filter(
+            (entry) => entry.family === model.family && modelLine(entry) === modelLine(model),
+          )
+        : [],
     [mediaModels, model],
   );
   const [pickerBriefMode, setPickerBriefMode] = useState(false);
@@ -241,19 +328,27 @@ function CreatePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model?.id, JSON.stringify(values), JSON.stringify(cinema), cinemaOn]);
 
-  // Debounced live estimate; any parameter change invalidates the previous one.
+  // Debounced live estimate; any parameter or reference change invalidates the previous one.
+  const referenceKey = JSON.stringify(usable.map((item) => [item.assetId, item.role]));
+  const valuesKey = JSON.stringify(submitValues);
   useEffect(() => {
     if (!model || !health?.configured || issues.length) {
       setEstimate(
         !health?.configured
-          ? { kind: "unavailable", reason: "Provider not configured" }
+          ? {
+              kind: "unavailable",
+              label: "Not configured",
+              reason: "Higgsfield credentials are not configured",
+            }
           : issues.length
-            ? { kind: "unavailable", reason: "Parameters incomplete" }
+            ? { kind: "unavailable", label: "—", reason: issues[0]!.message }
             : { kind: "idle" },
       );
       return;
     }
     setEstimate({ kind: "loading" });
+    // A slower answer for settings that have since changed must not overwrite the current one.
+    let cancelled = false;
     const timer = setTimeout(async () => {
       try {
         const result = await estimateGeneration({
@@ -263,24 +358,21 @@ function CreatePage() {
             inputs: usable.map((item, index) => ({ assetId: item.assetId, role: item.role, position: index })),
           },
         });
+        if (cancelled) return;
         if (result.ok && result.costUsd !== null) setEstimate({ kind: "ready", costUsd: result.costUsd });
         else if (result.ok && result.pricingDescription)
           setEstimate({ kind: "metered", description: result.pricingDescription });
-        else
-          setEstimate({
-            kind: "unavailable",
-            reason:
-              result.code === "INSUFFICIENT_PROVIDER_BALANCE"
-                ? "Provider account is out of credits"
-                : "Estimate unavailable",
-          });
+        else setEstimate(estimateProblem(result, isAdmin));
       } catch {
-        setEstimate({ kind: "unavailable", reason: "Estimate unavailable" });
+        if (!cancelled) setEstimate(estimateProblem({ code: null }, isAdmin));
       }
     }, 700);
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [model?.id, JSON.stringify(submitValues), JSON.stringify(inputRoles), health?.configured, issues.length]);
+  }, [model?.id, valuesKey, referenceKey, health?.configured, issues.length, isAdmin]);
 
   const canGenerate =
     !!model &&
@@ -302,6 +394,16 @@ function CreatePage() {
           : requireEstimate && estimate.kind !== "ready" && estimate.kind !== "metered"
             ? "Waiting for a valid cost estimate"
             : null;
+  // Only an estimate the provider couldn't give (not one it refused for the
+  // settings or the balance) can be worked around by generating without one.
+  const estimateBypassHint =
+    isAdmin &&
+    requireEstimate &&
+    issues.length === 0 &&
+    estimate.kind === "unavailable" &&
+    !["INSUFFICIENT_PROVIDER_BALANCE", "INVALID_PARAMETERS", "UPLOAD_FAILED"].includes(
+      estimate.code ?? "",
+    );
 
   async function runSubmit() {
     if (!model || !canGenerate) return;
@@ -546,7 +648,7 @@ function CreatePage() {
                             : "border-border text-muted-foreground hover:text-foreground",
                         )}
                       >
-                        {OPERATION_LABELS[entry.operation] ?? entry.operation}
+                        {workflowLabel(entry)}
                       </button>
                     ))}
                   </div>
@@ -679,7 +781,7 @@ function CreatePage() {
                   {estimate.kind === "loading" && "Calculating…"}
                   {estimate.kind === "ready" && `$${estimate.costUsd.toFixed(2)}`}
                   {estimate.kind === "metered" && "Metered"}
-                  {estimate.kind === "unavailable" && estimate.reason}
+                  {estimate.kind === "unavailable" && estimate.label}
                   {estimate.kind === "idle" && "—"}
                 </span>
               </div>
@@ -706,7 +808,27 @@ function CreatePage() {
                     : "Generate"}
               </Button>
               {disabledReason && !submitting && (
-                <p className="text-[11px] text-muted-foreground">{disabledReason}</p>
+                <p
+                  className={cn(
+                    "text-[11px]",
+                    estimate.kind === "unavailable" &&
+                      estimate.code === "INSUFFICIENT_PROVIDER_BALANCE"
+                      ? "text-primary"
+                      : "text-muted-foreground",
+                  )}
+                  data-testid="generate-blocked-reason"
+                >
+                  {disabledReason}
+                </p>
+              )}
+              {estimateBypassHint && (
+                <p className="text-[11px] text-muted-foreground">
+                  To generate without an estimate, turn off “Require a cost estimate” in{" "}
+                  <Link to="/settings" className="underline hover:text-foreground">
+                    Settings
+                  </Link>
+                  .
+                </p>
               )}
               <p className="text-[11px] text-muted-foreground">
                 Costs shown are provider estimates, not final charges.

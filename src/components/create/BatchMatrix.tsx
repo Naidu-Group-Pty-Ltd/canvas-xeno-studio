@@ -22,7 +22,12 @@ export function BatchMatrix({
   onChange: (next: MatrixSelection) => void;
 }) {
   if (!model) return null;
-  const fields = (model.parameter_schema?.fields ?? []).filter((field) => (field.options?.length ?? 0) > 1);
+  // Main settings with a handful of choices (aspect ratios however many); a
+  // 50-entry palette or an advanced setting isn't a sensible matrix axis.
+  const fields = (model.parameter_schema?.fields ?? []).filter((field) => {
+    const count = field.options?.length ?? 0;
+    return !field.advanced && count > 1 && (count <= 12 || field.type === "aspect_ratio");
+  });
   if (!fields.length) return null;
 
   function toggle(key: string, value: string | number) {

@@ -274,7 +274,7 @@ export const estimateProductionPlan = createServerFn({ method: "POST" })
     const plan = row.plan as unknown as ProductionPlan;
 
     const { data: models } = await supabaseAdmin.from("model_registry").select("*").eq("is_active", true);
-    const { defaultsForModel } = await import("./model-schema");
+    const { defaultsForModel, providerPayload } = await import("./model-schema");
     const modelById = new Map(
       ((models ?? []) as unknown as ModelRegistryEntry[]).map((model) => [model.id, model]),
     );
@@ -294,7 +294,11 @@ export const estimateProductionPlan = createServerFn({ method: "POST" })
         const fields = model.parameter_schema?.fields ?? [];
         const params: Record<string, unknown> = { ...defaultsForModel(model), prompt: shot.prompt };
         if (shot.duration && fields.some((field) => field.key === "duration")) params["duration"] = shot.duration;
-        const call = await higgsfieldProvider.estimate(model.model_path, params);
+        // The same request body Create would send (no media is known for a planned shot).
+        const call = await higgsfieldProvider.estimate(
+          model.model_path,
+          providerPayload(model, params, []),
+        );
         const cost = call.ok ? extractCost(call.data) : null;
         if (cost === null) unknown += 1;
         else total += cost;

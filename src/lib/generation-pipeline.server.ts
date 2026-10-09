@@ -15,7 +15,7 @@ import {
   normalizeStatus,
   type NormalizedOutput,
 } from "./higgsfield/provider.server";
-import type { InputSlot, ModelRegistryEntry } from "./model-schema";
+import { providerPayload, type ModelRegistryEntry } from "./model-schema";
 import { LOVABLE_PROJECT_URL } from "./app-config";
 
 type Json = Record<string, unknown>;
@@ -147,6 +147,15 @@ export async function getSettings(): Promise<Record<string, unknown>> {
   return settings;
 }
 
+/**
+ * Whether a provider answer says anything about the provider's health. A
+ * request the provider rejected for its own content (invalid settings,
+ * moderation) shows the provider working, not failing.
+ */
+export function reflectsProviderHealth(call: { ok: boolean; errorCode?: string }): boolean {
+  return call.ok || !["INVALID_PARAMETERS", "MODERATION_BLOCKED"].includes(call.errorCode ?? "");
+}
+
 export async function recordProviderHealth(success: boolean, message?: string) {
   if (success) {
     await supabaseAdmin
@@ -185,6 +194,92 @@ function providerMime(mime: string): string {
   return mime;
 }
 
+/** A stored file and what it is, as the provider upload needs it. */
+export interface StoredMedia {
+  assetId: string | null;
+  bucket: string;
+  path: string;
+  mimeType: string | null;
+}
+
+/**
+ * How long a provider upload is reused. The provider keeps uploads only
+ * temporarily, so a copy is reused for a while (a live estimate refreshing as
+ * settings change, then the generation itself), never indefinitely.
+ */
+const UPLOAD_REUSE_MS = 30 * 60_000;
+
+/** Uploads in flight in this worker, so overlapping estimates share one. */
+const uploadsInFlight = new Map<string, Promise<string>>();
+
+async function uploadStoredMedia(media: StoredMedia): Promise<{ url: string; mime: string }> {
+  const { data: file, error } = await supabaseAdmin.storage.from(media.bucket).download(media.path);
+  if (error || !file)
+    throw new AppError("UPLOAD_FAILED", "Reference file could not be read from storage");
+  const mime = providerMime(media.mimeType || file.type || "application/octet-stream");
+  const filename = media.path.split("/").pop() ?? "reference";
+  // Rejected here, before any provider call, with a reason the team can act on.
+  if (!PROVIDER_UPLOAD_TYPES.has(mime)) {
+    throw new AppError(
+      "UPLOAD_FAILED",
+      `${filename} is ${mime}, which Higgsfield does not accept as a reference. Use MP4 video, WAV audio or a JPEG, PNG, WebP or GIF image.`,
+    );
+  }
+  const bytes = await file.arrayBuffer();
+  const url = await higgsfieldProvider.uploadMedia(bytes, mime, filename.replace(/[^\w.-]/g, "_"));
+  return { url, mime };
+}
+
+/**
+ * The provider's URL for a stored file: a recent upload of the same file when
+ * there is one, otherwise a fresh upload, remembered for reuse. The memory is
+ * an optimisation only; without it (or its table) every call simply uploads.
+ */
+export async function providerMediaUrl(media: StoredMedia): Promise<string> {
+  const assetId = media.assetId;
+  if (!assetId) return (await uploadStoredMedia(media)).url;
+  const key = `${assetId}:${media.bucket}/${media.path}`;
+  const pending = uploadsInFlight.get(key);
+  if (pending) return pending;
+
+  const work = (async () => {
+    const { data: cached } = await supabaseAdmin
+      .from("provider_media_uploads")
+      .select("public_url,storage_bucket,storage_path,uploaded_at")
+      .eq("asset_id", assetId)
+      .eq("provider", "higgsfield")
+      .maybeSingle();
+    if (
+      cached &&
+      cached.storage_bucket === media.bucket &&
+      cached.storage_path === media.path &&
+      Date.now() - new Date(cached.uploaded_at).getTime() < UPLOAD_REUSE_MS
+    )
+      return cached.public_url;
+
+    const uploaded = await uploadStoredMedia(media);
+    await supabaseAdmin.from("provider_media_uploads").upsert(
+      {
+        asset_id: assetId,
+        provider: "higgsfield",
+        storage_bucket: media.bucket,
+        storage_path: media.path,
+        mime_type: uploaded.mime,
+        public_url: uploaded.url,
+        uploaded_at: new Date().toISOString(),
+      },
+      { onConflict: "asset_id,provider" },
+    );
+    return uploaded.url;
+  })();
+  uploadsInFlight.set(key, work);
+  try {
+    return await work;
+  } finally {
+    uploadsInFlight.delete(key);
+  }
+}
+
 export async function prepareMediaForGeneration(generationId: string): Promise<void> {
   const { data: inputs } = await supabaseAdmin
     .from("generation_inputs")
@@ -195,47 +290,32 @@ export async function prepareMediaForGeneration(generationId: string): Promise<v
   for (const input of inputs ?? []) {
     if (input.hf_public_url) continue; // reuse an already prepared URL
     if (!input.storage_bucket || !input.storage_path) continue;
-    const { data: file, error } = await supabaseAdmin.storage
-      .from(input.storage_bucket)
-      .download(input.storage_path);
-    if (error || !file) throw new AppError("UPLOAD_FAILED", "Reference file could not be read from storage");
     const declared = (input.metadata as Json)?.["mime_type"];
-    const mime = providerMime(typeof declared === "string" ? declared : file.type || "application/octet-stream");
-    const filename = input.storage_path.split("/").pop() ?? "reference";
-    // Rejected here, before any provider call, with a reason the team can act on.
-    if (!PROVIDER_UPLOAD_TYPES.has(mime)) {
-      throw new AppError(
-        "UPLOAD_FAILED",
-        `${filename} is ${mime}, which Higgsfield does not accept as a reference. Use MP4 video, WAV audio or a JPEG, PNG, WebP or GIF image.`,
-      );
-    }
-    const bytes = await file.arrayBuffer();
-    const url = await higgsfieldProvider.uploadMedia(bytes, mime, filename.replace(/[^\w.-]/g, "_"));
+    const url = await providerMediaUrl({
+      assetId: input.asset_id,
+      bucket: input.storage_bucket,
+      path: input.storage_path,
+      mimeType: typeof declared === "string" ? declared : null,
+    });
     await supabaseAdmin.from("generation_inputs").update({ hf_public_url: url }).eq("id", input.id);
   }
 }
 
 /** Builds the provider payload from registry parameters plus prepared media. */
 export async function buildProviderParams(
-  model: Pick<ModelRegistryEntry, "capabilities">,
+  model: ModelRegistryEntry,
   parameters: Json,
   generationId: string,
 ): Promise<Json> {
-  const payload: Json = { ...parameters };
   const { data: inputs } = await supabaseAdmin
     .from("generation_inputs")
     .select("*")
     .eq("generation_id", generationId)
     .order("position");
-
-  const slots: InputSlot[] = model.capabilities?.inputs ?? [];
-  for (const slot of slots) {
-    const matching = (inputs ?? []).filter((i) => i.input_type === slot.role && i.hf_public_url);
-    if (matching.length === 0) continue;
-    if (slot.array) payload[slot.param] = matching.map((i) => i.hf_public_url);
-    else payload[slot.param] = matching[0]!.hf_public_url;
-  }
-  return payload;
+  const media = (inputs ?? []).flatMap((input) =>
+    input.hf_public_url ? [{ role: input.input_type as string, url: input.hf_public_url }] : [],
+  );
+  return providerPayload(model, parameters, media);
 }
 
 /* ------------------------------------------------------------------ */
@@ -326,7 +406,14 @@ export async function submitToProvider(generationId: string): Promise<{ status: 
     return { status: "failed" };
   }
 
-  const call = await higgsfieldProvider.submit(generation.model_path, params, webhookUrl());
+  // The generation's id is its idempotency key: the provider never runs one
+  // generation twice, even if this request were ever repeated.
+  const call = await higgsfieldProvider.submit(
+    generation.model_path,
+    params,
+    webhookUrl(),
+    generationId,
+  );
 
   if (call.ok) {
     const requestId = extractRequestId(call.data);
@@ -373,7 +460,7 @@ export async function submitToProvider(generationId: string): Promise<{ status: 
     })
     .eq("id", generationId);
   await logEvent(generationId, "failed", { code: call.errorCode, message: call.errorMessage });
-  await recordProviderHealth(false, call.errorMessage);
+  if (reflectsProviderHealth(call)) await recordProviderHealth(false, call.errorMessage);
   return { status: "failed" };
 }
 
