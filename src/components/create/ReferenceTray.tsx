@@ -18,7 +18,7 @@ import {
   assignRoles,
   referenceCompatibleModels,
   rolesForType,
-  ROLE_LABELS,
+  slotLabel,
   slotsFor,
   UNUSED_ROLE,
 } from "@/lib/references";
@@ -176,7 +176,7 @@ export function ReferenceTray({
               <div key={slot.role} className="space-y-1.5">
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="font-medium">
-                    {ROLE_LABELS[slot.role] ?? slot.role}
+                    {slotLabel(slot)}
                     {slot.required && <span className="ml-1 text-primary">*</span>}
                   </span>
                   <span className="text-muted-foreground">
@@ -219,7 +219,7 @@ export function ReferenceTray({
                       type="button"
                       onClick={() => inputRef.current?.click()}
                       className="flex size-20 items-center justify-center rounded-md border border-dashed border-border text-muted-foreground hover:border-input"
-                      aria-label={`Add ${ROLE_LABELS[slot.role] ?? slot.role}`}
+                      aria-label={`Add ${slotLabel(slot)}`}
                     >
                       <Plus className="size-4" />
                     </button>
@@ -309,10 +309,7 @@ export function ReferenceTray({
 function describeSlots(model: ModelRegistryEntry | null): string {
   const slots = slotsFor(model);
   return slots
-    .map(
-      (slot) =>
-        `${(ROLE_LABELS[slot.role] ?? slot.role).toLowerCase()}${slot.required ? " (required)" : ""}`,
-    )
+    .map((slot) => `${slotLabel(slot).toLowerCase()}${slot.required ? " (required)" : ""}`)
     .join(", ");
 }
 
@@ -393,7 +390,7 @@ function ReferenceTile({
           <SelectContent>
             {roles.map((slot) => (
               <SelectItem key={slot.role} value={slot.role} className="text-xs">
-                {ROLE_LABELS[slot.role] ?? slot.role}
+                {slotLabel(slot)}
               </SelectItem>
             ))}
           </SelectContent>

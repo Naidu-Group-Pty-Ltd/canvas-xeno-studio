@@ -2,7 +2,12 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { AppError } from "./higgsfield/errors";
-import { validateParameters, type ModelRegistryEntry } from "./model-schema";
+import {
+  parameterValues,
+  providerPayload,
+  validateParameters,
+  type ModelRegistryEntry,
+} from "./model-schema";
 
 const inputSchema = z.object({ assetId: z.string().uuid(), role: z.string(), position: z.number().int().min(0) });
 
@@ -75,7 +80,14 @@ export const getProviderHealth = createServerFn({ method: "GET" })
     };
   });
 
-/** Live cost estimate. Never falls back to a hardcoded price. */
+/**
+ * Live cost estimate. Never falls back to a hardcoded price.
+ *
+ * The provider quotes exactly the request it would run, media included: a
+ * model that needs an image or a video can't be quoted without it, and a
+ * video's length can change the price. Media goes up once and is reused
+ * while the estimate refreshes and when the generation is submitted.
+ */
 export const estimateGeneration = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => estimateInput.parse(data))
@@ -84,35 +96,74 @@ export const estimateGeneration = createServerFn({ method: "POST" })
     const { higgsfieldProvider, extractCost, extractPricingDescription, providerConfigured } = await import(
       "./higgsfield/provider.server"
     );
-    if (!providerConfigured())
-      return { ok: false, code: "PROVIDER_NOT_CONFIGURED", costUsd: null, pricingDescription: null as string | null };
+    const unavailable = (code: string, message: string | null = null) => ({
+      ok: false as const,
+      code,
+      costUsd: null,
+      pricingDescription: null as string | null,
+      message,
+    });
+    if (!providerConfigured()) return unavailable("PROVIDER_NOT_CONFIGURED");
 
-    const { model } = await loadContext(null as never, data.modelId);
+    const { supabaseAdmin, model } = await loadContext(null as never, data.modelId);
     const slotRoles = new Set((model.capabilities?.inputs ?? []).map((slot) => slot.role));
-    const roles = data.inputs.map((i) => i.role).filter((role) => slotRoles.has(role));
-    const issues = validateParameters(model, data.parameters, roles);
-    if (issues.length)
-      return { ok: false, code: "INVALID_PARAMETERS", costUsd: null, pricingDescription: null as string | null, issues };
+    const inputs = data.inputs
+      .filter((input) => slotRoles.has(input.role))
+      .sort((a, b) => a.position - b.position);
+    const issues = validateParameters(
+      model,
+      data.parameters,
+      inputs.map((input) => input.role),
+    );
+    if (issues.length) return { ...unavailable("INVALID_PARAMETERS", issues[0]!.message), issues };
 
-    const call = await higgsfieldProvider.estimate(model.model_path, data.parameters);
-    const { recordProviderHealth } = await import("./generation-pipeline.server");
-    await recordProviderHealth(call.ok, call.errorMessage);
+    const pipeline = await import("./generation-pipeline.server");
+    const media: { role: string; url: string }[] = [];
+    if (inputs.length) {
+      const { data: assets } = await supabaseAdmin
+        .from("assets")
+        .select("id,storage_bucket,storage_path,mime_type")
+        .in(
+          "id",
+          inputs.map((input) => input.assetId),
+        );
+      try {
+        // One at a time: a worker holds each file in memory while it uploads.
+        for (const input of inputs) {
+          const asset = (assets ?? []).find((entry) => entry.id === input.assetId);
+          if (!asset)
+            throw new AppError("UPLOAD_FAILED", "A reference file is no longer in the library");
+          const url = await pipeline.providerMediaUrl({
+            assetId: asset.id,
+            bucket: asset.storage_bucket,
+            path: asset.storage_path,
+            mimeType: asset.mime_type,
+          });
+          media.push({ role: input.role, url });
+        }
+      } catch (error) {
+        return unavailable(
+          "UPLOAD_FAILED",
+          error instanceof Error ? error.message : "A reference file could not be prepared",
+        );
+      }
+    }
+
+    const call = await higgsfieldProvider.estimate(
+      model.model_path,
+      providerPayload(model, data.parameters, media),
+    );
+    if (pipeline.reflectsProviderHealth(call))
+      await pipeline.recordProviderHealth(call.ok, call.errorMessage);
     if (!call.ok)
-      return {
-        ok: false,
-        code: call.errorCode ?? "ESTIMATE_FAILED",
-        costUsd: null,
-        pricingDescription: null as string | null,
-        message: call.errorMessage ?? null,
-      };
+      return unavailable(call.errorCode ?? "ESTIMATE_FAILED", call.errorMessage ?? null);
 
     const cost = extractCost(call.data);
     const pricingDescription = extractPricingDescription(call.data);
     // Metered models are quoted as a rate rather than a figure; that is a valid
     // answer from the provider, not an estimate failure.
-    if (cost === null && !pricingDescription)
-      return { ok: false, code: "ESTIMATE_FAILED", costUsd: null, pricingDescription: null as string | null };
-    return { ok: true, code: null, costUsd: cost, pricingDescription };
+    if (cost === null && !pricingDescription) return unavailable("ESTIMATE_FAILED");
+    return { ok: true as const, code: null, costUsd: cost, pricingDescription, message: null };
   });
 
 /** Creates the generation record first, then submits exactly once. */
@@ -182,7 +233,8 @@ export const submitGeneration = createServerFn({ method: "POST" })
         model_path: model.model_path,
         operation: model.operation as never,
         prompt: typeof data.parameters["prompt"] === "string" ? (data.parameters["prompt"] as string) : null,
-        parameters: data.parameters as never,
+        // Only the model's own settings in play are kept: what the provider is sent.
+        parameters: parameterValues(model, data.parameters, roles) as never,
         estimated_cost_usd: estimatedCost,
         cost_source: estimatedCost != null ? "provider_estimate" : null,
         status: "ready",
@@ -377,16 +429,22 @@ export const ingestGenerationOutputs = createServerFn({ method: "POST" })
     return { assets: created, ingestStatus: generation?.ingest_status ?? null };
   });
 
-/** Marketing Studio presets are always fetched live; no preset IDs are hardcoded. */
-export const listMarketingPresets = createServerFn({ method: "POST" })
+const presetInput = z.object({
+  /** The catalogue a preset control names (FieldSchema.source). */
+  source: z.enum(["marketing-studio", "genjutsu-restyle"]).default("marketing-studio"),
+  cursor: z.string().optional(),
+});
+
+/** Provider presets (Marketing Studio, Genjutsu styles) are always fetched live; no preset IDs are hardcoded. */
+export const listProviderPresets = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => z.object({ cursor: z.string().optional() }).parse(data))
+  .inputValidator((data: unknown) => presetInput.parse(data))
   .handler(async ({ data, context }) => {
     await assertActiveMember(context.userId);
     const { higgsfieldProvider, providerConfigured } = await import("./higgsfield/provider.server");
     if (!providerConfigured()) return { ok: false, code: "PROVIDER_NOT_CONFIGURED", presets: [], nextCursor: null };
 
-    const call = await higgsfieldProvider.listPresets(data.cursor);
+    const call = await higgsfieldProvider.listPresets(data.source, data.cursor);
     if (!call.ok) return { ok: false, code: call.errorCode ?? "UNKNOWN", presets: [], nextCursor: null };
 
     const payload = (call.data ?? {}) as Json;

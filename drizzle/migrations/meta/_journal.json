@@ -57,6 +57,20 @@
       "when": 1791290405140,
       "tag": "0007_team_invitations",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791292405140,
+      "tag": "0008_provider_media_uploads",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791294405140,
+      "tag": "0009_higgsfield_model_catalog",
+      "breakpoints": true
     }
   ]
 }

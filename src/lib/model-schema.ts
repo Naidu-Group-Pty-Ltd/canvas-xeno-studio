@@ -25,6 +25,13 @@ export interface ShowIf {
   hasInput?: string;
 }
 
+/** A control that only works alongside another setting, e.g. reasoning needs prompt expansion. */
+export interface FieldRequirement {
+  field: string;
+  equals: unknown;
+  message?: string;
+}
+
 export interface FieldSchema {
   key: string;
   type: FieldType;
@@ -40,6 +47,12 @@ export interface FieldSchema {
   options?: FieldOption[];
   advanced?: boolean;
   showIf?: ShowIf;
+  /** Where a preset control loads its choices from, e.g. "marketing-studio". */
+  source?: string;
+  /** Text the provider only accepts in one shape, e.g. an ID. */
+  format?: "uuid";
+  /** Checked when the control is switched on or filled in. */
+  requires?: FieldRequirement;
 }
 
 export interface ParameterSchema {
@@ -55,12 +68,30 @@ export interface InputSlot {
   max?: number;
   param: string;
   array?: boolean;
+  /** What the media is for on this model, e.g. "Start frame" or "Character image". */
+  label?: string;
 }
+
+/**
+ * Rules across a model's media inputs that single slots can't express. A rule
+ * with `when` applies only while that setting has that value.
+ *   anyOf     at least one input in one of these roles
+ *   exclusive inputs from at most one of these groups of roles
+ *   maxTotal  at most `max` inputs across these roles
+ */
+export type InputRule = { message: string; when?: { field: string; equals: unknown } } & (
+  | { kind: "anyOf"; roles: string[] }
+  | { kind: "exclusive"; groups: string[][] }
+  | { kind: "maxTotal"; roles: string[]; max: number }
+);
 
 export interface ModelCapabilities {
   inputs?: InputSlot[];
   presets?: boolean;
   cancelable?: boolean;
+  inputRules?: InputRule[];
+  /** Provider parameters always sent with one value and never shown as a control. */
+  fixedParameters?: Record<string, unknown>;
 }
 
 export interface ModelRegistryEntry {
@@ -88,6 +119,37 @@ export function normalizeOption(option: FieldOption): { value: string | number; 
     return { value: option.value, label: option.label ?? String(option.value) };
   }
   return { value: option, label: String(option) };
+}
+
+/** What each media role is called when a model doesn't name the slot itself. */
+export const SLOT_ROLE_LABELS: Record<string, string> = {
+  image: "Source image",
+  video: "Source video",
+  audio: "Audio",
+  source: "Source",
+  reference: "Reference",
+  first_frame: "Start frame",
+  last_frame: "End frame",
+};
+
+export function slotLabel(slot: Pick<InputSlot, "role" | "label">): string {
+  return slot.label ?? SLOT_ROLE_LABELS[slot.role] ?? slot.role;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_EXAMPLE = "3db34ab5-3439-4317-9e03-08dc30852e69";
+
+const MEDIA_NOUNS: Record<InputMediaType, string> = {
+  image: "an image",
+  video: "a video",
+  audio: "an audio file",
+};
+
+/** Unset, or text with nothing in it: never sent to the provider, and missing when required. */
+export function isBlank(value: unknown): boolean {
+  return (
+    value === undefined || value === null || (typeof value === "string" && value.trim() === "")
+  );
 }
 
 export function fieldVisible(
@@ -118,7 +180,8 @@ export function booleanOption(field: FieldSchema, value: boolean): string | unde
  * Registry defaults overlaid with the row's default_parameters. A stored
  * default that the field's own choices cannot represent (e.g. `true` for an
  * "on"/"off" control) is mapped when unambiguous, otherwise the field default
- * wins, so a freshly selected model always validates.
+ * wins, so a freshly selected model always validates. A stored default for a
+ * setting the model no longer has is ignored.
  */
 export function defaultsForModel(model: ModelRegistryEntry): Record<string, unknown> {
   const fields = model.parameter_schema?.fields ?? [];
@@ -128,8 +191,9 @@ export function defaultsForModel(model: ModelRegistryEntry): Record<string, unkn
   }
   for (const [key, value] of Object.entries(model.default_parameters ?? {})) {
     const field = fields.find((entry) => entry.key === key);
-    const allowed = (field?.options ?? []).map((option) => normalizeOption(option).value);
-    if (!field || !allowed.length || allowed.includes(value as string | number)) {
+    if (!field) continue;
+    const allowed = (field.options ?? []).map((option) => normalizeOption(option).value);
+    if (!allowed.length || allowed.includes(value as string | number)) {
       values[key] = value;
       continue;
     }
@@ -156,7 +220,7 @@ export function validateParameters(
   for (const field of fields) {
     if (!fieldVisible(field, values, inputRoles)) continue;
     const value = values[field.key];
-    const empty = value === undefined || value === null || value === "";
+    const empty = isBlank(value);
 
     if (field.required && empty) {
       issues.push({ key: field.key, message: `${field.label} is required` });
@@ -165,6 +229,11 @@ export function validateParameters(
     if (empty) continue;
 
     if (typeof value === "string") {
+      if (field.format === "uuid" && !UUID.test(value.trim()))
+        issues.push({
+          key: field.key,
+          message: `${field.label} must be an ID like ${UUID_EXAMPLE}`,
+        });
       if (field.minLength && value.trim().length < field.minLength)
         issues.push({ key: field.key, message: `${field.label} must be at least ${field.minLength} characters` });
       if (field.maxLength && value.length > field.maxLength)
@@ -182,17 +251,81 @@ export function validateParameters(
       if (!allowed.includes(value as string | number))
         issues.push({ key: field.key, message: `${field.label} has an unsupported value` });
     }
+    const needs = field.requires;
+    if (needs && value !== false && values[needs.field] !== needs.equals) {
+      const other = fields.find((entry) => entry.key === needs.field)?.label ?? needs.field;
+      issues.push({
+        key: field.key,
+        message: needs.message ?? `${field.label} needs ${other} changed`,
+      });
+    }
   }
 
   for (const slot of model.capabilities?.inputs ?? []) {
     const count = inputRoles.filter((r) => r === slot.role).length;
+    const label = slotLabel(slot);
     if (slot.required && count === 0)
-      issues.push({ key: slot.role, message: `A ${slot.type} for "${slot.role}" is required` });
+      issues.push({ key: slot.role, message: `${label}: add ${MEDIA_NOUNS[slot.type]}` });
     if (slot.max && count > slot.max)
-      issues.push({ key: slot.role, message: `At most ${slot.max} ${slot.role} files allowed` });
+      issues.push({
+        key: slot.role,
+        message: `${label} takes at most ${slot.max} file${slot.max === 1 ? "" : "s"}`,
+      });
+  }
+
+  const count = (roles: string[]) => inputRoles.filter((role) => roles.includes(role)).length;
+  for (const rule of model.capabilities?.inputRules ?? []) {
+    if (rule.when && values[rule.when.field] !== rule.when.equals) continue;
+    const broken =
+      rule.kind === "anyOf"
+        ? count(rule.roles) === 0
+        : rule.kind === "maxTotal"
+          ? count(rule.roles) > rule.max
+          : rule.groups.filter((group) => count(group) > 0).length > 1;
+    if (broken) issues.push({ key: "inputs", message: rule.message });
   }
 
   return issues;
+}
+
+/**
+ * The settings that go to the provider: the model's own controls that are in
+ * play (shown for these values and inputs) and filled in. Anything else in
+ * `values` (a setting another model had, a hidden control's leftover value,
+ * an empty text box) is never sent; the API rejects keys it doesn't know.
+ */
+export function parameterValues(
+  model: ModelRegistryEntry,
+  values: Record<string, unknown>,
+  inputRoles: string[],
+): Record<string, unknown> {
+  const sent: Record<string, unknown> = {};
+  for (const field of model.parameter_schema?.fields ?? []) {
+    const value = values[field.key];
+    if (isBlank(value) || !fieldVisible(field, values, inputRoles)) continue;
+    // A one-line value (an ID, a name) is sent without stray spaces around it.
+    sent[field.key] = field.type === "text" && typeof value === "string" ? value.trim() : value;
+  }
+  return sent;
+}
+
+/** A provider request body: the settings in play, the model's fixed parameters and its media. */
+export function providerPayload(
+  model: ModelRegistryEntry,
+  values: Record<string, unknown>,
+  media: { role: string; url: string }[],
+): Record<string, unknown> {
+  const roles = media.map((item) => item.role);
+  const payload: Record<string, unknown> = {
+    ...parameterValues(model, values, roles),
+    ...(model.capabilities?.fixedParameters ?? {}),
+  };
+  for (const slot of model.capabilities?.inputs ?? []) {
+    const urls = media.filter((item) => item.role === slot.role).map((item) => item.url);
+    if (!urls.length) continue;
+    payload[slot.param] = slot.array ? urls : urls[0];
+  }
+  return payload;
 }
 
 export const STATUS_LABELS: Record<string, string> = {

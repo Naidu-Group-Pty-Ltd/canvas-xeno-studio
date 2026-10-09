@@ -5,7 +5,14 @@
  * slot the selected model actually declares. Anything the model cannot use is
  * marked unused (and never uploaded to the provider) instead of being dropped.
  */
-import type { InputMediaType, InputSlot, ModelRegistryEntry } from "./model-schema";
+import {
+  SLOT_ROLE_LABELS,
+  type InputMediaType,
+  type InputSlot,
+  type ModelRegistryEntry,
+} from "./model-schema";
+
+export { slotLabel } from "./model-schema";
 
 export const UNUSED_ROLE = "unused";
 
@@ -16,13 +23,7 @@ export interface RoleCarrier {
 }
 
 export const ROLE_LABELS: Record<string, string> = {
-  image: "Source image",
-  video: "Source video",
-  audio: "Audio",
-  source: "Source",
-  reference: "Reference",
-  first_frame: "First frame",
-  last_frame: "Last frame",
+  ...SLOT_ROLE_LABELS,
   [UNUSED_ROLE]: "Not used",
 };
 

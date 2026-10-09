@@ -3641,6 +3641,44 @@ export type Database = {
           },
         ]
       }
+      provider_media_uploads: {
+        Row: {
+          asset_id: string
+          mime_type: string
+          provider: string
+          public_url: string
+          storage_bucket: string
+          storage_path: string
+          uploaded_at: string
+        }
+        Insert: {
+          asset_id: string
+          mime_type: string
+          provider: string
+          public_url: string
+          storage_bucket: string
+          storage_path: string
+          uploaded_at?: string
+        }
+        Update: {
+          asset_id?: string
+          mime_type?: string
+          provider?: string
+          public_url?: string
+          storage_bucket?: string
+          storage_path?: string
+          uploaded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_media_uploads_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scenes: {
         Row: {
           continuity_requirements: string | null
