@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
@@ -33,7 +33,7 @@ type Mode = "signin" | "reset" | "first-admin";
 
 function AuthPage() {
   const navigate = useNavigate();
-  const { session, passwordSetup, finishPasswordSetup } = useAuth();
+  const { session, passwordSetup, finishPasswordSetup, linkErrorPending } = useAuth();
   // An emailed link that couldn't sign anyone in lands here: say why, and offer a new one.
   const link = useInitialAuthLink();
   const [dismissed, setDismissed] = useState(false);
@@ -49,9 +49,15 @@ function AuthPage() {
     queryFn: () => getBootstrapStatus(),
   });
 
+  // Signed in: on to the studio, once (this page stays mounted for a moment after
+  // navigating, while the flags below change). A link that needs a password, or
+  // couldn't sign anyone in, is dealt with on the password page.
+  const leaving = useRef(false);
   useEffect(() => {
-    if (session) navigate({ to: passwordSetup ? SET_PASSWORD_PATH : "/" });
-  }, [session, passwordSetup, navigate]);
+    if (!session || leaving.current) return;
+    leaving.current = true;
+    navigate({ to: passwordSetup || linkErrorPending ? SET_PASSWORD_PATH : "/" });
+  }, [session, passwordSetup, linkErrorPending, navigate]);
 
   useEffect(() => {
     if (link.error) setMode("reset");

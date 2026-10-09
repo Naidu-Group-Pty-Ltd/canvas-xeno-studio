@@ -42,6 +42,8 @@ interface AuthValue {
    */
   passwordSetup: PasswordSetupKind | null;
   finishPasswordSetup: () => void;
+  /** This page was opened by an emailed link that couldn't sign anyone in, not yet explained. */
+  linkErrorPending: boolean;
   signOut: () => Promise<void>;
 }
 
@@ -53,6 +55,7 @@ const AuthContext = createContext<AuthValue>({
   isAdmin: false,
   passwordSetup: null,
   finishPasswordSetup: () => {},
+  linkErrorPending: false,
   signOut: async () => {},
 });
 
@@ -107,6 +110,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [ready, session, passwordSetup, pathname, navigate]);
 
+  // A link that couldn't sign anyone in (expired, already used) is explained
+  // wherever it landed, once. Signed out, the sign-in page explains it (every
+  // page leads there); a browser already signed in to some account would just
+  // open the studio, so it goes to the password page, which says so.
+  const [linkErrorPending, setLinkErrorPending] = useState(
+    () => typeof window !== "undefined" && !!initialAuthLink.error,
+  );
+  useEffect(() => {
+    if (!ready || !linkErrorPending) return;
+    if (session && pathname !== SET_PASSWORD_PATH) {
+      navigate({ to: SET_PASSWORD_PATH, replace: true });
+      return;
+    }
+    setLinkErrorPending(false);
+  }, [ready, session, linkErrorPending, pathname, navigate]);
+
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ["profile", session?.user.id],
     enabled: !!session?.user.id,
@@ -135,6 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin: profile?.role === "admin" && profile.is_active,
       passwordSetup,
       finishPasswordSetup,
+      linkErrorPending,
       signOut: async () => {
         await supabase.auth.signOut();
         writePendingPasswordSetup(null);
@@ -142,7 +162,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         queryClient.clear();
       },
     }),
-    [session, profile, ready, profileLoading, passwordSetup, finishPasswordSetup, queryClient],
+    [
+      session,
+      profile,
+      ready,
+      profileLoading,
+      passwordSetup,
+      finishPasswordSetup,
+      linkErrorPending,
+      queryClient,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
