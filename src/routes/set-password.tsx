@@ -29,12 +29,14 @@ const MIN_LENGTH = 8;
 
 /**
  * Where password-reset and invitation links lead: the person (signed in by
- * the link) chooses their password here before using the studio.
+ * the link) chooses their password here before using the studio. The form is
+ * only for an account an emailed link signed in on this tab; a link that
+ * couldn't sign anyone in is explained even when the browser is already
+ * signed in to some account.
  */
 function SetPasswordPage() {
-  const { session, loading, passwordSetup } = useAuth();
+  const { session, user, loading, passwordSetup } = useAuth();
   const link = useInitialAuthLink();
-  const kind: PasswordSetupKind = passwordSetup ?? (link.type === "invite" ? "invite" : "recovery");
 
   if (loading) {
     return (
@@ -49,33 +51,71 @@ function SetPasswordPage() {
     );
   }
 
-  if (!session) {
+  // A password step a link started in this tab means this session came from
+  // that link, so its form stays the way on, even if a later link failed (that
+  // one is explained above the form).
+  if (session && passwordSetup) {
     return (
       <AuthLayout>
-        {link.error ? (
-          <LinkProblem message={link.error.message} />
-        ) : (
-          <p className="mb-4 text-sm text-muted-foreground" data-testid="no-link-session">
-            This page opens from the link in a password-reset or invitation email. That link works
-            once; if it's been used or has expired, get a new one here.
-          </p>
+        {link.error && (
+          <LinkProblem
+            message={`${link.error.message} You can still finish the step your earlier link started.`}
+          />
         )}
-        <p className="mb-4 text-sm text-muted-foreground">
-          Enter your work email and we'll send a fresh link to choose your password. Invited and
-          waiting on an expired link? This works for you too, or ask your admin to resend the
-          invitation.
+        <ChoosePassword kind={passwordSetup} />
+      </AuthLayout>
+    );
+  }
+
+  if (session && !link.error) {
+    // Signed in, but not by a reset or invitation link: changing a password lives in Settings.
+    return (
+      <AuthLayout>
+        <p className="mb-4 text-sm text-muted-foreground" data-testid="signed-in-no-link">
+          You're signed in as <span className="font-medium text-foreground">{user?.email}</span>. To
+          change your password, go to Settings → Your account.
         </p>
-        <RequestPasswordLink />
-        <Link to="/auth" className="mt-6 block text-sm text-muted-foreground hover:text-foreground">
-          Back to sign in
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild>
+            <Link to="/settings">Open Settings</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/">Go to the studio</Link>
+          </Button>
+        </div>
       </AuthLayout>
     );
   }
 
   return (
     <AuthLayout>
-      <ChoosePassword kind={kind} />
+      {link.error ? (
+        <LinkProblem message={link.error.message} />
+      ) : (
+        <p className="mb-4 text-sm text-muted-foreground" data-testid="no-link-session">
+          This page opens from the link in a password-reset or invitation email. That link works
+          once; if it's been used or has expired, get a new one here.
+        </p>
+      )}
+      {session && (
+        <p className="mb-4 text-sm text-muted-foreground" data-testid="signed-in-elsewhere">
+          This browser is signed in as{" "}
+          <span className="font-medium text-foreground">{user?.email}</span>; that account is
+          unchanged.{" "}
+          <Link to="/" className="underline hover:text-foreground">
+            Go to the studio
+          </Link>
+        </p>
+      )}
+      <p className="mb-4 text-sm text-muted-foreground">
+        Enter your work email and we'll send a fresh link to choose your password. Invited and
+        waiting on an expired link? This works for you too, or ask your admin to resend the
+        invitation.
+      </p>
+      <RequestPasswordLink />
+      <Link to="/auth" className="mt-6 block text-sm text-muted-foreground hover:text-foreground">
+        Back to sign in
+      </Link>
     </AuthLayout>
   );
 }
