@@ -51,9 +51,17 @@ function SetPasswordPage() {
     );
   }
 
-  if (session && passwordSetup && !link.error) {
+  // A password step a link started in this tab means this session came from
+  // that link, so its form stays the way on, even if a later link failed (that
+  // one is explained above the form).
+  if (session && passwordSetup) {
     return (
       <AuthLayout>
+        {link.error && (
+          <LinkProblem
+            message={`${link.error.message} You can still finish the step your earlier link started.`}
+          />
+        )}
         <ChoosePassword kind={passwordSetup} />
       </AuthLayout>
     );
