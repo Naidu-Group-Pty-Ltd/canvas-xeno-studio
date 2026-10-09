@@ -4637,6 +4637,10 @@ export type Database = {
         Args: { _amount: number; _campaign_id: string; _project_id: string }
         Returns: Json
       }
+      claim_added_voice: {
+        Args: { p_attempt: string; p_fresh: string[] }
+        Returns: Json
+      }
       claim_ready_operations: {
         Args: { claim_limit?: number }
         Returns: {
@@ -4689,8 +4693,114 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      close_stalled_renders: {
+        Args: { p_sequence_id: string; p_stalled_before: string }
+        Returns: number
+      }
+      fail_sequence_render: {
+        Args: {
+          p_error_code: string
+          p_error_message: string
+          p_render_id: string
+        }
+        Returns: undefined
+      }
       is_active_member: { Args: never; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
+      reclaim_sequence_render: {
+        Args: { p_render_id: string; p_sequence_id: string }
+        Returns: string
+      }
+      record_added_voice: {
+        Args: { p_attempt: string; p_voice: string }
+        Returns: boolean
+      }
+      revoke_team_invitation: {
+        Args: { p_invitation_id: string; p_revoked_by: string }
+        Returns: string
+      }
+      search_music_tracks: {
+        Args: {
+          p_after_created_at?: string
+          p_after_id?: string
+          p_include_archived?: boolean
+          p_kind?: string
+          p_limit?: number
+          p_query?: string
+          p_ready_only?: boolean
+        }
+        Returns: {
+          artist: string | null
+          asset_id: string | null
+          attribution: string | null
+          beats: Json | null
+          bpm: number | null
+          campaign_id: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          dedupe_key: string | null
+          duration_seconds: number | null
+          error_code: string | null
+          error_message: string | null
+          genres: string[]
+          id: string
+          instrumental: boolean | null
+          is_archived: boolean
+          kind: string
+          license: string
+          license_url: string | null
+          license_version: string | null
+          model: string | null
+          moods: string[]
+          parent_track_id: string | null
+          project_id: string | null
+          prompt: string | null
+          provider: string | null
+          provider_request_id: string | null
+          rights: Json
+          source: string
+          source_id: string | null
+          source_url: string | null
+          status: string
+          tags: string[]
+          title: string
+          updated_at: string
+          usage_notes: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "music_tracks"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      set_default_brand_voice: { Args: { p_voice_id: string }; Returns: string }
+      settle_team_invitations: { Args: never; Returns: number }
+      start_sequence_render: {
+        Args: {
+          p_dedupe_key: string
+          p_render_id: string
+          p_sequence_id: string
+          p_stalled_before: string
+          p_task: Json
+          p_task_id: string
+          p_timeline: Json
+          p_user_id: string
+          p_version: number
+        }
+        Returns: Json
+      }
+      team_account_for_email: {
+        Args: { p_email: string }
+        Returns: {
+          confirmed: boolean
+          has_password: boolean
+          is_active: boolean
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "member"
