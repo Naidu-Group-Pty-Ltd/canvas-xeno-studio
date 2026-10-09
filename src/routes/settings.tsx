@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell, useProviderHealth } from "@/components/layout/AppShell";
 import { useAuth } from "@/hooks/useAuth";
-import { useModels, useSettings, useTeam } from "@/hooks/useStudioData";
+import { useModels, useSettings } from "@/hooks/useStudioData";
 import { getMediaWorkerStatus } from "@/lib/media.functions";
 import { useSupercomputerStatus } from "@/hooks/useSupercomputerData";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,8 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { AccountSection } from "@/components/settings/AccountSection";
+import { TeamSection } from "@/components/settings/TeamSection";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -30,12 +32,11 @@ export const Route = createFileRoute("/settings")({
 });
 
 function SettingsPage() {
-  const { isAdmin, profile } = useAuth();
+  const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
   const { data: health } = useProviderHealth();
   const { data: settings } = useSettings();
   const { data: models = [] } = useModels(true);
-  const { data: team = [] } = useTeam();
   const [draft, setDraft] = useState<Record<string, unknown>>({});
 
   useEffect(() => {
@@ -64,16 +65,6 @@ function SettingsPage() {
     }
     queryClient.invalidateQueries({ queryKey: ["app_settings"] });
     toast.success("Setting saved");
-  }
-
-  async function updateMember(id: string, patch: { role?: "admin" | "member"; is_active?: boolean }) {
-    const { error } = await supabase.from("profiles").update(patch).eq("id", id);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    queryClient.invalidateQueries({ queryKey: ["team"] });
-    toast.success("Team member updated");
   }
 
   const imageModels = models.filter((model) => model.output_type === "image");
@@ -199,48 +190,12 @@ function SettingsPage() {
           </div>
         </Section>
 
+        <Section title="Your account" description="Your sign-in details.">
+          <AccountSection />
+        </Section>
+
         <Section title="Team" description="Only active members can use the studio.">
-          <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
-            {team.map((member) => (
-              <div key={member.id} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
-                <div className="min-w-0 flex-1">
-                  <span className="block truncate font-medium">{member.full_name ?? member.email}</span>
-                  <span className="block truncate text-xs text-muted-foreground">{member.email}</span>
-                </div>
-                {isAdmin && member.id !== profile?.id ? (
-                  <>
-                    <Select
-                      value={member.role}
-                      onValueChange={(value) => void updateMember(member.id, { role: value as "admin" | "member" })}
-                    >
-                      <SelectTrigger className="h-8 w-28">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="member">Member</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Switch
-                      checked={member.is_active}
-                      onCheckedChange={(checked) => void updateMember(member.id, { is_active: checked })}
-                      aria-label={`Toggle access for ${member.email}`}
-                    />
-                  </>
-                ) : (
-                  <>
-                    <Badge variant="outline">{member.role}</Badge>
-                    <Badge variant={member.is_active ? "default" : "outline"}>
-                      {member.is_active ? "Active" : "Inactive"}
-                    </Badge>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            New accounts are created from the Cloud users area, then activated here. There is no public registration.
-          </p>
+          <TeamSection />
         </Section>
 
         <Section title="Storage" description="Permanent copies kept in the studio's own storage.">
