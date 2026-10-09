@@ -22,6 +22,7 @@ import { Route as LibraryRouteImport } from './routes/library'
 import { Route as ModelLabRouteImport } from './routes/model-lab'
 import { Route as ModelsRouteImport } from './routes/models'
 import { Route as MusicRouteImport } from './routes/music'
+import { Route as SetPasswordRouteImport } from './routes/set-password'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as StoryboardsRouteImport } from './routes/storyboards'
 import { Route as SupercomputerRouteImport } from './routes/supercomputer'
@@ -110,6 +111,11 @@ const ModelsRoute = ModelsRouteImport.update({
 const MusicRoute = MusicRouteImport.update({
   id: '/music',
   path: '/music',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetPasswordRoute = SetPasswordRouteImport.update({
+  id: '/set-password',
+  path: '/set-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -253,6 +259,7 @@ export interface FileRoutesByFullPath {
   '/model-lab': typeof ModelLabRoute
   '/models': typeof ModelsRoute
   '/music': typeof MusicRoute
+  '/set-password': typeof SetPasswordRoute
   '/settings': typeof SettingsRoute
   '/storyboards': typeof StoryboardsRoute
   '/supercomputer': typeof SupercomputerRoute
@@ -291,6 +298,7 @@ export interface FileRoutesByTo {
   '/model-lab': typeof ModelLabRoute
   '/models': typeof ModelsRoute
   '/music': typeof MusicRoute
+  '/set-password': typeof SetPasswordRoute
   '/settings': typeof SettingsRoute
   '/storyboards': typeof StoryboardsRoute
   '/supercomputer': typeof SupercomputerRoute
@@ -331,6 +339,7 @@ export interface FileRoutesById {
   '/model-lab': typeof ModelLabRoute
   '/models': typeof ModelsRoute
   '/music': typeof MusicRoute
+  '/set-password': typeof SetPasswordRoute
   '/settings': typeof SettingsRoute
   '/storyboards': typeof StoryboardsRoute
   '/supercomputer': typeof SupercomputerRoute
@@ -372,6 +381,7 @@ export interface FileRouteTypes {
     | '/model-lab'
     | '/models'
     | '/music'
+    | '/set-password'
     | '/settings'
     | '/storyboards'
     | '/supercomputer'
@@ -410,6 +420,7 @@ export interface FileRouteTypes {
     | '/model-lab'
     | '/models'
     | '/music'
+    | '/set-password'
     | '/settings'
     | '/storyboards'
     | '/supercomputer'
@@ -449,6 +460,7 @@ export interface FileRouteTypes {
     | '/model-lab'
     | '/models'
     | '/music'
+    | '/set-password'
     | '/settings'
     | '/storyboards'
     | '/supercomputer'
@@ -489,6 +501,7 @@ export interface RootRouteChildren {
   ModelLabRoute: typeof ModelLabRoute
   ModelsRoute: typeof ModelsRoute
   MusicRoute: typeof MusicRoute
+  SetPasswordRoute: typeof SetPasswordRoute
   SettingsRoute: typeof SettingsRoute
   StoryboardsRoute: typeof StoryboardsRoute
   SupercomputerRoute: typeof SupercomputerRoute
@@ -597,6 +610,13 @@ declare module '@tanstack/react-router' {
       path: '/music'
       fullPath: '/music'
       preLoaderRoute: typeof MusicRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/set-password': {
+      id: '/set-password'
+      path: '/set-password'
+      fullPath: '/set-password'
+      preLoaderRoute: typeof SetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -811,6 +831,7 @@ const rootRouteChildren: RootRouteChildren = {
   ModelLabRoute: ModelLabRoute,
   ModelsRoute: ModelsRoute,
   MusicRoute: MusicRoute,
+  SetPasswordRoute: SetPasswordRoute,
   SettingsRoute: SettingsRoute,
   StoryboardsRoute: StoryboardsRoute,
   SupercomputerRoute: SupercomputerRoute,
