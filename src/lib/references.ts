@@ -35,6 +35,11 @@ function capacity(slot: InputSlot): number {
   return slot.max ?? 1;
 }
 
+/** How many media files the model takes at most across all its inputs, e.g. 50 for 30 images + 10 videos + 10 audio. */
+export function referenceCapacity(model: ModelRegistryEntry | null | undefined): number {
+  return slotsFor(model).reduce((sum, slot) => sum + capacity(slot), 0);
+}
+
 /** Keeps valid role choices, fills remaining references into free slots in declaration order. */
 export function assignRoles<T extends RoleCarrier>(
   items: T[],

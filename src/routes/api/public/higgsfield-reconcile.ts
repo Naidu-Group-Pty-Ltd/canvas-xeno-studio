@@ -6,8 +6,9 @@ const CLEANUP_MS = 20_000;
 
 /**
  * Recovery worker: dispatches locally queued jobs, polls stale provider jobs
- * whose webhook may have been missed, and ingests pending outputs. It also
- * clears licensed music uploads whose licence was never recorded.
+ * whose webhook may have been missed, ingests pending outputs and moves long
+ * videos on. It also clears licensed music uploads whose licence was never
+ * recorded.
  */
 export const Route = createFileRoute("/api/public/higgsfield-reconcile")({
   server: {
@@ -37,9 +38,26 @@ export const Route = createFileRoute("/api/public/higgsfield-reconcile")({
           // after a response. A save that outlasts the scheduler still gets that
           // time to finish instead of being cancelled with the request.
           const ingested = await runWhileConnected(request, () => ingestPending());
+          // Long videos whose next step an event didn't take (a missed webhook or
+          // callback, a busy media service) move on here.
+          const { sweepLongVideos } = await import("@/lib/long-video/service.server");
+          const longVideos = await runWhileConnected(request, () => sweepLongVideos()).catch(
+            (error: unknown) => {
+              console.error("long video sweep failed", {
+                message: error instanceof Error ? error.message : String(error),
+              });
+              return 0;
+            },
+          );
 
           return new Response(
-            JSON.stringify({ dispatched, polled, ingested, musicUploads: await musicUploads }),
+            JSON.stringify({
+              dispatched,
+              polled,
+              ingested,
+              longVideos,
+              musicUploads: await musicUploads,
+            }),
             { status: 200, headers: { "Content-Type": "application/json" } },
           );
         } finally {

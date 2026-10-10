@@ -71,6 +71,13 @@
       "when": 1791294405140,
       "tag": "0009_higgsfield_model_catalog",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791296405140,
+      "tag": "0010_long_videos",
+      "breakpoints": true
     }
   ]
 }

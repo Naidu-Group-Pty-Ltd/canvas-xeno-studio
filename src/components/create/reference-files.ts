@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { ModelRegistryEntry } from "@/lib/model-schema";
-import { assignRoles } from "@/lib/references";
+import { assignRoles, referenceCapacity } from "@/lib/references";
 import { conversionHint, mediaKindFor, uploadReference } from "@/lib/storage";
 import { isBriefFile } from "@/lib/briefs/parse-document";
 import { useAuth } from "@/hooks/useAuth";
@@ -17,7 +17,17 @@ export interface ReferenceItem {
   mimeType?: string | null;
 }
 
-export const MAX_REFERENCES = 40;
+/** References kept attached across model changes, even ones the current model can't use. */
+const DEFAULT_MAX_REFERENCES = 40;
+
+/**
+ * How many references can be attached: the usual 40, or more when the model
+ * itself takes more (Cinema Studio and Seedance 2.5 take 30 images, 10 videos
+ * and 10 audio files at once).
+ */
+export function maxReferences(model: ModelRegistryEntry | null | undefined): number {
+  return Math.max(DEFAULT_MAX_REFERENCES, referenceCapacity(model));
+}
 
 /**
  * Upload handling shared by the tray, page-level drag and drop, and paste.
@@ -49,8 +59,9 @@ export function useReferenceFiles(options: {
           toast.error(`${file.name} is not an image, video or audio file.`);
           continue;
         }
-        if (latest.current.items.length >= MAX_REFERENCES) {
-          toast.info(`Up to ${MAX_REFERENCES} references.`);
+        const limit = maxReferences(latest.current.model);
+        if (latest.current.items.length >= limit) {
+          toast.info(`Up to ${limit} references.`);
           break;
         }
         setUploading((count) => count + 1);

@@ -2657,6 +2657,270 @@ export type Database = {
           },
         ]
       }
+      long_video_clips: {
+        Row: {
+          attempt: number
+          beat: string
+          claimed_at: string | null
+          completed_at: string | null
+          created_at: string
+          duration_seconds: number
+          error_code: string | null
+          error_message: string | null
+          generation_id: string | null
+          handoff_asset_id: string | null
+          handoff_attempts: number
+          handoff_status: string
+          handoff_task_id: string | null
+          handoff_time_seconds: number | null
+          id: string
+          inputs: Json
+          long_video_id: string
+          model_registry_id: string
+          output_asset_id: string | null
+          output_duration_seconds: number | null
+          output_fps: number | null
+          output_height: number | null
+          output_width: number | null
+          parameters: Json
+          position: number
+          prompt: string
+          start_frame_asset_id: string | null
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempt?: number
+          beat?: string
+          claimed_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          duration_seconds: number
+          error_code?: string | null
+          error_message?: string | null
+          generation_id?: string | null
+          handoff_asset_id?: string | null
+          handoff_attempts?: number
+          handoff_status?: string
+          handoff_task_id?: string | null
+          handoff_time_seconds?: number | null
+          id?: string
+          inputs?: Json
+          long_video_id: string
+          model_registry_id: string
+          output_asset_id?: string | null
+          output_duration_seconds?: number | null
+          output_fps?: number | null
+          output_height?: number | null
+          output_width?: number | null
+          parameters?: Json
+          position: number
+          prompt?: string
+          start_frame_asset_id?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempt?: number
+          beat?: string
+          claimed_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          duration_seconds?: number
+          error_code?: string | null
+          error_message?: string | null
+          generation_id?: string | null
+          handoff_asset_id?: string | null
+          handoff_attempts?: number
+          handoff_status?: string
+          handoff_task_id?: string | null
+          handoff_time_seconds?: number | null
+          id?: string
+          inputs?: Json
+          long_video_id?: string
+          model_registry_id?: string
+          output_asset_id?: string | null
+          output_duration_seconds?: number | null
+          output_fps?: number | null
+          output_height?: number | null
+          output_width?: number | null
+          parameters?: Json
+          position?: number
+          prompt?: string
+          start_frame_asset_id?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "long_video_clips_generation_id_fkey"
+            columns: ["generation_id"]
+            isOneToOne: false
+            referencedRelation: "generations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "long_video_clips_handoff_asset_id_fkey"
+            columns: ["handoff_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "long_video_clips_handoff_task_id_fkey"
+            columns: ["handoff_task_id"]
+            isOneToOne: false
+            referencedRelation: "media_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "long_video_clips_long_video_id_fkey"
+            columns: ["long_video_id"]
+            isOneToOne: false
+            referencedRelation: "long_videos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "long_video_clips_model_registry_id_fkey"
+            columns: ["model_registry_id"]
+            isOneToOne: false
+            referencedRelation: "model_registry"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "long_video_clips_output_asset_id_fkey"
+            columns: ["output_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "long_video_clips_start_frame_asset_id_fkey"
+            columns: ["start_frame_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      long_videos: {
+        Row: {
+          campaign_id: string | null
+          clip_count: number
+          client_request_id: string | null
+          completed_at: string | null
+          continuation_model_id: string
+          continuity: string
+          created_at: string
+          created_by: string | null
+          error_code: string | null
+          error_message: string | null
+          first_model_id: string
+          id: string
+          project_id: string | null
+          references_used: Json
+          sequence_id: string | null
+          settings: Json
+          status: string
+          story: string
+          target_seconds: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          campaign_id?: string | null
+          clip_count: number
+          client_request_id?: string | null
+          completed_at?: string | null
+          continuation_model_id: string
+          continuity?: string
+          created_at?: string
+          created_by?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          first_model_id: string
+          id?: string
+          project_id?: string | null
+          references_used?: Json
+          sequence_id?: string | null
+          settings?: Json
+          status?: string
+          story?: string
+          target_seconds: number
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          campaign_id?: string | null
+          clip_count?: number
+          client_request_id?: string | null
+          completed_at?: string | null
+          continuation_model_id?: string
+          continuity?: string
+          created_at?: string
+          created_by?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          first_model_id?: string
+          id?: string
+          project_id?: string | null
+          references_used?: Json
+          sequence_id?: string | null
+          settings?: Json
+          status?: string
+          story?: string
+          target_seconds?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "long_videos_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "long_videos_continuation_model_id_fkey"
+            columns: ["continuation_model_id"]
+            isOneToOne: false
+            referencedRelation: "model_registry"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "long_videos_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "long_videos_first_model_id_fkey"
+            columns: ["first_model_id"]
+            isOneToOne: false
+            referencedRelation: "model_registry"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "long_videos_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "long_videos_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       media_tasks: {
         Row: {
           completed_at: string | null

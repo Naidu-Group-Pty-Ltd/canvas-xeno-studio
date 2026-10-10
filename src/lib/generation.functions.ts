@@ -2,12 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { AppError } from "./higgsfield/errors";
-import {
-  parameterValues,
-  providerPayload,
-  validateParameters,
-  type ModelRegistryEntry,
-} from "./model-schema";
+import { providerPayload, validateParameters, type ModelRegistryEntry } from "./model-schema";
 
 const inputSchema = z.object({ assetId: z.string().uuid(), role: z.string(), position: z.number().int().min(0) });
 
@@ -171,125 +166,22 @@ export const submitGeneration = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => submitInput.parse(data))
   .handler(async ({ data, context }) => {
-    const { providerConfigured } = await import("./higgsfield/provider.server");
-    const pipeline = await import("./generation-pipeline.server");
-    const { supabaseAdmin, model } = await loadContext(null as never, data.modelId);
-
-    const settings = await pipeline.getSettings();
-    if (settings["provider_enabled"] === false) throw new AppError("PROVIDER_DISABLED");
-    if (!providerConfigured()) throw new AppError("PROVIDER_NOT_CONFIGURED");
-
-    await assertActiveMember(context.userId);
-
-    // Only inputs that map to a slot the model declares are kept, so a stray
-    // reference is never uploaded to the provider for nothing.
-    const slotRoles = new Set((model.capabilities?.inputs ?? []).map((slot) => slot.role));
-    const inputs = data.inputs.filter((input) => slotRoles.has(input.role));
-    const roles = inputs.map((i) => i.role);
-    const issues = validateParameters(model, data.parameters, roles);
-    if (issues.length) throw new AppError("INVALID_PARAMETERS", issues.map((i) => i.message).join("; "));
-
-    // Idempotency: a retried or double-clicked submission carries the same
-    // client_request_id and can therefore never create a second billable job.
-    const clientRequestId = data.clientRequestId ?? null;
-    if (clientRequestId) {
-      const { data: existing } = await supabaseAdmin
-        .from("generations")
-        .select("id,status")
-        .eq("client_request_id", clientRequestId)
-        .maybeSingle();
-      if (existing) return { generationId: existing.id, status: existing.status, budgetWarning: null as string | null };
-    }
-
-    // Spending limits are checked atomically in the database (the owning row is
-    // locked), so two simultaneous submissions cannot together pass a hard limit.
-    let budgetWarning: string | null = null;
-    if (data.projectId || data.campaignId) {
-      const { data: allowance } = await supabaseAdmin.rpc("check_spend_allowance", {
-        _project_id: (data.projectId ?? null) as string,
-        _campaign_id: (data.campaignId ?? null) as string,
-        _amount: data.estimatedCostUsd ?? 0,
-      });
-      const verdict = (allowance ?? {}) as { allowed?: boolean; message?: string; warning?: string | null };
-      if (verdict.allowed === false) throw new AppError("BUDGET_EXCEEDED", verdict.message);
-      budgetWarning = verdict.warning ?? null;
-    }
-
-    // The provisional browser estimate is stored here; the pipeline re-requests
-    // the authoritative estimate with the exact serialized provider payload.
-    const estimatedCost = data.estimatedCostUsd ?? null;
-
-    const { data: generation, error } = await supabaseAdmin
-      .from("generations")
-      .insert({
-        user_id: context.userId,
-        project_id: data.projectId ?? null,
-        campaign_id: data.campaignId ?? null,
-        model_registry_id: model.id,
-        parent_generation_id: data.parentGenerationId ?? null,
-        generation_group_id: data.generationGroupId ?? null,
-        client_request_id: clientRequestId,
-        provider: model.provider,
-        model_path: model.model_path,
-        operation: model.operation as never,
-        prompt: typeof data.parameters["prompt"] === "string" ? (data.parameters["prompt"] as string) : null,
-        // Only the model's own settings in play are kept: what the provider is sent.
-        parameters: parameterValues(model, data.parameters, roles) as never,
-        estimated_cost_usd: estimatedCost,
-        cost_source: estimatedCost != null ? "provider_estimate" : null,
-        status: "ready",
-        ingest_status: "not_required",
-      })
-      .select("id")
-      .single();
-    if (error || !generation) {
-      // Unique violation = a concurrent duplicate of the same click.
-      if (error?.code === "23505" && clientRequestId) {
-        const { data: raced } = await supabaseAdmin
-          .from("generations")
-          .select("id,status")
-          .eq("client_request_id", clientRequestId)
-          .maybeSingle();
-        if (raced) return { generationId: raced.id, status: raced.status, budgetWarning: null as string | null };
-      }
-      throw new AppError("UNKNOWN", error?.message);
-    }
-
-    await pipeline.logEvent(generation.id, "created", { model_path: model.model_path });
-
-    if (inputs.length) {
-      const { data: assets } = await supabaseAdmin
-        .from("assets")
-        .select("id,storage_bucket,storage_path,mime_type")
-        .in("id", inputs.map((i) => i.assetId));
-      const rows = inputs
-        .map((input) => {
-          const asset = (assets ?? []).find((a) => a.id === input.assetId);
-          if (!asset) return null;
-          return {
-            generation_id: generation.id,
-            asset_id: asset.id,
-            input_type: input.role as never,
-            position: input.position,
-            storage_bucket: asset.storage_bucket,
-            storage_path: asset.storage_path,
-            metadata: { mime_type: asset.mime_type } as never,
-          };
-        })
-        .filter(Boolean);
-      if (rows.length) await supabaseAdmin.from("generation_inputs").insert(rows as never);
-    }
-
-    await supabaseAdmin.from("usage_ledger").insert({
-      generation_id: generation.id,
-      user_id: context.userId,
-      model_registry_id: model.id,
-      estimated_cost_usd: estimatedCost,
-      billing_status: "estimated",
+    const { model } = await loadContext(null as never, data.modelId);
+    const { assertGenerationAllowed, createAndSubmitGeneration } =
+      await import("./generation-create.server");
+    await assertGenerationAllowed(context.userId);
+    return createAndSubmitGeneration({
+      userId: context.userId,
+      model,
+      parameters: data.parameters,
+      inputs: data.inputs,
+      projectId: data.projectId ?? null,
+      campaignId: data.campaignId ?? null,
+      parentGenerationId: data.parentGenerationId ?? null,
+      generationGroupId: data.generationGroupId ?? null,
+      estimatedCostUsd: data.estimatedCostUsd ?? null,
+      clientRequestId: data.clientRequestId ?? null,
     });
-
-    const result = await pipeline.submitOrQueue(generation.id);
-    return { generationId: generation.id, status: result.status, budgetWarning };
   });
 
 export const refreshGenerationStatus = createServerFn({ method: "POST" })
@@ -338,6 +230,7 @@ export const cancelGeneration = createServerFn({ method: "POST" })
         .update({ status: "canceled", completed_at: new Date().toISOString() })
         .eq("id", generation.id);
       await pipeline.logEvent(generation.id, "canceled", { scope: "local_queue" });
+      await pipeline.notifyLongVideo(generation.id);
       return { status: "canceled" };
     }
     if (!generation.hf_request_id) return { status: generation.status };
@@ -349,6 +242,7 @@ export const cancelGeneration = createServerFn({ method: "POST" })
       .update({ status: "canceled", completed_at: new Date().toISOString() })
       .eq("id", generation.id);
     await pipeline.logEvent(generation.id, "canceled", { scope: "provider" });
+    await pipeline.notifyLongVideo(generation.id);
     return { status: "canceled" };
   });
 

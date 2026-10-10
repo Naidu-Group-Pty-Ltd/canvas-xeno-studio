@@ -300,3 +300,128 @@ export function compileFromStoryboard(
     missing,
   };
 }
+
+/* ------------------------------------------------------------------ */
+/* Long videos                                                         */
+/* ------------------------------------------------------------------ */
+
+/** How clips join: a cut on the handoff frame, or a short cross-fade over footage both clips share. */
+export type LongVideoSeam = "cut" | "blend";
+
+export interface LongVideoClipCut {
+  position: number;
+  /** The clip's video, once it is in. */
+  assetId: string | null;
+  /** Where the next clip's start frame was taken from this one. */
+  cutSeconds: number | null;
+  /** The clip's measured length. */
+  lengthSeconds: number | null;
+  fps: number | null;
+  width: number | null;
+  height: number | null;
+}
+
+export interface LongVideoAsset {
+  id: string;
+  durationSeconds: number | null;
+  width: number | null;
+  height: number | null;
+}
+
+export interface LongVideoCompileResult {
+  title: string;
+  timeline: Timeline;
+  /** Clips (by position) that weren't in, or whose video is gone. */
+  missing: number[];
+}
+
+/** The longest cross-fade at a join: the footage after a handoff frame both clips show. */
+const BLEND_SECONDS = 0.2;
+
+/** The Editor frame rate closest to the clips' own (23.976 is 24, 29.97 is 30). */
+function editFps(rates: (number | null)[]): Timeline["fps"] {
+  const counts = new Map<Timeline["fps"], number>();
+  for (const rate of rates) {
+    if (!rate) continue;
+    const match = FPS_CHOICES.find((choice) => Math.abs(choice - rate) < 0.6);
+    if (match) counts.set(match, (counts.get(match) ?? 0) + 1);
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 30;
+}
+const FPS_CHOICES = [24, 25, 30, 60] as const;
+
+/**
+ * A long video as one edit. Each clip after the first starts from a frame
+ * taken from the one before it, so that clip is cut exactly there and the
+ * next picks up on the same frame: one continuous shot. Asked to blend, a
+ * clip runs on a moment past its handoff frame and cross-fades into the next
+ * over footage both show, so nothing ghosts or jumps.
+ */
+export function compileFromLongVideo(
+  run: { title: string; settings: Record<string, unknown> },
+  clips: LongVideoClipCut[],
+  assets: LongVideoAsset[],
+  options: { seam: LongVideoSeam; keepSound: boolean },
+): LongVideoCompileResult {
+  const ordered = [...clips].sort((a, b) => a.position - b.position);
+  const usable = ordered.map((clip) => {
+    const asset = clip.assetId ? assets.find((entry) => entry.id === clip.assetId) : undefined;
+    return asset ? { clip, asset } : null;
+  });
+  const sized = usable.find((entry) => entry && (entry.clip.width || entry.asset.width));
+  const width = sized ? (sized.clip.width ?? sized.asset.width) : null;
+  const height = sized ? (sized.clip.height ?? sized.asset.height) : null;
+  const aspect =
+    aspectFromValue(run.settings["aspect_ratio"]) ??
+    (width && height ? aspectFromValue(`${width}:${height}`) : null) ??
+    "16:9";
+  const fps = editFps(ordered.map((clip) => clip.fps));
+  const base = emptyTimeline(aspect);
+  const timeline: Timeline = {
+    ...base,
+    fps,
+    resolution: width && height && Math.min(width, height) < 1000 ? "720p" : "1080p",
+  };
+
+  const result: TimelineClip[] = [];
+  const missing: number[] = [];
+  let blendIn = 0;
+  usable.forEach((entry, index) => {
+    if (!entry) {
+      missing.push(ordered[index]!.position);
+      blendIn = 0;
+      return;
+    }
+    const { clip, asset } = entry;
+    const length = clip.lengthSeconds ?? asset.durationSeconds ?? null;
+    const item = clipFromSource({
+      assetId: asset.id,
+      kind: "video",
+      durationSeconds: length,
+      title: `Clip ${clip.position + 1}`,
+    });
+    // Cut at the handoff frame only when the clip that starts from it is here too.
+    const continues = !!usable[index + 1] && clip.cutSeconds !== null && clip.cutSeconds > 0;
+    let blendOut = 0;
+    if (continues) {
+      const frame = 1 / fps;
+      const spare = length !== null ? length - clip.cutSeconds! - frame : 0;
+      blendOut =
+        options.seam === "blend" && spare >= 2 * frame ? Math.min(BLEND_SECONDS, spare) : 0;
+      item.duration = Math.max(0.1, clip.cutSeconds! + blendOut);
+    }
+    item.volume = options.keepSound ? 1 : 0;
+    item.transition =
+      result.length && blendIn > 0
+        ? { type: "fade", duration: Number(blendIn.toFixed(3)) }
+        : { type: "cut", duration: 0 };
+    result.push(item);
+    blendIn = blendOut;
+  });
+
+  return {
+    title: run.title,
+    timeline: { ...timeline, clips: result.slice(0, LIMITS.clips) },
+    missing,
+  };
+}

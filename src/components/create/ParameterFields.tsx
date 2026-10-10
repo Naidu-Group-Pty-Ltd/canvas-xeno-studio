@@ -25,11 +25,25 @@ interface Props {
   onChange: (key: string, value: unknown) => void;
   advanced?: boolean;
   issues?: Record<string, string> | undefined;
+  /** Settings set elsewhere on the page (e.g. a long video's clip lengths), so not shown here. */
+  hiddenKeys?: string[] | undefined;
 }
 
-export function ParameterFields({ model, values, inputRoles, onChange, advanced = false, issues }: Props) {
+export function ParameterFields({
+  model,
+  values,
+  inputRoles,
+  onChange,
+  advanced = false,
+  issues,
+  hiddenKeys,
+}: Props) {
   const fields = (model.parameter_schema?.fields ?? []).filter(
-    (field) => Boolean(field.advanced) === advanced && fieldVisible(field, values, inputRoles) && field.key !== "prompt",
+    (field) =>
+      Boolean(field.advanced) === advanced &&
+      fieldVisible(field, values, inputRoles) &&
+      field.key !== "prompt" &&
+      !hiddenKeys?.includes(field.key),
   );
 
   if (!fields.length) return null;
