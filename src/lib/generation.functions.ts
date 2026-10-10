@@ -190,9 +190,15 @@ export const estimateGeneration = createServerFn({ method: "POST" })
     // when the generation is sent, and what it would cost at each resolution
     // the model offers, so a cheaper one is a visible choice.
     const fields = model.parameter_schema?.fields ?? [];
-    const inputVideoSeconds = await pipeline.videoSecondsOf(inputs.map((input) => input.assetId));
+    const video = await pipeline.videoSecondsOf(inputs);
     const quote = (values: Record<string, unknown>) =>
-      meteredQuoteFor({ description: pricingDescription, fields, values, inputVideoSeconds });
+      meteredQuoteFor({
+        description: pricingDescription,
+        fields,
+        values,
+        inputVideoSeconds: video.seconds,
+        sourceVideoSeconds: video.sourceSeconds,
+      });
     const metered = quote(payload);
     const resolutions = (fields.find((field) => field.key === "resolution")?.options ?? []).map(
       (option) => String(normalizeOption(option).value),

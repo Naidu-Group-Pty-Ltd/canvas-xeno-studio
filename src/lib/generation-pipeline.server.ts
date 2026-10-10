@@ -326,43 +326,65 @@ export async function prepareMediaForGeneration(generationId: string): Promise<v
   }
 }
 
+/** Seconds of video given as input, in all and as the source video (null without one). */
+export interface InputVideo {
+  seconds: number;
+  sourceSeconds: number | null;
+}
+
 /**
- * Seconds of video given to a generation as input (references, a source
- * video), which metered models bill alongside what they generate. A video
- * whose length isn't recorded counts as 30 seconds, the most these models
- * take, so a quote is never low.
+ * The video given to a generation as input (references, a source video),
+ * which metered models bill alongside what they generate. A video whose
+ * length isn't recorded counts as 30 seconds, the most these models take, so
+ * a quote is never low.
  */
-export async function inputVideoSeconds(generationId: string): Promise<number> {
+export async function inputVideoSeconds(generationId: string): Promise<InputVideo> {
   const { data } = await supabaseAdmin
     .from("generation_inputs")
-    .select("asset_id")
+    .select("asset_id,input_type")
     .eq("generation_id", generationId);
   return videoSecondsOf(
-    ((data ?? []) as { asset_id: string | null }[]).flatMap((row) =>
-      row.asset_id ? [row.asset_id] : [],
+    ((data ?? []) as { asset_id: string | null; input_type: string }[]).flatMap((row) =>
+      row.asset_id ? [{ assetId: row.asset_id, role: row.input_type }] : [],
     ),
   );
 }
 
-/** Total length of the videos among these library files (see inputVideoSeconds). */
-export async function videoSecondsOf(assetIds: string[]): Promise<number> {
-  if (!assetIds.length) return 0;
+/** The video among these inputs (see inputVideoSeconds). */
+export async function videoSecondsOf(
+  inputs: { assetId: string; role: string }[],
+): Promise<InputVideo> {
+  if (!inputs.length) return { seconds: 0, sourceSeconds: null };
   const { data } = await supabaseAdmin
     .from("assets")
     .select("id,asset_type,mime_type,duration_seconds")
-    .in("id", [...new Set(assetIds)]);
-  return (
-    (data ?? []) as {
-      asset_type: string | null;
-      mime_type: string | null;
-      duration_seconds: number | string | null;
-    }[]
-  )
-    .filter((asset) => asset.asset_type === "video" || (asset.mime_type ?? "").startsWith("video/"))
-    .reduce((total, asset) => {
-      const seconds = Number(asset.duration_seconds);
-      return total + (Number.isFinite(seconds) && seconds > 0 ? seconds : 30);
-    }, 0);
+    .in("id", [...new Set(inputs.map((input) => input.assetId))]);
+  const lengths = new Map(
+    (
+      (data ?? []) as {
+        id: string;
+        asset_type: string | null;
+        mime_type: string | null;
+        duration_seconds: number | string | null;
+      }[]
+    )
+      .filter(
+        (asset) => asset.asset_type === "video" || (asset.mime_type ?? "").startsWith("video/"),
+      )
+      .map((asset) => {
+        const seconds = Number(asset.duration_seconds);
+        return [asset.id, Number.isFinite(seconds) && seconds > 0 ? seconds : 30] as const;
+      }),
+  );
+  let seconds = 0;
+  let sourceSeconds: number | null = null;
+  for (const input of inputs) {
+    const length = lengths.get(input.assetId);
+    if (length === undefined) continue;
+    seconds += length;
+    if (input.role === "source") sourceSeconds = (sourceSeconds ?? 0) + length;
+  }
+  return { seconds, sourceSeconds };
 }
 
 /** Builds the provider payload from registry parameters plus prepared media. */
@@ -459,7 +481,10 @@ export async function submitToProvider(generationId: string): Promise<{ status: 
           description: meteredPricing,
           fields: model.parameter_schema?.fields ?? [],
           values: params as Record<string, unknown>,
-          inputVideoSeconds: await inputVideoSeconds(generationId),
+          ...(await inputVideoSeconds(generationId).then((video) => ({
+            inputVideoSeconds: video.seconds,
+            sourceVideoSeconds: video.sourceSeconds,
+          }))),
         })
       : null;
   const quoted = serverCost ?? metered?.usd ?? null;
