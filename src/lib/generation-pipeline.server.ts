@@ -16,6 +16,7 @@ import {
   type NormalizedOutput,
 } from "./higgsfield/provider.server";
 import { providerPayload, type ModelRegistryEntry } from "./model-schema";
+import { meteredQuoteFor } from "./higgsfield/metered";
 import { LOVABLE_PROJECT_URL } from "./app-config";
 
 type Json = Record<string, unknown>;
@@ -23,7 +24,11 @@ type Json = Record<string, unknown>;
 export function appBaseUrl(): string {
   // The fallback is the project's stable published address. (It is keyed by the
   // Lovable project id, not the database project id, which has no app behind it.)
-  return (process.env["PUBLIC_APP_URL"] || process.env["APP_BASE_URL"] || LOVABLE_PROJECT_URL).replace(/\/$/, "");
+  return (
+    process.env["PUBLIC_APP_URL"] ||
+    process.env["APP_BASE_URL"] ||
+    LOVABLE_PROJECT_URL
+  ).replace(/\/$/, "");
 }
 
 export function webhookUrl(): string | undefined {
@@ -112,7 +117,10 @@ export async function mirrorOperation(generationId: string): Promise<void> {
     .eq("generation_id", generation.id)
     .maybeSingle();
   if (existing) {
-    await supabaseAdmin.from("operations").update(row as never).eq("id", existing.id);
+    await supabaseAdmin
+      .from("operations")
+      .update(row as never)
+      .eq("id", existing.id);
   } else {
     const { error } = await supabaseAdmin.from("operations").insert(row as never);
     // A concurrent worker may have inserted the mirror first; that is fine.
@@ -318,6 +326,45 @@ export async function prepareMediaForGeneration(generationId: string): Promise<v
   }
 }
 
+/**
+ * Seconds of video given to a generation as input (references, a source
+ * video), which metered models bill alongside what they generate. A video
+ * whose length isn't recorded counts as 30 seconds, the most these models
+ * take, so a quote is never low.
+ */
+export async function inputVideoSeconds(generationId: string): Promise<number> {
+  const { data } = await supabaseAdmin
+    .from("generation_inputs")
+    .select("asset_id")
+    .eq("generation_id", generationId);
+  return videoSecondsOf(
+    ((data ?? []) as { asset_id: string | null }[]).flatMap((row) =>
+      row.asset_id ? [row.asset_id] : [],
+    ),
+  );
+}
+
+/** Total length of the videos among these library files (see inputVideoSeconds). */
+export async function videoSecondsOf(assetIds: string[]): Promise<number> {
+  if (!assetIds.length) return 0;
+  const { data } = await supabaseAdmin
+    .from("assets")
+    .select("id,asset_type,mime_type,duration_seconds")
+    .in("id", [...new Set(assetIds)]);
+  return (
+    (data ?? []) as {
+      asset_type: string | null;
+      mime_type: string | null;
+      duration_seconds: number | string | null;
+    }[]
+  )
+    .filter((asset) => asset.asset_type === "video" || (asset.mime_type ?? "").startsWith("video/"))
+    .reduce((total, asset) => {
+      const seconds = Number(asset.duration_seconds);
+      return total + (Number.isFinite(seconds) && seconds > 0 ? seconds : 30);
+    }, 0);
+}
+
 /** Builds the provider payload from registry parameters plus prepared media. */
 export async function buildProviderParams(
   model: ModelRegistryEntry,
@@ -379,14 +426,23 @@ export async function submitToProvider(generationId: string): Promise<{ status: 
     const message = error instanceof Error ? error.message : "Reference preparation failed";
     await supabaseAdmin
       .from("generations")
-      .update({ status: "failed", error_code: "UPLOAD_FAILED", error_message: message, completed_at: new Date().toISOString() })
+      .update({
+        status: "failed",
+        error_code: "UPLOAD_FAILED",
+        error_message: message,
+        completed_at: new Date().toISOString(),
+      })
       .eq("id", generationId);
     await logEvent(generationId, "failed", { code: "UPLOAD_FAILED", message });
     return { status: "failed" };
   }
 
   const model = generation.model_registry as unknown as ModelRegistryEntry;
-  const params = await buildProviderParams(model, (generation.parameters ?? {}) as Json, generationId);
+  const params = await buildProviderParams(
+    model,
+    (generation.parameters ?? {}) as Json,
+    generationId,
+  );
 
   // Authoritative estimate: requested with the SAME payload that is submitted,
   // so the stored figure always corresponds to the generation being run.
@@ -395,10 +451,73 @@ export async function submitToProvider(generationId: string): Promise<{ status: 
   const estimateCall = await higgsfieldProvider.estimate(generation.model_path, params);
   const serverCost = estimateCall.ok ? extractCost(estimateCall.data) : null;
   const meteredPricing = estimateCall.ok ? extractPricingDescription(estimateCall.data) : null;
-  if (serverCost === null && meteredPricing) {
-    // Metered model: the provider quotes a rate, not a figure. Record the rate
-    // rather than inventing a number, and allow the submission to proceed.
-    await logEvent(generationId, "estimate_received", { pricing_description: meteredPricing });
+  // A metered model is quoted as a rate; its price follows from the rate and
+  // what is sent (resolution, length, video given as input).
+  const metered =
+    serverCost === null && meteredPricing
+      ? meteredQuoteFor({
+          description: meteredPricing,
+          fields: model.parameter_schema?.fields ?? [],
+          values: params as Record<string, unknown>,
+          inputVideoSeconds: await inputVideoSeconds(generationId),
+        })
+      : null;
+  const quoted = serverCost ?? metered?.usd ?? null;
+
+  // Spending limits, against the authoritative figure: the record's own
+  // earlier figure (the browser's, if any) is already counted, so only the
+  // difference is added. Clips started by the server (long videos) and other
+  // callers without a browser quote are held to the limits here too.
+  if (quoted !== null && (generation.project_id || generation.campaign_id)) {
+    const { data: allowance } = await supabaseAdmin.rpc("check_spend_allowance", {
+      _project_id: (generation.project_id ?? null) as string,
+      _campaign_id: (generation.campaign_id ?? null) as string,
+      _amount: Math.max(0, quoted - (Number(generation.estimated_cost_usd) || 0)),
+    });
+    const verdict = (allowance ?? {}) as { allowed?: boolean; message?: string };
+    if (verdict.allowed === false) {
+      const message =
+        verdict.message ?? "This would go over the spending limit, so nothing was submitted";
+      await supabaseAdmin
+        .from("generations")
+        .update({
+          status: "failed",
+          error_code: "BUDGET_EXCEEDED",
+          error_message: message,
+          estimated_cost_usd: quoted,
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", generationId);
+      await logEvent(generationId, "failed", {
+        code: "BUDGET_EXCEEDED",
+        estimated_cost_usd: quoted,
+      });
+      return { status: "failed" };
+    }
+  }
+
+  if (metered) {
+    await supabaseAdmin
+      .from("generations")
+      .update({ estimated_cost_usd: metered.usd, cost_source: "metered_estimate" })
+      .eq("id", generationId);
+    await supabaseAdmin
+      .from("usage_ledger")
+      .update({ estimated_cost_usd: metered.usd })
+      .eq("generation_id", generationId);
+    await logEvent(generationId, "estimate_received", {
+      estimated_cost_usd: metered.usd,
+      metered,
+      pricing_description: meteredPricing,
+      provider_estimate: estimateCall.data as Json,
+    });
+  } else if (serverCost === null && meteredPricing) {
+    // Metered, but in terms this doesn't follow: the rate is recorded as given
+    // rather than a figure invented, and the submission proceeds.
+    await logEvent(generationId, "estimate_received", {
+      pricing_description: meteredPricing,
+      provider_estimate: estimateCall.data as Json,
+    });
   } else if (serverCost !== null) {
     await supabaseAdmin
       .from("generations")
@@ -408,7 +527,10 @@ export async function submitToProvider(generationId: string): Promise<{ status: 
       .from("usage_ledger")
       .update({ estimated_cost_usd: serverCost })
       .eq("generation_id", generationId);
-    await logEvent(generationId, "estimate_received", { estimated_cost_usd: serverCost });
+    await logEvent(generationId, "estimate_received", {
+      estimated_cost_usd: serverCost,
+      provider_estimate: estimateCall.data as Json,
+    });
   } else if (settings["require_cost_estimate"] === true) {
     await supabaseAdmin
       .from("generations")
@@ -486,7 +608,10 @@ export async function submitOrQueue(generationId: string): Promise<{ status: str
   const settings = await getSettings();
   const limit = Number(settings["max_provider_concurrency"] ?? 15);
   if ((await activeProviderCount()) >= limit) {
-    await supabaseAdmin.from("generations").update({ status: "local_queued" }).eq("id", generationId);
+    await supabaseAdmin
+      .from("generations")
+      .update({ status: "local_queued" })
+      .eq("id", generationId);
     await logEvent(generationId, "queued", { reason: "local_concurrency_limit" });
     return { status: "local_queued" };
   }
@@ -521,10 +646,16 @@ export async function dispatchQueue(): Promise<number> {
 
 const TERMINAL_STATUSES = ["completed", "failed", "nsfw", "canceled"];
 
-export async function applyProviderPayload(generationId: string, payload: unknown): Promise<string> {
+export async function applyProviderPayload(
+  generationId: string,
+  payload: unknown,
+): Promise<string> {
   const record = (payload ?? {}) as Json;
   const statusValue =
-    record["status"] ?? record["state"] ?? (record["job"] as Json | undefined)?.["status"] ?? "queued";
+    record["status"] ??
+    record["state"] ??
+    (record["job"] as Json | undefined)?.["status"] ??
+    "queued";
   const status = normalizeStatus(statusValue);
 
   const { data: current } = await supabaseAdmin
@@ -682,7 +813,10 @@ export async function ingestOutputs(
 
   let outputs: NormalizedOutput[] = normalizeResult(generation.provider_response);
   if (outputs.length === 0 && generation.hf_request_id) {
-    const refreshed = await higgsfieldProvider.getStatus(generation.hf_request_id, generation.hf_status_url);
+    const refreshed = await higgsfieldProvider.getStatus(
+      generation.hf_request_id,
+      generation.hf_status_url,
+    );
     if (refreshed.ok) outputs = normalizeResult(refreshed.data);
   }
 
@@ -709,7 +843,9 @@ export async function ingestOutputs(
   let failures = 0;
   for (const [index, output] of usable.entries()) {
     try {
-      const extension = (output.url.split("?")[0]!.split(".").pop() ?? "bin").slice(0, 5).replace(/[^a-z0-9]/gi, "");
+      const extension = (output.url.split("?")[0]!.split(".").pop() ?? "bin")
+        .slice(0, 5)
+        .replace(/[^a-z0-9]/gi, "");
       const scope = generation.project_id
         ? `projects/${generation.project_id}`
         : `unassigned/${generation.user_id}`;
@@ -951,12 +1087,16 @@ export async function reconcileStaleGenerations(limit = 10): Promise<number> {
   for (const row of data ?? []) {
     // Exponential backoff: skip rows polled more recently than their backoff window.
     const backoffMs = Math.min(15 * 60_000, 30_000 * Math.pow(1.6, row.poll_attempts ?? 0));
-    if (row.last_polled_at && Date.now() - new Date(row.last_polled_at).getTime() < backoffMs) continue;
+    if (row.last_polled_at && Date.now() - new Date(row.last_polled_at).getTime() < backoffMs)
+      continue;
 
     const call = await higgsfieldProvider.getStatus(row.hf_request_id!, row.hf_status_url);
     await supabaseAdmin
       .from("generations")
-      .update({ last_polled_at: new Date().toISOString(), poll_attempts: (row.poll_attempts ?? 0) + 1 })
+      .update({
+        last_polled_at: new Date().toISOString(),
+        poll_attempts: (row.poll_attempts ?? 0) + 1,
+      })
       .eq("id", row.id);
     checked += 1;
     if (call.ok) {
