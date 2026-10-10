@@ -142,7 +142,14 @@ function MusicPage() {
               <GenerateMusic onGenerated={() => setTab("library")} />
             </TabsContent>
             <TabsContent value="licensed">
-              <AddLicensedTrack initialFile={dropped} onAdded={() => setTab("library")} />
+              <AddLicensedTrack
+                initialFile={dropped}
+                onAdded={() => {
+                  // Added: reopening the tab starts empty rather than offering the file again.
+                  setDropped(null);
+                  setTab("library");
+                }}
+              />
             </TabsContent>
             <TabsContent value="songs" className="space-y-3">
               <div className="flex items-start gap-2 rounded-md border border-border bg-surface-raised p-3 text-xs text-muted-foreground">

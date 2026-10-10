@@ -85,11 +85,13 @@ export function MediaBin({ projectId, usedAssetIds, onAddVisual, onAddAudio }: M
     if (!batch.length) return;
     setUploading(true);
     let added = 0;
+    let first: File | null = null;
     try {
       for (const file of batch) {
         try {
           await uploadReference(file, { userId: user.id, projectId });
           added += 1;
+          first ??= file;
         } catch (error) {
           toast.error(
             `“${file.name}”: ${error instanceof Error ? error.message : "it could not be uploaded"}`,
@@ -98,8 +100,8 @@ export function MediaBin({ projectId, usedAssetIds, onAddVisual, onAddAudio }: M
       }
       if (added) {
         toast.success(added === 1 ? "Added to the library" : `${added} files added to the library`);
-        // Shows what was added: the first file's kind of media.
-        const shown = mediaKindFor(batch[0]!.type);
+        // Shows what was added: the first added file's kind of media.
+        const shown = first ? mediaKindFor(first.type) : null;
         if (shown && shown !== kind) setKind(shown);
         else await refetch();
       }

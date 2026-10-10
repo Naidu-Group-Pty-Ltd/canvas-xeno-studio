@@ -505,7 +505,11 @@ export function MusicPanel({
             <AddLicensedTrack
               projectId={context.projectId}
               initialFile={dropped}
-              onAdded={(track) => add(track)}
+              onAdded={(track) => {
+                // Added: reopening Upload starts empty rather than offering the file again.
+                setDropped(null);
+                add(track);
+              }}
             />
           </div>
         )}
