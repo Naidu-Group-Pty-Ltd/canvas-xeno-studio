@@ -266,7 +266,8 @@ export const estimateProductionPlan = createServerFn({ method: "POST" })
     await assertActiveMember(context.userId);
     const supabaseAdmin = await admin();
     const { higgsfieldProvider } = await import("./higgsfield/provider.server");
-    const { extractCost } = await import("./higgsfield/provider.server");
+    const { extractCost, extractPricingDescription } = await import("./higgsfield/provider.server");
+    const { meteredQuoteFor } = await import("./higgsfield/metered");
 
     const { data: row } = await supabaseAdmin.from("production_plans").select("plan").eq("id", data.planId).maybeSingle();
     if (!row) throw new AppError("INVALID_PARAMETERS", "Plan not found");
@@ -295,11 +296,18 @@ export const estimateProductionPlan = createServerFn({ method: "POST" })
         const params: Record<string, unknown> = { ...defaultsForModel(model), prompt: shot.prompt };
         if (shot.duration && fields.some((field) => field.key === "duration")) params["duration"] = shot.duration;
         // The same request body Create would send (no media is known for a planned shot).
-        const call = await higgsfieldProvider.estimate(
-          model.model_path,
-          providerPayload(model, params, []),
-        );
-        const cost = call.ok ? extractCost(call.data) : null;
+        const payload = providerPayload(model, params, []);
+        const call = await higgsfieldProvider.estimate(model.model_path, payload);
+        // A metered model's rate is priced for this shot's size and length.
+        const cost = call.ok
+          ? (extractCost(call.data) ??
+            meteredQuoteFor({
+              description: extractPricingDescription(call.data),
+              fields,
+              values: payload,
+            })?.usd ??
+            null)
+          : null;
         if (cost === null) unknown += 1;
         else total += cost;
         perShot.push({ shot: `${scene.scene_number}.${shot.shot_number}`, cost });

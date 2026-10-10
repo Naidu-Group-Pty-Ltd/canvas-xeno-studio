@@ -2,9 +2,19 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { AppError } from "./higgsfield/errors";
-import { providerPayload, validateParameters, type ModelRegistryEntry } from "./model-schema";
+import { meteredQuoteFor, type MeteredQuote } from "./higgsfield/metered";
+import {
+  normalizeOption,
+  providerPayload,
+  validateParameters,
+  type ModelRegistryEntry,
+} from "./model-schema";
 
-const inputSchema = z.object({ assetId: z.string().uuid(), role: z.string(), position: z.number().int().min(0) });
+const inputSchema = z.object({
+  assetId: z.string().uuid(),
+  role: z.string(),
+  position: z.number().int().min(0),
+});
 
 const estimateInput = z.object({
   modelId: z.string().uuid(),
@@ -26,8 +36,13 @@ type Json = Record<string, unknown>;
 
 async function loadContext(supabase: never, modelId: string) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data: model } = await supabaseAdmin.from("model_registry").select("*").eq("id", modelId).maybeSingle();
-  if (!model || !model.is_active) throw new AppError("INVALID_PARAMETERS", "That model is unavailable");
+  const { data: model } = await supabaseAdmin
+    .from("model_registry")
+    .select("*")
+    .eq("id", modelId)
+    .maybeSingle();
+  if (!model || !model.is_active)
+    throw new AppError("INVALID_PARAMETERS", "That model is unavailable");
   return { supabaseAdmin, model: model as unknown as ModelRegistryEntry };
 }
 
@@ -39,7 +54,8 @@ async function assertActiveMember(userId: string) {
     .select("id,is_active")
     .eq("id", userId)
     .maybeSingle();
-  if (!profile?.is_active) throw new AppError("NOT_AUTHORIZED", "Your account is not an active team member");
+  if (!profile?.is_active)
+    throw new AppError("NOT_AUTHORIZED", "Your account is not an active team member");
   return profile;
 }
 
@@ -59,7 +75,10 @@ export const getProviderHealth = createServerFn({ method: "GET" })
     let state: "connected" | "degraded" | "not_configured" | "disabled" = "connected";
     if (!configured) state = "not_configured";
     else if (!enabled) state = "disabled";
-    else if (lastError && (!lastSuccess || new Date(lastError["at"] as string) > new Date(lastSuccess)))
+    else if (
+      lastError &&
+      (!lastSuccess || new Date(lastError["at"] as string) > new Date(lastSuccess))
+    )
       state = "degraded";
 
     return {
@@ -88,14 +107,15 @@ export const estimateGeneration = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => estimateInput.parse(data))
   .handler(async ({ data, context }) => {
     await assertActiveMember(context.userId);
-    const { higgsfieldProvider, extractCost, extractPricingDescription, providerConfigured } = await import(
-      "./higgsfield/provider.server"
-    );
+    const { higgsfieldProvider, extractCost, extractPricingDescription, providerConfigured } =
+      await import("./higgsfield/provider.server");
     const unavailable = (code: string, message: string | null = null) => ({
       ok: false as const,
       code,
       costUsd: null,
       pricingDescription: null as string | null,
+      metered: null as MeteredQuote | null,
+      byResolution: [] as { resolution: string; usd: number }[],
       message,
     });
     if (!providerConfigured()) return unavailable("PROVIDER_NOT_CONFIGURED");
@@ -144,10 +164,8 @@ export const estimateGeneration = createServerFn({ method: "POST" })
       }
     }
 
-    const call = await higgsfieldProvider.estimate(
-      model.model_path,
-      providerPayload(model, data.parameters, media),
-    );
+    const payload = providerPayload(model, data.parameters, media);
+    const call = await higgsfieldProvider.estimate(model.model_path, payload);
     if (pipeline.reflectsProviderHealth(call))
       await pipeline.recordProviderHealth(call.ok, call.errorMessage);
     if (!call.ok)
@@ -158,7 +176,40 @@ export const estimateGeneration = createServerFn({ method: "POST" })
     // Metered models are quoted as a rate rather than a figure; that is a valid
     // answer from the provider, not an estimate failure.
     if (cost === null && !pricingDescription) return unavailable("ESTIMATE_FAILED");
-    return { ok: true as const, code: null, costUsd: cost, pricingDescription, message: null };
+    if (cost !== null)
+      return {
+        ok: true as const,
+        code: null,
+        costUsd: cost,
+        pricingDescription,
+        metered: null,
+        byResolution: [],
+        message: null,
+      };
+    // The rate turned into what this request costs, as the server records it
+    // when the generation is sent, and what it would cost at each resolution
+    // the model offers, so a cheaper one is a visible choice.
+    const fields = model.parameter_schema?.fields ?? [];
+    const inputVideoSeconds = await pipeline.videoSecondsOf(inputs.map((input) => input.assetId));
+    const quote = (values: Record<string, unknown>) =>
+      meteredQuoteFor({ description: pricingDescription, fields, values, inputVideoSeconds });
+    const metered = quote(payload);
+    const resolutions = (fields.find((field) => field.key === "resolution")?.options ?? []).map(
+      (option) => String(normalizeOption(option).value),
+    );
+    const byResolution = resolutions.flatMap((resolution) => {
+      const priced = quote({ ...payload, resolution });
+      return priced ? [{ resolution, usd: priced.usd }] : [];
+    });
+    return {
+      ok: true as const,
+      code: null,
+      costUsd: metered?.usd ?? null,
+      pricingDescription,
+      metered,
+      byResolution,
+      message: null,
+    };
   });
 
 /** Creates the generation record first, then submits exactly once. */
@@ -199,7 +250,10 @@ export const refreshGenerationStatus = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!generation?.hf_request_id) return { status: generation?.status ?? "unknown" };
 
-    const call = await higgsfieldProvider.getStatus(generation.hf_request_id, generation.hf_status_url);
+    const call = await higgsfieldProvider.getStatus(
+      generation.hf_request_id,
+      generation.hf_status_url,
+    );
     if (!call.ok) return { status: generation.status, error: call.errorCode };
     const status = await pipeline.applyProviderPayload(generation.id, call.data);
     if (status === "completed") await pipeline.ingestOutputs(generation.id);
@@ -235,7 +289,10 @@ export const cancelGeneration = createServerFn({ method: "POST" })
     }
     if (!generation.hf_request_id) return { status: generation.status };
 
-    const call = await higgsfieldProvider.cancel(generation.hf_request_id, generation.hf_cancel_url);
+    const call = await higgsfieldProvider.cancel(
+      generation.hf_request_id,
+      generation.hf_cancel_url,
+    );
     if (!call.ok) return { status: generation.status, error: call.errorCode };
     await supabaseAdmin
       .from("generations")
@@ -254,7 +311,6 @@ export const resubmitGeneration = createServerFn({ method: "POST" })
     await assertActiveMember(context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const pipeline = await import("./generation-pipeline.server");
-
 
     const { data: original } = await supabaseAdmin
       .from("generations")
@@ -336,10 +392,12 @@ export const listProviderPresets = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertActiveMember(context.userId);
     const { higgsfieldProvider, providerConfigured } = await import("./higgsfield/provider.server");
-    if (!providerConfigured()) return { ok: false, code: "PROVIDER_NOT_CONFIGURED", presets: [], nextCursor: null };
+    if (!providerConfigured())
+      return { ok: false, code: "PROVIDER_NOT_CONFIGURED", presets: [], nextCursor: null };
 
     const call = await higgsfieldProvider.listPresets(data.source, data.cursor);
-    if (!call.ok) return { ok: false, code: call.errorCode ?? "UNKNOWN", presets: [], nextCursor: null };
+    if (!call.ok)
+      return { ok: false, code: call.errorCode ?? "UNKNOWN", presets: [], nextCursor: null };
 
     const payload = (call.data ?? {}) as Json;
     const listSource =
@@ -373,7 +431,9 @@ export const listProviderPresets = createServerFn({ method: "POST" })
     const cursorValue =
       typeof rawCursor === "string" || typeof rawCursor === "number" ? String(rawCursor) : null;
     const nextCursor =
-      cursorValue && (total === null || Number(cursorValue) < total) && cursorValue !== (data.cursor ?? "0")
+      cursorValue &&
+      (total === null || Number(cursorValue) < total) &&
+      cursorValue !== (data.cursor ?? "0")
         ? cursorValue
         : null;
 

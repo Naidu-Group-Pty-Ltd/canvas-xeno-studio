@@ -24,7 +24,14 @@ import { AssetCard } from "@/components/studio/AssetCard";
 import { SaveStatus } from "@/components/studio/SaveStatus";
 import { AssetDetailDialog } from "@/components/studio/AssetDetailDialog";
 import { StatusBadge } from "@/components/studio/StatusBadge";
-import { useAssets, useGenerations, useModels, useProjects, useSettings, type AssetRow } from "@/hooks/useStudioData";
+import {
+  useAssets,
+  useGenerations,
+  useModels,
+  useProjects,
+  useSettings,
+  type AssetRow,
+} from "@/hooks/useStudioData";
 import { useAuth } from "@/hooks/useAuth";
 import { defaultsForModel, validateParameters, type ModelRegistryEntry } from "@/lib/model-schema";
 import { estimateGeneration, submitGeneration } from "@/lib/generation.functions";
@@ -41,12 +48,23 @@ import {
 } from "@/components/create/long-video-plan";
 import { startLongVideo } from "@/lib/long-video.functions";
 import { formatLength } from "@/lib/long-video/plan";
-import { cinemaSupported, compileCinemaPrompt, promptCinemaGroups, type CinemaSelection } from "@/lib/cinema";
+import {
+  cinemaSupported,
+  compileCinemaPrompt,
+  promptCinemaGroups,
+  type CinemaSelection,
+} from "@/lib/cinema";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -57,15 +75,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import type { MeteredQuote } from "@/lib/higgsfield/metered";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Create · Xeno Studio" },
-      { name: "description", content: "Generate images and video with the studio's configured AI models." },
+      {
+        name: "description",
+        content: "Generate images and video with the studio's configured AI models.",
+      },
       { property: "og:title", content: "Create · Xeno Studio" },
-      { property: "og:description", content: "The internal creative workstation for AI image and video generation." },
+      {
+        property: "og:description",
+        content: "The internal creative workstation for AI image and video generation.",
+      },
     ],
   }),
   component: CreatePage,
@@ -74,8 +99,15 @@ export const Route = createFileRoute("/")({
 type EstimateState =
   | { kind: "idle" }
   | { kind: "loading" }
-  | { kind: "ready"; costUsd: number }
-  /** Metered models are quoted as a rate rather than a single figure. */
+  | {
+      kind: "ready";
+      costUsd: number;
+      /** For a metered model: how its price follows from the provider's rate. */
+      metered?: MeteredQuote | null;
+      /** For a metered model: what it would cost at each resolution it offers. */
+      byResolution?: { resolution: string; usd: number }[];
+    }
+  /** Metered models whose rate couldn't be turned into a figure (shown as given). */
   | { kind: "metered"; description: string }
   /** `label` fits the cost line; `reason` says what is wrong and what to do. */
   | { kind: "unavailable"; label: string; reason: string; code?: string };
@@ -198,8 +230,14 @@ function CreatePage() {
   const submitLock = useRef(false);
   const requestIdRef = useRef<string | null>(null);
 
-  const mediaModels = useMemo(() => models.filter((model) => model.output_type === mediaType), [models, mediaType]);
-  const model = useMemo(() => models.find((entry) => entry.id === modelId) ?? null, [models, modelId]);
+  const mediaModels = useMemo(
+    () => models.filter((model) => model.output_type === mediaType),
+    [models, mediaType],
+  );
+  const model = useMemo(
+    () => models.find((entry) => entry.id === modelId) ?? null,
+    [models, modelId],
+  );
   // The selected model's other workflows (image to video, reference to video, …).
   const familyModels = useMemo(
     () =>
@@ -243,10 +281,15 @@ function CreatePage() {
       setShotId(prefill.shotId ?? null);
       setReferences([]);
 
-      const explicit = prefill.modelId ? models.find((entry) => entry.id === prefill.modelId) : undefined;
+      const explicit = prefill.modelId
+        ? models.find((entry) => entry.id === prefill.modelId)
+        : undefined;
       const fallback =
-        models.find((entry) => entry.id === settings?.[kind === "video" ? "default_video_model" : "default_image_model"]) ??
-        models.find((entry) => entry.output_type === kind);
+        models.find(
+          (entry) =>
+            entry.id ===
+            settings?.[kind === "video" ? "default_video_model" : "default_image_model"],
+        ) ?? models.find((entry) => entry.output_type === kind);
       const load = (target: ModelRegistryEntry | undefined) => {
         if (!target) return;
         setModelId(target.id);
@@ -290,7 +333,9 @@ function CreatePage() {
     }
 
     const defaultId = settings?.["default_image_model"] as string | undefined;
-    const target = models.find((entry) => entry.id === defaultId) ?? models.find((entry) => entry.output_type === "image");
+    const target =
+      models.find((entry) => entry.id === defaultId) ??
+      models.find((entry) => entry.output_type === "image");
     if (target) {
       setModelId(target.id);
       setValues({ ...defaultsForModel(target), prompt: loadPromptDraft() });
@@ -371,7 +416,11 @@ function CreatePage() {
     if (!model || !cinemaOn) return values;
     return {
       ...values,
-      prompt: compileCinemaPrompt((values["prompt"] as string) ?? "", cinema, promptCinemaGroups(model)),
+      prompt: compileCinemaPrompt(
+        (values["prompt"] as string) ?? "",
+        cinema,
+        promptCinemaGroups(model),
+      ),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model?.id, JSON.stringify(values), JSON.stringify(cinema), cinemaOn]);
@@ -406,11 +455,21 @@ function CreatePage() {
           data: {
             modelId: model.id,
             parameters: estimateValues,
-            inputs: usable.map((item, index) => ({ assetId: item.assetId, role: item.role, position: index })),
+            inputs: usable.map((item, index) => ({
+              assetId: item.assetId,
+              role: item.role,
+              position: index,
+            })),
           },
         });
         if (cancelled) return;
-        if (result.ok && result.costUsd !== null) setEstimate({ kind: "ready", costUsd: result.costUsd });
+        if (result.ok && result.costUsd !== null)
+          setEstimate({
+            kind: "ready",
+            costUsd: result.costUsd,
+            metered: result.metered,
+            byResolution: result.byResolution,
+          });
         else if (result.ok && result.pricingDescription)
           setEstimate({ kind: "metered", description: result.pricingDescription });
         else setEstimate(estimateProblem(result, isAdmin));
@@ -478,13 +537,20 @@ function CreatePage() {
       // each carries its own idempotency key so none can be billed twice.
       const combos = expandMatrix(matrix);
       const payloads = combos.length ? combos : [{}];
-      let result: { generationId: string; status: string; budgetWarning?: string | null } = { generationId: "", status: "" };
+      let result: { generationId: string; status: string; budgetWarning?: string | null } = {
+        generationId: "",
+        status: "",
+      };
       for (let index = 0; index < payloads.length; index += 1) {
         result = await submitGeneration({
           data: {
             modelId: model.id,
             parameters: { ...submitValues, ...payloads[index] },
-            inputs: usable.map((item, i) => ({ assetId: item.assetId, role: item.role, position: i })),
+            inputs: usable.map((item, i) => ({
+              assetId: item.assetId,
+              role: item.role,
+              position: i,
+            })),
             projectId,
             campaignId,
             parentGenerationId,
@@ -494,7 +560,8 @@ function CreatePage() {
         });
       }
       if (result.budgetWarning) toast.warning(result.budgetWarning);
-      if (payloads.length > 1) toast.success(`${payloads.length} generations submitted. Track them in Activity.`);
+      if (payloads.length > 1)
+        toast.success(`${payloads.length} generations submitted. Track them in Activity.`);
       requestIdRef.current = null;
       if (payloads.length > 1) {
         // Per-combination outcomes are shown individually in Activity.
@@ -582,7 +649,9 @@ function CreatePage() {
   function openInSupercomputer() {
     const prompt = typeof values["prompt"] === "string" ? values["prompt"].trim() : "";
     setSupercomputerHandoff({
-      text: prompt ? `Help me push this further, with sharper concepts and ready-to-run drafts:\n\n${prompt}` : "",
+      text: prompt
+        ? `Help me push this further, with sharper concepts and ready-to-run drafts:\n\n${prompt}`
+        : "",
       intent: prompt ? "drafts" : "brainstorm",
       attachments: references.map((item) => ({
         assetId: item.assetId,
@@ -601,7 +670,10 @@ function CreatePage() {
   function handleGenerate() {
     if (!canGenerate) return;
     if (longMode || batchCount > 1) setConfirmHighCost(true);
-    else if (estimate.kind === "ready" && estimate.costUsd >= highCostThreshold) setConfirmHighCost(true);
+    else if (estimate.kind === "ready" && estimate.costUsd >= highCostThreshold)
+      setConfirmHighCost(true);
+    // A metered price that couldn't be worked out is confirmed every time.
+    else if (estimate.kind === "metered") setConfirmHighCost(true);
     else void runSubmit();
   }
 
@@ -647,7 +719,9 @@ function CreatePage() {
                       onClick={() => setMediaType(type)}
                       className={cn(
                         "rounded-md px-4 py-1.5 text-xs font-medium tracking-wide uppercase transition-colors",
-                        mediaType === type ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+                        mediaType === type
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:text-foreground",
                       )}
                     >
                       {type}
@@ -655,7 +729,10 @@ function CreatePage() {
                   ))}
                 </div>
 
-                <Select value={projectId ?? "none"} onValueChange={(value) => setProjectId(value === "none" ? null : value)}>
+                <Select
+                  value={projectId ?? "none"}
+                  onValueChange={(value) => setProjectId(value === "none" ? null : value)}
+                >
                   <SelectTrigger className="h-9 w-48">
                     <SelectValue placeholder="No project" />
                   </SelectTrigger>
@@ -669,7 +746,10 @@ function CreatePage() {
                   </SelectContent>
                 </Select>
 
-                <Select value={campaignId ?? "none"} onValueChange={(value) => setCampaignId(value === "none" ? null : value)}>
+                <Select
+                  value={campaignId ?? "none"}
+                  onValueChange={(value) => setCampaignId(value === "none" ? null : value)}
+                >
                   <SelectTrigger className="h-9 w-48">
                     <SelectValue placeholder="No campaign" />
                   </SelectTrigger>
@@ -684,7 +764,10 @@ function CreatePage() {
                 </Select>
 
                 {briefsReady && briefs.length > 0 && (
-                  <Select value={briefId ?? "none"} onValueChange={(value) => setBriefId(value === "none" ? null : value)}>
+                  <Select
+                    value={briefId ?? "none"}
+                    onValueChange={(value) => setBriefId(value === "none" ? null : value)}
+                  >
                     <SelectTrigger className="h-9 w-48" aria-label="Brief">
                       <SelectValue placeholder="No brief" />
                     </SelectTrigger>
@@ -703,13 +786,22 @@ function CreatePage() {
                 {shotId && (
                   <Badge variant="outline" className="gap-2">
                     Shooting a storyboard shot
-                    <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setShotId(null)}>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground"
+                      onClick={() => setShotId(null)}
+                    >
                       ×
                     </button>
                   </Badge>
                 )}
 
-                <Button variant="outline" size="sm" className="ml-auto h-9" onClick={openInSupercomputer}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="ml-auto h-9"
+                  onClick={openInSupercomputer}
+                >
                   <Cpu className="mr-1.5 size-4 text-primary" /> Brainstorm
                 </Button>
               </div>
@@ -728,7 +820,9 @@ function CreatePage() {
                         {model?.display_name ?? "Select a model"}
                       </span>
                       <span className="block truncate text-xs text-muted-foreground">
-                        {model ? `${model.family} · ${model.recommended_for ?? model.model_path}` : "Browse the registry"}
+                        {model
+                          ? `${model.family} · ${model.recommended_for ?? model.model_path}`
+                          : "Browse the registry"}
                       </span>
                     </span>
                     <Wand2 className="size-4 shrink-0 text-muted-foreground" />
@@ -774,7 +868,12 @@ function CreatePage() {
                 )}
 
                 {model && !longMode && (
-                  <BatchMatrix model={model} values={values} selection={matrix} onChange={setMatrix} />
+                  <BatchMatrix
+                    model={model}
+                    values={values}
+                    selection={matrix}
+                    onChange={setMatrix}
+                  />
                 )}
 
                 {model && (
@@ -872,7 +971,9 @@ function CreatePage() {
                     inputRoles={inputRoles}
                     issues={issueMap}
                     hiddenKeys={longMode ? ["duration"] : undefined}
-                    onChange={(key, value) => setValues((current) => ({ ...current, [key]: value }))}
+                    onChange={(key, value) =>
+                      setValues((current) => ({ ...current, [key]: value }))
+                    }
                   />
                   <Collapsible>
                     <CollapsibleTrigger className="flex w-full items-center justify-between rounded-md border border-border px-3 py-2 text-xs text-muted-foreground hover:text-foreground">
@@ -887,7 +988,9 @@ function CreatePage() {
                         issues={issueMap}
                         advanced
                         hiddenKeys={longMode ? ["duration"] : undefined}
-                        onChange={(key, value) => setValues((current) => ({ ...current, [key]: value }))}
+                        onChange={(key, value) =>
+                          setValues((current) => ({ ...current, [key]: value }))
+                        }
                       />
                     </CollapsibleContent>
                   </Collapsible>
@@ -900,7 +1003,7 @@ function CreatePage() {
             <div className="panel sticky top-20 space-y-3 p-5">
               <div className="flex items-center justify-between text-sm">
                 <span className="label-eyebrow">Estimated cost</span>
-                <span className="font-mono">
+                <span className="font-mono" data-testid="estimated-cost">
                   {estimate.kind === "loading" && "Calculating…"}
                   {estimate.kind === "ready" && `$${estimate.costUsd.toFixed(2)}`}
                   {estimate.kind === "metered" && "Metered"}
@@ -909,7 +1012,51 @@ function CreatePage() {
                 </span>
               </div>
               {estimate.kind === "metered" && (
-                <p className="text-[11px] leading-relaxed text-muted-foreground">{estimate.description}</p>
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  {estimate.description}
+                </p>
+              )}
+              {estimate.kind === "ready" && estimate.metered && (
+                <div className="space-y-1.5" data-testid="metered-cost">
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                    Charged by output size and length: {estimate.metered.seconds}s at{" "}
+                    {estimate.metered.width}×{estimate.metered.height}
+                    {estimate.metered.inputVideoSeconds > 0
+                      ? ` plus ${Math.round(estimate.metered.inputVideoSeconds)}s of input video`
+                      : ""}{" "}
+                    ≈ {estimate.metered.tokens.toLocaleString()} video tokens at $
+                    {estimate.metered.ratePer1k} per 1,000 (Higgsfield's list price; an account
+                    discount makes it lower).
+                  </p>
+                  {(estimate.byResolution?.length ?? 0) > 1 && (
+                    <div className="flex flex-wrap gap-1" data-testid="metered-by-resolution">
+                      {estimate.byResolution!.map((option) => {
+                        const current = values["resolution"] === option.resolution;
+                        return (
+                          <button
+                            key={option.resolution}
+                            type="button"
+                            onClick={() =>
+                              setValues((previous) => ({
+                                ...previous,
+                                resolution: option.resolution,
+                              }))
+                            }
+                            className={cn(
+                              "rounded border px-1.5 py-0.5 font-mono text-[10px]",
+                              current
+                                ? "border-primary text-foreground"
+                                : "border-border text-muted-foreground hover:text-foreground",
+                            )}
+                            title={`Use ${option.resolution}`}
+                          >
+                            {option.resolution} ${option.usd.toFixed(2)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               )}
               {longMode && (
                 <p className="text-[11px] text-primary" data-testid="long-video-cost">
@@ -925,7 +1072,9 @@ function CreatePage() {
               {batchCount > 1 && (
                 <p className="text-[11px] text-primary">
                   Batch matrix: {batchCount} generations
-                  {estimate.kind === "ready" ? ` · approx. $${(estimate.costUsd * batchCount).toFixed(2)} total` : ""}
+                  {estimate.kind === "ready"
+                    ? ` · approx. $${(estimate.costUsd * batchCount).toFixed(2)} total`
+                    : ""}
                 </p>
               )}
               <Button
@@ -934,7 +1083,11 @@ function CreatePage() {
                 disabled={!canGenerate}
                 onClick={handleGenerate}
               >
-                {submitting ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Sparkles className="mr-2 size-4" />}
+                {submitting ? (
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-2 size-4" />
+                )}
                 {submitting
                   ? "Submitting…"
                   : longMode
@@ -1002,7 +1155,9 @@ function CreatePage() {
             assignRoles(
               [
                 ...current,
-                ...assets.filter((asset) => !current.some((item) => item.assetId === asset.id)).map(assetToReference),
+                ...assets
+                  .filter((asset) => !current.some((item) => item.assetId === asset.id))
+                  .map(assetToReference),
               ],
               model,
             ),
@@ -1024,7 +1179,10 @@ function CreatePage() {
         }}
       />
 
-      <AssetDetailDialog asset={selectedAsset} onOpenChange={(open) => !open && setSelectedAsset(null)} />
+      <AssetDetailDialog
+        asset={selectedAsset}
+        onOpenChange={(open) => !open && setSelectedAsset(null)}
+      />
 
       <AlertDialog open={confirmHighCost} onOpenChange={setConfirmHighCost}>
         <AlertDialogContent>
@@ -1044,10 +1202,29 @@ function CreatePage() {
                       : ""
                   }Each clip is quoted again by the provider before it is sent, and you can stop the run at any point.`
                 : batchCount > 1
-                ? `This runs ${batchCount} separate generations, approximately $${
-                    estimate.kind === "ready" ? (estimate.costUsd * batchCount).toFixed(2) : "0.00"
-                  } in total. Each one is estimated again by the provider before it is sent.`
-                : `This generation is estimated to cost $${estimate.kind === "ready" ? estimate.costUsd.toFixed(2) : "0.00"}.`}
+                  ? `This runs ${batchCount} separate generations, approximately $${
+                      estimate.kind === "ready"
+                        ? (estimate.costUsd * batchCount).toFixed(2)
+                        : "0.00"
+                    } in total. Each one is estimated again by the provider before it is sent.`
+                  : estimate.kind === "metered"
+                    ? `This model is charged by output size and length, and its price couldn't be worked out here: ${estimate.description}`
+                    : `This generation is estimated to cost $${estimate.kind === "ready" ? estimate.costUsd.toFixed(2) : "0.00"}${
+                        estimate.kind === "ready" && estimate.metered
+                          ? ` at Higgsfield's list price (${estimate.metered.seconds}s at ${estimate.metered.width}×${estimate.metered.height})${
+                              (estimate.byResolution ?? []).some(
+                                (option) => option.usd < estimate.costUsd,
+                              )
+                                ? `. A lower resolution costs less: ${(estimate.byResolution ?? [])
+                                    .filter((option) => option.usd < estimate.costUsd)
+                                    .map(
+                                      (option) => `${option.resolution} $${option.usd.toFixed(2)}`,
+                                    )
+                                    .join(", ")}`
+                                : ""
+                            }`
+                          : ""
+                      }.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1080,7 +1257,9 @@ function assetToReference(asset: AssetRow): ReferenceItem {
 }
 
 /** Loads hand-off inputs (Recreate, Animate, Use as reference) as reference items, in order. */
-async function loadReferenceItems(inputs: { assetId: string; role: string }[]): Promise<ReferenceItem[]> {
+async function loadReferenceItems(
+  inputs: { assetId: string; role: string }[],
+): Promise<ReferenceItem[]> {
   const { data } = await supabase
     .from("assets")
     .select("id,asset_type,storage_bucket,storage_path,title,mime_type")
@@ -1119,7 +1298,11 @@ function RecentOutputs({
   onOpenAsset: (asset: AssetRow) => void;
   onUseAsReference: (asset: AssetRow) => void;
 }) {
-  const { data: assets = [], isLoading } = useAssets({ limit: 12, projectId, sourceType: "generated" });
+  const { data: assets = [], isLoading } = useAssets({
+    limit: 12,
+    projectId,
+    sourceType: "generated",
+  });
   const { data: generations = [] } = useGenerations({ limit: 6, projectId });
 
   // Completed generations stay listed until their output is saved (or the save needs a retry).
