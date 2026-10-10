@@ -142,6 +142,24 @@ export function meteredQuote(input: {
   return { usd, tokens, width, height, seconds, inputVideoSeconds, ratePer1k };
 }
 
+/**
+ * Video given as input is trimmed or padded by the provider to at most 30
+ * seconds in all (per media type) before it is billed; a source video is
+ * also brought up to at least 4 seconds.
+ */
+export const VIDEO_INPUT_BUDGET_SECONDS = 30;
+export const MIN_SOURCE_VIDEO_SECONDS = 4;
+
+/** What the provider bills of the video given as input: its total length, up to the budget. */
+export function billableInputSeconds(totalSeconds: number): number {
+  return Math.min(Math.max(0, totalSeconds), VIDEO_INPUT_BUDGET_SECONDS);
+}
+
+/** How long a source video is once the provider has processed it (4–30 s). */
+export function processedSourceSeconds(seconds: number): number {
+  return Math.min(Math.max(seconds, MIN_SOURCE_VIDEO_SECONDS), VIDEO_INPUT_BUDGET_SECONDS);
+}
+
 interface PricedField {
   key: string;
   default?: unknown;
@@ -153,12 +171,15 @@ interface PricedField {
  * ratio and length, else the model's defaults (what the provider applies when
  * a setting is left out). A length left to the provider is priced at the
  * longest the model allows, so the quote is an upper bound rather than a guess.
+ * A model with no length setting (Seedance's video edit) makes a video as long
+ * as its processed source video, given as `sourceVideoSeconds`.
  */
 export function meteredQuoteFor(input: {
   description: string | null | undefined;
   fields: readonly PricedField[];
   values: Record<string, unknown>;
   inputVideoSeconds?: number;
+  sourceVideoSeconds?: number | null;
 }): MeteredQuote | null {
   const rates = parseMeteredRates(input.description);
   if (!rates) return null;
@@ -169,12 +190,17 @@ export function meteredQuoteFor(input: {
     return typeof found === "string" && found ? found : null;
   };
   const given = Number(value("duration"));
-  const seconds = Number.isFinite(given) && given > 0 ? given : (field("duration")?.max ?? null);
+  const derived =
+    !field("duration") && input.sourceVideoSeconds != null && input.sourceVideoSeconds > 0
+      ? processedSourceSeconds(input.sourceVideoSeconds)
+      : null;
+  const seconds =
+    Number.isFinite(given) && given > 0 ? given : (derived ?? field("duration")?.max ?? null);
   return meteredQuote({
     rates,
     resolution: text("resolution"),
     aspectRatio: text("aspect_ratio"),
     seconds,
-    inputVideoSeconds: input.inputVideoSeconds ?? 0,
+    inputVideoSeconds: billableInputSeconds(input.inputVideoSeconds ?? 0),
   });
 }
