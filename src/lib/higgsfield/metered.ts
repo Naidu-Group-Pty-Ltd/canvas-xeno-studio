@@ -201,6 +201,12 @@ export function meteredQuoteFor(input: {
     resolution: text("resolution"),
     aspectRatio: text("aspect_ratio"),
     seconds,
-    inputVideoSeconds: billableInputSeconds(input.inputVideoSeconds ?? 0),
+    // A source shorter than the provider's minimum is padded, and billed, as that minimum.
+    inputVideoSeconds: billableInputSeconds(
+      (input.inputVideoSeconds ?? 0) +
+        (input.sourceVideoSeconds != null && input.sourceVideoSeconds > 0
+          ? Math.max(0, MIN_SOURCE_VIDEO_SECONDS - input.sourceVideoSeconds)
+          : 0),
+    ),
   });
 }
