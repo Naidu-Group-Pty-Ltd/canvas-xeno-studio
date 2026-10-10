@@ -426,7 +426,8 @@ export function VoiceoverPanel({
     const projectId = scopeProjectId ?? null;
     let upload: string | null = null;
     try {
-      upload = uploadKey(projectId, file, await fileDigest(file));
+      // Kept per edit: an upload imported into one edit is never offered to another.
+      upload = `voiceover:${context.sequenceId}:${uploadKey(projectId, file, await fileDigest(file))}`;
       const staged = await uploadStaged({ userId: user.id, file, upload, projectId });
       const result = await importRecordedVoiceover({
         data: {
@@ -454,7 +455,8 @@ export function VoiceoverPanel({
         );
     } catch (error) {
       const message = error instanceof Error ? error.message : "The voiceover couldn't be imported";
-      if (upload && uploadRefused(message)) keepStaged(user.id, upload, null);
+      if (upload && (uploadRefused(message) || /already imported elsewhere/.test(message)))
+        keepStaged(user.id, upload, null);
       toast.error(message);
     } finally {
       setImporting(false);

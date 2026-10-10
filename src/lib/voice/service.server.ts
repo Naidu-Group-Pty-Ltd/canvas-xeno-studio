@@ -1011,12 +1011,18 @@ export async function importVoiceover(input: {
   if (insertError) {
     if (insertError.code === "23505") {
       const raced = await byUpload();
-      if (raced?.asset_id && raced.created_by === input.userId) {
+      if (
+        raced?.asset_id &&
+        raced.created_by === input.userId &&
+        raced.sequence_id === input.sequenceId
+      ) {
         await finish(raced, { id: raced.asset_id });
         return { ...reported(raced), duplicate: true };
       }
     }
     if (isMissingTableError(insertError)) throw new VoicesNotSetUp();
+    if (insertError.code === "23505")
+      throw new AppError("INVALID_PARAMETERS", "That upload was already imported elsewhere.");
     throw new AppError("UNKNOWN", "The voiceover couldn't be imported. Try again.");
   }
   await finish({ id: takeId }, asset);
