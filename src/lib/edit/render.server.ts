@@ -132,7 +132,7 @@ async function studioVoiceovers(assetIds: string[]): Promise<Set<string>> {
 function unrecordedReason(item: { role: string; title: string | null }): string {
   const title = item.title ?? "Some audio";
   return item.role === "voiceover"
-    ? `“${title}” is used as a voiceover, but it wasn't made in the Voice tab and no licence is on record for it. Record its licence in the edit's Music tab, or make the voiceover in the Voice tab.`
+    ? `“${title}” is used as a voiceover, but it wasn't made in the Voice tab and no licence is on record for it. Make or import the voiceover in the edit's Voice tab, or record its licence in the Music tab.`
     : `“${title}” is used as ${item.role === "sfx" ? "a sound effect" : "music"}, but no licence is on record for it. Record its licence in the edit's Music tab, or use music from the library.`;
 }
 

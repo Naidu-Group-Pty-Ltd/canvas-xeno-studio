@@ -2,14 +2,18 @@ import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { AlertTriangle, CheckCircle2, Info, Loader2, XCircle } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
+import { toast } from "sonner";
 import { AddLicensedTrack } from "@/components/music/AddLicensedTrack";
 import { FindMusic } from "@/components/music/FindMusic";
 import { GenerateMusic } from "@/components/music/GenerateMusic";
 import { MusicLibrary } from "@/components/music/MusicLibrary";
+import { DropOverlay } from "@/components/ui/drop-overlay";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useFileDrop } from "@/hooks/useFileDrop";
 import { useMusicStatus, useMusicTracks } from "@/hooks/useMusicData";
+import { isUploadableAudio } from "@/lib/audio-upload";
 import { isMissingTableError } from "@/lib/edit/errors";
 import { SONG_GUIDANCE } from "@/lib/music/catalog";
 
@@ -38,16 +42,36 @@ function MusicPage() {
   const { error } = useMusicTracks({ includeArchived: showArchived });
   const missingTables = isMissingTableError(error);
   const [tab, setTab] = useState("library");
+  // An audio file dragged anywhere onto the page opens it in "Add or upload a track".
+  const [dropped, setDropped] = useState<File | null>(null);
+  const { dragging, dropProps } = useFileDrop({
+    disabled: missingTables,
+    onFiles: (files) => {
+      const audio = files.find(isUploadableAudio);
+      if (!audio) {
+        toast.error("Drop a WAV, MP3 or M4A file to add it to the library.");
+        return;
+      }
+      if (files.length > 1) toast.message(`One track at a time: “${audio.name}” was taken.`);
+      setDropped(audio);
+      setTab("licensed");
+    },
+  });
 
   return (
     <AppShell title="Music">
-      <div className="space-y-5 p-4">
+      <div className="relative min-h-full space-y-5 p-4" {...dropProps}>
+        <DropOverlay
+          active={dragging}
+          label="Drop an audio file to add it with its licence"
+          className="fixed inset-4"
+        />
         <div className="max-w-3xl">
           <h2 className="font-display text-lg font-semibold">Music library</h2>
           <p className="text-sm text-muted-foreground">
             Every track here carries its licence, so the team knows it can be used and what credit
-            it needs. Find free Creative Commons music, make original music for a brief, or add
-            tracks the brand has licensed.
+            it needs. Find free Creative Commons music, make original music for a brief, or upload
+            tracks the brand owns or has licensed from your device (drag a file onto the page).
           </p>
         </div>
 
@@ -94,7 +118,7 @@ function MusicPage() {
             <TabsTrigger value="library">Library</TabsTrigger>
             <TabsTrigger value="find">Find free music</TabsTrigger>
             <TabsTrigger value="generate">Make music</TabsTrigger>
-            <TabsTrigger value="licensed">Add a licensed track</TabsTrigger>
+            <TabsTrigger value="licensed">Add or upload a track</TabsTrigger>
             <TabsTrigger value="songs">Real songs</TabsTrigger>
           </TabsList>
           <div className="mt-4 max-w-4xl">
@@ -118,7 +142,7 @@ function MusicPage() {
               <GenerateMusic onGenerated={() => setTab("library")} />
             </TabsContent>
             <TabsContent value="licensed">
-              <AddLicensedTrack />
+              <AddLicensedTrack initialFile={dropped} onAdded={() => setTab("library")} />
             </TabsContent>
             <TabsContent value="songs" className="space-y-3">
               <div className="flex items-start gap-2 rounded-md border border-border bg-surface-raised p-3 text-xs text-muted-foreground">

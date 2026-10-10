@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DropOverlay } from "@/components/ui/drop-overlay";
 import { Switch } from "@/components/ui/switch";
 import { AddLicensedTrack } from "@/components/music/AddLicensedTrack";
 import { FindMusic } from "@/components/music/FindMusic";
@@ -18,8 +19,10 @@ import { GenerateMusic } from "@/components/music/GenerateMusic";
 import { MusicLibrary, RenewLicence } from "@/components/music/MusicLibrary";
 import { LicenceTerms, LicenseBadge } from "@/components/music/TrackItem";
 import { useAuth } from "@/hooks/useAuth";
+import { useFileDrop } from "@/hooks/useFileDrop";
 import { audioUrlFor, useMusicTracks, useTracksForAssets } from "@/hooks/useMusicData";
 import { useStudioVoiceovers } from "@/hooks/useVoiceData";
+import { isUploadableAudio } from "@/lib/audio-upload";
 import { saveMusicAnalysis } from "@/lib/music.functions";
 import { analyzeAudioUrl } from "@/lib/music/analyze";
 import { beatTimesOnTimeline, snapCutsToBeats } from "@/lib/music/beats";
@@ -102,7 +105,9 @@ export function MusicPanel({
     isError: tracksFailed,
     refetch: refetchTracks,
   } = useTracksForAssets(sound.map((item) => item.assetId));
-  const [mode, setMode] = useState<"library" | "find" | "make">("library");
+  const [mode, setMode] = useState<"library" | "find" | "make" | "upload">("library");
+  // A file dragged onto the panel from the desktop opens in Upload.
+  const [dropped, setDropped] = useState<File | null>(null);
   // Audio on the edit with no licence on record (added from the media bin,
   // say) has its licence recorded here before the edit can be rendered.
   const [recording, setRecording] = useState<(typeof sound)[number] | null>(null);
@@ -125,6 +130,20 @@ export function MusicPanel({
   const latest = useRef({ replace });
   useEffect(() => {
     latest.current = { replace };
+  });
+
+  const { dragging, dropProps } = useFileDrop({
+    disabled: isMissingTableError(error),
+    onFiles: (files) => {
+      const audio = files.find(isUploadableAudio);
+      if (!audio) {
+        toast.error("Drop a WAV, MP3 or M4A file to add it as music or a sound effect.");
+        return;
+      }
+      if (files.length > 1) toast.message(`One track at a time: “${audio.name}” was taken.`);
+      setDropped(audio);
+      setMode("upload");
+    },
   });
 
   if (isMissingTableError(error)) {
@@ -250,7 +269,11 @@ export function MusicPanel({
   }
 
   return (
-    <div className="space-y-3 p-3" data-testid="music-panel">
+    <div className="relative min-h-full space-y-3 p-3" data-testid="music-panel" {...dropProps}>
+      <DropOverlay
+        active={dragging}
+        label="Drop an audio file to add it as music or a sound effect"
+      />
       <div className="space-y-1.5">
         <div className="flex items-baseline justify-between">
           <p className="label-eyebrow">In this edit</p>
@@ -392,7 +415,7 @@ export function MusicPanel({
 
       <div className="space-y-2">
         <div
-          className="grid grid-cols-3 gap-1 rounded-md border border-border p-0.5 text-[11px]"
+          className="grid grid-cols-4 gap-1 rounded-md border border-border p-0.5 text-[11px]"
           role="tablist"
         >
           {(
@@ -400,6 +423,7 @@ export function MusicPanel({
               ["library", "Library"],
               ["find", "Find free"],
               ["make", "Make"],
+              ["upload", "Upload"],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -470,6 +494,20 @@ export function MusicPanel({
               })
             }
           />
+        )}
+        {mode === "upload" && (
+          <div className="space-y-2">
+            <p className="text-[11px] text-muted-foreground">
+              Upload music or a sound effect the brand owns or has licensed, from this device
+              <span className="hidden md:inline"> (or drag the file onto this panel)</span>. It
+              joins the music library with its licence and goes on the edit.
+            </p>
+            <AddLicensedTrack
+              projectId={context.projectId}
+              initialFile={dropped}
+              onAdded={(track) => add(track)}
+            />
+          </div>
         )}
       </div>
       <RenewLicence track={renewing} onClose={() => setRenewing(null)} />

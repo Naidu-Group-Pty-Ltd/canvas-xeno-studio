@@ -15,7 +15,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ACCEPT_ATTRIBUTE, uploadReference } from "@/lib/storage";
+import { DropOverlay } from "@/components/ui/drop-overlay";
+import { useFileDrop } from "@/hooks/useFileDrop";
+import {
+  ACCEPT_ATTRIBUTE,
+  libraryAccepts,
+  mediaKindFor,
+  uploadReference,
+  withKnownType,
+} from "@/lib/storage";
 import type { AudioRole } from "@/lib/edit/timeline";
 import { cn } from "@/lib/utils";
 
@@ -59,27 +67,58 @@ export function MediaBin({ projectId, usedAssetIds, onAddVisual, onAddAudio }: M
     [assets, usedAssetIds],
   );
 
-  async function upload(files: FileList | null) {
-    if (!files?.length || !user) return;
-    setUploading(true);
-    try {
-      for (const file of Array.from(files).slice(0, 10)) {
-        await uploadReference(file, { userId: user.id, projectId });
-      }
-      toast.success(
-        files.length === 1 ? "Added to the library" : `${files.length} files added to the library`,
+  /** Uploads files from the device (picked, or dropped on the bin), ten at a time. */
+  async function upload(list: FileList | File[] | null) {
+    const files = Array.from(list ?? []);
+    if (fileInput.current) fileInput.current.value = "";
+    if (!files.length || !user) return;
+    const taken = files.filter(libraryAccepts).map(withKnownType);
+    const refused = files.filter((file) => !libraryAccepts(file));
+    if (refused.length)
+      toast.error(
+        refused.length === 1
+          ? `“${refused[0]!.name}” isn't a file the library takes (MP4, MOV or WebM video; JPEG, PNG, WebP or GIF stills; WAV, MP3 or M4A audio).`
+          : `${refused.length} files aren't ones the library takes (MP4, MOV or WebM video; JPEG, PNG, WebP or GIF stills; WAV, MP3 or M4A audio).`,
       );
-      await refetch();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "That file could not be uploaded");
+    if (taken.length > 10) toast.message("Ten files at a time: the first ten were taken.");
+    const batch = taken.slice(0, 10);
+    if (!batch.length) return;
+    setUploading(true);
+    let added = 0;
+    try {
+      for (const file of batch) {
+        try {
+          await uploadReference(file, { userId: user.id, projectId });
+          added += 1;
+        } catch (error) {
+          toast.error(
+            `“${file.name}”: ${error instanceof Error ? error.message : "it could not be uploaded"}`,
+          );
+        }
+      }
+      if (added) {
+        toast.success(added === 1 ? "Added to the library" : `${added} files added to the library`);
+        // Shows what was added: the first file's kind of media.
+        const shown = mediaKindFor(batch[0]!.type);
+        if (shown && shown !== kind) setKind(shown);
+        else await refetch();
+      }
     } finally {
       setUploading(false);
-      if (fileInput.current) fileInput.current.value = "";
     }
   }
 
+  const { dragging, dropProps } = useFileDrop({
+    disabled: uploading || !user,
+    onFiles: (files) => void upload(files),
+  });
+
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="relative flex h-full min-h-0 flex-col" {...dropProps}>
+      <DropOverlay
+        active={dragging}
+        label="Drop videos, stills or audio to add them to the library"
+      />
       <div className="space-y-2 border-b border-border p-3">
         <div
           className="grid grid-cols-3 gap-1 rounded-md border border-border p-0.5"
@@ -168,8 +207,8 @@ export function MediaBin({ projectId, usedAssetIds, onAddVisual, onAddAudio }: M
             {term
               ? "Nothing matches that search."
               : kind === "audio"
-                ? "No audio yet. Upload a voiceover or a licensed music track."
-                : "Nothing here yet. Generate in Create or Supercomputer, or upload files."}
+                ? "No audio yet. Import a recorded voiceover in the Voice tab, upload music in the Music tab, or drop audio files here."
+                : "Nothing here yet. Generate in Create or Supercomputer, or upload files (or drag them here)."}
           </p>
         )}
         {kind !== "audio" ? (
@@ -213,6 +252,12 @@ export function MediaBin({ projectId, usedAssetIds, onAddVisual, onAddAudio }: M
           </div>
         ) : (
           <ul className="space-y-1.5">
+            {assets.length > 0 && (
+              <li className="px-0.5 text-[10px] text-muted-foreground">
+                Audio from here needs its licence on record before the edit renders (the Music tab
+                asks for it). For a recorded voiceover, import it in the Voice tab instead.
+              </li>
+            )}
             {assets.map((asset) => (
               <li
                 key={asset.id}

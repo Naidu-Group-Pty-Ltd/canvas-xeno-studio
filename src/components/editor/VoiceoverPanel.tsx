@@ -1,7 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Check, Loader2, Mic, Play, Plus, Sparkles } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  FileAudio,
+  Loader2,
+  Mic,
+  Play,
+  Plus,
+  ShieldCheck,
+  Sparkles,
+  Upload,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -12,7 +24,22 @@ import {
   useVoiceovers,
   type VoiceoverRow,
 } from "@/hooks/useVoiceData";
-import { generateVoiceover, writeVoiceoverScript } from "@/lib/voice.functions";
+import { useAuth } from "@/hooks/useAuth";
+import { useFileDrop } from "@/hooks/useFileDrop";
+import {
+  fileDigest,
+  isUploadableAudio,
+  keepStaged,
+  uploadKey,
+  uploadRefused,
+  uploadStaged,
+} from "@/lib/audio-upload";
+import { ACCEPT_ATTRIBUTE } from "@/lib/storage";
+import {
+  generateVoiceover,
+  importRecordedVoiceover,
+  writeVoiceoverScript,
+} from "@/lib/voice.functions";
 import { estimatedSeconds, wordCount, type TimedWord } from "@/lib/voice/catalog";
 import {
   audioFromSource,
@@ -30,6 +57,8 @@ import { keepAttempt, savedAttempt } from "@/lib/attempts";
 import { BrandVoiceSelect } from "@/components/voices/VoiceAssignment";
 import { VoiceEditor } from "@/components/voices/VoiceEditor";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { DropOverlay } from "@/components/ui/drop-overlay";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -100,7 +129,9 @@ async function playAsset(assetId: string) {
 /**
  * Voiceover for an edit, spoken by the brand voice: write (or have AI write)
  * the script to the edit's length, generate it, and drop it on the timeline
- * with captions timed to every word.
+ * with captions timed to every word. A voiceover recorded elsewhere can be
+ * imported from the device instead (chosen, or dragged onto the panel): it is
+ * kept with the edit's takes and placed the same way.
  */
 export function VoiceoverPanel({
   context,
@@ -155,6 +186,42 @@ export function VoiceoverPanel({
   });
   const missingTables = isMissingTableError(voicesError);
 
+  // A voiceover recorded elsewhere, being imported from the device.
+  const { user } = useAuth();
+  const importInput = useRef<HTMLInputElement>(null);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importTitle, setImportTitle] = useState("");
+  const [importConfirmed, setImportConfirmed] = useState(false);
+  const [importing, setImporting] = useState(false);
+
+  function chooseImport(file: File | null) {
+    if (importInput.current) importInput.current.value = "";
+    if (!file) return;
+    if (!isUploadableAudio(file)) {
+      toast.error(`“${file.name}” isn't a WAV, MP3 or M4A file.`);
+      return;
+    }
+    setImportFile(file);
+    setImportTitle(
+      file.name
+        .replace(/\.[^.]+$/, "")
+        .replace(/[_-]+/g, " ")
+        .slice(0, 200),
+    );
+    // The confirmation covers the file chosen then, not this one.
+    setImportConfirmed(false);
+  }
+
+  const { dragging, dropProps } = useFileDrop({
+    disabled: missingTables || importing,
+    onFiles: (files) => {
+      const audio = files.find(isUploadableAudio) ?? files[0] ?? null;
+      if (files.length > 1 && audio && isUploadableAudio(audio))
+        toast.message(`One voiceover at a time: “${audio.name}” was taken.`);
+      chooseImport(audio);
+    },
+  });
+
   // Start from the saved draft, else the latest take's script, else the edit's planned script.
   const [seeded, setSeeded] = useState(false);
   useEffect(() => {
@@ -165,8 +232,10 @@ export function VoiceoverPanel({
       setSeeded(true);
       return;
     }
-    if (takes.length) {
-      setScript(takes[0]!.script);
+    // An imported take's "script" is its name, not words to speak.
+    const spoken = takes.find((take) => take.provider !== "upload");
+    if (spoken) {
+      setScript(spoken.script);
       setSeeded(true);
       return;
     }
@@ -348,13 +417,58 @@ export function VoiceoverPanel({
     void speak();
   }
 
+  async function importVoiceover() {
+    const file = importFile;
+    if (!file || !user || !importTitle.trim() || !importConfirmed) return;
+    setImporting(true);
+    // The upload is kept for the same audio (see uploadKey), so trying again
+    // after a failure, even after a reload, doesn't upload another copy.
+    const projectId = scopeProjectId ?? null;
+    let upload: string | null = null;
+    try {
+      upload = uploadKey(projectId, file, await fileDigest(file));
+      const staged = await uploadStaged({ userId: user.id, file, upload, projectId });
+      const result = await importRecordedVoiceover({
+        data: {
+          uploadId: staged.uploadId,
+          sequenceId: context.sequenceId,
+          title: importTitle.trim(),
+          transcript: null,
+          durationSeconds: staged.durationSeconds,
+          confirmed: true,
+        },
+      });
+      keepStaged(user.id, upload, null);
+      setImportFile(null);
+      setImportConfirmed(false);
+      if (!result.assetId) return;
+      const added = place({
+        assetId: result.assetId,
+        durationSeconds: result.durationSeconds,
+        words: [],
+        title: result.title,
+      });
+      if (added)
+        toast.success(
+          `Voiceover imported${result.durationSeconds ? ` · ${formatTime(result.durationSeconds)}` : ""}`,
+        );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "The voiceover couldn't be imported";
+      if (upload && uploadRefused(message)) keepStaged(user.id, upload, null);
+      toast.error(message);
+    } finally {
+      setImporting(false);
+      await queryClient.invalidateQueries({ queryKey: ["voiceovers", context.sequenceId] });
+    }
+  }
+
   function applyTake(take: VoiceoverRow) {
     if (!take.asset_id) return;
     place({
       assetId: take.asset_id,
       durationSeconds: take.duration_seconds === null ? null : Number(take.duration_seconds),
       words: take.alignment?.words ?? [],
-      title: `Voiceover · ${take.script.slice(0, 40)}`,
+      title: `Voiceover · ${take.script.slice(0, take.provider === "upload" ? 120 : 40)}`,
     });
   }
 
@@ -373,7 +487,8 @@ export function VoiceoverPanel({
   const noVoices = !voicesLoading && voices.length === 0;
 
   return (
-    <div className="space-y-3 p-3" data-testid="voiceover-panel">
+    <div className="relative min-h-full space-y-3 p-3" data-testid="voiceover-panel" {...dropProps}>
+      <DropOverlay active={dragging} label="Drop a recorded voiceover to import it" />
       <div className="space-y-1.5">
         <div className="flex items-baseline justify-between gap-2">
           <Label className="text-xs">Voice</Label>
@@ -558,6 +673,87 @@ export function VoiceoverPanel({
         </p>
       )}
 
+      <div className="space-y-2 rounded-md border border-dashed border-border p-2.5 text-xs">
+        <div className="flex items-center justify-between gap-2">
+          <p className="font-medium">Import a recorded voiceover</p>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 text-xs"
+            disabled={importing}
+            onClick={() => importInput.current?.click()}
+            data-testid="import-voiceover-choose"
+          >
+            <Upload className="mr-1 size-3.5" /> Choose file
+          </Button>
+          <input
+            ref={importInput}
+            type="file"
+            accept={ACCEPT_ATTRIBUTE.audio}
+            className="hidden"
+            data-testid="import-voiceover-input"
+            onChange={(event) => chooseImport(event.target.files?.[0] ?? null)}
+          />
+        </div>
+        {importFile ? (
+          <div className="space-y-2" data-testid="import-voiceover-form">
+            <div className="flex min-w-0 items-center gap-1 text-muted-foreground">
+              <FileAudio className="size-3.5 shrink-0" />
+              <span className="min-w-0 flex-1 truncate">{importFile.name}</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 w-6 shrink-0 p-0"
+                disabled={importing}
+                onClick={() => setImportFile(null)}
+                aria-label="Don't import this file"
+              >
+                <X className="size-3.5" />
+              </Button>
+            </div>
+            <Input
+              value={importTitle}
+              onChange={(event) => setImportTitle(event.target.value.slice(0, 200))}
+              placeholder="Name it (shown on the timeline)"
+              className="h-8 text-xs"
+              aria-label="Voiceover name"
+            />
+            <label className="flex items-start gap-2">
+              <Checkbox
+                checked={importConfirmed}
+                onCheckedChange={(checked) => setImportConfirmed(checked === true)}
+                className="mt-0.5"
+                aria-label="Confirm the brand may use this recording"
+              />
+              <span>
+                <ShieldCheck className="mr-1 inline size-3.5 text-success" />I confirm it was
+                recorded by or for the brand, and the speaker agreed to their voice being used in
+                its content. The confirmation is recorded with the file.
+              </span>
+            </label>
+            <Button
+              size="sm"
+              className="w-full"
+              disabled={importing || !importTitle.trim() || !importConfirmed}
+              onClick={() => void importVoiceover()}
+              data-testid="import-voiceover"
+            >
+              {importing && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
+              {importing ? "Importing…" : "Import and add to the edit"}
+            </Button>
+            <p className="text-[11px] text-muted-foreground">
+              It starts at {start.toFixed(1)}s{replace ? " and replaces the current voiceover" : ""}{" "}
+              (set above).
+            </p>
+          </div>
+        ) : (
+          <p className="text-muted-foreground">
+            WAV, MP3 or M4A recorded elsewhere
+            <span className="hidden md:inline">, or drag the file onto this panel</span>.
+          </p>
+        )}
+      </div>
+
       {takes.length > 0 && (
         <div className="space-y-1.5">
           <p className="label-eyebrow">Takes</p>
@@ -590,6 +786,11 @@ export function VoiceoverPanel({
                     <AlertTriangle className="size-3.5 shrink-0 text-destructive" />
                   )}
                   <span className="min-w-0 flex-1 truncate">{take.script}</span>
+                  {take.provider === "upload" && (
+                    <span className="shrink-0 rounded border border-border px-1 text-[10px] text-muted-foreground">
+                      Imported
+                    </span>
+                  )}
                   {take.duration_seconds !== null && (
                     <span className="shrink-0 tabular-nums text-muted-foreground">
                       {formatTime(Number(take.duration_seconds))}
@@ -632,7 +833,7 @@ export function VoiceoverPanel({
       )}
 
       <p className="text-[11px] text-muted-foreground">
-        AI-generated voice. Disclose it where your channels require.
+        Takes made here are AI-generated voice. Disclose it where your channels require.
       </p>
 
       <VoiceEditor open={creating} onOpenChange={setCreating} voice={null} />

@@ -7,6 +7,7 @@
  * retried by itself.
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { isMissingTableError } from "@/lib/edit/errors";
 import { AppError } from "../higgsfield/errors";
 import { mp3Duration } from "../voice/audio";
 import {
@@ -1112,9 +1113,10 @@ export async function stageUpload(input: {
  * place the server picked for it, the library record the server added for it
  * (if it got that far), then the server's own record. Only these server
  * records decide what goes, so nothing a member can change points the cleanup
- * at anyone's file. One whose licence was recorded (its last step didn't
- * land) is finished instead. Best effort: anything not cleared now is left
- * for the next run. Returns how many were cleared.
+ * at anyone's file. One whose licence was recorded, or that was imported as
+ * a voiceover (its last step didn't land), is finished instead. Best effort:
+ * anything not cleared now is left for the next run. Returns how many were
+ * cleared.
  *
  * Once `stop` aborts it takes no further step: its database requests are
  * cancelled, and it stops waiting for a file's removal (storage's client
@@ -1153,15 +1155,13 @@ export async function clearAbandonedMusicUploads(stop?: AbortSignal): Promise<nu
   for (const upload of uploads) {
     if (signal.aborted) break;
     if (upload.asset_id) {
-      const { data: track, error: trackError } = await supabaseAdmin
-        .from("music_tracks")
-        .select("id")
-        .eq("asset_id", upload.asset_id)
-        .limit(1)
-        .abortSignal(signal)
-        .maybeSingle();
-      if (trackError) continue;
-      if (track) {
+      let recorded: boolean;
+      try {
+        recorded = await assetRecorded(upload.asset_id, signal);
+      } catch {
+        continue;
+      }
+      if (recorded) {
         const { error: shownError } = await supabaseAdmin
           .from("assets")
           .update({ deleted_at: null } as never)
@@ -1223,7 +1223,7 @@ function unlessStopped<T>(work: PromiseLike<T>, signal: AbortSignal): Promise<T 
   });
 }
 
-type UploadAsset = {
+export type UploadAsset = {
   id: string;
   asset_type: string;
   duration_seconds: number | string | null;
@@ -1297,17 +1297,32 @@ async function storedRanges(bucket: string, path: string): Promise<ReadRange> {
   };
 }
 
-/** Whether an upload's library record already has its track (a registration whose answer was lost). */
+/**
+ * Whether an upload's library record is on record as what it was uploaded
+ * for: a track with its licence, or a voiceover imported in the Voice tab.
+ * A lookup that fails is thrown, never taken for "not recorded".
+ */
+async function assetRecorded(assetId: string, signal?: AbortSignal): Promise<boolean> {
+  let tracks = supabaseAdmin.from("music_tracks").select("id").eq("asset_id", assetId).limit(1);
+  if (signal) tracks = tracks.abortSignal(signal);
+  const { data: track, error: trackError } = await tracks.maybeSingle();
+  if (trackError) throw uploadUnchecked();
+  if (track) return true;
+  let takes = supabaseAdmin.from("voiceovers").select("id").eq("asset_id", assetId).limit(1);
+  if (signal) takes = takes.abortSignal(signal);
+  const { data: take, error: takeError } = await takes.maybeSingle();
+  if (takeError) {
+    // Before brand voices are set up no upload is a voiceover.
+    if (isMissingTableError(takeError)) return false;
+    throw uploadUnchecked();
+  }
+  return !!take;
+}
+
+/** Whether an upload's library record is already recorded (a registration whose answer was lost). */
 async function uploadHasTrack(upload: MusicUploadRow): Promise<boolean> {
   if (!upload.asset_id) return false;
-  const { data, error } = await supabaseAdmin
-    .from("music_tracks")
-    .select("id")
-    .eq("asset_id", upload.asset_id)
-    .limit(1)
-    .maybeSingle();
-  if (error) throw uploadUnchecked();
-  return !!data;
+  return assetRecorded(upload.asset_id);
 }
 
 /**
@@ -1317,7 +1332,7 @@ async function uploadHasTrack(upload: MusicUploadRow): Promise<boolean> {
  * record already added. A record someone else put at that place first is
  * taken over with the server's values, so it can't stand in for the upload.
  */
-async function uploadedAsset(input: {
+export async function uploadedAsset(input: {
   userId: string;
   uploadId: string;
   durationSeconds: number | null;
@@ -1417,6 +1432,52 @@ async function uploadedAsset(input: {
     .eq("id", upload.id);
   if (linkError) throw uploadNotAdded();
   return kept;
+}
+
+/**
+ * How long an uploaded recording plays, read from the stored file the way
+ * decoders play it, or null when its structure doesn't say (the browser's
+ * measure is used then).
+ */
+export async function uploadedSeconds(asset: UploadAsset): Promise<number | null> {
+  try {
+    const size = await storedSize(asset.storage_bucket, asset.storage_path);
+    if (size === null) return null;
+    const seconds = await probeDuration(
+      await storedRanges(asset.storage_bucket, asset.storage_path),
+      size,
+    );
+    return seconds !== null && Number.isFinite(seconds) && seconds > 0 ? seconds : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Brings an upload into the library once what it was uploaded for is on
+ * record (see assetRecorded), with any details the record gives its file.
+ * Safe to repeat; the upload is marked done last, and if that doesn't land
+ * the cleanup finds the record and marks it.
+ */
+export async function finishUpload(input: {
+  uploadId: string;
+  assetId: string;
+  values?: Record<string, unknown>;
+}): Promise<void> {
+  const { error: shownError } = await supabaseAdmin
+    .from("assets")
+    .update({ ...input.values, deleted_at: null } as never)
+    .eq("id", input.assetId);
+  if (shownError)
+    throw new AppError(
+      "UNKNOWN",
+      "It was recorded, but the file couldn't be added to the library just now. Try again.",
+    );
+  await supabaseAdmin
+    .from("music_uploads")
+    .update({ registered_at: new Date().toISOString() } as never)
+    .eq("id", input.uploadId)
+    .is("registered_at", null);
 }
 
 /**
