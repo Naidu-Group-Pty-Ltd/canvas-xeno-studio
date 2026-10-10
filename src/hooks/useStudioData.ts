@@ -177,8 +177,20 @@ export function useStudioRealtime() {
         queryClient.invalidateQueries({ queryKey: ["storyboards"] });
       })
       .subscribe();
+    // Long videos on a channel of their own: if their tables aren't installed
+    // yet, refusing these subscriptions can't take the studio's updates with it.
+    const longVideos = supabase
+      .channel("long-video-updates")
+      .on("postgres_changes", { event: "*", schema: "public", table: "long_videos" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["long_videos"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "long_video_clips" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["long_videos"] });
+      })
+      .subscribe();
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(longVideos);
     };
   }, [queryClient]);
 }

@@ -173,6 +173,23 @@ export async function recordProviderHealth(success: boolean, message?: string) {
   }
 }
 
+/**
+ * Tells the long video a generation belongs to (if any) that it reached an
+ * end, so the run moves on now rather than at the next reconcile pass. Never
+ * fails the caller: the reconcile job picks up anything this misses.
+ */
+export async function notifyLongVideo(generationId: string): Promise<void> {
+  try {
+    const { advanceForGeneration } = await import("./long-video/service.server");
+    await advanceForGeneration(generationId);
+  } catch (error) {
+    console.error("long video not moved on", {
+      generationId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* Media preparation                                                   */
 /* ------------------------------------------------------------------ */
@@ -566,6 +583,8 @@ export async function applyProviderPayload(generationId: string, payload: unknow
     return latest?.status ?? current.status;
   }
   await logEvent(generationId, status, { provider_status: statusValue });
+  if (status === "failed" || status === "nsfw" || status === "canceled")
+    await notifyLongVideo(generationId);
 
   if (status === "completed") {
     await supabaseAdmin
@@ -751,6 +770,7 @@ export async function ingestOutputs(
     failures,
     code: complete ? undefined : "INGEST_FAILED",
   });
+  if (complete) await notifyLongVideo(generationId);
   return created;
 }
 

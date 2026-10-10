@@ -9,7 +9,11 @@ import { ModelBrowser, OPERATION_LABELS } from "@/components/create/ModelBrowser
 import { ParameterFields } from "@/components/create/ParameterFields";
 import { PromptComposer } from "@/components/create/PromptComposer";
 import { ReferenceTray } from "@/components/create/ReferenceTray";
-import { MAX_REFERENCES, useReferenceFiles, type ReferenceItem } from "@/components/create/reference-files";
+import {
+  maxReferences,
+  useReferenceFiles,
+  type ReferenceItem,
+} from "@/components/create/reference-files";
 import { LibraryPicker } from "@/components/studio/LibraryPicker";
 import { BriefImportDialog } from "@/components/briefs/BriefImportDialog";
 import { useBriefs, useSupercomputerStatus } from "@/hooks/useSupercomputerData";
@@ -28,6 +32,15 @@ import { useCampaigns } from "@/hooks/useV2Data";
 import { BatchMatrix, expandMatrix, type MatrixSelection } from "@/components/create/BatchMatrix";
 import { loadPromptDraft, takeCreatePrefill, PREFILL_EVENT } from "@/lib/create-draft";
 import { CinemaControls } from "@/components/create/CinemaControls";
+import { LongVideoSetup } from "@/components/create/LongVideoSetup";
+import { LongVideoRuns } from "@/components/create/LongVideoRuns";
+import {
+  DEFAULT_LONG_VIDEO_DRAFT,
+  useLongVideoPlan,
+  type LongVideoDraft,
+} from "@/components/create/long-video-plan";
+import { startLongVideo } from "@/lib/long-video.functions";
+import { formatLength } from "@/lib/long-video/plan";
 import { cinemaSupported, compileCinemaPrompt, promptCinemaGroups, type CinemaSelection } from "@/lib/cinema";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -171,6 +184,7 @@ function CreatePage() {
   const [selectedAsset, setSelectedAsset] = useState<AssetRow | null>(null);
   const [cinemaEnabled, setCinemaEnabled] = useState(true);
   const [cinema, setCinema] = useState<CinemaSelection>({});
+  const [longDraft, setLongDraft] = useState<LongVideoDraft>(DEFAULT_LONG_VIDEO_DRAFT);
   const [shotId, setShotId] = useState<string | null>(null);
   const [briefId, setBriefId] = useState<string | null>(null);
   const [libraryOpen, setLibraryOpen] = useState(false);
@@ -312,13 +326,47 @@ function CreatePage() {
     const hint = conversionHint(item.assetType, item.mimeType);
     return hint ? [{ key: item.role, message: `${item.title ?? "A reference"}: ${hint}` }] : [];
   });
-  const issues = model ? [...validateParameters(model, values, inputRoles), ...conversionIssues] : [];
-  const issueMap = Object.fromEntries(issues.map((issue) => [issue.key, issue.message]));
   const promptField = model?.parameter_schema?.fields?.find((field) => field.key === "prompt");
 
   // Cinema Mode compiles shot language into the prompt actually submitted, so the
   // estimate and the generation always use the identical payload.
   const cinemaOn = cinemaSupported(model) && cinemaEnabled;
+
+  // A long video: clips chained into one continuous shot, planned clip by clip
+  // exactly as the server will check and send them.
+  const runReferences = useMemo(
+    () =>
+      references
+        .filter((item) => item.role)
+        .map((item) => ({ assetId: item.assetId, role: item.role, assetType: item.assetType })),
+    [references],
+  );
+  const longPlan = useLongVideoPlan({
+    draft: longDraft,
+    model,
+    models,
+    values,
+    references: runReferences,
+    cinema: { on: cinemaOn, selection: cinema },
+  });
+  const longMode = mediaType === "video" && longDraft.enabled && longPlan.eligible;
+
+  const baseIssues = model ? validateParameters(model, values, inputRoles) : [];
+  // In a long video the plan sets each clip's length and prompt (a beat can
+  // stand in for the story), so those are checked per clip instead.
+  const issues = longMode
+    ? [
+        ...baseIssues.filter((issue) => issue.key !== "prompt" && issue.key !== "duration"),
+        ...longPlan.issues.map((issue) => ({
+          key: `long-video-${issue.position ?? "run"}`,
+          message: issue.message,
+        })),
+        ...conversionIssues,
+      ]
+    : model
+      ? [...baseIssues, ...conversionIssues]
+      : [];
+  const issueMap = Object.fromEntries(issues.map((issue) => [issue.key, issue.message]));
   const submitValues = useMemo(() => {
     if (!model || !cinemaOn) return values;
     return {
@@ -328,9 +376,12 @@ function CreatePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model?.id, JSON.stringify(values), JSON.stringify(cinema), cinemaOn]);
 
+  // A long video is quoted by its first clip, exactly as that clip will be sent.
+  const estimateValues = longMode ? (longPlan.planned[0]?.values ?? submitValues) : submitValues;
+
   // Debounced live estimate; any parameter or reference change invalidates the previous one.
   const referenceKey = JSON.stringify(usable.map((item) => [item.assetId, item.role]));
-  const valuesKey = JSON.stringify(submitValues);
+  const valuesKey = JSON.stringify(estimateValues);
   useEffect(() => {
     if (!model || !health?.configured || issues.length) {
       setEstimate(
@@ -354,7 +405,7 @@ function CreatePage() {
         const result = await estimateGeneration({
           data: {
             modelId: model.id,
-            parameters: submitValues,
+            parameters: estimateValues,
             inputs: usable.map((item, index) => ({ assetId: item.assetId, role: item.role, position: index })),
           },
         });
@@ -413,6 +464,15 @@ function CreatePage() {
     const clientRequestId = requestIdRef.current ?? crypto.randomUUID();
     requestIdRef.current = clientRequestId;
     setSubmitting(true);
+    if (longMode) {
+      try {
+        await runLongVideo(clientRequestId);
+      } finally {
+        submitLock.current = false;
+        setSubmitting(false);
+      }
+      return;
+    }
     try {
       // A batch matrix turns into one independent generation per combination;
       // each carries its own idempotency key so none can be billed twice.
@@ -476,7 +536,47 @@ function CreatePage() {
     }
   }
 
-  const batchCount = Math.max(expandMatrix(matrix).length, 1);
+  /** Starts the long video the panel describes; the server runs it from here. */
+  async function runLongVideo(clientRequestId: string) {
+    if (!model || !longPlan.continuation) return;
+    const story = typeof values["prompt"] === "string" ? values["prompt"] : "";
+    try {
+      const result = await startLongVideo({
+        data: {
+          title: longDraft.title.trim() || story.trim().slice(0, 80) || "Long video",
+          firstModelId: model.id,
+          continuationModelId: longPlan.continuation.id,
+          story,
+          continuity: longDraft.continuity,
+          values,
+          references: runReferences.map((item) => ({ assetId: item.assetId, role: item.role })),
+          clips: longPlan.clips,
+          projectId,
+          campaignId,
+          clientRequestId,
+        },
+      });
+      requestIdRef.current = null;
+      if (result.status === "needs_attention")
+        toast.warning("The long video stopped before its first clip. See why under Long videos.");
+      else
+        toast.success(
+          `Long video started: ${longPlan.clips.length} clips, made one after another. Follow it under Long videos.`,
+        );
+      queryClient.invalidateQueries({ queryKey: ["long_videos"] });
+      queryClient.invalidateQueries({ queryKey: ["generations"] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The long video could not be started");
+    }
+  }
+
+  const batchCount = longMode ? 1 : Math.max(expandMatrix(matrix).length, 1);
+  // A long video's total, approximated from its first clip's quote per second;
+  // each clip is quoted again by the provider before it is sent.
+  const longTotalEstimate =
+    longMode && estimate.kind === "ready" && longPlan.durations[0]
+      ? (estimate.costUsd / longPlan.durations[0]) * longPlan.totalSeconds
+      : null;
 
   /** Hands the current prompt, references and context to Supercomputer (nothing is sent automatically). */
   function openInSupercomputer() {
@@ -500,7 +600,7 @@ function CreatePage() {
 
   function handleGenerate() {
     if (!canGenerate) return;
-    if (batchCount > 1) setConfirmHighCost(true);
+    if (longMode || batchCount > 1) setConfirmHighCost(true);
     else if (estimate.kind === "ready" && estimate.costUsd >= highCostThreshold) setConfirmHighCost(true);
     else void runSubmit();
   }
@@ -654,7 +754,26 @@ function CreatePage() {
                   </div>
                 )}
 
-                {model && (
+                {model && mediaType === "video" && longPlan.eligible && (
+                  <LongVideoSetup
+                    model={model}
+                    draft={longDraft}
+                    plan={longPlan}
+                    onChange={setLongDraft}
+                    story={typeof values["prompt"] === "string" ? values["prompt"] : ""}
+                    referenceAssetIds={references
+                      .filter((item) => item.assetType === "image")
+                      .map((item) => item.assetId)}
+                    briefId={briefId}
+                    aiUnavailableReason={
+                      assistantStatus?.backend
+                        ? null
+                        : "Add an AI key in Settings → AI to write beats"
+                    }
+                  />
+                )}
+
+                {model && !longMode && (
                   <BatchMatrix model={model} values={values} selection={matrix} onChange={setMatrix} />
                 )}
 
@@ -726,6 +845,8 @@ function CreatePage() {
               />
             )}
 
+            <LongVideoRuns projectId={projectId} />
+
             <RecentOutputs
               projectId={projectId}
               onOpenAsset={setSelectedAsset}
@@ -750,6 +871,7 @@ function CreatePage() {
                     values={values}
                     inputRoles={inputRoles}
                     issues={issueMap}
+                    hiddenKeys={longMode ? ["duration"] : undefined}
                     onChange={(key, value) => setValues((current) => ({ ...current, [key]: value }))}
                   />
                   <Collapsible>
@@ -764,6 +886,7 @@ function CreatePage() {
                         inputRoles={inputRoles}
                         issues={issueMap}
                         advanced
+                        hiddenKeys={longMode ? ["duration"] : undefined}
                         onChange={(key, value) => setValues((current) => ({ ...current, [key]: value }))}
                       />
                     </CollapsibleContent>
@@ -788,6 +911,17 @@ function CreatePage() {
               {estimate.kind === "metered" && (
                 <p className="text-[11px] leading-relaxed text-muted-foreground">{estimate.description}</p>
               )}
+              {longMode && (
+                <p className="text-[11px] text-primary" data-testid="long-video-cost">
+                  Long video: {longPlan.clips.length} clips · {formatLength(longPlan.totalSeconds)}
+                  {estimate.kind === "ready"
+                    ? ` · clip 1 $${estimate.costUsd.toFixed(2)}`
+                    : " · the estimate is for clip 1"}
+                  {longTotalEstimate !== null
+                    ? ` · approx. $${longTotalEstimate.toFixed(2)} in all`
+                    : ""}
+                </p>
+              )}
               {batchCount > 1 && (
                 <p className="text-[11px] text-primary">
                   Batch matrix: {batchCount} generations
@@ -803,9 +937,11 @@ function CreatePage() {
                 {submitting ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Sparkles className="mr-2 size-4" />}
                 {submitting
                   ? "Submitting…"
-                  : estimate.kind === "ready"
-                    ? `Generate · ~$${estimate.costUsd.toFixed(2)}`
-                    : "Generate"}
+                  : longMode
+                    ? `Generate long video · ${longPlan.clips.length} clips`
+                    : estimate.kind === "ready"
+                      ? `Generate · ~$${estimate.costUsd.toFixed(2)}`
+                      : "Generate"}
               </Button>
               {disabledReason && !submitting && (
                 <p
@@ -860,7 +996,7 @@ function CreatePage() {
         briefsEnabled={briefsReady}
         initialBriefId={pickerBriefMode ? (briefId ?? briefs[0]?.id ?? null) : null}
         title="Add references"
-        max={Math.max(1, MAX_REFERENCES - references.length)}
+        max={Math.max(1, maxReferences(model) - references.length)}
         onConfirm={(assets) =>
           setReferences((current) =>
             assignRoles(
@@ -893,9 +1029,21 @@ function CreatePage() {
       <AlertDialog open={confirmHighCost} onOpenChange={setConfirmHighCost}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{batchCount > 1 ? "Confirm this batch" : "Confirm this generation"}</AlertDialogTitle>
+            <AlertDialogTitle>
+              {longMode
+                ? "Start this long video?"
+                : batchCount > 1
+                  ? "Confirm this batch"
+                  : "Confirm this generation"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {batchCount > 1
+              {longMode
+                ? `This makes ${longPlan.clips.length} clips one after another, about ${formatLength(longPlan.totalSeconds)} in all, each starting from the last frame of the one before. ${
+                    estimate.kind === "ready"
+                      ? `Clip 1 is estimated at $${estimate.costUsd.toFixed(2)}${longTotalEstimate !== null ? ` and the whole video at roughly $${longTotalEstimate.toFixed(2)}` : ""}. `
+                      : ""
+                  }Each clip is quoted again by the provider before it is sent, and you can stop the run at any point.`
+                : batchCount > 1
                 ? `This runs ${batchCount} separate generations, approximately $${
                     estimate.kind === "ready" ? (estimate.costUsd * batchCount).toFixed(2) : "0.00"
                   } in total. Each one is estimated again by the provider before it is sent.`
@@ -910,7 +1058,7 @@ function CreatePage() {
                 void runSubmit();
               }}
             >
-              Generate anyway
+              {longMode ? "Start long video" : "Generate anyway"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
