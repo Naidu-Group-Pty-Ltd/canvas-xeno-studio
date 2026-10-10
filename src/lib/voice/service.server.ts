@@ -24,6 +24,7 @@ import {
   type TimedWord,
   type VoiceProvider,
 } from "./catalog";
+import { finishUpload, uploadedAsset, uploadedSeconds } from "../music/service.server";
 import { mp3Duration } from "./audio";
 import {
   elevenLabsAccountVoices,
@@ -888,6 +889,144 @@ export async function generateVoiceover(input: {
     duplicate: false,
     requestId: input.clientRequestId,
   };
+}
+
+/** What someone confirms about a voiceover they import (stamped on its file by the server). */
+export const IMPORTED_VOICEOVER_STATEMENT =
+  "Recorded by or for the brand, with the speaker's permission to use their voice in its content.";
+
+/**
+ * A voiceover recorded elsewhere and uploaded from a device, for an edit. The
+ * file comes in as a music upload does (see stageUpload): the server picked
+ * its place, and checks that what was stored there is audio browsers and the
+ * renderer can decode before anything is recorded. It is then kept as one of
+ * the edit's takes (completed, by "upload"), so the edit can be rendered with
+ * it like a take made here, and the confirmation that the brand may use it is
+ * stamped on its file with who gave it and when. Importing the same upload
+ * again (say after an answer was lost) returns that take.
+ */
+export async function importVoiceover(input: {
+  userId: string;
+  uploadId: string;
+  sequenceId: string;
+  title: string;
+  transcript: string | null;
+  durationSeconds: number | null;
+}): Promise<VoiceoverResult> {
+  await requireActiveMember(input.userId);
+  const dedupeKey = `upload:${input.uploadId}`;
+  const title = `Voiceover · ${input.title.replace(/\s+/g, " ").trim()}`.slice(0, 200);
+  const unchecked = () =>
+    new AppError("UNKNOWN", "The voiceover couldn't be checked. Try again in a moment.");
+  const reported = (row: {
+    id: string;
+    asset_id: string | null;
+    duration_seconds: number | string | null;
+  }): VoiceoverResult => ({
+    voiceoverId: row.id,
+    status: "completed",
+    errorMessage: null,
+    assetId: row.asset_id,
+    durationSeconds: row.duration_seconds === null ? null : Number(row.duration_seconds),
+    words: [],
+    title,
+    voiceId: null,
+    voiceName: null,
+    duplicate: false,
+    requestId: dedupeKey,
+  });
+  const byUpload = async () => {
+    const { data, error } = await supabaseAdmin
+      .from("voiceovers")
+      .select("id,asset_id,duration_seconds,created_by,sequence_id")
+      .eq("dedupe_key", dedupeKey)
+      .maybeSingle();
+    if (error) throw isMissingTableError(error) ? new VoicesNotSetUp() : unchecked();
+    return data as {
+      id: string;
+      asset_id: string | null;
+      duration_seconds: number | string | null;
+      created_by: string | null;
+      sequence_id: string | null;
+    } | null;
+  };
+  const stamp = {
+    statement: IMPORTED_VOICEOVER_STATEMENT,
+    confirmedBy: input.userId,
+    confirmedAt: new Date().toISOString(),
+  };
+  /** The file joins the library, carrying the take and the confirmation. */
+  const finish = async (take: { id: string }, asset: { id: string }) =>
+    finishUpload({
+      uploadId: input.uploadId,
+      assetId: asset.id,
+      values: {
+        title,
+        metadata: {
+          music_upload_id: input.uploadId,
+          imported_voiceover: { voiceoverId: take.id, ...stamp },
+        },
+      },
+    });
+
+  // Imported already (its answer lost): that take, finished if it wasn't.
+  const earlier = await byUpload();
+  if (earlier) {
+    if (earlier.created_by !== input.userId || earlier.sequence_id !== input.sequenceId)
+      throw new AppError("INVALID_PARAMETERS", "That upload was already imported elsewhere.");
+    if (earlier.asset_id) await finish(earlier, { id: earlier.asset_id });
+    return { ...reported(earlier), duplicate: true };
+  }
+
+  const scope = await voiceScope({ sequenceId: input.sequenceId });
+  const asset = await uploadedAsset({
+    userId: input.userId,
+    uploadId: input.uploadId,
+    durationSeconds: input.durationSeconds,
+  });
+  // Its length as the file plays, else as the browser measured it.
+  const seconds =
+    (await uploadedSeconds(asset)) ??
+    (asset.duration_seconds !== null ? Number(asset.duration_seconds) : input.durationSeconds);
+  const duration = seconds === null ? null : Number(seconds.toFixed(3));
+  const transcript =
+    input.transcript?.replace(/\s+/g, " ").trim().slice(0, MAX_SCRIPT_CHARS) || null;
+  const takeId = crypto.randomUUID();
+  const { error: insertError } = await supabaseAdmin.from("voiceovers").insert({
+    id: takeId,
+    voice_id: null,
+    script: (transcript ?? input.title.trim()).slice(0, MAX_SCRIPT_CHARS) || "Imported voiceover",
+    spoken_text: transcript,
+    status: "completed",
+    asset_id: asset.id,
+    duration_seconds: duration,
+    provider: "upload",
+    sequence_id: input.sequenceId,
+    project_id: scope.projectId,
+    campaign_id: scope.campaignId,
+    dedupe_key: dedupeKey,
+    created_by: input.userId,
+    completed_at: new Date().toISOString(),
+  } as never);
+  if (insertError) {
+    if (insertError.code === "23505") {
+      const raced = await byUpload();
+      if (raced?.asset_id && raced.created_by === input.userId) {
+        await finish(raced, { id: raced.asset_id });
+        return { ...reported(raced), duplicate: true };
+      }
+    }
+    if (isMissingTableError(insertError)) throw new VoicesNotSetUp();
+    throw new AppError("UNKNOWN", "The voiceover couldn't be imported. Try again.");
+  }
+  await finish({ id: takeId }, asset);
+  if (asset.duration_seconds === null && duration !== null)
+    await supabaseAdmin
+      .from("assets")
+      .update({ duration_seconds: duration } as never)
+      .eq("id", asset.id)
+      .is("duration_seconds", null);
+  return reported({ id: takeId, asset_id: asset.id, duration_seconds: duration });
 }
 
 /**

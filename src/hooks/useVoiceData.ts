@@ -52,6 +52,8 @@ export interface VoiceoverRow {
   duration_seconds: number | null;
   alignment: { words?: { text: string; start: number; end: number }[] } | null;
   error_message: string | null;
+  /** "upload" for a voiceover recorded elsewhere and imported. */
+  provider: string | null;
   created_at: string;
 }
 
@@ -116,7 +118,7 @@ export function useVoiceovers(sequenceId: string | null) {
       const { data, error } = await supabase
         .from("voiceovers")
         .select(
-          "id,voice_id,script,status,asset_id,duration_seconds,alignment,error_message,created_at",
+          "id,voice_id,script,status,asset_id,duration_seconds,alignment,error_message,provider,created_at",
         )
         .eq("sequence_id", sequenceId!)
         .order("created_at", { ascending: false })

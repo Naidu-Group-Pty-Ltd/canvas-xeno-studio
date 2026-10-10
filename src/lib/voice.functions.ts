@@ -368,6 +368,32 @@ export const generateVoiceover = createServerFn({ method: "POST" })
   });
 
 /**
+ * A voiceover recorded elsewhere, uploaded from a device (staged with
+ * stageMusicUpload, then stored by the browser), kept as one of the edit's
+ * takes so it renders like a take made here.
+ */
+export const importRecordedVoiceover = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        uploadId: z.string().uuid(),
+        sequenceId: z.string().uuid(),
+        title: z.string().trim().min(1).max(200),
+        transcript: z.string().trim().max(4000).nullable().default(null),
+        /** Measured by the browser, for a file whose structure doesn't say. */
+        durationSeconds: z.number().positive().max(7200).nullable().default(null),
+        confirmed: z.literal(true),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    const { importVoiceover } = await import("./voice/service.server");
+    const { confirmed: _confirmed, ...rest } = data;
+    return importVoiceover({ ...rest, userId: context.userId });
+  });
+
+/**
  * The brand voice that applies to some work, for showing which voice will
  * speak, and the project its takes are kept in (whose voices may be chosen).
  */

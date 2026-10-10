@@ -50,6 +50,40 @@ export const ACCEPT_ATTRIBUTE: Record<MediaKind, string> = {
   audio: [...ACCEPTED_MIME.audio, ".wav", ".mp3", ".m4a"].join(","),
 };
 
+/** The types of files whose browser gave none (or only a generic one), by their extension. */
+const TYPE_BY_EXTENSION: Record<string, string> = {
+  wav: "audio/wav",
+  mp3: "audio/mpeg",
+  m4a: "audio/mp4",
+  mp4: "video/mp4",
+  mov: "video/quicktime",
+  webm: "video/webm",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  gif: "image/gif",
+};
+
+/**
+ * A file from the device as the library takes it: as it is when the browser
+ * typed it, else typed by its extension (some systems give no type for .m4a,
+ * say), so a file picked or dropped isn't refused for that alone.
+ */
+export function withKnownType(file: File): File {
+  if (file.type && file.type !== "application/octet-stream") return file;
+  const extension = file.name.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1];
+  const type = extension ? TYPE_BY_EXTENSION[extension] : undefined;
+  return type ? new File([file], file.name, { type, lastModified: file.lastModified }) : file;
+}
+
+/** Whether the library takes a file from the device (by its type, or its extension). */
+export function libraryAccepts(file: File): boolean {
+  const typed = withKnownType(file);
+  const kind = mediaKindFor(typed.type);
+  return kind !== null && ACCEPTED_MIME[kind].includes(typed.type);
+}
+
 export function mediaKindFor(mime: string): MediaKind | null {
   if (mime.startsWith("image/")) return "image";
   if (mime.startsWith("video/")) return "video";

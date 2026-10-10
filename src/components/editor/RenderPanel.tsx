@@ -113,7 +113,7 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
       : null) ??
     (unrecorded
       ? unrecorded.role === "voiceover"
-        ? `“${unrecorded.label ?? "Some audio"}” is used as a voiceover, but it wasn't made in the Voice tab and has no licence on record. Record its licence in the Music tab, or make the voiceover in the Voice tab.`
+        ? `“${unrecorded.label ?? "Some audio"}” is used as a voiceover, but it wasn't made in the Voice tab and has no licence on record. Make or import the voiceover in the Voice tab, or record its licence in the Music tab.`
         : `“${unrecorded.label ?? "Some audio"}” has no licence on record. Record its licence in the Music tab, or use music from the library.`
       : null) ??
     musicTracks.map((track) => licenceBlocker(track)).find((reason) => reason) ??
