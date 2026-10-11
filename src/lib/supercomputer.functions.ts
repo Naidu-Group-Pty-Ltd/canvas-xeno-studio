@@ -105,7 +105,7 @@ function assistantSummary(content: string, payload: SupercomputerPayload): strin
     parts.push(`[Ideas: ${payload.ideas.map((idea, i) => `${i + 1}) ${idea.title}`).join("; ")}]`);
   if (payload.drafts?.length)
     parts.push(
-      `[Drafts: ${payload.drafts.map((draft, i) => `${i + 1}) ${draft.title} — ${draft.modelName}${draft.longVideo ? ` (long video: ${draft.longVideo.targetSeconds}s in ${draft.longVideo.durations.length} clips)` : ""}`).join("; ")}]`,
+      `[Drafts: ${payload.drafts.map((draft, i) => `${i + 1}) ${draft.title} — ${draft.modelName}${draft.longVideo ? ` (long video: ${draft.longVideo.durations.reduce((sum, value) => sum + value, 0)}s in ${draft.longVideo.durations.length} clips)` : ""}`).join("; ")}]`,
     );
   if (payload.editPlan)
     parts.push(

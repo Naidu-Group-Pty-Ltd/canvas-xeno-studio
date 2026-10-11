@@ -24,7 +24,7 @@ import { validateParameters } from "@/lib/model-schema";
 import { summarizeParameters } from "@/lib/parameter-normalize";
 import { ROLE_LABELS, slotLabel } from "@/lib/references";
 import { setCreatePrefill } from "@/lib/create-draft";
-import { clipStarts, formatLength, modelLine } from "@/lib/long-video/plan";
+import { clipStarts, formatLength, LONG_VIDEO_LIMITS, modelLine } from "@/lib/long-video/plan";
 import type { DraftLongVideoPlan } from "@/lib/supercomputer/long-video-draft";
 import type { SupercomputerDraft } from "@/lib/supercomputer/types";
 import { ParameterFields } from "@/components/create/ParameterFields";
@@ -239,6 +239,7 @@ export function DraftCard({
         <LongVideoSummary
           model={model}
           plan={longPlan}
+          targetSeconds={draft.longVideo.targetSeconds}
           continuity={draft.longVideo.continuity}
           beats={draft.longVideo.beats}
         />
@@ -393,6 +394,9 @@ export function DraftCard({
                       ? ` (clips 2 onward with ${longPlan.continuation.display_name})`
                       : ""}
                     , made one after another, each starting from the last frame of the one before.
+                    {longPlan.capped && draft.longVideo
+                      ? ` ${cappedNote(longPlan, draft.longVideo.targetSeconds)}`
+                      : ""}
                     {quote?.kind === "ready" && quote.longVideo ? (
                       <>
                         {" "}
@@ -454,14 +458,21 @@ export function DraftCard({
 }
 
 /** A long-video draft's plan: its clips, what stays the same and what happens in each. */
+/** Why a long video comes out shorter than asked: the 40-clip limit. */
+function cappedNote(plan: DraftLongVideoPlan, targetSeconds: number): string {
+  return `A long video has at most ${LONG_VIDEO_LIMITS.maxClips} clips, so at ${plan.durations.at(-1)}s a clip this runs ${formatLength(plan.totalSeconds)}, not the ${formatLength(targetSeconds)} asked for.`;
+}
+
 function LongVideoSummary({
   model,
   plan,
+  targetSeconds,
   continuity,
   beats,
 }: {
   model: ModelRegistryEntry;
   plan: DraftLongVideoPlan;
+  targetSeconds: number;
   continuity: string;
   beats: string[];
 }) {
@@ -484,6 +495,11 @@ function LongVideoSummary({
         , each as long as it allows and starting from the last frame of the one before, so the whole
         video plays as one continuous shot.
       </p>
+      {plan.capped && (
+        <p className="text-[11px] text-warning" data-testid="draft-long-video-capped">
+          {cappedNote(plan, targetSeconds)}
+        </p>
+      )}
       {continuity && (
         <p className="text-[11px] leading-relaxed">
           <span className="text-foreground">Keep consistent:</span>{" "}

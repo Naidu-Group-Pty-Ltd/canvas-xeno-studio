@@ -32,6 +32,8 @@ export interface DraftLongVideoPlan {
   /** As the run will send each clip. */
   planned: PlannedClip[];
   issues: string[];
+  /** The 40-clip limit makes the video shorter than the length asked for. */
+  capped: boolean;
 }
 
 /** The workflow of the draft's model that makes clips 2 onward, best first. */
@@ -122,5 +124,7 @@ export function planDraftLongVideo(input: {
         : issue.message
       : issue.message,
   );
-  return { continuation, durations, totalSeconds: total, clips, planned, issues };
+  const capped =
+    durations.length >= LONG_VIDEO_LIMITS.maxClips && total + 0.5 < longVideo.targetSeconds;
+  return { continuation, durations, totalSeconds: total, clips, planned, issues, capped };
 }
