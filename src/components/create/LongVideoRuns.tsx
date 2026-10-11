@@ -77,12 +77,6 @@ function clipState(clip: LongVideoClipRow, isLast: boolean): string {
 /** Long videos in progress and recently finished, with their clips. */
 export function LongVideoRuns({ projectId }: { projectId: string | null }) {
   const { data: runs = [] } = useLongVideos({ projectId });
-  const assetIds = runs.flatMap((run) =>
-    run.clips.flatMap((clip) => (clip.output_asset_id ? [clip.output_asset_id] : [])),
-  );
-  const { data: assets } = useAssetsById(assetIds);
-  useNudgeStalledRuns(runs);
-
   if (!runs.length) return null;
   return (
     <section className="panel space-y-4 p-5" data-testid="long-video-runs">
@@ -90,16 +84,28 @@ export function LongVideoRuns({ projectId }: { projectId: string | null }) {
         <Clapperboard className="size-4 text-primary" />
         <h2 className="label-eyebrow">Long videos</h2>
       </div>
-      <div className="space-y-4">
-        {runs.map((run) => (
-          <RunCard key={run.id} run={run} assets={assets} />
-        ))}
-      </div>
+      <LongVideoRunList runs={runs} />
     </section>
   );
 }
 
-export function RunCard({
+/** A list of long videos, each with its clips and what can be done with it. */
+export function LongVideoRunList({ runs }: { runs: LongVideoRow[] }) {
+  const assetIds = runs.flatMap((run) =>
+    run.clips.flatMap((clip) => (clip.output_asset_id ? [clip.output_asset_id] : [])),
+  );
+  const { data: assets } = useAssetsById(assetIds);
+  useNudgeStalledRuns(runs);
+  return (
+    <div className="space-y-4">
+      {runs.map((run) => (
+        <RunCard key={run.id} run={run} assets={assets} />
+      ))}
+    </div>
+  );
+}
+
+function RunCard({
   run,
   assets,
 }: {

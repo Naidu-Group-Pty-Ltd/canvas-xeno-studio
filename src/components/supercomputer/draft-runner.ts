@@ -5,6 +5,7 @@ import { useProviderHealth } from "@/components/layout/AppShell";
 import { useModels, useSettings } from "@/hooks/useStudioData";
 import { estimateGeneration, submitGeneration } from "@/lib/generation.functions";
 import { startLongVideo } from "@/lib/long-video.functions";
+import { approxRunCost } from "@/lib/long-video/plan";
 import { planDraftLongVideo } from "@/lib/supercomputer/long-video-draft";
 import {
   draftRunKey,
@@ -21,10 +22,11 @@ export type DraftEstimate =
   | {
       kind: "ready";
       costUsd: number;
-      longVideo?: { firstClipUsd: number; clips: number; seconds: number };
+      longVideo?: { firstClipUsd: number; clips: number };
     }
   | { kind: "metered"; description: string }
-  | { kind: "unavailable"; reason: string };
+  /** `blocking`: the draft can't run as it is, whatever the estimate policy. */
+  | { kind: "unavailable"; reason: string; blocking?: boolean };
 
 export interface DraftRunInput {
   draft: SupercomputerDraft;
@@ -38,6 +40,13 @@ export interface DraftRunInput {
 function inputsFor(references: DraftReference[]) {
   return references.map((ref, position) => ({ assetId: ref.assetId, role: ref.role, position }));
 }
+
+/**
+ * Run numbers whose start didn't come back (an error, or an answer lost on the
+ * way), by draft. The next try reuses that number, and so its request key: a
+ * run the server did record is then found by its key, never started twice.
+ */
+const unsettledRuns = new Map<string, number>();
 
 /** The provider's quote for one generation, put the way a draft shows it. */
 async function estimateOne(
@@ -109,23 +118,42 @@ export function useDraftRunner(context: {
     ): Promise<DraftEstimate> => {
       if (!draft.longVideo) return estimateOne(draft.modelId, values, references);
       const plan = longPlan(draft, values, references);
-      const first = plan?.planned[0];
-      if (!plan || !first) return { kind: "unavailable", reason: "This model is no longer active" };
-      if (plan.issues.length) return { kind: "unavailable", reason: plan.issues[0]! };
+      if (!plan)
+        return { kind: "unavailable", reason: "This model is no longer active", blocking: true };
+      const first = plan.planned[0];
+      if (plan.issues.length || !first)
+        return {
+          kind: "unavailable",
+          reason: plan.issues[0] ?? "This long video can't be planned",
+          blocking: true,
+        };
       // Quoted by its first clip, exactly as that clip will be sent.
       const quote = await estimateOne(draft.modelId, first.values, references);
       if (quote.kind !== "ready") return quote;
       return {
         kind: "ready",
-        costUsd: Math.ceil((quote.costUsd / first.durationSeconds) * plan.totalSeconds * 100) / 100,
-        longVideo: {
-          firstClipUsd: quote.costUsd,
-          clips: plan.planned.length,
-          seconds: plan.totalSeconds,
-        },
+        costUsd: approxRunCost(quote.costUsd, first.durationSeconds, plan.totalSeconds),
+        longVideo: { firstClipUsd: quote.costUsd, clips: plan.planned.length },
       };
     },
     [longPlan],
+  );
+
+  /**
+   * The request key for a draft's next run: a start that didn't come back is
+   * tried again under its own key. Settled once the server has answered.
+   */
+  const runKey = useCallback(
+    (index: number, runNumber: number) => {
+      const slot = `${context.messageId}:${index}`;
+      const number = unsettledRuns.get(slot) ?? runNumber;
+      return {
+        key: draftRunKey(context.messageId, index, number),
+        settle: (answered: boolean) =>
+          answered ? unsettledRuns.delete(slot) : unsettledRuns.set(slot, number),
+      };
+    },
+    [context.messageId],
   );
 
   const runOne = useCallback(
@@ -137,7 +165,7 @@ export function useDraftRunner(context: {
       references,
       estimate: quote,
     }: DraftRunInput): Promise<boolean> => {
-      const key = draftRunKey(context.messageId, index, runNumber);
+      const { key, settle } = runKey(index, runNumber);
       if (inFlight.current.has(key)) return false;
       inFlight.current.add(key);
       try {
@@ -170,8 +198,10 @@ export function useDraftRunner(context: {
           toast.success(
             `"${draft.title}" is generating. The result appears here when it is ready.`,
           );
+        settle(true);
         return true;
       } catch (error) {
+        settle(false);
         toast.error(
           error instanceof Error ? error.message : "The generation could not be submitted",
         );
@@ -181,19 +211,22 @@ export function useDraftRunner(context: {
         await queryClient.invalidateQueries({ queryKey: ["generations"] });
       }
     },
-    [context.messageId, context.projectId, context.campaignId, queryClient],
+    [context.messageId, context.projectId, context.campaignId, queryClient, runKey],
   );
 
   /** Starts a long-video draft's run; the server makes its clips one after another. */
   const runLongVideo = useCallback(
     async ({ draft, index, runNumber, values, references }: DraftRunInput): Promise<boolean> => {
-      const key = draftRunKey(context.messageId, index, runNumber);
-      if (inFlight.current.has(key) || !draft.longVideo) return false;
+      if (!draft.longVideo) return false;
+      const plan = longPlan(draft, values, references);
+      if (!plan?.continuation || plan.issues.length) {
+        toast.error(plan?.issues[0] ?? "This model is no longer active");
+        return false;
+      }
+      const { key, settle } = runKey(index, runNumber);
+      if (inFlight.current.has(key)) return false;
       inFlight.current.add(key);
       try {
-        const plan = longPlan(draft, values, references);
-        if (!plan?.continuation || plan.issues.length)
-          throw new Error(plan?.issues[0] ?? "This model is no longer active");
         const result = await startLongVideo({
           data: {
             title: draft.longVideo.title || draft.title,
@@ -209,14 +242,18 @@ export function useDraftRunner(context: {
             clientRequestId: key,
           },
         });
-        if (result.status === "needs_attention")
+        settle(true);
+        if (result.duplicate)
+          toast.info(`"${draft.title}" had already started. Follow it in its card.`);
+        else if (result.status === "needs_attention")
           toast.warning(`"${draft.title}" stopped before its first clip. See why in its card.`);
-        else if (!result.duplicate)
+        else
           toast.success(
             `"${draft.title}" started: ${plan.clips.length} clips, made one after another. Follow it in its card.`,
           );
         return true;
       } catch (error) {
+        settle(false);
         toast.error(error instanceof Error ? error.message : "The long video could not be started");
         return false;
       } finally {
@@ -225,7 +262,7 @@ export function useDraftRunner(context: {
         await queryClient.invalidateQueries({ queryKey: ["generations"] });
       }
     },
-    [context.messageId, context.projectId, context.campaignId, longPlan, queryClient],
+    [context.projectId, context.campaignId, longPlan, queryClient, runKey],
   );
 
   const run = useCallback(
@@ -246,7 +283,7 @@ export function providerBlockReason(health: { configured: boolean; state: string
 /** Whether a quote allows submission under the studio's estimate policy. */
 export function estimateAllows(estimate: DraftEstimate | null, requireEstimate: boolean): boolean {
   if (!estimate || estimate.kind === "loading") return false;
-  if (estimate.kind === "unavailable") return !requireEstimate;
+  if (estimate.kind === "unavailable") return !requireEstimate && !estimate.blocking;
   return true;
 }
 

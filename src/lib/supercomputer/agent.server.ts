@@ -21,8 +21,14 @@ import {
   LONG_VIDEO_LIMITS,
   longVideoEligible,
   modelLine,
+  nearest,
 } from "../long-video/plan";
-import { draftContinuation, draftDurations, planDraftLongVideo } from "./long-video-draft";
+import {
+  draftContinuation,
+  draftDurations,
+  draftLongestClips,
+  planDraftLongVideo,
+} from "./long-video-draft";
 import type {
   DraftLongVideo,
   DraftReference,
@@ -62,8 +68,8 @@ Choosing models and settings (MODEL CATALOGUE)
 
 Long videos
 - Each video model makes clips of at most its "max_clip_seconds". When the user wants one continuous video longer than that (a 45-second film, a one-minute spot, a two-minute story), return ONE draft with "long_video" rather than several short drafts. The studio chains clips into one continuous shot: every clip runs as long as the model allows and the last takes what is left (45 seconds on a 30-second model is 30 s + 15 s), and every clip after the first starts from the last frame of the one before and is made by the same model, so the whole video stays consistent.
-- Only models with "long_video" can do this. Prefer the longest "max_clip_seconds" that suits the brief: fewer clips means fewer seams.
-- Set "long_video.total_seconds" to the length wanted (at most 600). Write "prompt" as the story of the whole video, "long_video.continuity" as the visual details that must stay identical in every clip (characters, wardrobe, product, setting, time of day, light, palette, camera style), and "long_video.beats" as what happens in each clip, one per clip in order, paced to those clip lengths, each ending on the pose or framing the next clip starts from. Don't set "duration" for a long video.
+- Only models with "long_video" can do this; its "first_clip_seconds" and "later_clip_seconds" are how long clip 1 and each later clip run. Prefer longer clips that suit the brief: fewer clips means fewer seams.
+- Set "long_video.total_seconds" to the length wanted (at most 600). Write "prompt" as the story of the whole video, "long_video.continuity" as the visual details that must stay identical in every clip (characters, wardrobe, product, setting, time of day, light, palette, camera style), and "long_video.beats" as what happens in each clip, one per clip in order (clip 1 for first_clip_seconds, each later clip for later_clip_seconds, the last for whatever is left), each ending on the pose or framing the next clip starts from. Don't set "duration" for a long video.
 - Keep "prompt", the continuity notes and the longest beat together within the model's "prompt_max".
 - Separate drafts are for different shots cut together with an edit plan; one continuous take longer than a clip is a long video.
 
@@ -338,10 +344,15 @@ export function compactCatalogue(
       parameters: fields.map(compactField).filter(Boolean),
     };
     if (!options.longVideo || !longVideoEligible(model)) return entry;
+    // How long its clips run in a long video, as the plan will make them.
+    const continuation = draftContinuation(model, models, []);
+    const clips = continuation ? draftLongestClips(model, continuation) : null;
     return {
       ...entry,
       max_clip_seconds: Math.max(...durationChoices(model)),
-      long_video: !!draftContinuation(model, models, []),
+      long_video: clips
+        ? { first_clip_seconds: clips.first, later_clip_seconds: clips.later }
+        : false,
     };
   });
 }
@@ -492,13 +503,19 @@ export function normalizeDrafts(
       wantsLong && continuation ? draftDurations(model, continuation, wantsLong.targetSeconds) : [];
     if (durations.length) rawParams["duration"] = durationValue(model, durations[0]!);
     let longNote = "";
-    if (wantsLong && !continuation)
+    if (wantsLong && !continuation) {
+      // One clip instead, as close to the length asked for as the model allows.
+      const choices = durationChoices(model);
+      const seconds = choices.length ? nearest(choices, wantsLong.targetSeconds) : null;
+      if (seconds !== null) rawParams["duration"] = durationValue(model, seconds);
+      const clip = seconds !== null ? `one ${seconds}s clip` : "one clip";
       longNote =
         model.output_type !== "video"
           ? `${model.display_name} makes ${model.output_type === "image" ? "images" : "audio"}, not long videos.`
           : longVideoEligible(model)
-            ? `${modelLine(model)} has no workflow that starts from a frame, so it can't chain clips into a long video; this is one clip.`
-            : `${model.display_name} can't make a long video; this is one clip.`;
+            ? `${modelLine(model)} has no workflow that starts from a frame, so it can't chain clips into a long video; this is ${clip}.`
+            : `${model.display_name} can't make a long video; this is ${clip}.`;
+    }
 
     const { values } = normalizeParameters(model, rawParams, roles);
     const promptField = (model.parameter_schema?.fields ?? []).find(
@@ -516,7 +533,6 @@ export function normalizeDrafts(
         title: wantsLong.title || title,
         targetSeconds: wantsLong.targetSeconds,
         continuationModelId: continuation.id,
-        continuationModelName: continuation.display_name,
         durations,
         continuity: wantsLong.continuity,
         beats: fitBeats(wantsLong.beats, durations.length),

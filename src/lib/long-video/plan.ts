@@ -110,7 +110,8 @@ export function startFrameSlot(model: ModelRegistryEntry | null | undefined): In
  * Models that open a clip on a given frame through their reference images, as
  * they have no start-frame input: Cinema Studio's prompt names its references
  * with one-based tokens (<<<image_1>>>), so the handoff frame goes in as
- * image 1 and the prompt says the clip begins on it.
+ * image 1 and the prompt says the clip begins on it. A registry row can also
+ * say so itself (capabilities.referenceStart).
  */
 const REFERENCE_START_PATHS = [/^higgsfield\/cinema-studio\//];
 
@@ -124,7 +125,14 @@ export type ClipStart =
 export function clipStart(model: ModelRegistryEntry | null | undefined): ClipStart | null {
   const frame = startFrameSlot(model);
   if (frame) return { kind: "frame", role: frame.role };
-  if (!model || !REFERENCE_START_PATHS.some((path) => path.test(model.model_path))) return null;
+  if (
+    !model ||
+    !(
+      model.capabilities?.referenceStart === true ||
+      REFERENCE_START_PATHS.some((path) => path.test(model.model_path))
+    )
+  )
+    return null;
   const slot = (model.capabilities?.inputs ?? []).find(
     (entry) => entry.role === "reference" && entry.type === "image",
   );
@@ -182,7 +190,7 @@ export function clipLengthChoices(continuation: ModelRegistryEntry | null): numb
 const EPSILON = 1e-9;
 
 /** The accepted length closest to an ideal; between two equally close, the longer. */
-function nearest(choices: number[], ideal: number): number {
+export function nearest(choices: number[], ideal: number): number {
   return choices.reduce((best, value) => {
     const gap = Math.abs(value - ideal);
     const bestGap = Math.abs(best - ideal);
@@ -217,13 +225,35 @@ function closestPair(first: number[], second: number[], total: number): [number,
   return best;
 }
 
+/** The lengths a clip may take: those its model accepts, up to the longest chosen. */
+function capped(choices: number[], maxClipSeconds: number): number[] {
+  const fit = choices.filter((value) => value <= maxClipSeconds + EPSILON);
+  return fit.length ? fit : [Math.min(...choices)];
+}
+
+/** How long the first clip and each later clip run at most, up to the longest chosen. */
+export function longestClips(input: {
+  maxClipSeconds: number;
+  firstChoices: number[];
+  continuationChoices: number[];
+}): { first: number; later: number } | null {
+  if (!input.firstChoices.length || !input.continuationChoices.length) return null;
+  return {
+    first: Math.max(...capped(input.firstChoices, input.maxClipSeconds)),
+    later: Math.max(...capped(input.continuationChoices, input.maxClipSeconds)),
+  };
+}
+
 /**
  * Clip lengths for a total: every clip as long as its model allows (or the
  * longest chosen), so the video takes as few clips as it can, and the last
  * clip takes what is left. When what is left is shorter than any length the
  * model accepts, the last two clips share it so the total still comes out:
  * 45 s at 4–30 s clips is 30 + 15, 62 s is 30 + 28 + 4, 50 s at 3–15 s clips
- * is 15 + 15 + 15 + 5. A total one clip can hold comes back as that one clip.
+ * is 15 + 15 + 15 + 5. Where a clip fewer, all at their longest, comes as
+ * close (models with a few set lengths: 31 s of 5 s or 10 s clips is
+ * 10 + 10 + 10, not 10 + 10 + 5 + 5), that is the plan. A total one clip can
+ * hold comes back as that one clip.
  */
 export function planDurations(input: {
   targetSeconds: number;
@@ -232,27 +262,25 @@ export function planDurations(input: {
   continuationChoices: number[];
 }): number[] {
   const { targetSeconds, maxClipSeconds, firstChoices, continuationChoices } = input;
-  if (!firstChoices.length || !continuationChoices.length || !(targetSeconds > 0)) return [];
-  const capped = (choices: number[]) => {
-    const fit = choices.filter((value) => value <= maxClipSeconds + EPSILON);
-    return fit.length ? fit : [Math.min(...choices)];
-  };
-  const first = capped(firstChoices);
-  const later = capped(continuationChoices);
-  const longestFirst = Math.max(...first);
-  const longestLater = Math.max(...later);
-  if (targetSeconds <= longestFirst + EPSILON) return [nearest(first, targetSeconds)];
+  const longest = longestClips(input);
+  if (!longest || !(targetSeconds > 0)) return [];
+  const first = capped(firstChoices, maxClipSeconds);
+  const later = capped(continuationChoices, maxClipSeconds);
+  if (targetSeconds <= longest.first + EPSILON) return [nearest(first, targetSeconds)];
   const count = Math.min(
     LONG_VIDEO_LIMITS.maxClips,
-    1 + Math.ceil((targetSeconds - longestFirst) / longestLater - EPSILON),
+    1 + Math.ceil((targetSeconds - longest.first) / longest.later - EPSILON),
   );
+  const atLongest = (clips: number) =>
+    Array.from({ length: clips }, (_, index) => (index === 0 ? longest.first : longest.later));
   // Every clip but the last two at its longest; the last two share the rest.
-  const durations = Array.from({ length: count - 2 }, (_, index) =>
-    index === 0 ? longestFirst : longestLater,
+  const durations = atLongest(count - 2);
+  durations.push(
+    ...closestPair(count === 2 ? first : later, later, targetSeconds - totalSeconds(durations)),
   );
-  const rest = targetSeconds - totalSeconds(durations);
-  durations.push(...closestPair(count === 2 ? first : later, later, rest));
-  return durations;
+  const fewer = atLongest(count - 1);
+  const gap = (plan: number[]) => Math.abs(totalSeconds(plan) - targetSeconds);
+  return gap(fewer) <= gap(durations) + EPSILON ? fewer : durations;
 }
 
 /**
@@ -522,6 +550,23 @@ export function planIssues(input: {
 /** The run's total length in seconds. */
 export function totalSeconds(durations: number[]): number {
   return durations.reduce((sum, value) => sum + value, 0);
+}
+
+/** Where each clip starts in the video, in seconds. */
+export function clipStarts(durations: number[]): number[] {
+  return durations.map((_, index) => totalSeconds(durations.slice(0, index)));
+}
+
+/**
+ * A long video's approximate cost from its first clip's quote, by the second.
+ * Each clip is quoted again by the provider before it is sent.
+ */
+export function approxRunCost(
+  firstClipUsd: number,
+  firstClipSeconds: number,
+  runSeconds: number,
+): number {
+  return (firstClipUsd / firstClipSeconds) * runSeconds;
 }
 
 /** "45s", "1:30", "10:00". */

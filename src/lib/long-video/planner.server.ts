@@ -35,7 +35,6 @@ export interface LongVideoPlanSuggestion {
 
 export async function suggestLongVideoPlan(input: {
   first: ModelRegistryEntry;
-  continuation: ModelRegistryEntry;
   story: string;
   continuity: string;
   title: string;

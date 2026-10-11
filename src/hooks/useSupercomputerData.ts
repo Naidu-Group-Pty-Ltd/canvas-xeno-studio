@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -220,18 +220,21 @@ export function useDraftRuns(messageId: string, enabled: boolean) {
 
 /** Long videos started from an answer's drafts, by draft, oldest first. */
 export function useDraftLongVideos(messageId: string, enabled: boolean) {
-  const { data: runs = [] } = useLongVideos({
+  const { data: runs } = useLongVideos({
     requestPrefix: draftRunPrefix(messageId),
-    limit: 40,
+    limit: 200,
     enabled,
   });
-  const byDraft = new Map<number, LongVideoRow[]>();
-  for (const run of [...runs].reverse()) {
-    const index = draftIndexFromKey(run.client_request_id, messageId);
-    if (index === null) continue;
-    byDraft.set(index, [...(byDraft.get(index) ?? []), run]);
-  }
-  return { byDraft, runs };
+  const byDraft = useMemo(() => {
+    const map = new Map<number, LongVideoRow[]>();
+    for (const run of [...(runs ?? [])].reverse()) {
+      const index = draftIndexFromKey(run.client_request_id, messageId);
+      if (index === null) continue;
+      map.set(index, [...(map.get(index) ?? []), run]);
+    }
+    return map;
+  }, [runs, messageId]);
+  return { byDraft };
 }
 
 /** Live updates for the open conversation and for briefs being analysed. */

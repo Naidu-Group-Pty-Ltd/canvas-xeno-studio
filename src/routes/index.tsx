@@ -47,7 +47,7 @@ import {
   type LongVideoDraft,
 } from "@/components/create/long-video-plan";
 import { startLongVideo } from "@/lib/long-video.functions";
-import { formatLength, LONG_VIDEO_LIMITS } from "@/lib/long-video/plan";
+import { approxRunCost, formatLength, LONG_VIDEO_LIMITS } from "@/lib/long-video/plan";
 import {
   cinemaSupported,
   compileCinemaPrompt,
@@ -655,7 +655,7 @@ function CreatePage() {
   // each clip is quoted again by the provider before it is sent.
   const longTotalEstimate =
     longMode && estimate.kind === "ready" && longPlan.durations[0]
-      ? (estimate.costUsd / longPlan.durations[0]) * longPlan.totalSeconds
+      ? approxRunCost(estimate.costUsd, longPlan.durations[0], longPlan.totalSeconds)
       : null;
 
   /** Hands the current prompt, references and context to Supercomputer (nothing is sent automatically). */

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Clapperboard, Film, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import type { ModelRegistryEntry } from "@/lib/model-schema";
-import { formatLength, LONG_VIDEO_LIMITS, modelLine } from "@/lib/long-video/plan";
+import { clipStarts, formatLength, LONG_VIDEO_LIMITS, modelLine } from "@/lib/long-video/plan";
 import { planLongVideo } from "@/lib/long-video.functions";
 import type { LongVideoDraft, LongVideoPlan } from "@/components/create/long-video-plan";
 import { Button } from "@/components/ui/button";
@@ -84,9 +84,7 @@ export function LongVideoSetup({
       clipIssues.set(issue.position, issue.message);
   const runIssue = plan.issues.find((issue) => issue.position === null);
   const sameLength = plan.durations.every((value) => value === plan.durations[0]);
-  const starts = plan.durations.map((_, index) =>
-    plan.durations.slice(0, index).reduce((sum, value) => sum + value, 0),
-  );
+  const starts = clipStarts(plan.durations);
 
   return (
     <div className="space-y-4" data-testid="long-video-setup">

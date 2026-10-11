@@ -180,7 +180,6 @@ export function AssistantMessage({
                 index={index}
                 messageId={message.id}
                 model={models.find((model) => model.id === draft.modelId)}
-                models={models}
                 runs={byDraft.get(index) ?? []}
                 longRuns={longByDraft.get(index) ?? []}
                 context={context}

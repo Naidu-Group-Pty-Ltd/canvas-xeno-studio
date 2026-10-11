@@ -18,17 +18,17 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { AssetRow, GenerationRow } from "@/hooks/useStudioData";
-import { useAssetsById, useNudgeStalledRuns, type LongVideoRow } from "@/hooks/useLongVideos";
+import type { LongVideoRow } from "@/hooks/useLongVideos";
 import type { ModelRegistryEntry } from "@/lib/model-schema";
 import { validateParameters } from "@/lib/model-schema";
 import { summarizeParameters } from "@/lib/parameter-normalize";
 import { ROLE_LABELS, slotLabel } from "@/lib/references";
 import { setCreatePrefill } from "@/lib/create-draft";
-import { formatLength, modelLine } from "@/lib/long-video/plan";
-import { planDraftLongVideo } from "@/lib/supercomputer/long-video-draft";
+import { clipStarts, formatLength, modelLine } from "@/lib/long-video/plan";
+import type { DraftLongVideoPlan } from "@/lib/supercomputer/long-video-draft";
 import type { SupercomputerDraft } from "@/lib/supercomputer/types";
 import { ParameterFields } from "@/components/create/ParameterFields";
-import { RunCard } from "@/components/create/LongVideoRuns";
+import { LongVideoRunList } from "@/components/create/LongVideoRuns";
 import { MediaPreview } from "@/components/studio/MediaPreview";
 import { SaveStatus } from "@/components/studio/SaveStatus";
 import { StatusBadge } from "@/components/studio/StatusBadge";
@@ -54,8 +54,6 @@ interface Props {
   index: number;
   messageId: string;
   model: ModelRegistryEntry | undefined;
-  /** The whole catalogue, which a long-video draft is planned against. */
-  models: ModelRegistryEntry[];
   runs: { generation: GenerationRow; assets: AssetRow[] }[];
   /** Long videos started from this draft, oldest first. */
   longRuns: LongVideoRow[];
@@ -70,7 +68,6 @@ export function DraftCard({
   index,
   messageId,
   model,
-  models,
   runs,
   longRuns,
   context,
@@ -93,18 +90,11 @@ export function DraftCard({
   );
   const roles = draft.references.map((ref) => ref.role);
   // A long video: the prompt is its story, and the plan sets each clip's length.
+  // Planned as the runner will quote and start it.
+  const { longPlan: planLong } = runner;
   const longPlan = useMemo(
-    () =>
-      draft.longVideo && model
-        ? planDraftLongVideo({
-            model,
-            models,
-            longVideo: draft.longVideo,
-            values: submitValues,
-            references: draft.references,
-          })
-        : null,
-    [draft.longVideo, draft.references, model, models, submitValues],
+    () => (draft.longVideo ? planLong(draft, submitValues, draft.references) : null),
+    [draft, planLong, submitValues],
   );
   const issues = !model
     ? ["This model is no longer active"]
@@ -114,7 +104,7 @@ export function DraftCard({
   const chips = model
     ? summarizeParameters(
         model,
-        longPlan
+        draft.longVideo
           ? Object.fromEntries(Object.entries(submitValues).filter(([key]) => key !== "duration"))
           : submitValues,
       )
@@ -324,13 +314,17 @@ export function DraftCard({
               values={values}
               inputRoles={roles}
               onChange={(key, value) => setValues((current) => ({ ...current, [key]: value }))}
-              hiddenKeys={longPlan ? ["duration"] : undefined}
+              hiddenKeys={draft.longVideo ? ["duration"] : undefined}
             />
           </CollapsibleContent>
         </Collapsible>
       )}
 
-      {longRuns.length > 0 && <DraftLongVideoRuns runs={longRuns} />}
+      {longRuns.length > 0 && (
+        <div className="border-t border-border pt-3" data-testid="draft-long-video-runs">
+          <LongVideoRunList runs={longRuns} />
+        </div>
+      )}
 
       {runs.length > 0 && (
         <div className="space-y-2 border-t border-border pt-3">
@@ -467,13 +461,11 @@ function LongVideoSummary({
   beats,
 }: {
   model: ModelRegistryEntry;
-  plan: ReturnType<typeof planDraftLongVideo>;
+  plan: DraftLongVideoPlan;
   continuity: string;
   beats: string[];
 }) {
-  const starts = plan.durations.map((_, index) =>
-    plan.durations.slice(0, index).reduce((sum, value) => sum + value, 0),
-  );
+  const starts = clipStarts(plan.durations);
   return (
     <div
       className="space-y-1.5 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs"
@@ -520,23 +512,6 @@ function LongVideoSummary({
           </CollapsibleContent>
         </Collapsible>
       )}
-    </div>
-  );
-}
-
-/** The long videos a draft started, each with its clips, as under Long videos in Create. */
-function DraftLongVideoRuns({ runs }: { runs: LongVideoRow[] }) {
-  const { data: assets } = useAssetsById(
-    runs.flatMap((run) =>
-      run.clips.flatMap((clip) => (clip.output_asset_id ? [clip.output_asset_id] : [])),
-    ),
-  );
-  useNudgeStalledRuns(runs);
-  return (
-    <div className="space-y-3 border-t border-border pt-3" data-testid="draft-long-video-runs">
-      {runs.map((run) => (
-        <RunCard key={run.id} run={run} assets={assets} />
-      ))}
     </div>
   );
 }

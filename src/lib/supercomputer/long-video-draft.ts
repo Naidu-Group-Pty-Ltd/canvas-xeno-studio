@@ -10,6 +10,8 @@ import {
   clipPrompt,
   continuationCandidates,
   durationChoices,
+  LONG_VIDEO_LIMITS,
+  longestClips,
   longVideoEligible,
   planClips,
   planDurations,
@@ -46,20 +48,28 @@ export function draftContinuation(
   return candidates.find((entry) => entry.id === preferredId) ?? candidates[0] ?? null;
 }
 
+/** The lengths a draft's clips are planned from: each model's own, up to the later clips' longest. */
+function draftChoices(model: ModelRegistryEntry, continuation: ModelRegistryEntry) {
+  const continuationChoices = durationChoices(continuation);
+  return {
+    maxClipSeconds: continuationChoices.length ? Math.max(...continuationChoices) : 0,
+    firstChoices: durationChoices(model),
+    continuationChoices,
+  };
+}
+
 /** Clip lengths for a long video on a model: each as long as the model allows. */
 export function draftDurations(
   model: ModelRegistryEntry,
   continuation: ModelRegistryEntry,
   targetSeconds: number,
 ): number[] {
-  const laterChoices = durationChoices(continuation);
-  if (!laterChoices.length) return [];
-  return planDurations({
-    targetSeconds,
-    maxClipSeconds: Math.max(...laterChoices),
-    firstChoices: durationChoices(model),
-    continuationChoices: laterChoices,
-  });
+  return planDurations({ targetSeconds, ...draftChoices(model, continuation) });
+}
+
+/** How long clip 1 and each later clip of a draft's long video run at most. */
+export function draftLongestClips(model: ModelRegistryEntry, continuation: ModelRegistryEntry) {
+  return longestClips(draftChoices(model, continuation));
 }
 
 export function planDraftLongVideo(input: {
@@ -104,6 +114,13 @@ export function planDraftLongVideo(input: {
     continuation,
     clips: planned,
     targetSeconds: total,
-  }).map((issue) => issue.message);
+  }).map((issue) =>
+    // Create's way out ("switch to One clip") isn't on a draft.
+    planned.length && planned.length < LONG_VIDEO_LIMITS.minClips && issue.position === null
+      ? issue.message.includes("fits in one clip")
+        ? "That length now fits in one clip: open it in Create and make it as one clip"
+        : issue.message
+      : issue.message,
+  );
   return { continuation, durations, totalSeconds: total, clips, planned, issues };
 }

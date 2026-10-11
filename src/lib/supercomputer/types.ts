@@ -30,7 +30,6 @@ export interface DraftLongVideo {
   targetSeconds: number;
   /** The model's workflow for clips 2 onward (the draft's own model, or its image to video). */
   continuationModelId: string;
-  continuationModelName: string;
   /** Clip lengths as planned when the draft was written. */
   durations: number[];
   continuity: string;
