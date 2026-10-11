@@ -105,7 +105,7 @@ function assistantSummary(content: string, payload: SupercomputerPayload): strin
     parts.push(`[Ideas: ${payload.ideas.map((idea, i) => `${i + 1}) ${idea.title}`).join("; ")}]`);
   if (payload.drafts?.length)
     parts.push(
-      `[Drafts: ${payload.drafts.map((draft, i) => `${i + 1}) ${draft.title} — ${draft.modelName}`).join("; ")}]`,
+      `[Drafts: ${payload.drafts.map((draft, i) => `${i + 1}) ${draft.title} — ${draft.modelName}${draft.longVideo ? ` (long video: ${draft.longVideo.targetSeconds}s in ${draft.longVideo.durations.length} clips)` : ""}`).join("; ")}]`,
     );
   if (payload.editPlan)
     parts.push(
@@ -436,7 +436,7 @@ export const sendSupercomputerMessage = createServerFn({ method: "POST" })
       "## REFERENCE MEDIA (asset ids usable in drafts)",
       mediaLines.length ? mediaLines.join("\n") : "(none)",
       "## MODEL CATALOGUE (JSON)",
-      JSON.stringify(agent.compactCatalogue(models)),
+      JSON.stringify(agent.compactCatalogue(models, { longVideo: true })),
       "## REQUEST",
       `Task: ${INTENT_GUIDANCE[data.intent]}`,
       userMessage.content,
@@ -470,8 +470,14 @@ export const sendSupercomputerMessage = createServerFn({ method: "POST" })
       const raw = result.data;
       const ideas = agent.normalizeIdeas(raw["ideas"]);
       const { drafts, dropped, indexMap } = agent.normalizeDrafts(raw["drafts"], models, allowed);
+      // A long video isn't a shot of an edit: it opens in the Editor as its own clips.
+      const shotMap = indexMap.map((index) =>
+        index !== null && !drafts[index]?.longVideo ? index : null,
+      );
       const editPlan =
-        drafts.length > 1 ? agent.normalizeEditPlan(raw["edit_plan"], indexMap) : undefined;
+        shotMap.filter((index) => index !== null).length > 1
+          ? agent.normalizeEditPlan(raw["edit_plan"], shotMap)
+          : undefined;
       const payload: SupercomputerPayload = {
         intent: data.intent,
         ideas,

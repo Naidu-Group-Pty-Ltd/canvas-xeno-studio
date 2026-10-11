@@ -45,19 +45,35 @@ export const getReasoningHealth = createServerFn({ method: "GET" })
     };
   });
 
+/** Active models, with the shot lengths each video model accepts ("clip_seconds"). */
 async function activeModelCatalogue() {
   const supabaseAdmin = await admin();
   const { data } = await supabaseAdmin
     .from("model_registry")
-    .select("id,display_name,family,model_path,operation,output_type,recommended_for,capability_tags")
+    .select(
+      "id,display_name,family,model_path,operation,output_type,recommended_for,capability_tags,parameter_schema",
+    )
     .eq("is_active", true)
     .order("sort_order");
-  return data ?? [];
+  const { durationChoices } = await import("./long-video/plan");
+  return (data ?? []).map(({ parameter_schema, ...model }) => {
+    const choices = durationChoices({
+      ...model,
+      parameter_schema,
+    } as unknown as ModelRegistryEntry);
+    if (!choices.length) return model;
+    return {
+      ...model,
+      clip_seconds:
+        choices.length <= 6 ? choices : { min: choices[0], max: choices[choices.length - 1] },
+    };
+  });
 }
 
 const DIRECTOR_SYSTEM = `You are the Director of an internal AI creative studio.
 Turn the brief into a structured production plan.
 You may ONLY route shots to models supplied in the catalogue, referenced by their exact id.
+A video model makes shots of the lengths in its "clip_seconds"; give every video shot a duration its model accepts. A continuous action longer than a model's longest shot becomes consecutive shots on the same model, each as long as the model allows, so the take stays consistent.
 If no supplied model can deliver a required capability, list it under unsupported_capability instead of inventing a model or API route.
 Never invent prices. Never output hidden reasoning — return only the structured plan.`;
 

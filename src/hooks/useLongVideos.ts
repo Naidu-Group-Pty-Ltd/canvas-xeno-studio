@@ -1,5 +1,7 @@
+import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { checkLongVideo } from "@/lib/long-video.functions";
 import type { Database } from "@/integrations/supabase/types";
 import { isMissingTableError } from "@/lib/edit/errors";
 import type { AssetRow } from "@/hooks/useStudioData";
@@ -14,10 +16,19 @@ export type LongVideoRow = Database["public"]["Tables"]["long_videos"]["Row"] & 
  * realtime channel; while one is still moving it is also re-read now and then,
  * in case a realtime message is missed. Empty until the database has the tables.
  */
-export function useLongVideos(options: { limit?: number; projectId?: string | null } = {}) {
-  const { limit = 6, projectId } = options;
+export function useLongVideos(
+  options: {
+    limit?: number;
+    projectId?: string | null;
+    /** Only runs whose request key starts with this (e.g. a Supercomputer answer's drafts). */
+    requestPrefix?: string | null;
+    enabled?: boolean;
+  } = {},
+) {
+  const { limit = 6, projectId, requestPrefix, enabled = true } = options;
   return useQuery({
-    queryKey: ["long_videos", limit, projectId ?? null],
+    queryKey: ["long_videos", limit, projectId ?? null, requestPrefix ?? null],
+    enabled,
     queryFn: async () => {
       let query = supabase
         .from("long_videos")
@@ -25,6 +36,7 @@ export function useLongVideos(options: { limit?: number; projectId?: string | nu
         .order("created_at", { ascending: false })
         .limit(limit);
       if (projectId) query = query.eq("project_id", projectId);
+      if (requestPrefix) query = query.like("client_request_id", `${requestPrefix}%`);
       const { data, error } = await query;
       if (error) {
         if (isMissingTableError(error)) return [] as LongVideoRow[];
@@ -68,4 +80,24 @@ export function useAssetsById(ids: string[]) {
       return new Map(((data ?? []) as unknown as AssetRow[]).map((asset) => [asset.id, asset]));
     },
   });
+}
+
+/** A clip that hasn't moved for this long, in a running video, is nudged on in case an event was missed. */
+const NUDGE_AFTER_MS = 3 * 60_000;
+
+/** Nudges on any running video that hasn't moved for a while, once per page view. */
+export function useNudgeStalledRuns(runs: LongVideoRow[]) {
+  const nudged = useRef(new Set<string>());
+  useEffect(() => {
+    for (const run of runs) {
+      if (run.status !== "running" || nudged.current.has(run.id)) continue;
+      const latest = Math.max(
+        new Date(run.updated_at).getTime(),
+        ...run.clips.map((clip) => new Date(clip.updated_at).getTime()),
+      );
+      if (Date.now() - latest < NUDGE_AFTER_MS) continue;
+      nudged.current.add(run.id);
+      void checkLongVideo({ data: { longVideoId: run.id } }).catch(() => undefined);
+    }
+  }, [runs]);
 }

@@ -1,12 +1,15 @@
 /**
  * Planning a long video: one continuous piece made of several clips, each as
- * long as its model allows. Shared by the Create page (to show and check the
- * plan) and the server (to check it again and run it), so both always agree.
+ * long as its model allows, all made by one model. Shared by the Create page
+ * and Supercomputer (to show and check the plan) and the server (to check it
+ * again and run it), so all of them always agree.
  *
  * Continuity: every clip after the first starts from a frame taken just before
  * the end of the clip before it (the handoff frame), with the same story,
- * continuity notes, settings and reference images. The Editor later cuts each
- * clip at its handoff frame, so the next clip picks up exactly where it left off.
+ * continuity notes, settings and reference images, on the same model (the
+ * same workflow, or that model's own workflow for starting from an image). The
+ * Editor later cuts each clip at its handoff frame, so the next clip picks up
+ * exactly where it left off.
  */
 import {
   defaultsForModel,
@@ -72,7 +75,7 @@ export function durationChoices(model: ModelRegistryEntry): number[] {
 }
 
 /** The value the duration control is set to for a length (the option itself, when it is a list). */
-function durationValue(model: ModelRegistryEntry, seconds: number): unknown {
+export function durationValue(model: ModelRegistryEntry, seconds: number): unknown {
   const field = durationField(model);
   const option = field?.options
     ?.map(normalizeOption)
@@ -103,14 +106,44 @@ export function startFrameSlot(model: ModelRegistryEntry | null | undefined): In
   );
 }
 
+/**
+ * Models that open a clip on a given frame through their reference images, as
+ * they have no start-frame input: Cinema Studio's prompt names its references
+ * with one-based tokens (<<<image_1>>>), so the handoff frame goes in as
+ * image 1 and the prompt says the clip begins on it.
+ */
+const REFERENCE_START_PATHS = [/^higgsfield\/cinema-studio\//];
+
+/** How a model starts a clip from a given frame. */
+export type ClipStart =
+  /** Its start-frame input. */
+  | { kind: "frame"; role: string }
+  /** Its first reference image, named in the prompt. */
+  | { kind: "reference"; role: string };
+
+export function clipStart(model: ModelRegistryEntry | null | undefined): ClipStart | null {
+  const frame = startFrameSlot(model);
+  if (frame) return { kind: "frame", role: frame.role };
+  if (!model || !REFERENCE_START_PATHS.some((path) => path.test(model.model_path))) return null;
+  const slot = (model.capabilities?.inputs ?? []).find(
+    (entry) => entry.role === "reference" && entry.type === "image",
+  );
+  return slot ? { kind: "reference", role: slot.role } : null;
+}
+
 /** A model that can make the clips after the first: it starts from a given frame. */
 export function canContinue(model: ModelRegistryEntry | null | undefined): boolean {
-  return longVideoEligible(model) && !!startFrameSlot(model);
+  return longVideoEligible(model) && !!clipStart(model);
 }
 
 /** A model's name without its workflow, e.g. "Kling 3.0 Pro" for "Kling 3.0 Pro (Image to video)". */
 export function modelLine(model: ModelRegistryEntry): string {
   return model.display_name.replace(/\s*\([^)]*\)\s*$/, "");
+}
+
+/** Two workflows of one model (Seedance 2.5 and Seedance 2.5 (Image to video)), or the same workflow. */
+export function sameModel(a: ModelRegistryEntry, b: ModelRegistryEntry): boolean {
+  return a.id === b.id || (a.family === b.family && modelLine(a) === modelLine(b));
 }
 
 function hasReferenceSlot(model: ModelRegistryEntry): boolean {
@@ -120,10 +153,12 @@ function hasReferenceSlot(model: ModelRegistryEntry): boolean {
 }
 
 /**
- * Models that can make the later clips, best first: the first clip's own model
- * when it can, then its other workflows (image to video first; one that also
- * takes reference images when there are some), then the same family, then
- * everything else in catalogue order.
+ * What can make the clips after the first, best first. Only the first clip's
+ * own model, so the whole video looks and moves like one piece: the same
+ * workflow when it can start from a frame, else that model's other workflows
+ * that can (one that also takes reference images first when there are some,
+ * then image to video). Empty when no workflow of the model starts from a
+ * frame, and then the model can't make a long video.
  */
 export function continuationCandidates(
   first: ModelRegistryEntry,
@@ -132,12 +167,10 @@ export function continuationCandidates(
 ): ModelRegistryEntry[] {
   const score = (model: ModelRegistryEntry) =>
     (model.id === first.id ? 100 : 0) +
-    (model.family === first.family && modelLine(model) === modelLine(first) ? 40 : 0) +
-    (model.family === first.family ? 10 : 0) +
     (options.withReferences && hasReferenceSlot(model) ? 5 : 0) +
     (model.operation === "image-to-video" ? 2 : 0);
   return models
-    .filter((model) => model.is_active && canContinue(model))
+    .filter((model) => model.is_active && sameModel(model, first) && canContinue(model))
     .sort((a, b) => score(b) - score(a) || a.sort_order - b.sort_order);
 }
 
@@ -146,19 +179,51 @@ export function clipLengthChoices(continuation: ModelRegistryEntry | null): numb
   return continuation ? durationChoices(continuation) : [];
 }
 
+const EPSILON = 1e-9;
+
+/** The accepted length closest to an ideal; between two equally close, the longer. */
 function nearest(choices: number[], ideal: number): number {
   return choices.reduce((best, value) => {
     const gap = Math.abs(value - ideal);
     const bestGap = Math.abs(best - ideal);
-    return gap < bestGap - 1e-9 || (Math.abs(gap - bestGap) <= 1e-9 && value > best) ? value : best;
+    return gap < bestGap - EPSILON || (Math.abs(gap - bestGap) <= EPSILON && value > best)
+      ? value
+      : best;
   }, choices[0]!);
 }
 
 /**
- * Clip lengths for a total: as few clips as the longest allowed clip length
- * permits, with the time shared out evenly (no stub at the end) using lengths
- * each clip's model accepts. E.g. 60 s at 30 s clips is 30 + 30; 50 s at 15 s
- * clips is 13 + 12 + 13 + 12.
+ * Two clip lengths that together come closest to a total, each one its model
+ * accepts. Between equally close pairs: the one that isn't short of the total,
+ * then the one whose first clip is longer.
+ */
+function closestPair(first: number[], second: number[], total: number): [number, number] {
+  let best: [number, number] = [first[0]!, second[0]!];
+  let bestGap = Infinity;
+  for (const a of first)
+    for (const b of second) {
+      const gap = Math.abs(a + b - total);
+      const short = a + b < total - EPSILON;
+      const bestShort = best[0] + best[1] < total - EPSILON;
+      const better =
+        gap < bestGap - EPSILON ||
+        (Math.abs(gap - bestGap) <= EPSILON &&
+          ((!short && bestShort) || (short === bestShort && a > best[0] + EPSILON)));
+      if (better) {
+        best = [a, b];
+        bestGap = gap;
+      }
+    }
+  return best;
+}
+
+/**
+ * Clip lengths for a total: every clip as long as its model allows (or the
+ * longest chosen), so the video takes as few clips as it can, and the last
+ * clip takes what is left. When what is left is shorter than any length the
+ * model accepts, the last two clips share it so the total still comes out:
+ * 45 s at 4–30 s clips is 30 + 15, 62 s is 30 + 28 + 4, 50 s at 3–15 s clips
+ * is 15 + 15 + 15 + 5. A total one clip can hold comes back as that one clip.
  */
 export function planDurations(input: {
   targetSeconds: number;
@@ -169,23 +234,24 @@ export function planDurations(input: {
   const { targetSeconds, maxClipSeconds, firstChoices, continuationChoices } = input;
   if (!firstChoices.length || !continuationChoices.length || !(targetSeconds > 0)) return [];
   const capped = (choices: number[]) => {
-    const fit = choices.filter((value) => value <= maxClipSeconds + 1e-9);
-    return fit.length ? fit : [choices[0]!];
+    const fit = choices.filter((value) => value <= maxClipSeconds + EPSILON);
+    return fit.length ? fit : [Math.min(...choices)];
   };
   const first = capped(firstChoices);
   const later = capped(continuationChoices);
-  const longest = Math.max(...later);
+  const longestFirst = Math.max(...first);
+  const longestLater = Math.max(...later);
+  if (targetSeconds <= longestFirst + EPSILON) return [nearest(first, targetSeconds)];
   const count = Math.min(
     LONG_VIDEO_LIMITS.maxClips,
-    Math.max(LONG_VIDEO_LIMITS.minClips, Math.ceil(targetSeconds / longest - 1e-9)),
+    1 + Math.ceil((targetSeconds - longestFirst) / longestLater - EPSILON),
   );
-  const durations: number[] = [];
-  let remaining = targetSeconds;
-  for (let index = 0; index < count; index += 1) {
-    const pick = nearest(index === 0 ? first : later, remaining / (count - index));
-    durations.push(pick);
-    remaining -= pick;
-  }
+  // Every clip but the last two at its longest; the last two share the rest.
+  const durations = Array.from({ length: count - 2 }, (_, index) =>
+    index === 0 ? longestFirst : longestLater,
+  );
+  const rest = targetSeconds - totalSeconds(durations);
+  durations.push(...closestPair(count === 2 ? first : later, later, rest));
   return durations;
 }
 
@@ -206,13 +272,38 @@ export function clipPrompt(input: {
   const continuity = input.continuity?.trim() ?? "";
   const keep = continuity ? `Keep consistent throughout: ${continuity}` : "";
   const parts: string[] = [];
-  if (input.index > 0)
-    parts.push(
-      "Continue seamlessly from the first frame, as the next moment of the same continuous shot.",
-    );
+  if (input.index > 0) parts.push(FRAME_OPENING);
   if (beat) parts.push(beat, keep, story ? `Scene: ${story}` : "");
   else parts.push(story, keep);
   return parts.filter(Boolean).join("\n\n");
+}
+
+const FRAME_OPENING =
+  "Continue seamlessly from the first frame, as the next moment of the same continuous shot.";
+
+/** How a clip that starts from its first reference image is told so. */
+export const REFERENCE_OPENING =
+  "<<<image_1>>> is this clip's first frame: the last moment of the clip before. Start exactly on it and continue seamlessly, as the next moment of the same continuous shot.";
+
+const MEDIA_TOKEN = /<<<(image|video|audio)_(\d+)>>>/g;
+
+/**
+ * A later clip's prompt for a model that starts from its first reference
+ * image: the opening that says so, then the clip's own prompt with its media
+ * tokens renumbered for what the clip is sent (the frame is image 1, the
+ * carried references follow). A token for media the clip isn't sent becomes
+ * plain words, as the provider refuses a token with nothing behind it.
+ */
+function referenceStartPrompt(prompt: string, imageNumber: (n: number) => number | null): string {
+  if (prompt.startsWith(REFERENCE_OPENING)) return prompt;
+  const body = prompt.startsWith(FRAME_OPENING)
+    ? prompt.slice(FRAME_OPENING.length).trimStart()
+    : prompt;
+  const renumbered = body.replace(MEDIA_TOKEN, (_, type: string, n: string) => {
+    const next = type === "image" ? imageNumber(Number(n)) : null;
+    return next ? `<<<image_${next}>>>` : `the reference ${type}`;
+  });
+  return [REFERENCE_OPENING, renumbered].filter(Boolean).join("\n\n");
 }
 
 function acceptedBy(field: FieldSchema, value: unknown): boolean {
@@ -282,12 +373,14 @@ export function carriedReferences(
     (entry) => entry.role === "reference" && entry.type === "image",
   );
   if (!slot) return [];
+  // A model that starts from its first reference image keeps that place for the frame.
+  const room = (slot.max ?? 1) - (clipStart(continuation)?.kind === "reference" ? 1 : 0);
   // Images the first clip's model couldn't use ("unused") are references too.
   return references
     .filter(
       (item) => item.assetType === "image" && (item.role === "reference" || item.role === "unused"),
     )
-    .slice(0, slot.max ?? 1)
+    .slice(0, Math.max(0, room))
     .map((item) => ({ assetId: item.assetId, role: "reference" }));
 }
 
@@ -316,7 +409,8 @@ export function planClips(input: {
   clips: ClipDraft[];
 }): PlannedClip[] {
   const { first, continuation, values, references } = input;
-  const startRole = startFrameSlot(continuation)?.role ?? null;
+  const start = clipStart(continuation);
+  const startRole = start?.role ?? null;
   const firstInputs = references
     .filter((item) => item.role && item.role !== "unused")
     .map((item) => ({ assetId: item.assetId, role: item.role }));
@@ -335,15 +429,29 @@ export function planClips(input: {
     )
   )
     carried = [];
+  // Where an image named in the first clip's prompt (<<<image_n>>>, counted
+  // among the images it is sent in that role) is in a later clip's images.
+  const firstImages = references
+    .filter((item) => item.assetType === "image" && item.role === startRole)
+    .map((item) => item.assetId);
+  const imageNumber = (n: number) => {
+    const at = carried.findIndex((item) => item.assetId === firstImages[n - 1]);
+    return at >= 0 ? at + 2 : null;
+  };
   return input.clips.map((clip, position) => {
     const isFirst = position === 0;
     const model = isFirst ? first : continuation;
     const inputs = isFirst ? firstInputs : carried;
+    const prompt =
+      !isFirst && start?.kind === "reference"
+        ? referenceStartPrompt(clip.prompt, imageNumber)
+        : clip.prompt;
     return {
       ...clip,
+      prompt,
       position,
       model,
-      values: clipValues(model, values, clip, { asChosen: isFirst }),
+      values: clipValues(model, values, { ...clip, prompt }, { asChosen: isFirst }),
       roles: isFirst ? inputs.map((item) => item.role) : rolesWith(inputs),
       inputs,
     };
@@ -369,9 +477,19 @@ export function planIssues(input: {
     return [
       { position: null, message: "Choose a video model that generates clips of a set length" },
     ];
-  if (!continuation || !canContinue(continuation))
+  if (!continuation)
     return [
-      { position: null, message: "Choose a model for the later clips that starts from an image" },
+      {
+        position: null,
+        message: `${modelLine(first)} has no workflow that starts from a frame, so its clips can't be chained into one video. Choose another model.`,
+      },
+    ];
+  if (!canContinue(continuation) || !sameModel(first, continuation))
+    return [
+      {
+        position: null,
+        message: `Clips 2 onward must be made by ${modelLine(first)} too, starting from a frame, so the whole video stays consistent`,
+      },
     ];
   if (!(input.targetSeconds > 0) || input.targetSeconds > LONG_VIDEO_LIMITS.maxSeconds)
     issues.push({

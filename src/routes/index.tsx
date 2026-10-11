@@ -47,7 +47,7 @@ import {
   type LongVideoDraft,
 } from "@/components/create/long-video-plan";
 import { startLongVideo } from "@/lib/long-video.functions";
-import { formatLength } from "@/lib/long-video/plan";
+import { formatLength, LONG_VIDEO_LIMITS } from "@/lib/long-video/plan";
 import {
   cinemaSupported,
   compileCinemaPrompt,
@@ -280,6 +280,19 @@ function CreatePage() {
       setParentGenerationId(prefill.parentGenerationId ?? null);
       setShotId(prefill.shotId ?? null);
       setReferences([]);
+      if (prefill.longVideo)
+        setLongDraft({
+          ...DEFAULT_LONG_VIDEO_DRAFT,
+          enabled: true,
+          targetSeconds: Math.max(
+            1,
+            Math.min(LONG_VIDEO_LIMITS.maxSeconds, Math.round(prefill.longVideo.targetSeconds)),
+          ),
+          title: prefill.longVideo.title ?? "",
+          continuity: prefill.longVideo.continuity ?? "",
+          beats: prefill.longVideo.beats ?? [],
+          continuationModelId: prefill.longVideo.continuationModelId ?? null,
+        });
 
       const explicit = prefill.modelId
         ? models.find((entry) => entry.id === prefill.modelId)

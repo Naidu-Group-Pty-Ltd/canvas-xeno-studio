@@ -2,8 +2,10 @@ import { useCallback, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useProviderHealth } from "@/components/layout/AppShell";
-import { useSettings } from "@/hooks/useStudioData";
+import { useModels, useSettings } from "@/hooks/useStudioData";
 import { estimateGeneration, submitGeneration } from "@/lib/generation.functions";
+import { startLongVideo } from "@/lib/long-video.functions";
+import { planDraftLongVideo } from "@/lib/supercomputer/long-video-draft";
 import {
   draftRunKey,
   type DraftReference,
@@ -12,7 +14,15 @@ import {
 
 export type DraftEstimate =
   | { kind: "loading" }
-  | { kind: "ready"; costUsd: number }
+  /**
+   * For a long video, `costUsd` is the whole video, approximated from its
+   * first clip's quote per second; each clip is quoted again before it is sent.
+   */
+  | {
+      kind: "ready";
+      costUsd: number;
+      longVideo?: { firstClipUsd: number; clips: number; seconds: number };
+    }
   | { kind: "metered"; description: string }
   | { kind: "unavailable"; reason: string };
 
@@ -29,10 +39,43 @@ function inputsFor(references: DraftReference[]) {
   return references.map((ref, position) => ({ assetId: ref.assetId, role: ref.role, position }));
 }
 
+/** The provider's quote for one generation, put the way a draft shows it. */
+async function estimateOne(
+  modelId: string,
+  values: Record<string, unknown>,
+  references: DraftReference[],
+): Promise<DraftEstimate> {
+  try {
+    const result = await estimateGeneration({
+      data: { modelId, parameters: values, inputs: inputsFor(references) },
+    });
+    if (result.ok && result.costUsd !== null) return { kind: "ready", costUsd: result.costUsd };
+    if (result.ok && result.pricingDescription)
+      return { kind: "metered", description: result.pricingDescription };
+    const detail = result.message?.trim();
+    return {
+      kind: "unavailable",
+      reason:
+        result.code === "INSUFFICIENT_PROVIDER_BALANCE"
+          ? "The Higgsfield account is out of credits"
+          : result.code === "INVALID_PARAMETERS"
+            ? detail
+              ? `Higgsfield rejected these settings: ${detail}`
+              : "Some settings are not valid for this model"
+            : result.code === "UPLOAD_FAILED"
+              ? (detail ?? "A reference file couldn't be sent to Higgsfield")
+              : "Estimate unavailable",
+    };
+  } catch {
+    return { kind: "unavailable", reason: "Estimate unavailable" };
+  }
+}
+
 /**
  * Estimating and submitting drafts from a Supercomputer answer. Submission goes
  * through the same server path as Create: provider re-estimate, budget checks,
- * concurrency queue, and an idempotency key per draft run.
+ * concurrency queue, and an idempotency key per draft run. A long-video draft
+ * starts a long video, planned with the same helpers as Create's.
  */
 export function useDraftRunner(context: {
   messageId: string;
@@ -42,10 +85,21 @@ export function useDraftRunner(context: {
   const queryClient = useQueryClient();
   const { data: health } = useProviderHealth();
   const { data: settings } = useSettings();
+  const { data: models = [] } = useModels();
   const inFlight = useRef(new Set<string>());
 
   const providerReason = health ? providerBlockReason(health) : "Checking the provider…";
   const requireEstimate = settings?.["require_cost_estimate"] === true;
+
+  /** A long-video draft's plan as it would run now, or null when its model is gone. */
+  const longPlan = useCallback(
+    (draft: SupercomputerDraft, values: Record<string, unknown>, references: DraftReference[]) => {
+      const model = models.find((entry) => entry.id === draft.modelId);
+      if (!draft.longVideo || !model) return null;
+      return planDraftLongVideo({ model, models, longVideo: draft.longVideo, values, references });
+    },
+    [models],
+  );
 
   const estimate = useCallback(
     async (
@@ -53,35 +107,28 @@ export function useDraftRunner(context: {
       values: Record<string, unknown>,
       references: DraftReference[],
     ): Promise<DraftEstimate> => {
-      try {
-        const result = await estimateGeneration({
-          data: { modelId: draft.modelId, parameters: values, inputs: inputsFor(references) },
-        });
-        if (result.ok && result.costUsd !== null) return { kind: "ready", costUsd: result.costUsd };
-        if (result.ok && result.pricingDescription)
-          return { kind: "metered", description: result.pricingDescription };
-        const detail = result.message?.trim();
-        return {
-          kind: "unavailable",
-          reason:
-            result.code === "INSUFFICIENT_PROVIDER_BALANCE"
-              ? "The Higgsfield account is out of credits"
-              : result.code === "INVALID_PARAMETERS"
-                ? detail
-                  ? `Higgsfield rejected these settings: ${detail}`
-                  : "Some settings are not valid for this model"
-                : result.code === "UPLOAD_FAILED"
-                  ? (detail ?? "A reference file couldn't be sent to Higgsfield")
-                  : "Estimate unavailable",
-        };
-      } catch {
-        return { kind: "unavailable", reason: "Estimate unavailable" };
-      }
+      if (!draft.longVideo) return estimateOne(draft.modelId, values, references);
+      const plan = longPlan(draft, values, references);
+      const first = plan?.planned[0];
+      if (!plan || !first) return { kind: "unavailable", reason: "This model is no longer active" };
+      if (plan.issues.length) return { kind: "unavailable", reason: plan.issues[0]! };
+      // Quoted by its first clip, exactly as that clip will be sent.
+      const quote = await estimateOne(draft.modelId, first.values, references);
+      if (quote.kind !== "ready") return quote;
+      return {
+        kind: "ready",
+        costUsd: Math.ceil((quote.costUsd / first.durationSeconds) * plan.totalSeconds * 100) / 100,
+        longVideo: {
+          firstClipUsd: quote.costUsd,
+          clips: plan.planned.length,
+          seconds: plan.totalSeconds,
+        },
+      };
     },
-    [],
+    [longPlan],
   );
 
-  const run = useCallback(
+  const runOne = useCallback(
     async ({
       draft,
       index,
@@ -137,7 +184,56 @@ export function useDraftRunner(context: {
     [context.messageId, context.projectId, context.campaignId, queryClient],
   );
 
-  return { estimate, run, providerReason, requireEstimate };
+  /** Starts a long-video draft's run; the server makes its clips one after another. */
+  const runLongVideo = useCallback(
+    async ({ draft, index, runNumber, values, references }: DraftRunInput): Promise<boolean> => {
+      const key = draftRunKey(context.messageId, index, runNumber);
+      if (inFlight.current.has(key) || !draft.longVideo) return false;
+      inFlight.current.add(key);
+      try {
+        const plan = longPlan(draft, values, references);
+        if (!plan?.continuation || plan.issues.length)
+          throw new Error(plan?.issues[0] ?? "This model is no longer active");
+        const result = await startLongVideo({
+          data: {
+            title: draft.longVideo.title || draft.title,
+            firstModelId: draft.modelId,
+            continuationModelId: plan.continuation.id,
+            story: typeof values["prompt"] === "string" ? values["prompt"] : draft.prompt,
+            continuity: draft.longVideo.continuity,
+            values,
+            references: references.map((ref) => ({ assetId: ref.assetId, role: ref.role })),
+            clips: plan.clips,
+            projectId: context.projectId,
+            campaignId: context.campaignId,
+            clientRequestId: key,
+          },
+        });
+        if (result.status === "needs_attention")
+          toast.warning(`"${draft.title}" stopped before its first clip. See why in its card.`);
+        else if (!result.duplicate)
+          toast.success(
+            `"${draft.title}" started: ${plan.clips.length} clips, made one after another. Follow it in its card.`,
+          );
+        return true;
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "The long video could not be started");
+        return false;
+      } finally {
+        inFlight.current.delete(key);
+        await queryClient.invalidateQueries({ queryKey: ["long_videos"] });
+        await queryClient.invalidateQueries({ queryKey: ["generations"] });
+      }
+    },
+    [context.messageId, context.projectId, context.campaignId, longPlan, queryClient],
+  );
+
+  const run = useCallback(
+    (input: DraftRunInput) => (input.draft.longVideo ? runLongVideo(input) : runOne(input)),
+    [runLongVideo, runOne],
+  );
+
+  return { estimate, run, longPlan, providerReason, requireEstimate };
 }
 
 /** Why the generation provider cannot take work right now, or null when it can. */
@@ -156,7 +252,8 @@ export function estimateAllows(estimate: DraftEstimate | null, requireEstimate: 
 
 export function formatEstimate(estimate: DraftEstimate | null): string {
   if (!estimate || estimate.kind === "loading") return "Calculating…";
-  if (estimate.kind === "ready") return `$${estimate.costUsd.toFixed(2)}`;
+  if (estimate.kind === "ready")
+    return `${estimate.longVideo ? "~" : ""}$${estimate.costUsd.toFixed(2)}`;
   if (estimate.kind === "metered") return "Metered";
   return estimate.reason;
 }

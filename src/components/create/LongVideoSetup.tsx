@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Clapperboard, Film, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import type { ModelRegistryEntry } from "@/lib/model-schema";
-import { formatLength, LONG_VIDEO_LIMITS } from "@/lib/long-video/plan";
+import { formatLength, LONG_VIDEO_LIMITS, modelLine } from "@/lib/long-video/plan";
 import { planLongVideo } from "@/lib/long-video.functions";
 import type { LongVideoDraft, LongVideoPlan } from "@/components/create/long-video-plan";
 import { Button } from "@/components/ui/button";
@@ -182,21 +182,30 @@ export function LongVideoSetup({
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Clips 2 onward use</Label>
-              <Select
-                value={plan.continuation?.id ?? ""}
-                onValueChange={(value) => set({ continuationModelId: value })}
-              >
-                <SelectTrigger className="h-9" aria-label="Model for later clips">
-                  <SelectValue placeholder="No model can continue" />
-                </SelectTrigger>
-                <SelectContent>
-                  {plan.candidates.map((entry) => (
-                    <SelectItem key={entry.id} value={entry.id}>
-                      {entry.display_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {plan.candidates.length > 1 ? (
+                <Select
+                  value={plan.continuation?.id ?? ""}
+                  onValueChange={(value) => set({ continuationModelId: value })}
+                >
+                  <SelectTrigger className="h-9" aria-label="Model for later clips">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {plan.candidates.map((entry) => (
+                      <SelectItem key={entry.id} value={entry.id}>
+                        {entry.display_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p
+                  className="flex h-9 items-center truncate rounded-md border border-border px-3 text-xs text-muted-foreground"
+                  data-testid="long-video-continuation"
+                >
+                  {plan.continuation?.display_name ?? "No workflow can continue"}
+                </p>
+              )}
             </div>
           </div>
 
@@ -205,9 +214,9 @@ export function LongVideoSetup({
             data-testid="long-video-summary"
           >
             <p className="font-medium">
-              {plan.durations.length} clips
+              {plan.durations.length} {plan.durations.length === 1 ? "clip" : "clips"}
               {plan.durations.length
-                ? sameLength
+                ? sameLength && plan.durations.length > 1
                   ? ` · ${plan.durations[0]}s each`
                   : ` · ${plan.durations.map((value) => `${value}s`).join(" + ")}`
                 : ""}
@@ -215,10 +224,22 @@ export function LongVideoSetup({
               {formatLength(plan.totalSeconds)} in total
             </p>
             <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-              Each clip starts from a frame taken just before the end of the one before, with the
-              same story (the prompt below), settings and reference images, so the clips play as one
-              continuous shot. When they're all in, open them in the Editor as one edit.
+              Each clip runs as long as it can, up to {plan.maxClipSeconds}s, and the last takes
+              what's left. Each one starts from a frame taken just before the end of the one before
+              and is made by {modelLine(model)} too, with the same story (the prompt below),
+              settings and reference images, so the clips play as one continuous shot.
+              {plan.start?.kind === "reference"
+                ? ` ${modelLine(model)} has no start-frame input, so that frame goes in as each clip's first reference image and the prompt tells it to start there.`
+                : ""}{" "}
+              When they're all in, open them in the Editor as one edit.
             </p>
+            {plan.durations.length >= LONG_VIDEO_LIMITS.maxClips &&
+              plan.totalSeconds + 0.5 < draft.targetSeconds && (
+                <p className="mt-1 text-[11px] text-warning">
+                  A long video has at most {LONG_VIDEO_LIMITS.maxClips} clips, so at{" "}
+                  {plan.maxClipSeconds}s a clip it runs {formatLength(plan.totalSeconds)}.
+                </p>
+              )}
             {runIssue && <p className="mt-1 text-[11px] text-primary">{runIssue.message}</p>}
           </div>
 

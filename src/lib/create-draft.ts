@@ -13,6 +13,14 @@ export interface CreatePrefill {
   inputs?: { assetId: string; role: string }[];
   /** Set when the hand-off came from a storyboard shot, so the result is filed as a take. */
   shotId?: string | null;
+  /** Opens Create set up for a long video (the prompt is its story). */
+  longVideo?: {
+    targetSeconds: number;
+    title?: string;
+    continuity?: string;
+    beats?: string[];
+    continuationModelId?: string | null;
+  };
 }
 
 const KEY = "xeno.create.prefill";

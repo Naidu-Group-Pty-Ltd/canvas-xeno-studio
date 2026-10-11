@@ -19,6 +19,25 @@ export interface DraftReference {
   title?: string | null;
 }
 
+/**
+ * A long video a draft makes instead of one clip: clips chained into one
+ * continuous shot, all by the draft's model, each as long as it allows. The
+ * draft's prompt is the story; the plan is worked out again from these when
+ * it is run, so it always matches the catalogue as it is then.
+ */
+export interface DraftLongVideo {
+  title: string;
+  targetSeconds: number;
+  /** The model's workflow for clips 2 onward (the draft's own model, or its image to video). */
+  continuationModelId: string;
+  continuationModelName: string;
+  /** Clip lengths as planned when the draft was written. */
+  durations: number[];
+  continuity: string;
+  /** What happens in each clip, by clip. */
+  beats: string[];
+}
+
 /** A ready-to-run generation proposed by the agent, already validated against the registry. */
 export interface SupercomputerDraft {
   title: string;
@@ -32,6 +51,7 @@ export interface SupercomputerDraft {
   references: DraftReference[];
   notes?: string;
   issues: string[];
+  longVideo?: DraftLongVideo;
 }
 
 /** How the agent would cut its drafts into one video. Indices refer to `drafts`. */

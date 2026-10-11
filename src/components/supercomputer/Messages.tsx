@@ -11,7 +11,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import type { AssetRow } from "@/hooks/useStudioData";
-import { useDraftRuns, type MessageRow } from "@/hooks/useSupercomputerData";
+import { useDraftLongVideos, useDraftRuns, type MessageRow } from "@/hooks/useSupercomputerData";
 import type { ModelRegistryEntry } from "@/lib/model-schema";
 import type { SupercomputerIdea, SupercomputerIntent } from "@/lib/supercomputer/types";
 import { Markdown } from "@/components/studio/Markdown";
@@ -77,9 +77,18 @@ export function AssistantMessage({
   const payload = message.payload ?? {};
   const drafts = payload.drafts ?? [];
   const { byDraft } = useDraftRuns(message.id, drafts.length > 0);
+  const { byDraft: longByDraft } = useDraftLongVideos(
+    message.id,
+    drafts.some((draft) => draft.longVideo),
+  );
   const [generateAll, setGenerateAll] = useState(false);
+  // Plain and long-video runs share a draft's run keys, so they count together.
   const runnable = drafts
-    .map((draft, index) => ({ draft, index, runNumber: (byDraft.get(index)?.length ?? 0) + 1 }))
+    .map((draft, index) => ({
+      draft,
+      index,
+      runNumber: (byDraft.get(index)?.length ?? 0) + (longByDraft.get(index)?.length ?? 0) + 1,
+    }))
     .filter((entry) => !entry.draft.issues.length);
   const { data: health } = useProviderHealth();
   const providerBlocked = health ? providerBlockReason(health) : null;
@@ -147,7 +156,7 @@ export function AssistantMessage({
                     <Sparkles className="mr-1.5 size-3.5" /> Generate all ({runnable.length})
                   </Button>
                 )}
-                {!payload.editPlan && drafts.length > 1 && (
+                {!payload.editPlan && drafts.filter((draft) => !draft.longVideo).length > 1 && (
                   <CompileVideo
                     messageId={message.id}
                     drafts={drafts}
@@ -171,7 +180,9 @@ export function AssistantMessage({
                 index={index}
                 messageId={message.id}
                 model={models.find((model) => model.id === draft.modelId)}
+                models={models}
                 runs={byDraft.get(index) ?? []}
+                longRuns={longByDraft.get(index) ?? []}
                 context={context}
                 onOpenAsset={onOpenAsset}
                 onAttach={onAttach}
