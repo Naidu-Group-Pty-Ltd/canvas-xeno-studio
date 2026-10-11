@@ -280,19 +280,24 @@ function CreatePage() {
       setParentGenerationId(prefill.parentGenerationId ?? null);
       setShotId(prefill.shotId ?? null);
       setReferences([]);
-      if (prefill.longVideo)
-        setLongDraft({
-          ...DEFAULT_LONG_VIDEO_DRAFT,
-          enabled: true,
-          targetSeconds: Math.max(
-            1,
-            Math.min(LONG_VIDEO_LIMITS.maxSeconds, Math.round(prefill.longVideo.targetSeconds)),
-          ),
-          title: prefill.longVideo.title ?? "",
-          continuity: prefill.longVideo.continuity ?? "",
-          beats: prefill.longVideo.beats ?? [],
-          continuationModelId: prefill.longVideo.continuationModelId ?? null,
-        });
+      // A hand-off sets up one generation unless it brings a long video, so a
+      // long video set up earlier on this page doesn't carry over to it.
+      setLongDraft(
+        prefill.longVideo
+          ? {
+              ...DEFAULT_LONG_VIDEO_DRAFT,
+              enabled: true,
+              targetSeconds: Math.max(
+                1,
+                Math.min(LONG_VIDEO_LIMITS.maxSeconds, Math.round(prefill.longVideo.targetSeconds)),
+              ),
+              title: prefill.longVideo.title ?? "",
+              continuity: prefill.longVideo.continuity ?? "",
+              beats: prefill.longVideo.beats ?? [],
+              continuationModelId: prefill.longVideo.continuationModelId ?? null,
+            }
+          : DEFAULT_LONG_VIDEO_DRAFT,
+      );
 
       const explicit = prefill.modelId
         ? models.find((entry) => entry.id === prefill.modelId)
