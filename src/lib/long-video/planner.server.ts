@@ -35,7 +35,6 @@ export interface LongVideoPlanSuggestion {
 
 export async function suggestLongVideoPlan(input: {
   first: ModelRegistryEntry;
-  continuation: ModelRegistryEntry;
   story: string;
   continuity: string;
   title: string;
@@ -58,8 +57,9 @@ export async function suggestLongVideoPlan(input: {
     return entry;
   });
   const prompt = [
-    `MODELS: clip 1 with ${modelLine(input.first)}; later clips with ${modelLine(input.continuation)} (starting from the previous clip's last frame).`,
+    `MODEL: ${modelLine(input.first)} makes every clip; each clip after the first starts from the previous clip's last frame.`,
     `CLIPS (JSON): ${JSON.stringify(clips)}`,
+    "Every clip is as long as the model allows except usually the last, which takes what is left: pace each beat to its own seconds, and give the last one an ending that fits its length.",
     `TOTAL: ${start} seconds in ${clips.length} clips. Return exactly ${clips.length} beats.`,
     input.title.trim() ? `WORKING TITLE: ${input.title.trim()}` : "",
     input.story.trim()

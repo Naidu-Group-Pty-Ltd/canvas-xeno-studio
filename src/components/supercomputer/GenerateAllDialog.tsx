@@ -59,6 +59,11 @@ export function GenerateAllDialog({ open, onOpenChange, messageId, drafts, conte
   const allowed = drafts.filter((entry) =>
     estimateAllows(quotes.get(entry.index) ?? null, runner.requireEstimate),
   );
+  // A long video's clips as planned now (its quote plans it against the current catalogue).
+  const longClips = (index: number) => {
+    const quote = quotes.get(index);
+    return quote?.kind === "ready" && quote.longVideo ? `, ${quote.longVideo.clips} clips` : "";
+  };
 
   async function runAll() {
     setRunning(true);
@@ -89,7 +94,10 @@ export function GenerateAllDialog({ open, onOpenChange, messageId, drafts, conte
                   <li key={entry.index} className="flex items-center justify-between gap-3 text-xs">
                     <span className="min-w-0 truncate text-foreground">
                       {entry.draft.title}{" "}
-                      <span className="text-muted-foreground">· {entry.draft.modelName}</span>
+                      <span className="text-muted-foreground">
+                        · {entry.draft.modelName}
+                        {entry.draft.longVideo ? ` · long video${longClips(entry.index)}` : ""}
+                      </span>
                     </span>
                     <span className="shrink-0 font-mono">
                       {formatEstimate(quotes.get(entry.index) ?? null)}
@@ -109,6 +117,9 @@ export function GenerateAllDialog({ open, onOpenChange, messageId, drafts, conte
               <p className="text-xs">
                 Each draft is a separate generation with its own provider estimate. Nothing is
                 retried automatically.
+                {drafts.some((entry) => entry.draft.longVideo)
+                  ? " A long video's figure is approximate: it is worked out from its first clip, and each clip is quoted again before it is sent."
+                  : ""}
               </p>
             </div>
           </AlertDialogDescription>

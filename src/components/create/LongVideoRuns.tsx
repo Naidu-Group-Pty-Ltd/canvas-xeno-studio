@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
@@ -17,11 +17,11 @@ import { useAuth } from "@/hooks/useAuth";
 import {
   useAssetsById,
   useLongVideos,
+  useNudgeStalledRuns,
   type LongVideoClipRow,
   type LongVideoRow,
 } from "@/hooks/useLongVideos";
 import {
-  checkLongVideo,
   continueLongVideo,
   openLongVideoInEditor,
   retryLongVideoClip,
@@ -74,31 +74,9 @@ function clipState(clip: LongVideoClipRow, isLast: boolean): string {
   }
 }
 
-/** A clip that hasn't moved for this long, in a running video, is nudged on in case an event was missed. */
-const NUDGE_AFTER_MS = 3 * 60_000;
-
 /** Long videos in progress and recently finished, with their clips. */
 export function LongVideoRuns({ projectId }: { projectId: string | null }) {
   const { data: runs = [] } = useLongVideos({ projectId });
-  const assetIds = runs.flatMap((run) =>
-    run.clips.flatMap((clip) => (clip.output_asset_id ? [clip.output_asset_id] : [])),
-  );
-  const { data: assets } = useAssetsById(assetIds);
-  const nudged = useRef(new Set<string>());
-
-  useEffect(() => {
-    for (const run of runs) {
-      if (run.status !== "running" || nudged.current.has(run.id)) continue;
-      const latest = Math.max(
-        new Date(run.updated_at).getTime(),
-        ...run.clips.map((clip) => new Date(clip.updated_at).getTime()),
-      );
-      if (Date.now() - latest < NUDGE_AFTER_MS) continue;
-      nudged.current.add(run.id);
-      void checkLongVideo({ data: { longVideoId: run.id } }).catch(() => undefined);
-    }
-  }, [runs]);
-
   if (!runs.length) return null;
   return (
     <section className="panel space-y-4 p-5" data-testid="long-video-runs">
@@ -106,12 +84,24 @@ export function LongVideoRuns({ projectId }: { projectId: string | null }) {
         <Clapperboard className="size-4 text-primary" />
         <h2 className="label-eyebrow">Long videos</h2>
       </div>
-      <div className="space-y-4">
-        {runs.map((run) => (
-          <RunCard key={run.id} run={run} assets={assets} />
-        ))}
-      </div>
+      <LongVideoRunList runs={runs} />
     </section>
+  );
+}
+
+/** A list of long videos, each with its clips and what can be done with it. */
+export function LongVideoRunList({ runs }: { runs: LongVideoRow[] }) {
+  const assetIds = runs.flatMap((run) =>
+    run.clips.flatMap((clip) => (clip.output_asset_id ? [clip.output_asset_id] : [])),
+  );
+  const { data: assets } = useAssetsById(assetIds);
+  useNudgeStalledRuns(runs);
+  return (
+    <div className="space-y-4">
+      {runs.map((run) => (
+        <RunCard key={run.id} run={run} assets={assets} />
+      ))}
+    </div>
   );
 }
 

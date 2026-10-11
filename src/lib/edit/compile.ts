@@ -120,6 +120,8 @@ export interface CompileDraft {
   title: string;
   outputType: "image" | "video" | "audio";
   parameters: Record<string, unknown>;
+  /** A long video's clips go to the Editor from the long video itself, not as one shot. */
+  longVideo?: unknown;
 }
 
 export interface CompileRun {
@@ -180,7 +182,7 @@ export function compileFromDrafts(
   const missing: string[] = [];
   for (const shot of order) {
     const draft = drafts[shot.draftIndex]!;
-    if (draft.outputType === "audio") continue;
+    if (draft.outputType === "audio" || draft.longVideo) continue;
     const output = bestOutput(runsByDraft.get(shot.draftIndex));
     const clip = output ? clipFor(output, shot.seconds) : null;
     if (!clip) {

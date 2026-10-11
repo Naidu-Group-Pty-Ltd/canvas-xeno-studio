@@ -51,11 +51,12 @@ export function CompileVideo({ messageId, drafts, byDraft, plan, context }: Comp
   const { user } = useAuth();
   const [busy, setBusy] = useState(false);
   const runs = runsFor(byDraft);
+  // A long video opens in the Editor from its own card, as the clips it was made of.
   const visualDrafts = drafts
     .map((draft, index) => ({ draft, index }))
-    .filter(({ draft }) => draft.outputType !== "audio");
+    .filter(({ draft }) => draft.outputType !== "audio" && !draft.longVideo);
   const order = plan?.shots.length
-    ? plan.shots.map((shot) => shot.draftIndex)
+    ? plan.shots.map((shot) => shot.draftIndex).filter((index) => !drafts[index]?.longVideo)
     : visualDrafts.map((entry) => entry.index);
   const ready = order.filter((index) => bestOutput(runs.get(index))).length;
   if (visualDrafts.length < 1) return null;

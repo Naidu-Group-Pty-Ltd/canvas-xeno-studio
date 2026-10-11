@@ -48,7 +48,8 @@ async function assertCanManage(userId: string, longVideoId: string): Promise<voi
 const clipSchema = z.object({
   beat: z.string().max(LONG_VIDEO_LIMITS.beatChars).default(""),
   durationSeconds: z.number().positive().max(120),
-  prompt: z.string().max(12000),
+  // A clip's prompt is its opening, beat, continuity notes and the story.
+  prompt: z.string().max(16000),
 });
 
 const startInput = z.object({
@@ -161,7 +162,6 @@ export const planLongVideo = createServerFn({ method: "POST" })
     const { suggestLongVideoPlan } = await import("./long-video/planner.server");
     return suggestLongVideoPlan({
       first: first as never,
-      continuation: continuation as never,
       story: data.story,
       continuity: data.continuity,
       title: data.title,

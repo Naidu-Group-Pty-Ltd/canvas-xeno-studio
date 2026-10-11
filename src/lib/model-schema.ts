@@ -92,6 +92,11 @@ export interface ModelCapabilities {
   inputRules?: InputRule[];
   /** Provider parameters always sent with one value and never shown as a control. */
   fixedParameters?: Record<string, unknown>;
+  /**
+   * Opens a clip on a given frame sent as its first reference image, which the
+   * prompt names as <<<image_1>>> (for a model with no start-frame input).
+   */
+  referenceStart?: boolean;
 }
 
 export interface ModelRegistryEntry {

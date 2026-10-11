@@ -25,12 +25,12 @@ import { compileFromLongVideo, type LongVideoSeam } from "../edit/compile";
 import { isMissingTableError } from "../edit/errors";
 import type { ModelRegistryEntry } from "../model-schema";
 import {
+  clipStart,
   durationChoices,
   HANDOFF_MARGINS_SECONDS,
   LONG_VIDEO_LIMITS,
   planClips,
   planIssues,
-  startFrameSlot,
   totalSeconds,
   type ClipDraft,
   type RunReference,
@@ -346,7 +346,8 @@ async function startClip(run: RunRow, clip: ClipRow, previous: ClipRow | null): 
 
   const inputs: { assetId: string; role: string; position: number }[] = [];
   if (clip.position > 0) {
-    const role = startFrameSlot(model)?.role;
+    // Its start frame, or (Cinema Studio) its first reference image, which its prompt names.
+    const role = clipStart(model)?.role;
     const frame = previous?.handoff_asset_id;
     if (!role || !frame)
       return failClip(

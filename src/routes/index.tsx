@@ -47,7 +47,7 @@ import {
   type LongVideoDraft,
 } from "@/components/create/long-video-plan";
 import { startLongVideo } from "@/lib/long-video.functions";
-import { formatLength } from "@/lib/long-video/plan";
+import { approxRunCost, formatLength, LONG_VIDEO_LIMITS } from "@/lib/long-video/plan";
 import {
   cinemaSupported,
   compileCinemaPrompt,
@@ -280,6 +280,24 @@ function CreatePage() {
       setParentGenerationId(prefill.parentGenerationId ?? null);
       setShotId(prefill.shotId ?? null);
       setReferences([]);
+      // A hand-off sets up one generation unless it brings a long video, so a
+      // long video set up earlier on this page doesn't carry over to it.
+      setLongDraft(
+        prefill.longVideo
+          ? {
+              ...DEFAULT_LONG_VIDEO_DRAFT,
+              enabled: true,
+              targetSeconds: Math.max(
+                1,
+                Math.min(LONG_VIDEO_LIMITS.maxSeconds, Math.round(prefill.longVideo.targetSeconds)),
+              ),
+              title: prefill.longVideo.title ?? "",
+              continuity: prefill.longVideo.continuity ?? "",
+              beats: prefill.longVideo.beats ?? [],
+              continuationModelId: prefill.longVideo.continuationModelId ?? null,
+            }
+          : DEFAULT_LONG_VIDEO_DRAFT,
+      );
 
       const explicit = prefill.modelId
         ? models.find((entry) => entry.id === prefill.modelId)
@@ -642,7 +660,7 @@ function CreatePage() {
   // each clip is quoted again by the provider before it is sent.
   const longTotalEstimate =
     longMode && estimate.kind === "ready" && longPlan.durations[0]
-      ? (estimate.costUsd / longPlan.durations[0]) * longPlan.totalSeconds
+      ? approxRunCost(estimate.costUsd, longPlan.durations[0], longPlan.totalSeconds)
       : null;
 
   /** Hands the current prompt, references and context to Supercomputer (nothing is sent automatically). */

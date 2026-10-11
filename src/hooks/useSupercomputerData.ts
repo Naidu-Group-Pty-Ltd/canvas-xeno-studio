@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { getSupercomputerStatus } from "@/lib/supercomputer.functions";
 import type { AssetRow, GenerationRow } from "@/hooks/useStudioData";
+import { useLongVideos, type LongVideoRow } from "@/hooks/useLongVideos";
 import type {
   BriefAnalysis,
   MessageAttachment,
@@ -215,6 +216,25 @@ export function useDraftRuns(messageId: string, enabled: boolean) {
     byDraft.set(index, list);
   }
   return { byDraft, isLoading: runs.isLoading };
+}
+
+/** Long videos started from an answer's drafts, by draft, oldest first. */
+export function useDraftLongVideos(messageId: string, enabled: boolean) {
+  const { data: runs } = useLongVideos({
+    requestPrefix: draftRunPrefix(messageId),
+    limit: 200,
+    enabled,
+  });
+  const byDraft = useMemo(() => {
+    const map = new Map<number, LongVideoRow[]>();
+    for (const run of [...(runs ?? [])].reverse()) {
+      const index = draftIndexFromKey(run.client_request_id, messageId);
+      if (index === null) continue;
+      map.set(index, [...(map.get(index) ?? []), run]);
+    }
+    return map;
+  }, [runs, messageId]);
+  return { byDraft };
 }
 
 /** Live updates for the open conversation and for briefs being analysed. */

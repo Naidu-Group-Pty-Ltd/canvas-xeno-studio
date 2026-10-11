@@ -9,6 +9,7 @@ import {
 import {
   clipLengthChoices,
   clipPrompt,
+  clipStart,
   continuationCandidates,
   durationChoices,
   longVideoEligible,
@@ -17,6 +18,7 @@ import {
   planIssues,
   totalSeconds,
   type ClipDraft,
+  type ClipStart,
   type PlanIssue,
   type PlannedClip,
   type RunReference,
@@ -28,7 +30,7 @@ export interface LongVideoDraft {
   targetSeconds: number;
   /** The longest a clip may be; null for the longest the model allows. */
   clipSeconds: number | null;
-  /** The model for clips 2 onward; null to choose automatically. */
+  /** The workflow of the same model for clips 2 onward; null to choose automatically. */
   continuationModelId: string | null;
   title: string;
   continuity: string;
@@ -48,8 +50,11 @@ export const DEFAULT_LONG_VIDEO_DRAFT: LongVideoDraft = {
 
 export interface LongVideoPlan {
   eligible: boolean;
+  /** The first clip's model's workflows that can make the later clips. */
   candidates: ModelRegistryEntry[];
   continuation: ModelRegistryEntry | null;
+  /** How the later clips start from the frame before. */
+  start: ClipStart | null;
   lengthChoices: number[];
   maxClipSeconds: number;
   durations: number[];
@@ -63,6 +68,7 @@ const NOT_ELIGIBLE: LongVideoPlan = {
   eligible: false,
   candidates: [],
   continuation: null,
+  start: null,
   lengthChoices: [],
   maxClipSeconds: 0,
   durations: [],
@@ -128,6 +134,7 @@ export function useLongVideoPlan(input: {
       eligible: true,
       candidates,
       continuation,
+      start: clipStart(continuation),
       lengthChoices,
       maxClipSeconds,
       durations,

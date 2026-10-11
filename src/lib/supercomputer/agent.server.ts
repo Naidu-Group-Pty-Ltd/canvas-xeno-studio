@@ -15,7 +15,22 @@ import {
 } from "../model-schema";
 import { normalizeParameters } from "../parameter-normalize";
 import { assignRoles, slotsFor, UNUSED_ROLE } from "../references";
+import {
+  durationChoices,
+  durationValue,
+  LONG_VIDEO_LIMITS,
+  longVideoEligible,
+  modelLine,
+  nearest,
+} from "../long-video/plan";
+import {
+  draftContinuation,
+  draftDurations,
+  draftLongestClips,
+  planDraftLongVideo,
+} from "./long-video-draft";
 import type {
+  DraftLongVideo,
   DraftReference,
   MediaKind,
   SupercomputerDraft,
@@ -50,6 +65,14 @@ Choosing models and settings (MODEL CATALOGUE)
 - Reference only asset ids listed under REFERENCE MEDIA. Never invent ids.
 - Set "parameters" only to keys the chosen model lists, using values from its "options" or within min/max. Match aspect ratio to the channel: 9:16 for Reels, TikTok and Stories; 1:1 or a portrait ratio such as 4:5 or 3:4 for feeds; 16:9 for YouTube, web and presentations.
 - Never pick a model whose required inputs you cannot supply.
+
+Long videos
+- Each video model makes clips of at most its "max_clip_seconds". When the user wants one continuous video longer than that (a 45-second film, a one-minute spot, a two-minute story), return ONE draft with "long_video" rather than several short drafts. The studio chains clips into one continuous shot: every clip runs as long as the model allows and the last takes what is left (45 seconds on a 30-second model is 30 s + 15 s), and every clip after the first starts from the last frame of the one before and is made by the same model, so the whole video stays consistent.
+- Only models with "long_video" can do this; its "first_clip_seconds" and "later_clip_seconds" are how long clip 1 and each later clip run. Prefer longer clips that suit the brief: fewer clips means fewer seams.
+- Set "long_video.total_seconds" to the length wanted (at most 600). Write "prompt" as the story of the whole video, "long_video.continuity" as the visual details that must stay identical in every clip (characters, wardrobe, product, setting, time of day, light, palette, camera style), and "long_video.beats" as what happens in each clip, one per clip in order (clip 1 for first_clip_seconds, each later clip for later_clip_seconds, the last for whatever is left), each ending on the pose or framing the next clip starts from. Don't set "duration" for a long video.
+- A long video has at most 40 clips, so a model reaches at most about 40 × its later_clip_seconds (10-second clips stop at 6:40). For longer videos choose a model with longer clips.
+- Keep "prompt", the continuity notes and the longest beat together within the model's "prompt_max".
+- Separate drafts are for different shots cut together with an edit plan; one continuous take longer than a clip is a long video.
 
 Edit plans
 - When the drafts are shots of one video (a reel, ad, story, product film or teaser), also return "edit_plan": the cut order by draft number (0 is the first draft), how long each shot holds on screen, the transition into each shot ("cut" for most; "fade", "dissolve", "dip to black", "whip", "slide", "wipe" or "zoom" where they add meaning), and the music direction (genre, mood, tempo in BPM, instrumental or with vocals).
@@ -119,6 +142,24 @@ export const SUPERCOMPUTER_SCHEMA: Record<string, unknown> = {
             },
           },
           notes: { type: "string" },
+          long_video: {
+            type: "object",
+            description:
+              "Only for one continuous video longer than the model's max_clip_seconds: the studio chains clips on this model.",
+            properties: {
+              total_seconds: { type: "number", description: "The whole video's length." },
+              title: { type: "string" },
+              continuity: {
+                type: "string",
+                description: "Visual details that must stay the same in every clip.",
+              },
+              beats: {
+                ...STRING_ARRAY,
+                description: "What happens in each clip, in order, one per clip.",
+              },
+            },
+            required: ["total_seconds"],
+          },
         },
         required: ["title", "model_id", "prompt"],
       },
@@ -273,12 +314,19 @@ function compactField(field: FieldSchema): Record<string, unknown> | null {
   return entry;
 }
 
-/** The registry, condensed to what the agent needs to route and parameterise. */
-export function compactCatalogue(models: ModelRegistryEntry[]) {
+/**
+ * The registry, condensed to what the agent needs to route and parameterise.
+ * With `longVideo`, video models also say how long a clip can be and whether
+ * they can chain clips into a long video (worked out against `models`).
+ */
+export function compactCatalogue(
+  models: ModelRegistryEntry[],
+  options: { longVideo?: boolean } = {},
+) {
   return models.map((model) => {
     const fields = model.parameter_schema?.fields ?? [];
     const prompt = fields.find((field) => field.key === "prompt");
-    return {
+    const entry = {
       id: model.id,
       name: model.display_name,
       family: model.family,
@@ -295,6 +343,17 @@ export function compactCatalogue(models: ModelRegistryEntry[]) {
         max: slot.max ?? 1,
       })),
       parameters: fields.map(compactField).filter(Boolean),
+    };
+    if (!options.longVideo || !longVideoEligible(model)) return entry;
+    // How long its clips run in a long video, as the plan will make them.
+    const continuation = draftContinuation(model, models, []);
+    const clips = continuation ? draftLongestClips(model, continuation) : null;
+    return {
+      ...entry,
+      max_clip_seconds: Math.max(...durationChoices(model)),
+      long_video: clips
+        ? { first_clip_seconds: clips.first, later_clip_seconds: clips.later }
+        : false,
     };
   });
 }
@@ -320,6 +379,34 @@ export interface AllowedAsset {
 
 function text(value: unknown, max: number): string {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
+}
+
+/** What a draft's "long_video" asks for, or null when it asks for none. */
+function longVideoRequest(value: unknown) {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Record<string, unknown>;
+  const total = Math.round(Number(raw["total_seconds"]));
+  if (!Number.isFinite(total) || total <= 0) return null;
+  return {
+    targetSeconds: Math.min(LONG_VIDEO_LIMITS.maxSeconds, total),
+    title: text(raw["title"], LONG_VIDEO_LIMITS.titleChars),
+    continuity: text(raw["continuity"], LONG_VIDEO_LIMITS.continuityChars),
+    beats: (Array.isArray(raw["beats"]) ? raw["beats"] : []).map((beat) =>
+      text(beat, LONG_VIDEO_LIMITS.beatChars),
+    ),
+  };
+}
+
+/** One beat per clip: beats past the last clip are added to it, missing ones left empty. */
+function fitBeats(beats: string[], clips: number): string[] {
+  const fitted = Array.from({ length: clips }, (_, index) => beats[index] ?? "");
+  const extra = beats.slice(clips).filter(Boolean);
+  if (extra.length && clips)
+    fitted[clips - 1] = [fitted[clips - 1], ...extra]
+      .filter(Boolean)
+      .join(" ")
+      .slice(0, LONG_VIDEO_LIMITS.beatChars);
+  return fitted;
 }
 
 export function textList(value: unknown, maxItems: number, maxLength: number): string[] {
@@ -408,12 +495,50 @@ export function normalizeDrafts(
     const references = assignRoles(proposed, model).filter((ref) => ref.role !== UNUSED_ROLE);
     const roles = references.map((ref) => ref.role);
 
+    // A long video is planned the way Create plans it: the same model all the
+    // way through, every clip as long as it allows. One that fits in a clip
+    // becomes that clip; a model that can't chain clips makes one clip, said so.
+    const wantsLong = longVideoRequest(proposal["long_video"]);
+    const continuation = wantsLong ? draftContinuation(model, models, references) : null;
+    const durations =
+      wantsLong && continuation ? draftDurations(model, continuation, wantsLong.targetSeconds) : [];
+    if (durations.length) rawParams["duration"] = durationValue(model, durations[0]!);
+    let longNote = "";
+    if (wantsLong && !continuation) {
+      // One clip instead, as close to the length asked for as the model allows.
+      const choices = durationChoices(model);
+      const seconds = choices.length ? nearest(choices, wantsLong.targetSeconds) : null;
+      if (seconds !== null) rawParams["duration"] = durationValue(model, seconds);
+      const clip = seconds !== null ? `one ${seconds}s clip` : "one clip";
+      longNote =
+        model.output_type !== "video"
+          ? `${model.display_name} makes ${model.output_type === "image" ? "images" : "audio"}, not long videos.`
+          : longVideoEligible(model)
+            ? `${modelLine(model)} has no workflow that starts from a frame, so it can't chain clips into a long video; this is ${clip}.`
+            : `${model.display_name} can't make a long video; this is ${clip}.`;
+    }
+
     const { values } = normalizeParameters(model, rawParams, roles);
     const promptField = (model.parameter_schema?.fields ?? []).find(
       (field) => field.key === "prompt",
     );
-    const prompt = text(proposal["prompt"], promptField?.maxLength ?? 4000);
+    const prompt = text(
+      proposal["prompt"],
+      promptField?.maxLength ?? (durations.length > 1 ? LONG_VIDEO_LIMITS.storyChars : 4000),
+    );
     if (promptField) values["prompt"] = prompt;
+
+    let longVideo: DraftLongVideo | undefined;
+    if (wantsLong && continuation && durations.length > 1) {
+      longVideo = {
+        title: wantsLong.title || title,
+        targetSeconds: wantsLong.targetSeconds,
+        continuationModelId: continuation.id,
+        durations,
+        continuity: wantsLong.continuity,
+        beats: fitBeats(wantsLong.beats, durations.length),
+      };
+    }
 
     const draft: SupercomputerDraft = {
       title,
@@ -424,10 +549,13 @@ export function normalizeDrafts(
       prompt,
       parameters: values,
       references,
-      issues: validateParameters(model, values, roles).map((issue) => issue.message),
+      issues: longVideo
+        ? planDraftLongVideo({ model, models, longVideo, values, references }).issues
+        : validateParameters(model, values, roles).map((issue) => issue.message),
+      ...(longVideo ? { longVideo } : {}),
     };
     const purpose = text(proposal["purpose"], 200);
-    const notes = text(proposal["notes"], 600);
+    const notes = [text(proposal["notes"], 600), longNote].filter(Boolean).join(" ");
     if (purpose) draft.purpose = purpose;
     if (notes) draft.notes = notes;
     indexMap.push(drafts.length < 8 ? drafts.length : null);
