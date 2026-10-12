@@ -47,8 +47,11 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
         if (!task) return new Response(JSON.stringify({ received: true, matched: false }), { status: 200 });
 
         const status = payload["status"];
-        // A render presumed lost (no word for a while) can still deliver its result.
-        const presumedLost = task.status === "failed" && task.error_code === "STALLED";
+        // A render presumed lost (no word for a while), or a task the worker
+        // never confirmed taking, can still deliver its result.
+        const presumedLost =
+          task.status === "failed" &&
+          (task.error_code === "STALLED" || task.error_code === "SUBMISSION_UNCERTAIN");
 
         // A repeated delivery of an already-finished task changes nothing.
         if (task.status === "completed" || (task.status === "failed" && !presumedLost)) {
@@ -217,7 +220,10 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
               duration_seconds:
                 typeof probe["duration_seconds"] === "number" && outputs.length === 1 ? probe["duration_seconds"] : null,
               source_type: "generated",
-              title: `${task.task_type.replace(/_/g, " ")} ${outputs.length > 1 ? index + 1 : ""}`.trim(),
+              title:
+                typeof input["output_title"] === "string" && outputs.length === 1
+                  ? input["output_title"]
+                  : `${task.task_type.replace(/_/g, " ")} ${outputs.length > 1 ? index + 1 : ""}`.trim(),
               metadata: {
                 derived: true,
                 media_task_id: task.id,

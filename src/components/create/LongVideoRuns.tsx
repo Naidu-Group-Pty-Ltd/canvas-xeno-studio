@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Clapperboard,
   Film,
+  Flag,
   Loader2,
   Play,
   RotateCcw,
@@ -27,13 +28,28 @@ import {
   retryLongVideoClip,
   stopLongVideo,
 } from "@/lib/long-video.functions";
-import { formatLength } from "@/lib/long-video/plan";
+import { endCardSize, storedFinale } from "@/lib/long-video/finisher";
+import {
+  FINALE_SECONDS,
+  finaleHolds,
+  finaleReveals,
+  formatLength,
+  type RunFinale,
+} from "@/lib/long-video/plan";
+import { DEFAULT_END_CARD_STYLE, makeEndCard } from "@/lib/media/end-card";
 import { MediaPreview } from "@/components/studio/MediaPreview";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -89,11 +105,20 @@ export function LongVideoRuns({ projectId }: { projectId: string | null }) {
   );
 }
 
+/** The images a run was started with (its finisher among them), by asset id. */
+function runImages(run: LongVideoRow): string[] {
+  return (Array.isArray(run.references_used) ? run.references_used : []).flatMap((entry) => {
+    const id = (entry as Record<string, unknown> | null)?.["asset_id"];
+    return typeof id === "string" ? [id] : [];
+  });
+}
+
 /** A list of long videos, each with its clips and what can be done with it. */
 export function LongVideoRunList({ runs }: { runs: LongVideoRow[] }) {
-  const assetIds = runs.flatMap((run) =>
-    run.clips.flatMap((clip) => (clip.output_asset_id ? [clip.output_asset_id] : [])),
-  );
+  const assetIds = runs.flatMap((run) => [
+    ...run.clips.flatMap((clip) => (clip.output_asset_id ? [clip.output_asset_id] : [])),
+    ...runImages(run),
+  ]);
   const { data: assets } = useAssetsById(assetIds);
   useNudgeStalledRuns(runs);
   return (
@@ -119,6 +144,18 @@ function RunCard({
   const [retrying, setRetrying] = useState<LongVideoClipRow | null>(null);
   const [seam, setSeam] = useState<"cut" | "blend">("cut");
   const [keepSound, setKeepSound] = useState(true);
+  // The end card: the run's finisher when it holds after the last clip; any
+  // of its images (or none) can be chosen when opening it in the Editor.
+  const finale = storedFinale(run.references_used);
+  const cardImages = runImages(run).filter(
+    (id, index, list) => list.indexOf(id) === index && assets?.get(id)?.asset_type === "image",
+  );
+  const defaultCard = finale && finaleHolds(finale.mode) ? finale.assetId : null;
+  const [cardImage, setCardImage] = useState<string | null>(defaultCard);
+  const [cardSeconds, setCardSeconds] = useState<number>(finale?.seconds ?? FINALE_SECONDS.default);
+  const cardChanged =
+    cardImage !== defaultCard ||
+    (cardImage !== null && cardSeconds !== (finale?.seconds ?? FINALE_SECONDS.default));
 
   const canManage = !!user && (run.created_by === user.id || isAdmin);
   const finished = run.clips.filter((clip) => clip.status === "completed" && clip.output_asset_id);
@@ -145,11 +182,42 @@ function RunCard({
     }
   }
 
+  /** The end card as chosen here, laid out at the video's shape; undefined for the run's own. */
+  async function chosenEndCard(fresh: boolean) {
+    if (!cardChanged && !fresh) return undefined;
+    if (!cardImage) return null;
+    if (cardImage === finale?.assetId && finale.frameAssetId)
+      return { assetId: finale.frameAssetId, seconds: cardSeconds };
+    if (!user) return null;
+    const sized = run.clips.find((clip) => clip.output_width && clip.output_height);
+    const image = assets?.get(cardImage);
+    const assetId = await makeEndCard({
+      finisher: { assetId: cardImage, bucket: image?.storage_bucket, path: image?.storage_path },
+      size: endCardSize((run.settings ?? {}) as Record<string, unknown>, {
+        width: sized?.output_width ?? null,
+        height: sized?.output_height ?? null,
+      }),
+      style: DEFAULT_END_CARD_STYLE,
+      userId: user.id,
+      projectId: run.project_id,
+      title: run.title,
+    });
+    return { assetId, seconds: cardSeconds };
+  }
+
   async function openInEditor(fresh = false) {
     setBusy("editor");
     try {
+      const endCard = await chosenEndCard(fresh);
       const result = await openLongVideoInEditor({
-        data: { longVideoId: run.id, seam, keepSound, fresh },
+        data: {
+          longVideoId: run.id,
+          seam,
+          keepSound,
+          // A different end card makes a new edit, so the one made before stays as it is.
+          fresh: fresh || (endCard !== undefined && !!run.sequence_id),
+          ...(endCard !== undefined ? { endCard } : {}),
+        },
       });
       if (result.missing.length)
         toast.message(`Opened ${finished.length} of ${run.clip_count} clips`, {
@@ -174,6 +242,14 @@ function RunCard({
             {run.clip_count} clips · {formatLength(Number(run.target_seconds))} ·{" "}
             {formatDistanceToNow(new Date(run.created_at), { addSuffix: true })}
           </p>
+          {finale && (
+            <p
+              className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground"
+              data-testid="long-video-finale"
+            >
+              <Flag className="size-3 text-primary" /> {finaleSummary(finale)}
+            </p>
+          )}
         </div>
         <Badge
           variant="outline"
@@ -310,6 +386,84 @@ function RunCard({
                     onCheckedChange={setKeepSound}
                   />
                 </div>
+                {cardImages.length > 0 && (
+                  <div className="space-y-1.5" data-testid="long-video-end-card">
+                    <p className="font-medium">End card</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Held after the last clip, exactly as uploaded, at the video's shape.
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setCardImage(null)}
+                        className={cn(
+                          "flex h-12 w-12 items-center justify-center rounded-md border text-[10px]",
+                          cardImage === null
+                            ? "border-primary/60 bg-primary/10"
+                            : "border-border text-muted-foreground",
+                        )}
+                        aria-pressed={cardImage === null}
+                      >
+                        None
+                      </button>
+                      {cardImages.map((id, index) => {
+                        const image = assets?.get(id);
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => setCardImage(id)}
+                            className={cn(
+                              "relative h-12 w-12 overflow-hidden rounded-md border bg-surface",
+                              cardImage === id
+                                ? "border-primary ring-2 ring-primary/40"
+                                : "border-border",
+                            )}
+                            aria-pressed={cardImage === id}
+                            aria-label={`End on image ${index + 1}${id === finale?.assetId ? " (the finisher)" : ""}`}
+                            title={image?.title ?? undefined}
+                          >
+                            {image && (
+                              <MediaPreview
+                                bucket={image.storage_bucket}
+                                path={image.storage_path}
+                                type="image"
+                                contain
+                                alt={`Image ${index + 1}`}
+                              />
+                            )}
+                            {id === finale?.assetId && (
+                              <Flag className="absolute top-0.5 right-0.5 size-3 text-primary" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {cardImage && (
+                      <div className="flex items-center justify-between gap-2">
+                        <Label className="text-xs">Hold for</Label>
+                        <Select
+                          value={String(cardSeconds)}
+                          onValueChange={(value) => setCardSeconds(Number(value))}
+                        >
+                          <SelectTrigger className="h-8 w-24" aria-label="End card length">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from(
+                              { length: FINALE_SECONDS.max - FINALE_SECONDS.min + 1 },
+                              (_, index) => FINALE_SECONDS.min + index,
+                            ).map((seconds) => (
+                              <SelectItem key={seconds} value={String(seconds)}>
+                                {seconds}s
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+                )}
                 {run.sequence_id && (
                   <Button
                     size="sm"
@@ -415,4 +569,12 @@ function RunCard({
       </AlertDialog>
     </div>
   );
+}
+
+/** How a run ends on its finisher, in a few words. */
+function finaleSummary(finale: RunFinale): string {
+  if (finale.mode === "end_card") return `Ends on its end card, held ${finale.seconds}s`;
+  if (finaleReveals(finale.mode) && finaleHolds(finale.mode))
+    return `The last clip moves into its end card, held ${finale.seconds}s`;
+  return "The last clip moves into its end card";
 }

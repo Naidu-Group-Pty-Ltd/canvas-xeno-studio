@@ -21,18 +21,22 @@ import { AppError } from "../higgsfield/errors";
 import { assertGenerationAllowed, createAndSubmitGeneration } from "../generation-create.server";
 import { mediaWorkerConfigured } from "../media/worker.server";
 import { enqueueInternalMediaTask } from "../media/enqueue.server";
-import { compileFromLongVideo, type LongVideoSeam } from "../edit/compile";
+import { compileFromLongVideo, type LongVideoEndCard, type LongVideoSeam } from "../edit/compile";
 import { isMissingTableError } from "../edit/errors";
 import type { ModelRegistryEntry } from "../model-schema";
+import { storedFinale, storeFinale } from "./finisher";
 import {
   clipStart,
   durationChoices,
+  finaleHolds,
+  finaleReveals,
   HANDOFF_MARGINS_SECONDS,
   LONG_VIDEO_LIMITS,
   planClips,
   planIssues,
   totalSeconds,
   type ClipDraft,
+  type RunFinale,
   type RunReference,
 } from "./plan";
 
@@ -77,6 +81,8 @@ export interface StartLongVideoRequest {
   values: Record<string, unknown>;
   references: { assetId: string; role: string }[];
   clips: ClipDraft[];
+  /** The brand's logo or end card the video ends on; never sent with the clips as a reference. */
+  finale: RunFinale | null;
   projectId: string | null;
   campaignId: string | null;
   clientRequestId: string | null;
@@ -112,7 +118,13 @@ export async function startLongVideo(
   await assertGenerationAllowed(request.userId);
 
   // References are checked against the library, never taken from the browser's word.
-  const ids = [...new Set(request.references.map((item) => item.assetId))];
+  const finale = request.finale;
+  const ids = [
+    ...new Set([
+      ...request.references.map((item) => item.assetId),
+      ...(finale ? [finale.assetId, ...(finale.frameAssetId ? [finale.frameAssetId] : [])] : []),
+    ]),
+  ];
   const { data: assets } = ids.length
     ? await db.from("assets").select("id,asset_type").in("id", ids).is("deleted_at", null)
     : { data: [] as { id: string; asset_type: string }[] };
@@ -127,6 +139,19 @@ export async function startLongVideo(
       assetType: asset.asset_type as RunReference["assetType"],
     });
   }
+  if (finale) {
+    for (const id of [finale.assetId, finale.frameAssetId]) {
+      if (!id) continue;
+      const asset = (assets ?? []).find((entry) => entry.id === id);
+      if (!asset)
+        throw new AppError("INVALID_PARAMETERS", "The finisher is no longer in the library");
+      if (asset.asset_type !== "image")
+        throw new AppError("INVALID_PARAMETERS", "The finisher must be an image");
+    }
+  }
+  // The finisher ends the video; it isn't one of the clips' references.
+  const finisher = new Set([finale?.assetId, finale?.frameAssetId].filter(Boolean));
+  const clipReferences = references.filter((item) => !finisher.has(item.assetId));
 
   const firstChoices = durationChoices(first);
   const laterChoices = durationChoices(continuation);
@@ -143,11 +168,21 @@ export async function startLongVideo(
     first,
     continuation,
     values: request.values,
+    // All of them, the finisher too: a prompt names images by their place
+    // among them (<<<image_n>>>). The plan keeps the finisher out of what
+    // each clip is sent.
     references,
     clips: request.clips,
+    finale,
   });
   const target = totalSeconds(request.clips.map((clip) => clip.durationSeconds));
-  const issues = planIssues({ first, continuation, clips: planned, targetSeconds: target });
+  const issues = planIssues({
+    first,
+    continuation,
+    clips: planned,
+    targetSeconds: target,
+    finale,
+  });
   if (issues.length)
     throw new AppError("INVALID_PARAMETERS", issues.map((issue) => issue.message).join("; "));
 
@@ -165,10 +200,11 @@ export async function startLongVideo(
       target_seconds: target,
       clip_count: planned.length,
       settings: request.values as never,
-      references_used: references.map((item) => ({
-        asset_id: item.assetId,
-        role: item.role,
-      })) as never,
+      // The finisher is kept with them, for the Editor's end card.
+      references_used: [
+        ...clipReferences.map((item) => ({ asset_id: item.assetId, role: item.role })),
+        ...(finale ? [storeFinale(finale)] : []),
+      ] as never,
       client_request_id: request.clientRequestId,
       created_by: request.userId,
     } as never)
@@ -1031,9 +1067,12 @@ export async function stopLongVideo(longVideoId: string): Promise<void> {
 
 /**
  * Opens a run in the Editor as one edit: its clips in order, each cut at its
- * handoff frame so the next picks up seamlessly. Once made, the same edit is
- * opened again (unless a fresh one is asked for), so a second click never
- * leaves two copies of the work.
+ * handoff frame so the next picks up seamlessly, then its end card. Once
+ * made, the same edit is opened again (unless a fresh one is asked for), so a
+ * second click never leaves two copies of the work.
+ *
+ * The end card is the run's finisher (when it was set to hold after the last
+ * clip) unless `endCard` names another image, or none (null).
  */
 export async function openLongVideoInEditor(input: {
   longVideoId: string;
@@ -1041,6 +1080,7 @@ export async function openLongVideoInEditor(input: {
   seam: LongVideoSeam;
   keepSound: boolean;
   fresh: boolean;
+  endCard?: { assetId: string; seconds: number } | null | undefined;
 }): Promise<{ sequenceId: string; created: boolean; missing: number[] }> {
   const { data: run } = await db
     .from("long_videos")
@@ -1078,6 +1118,44 @@ export async function openLongVideoInEditor(input: {
     .in("id", outputIds)
     .is("deleted_at", null);
 
+  // The end card: as asked, else the run's finisher when it holds after the last clip.
+  const finale = storedFinale(run.references_used);
+  const wanted =
+    input.endCard !== undefined
+      ? input.endCard
+      : finale && finaleHolds(finale.mode)
+        ? { assetId: finale.frameAssetId || finale.assetId, seconds: finale.seconds }
+        : null;
+  let endCard: LongVideoEndCard | null = null;
+  if (wanted) {
+    // The finisher laid out at the video's shape is a library file of its own;
+    // when it has been deleted, the finisher itself stands in for it.
+    const ids = [wanted.assetId];
+    if (finale?.frameAssetId && wanted.assetId === finale.frameAssetId) ids.push(finale.assetId);
+    const { data: rows } = await db
+      .from("assets")
+      .select("id,asset_type,width,height")
+      .in("id", ids)
+      .is("deleted_at", null);
+    const image = ids
+      .map((id) => (rows ?? []).find((row) => row.id === id && row.asset_type === "image"))
+      .find((row) => !!row);
+    if (input.endCard && !image)
+      throw new AppError("INVALID_PARAMETERS", "The end card must be an image in the library");
+    if (image)
+      endCard = {
+        assetId: image.id,
+        seconds: wanted.seconds,
+        width: image.width,
+        height: image.height,
+        // The last clip already ends on it: the card follows on with barely a blend.
+        revealed:
+          !!finale &&
+          finaleReveals(finale.mode) &&
+          image.id === (finale.frameAssetId || finale.assetId),
+      };
+  }
+
   const result = compileFromLongVideo(
     { title: run.title, settings: (run.settings ?? {}) as Json },
     (clips ?? []).map((clip) => ({
@@ -1097,7 +1175,7 @@ export async function openLongVideoInEditor(input: {
       width: asset.width,
       height: asset.height,
     })),
-    { seam: input.seam, keepSound: input.keepSound },
+    { seam: input.seam, keepSound: input.keepSound, endCard },
   );
   if (!result.timeline.clips.length)
     throw new AppError("INVALID_PARAMETERS", "The clips' videos are no longer in the library");

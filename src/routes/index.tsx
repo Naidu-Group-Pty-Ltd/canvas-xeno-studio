@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, ChevronDown, Cpu, Loader2, Paperclip, Sparkles, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,11 +43,23 @@ import { LongVideoSetup } from "@/components/create/LongVideoSetup";
 import { LongVideoRuns } from "@/components/create/LongVideoRuns";
 import {
   DEFAULT_LONG_VIDEO_DRAFT,
+  newFinale,
   useLongVideoPlan,
   type LongVideoDraft,
 } from "@/components/create/long-video-plan";
+import { useFinisherSuggestion } from "@/hooks/useFinisherSuggestion";
 import { startLongVideo } from "@/lib/long-video.functions";
-import { approxRunCost, formatLength, LONG_VIDEO_LIMITS } from "@/lib/long-video/plan";
+import { endCardSize } from "@/lib/long-video/finisher";
+import {
+  approxRunCost,
+  finaleHolds,
+  finaleReveals,
+  formatLength,
+  LONG_VIDEO_LIMITS,
+  startFrameSlot,
+  type RunFinale,
+} from "@/lib/long-video/plan";
+import { makeEndCard } from "@/lib/media/end-card";
 import {
   cinemaSupported,
   compileCinemaPrompt,
@@ -295,6 +307,15 @@ function CreatePage() {
               continuity: prefill.longVideo.continuity ?? "",
               beats: prefill.longVideo.beats ?? [],
               continuationModelId: prefill.longVideo.continuationModelId ?? null,
+              // The finisher it was set up with, or none at all when it was dropped.
+              finale: prefill.longVideo.finisher
+                ? {
+                    ...newFinale(prefill.longVideo.finisher.assetId, true),
+                    mode: prefill.longVideo.finisher.mode,
+                    seconds: prefill.longVideo.finisher.seconds,
+                  }
+                : null,
+              finaleOff: prefill.longVideo.finisher === null,
             }
           : DEFAULT_LONG_VIDEO_DRAFT,
       );
@@ -413,8 +434,70 @@ function CreatePage() {
     cinema: { on: cinemaOn, selection: cinema },
   });
   const longMode = mediaType === "video" && longDraft.enabled && longPlan.eligible;
+  const longPanel = mediaType === "video" && longDraft.enabled && !!model;
 
-  const baseIssues = model ? validateParameters(model, values, inputRoles) : [];
+  // The brand finisher is one of the reference images (one taken off the
+  // references stops counting), suggested when one looks like the logo: its
+  // name, or what its brief says it is for.
+  const imageReferences = useMemo(
+    () => references.filter((item) => item.assetType === "image"),
+    [references],
+  );
+  const { data: finisherSuggestion } = useFinisherSuggestion(
+    longPanel ? imageReferences.map((item) => item.assetId) : [],
+  );
+  const canMoveIntoFinisher = !!longPlan.end;
+  // The image clip 1 starts from is never taken for the finisher on a guess.
+  const firstFrameRole = startFrameSlot(model)?.role ?? null;
+  useEffect(() => {
+    if (!longPanel || longDraft.finaleOff || !finisherSuggestion) return;
+    const attached = (assetId: string) => imageReferences.some((item) => item.assetId === assetId);
+    if (longDraft.finale && attached(longDraft.finale.assetId)) return;
+    const suggested = imageReferences.find((item) => item.assetId === finisherSuggestion.assetId);
+    if (!suggested || (firstFrameRole && suggested.role === firstFrameRole)) return;
+    const reason = finisherSuggestion.reason.replace(/^./, (letter) => letter.toLowerCase());
+    setLongDraft((current) => ({
+      ...current,
+      finale: newFinale(finisherSuggestion.assetId, canMoveIntoFinisher, reason),
+    }));
+  }, [
+    longPanel,
+    longDraft.finale,
+    longDraft.finaleOff,
+    imageReferences,
+    finisherSuggestion,
+    canMoveIntoFinisher,
+    firstFrameRole,
+  ]);
+
+  // The end card is laid out at the video's own shape: its aspect ratio
+  // setting, else (a model that takes it from its start frame) that frame's.
+  const startFrame = references.find(
+    (item) => item.assetType === "image" && ["source", "first_frame", "image"].includes(item.role),
+  );
+  const { data: startFrameSize } = useQuery({
+    queryKey: ["asset-size", startFrame?.assetId ?? null],
+    enabled: longPanel && !!startFrame,
+    staleTime: Infinity,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("assets")
+        .select("width,height")
+        .eq("id", startFrame!.assetId)
+        .maybeSingle();
+      return data ?? null;
+    },
+  });
+  const endCard = endCardSize(values, startFrameSize ?? null);
+
+  // A long video's first clip is checked with the media it is sent (never the finisher).
+  const baseIssues = model
+    ? validateParameters(
+        model,
+        values,
+        longMode ? (longPlan.planned[0]?.roles ?? inputRoles) : inputRoles,
+      )
+    : [];
   // In a long video the plan sets each clip's length and prompt (a beat can
   // stand in for the story), so those are checked per clip instead.
   const issues = longMode
@@ -446,8 +529,11 @@ function CreatePage() {
   // A long video is quoted by its first clip, exactly as that clip will be sent.
   const estimateValues = longMode ? (longPlan.planned[0]?.values ?? submitValues) : submitValues;
 
+  // ...with the media clip 1 is sent (the finisher isn't).
+  const estimateInputs = longMode ? (longPlan.planned[0]?.inputs ?? []) : usable;
+
   // Debounced live estimate; any parameter or reference change invalidates the previous one.
-  const referenceKey = JSON.stringify(usable.map((item) => [item.assetId, item.role]));
+  const referenceKey = JSON.stringify(estimateInputs.map((item) => [item.assetId, item.role]));
   const valuesKey = JSON.stringify(estimateValues);
   useEffect(() => {
     if (!model || !health?.configured || issues.length) {
@@ -473,7 +559,7 @@ function CreatePage() {
           data: {
             modelId: model.id,
             parameters: estimateValues,
-            inputs: usable.map((item, index) => ({
+            inputs: estimateInputs.map((item, index) => ({
               assetId: item.assetId,
               role: item.role,
               position: index,
@@ -623,12 +709,41 @@ function CreatePage() {
 
   /** Starts the long video the panel describes; the server runs it from here. */
   async function runLongVideo(clientRequestId: string) {
-    if (!model || !longPlan.continuation) return;
+    if (!model || !longPlan.continuation || !user) return;
     const story = typeof values["prompt"] === "string" ? values["prompt"] : "";
+    const title = longDraft.title.trim() || story.trim().slice(0, 80) || "Long video";
+    let finale: RunFinale | null = null;
+    if (longPlan.finale && longDraft.finale) {
+      // Its end card, laid out at the video's shape: the last clip ends on it, the Editor holds it.
+      const image = imageReferences.find((item) => item.assetId === longPlan.finale!.assetId);
+      let frameAssetId: string | null = null;
+      try {
+        frameAssetId = await makeEndCard({
+          finisher: { assetId: longPlan.finale.assetId, bucket: image?.bucket, path: image?.path },
+          size: endCard,
+          style: longDraft.finale.style,
+          userId: user.id,
+          projectId,
+          title,
+        });
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : "it couldn't be saved";
+        if (finaleReveals(longPlan.finale.mode)) {
+          toast.error(
+            `The end card couldn't be made (${reason}), so nothing was started. Try again.`,
+          );
+          return;
+        }
+        toast.warning(
+          `The end card couldn't be laid out (${reason}): the Editor shows your image as it is.`,
+        );
+      }
+      finale = { ...longPlan.finale, frameAssetId };
+    }
     try {
       const result = await startLongVideo({
         data: {
-          title: longDraft.title.trim() || story.trim().slice(0, 80) || "Long video",
+          title,
           firstModelId: model.id,
           continuationModelId: longPlan.continuation.id,
           story,
@@ -636,6 +751,7 @@ function CreatePage() {
           values,
           references: runReferences.map((item) => ({ assetId: item.assetId, role: item.role })),
           clips: longPlan.clips,
+          finale,
           projectId,
           campaignId,
           clientRequestId,
@@ -656,6 +772,19 @@ function CreatePage() {
   }
 
   const batchCount = longMode ? 1 : Math.max(expandMatrix(matrix).length, 1);
+  // How the video ends, for the confirmation.
+  const finisherNumber = longPlan.finale
+    ? imageReferences.findIndex((item) => item.assetId === longPlan.finale!.assetId) + 1
+    : 0;
+  const finisherSummary = longPlan.finale
+    ? `It ends on image ${finisherNumber} (your finisher)${
+        finaleReveals(longPlan.finale.mode) ? ": the last clip moves into it" : ""
+      }${
+        finaleHolds(longPlan.finale.mode)
+          ? `${finaleReveals(longPlan.finale.mode) ? ", then it" : ", which"} holds for ${longPlan.finale.seconds}s in the Editor`
+          : ""
+      }. `
+    : "";
   // A long video's total, approximated from its first clip's quote per second;
   // each clip is quoted again by the provider before it is sent.
   const longTotalEstimate =
@@ -873,10 +1002,9 @@ function CreatePage() {
                     plan={longPlan}
                     onChange={setLongDraft}
                     story={typeof values["prompt"] === "string" ? values["prompt"] : ""}
-                    referenceAssetIds={references
-                      .filter((item) => item.assetType === "image")
-                      .map((item) => item.assetId)}
+                    images={imageReferences}
                     briefId={briefId}
+                    endCardSize={endCard}
                     aiUnavailableReason={
                       assistantStatus?.backend
                         ? null
@@ -901,6 +1029,7 @@ function CreatePage() {
                     projectId={projectId}
                     items={references}
                     onChange={setReferences}
+                    finisherId={longMode ? (longPlan.finale?.assetId ?? null) : null}
                     onSwitchModel={(next) => {
                       setMediaType(next.output_type === "video" ? "video" : "image");
                       applyModel(next, { prompt: values["prompt"] });
@@ -1214,7 +1343,7 @@ function CreatePage() {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {longMode
-                ? `This makes ${longPlan.clips.length} clips one after another, about ${formatLength(longPlan.totalSeconds)} in all, each starting from the last frame of the one before. ${
+                ? `This makes ${longPlan.clips.length} clips one after another, about ${formatLength(longPlan.totalSeconds)} in all, each starting from the last frame of the one before. ${finisherSummary}${
                     estimate.kind === "ready"
                       ? `Clip 1 is estimated at $${estimate.costUsd.toFixed(2)}${longTotalEstimate !== null ? ` and the whole video at roughly $${longTotalEstimate.toFixed(2)}` : ""}. `
                       : ""

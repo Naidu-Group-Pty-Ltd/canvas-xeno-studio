@@ -8,7 +8,7 @@ const CLEANUP_MS = 20_000;
  * Recovery worker: dispatches locally queued jobs, polls stale provider jobs
  * whose webhook may have been missed, ingests pending outputs and moves long
  * videos on. It also clears licensed music uploads whose licence was never
- * recorded.
+ * recorded, and closes media tasks the media service never reported back on.
  */
 export const Route = createFileRoute("/api/public/higgsfield-reconcile")({
   server: {
@@ -50,12 +50,23 @@ export const Route = createFileRoute("/api/public/higgsfield-reconcile")({
             },
           );
 
+          // Media tasks the media service never reported back on are closed (a
+          // result that still comes is recorded).
+          const { closeLostMediaTasks } = await import("@/lib/media/submit.server");
+          const mediaTasks = await closeLostMediaTasks().catch((error: unknown) => {
+            console.error("media task sweep failed", {
+              message: error instanceof Error ? error.message : String(error),
+            });
+            return 0;
+          });
+
           return new Response(
             JSON.stringify({
               dispatched,
               polled,
               ingested,
               longVideos,
+              mediaTasks,
               musicUploads: await musicUploads,
             }),
             { status: 200, headers: { "Content-Type": "application/json" } },

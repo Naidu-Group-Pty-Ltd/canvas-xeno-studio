@@ -16,12 +16,17 @@ import {
 import { normalizeParameters } from "../parameter-normalize";
 import { assignRoles, slotsFor, UNUSED_ROLE } from "../references";
 import {
+  clipEnd,
   durationChoices,
   durationValue,
+  FINALE_MODES,
+  FINALE_SECONDS,
   LONG_VIDEO_LIMITS,
   longVideoEligible,
   modelLine,
   nearest,
+  startFrameSlot,
+  type FinaleMode,
 } from "../long-video/plan";
 import {
   draftContinuation,
@@ -30,6 +35,7 @@ import {
   planDraftLongVideo,
 } from "./long-video-draft";
 import type {
+  DraftFinisher,
   DraftLongVideo,
   DraftReference,
   MediaKind,
@@ -72,6 +78,8 @@ Long videos
 - Set "long_video.total_seconds" to the length wanted (at most 600). Write "prompt" as the story of the whole video, "long_video.continuity" as the visual details that must stay identical in every clip (characters, wardrobe, product, setting, time of day, light, palette, camera style), and "long_video.beats" as what happens in each clip, one per clip in order (clip 1 for first_clip_seconds, each later clip for later_clip_seconds, the last for whatever is left), each ending on the pose or framing the next clip starts from. Don't set "duration" for a long video.
 - A long video has at most 40 clips, so a model reaches at most about 40 × its later_clip_seconds (10-second clips stop at 6:40). For longer videos choose a model with longer clips.
 - Keep "prompt", the continuity notes and the longest beat together within the model's "prompt_max".
+- The brand finisher: when the brand's logo, wordmark or end card is among the reference media (see the brief's image notes), set "long_video.finisher" to it instead of listing it in "references". It is never sent with the clips (a model shows any reference it is given, so the logo would turn up partway through) and closes the video instead: "mode" "both" (the last clip moves into it, then it holds; the default), "reveal" (the last clip moves into it) or "end_card" (it holds after the last clip), "seconds" how long it holds (3 is usual). No beat but the last shows the logo; the last beat leads into it. When the user doesn't want the video to end on the logo, set "long_video.finisher.asset_id" to "none".
+- Every clip but the last carries straight on into the next, so its beat never wraps the story up: no closing shot, logo reveal or end card before the last clip.
 - Separate drafts are for different shots cut together with an edit plan; one continuous take longer than a clip is a long video.
 
 Edit plans
@@ -156,6 +164,17 @@ export const SUPERCOMPUTER_SCHEMA: Record<string, unknown> = {
               beats: {
                 ...STRING_ARRAY,
                 description: "What happens in each clip, in order, one per clip.",
+              },
+              finisher: {
+                type: "object",
+                description:
+                  "The brand's logo, wordmark or end card the video closes on (an image from REFERENCE MEDIA); kept out of every clip.",
+                properties: {
+                  asset_id: { type: "string" },
+                  mode: { type: "string", enum: [...FINALE_MODES] },
+                  seconds: { type: "number", description: "How long the end card holds." },
+                },
+                required: ["asset_id"],
               },
             },
             required: ["total_seconds"],
@@ -387,6 +406,8 @@ function longVideoRequest(value: unknown) {
   const raw = value as Record<string, unknown>;
   const total = Math.round(Number(raw["total_seconds"]));
   if (!Number.isFinite(total) || total <= 0) return null;
+  const finisher = (raw["finisher"] ?? null) as Record<string, unknown> | null;
+  const seconds = Number(finisher?.["seconds"]);
   return {
     targetSeconds: Math.min(LONG_VIDEO_LIMITS.maxSeconds, total),
     title: text(raw["title"], LONG_VIDEO_LIMITS.titleChars),
@@ -394,6 +415,50 @@ function longVideoRequest(value: unknown) {
     beats: (Array.isArray(raw["beats"]) ? raw["beats"] : []).map((beat) =>
       text(beat, LONG_VIDEO_LIMITS.beatChars),
     ),
+    finisher:
+      finisher && finisher["asset_id"] === "none"
+        ? ("none" as const)
+        : finisher && typeof finisher["asset_id"] === "string"
+          ? {
+              assetId: finisher["asset_id"],
+              mode: FINALE_MODES.includes(finisher["mode"] as FinaleMode)
+                ? (finisher["mode"] as FinaleMode)
+                : null,
+              seconds: Number.isFinite(seconds)
+                ? Math.min(FINALE_SECONDS.max, Math.max(FINALE_SECONDS.min, Math.round(seconds)))
+                : FINALE_SECONDS.default,
+            }
+          : null,
+  };
+}
+
+/**
+ * A long-video draft's finisher: the image the agent named (or, failing
+ * that, the one the brief marks as the logo), when it is an image of this
+ * conversation; none when the agent says the video doesn't end on the logo.
+ * It ends the video the way asked where the model can move into it, else as
+ * an end card.
+ */
+function draftFinisher(
+  wanted: { assetId: string; mode: FinaleMode | null; seconds: number } | "none" | null,
+  hint: string | null,
+  continuation: ModelRegistryEntry,
+  allowed: Map<string, AllowedAsset>,
+): DraftFinisher | null {
+  if (wanted === "none") return null;
+  const image = (id: string | null | undefined) => {
+    const asset = id ? allowed.get(id) : undefined;
+    return asset?.type === "image" ? asset : undefined;
+  };
+  const asset = image(wanted?.assetId) ?? image(hint);
+  if (!asset) return null;
+  const canMoveInto = !!clipEnd(continuation);
+  const mode = wanted?.mode ?? (canMoveInto ? "both" : "end_card");
+  return {
+    assetId: asset.id,
+    mode: mode !== "end_card" && !canMoveInto ? "end_card" : mode,
+    seconds: wanted && asset.id === wanted.assetId ? wanted.seconds : FINALE_SECONDS.default,
+    title: asset.title,
   };
 }
 
@@ -446,6 +511,10 @@ export function normalizeDrafts(
   value: unknown,
   models: ModelRegistryEntry[],
   allowed: Map<string, AllowedAsset>,
+  options: {
+    /** The image the brief (or its name) marks as the brand's logo: a long video's finisher if none is named. */
+    finisherHint?: string | null;
+  } = {},
 ): { drafts: SupercomputerDraft[]; dropped: string[]; indexMap: (number | null)[] } {
   const drafts: SupercomputerDraft[] = [];
   const dropped: string[] = [];
@@ -478,6 +547,7 @@ export function normalizeDrafts(
     }
     delete rawParams["prompt"];
 
+    const wantsLong = longVideoRequest(proposal["long_video"]);
     const seen = new Set<string>();
     const proposed: DraftReference[] = [];
     for (const ref of Array.isArray(proposal["references"]) ? proposal["references"] : []) {
@@ -492,13 +562,34 @@ export function normalizeDrafts(
         title: asset.title,
       });
     }
-    const references = assignRoles(proposed, model).filter((ref) => ref.role !== UNUSED_ROLE);
+    // A long video's finisher closes it; it is never one of the clips' references,
+    // and never the image clip 1 starts from (named or, as the brief's logo, hinted).
+    const longContinuation = wantsLong ? draftContinuation(model, models, proposed) : null;
+    const startRole = startFrameSlot(model)?.role ?? null;
+    const startsOn = new Set(
+      startRole
+        ? assignRoles(proposed, model)
+            .filter((ref) => ref.role === startRole)
+            .map((ref) => ref.assetId)
+        : [],
+    );
+    const asked = wantsLong?.finisher ?? null;
+    const askedFor = asked && asked !== "none" && startsOn.has(asked.assetId) ? null : asked;
+    const hint =
+      options.finisherHint && !startsOn.has(options.finisherHint) ? options.finisherHint : null;
+    const finisher =
+      wantsLong && longContinuation
+        ? draftFinisher(askedFor, hint, longContinuation, allowed)
+        : null;
+    const references = assignRoles(
+      proposed.filter((ref) => ref.assetId !== finisher?.assetId),
+      model,
+    ).filter((ref) => ref.role !== UNUSED_ROLE);
     const roles = references.map((ref) => ref.role);
 
     // A long video is planned the way Create plans it: the same model all the
     // way through, every clip as long as it allows. One that fits in a clip
     // becomes that clip; a model that can't chain clips makes one clip, said so.
-    const wantsLong = longVideoRequest(proposal["long_video"]);
     const continuation = wantsLong ? draftContinuation(model, models, references) : null;
     const durations =
       wantsLong && continuation ? draftDurations(model, continuation, wantsLong.targetSeconds) : [];
@@ -537,6 +628,7 @@ export function normalizeDrafts(
         durations,
         continuity: wantsLong.continuity,
         beats: fitBeats(wantsLong.beats, durations.length),
+        finisher,
       };
     }
 

@@ -1,10 +1,22 @@
-import { useState } from "react";
+import { useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { Clapperboard, Film, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import type { ModelRegistryEntry } from "@/lib/model-schema";
-import { clipStarts, formatLength, LONG_VIDEO_LIMITS, modelLine } from "@/lib/long-video/plan";
+import {
+  clipStarts,
+  formatLength,
+  LONG_VIDEO_LIMITS,
+  modelLine,
+  startFrameSlot,
+} from "@/lib/long-video/plan";
 import { planLongVideo } from "@/lib/long-video.functions";
-import type { LongVideoDraft, LongVideoPlan } from "@/components/create/long-video-plan";
+import {
+  newFinale,
+  type LongVideoDraft,
+  type LongVideoPlan,
+} from "@/components/create/long-video-plan";
+import type { ReferenceItem } from "@/components/create/reference-files";
+import { FinisherSetup } from "@/components/create/FinisherSetup";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,10 +36,13 @@ interface Props {
   model: ModelRegistryEntry;
   draft: LongVideoDraft;
   plan: LongVideoPlan;
-  onChange: (draft: LongVideoDraft) => void;
+  onChange: Dispatch<SetStateAction<LongVideoDraft>>;
   story: string;
-  referenceAssetIds: string[];
+  /** The reference images, in the order attached: the finisher is one of them. */
+  images: ReferenceItem[];
   briefId: string | null;
+  /** The end card's size: the video's own shape. */
+  endCardSize: { width: number; height: number };
   /** Why the AI can't write beats right now, if it can't. */
   aiUnavailableReason: string | null;
 }
@@ -39,12 +54,16 @@ export function LongVideoSetup({
   plan,
   onChange,
   story,
-  referenceAssetIds,
+  images,
   briefId,
+  endCardSize,
   aiUnavailableReason,
 }: Props) {
   const [planning, setPlanning] = useState(false);
   const set = (patch: Partial<LongVideoDraft>) => onChange({ ...draft, ...patch });
+  // The setup as it is now, for the AI's beats, which come back after it may have changed.
+  const latest = useRef({ draft, plan, images, model });
+  latest.current = { draft, plan, images, model };
 
   if (!plan.eligible) return null;
 
@@ -60,17 +79,48 @@ export function LongVideoSetup({
           continuity: draft.continuity,
           title: draft.title,
           durations: plan.durations,
-          referenceAssetIds: referenceAssetIds.slice(0, 6),
+          referenceAssetIds: images.slice(0, 6).map((image) => image.assetId),
           briefId,
+          finale: plan.finale ? { assetId: plan.finale.assetId, mode: plan.finale.mode } : null,
         },
       });
-      onChange({
-        ...draft,
-        title: draft.title.trim() ? draft.title : suggestion.title,
-        continuity: suggestion.continuity || draft.continuity,
+      // Merged into the setup as it is now, not as it was when asked: the
+      // finisher (or anything else) may have changed meanwhile.
+      const now = latest.current;
+      // The image the AI took for the logo closes the video, unless one is
+      // chosen, none is wanted, or clip 1 starts from it.
+      const spotted =
+        !now.plan.finale && !now.draft.finaleOff && suggestion.finisherAssetId
+          ? now.images.findIndex(
+              (image) =>
+                image.assetId === suggestion.finisherAssetId &&
+                image.role !== startFrameSlot(now.model)?.role,
+            )
+          : -1;
+      const finale =
+        spotted >= 0
+          ? newFinale(
+              now.images[spotted]!.assetId,
+              !!now.plan.end,
+              `the AI recognised image ${spotted + 1} as your logo`,
+            )
+          : null;
+      onChange((current) => ({
+        ...current,
+        title: current.title.trim() ? current.title : suggestion.title,
+        continuity: suggestion.continuity || current.continuity,
         beats: suggestion.beats,
-      });
-      toast.success("Beats written. Review them before generating.");
+        ...(finale &&
+        current.finale === now.draft.finale &&
+        current.finaleOff === now.draft.finaleOff
+          ? { finale }
+          : {}),
+      }));
+      toast.success(
+        spotted >= 0
+          ? `Beats written, and image ${spotted + 1} now closes the video as your logo. Review them before generating.`
+          : "Beats written. Review them before generating.",
+      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Beats couldn't be written");
     } finally {
@@ -240,6 +290,15 @@ export function LongVideoSetup({
               )}
             {runIssue && <p className="mt-1 text-[11px] text-primary">{runIssue.message}</p>}
           </div>
+
+          <FinisherSetup
+            images={images}
+            finale={draft.finale}
+            plan={plan}
+            startRole={startFrameSlot(model)?.role ?? null}
+            size={endCardSize}
+            onChange={(finale, off) => set({ finale, finaleOff: off })}
+          />
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">

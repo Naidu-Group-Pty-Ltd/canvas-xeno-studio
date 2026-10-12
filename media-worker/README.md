@@ -84,7 +84,8 @@ frame. The app sends one source per distinct asset (role `video`, `image` or
   `contain`, `blur_pad`)
 - `clips[]`: `source_index`, `kind` (`video`/`image`), `trim_start`,
   `duration`, `speed` (0.25–4), `volume` (the clip's own sound, 0–2), `fit`,
-  `motion` for stills (`zoom_in`, `zoom_out`, `pan_left`, `pan_right`,
+  `focus_x` / `focus_y` (0–1, where a `cover` crop sits; the centre unless
+  given), `motion` for stills (`zoom_in`, `zoom_out`, `pan_left`, `pan_right`,
   `pan_up`, `pan_down`), `transition` into the clip (`type` from the xfade
   set or `cut`, `duration` up to 3 s; shortened when the clips are too short)
 - `audio[]`: `source_index`, `role` (`voiceover`, `music`, `sfx`), `start`,
@@ -101,6 +102,16 @@ frame. The app sends one source per distinct asset (role `video`, `image` or
 Timings are snapped to the frame grid, so the output has exactly the planned
 number of frames. Clips are normalised one at a time, which keeps memory flat
 for long timelines.
+
+## Reframing
+
+`reframe_video` (and `resize_image` with a `height`) lays a picture out in a
+`width` × `height` frame without changing it: `mode` `cover` fills the frame,
+cropping around `focus_x` / `focus_y` (0–1 across and down, the centre unless
+given); `contain` shows it whole on `background` (a `#rrggbb` colour, black
+unless given); `blur_pad` shows it whole on a blurred copy of itself.
+`/health` lists `features` (`frame_focus`, `frame_background`) so the app only
+offers what the deployed worker can do.
 
 ## Configuration
 

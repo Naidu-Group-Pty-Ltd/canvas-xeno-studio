@@ -150,6 +150,8 @@ export interface WorkerHealth {
   service?: string;
   ffmpeg?: string | null;
   tasks?: string[];
+  /** Framing it understands beyond the basics: "frame_focus" (crop position), "frame_background" (pad colour). */
+  features?: string[];
   running?: number;
   queued?: number;
   concurrency?: number;

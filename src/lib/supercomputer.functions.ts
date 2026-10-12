@@ -308,6 +308,8 @@ export const sendSupercomputerMessage = createServerFn({ method: "POST" })
 
     let briefBlock = "";
     const briefImages: AssetRowLite[] = [];
+    // What the brief says each of its images is, for spotting the brand's logo.
+    const imageNotes = new Map<string, { description: string; suggestedUse: string }>();
     if (thread.brief_id) {
       const { data: brief } = await db
         .from("creative_briefs")
@@ -318,6 +320,14 @@ export const sendSupercomputerMessage = createServerFn({ method: "POST" })
         const analysis = { ...((brief.analysis ?? {}) as Record<string, unknown>) };
         delete analysis["analysed_at"];
         delete analysis["model"];
+        for (const note of (Array.isArray(analysis["image_notes"])
+          ? analysis["image_notes"]
+          : []) as Record<string, unknown>[])
+          if (typeof note["asset_id"] === "string")
+            imageNotes.set(note["asset_id"], {
+              description: typeof note["description"] === "string" ? note["description"] : "",
+              suggestedUse: typeof note["suggested_use"] === "string" ? note["suggested_use"] : "",
+            });
         const hasAnalysis = Object.keys(analysis).length > 0;
         briefBlock = [
           `## BRIEF: ${brief.title}`,
@@ -422,9 +432,22 @@ export const sendSupercomputerMessage = createServerFn({ method: "POST" })
     const imageIndex = new Map(vision.used.map((source, index) => [source.assetId, index + 1]));
 
     const models = await agent.activeModels();
+    // The image that looks like the brand's logo or end card: a long video's finisher.
+    const { suggestFinisher } = await import("./long-video/finisher");
+    const finisherHint =
+      suggestFinisher(
+        [...allowed.values()]
+          .filter((asset) => asset.type === "image")
+          .map((asset) => ({
+            assetId: asset.id,
+            title: asset.title,
+            description: imageNotes.get(asset.id)?.description ?? null,
+            suggestedUse: imageNotes.get(asset.id)?.suggestedUse ?? null,
+          })),
+      )?.assetId ?? null;
     const mediaLines = [...allowed.values()].map((asset) => {
       const shown = imageIndex.get(asset.id);
-      return `- ${asset.id} · ${asset.type} · "${asset.title ?? "untitled"}" · ${asset.origin}${shown ? ` · shown as image #${shown}` : ""}`;
+      return `- ${asset.id} · ${asset.type} · "${asset.title ?? "untitled"}" · ${asset.origin}${shown ? ` · shown as image #${shown}` : ""}${asset.id === finisherHint ? " · the brand's logo or end card: a long video's finisher, never one of its clips' references" : ""}`;
     });
 
     const input = [
@@ -469,7 +492,9 @@ export const sendSupercomputerMessage = createServerFn({ method: "POST" })
     } else {
       const raw = result.data;
       const ideas = agent.normalizeIdeas(raw["ideas"]);
-      const { drafts, dropped, indexMap } = agent.normalizeDrafts(raw["drafts"], models, allowed);
+      const { drafts, dropped, indexMap } = agent.normalizeDrafts(raw["drafts"], models, allowed, {
+        finisherHint,
+      });
       // A long video isn't a shot of an edit: it opens in the Editor as its own clips.
       const shotMap = indexMap.map((index) =>
         index !== null && !drafts[index]?.longVideo ? index : null,

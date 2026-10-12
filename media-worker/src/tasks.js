@@ -43,12 +43,34 @@ function pick(value, allowed, fallback, name) {
   return key;
 }
 
-/** Builds the scale/pad filter for a target frame, without cropping the subject away in "contain". */
-function frameFilter(width, height, mode) {
+/** What this worker's framing understands beyond the basics, for the app to offer it. */
+export const FEATURES = ["frame_focus", "frame_background"];
+
+/** The point of the picture (0-1 across and down) a crop keeps in frame: the centre unless given. */
+function focusOf(params) {
+  return {
+    x: num(params.focus_x, { min: 0, max: 1, fallback: 0.5, name: "focus_x" }),
+    y: num(params.focus_y, { min: 0, max: 1, fallback: 0.5, name: "focus_y" }),
+  };
+}
+
+/** The colour around a whole picture, as FFmpeg takes it: black unless a #rrggbb colour is given. */
+function padColour(value) {
+  if (value === undefined || value === null || value === "") return "black";
+  const text = String(value).trim().toLowerCase();
+  if (!/^#[0-9a-f]{6}$/.test(text)) throw new TaskError("INVALID_PARAMETERS", "background must be a colour like #1a2b3c");
+  return `0x${text.slice(1)}`;
+}
+
+/**
+ * Builds the scale/pad filter for a target frame, without cropping the subject
+ * away in "contain". "cover" crops around `focus`; "contain" pads in `background`.
+ */
+function frameFilter(width, height, mode, { focus = { x: 0.5, y: 0.5 }, background = "black" } = {}) {
   const w = even(width);
   const h = even(height);
   if (mode === "cover") {
-    return `scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h}`;
+    return `scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h}:(iw-ow)*${focus.x}:(ih-oh)*${focus.y}`;
   }
   if (mode === "blur_pad") {
     return (
@@ -58,7 +80,7 @@ function frameFilter(width, height, mode) {
       `[bgb][fgs]overlay=(W-w)/2:(H-h)/2`
     );
   }
-  return `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:color=black`;
+  return `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:color=${background}`;
 }
 
 function videoEncodeArgs(format, crf, fps, withAudio) {
@@ -179,11 +201,12 @@ export const TASKS = {
       const mode = pick(params.mode, SCALE_MODES, "cover", "mode");
       const format = pick(params.format, VIDEO_FORMATS, "mp4", "format");
       const crf = num(params.crf, { min: 14, max: 40, fallback: 20, name: "crf" });
+      const framing = { focus: focusOf(params), background: padColour(params.background) };
       const probed = await probe(sources[0].path);
       const out = join(dir, `reframed.${format}`);
       await ffmpeg([
         "-i", sources[0].path,
-        "-filter_complex", frameFilter(width, height, mode),
+        "-filter_complex", frameFilter(width, height, mode, framing),
         ...videoEncodeArgs(format, crf, null, probed.has_audio),
         out,
       ]);
@@ -198,8 +221,11 @@ export const TASKS = {
       const width = even(num(params.width, { min: 32, max: 6000, name: "width" }));
       const height = params.height ? even(num(params.height, { min: 32, max: 6000, name: "height" })) : null;
       const format = pick(params.format, IMAGE_FORMATS, "jpg", "format");
+      const framing = { focus: focusOf(params), background: padColour(params.background) };
       const out = join(dir, `resized.${format}`);
-      const filter = height ? frameFilter(width, height, pick(params.mode, SCALE_MODES, "contain", "mode")) : `scale=${width}:-2`;
+      const filter = height
+        ? frameFilter(width, height, pick(params.mode, SCALE_MODES, "contain", "mode"), framing)
+        : `scale=${width}:-2`;
       await ffmpeg(["-i", sources[0].path, "-filter_complex", filter, ...(format === "jpg" ? ["-q:v", "3"] : []), out]);
       return { outputs: [{ path: out, mime: IMAGE_FORMATS[format], kind: "image" }], metadata: await probe(out) };
     },
