@@ -67,8 +67,15 @@ export const submitMediaTask = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => submitInput.parse(data))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { mediaWorkerConfigured, submitWorkerTask } = await import("./media/worker.server");
-    const { appBaseUrl } = await import("./generation-pipeline.server");
+    const { mediaWorkerConfigured } = await import("./media/worker.server");
+    const {
+      UNCONFIRMED,
+      UNCONFIRMED_MESSAGE,
+      repeatTask,
+      sendTask,
+      unanswered,
+      workerCallbackUrl,
+    } = await import("./media/submit.server");
 
     const { data: profile } = await supabaseAdmin
       .from("profiles")
@@ -89,13 +96,14 @@ export const submitMediaTask = createServerFn({ method: "POST" })
 
     // An identical task already accepted for this key is returned as-is, so a
     // double click or a retried request never renders (or bills CPU) twice.
+    // One the media service never confirmed taking is sent to it again.
     if (data.clientRequestId) {
       const { data: existing } = await supabaseAdmin
         .from("media_tasks")
-        .select("id,status")
+        .select("id,status,error_code")
         .eq("dedupe_key", data.clientRequestId)
         .maybeSingle();
-      if (existing) return { taskId: existing.id, status: existing.status, duplicate: true };
+      if (existing) return repeatTask(existing);
     }
 
     const { data: assets } = await supabaseAdmin
@@ -141,10 +149,10 @@ export const submitMediaTask = createServerFn({ method: "POST" })
       // when it was sent twice at once)...
       const { data: raced } = await supabaseAdmin
         .from("media_tasks")
-        .select("id,status")
+        .select("id,status,error_code")
         .eq("dedupe_key", data.clientRequestId)
         .maybeSingle();
-      if (raced) return { taskId: raced.id, status: raced.status, duplicate: true };
+      if (raced) return repeatTask(raced);
       // ...or else the operation an earlier try recorded before its task could
       // be: this try carries on with it, so the request can still go through.
       const { data: earlier, error: earlierError } = await supabaseAdmin
@@ -173,10 +181,10 @@ export const submitMediaTask = createServerFn({ method: "POST" })
       if (taskError.code === "23505" && data.clientRequestId) {
         const { data: raced } = await supabaseAdmin
           .from("media_tasks")
-          .select("id,status")
+          .select("id,status,error_code")
           .eq("dedupe_key", data.clientRequestId)
           .maybeSingle();
-        if (raced) return { taskId: raced.id, status: raced.status, duplicate: true };
+        if (raced) return repeatTask(raced);
       }
       throw new AppError("UNKNOWN", "The media task could not be recorded");
     }
@@ -245,15 +253,54 @@ export const submitMediaTask = createServerFn({ method: "POST" })
     if (recordError || !recorded?.length)
       await fail("UNKNOWN", "The media task could not be recorded. Try again.");
 
-    const callbackUrl = `${appBaseUrl().replace(/\/$/, "")}/api/public/media-worker-callback`;
-    const submission = await submitWorkerTask({
+    const submission = await sendTask({
       task_id: taskId,
       task_type: data.taskType,
       sources,
       uploads,
       params: data.params,
-      callback: { url: callbackUrl },
+      callback: { url: workerCallbackUrl() },
     });
+
+    if (unanswered(submission)) {
+      // Still no word: it may have the task. Its result still counts if it
+      // comes, and asking again with the same request id sends this same task
+      // again, never a second one.
+      const at = new Date().toISOString();
+      const { data: marked, error: markError } = await supabaseAdmin
+        .from("media_tasks")
+        .update({
+          status: "failed",
+          error_code: UNCONFIRMED,
+          error_message: UNCONFIRMED_MESSAGE,
+          completed_at: at,
+        })
+        .eq("id", taskId)
+        .eq("status", "submitting")
+        .select("id");
+      if (markError || marked?.length) {
+        if (operation?.id && !markError) {
+          await supabaseAdmin
+            .from("operations")
+            .update({
+              status: "failed",
+              error_code: UNCONFIRMED,
+              error_message: UNCONFIRMED_MESSAGE,
+              failed_at: at,
+            })
+            .eq("id", operation.id)
+            .eq("status", "running");
+        }
+        throw new AppError("SUBMISSION_UNCERTAIN", UNCONFIRMED_MESSAGE);
+      }
+      // ...unless its result came back meanwhile.
+      const { data: settled } = await supabaseAdmin
+        .from("media_tasks")
+        .select("status")
+        .eq("id", taskId)
+        .maybeSingle();
+      return { taskId, status: settled?.status ?? "processing", duplicate: false };
+    }
 
     if (!submission.ok) {
       await fail(submission.errorCode ?? "UNKNOWN", submission.errorMessage ?? "The media service rejected the task");

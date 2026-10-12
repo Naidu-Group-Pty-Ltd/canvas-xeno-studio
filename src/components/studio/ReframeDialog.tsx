@@ -259,7 +259,9 @@ export function ReframeDialog({
       const key = requestKeys.current.get(version) ?? crypto.randomUUID();
       requestKeys.current.set(version, key);
       const result = await submit(key);
-      // One that failed outright under that key is started again under a new one.
+      // One that failed outright under that key is started again under a new
+      // one. (One the media service never confirmed taking hasn't failed: the
+      // server sends it again under this key, and it is never done twice.)
       if (result.duplicate && result.status === "failed") {
         const fresh = crypto.randomUUID();
         requestKeys.current.set(version, fresh);
@@ -294,7 +296,7 @@ export function ReframeDialog({
         const rest = outputs.map((output) => output.id).filter((id) => !done.includes(id));
         toast.error(
           done.length
-            ? `${done.join(", ")} ${isVideo ? "started" : "saved"}, but ${rest.join(", ")} couldn't be made: ${failure}. Make again to try ${rest.length === 1 ? "it" : "them"}.`
+            ? `${done.join(", ")} ${isVideo ? "started" : "saved"}, but ${rest.join(", ")} couldn't be made: ${failure.replace(/\.$/, "")}. Make again to try ${rest.length === 1 ? "it" : "them"}.`
             : failure,
         );
       } else

@@ -63,8 +63,20 @@ export function loadFinisher(source: EndCardSource): Promise<ImageBitmap | HTMLI
 /** End cards made in this page's life, by what they were made from: trying again reuses one. */
 const made = new Map<string, Promise<string>>();
 
+/** Whether a file is still in the library (not deleted). */
+async function inLibrary(assetId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("assets")
+    .select("id")
+    .eq("id", assetId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return !!data;
+}
+
 /** Makes (or reuses) the end card for a finisher at a size and style; resolves to its asset id. */
-export function makeEndCard(input: {
+export async function makeEndCard(input: {
   finisher: EndCardSource;
   size: { width: number; height: number };
   style: EndCardStyle;
@@ -82,7 +94,14 @@ export function makeEndCard(input: {
     input.projectId,
   ]);
   const existing = made.get(key);
-  if (existing) return existing;
+  if (existing) {
+    // One deleted from the library since is made again.
+    const assetId = await existing.catch(() => null);
+    if (assetId && (await inLibrary(assetId))) return assetId;
+    const current = made.get(key);
+    if (current && current !== existing) return current;
+    made.delete(key);
+  }
   const work = (async () => {
     const picture = await loadFinisher(input.finisher);
     const blob = await composeFrame(
@@ -112,6 +131,8 @@ export function makeEndCard(input: {
     return asset.id;
   })();
   made.set(key, work);
-  work.catch(() => made.delete(key));
+  work.catch(() => {
+    if (made.get(key) === work) made.delete(key);
+  });
   return work;
 }
