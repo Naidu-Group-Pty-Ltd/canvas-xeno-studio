@@ -25,6 +25,12 @@ const OUTPUT_BUCKET = "generated-assets";
 const SOURCE_URL_TTL = 2 * 60 * 60;
 /** How long a task's signed links last (signed upload URLs last two hours). */
 const LINKS_VALID_MS = 2 * 60 * 60 * 1000;
+/**
+ * How long a task can go without word from the worker before it is taken as
+ * lost: past its links (and so the worker's claim on it) and a task's longest run.
+ */
+const LOST_AFTER_MS = LINKS_VALID_MS + 30 * 60 * 1000;
+const LOST_MESSAGE = "The media service never reported back on this task. Try it again.";
 
 /** No answer, or one from the infrastructure in front of the worker: it may have the task. */
 export function unanswered(call: { ok: boolean; status: number }): boolean {
@@ -256,4 +262,58 @@ export async function refreshTaskCredentials(
     })),
     expires_at: new Date(Date.now() + LINKS_VALID_MS).toISOString(),
   };
+}
+
+/**
+ * Closes the media tasks people asked for that the worker hasn't reported on,
+ * nor checked in about, for longer than it could still be working on them:
+ * never taken, its worker gone, or its claim given up while the app was away.
+ * Each is closed as presumed lost (STALLED): a result that still comes is
+ * recorded, a worker that asks about it is told to drop it, and asking for it
+ * again starts it afresh. (Editor renders and a long video's own tasks have
+ * their own recovery.)
+ */
+export async function closeLostMediaTasks(limit = 50): Promise<number> {
+  const cutoff = new Date(Date.now() - LOST_AFTER_MS).toISOString();
+  const { data: rows, error } = await supabaseAdmin
+    .from("media_tasks")
+    .select("id,operation_id")
+    .in("status", ["submitting", "processing"])
+    .neq("task_type", "render_sequence")
+    .is("input_payload->>long_video_clip_id", null)
+    .lt("updated_at", cutoff)
+    .order("updated_at", { ascending: true })
+    .limit(limit);
+  if (error) throw new Error(error.message);
+  let closed = 0;
+  for (const row of rows ?? []) {
+    const at = new Date().toISOString();
+    // Unless word came from it meanwhile.
+    const { data: lost } = await supabaseAdmin
+      .from("media_tasks")
+      .update({
+        status: "failed",
+        error_code: "STALLED",
+        error_message: LOST_MESSAGE,
+        completed_at: at,
+      })
+      .eq("id", row.id)
+      .in("status", ["submitting", "processing"])
+      .lt("updated_at", cutoff)
+      .select("id");
+    if (!lost?.length) continue;
+    closed += 1;
+    if (row.operation_id)
+      await supabaseAdmin
+        .from("operations")
+        .update({
+          status: "failed",
+          error_code: "STALLED",
+          error_message: LOST_MESSAGE,
+          failed_at: at,
+        })
+        .eq("id", row.operation_id)
+        .eq("status", "running");
+  }
+  return closed;
 }
