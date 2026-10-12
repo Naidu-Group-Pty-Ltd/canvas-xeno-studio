@@ -19,6 +19,7 @@ import {
   planClips,
   planDurations,
   planIssues,
+  startFrameSlot,
   totalSeconds,
   type ClipDraft,
   type ClipEnd,
@@ -164,10 +165,15 @@ export function useLongVideoPlan(input: {
     const story = typeof values["prompt"] === "string" ? values["prompt"] : "";
     const end = clipEnd(continuation);
     // A finisher still among the references; it can only be moved into where the model can.
+    // ...and never the image clip 1 starts from, which it would lose.
+    const startRole = startFrameSlot(model)?.role ?? null;
     const chosen =
       draft.finale &&
       references.some(
-        (item) => item.assetId === draft.finale!.assetId && item.assetType === "image",
+        (item) =>
+          item.assetId === draft.finale!.assetId &&
+          item.assetType === "image" &&
+          !(startRole && item.role === startRole),
       )
         ? draft.finale
         : null;

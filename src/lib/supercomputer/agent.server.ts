@@ -562,20 +562,24 @@ export function normalizeDrafts(
         title: asset.title,
       });
     }
-    // A long video's finisher closes it; it is never one of the clips' references.
-    // The brief's logo is taken for it unless clip 1 starts from that image.
+    // A long video's finisher closes it; it is never one of the clips' references,
+    // and never the image clip 1 starts from (named or, as the brief's logo, hinted).
     const longContinuation = wantsLong ? draftContinuation(model, models, proposed) : null;
     const startRole = startFrameSlot(model)?.role ?? null;
+    const startsOn = new Set(
+      startRole
+        ? assignRoles(proposed, model)
+            .filter((ref) => ref.role === startRole)
+            .map((ref) => ref.assetId)
+        : [],
+    );
+    const asked = wantsLong?.finisher ?? null;
+    const askedFor = asked && asked !== "none" && startsOn.has(asked.assetId) ? null : asked;
     const hint =
-      options.finisherHint &&
-      !assignRoles(proposed, model).some(
-        (ref) => ref.assetId === options.finisherHint && !!startRole && ref.role === startRole,
-      )
-        ? options.finisherHint
-        : null;
+      options.finisherHint && !startsOn.has(options.finisherHint) ? options.finisherHint : null;
     const finisher =
       wantsLong && longContinuation
-        ? draftFinisher(wantsLong.finisher, hint, longContinuation, allowed)
+        ? draftFinisher(askedFor, hint, longContinuation, allowed)
         : null;
     const references = assignRoles(
       proposed.filter((ref) => ref.assetId !== finisher?.assetId),

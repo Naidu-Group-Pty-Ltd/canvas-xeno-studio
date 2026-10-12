@@ -55,18 +55,25 @@ export function FinisherSetup({
   images,
   finale,
   plan,
+  startRole,
   size,
   onChange,
 }: {
   images: ReferenceItem[];
   finale: FinaleDraft | null;
   plan: LongVideoPlan;
+  /** The role of the image clip 1 starts from, which can't also be the finisher. */
+  startRole: string | null;
   /** The end card's size: the video's own shape. */
   size: { width: number; height: number };
   /** `off` is true when the person chose no finisher. */
   onChange: (finale: FinaleDraft | null, off: boolean) => void;
 }) {
-  const chosen = finale ? images.find((image) => image.assetId === finale.assetId) : undefined;
+  // The finisher the plan uses (none when its image is gone or clip 1 starts from it).
+  const chosen =
+    finale && plan.finale?.assetId === finale.assetId
+      ? images.find((image) => image.assetId === finale.assetId)
+      : undefined;
   const picture = useFinisherPicture(
     chosen ? { assetId: chosen.assetId, bucket: chosen.bucket, path: chosen.path } : null,
   );
@@ -119,6 +126,7 @@ export function FinisherSetup({
           </button>
           {images.map((image, index) => {
             const selected = chosen?.assetId === image.assetId;
+            const startsClip = !!startRole && image.role === startRole;
             return (
               <button
                 key={image.assetId}
@@ -126,13 +134,21 @@ export function FinisherSetup({
                 role="radio"
                 aria-checked={selected}
                 aria-label={`Image ${index + 1}${image.title ? `: ${image.title}` : ""}`}
-                title={image.title ?? `Image ${index + 1}`}
+                title={
+                  startsClip
+                    ? "Clip 1 starts from this image, so it can't also be the finisher"
+                    : (image.title ?? `Image ${index + 1}`)
+                }
+                disabled={startsClip}
                 onClick={() =>
-                  selected ? undefined : onChange(newFinale(image.assetId, canMoveInto), false)
+                  selected || startsClip
+                    ? undefined
+                    : onChange(newFinale(image.assetId, canMoveInto), false)
                 }
                 className={cn(
                   "relative h-16 w-16 overflow-hidden rounded-md border bg-surface",
                   selected ? "border-primary ring-2 ring-primary/40" : "border-border",
+                  startsClip && "cursor-not-allowed opacity-40",
                 )}
                 data-testid="finisher-option"
                 data-selected={selected}

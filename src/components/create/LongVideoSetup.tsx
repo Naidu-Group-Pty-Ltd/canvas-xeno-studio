@@ -285,6 +285,7 @@ export function LongVideoSetup({
             images={images}
             finale={draft.finale}
             plan={plan}
+            startRole={startFrameSlot(model)?.role ?? null}
             size={endCardSize}
             onChange={(finale, off) => set({ finale, finaleOff: off })}
           />
