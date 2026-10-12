@@ -15,11 +15,13 @@ export function useFinisherSuggestion(imageAssetIds: string[]) {
     enabled: ids.length > 0,
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const { data: assets } = await supabase
+      const { data: assets, error } = await supabase
         .from("assets")
         .select("id,title,metadata")
         .in("id", ids)
         .is("deleted_at", null);
+      // A look-up that fails is tried again, never taken for "none of them is the logo".
+      if (error) throw new Error(error.message);
       const briefIds = [
         ...new Set(
           (assets ?? []).flatMap((asset) => {
@@ -28,9 +30,10 @@ export function useFinisherSuggestion(imageAssetIds: string[]) {
           }),
         ),
       ];
-      const { data: briefs } = briefIds.length
+      const { data: briefs, error: briefError } = briefIds.length
         ? await supabase.from("creative_briefs").select("id,analysis").in("id", briefIds)
-        : { data: [] as { id: string; analysis: unknown }[] };
+        : { data: [] as { id: string; analysis: unknown }[], error: null };
+      if (briefError) throw new Error(briefError.message);
       const notes = new Map<string, { description?: string; suggested_use?: string }>();
       for (const brief of briefs ?? []) {
         const analysis = (brief.analysis ?? {}) as Record<string, unknown>;

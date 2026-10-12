@@ -101,6 +101,10 @@ export function ReframeDialog({
   const [size, setSize] = useState<Size>("source");
   const [busy, setBusy] = useState(false);
   const [made, setMade] = useState<string[]>([]);
+  // Each video version keeps its request key until the media service is known
+  // to have it, so trying again after an answer that never came back finds the
+  // task it started instead of rendering it twice.
+  const requestKeys = useRef(new Map<string, string>());
   const [sizeUnknown, setSizeUnknown] = useState(false);
 
   // A first suggestion once its shape is known: the other way round. A file
@@ -231,24 +235,38 @@ export function ReframeDialog({
   async function makeVideos(done: string[]) {
     for (const output of outputs) {
       const colour = backgroundChoice === "custom" ? custom : hexColor(background);
-      await submitMediaTask({
-        data: {
-          taskType: "reframe_video",
-          sourceAssetIds: [asset.id],
-          params: {
-            width: output.width,
-            height: output.height,
-            mode: fill === "cover" ? "cover" : background === "blur" ? "blur_pad" : "contain",
-            ...(fill === "cover" && canFocus ? { focus_x: focus.x, focus_y: focus.y } : {}),
-            ...(fill === "contain" && background !== "blur" && colour && canColour
-              ? { background: colour }
-              : {}),
+      const params = {
+        width: output.width,
+        height: output.height,
+        mode: fill === "cover" ? "cover" : background === "blur" ? "blur_pad" : "contain",
+        ...(fill === "cover" && canFocus ? { focus_x: focus.x, focus_y: focus.y } : {}),
+        ...(fill === "contain" && background !== "blur" && colour && canColour
+          ? { background: colour }
+          : {}),
+      };
+      const submit = (clientRequestId: string) =>
+        submitMediaTask({
+          data: {
+            taskType: "reframe_video",
+            sourceAssetIds: [asset.id],
+            params,
+            projectId: asset.project_id,
+            clientRequestId,
+            outputTitle: versionTitle(title, output.id),
           },
-          projectId: asset.project_id,
-          clientRequestId: crypto.randomUUID(),
-          outputTitle: versionTitle(title, output.id),
-        },
-      });
+        });
+      const version = JSON.stringify([output.id, params]);
+      const key = requestKeys.current.get(version) ?? crypto.randomUUID();
+      requestKeys.current.set(version, key);
+      const result = await submit(key);
+      // One that failed outright under that key is started again under a new one.
+      if (result.duplicate && result.status === "failed") {
+        const fresh = crypto.randomUUID();
+        requestKeys.current.set(version, fresh);
+        await submit(fresh);
+      }
+      // Made: making it again later is a new version.
+      requestKeys.current.delete(version);
       done.push(output.id);
     }
   }

@@ -1128,15 +1128,21 @@ export async function openLongVideoInEditor(input: {
         : null;
   let endCard: LongVideoEndCard | null = null;
   if (wanted) {
-    const { data: image } = await db
+    // The finisher laid out at the video's shape is a library file of its own;
+    // when it has been deleted, the finisher itself stands in for it.
+    const ids = [wanted.assetId];
+    if (finale?.frameAssetId && wanted.assetId === finale.frameAssetId) ids.push(finale.assetId);
+    const { data: rows } = await db
       .from("assets")
       .select("id,asset_type,width,height")
-      .eq("id", wanted.assetId)
-      .is("deleted_at", null)
-      .maybeSingle();
-    if (input.endCard && image?.asset_type !== "image")
+      .in("id", ids)
+      .is("deleted_at", null);
+    const image = ids
+      .map((id) => (rows ?? []).find((row) => row.id === id && row.asset_type === "image"))
+      .find((row) => !!row);
+    if (input.endCard && !image)
       throw new AppError("INVALID_PARAMETERS", "The end card must be an image in the library");
-    if (image?.asset_type === "image")
+    if (image)
       endCard = {
         assetId: image.id,
         seconds: wanted.seconds,
@@ -1146,7 +1152,7 @@ export async function openLongVideoInEditor(input: {
         revealed:
           !!finale &&
           finaleReveals(finale.mode) &&
-          (image.id === finale.frameAssetId || image.id === finale.assetId),
+          image.id === (finale.frameAssetId || finale.assetId),
       };
   }
 
