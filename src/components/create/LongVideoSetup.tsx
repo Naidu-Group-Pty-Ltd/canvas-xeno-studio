@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { Clapperboard, Film, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import type { ModelRegistryEntry } from "@/lib/model-schema";
@@ -36,7 +36,7 @@ interface Props {
   model: ModelRegistryEntry;
   draft: LongVideoDraft;
   plan: LongVideoPlan;
-  onChange: (draft: LongVideoDraft) => void;
+  onChange: Dispatch<SetStateAction<LongVideoDraft>>;
   story: string;
   /** The reference images, in the order attached: the finisher is one of them. */
   images: ReferenceItem[];
@@ -61,6 +61,9 @@ export function LongVideoSetup({
 }: Props) {
   const [planning, setPlanning] = useState(false);
   const set = (patch: Partial<LongVideoDraft>) => onChange({ ...draft, ...patch });
+  // The setup as it is now, for the AI's beats, which come back after it may have changed.
+  const latest = useRef({ draft, plan, images, model });
+  latest.current = { draft, plan, images, model };
 
   if (!plan.eligible) return null;
 
@@ -81,31 +84,38 @@ export function LongVideoSetup({
           finale: plan.finale ? { assetId: plan.finale.assetId, mode: plan.finale.mode } : null,
         },
       });
+      // Merged into the setup as it is now, not as it was when asked: the
+      // finisher (or anything else) may have changed meanwhile.
+      const now = latest.current;
       // The image the AI took for the logo closes the video, unless one is
       // chosen, none is wanted, or clip 1 starts from it.
       const spotted =
-        !plan.finale && !draft.finaleOff && suggestion.finisherAssetId
-          ? images.findIndex(
+        !now.plan.finale && !now.draft.finaleOff && suggestion.finisherAssetId
+          ? now.images.findIndex(
               (image) =>
                 image.assetId === suggestion.finisherAssetId &&
-                image.role !== startFrameSlot(model)?.role,
+                image.role !== startFrameSlot(now.model)?.role,
             )
           : -1;
-      onChange({
-        ...draft,
-        title: draft.title.trim() ? draft.title : suggestion.title,
-        continuity: suggestion.continuity || draft.continuity,
+      const finale =
+        spotted >= 0
+          ? newFinale(
+              now.images[spotted]!.assetId,
+              !!now.plan.end,
+              `the AI recognised image ${spotted + 1} as your logo`,
+            )
+          : null;
+      onChange((current) => ({
+        ...current,
+        title: current.title.trim() ? current.title : suggestion.title,
+        continuity: suggestion.continuity || current.continuity,
         beats: suggestion.beats,
-        ...(spotted >= 0
-          ? {
-              finale: newFinale(
-                images[spotted]!.assetId,
-                !!plan.end,
-                `the AI recognised image ${spotted + 1} as your logo`,
-              ),
-            }
+        ...(finale &&
+        current.finale === now.draft.finale &&
+        current.finaleOff === now.draft.finaleOff
+          ? { finale }
           : {}),
-      });
+      }));
       toast.success(
         spotted >= 0
           ? `Beats written, and image ${spotted + 1} now closes the video as your logo. Review them before generating.`
