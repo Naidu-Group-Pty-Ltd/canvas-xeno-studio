@@ -156,8 +156,9 @@ export function FinisherSetup({
       {finale && chosen && (
         <div className="space-y-3">
           {finale.suggested && (
-            <p className="text-[11px] text-primary" data-testid="finisher-suggested">
-              Picked for you: {finale.suggested}. Choose another image, or None, if that's wrong.
+            <p className="text-[11px] text-muted-foreground" data-testid="finisher-suggested">
+              <span className="font-medium text-foreground">Picked for you:</span>{" "}
+              {finale.suggested}. Choose another image, or None, if that's wrong.
             </p>
           )}
           <div

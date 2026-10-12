@@ -23,31 +23,29 @@ export interface FinisherCandidate {
 /**
  * The reference image that looks most like the brand's finisher, going by its
  * title and what its brief says it is for ("Logo and brand-world reference;
- * hero brand close"), or null when none clearly does.
+ * hero brand close"), or null when none clearly does. A description alone
+ * isn't enough: "the logo on the lid" describes a product shot too.
  */
 export function suggestFinisher(
   candidates: FinisherCandidate[],
 ): { assetId: string; reason: string } | null {
+  const fields = [
+    { key: "title", weight: 4, reason: "Its name says it's a logo or end card" },
+    { key: "suggestedUse", weight: 3, reason: "Its brief marks it as the logo or brand close" },
+    { key: "description", weight: 2, reason: "Its brief describes it as the logo" },
+  ] as const;
   let best: { assetId: string; score: number; reason: string } | null = null;
   for (const candidate of candidates) {
-    const title = candidate.title ?? "";
-    const use = candidate.suggestedUse ?? "";
-    const description = candidate.description ?? "";
     let score = 0;
     let reason = "";
-    if (FINISHER_WORDS.test(title)) {
-      score += 4;
-      reason = "Its name says it's a logo or end card";
+    for (const field of fields) {
+      const text = candidate[field.key] ?? "";
+      // Each field counts once: as saying so, or else as hinting at it.
+      if (FINISHER_WORDS.test(text)) {
+        score += field.weight;
+        reason ||= field.reason;
+      } else if (HINT_WORDS.test(text)) score += 1;
     }
-    if (FINISHER_WORDS.test(use)) {
-      score += 3;
-      reason ||= "Its brief marks it as the logo or brand close";
-    }
-    if (FINISHER_WORDS.test(description)) {
-      score += 2;
-      reason ||= "Its brief describes it as the logo";
-    }
-    score += [title, use, description].filter((text) => HINT_WORDS.test(text)).length;
     if (score >= 3 && (!best || score > best.score))
       best = { assetId: candidate.assetId, score, reason };
   }

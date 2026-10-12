@@ -56,6 +56,7 @@ import {
   finaleReveals,
   formatLength,
   LONG_VIDEO_LIMITS,
+  startFrameSlot,
   type RunFinale,
 } from "@/lib/long-video/plan";
 import { makeEndCard } from "@/lib/media/end-card";
@@ -446,11 +447,14 @@ function CreatePage() {
     longPanel ? imageReferences.map((item) => item.assetId) : [],
   );
   const canMoveIntoFinisher = !!longPlan.end;
+  // The image clip 1 starts from is never taken for the finisher on a guess.
+  const firstFrameRole = startFrameSlot(model)?.role ?? null;
   useEffect(() => {
     if (!longPanel || longDraft.finaleOff || !finisherSuggestion) return;
     const attached = (assetId: string) => imageReferences.some((item) => item.assetId === assetId);
     if (longDraft.finale && attached(longDraft.finale.assetId)) return;
-    if (!attached(finisherSuggestion.assetId)) return;
+    const suggested = imageReferences.find((item) => item.assetId === finisherSuggestion.assetId);
+    if (!suggested || (firstFrameRole && suggested.role === firstFrameRole)) return;
     const reason = finisherSuggestion.reason.replace(/^./, (letter) => letter.toLowerCase());
     setLongDraft((current) => ({
       ...current,
@@ -463,6 +467,7 @@ function CreatePage() {
     imageReferences,
     finisherSuggestion,
     canMoveIntoFinisher,
+    firstFrameRole,
   ]);
 
   // The end card is laid out at the video's own shape: its aspect ratio
@@ -1017,6 +1022,7 @@ function CreatePage() {
                     projectId={projectId}
                     items={references}
                     onChange={setReferences}
+                    finisherId={longMode ? (longPlan.finale?.assetId ?? null) : null}
                     onSwitchModel={(next) => {
                       setMediaType(next.output_type === "video" ? "video" : "image");
                       applyModel(next, { prompt: values["prompt"] });

@@ -2,7 +2,13 @@ import { useState } from "react";
 import { Clapperboard, Film, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import type { ModelRegistryEntry } from "@/lib/model-schema";
-import { clipStarts, formatLength, LONG_VIDEO_LIMITS, modelLine } from "@/lib/long-video/plan";
+import {
+  clipStarts,
+  formatLength,
+  LONG_VIDEO_LIMITS,
+  modelLine,
+  startFrameSlot,
+} from "@/lib/long-video/plan";
 import { planLongVideo } from "@/lib/long-video.functions";
 import {
   newFinale,
@@ -75,10 +81,15 @@ export function LongVideoSetup({
           finale: plan.finale ? { assetId: plan.finale.assetId, mode: plan.finale.mode } : null,
         },
       });
-      // The image the AI took for the logo closes the video, unless one is chosen or none is wanted.
+      // The image the AI took for the logo closes the video, unless one is
+      // chosen, none is wanted, or clip 1 starts from it.
       const spotted =
         !plan.finale && !draft.finaleOff && suggestion.finisherAssetId
-          ? images.findIndex((image) => image.assetId === suggestion.finisherAssetId)
+          ? images.findIndex(
+              (image) =>
+                image.assetId === suggestion.finisherAssetId &&
+                image.role !== startFrameSlot(model)?.role,
+            )
           : -1;
       onChange({
         ...draft,

@@ -25,6 +25,7 @@ import {
   longVideoEligible,
   modelLine,
   nearest,
+  startFrameSlot,
   type FinaleMode,
 } from "../long-video/plan";
 import {
@@ -77,7 +78,7 @@ Long videos
 - Set "long_video.total_seconds" to the length wanted (at most 600). Write "prompt" as the story of the whole video, "long_video.continuity" as the visual details that must stay identical in every clip (characters, wardrobe, product, setting, time of day, light, palette, camera style), and "long_video.beats" as what happens in each clip, one per clip in order (clip 1 for first_clip_seconds, each later clip for later_clip_seconds, the last for whatever is left), each ending on the pose or framing the next clip starts from. Don't set "duration" for a long video.
 - A long video has at most 40 clips, so a model reaches at most about 40 × its later_clip_seconds (10-second clips stop at 6:40). For longer videos choose a model with longer clips.
 - Keep "prompt", the continuity notes and the longest beat together within the model's "prompt_max".
-- The brand finisher: when the brand's logo, wordmark or end card is among the reference media (see the brief's image notes), set "long_video.finisher" to it instead of listing it in "references". It is never sent with the clips (a model shows any reference it is given, so the logo would turn up partway through) and closes the video instead: "mode" "both" (the last clip moves into it, then it holds; the default), "reveal" (the last clip moves into it) or "end_card" (it holds after the last clip), "seconds" how long it holds (3 is usual). No beat but the last shows the logo; the last beat leads into it.
+- The brand finisher: when the brand's logo, wordmark or end card is among the reference media (see the brief's image notes), set "long_video.finisher" to it instead of listing it in "references". It is never sent with the clips (a model shows any reference it is given, so the logo would turn up partway through) and closes the video instead: "mode" "both" (the last clip moves into it, then it holds; the default), "reveal" (the last clip moves into it) or "end_card" (it holds after the last clip), "seconds" how long it holds (3 is usual). No beat but the last shows the logo; the last beat leads into it. When the user doesn't want the video to end on the logo, set "long_video.finisher.asset_id" to "none".
 - Every clip but the last carries straight on into the next, so its beat never wraps the story up: no closing shot, logo reveal or end card before the last clip.
 - Separate drafts are for different shots cut together with an edit plan; one continuous take longer than a clip is a long video.
 
@@ -415,40 +416,48 @@ function longVideoRequest(value: unknown) {
       text(beat, LONG_VIDEO_LIMITS.beatChars),
     ),
     finisher:
-      finisher && typeof finisher["asset_id"] === "string"
-        ? {
-            assetId: finisher["asset_id"],
-            mode: FINALE_MODES.includes(finisher["mode"] as FinaleMode)
-              ? (finisher["mode"] as FinaleMode)
-              : null,
-            seconds: Number.isFinite(seconds)
-              ? Math.min(FINALE_SECONDS.max, Math.max(FINALE_SECONDS.min, Math.round(seconds)))
-              : FINALE_SECONDS.default,
-          }
-        : null,
+      finisher && finisher["asset_id"] === "none"
+        ? ("none" as const)
+        : finisher && typeof finisher["asset_id"] === "string"
+          ? {
+              assetId: finisher["asset_id"],
+              mode: FINALE_MODES.includes(finisher["mode"] as FinaleMode)
+                ? (finisher["mode"] as FinaleMode)
+                : null,
+              seconds: Number.isFinite(seconds)
+                ? Math.min(FINALE_SECONDS.max, Math.max(FINALE_SECONDS.min, Math.round(seconds)))
+                : FINALE_SECONDS.default,
+            }
+          : null,
   };
 }
 
 /**
  * A long-video draft's finisher: the image the agent named (or, failing
  * that, the one the brief marks as the logo), when it is an image of this
- * conversation. It ends the video the way asked where the model can move
- * into it, else as an end card.
+ * conversation; none when the agent says the video doesn't end on the logo.
+ * It ends the video the way asked where the model can move into it, else as
+ * an end card.
  */
 function draftFinisher(
-  wanted: { assetId: string; mode: FinaleMode | null; seconds: number } | null,
+  wanted: { assetId: string; mode: FinaleMode | null; seconds: number } | "none" | null,
   hint: string | null,
   continuation: ModelRegistryEntry,
   allowed: Map<string, AllowedAsset>,
 ): DraftFinisher | null {
-  const asset = allowed.get(wanted?.assetId ?? hint ?? "");
-  if (!asset || asset.type !== "image") return null;
+  if (wanted === "none") return null;
+  const image = (id: string | null | undefined) => {
+    const asset = id ? allowed.get(id) : undefined;
+    return asset?.type === "image" ? asset : undefined;
+  };
+  const asset = image(wanted?.assetId) ?? image(hint);
+  if (!asset) return null;
   const canMoveInto = !!clipEnd(continuation);
   const mode = wanted?.mode ?? (canMoveInto ? "both" : "end_card");
   return {
     assetId: asset.id,
     mode: mode !== "end_card" && !canMoveInto ? "end_card" : mode,
-    seconds: wanted?.seconds ?? FINALE_SECONDS.default,
+    seconds: wanted && asset.id === wanted.assetId ? wanted.seconds : FINALE_SECONDS.default,
     title: asset.title,
   };
 }
@@ -554,10 +563,19 @@ export function normalizeDrafts(
       });
     }
     // A long video's finisher closes it; it is never one of the clips' references.
+    // The brief's logo is taken for it unless clip 1 starts from that image.
     const longContinuation = wantsLong ? draftContinuation(model, models, proposed) : null;
+    const startRole = startFrameSlot(model)?.role ?? null;
+    const hint =
+      options.finisherHint &&
+      !assignRoles(proposed, model).some(
+        (ref) => ref.assetId === options.finisherHint && !!startRole && ref.role === startRole,
+      )
+        ? options.finisherHint
+        : null;
     const finisher =
       wantsLong && longContinuation
-        ? draftFinisher(wantsLong.finisher, options.finisherHint ?? null, longContinuation, allowed)
+        ? draftFinisher(wantsLong.finisher, hint, longContinuation, allowed)
         : null;
     const references = assignRoles(
       proposed.filter((ref) => ref.assetId !== finisher?.assetId),

@@ -100,8 +100,10 @@ export function ReframeDialog({
   const [size, setSize] = useState<Size>("source");
   const [busy, setBusy] = useState(false);
   const [made, setMade] = useState<string[]>([]);
+  const [sizeUnknown, setSizeUnknown] = useState(false);
 
-  // A first suggestion once its shape is known: the other way round.
+  // A first suggestion once its shape is known: the other way round. A file
+  // whose size can't be told (a video this browser can't play) gets 9:16.
   const suggested = useRef(false);
   useEffect(() => {
     if (!open) {
@@ -109,9 +111,19 @@ export function ReframeDialog({
       setMade([]);
       return;
     }
-    if (suggested.current || !source) return;
-    suggested.current = true;
-    setFormats([source.width >= source.height ? "9:16" : "16:9"]);
+    if (suggested.current) return;
+    if (source) {
+      suggested.current = true;
+      setFormats([source.width >= source.height ? "9:16" : "16:9"]);
+      return;
+    }
+    const timer = setTimeout(() => {
+      if (suggested.current) return;
+      suggested.current = true;
+      setSizeUnknown(true);
+      setFormats(["9:16"]);
+    }, 2000);
+    return () => clearTimeout(timer);
   }, [open, source]);
 
   const { data: worker } = useQuery({
@@ -155,23 +167,29 @@ export function ReframeDialog({
       ? "custom"
       : backgrounds[0]!.value;
 
+  // Keeping its detail needs its size; without it, the frames are a set size.
+  const sized: Size = !source && size === "source" ? "1080" : size;
   const outputs = useMemo(
     () =>
-      source
-        ? formats.map((id) => ({
-            id,
-            ...reframeSize(source, shapeOf(id), fill, size === "source" ? null : Number(size)),
-          }))
-        : [],
-    [source, formats, fill, size],
+      formats.map((id) => ({
+        id,
+        ...reframeSize(
+          source ?? { width: 1920, height: 1080 },
+          shapeOf(id),
+          fill,
+          sized === "source" ? null : Number(sized),
+        ),
+      })),
+    [source, formats, fill, sized],
   );
 
   const title = asset.title?.trim() || "Untitled";
 
   async function makeImages() {
     if (!picture || !user) return;
+    // Pictures that can be see-through stay so (a GIF becomes a PNG of its first frame).
     const type =
-      asset.mime_type === "image/png"
+      asset.mime_type === "image/png" || asset.mime_type === "image/gif"
         ? "image/png"
         : asset.mime_type === "image/webp"
           ? "image/webp"
@@ -288,7 +306,11 @@ export function ReframeDialog({
               onFocus={fill === "cover" && canFocus ? setFocus : null}
             />
             <p className="text-[11px] text-muted-foreground">
-              {source ? `${source.width}×${source.height}` : "Loading…"}
+              {source
+                ? `${source.width}×${source.height}`
+                : sizeUnknown
+                  ? "Its size can't be read here, so new versions are made at a set size"
+                  : "Reading it…"}
               {current ? ` · ${current} now` : ""}
               {fill === "cover"
                 ? canFocus
@@ -412,13 +434,17 @@ export function ReframeDialog({
               )}
               <div className="space-y-1.5">
                 <Label className="text-xs">Size</Label>
-                <Select value={size} onValueChange={(value) => setSize(value as Size)}>
+                <Select value={sized} onValueChange={(value) => setSize(value as Size)}>
                   <SelectTrigger className="h-8" aria-label="Size">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {SIZES.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
+                      <SelectItem
+                        key={option.value}
+                        value={option.value}
+                        disabled={option.value === "source" && !source}
+                      >
                         {option.label}
                       </SelectItem>
                     ))}

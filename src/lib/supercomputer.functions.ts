@@ -447,7 +447,7 @@ export const sendSupercomputerMessage = createServerFn({ method: "POST" })
       )?.assetId ?? null;
     const mediaLines = [...allowed.values()].map((asset) => {
       const shown = imageIndex.get(asset.id);
-      return `- ${asset.id} · ${asset.type} · "${asset.title ?? "untitled"}" · ${asset.origin}${shown ? ` · shown as image #${shown}` : ""}${asset.id === finisherHint ? " · the brand's logo or end card: a long video's finisher, not a reference" : ""}`;
+      return `- ${asset.id} · ${asset.type} · "${asset.title ?? "untitled"}" · ${asset.origin}${shown ? ` · shown as image #${shown}` : ""}${asset.id === finisherHint ? " · the brand's logo or end card: a long video's finisher, never one of its clips' references" : ""}`;
     });
 
     const input = [

@@ -40,6 +40,7 @@ export const FRAME_LIMITS = { maxSide: 3840, minSide: 128 } as const;
 
 const clamp01 = (value: number) => (Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0.5);
 const even = (value: number) => Math.max(2, 2 * Math.round(value / 2));
+const evenDown = (value: number) => Math.max(2, 2 * Math.floor(value / 2 + 1e-9));
 
 /**
  * The part of a picture that fills a frame of another shape: as much of it as
@@ -105,7 +106,9 @@ export function reframeSize(
   // Within what the media service makes, keeping the shape.
   const down = Math.min(1, FRAME_LIMITS.maxSide / Math.max(width, height));
   const up = Math.max(1, FRAME_LIMITS.minSide / Math.min(width * down, height * down));
-  return { width: even(width * down * up), height: even(height * down * up) };
+  // Filling the frame from the picture's own pixels never asks for more than it has.
+  const round = !shortSide && fit === "cover" ? evenDown : even;
+  return { width: round(width * down * up), height: round(height * down * up) };
 }
 
 /** A colour as #rrggbb, or null. */

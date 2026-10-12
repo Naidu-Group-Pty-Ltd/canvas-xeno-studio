@@ -4,6 +4,7 @@ import {
   ArrowDown,
   ArrowUp,
   FileText,
+  Flag,
   Images,
   Loader2,
   Plus,
@@ -49,6 +50,8 @@ interface Props {
   onImportBrief: () => void;
   addFiles: (files: File[]) => Promise<void>;
   uploading: number;
+  /** The image a long video closes on (its brand finisher), marked as it isn't sent with the clips. */
+  finisherId?: string | null;
 }
 
 /**
@@ -67,6 +70,7 @@ export function ReferenceTray({
   onImportBrief,
   addFiles,
   uploading,
+  finisherId = null,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -190,6 +194,7 @@ export function ReferenceTray({
                       item={item}
                       model={model}
                       projectId={projectId}
+                      finisher={item.assetId === finisherId}
                       canMoveUp={position > 0}
                       canMoveDown={position < inSlot.length - 1}
                       onMove={(delta) => move(item.assetId, delta)}
@@ -243,6 +248,7 @@ export function ReferenceTray({
                     item={item}
                     model={model}
                     projectId={projectId}
+                    finisher={item.assetId === finisherId}
                     canMoveUp={false}
                     canMoveDown={false}
                     onMove={() => undefined}
@@ -317,6 +323,7 @@ function ReferenceTile({
   item,
   model,
   projectId,
+  finisher,
   canMoveUp,
   canMoveDown,
   onMove,
@@ -327,6 +334,7 @@ function ReferenceTile({
   item: ReferenceItem;
   model: ModelRegistryEntry | null;
   projectId: string | null;
+  finisher: boolean;
   canMoveUp: boolean;
   canMoveDown: boolean;
   onMove: (delta: number) => void;
@@ -346,6 +354,15 @@ function ReferenceTile({
           contain
           alt={item.title ?? "Reference"}
         />
+        {finisher && (
+          <span
+            className="absolute top-1 left-1 flex items-center gap-0.5 rounded bg-background/90 px-1 py-0.5 text-[9px] font-medium text-primary"
+            title="The brand finisher: the video closes on it, and it isn't sent with the clips"
+            data-testid="reference-finisher"
+          >
+            <Flag className="size-2.5" /> Finisher
+          </span>
+        )}
         <button
           type="button"
           aria-label="Remove reference"
