@@ -168,7 +168,10 @@ export async function startLongVideo(
     first,
     continuation,
     values: request.values,
-    references: clipReferences,
+    // All of them, the finisher too: a prompt names images by their place
+    // among them (<<<image_n>>>). The plan keeps the finisher out of what
+    // each clip is sent.
+    references,
     clips: request.clips,
     finale,
   });
