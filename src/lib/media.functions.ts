@@ -68,14 +68,8 @@ export const submitMediaTask = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { mediaWorkerConfigured } = await import("./media/worker.server");
-    const {
-      UNCONFIRMED,
-      UNCONFIRMED_MESSAGE,
-      repeatTask,
-      sendTask,
-      unanswered,
-      workerCallbackUrl,
-    } = await import("./media/submit.server");
+    const { UNCONFIRMED, UNCONFIRMED_MESSAGE, repeatTask, sendTask, taskRoutes, unanswered } =
+      await import("./media/submit.server");
 
     const { data: profile } = await supabaseAdmin
       .from("profiles")
@@ -203,6 +197,21 @@ export const submitMediaTask = createServerFn({ method: "POST" })
       throw new AppError(code as never, message);
     }
 
+    /** The task as a result that came back already left it: a failure is reported as one. */
+    async function settled() {
+      const { data: row } = await supabaseAdmin
+        .from("media_tasks")
+        .select("status,error_code,error_message")
+        .eq("id", taskId)
+        .maybeSingle();
+      if (row?.status === "failed")
+        throw new AppError(
+          (row.error_code ?? "UNKNOWN") as never,
+          row.error_message ?? "The media task failed",
+        );
+      return { taskId, status: row?.status ?? "processing", duplicate: false };
+    }
+
     // Short-lived read URLs for the sources.
     const sources: { role: string; url: string; mime?: string | null }[] = [];
     for (const asset of ordered) {
@@ -259,7 +268,7 @@ export const submitMediaTask = createServerFn({ method: "POST" })
       sources,
       uploads,
       params: data.params,
-      callback: { url: workerCallbackUrl() },
+      ...taskRoutes(),
     });
 
     if (unanswered(submission)) {
@@ -294,12 +303,7 @@ export const submitMediaTask = createServerFn({ method: "POST" })
         throw new AppError("SUBMISSION_UNCERTAIN", UNCONFIRMED_MESSAGE);
       }
       // ...unless its result came back meanwhile.
-      const { data: settled } = await supabaseAdmin
-        .from("media_tasks")
-        .select("status")
-        .eq("id", taskId)
-        .maybeSingle();
-      return { taskId, status: settled?.status ?? "processing", duplicate: false };
+      return settled();
     }
 
     if (!submission.ok) {
@@ -307,11 +311,13 @@ export const submitMediaTask = createServerFn({ method: "POST" })
     }
 
     // Only a task still waiting moves on: a result that already arrived wins.
-    await supabaseAdmin
+    const { data: moved } = await supabaseAdmin
       .from("media_tasks")
       .update({ status: "processing" })
       .eq("id", taskId)
-      .eq("status", "submitting");
+      .eq("status", "submitting")
+      .select("id");
+    if (!moved?.length) return settled();
 
     return { taskId, status: "processing", duplicate: false };
   });

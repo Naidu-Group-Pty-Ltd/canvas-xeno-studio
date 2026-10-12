@@ -258,15 +258,17 @@ export function ReframeDialog({
       const version = JSON.stringify([output.id, params]);
       const key = requestKeys.current.get(version) ?? crypto.randomUUID();
       requestKeys.current.set(version, key);
-      const result = await submit(key);
+      let result = await submit(key);
       // One that failed outright under that key is started again under a new
       // one. (One the media service never confirmed taking hasn't failed: the
       // server sends it again under this key, and it is never done twice.)
       if (result.duplicate && result.status === "failed") {
         const fresh = crypto.randomUUID();
         requestKeys.current.set(version, fresh);
-        await submit(fresh);
+        result = await submit(fresh);
       }
+      // A version whose task failed isn't made, whichever try it was.
+      if (result.status === "failed") throw new Error("The media service couldn't make it");
       // Made: making it again later is a new version.
       requestKeys.current.delete(version);
       done.push(output.id);
