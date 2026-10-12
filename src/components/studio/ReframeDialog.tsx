@@ -16,6 +16,7 @@ import {
   FRAME_FORMATS,
   hexColor,
   reframeSize,
+  versionTitle,
   type FramePoint,
 } from "@/lib/media/frame";
 import { storageScope, uploadAssetBlob } from "@/lib/storage";
@@ -185,7 +186,8 @@ export function ReframeDialog({
 
   const title = asset.title?.trim() || "Untitled";
 
-  async function makeImages() {
+  /** Saves each image version, recording each in `done` as soon as it is saved. */
+  async function makeImages(done: string[]) {
     if (!picture || !user) return;
     // Pictures that can be see-through stay so (a GIF becomes a PNG of its first frame).
     const type =
@@ -195,7 +197,6 @@ export function ReframeDialog({
           ? "image/webp"
           : "image/jpeg";
     const ext = type === "image/png" ? "png" : type === "image/webp" ? "webp" : "jpg";
-    const saved: string[] = [];
     for (const output of outputs) {
       const blob = await composeFrame(
         picture,
@@ -214,7 +215,7 @@ export function ReframeDialog({
         path: `${storageScope({ userId: user.id, projectId: asset.project_id })}/inputs/${crypto.randomUUID()}-reframe-${output.id.replace(":", "x")}.${ext}`,
         mimeType: type,
         kind: "image",
-        title: `${title} · ${output.id}`,
+        title: versionTitle(title, output.id),
         width: output.width,
         height: output.height,
         metadata: {
@@ -222,13 +223,12 @@ export function ReframeDialog({
           reframe: { format: output.id, fit: fill, focus, background },
         },
       });
-      saved.push(output.id);
+      done.push(output.id);
     }
-    return saved;
   }
 
-  async function makeVideos() {
-    const started: string[] = [];
+  /** Starts each video version, recording each in `done` as soon as the media service has it. */
+  async function makeVideos(done: string[]) {
     for (const output of outputs) {
       const colour = backgroundChoice === "custom" ? custom : hexColor(background);
       await submitMediaTask({
@@ -246,30 +246,45 @@ export function ReframeDialog({
           },
           projectId: asset.project_id,
           clientRequestId: crypto.randomUUID(),
-          outputTitle: `${title} · ${output.id}`,
+          outputTitle: versionTitle(title, output.id),
         },
       });
-      started.push(output.id);
+      done.push(output.id);
     }
-    return started;
   }
 
   async function make() {
-    if (busy || !outputs.length) return;
+    if (busy || !outputs.length || (!isVideo && (!picture || !user))) return;
     setBusy(true);
+    // Versions are recorded one by one, so when one fails partway the ones
+    // already made are kept, and making again does only the rest.
+    const done: string[] = [];
+    let failure: string | null = null;
     try {
-      const done = isVideo ? await makeVideos() : await makeImages();
-      if (!done) return;
-      setMade(done);
-      await queryClient.invalidateQueries({ queryKey: ["assets"] });
-      await queryClient.invalidateQueries({ queryKey: ["media-tasks", asset.id] });
-      toast.success(
-        isVideo
-          ? `Reframing ${done.length} version${done.length === 1 ? "" : "s"}. They appear in the library when ready.`
-          : `${done.length} version${done.length === 1 ? "" : "s"} saved to the library.`,
-      );
+      await (isVideo ? makeVideos(done) : makeImages(done));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "The new versions couldn't be made");
+      failure = error instanceof Error ? error.message : "The new versions couldn't be made";
+    }
+    try {
+      if (done.length) {
+        setMade(done);
+        if (failure) setFormats((current) => current.filter((id) => !done.includes(id)));
+        await queryClient.invalidateQueries({ queryKey: ["assets"] });
+        await queryClient.invalidateQueries({ queryKey: ["media-tasks", asset.id] });
+      }
+      if (failure) {
+        const rest = outputs.map((output) => output.id).filter((id) => !done.includes(id));
+        toast.error(
+          done.length
+            ? `${done.join(", ")} ${isVideo ? "started" : "saved"}, but ${rest.join(", ")} couldn't be made: ${failure}. Make again to try ${rest.length === 1 ? "it" : "them"}.`
+            : failure,
+        );
+      } else
+        toast.success(
+          isVideo
+            ? `Reframing ${done.length} version${done.length === 1 ? "" : "s"}. They appear in the library when ready.`
+            : `${done.length} version${done.length === 1 ? "" : "s"} saved to the library.`,
+        );
     } finally {
       setBusy(false);
     }

@@ -120,3 +120,16 @@ export function hexColor(value: unknown): string | null {
     return `#${text[1]}${text[1]}${text[2]}${text[2]}${text[3]}${text[3]}`;
   return null;
 }
+
+/** The longest title the library keeps. */
+export const TITLE_MAX = 200;
+
+/**
+ * A new version's title: the original's, cut short where it must be so what
+ * the version is (" · 9:16", " · end card") always fits within the library's
+ * limit.
+ */
+export function versionTitle(title: string, label: string): string {
+  const suffix = ` · ${label}`;
+  return `${title.slice(0, Math.max(0, TITLE_MAX - suffix.length)).trimEnd()}${suffix}`;
+}

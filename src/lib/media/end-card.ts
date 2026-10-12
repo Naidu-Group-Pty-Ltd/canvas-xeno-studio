@@ -7,6 +7,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { signedUrl, storageScope, uploadAssetBlob } from "@/lib/storage";
 import { composeFrame, loadPicture } from "./compose";
+import { versionTitle } from "./frame";
 
 export interface EndCardStyle {
   /** "auto" (the logo's own ground), "blur", or a colour (#rrggbb). */
@@ -100,7 +101,7 @@ export function makeEndCard(input: {
       path: `${storageScope(input)}/inputs/${crypto.randomUUID()}-end-card.jpg`,
       mimeType: "image/jpeg",
       kind: "image",
-      title: `${input.title.trim() || "Long video"} · end card`,
+      title: versionTitle(input.title.trim() || "Long video", "end card"),
       width: input.size.width,
       height: input.size.height,
       metadata: {
