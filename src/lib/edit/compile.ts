@@ -451,12 +451,15 @@ export function compileFromLongVideo(
       durationSeconds: null,
       title: "End card",
     });
-    still.duration = Math.max(0.5, Math.min(card.seconds, LIMITS.clipSeconds));
     still.motion = "none";
     still.fit = endCardFit(card, frameSize(timeline.aspectRatio, timeline.resolution));
     // After the last clip, which ends on it, a brief blend; else a gentle fade into it.
     const afterLast = usable.at(-1) !== null;
-    still.transition = { type: "fade", duration: card.revealed && afterLast ? 0.3 : 0.6 };
+    const blend = card.revealed && afterLast ? 0.3 : 0.6;
+    still.transition = { type: "fade", duration: blend };
+    // The fade overlaps the clip before it, so the card runs that much longer:
+    // it holds for its full seconds after the last clip ends.
+    still.duration = Math.max(0.5, Math.min(card.seconds + blend, LIMITS.clipSeconds));
     // A long video has at most 40 clips, so the edit always has room for it.
     result.push(still);
   }

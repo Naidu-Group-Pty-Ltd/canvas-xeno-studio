@@ -490,7 +490,14 @@ function CreatePage() {
   });
   const endCard = endCardSize(values, startFrameSize ?? null);
 
-  const baseIssues = model ? validateParameters(model, values, inputRoles) : [];
+  // A long video's first clip is checked with the media it is sent (never the finisher).
+  const baseIssues = model
+    ? validateParameters(
+        model,
+        values,
+        longMode ? (longPlan.planned[0]?.roles ?? inputRoles) : inputRoles,
+      )
+    : [];
   // In a long video the plan sets each clip's length and prompt (a beat can
   // stand in for the story), so those are checked per clip instead.
   const issues = longMode
