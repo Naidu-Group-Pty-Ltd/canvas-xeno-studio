@@ -217,7 +217,10 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
               duration_seconds:
                 typeof probe["duration_seconds"] === "number" && outputs.length === 1 ? probe["duration_seconds"] : null,
               source_type: "generated",
-              title: `${task.task_type.replace(/_/g, " ")} ${outputs.length > 1 ? index + 1 : ""}`.trim(),
+              title:
+                typeof input["output_title"] === "string" && outputs.length === 1
+                  ? input["output_title"]
+                  : `${task.task_type.replace(/_/g, " ")} ${outputs.length > 1 ? index + 1 : ""}`.trim(),
               metadata: {
                 derived: true,
                 media_task_id: task.id,

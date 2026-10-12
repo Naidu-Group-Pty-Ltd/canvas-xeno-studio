@@ -3,7 +3,7 @@
  * no network and no app involvement. Run inside the image after building:
  *   docker run --rm -e MEDIA_WORKER_SHARED_SECRET=0123456789abcdef xeno-media-worker npm run selftest
  */
-import { mkdtemp, rm, stat } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { ffmpeg, probe } from "./ffmpeg.js";
@@ -169,6 +169,71 @@ await check("render_sequence fades out a short voice where its sound ends", asyn
   const middle = await level(0.3);
   const end = await level(0.9);
   if (!(middle - end > 10)) throw new Error(`no fade before the voice ends (middle ${middle} dB, end ${end} dB)`);
+});
+
+// A two-colour clip (red left, blue right) for checking where a crop lands.
+const halves = join(dir, "halves.mp4");
+await ffmpeg([
+  "-f", "lavfi", "-i", "color=c=red:s=320x360:d=1:r=25",
+  "-f", "lavfi", "-i", "color=c=blue:s=320x360:d=1:r=25",
+  "-filter_complex", "[0:v][1:v]hstack=inputs=2", "-c:v", "libx264", "-pix_fmt", "yuv420p", halves,
+]);
+
+/** The average colour of a region of a file's first frame, as [r, g, b]. */
+async function colourAt(path, crop) {
+  const out = join(dir, `pixel-${Math.random().toString(36).slice(2)}.ppm`);
+  await ffmpeg(["-i", path, "-frames:v", "1", "-vf", `crop=${crop},scale=1:1`, "-c:v", "ppm", out]);
+  const bytes = await readFile(out);
+  return [...bytes.subarray(bytes.length - 3)];
+}
+const near = (colour, [r, g, b]) => Math.abs(colour[0] - r) < 60 && Math.abs(colour[1] - g) < 60 && Math.abs(colour[2] - b) < 60;
+
+await check("reframe_video crops around its focus point", async () => {
+  const left = await TASKS.reframe_video.run({ sources: [{ path: halves }], params: { width: 180, height: 320, mode: "cover", focus_x: 0 }, dir });
+  const leftColour = await colourAt(left.outputs[0].path, "40:40:70:140");
+  if (!near(leftColour, [255, 0, 0])) throw new Error(`focus 0 should keep the red left half, got ${leftColour}`);
+  const right = await TASKS.reframe_video.run({ sources: [{ path: halves }], params: { width: 180, height: 320, mode: "cover", focus_x: 1 }, dir });
+  const rightColour = await colourAt(right.outputs[0].path, "40:40:70:140");
+  if (!near(rightColour, [0, 0, 255])) throw new Error(`focus 1 should keep the blue right half, got ${rightColour}`);
+});
+
+await check("reframe_video shows the whole picture on the colour asked", async () => {
+  // Its own clip: a render may have removed the shared ones by now.
+  const red = join(dir, "red.mp4");
+  await ffmpeg(["-f", "lavfi", "-i", "color=c=red:s=640x360:d=1:r=25", "-c:v", "libx264", "-pix_fmt", "yuv420p", red]);
+  const result = await TASKS.reframe_video.run({ sources: [{ path: red }], params: { width: 360, height: 640, mode: "contain", background: "#00ff00" }, dir });
+  const corner = await colourAt(result.outputs[0].path, "16:16:0:0");
+  if (!near(corner, [0, 255, 0])) throw new Error(`the space around should be green, got ${corner}`);
+  const middle = await colourAt(result.outputs[0].path, "16:16:172:312");
+  if (!near(middle, [255, 0, 0])) throw new Error(`the picture should still be red, got ${middle}`);
+});
+
+await check("resize_image crops a still around its focus point", async () => {
+  const still = join(dir, "halves.png");
+  await ffmpeg(["-i", halves, "-frames:v", "1", still]);
+  const result = await TASKS.resize_image.run({ sources: [{ path: still }], params: { width: 180, height: 320, mode: "cover", focus_x: 1, format: "png" }, dir });
+  const colour = await colourAt(result.outputs[0].path, "40:40:70:140");
+  if (!near(colour, [0, 0, 255])) throw new Error(`focus 1 should keep the blue right half, got ${colour}`);
+});
+
+await check("render_sequence crops a clip around its focus point", async () => {
+  const result = await TASKS.render_sequence.run({
+    sources: [{ path: halves, role: "video" }],
+    params: { width: 180, height: 320, fps: 25, normalize_loudness: false, clips: [{ source_index: 0, duration: 0.8, focus_x: 0 }] },
+    dir,
+  });
+  const colour = await colourAt(result.outputs[0].path, "40:40:70:140");
+  if (!near(colour, [255, 0, 0])) throw new Error(`focus 0 should keep the red left half, got ${colour}`);
+});
+
+await check("rejects a background that isn't a colour", async () => {
+  try {
+    await TASKS.reframe_video.run({ sources: [{ path: clipA }], params: { width: 540, height: 960, mode: "contain", background: "red:x=1" }, dir });
+  } catch (error) {
+    if (error.code === "INVALID_PARAMETERS") return;
+    throw error;
+  }
+  throw new Error("a background that isn't a colour was accepted");
 });
 
 await check("rejects an unsupported parameter value", async () => {

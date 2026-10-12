@@ -2,10 +2,14 @@ import { useCallback, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useProviderHealth } from "@/components/layout/AppShell";
+import { useAuth } from "@/hooks/useAuth";
 import { useModels, useSettings } from "@/hooks/useStudioData";
+import { supabase } from "@/integrations/supabase/client";
 import { estimateGeneration, submitGeneration } from "@/lib/generation.functions";
 import { startLongVideo } from "@/lib/long-video.functions";
-import { approxRunCost } from "@/lib/long-video/plan";
+import { endCardSize } from "@/lib/long-video/finisher";
+import { approxRunCost, finaleReveals, type RunFinale } from "@/lib/long-video/plan";
+import { DEFAULT_END_CARD_STYLE, makeEndCard } from "@/lib/media/end-card";
 import { planDraftLongVideo } from "@/lib/supercomputer/long-video-draft";
 import {
   draftRunKey,
@@ -92,6 +96,7 @@ export function useDraftRunner(context: {
   campaignId: string | null;
 }) {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const { data: health } = useProviderHealth();
   const { data: settings } = useSettings();
   const { data: models = [] } = useModels();
@@ -127,8 +132,12 @@ export function useDraftRunner(context: {
           reason: plan.issues[0] ?? "This long video can't be planned",
           blocking: true,
         };
-      // Quoted by its first clip, exactly as that clip will be sent.
-      const quote = await estimateOne(draft.modelId, first.values, references);
+      // Quoted by its first clip, exactly as that clip will be sent (the finisher isn't).
+      const quote = await estimateOne(
+        draft.modelId,
+        first.values,
+        references.filter((ref) => first.inputs.some((input) => input.assetId === ref.assetId)),
+      );
       if (quote.kind !== "ready") return quote;
       return {
         kind: "ready",
@@ -214,6 +223,53 @@ export function useDraftRunner(context: {
     [context.messageId, context.projectId, context.campaignId, queryClient, runKey],
   );
 
+  /**
+   * The finisher with its end card, laid out at the video's shape: the last
+   * clip ends on it and the Editor holds it. Without one the Editor shows the
+   * image as it is, which won't do for a last clip moving into it.
+   */
+  const withEndCard = useCallback(
+    async (
+      finale: RunFinale,
+      values: Record<string, unknown>,
+      references: DraftReference[],
+      title: string,
+    ): Promise<RunFinale> => {
+      if (!user) return finale;
+      try {
+        const start = references.find(
+          (ref) =>
+            ref.assetType === "image" && ["source", "first_frame", "image"].includes(ref.role),
+        );
+        const { data: frame } = start
+          ? await supabase
+              .from("assets")
+              .select("width,height")
+              .eq("id", start.assetId)
+              .maybeSingle()
+          : { data: null };
+        const frameAssetId = await makeEndCard({
+          finisher: { assetId: finale.assetId },
+          size: endCardSize(values, frame ?? null),
+          style: DEFAULT_END_CARD_STYLE,
+          userId: user.id,
+          projectId: context.projectId,
+          title,
+        });
+        return { ...finale, frameAssetId };
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : "it couldn't be saved";
+        if (finaleReveals(finale.mode))
+          throw new Error(`The end card couldn't be made (${reason})`);
+        toast.warning(
+          `The end card couldn't be laid out (${reason}): the Editor shows the image as it is.`,
+        );
+        return finale;
+      }
+    },
+    [user, context.projectId],
+  );
+
   /** Starts a long-video draft's run; the server makes its clips one after another. */
   const runLongVideo = useCallback(
     async ({ draft, index, runNumber, values, references }: DraftRunInput): Promise<boolean> => {
@@ -226,10 +282,14 @@ export function useDraftRunner(context: {
       const { key, settle } = runKey(index, runNumber);
       if (inFlight.current.has(key)) return false;
       inFlight.current.add(key);
+      const title = draft.longVideo.title || draft.title;
       try {
+        const finale = plan.finale
+          ? await withEndCard(plan.finale, values, references, title)
+          : null;
         const result = await startLongVideo({
           data: {
-            title: draft.longVideo.title || draft.title,
+            title,
             firstModelId: draft.modelId,
             continuationModelId: plan.continuation.id,
             story: typeof values["prompt"] === "string" ? values["prompt"] : draft.prompt,
@@ -237,6 +297,7 @@ export function useDraftRunner(context: {
             values,
             references: references.map((ref) => ({ assetId: ref.assetId, role: ref.role })),
             clips: plan.clips,
+            finale,
             projectId: context.projectId,
             campaignId: context.campaignId,
             clientRequestId: key,
@@ -262,7 +323,7 @@ export function useDraftRunner(context: {
         await queryClient.invalidateQueries({ queryKey: ["generations"] });
       }
     },
-    [context.projectId, context.campaignId, longPlan, queryClient, runKey],
+    [context.projectId, context.campaignId, longPlan, queryClient, runKey, withEndCard],
   );
 
   const run = useCallback(

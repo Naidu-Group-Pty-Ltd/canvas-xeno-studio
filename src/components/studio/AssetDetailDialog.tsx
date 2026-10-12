@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Brain, Cpu, Download, Film, Heart, Loader2, Repeat, Shuffle, SquareStack, Trash2 } from "lucide-react";
+import { Brain, Crop, Cpu, Download, Film, Heart, Loader2, Repeat, Shuffle, SquareStack, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { AssetRow } from "@/hooks/useStudioData";
@@ -9,6 +9,7 @@ import { useModels, useProjects } from "@/hooks/useStudioData";
 import { MediaPreview } from "@/components/studio/MediaPreview";
 import { StatusBadge } from "@/components/studio/StatusBadge";
 import { MediaTaskPanel } from "@/components/studio/MediaTaskPanel";
+import { ReframeDialog } from "@/components/studio/ReframeDialog";
 import {
   downloadAsset,
   moveAsset,
@@ -46,6 +47,7 @@ export function AssetDetailDialog({
   const { data: models = [] } = useModels();
   const { data: projects = [] } = useProjects();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [reframing, setReframing] = useState(false);
   const [analysing, setAnalysing] = useState(false);
   const analysis = (asset?.metadata as { analysis?: AssetAnalysis } | null)?.analysis ?? null;
 
@@ -250,6 +252,16 @@ export function AssetDetailDialog({
                 >
                   <Cpu className="mr-1.5 size-4" /> Ask Supercomputer
                 </Button>
+                {asset.asset_type !== "audio" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setReframing(true)}
+                    data-testid="asset-reframe"
+                  >
+                    <Crop className="mr-1.5 size-4" /> Reframe
+                  </Button>
+                )}
                 {asset.asset_type === "image" && (
                   <Button
                     size="sm"
@@ -349,6 +361,10 @@ export function AssetDetailDialog({
           </div>
         </DialogContent>
       </Dialog>
+
+      {asset.asset_type !== "audio" && (
+        <ReframeDialog key={asset.id} asset={asset} open={reframing} onOpenChange={setReframing} />
+      )}
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>

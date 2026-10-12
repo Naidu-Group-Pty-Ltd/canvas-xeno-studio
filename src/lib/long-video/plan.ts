@@ -284,36 +284,73 @@ export function planDurations(input: {
 }
 
 /**
- * A clip's prompt: what happens in it (its beat), what must stay the same, and
- * the story the whole video tells. Clips after the first are told they
- * continue straight on from their first frame. The short, specific parts come
- * first, so a model that cuts long prompts short keeps them.
+ * A clip's prompt: what happens in it (its beat), where it falls in the video,
+ * what must stay the same, and the story the whole video tells. Clips after
+ * the first are told they continue straight on from their first frame. The
+ * short, specific parts come first, so a model that cuts long prompts short
+ * keeps them.
+ *
+ * Told where it falls (with `count`), a clip before the last doesn't wrap the
+ * story up: no closing shot, logo reveal or end card, which the next clip
+ * would otherwise be chained on from. The last clip brings the video to its
+ * close, on the brand's end card when the video has a finisher (`finale`).
  */
 export function clipPrompt(input: {
   story: string;
   beat?: string | null;
   continuity?: string | null;
   index: number;
+  /** How many clips the video has. */
+  count?: number;
+  /** How the video ends on the brand's finisher, when it has one. */
+  finale?: FinaleMode | null;
 }): string {
   const story = input.story.trim();
   const beat = input.beat?.trim() ?? "";
   const continuity = input.continuity?.trim() ?? "";
   const keep = continuity ? `Keep consistent throughout: ${continuity}` : "";
+  const place =
+    input.count && input.count > 1 ? clipPlace(input.index, input.count, input.finale ?? null) : "";
   const parts: string[] = [];
   if (input.index > 0) parts.push(FRAME_OPENING);
-  if (beat) parts.push(beat, keep, story ? `Scene: ${story}` : "");
-  else parts.push(story, keep);
+  if (beat) parts.push(beat, place, keep, story ? `Scene: ${story}` : "");
+  else parts.push(story, place, keep);
   return parts.filter(Boolean).join("\n\n");
 }
 
 const FRAME_OPENING =
   "Continue seamlessly from the first frame, as the next moment of the same continuous shot.";
 
+/** How the last clip is told to end on the brand's end card, which is its final frame. */
+export const FINALE_REVEAL_NOTE =
+  "It ends on the brand's end card, its final frame: move into it and settle on it for the last moment, with the logo exactly as given.";
+
+/** Where a clip falls in the video, and so how it may end. */
+function clipPlace(index: number, count: number, finale: FinaleMode | null): string {
+  const part = `Part ${index + 1} of ${count}`;
+  if (index < count - 1)
+    return `${part} of one continuous video. It carries straight on into the next part, so don't end or wrap up here: no closing shot, logo reveal or end card.`;
+  if (finale && finaleReveals(finale)) return `${part}, the last. ${FINALE_REVEAL_NOTE}`;
+  if (finale)
+    return `${part}, the last: bring the video to a calm close. The brand's end card follows straight after it, so no logo reveal or end card of its own.`;
+  return `${part}, the last: bring the video to its close.`;
+}
+
 /** How a clip that starts from its first reference image is told so. */
 export const REFERENCE_OPENING =
   "<<<image_1>>> is this clip's first frame: the last moment of the clip before. Start exactly on it and continue seamlessly, as the next moment of the same continuous shot.";
 
 const MEDIA_TOKEN = /<<<(image|video|audio)_(\d+)>>>/g;
+const IMAGE_TOKEN = /<<<image_(\d+)>>>/g;
+
+/**
+ * Where an image a prompt names by token is among the images a clip is sent:
+ * its new number, words to say instead, or null when the clip isn't sent it.
+ */
+type ImageNumber = (n: number) => number | string | null;
+
+/** How a prompt's token for the finisher reads in a clip that isn't sent it. */
+const FINISHER_WORDS = "the brand's end card";
 
 /**
  * A later clip's prompt for a model that starts from its first reference
@@ -322,16 +359,25 @@ const MEDIA_TOKEN = /<<<(image|video|audio)_(\d+)>>>/g;
  * carried references follow). A token for media the clip isn't sent becomes
  * plain words, as the provider refuses a token with nothing behind it.
  */
-function referenceStartPrompt(prompt: string, imageNumber: (n: number) => number | null): string {
+function referenceStartPrompt(prompt: string, imageNumber: ImageNumber): string {
   if (prompt.startsWith(REFERENCE_OPENING)) return prompt;
   const body = prompt.startsWith(FRAME_OPENING)
     ? prompt.slice(FRAME_OPENING.length).trimStart()
     : prompt;
   const renumbered = body.replace(MEDIA_TOKEN, (_, type: string, n: string) => {
     const next = type === "image" ? imageNumber(Number(n)) : null;
-    return next ? `<<<image_${next}>>>` : `the reference ${type}`;
+    if (typeof next === "number") return `<<<image_${next}>>>`;
+    return next ?? `the reference ${type}`;
   });
   return [REFERENCE_OPENING, renumbered].filter(Boolean).join("\n\n");
+}
+
+/** A prompt with its image tokens renumbered (a token that can't be is left as it is). */
+function renumberImages(prompt: string, imageNumber: ImageNumber): string {
+  return prompt.replace(IMAGE_TOKEN, (token, n: string) => {
+    const next = imageNumber(Number(n));
+    return typeof next === "number" ? `<<<image_${next}>>>` : (next ?? token);
+  });
 }
 
 function acceptedBy(field: FieldSchema, value: unknown): boolean {
@@ -387,22 +433,94 @@ export interface RunReference {
   assetType: "image" | "video" | "audio";
 }
 
+/* ------------------------------------------------------------------ */
+/* The finisher: ending on the brand                                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * How a long video ends on the brand's logo or end card (its finisher). The
+ * finisher is never sent with the clips as a reference image, where a model
+ * shows it partway through (clip 1 ending on the logo, and every later clip
+ * chained on from there). Instead it closes the video:
+ *   - "end_card": held as a still after the last clip, exactly as uploaded
+ *     (added when the video is opened in the Editor);
+ *   - "reveal": the last clip's final frame, so the video moves into it;
+ *   - "both": the last clip moves into it, then it holds.
+ */
+export const FINALE_MODES = ["end_card", "reveal", "both"] as const;
+export type FinaleMode = (typeof FINALE_MODES)[number];
+
+/** How long the end card holds after the last clip, in seconds. */
+export const FINALE_SECONDS = { min: 1, max: 10, default: 3 } as const;
+
+export interface RunFinale {
+  /** The finisher as uploaded: a logo, wordmark or end card. */
+  assetId: string;
+  mode: FinaleMode;
+  /** How long the end card holds after the last clip. */
+  seconds: number;
+  /**
+   * The finisher laid out at the video's own shape: what the last clip ends
+   * on and the Editor holds. Without it, the finisher itself is used.
+   */
+  frameAssetId?: string | null | undefined;
+}
+
+/** The finisher holds as an end card after the last clip. */
+export function finaleHolds(mode: FinaleMode): boolean {
+  return mode !== "reveal";
+}
+
+/** The last clip moves into the finisher and ends on it. */
+export function finaleReveals(mode: FinaleMode): boolean {
+  return mode !== "end_card";
+}
+
+/** How a model ends a clip on a given image. */
+export type ClipEnd =
+  /** Its end-frame input. */
+  | { kind: "frame"; role: string }
+  /** One of its reference images, named in the prompt as the last frame. */
+  | { kind: "reference"; role: string };
+
+export function clipEnd(model: ModelRegistryEntry | null | undefined): ClipEnd | null {
+  const frame = (model?.capabilities?.inputs ?? []).find(
+    (slot) => slot.type === "image" && slot.role === "last_frame",
+  );
+  if (frame) return { kind: "frame", role: frame.role };
+  // A model that starts from a reference image names its references by token
+  // (<<<image_n>>>), so its prompt can name the finisher as the last frame too.
+  const start = clipStart(model);
+  return start?.kind === "reference" ? { kind: "reference", role: start.role } : null;
+}
+
+/** The last clip's prompt, naming the finisher (image `n` among its references) as its final frame. */
+function namedEnding(prompt: string, n: number): string {
+  const named = `${FINALE_REVEAL_NOTE} The end card is <<<image_${n}>>>.`;
+  if (prompt.includes(named)) return prompt;
+  return prompt.includes(FINALE_REVEAL_NOTE)
+    ? prompt.replace(FINALE_REVEAL_NOTE, named)
+    : `${prompt}\n\n${named}`;
+}
+
 /**
  * The run's reference images that every later clip is sent again, where its
  * model takes reference images alongside a start frame: a character or
  * product sheet then keeps them the same from clip to clip. (Start and end
- * frames, videos and audio belong to the first clip only.)
+ * frames, videos and audio belong to the first clip only.) `reserve` keeps
+ * places free for other images the clips are sent.
  */
 export function carriedReferences(
   references: RunReference[],
   continuation: ModelRegistryEntry,
+  reserve = 0,
 ): { assetId: string; role: string }[] {
   const slot = (continuation.capabilities?.inputs ?? []).find(
     (entry) => entry.role === "reference" && entry.type === "image",
   );
   if (!slot) return [];
   // A model that starts from its first reference image keeps that place for the frame.
-  const room = (slot.max ?? 1) - (clipStart(continuation)?.kind === "reference" ? 1 : 0);
+  const room = (slot.max ?? 1) - (clipStart(continuation)?.kind === "reference" ? 1 : 0) - reserve;
   // Images the first clip's model couldn't use ("unused") are references too.
   return references
     .filter(
@@ -426,54 +544,89 @@ export interface PlannedClip extends ClipDraft {
   /** Media roles the clip is sent with, its start frame included. */
   roles: string[];
   inputs: { assetId: string; role: string }[];
+  /** The finisher the clip ends on (the last clip, when the video moves into it). */
+  ending: { assetId: string; role: string } | null;
 }
 
-/** Every clip's model, settings and media, as the run will send them. */
+/**
+ * Every clip's model, settings and media, as the run will send them. A
+ * finisher is kept out of every clip's references; with `finale` set to move
+ * into it, the last clip ends on it.
+ */
 export function planClips(input: {
   first: ModelRegistryEntry;
   continuation: ModelRegistryEntry;
   values: Record<string, unknown>;
   references: RunReference[];
   clips: ClipDraft[];
+  finale?: RunFinale | null;
 }): PlannedClip[] {
-  const { first, continuation, values, references } = input;
+  const { first, continuation, values } = input;
+  const finale = input.finale ?? null;
+  const finisher = new Set(
+    [finale?.assetId, finale?.frameAssetId].filter((id): id is string => !!id),
+  );
+  const references = input.references.filter((item) => !finisher.has(item.assetId));
   const start = clipStart(continuation);
   const startRole = start?.role ?? null;
   const firstInputs = references
     .filter((item) => item.role && item.role !== "unused")
     .map((item) => ({ assetId: item.assetId, role: item.role }));
   const laterValues = carryValues(values, continuation);
+  const end = finale && finaleReveals(finale.mode) ? clipEnd(continuation) : null;
   // Reference images go along only where the model takes them with a start
-  // frame (some take one or the other, never both).
-  let carried = carriedReferences(references, continuation);
+  // frame (some take one or the other, never both). A finisher named among
+  // the references keeps a place free for itself.
+  let carried = carriedReferences(references, continuation, end?.kind === "reference" ? 1 : 0);
   const rolesWith = (items: { role: string }[]) => [
     ...(startRole ? [startRole] : []),
     ...items.map((item) => item.role),
   ];
-  if (
-    carried.length &&
-    validateParameters(continuation, laterValues, rolesWith(carried)).some(
+  const takes = (items: { role: string }[]) =>
+    !validateParameters(continuation, laterValues, rolesWith(items)).some(
       (issue) => issue.key === "inputs",
-    )
-  )
-    carried = [];
-  // Where an image named in the first clip's prompt (<<<image_n>>>, counted
-  // among the images it is sent in that role) is in a later clip's images.
-  const firstImages = references
+    );
+  if (carried.length && !takes(carried)) carried = [];
+  // The images a prompt names by token (<<<image_n>>>): those attached in the
+  // start role, in order, as written (the finisher among them).
+  const named = input.references
     .filter((item) => item.assetType === "image" && item.role === startRole)
     .map((item) => item.assetId);
-  const imageNumber = (n: number) => {
-    const at = carried.findIndex((item) => item.assetId === firstImages[n - 1]);
-    return at >= 0 ? at + 2 : null;
-  };
+  /** A named image's number among `sent`, which follow `before` other images. */
+  const numberIn =
+    (sent: { assetId: string }[], before: number): ImageNumber =>
+    (n) => {
+      const assetId = named[n - 1];
+      if (assetId && finisher.has(assetId)) return FINISHER_WORDS;
+      const at = sent.findIndex((item) => item.assetId === assetId);
+      return at >= 0 ? at + 1 + before : null;
+    };
+  // Clip 1 isn't sent the finisher, so the images after it move up a place.
+  const firstNumber = named.some((assetId) => finisher.has(assetId))
+    ? numberIn(
+        firstInputs.filter((item) => item.role === startRole),
+        0,
+      )
+    : null;
+  const ending =
+    end && finale ? { assetId: finale.frameAssetId || finale.assetId, role: end.role } : null;
+  // The end frame comes first in the last clip: where the model can't take
+  // it with the carried references, they are left out of that clip.
+  const lastCarried = ending && !takes([...carried, ending]) ? [] : carried;
+  const lastPosition = input.clips.length - 1;
   return input.clips.map((clip, position) => {
     const isFirst = position === 0;
     const model = isFirst ? first : continuation;
-    const inputs = isFirst ? firstInputs : carried;
-    const prompt =
-      !isFirst && start?.kind === "reference"
-        ? referenceStartPrompt(clip.prompt, imageNumber)
-        : clip.prompt;
+    const ends = !isFirst && position === lastPosition ? ending : null;
+    const sent = ends ? lastCarried : carried;
+    const inputs = isFirst ? firstInputs : ends ? [...sent, ends] : sent;
+    let prompt = clip.prompt;
+    if (isFirst && firstNumber) prompt = renumberImages(prompt, firstNumber);
+    // Later clips start from the frame before as image 1, then the carried references.
+    else if (!isFirst && start?.kind === "reference")
+      prompt = referenceStartPrompt(prompt, numberIn(sent, 1));
+    // ...and the last ends on the finisher, after them.
+    if (ends && end?.kind === "reference") prompt = namedEnding(prompt, sent.length + 2);
     return {
       ...clip,
       prompt,
@@ -482,6 +635,7 @@ export function planClips(input: {
       values: clipValues(model, values, { ...clip, prompt }, { asChosen: isFirst }),
       roles: isFirst ? inputs.map((item) => item.role) : rolesWith(inputs),
       inputs,
+      ending: ends,
     };
   });
 }
@@ -498,8 +652,10 @@ export function planIssues(input: {
   continuation: ModelRegistryEntry | null;
   clips: PlannedClip[];
   targetSeconds: number;
+  finale?: RunFinale | null;
 }): PlanIssue[] {
   const { first, continuation, clips } = input;
+  const finale = input.finale ?? null;
   const issues: PlanIssue[] = [];
   if (!first || !longVideoEligible(first))
     return [
@@ -519,11 +675,34 @@ export function planIssues(input: {
         message: `Clips 2 onward must be made by ${modelLine(first)} too, starting from a frame, so the whole video stays consistent`,
       },
     ];
+  const endCardSeconds = finale && finaleHolds(finale.mode) ? finale.seconds : 0;
   if (!(input.targetSeconds > 0) || input.targetSeconds > LONG_VIDEO_LIMITS.maxSeconds)
     issues.push({
       position: null,
       message: `A long video can run up to ${LONG_VIDEO_LIMITS.maxSeconds / 60} minutes`,
     });
+  else if (input.targetSeconds + endCardSeconds > LONG_VIDEO_LIMITS.maxSeconds)
+    issues.push({
+      position: null,
+      message: `With its ${endCardSeconds}s end card the video runs over ${LONG_VIDEO_LIMITS.maxSeconds / 60} minutes, the most one edit holds: make it a little shorter`,
+    });
+  if (finale) {
+    if (!FINALE_MODES.includes(finale.mode))
+      issues.push({ position: null, message: "Choose how the video ends on the finisher" });
+    if (
+      finaleHolds(finale.mode) &&
+      !(finale.seconds >= FINALE_SECONDS.min && finale.seconds <= FINALE_SECONDS.max)
+    )
+      issues.push({
+        position: null,
+        message: `The end card holds for ${FINALE_SECONDS.min} to ${FINALE_SECONDS.max} seconds`,
+      });
+    if (finaleReveals(finale.mode) && !clipEnd(continuation))
+      issues.push({
+        position: null,
+        message: `${modelLine(continuation)} can't end a clip on a given image, so the video can't move into the finisher. Choose "End card" to hold it after the last clip instead.`,
+      });
+  }
   if (clips.length < LONG_VIDEO_LIMITS.minClips)
     issues.push({ position: null, message: "That length fits in one clip; switch to One clip" });
   if (clips.length > LONG_VIDEO_LIMITS.maxClips)

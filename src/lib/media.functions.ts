@@ -25,6 +25,7 @@ export const getMediaWorkerStatus = createServerFn({ method: "GET" })
         reachable: false,
         message: "Not configured — set MEDIA_WORKER_URL and MEDIA_WORKER_SHARED_SECRET to enable rendering tasks.",
         tasks: [] as string[],
+        features: [] as string[],
         ffmpeg: null as string | null,
       };
     }
@@ -44,6 +45,7 @@ export const getMediaWorkerStatus = createServerFn({ method: "GET" })
       reachable: health.ok,
       message: health.ok ? "Media service reachable" : (health.errorMessage ?? "Media service unreachable"),
       tasks: health.data?.tasks ?? [],
+      features: health.data?.features ?? [],
       ffmpeg: health.data?.ffmpeg ?? null,
       queued: health.data?.queued ?? 0,
       running: health.data?.running ?? 0,
@@ -56,6 +58,8 @@ const submitInput = z.object({
   params: z.record(z.string(), z.unknown()).default({}),
   projectId: z.string().uuid().nullable().optional(),
   clientRequestId: z.string().min(8).max(64).optional(),
+  /** What the file it makes is called in the library (one output only). */
+  outputTitle: z.string().trim().min(1).max(200).optional(),
 });
 
 export const submitMediaTask = createServerFn({ method: "POST" })
@@ -233,6 +237,7 @@ export const submitMediaTask = createServerFn({ method: "POST" })
           storage_paths: storagePaths,
           mime_type: output.mime,
           output_kind: definition.outputKind,
+          ...(data.outputTitle && outputCount === 1 ? { output_title: data.outputTitle } : {}),
         } as never,
       })
       .eq("id", taskId)

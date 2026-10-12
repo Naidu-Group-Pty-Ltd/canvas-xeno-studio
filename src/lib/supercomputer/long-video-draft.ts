@@ -7,9 +7,11 @@
  */
 import type { ModelRegistryEntry } from "../model-schema";
 import {
+  clipEnd,
   clipPrompt,
   continuationCandidates,
   durationChoices,
+  finaleReveals,
   LONG_VIDEO_LIMITS,
   longestClips,
   longVideoEligible,
@@ -19,6 +21,7 @@ import {
   totalSeconds,
   type ClipDraft,
   type PlannedClip,
+  type RunFinale,
 } from "../long-video/plan";
 import type { DraftLongVideo, DraftReference } from "./types";
 
@@ -34,6 +37,8 @@ export interface DraftLongVideoPlan {
   issues: string[];
   /** The 40-clip limit makes the video shorter than the length asked for. */
   capped: boolean;
+  /** The finisher it ends on, as the run will use it (moving into it only where the model can). */
+  finale: RunFinale | null;
 }
 
 /** The workflow of the draft's model that makes clips 2 onward, best first. */
@@ -77,7 +82,10 @@ export function draftLongestClips(model: ModelRegistryEntry, continuation: Model
 export function planDraftLongVideo(input: {
   model: ModelRegistryEntry;
   models: ModelRegistryEntry[];
-  longVideo: Pick<DraftLongVideo, "targetSeconds" | "continuationModelId" | "continuity" | "beats">;
+  longVideo: Pick<
+    DraftLongVideo,
+    "targetSeconds" | "continuationModelId" | "continuity" | "beats" | "finisher"
+  >;
   /** The draft's settings; their prompt is the story. */
   values: Record<string, unknown>;
   references: DraftReference[];
@@ -88,12 +96,28 @@ export function planDraftLongVideo(input: {
     ? draftDurations(model, continuation, longVideo.targetSeconds)
     : [];
   const story = typeof values["prompt"] === "string" ? values["prompt"] : "";
+  const finisher = longVideo.finisher ?? null;
+  const finale: RunFinale | null =
+    finisher && continuation
+      ? {
+          assetId: finisher.assetId,
+          mode: finaleReveals(finisher.mode) && !clipEnd(continuation) ? "end_card" : finisher.mode,
+          seconds: finisher.seconds,
+        }
+      : null;
   const clips: ClipDraft[] = durations.map((durationSeconds, index) => {
     const beat = longVideo.beats[index] ?? "";
     return {
       beat,
       durationSeconds,
-      prompt: clipPrompt({ story, beat, continuity: longVideo.continuity, index }),
+      prompt: clipPrompt({
+        story,
+        beat,
+        continuity: longVideo.continuity,
+        index,
+        count: durations.length,
+        finale: finale?.mode ?? null,
+      }),
     };
   });
   const planned = continuation
@@ -107,6 +131,7 @@ export function planDraftLongVideo(input: {
           assetType: ref.assetType,
         })),
         clips,
+        finale,
       })
     : [];
   const total = totalSeconds(durations);
@@ -116,6 +141,7 @@ export function planDraftLongVideo(input: {
     continuation,
     clips: planned,
     targetSeconds: total,
+    finale,
   }).map((issue) =>
     // Create's way out ("switch to One clip") isn't on a draft.
     planned.length && planned.length < LONG_VIDEO_LIMITS.minClips && issue.position === null
@@ -126,5 +152,5 @@ export function planDraftLongVideo(input: {
   );
   const capped =
     durations.length >= LONG_VIDEO_LIMITS.maxClips && total + 0.5 < longVideo.targetSeconds;
-  return { continuation, durations, totalSeconds: total, clips, planned, issues, capped };
+  return { continuation, durations, totalSeconds: total, clips, planned, issues, capped, finale };
 }

@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, Copy, Plus, Scissors, Trash2, Type, Wand2 } from "lucide-react";
 import type { AssetRow } from "@/hooks/useStudioData";
 import {
@@ -56,6 +57,8 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { getMediaWorkerStatus } from "@/lib/media.functions";
+import { cn } from "@/lib/utils";
 import type { PlaybackClock, Selection } from "./state";
 import { VoiceoverPanel, type VoiceoverContext } from "./VoiceoverPanel";
 import { MusicPanel, type MusicContext } from "./MusicPanel";
@@ -166,6 +169,73 @@ function Section({
       </div>
       {children}
     </section>
+  );
+}
+
+const ANCHORS = [0, 0.5, 1] as const;
+const ANCHOR_NAMES = {
+  0: ["Left", "Top"],
+  0.5: ["Centre", "Middle"],
+  1: ["Right", "Bottom"],
+} as const;
+
+/**
+ * Where a clip that fills the frame is cropped: the part of its picture kept
+ * in frame, from the nine points of a grid. Offered once the media service
+ * renders it the same way.
+ */
+function FocusField({
+  focus,
+  onChange,
+}: {
+  focus: { x: number; y: number } | null;
+  onChange: (focus: { x: number; y: number } | null) => void;
+}) {
+  const { data: worker } = useQuery({
+    queryKey: ["media-worker-status"],
+    queryFn: () => getMediaWorkerStatus(),
+    staleTime: 60_000,
+  });
+  const supported = (worker?.features ?? []).includes("frame_focus");
+  const current = focus ?? { x: 0.5, y: 0.5 };
+  return (
+    <Field
+      label="What stays in frame"
+      hint={supported ? undefined : "Centred until the media service is updated"}
+    >
+      <div
+        className="grid w-24 grid-cols-3 gap-1"
+        role="radiogroup"
+        aria-label="What stays in frame"
+        data-testid="clip-focus"
+      >
+        {ANCHORS.map((y) =>
+          ANCHORS.map((x) => {
+            const selected = Math.abs(current.x - x) < 0.01 && Math.abs(current.y - y) < 0.01;
+            const name =
+              x === 0.5 && y === 0.5
+                ? "Centre"
+                : `${ANCHOR_NAMES[y][1]} ${ANCHOR_NAMES[x][0].toLowerCase()}`;
+            return (
+              <button
+                key={`${x}-${y}`}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                aria-label={name}
+                title={name}
+                disabled={!supported}
+                onClick={() => onChange(x === 0.5 && y === 0.5 ? null : { x, y })}
+                className={cn(
+                  "size-7 rounded border transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+                  selected ? "border-primary bg-primary/30" : "border-border hover:border-input",
+                )}
+              />
+            );
+          }),
+        )}
+      </div>
+    </Field>
   );
 }
 
@@ -480,6 +550,9 @@ function ClipInspector({
             </SelectContent>
           </Select>
         </Field>
+        {(clip.fit ?? timeline.fit) === "cover" && (
+          <FocusField focus={clip.focus} onChange={(focus) => set({ focus })} />
+        )}
         {clip.kind === "image" && (
           <Field label="Motion">
             <Select value={clip.motion} onValueChange={(value) => set({ motion: value as Motion })}>

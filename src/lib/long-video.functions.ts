@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { AppError } from "./higgsfield/errors";
-import { LONG_VIDEO_LIMITS } from "./long-video/plan";
+import { FINALE_MODES, FINALE_SECONDS, LONG_VIDEO_LIMITS } from "./long-video/plan";
 
 /**
  * Long videos: chains of clips that play as one continuous shot. Runs are
@@ -52,6 +52,17 @@ const clipSchema = z.object({
   prompt: z.string().max(16000),
 });
 
+const finaleSchema = z.object({
+  assetId: z.string().uuid(),
+  mode: z.enum(FINALE_MODES),
+  seconds: z
+    .number()
+    .min(FINALE_SECONDS.min)
+    .max(FINALE_SECONDS.max)
+    .default(FINALE_SECONDS.default),
+  frameAssetId: z.string().uuid().nullable().optional(),
+});
+
 const startInput = z.object({
   title: z.string().max(LONG_VIDEO_LIMITS.titleChars).default(""),
   firstModelId: z.string().uuid(),
@@ -64,6 +75,8 @@ const startInput = z.object({
     .max(60)
     .default([]),
   clips: z.array(clipSchema).min(LONG_VIDEO_LIMITS.minClips).max(LONG_VIDEO_LIMITS.maxClips),
+  /** The brand's logo or end card the video ends on, kept out of the clips. */
+  finale: finaleSchema.nullable().optional(),
   projectId: z.string().uuid().nullable().optional(),
   campaignId: z.string().uuid().nullable().optional(),
   clientRequestId: z.string().min(8).max(64).optional(),
@@ -86,6 +99,7 @@ export const startLongVideo = createServerFn({ method: "POST" })
       values: data.values,
       references: data.references,
       clips: data.clips,
+      finale: data.finale ?? null,
       projectId: data.projectId ?? null,
       campaignId: data.campaignId ?? null,
       clientRequestId: data.clientRequestId ?? null,
@@ -104,6 +118,11 @@ const planInput = z.object({
     .max(LONG_VIDEO_LIMITS.maxClips),
   referenceAssetIds: z.array(z.string().uuid()).max(6).default([]),
   briefId: z.string().uuid().nullable().optional(),
+  /** The finisher the video ends on, when one is chosen (one of the references). */
+  finale: z
+    .object({ assetId: z.string().uuid(), mode: z.enum(FINALE_MODES) })
+    .nullable()
+    .optional(),
 });
 
 /** Suggests a title, continuity notes and one beat per clip. Nothing is generated. */
@@ -135,8 +154,13 @@ export const planLongVideo = createServerFn({ method: "POST" })
           .in("id", data.referenceAssetIds)
           .is("deleted_at", null)
       : { data: [] };
+    // In the order given, so the images are numbered as the person sees them.
+    const ordered = data.referenceAssetIds.flatMap((id) => {
+      const row = (refs ?? []).find((entry) => entry.id === id);
+      return row ? [row] : [];
+    });
     const vision = await agent.signVisionSources(
-      (refs ?? [])
+      ordered
         .map(agent.visionSourceFor)
         .filter((source): source is NonNullable<typeof source> => !!source)
         .slice(0, 6),
@@ -160,7 +184,8 @@ export const planLongVideo = createServerFn({ method: "POST" })
     }
 
     const { suggestLongVideoPlan } = await import("./long-video/planner.server");
-    return suggestLongVideoPlan({
+    const imageIds = vision.used.map((source) => source.assetId);
+    const suggestion = await suggestLongVideoPlan({
       first: first as never,
       story: data.story,
       continuity: data.continuity,
@@ -168,7 +193,16 @@ export const planLongVideo = createServerFn({ method: "POST" })
       durations: data.durations,
       imageUrls: vision.urls,
       briefBlock,
+      finale: data.finale
+        ? { image: imageIds.indexOf(data.finale.assetId) + 1 || null, mode: data.finale.mode }
+        : null,
     });
+    const { finisherImage, ...plan } = suggestion;
+    // The image the AI took for the brand's logo or end card, when none is chosen yet.
+    return {
+      ...plan,
+      finisherAssetId: finisherImage ? (imageIds[finisherImage - 1] ?? null) : null,
+    };
   });
 
 const runInput = z.object({ longVideoId: z.string().uuid() });
@@ -228,7 +262,11 @@ export const checkLongVideo = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/** Opens a run's clips in the Editor as one edit, cut seamlessly at the handoff frames. */
+/**
+ * Opens a run's clips in the Editor as one edit, cut seamlessly at the handoff
+ * frames, ending on its end card: the run's own (unless `endCard` says
+ * otherwise), another image, or none (null).
+ */
 export const openLongVideoInEditor = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) =>
@@ -237,6 +275,13 @@ export const openLongVideoInEditor = createServerFn({ method: "POST" })
         seam: z.enum(["cut", "blend"]).default("cut"),
         keepSound: z.boolean().default(true),
         fresh: z.boolean().default(false),
+        endCard: z
+          .object({
+            assetId: z.string().uuid(),
+            seconds: z.number().min(FINALE_SECONDS.min).max(FINALE_SECONDS.max),
+          })
+          .nullable()
+          .optional(),
       })
       .parse(data),
   )

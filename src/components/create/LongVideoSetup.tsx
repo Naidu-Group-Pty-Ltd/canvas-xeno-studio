@@ -4,7 +4,13 @@ import { toast } from "sonner";
 import type { ModelRegistryEntry } from "@/lib/model-schema";
 import { clipStarts, formatLength, LONG_VIDEO_LIMITS, modelLine } from "@/lib/long-video/plan";
 import { planLongVideo } from "@/lib/long-video.functions";
-import type { LongVideoDraft, LongVideoPlan } from "@/components/create/long-video-plan";
+import {
+  newFinale,
+  type LongVideoDraft,
+  type LongVideoPlan,
+} from "@/components/create/long-video-plan";
+import type { ReferenceItem } from "@/components/create/reference-files";
+import { FinisherSetup } from "@/components/create/FinisherSetup";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,8 +32,11 @@ interface Props {
   plan: LongVideoPlan;
   onChange: (draft: LongVideoDraft) => void;
   story: string;
-  referenceAssetIds: string[];
+  /** The reference images, in the order attached: the finisher is one of them. */
+  images: ReferenceItem[];
   briefId: string | null;
+  /** The end card's size: the video's own shape. */
+  endCardSize: { width: number; height: number };
   /** Why the AI can't write beats right now, if it can't. */
   aiUnavailableReason: string | null;
 }
@@ -39,8 +48,9 @@ export function LongVideoSetup({
   plan,
   onChange,
   story,
-  referenceAssetIds,
+  images,
   briefId,
+  endCardSize,
   aiUnavailableReason,
 }: Props) {
   const [planning, setPlanning] = useState(false);
@@ -60,17 +70,36 @@ export function LongVideoSetup({
           continuity: draft.continuity,
           title: draft.title,
           durations: plan.durations,
-          referenceAssetIds: referenceAssetIds.slice(0, 6),
+          referenceAssetIds: images.slice(0, 6).map((image) => image.assetId),
           briefId,
+          finale: plan.finale ? { assetId: plan.finale.assetId, mode: plan.finale.mode } : null,
         },
       });
+      // The image the AI took for the logo closes the video, unless one is chosen or none is wanted.
+      const spotted =
+        !plan.finale && !draft.finaleOff && suggestion.finisherAssetId
+          ? images.findIndex((image) => image.assetId === suggestion.finisherAssetId)
+          : -1;
       onChange({
         ...draft,
         title: draft.title.trim() ? draft.title : suggestion.title,
         continuity: suggestion.continuity || draft.continuity,
         beats: suggestion.beats,
+        ...(spotted >= 0
+          ? {
+              finale: newFinale(
+                images[spotted]!.assetId,
+                !!plan.end,
+                `the AI recognised image ${spotted + 1} as your logo`,
+              ),
+            }
+          : {}),
       });
-      toast.success("Beats written. Review them before generating.");
+      toast.success(
+        spotted >= 0
+          ? `Beats written, and image ${spotted + 1} now closes the video as your logo. Review them before generating.`
+          : "Beats written. Review them before generating.",
+      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Beats couldn't be written");
     } finally {
@@ -240,6 +269,14 @@ export function LongVideoSetup({
               )}
             {runIssue && <p className="mt-1 text-[11px] text-primary">{runIssue.message}</p>}
           </div>
+
+          <FinisherSetup
+            images={images}
+            finale={draft.finale}
+            plan={plan}
+            size={endCardSize}
+            onChange={(finale, off) => set({ finale, finaleOff: off })}
+          />
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">

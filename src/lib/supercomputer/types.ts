@@ -1,4 +1,5 @@
 /** Shapes shared by the Supercomputer server functions and its UI. */
+import type { FinaleMode } from "../long-video/plan";
 
 export type MediaKind = "image" | "video" | "audio";
 
@@ -35,6 +36,20 @@ export interface DraftLongVideo {
   continuity: string;
   /** What happens in each clip, by clip. */
   beats: string[];
+  /** The brand's logo or end card it ends on, kept out of every clip. */
+  finisher?: DraftFinisher | null;
+}
+
+/**
+ * The brand finisher of a long-video draft: one of the conversation's images
+ * (the logo, wordmark or end card), how the video ends on it, and how long
+ * its end card holds.
+ */
+export interface DraftFinisher {
+  assetId: string;
+  mode: FinaleMode;
+  seconds: number;
+  title?: string | null;
 }
 
 /** A ready-to-run generation proposed by the agent, already validated against the registry. */

@@ -9,6 +9,7 @@ import {
   captionsFromScript,
   clipFromSource,
   emptyTimeline,
+  frameSize,
   layoutTimeline,
   LIMITS,
   newId,
@@ -337,6 +338,26 @@ export interface LongVideoCompileResult {
   missing: number[];
 }
 
+/** The still a long video ends on: the brand's end card, held after the last clip. */
+export interface LongVideoEndCard {
+  assetId: string;
+  seconds: number;
+  width: number | null;
+  height: number | null;
+  /** The last clip already ends on this image (it moved into it). */
+  revealed: boolean;
+}
+
+/**
+ * How an end card fills the edit's frame: whole and edge to edge when it was
+ * laid out at the video's own shape, else whole on black around it.
+ */
+function endCardFit(card: LongVideoEndCard, frame: { width: number; height: number }) {
+  if (!card.width || !card.height) return "contain" as const;
+  const gap = Math.abs(Math.log(card.width / card.height / (frame.width / frame.height)));
+  return gap < 0.02 ? ("cover" as const) : ("contain" as const);
+}
+
 /** The longest cross-fade at a join: the footage after a handoff frame both clips show. */
 const BLEND_SECONDS = 0.2;
 
@@ -357,13 +378,14 @@ const FPS_CHOICES = [24, 25, 30, 60] as const;
  * taken from the one before it, so that clip is cut exactly there and the
  * next picks up on the same frame: one continuous shot. Asked to blend, a
  * clip runs on a moment past its handoff frame and cross-fades into the next
- * over footage both show, so nothing ghosts or jumps.
+ * over footage both show, so nothing ghosts or jumps. An end card, when there
+ * is one, holds after the last clip.
  */
 export function compileFromLongVideo(
   run: { title: string; settings: Record<string, unknown> },
   clips: LongVideoClipCut[],
   assets: LongVideoAsset[],
-  options: { seam: LongVideoSeam; keepSound: boolean },
+  options: { seam: LongVideoSeam; keepSound: boolean; endCard?: LongVideoEndCard | null },
 ): LongVideoCompileResult {
   const ordered = [...clips].sort((a, b) => a.position - b.position);
   const usable = ordered.map((clip) => {
@@ -420,6 +442,23 @@ export function compileFromLongVideo(
     result.push(item);
     blendIn = blendOut;
   });
+
+  const card = options.endCard;
+  if (card && result.length) {
+    const still = clipFromSource({
+      assetId: card.assetId,
+      kind: "image",
+      durationSeconds: null,
+      title: "End card",
+    });
+    still.duration = Math.max(0.5, Math.min(card.seconds, LIMITS.clipSeconds));
+    still.motion = "none";
+    still.fit = endCardFit(card, frameSize(timeline.aspectRatio, timeline.resolution));
+    // After a clip that ends on it, a brief blend; else a gentle fade into it.
+    still.transition = { type: "fade", duration: card.revealed ? 0.3 : 0.6 };
+    // A long video has at most 40 clips, so the edit always has room for it.
+    result.push(still);
+  }
 
   return {
     title: run.title,

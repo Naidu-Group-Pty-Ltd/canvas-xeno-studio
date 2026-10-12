@@ -2,6 +2,8 @@
  * Hand-off store used by Recreate / Create Variation / Animate / Use as reference.
  * The Create page consumes the prefill once and never auto-submits it.
  */
+import type { FinaleMode } from "./long-video/plan";
+
 export interface CreatePrefill {
   mediaType?: "image" | "video";
   modelId?: string;
@@ -20,6 +22,8 @@ export interface CreatePrefill {
     continuity?: string;
     beats?: string[];
     continuationModelId?: string | null;
+    /** The brand finisher it ends on (one of the inputs), or null for none. */
+    finisher?: { assetId: string; mode: FinaleMode; seconds: number } | null;
   };
 }
 

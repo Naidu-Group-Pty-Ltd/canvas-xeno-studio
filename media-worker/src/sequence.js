@@ -168,6 +168,11 @@ export function planSequence(params, sources) {
       speed,
       volume: kind === "image" ? 0 : num(clip.volume, { min: 0, max: 2, fallback: 1, name: `clip ${index + 1} volume` }),
       fit: choice(clip.fit, FITS, fit, `clip ${index + 1} fit`),
+      // Filling the frame: the point of the picture (0-1 across and down) kept in it.
+      focus: {
+        x: num(clip.focus_x, { min: 0, max: 1, fallback: 0.5, name: `clip ${index + 1} focus_x` }),
+        y: num(clip.focus_y, { min: 0, max: 1, fallback: 0.5, name: `clip ${index + 1} focus_y` }),
+      },
       motion: choice(clip.motion, MOTIONS, "none", `clip ${index + 1} motion`),
       transitionType,
       transitionFrames,
@@ -296,10 +301,13 @@ export function planSequence(params, sources) {
 
 const seconds = (value) => value.toFixed(6);
 
-/** Scales one stream into a WxH frame, as a filtergraph segment with unique labels. */
-export function frameChain(input, output, width, height, fit, tag) {
+/**
+ * Scales one stream into a WxH frame, as a filtergraph segment with unique
+ * labels. Filling the frame, it crops around `focus` (the centre by default).
+ */
+export function frameChain(input, output, width, height, fit, tag, focus = { x: 0.5, y: 0.5 }) {
   if (fit === "cover") {
-    return `[${input}]scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}[${output}]`;
+    return `[${input}]scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}:(iw-ow)*${focus.x}:(ih-oh)*${focus.y}[${output}]`;
   }
   if (fit === "blur_pad") {
     return (
@@ -365,13 +373,13 @@ export function clipArgs(clip, plan, sourcePath, hasAudio, out) {
     if (motion) {
       // Compose at twice the size first so the zoom has pixels to work with
       // and moves smoothly, then let zoompan produce the output frames.
-      filters.push(frameChain("0:v", "framed", width * 2, height * 2, clip.fit, "m"));
+      filters.push(frameChain("0:v", "framed", width * 2, height * 2, clip.fit, "m", clip.focus));
       filters.push(
         `[framed]zoompan=z='${motion.z}':x='${motion.x}':y='${motion.y}':d=1:s=${width}x${height}:fps=${fps},` +
           `setsar=1,format=yuv420p,trim=end_frame=${clip.durationFrames},setpts=PTS-STARTPTS[v]`,
       );
     } else {
-      filters.push(frameChain("0:v", "framed", width, height, clip.fit, "f"));
+      filters.push(frameChain("0:v", "framed", width, height, clip.fit, "f", clip.focus));
       filters.push(`[framed]fps=${fps},setsar=1,format=yuv420p,trim=end_frame=${clip.durationFrames},setpts=PTS-STARTPTS[v]`);
     }
   } else {
@@ -380,7 +388,7 @@ export function clipArgs(clip, plan, sourcePath, hasAudio, out) {
     const speed = clip.speed === 1 ? "setpts=PTS-STARTPTS" : `setpts=(PTS-STARTPTS)/${clip.speed}`;
     // Non-square source pixels are squared up first so nothing is stretched.
     filters.push(`[0:v]scale=trunc(iw*sar/2)*2:ih,setsar=1,${speed},fps=${fps}[paced]`);
-    filters.push(frameChain("paced", "framed", width, height, clip.fit, "f"));
+    filters.push(frameChain("paced", "framed", width, height, clip.fit, "f", clip.focus));
     // A source shorter than the requested length holds its last frame.
     filters.push(
       `[framed]setsar=1,format=yuv420p,tpad=stop_mode=clone:stop_duration=${seconds(clip.durationFrames / fps + 1)},` +

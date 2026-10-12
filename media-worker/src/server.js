@@ -3,7 +3,7 @@ import { mkdir } from "node:fs/promises";
 import { config, assertConfigured } from "./config.js";
 import { verify } from "./signature.js";
 import { validateTask, executeTask, sendHeartbeat } from "./runner.js";
-import { describeTasks } from "./tasks.js";
+import { describeTasks, FEATURES } from "./tasks.js";
 import { ffmpegVersion } from "./ffmpeg.js";
 import { TaskError } from "./net.js";
 
@@ -69,6 +69,7 @@ const server = createServer(async (request, response) => {
       service: "xeno-media-worker",
       ffmpeg: await ffmpegVersion(),
       tasks: describeTasks(),
+      features: FEATURES,
       running,
       queued: queue.length,
       concurrency: config.concurrency,

@@ -7,6 +7,7 @@ import {
   Clapperboard,
   Copy,
   Film,
+  Flag,
   ImageIcon,
   Loader2,
   Paperclip,
@@ -24,9 +25,18 @@ import { validateParameters } from "@/lib/model-schema";
 import { summarizeParameters } from "@/lib/parameter-normalize";
 import { ROLE_LABELS, slotLabel } from "@/lib/references";
 import { setCreatePrefill } from "@/lib/create-draft";
-import { clipStarts, formatLength, LONG_VIDEO_LIMITS, modelLine } from "@/lib/long-video/plan";
+import {
+  clipEnd,
+  clipStarts,
+  finaleHolds,
+  finaleReveals,
+  formatLength,
+  LONG_VIDEO_LIMITS,
+  modelLine,
+  type FinaleMode,
+} from "@/lib/long-video/plan";
 import type { DraftLongVideoPlan } from "@/lib/supercomputer/long-video-draft";
-import type { SupercomputerDraft } from "@/lib/supercomputer/types";
+import type { DraftFinisher, SupercomputerDraft } from "@/lib/supercomputer/types";
 import { ParameterFields } from "@/components/create/ParameterFields";
 import { LongVideoRunList } from "@/components/create/LongVideoRuns";
 import { MediaPreview } from "@/components/studio/MediaPreview";
@@ -35,6 +45,13 @@ import { StatusBadge } from "@/components/studio/StatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -82,6 +99,12 @@ export function DraftCard({
   const [confirming, setConfirming] = useState(false);
   const [quote, setQuote] = useState<DraftEstimate | null>(null);
   const [busy, setBusy] = useState(false);
+  // How a long video ends on the brand's finisher; changeable here before it runs.
+  const [finisher, setFinisher] = useState<DraftFinisher | null>(draft.longVideo?.finisher ?? null);
+  const runnable = useMemo(
+    () => (draft.longVideo ? { ...draft, longVideo: { ...draft.longVideo, finisher } } : draft),
+    [draft, finisher],
+  );
 
   const hasPromptField = !!model?.parameter_schema?.fields?.some((field) => field.key === "prompt");
   const submitValues = useMemo(
@@ -93,8 +116,8 @@ export function DraftCard({
   // Planned as the runner will quote and start it.
   const { longPlan: planLong } = runner;
   const longPlan = useMemo(
-    () => (draft.longVideo ? planLong(draft, submitValues, draft.references) : null),
-    [draft, planLong, submitValues],
+    () => (runnable.longVideo ? planLong(runnable, submitValues, draft.references) : null),
+    [runnable, draft.references, planLong, submitValues],
   );
   const issues = !model
     ? ["This model is no longer active"]
@@ -110,7 +133,9 @@ export function DraftCard({
       )
     : [];
   const edited =
-    prompt !== draft.prompt || JSON.stringify(values) !== JSON.stringify(draft.parameters);
+    prompt !== draft.prompt ||
+    JSON.stringify(values) !== JSON.stringify(draft.parameters) ||
+    JSON.stringify(finisher) !== JSON.stringify(draft.longVideo?.finisher ?? null);
   const blocked = runner.providerReason ?? issues[0] ?? null;
   // Plain and long-video runs share the draft's run keys, so they count together.
   const runNumber = runs.length + longRuns.length + 1;
@@ -118,13 +143,13 @@ export function DraftCard({
   async function openConfirm() {
     setConfirming(true);
     setQuote({ kind: "loading" });
-    setQuote(await runner.estimate(draft, submitValues, draft.references));
+    setQuote(await runner.estimate(runnable, submitValues, draft.references));
   }
 
   async function confirm() {
     setBusy(true);
     const ok = await runner.run({
-      draft,
+      draft: runnable,
       index,
       runNumber,
       values: submitValues,
@@ -143,7 +168,13 @@ export function DraftCard({
       ...(hasPromptField ? { prompt } : {}),
       projectId: context.projectId,
       campaignId: context.campaignId,
-      inputs: draft.references.map((ref) => ({ assetId: ref.assetId, role: ref.role })),
+      inputs: [
+        ...draft.references.map((ref) => ({ assetId: ref.assetId, role: ref.role })),
+        // The finisher goes along as an image, for Create to close the video on.
+        ...(finisher && !draft.references.some((ref) => ref.assetId === finisher.assetId)
+          ? [{ assetId: finisher.assetId, role: "" }]
+          : []),
+      ],
       ...(draft.longVideo
         ? {
             longVideo: {
@@ -152,6 +183,7 @@ export function DraftCard({
               continuity: draft.longVideo.continuity,
               beats: draft.longVideo.beats,
               continuationModelId: draft.longVideo.continuationModelId,
+              finisher,
             },
           }
         : {}),
@@ -245,6 +277,16 @@ export function DraftCard({
         />
       )}
 
+      {draft.longVideo?.finisher && longPlan?.continuation && (
+        <DraftFinisherRow
+          original={draft.longVideo.finisher}
+          finisher={finisher}
+          canMoveInto={!!clipEnd(longPlan.continuation)}
+          continuationName={modelLine(longPlan.continuation)}
+          onChange={setFinisher}
+        />
+      )}
+
       {draft.notes && <p className="text-[11px] text-muted-foreground italic">{draft.notes}</p>}
       {issues.length > 0 && (
         <p className="flex items-start gap-1.5 text-[11px] text-warning">
@@ -297,6 +339,7 @@ export function DraftCard({
             onClick={() => {
               setPrompt(draft.prompt);
               setValues(draft.parameters);
+              setFinisher(draft.longVideo?.finisher ?? null);
             }}
           >
             <RotateCcw className="mr-1.5 size-3.5" /> Reset
@@ -457,12 +500,88 @@ export function DraftCard({
   );
 }
 
-/** A long-video draft's plan: its clips, what stays the same and what happens in each. */
 /** Why a long video comes out shorter than asked: the 40-clip limit. */
 function cappedNote(plan: DraftLongVideoPlan, targetSeconds: number): string {
   return `A long video has at most ${LONG_VIDEO_LIMITS.maxClips} clips, so at ${plan.durations.at(-1)}s a clip this runs ${formatLength(plan.totalSeconds)}, not the ${formatLength(targetSeconds)} asked for.`;
 }
 
+const FINISHER_MODES: { mode: FinaleMode; label: string }[] = [
+  { mode: "both", label: "Move into it, then hold" },
+  { mode: "reveal", label: "Move into it" },
+  { mode: "end_card", label: "End card after the last clip" },
+];
+
+/**
+ * The brand finisher a long-video draft ends on: kept out of every clip, it
+ * closes the video. How it ends can be changed here, or the finisher dropped.
+ */
+function DraftFinisherRow({
+  original,
+  finisher,
+  canMoveInto,
+  continuationName,
+  onChange,
+}: {
+  original: DraftFinisher;
+  finisher: DraftFinisher | null;
+  canMoveInto: boolean;
+  continuationName: string;
+  onChange: (finisher: DraftFinisher | null) => void;
+}) {
+  const mode =
+    finisher && finaleReveals(finisher.mode) && !canMoveInto ? "end_card" : finisher?.mode;
+  return (
+    <div
+      className="flex flex-wrap items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs"
+      data-testid="draft-finisher"
+    >
+      <span className="size-9 shrink-0 overflow-hidden rounded border border-border">
+        <ReferenceThumb assetId={original.assetId} type="image" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="flex items-center gap-1 font-medium">
+          <Flag className="size-3 text-primary" /> Ends on the brand finisher
+        </p>
+        <p className="truncate text-[11px] text-muted-foreground">
+          {finisher
+            ? `${original.title ?? "The logo"} · kept out of every clip${
+                mode && finaleHolds(mode) ? ` · holds ${finisher.seconds}s` : ""
+              }`
+            : "No finisher: the video ends on its last clip."}
+          {!canMoveInto && finisher
+            ? ` · ${continuationName} can't end a clip on an image, so it holds as an end card`
+            : ""}
+        </p>
+      </div>
+      <Select
+        value={finisher ? (mode ?? "end_card") : "none"}
+        onValueChange={(value) =>
+          onChange(
+            value === "none" ? null : { ...(finisher ?? original), mode: value as FinaleMode },
+          )
+        }
+      >
+        <SelectTrigger className="h-8 w-52" aria-label="How the video ends">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {FINISHER_MODES.map((option) => (
+            <SelectItem
+              key={option.mode}
+              value={option.mode}
+              disabled={finaleReveals(option.mode) && !canMoveInto}
+            >
+              {option.label}
+            </SelectItem>
+          ))}
+          <SelectItem value="none">No finisher</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+/** A long-video draft's plan: its clips, what stays the same and what happens in each. */
 function LongVideoSummary({
   model,
   plan,

@@ -113,6 +113,7 @@ export function PreviewPlayer({ timeline, layout, assets, media, clock }: Previe
               level={level * fadeLevel}
               transition={incoming?.transitionType ?? "cut"}
               fit={entry.clip.fit ?? timeline.fit}
+              focus={entry.clip.focus}
             />
           );
         })}
@@ -169,6 +170,8 @@ interface ClipLayerProps {
   level: number;
   transition: TransitionType;
   fit: "cover" | "contain" | "blur_pad";
+  /** Filling the frame: the point kept in it, as the render crops. */
+  focus: { x: number; y: number } | null;
 }
 
 /** How the outgoing and incoming pictures look part-way through a transition. */
@@ -264,6 +267,7 @@ const ClipLayer = memo(function ClipLayer({
   level,
   transition,
   fit,
+  focus,
 }: ClipLayerProps) {
   const video = useRef<HTMLVideoElement>(null);
   const clip = entry.clip;
@@ -310,6 +314,9 @@ const ClipLayer = memo(function ClipLayer({
     ...(role === "incoming" ? transitionStyle(transition, mix, "incoming") : {}),
   };
   const objectFit = fit === "cover" ? "object-cover" : "object-contain";
+  // Where a crop sits: the render keeps the same point of the picture in frame.
+  const position: CSSProperties =
+    fit === "cover" && focus ? { objectPosition: `${focus.x * 100}% ${focus.y * 100}%` } : {};
   const backgroundUrl = clip.kind === "image" ? media?.url : media?.posterUrl;
 
   return (
@@ -330,7 +337,7 @@ const ClipLayer = memo(function ClipLayer({
           src={media.url}
           alt={asset?.title ?? "Still"}
           className={`absolute inset-0 size-full ${objectFit}`}
-          style={motionStyle(clip.motion, progress)}
+          style={{ ...position, ...motionStyle(clip.motion, progress) }}
           draggable={false}
         />
       )}
@@ -340,6 +347,7 @@ const ClipLayer = memo(function ClipLayer({
           src={media.url}
           poster={media.posterUrl ?? undefined}
           className={`absolute inset-0 size-full ${objectFit}`}
+          style={position}
           preload="auto"
           playsInline
           muted

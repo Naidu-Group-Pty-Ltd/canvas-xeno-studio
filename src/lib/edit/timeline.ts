@@ -9,7 +9,17 @@
  */
 import { z } from "zod";
 
-export const ASPECT_RATIOS = ["9:16", "1:1", "4:5", "16:9"] as const;
+export const ASPECT_RATIOS = [
+  "9:16",
+  "1:1",
+  "4:5",
+  "16:9",
+  "3:4",
+  "4:3",
+  "2:3",
+  "3:2",
+  "21:9",
+] as const;
 export type AspectRatio = (typeof ASPECT_RATIOS)[number];
 
 export const ASPECT_LABELS: Record<AspectRatio, string> = {
@@ -17,6 +27,11 @@ export const ASPECT_LABELS: Record<AspectRatio, string> = {
   "1:1": "1:1 · Square feed",
   "4:5": "4:5 · Portrait feed",
   "16:9": "16:9 · YouTube, web",
+  "3:4": "3:4 · Portrait",
+  "4:3": "4:3 · Classic landscape",
+  "2:3": "2:3 · Pinterest, posters",
+  "3:2": "3:2 · Photo landscape",
+  "21:9": "21:9 · Cinema widescreen",
 };
 
 export const RESOLUTIONS = ["720p", "1080p"] as const;
@@ -143,6 +158,11 @@ export const clipSchema = z.object({
   speed: finite(0.25, 4).default(1),
   volume: finite(0, 2).default(1),
   fit: z.enum(FITS).nullable().default(null),
+  /** Filling the frame: the point of the picture (0-1 across and down) kept in it; null for the centre. */
+  focus: z
+    .object({ x: finite(0, 1), y: finite(0, 1) })
+    .nullable()
+    .default(null),
   motion: z.enum(MOTIONS).default("none"),
   transition: z
     .object({ type: z.enum(TRANSITION_IDS), duration: finite(0, LIMITS.transitionSeconds) })
@@ -235,21 +255,23 @@ export function newId(): string {
 /* Frame size                                                          */
 /* ------------------------------------------------------------------ */
 
+/** An aspect ratio as width over height. */
+export function aspectQuotient(aspectRatio: AspectRatio): number {
+  const [width, height] = aspectRatio.split(":").map(Number) as [number, number];
+  return width / height;
+}
+
+/** The frame an edit renders at: the short side at its resolution, in even pixels. */
 export function frameSize(
   aspectRatio: AspectRatio,
   resolution: Resolution,
 ): { width: number; height: number } {
   const short = resolution === "720p" ? 720 : 1080;
-  switch (aspectRatio) {
-    case "9:16":
-      return { width: short, height: Math.round((short * 16) / 9) };
-    case "1:1":
-      return { width: short, height: short };
-    case "4:5":
-      return { width: short, height: Math.round((short * 5) / 4) };
-    case "16:9":
-      return { width: Math.round((short * 16) / 9), height: short };
-  }
+  const quotient = aspectQuotient(aspectRatio);
+  const even = (value: number) => 2 * Math.round(value / 2);
+  return quotient <= 1
+    ? { width: short, height: even(short / quotient) }
+    : { width: even(short * quotient), height: short };
 }
 
 /** Best aspect ratio for a set of model or brief values such as "9:16", "portrait" or "1080x1920". */
@@ -264,15 +286,8 @@ export function aspectFromValue(value: unknown): AspectRatio | null {
   if (!ratio) return null;
   const quotient = Number(ratio[1]) / Number(ratio[2]);
   if (!Number.isFinite(quotient) || quotient <= 0) return null;
-  const candidates: [AspectRatio, number][] = [
-    ["9:16", 9 / 16],
-    ["4:5", 4 / 5],
-    ["1:1", 1],
-    ["16:9", 16 / 9],
-  ];
-  return candidates.reduce((best, entry) =>
-    Math.abs(Math.log(entry[1] / quotient)) < Math.abs(Math.log(best[1] / quotient)) ? entry : best,
-  )[0];
+  const gap = (aspect: AspectRatio) => Math.abs(Math.log(aspectQuotient(aspect) / quotient));
+  return ASPECT_RATIOS.reduce((best, aspect) => (gap(aspect) < gap(best) ? aspect : best));
 }
 
 /* ------------------------------------------------------------------ */
@@ -763,6 +778,7 @@ export function buildRenderRequest(timeline: Timeline): {
     speed: clip.kind === "image" ? 1 : clip.speed,
     volume: clip.kind === "image" ? 0 : clip.volume,
     fit: clip.fit ?? timeline.fit,
+    ...(clip.focus ? { focus_x: clip.focus.x, focus_y: clip.focus.y } : {}),
     motion: clip.kind === "image" ? clip.motion : "none",
     transition: {
       type: clip.transition.type,
