@@ -13,14 +13,17 @@ import { defaultsForModel, normalizeOption, type ModelRegistryEntry } from "../m
 import { charactersLine, interleaveSheets, type RunCharacter } from "../characters/model";
 import {
   clipEnd,
+  clipKeyframes,
   clipStart,
   continuationCandidates,
   durationChoices,
   extendsVideo,
   finaleReveals,
   longVideoEligible,
+  startFrameSlot,
   type FinaleMode,
   type PlannedClip,
+  type RunFinale,
   type RunReference,
 } from "./plan";
 
@@ -178,11 +181,15 @@ export function videoAspect(
   return { ratio: 16 / 9, label: "16:9" };
 }
 
-/** Whether a painter can paint frames of this shape (exactly, or within 3%). */
+/**
+ * Whether a painter can paint frames of this shape: exactly, or near enough
+ * that cutting its painting to the frame (as every keyframe is) loses little,
+ * within 8% (a 3:4 painting for a 4:5 video).
+ */
 export function painterFits(model: ModelRegistryEntry, ratio: number): boolean {
   const value = closestAspect(model, ratio);
   const closest = value ? ratioOf(value) : null;
-  return closest !== null && Math.abs(closest / ratio - 1) <= 0.03;
+  return closest !== null && Math.abs(closest / ratio - 1) <= 0.08;
 }
 
 /**
@@ -282,16 +289,33 @@ export function keyframeInputs(input: {
 const STILL_RULES =
   "One photographic still frame from a film, natural detail and lighting, no text, captions, logos, watermarks, borders, frames or split panels.";
 
+/** The most a keyframe's prompt can be stored with. */
+export const KEYFRAME_PROMPT_MAX = 12000;
+
+/** Text cut to `max` characters at a word, marked as cut. */
+function cut(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const slice = text.slice(0, Math.max(0, max - 1));
+  const space = slice.lastIndexOf(" ");
+  return `${(space > max * 0.6 ? slice.slice(0, space) : slice).trimEnd()}…`;
+}
+
 /**
  * What a keyframe is painted from: the moment it shows (the opening moment of
- * the first beat, or the end of a clip's beat), who is in it and where their
- * reference images are, the keyframe before, and what must stay the same.
+ * the first beat, or the end of a clip's beat), what to change from the last
+ * try, who is in it and where their reference images are, the frame, and what
+ * must stay the same. Fitted to what the painter reads: the story goes first,
+ * then the continuity notes, then the characters' descriptions get shorter.
  */
 export function keyframePrompt(input: {
   /** 0 for the opening frame, i for the frame clip i ends on. */
   position: number;
   /** How many keyframes there are. */
   count: number;
+  /** It ends the video's last clip: the video's final moment. */
+  final?: boolean;
+  /** The most the painter reads (null: no limit). */
+  budget?: number | null;
   story: string;
   /** What happens in each clip, by clip. */
   beats: string[];
@@ -311,39 +335,78 @@ export function keyframePrompt(input: {
 }): string {
   const { position, beats, durations } = input;
   const story = input.story.trim();
-  const parts: string[] = [];
-  if (position === 0) {
-    const beat = beats[0]?.trim();
-    parts.push(
-      beat
-        ? `The opening frame of a video, one continuous shot. Show the moment just before this begins: ${beat}`
-        : `The opening frame of a video, one continuous shot.${story ? ` ${story}` : ""}`,
-    );
-  } else {
-    const beat = beats[position - 1]?.trim();
+  const continuity = input.continuity.trim();
+  const beat = (position === 0 ? beats[0] : beats[position - 1])?.trim() ?? "";
+  const final = input.final ?? false;
+
+  let moment: string;
+  if (position === 0)
+    moment = beat
+      ? `The opening frame of a video, one continuous shot. Show the moment just before this begins: ${beat}`
+      : "The opening frame of a video, one continuous shot.";
+  else {
     const seconds = durations[position - 1];
-    const last = position === input.count - 1;
     const when = seconds ? `${Math.round(seconds)} seconds later` : "a few seconds later";
-    parts.push(
-      input.previous
-        ? `Reference image 1 is a frame from earlier in the same continuous shot. Show the frame ${when}${last ? ", the video's final moment" : ""}${beat ? `, as this ends: ${beat}` : story ? `, the story carrying on: ${story}` : ""}. Keep the same place, light, colour and lens as reference image 1; the camera has moved only as the action describes.`
-        : `A frame from a continuous shot${last ? ", the video's final moment" : ""}${beat ? `, as this ends: ${beat}` : story ? `: ${story}` : ""}.`,
-    );
+    moment = input.previous
+      ? `Reference image 1 is a frame from earlier in the same continuous shot. Show the frame ${when}${final ? ", the video's final moment" : ""}${beat ? `, as this ends: ${beat}` : ", the story carrying on"}. Keep the same place, light, colour and lens as reference image 1; the camera has moved only as the action describes.`
+      : `A frame from a continuous shot${final ? ", the video's final moment" : ""}${beat ? `, as this ends: ${beat}` : ""}.`;
   }
-  const people = charactersLine(input.characters, {
-    references: input.characterImages.size > 0,
-    images: input.characterImages,
+  // The story, where the beat doesn't already say what the opening frame shows.
+  const withStory = !!story && (position > 0 || !beat);
+
+  const compose = (options: {
+    storyChars: number | null;
+    keepChars: number | null;
+    descriptionChars: number;
+  }) => {
+    const parts = [moment];
+    if (input.note?.trim()) parts.push(`Change from the last try: ${input.note.trim()}`);
+    const people = charactersLine(input.characters, {
+      references: input.characterImages.size > 0,
+      images: input.characterImages,
+      descriptionChars: options.descriptionChars,
+    });
+    if (people) parts.push(people);
+    if (input.references > 0)
+      parts.push(
+        "Show any product, logo or place from the other reference images exactly as it appears there.",
+      );
+    parts.push(`Frame: ${input.aspect}. ${STILL_RULES}`);
+    if (continuity && options.keepChars !== 0)
+      parts.push(
+        `Keep consistent: ${options.keepChars === null ? continuity : cut(continuity, options.keepChars)}`,
+      );
+    if (withStory && options.storyChars !== 0)
+      parts.push(`Story: ${options.storyChars === null ? story : cut(story, options.storyChars)}`);
+    return parts.join("\n\n");
+  };
+
+  const budget = Math.min(input.budget ?? KEYFRAME_PROMPT_MAX, KEYFRAME_PROMPT_MAX);
+  const full = compose({ storyChars: null, keepChars: null, descriptionChars: 360 });
+  if (full.length <= budget) return full;
+  // Least important first: the story, then the continuity notes, then shorter descriptions.
+  const over = (text: string) => text.length - budget;
+  const room = (text: string, length: number) => Math.max(0, length - over(text));
+  let prompt = compose({
+    storyChars: Math.max(200, room(full, withStory ? story.length : 0)),
+    keepChars: null,
+    descriptionChars: 360,
   });
-  if (people) parts.push(people);
-  if (input.references > 0)
-    parts.push(
-      "Show any product, logo or place from the other reference images exactly as it appears there.",
-    );
-  if (input.continuity.trim()) parts.push(`Keep consistent: ${input.continuity.trim()}`);
-  if (position > 0 && story && beats[position - 1]?.trim()) parts.push(`Story: ${story}`);
-  parts.push(`Frame: ${input.aspect}. ${STILL_RULES}`);
-  if (input.note?.trim()) parts.push(`Change from the last try: ${input.note.trim()}`);
-  return parts.join("\n\n");
+  if (prompt.length <= budget) return prompt;
+  prompt = compose({
+    storyChars: 200,
+    keepChars: Math.max(200, room(prompt, continuity.length)),
+    descriptionChars: 360,
+  });
+  if (prompt.length <= budget) return prompt;
+  for (const descriptionChars of [220, 120]) {
+    prompt = compose({ storyChars: 200, keepChars: 200, descriptionChars });
+    if (prompt.length <= budget) return prompt;
+  }
+  prompt = compose({ storyChars: 0, keepChars: 200, descriptionChars: 120 });
+  if (prompt.length <= budget) return prompt;
+  prompt = compose({ storyChars: 0, keepChars: 0, descriptionChars: 120 });
+  return prompt.length <= budget ? prompt : cut(prompt, budget);
 }
 
 /** How long a keyframed video's clips may be: what its workflow accepts. */
@@ -546,7 +609,8 @@ export function keyframeQuote(input: {
   painter: ModelRegistryEntry;
   /** The painter's settings (painterValues, or as the run keeps them). */
   values: Record<string, unknown>;
-  standIn: string;
+  /** Stands in for the keyframe before (none: priced as painted from text and the sheets). */
+  standIn: string | null;
   characters: RunCharacter[];
   references: RunReference[];
 }): QuoteRequest {
@@ -564,5 +628,148 @@ export function keyframeQuote(input: {
         )
         .map((item) => item.assetId),
     }).inputs,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* A keyframed run's storyboard, planned                               */
+/* ------------------------------------------------------------------ */
+
+/** The person's own opening frame among a run's references (the workflow's start-frame input), if any. */
+export function openingFrameOf(
+  workflow: ModelRegistryEntry | null | undefined,
+  references: RunReference[],
+): RunReference | null {
+  const role = startFrameSlot(workflow)?.role ?? null;
+  return (
+    (role && references.find((item) => item.assetType === "image" && item.role === role)) || null
+  );
+}
+
+export interface KeyframesPlan {
+  painters: ModelRegistryEntry[];
+  painter: ModelRegistryEntry | null;
+  /** The video's shape, as the keyframes are painted. */
+  aspect: { ratio: number; label: string };
+  /** The exact size every keyframe is cut to. */
+  size: { width: number; height: number; format: "png" | "jpg" };
+  /** How many keyframes the storyboard has. */
+  count: number;
+  /** How many of them are painted (and billed): the person's own frames aren't. */
+  painted: number;
+  /** The person's own opening and closing frames, the first and last keyframes. */
+  opening: RunReference | null;
+  closing: RunReference | null;
+  /** Anything that would stop it, said plainly. */
+  issues: string[];
+  /** The image a request is priced with where a frame will go (null: none at all). */
+  standIn: string | null;
+  /** One keyframe as it will be painted, to price it. */
+  quote: QuoteRequest | null;
+}
+
+/**
+ * A keyframed run's storyboard as Create, the Supercomputer and the server
+ * all work it out: who paints it at what exact size, which keyframes are the
+ * person's own frames (never painted), what one costs to paint, and anything
+ * that would stop it. The finisher is never painted from or stood in with.
+ */
+export function planKeyframes(input: {
+  models: ModelRegistryEntry[];
+  painterModelId?: string | null;
+  /** The workflow that makes every clip. */
+  workflow: ModelRegistryEntry;
+  /** The run's settings (its aspect ratio among them). */
+  values: Record<string, unknown>;
+  /** How many clips. */
+  clips: number;
+  finale: RunFinale | null;
+  references: RunReference[];
+  characters: RunCharacter[];
+  /** The person's opening frame's size: undefined while it is still being read. */
+  openingSize?: { width: number | null; height: number | null } | null | undefined;
+}): KeyframesPlan {
+  const finale = input.finale;
+  const finisher = new Set(
+    [finale?.assetId, finale?.frameAssetId, finale?.sourceAssetId].filter(
+      (id): id is string => !!id,
+    ),
+  );
+  const references = input.references.filter((item) => !finisher.has(item.assetId));
+  const issues: string[] = [];
+
+  // The person's own frames: the opening keyframe, and the closing one where
+  // the last clip ends on a keyframe (not when it moves into the end card).
+  const startRole = startFrameSlot(input.workflow)?.role ?? null;
+  const endWay = clipEnd(input.workflow);
+  const opening = openingFrameOf(input.workflow, references);
+  const endImage =
+    (endWay?.kind === "frame" &&
+      references.find((item) => item.assetType === "image" && item.role === endWay.role)) ||
+    null;
+  const count = keyframeCount(input.clips, finale?.mode ?? null);
+  const lastEndsOnKeyframe =
+    input.clips > 0 &&
+    clipKeyframes(input.clips - 1, input.clips, finale?.mode ?? null).end === count - 1;
+  const closing = endImage && lastEndsOnKeyframe ? endImage : null;
+  if (endImage && !lastEndsOnKeyframe)
+    issues.push(
+      "Your end frame wouldn't be used: the video ends by moving into the brand's end card. Take the end frame out, or hold the end card after the last clip instead.",
+    );
+  const painted = Math.max(0, count - (opening ? 1 : 0) - (closing ? 1 : 0));
+
+  // One shape for all of it: the setting, which the opening frame must match.
+  const known =
+    input.openingSize && Number(input.openingSize.width) > 0 && Number(input.openingSize.height) > 0
+      ? input.openingSize
+      : null;
+  if (opening && input.openingSize === undefined) issues.push("Reading your opening frame's size…");
+  const aspect = videoAspect(input.values, opening ? known : null);
+  if (opening && known) {
+    const frame = Number(known.width) / Number(known.height);
+    const set =
+      typeof input.values["aspect_ratio"] === "string" ? input.values["aspect_ratio"] : "";
+    const setRatio = set ? ratioOf(set) : null;
+    if (setRatio && Math.abs(setRatio / frame - 1) > 0.03)
+      issues.push(
+        `Your opening frame is ${known.width}×${known.height}, but the video is set to ${set}: set the aspect ratio to match it, or use another opening frame.`,
+      );
+  }
+  const size = keyframeSize(aspect.ratio, opening ? known : null);
+
+  const choice = choosePainter({
+    models: input.models,
+    painterModelId: input.painterModelId ?? null,
+    // Checked on the shape actually painted.
+    aspect: { ratio: size.width / size.height, label: aspect.label },
+    openingImages: openingHasImages({ startRole, references, characters: input.characters }),
+  });
+  issues.push(...choice.issues);
+  const standIn = standInImage({
+    keyframed: true,
+    startRole,
+    references,
+    characters: input.characters,
+  });
+  return {
+    painters: choice.painters,
+    painter: choice.painter,
+    aspect,
+    size,
+    count,
+    painted,
+    opening,
+    closing,
+    issues,
+    standIn,
+    quote: choice.painter
+      ? keyframeQuote({
+          painter: choice.painter,
+          values: painterValues(choice.painter, size.width / size.height),
+          standIn,
+          characters: input.characters,
+          references,
+        })
+      : null,
   };
 }

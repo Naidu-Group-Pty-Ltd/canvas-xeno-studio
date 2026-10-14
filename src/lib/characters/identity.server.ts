@@ -86,9 +86,11 @@ export async function checkIdentity(input: {
   what: string;
   /** What happens in it, so a change the action calls for (putting a coat on) isn't held against it. */
   beat?: string | null;
+  /** How long the AI may take (at most a minute). */
+  timeoutMs?: number;
 }): Promise<IdentityOutcome> {
-  const characters = input.characters.filter((character) => character.images.length);
-  if (!characters.length)
+  const withImages = input.characters.filter((character) => character.images.length);
+  if (!withImages.length)
     return {
       ok: false,
       code: "NOTHING_TO_CHECK",
@@ -109,27 +111,39 @@ export async function checkIdentity(input: {
     };
 
   // The characters' best views, then the frames, each numbered in the prompt.
-  const sheetIds = characters.flatMap((character) =>
+  const sheetIds = withImages.flatMap((character) =>
     character.images.slice(0, SHEET_IMAGES_PER_CHARACTER).map((image) => image.assetId),
   );
-  const { data: assets } = await supabaseAdmin
+  const { data: assets, error: assetsError } = await supabaseAdmin
     .from("assets")
     .select("id,storage_bucket,storage_path")
     .in("id", sheetIds)
     .is("deleted_at", null);
-  const urls: string[] = [];
-  const lines: string[] = [];
-  for (const [index, character] of characters.entries()) {
-    const numbers: string[] = [];
+  if (assetsError)
+    return { ok: false, code: "NO_FRAMES", message: assetsError.message, retryable: true };
+  // Only characters with an image that could be read are compared: one with
+  // none can't be judged, so it never stops the run.
+  const sheets: { character: RunCharacter; urls: { url: string; view: string }[] }[] = [];
+  for (const character of withImages) {
+    const found: { url: string; view: string }[] = [];
     for (const image of character.images.slice(0, SHEET_IMAGES_PER_CHARACTER)) {
       const asset = (assets ?? []).find((row) => row.id === image.assetId);
       const url = asset ? await signed(asset.storage_bucket, asset.storage_path) : null;
-      if (!url) continue;
-      urls.push(url);
-      numbers.push(`image ${urls.length} (${VIEW_LABELS[image.view].toLowerCase()})`);
+      if (url) found.push({ url, view: VIEW_LABELS[image.view].toLowerCase() });
+    }
+    if (found.length) sheets.push({ character, urls: found });
+  }
+  const characters = sheets.map((entry) => entry.character);
+  const urls: string[] = [];
+  const lines: string[] = [];
+  for (const [index, entry] of sheets.entries()) {
+    const numbers: string[] = [];
+    for (const image of entry.urls) {
+      urls.push(image.url);
+      numbers.push(`image ${urls.length} (${image.view})`);
     }
     lines.push(
-      `CHARACTER ${index + 1}: ${character.name}${character.description ? ` — ${character.description}` : ""}\nReference images: ${numbers.length ? numbers.join(", ") : "none could be read"}`,
+      `CHARACTER ${index + 1}: ${entry.character.name}${entry.character.description ? ` — ${entry.character.description}` : ""}\nReference images: ${numbers.join(", ")}`,
     );
   }
   const firstFrame = urls.length + 1;
@@ -174,7 +188,7 @@ export async function checkIdentity(input: {
     model: route.model,
     images: urls,
     // Well inside the lease a check is run under, so a slow answer is never written twice.
-    timeoutMs: 60_000,
+    timeoutMs: Math.min(60_000, Math.max(5_000, input.timeoutMs ?? 60_000)),
   });
   if (!result.ok || !result.data)
     return {
@@ -186,7 +200,7 @@ export async function checkIdentity(input: {
       ),
     };
 
-  const verdicts: CharacterVerdict[] = characters.map((character, index) => {
+  const judged: CharacterVerdict[] = characters.map((character, index) => {
     const entry = (result.data?.characters ?? []).find(
       (item) => Number(item.character) === index + 1,
     );
@@ -206,6 +220,16 @@ export async function checkIdentity(input: {
       differences: verdict === "same" || verdict === "not_visible" ? [] : differences,
     };
   });
+  // Those whose images couldn't be read are listed as not seen.
+  const verdicts: CharacterVerdict[] = input.characters.map(
+    (character) =>
+      judged.find((entry) => entry.characterId === character.id) ?? {
+        characterId: character.id,
+        name: character.name,
+        verdict: "not_visible",
+        differences: [],
+      },
+  );
   const changed = verdicts.filter((entry) => entry.verdict === "different");
   return {
     ok: true,

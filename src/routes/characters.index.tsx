@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Fingerprint, Loader2, Plus, UserRound } from "lucide-react";
@@ -20,7 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
-import { characterCover, useCharacters } from "@/hooks/useCharacters";
+import { characterCover, useCharacters, CharactersNotSetUp } from "@/hooks/useCharacters";
 import { createCharacter } from "@/lib/characters.functions";
 import { CHARACTER_LIMITS } from "@/lib/characters/model";
 import { soulSummary } from "@/components/characters/labels";
@@ -50,10 +50,13 @@ function CharactersPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
-  const missingTables = isMissingTableError(error);
+  // One character per press (Enter pressed twice, or Enter then a click).
+  const lock = useRef(false);
+  const missingTables = error instanceof CharactersNotSetUp || isMissingTableError(error);
 
   async function create() {
-    if (!name.trim()) return;
+    if (!name.trim() || lock.current) return;
+    lock.current = true;
     setSaving(true);
     try {
       const { id } = await createCharacter({ data: { name, description } });
@@ -65,6 +68,7 @@ function CharactersPage() {
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "The character couldn't be created");
     } finally {
+      lock.current = false;
       setSaving(false);
     }
   }

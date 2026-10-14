@@ -157,8 +157,14 @@ function CharacterEditor({ character, canEdit }: { character: CharacterEntry; ca
                   size="sm"
                   variant="outline"
                   className="h-8"
-                  disabled={busy !== null || character.images.length === 0}
-                  title={character.images.length ? undefined : "Add images of the character first"}
+                  disabled={busy !== null || character.images.length === 0 || descriptionChanged}
+                  title={
+                    !character.images.length
+                      ? "Add images of the character first"
+                      : descriptionChanged
+                        ? "Save or undo your changes to their look first"
+                        : undefined
+                  }
                   onClick={() =>
                     void run(
                       "describe",

@@ -28,6 +28,26 @@ const now = () => new Date().toISOString();
 /** Images the provider can take as references (and train a Soul ID on). */
 const IMAGE_MIME = /^image\/(jpe?g|png|webp|gif)$/;
 
+/**
+ * Where the studio's own images live (uploads, and results). Nothing else is
+ * read on a character's behalf: the server reads with full access, so a file
+ * of another feature's (another person's training media) must never get in.
+ */
+const STUDIO_BUCKETS = new Set(["generation-inputs", "generated-assets"]);
+
+/** An image a character can use: one the provider takes, from the studio's own files. */
+function usableImage(asset: {
+  asset_type: string;
+  mime_type: string | null;
+  storage_bucket: string;
+}): boolean {
+  return (
+    asset.asset_type === "image" &&
+    (!asset.mime_type || IMAGE_MIME.test(asset.mime_type)) &&
+    STUDIO_BUCKETS.has(asset.storage_bucket)
+  );
+}
+
 const TABLES_MISSING =
   "Characters need a database update (migration 0011_characters_and_keyframes). Ask an admin to apply it.";
 
@@ -120,6 +140,10 @@ interface ImageRow {
   position: number;
 }
 
+/**
+ * A character's images, in order: only those still in the library (an image
+ * deleted there is left out everywhere, and doesn't count against the limits).
+ */
 async function imagesOf(characterId: string): Promise<ImageRow[]> {
   const { data, error } = await db
     .from("character_images")
@@ -127,7 +151,19 @@ async function imagesOf(characterId: string): Promise<ImageRow[]> {
     .eq("character_id", characterId)
     .order("position");
   if (error) fail(error, "The character's images couldn't be read");
-  return data ?? [];
+  const rows = data ?? [];
+  if (!rows.length) return [];
+  const { data: live, error: liveError } = await db
+    .from("assets")
+    .select("id")
+    .in(
+      "id",
+      rows.map((row) => row.asset_id),
+    )
+    .is("deleted_at", null);
+  if (liveError) fail(liveError, "The character's images couldn't be read");
+  const ids = new Set((live ?? []).map((asset) => asset.id));
+  return rows.filter((row) => ids.has(row.asset_id));
 }
 
 const ROLE_LIMIT: Record<CharacterImageRole, number> = {
@@ -153,7 +189,7 @@ export async function addCharacterImages(input: {
 
   const { data: assets, error } = await db
     .from("assets")
-    .select("id,asset_type,mime_type,title")
+    .select("id,asset_type,mime_type,title,storage_bucket")
     .in(
       "id",
       wanted.map((image) => image.assetId),
@@ -169,6 +205,11 @@ export async function addCharacterImages(input: {
       throw new AppError(
         "INVALID_PARAMETERS",
         `${asset.title ?? "An image"} is ${asset.mime_type}; use a JPEG, PNG, WebP or GIF`,
+      );
+    if (!usableImage(asset))
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        `${asset.title ?? "That image"} isn't one of the studio's own files; upload it, or use one from the library`,
       );
   }
   for (const role of CHARACTER_IMAGE_ROLES) {
@@ -323,13 +364,16 @@ async function withSheets(
   rows: { id: string; name: string; description: string }[],
 ): Promise<RunCharacter[]> {
   if (!rows.length) return [];
+  // Only the sheets (a run never sends training photos): at most 12 a character.
   const { data: images, error: imagesError } = await db
     .from("character_images")
     .select("character_id,asset_id,role,view,position")
     .in(
       "character_id",
       rows.map((row) => row.id),
-    );
+    )
+    .eq("role", "sheet")
+    .order("position");
   if (imagesError) fail(imagesError, "The characters' images couldn't be read");
   const assetIds = [...new Set((images ?? []).map((row) => row.asset_id))];
   const live = new Set<string>();
@@ -337,11 +381,11 @@ async function withSheets(
   for (let start = 0; start < assetIds.length; start += 150) {
     const { data: assets, error: assetsError } = await db
       .from("assets")
-      .select("id,asset_type")
+      .select("id,asset_type,mime_type,storage_bucket")
       .in("id", assetIds.slice(start, start + 150))
       .is("deleted_at", null);
     if (assetsError) fail(assetsError, "The characters' images couldn't be read");
-    for (const asset of assets ?? []) if (asset.asset_type === "image") live.add(asset.id);
+    for (const asset of assets ?? []) if (usableImage(asset)) live.add(asset.id);
   }
   return rows.map((row) =>
     runCharacter({
@@ -379,8 +423,9 @@ export async function charactersForAgent(limit = 40): Promise<CharacterSummary[]
   const sheets = await withSheets(rows ?? []);
   return (rows ?? []).flatMap((row) => {
     const sheet = sheets.find((entry) => entry.id === row.id);
+    // The Soul ID in use (a newer one may be training, or have failed).
     const soul =
-      row.soul_status === "ready" && row.soul_reference_id && row.soul_model_version
+      row.soul_reference_id && row.soul_model_version
         ? { version: row.soul_model_version as SoulVersion, referenceId: row.soul_reference_id }
         : null;
     return sheet && (sheet.images.length || soul) ? [{ ...sheet, soul }] : [];
@@ -449,7 +494,7 @@ export async function describeCharacter(
   const agent = await import("../supercomputer/agent.server");
   const sources = ordered.flatMap((row) => {
     const asset = (assets ?? []).find((entry) => entry.id === row.asset_id);
-    const source = asset ? agent.visionSourceFor(asset) : null;
+    const source = asset && usableImage(asset) ? agent.visionSourceFor(asset) : null;
     return source ? [source] : [];
   });
   const vision = await agent.signVisionSources(sources);
@@ -517,14 +562,57 @@ export async function describeCharacter(
 const UNSENT_STALE_MS = 15 * 60_000;
 /** A start whose request went out but never came back (the server stopped mid-call) is uncertain after this long. */
 const SENT_STALE_MS = 3 * 60_000;
+/** A training Higgsfield hasn't finished in this long is no longer waited on (it may still finish). */
+const TRAINING_STALE_MS = 6 * 60 * 60_000;
 /** How often a training is asked about, at most. */
 const CHECK_EVERY_MS = 45_000;
+
+type CharacterUpdate = Database["public"]["Tables"]["characters"]["Update"];
+
+/**
+ * Writes what a training request came to, to its own row only (its request
+ * key), tried again a few times: the answer to a billed request must not be
+ * lost to a passing database error. Logged either way, so it can be found.
+ */
+async function settleTraining(
+  characterId: string,
+  key: string,
+  patch: CharacterUpdate,
+): Promise<void> {
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const { error } = await db
+      .from("characters")
+      .update(patch)
+      .eq("id", characterId)
+      .eq("soul_request_key", key);
+    if (!error) {
+      console.info("soul id training settled", {
+        characterId,
+        key,
+        status: patch.soul_status,
+        trainingId: patch.soul_training_id,
+      });
+      return;
+    }
+    if (attempt === 3) {
+      console.error("soul id training result not saved", {
+        characterId,
+        key,
+        patch,
+        message: error.message,
+      });
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+  }
+}
 
 /**
  * Trains a Soul ID on the character's images (sheet and training photos).
  * Billed by Higgsfield. Started once per request: a start whose answer was
  * unclear is never repeated on its own, as it may already be training (and
- * charging); a person confirms before it is tried again.
+ * charging); a person confirms before it is tried again. The Soul ID in use
+ * stays in use until the new one is ready, and after a training that fails.
  */
 export async function trainSoulId(input: {
   characterId: string;
@@ -562,47 +650,41 @@ export async function trainSoulId(input: {
   const usable = images
     .flatMap((row) => {
       const asset = (assets ?? []).find((entry) => entry.id === row.asset_id);
-      return asset &&
-        asset.asset_type === "image" &&
-        (!asset.mime_type || IMAGE_MIME.test(asset.mime_type))
-        ? [asset]
-        : [];
+      return asset && usableImage(asset) ? [asset] : [];
     })
     .slice(0, CHARACTER_LIMITS.soulMaxImages);
   if (usable.length < CHARACTER_LIMITS.soulMinImages)
     throw new AppError("INVALID_PARAMETERS", "Add images of the character before training");
 
-  // Claimed first, under a key of its own: a second click (or a second
-  // person) finds it taken, and the provider sees the same key on a repeat.
+  // Claimed first, under a key of its own, from exactly the training it
+  // follows: a second click (or a second person) finds it taken, and the
+  // provider sees the same key on a repeat.
   const key = crypto.randomUUID();
-  const { data: claimed, error: claimError } = await db
+  const claim = db
     .from("characters")
     .update({
       soul_status: "submitting",
       soul_request_key: key,
-      soul_model_version: input.version,
-      soul_reference_id: null,
+      soul_training_version: input.version,
+      soul_training_id: null,
       soul_error: null,
       soul_requested_at: now(),
       soul_submitted_at: null,
       soul_checked_at: null,
-      soul_ready_at: null,
       soul_image_count: usable.length,
     })
     .eq("id", input.characterId)
-    .eq("soul_status", character.soul_status)
-    .select("id");
+    .eq("soul_status", character.soul_status);
+  const { data: claimed, error: claimError } = await (
+    character.soul_request_key
+      ? claim.eq("soul_request_key", character.soul_request_key)
+      : claim.is("soul_request_key", null)
+  ).select("id");
   if (claimError) fail(claimError, "The training couldn't be recorded");
   if (!claimed?.length)
     throw new AppError("INVALID_PARAMETERS", "Someone just started training this character");
 
-  const settle = async (patch: Database["public"]["Tables"]["characters"]["Update"]) => {
-    await db
-      .from("characters")
-      .update(patch)
-      .eq("id", input.characterId)
-      .eq("soul_request_key", key);
-  };
+  const settle = (patch: CharacterUpdate) => settleTraining(input.characterId, key, patch);
 
   // The images go up to Higgsfield first; nothing is billed if that fails.
   let urls: string[];
@@ -666,27 +748,35 @@ export async function trainSoulId(input: {
   }
   const reference = readCustomReference(call.data);
   if (!reference) {
+    // Kept as Higgsfield said it, so the training can be found there.
     await settle({
       soul_status: "uncertain",
-      soul_error: "Higgsfield accepted the training but didn't say which character it made.",
+      soul_error: `Higgsfield accepted the training but didn't say which character it made. Its answer: ${call.raw.slice(0, 500)}`,
     });
     return { status: "uncertain" };
   }
-  const state =
-    reference.state === "ready" ? "ready" : reference.state === "failed" ? "failed" : "training";
   await settle({
-    soul_status: state,
-    soul_reference_id: reference.id,
+    soul_training_id: reference.id,
     soul_checked_at: now(),
-    ...(state === "ready" ? { soul_ready_at: now() } : {}),
-    ...(state === "failed"
-      ? { soul_error: reference.message ?? "Higgsfield couldn't train it" }
-      : {}),
+    ...(reference.state === "ready"
+      ? {
+          soul_status: "ready",
+          soul_reference_id: reference.id,
+          soul_model_version: input.version,
+          soul_ready_at: now(),
+        }
+      : reference.state === "failed"
+        ? { soul_status: "failed", soul_error: reference.message ?? "Higgsfield couldn't train it" }
+        : { soul_status: "training" }),
   });
-  return { status: state };
+  return { status: reference.state };
 }
 
-/** Asks Higgsfield how a character's training is going, at most every so often. */
+/**
+ * Asks Higgsfield how a character's training is going, at most every so
+ * often; a ready one becomes the Soul ID in use. Starts cut short are
+ * settled, and a training that never finishes stops being waited on.
+ */
 export async function refreshSoulId(
   characterId: string,
   options: { force?: boolean } = {},
@@ -694,12 +784,24 @@ export async function refreshSoulId(
   const { data: row, error } = await db
     .from("characters")
     .select(
-      "id,soul_status,soul_reference_id,soul_checked_at,soul_requested_at,soul_submitted_at,soul_request_key",
+      "id,soul_status,soul_training_id,soul_training_version,soul_model_version,soul_checked_at,soul_requested_at,soul_submitted_at,soul_request_key",
     )
     .eq("id", characterId)
     .maybeSingle();
   if (error) fail(error, "The character couldn't be read");
   if (!row) throw new AppError("INVALID_PARAMETERS", "That character no longer exists");
+  // Every write below is to this training only (its key and state as read).
+  const fenced = <
+    T extends {
+      eq: (column: "soul_request_key", value: string) => T;
+      is: (column: "soul_request_key", value: null) => T;
+    },
+  >(
+    query: T,
+  ) =>
+    row.soul_request_key
+      ? query.eq("soul_request_key", row.soul_request_key)
+      : query.is("soul_request_key", null);
 
   if (row.soul_status === "submitting") {
     // A start cut short (the server stopped mid-call). Before its request went
@@ -707,7 +809,7 @@ export async function refreshSoulId(
     const sent = row.soul_submitted_at;
     const since = Date.now() - new Date(sent ?? row.soul_requested_at ?? 0).getTime();
     if (since <= (sent ? SENT_STALE_MS : UNSENT_STALE_MS)) return { status: "submitting" };
-    const settle = db
+    const update = db
       .from("characters")
       .update(
         sent
@@ -724,10 +826,30 @@ export async function refreshSoulId(
       )
       .eq("id", characterId)
       .eq("soul_status", "submitting");
-    await (row.soul_request_key ? settle.eq("soul_request_key", row.soul_request_key) : settle);
+    // Only as it was read: a start marked sent meanwhile is not failed as unsent.
+    const { data: settled } = await fenced(
+      sent ? update.not("soul_submitted_at", "is", null) : update.is("soul_submitted_at", null),
+    ).select("id");
+    if (!settled?.length) return { status: "submitting" };
     return { status: sent ? "uncertain" : "failed" };
   }
-  if (row.soul_status !== "training" || !row.soul_reference_id) return { status: row.soul_status };
+  if (row.soul_status !== "training" || !row.soul_training_id) return { status: row.soul_status };
+
+  const started = new Date(row.soul_submitted_at ?? row.soul_requested_at ?? 0).getTime();
+  if (Date.now() - started > TRAINING_STALE_MS) {
+    const { data: settled } = await fenced(
+      db
+        .from("characters")
+        .update({
+          soul_status: "uncertain",
+          soul_error:
+            "Higgsfield hasn't finished this training in 6 hours, so it is no longer waited on. Check Higgsfield before training again.",
+        })
+        .eq("id", characterId)
+        .eq("soul_status", "training"),
+    ).select("id");
+    return { status: settled?.length ? "uncertain" : "training" };
+  }
   if (
     !options.force &&
     row.soul_checked_at &&
@@ -736,44 +858,55 @@ export async function refreshSoulId(
     return { status: "training" };
 
   const { getCustomReference, readCustomReference } = await import("../higgsfield/provider.server");
-  const call = await getCustomReference(row.soul_reference_id);
+  const call = await getCustomReference(row.soul_training_id);
   if (!call.ok) {
-    await db
-      .from("characters")
-      .update({ soul_checked_at: now() })
-      .eq("id", characterId)
-      .eq("soul_status", "training");
-    if (call.status === 404) {
-      await db
+    // A training Higgsfield says it doesn't have may be a passing fault on
+    // its side: a person checks before it is trained (and charged) again.
+    await fenced(
+      db
         .from("characters")
-        .update({
-          soul_status: "failed",
-          soul_error: "Higgsfield no longer has this training",
-        })
+        .update(
+          call.status === 404
+            ? {
+                soul_checked_at: now(),
+                soul_status: "uncertain",
+                soul_error:
+                  "Higgsfield says it has no such training. Check Higgsfield before training again.",
+              }
+            : { soul_checked_at: now() },
+        )
         .eq("id", characterId)
-        .eq("soul_status", "training");
-      return { status: "failed" };
-    }
-    return { status: "training" };
+        .eq("soul_status", "training"),
+    );
+    return { status: call.status === 404 ? "uncertain" : "training" };
   }
   const reference = readCustomReference(call.data);
   const state = reference?.state ?? "training";
-  await db
-    .from("characters")
-    .update({
-      soul_checked_at: now(),
-      ...(state === "ready"
-        ? { soul_status: "ready", soul_ready_at: now(), soul_error: null }
-        : {}),
-      ...(state === "failed"
-        ? {
-            soul_status: "failed",
-            soul_error: reference?.message ?? "Higgsfield couldn't train it",
-          }
-        : {}),
-    })
-    .eq("id", characterId)
-    .eq("soul_status", "training");
+  await fenced(
+    db
+      .from("characters")
+      .update({
+        soul_checked_at: now(),
+        // Ready: it becomes the Soul ID in use.
+        ...(state === "ready"
+          ? {
+              soul_status: "ready",
+              soul_reference_id: row.soul_training_id,
+              soul_model_version: row.soul_training_version ?? row.soul_model_version,
+              soul_ready_at: now(),
+              soul_error: null,
+            }
+          : {}),
+        ...(state === "failed"
+          ? {
+              soul_status: "failed",
+              soul_error: reference?.message ?? "Higgsfield couldn't train it",
+            }
+          : {}),
+      })
+      .eq("id", characterId)
+      .eq("soul_status", "training"),
+  );
   return { status: state };
 }
 

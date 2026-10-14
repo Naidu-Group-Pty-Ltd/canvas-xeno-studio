@@ -88,6 +88,7 @@ Long videos
 
 Characters
 - CHARACTERS lists the team's recurring people and mascots: each has reference images and a description of their look, and some have a Soul ID. When a draft shows one of them, put their id in the draft's "character_ids" (at most 4) and call them by name in the prompt and in a long video's beats. Don't describe their face, hair, build or clothes: the studio adds their look from their description and sends their images.
+- With characters, a long video's every clip runs "long_video.with_characters_clip_seconds" where the model lists it (write the beats for that many clips).
 - A long video keeps them the same from the first frame to the last: their images go with the clips and, where the model can, the frame each clip ends on is painted first (keyframes, which the user looks over before the clips are made), and every clip is checked against their images before the next is made. Write a beat for every clip, name who is in it, and end each beat with their faces clearly visible (not turned away, hidden or tiny). Leave "long_video.keyframes" unset; set it to false only when the user asks for no keyframes or no storyboard.
 - For a single image or clip, choose a model whose inputs take several images (the studio sends their images there), or, for a person, a Soul model on which their Soul ID is trained (CHARACTERS says which).
 - A character id is only ever for "character_ids", never a setting or a reference. Anyone not in CHARACTERS is described in the prompt like any other subject.
@@ -384,14 +385,25 @@ export function compactCatalogue(
       parameters: fields.map(compactField).filter(Boolean),
     };
     if (!options.longVideo || !longVideoEligible(model)) return entry;
-    // How long its clips run in a long video, as the plan will make them.
+    // How long its clips run in a long video, as the plan will make them; with
+    // characters every clip is made by its keyframe workflow, whose lengths
+    // can differ.
     const continuation = draftContinuation(model, models, []);
     const clips = continuation ? draftLongestClips(model, continuation) : null;
+    const workflow = keyframeWorkflow(model, models);
+    const keyframeClips = workflow ? draftLongestClips(workflow, workflow) : null;
     return {
       ...entry,
       max_clip_seconds: Math.max(...durationChoices(model)),
       long_video: clips
-        ? { first_clip_seconds: clips.first, later_clip_seconds: clips.later }
+        ? {
+            first_clip_seconds: clips.first,
+            later_clip_seconds: clips.later,
+            ...(keyframeClips &&
+            (keyframeClips.first !== clips.first || keyframeClips.later !== clips.later)
+              ? { with_characters_clip_seconds: keyframeClips.later }
+              : {}),
+          }
         : false,
     };
   });

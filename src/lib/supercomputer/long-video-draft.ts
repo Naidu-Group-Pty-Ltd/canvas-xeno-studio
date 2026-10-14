@@ -27,15 +27,9 @@ import {
   type RunReference,
 } from "../long-video/plan";
 import {
-  choosePainter,
   clipQuote,
-  keyframeCount,
-  keyframeQuote,
   keyframeWorkflow,
-  openingHasImages,
-  painterValues,
-  standInImage,
-  videoAspect,
+  planKeyframes,
   type QuoteRequest,
 } from "../long-video/keyframes";
 import type { DraftLongVideo, DraftReference } from "./types";
@@ -64,7 +58,9 @@ export interface DraftLongVideoPlan {
   keyframed: boolean;
   /** The image model that paints them. */
   painter: ModelRegistryEntry | null;
+  /** How many keyframes, and how many are painted (the person's own frames aren't). */
   keyframeCount: number;
+  paintedKeyframes: number;
   /** The first clip as it will be sent (a stand-in image where a frame goes), to price it. */
   quote: QuoteRequest | null;
   /** One keyframe as it will be painted, to price it. */
@@ -121,6 +117,11 @@ export function planDraftLongVideo(input: {
   references: DraftReference[];
   /** The draft's characters, as they are now. */
   characters?: RunCharacter[];
+  /**
+   * The size of the draft's own opening frame (its start-frame reference),
+   * "reading" while it's being read; unset when it isn't known (not checked).
+   */
+  openingSize?: { width: number | null; height: number | null } | null | "reading";
 }): DraftLongVideoPlan {
   const { model, models, longVideo, values, references } = input;
   const characters = input.characters ?? [];
@@ -195,17 +196,28 @@ export function planDraftLongVideo(input: {
       : issue.message,
   );
 
-  // The keyframes: painted at the video's shape by the best image model on.
-  const startRole = startFrameSlot(first)?.role ?? null;
-  const aspect = videoAspect(values);
-  const choice = choosePainter({
-    models,
-    aspect,
-    openingImages: openingHasImages({ startRole, references: runReferences, characters }),
-  });
-  const painter = keyframed ? choice.painter : null;
-  if (keyframed) issues.push(...choice.issues);
-  const standIn = standInImage({ keyframed, startRole, references: runReferences, characters });
+  // The keyframes: painted at the video's shape by the best image model on,
+  // planned exactly as Create and the server plan them.
+  const storyboard =
+    keyframed && workflow
+      ? planKeyframes({
+          models,
+          workflow,
+          values,
+          clips: planned.length,
+          finale,
+          references: runReferences,
+          characters,
+          openingSize: input.openingSize === "reading" ? undefined : (input.openingSize ?? null),
+        })
+      : null;
+  if (storyboard) issues.push(...storyboard.issues);
+  // With keyframes and no image at all to stand in for clip 1's frames, the
+  // runner prices the model's own clip instead (about the same).
+  const quote =
+    planned[0] && !(storyboard && !storyboard.standIn)
+      ? clipQuote(planned[0], storyboard?.standIn ?? null)
+      : null;
   const capped =
     durations.length >= LONG_VIDEO_LIMITS.maxClips && total + 0.5 < longVideo.targetSeconds;
   return {
@@ -221,18 +233,10 @@ export function planDraftLongVideo(input: {
     characters,
     workflow,
     keyframed,
-    painter,
-    keyframeCount: keyframed ? keyframeCount(planned.length, finale?.mode ?? null) : 0,
-    quote: planned[0] ? clipQuote(planned[0], standIn) : null,
-    keyframeQuote:
-      painter && standIn
-        ? keyframeQuote({
-            painter,
-            values: painterValues(painter, aspect.ratio),
-            standIn,
-            characters,
-            references: runReferences,
-          })
-        : null,
+    painter: storyboard?.painter ?? null,
+    keyframeCount: storyboard?.count ?? 0,
+    paintedKeyframes: storyboard?.painted ?? 0,
+    quote,
+    keyframeQuote: storyboard?.quote ?? null,
   };
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { AlertTriangle, CheckCircle2, Fingerprint, Loader2 } from "lucide-react";
@@ -49,12 +49,22 @@ export function SoulIdPanel({
   canEdit: boolean;
 }) {
   const queryClient = useQueryClient();
-  const [version, setVersion] = useState<SoulVersion>(character.soul_model_version ?? "v2");
+  const [version, setVersion] = useState<SoulVersion>(
+    character.soul_training_version ?? character.soul_model_version ?? "v2",
+  );
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
+  // One training per click: a second click while the first is on its way does nothing.
+  const lock = useRef(false);
   const status = character.soul_status;
   const images = character.images.length;
   const active = status === "training" || status === "submitting";
+  // The Soul ID in use: it stays in use while a new one trains, and if that fails.
+  const inUse =
+    character.soul_reference_id && character.soul_model_version
+      ? character.soul_model_version
+      : null;
+  const trainingVersion = character.soul_training_version ?? character.soul_model_version;
 
   // While it trains, Higgsfield is asked now and then (the server keeps asking too).
   useEffect(() => {
@@ -68,6 +78,8 @@ export function SoulIdPanel({
   }, [active, character.id, queryClient]);
 
   async function train() {
+    if (lock.current) return;
+    lock.current = true;
     setConfirming(false);
     setBusy(true);
     try {
@@ -82,6 +94,7 @@ export function SoulIdPanel({
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "The training couldn't be started");
     } finally {
+      lock.current = false;
       setBusy(false);
       void queryClient.invalidateQueries({ queryKey: ["characters"] });
     }
@@ -101,45 +114,55 @@ export function SoulIdPanel({
         </div>
       </div>
 
-      <div className="rounded-md bg-muted/40 px-3 py-2 text-xs" data-testid="character-soul-status">
-        {status === "ready" && (
+      <div
+        className="space-y-1.5 rounded-md bg-muted/40 px-3 py-2 text-xs"
+        data-testid="character-soul-status"
+      >
+        {inUse && (
           <p className="flex items-center gap-1.5">
-            <CheckCircle2 className="size-3.5 text-success" />
-            Ready for{" "}
-            {character.soul_model_version
-              ? SOUL_VERSION_LABELS[character.soul_model_version]
-              : "Soul"}
-            {character.soul_ready_at
-              ? `, trained ${formatDistanceToNow(new Date(character.soul_ready_at), { addSuffix: true })}`
-              : ""}
-            . Pick {character.name} under Character on that model in Create.
+            <CheckCircle2 className="size-3.5 shrink-0 text-success" />
+            <span>
+              Ready for {SOUL_VERSION_LABELS[inUse]}
+              {character.soul_ready_at
+                ? `, trained ${formatDistanceToNow(new Date(character.soul_ready_at), { addSuffix: true })}`
+                : ""}
+              . Pick {character.name} under Character on that model in Create.
+            </span>
           </p>
         )}
         {active && (
           <p className="flex items-center gap-1.5">
-            <Loader2 className="size-3.5 animate-spin" />
-            Training on {character.soul_image_count ?? images} images
-            {character.soul_model_version
-              ? ` for ${SOUL_VERSION_LABELS[character.soul_model_version]}`
-              : ""}
-            . This usually takes a few minutes; you can leave this page.
+            <Loader2 className="size-3.5 shrink-0 animate-spin" />
+            <span>
+              Training on {character.soul_image_count ?? images} images
+              {trainingVersion ? ` for ${SOUL_VERSION_LABELS[trainingVersion]}` : ""}. This usually
+              takes a few minutes; you can leave this page.
+              {inUse ? " The Soul ID above stays in use until the new one is ready." : ""}
+            </span>
           </p>
         )}
         {status === "failed" && (
           <p className="flex items-start gap-1.5 text-warning">
             <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-            {character.soul_error ?? "The training failed."}
+            <span>
+              {inUse ? "The last training failed: " : ""}
+              {character.soul_error ?? "The training failed."}
+              {inUse ? " The Soul ID in use is unchanged." : ""}
+            </span>
           </p>
         )}
         {status === "uncertain" && (
           <p className="flex items-start gap-1.5 text-warning">
             <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-            {character.soul_error ??
-              "Higgsfield's answer was unclear, so the training may or may not have started."}{" "}
-            Check Higgsfield before training again, or it may be charged twice.
+            <span>
+              {character.soul_error ??
+                "Higgsfield's answer was unclear, so the training may or may not have started."}{" "}
+              Check Higgsfield before training again, or it may be charged twice.
+              {inUse ? " The Soul ID in use is unchanged." : ""}
+            </span>
           </p>
         )}
-        {status === "none" && (
+        {!inUse && status === "none" && (
           <p className="text-muted-foreground">
             Not trained. Best with 10–20 varied, sharp photos of the face (at least{" "}
             {CHARACTER_LIMITS.soulRecommendedImages}); this character has {images}.
@@ -166,18 +189,14 @@ export function SoulIdPanel({
           </div>
           <Button
             size="sm"
-            variant={status === "ready" ? "outline" : "default"}
+            variant={inUse ? "outline" : "default"}
             className="h-9"
             disabled={busy || images < CHARACTER_LIMITS.soulMinImages}
             onClick={() => setConfirming(true)}
             data-testid="character-train-soul"
           >
             {busy && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
-            {status === "ready"
-              ? "Train again"
-              : status === "uncertain"
-                ? "Train anyway"
-                : "Train Soul ID"}
+            {status === "uncertain" ? "Train anyway" : inUse ? "Train again" : "Train Soul ID"}
           </Button>
           <p className="basis-full text-[11px] text-muted-foreground">{VERSION_HINTS[version]}</p>
         </div>
@@ -194,7 +213,9 @@ export function SoulIdPanel({
               {images < CHARACTER_LIMITS.soulRecommendedImages
                 ? ` With fewer than ${CHARACTER_LIMITS.soulRecommendedImages} images the likeness is weaker.`
                 : ""}
-              {status === "ready" ? " The new Soul ID replaces the current one." : ""}
+              {inUse
+                ? " The new Soul ID replaces the one in use once it's ready; if the training fails, the one in use stays."
+                : ""}
               {status === "uncertain"
                 ? " The last training's answer was unclear: if it did start, this trains (and charges) again."
                 : ""}
@@ -202,7 +223,15 @@ export function SoulIdPanel({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void train()}>Train</AlertDialogAction>
+            <AlertDialogAction
+              disabled={busy}
+              onClick={(event) => {
+                event.preventDefault();
+                void train();
+              }}
+            >
+              Train
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

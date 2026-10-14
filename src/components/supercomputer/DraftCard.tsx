@@ -126,11 +126,27 @@ export function DraftCard({
   );
   const roles = draft.references.map((ref) => ref.role);
   // A long video: the prompt is its story, and the plan sets each clip's length.
-  // Planned as the runner will quote and start it.
-  const { longPlan: planLong } = runner;
+  // Planned as the runner will quote and start it, with its opening frame's
+  // shape (a keyframed video takes it).
+  const { longPlan: planLong, openingFrame } = runner;
+  const openingId = runnable.longVideo ? openingFrame(runnable, draft.references) : null;
+  const { data: openingSize } = useQuery({
+    queryKey: ["asset-size", openingId],
+    enabled: !!openingId,
+    staleTime: Infinity,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("assets")
+        .select("width,height")
+        .eq("id", openingId!)
+        .maybeSingle();
+      return data ?? null;
+    },
+  });
   const longPlan = useMemo(
-    () => (runnable.longVideo ? planLong(runnable, submitValues, draft.references) : null),
-    [runnable, draft.references, planLong, submitValues],
+    () =>
+      runnable.longVideo ? planLong(runnable, submitValues, draft.references, openingSize) : null,
+    [runnable, draft.references, planLong, submitValues, openingSize],
   );
   const issues = !model
     ? ["This model is no longer active"]
@@ -453,7 +469,7 @@ export function DraftCard({
                 {longPlan ? (
                   <p>
                     {longPlan.keyframed
-                      ? `First ${longPlan.keyframeCount} keyframes are painted by ${longPlan.painter?.display_name ?? "an image model"}, for you to look over in this card; then `
+                      ? `First ${longPlan.paintedKeyframes} keyframes are painted by ${longPlan.painter?.display_name ?? "an image model"}, for you to look over in this card; then `
                       : ""}
                     {longPlan.planned.length} clips (
                     {longPlan.durations.map((v) => `${v}s`).join(" + ")}),{" "}
@@ -683,7 +699,7 @@ function LongVideoSummary({
           {plan.workflow && (
             <p className="text-[11px] leading-relaxed text-muted-foreground">
               {plan.keyframed
-                ? `${plan.keyframeCount} stills are painted first${plan.painter ? ` by ${plan.painter.display_name}` : ""}: the opening frame and the frame each clip ends on${plan.characters.length ? `, from ${names}'s images` : ""}. You look them over in this card before the clips are made, and every clip ends on its keyframe, so no one can drift for more than a clip.`
+                ? `${plan.paintedKeyframes} stills are painted first${plan.painter ? ` by ${plan.painter.display_name}` : ""}: the opening frame and the frame each clip ends on${plan.keyframeCount > plan.paintedKeyframes ? " (your own frames are used as they are)" : ""}${plan.characters.length ? `, from ${names}'s images` : ""}. You look them over in this card before the clips are made, and every clip ends on its keyframe, so no one can drift for more than a clip.`
                 : plan.characters.length
                   ? `Recommended with characters: the frame each clip ends on is painted first and looked over, so no one can drift for more than a clip.`
                   : "The frame each clip ends on can be painted first and looked over, so the video goes exactly where you want."}

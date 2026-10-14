@@ -620,17 +620,20 @@ function RunCard({
             </Button>
           </>
         )}
-        {canManage && run.status === "needs_attention" && failedClip && (
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={busy !== null}
-            onClick={() => setRetrying(failedClip)}
-            data-testid="long-video-retry"
-          >
-            <RotateCcw className="mr-1.5 size-3.5" /> Retry clip {failedClip.position + 1}
-          </Button>
-        )}
+        {canManage &&
+          run.status === "needs_attention" &&
+          failedClip &&
+          failedClip.error_code !== "KEYFRAME_MISSING" && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy !== null}
+              onClick={() => setRetrying(failedClip)}
+              data-testid="long-video-retry"
+            >
+              <RotateCcw className="mr-1.5 size-3.5" /> Retry clip {failedClip.position + 1}
+            </Button>
+          )}
         {canManage &&
           (run.status === "canceled" ||
             (run.status === "needs_attention" && !failedClip && !personPause)) &&

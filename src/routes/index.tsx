@@ -55,10 +55,13 @@ import { endCardSize } from "@/lib/long-video/finisher";
 import {
   approxExtendRunCost,
   approxRunCost,
+  durationChoices,
+  durationValue,
   finaleHolds,
   finaleReveals,
   formatLength,
   LONG_VIDEO_LIMITS,
+  nearest,
   startFrameSlot,
   type RunFinale,
 } from "@/lib/long-video/plan";
@@ -506,7 +509,8 @@ function CreatePage() {
     references: runReferences,
     cinema: { on: cinemaOn, selection: cinema },
     characters: chosenCharacters,
-    openingFrame: startFrameSize ?? null,
+    // Undefined while its size is still being read.
+    openingFrame: startFrame ? startFrameSize : null,
   });
   const longMode = mediaType === "video" && longDraft.enabled && longPlan.eligible;
   const longPanel = mediaType === "video" && longDraft.enabled && !!model;
@@ -589,9 +593,23 @@ function CreatePage() {
   // A long video is quoted by its first clip, exactly as that clip will be sent:
   // its model (a keyframed video's workflow), settings and media (the finisher
   // isn't sent; a stand-in image goes where its keyframes will).
+  // With keyframes and no image at all to stand in for clip 1's frames, the
+  // model's own clip is priced instead (about the same), at one of its lengths.
+  const ownChoices = model ? durationChoices(model) : [];
+  const ownSeconds =
+    longMode && !longPlan.quote && ownChoices.length && longPlan.durations[0]
+      ? nearest(ownChoices, longPlan.durations[0])
+      : null;
   const estimateModel = longMode ? (longPlan.quote?.model ?? model) : model;
-  const estimateValues = longMode ? (longPlan.quote?.values ?? submitValues) : submitValues;
+  const estimateValues = longMode
+    ? (longPlan.quote?.values ??
+      (model && ownSeconds !== null
+        ? { ...submitValues, duration: durationValue(model, ownSeconds) }
+        : submitValues))
+    : submitValues;
   const estimateInputs = longMode ? (longPlan.quote?.inputs ?? []) : usable;
+  /** How long the clip the estimate prices runs. */
+  const quotedSeconds = ownSeconds ?? longPlan.durations[0];
 
   // Debounced live estimate; any parameter or reference change invalidates the previous one.
   const referenceKey = JSON.stringify(estimateInputs.map((item) => [item.assetId, item.role]));
@@ -660,7 +678,7 @@ function CreatePage() {
 
   // One keyframe's price (a keyframed long video paints several before its clips).
   const keyframeQuote = longMode && longPlan.keyframed ? longPlan.keyframeQuote : null;
-  const { data: keyframeUsd = null } = useQuery({
+  const { data: keyframeUsd = null, isFetching: keyframePricing } = useQuery({
     queryKey: [
       "keyframe-quote",
       keyframeQuote?.model.id ?? null,
@@ -685,6 +703,13 @@ function CreatePage() {
     },
   });
 
+  // Under the studio's estimate policy, the keyframes' price is needed too.
+  const keyframesUnpriced =
+    requireEstimate &&
+    longMode &&
+    longPlan.keyframed &&
+    longPlan.paintedKeyframes > 0 &&
+    keyframeUsd === null;
   const canGenerate =
     !!model &&
     !!user &&
@@ -692,7 +717,8 @@ function CreatePage() {
     issues.length === 0 &&
     health?.configured === true &&
     health?.state !== "disabled" &&
-    (!requireEstimate || estimate.kind === "ready" || estimate.kind === "metered");
+    (!requireEstimate || estimate.kind === "ready" || estimate.kind === "metered") &&
+    !keyframesUnpriced;
 
   const disabledReason = !health?.configured
     ? "Higgsfield credentials are not configured"
@@ -704,7 +730,11 @@ function CreatePage() {
           ? estimate.reason
           : requireEstimate && estimate.kind !== "ready" && estimate.kind !== "metered"
             ? "Waiting for a valid cost estimate"
-            : null;
+            : keyframesUnpriced
+              ? keyframePricing || !keyframeQuote
+                ? "Waiting for the keyframes' price"
+                : "Higgsfield couldn't price the keyframes, and a cost estimate is required"
+              : null;
   // Only an estimate the provider couldn't give (not one it refused for the
   // settings or the balance) can be worked around by generating without one.
   const estimateBypassHint =
@@ -870,7 +900,7 @@ function CreatePage() {
         toast.warning("The long video stopped before its first clip. See why under Long videos.");
       else if (longPlan.keyframed)
         toast.success(
-          `Painting ${longPlan.keyframeCount} keyframes first${longDraft.reviewKeyframes ? ": you'll review them under Long videos before the clips are made" : ", then the clips"}.`,
+          `Painting ${longPlan.paintedKeyframes} keyframes first${longDraft.reviewKeyframes ? ": you'll review them under Long videos before the clips are made" : ", then the clips"}.`,
         );
       else
         toast.success(
@@ -915,14 +945,24 @@ function CreatePage() {
                 ? estimateValues["aspect_ratio"]
                 : null,
           })
-        : approxRunCost(estimate.costUsd, longPlan.durations[0], longPlan.totalSeconds)
+        : quotedSeconds
+          ? approxRunCost(estimate.costUsd, quotedSeconds, longPlan.totalSeconds)
+          : null
       : null;
+  // Only the keyframes that are painted are billed (the person's own frames aren't).
   const keyframesEstimate =
     longMode && longPlan.keyframed && keyframeUsd !== null
-      ? keyframeUsd * longPlan.keyframeCount
+      ? keyframeUsd * longPlan.paintedKeyframes
       : null;
+  // A total only once every part of it is priced: without the keyframes' price
+  // it would say less than the video costs.
+  const keyframesPriced =
+    !(longMode && longPlan.keyframed && longPlan.paintedKeyframes > 0) ||
+    keyframesEstimate !== null;
   const longGrandTotal =
-    longTotalEstimate !== null ? longTotalEstimate + (keyframesEstimate ?? 0) : null;
+    longTotalEstimate !== null && keyframesPriced
+      ? longTotalEstimate + (keyframesEstimate ?? 0)
+      : null;
 
   /** Hands the current prompt, references and context to Supercomputer (nothing is sent automatically). */
   function openInSupercomputer() {
@@ -1370,8 +1410,8 @@ function CreatePage() {
                   {estimate.kind === "ready"
                     ? ` · clip 1 $${estimate.costUsd.toFixed(2)}`
                     : " · the estimate is for clip 1"}
-                  {longPlan.keyframed
-                    ? ` · ${longPlan.keyframeCount} keyframes${keyframesEstimate !== null ? ` $${keyframesEstimate.toFixed(2)}` : ""}`
+                  {longPlan.keyframed && longPlan.paintedKeyframes > 0
+                    ? ` · ${longPlan.paintedKeyframes} keyframes ${keyframesEstimate !== null ? `$${keyframesEstimate.toFixed(2)}` : "(not priced yet)"}`
                     : ""}
                   {longGrandTotal !== null ? ` · approx. $${longGrandTotal.toFixed(2)} in all` : ""}
                 </p>
@@ -1505,7 +1545,7 @@ function CreatePage() {
               {longMode
                 ? `${
                     longPlan.keyframed
-                      ? `First ${longPlan.keyframeCount} keyframes are painted${keyframesEstimate !== null ? ` (about $${keyframesEstimate.toFixed(2)})` : ""}${longDraft.reviewKeyframes ? ", for you to review" : ""}; then ${longPlan.clips.length} clips are made one after another, each moving into its keyframe.`
+                      ? `First ${longPlan.paintedKeyframes} keyframes are painted${keyframesEstimate !== null ? ` (about $${keyframesEstimate.toFixed(2)})` : " (not priced yet)"}${longDraft.reviewKeyframes ? ", for you to review" : ""}; then ${longPlan.clips.length} clips are made one after another, each moving into its keyframe.`
                       : `This makes ${longPlan.clips.length} clips one after another, each starting from the last frame of the one before.`
                   } About ${formatLength(longPlan.totalSeconds)} in all. ${
                     longPlan.characters.length

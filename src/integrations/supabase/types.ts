@@ -2171,6 +2171,8 @@ export type Database = {
           soul_requested_at: string | null
           soul_status: string
           soul_submitted_at: string | null
+          soul_training_id: string | null
+          soul_training_version: string | null
           updated_at: string
         }
         Insert: {
@@ -2190,6 +2192,8 @@ export type Database = {
           soul_requested_at?: string | null
           soul_status?: string
           soul_submitted_at?: string | null
+          soul_training_id?: string | null
+          soul_training_version?: string | null
           updated_at?: string
         }
         Update: {
@@ -2209,6 +2213,8 @@ export type Database = {
           soul_requested_at?: string | null
           soul_status?: string
           soul_submitted_at?: string | null
+          soul_training_id?: string | null
+          soul_training_version?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -5239,6 +5245,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_long_video_storyboard: {
+        Args: { p_by_person: boolean; p_run_id: string }
+        Returns: Json
+      }
       avatar_get_provider_secret: { Args: { _name: string }; Returns: string }
       avatar_set_provider_secret: {
         Args: { _meta: Json; _name: string; _value: string }
@@ -5250,6 +5260,10 @@ export type Database = {
       }
       claim_added_voice: {
         Args: { p_attempt: string; p_fresh: string[] }
+        Returns: Json
+      }
+      claim_long_video_clip: {
+        Args: { p_claimed_at: string; p_clip_id: string }
         Returns: Json
       }
       claim_ready_operations: {
@@ -5325,6 +5339,16 @@ export type Database = {
       record_added_voice: {
         Args: { p_attempt: string; p_voice: string }
         Returns: boolean
+      }
+      redo_long_video_keyframes: {
+        Args: {
+          p_confirm_uncertain: boolean
+          p_keyframe_ids: string[]
+          p_note: string
+          p_run_id: string
+          p_target_id: string
+        }
+        Returns: Json
       }
       revoke_team_invitation: {
         Args: { p_invitation_id: string; p_revoked_by: string }

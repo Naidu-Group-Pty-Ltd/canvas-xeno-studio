@@ -15,9 +15,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { estimateGeneration, submitGeneration } from "@/lib/generation.functions";
 import { startLongVideo } from "@/lib/long-video.functions";
 import { endCardSize } from "@/lib/long-video/finisher";
-import { approxRunCost, finaleReveals, type RunFinale } from "@/lib/long-video/plan";
+import {
+  approxRunCost,
+  durationChoices,
+  durationValue,
+  finaleReveals,
+  nearest,
+  type RunFinale,
+} from "@/lib/long-video/plan";
 import { DEFAULT_END_CARD_STYLE, makeEndCard } from "@/lib/media/end-card";
 import type { RunCharacter } from "@/lib/characters/model";
+import { keyframeWorkflow, openingFrameOf } from "@/lib/long-video/keyframes";
 import { planDraftLongVideo, type DraftLongVideoPlan } from "@/lib/supercomputer/long-video-draft";
 import {
   draftRunKey,
@@ -164,6 +172,7 @@ export function useDraftRunner(context: {
       values: Record<string, unknown>,
       references: DraftReference[],
       library: { characters: CharacterEntry[] | undefined; failed: boolean },
+      openingSize: { width: number | null; height: number | null } | null | "reading",
     ): DraftLongVideoPlan | null => {
       const model = models.find((entry) => entry.id === draft.modelId);
       if (!draft.longVideo || !model) return null;
@@ -175,20 +184,52 @@ export function useDraftRunner(context: {
         values,
         references,
         characters: cast.characters,
+        openingSize,
       });
       return cast.problems.length ? { ...plan, issues: [...cast.problems, ...plan.issues] } : plan;
     },
     [models],
   );
 
-  /** A long-video draft's plan as it would run now, as the card shows it. */
-  const longPlan = useCallback(
-    (draft: SupercomputerDraft, values: Record<string, unknown>, references: DraftReference[]) =>
-      planWith(draft, values, references, { characters: library, failed: charactersFailed }),
-    [planWith, library, charactersFailed],
+  /**
+   * The draft's own opening frame (the keyframe workflow's start-frame
+   * reference), whose shape the video must take; null when it has none.
+   */
+  const openingFrame = useCallback(
+    (draft: SupercomputerDraft, references: DraftReference[]): string | null => {
+      const model = models.find((entry) => entry.id === draft.modelId);
+      if (!draft.longVideo || !model) return null;
+      return openingFrameOf(keyframeWorkflow(model, models), references)?.assetId ?? null;
+    },
+    [models],
   );
 
-  /** The plan as it is started and priced: with the characters read, not still loading. */
+  /**
+   * A long-video draft's plan as it would run now, as the card shows it, with
+   * its opening frame's size (undefined while the card is reading it).
+   */
+  const longPlan = useCallback(
+    (
+      draft: SupercomputerDraft,
+      values: Record<string, unknown>,
+      references: DraftReference[],
+      openingSize?: { width: number | null; height: number | null } | null,
+    ) =>
+      planWith(
+        draft,
+        values,
+        references,
+        { characters: library, failed: charactersFailed },
+        openingFrame(draft, references)
+          ? openingSize === undefined
+            ? "reading"
+            : openingSize
+          : null,
+      ),
+    [planWith, library, charactersFailed, openingFrame],
+  );
+
+  /** The plan as it is started and priced: with the characters and the opening frame read. */
   const settledPlan = useCallback(
     async (
       draft: SupercomputerDraft,
@@ -200,9 +241,13 @@ export function useDraftRunner(context: {
             .ensureQueryData({ queryKey: CHARACTERS_KEY, queryFn: fetchCharacters })
             .catch(() => undefined)
         : [];
-      return planWith(draft, values, references, { characters, failed: !characters });
+      const opening = openingFrame(draft, references);
+      const { data: size } = opening
+        ? await supabase.from("assets").select("width,height").eq("id", opening).maybeSingle()
+        : { data: null };
+      return planWith(draft, values, references, { characters, failed: !characters }, size ?? null);
     },
-    [planWith, queryClient],
+    [planWith, queryClient, openingFrame],
   );
 
   const estimate = useCallback(
@@ -216,16 +261,29 @@ export function useDraftRunner(context: {
       if (!plan)
         return { kind: "unavailable", reason: "This model is no longer active", blocking: true };
       const first = plan.planned[0];
-      if (plan.issues.length || !first || !plan.quote)
+      if (plan.issues.length || !first)
         return {
           kind: "unavailable",
           reason: plan.issues[0] ?? "This long video can't be planned",
           blocking: true,
         };
       // Quoted by its first clip, exactly as that clip will be sent (a stand-in
-      // image where its keyframes go), and one keyframe as it will be painted.
+      // image where its keyframes go; with no image at all, as the model's own
+      // clip, about the same), and one keyframe as it will be painted.
+      const own = models.find((entry) => entry.id === draft.modelId);
+      const ownChoices = own ? durationChoices(own) : [];
+      const ownSeconds = ownChoices.length
+        ? nearest(ownChoices, first.durationSeconds)
+        : first.durationSeconds;
+      const quotedSeconds = plan.quote ? first.durationSeconds : ownSeconds;
       const [quote, keyframe] = await Promise.all([
-        estimateOne(plan.quote.model.id, plan.quote.values, plan.quote.inputs),
+        plan.quote
+          ? estimateOne(plan.quote.model.id, plan.quote.values, plan.quote.inputs)
+          : estimateOne(
+              draft.modelId,
+              own ? { ...values, duration: durationValue(own, ownSeconds) } : values,
+              references,
+            ),
         plan.keyframeQuote
           ? estimateOne(
               plan.keyframeQuote.model.id,
@@ -235,22 +293,22 @@ export function useDraftRunner(context: {
           : Promise.resolve(null),
       ]);
       if (quote.kind !== "ready") return quote;
+      // Only the keyframes that are painted are billed (the person's own frames aren't).
       const keyframesUsd =
-        keyframe?.kind === "ready" ? keyframe.costUsd * plan.keyframeCount : null;
+        keyframe?.kind === "ready" ? keyframe.costUsd * plan.paintedKeyframes : null;
       return {
         kind: "ready",
         costUsd:
-          approxRunCost(quote.costUsd, first.durationSeconds, plan.totalSeconds) +
-          (keyframesUsd ?? 0),
+          approxRunCost(quote.costUsd, quotedSeconds, plan.totalSeconds) + (keyframesUsd ?? 0),
         longVideo: {
           firstClipUsd: quote.costUsd,
           clips: plan.planned.length,
-          keyframes: plan.keyframeCount,
+          keyframes: plan.paintedKeyframes,
           keyframesUsd,
         },
       };
     },
-    [settledPlan],
+    [settledPlan, models],
   );
 
   /**
@@ -424,7 +482,7 @@ export function useDraftRunner(context: {
           toast.warning(`"${draft.title}" stopped before its first clip. See why in its card.`);
         else if (plan.keyframed)
           toast.success(
-            `"${draft.title}" started: ${plan.keyframeCount} keyframes are painted first, for you to look over in its card before the ${plan.clips.length} clips are made.`,
+            `"${draft.title}" started: ${plan.paintedKeyframes} keyframes are painted first, for you to look over in its card before the ${plan.clips.length} clips are made.`,
           );
         else
           toast.success(
@@ -449,7 +507,7 @@ export function useDraftRunner(context: {
     [runLongVideo, runOne],
   );
 
-  return { estimate, run, longPlan, providerReason, requireEstimate };
+  return { estimate, run, longPlan, openingFrame, providerReason, requireEstimate };
 }
 
 /** Why the generation provider cannot take work right now, or null when it can. */

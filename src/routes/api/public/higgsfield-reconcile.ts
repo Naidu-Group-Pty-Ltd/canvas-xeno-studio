@@ -38,18 +38,6 @@ export const Route = createFileRoute("/api/public/higgsfield-reconcile")({
           // after a response. A save that outlasts the scheduler still gets that
           // time to finish instead of being cancelled with the request.
           const ingested = await runWhileConnected(request, () => ingestPending());
-          // Long videos whose next step an event didn't take (a missed webhook or
-          // callback, a busy media service) move on here.
-          const { sweepLongVideos } = await import("@/lib/long-video/service.server");
-          const longVideos = await runWhileConnected(request, () => sweepLongVideos()).catch(
-            (error: unknown) => {
-              console.error("long video sweep failed", {
-                message: error instanceof Error ? error.message : String(error),
-              });
-              return 0;
-            },
-          );
-
           // Soul ID trainings are asked how they're going (and starts that were
           // cut short settled), so a character becomes usable without anyone
           // keeping its page open.
@@ -70,6 +58,19 @@ export const Route = createFileRoute("/api/public/higgsfield-reconcile")({
             });
             return 0;
           });
+
+          // Long videos whose next step an event didn't take (a missed webhook or
+          // callback, a busy media service) move on here: last, as the longest
+          // (an AI check can take a minute), so the quick passes above always run.
+          const { sweepLongVideos } = await import("@/lib/long-video/service.server");
+          const longVideos = await runWhileConnected(request, () => sweepLongVideos()).catch(
+            (error: unknown) => {
+              console.error("long video sweep failed", {
+                message: error instanceof Error ? error.message : String(error),
+              });
+              return 0;
+            },
+          );
 
           return new Response(
             JSON.stringify({

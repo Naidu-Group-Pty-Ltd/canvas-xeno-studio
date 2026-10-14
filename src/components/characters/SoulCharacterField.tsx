@@ -33,11 +33,9 @@ export function SoulCharacterField({
   issue?: string | undefined;
 }) {
   const { data: characters = [] } = useCharacters();
+  // Each character's Soul ID in use (a newer one may be training meanwhile).
   const ready = characters.filter(
-    (character) =>
-      character.soul_status === "ready" &&
-      character.soul_model_version === version &&
-      !!character.soul_reference_id,
+    (character) => character.soul_model_version === version && !!character.soul_reference_id,
   );
   const current = typeof value === "string" ? value.trim() : "";
   const match = ready.find((character) => character.soul_reference_id === current);

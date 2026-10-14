@@ -31,11 +31,12 @@ import { billableInputSeconds, meteredQuote, parseMeteredRates } from "../higgsf
 import { charactersLine, interleaveSheets, type RunCharacter } from "../characters/model";
 
 /**
- * Why a run waits on a person rather than on a failure (long_videos.error_code
- * while it needs attention): keyframes to review, or a clip whose character
- * changed. Each has its own actions; Continue would only stop it again.
+ * Why a run waits on a person rather than on something Continue can fix
+ * (long_videos.error_code while it needs attention): keyframes to review, a
+ * keyframe to redo, or a clip whose character changed. Each has its own
+ * actions; Continue would only stop it again.
  */
-export const PERSON_PAUSES = ["STORYBOARD_READY", "CHARACTER_CHECK"] as const;
+export const PERSON_PAUSES = ["STORYBOARD_READY", "KEYFRAME_FAILED", "CHARACTER_CHECK"] as const;
 
 export const LONG_VIDEO_LIMITS = {
   minClips: 2,

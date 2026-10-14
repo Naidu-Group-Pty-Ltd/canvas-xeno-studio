@@ -24,10 +24,12 @@ export interface CharacterImageEntry extends CharacterImage {
 /** A character as the studio shows it: its record and its images, in their arranged order. */
 export interface CharacterEntry extends Omit<
   CharacterTableRow,
-  "soul_status" | "soul_model_version"
+  "soul_status" | "soul_model_version" | "soul_training_version"
 > {
+  /** The latest training's state (the Soul ID in use is soul_reference_id, for soul_model_version). */
   soul_status: SoulStatus;
   soul_model_version: SoulVersion | null;
+  soul_training_version: SoulVersion | null;
   images: CharacterImageEntry[];
 }
 
@@ -40,6 +42,16 @@ function asView(value: string): CharacterView {
 /** The query the team's characters are cached under (kept fresh by the realtime channel). */
 export const CHARACTERS_KEY = ["characters"] as const;
 
+const CHARACTERS_PAGE = 500;
+
+/** The database doesn't have the characters' tables yet (its update is still to come). */
+export class CharactersNotSetUp extends Error {
+  constructor() {
+    super("Characters need a database update that hasn't been applied yet");
+    this.name = "CharactersNotSetUp";
+  }
+}
+
 /**
  * The team's characters, most recently changed first, each with its images
  * (only those still in the library). Live through the studio's realtime
@@ -50,24 +62,33 @@ export function useCharacters(options: { enabled?: boolean } = {}) {
     queryKey: CHARACTERS_KEY,
     enabled: options.enabled ?? true,
     queryFn: fetchCharacters,
+    // A database without the tables won't have them on a second try.
+    retry: (count, error) => !(error instanceof CharactersNotSetUp) && count < 3,
   });
 }
 
 /** Reads the team's characters (see useCharacters). */
 export async function fetchCharacters(): Promise<CharacterEntry[]> {
-  const { data, error } = await supabase
-    .from("characters")
-    .select("*, character_images(asset_id, role, view, position)")
-    .is("archived_at", null)
-    .order("updated_at", { ascending: false })
-    .limit(200);
-  if (error) {
-    if (isMissingTableError(error)) return [];
-    throw error;
-  }
-  const rows = (data ?? []) as (CharacterTableRow & {
+  type Row = CharacterTableRow & {
     character_images: { asset_id: string; role: string; view: string; position: number }[];
-  })[];
+  };
+  // All of them, read in pages: a character missing from the list would look deleted.
+  const rows: Row[] = [];
+  for (let from = 0; ; from += CHARACTERS_PAGE) {
+    const { data, error } = await supabase
+      .from("characters")
+      .select("*, character_images(asset_id, role, view, position)")
+      .is("archived_at", null)
+      .order("updated_at", { ascending: false })
+      .order("id")
+      .range(from, from + CHARACTERS_PAGE - 1);
+    if (error) {
+      if (isMissingTableError(error)) throw new CharactersNotSetUp();
+      throw error;
+    }
+    rows.push(...((data ?? []) as Row[]));
+    if ((data ?? []).length < CHARACTERS_PAGE) break;
+  }
   const ids = [
     ...new Set(rows.flatMap((row) => row.character_images.map((image) => image.asset_id))),
   ];
@@ -86,6 +107,7 @@ export async function fetchCharacters(): Promise<CharacterEntry[]> {
     ...row,
     soul_status: row.soul_status as SoulStatus,
     soul_model_version: (row.soul_model_version as SoulVersion | null) ?? null,
+    soul_training_version: (row.soul_training_version as SoulVersion | null) ?? null,
     images: [...images]
       .sort((a, b) => a.position - b.position)
       .flatMap((image) => {

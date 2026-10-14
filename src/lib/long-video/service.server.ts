@@ -77,14 +77,16 @@ import {
   keyframePainters,
   keyframeQuote,
   keyframePrompt,
+  KEYFRAME_PROMPT_MAX,
   keyframeSize,
   movesBetweenFrames,
-  openingHasImages,
   painterSlot,
+  planKeyframes,
   painterValues,
   storedKeyframeSettings,
   videoAspect,
   type KeyframeSettings,
+  type KeyframesPlan,
 } from "./keyframes";
 import type { RunCharacter } from "../characters/model";
 import type { IdentityResult } from "../characters/identity.server";
@@ -304,11 +306,11 @@ export async function startLongVideo(
     : [];
 
   // Keyframes: every clip by one workflow that moves from a frame to a frame,
-  // painted by an image model that takes reference images.
+  // painted by an image model that takes reference images, planned exactly as
+  // Create plans them (the person's own frames, the shape, the painter).
   let painter: ModelRegistryEntry | null = null;
   let keyframeSettings: KeyframeSettings | null = null;
-  let openingFrame: RunReference | null = null;
-  let closingFrame: RunReference | null = null;
+  let storyboard: KeyframesPlan | null = null;
   const keyframed = !!request.keyframes;
   if (request.keyframes) {
     if (first.id !== continuation.id || !movesBetweenFrames(first))
@@ -317,35 +319,32 @@ export async function startLongVideo(
         `${first.display_name} can't move from one keyframe to the next. Turn keyframes off or choose another model.`,
       );
     painter = await loadModel(request.keyframes.painterModelId);
-    if (!painter || !keyframePainters([painter]).length)
+    if (!painter?.is_active || !keyframePainters([painter]).length)
       throw new AppError("INVALID_PARAMETERS", "That keyframe model is unavailable");
-    // The person's own start and end frames are the first and last keyframes.
     const startRole = startFrameSlot(first)?.role ?? null;
-    const endWay = clipEnd(first);
-    openingFrame =
-      clipReferences.find((item) => item.assetType === "image" && item.role === startRole) ?? null;
-    closingFrame =
-      endWay?.kind === "frame"
-        ? (clipReferences.find((item) => item.assetType === "image" && item.role === endWay.role) ??
-          null)
-        : null;
-    const opening = openingFrame
-      ? ((assets ?? []).find((entry) => entry.id === openingFrame!.assetId) ?? null)
+    const opening = startRole
+      ? clipReferences.find((item) => item.assetType === "image" && item.role === startRole)
+      : undefined;
+    const openingSize = opening
+      ? ((assets ?? []).find((entry) => entry.id === opening.assetId) ?? null)
       : null;
-    const aspect = videoAspect(request.values, opening);
-    // Anything that would stop the painter, as Create says it before starting.
-    const problem = choosePainter({
+    storyboard = planKeyframes({
       models: [painter],
       painterModelId: painter.id,
-      aspect,
-      openingImages: openingHasImages({ startRole, references: clipReferences, characters }),
-    }).issues[0];
-    if (problem) throw new AppError("INVALID_PARAMETERS", problem);
-    const size = keyframeSize(aspect.ratio, opening);
+      workflow: first,
+      values: request.values,
+      clips: request.clips.length,
+      finale,
+      references: clipReferences,
+      characters,
+      openingSize,
+    });
+    if (storyboard.issues.length)
+      throw new AppError("INVALID_PARAMETERS", storyboard.issues.join("; "));
     keyframeSettings = {
-      values: painterValues(painter, size.width / size.height),
-      aspect: aspect.label,
-      ...size,
+      values: painterValues(painter, storyboard.size.width / storyboard.size.height),
+      aspect: storyboard.aspect.label,
+      ...storyboard.size,
       unitUsd: null,
     };
   }
@@ -386,7 +385,7 @@ export async function startLongVideo(
       characters,
       references: clipReferences,
       standIn:
-        openingFrame?.assetId ??
+        storyboard?.standIn ??
         characters[0]?.images[0]?.assetId ??
         clipReferences.find((item) => item.assetType === "image")?.assetId ??
         null,
@@ -465,20 +464,17 @@ export async function startLongVideo(
     throw new AppError("UNKNOWN", "The long video's clips could not be recorded");
   }
 
-  if (painter) {
+  if (painter && storyboard) {
     // Its storyboard: the opening frame and the frame each clip ends on, the
     // person's own start and end frames standing in for the first and last.
-    const count = keyframeCount(planned.length, finale?.mode ?? null);
-    const lastIsOwn =
-      !!closingFrame &&
-      clipKeyframes(planned.length - 1, planned.length, finale?.mode ?? null).end === count - 1;
+    const { count, opening, closing } = storyboard;
     const { error: keyframesError } = await db.from("long_video_keyframes").insert(
       Array.from({ length: count }, (_, position) => {
         const own =
-          position === 0 && openingFrame
-            ? openingFrame.assetId
-            : position === count - 1 && lastIsOwn
-              ? closingFrame!.assetId
+          position === 0 && opening
+            ? opening.assetId
+            : position === count - 1 && closing
+              ? closing.assetId
               : null;
         return own
           ? {
@@ -504,7 +500,7 @@ export async function startLongVideo(
     }
   }
 
-  await advanceLongVideo(run.id);
+  await advanceAfter(run.id);
   const { data: latest } = await db.from("long_videos").select("status").eq("id", run.id).single();
   return { longVideoId: run.id, status: latest?.status ?? "running", duplicate: false };
 }
@@ -621,18 +617,30 @@ export async function advanceLongVideo(
 ): Promise<void> {
   for (let step = 0; step < MAX_STEPS; step += 1) {
     if (options.deadline && Date.now() > options.deadline) return;
-    if (!(await stepRun(longVideoId))) return;
+    if (!(await stepRun(longVideoId, options.deadline ?? null))) return;
   }
+}
+
+/** Moves a run on after a person's action, which has already been recorded: a failure here is only logged. */
+async function advanceAfter(longVideoId: string): Promise<void> {
+  await advanceLongVideo(longVideoId).catch((error: unknown) => {
+    console.error("long video step failed", {
+      longVideoId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  });
 }
 
 /** A run's keyframes in order (none when it has none, or before the database has them). */
 async function keyframesOf(run: Pick<RunRow, "id" | "keyframe_model_id">): Promise<KeyframeRow[]> {
   if (!run.keyframe_model_id) return [];
-  const { data } = await db
+  const { data, error } = await db
     .from("long_video_keyframes")
     .select("*")
     .eq("long_video_id", run.id)
     .order("position");
+  // A read that failed is never taken for "no keyframes": the step stops, nothing changes.
+  if (error) throw new Error(`The keyframes couldn't be read: ${error.message}`);
   return data ?? [];
 }
 
@@ -656,8 +664,11 @@ function clipDone(run: RunRow, clip: ClipRow, lastPosition: number): boolean {
   );
 }
 
-/** One step. True when something moved, so another look may move it further. */
-async function stepRun(longVideoId: string): Promise<boolean> {
+/**
+ * One step. True when something moved, so another look may move it further.
+ * With a deadline, a slow step (an AI check) is only taken with time to finish.
+ */
+async function stepRun(longVideoId: string, deadline: number | null = null): Promise<boolean> {
   const { data: run } = await db
     .from("long_videos")
     .select("*")
@@ -685,7 +696,7 @@ async function stepRun(longVideoId: string): Promise<boolean> {
 
   // A keyframed run paints its storyboard before any clip is made.
   if (run.keyframe_model_id && !run.storyboard_approved_at)
-    return stepStoryboard(run, clips, keyframes);
+    return stepStoryboard(run, clips, keyframes, deadline);
 
   const current = clips.find((clip) => !clipDone(run, clip, lastPosition));
   if (!current) {
@@ -700,7 +711,7 @@ async function stepRun(longVideoId: string): Promise<boolean> {
 
   switch (current.status) {
     case "waiting":
-      return startClip(run, current, previous, keyframes);
+      return startClip(run, current, previous);
     case "submitting":
       return recoverClaim(current);
     case "generating":
@@ -708,7 +719,7 @@ async function stepRun(longVideoId: string): Promise<boolean> {
     case "completed":
       // Its handoff first, then (a run with characters) its check.
       return handoffDone(current, lastPosition)
-        ? followCheck(run, current)
+        ? followCheck(run, current, deadline)
         : followHandoff(run, current, current.position === lastPosition);
     default:
       await pause(
@@ -729,6 +740,11 @@ async function pause(run: Pick<RunRow, "id">, code: string, message: string): Pr
     .eq("status", "running");
 }
 
+/**
+ * Fails a clip that is still where this step found it (its state and
+ * attempt), then stops the run for a person. A step that lost a race (the
+ * clip was retried meanwhile) changes nothing.
+ */
 async function failClip(
   run: Pick<RunRow, "id">,
   clip: ClipRow,
@@ -736,21 +752,28 @@ async function failClip(
   code: string,
   message: string,
 ): Promise<false> {
-  await db
+  const { data } = await db
     .from("long_video_clips")
     .update({ status: "failed", error_code: code, error_message: message })
     .eq("id", clip.id)
-    .eq("status", from);
-  await pause(run, code, `${clipLabel(clip)}: ${message}`);
+    .eq("status", from)
+    .eq("attempt", clip.attempt)
+    .select("id");
+  if (data?.length) await pause(run, code, `${clipLabel(clip)}: ${message}`);
   return false;
 }
 
+/**
+ * The generation recorded under a request key, if any. A read that failed
+ * throws: "none" would have a paid generation started again.
+ */
 async function generationForKey(key: string): Promise<{ id: string } | null> {
-  const { data } = await db
+  const { data, error } = await db
     .from("generations")
     .select("id")
     .eq("client_request_id", key)
     .maybeSingle();
+  if (error) throw new Error(`Its generation couldn't be looked up: ${error.message}`);
   return data ?? null;
 }
 
@@ -759,35 +782,75 @@ async function attachGeneration(clip: ClipRow, generationId: string): Promise<vo
     .from("long_video_clips")
     .update({ status: "generating", generation_id: generationId, started_at: now() })
     .eq("id", clip.id)
-    .eq("status", "submitting");
+    .eq("status", "submitting")
+    .eq("attempt", clip.attempt);
 }
 
-/** A keyframe's image, when it is painted (or given) and still in the library; null otherwise. */
-async function keyframeAsset(keyframes: KeyframeRow[], position: number): Promise<string | null> {
+/** A claimed clip handed back untouched (nothing was sent), for a later step. */
+async function releaseClip(clip: ClipRow): Promise<false> {
+  const update = db
+    .from("long_video_clips")
+    .update({ status: "waiting", claimed_at: null })
+    .eq("id", clip.id)
+    .eq("status", "submitting");
+  await (clip.claimed_at ? update.eq("claimed_at", clip.claimed_at) : update);
+  return false;
+}
+
+/**
+ * A keyframe's image, when it is painted (or given) and still in the library:
+ * its id, or null when it isn't; undefined when that couldn't be read.
+ */
+async function keyframeAsset(
+  keyframes: KeyframeRow[],
+  position: number,
+): Promise<string | null | undefined> {
   const keyframe = keyframes.find((entry) => entry.position === position);
   if (!keyframe || keyframe.status !== "completed" || !keyframe.asset_id) return null;
-  const { data } = await db
+  const { data, error } = await db
     .from("assets")
     .select("id")
     .eq("id", keyframe.asset_id)
     .is("deleted_at", null)
     .maybeSingle();
+  if (error) return undefined;
   return data?.id ?? null;
+}
+
+/**
+ * Claims a waiting clip for its next send. A keyframed run's clip is claimed
+ * in the same lock its storyboard is approved and redone under, so it never
+ * starts on a keyframe being painted again. Null when there's nothing to do.
+ */
+async function claimClip(run: RunRow, clip: ClipRow): Promise<ClipRow | null> {
+  const claimedAt = now();
+  if (run.keyframe_model_id) {
+    const { data, error } = await db.rpc("claim_long_video_clip", {
+      p_clip_id: clip.id,
+      p_claimed_at: claimedAt,
+    });
+    if (error) throw new Error(`The clip couldn't be claimed: ${error.message}`);
+    const result = (data ?? {}) as { outcome?: string; attempt?: number };
+    if (result.outcome !== "claimed" || typeof result.attempt !== "number") return null;
+    return { ...clip, status: "submitting", claimed_at: claimedAt, attempt: result.attempt };
+  }
+  const { data: claimed } = await db
+    .from("long_video_clips")
+    .update({ status: "submitting", claimed_at: claimedAt, error_code: null, error_message: null })
+    .eq("id", clip.id)
+    .eq("status", "waiting")
+    .eq("attempt", clip.attempt)
+    .select("*");
+  return claimed?.[0] ?? null;
 }
 
 async function startClip(
   run: RunRow,
-  clip: ClipRow,
+  waiting: ClipRow,
   previous: ClipRow | null,
-  keyframes: KeyframeRow[],
 ): Promise<boolean> {
-  const { data: claimed } = await db
-    .from("long_video_clips")
-    .update({ status: "submitting", claimed_at: now(), error_code: null, error_message: null })
-    .eq("id", clip.id)
-    .eq("status", "waiting")
-    .select("id");
-  if (!claimed?.length) return true;
+  const clip = await claimClip(run, waiting);
+  if (!clip) return true;
 
   const model = await loadModel(clip.model_registry_id);
   if (!model?.is_active)
@@ -805,16 +868,27 @@ async function startClip(
   const frames = run.keyframe_model_id
     ? clipKeyframes(clip.position, run.clip_count, storedFinale(run.references_used)?.mode ?? null)
     : null;
+  // Read now, after the claim: a keyframe painted again before it is seen
+  // here, and none can be painted again after it (see claim_long_video_clip).
+  let keyframes: KeyframeRow[] = [];
+  if (frames) {
+    try {
+      keyframes = await keyframesOf(run);
+    } catch {
+      return releaseClip(clip);
+    }
+  }
   const missingKeyframe = (position: number) =>
     failClip(
       run,
       clip,
       "submitting",
       "KEYFRAME_MISSING",
-      `Keyframe ${position + 1} isn't in the library any more, so nothing was started. Redo that keyframe, then this clip carries on.`,
+      `${keyframeLabel({ position })} isn't in the library any more, so nothing was started. Redo that keyframe, then this clip carries on.`,
     );
   if (clip.position === 0 && frames?.start === 0) {
     const frame = await keyframeAsset(keyframes, 0);
+    if (frame === undefined) return releaseClip(clip);
     if (!frame || !start?.role) return missingKeyframe(0);
     inputs.push({ assetId: frame, role: start.role, position: 0 });
     await db.from("long_video_clips").update({ start_frame_asset_id: frame }).eq("id", clip.id);
@@ -859,6 +933,7 @@ async function startClip(
   if (frames && frames.end !== null) {
     const end = clipEnd(model);
     const frame = await keyframeAsset(keyframes, frames.end);
+    if (frame === undefined) return releaseClip(clip);
     if (!frame || !end) return missingKeyframe(frames.end);
     inputs.push({ assetId: frame, role: end.role, position: inputs.length });
     await db.from("long_video_clips").update({ end_frame_asset_id: frame }).eq("id", clip.id);
@@ -933,6 +1008,7 @@ async function recoverClaim(clip: ClipRow): Promise<boolean> {
     .update({ status: "waiting", claimed_at: null })
     .eq("id", clip.id)
     .eq("status", "submitting")
+    .eq("attempt", clip.attempt)
     .eq("claimed_at", clip.claimed_at)
     .select("id");
   return !!data?.length;
@@ -978,16 +1054,18 @@ async function generationOutcome(
     message: "Its generation is missing",
   } as const;
   if (!generationId) return missing;
-  const { data: generation } = await db
+  const { data: generation, error } = await db
     .from("generations")
     .select("id,status,ingest_status,error_code,error_message,created_at")
     .eq("id", generationId)
     .maybeSingle();
+  // A read that failed is a wait, never a failure (a failure invites a paid retry).
+  if (error) return { kind: "waiting" };
   if (!generation) return missing;
 
   if (generation.status === "completed") {
     if (generation.ingest_status === "completed") {
-      const { data: asset } = await db
+      const { data: asset, error: assetError } = await db
         .from("assets")
         .select("id,duration_seconds,width,height")
         .eq("generation_id", generation.id)
@@ -996,6 +1074,7 @@ async function generationOutcome(
         .order("created_at")
         .limit(1)
         .maybeSingle();
+      if (assetError) return { kind: "waiting" };
       if (!asset)
         return assetType === "video"
           ? { kind: "failed", code: "NO_VIDEO", message: "It finished without a video" }
@@ -1075,6 +1154,7 @@ async function followGeneration(run: RunRow, clip: ClipRow): Promise<boolean> {
         })
         .eq("id", clip.id)
         .eq("status", "generating")
+        .eq("attempt", clip.attempt)
         .select("id");
       if (done?.length)
         await db
@@ -1670,20 +1750,34 @@ function leaseFree(claimedAt: string | null): boolean {
   return !claimedAt || Date.now() - new Date(claimedAt).getTime() > CHECK_LEASE_MS;
 }
 
+/** The longest an AI check is given, and the least worth starting one with. */
+const CHECK_TIME_MS = 60_000;
+const CHECK_MIN_MS = 20_000;
+
+/**
+ * How long a check started now may take: a full minute, or what is left
+ * before the deadline (null: too little to start one; a later pass will).
+ */
+function checkTime(deadline: number | null): number | null {
+  if (!deadline) return CHECK_TIME_MS;
+  const left = deadline - Date.now() - 3_000;
+  return left >= CHECK_MIN_MS ? Math.min(CHECK_TIME_MS, left) : null;
+}
+
 /**
  * After a clip's handoff: a few frames from inside it are taken (small, kept
  * out of the library), then the studio's AI compares them and its last frame
  * with its characters' reference images. A character who changed stops the
  * run before the next clip is paid for.
  */
-async function followCheck(run: RunRow, clip: ClipRow): Promise<boolean> {
+async function followCheck(run: RunRow, clip: ClipRow, deadline: number | null): Promise<boolean> {
   switch (clip.check_status) {
     case "none":
       return startSampling(run, clip);
     case "sampling":
       return followSampling(run, clip);
     case "checking":
-      return runClipCheck(run, clip);
+      return runClipCheck(run, clip, deadline);
     case "flagged": {
       const result = (clip.check_result ?? {}) as Partial<IdentityResult>;
       await pause(
@@ -1903,8 +1997,10 @@ async function checkFrames(
  * cut short is taken up again once its lease lapses (that isn't a failure),
  * and only the worker holding the lease writes the answer.
  */
-async function runClipCheck(run: RunRow, clip: ClipRow): Promise<boolean> {
+async function runClipCheck(run: RunRow, clip: ClipRow, deadline: number | null): Promise<boolean> {
   if (!leaseFree(clip.check_claimed_at)) return false;
+  const time = checkTime(deadline);
+  if (time === null) return false;
   if (clip.check_claims >= MAX_CHECK_CLAIMS)
     return settleCheck("long_video_clips", clip, clip.check_claimed_at, {
       check_status: "unavailable",
@@ -1932,6 +2028,7 @@ async function runClipCheck(run: RunRow, clip: ClipRow): Promise<boolean> {
         frames,
         what: clipLabel(clip).toLowerCase(),
         beat: clip.beat,
+        timeoutMs: time,
       })
     : ({
         ok: false,
@@ -1939,8 +2036,10 @@ async function runClipCheck(run: RunRow, clip: ClipRow): Promise<boolean> {
         message: "No frames of it could be read",
         retryable: false,
       } as const);
-  const patch = checkPatch(outcome, clip.check_attempts);
-  await settleCheck("long_video_clips", clip, claim, patch);
+  const patch = checkPatch(outcome, clip.check_attempts, time, clip.check_claims);
+  // Only a verdict that was written stops the run (the lease may have lapsed).
+  const settled = await settleCheck("long_video_clips", clip, claim, patch);
+  if (!settled) return false;
   if (patch.check_status === "flagged") {
     const result = patch.check_result as unknown as IdentityResult;
     await pause(
@@ -1958,6 +2057,7 @@ type CheckPatch = {
   check_status: string;
   check_result: Json;
   check_attempts?: number;
+  check_claims?: number;
   check_claimed_at?: string | null;
   checked_at?: string;
 };
@@ -1966,7 +2066,19 @@ type CheckPatch = {
 function checkPatch(
   outcome: Awaited<ReturnType<typeof import("../characters/identity.server").checkIdentity>>,
   attempts: number,
+  time: number,
+  /** Its lease count before this pass took it. */
+  claims: number,
 ): CheckPatch {
+  // Cut short only by the time this pass had left: not a failure (nor a lease
+  // lost), tried again by the next pass.
+  if (!outcome.ok && outcome.code === "REASONING_TIMEOUT" && time < CHECK_TIME_MS)
+    return {
+      check_status: "checking",
+      check_claims: claims,
+      check_result: { error: outcome.message, code: outcome.code },
+      check_claimed_at: new Date(Date.now() - CHECK_LEASE_MS).toISOString(),
+    };
   if (outcome.ok)
     return {
       check_status: outcome.result.flagged ? "flagged" : "passed",
@@ -2011,8 +2123,11 @@ async function settleCheck(
 /* The storyboard: keyframes painted before the clips                  */
 /* ------------------------------------------------------------------ */
 
+/** A keyframe as the storyboard names it: the opening one, or the end of clip i. */
 const keyframeLabel = (keyframe: Pick<KeyframeRow, "position">) =>
-  keyframe.position === 0 ? "The opening keyframe" : `Keyframe ${keyframe.position + 1}`;
+  keyframe.position === 0
+    ? "The opening keyframe"
+    : `The keyframe at the end of clip ${keyframe.position}`;
 
 /** A keyframe is settled once it's painted (or given) and, where characters are checked, looked at. */
 function keyframeSettled(run: RunRow, keyframe: KeyframeRow): boolean {
@@ -2031,12 +2146,15 @@ async function stepStoryboard(
   run: RunRow,
   clips: ClipRow[],
   keyframes: KeyframeRow[],
+  deadline: number | null,
 ): Promise<boolean> {
   if (!keyframes.length) {
+    // A run a moment old may still be recording them.
+    if (Date.now() - new Date(run.created_at).getTime() < CLAIM_STALE_MS) return false;
     await pause(
       run,
       "KEYFRAME_MISSING",
-      "This video's keyframes couldn't be read. Try again in a moment.",
+      "This video's keyframes weren't recorded when it started, so it can't go on. Start it again.",
     );
     return false;
   }
@@ -2057,13 +2175,13 @@ async function stepStoryboard(
       );
       return false;
     }
-    const { data } = await db
-      .from("long_videos")
-      .update({ storyboard_approved_at: now() })
-      .eq("id", run.id)
-      .is("storyboard_approved_at", null)
-      .select("id");
-    return !!data?.length;
+    // With review off, approved as the run's own (under the same lock as a redo).
+    const { data, error } = await db.rpc("approve_long_video_storyboard", {
+      p_run_id: run.id,
+      p_by_person: false,
+    });
+    if (error) throw new Error(`The keyframes couldn't be approved: ${error.message}`);
+    return (data as { outcome?: string } | null)?.outcome === "approved";
   }
   const previous = keyframes.find((keyframe) => keyframe.position === current.position - 1) ?? null;
   switch (current.status) {
@@ -2076,12 +2194,12 @@ async function stepStoryboard(
     case "sizing":
       return followKeyframeSizing(run, current);
     case "completed":
-      return checkKeyframe(run, current, clips);
+      return checkKeyframe(run, current, clips, deadline);
     default:
       await pause(
         run,
-        current.error_code ?? "KEYFRAME_FAILED",
-        `${keyframeLabel(current)}: ${current.error_message ?? "it couldn't be painted"}`,
+        "KEYFRAME_FAILED",
+        `${keyframeLabel(current)}: ${current.error_message ?? "it couldn't be painted"}. Redo it to carry on.`,
       );
       return false;
   }
@@ -2092,6 +2210,11 @@ export function keyframeRequestKey(keyframe: Pick<KeyframeRow, "id" | "attempt">
   return `lvk:${keyframe.id}:${keyframe.attempt}`;
 }
 
+/**
+ * Fails a keyframe that is still where this step found it (its state and
+ * attempt), keeping the reason (an unclear submission needs confirming before
+ * it is painted again), and stops the run for a person to redo it.
+ */
 async function failKeyframe(
   run: Pick<RunRow, "id">,
   keyframe: KeyframeRow,
@@ -2099,12 +2222,19 @@ async function failKeyframe(
   code: string,
   message: string,
 ): Promise<false> {
-  await db
+  const { data } = await db
     .from("long_video_keyframes")
     .update({ status: "failed", error_code: code, error_message: message })
     .eq("id", keyframe.id)
-    .eq("status", from);
-  await pause(run, code, `${keyframeLabel(keyframe)}: ${message}`);
+    .eq("status", from)
+    .eq("attempt", keyframe.attempt)
+    .select("id");
+  if (data?.length)
+    await pause(
+      run,
+      "KEYFRAME_FAILED",
+      `${keyframeLabel(keyframe)}: ${message}. Redo it to carry on.`,
+    );
   return false;
 }
 
@@ -2136,11 +2266,13 @@ async function startKeyframe(
   clips: ClipRow[],
   count: number,
 ): Promise<boolean> {
+  // Claimed as read (its attempt too): the request key below is this attempt's.
   const { data: claimed } = await db
     .from("long_video_keyframes")
     .update({ status: "submitting", claimed_at: now(), error_code: null, error_message: null })
     .eq("id", keyframe.id)
     .eq("status", "waiting")
+    .eq("attempt", keyframe.attempt)
     .select("id");
   if (!claimed?.length) return true;
 
@@ -2175,6 +2307,8 @@ async function startKeyframe(
   const prompt = keyframePrompt({
     position: keyframe.position,
     count,
+    final: keyframe.position === clips.length,
+    budget: Math.min(promptBudget(painter) ?? KEYFRAME_PROMPT_MAX, KEYFRAME_PROMPT_MAX),
     story: run.story,
     beats,
     durations: clips.map((clip) => Number(clip.duration_seconds)),
@@ -2189,11 +2323,19 @@ async function startKeyframe(
 
   const key = keyframeRequestKey(keyframe);
   const attach = async (generationId: string) => {
-    await db
+    const { error } = await db
       .from("long_video_keyframes")
       .update({ status: "generating", generation_id: generationId, prompt, started_at: now() })
       .eq("id", keyframe.id)
-      .eq("status", "submitting");
+      .eq("status", "submitting")
+      .eq("attempt", keyframe.attempt);
+    // Found again by its key once the claim lapses (recoverKeyframeClaim): never painted twice.
+    if (error)
+      console.error("keyframe generation not linked", {
+        keyframeId: keyframe.id,
+        generationId,
+        message: error.message,
+      });
   };
   try {
     if (!run.created_by)
@@ -2239,6 +2381,7 @@ async function recoverKeyframeClaim(keyframe: KeyframeRow): Promise<boolean> {
       .update({ status: "generating", generation_id: existing.id, started_at: now() })
       .eq("id", keyframe.id)
       .eq("status", "submitting")
+      .eq("attempt", keyframe.attempt)
       .select("id");
     return !!data?.length;
   }
@@ -2247,6 +2390,7 @@ async function recoverKeyframeClaim(keyframe: KeyframeRow): Promise<boolean> {
     .update({ status: "waiting", claimed_at: null })
     .eq("id", keyframe.id)
     .eq("status", "submitting")
+    .eq("attempt", keyframe.attempt)
     .eq("claimed_at", keyframe.claimed_at)
     .select("id");
   return !!data?.length;
@@ -2277,6 +2421,7 @@ async function followKeyframeGeneration(run: RunRow, keyframe: KeyframeRow): Pro
         })
         .eq("id", keyframe.id)
         .eq("status", "generating")
+        .eq("attempt", keyframe.attempt)
         .select("id");
       if (moved?.length)
         await db
@@ -2309,6 +2454,7 @@ async function followKeyframeSizing(run: RunRow, keyframe: KeyframeRow): Promise
       })
       .eq("id", keyframe.id)
       .eq("status", "sizing")
+      .eq("attempt", keyframe.attempt)
       .select("id");
     return !!data?.length;
   };
@@ -2320,12 +2466,14 @@ async function followKeyframeSizing(run: RunRow, keyframe: KeyframeRow): Promise
       Date.now() - new Date(keyframe.claimed_at).getTime() < CLAIM_STALE_MS
     )
       return false;
-    const { data: raw } = await db
+    const { data: raw, error: rawError } = await db
       .from("assets")
       .select("id,storage_bucket,storage_path,mime_type,width,height")
       .eq("id", keyframe.raw_asset_id)
       .is("deleted_at", null)
       .maybeSingle();
+    // A read that failed waits for a later step; only a painting really gone fails it.
+    if (rawError) return false;
     if (!raw) return failKeyframeSizing(keyframe, "Its painting is no longer in the library");
     const claim = now();
     const { data: claimed } = await db
@@ -2391,11 +2539,12 @@ async function followKeyframeSizing(run: RunRow, keyframe: KeyframeRow): Promise
     return true;
   }
 
-  const { data: task } = await db
+  const { data: task, error: taskError } = await db
     .from("media_tasks")
     .select("id,status,result_asset_id,error_message,created_at,updated_at")
     .eq("id", keyframe.size_task_id)
     .maybeSingle();
+  if (taskError) return false;
   if (task?.status === "completed" && task.result_asset_id)
     return finish(task.result_asset_id, null);
   const stale =
@@ -2437,6 +2586,7 @@ async function failKeyframeSizing(keyframe: KeyframeRow, message: string): Promi
     .update({ status: "failed", error_code: "KEYFRAME_MISSING", error_message: message })
     .eq("id", keyframe.id)
     .eq("status", "sizing")
+    .eq("attempt", keyframe.attempt)
     .select("id");
   return !!data?.length;
 }
@@ -2446,6 +2596,7 @@ async function checkKeyframe(
   run: RunRow,
   keyframe: KeyframeRow,
   clips: ClipRow[],
+  deadline: number | null,
 ): Promise<boolean> {
   if (!checksCharacters(run) || keyframe.provided || !keyframe.asset_id) {
     const { data } = await db
@@ -2466,6 +2617,8 @@ async function checkKeyframe(
     return !!data?.length;
   }
   if (keyframe.check_status !== "checking" || !leaseFree(keyframe.check_claimed_at)) return false;
+  const time = checkTime(deadline);
+  if (time === null) return false;
   if (keyframe.check_claims >= MAX_CHECK_CLAIMS)
     return settleCheck("long_video_keyframes", keyframe, keyframe.check_claimed_at, {
       check_status: "unavailable",
@@ -2501,6 +2654,7 @@ async function checkKeyframe(
         frames: [{ bucket: image.storage_bucket, path: image.storage_path, label: "the keyframe" }],
         what: keyframeLabel(keyframe).toLowerCase(),
         beat,
+        timeoutMs: time,
       })
     : ({
         ok: false,
@@ -2508,57 +2662,71 @@ async function checkKeyframe(
         message: "The keyframe couldn't be read",
         retryable: false,
       } as const);
-  const patch = checkPatch(outcome, keyframe.check_attempts);
-  await settleCheck("long_video_keyframes", keyframe, claim, patch);
-  return patch.check_status !== "checking";
+  const patch = checkPatch(outcome, keyframe.check_attempts, time, keyframe.check_claims);
+  const settled = await settleCheck("long_video_keyframes", keyframe, claim, patch);
+  return settled && patch.check_status !== "checking";
 }
 
 /* ------------------------------------------------------------------ */
 /* Events and the recovery pass                                        */
 /* ------------------------------------------------------------------ */
 
+/**
+ * How long a step set off by an event (a webhook, a media-service callback)
+ * may run: it runs after the response, where about 30 s are allowed. A slow
+ * step (an AI check) that doesn't fit is left to the reconcile pass or a page
+ * that's open.
+ */
+const EVENT_BUDGET_MS = 25_000;
+
 /** A generation reached an end (saved, failed, canceled): move on the run it belongs to, if any. */
 export async function advanceForGeneration(generationId: string): Promise<void> {
+  const deadline = Date.now() + EVENT_BUDGET_MS;
   const { data } = await db
     .from("long_video_clips")
     .select("long_video_id")
     .eq("generation_id", generationId)
     .maybeSingle();
-  if (data) return advanceLongVideo(data.long_video_id);
+  if (data) return advanceLongVideo(data.long_video_id, { deadline });
   // A keyframe's painting (none before the database has keyframes).
   const { data: keyframe } = await db
     .from("long_video_keyframes")
     .select("long_video_id")
     .eq("generation_id", generationId)
     .maybeSingle();
-  if (keyframe) await advanceLongVideo(keyframe.long_video_id);
+  if (keyframe) await advanceLongVideo(keyframe.long_video_id, { deadline });
 }
 
 /** A media task reported back (a handoff, a check's frames, a keyframe's sizing): move its run on. */
 export async function advanceForMediaTask(taskId: string): Promise<void> {
+  const deadline = Date.now() + EVENT_BUDGET_MS;
   const { data } = await db
     .from("long_video_clips")
     .select("long_video_id")
     .eq("handoff_task_id", taskId)
     .maybeSingle();
-  if (data) return advanceLongVideo(data.long_video_id);
+  if (data) return advanceLongVideo(data.long_video_id, { deadline });
   // Asked apart, so a database without these columns yet still routes handoffs.
   const { data: checking } = await db
     .from("long_video_clips")
     .select("long_video_id")
     .eq("check_task_id", taskId)
     .maybeSingle();
-  if (checking) return advanceLongVideo(checking.long_video_id);
+  if (checking) return advanceLongVideo(checking.long_video_id, { deadline });
   const { data: sizing } = await db
     .from("long_video_keyframes")
     .select("long_video_id")
     .eq("size_task_id", taskId)
     .maybeSingle();
-  if (sizing) await advanceLongVideo(sizing.long_video_id);
+  if (sizing) await advanceLongVideo(sizing.long_video_id, { deadline });
 }
 
-/** How long the reconcile job's pass spends on long videos, so the jobs after it get their turn. */
-const SWEEP_BUDGET_MS = 70_000;
+/**
+ * How long the reconcile job's pass spends on long videos. A check is only
+ * started with time to finish inside it, so the pass ends well within the two
+ * minutes the scheduler waits.
+ */
+const SWEEP_BUDGET_MS = 45_000;
 
 /**
  * The reconcile job's pass: moves on every running run, and records clips that
@@ -2649,7 +2817,8 @@ export async function retryLongVideoClip(input: {
         handoff_attempts: 0,
         handoff_time_seconds: null,
         handoff_asset_id: null,
-        ...CLEARED_CHECK,
+        // Only where the database has them (a plain run works before it does).
+        ...("check_status" in clip ? CLEARED_CHECK : {}),
         error_code: null,
         error_message: null,
       })
@@ -2665,7 +2834,7 @@ export async function retryLongVideoClip(input: {
     throw new AppError("INVALID_PARAMETERS", "That clip hasn't failed");
   }
   await reopen(clip.long_video_id);
-  await advanceLongVideo(clip.long_video_id);
+  await advanceAfter(clip.long_video_id);
 }
 
 /**
@@ -2704,7 +2873,7 @@ export async function continueLongVideo(longVideoId: string): Promise<void> {
     .eq("handoff_status", "failed");
   for (const clip of failed ?? []) await resetHandoff(clip);
   await reopen(longVideoId);
-  await advanceLongVideo(longVideoId);
+  await advanceAfter(longVideoId);
 }
 
 /** Stops a run: no further clips are started. A clip already generating still finishes and is saved. */
@@ -2741,8 +2910,11 @@ export async function redoLongVideoClip(input: { clipId: string }): Promise<void
     .eq("id", input.clipId)
     .maybeSingle();
   if (!clip) throw new AppError("INVALID_PARAMETERS", "That clip no longer exists");
-  if (clip.status !== "completed")
-    throw new AppError("INVALID_PARAMETERS", "Only a finished clip can be made again");
+  if (clip.status !== "completed" || clip.check_status !== "flagged")
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      "Only a finished clip the check flagged can be made again",
+    );
   const { data: later } = await db
     .from("long_video_clips")
     .select("position,status")
@@ -2779,8 +2951,11 @@ export async function redoLongVideoClip(input: { clipId: string }): Promise<void
     .eq("id", clip.id)
     .eq("status", "completed")
     .eq("attempt", clip.attempt)
+    // Still flagged: once kept (and the next clip free to start from it), it stays.
+    .eq("check_status", "flagged")
     .select("id");
-  if (!reset?.length) throw new AppError("INVALID_PARAMETERS", "That clip has just been changed");
+  if (!reset?.length)
+    throw new AppError("INVALID_PARAMETERS", "That clip has just been kept or changed");
   await db
     .from("long_videos")
     .update({
@@ -2792,7 +2967,7 @@ export async function redoLongVideoClip(input: { clipId: string }): Promise<void
     })
     .eq("id", clip.long_video_id)
     .in("status", ["running", "needs_attention", "canceled", "completed"]);
-  await advanceLongVideo(clip.long_video_id);
+  await advanceAfter(clip.long_video_id);
 }
 
 /** Keeps a clip whose check found a character changed, and carries on. */
@@ -2803,48 +2978,45 @@ export async function keepLongVideoClip(input: { clipId: string }): Promise<void
     .eq("id", input.clipId)
     .maybeSingle();
   if (!clip) throw new AppError("INVALID_PARAMETERS", "That clip no longer exists");
-  await db
+  const { data: kept } = await db
     .from("long_video_clips")
     .update({ check_status: "accepted" })
     .eq("id", clip.id)
-    .eq("check_status", "flagged");
+    .eq("check_status", "flagged")
+    .select("id");
+  if (!kept?.length)
+    throw new AppError("INVALID_PARAMETERS", "That clip has just been kept or made again");
   await reopen(clip.long_video_id);
-  await advanceLongVideo(clip.long_video_id);
+  await advanceAfter(clip.long_video_id);
 }
 
 /**
  * Approves a run's keyframes: the clips start. Keyframes still flagged are
- * kept as they are (the person has seen them).
+ * kept as they are (the person has seen them). Done under the run's lock, so
+ * it can't land while a keyframe is being painted again.
  */
 export async function approveStoryboard(longVideoId: string): Promise<void> {
-  const { data: run } = await db
-    .from("long_videos")
-    .select("id,keyframe_model_id,storyboard_approved_at")
-    .eq("id", longVideoId)
-    .maybeSingle();
-  if (!run?.keyframe_model_id)
+  const { data, error } = await db.rpc("approve_long_video_storyboard", {
+    p_run_id: longVideoId,
+    p_by_person: true,
+  });
+  if (error) throw new AppError("UNKNOWN", error.message);
+  const result = (data ?? {}) as { outcome?: string; position?: number; status?: string };
+  if (result.outcome === "missing")
     throw new AppError("INVALID_PARAMETERS", "That video has no keyframes to approve");
-  const keyframes = await keyframesOf(run);
-  const unfinished = keyframes.find((keyframe) => keyframe.status !== "completed");
-  if (unfinished)
+  if (result.outcome === "unfinished") {
+    const label =
+      typeof result.position === "number" ? keyframeLabel({ position: result.position }) : null;
     throw new AppError(
       "INVALID_PARAMETERS",
-      unfinished.status === "failed"
-        ? `${keyframeLabel(unfinished)} didn't come back: redo it first`
-        : "The keyframes aren't all in yet",
+      result.status === "failed" && label
+        ? `${label} didn't come back: redo it first`
+        : result.status === "completed" && label
+          ? `${label} is still being checked: a moment more`
+          : "The keyframes aren't all in yet",
     );
-  await db
-    .from("long_video_keyframes")
-    .update({ check_status: "accepted" })
-    .eq("long_video_id", longVideoId)
-    .eq("check_status", "flagged");
-  await db
-    .from("long_videos")
-    .update({ storyboard_approved_at: now() })
-    .eq("id", longVideoId)
-    .is("storyboard_approved_at", null);
-  await reopen(longVideoId);
-  await advanceLongVideo(longVideoId);
+  }
+  await advanceAfter(longVideoId);
 }
 
 /** Keeps a keyframe the check flagged (the storyboard still waits to be approved). */
@@ -2860,7 +3032,8 @@ export async function keepKeyframe(input: { keyframeId: string }): Promise<void>
  * Paints keyframes again (each a new, billed attempt): one, or it and every
  * one after it (each is painted from the one before), with a note on what to
  * change. Only keyframes no started clip depends on; the storyboard is then
- * reviewed (or approved) again before the clips carry on.
+ * looked over again before the clips carry on. Done under the run's lock (see
+ * redo_long_video_keyframes), so a clip can't start on one meanwhile.
  */
 export async function redoKeyframes(input: {
   keyframeId: string;
@@ -2870,7 +3043,7 @@ export async function redoKeyframes(input: {
 }): Promise<void> {
   const { data: target } = await db
     .from("long_video_keyframes")
-    .select("*")
+    .select("id,long_video_id,position,provided")
     .eq("id", input.keyframeId)
     .maybeSingle();
   if (!target) throw new AppError("INVALID_PARAMETERS", "That keyframe no longer exists");
@@ -2880,90 +3053,61 @@ export async function redoKeyframes(input: {
       "This keyframe is your own image: change it in Create and start the video again",
     );
   const runId = target.long_video_id;
-  const { data: all } = await db
+  const { data: all, error: allError } = await db
     .from("long_video_keyframes")
-    .select("*")
+    .select("id,position,provided")
     .eq("long_video_id", runId)
     .order("position");
-  const chosen = (all ?? []).filter(
-    (keyframe) =>
-      !keyframe.provided &&
-      (input.scope === "rest" ? keyframe.position >= target.position : keyframe.id === target.id),
-  );
-  // The clips that start or end on them must all still be waiting (or have
-  // stopped before anything was paid for, as their keyframe was missing).
-  const firstClip = Math.max(0, target.position - 1);
-  const { data: clips } = await db
-    .from("long_video_clips")
-    .select("id,position,status,error_code")
-    .eq("long_video_id", runId)
-    .gte("position", firstClip);
-  const started = (clips ?? []).find(
-    (clip) =>
-      clip.status !== "waiting" &&
-      !(clip.status === "failed" && clip.error_code === "KEYFRAME_MISSING"),
-  );
-  if (started)
-    throw new AppError(
-      "INVALID_PARAMETERS",
-      `Clip ${started.position + 1} has started with this keyframe, so it can't be painted again`,
-    );
-  const uncertain = chosen.find(
-    (keyframe) => keyframe.status === "failed" && keyframe.error_code === "SUBMISSION_UNCERTAIN",
-  );
-  if (uncertain && !input.confirmUncertain)
-    throw new AppError(
-      "SUBMISSION_UNCERTAIN",
-      `${keyframeLabel(uncertain)} may already be painting at Higgsfield. Check Activity, then confirm.`,
-    );
-  if (chosen.some((keyframe) => ["submitting", "generating", "sizing"].includes(keyframe.status)))
-    throw new AppError(
-      "INVALID_PARAMETERS",
-      "A keyframe is being painted right now: wait for it first",
-    );
+  if (allError) throw new AppError("UNKNOWN", allError.message);
+  const ids = (all ?? [])
+    .filter(
+      (keyframe) =>
+        !keyframe.provided &&
+        (input.scope === "rest" ? keyframe.position >= target.position : keyframe.id === target.id),
+    )
+    .map((keyframe) => keyframe.id);
 
-  for (const keyframe of chosen) {
-    const { data: reset } = await db
-      .from("long_video_keyframes")
-      .update({
-        status: "waiting",
-        attempt: keyframe.generation_id ? keyframe.attempt + 1 : keyframe.attempt,
-        generation_id: null,
-        raw_asset_id: null,
-        asset_id: null,
-        size_task_id: null,
-        size_attempts: 0,
-        check_status: "none",
-        check_attempts: 0,
-        check_claims: 0,
-        check_result: null,
-        check_claimed_at: null,
-        checked_at: null,
-        note: keyframe.id === target.id ? input.note.trim().slice(0, 1000) : keyframe.note,
-        error_code: null,
-        error_message: null,
-        claimed_at: null,
-        started_at: null,
-        completed_at: null,
-      })
-      .eq("id", keyframe.id)
-      .eq("status", keyframe.status)
-      .eq("attempt", keyframe.attempt)
-      .select("id");
-    if (!reset?.length)
-      throw new AppError("INVALID_PARAMETERS", "A keyframe has just been changed");
+  const { data, error } = await db.rpc("redo_long_video_keyframes", {
+    p_run_id: runId,
+    p_keyframe_ids: ids,
+    p_target_id: target.id,
+    p_note: input.note.trim().slice(0, 1000),
+    p_confirm_uncertain: input.confirmUncertain,
+  });
+  if (error) throw new AppError("UNKNOWN", error.message);
+  const result = (data ?? {}) as { outcome?: string; position?: number };
+  switch (result.outcome) {
+    case "redone":
+      break;
+    case "started":
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        `Clip ${(result.position ?? 0) + 1} has started with this keyframe, so it can't be painted again`,
+      );
+    case "painting":
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        "A keyframe is being painted right now: wait for it first",
+      );
+    case "uncertain":
+      throw new AppError(
+        "SUBMISSION_UNCERTAIN",
+        `${keyframeLabel({ position: result.position ?? 0 })} may already be painting at Higgsfield. Check Activity, then confirm.`,
+      );
+    case "provided":
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        "A keyframe in that range is your own image, so it isn't painted again",
+      );
+    case "stopped":
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        "This video is stopped: press Continue first, then redo the keyframe",
+      );
+    default:
+      throw new AppError("INVALID_PARAMETERS", "That keyframe no longer exists");
   }
-  // Clips stopped for a missing keyframe start again (nothing was paid for them).
-  for (const clip of clips ?? [])
-    if (clip.status === "failed" && clip.error_code === "KEYFRAME_MISSING")
-      await db
-        .from("long_video_clips")
-        .update({ status: "waiting", claimed_at: null, error_code: null, error_message: null })
-        .eq("id", clip.id)
-        .eq("status", "failed");
-  await db.from("long_videos").update({ storyboard_approved_at: null }).eq("id", runId);
-  await reopen(runId);
-  await advanceLongVideo(runId);
+  await advanceAfter(runId);
 }
 
 /* ------------------------------------------------------------------ */

@@ -57,6 +57,9 @@ function summaryOf(keyframe: LongVideoKeyframeRow): string | null {
   return result?.summary ?? null;
 }
 
+/** Keyframe states still on their way. */
+const ACTIVE = new Set(["submitting", "generating", "sizing"]);
+
 /** "Opening", "End of clip 2"…: what each keyframe is. */
 function keyframeName(keyframe: Pick<LongVideoKeyframeRow, "position">): string {
   return keyframe.position === 0 ? "Opening" : `End of clip ${keyframe.position}`;
@@ -86,23 +89,44 @@ export function StoryboardPanel({
   const [scope, setScope] = useState<"one" | "rest">("one");
   const approved = !!run.storyboard_approved_at;
   const waiting = run.status === "needs_attention" && run.error_code === "STORYBOARD_READY";
-  const allIn = run.keyframes.every((keyframe) => keyframe.status === "completed");
+  // Checks the run makes of its keyframes (none without characters, or with the check off).
+  const checks = run.identity_check && Array.isArray(run.characters) && run.characters.length > 0;
+  const settled = (keyframe: LongVideoKeyframeRow) =>
+    keyframe.status === "completed" &&
+    (keyframe.provided ||
+      !checks ||
+      ["passed", "accepted", "unavailable", "skipped", "flagged"].includes(keyframe.check_status));
+  const allIn = run.keyframes.length > 0 && run.keyframes.every(settled);
+  const anyFailed = run.keyframes.some((keyframe) => keyframe.status === "failed");
+  const painting = run.keyframes.some((keyframe) => ACTIVE.has(keyframe.status));
   const unitUsd = storedKeyframeSettings(run.keyframe_settings)?.unitUsd ?? null;
-  const uncertain = redoing?.error_code === "SUBMISSION_UNCERTAIN";
-  // A keyframe can be painted again until the clip that ends on it has started.
+  // A keyframe can be painted again (once it has been) until the clip that
+  // starts or ends on it has started, and not while the video is stopped.
   const redoable = (keyframe: LongVideoKeyframeRow) => {
-    if (keyframe.provided || !canManage) return false;
-    if (["submitting", "generating", "sizing"].includes(keyframe.status)) return false;
+    if (keyframe.provided || !canManage || run.status === "canceled") return false;
+    if (keyframe.status !== "completed" && keyframe.status !== "failed") return false;
     const clip = run.clips.find((entry) => entry.position === Math.max(0, keyframe.position - 1));
-    return !clip || clip.status === "waiting" || clip.error_code === "KEYFRAME_MISSING";
+    return !clip || !["submitting", "generating", "completed"].includes(clip.status);
   };
-  const redoCount = redoing
-    ? scope === "rest"
-      ? run.keyframes.filter(
-          (keyframe) => keyframe.position >= redoing.position && !keyframe.provided,
-        ).length
-      : 1
-    : 0;
+  // What a redo would paint again: this one, or it and every one after it.
+  const range = redoing
+    ? run.keyframes.filter((keyframe) =>
+        scope === "rest"
+          ? keyframe.position >= redoing.position && !keyframe.provided
+          : keyframe.id === redoing.id,
+      )
+    : [];
+  const redoCount = range.length;
+  // Any of them may still be painting at Higgsfield (an unclear answer): confirmed first.
+  const uncertain = range.some(
+    (keyframe) => keyframe.status === "failed" && keyframe.error_code === "SUBMISSION_UNCERTAIN",
+  );
+  // The ones after it can be painted again only once none of them is being painted.
+  const laterPainting = redoing
+    ? run.keyframes.some(
+        (keyframe) => keyframe.position > redoing.position && ACTIVE.has(keyframe.status),
+      )
+    : false;
 
   return (
     <div
@@ -137,7 +161,15 @@ export function StoryboardPanel({
             ) : (
               <Film className="mr-1.5 size-3.5" />
             )}
-            {allIn ? "Make the video" : "Painting the keyframes…"}
+            {allIn
+              ? "Make the video"
+              : anyFailed
+                ? "Redo the keyframe that didn't come back"
+                : painting
+                  ? "Painting the keyframes…"
+                  : run.status === "canceled"
+                    ? "Stopped: continue to paint the rest"
+                    : "Checking the keyframes…"}
           </Button>
         )}
       </div>
@@ -175,11 +207,19 @@ export function StoryboardPanel({
                     alt={keyframeName(keyframe)}
                   />
                 ) : (
-                  <div className="flex size-full items-center justify-center text-muted-foreground">
+                  <div className="flex size-full flex-col items-center justify-center gap-1 text-muted-foreground">
                     {keyframe.status === "failed" ? (
                       <AlertTriangle className="size-4 text-warning" />
                     ) : keyframe.status === "waiting" ? (
                       <Film className="size-4 opacity-40" />
+                    ) : keyframe.status === "completed" && assets && keyframe.asset_id ? (
+                      // Painted, but its image has since been deleted from the library.
+                      <>
+                        <AlertTriangle className="size-4 text-warning" />
+                        <span className="px-2 text-center text-[10px]">
+                          Deleted from the library
+                        </span>
+                      </>
                     ) : (
                       <Loader2 className="size-4 animate-spin" />
                     )}
@@ -284,10 +324,12 @@ export function StoryboardPanel({
                       type="radio"
                       name="keyframe-scope"
                       checked={scope === value}
+                      disabled={value === "rest" && laterPainting}
                       onChange={() => setScope(value)}
                       className="mt-0.5"
                     />
                     {label}
+                    {value === "rest" && laterPainting ? " (once the ones after it are in)" : ""}
                   </label>
                 ))}
               </div>

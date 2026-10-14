@@ -19,14 +19,20 @@ CREATE TABLE IF NOT EXISTS public.characters (
   name text NOT NULL CHECK (char_length(btrim(name)) BETWEEN 1 AND 80),
   -- The look in words (age, build, face, hair, clothes), added to every prompt.
   description text NOT NULL DEFAULT '' CHECK (char_length(description) <= 600),
-  -- Soul ID: Higgsfield's trained character reference (billed). none: never
-  -- trained; submitting: being started; training; ready; failed; uncertain:
-  -- the start's answer was unclear, so it is never retried without a person.
-  soul_status text NOT NULL DEFAULT 'none'
-    CHECK (soul_status IN ('none', 'submitting', 'training', 'ready', 'failed', 'uncertain')),
-  -- The Soul family it works with: v1 (Soul Standard), v2 (Soul 2), cinema (Soul Cinema).
+  -- Soul ID: Higgsfield's trained character reference (billed). The one in
+  -- use (soul_reference_id, for soul_model_version: v1 Soul Standard, v2 Soul
+  -- 2, cinema Soul Cinema) stays in use while a new one trains, and after a
+  -- training that fails; a new one replaces it only once it is ready.
   soul_model_version text CHECK (soul_model_version IN ('v1', 'v2', 'cinema')),
   soul_reference_id text CHECK (char_length(soul_reference_id) <= 100),
+  -- The latest training. none: never trained; submitting: being started;
+  -- training; ready (now in use); failed; uncertain: the answer was unclear,
+  -- so it is never retried without a person.
+  soul_status text NOT NULL DEFAULT 'none'
+    CHECK (soul_status IN ('none', 'submitting', 'training', 'ready', 'failed', 'uncertain')),
+  soul_training_version text CHECK (soul_training_version IN ('v1', 'v2', 'cinema')),
+  -- Higgsfield's id for it, once Higgsfield has answered.
+  soul_training_id text CHECK (char_length(soul_training_id) <= 100),
   -- One key per training request, sent to Higgsfield so a repeat never trains twice.
   soul_request_key text UNIQUE CHECK (char_length(soul_request_key) <= 64),
   soul_error text,
@@ -187,3 +193,221 @@ BEGIN
     END IF;
   END IF;
 END $$;
+
+-- ---------- Steps that must not interleave (server only) ----------
+-- Starting a clip of a keyframed run, approving its storyboard and painting
+-- its keyframes again each lock the run's row first, so they happen one after
+-- the other: a clip never starts on a keyframe that is being painted again,
+-- an approval never lands while a keyframe is still to be painted, and a
+-- keyframe a clip has started with is never painted again.
+
+-- A clip of a keyframed run is claimed only while its storyboard is approved.
+-- Outcome: claimed (with the attempt), taken (not waiting any more), or
+-- storyboard (not approved: its keyframes come first).
+CREATE OR REPLACE FUNCTION public.claim_long_video_clip(p_clip_id uuid, p_claimed_at timestamptz)
+RETURNS jsonb
+LANGUAGE plpgsql
+VOLATILE
+SET search_path = public
+AS $$
+DECLARE
+  v_run uuid;
+  v_keyframed boolean;
+  v_approved timestamptz;
+  v_attempt integer;
+BEGIN
+  SELECT long_video_id INTO v_run FROM public.long_video_clips WHERE id = p_clip_id;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('outcome', 'taken');
+  END IF;
+  SELECT keyframe_model_id IS NOT NULL, storyboard_approved_at INTO v_keyframed, v_approved
+    FROM public.long_videos WHERE id = v_run FOR UPDATE;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('outcome', 'taken');
+  END IF;
+  IF v_keyframed AND v_approved IS NULL THEN
+    RETURN jsonb_build_object('outcome', 'storyboard');
+  END IF;
+  UPDATE public.long_video_clips
+     SET status = 'submitting', claimed_at = p_claimed_at, error_code = NULL, error_message = NULL
+   WHERE id = p_clip_id AND status = 'waiting'
+  RETURNING attempt INTO v_attempt;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('outcome', 'taken');
+  END IF;
+  RETURN jsonb_build_object('outcome', 'claimed', 'attempt', v_attempt);
+END $$;
+REVOKE ALL ON FUNCTION public.claim_long_video_clip(uuid, timestamptz) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_long_video_clip(uuid, timestamptz) TO service_role;
+
+-- Approves a keyframed run's storyboard once every keyframe is painted and, in
+-- a run that checks its characters, checked. A person's approval keeps any
+-- flagged keyframe (they have seen it) and picks the run up again; the run's
+-- own (review off) only goes ahead when none is flagged.
+-- Outcome: approved, unfinished (with the first keyframe still to come),
+-- flagged, or missing.
+CREATE OR REPLACE FUNCTION public.approve_long_video_storyboard(p_run_id uuid, p_by_person boolean)
+RETURNS jsonb
+LANGUAGE plpgsql
+VOLATILE
+SET search_path = public
+AS $$
+DECLARE
+  v_run record;
+  v_checks boolean;
+  v_pending record;
+BEGIN
+  SELECT id, status, keyframe_model_id, storyboard_approved_at, identity_check, characters
+    INTO v_run FROM public.long_videos WHERE id = p_run_id FOR UPDATE;
+  IF NOT FOUND OR v_run.keyframe_model_id IS NULL THEN
+    RETURN jsonb_build_object('outcome', 'missing');
+  END IF;
+  IF v_run.storyboard_approved_at IS NOT NULL THEN
+    RETURN jsonb_build_object('outcome', 'approved');
+  END IF;
+  IF NOT p_by_person AND v_run.status <> 'running' THEN
+    RETURN jsonb_build_object('outcome', 'unfinished');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.long_video_keyframes WHERE long_video_id = p_run_id) THEN
+    RETURN jsonb_build_object('outcome', 'unfinished');
+  END IF;
+  v_checks := v_run.identity_check AND jsonb_typeof(v_run.characters) = 'array'
+    AND jsonb_array_length(v_run.characters) > 0;
+  SELECT position, status, error_code INTO v_pending
+    FROM public.long_video_keyframes
+   WHERE long_video_id = p_run_id
+     AND (status <> 'completed'
+          OR (v_checks AND NOT provided
+              AND check_status NOT IN ('passed', 'accepted', 'unavailable', 'skipped', 'flagged')))
+   ORDER BY position
+   LIMIT 1;
+  IF FOUND THEN
+    RETURN jsonb_build_object('outcome', 'unfinished', 'position', v_pending.position,
+                              'status', v_pending.status, 'error_code', v_pending.error_code);
+  END IF;
+  IF NOT p_by_person AND EXISTS (
+    SELECT 1 FROM public.long_video_keyframes WHERE long_video_id = p_run_id AND check_status = 'flagged'
+  ) THEN
+    RETURN jsonb_build_object('outcome', 'flagged');
+  END IF;
+  UPDATE public.long_video_keyframes SET check_status = 'accepted'
+   WHERE long_video_id = p_run_id AND check_status = 'flagged';
+  UPDATE public.long_videos
+     SET storyboard_approved_at = now(),
+         status = CASE WHEN status IN ('needs_attention', 'canceled') THEN 'running' ELSE status END,
+         error_code = CASE WHEN status IN ('needs_attention', 'canceled') THEN NULL ELSE error_code END,
+         error_message = CASE WHEN status IN ('needs_attention', 'canceled') THEN NULL ELSE error_message END,
+         completed_at = NULL
+   WHERE id = p_run_id;
+  RETURN jsonb_build_object('outcome', 'approved');
+END $$;
+REVOKE ALL ON FUNCTION public.approve_long_video_storyboard(uuid, boolean) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.approve_long_video_storyboard(uuid, boolean) TO service_role;
+
+-- Paints keyframes again, each as a new attempt (billed), while no clip that
+-- starts or ends on them has started (clip 1 starts on keyframe 0; clip i
+-- ends on keyframe i). Clips stopped because a keyframe was missing wait
+-- again (nothing was paid for them), and the storyboard is looked over again
+-- before any clip carries on, whatever the run was set to.
+-- Outcome: redone; started (with the first such clip's position); painting
+-- (one is being painted now); uncertain (one may be painting at Higgsfield
+-- and that wasn't confirmed; with its position); provided (one is the
+-- person's own image); stopped (the run is stopped); or missing.
+CREATE OR REPLACE FUNCTION public.redo_long_video_keyframes(
+  p_run_id uuid,
+  p_keyframe_ids uuid[],
+  p_target_id uuid,
+  p_note text,
+  p_confirm_uncertain boolean
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+VOLATILE
+SET search_path = public
+AS $$
+DECLARE
+  v_status text;
+  v_first integer;
+  v_count integer;
+  v_clip integer;
+  v_uncertain integer;
+BEGIN
+  SELECT status INTO v_status FROM public.long_videos WHERE id = p_run_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('outcome', 'missing');
+  END IF;
+  IF v_status = 'canceled' THEN
+    RETURN jsonb_build_object('outcome', 'stopped');
+  END IF;
+  PERFORM 1 FROM public.long_video_keyframes
+   WHERE long_video_id = p_run_id AND id = ANY(p_keyframe_ids) FOR UPDATE;
+  SELECT min(position), count(*) INTO v_first, v_count FROM public.long_video_keyframes
+   WHERE long_video_id = p_run_id AND id = ANY(p_keyframe_ids);
+  IF v_count = 0 OR v_count <> cardinality(p_keyframe_ids) THEN
+    RETURN jsonb_build_object('outcome', 'missing');
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.long_video_keyframes
+              WHERE long_video_id = p_run_id AND id = ANY(p_keyframe_ids) AND provided) THEN
+    RETURN jsonb_build_object('outcome', 'provided');
+  END IF;
+  SELECT position INTO v_clip FROM public.long_video_clips
+   WHERE long_video_id = p_run_id
+     AND position >= GREATEST(v_first - 1, 0)
+     AND status IN ('submitting', 'generating', 'completed')
+   ORDER BY position
+   LIMIT 1;
+  IF FOUND THEN
+    RETURN jsonb_build_object('outcome', 'started', 'position', v_clip);
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.long_video_keyframes
+              WHERE long_video_id = p_run_id AND id = ANY(p_keyframe_ids)
+                AND status IN ('submitting', 'generating', 'sizing')) THEN
+    RETURN jsonb_build_object('outcome', 'painting');
+  END IF;
+  IF NOT p_confirm_uncertain THEN
+    SELECT position INTO v_uncertain FROM public.long_video_keyframes
+     WHERE long_video_id = p_run_id AND id = ANY(p_keyframe_ids)
+       AND status = 'failed' AND error_code = 'SUBMISSION_UNCERTAIN'
+     ORDER BY position
+     LIMIT 1;
+    IF FOUND THEN
+      RETURN jsonb_build_object('outcome', 'uncertain', 'position', v_uncertain);
+    END IF;
+  END IF;
+
+  UPDATE public.long_video_keyframes
+     SET status = 'waiting',
+         attempt = attempt + 1,
+         generation_id = NULL,
+         raw_asset_id = NULL,
+         asset_id = NULL,
+         size_task_id = NULL,
+         size_attempts = 0,
+         check_status = 'none',
+         check_attempts = 0,
+         check_claims = 0,
+         check_result = NULL,
+         check_claimed_at = NULL,
+         checked_at = NULL,
+         note = CASE WHEN id = p_target_id THEN left(btrim(coalesce(p_note, '')), 1000) ELSE note END,
+         error_code = NULL,
+         error_message = NULL,
+         claimed_at = NULL,
+         started_at = NULL,
+         completed_at = NULL
+   WHERE long_video_id = p_run_id AND id = ANY(p_keyframe_ids);
+  UPDATE public.long_video_clips
+     SET status = 'waiting', claimed_at = NULL, error_code = NULL, error_message = NULL
+   WHERE long_video_id = p_run_id AND status = 'failed' AND error_code = 'KEYFRAME_MISSING';
+  UPDATE public.long_videos
+     SET storyboard_approved_at = NULL,
+         storyboard_review = true,
+         status = 'running',
+         error_code = NULL,
+         error_message = NULL,
+         completed_at = NULL
+   WHERE id = p_run_id;
+  RETURN jsonb_build_object('outcome', 'redone');
+END $$;
+REVOKE ALL ON FUNCTION public.redo_long_video_keyframes(uuid, uuid[], uuid, text, boolean) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.redo_long_video_keyframes(uuid, uuid[], uuid, text, boolean) TO service_role;

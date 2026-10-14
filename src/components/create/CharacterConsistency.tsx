@@ -47,9 +47,10 @@ export function CharacterConsistency({
   const laterImages = later.length ? Math.max(...later.map((clip) => clip.characterImages)) : 0;
   const continuation = plan.continuation;
   const softEnd = !!continuation && clipEnd(continuation)?.kind === "reference";
+  // Only the keyframes that are painted are billed (the person's own frames aren't).
   const keyframeCost =
-    keyframeUsd !== null && plan.keyframeCount
-      ? ` · about $${(keyframeUsd * plan.keyframeCount).toFixed(2)}`
+    keyframeUsd !== null && plan.paintedKeyframes
+      ? ` · about $${(keyframeUsd * plan.paintedKeyframes).toFixed(2)}`
       : "";
 
   return (
@@ -70,7 +71,7 @@ export function CharacterConsistency({
         </p>
       )}
 
-      {(chosen.length > 0 || draft.keyframes) && (
+      {(chosen.length > 0 || draft.keyframes || plan.workflow) && (
         <ul
           className="space-y-2.5 rounded-md bg-background/60 px-3 py-2.5 text-xs"
           data-testid="long-video-consistency"
@@ -110,8 +111,10 @@ export function CharacterConsistency({
                   </div>
                   <p className="text-[11px] leading-relaxed text-muted-foreground">
                     {plan.keyframed
-                      ? `${plan.keyframeCount} stills${keyframeCost}: the opening frame and the frame each clip ends on, painted from ${chosen.length ? "their images" : "your references"}. Every clip is then made by ${modelLine(plan.workflow)} and ${softEnd ? "steered toward" : "ends on"} its keyframe, so no one can drift for more than a clip. Motion can settle for a moment where clips meet.`
-                      : `Recommended with characters: the frame each clip ends on is painted first, so no one can drift for more than a clip (${modelLine(plan.workflow)} makes every clip).`}
+                      ? `${plan.paintedKeyframes} stills${keyframeCost}: the opening frame and the frame each clip ends on${plan.keyframeCount > plan.paintedKeyframes ? " (your own frames are used as they are)" : ""}, painted from ${chosen.length ? "their images" : "your references"}. Every clip is then made by ${modelLine(plan.workflow)} and ${softEnd ? "steered toward" : "ends on"} its keyframe, so no one can drift for more than a clip. Motion can settle for a moment where clips meet.`
+                      : chosen.length
+                        ? `Recommended with characters: the frame each clip ends on is painted first, so no one can drift for more than a clip (${modelLine(plan.workflow)} makes every clip).`
+                        : `The frame each clip ends on can be painted first and looked over, so the video goes exactly where you want (${modelLine(plan.workflow)} makes every clip).`}
                   </p>
                   {plan.keyframed && (
                     <div className="grid gap-2 sm:grid-cols-2">
@@ -185,14 +188,14 @@ export function CharacterConsistency({
             </li>
           )}
 
-          {chosen.some((character) => character.images.length < 2) && (
+          {chosen.some((character) => character.images.length === 1) && (
             <li className="flex gap-2 text-[11px] text-warning">
               <Fingerprint className="mt-0.5 size-3.5 shrink-0" />
               {chosen
-                .filter((character) => character.images.length < 2)
+                .filter((character) => character.images.length === 1)
                 .map((character) => character.name)
                 .join(", ")}{" "}
-              {chosen.filter((character) => character.images.length < 2).length === 1
+              {chosen.filter((character) => character.images.length === 1).length === 1
                 ? "has"
                 : "have"}{" "}
               a single reference image: a face close-up and a full-body shot keep them far better.

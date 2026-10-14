@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Loader2, Sparkles, Trash2, Wand2 } from "lucide-react";
 import { toast } from "sonner";
@@ -54,6 +54,8 @@ const SOUL_SOURCE = "soul";
 interface MadeView {
   generationId: string;
   status: string;
+  /** Whether its saving to the library has ended (completed or given up). */
+  ingested: "pending" | "completed" | "failed";
   view: CharacterView;
   asset: AssetRow | null;
   createdAt: string;
@@ -66,7 +68,7 @@ function useMadeViews(characterId: string) {
     queryFn: async (): Promise<MadeView[]> => {
       const { data: generations, error } = await supabase
         .from("generations")
-        .select("id,status,client_request_id,created_at")
+        .select("id,status,ingest_status,client_request_id,created_at")
         .like("client_request_id", `${viewKeyPrefix(characterId)}%`)
         .order("created_at", { ascending: false })
         .limit(24);
@@ -83,20 +85,41 @@ function useMadeViews(characterId: string) {
           ((assets ?? []) as unknown as AssetRow[]).find(
             (entry) => entry.generation_id === row.id && entry.asset_type === "image",
           ) ?? null;
+        const ingested: MadeView["ingested"] =
+          row.ingest_status === "completed"
+            ? "completed"
+            : row.ingest_status === "failed"
+              ? "failed"
+              : "pending";
         return [
-          { generationId: row.id, status: row.status, view, asset, createdAt: row.created_at },
+          {
+            generationId: row.id,
+            status: row.status,
+            ingested,
+            view,
+            asset,
+            createdAt: row.created_at,
+          },
         ];
       });
     },
-    refetchInterval: (query) =>
-      (query.state.data ?? []).some((made) => !made.asset && !ENDED.has(made.status))
-        ? 8_000
-        : false,
+    refetchInterval: (query) => ((query.state.data ?? []).some(stillComing) ? 8_000 : false),
   });
 }
 
-/** Generation states after which nothing more comes. */
+/** Generation states after which nothing more comes (an unclear one is a person's to check). */
 const ENDED = new Set(["failed", "nsfw", "canceled", "submission_uncertain"]);
+
+/** A view still on its way: being made, or made and being saved. */
+function stillComing(made: MadeView): boolean {
+  if (made.asset || ENDED.has(made.status)) return false;
+  return !(made.status === "completed" && made.ingested !== "pending");
+}
+
+/** Made and saved, but no longer in the library: discarded (shown no more). */
+function discarded(made: MadeView): boolean {
+  return !made.asset && made.status === "completed" && made.ingested === "completed";
+}
 
 /**
  * Makes a character's reference views (face, full body front, three-quarter,
@@ -115,7 +138,7 @@ export function ViewsMaker({
   const { data: models = [] } = useModels();
   const painters = useMemo(() => keyframePainters(models), [models]);
   const soulModel =
-    character.soul_status === "ready" && character.soul_model_version && character.soul_reference_id
+    character.soul_model_version && character.soul_reference_id
       ? (models.find(
           (model) =>
             model.is_active && model.model_path === SOUL_MODEL_PATHS[character.soul_model_version!],
@@ -151,6 +174,8 @@ export function ViewsMaker({
   } | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [making, setMaking] = useState(false);
+  // One batch per click: a second click while one is being sent does nothing.
+  const lock = useRef(false);
   const { data: made = [] } = useMadeViews(character.id);
 
   function request(view: MakeableView) {
@@ -210,20 +235,23 @@ export function ViewsMaker({
   const waiting = made.filter(
     (entry) => entry.asset && !character.images.some((image) => image.assetId === entry.asset!.id),
   );
-  const pending = made.filter((entry) => !entry.asset && !ENDED.has(entry.status));
-  const failed = made.filter((entry) => !entry.asset && ENDED.has(entry.status)).slice(0, 3);
+  const pending = made.filter(stillComing);
+  const failed = made
+    .filter((entry) => !entry.asset && !stillComing(entry) && !discarded(entry))
+    .slice(0, 3);
 
   async function make() {
+    if (lock.current) return;
+    lock.current = true;
     setConfirming(false);
     setMaking(true);
+    const wanted = chosenViews.filter((view) => !!request(view));
     let started = 0;
     try {
-      for (const view of chosenViews) {
-        const body = request(view);
-        if (!body) continue;
+      for (const view of wanted) {
         await submitGeneration({
           data: {
-            ...body,
+            ...request(view)!,
             estimatedCostUsd: priced?.usd ?? null,
             clientRequestId: viewRequestKey(character.id, view),
           },
@@ -234,8 +262,15 @@ export function ViewsMaker({
         `Making ${started} view${started === 1 ? "" : "s"}. They appear here in about a minute.`,
       );
     } catch (cause) {
-      toast.error(cause instanceof Error ? cause.message : "The views couldn't be started");
+      const reason = cause instanceof Error ? cause.message : "it couldn't be started";
+      // Those already started go on (and are billed): only the rest need making again.
+      toast.error(
+        started
+          ? `${started} of ${wanted.length} views started; the rest weren't (${reason}). Make only those again.`
+          : `The views couldn't be started: ${reason}`,
+      );
     } finally {
+      lock.current = false;
       setMaking(false);
       void queryClient.invalidateQueries({ queryKey: ["character-views", character.id] });
     }
@@ -419,8 +454,13 @@ export function ViewsMaker({
                 )}
               >
                 {VIEW_LABELS[entry.view]}:{" "}
-                {entry.status === "nsfw" ? "blocked by moderation" : "didn't come back"}. See
-                Activity.
+                {entry.status === "nsfw"
+                  ? "blocked by moderation. See Activity."
+                  : entry.status === "submission_uncertain"
+                    ? "Higgsfield's answer was unclear, so it may still come. Check Activity before making it again (it could be charged twice)."
+                    : entry.status === "completed"
+                      ? "made, but it couldn't be saved. Retry the save in Activity."
+                      : "didn't come back. See Activity."}
               </li>
             ))}
           </ul>
@@ -452,7 +492,15 @@ export function ViewsMaker({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void make()}>Make them</AlertDialogAction>
+            <AlertDialogAction
+              disabled={making}
+              onClick={(event) => {
+                event.preventDefault();
+                void make();
+              }}
+            >
+              Make them
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

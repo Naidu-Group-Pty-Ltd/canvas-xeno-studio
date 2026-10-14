@@ -34,13 +34,10 @@ import {
 import { DEFAULT_END_CARD_STYLE, type EndCardStyle } from "@/lib/media/end-card";
 import type { RunCharacter } from "@/lib/characters/model";
 import {
-  choosePainter,
   clipQuote,
-  keyframeCount,
-  keyframeQuote as keyframeQuoteFor,
+  keyframePainters,
   keyframeWorkflow,
-  openingHasImages,
-  painterValues,
+  planKeyframes,
   standInImage,
   videoAspect,
   type QuoteRequest,
@@ -153,7 +150,9 @@ export interface LongVideoPlan {
   /** Image models that can paint keyframes, best first, and the one chosen. */
   painters: ModelRegistryEntry[];
   painter: ModelRegistryEntry | null;
+  /** How many keyframes the storyboard has, and how many are painted (the person's own frames aren't). */
   keyframeCount: number;
+  paintedKeyframes: number;
   /** The video's shape, as the keyframes are painted. */
   aspect: { ratio: number; label: string };
   /** The first clip as it will be sent, to price it (null: nothing to price yet). */
@@ -182,6 +181,7 @@ const NOT_ELIGIBLE: LongVideoPlan = {
   painters: [],
   painter: null,
   keyframeCount: 0,
+  paintedKeyframes: 0,
   aspect: { ratio: 16 / 9, label: "16:9" },
   quote: null,
   keyframeQuote: null,
@@ -201,8 +201,11 @@ export function useLongVideoPlan(input: {
   cinema: { on: boolean; selection: CinemaSelection };
   /** The characters chosen (from the team's library), as plans use them. */
   characters?: RunCharacter[];
-  /** The person's own opening frame's size, when they gave one (it sets the video's shape). */
-  openingFrame?: { width: number | null; height: number | null } | null;
+  /**
+   * The person's own opening frame's size, when they gave one (the video's
+   * shape must match it): undefined while it is still being read.
+   */
+  openingFrame?: { width: number | null; height: number | null } | null | undefined;
 }): LongVideoPlan {
   const { draft, model, models, values, references, cinema } = input;
   const characters = input.characters ?? [];
@@ -210,7 +213,9 @@ export function useLongVideoPlan(input: {
   const referencesKey = JSON.stringify(references);
   const cinemaKey = JSON.stringify(cinema);
   const charactersKey = JSON.stringify(characters);
-  const openingKey = JSON.stringify(input.openingFrame ?? null);
+  const openingKey = JSON.stringify(
+    input.openingFrame === undefined ? "reading" : input.openingFrame,
+  );
   return useMemo(() => {
     if (!model || !longVideoEligible(model)) return NOT_ELIGIBLE;
     // Keyframes: every clip by the model's workflow that moves from a frame to a frame.
@@ -304,33 +309,44 @@ export function useLongVideoPlan(input: {
       keyframes: keyframed,
     });
 
-    // The keyframes: painted by the chosen image model at the video's shape.
-    const aspect = videoAspect(values, input.openingFrame ?? null);
-    const choice = choosePainter({
-      models,
-      painterModelId: draft.painterModelId,
-      aspect,
-      openingImages: openingHasImages({ startRole, references, characters }),
-    });
-    const painters = choice.painters;
-    const painter = keyframed ? choice.painter : null;
-    const count = keyframed ? keyframeCount(planned.length, finale?.mode ?? null) : 0;
-    if (keyframed) for (const message of choice.issues) issues.push({ position: null, message });
-
-    // Priced as sent, with a stand-in image where a frame will go (a keyframe,
-    // or the clip before's last frame).
-    const standIn = standInImage({ keyframed, startRole, references, characters });
-    const quote: QuoteRequest | null = planned[0] ? clipQuote(planned[0], standIn) : null;
-    const keyframeQuote: QuoteRequest | null =
-      painter && standIn
-        ? keyframeQuoteFor({
-            painter,
-            values: painterValues(painter, aspect.ratio),
-            standIn,
-            characters,
+    // The keyframes: painted by the chosen image model at the video's shape,
+    // planned exactly as the server will (its own frames, shape and painter).
+    const storyboard =
+      keyframed && workflow
+        ? planKeyframes({
+            models,
+            painterModelId: draft.painterModelId,
+            workflow,
+            values,
+            clips: planned.length,
+            finale,
             references,
+            characters,
+            openingSize: input.openingFrame,
           })
         : null;
+    const painters = storyboard?.painters ?? keyframePainters(models);
+    const painter = storyboard?.painter ?? null;
+    if (storyboard)
+      for (const message of storyboard.issues) issues.push({ position: null, message });
+
+    // Priced as sent, with a stand-in image where a frame will go (a keyframe,
+    // or the clip before's last frame). With keyframes and no image at all to
+    // stand in, clip 1 is priced as the model's own clip (about the same).
+    const finisherIds = new Set(
+      [finale?.assetId, finale?.frameAssetId, finale?.sourceAssetId].filter(Boolean),
+    );
+    const standIn = storyboard
+      ? storyboard.standIn
+      : standInImage({
+          keyframed: false,
+          startRole,
+          references: references.filter((item) => !finisherIds.has(item.assetId)),
+          characters,
+        });
+    const quote: QuoteRequest | null =
+      planned[0] && !(storyboard && !standIn) ? clipQuote(planned[0], standIn) : null;
+    const keyframeQuote: QuoteRequest | null = storyboard?.quote ?? null;
 
     return {
       eligible: true,
@@ -351,8 +367,9 @@ export function useLongVideoPlan(input: {
       keyframed,
       painters,
       painter,
-      keyframeCount: count,
-      aspect,
+      keyframeCount: storyboard?.count ?? 0,
+      paintedKeyframes: storyboard?.painted ?? 0,
+      aspect: storyboard?.aspect ?? videoAspect(values, input.openingFrame ?? null),
       quote,
       keyframeQuote,
     };
