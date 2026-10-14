@@ -180,6 +180,15 @@ the app's backend secrets:
 Settings → Media service will then report the service as reachable and list the
 tasks it offers.
 
+On Fly.io (`fly.toml`), every push to `main` that changes `media-worker/` is
+deployed by GitHub Actions (`.github/workflows/deploy-media-worker.yml`): the
+image is built, self-tested and checked to start, and only then rolled out;
+the job ends by checking the live worker reports the tested image's
+`features`. It needs the repository secret `FLY_API_TOKEN`, a deploy token for
+the app (`fly tokens create deploy -a xeno-media-worker`). Run it by hand from
+the Actions tab (Deploy media worker → Run workflow). A machine restarted from
+Fly's dashboard keeps the image it had; only a deploy brings new code.
+
 ## Sizing
 
 FFmpeg is CPU bound. Two vCPUs handle `CONCURRENCY=2` comfortably for short
