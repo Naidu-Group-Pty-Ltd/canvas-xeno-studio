@@ -1,0 +1,96 @@
+# Deploys the media worker (media-worker/) to Fly.io: on every push to main
+# that changes it, and on demand (Actions → Deploy media worker → Run workflow).
+#
+# The image is built on the runner and tested there (the worker's self-tests,
+# then a start-up check); only that same image is pushed to Fly and rolled out
+# on the app's one machine. The job then checks the live worker reports what
+# the tested image does.
+#
+# Needs one repository secret, FLY_API_TOKEN: a deploy token for the worker's
+# Fly app (Fly dashboard → the app → Tokens, or
+# `fly tokens create deploy -a xeno-media-worker`).
+name: Deploy media worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "media-worker/**"
+      - ".github/workflows/deploy-media-worker.yml"
+  workflow_dispatch:
+
+# One deploy at a time: a newer one waits for the one rolling out.
+concurrency:
+  group: deploy-media-worker
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Build, test and deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: media-worker
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      IMAGE: media-worker-ci:${{ github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check the deploy token is set
+        run: |
+          if [ -z "$FLY_API_TOKEN" ]; then
+            echo "::error title=FLY_API_TOKEN is missing::Add a deploy token for the worker's Fly app as the repository secret FLY_API_TOKEN (Settings → Secrets and variables → Actions), then run this workflow again."
+            exit 1
+          fi
+
+      - name: Build the image
+        run: docker build --tag "$IMAGE" .
+
+      - name: Self-test the image
+        run: docker run --rm --env MEDIA_WORKER_SHARED_SECRET=selftest-0123456789abcdef "$IMAGE" node src/selftest.js
+
+      - name: Check the image starts and answers
+        run: |
+          docker run --detach --name worker --publish 8080:8080 \
+            --env MEDIA_WORKER_SHARED_SECRET=selftest-0123456789abcdef "$IMAGE"
+          for _ in $(seq 1 30); do
+            if curl --fail --silent --show-error --max-time 5 http://127.0.0.1:8080/health > health.json; then
+              break
+            fi
+            sleep 1
+          done
+          docker logs worker
+          docker rm --force worker
+          jq --exit-status '.ok == true' health.json
+          jq --compact-output '.features' health.json > "$RUNNER_TEMP/features.json"
+          echo "The image reports: $(cat "$RUNNER_TEMP/features.json")"
+
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # 1.6
+
+      - name: Deploy to Fly
+        # The tested image itself, pushed to Fly's registry and rolled out on
+        # the app's one machine (which drains its running tasks first; see
+        # fly.toml). Fly waits for the machine to pass its health check.
+        run: flyctl deploy --local-only --image "$IMAGE" --image-label "${{ github.sha }}" --ha=false
+
+      - name: Check the live worker
+        run: |
+          app=$(sed -nE 's/^app *= *"([^"]+)".*/\1/p' fly.toml)
+          url="https://$app.fly.dev/health"
+          for _ in $(seq 1 12); do
+            if curl --fail --silent --show-error --max-time 10 "$url" > live.json \
+              && jq --exit-status --slurpfile want "$RUNNER_TEMP/features.json" '.features == $want[0]' live.json > /dev/null; then
+              echo "Live at $url with features $(jq --compact-output '.features' live.json)"
+              echo "Deployed ${{ github.sha }} to $app: $url reports $(jq --compact-output '.features' live.json)" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::$url didn't report the deployed image's features in time"
+          cat live.json 2>/dev/null || true
+          exit 1
