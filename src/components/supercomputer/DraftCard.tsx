@@ -506,11 +506,24 @@ export function DraftCard({
                               "a price Higgsfield didn't give"
                             )}
                           </>
-                        )}{" "}
-                        and the whole video at roughly{" "}
-                        <span className="font-mono text-foreground">
-                          ${quote.costUsd.toFixed(2)}
-                        </span>
+                        )}
+                        {quote.unpriced ? (
+                          <>
+                            , and the clips at roughly{" "}
+                            <span className="font-mono text-foreground">
+                              ${quote.costUsd.toFixed(2)}
+                            </span>{" "}
+                            ({quote.unpriced} aren't included: Higgsfield didn't price them)
+                          </>
+                        ) : (
+                          <>
+                            {" "}
+                            and the whole video at roughly{" "}
+                            <span className="font-mono text-foreground">
+                              ${quote.costUsd.toFixed(2)}
+                            </span>
+                          </>
+                        )}
                         ; each clip is quoted again before it is sent.
                       </>
                     ) : (
@@ -551,7 +564,9 @@ export function DraftCard({
               }}
             >
               {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-              {quote?.kind === "ready" ? `Generate · ~$${quote.costUsd.toFixed(2)}` : "Generate"}
+              {quote?.kind === "ready" && !quote.unpriced
+                ? `Generate · ~$${quote.costUsd.toFixed(2)}`
+                : "Generate"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

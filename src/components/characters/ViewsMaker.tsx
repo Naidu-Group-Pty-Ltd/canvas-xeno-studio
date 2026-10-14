@@ -68,7 +68,7 @@ function useMadeViews(characterId: string) {
     queryFn: async (): Promise<MadeView[]> => {
       const { data: generations, error } = await supabase
         .from("generations")
-        .select("id,status,ingest_status,client_request_id,created_at")
+        .select("id,status,ingest_status,error_code,client_request_id,created_at")
         .like("client_request_id", `${viewKeyPrefix(characterId)}%`)
         .order("created_at", { ascending: false })
         .limit(24);
@@ -85,10 +85,11 @@ function useMadeViews(characterId: string) {
           ((assets ?? []) as unknown as AssetRow[]).find(
             (entry) => entry.generation_id === row.id && entry.asset_type === "image",
           ) ?? null;
+        // A save that failed is tried again on its own until its tries run out.
         const ingested: MadeView["ingested"] =
           row.ingest_status === "completed"
             ? "completed"
-            : row.ingest_status === "failed"
+            : row.ingest_status === "failed" && row.error_code === "INGEST_RETRIES_EXHAUSTED"
               ? "failed"
               : "pending";
         return [

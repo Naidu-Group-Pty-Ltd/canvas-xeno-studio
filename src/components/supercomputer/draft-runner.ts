@@ -42,6 +42,8 @@ export type DraftEstimate =
   | {
       kind: "ready";
       costUsd: number;
+      /** What the figure leaves out because Higgsfield couldn't price it (e.g. "the 5 keyframes"). */
+      unpriced?: string;
       longVideo?: {
         firstClipUsd: number;
         clips: number;
@@ -271,6 +273,17 @@ export function useDraftRunner(context: {
       // image where its keyframes go; with no image at all, as the model's own
       // clip, about the same), and one keyframe as it will be painted.
       const own = models.find((entry) => entry.id === draft.modelId);
+      // With no image at all, a model that needs one to start from can't be
+      // priced ahead: each clip is priced just before it is made.
+      if (
+        !plan.quote &&
+        own?.capabilities?.inputs?.some((slot) => slot.required && slot.type === "image")
+      )
+        return {
+          kind: "metered",
+          description:
+            "Each clip is priced just before it's made: with no image to stand in for its frames, clip 1 can't be priced until its opening keyframe is painted.",
+        };
       const ownChoices = own ? durationChoices(own) : [];
       const ownSeconds = ownChoices.length
         ? nearest(ownChoices, first.durationSeconds)
@@ -296,8 +309,15 @@ export function useDraftRunner(context: {
       // Only the keyframes that are painted are billed (the person's own frames aren't).
       const keyframesUsd =
         keyframe?.kind === "ready" ? keyframe.costUsd * plan.paintedKeyframes : null;
+      // A figure that leaves the keyframes out says so (and isn't enough where
+      // an estimate is required, unless Higgsfield prices them by size).
+      const unpriced =
+        plan.paintedKeyframes > 0 && keyframesUsd === null && keyframe?.kind !== "metered"
+          ? `the ${plan.paintedKeyframes} keyframes`
+          : undefined;
       return {
         kind: "ready",
+        ...(unpriced ? { unpriced } : {}),
         costUsd:
           approxRunCost(quote.costUsd, quotedSeconds, plan.totalSeconds) + (keyframesUsd ?? 0),
         longVideo: {
@@ -521,13 +541,14 @@ export function providerBlockReason(health: { configured: boolean; state: string
 export function estimateAllows(estimate: DraftEstimate | null, requireEstimate: boolean): boolean {
   if (!estimate || estimate.kind === "loading") return false;
   if (estimate.kind === "unavailable") return !requireEstimate && !estimate.blocking;
+  if (estimate.kind === "ready" && estimate.unpriced) return !requireEstimate;
   return true;
 }
 
 export function formatEstimate(estimate: DraftEstimate | null): string {
   if (!estimate || estimate.kind === "loading") return "Calculating…";
   if (estimate.kind === "ready")
-    return `${estimate.longVideo ? "~" : ""}$${estimate.costUsd.toFixed(2)}`;
+    return `${estimate.longVideo ? "~" : ""}$${estimate.costUsd.toFixed(2)}${estimate.unpriced ? ` + ${estimate.unpriced}` : ""}`;
   if (estimate.kind === "metered") return "Metered";
   return estimate.reason;
 }

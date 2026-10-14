@@ -72,23 +72,26 @@ export async function fetchCharacters(): Promise<CharacterEntry[]> {
   type Row = CharacterTableRow & {
     character_images: { asset_id: string; role: string; view: string; position: number }[];
   };
-  // All of them, read in pages: a character missing from the list would look deleted.
-  const rows: Row[] = [];
+  // All of them, read in pages (a character missing from the list would look
+  // deleted), oldest first: an edit doesn't move one between pages, and one
+  // added meanwhile comes last. Shown most recently changed first.
+  const byId = new Map<string, Row>();
   for (let from = 0; ; from += CHARACTERS_PAGE) {
     const { data, error } = await supabase
       .from("characters")
       .select("*, character_images(asset_id, role, view, position)")
       .is("archived_at", null)
-      .order("updated_at", { ascending: false })
+      .order("created_at", { ascending: true })
       .order("id")
       .range(from, from + CHARACTERS_PAGE - 1);
     if (error) {
       if (isMissingTableError(error)) throw new CharactersNotSetUp();
       throw error;
     }
-    rows.push(...((data ?? []) as Row[]));
+    for (const row of (data ?? []) as Row[]) byId.set(row.id, row);
     if ((data ?? []).length < CHARACTERS_PAGE) break;
   }
+  const rows = [...byId.values()].sort((a, b) => b.updated_at.localeCompare(a.updated_at));
   const ids = [
     ...new Set(rows.flatMap((row) => row.character_images.map((image) => image.asset_id))),
   ];

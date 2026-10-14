@@ -310,11 +310,15 @@ export function LongVideoSetup({
             ) : plan.keyframed ? (
               <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
                 Each clip runs as long as it can, up to {plan.maxClipSeconds}s, and the last takes
-                what's left. First {plan.keyframeCount} keyframes are painted: the opening frame and
-                the frame each clip ends on. Clip 1 starts on the opening keyframe; every clip after
-                it starts from the true last frame of the one before (taken losslessly) and is told
-                how the camera was moving; each ends on its own keyframe. When they're all in, open
-                them in the Editor as one edit.
+                what's left. First {plan.paintedKeyframes} keyframes are painted: the opening frame
+                and the frame each clip ends on
+                {plan.keyframeCount > plan.paintedKeyframes
+                  ? " (your own frames are used as they are)"
+                  : ""}
+                . Clip 1 starts on the opening keyframe; every clip after it starts from the true
+                last frame of the one before (taken losslessly) and is told how the camera was
+                moving; each ends on its own keyframe. When they're all in, open them in the Editor
+                as one edit.
               </p>
             ) : (
               <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">

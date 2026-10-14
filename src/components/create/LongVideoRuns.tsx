@@ -202,10 +202,17 @@ function RunCard({
   const done = run.clips.filter((clip, index) =>
     clipDone(run, clip, index === run.clips.length - 1),
   ).length;
-  // Waiting on a person's choice (keyframes to review, a character who changed), not a failure.
+  // Waiting on a person's choice (keyframes to review, a keyframe to redo, a
+  // character who changed), and only while that is still so: a pause that
+  // landed just after the choice was made is carried on with Continue.
   const personPause =
     run.status === "needs_attention" &&
-    (PERSON_PAUSES as readonly string[]).includes(run.error_code ?? "");
+    (PERSON_PAUSES as readonly string[]).includes(run.error_code ?? "") &&
+    (run.error_code === "STORYBOARD_READY"
+      ? !run.storyboard_approved_at
+      : run.error_code === "KEYFRAME_FAILED"
+        ? run.keyframes.some((keyframe) => keyframe.status === "failed")
+        : run.clips.some((clip) => clip.check_status === "flagged"));
   const flaggedClip =
     run.error_code === "CHARACTER_CHECK"
       ? run.clips.find((clip) => clip.check_status === "flagged")

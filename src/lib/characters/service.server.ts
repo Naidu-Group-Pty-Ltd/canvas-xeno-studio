@@ -566,6 +566,9 @@ const SENT_STALE_MS = 3 * 60_000;
 const TRAINING_STALE_MS = 6 * 60 * 60_000;
 /** How often a training is asked about, at most. */
 const CHECK_EVERY_MS = 45_000;
+/** An unclear training with a known id is still asked about this often, for this long. */
+const UNCERTAIN_CHECK_EVERY_MS = 30 * 60_000;
+const UNCERTAIN_ASK_MS = 48 * 60 * 60_000;
 
 type CharacterUpdate = Database["public"]["Tables"]["characters"]["Update"];
 
@@ -833,89 +836,82 @@ export async function refreshSoulId(
     if (!settled?.length) return { status: "submitting" };
     return { status: sent ? "uncertain" : "failed" };
   }
-  if (row.soul_status !== "training" || !row.soul_training_id) return { status: row.soul_status };
-
-  const started = new Date(row.soul_submitted_at ?? row.soul_requested_at ?? 0).getTime();
-  if (Date.now() - started > TRAINING_STALE_MS) {
-    const { data: settled } = await fenced(
-      db
-        .from("characters")
-        .update({
-          soul_status: "uncertain",
-          soul_error:
-            "Higgsfield hasn't finished this training in 6 hours, so it is no longer waited on. Check Higgsfield before training again.",
-        })
-        .eq("id", characterId)
-        .eq("soul_status", "training"),
-    ).select("id");
-    return { status: settled?.length ? "uncertain" : "training" };
-  }
+  // A training is asked about while it runs; one whose answer was unclear but
+  // whose id Higgsfield gave is still asked about now and then for two days,
+  // and taken into use if it turns out ready.
+  const asking =
+    !!row.soul_training_id &&
+    (row.soul_status === "training" ||
+      (row.soul_status === "uncertain" &&
+        Date.now() - new Date(row.soul_requested_at ?? 0).getTime() < UNCERTAIN_ASK_MS));
+  if (!asking) return { status: row.soul_status };
+  const every = row.soul_status === "uncertain" ? UNCERTAIN_CHECK_EVERY_MS : CHECK_EVERY_MS;
   if (
     !options.force &&
     row.soul_checked_at &&
-    Date.now() - new Date(row.soul_checked_at).getTime() < CHECK_EVERY_MS
+    Date.now() - new Date(row.soul_checked_at).getTime() < every
   )
-    return { status: "training" };
+    return { status: row.soul_status };
+  const from = row.soul_status;
+  const update = (patch: CharacterUpdate) =>
+    fenced(db.from("characters").update(patch).eq("id", characterId).eq("soul_status", from));
 
   const { getCustomReference, readCustomReference } = await import("../higgsfield/provider.server");
-  const call = await getCustomReference(row.soul_training_id);
-  if (!call.ok) {
-    // A training Higgsfield says it doesn't have may be a passing fault on
-    // its side: a person checks before it is trained (and charged) again.
-    await fenced(
-      db
-        .from("characters")
-        .update(
-          call.status === 404
-            ? {
-                soul_checked_at: now(),
-                soul_status: "uncertain",
-                soul_error:
-                  "Higgsfield says it has no such training. Check Higgsfield before training again.",
-              }
-            : { soul_checked_at: now() },
-        )
-        .eq("id", characterId)
-        .eq("soul_status", "training"),
-    );
-    return { status: call.status === 404 ? "uncertain" : "training" };
+  const call = await getCustomReference(row.soul_training_id!);
+  const reference = call.ok ? readCustomReference(call.data) : null;
+  const state = reference?.state ?? null;
+  if (state === "ready") {
+    // It becomes the Soul ID in use.
+    await update({
+      soul_checked_at: now(),
+      soul_status: "ready",
+      soul_reference_id: row.soul_training_id,
+      soul_model_version: row.soul_training_version ?? row.soul_model_version,
+      soul_ready_at: now(),
+      soul_error: null,
+    });
+    return { status: "ready" };
   }
-  const reference = readCustomReference(call.data);
-  const state = reference?.state ?? "training";
-  await fenced(
-    db
-      .from("characters")
-      .update({
+  if (state === "failed") {
+    await update({
+      soul_checked_at: now(),
+      soul_status: "failed",
+      soul_error: reference?.message ?? "Higgsfield couldn't train it",
+    });
+    return { status: "failed" };
+  }
+  if (from === "training") {
+    // Still training (or no clear answer): a person decides once it's taken
+    // too long, or once Higgsfield says it has no such training (which may be
+    // a passing fault on its side), before it is trained (and charged) again.
+    const started = new Date(row.soul_submitted_at ?? row.soul_requested_at ?? 0).getTime();
+    const stale = Date.now() - started > TRAINING_STALE_MS;
+    const missing = !call.ok && call.status === 404;
+    if (stale || missing) {
+      await update({
         soul_checked_at: now(),
-        // Ready: it becomes the Soul ID in use.
-        ...(state === "ready"
-          ? {
-              soul_status: "ready",
-              soul_reference_id: row.soul_training_id,
-              soul_model_version: row.soul_training_version ?? row.soul_model_version,
-              soul_ready_at: now(),
-              soul_error: null,
-            }
-          : {}),
-        ...(state === "failed"
-          ? {
-              soul_status: "failed",
-              soul_error: reference?.message ?? "Higgsfield couldn't train it",
-            }
-          : {}),
-      })
-      .eq("id", characterId)
-      .eq("soul_status", "training"),
-  );
-  return { status: state };
+        soul_status: "uncertain",
+        soul_error: missing
+          ? "Higgsfield says it has no such training. It is still asked about now and then; check Higgsfield before training again."
+          : "Higgsfield hasn't finished this training in 6 hours. It is still asked about now and then; check Higgsfield before training again.",
+      });
+      return { status: "uncertain" };
+    }
+  }
+  await update({ soul_checked_at: now() });
+  return { status: from };
 }
 
 /** The reconcile job's pass: trainings in progress are asked about, and cut-short starts settled. */
 export async function sweepSoulTrainings(limit = 10): Promise<number> {
+  // Trainings under way, starts cut short, and unclear trainings Higgsfield gave an id for.
+  const since = new Date(Date.now() - UNCERTAIN_ASK_MS).toISOString();
   const { data, error } = await db
     .from("characters")
     .select("id")
-    .in("soul_status", ["training", "submitting"])
+    .or(
+      `soul_status.in.(training,submitting),and(soul_status.eq.uncertain,soul_training_id.not.is.null,soul_requested_at.gt.${since})`,
+    )
     .is("archived_at", null)
     .order("soul_checked_at", { ascending: true, nullsFirst: true })
     .limit(limit);

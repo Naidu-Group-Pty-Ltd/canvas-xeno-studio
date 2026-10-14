@@ -608,6 +608,13 @@ function CreatePage() {
         : submitValues))
     : submitValues;
   const estimateInputs = longMode ? (longPlan.quote?.inputs ?? []) : usable;
+  // ...unless the model itself needs an image to start from: then clip 1 is
+  // priced just before it is made, once its opening keyframe is painted.
+  const clipPricedLater =
+    longMode &&
+    longPlan.keyframed &&
+    !longPlan.quote &&
+    !!model?.capabilities?.inputs?.some((slot) => slot.required && slot.type === "image");
   /** How long the clip the estimate prices runs. */
   const quotedSeconds = ownSeconds ?? longPlan.durations[0];
 
@@ -627,6 +634,14 @@ function CreatePage() {
             ? { kind: "unavailable", label: "—", reason: issues[0]!.message }
             : { kind: "idle" },
       );
+      return;
+    }
+    if (clipPricedLater) {
+      setEstimate({
+        kind: "metered",
+        description:
+          "Each clip is priced just before it's made: with no image to stand in for its frames, clip 1 can't be priced until its opening keyframe is painted.",
+      });
       return;
     }
     setEstimate({ kind: "loading" });
@@ -674,11 +689,12 @@ function CreatePage() {
     health?.configured,
     issues.length,
     isAdmin,
+    clipPricedLater,
   ]);
 
   // One keyframe's price (a keyframed long video paints several before its clips).
   const keyframeQuote = longMode && longPlan.keyframed ? longPlan.keyframeQuote : null;
-  const { data: keyframeUsd = null, isFetching: keyframePricing } = useQuery({
+  const { data: keyframePrice = null, isFetching: keyframePricing } = useQuery({
     queryKey: [
       "keyframe-quote",
       keyframeQuote?.model.id ?? null,
@@ -699,9 +715,12 @@ function CreatePage() {
           })),
         },
       });
-      return result.ok ? result.costUsd : null;
+      return result.ok
+        ? { usd: result.costUsd, metered: result.costUsd === null && !!result.pricingDescription }
+        : null;
     },
   });
+  const keyframeUsd = keyframePrice?.usd ?? null;
 
   // Under the studio's estimate policy, the keyframes' price is needed too.
   const keyframesUnpriced =
@@ -709,7 +728,8 @@ function CreatePage() {
     longMode &&
     longPlan.keyframed &&
     longPlan.paintedKeyframes > 0 &&
-    keyframeUsd === null;
+    keyframeUsd === null &&
+    !keyframePrice?.metered;
   const canGenerate =
     !!model &&
     !!user &&

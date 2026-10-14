@@ -50,6 +50,12 @@ CREATE TABLE IF NOT EXISTS public.characters (
   -- Taken out of the library (runs keep their own copy of what they used).
   archived_at timestamptz
 );
+-- The latest training's own columns (also where an earlier version of this table exists).
+ALTER TABLE public.characters
+  ADD COLUMN IF NOT EXISTS soul_training_version text
+    CHECK (soul_training_version IN ('v1', 'v2', 'cinema'));
+ALTER TABLE public.characters
+  ADD COLUMN IF NOT EXISTS soul_training_id text CHECK (char_length(soul_training_id) <= 100);
 CREATE INDEX IF NOT EXISTS characters_library_idx ON public.characters (updated_at DESC) WHERE archived_at IS NULL;
 CREATE INDEX IF NOT EXISTS characters_soul_idx ON public.characters (soul_checked_at)
   WHERE soul_status IN ('submitting', 'training');
@@ -201,9 +207,10 @@ END $$;
 -- an approval never lands while a keyframe is still to be painted, and a
 -- keyframe a clip has started with is never painted again.
 
--- A clip of a keyframed run is claimed only while its storyboard is approved.
--- Outcome: claimed (with the attempt), taken (not waiting any more), or
--- storyboard (not approved: its keyframes come first).
+-- A clip of a keyframed run is claimed only while the run is going and its
+-- storyboard is approved. Outcome: claimed (with the attempt), taken (not
+-- waiting any more, or the run was stopped), or storyboard (not approved: its
+-- keyframes come first).
 CREATE OR REPLACE FUNCTION public.claim_long_video_clip(p_clip_id uuid, p_claimed_at timestamptz)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -214,15 +221,17 @@ DECLARE
   v_run uuid;
   v_keyframed boolean;
   v_approved timestamptz;
+  v_status text;
   v_attempt integer;
 BEGIN
   SELECT long_video_id INTO v_run FROM public.long_video_clips WHERE id = p_clip_id;
   IF NOT FOUND THEN
     RETURN jsonb_build_object('outcome', 'taken');
   END IF;
-  SELECT keyframe_model_id IS NOT NULL, storyboard_approved_at INTO v_keyframed, v_approved
+  SELECT keyframe_model_id IS NOT NULL, storyboard_approved_at, status
+    INTO v_keyframed, v_approved, v_status
     FROM public.long_videos WHERE id = v_run FOR UPDATE;
-  IF NOT FOUND THEN
+  IF NOT FOUND OR v_status <> 'running' THEN
     RETURN jsonb_build_object('outcome', 'taken');
   END IF;
   IF v_keyframed AND v_approved IS NULL THEN
@@ -263,6 +272,12 @@ BEGIN
     RETURN jsonb_build_object('outcome', 'missing');
   END IF;
   IF v_run.storyboard_approved_at IS NOT NULL THEN
+    -- Approved already: a "ready" pause that landed after it is lifted.
+    IF p_by_person AND v_run.status = 'needs_attention' THEN
+      UPDATE public.long_videos
+         SET status = 'running', error_code = NULL, error_message = NULL
+       WHERE id = p_run_id AND status = 'needs_attention' AND error_code = 'STORYBOARD_READY';
+    END IF;
     RETURN jsonb_build_object('outcome', 'approved');
   END IF;
   IF NOT p_by_person AND v_run.status <> 'running' THEN

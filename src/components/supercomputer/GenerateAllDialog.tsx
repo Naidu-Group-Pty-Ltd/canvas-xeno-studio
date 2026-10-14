@@ -110,6 +110,9 @@ export function GenerateAllDialog({ open, onOpenChange, messageId, drafts, conte
                 <span className="font-mono text-foreground">
                   {loading ? "Calculating…" : `$${total.toFixed(2)}`}
                 </span>
+                {!loading && values.some((quote) => quote.kind === "ready" && quote.unpriced)
+                  ? " plus keyframes Higgsfield didn't price"
+                  : ""}
                 {allowed.length < drafts.length && !loading
                   ? ` · ${drafts.length - allowed.length} without a valid estimate will be skipped`
                   : ""}

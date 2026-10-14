@@ -521,7 +521,6 @@ async function preflight(input: {
   standIn: string | null;
 }): Promise<{ problem: string | null; keyframeUsd: number | null }> {
   const { standIn, planned, painter, keyframeSettings } = input;
-  if (!standIn) return { problem: null, keyframeUsd: null };
   const { providerMediaUrl } = await import("../generation-pipeline.server");
   const { higgsfieldProvider, extractCost } = await import("../higgsfield/provider.server");
   const { providerPayload } = await import("../model-schema");
@@ -582,6 +581,10 @@ async function preflight(input: {
       };
     keyframeUsd = call?.ok ? extractCost(call.data) : null;
   }
+
+  // The clips need an image where their frames go; with none at all, each is
+  // priced just before it is made.
+  if (!standIn) return { problem: null, keyframeUsd };
 
   // The first clip, a later one and the last, as each will be sent.
   const positions = [...new Set([0, 1, planned.length - 1])].filter(
@@ -731,13 +734,18 @@ async function stepRun(longVideoId: string, deadline: number | null = null): Pro
   }
 }
 
-/** Stops a run for a person to look at. */
+/**
+ * Stops a running run for a person to look at. A "keyframes ready" pause only
+ * while the storyboard still waits for approval (a person may have approved
+ * it a moment ago).
+ */
 async function pause(run: Pick<RunRow, "id">, code: string, message: string): Promise<void> {
-  await db
+  const update = db
     .from("long_videos")
     .update({ status: "needs_attention", error_code: code, error_message: message })
     .eq("id", run.id)
     .eq("status", "running");
+  await (code === "STORYBOARD_READY" ? update.is("storyboard_approved_at", null) : update);
 }
 
 /**
@@ -884,7 +892,9 @@ async function startClip(
       clip,
       "submitting",
       "KEYFRAME_MISSING",
-      `${keyframeLabel({ position })} isn't in the library any more, so nothing was started. Redo that keyframe, then this clip carries on.`,
+      keyframes.find((keyframe) => keyframe.position === position)?.provided
+        ? `Your own ${position === 0 ? "opening" : "closing"} frame was deleted from the library, so nothing was started and this video can't go on. Start it again with another frame.`
+        : `${keyframeLabel({ position })} isn't in the library any more, so nothing was started. Redo that keyframe, then this clip carries on.`,
     );
   if (clip.position === 0 && frames?.start === 0) {
     const frame = await keyframeAsset(keyframes, 0);
@@ -1750,9 +1760,13 @@ function leaseFree(claimedAt: string | null): boolean {
   return !claimedAt || Date.now() - new Date(claimedAt).getTime() > CHECK_LEASE_MS;
 }
 
-/** The longest an AI check is given, and the least worth starting one with. */
+/**
+ * The longest an AI check is given, and the least worth starting one with
+ * (more than a step set off by an event has: those leave checks to the
+ * reconcile pass, or to a page that's open).
+ */
 const CHECK_TIME_MS = 60_000;
-const CHECK_MIN_MS = 20_000;
+const CHECK_MIN_MS = 30_000;
 
 /**
  * How long a check started now may take: a full minute, or what is left
@@ -2036,7 +2050,7 @@ async function runClipCheck(run: RunRow, clip: ClipRow, deadline: number | null)
         message: "No frames of it could be read",
         retryable: false,
       } as const);
-  const patch = checkPatch(outcome, clip.check_attempts, time, clip.check_claims);
+  const patch = checkPatch(outcome, clip.check_attempts, time);
   // Only a verdict that was written stops the run (the lease may have lapsed).
   const settled = await settleCheck("long_video_clips", clip, claim, patch);
   if (!settled) return false;
@@ -2057,7 +2071,6 @@ type CheckPatch = {
   check_status: string;
   check_result: Json;
   check_attempts?: number;
-  check_claims?: number;
   check_claimed_at?: string | null;
   checked_at?: string;
 };
@@ -2067,15 +2080,14 @@ function checkPatch(
   outcome: Awaited<ReturnType<typeof import("../characters/identity.server").checkIdentity>>,
   attempts: number,
   time: number,
-  /** Its lease count before this pass took it. */
-  claims: number,
 ): CheckPatch {
-  // Cut short only by the time this pass had left: not a failure (nor a lease
-  // lost), tried again by the next pass.
+  // Cut short only by the time this pass had left: not the AI failing, so
+  // tried again by the next pass at once; the lease it took still counts, so
+  // a check that never fits ends as "unavailable" (MAX_CHECK_CLAIMS) and the
+  // run goes on.
   if (!outcome.ok && outcome.code === "REASONING_TIMEOUT" && time < CHECK_TIME_MS)
     return {
       check_status: "checking",
-      check_claims: claims,
       check_result: { error: outcome.message, code: outcome.code },
       check_claimed_at: new Date(Date.now() - CHECK_LEASE_MS).toISOString(),
     };
@@ -2662,7 +2674,7 @@ async function checkKeyframe(
         message: "The keyframe couldn't be read",
         retryable: false,
       } as const);
-  const patch = checkPatch(outcome, keyframe.check_attempts, time, keyframe.check_claims);
+  const patch = checkPatch(outcome, keyframe.check_attempts, time);
   const settled = await settleCheck("long_video_keyframes", keyframe, claim, patch);
   return settled && patch.check_status !== "checking";
 }
@@ -2722,11 +2734,12 @@ export async function advanceForMediaTask(taskId: string): Promise<void> {
 }
 
 /**
- * How long the reconcile job's pass spends on long videos. A check is only
- * started with time to finish inside it, so the pass ends well within the two
- * minutes the scheduler waits.
+ * How long the reconcile job's pass spends on long videos (it runs last, after
+ * the quick passes). A check gets what is left of it, at most a minute, and is
+ * only started with half a minute or more, so the pass ends well within the
+ * two minutes the scheduler waits.
  */
-const SWEEP_BUDGET_MS = 45_000;
+const SWEEP_BUDGET_MS = 70_000;
 
 /**
  * The reconcile job's pass: moves on every running run, and records clips that
