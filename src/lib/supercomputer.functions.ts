@@ -117,7 +117,7 @@ function assistantSummary(content: string, payload: SupercomputerPayload): strin
 const sendInput = z
   .object({
     threadId: z.string().uuid().nullable().optional(),
-    text: z.string().max(8000).default(""),
+    text: z.string().max(32000).default(""),
     attachmentAssetIds: z.array(z.string().uuid()).max(16).default([]),
     briefId: z.string().uuid().nullable().optional(),
     projectId: z.string().uuid().nullable().optional(),
@@ -514,7 +514,7 @@ export const sendSupercomputerMessage = createServerFn({ method: "POST" })
         backend: route.backend,
       };
       const reply =
-        (typeof raw["reply"] === "string" ? raw["reply"].trim().slice(0, 8000) : "") ||
+        (typeof raw["reply"] === "string" ? raw["reply"].trim().slice(0, 32000) : "") ||
         (drafts.length
           ? "Here are drafts ready to generate."
           : ideas.length
