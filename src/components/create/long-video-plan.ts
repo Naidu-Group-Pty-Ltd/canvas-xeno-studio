@@ -13,6 +13,7 @@ import {
   clipStart,
   continuationCandidates,
   durationChoices,
+  extendsVideo,
   FINALE_SECONDS,
   finaleReveals,
   longVideoEligible,
@@ -40,6 +41,12 @@ export interface FinaleDraft {
   seconds: number;
   /** How its end card is laid out at the video's shape. */
   style: EndCardStyle;
+  /**
+   * The artwork extended to the video's shape with AI (see
+   * lib/media/extend-artwork), its end card made from it; none to use the
+   * finisher as uploaded.
+   */
+  sourceAssetId?: string | null;
   /** Why the studio picked it, when the person didn't. */
   suggested: string | null;
 }
@@ -144,11 +151,15 @@ export function useLongVideoPlan(input: {
   const cinemaKey = JSON.stringify(cinema);
   return useMemo(() => {
     if (!model || !longVideoEligible(model)) return NOT_ELIGIBLE;
+    // Video extend is offered too, but only ever used when chosen: it is experimental.
     const candidates = continuationCandidates(model, models, {
       withReferences: references.some((item) => item.assetType === "image"),
+      extend: true,
     });
     const continuation =
-      candidates.find((entry) => entry.id === draft.continuationModelId) ?? candidates[0] ?? null;
+      candidates.find((entry) => entry.id === draft.continuationModelId) ??
+      candidates.find((entry) => !extendsVideo(entry)) ??
+      null;
     const lengthChoices = clipLengthChoices(continuation);
     const maxClipSeconds =
       draft.clipSeconds !== null && lengthChoices.includes(draft.clipSeconds)
@@ -182,6 +193,7 @@ export function useLongVideoPlan(input: {
           assetId: chosen.assetId,
           mode: finaleReveals(chosen.mode) && !end ? "end_card" : chosen.mode,
           seconds: chosen.seconds,
+          sourceAssetId: chosen.sourceAssetId ?? null,
         }
       : null;
     const clips: ClipDraft[] = durations.map((durationSeconds, index) => {

@@ -129,3 +129,41 @@ export function withCameraLine(
   const next = [...paragraphs.slice(0, at), line, ...paragraphs.slice(at)].join("\n\n");
   return maxLength && next.length > maxLength ? base : next;
 }
+
+/* ------------------------------------------------------------------ */
+/* Clips that extend the clip before                                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Where an extension's own footage starts in the video it came back as, when
+ * that video is the clip it was given followed by the new part; null when it
+ * is the new part alone. Told apart by length: given the clip before, a video
+ * that runs as long as that clip plus the length asked for holds both. Its
+ * new part starts where the clip it was given ends.
+ */
+export function extensionLead(input: {
+  /** The extension's video, as measured. */
+  outputSeconds: number;
+  /** The length the extension was asked for. */
+  requestedSeconds: number;
+  /** The clip it was given, as measured. */
+  sourceSeconds: number;
+}): number | null {
+  const { outputSeconds, requestedSeconds, sourceSeconds } = input;
+  if (!(outputSeconds > 0 && requestedSeconds > 0 && sourceSeconds > 0)) return null;
+  const extra = outputSeconds - requestedSeconds;
+  if (Math.abs(extra - sourceSeconds) > Math.max(1, sourceSeconds * 0.1)) return null;
+  // ...and its new part is there to keep.
+  return outputSeconds - sourceSeconds >= 1 ? sourceSeconds : null;
+}
+
+/**
+ * A trim start that keeps the frame at `seconds` as the first: half a frame
+ * early, as the media service keeps every frame from the start on, so the
+ * frame before it is left out and that frame isn't.
+ */
+export function frameTrimStart(seconds: number, fps: number | null): number {
+  if (!(fps && fps > 0)) return Math.max(0, seconds);
+  const frame = Math.round(seconds * fps);
+  return Math.max(0, Number(((frame - 0.5) / fps).toFixed(6)));
+}

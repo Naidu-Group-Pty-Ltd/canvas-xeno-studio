@@ -51,6 +51,7 @@ import { useFinisherSuggestion } from "@/hooks/useFinisherSuggestion";
 import { startLongVideo } from "@/lib/long-video.functions";
 import { endCardSize } from "@/lib/long-video/finisher";
 import {
+  approxExtendRunCost,
   approxRunCost,
   finaleHolds,
   finaleReveals,
@@ -118,6 +119,8 @@ type EstimateState =
       metered?: MeteredQuote | null;
       /** For a metered model: what it would cost at each resolution it offers. */
       byResolution?: { resolution: string; usd: number }[];
+      /** For a metered model: the provider's pricing description, which gives its rates. */
+      description?: string | null;
     }
   /** Metered models whose rate couldn't be turned into a figure (shown as given). */
   | { kind: "metered"; description: string }
@@ -573,6 +576,7 @@ function CreatePage() {
             costUsd: result.costUsd,
             metered: result.metered,
             byResolution: result.byResolution,
+            description: result.pricingDescription,
           });
         else if (result.ok && result.pricingDescription)
           setEstimate({ kind: "metered", description: result.pricingDescription });
@@ -716,10 +720,14 @@ function CreatePage() {
     if (longPlan.finale && longDraft.finale) {
       // Its end card, laid out at the video's shape: the last clip ends on it, the Editor holds it.
       const image = imageReferences.find((item) => item.assetId === longPlan.finale!.assetId);
+      const extended = longPlan.finale.sourceAssetId;
       let frameAssetId: string | null = null;
       try {
         frameAssetId = await makeEndCard({
-          finisher: { assetId: longPlan.finale.assetId, bucket: image?.bucket, path: image?.path },
+          // The artwork extended to the video's shape, when it was; else as uploaded.
+          finisher: extended
+            ? { assetId: extended }
+            : { assetId: longPlan.finale.assetId, bucket: image?.bucket, path: image?.path },
           size: endCard,
           style: longDraft.finale.style,
           userId: user.id,
@@ -785,11 +793,25 @@ function CreatePage() {
           : ""
       }. `
     : "";
-  // A long video's total, approximated from its first clip's quote per second;
-  // each clip is quoted again by the provider before it is sent.
+  // A long video's total, approximated from its first clip's quote per second
+  // (clips that extend the clip before are also billed for it, at the
+  // provider's rates); each clip is quoted again before it is sent.
   const longTotalEstimate =
     longMode && estimate.kind === "ready" && longPlan.durations[0]
-      ? approxRunCost(estimate.costUsd, longPlan.durations[0], longPlan.totalSeconds)
+      ? longPlan.start?.kind === "video"
+        ? approxExtendRunCost({
+            firstClipUsd: estimate.costUsd,
+            durations: longPlan.durations,
+            description: estimate.description,
+            resolution: String(
+              longPlan.planned[1]?.values["resolution"] ?? estimateValues["resolution"] ?? "",
+            ),
+            aspectRatio:
+              typeof estimateValues["aspect_ratio"] === "string"
+                ? estimateValues["aspect_ratio"]
+                : null,
+          })
+        : approxRunCost(estimate.costUsd, longPlan.durations[0], longPlan.totalSeconds)
       : null;
 
   /** Hands the current prompt, references and context to Supercomputer (nothing is sent automatically). */
@@ -1005,6 +1027,8 @@ function CreatePage() {
                     images={imageReferences}
                     briefId={briefId}
                     endCardSize={endCard}
+                    projectId={projectId}
+                    campaignId={campaignId}
                     aiUnavailableReason={
                       assistantStatus?.backend
                         ? null

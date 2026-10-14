@@ -69,6 +69,8 @@ const finaleSchema = z.object({
     })
     .nullable()
     .optional(),
+  /** The finisher extended to the video's shape with AI, its end card made from it. */
+  sourceAssetId: z.string().uuid().nullable().optional(),
 });
 
 const startInput = z.object({

@@ -20,6 +20,9 @@ import {
   finisherTreatment,
 } from "@/lib/media/brand-card";
 import { hexColor } from "@/lib/media/frame";
+import { pictureSize } from "@/lib/media/compose";
+import { shapeDiffers } from "@/lib/media/extend-artwork";
+import { ArtworkExtender } from "@/components/create/ArtworkExtender";
 import { EndCardPreview } from "@/components/studio/EndCardPreview";
 import { useFinisherPicture } from "@/hooks/useFinisherPicture";
 import { MediaPreview } from "@/components/studio/MediaPreview";
@@ -63,7 +66,10 @@ export function FinisherSetup({
   plan,
   startRole,
   size,
+  projectId,
+  campaignId,
   onChange,
+  onExtend,
 }: {
   images: ReferenceItem[];
   finale: FinaleDraft | null;
@@ -72,17 +78,26 @@ export function FinisherSetup({
   startRole: string | null;
   /** The end card's size: the video's own shape. */
   size: { width: number; height: number };
+  /** Where files made for it (the extended artwork) are kept. */
+  projectId: string | null;
+  campaignId: string | null;
   /** `off` is true when the person chose no finisher. */
   onChange: (finale: FinaleDraft | null, off: boolean) => void;
+  /** Uses the finisher extended to the video's shape with AI in its place (null: as uploaded). */
+  onExtend: (finisherAssetId: string, sourceAssetId: string | null) => void;
 }) {
   // The finisher the plan uses (none when its image is gone or clip 1 starts from it).
   const chosen =
     finale && plan.finale?.assetId === finale.assetId
       ? images.find((image) => image.assetId === finale.assetId)
       : undefined;
-  const picture = useFinisherPicture(
+  const original = useFinisherPicture(
     chosen ? { assetId: chosen.assetId, bucket: chosen.bucket, path: chosen.path } : null,
   );
+  // Artwork extended to the video's shape with AI stands in for it on the card.
+  const extendedId = chosen ? (finale?.sourceAssetId ?? null) : null;
+  const extended = useFinisherPicture(extendedId ? { assetId: extendedId } : null);
+  const picture = extendedId ? extended : original;
   const canMoveInto = !!plan.end;
   const mode = plan.finale?.mode ?? finale?.mode ?? "end_card";
   const set = (patch: Partial<FinaleDraft>) =>
@@ -104,6 +119,12 @@ export function FinisherSetup({
         : "custom";
   const backgroundHint = backgrounds.find((option) => option.value === backgroundValue)?.hint;
   const analysis = picture ? analyseFinisher(picture) : null;
+  // Designed artwork of another shape can have its background painted out to the frame's edges.
+  const extendable =
+    !extendedId &&
+    !!original &&
+    analyseFinisher(original).kind === "artwork" &&
+    shapeDiffers(pictureSize(original), size);
   const autoScale =
     picture && analysis ? defaultScale(picture, analysis, size) : DEFAULT_MARK_SCALE;
   const scale = finale?.style.scale ?? autoScale;
@@ -229,8 +250,9 @@ export function FinisherSetup({
           </div>
           {!canMoveInto && plan.continuation && (
             <p className="text-[11px] text-muted-foreground">
-              {modelLine(plan.continuation)} can't end a clip on a given image, so the finisher
-              holds as an end card after the last clip.
+              {plan.start?.kind === "video"
+                ? "A clip that extends the one before can't end on a given image, so the finisher holds as an end card after the last clip."
+                : `${modelLine(plan.continuation)} can't end a clip on a given image, so the finisher holds as an end card after the last clip.`}
             </p>
           )}
 
@@ -259,13 +281,44 @@ export function FinisherSetup({
                   </Select>
                 </div>
               )}
-              {analysis && (
+              {extendedId ? (
                 <p
                   className="rounded-md bg-muted/40 px-2.5 py-1.5 text-[11px] leading-relaxed"
                   data-testid="finisher-treatment"
                 >
-                  {finisherTreatment(analysis)}
+                  Your artwork, extended to the video's shape with AI: it fills the frame, with your
+                  own artwork laid over the painted background exactly.{" "}
+                  <button
+                    type="button"
+                    className="text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                    onClick={() => onExtend(finale.assetId, null)}
+                    data-testid="finisher-extend-undo"
+                  >
+                    Use the original
+                  </button>
                 </p>
+              ) : (
+                analysis && (
+                  <p
+                    className="rounded-md bg-muted/40 px-2.5 py-1.5 text-[11px] leading-relaxed"
+                    data-testid="finisher-treatment"
+                  >
+                    {finisherTreatment(analysis)}
+                  </p>
+                )
+              )}
+              {extendable && original && (
+                <ArtworkExtender
+                  key={finale.assetId}
+                  finisherAssetId={finale.assetId}
+                  picture={original}
+                  frame={size}
+                  scale={finale.style.scale}
+                  title={chosen.title ?? "Brand artwork"}
+                  projectId={projectId}
+                  campaignId={campaignId}
+                  onExtended={(assetId) => onExtend(finale.assetId, assetId)}
+                />
               )}
               <div className="space-y-1.5">
                 <Label className="text-xs">Around the logo</Label>

@@ -86,7 +86,7 @@ function clipState(clip: LongVideoClipRow, isLast: boolean): string {
       if (clip.handoff_status === "ready" || (isLast && clip.handoff_status === "not_needed"))
         return "Done";
       if (clip.handoff_status === "failed") return "Frame failed";
-      return isLast ? "Finishing" : "Taking next start frame";
+      return isLast ? "Finishing" : "Preparing the next clip";
   }
 }
 
@@ -219,14 +219,21 @@ function RunCard({
         ? (ownCard ?? { assetId: cardImage, seconds: cardSeconds })
         : undefined;
     const style = (isFinisher ? finale?.style : null) ?? DEFAULT_END_CARD_STYLE;
+    // Artwork extended to the video's shape fills the frame, so nothing of the
+    // final moment would show around it: its own card is used as it is.
+    const extended = isFinisher ? (finale?.sourceAssetId ?? null) : null;
     const scene =
-      style.background === "auto" || style.background === "scene" ? finalMoment() : null;
+      !extended && (style.background === "auto" || style.background === "scene")
+        ? finalMoment()
+        : null;
     if (!user || (!scene && ownCard)) return cardChanged || fresh ? ownCard : undefined;
     const sized = run.clips.find((clip) => clip.output_width && clip.output_height);
     const image = assets?.get(cardImage);
     try {
       const assetId = await makeEndCard({
-        finisher: { assetId: cardImage, bucket: image?.storage_bucket, path: image?.storage_path },
+        finisher: extended
+          ? { assetId: extended }
+          : { assetId: cardImage, bucket: image?.storage_bucket, path: image?.storage_path },
         size: endCardSize((run.settings ?? {}) as Record<string, unknown>, {
           width: sized?.output_width ?? null,
           height: sized?.output_height ?? null,

@@ -329,6 +329,12 @@ export interface LongVideoClipCut {
    * frame just after `cutSeconds`, and shows it itself.
    */
   handsOffLastFrame?: boolean;
+  /**
+   * The clip extends the one before it (it was given that clip's video): its
+   * first frame is new footage, the moment after that clip's last, so that
+   * clip plays to its very end and this one from its own start.
+   */
+  extendsPrevious?: boolean;
 }
 
 export interface LongVideoAsset {
@@ -389,7 +395,9 @@ const FPS_CHOICES = [24, 25, 30, 60] as const;
  * clip's true last frame (`handsOffLastFrame`): the clip plays to its end
  * and the next skips its own first frame, its copy of that one, so no moment
  * is shown twice. (Clips from before frames were counted were cut on a frame
- * just before their end instead.) Each join's colour is eased: the next
+ * just before their end instead.) A clip that extends the one before it (it
+ * was given that clip's video) follows on from that clip's very end, with no
+ * frame in common. Each join's colour is eased: the next
  * clip's picture is matched to the frame it continues from, and drifts back
  * to its own over a couple of seconds, so a re-rendered frame doesn't blink.
  *
@@ -445,11 +453,17 @@ export function compileFromLongVideo(
     // Its first frame is its own copy of the frame the clip before ended on: skipped.
     const clipFps = clip.fps && clip.fps > 0 ? clip.fps : fps;
     const trim = join.skipFirst ? Number((1 / clipFps).toFixed(6)) : 0;
-    // Cut at the handoff frame only when the clip that starts from it is here too.
-    const continues = !!usable[index + 1] && clip.cutSeconds !== null && clip.cutSeconds > 0;
+    // Cut at the handoff frame only when the clip that starts from it is here
+    // too; one that extends this clip goes on from its very end instead.
+    const following = usable[index + 1];
+    const extended = !!following?.clip.extendsPrevious;
+    const continues =
+      !!following && (extended ? length !== null : clip.cutSeconds !== null && clip.cutSeconds > 0);
     const next = { continues, fadeIn: 0, skipFirst: false };
     let end = length;
-    if (continues) {
+    if (continues && extended) {
+      if (options.seam === "blend") next.fadeIn = BLEND_FRAMES / fps;
+    } else if (continues) {
       const frame = 1 / fps;
       let blendOut = 0;
       if (clip.handsOffLastFrame) {

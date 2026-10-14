@@ -102,6 +102,8 @@ export interface StoredFinale {
   seconds: number;
   frame_asset_id: string | null;
   style: { background: string; scale: number | null } | null;
+  /** The artwork extended to the video's shape with AI (see RunFinale.sourceAssetId). */
+  source_asset_id?: string | null;
 }
 
 /** End card backgrounds a run may keep: the named ones, or a colour. */
@@ -133,6 +135,7 @@ export function storeFinale(finale: RunFinale): StoredFinale {
     seconds: finale.seconds,
     frame_asset_id: finale.frameAssetId ?? null,
     style: finaleStyle(finale.style),
+    source_asset_id: finale.sourceAssetId ?? null,
   };
 }
 
@@ -156,6 +159,7 @@ export function storedFinale(referencesUsed: unknown): RunFinale | null {
       frameAssetId: typeof item["frame_asset_id"] === "string" ? item["frame_asset_id"] : null,
       // Runs from before styles were kept laid their cards out on the image's own colour.
       style: finaleStyle(item["style"]),
+      sourceAssetId: typeof item["source_asset_id"] === "string" ? item["source_asset_id"] : null,
     };
   }
   return null;
