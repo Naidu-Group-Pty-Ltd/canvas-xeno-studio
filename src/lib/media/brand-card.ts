@@ -815,27 +815,6 @@ export async function composeBrandCard(
   );
 }
 
-/**
- * Artwork in its place on a frame of another shape, its background roughly
- * carried out to the frame's edges (as the "extend" backdrop) but its own
- * edges left sharp: what an image model is given to paint that background
- * properly (see ./extend-artwork).
- */
-export function drawArtworkGuide(
-  context: CanvasRenderingContext2D,
-  art: Picture,
-  rect: Rect,
-  width: number,
-  height: number,
-) {
-  context.save();
-  context.imageSmoothingEnabled = true;
-  context.imageSmoothingQuality = "high";
-  drawExtendedBackdrop(context, art, rect, width, height);
-  context.drawImage(art, rect.x, rect.y, rect.width, rect.height);
-  context.restore();
-}
-
 /** How a finisher will be treated, in a few words for the person setting it up. */
 export function finisherTreatment(analysis: FinisherAnalysis): string {
   switch (analysis.kind) {

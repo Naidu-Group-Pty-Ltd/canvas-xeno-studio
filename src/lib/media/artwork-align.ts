@@ -1,8 +1,9 @@
 /**
  * Finding artwork in a picture an image model painted around it: where the
  * model left it (a few pixels off, a touch larger or smaller) and whether it
- * is still the same artwork. Plain arithmetic on grey levels, so it runs
- * anywhere; ./extend-artwork does the drawing.
+ * is still the same artwork; and whether the model filled the empty canvas it
+ * was given. Plain arithmetic on pixels, so it runs anywhere; ./artwork-canvas
+ * does the drawing.
  */
 
 /** A picture's grey levels (0–255), row by row. */
@@ -10,6 +11,14 @@ export interface Gray {
   width: number;
   height: number;
   data: Float32Array;
+}
+
+/** A rectangle in a picture's pixels. */
+export interface Box {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export interface Placement {
@@ -81,7 +90,7 @@ function likeness(picture: Gray, art: Gray, left: number, top: number): number |
 export function alignArtwork(
   picture: Gray,
   arts: { scale: number; gray: Gray }[],
-  expected: { x: number; y: number; width: number; height: number },
+  expected: Box,
   reach: { x: number; y: number },
 ): Placement | null {
   const centreX = expected.x + expected.width / 2;
@@ -108,4 +117,93 @@ export function alignArtwork(
   }
   if (!best) return null;
   return { scale: best.scale, dx: best.dx, dy: best.dy, score: best.score };
+}
+
+/**
+ * How much of a painting is still the empty canvas it was given (`pad`, one
+ * flat colour), which a model can leave unpainted:
+ *   - `open`: of the blocks of picture clear of the artwork (more than `seam`
+ *     pixels from it), the share that are nearly all still that colour. Whole
+ *     blocks, so a small highlight that happens to be the pad's colour isn't
+ *     taken for empty canvas;
+ *   - `seam`: of the pixels in the band just around the artwork, the share
+ *     still that colour, where the model can leave a hairline gap. A pixel
+ *     next to an edge of the artwork that is itself that colour is the
+ *     artwork carrying on, not a gap, and isn't counted.
+ */
+export function padResidue(input: {
+  pixels: Uint8ClampedArray;
+  width: number;
+  height: number;
+  /** Where the artwork is. */
+  art: Box;
+  pad: [number, number, number];
+  seam: number;
+  /** How close to the pad colour counts as it, per channel. */
+  tolerance?: number;
+  /** The side of a block, in pixels. */
+  block?: number;
+}): { open: number; seam: number } {
+  const { pixels, width, height, art, pad, seam } = input;
+  const tolerance = input.tolerance ?? 14;
+  const block = input.block ?? 24;
+  const isPad = (x: number, y: number) => {
+    const at = (y * width + x) * 4;
+    return (
+      Math.abs(pixels[at]! - pad[0]) <= tolerance &&
+      Math.abs(pixels[at + 1]! - pad[1]) <= tolerance &&
+      Math.abs(pixels[at + 2]! - pad[2]) <= tolerance
+    );
+  };
+  const left = art.x;
+  const right = art.x + art.width;
+  const top = art.y;
+  const bottom = art.y + art.height;
+  // The artwork's own pixels: its first and last whole rows and columns.
+  const firstX = Math.max(0, Math.ceil(left));
+  const lastX = Math.min(width - 1, Math.floor(right) - 1);
+  const firstY = Math.max(0, Math.ceil(top));
+  const lastY = Math.min(height - 1, Math.floor(bottom) - 1);
+
+  let seamTotal = 0;
+  let seamPad = 0;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      // How far outside the artwork this pixel is (0 inside it).
+      const out = Math.max(left - x, x + 1 - right, top - y, y + 1 - bottom, 0);
+      if (out <= 0 || out > seam) continue;
+      const edgeX = Math.min(lastX, Math.max(firstX, x));
+      const edgeY = Math.min(lastY, Math.max(firstY, y));
+      if (lastX >= firstX && lastY >= firstY && isPad(edgeX, edgeY)) continue;
+      seamTotal += 1;
+      if (isPad(x, y)) seamPad += 1;
+    }
+  }
+
+  let openBlocks = 0;
+  let emptyBlocks = 0;
+  for (let by = 0; by + block <= height; by += block) {
+    for (let bx = 0; bx + block <= width; bx += block) {
+      // Only blocks wholly clear of the artwork and the band around it.
+      const clear =
+        bx + block <= left - seam ||
+        bx >= right + seam ||
+        by + block <= top - seam ||
+        by >= bottom + seam;
+      if (!clear) continue;
+      openBlocks += 1;
+      let samples = 0;
+      let padded = 0;
+      for (let y = by; y < by + block; y += 3)
+        for (let x = bx; x < bx + block; x += 3) {
+          samples += 1;
+          if (isPad(x, y)) padded += 1;
+        }
+      if (padded >= samples * 0.9) emptyBlocks += 1;
+    }
+  }
+  return {
+    open: openBlocks ? emptyBlocks / openBlocks : 0,
+    seam: seamTotal ? seamPad / seamTotal : 0,
+  };
 }
