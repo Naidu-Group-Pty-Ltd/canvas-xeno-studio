@@ -738,7 +738,7 @@ function CreatePage() {
           `The end card couldn't be laid out (${reason}): the Editor shows your image as it is.`,
         );
       }
-      finale = { ...longPlan.finale, frameAssetId };
+      finale = { ...longPlan.finale, frameAssetId, style: longDraft.finale.style };
     }
     try {
       const result = await startLongVideo({

@@ -36,7 +36,7 @@ import {
   formatLength,
   type RunFinale,
 } from "@/lib/long-video/plan";
-import { DEFAULT_END_CARD_STYLE, makeEndCard } from "@/lib/media/end-card";
+import { DEFAULT_END_CARD_STYLE, makeEndCard, type EndCardScene } from "@/lib/media/end-card";
 import { MediaPreview } from "@/components/studio/MediaPreview";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -86,7 +86,7 @@ function clipState(clip: LongVideoClipRow, isLast: boolean): string {
       if (clip.handoff_status === "ready" || (isLast && clip.handoff_status === "not_needed"))
         return "Done";
       if (clip.handoff_status === "failed") return "Frame failed";
-      return isLast ? "Measuring" : "Taking next start frame";
+      return isLast ? "Finishing" : "Taking next start frame";
   }
 }
 
@@ -182,27 +182,70 @@ function RunCard({
     }
   }
 
-  /** The end card as chosen here, laid out at the video's shape; undefined for the run's own. */
+  /** The video's final moment, which a card held after it is laid out over. */
+  function finalMoment(): EndCardScene | null {
+    const last = run.clips.at(-1);
+    if (!last || last.status !== "completed" || !last.output_asset_id) return null;
+    if (last.handoff_status === "ready" && last.handoff_asset_id)
+      return { kind: "image", source: { assetId: last.handoff_asset_id } };
+    // Runs from before final frames were kept: read from the clip's video.
+    const video = assets?.get(last.output_asset_id);
+    return {
+      kind: "video",
+      source: {
+        assetId: last.output_asset_id,
+        bucket: video?.storage_bucket,
+        path: video?.storage_path,
+      },
+    };
+  }
+
+  /**
+   * The end card as chosen here, laid out at the video's shape; undefined for
+   * the run's own (or to reopen its edit). A card the last clip moved into is
+   * held as it is, so the two match; one held after the last clip is laid out
+   * over the video's final moment, softly defocused.
+   */
   async function chosenEndCard(fresh: boolean) {
-    if (!cardChanged && !fresh) return undefined;
-    if (!cardImage) return null;
-    if (cardImage === finale?.assetId && finale.frameAssetId)
-      return { assetId: finale.frameAssetId, seconds: cardSeconds };
-    if (!user) return null;
+    if (run.sequence_id && !fresh && !cardChanged) return undefined;
+    if (!cardImage) return cardChanged || fresh ? null : undefined;
+    const isFinisher = cardImage === finale?.assetId;
+    const ownCard =
+      isFinisher && finale?.frameAssetId
+        ? { assetId: finale.frameAssetId, seconds: cardSeconds }
+        : undefined;
+    if (isFinisher && finale && finaleReveals(finale.mode))
+      return cardChanged || fresh
+        ? (ownCard ?? { assetId: cardImage, seconds: cardSeconds })
+        : undefined;
+    const style = (isFinisher ? finale?.style : null) ?? DEFAULT_END_CARD_STYLE;
+    const scene =
+      style.background === "auto" || style.background === "scene" ? finalMoment() : null;
+    if (!user || (!scene && ownCard)) return cardChanged || fresh ? ownCard : undefined;
     const sized = run.clips.find((clip) => clip.output_width && clip.output_height);
     const image = assets?.get(cardImage);
-    const assetId = await makeEndCard({
-      finisher: { assetId: cardImage, bucket: image?.storage_bucket, path: image?.storage_path },
-      size: endCardSize((run.settings ?? {}) as Record<string, unknown>, {
-        width: sized?.output_width ?? null,
-        height: sized?.output_height ?? null,
-      }),
-      style: DEFAULT_END_CARD_STYLE,
-      userId: user.id,
-      projectId: run.project_id,
-      title: run.title,
-    });
-    return { assetId, seconds: cardSeconds };
+    try {
+      const assetId = await makeEndCard({
+        finisher: { assetId: cardImage, bucket: image?.storage_bucket, path: image?.storage_path },
+        size: endCardSize((run.settings ?? {}) as Record<string, unknown>, {
+          width: sized?.output_width ?? null,
+          height: sized?.output_height ?? null,
+        }),
+        style,
+        scene,
+        userId: user.id,
+        projectId: run.project_id,
+        title: run.title,
+      });
+      return { assetId, seconds: cardSeconds };
+    } catch (error) {
+      toast.warning(
+        `The end card couldn't be laid out over the video's end (${error instanceof Error ? error.message : "it couldn't be saved"}), so the one made with the video is used.`,
+      );
+      return (
+        ownCard ?? (cardChanged || fresh ? { assetId: cardImage, seconds: cardSeconds } : undefined)
+      );
+    }
   }
 
   async function openInEditor(fresh = false) {
@@ -353,12 +396,12 @@ function RunCard({
                       [
                         "cut",
                         "Seamless cut",
-                        "Each clip ends on the frame the next one starts from.",
+                        "Each clip plays to the frame the next one starts from, and the next carries straight on, its colour eased to match.",
                       ],
                       [
                         "blend",
                         "Soft blend",
-                        "A brief cross-fade over the footage both clips share.",
+                        "The same, with a brief dissolve at each join to soften any jump.",
                       ],
                     ] as const
                   ).map(([value, label, hint]) => (
@@ -390,7 +433,9 @@ function RunCard({
                   <div className="space-y-1.5" data-testid="long-video-end-card">
                     <p className="font-medium">End card</p>
                     <p className="text-[11px] text-muted-foreground">
-                      Held after the last clip, exactly as uploaded, at the video's shape.
+                      Held after the last clip, laid out for the video's shape: a logo over the
+                      video's final moment, softly defocused; artwork with its own background
+                      carried to the frame's edges.
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       <button

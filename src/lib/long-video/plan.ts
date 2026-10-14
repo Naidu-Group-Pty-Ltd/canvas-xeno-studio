@@ -4,12 +4,13 @@
  * and Supercomputer (to show and check the plan) and the server (to check it
  * again and run it), so all of them always agree.
  *
- * Continuity: every clip after the first starts from a frame taken just before
- * the end of the clip before it (the handoff frame), with the same story,
- * continuity notes, settings and reference images, on the same model (the
- * same workflow, or that model's own workflow for starting from an image). The
- * Editor later cuts each clip at its handoff frame, so the next clip picks up
- * exactly where it left off.
+ * Continuity: every clip after the first starts from the true last frame of
+ * the clip before it (the handoff frame), with the same story, continuity
+ * notes, settings and reference images, on the same model (the same
+ * workflow, or that model's own workflow for starting from an image), told
+ * how the camera was moving as that clip ended. The Editor later plays each
+ * clip through its handoff frame and the next from just after its copy of
+ * it, so the next clip picks up exactly where the last left off.
  */
 import {
   defaultsForModel,
@@ -33,9 +34,11 @@ export const LONG_VIDEO_LIMITS = {
 } as const;
 
 /**
- * How far before a clip's end its handoff frame is taken, by try. Close to the
- * end so little is cut, but clear of the last frames, which some models fade
- * or blur and which a measured length can overstate by a frame or two.
+ * The handoff frame is each clip's true last frame, found by counting its
+ * frames (see ./handoff). A media service that can't count frames takes one
+ * by time instead, this far before the clip's end, by try: close to the end
+ * so little is cut, but clear of the last frames, which a measured length can
+ * overstate by a frame or two.
  */
 export const HANDOFF_MARGINS_SECONDS = [0.25, 0.6, 1.2] as const;
 
@@ -318,8 +321,18 @@ export function clipPrompt(input: {
   return parts.filter(Boolean).join("\n\n");
 }
 
+/**
+ * How a later clip opens. It is generated from one still frame and so knows
+ * nothing of the motion before it; told nothing, a model starts from rest and
+ * the join reads as a stop and start.
+ */
 const FRAME_OPENING =
-  "Continue seamlessly from the first frame, as the next moment of the same continuous shot.";
+  "Continue seamlessly from the first frame, as the very next moment of the same continuous shot: everything already in motion (camera, people, objects, light) keeps moving in the same direction and at the same pace from the first instant, with no pause, reset or ease-in.";
+
+/** Openings earlier versions wrote, still recognised in stored prompts. */
+const PAST_FRAME_OPENINGS = [
+  "Continue seamlessly from the first frame, as the next moment of the same continuous shot.",
+];
 
 /** How the last clip is told to end on the brand's end card, which is its final frame. */
 export const FINALE_REVEAL_NOTE =
@@ -329,7 +342,7 @@ export const FINALE_REVEAL_NOTE =
 function clipPlace(index: number, count: number, finale: FinaleMode | null): string {
   const part = `Part ${index + 1} of ${count}`;
   if (index < count - 1)
-    return `${part} of one continuous video. It carries straight on into the next part, so don't end or wrap up here: no closing shot, logo reveal or end card.`;
+    return `${part} of one continuous video. It carries straight on into the next part, so don't end or wrap up here: keep the camera and action moving right through the final frame (no slowing down, settling or holding still at the end), and no closing shot, logo reveal or end card.`;
   if (finale && finaleReveals(finale)) return `${part}, the last. ${FINALE_REVEAL_NOTE}`;
   if (finale)
     return `${part}, the last: bring the video to a calm close. The brand's end card follows straight after it, so no logo reveal or end card of its own.`;
@@ -338,7 +351,11 @@ function clipPlace(index: number, count: number, finale: FinaleMode | null): str
 
 /** How a clip that starts from its first reference image is told so. */
 export const REFERENCE_OPENING =
-  "<<<image_1>>> is this clip's first frame: the last moment of the clip before. Start exactly on it and continue seamlessly, as the next moment of the same continuous shot.";
+  "<<<image_1>>> is this clip's first frame: the last moment of the clip before. Start exactly on it and continue seamlessly, as the very next moment of the same continuous shot, with everything already in motion carrying on at the same pace from the first instant.";
+
+const PAST_REFERENCE_OPENINGS = [
+  "<<<image_1>>> is this clip's first frame: the last moment of the clip before. Start exactly on it and continue seamlessly, as the next moment of the same continuous shot.",
+];
 
 const MEDIA_TOKEN = /<<<(image|video|audio)_(\d+)>>>/g;
 const IMAGE_TOKEN = /<<<image_(\d+)>>>/g;
@@ -360,10 +377,10 @@ const FINISHER_WORDS = "the brand's end card";
  * plain words, as the provider refuses a token with nothing behind it.
  */
 function referenceStartPrompt(prompt: string, imageNumber: ImageNumber): string {
-  if (prompt.startsWith(REFERENCE_OPENING)) return prompt;
-  const body = prompt.startsWith(FRAME_OPENING)
-    ? prompt.slice(FRAME_OPENING.length).trimStart()
-    : prompt;
+  if ([REFERENCE_OPENING, ...PAST_REFERENCE_OPENINGS].some((text) => prompt.startsWith(text)))
+    return prompt;
+  const opening = [FRAME_OPENING, ...PAST_FRAME_OPENINGS].find((text) => prompt.startsWith(text));
+  const body = opening ? prompt.slice(opening.length).trimStart() : prompt;
   const renumbered = body.replace(MEDIA_TOKEN, (_, type: string, n: string) => {
     const next = type === "image" ? imageNumber(Number(n)) : null;
     if (typeof next === "number") return `<<<image_${next}>>>`;
@@ -464,6 +481,11 @@ export interface RunFinale {
    * on and the Editor holds. Without it, the finisher itself is used.
    */
   frameAssetId?: string | null | undefined;
+  /**
+   * How its end card was laid out (see EndCardStyle), so a card held after
+   * the last clip can be laid out again over the video's final moment.
+   */
+  style?: { background: string; scale: number | null } | null | undefined;
 }
 
 /** The finisher holds as an end card after the last clip. */

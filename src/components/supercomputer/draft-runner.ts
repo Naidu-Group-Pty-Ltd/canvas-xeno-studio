@@ -256,7 +256,7 @@ export function useDraftRunner(context: {
           projectId: context.projectId,
           title,
         });
-        return { ...finale, frameAssetId };
+        return { ...finale, frameAssetId, style: DEFAULT_END_CARD_STYLE };
       } catch (error) {
         const reason = error instanceof Error ? error.message : "it couldn't be saved";
         if (finaleReveals(finale.mode))

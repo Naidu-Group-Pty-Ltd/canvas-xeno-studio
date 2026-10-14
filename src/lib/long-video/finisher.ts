@@ -101,6 +101,28 @@ export interface StoredFinale {
   mode: FinaleMode;
   seconds: number;
   frame_asset_id: string | null;
+  style: { background: string; scale: number | null } | null;
+}
+
+/** End card backgrounds a run may keep: the named ones, or a colour. */
+const STYLE_BACKGROUNDS = new Set(["auto", "scene", "brand", "extend", "blur"]);
+
+/** A finisher's end card style as given, or null when it isn't one. */
+export function finaleStyle(value: unknown): { background: string; scale: number | null } | null {
+  if (!value || typeof value !== "object") return null;
+  const item = value as Record<string, unknown>;
+  const background = item["background"];
+  if (
+    typeof background !== "string" ||
+    !(STYLE_BACKGROUNDS.has(background) || /^#[0-9a-f]{6}$/i.test(background))
+  )
+    return null;
+  const scale = Number(item["scale"]);
+  return {
+    background,
+    scale:
+      item["scale"] === null || !Number.isFinite(scale) ? null : Math.min(1, Math.max(0.3, scale)),
+  };
 }
 
 export function storeFinale(finale: RunFinale): StoredFinale {
@@ -110,6 +132,7 @@ export function storeFinale(finale: RunFinale): StoredFinale {
     mode: finale.mode,
     seconds: finale.seconds,
     frame_asset_id: finale.frameAssetId ?? null,
+    style: finaleStyle(finale.style),
   };
 }
 
@@ -131,6 +154,8 @@ export function storedFinale(referencesUsed: unknown): RunFinale | null {
           ? Math.min(FINALE_SECONDS.max, Math.max(FINALE_SECONDS.min, seconds))
           : FINALE_SECONDS.default,
       frameAssetId: typeof item["frame_asset_id"] === "string" ? item["frame_asset_id"] : null,
+      // Runs from before styles were kept laid their cards out on the image's own colour.
+      style: finaleStyle(item["style"]),
     };
   }
   return null;

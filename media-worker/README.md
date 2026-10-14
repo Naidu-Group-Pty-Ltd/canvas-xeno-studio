@@ -87,7 +87,9 @@ frame. The app sends one source per distinct asset (role `video`, `image` or
   `focus_x` / `focus_y` (0–1, where a `cover` crop sits; the centre unless
   given), `motion` for stills (`zoom_in`, `zoom_out`, `pan_left`, `pan_right`,
   `pan_up`, `pan_down`), `transition` into the clip (`type` from the xfade
-  set or `cut`, `duration` up to 3 s; shortened when the clips are too short)
+  set or `cut`, `duration` up to 3 s; shortened when the clips are too short),
+  `match_previous` (see below). A trim that falls on a frame is honoured to
+  the frame: the seek starts a millisecond early so rounding never skips it
 - `audio[]`: `source_index`, `role` (`voiceover`, `music`, `sfx`), `start`,
   `trim_start`, `duration`, `volume`, `fade_in`, `fade_out`, and for music
   `loop` and `duck` / `duck_level` (music dips wherever the voiceover actually
@@ -102,6 +104,39 @@ frame. The app sends one source per distinct asset (role `video`, `image` or
 Timings are snapped to the frame grid, so the output has exactly the planned
 number of frames. Clips are normalised one at a time, which keeps memory flat
 for long timelines.
+
+## Long videos: true last frames and seamless joins
+
+A long video chains generated clips: each clip after the first is generated
+from the frame the one before ends on, and the Editor joins them back into
+one shot. Two capabilities make the joins seamless:
+
+- **`extract_frames` with `"frame": "last"`** takes a clip's true last frame,
+  found by decoding and counting its frames (never from the container's
+  duration or a timestamp, which can be offset, rounded, or run on with the
+  sound). It is lossless PNG unless `"format": "jpg"` is asked for, at the
+  clip's own size unless `width` differs. A tail frozen on one picture (after
+  a clip that was moving) or fading to black or white is left out, up to
+  0.75 s. The result's `metadata` reports `frame_mode: "last"`, `frame_count`,
+  `frame_index` (0-based, the frame taken), `frozen_frames`, `faded_frames`,
+  `fps`, `clip_duration_seconds` (frames ÷ rate) and `motion`: how the camera
+  was moving over the clip's last second (`moves` such as `push_in`,
+  `pull_out`, `pan_left`, `pan_right`, `tilt_up`, `tilt_down`, each `slow`,
+  `steady` or `fast`), which the app tells the next clip so it carries the
+  move on instead of starting from rest. An app sends `times_seconds` with it
+  too, so a worker without this mode still takes a frame (by time).
+- **`render_sequence` clips with `"match_previous": true`** carry straight on
+  from the clip before. The clip's colour is matched to the last frame the
+  clip before shows, compared with this clip's frame of the same moment (the
+  one before its first, when it skips its copy of the handoff frame), and
+  eases back to its own over 2.5 s. The match is made on the picture's own
+  planes (`lutyuv`), so nothing is converted and the clip is bit for bit
+  itself once it has eased off; only mid-tones are compared, shifts are
+  capped, and nothing changes unless both frames show the same picture. The
+  render's metadata lists the joins matched (`seams_matched`).
+
+`probe` also reports `video_duration_seconds`, the picture's own length.
+`/health` lists `last_frame` and `seam_match` among its `features`.
 
 ## Reframing
 

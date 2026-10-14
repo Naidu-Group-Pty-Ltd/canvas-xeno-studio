@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { probe, ffmpeg } from "./ffmpeg.js";
 import { TaskError } from "./net.js";
 import { renderSequence, SEQUENCE_LIMITS } from "./sequence.js";
+import { cameraMotion, decodeThumbnails, extractFrameByIndex, pickHandoffFrame } from "./frames.js";
 
 /**
  * Task catalogue.
@@ -43,8 +44,13 @@ function pick(value, allowed, fallback, name) {
   return key;
 }
 
-/** What this worker's framing understands beyond the basics, for the app to offer it. */
-export const FEATURES = ["frame_focus", "frame_background"];
+/**
+ * What this worker understands beyond the basics, for the app to offer it:
+ * framing (crop position, pad colour), a clip's true last frame taken by
+ * counting its frames ("last_frame"), and easing a clip's colour into the
+ * one before it at a join ("seam_match").
+ */
+export const FEATURES = ["frame_focus", "frame_background", "last_frame", "seam_match"];
 
 /** The point of the picture (0-1 across and down) a crop keeps in frame: the centre unless given. */
 function focusOf(params) {
@@ -129,9 +135,14 @@ export const TASKS = {
 
   extract_frames: {
     sources: { min: 1, max: 1 },
-    /** One output per requested timestamp — the app supplies a matching number of upload slots. */
-    outputs: (params) => timestamps(params).length,
+    /**
+     * One output per requested timestamp, or one for `frame: "last"` (which
+     * wins over timestamps: an app sends both, so a worker without it still
+     * takes a frame). The app supplies a matching number of upload slots.
+     */
+    outputs: (params) => (params?.frame === "last" ? 1 : timestamps(params).length),
     async run({ sources, params, dir }) {
+      if (params.frame === "last") return lastFrame(sources[0].path, params, dir);
       const times = timestamps(params);
       const width = even(num(params.width, { min: 64, max: 3840, fallback: 960, name: "width" }));
       const outputs = [];
@@ -374,6 +385,47 @@ async function clipDuration(clip, sources) {
   if (clip.end_seconds) return Math.max(0.1, Number(clip.end_seconds) - start);
   const probed = await probe(source.path);
   return Math.max(0.1, (probed.duration_seconds ?? 1) - start);
+}
+
+/**
+ * A clip's true last frame, for the next clip of a long video to start from:
+ * found by decoding and counting its frames (so it is the last one there is,
+ * not one a measured length or a timestamp points near), lossless as PNG
+ * unless JPEG is asked for. A tail frozen on one picture, or fading out, is
+ * left out (see pickHandoffFrame). Also reports how many frames the clip has
+ * (its exact length), which frame was taken, and how the camera was moving.
+ */
+async function lastFrame(path, params, dir) {
+  const format = pick(params.format, { png: 1, jpg: 1 }, "png", "format");
+  const width = params.width ? even(num(params.width, { min: 64, max: 3840, name: "width" })) : null;
+  const info = await probe(path);
+  const thumbs = await decodeThumbnails(path, dir, { width: info.width, height: info.height });
+  const rate = info.fps && info.fps > 0 ? info.fps : info.duration_seconds ? thumbs.count / info.duration_seconds : null;
+  const chosen = pickHandoffFrame(thumbs, rate ?? 0);
+  const out = join(dir, `frame-last.${format}`);
+  await extractFrameByIndex(path, chosen.index, out, { width, sourceWidth: info.width, format });
+  const image = await probe(out);
+  const at = rate ? Number((chosen.index / rate).toFixed(6)) : null;
+  return {
+    outputs: [{ path: out, mime: IMAGE_FORMATS[format], kind: "image", ...(at !== null ? { timestamp_seconds: at } : {}) }],
+    metadata: {
+      frame_mode: "last",
+      // Every frame decoded, in display order; the one taken is frame_index (0 is the first).
+      frame_count: thumbs.count,
+      frame_index: chosen.index,
+      frozen_frames: chosen.frozenFrames,
+      faded_frames: chosen.fadedFrames,
+      fps: rate ? Number(rate.toFixed(6)) : null,
+      // The clip's exact length: its frames at its rate (not the container's duration).
+      clip_duration_seconds: rate ? Number((thumbs.count / rate).toFixed(6)) : null,
+      frame_times: at !== null ? [at] : [],
+      width: image.width,
+      height: image.height,
+      source_width: info.width,
+      source_height: info.height,
+      motion: cameraMotion(thumbs, chosen.index, rate ?? 0),
+    },
+  };
 }
 
 function timestamps(params) {

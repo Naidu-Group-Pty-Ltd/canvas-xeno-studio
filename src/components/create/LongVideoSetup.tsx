@@ -273,9 +273,10 @@ export function LongVideoSetup({
             </p>
             <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
               Each clip runs as long as it can, up to {plan.maxClipSeconds}s, and the last takes
-              what's left. Each one starts from a frame taken just before the end of the one before
-              and is made by {modelLine(model)} too, with the same story (the prompt below),
-              settings and reference images, so the clips play as one continuous shot.
+              what's left. Each one starts from the true last frame of the one before (taken
+              losslessly), is told how the camera was moving as it ended, and is made by{" "}
+              {modelLine(model)} too, with the same story (the prompt below), settings and reference
+              images, so the clips play as one continuous shot.
               {plan.start?.kind === "reference"
                 ? ` ${modelLine(model)} has no start-frame input, so that frame goes in as each clip's first reference image and the prompt tells it to start there.`
                 : ""}{" "}

@@ -26,6 +26,13 @@ import { isMissingTableError } from "../edit/errors";
 import type { ModelRegistryEntry } from "../model-schema";
 import { storedFinale, storeFinale } from "./finisher";
 import {
+  cameraMotionOf,
+  countedLength,
+  handoffFrameOf,
+  inclusiveCut,
+  withCameraLine,
+} from "./handoff";
+import {
   clipStart,
   durationChoices,
   finaleHolds,
@@ -401,6 +408,15 @@ async function startClip(run: RunRow, clip: ClipRow, previous: ClipRow | null): 
       inputs.push({ assetId: item.asset_id, role: item.role, position: inputs.length });
   }
 
+  // A later clip is told how the camera was moving as the one before ended,
+  // so it carries the move on instead of starting from rest.
+  const parameters = { ...((clip.parameters ?? {}) as Json) };
+  if (clip.position > 0 && typeof parameters["prompt"] === "string") {
+    const motion = await handoffMotion(previous);
+    const field = model.parameter_schema?.fields?.find((entry) => entry.key === "prompt");
+    parameters["prompt"] = withCameraLine(parameters["prompt"], motion, field?.maxLength ?? null);
+  }
+
   const key = clipRequestKey(clip);
   try {
     if (!run.created_by)
@@ -412,7 +428,7 @@ async function startClip(run: RunRow, clip: ClipRow, previous: ClipRow | null): 
     const started = await createAndSubmitGeneration({
       userId: run.created_by,
       model,
-      parameters: (clip.parameters ?? {}) as Json,
+      parameters,
       inputs,
       projectId: run.project_id,
       campaignId: run.campaign_id,
@@ -433,6 +449,17 @@ async function startClip(run: RunRow, clip: ClipRow, previous: ClipRow | null): 
     const message = error instanceof Error ? error.message : "It couldn't be started";
     return failClip(run, clip, "submitting", code, message);
   }
+}
+
+/** How the camera was moving as a clip ended, as its handoff frame's task read it (null if unknown). */
+async function handoffMotion(clip: ClipRow | null) {
+  if (!clip?.handoff_task_id) return null;
+  const { data: task } = await db
+    .from("media_tasks")
+    .select("output_payload")
+    .eq("id", clip.handoff_task_id)
+    .maybeSingle();
+  return cameraMotionOf(((task?.output_payload ?? {}) as Json)["metadata"]);
 }
 
 /** A clip left "submitting" by an interrupted start: follow its generation if it got one, else start it again. */
@@ -559,17 +586,20 @@ async function followGeneration(run: RunRow, clip: ClipRow): Promise<boolean> {
 type HandoffKind = "probe" | "frame";
 
 /**
- * Where this try takes the handoff frame: just before the clip's end, a little
- * earlier on each retry. With the frame rate known, the cut falls exactly on a
- * frame: the Editor ends the clip at `cut` (frames 0 … k-1) and the frame
- * taken is frame k itself, asked for half a frame early so the media service
- * (which returns the first frame at or after a time) can only return frame k.
- * The next clip starts from it, so no frame is shown twice or skipped.
+ * The handoff frame is the clip's true last frame: the media service decodes
+ * and counts the clip's frames and takes the last (see ./handoff). A media
+ * service from before it could count frames takes one by time instead, so it
+ * is sent this too: just before the clip's end, a little earlier on each
+ * retry. With the frame rate known, that cut falls exactly on a frame: the
+ * Editor ends the clip at `cut` (frames 0 … k-1) and the frame taken is frame
+ * k itself, asked for half a frame early so the media service (which returns
+ * the first frame at or after a time) can only return frame k. The next clip
+ * starts from it, so no frame is shown twice or skipped.
  */
 function handoffPoint(clip: ClipRow): { cut: number; at: number } {
   const length = Number(clip.output_duration_seconds ?? clip.duration_seconds);
-  const margin =
-    HANDOFF_MARGINS_SECONDS[Math.min(clip.handoff_attempts, HANDOFF_MARGINS_SECONDS.length - 1)]!;
+  const tries = clip.handoff_attempts % MAX_HANDOFF_FAILURES;
+  const margin = HANDOFF_MARGINS_SECONDS[Math.min(tries, HANDOFF_MARGINS_SECONDS.length - 1)]!;
   const fps = Number(clip.output_fps) || 0;
   if (fps > 0) {
     const frame = Math.max(1, Math.floor((length - margin) * fps + 1e-6));
@@ -586,9 +616,21 @@ function frameWidth(clip: ClipRow): number {
   return Math.max(64, Math.min(3840, Math.floor(width / 2) * 2));
 }
 
+/** Frames larger than this (past 1440p) go as best-quality JPEG: as PNG they can pass what a provider takes. */
+const PNG_MAX_PIXELS = 2_600_000;
+
+/** The handoff frame's file: lossless PNG, so the next clip starts from exactly the picture shown. */
+function handoffFile(clip: ClipRow): { ext: "png" | "jpg"; mime: string } {
+  const pixels = Number(clip.output_width ?? 0) * Number(clip.output_height ?? 0);
+  return pixels > PNG_MAX_PIXELS
+    ? { ext: "jpg", mime: "image/jpeg" }
+    : { ext: "png", mime: "image/png" };
+}
+
 /**
- * After a clip's video is in: measure it (every clip, so the Editor knows its
- * real length), then, for all but the last, take the next clip's start frame.
+ * After a clip's video is in: measure it, then take its true last frame:
+ * the next clip's start frame or, from the last clip, the final frame the
+ * end card can sit over. Every clip, so the Editor knows its exact length.
  */
 async function followHandoff(run: RunRow, clip: ClipRow, isLast: boolean): Promise<boolean> {
   switch (clip.handoff_status) {
@@ -648,6 +690,7 @@ async function enqueueHandoff(
     });
 
   const point = kind === "frame" ? handoffPoint(clip) : null;
+  const file = handoffFile(clip);
   const result = await enqueueInternalMediaTask({
     createdBy: run.created_by,
     projectId: run.project_id,
@@ -659,12 +702,15 @@ async function enqueueHandoff(
       path: asset.storage_path,
       mimeType: asset.mime_type,
     },
-    params: point ? { times_seconds: [point.at], width: frameWidth(clip) } : {},
+    // The true last frame; the time is for a media service that can't count frames.
+    params: point
+      ? { frame: "last", format: file.ext, times_seconds: [point.at], width: frameWidth(clip) }
+      : {},
     dedupeKey: `lvh:${clip.id}:${clip.attempt}:${kind}:${clip.handoff_attempts}`,
     output:
       kind === "probe"
         ? { count: 0, ext: "json", mime: "application/json", kind: "image" }
-        : { count: 1, ext: "jpg", mime: "image/jpeg", kind: "image" },
+        : { count: 1, ext: file.ext, mime: file.mime, kind: "image" },
     context: { long_video_clip_id: clip.id },
   });
   if (!result.ok)
@@ -726,7 +772,12 @@ async function followTask(
   if (task.status === "completed") {
     if (kind === "probe") {
       const probe = (((task.output_payload ?? {}) as Json)["metadata"] ?? {}) as Json;
-      const length = Number(probe["duration_seconds"]);
+      // The picture's own length where the media service reports it: the
+      // container's can run on with the sound.
+      const length =
+        Number(probe["video_duration_seconds"]) > 0
+          ? Number(probe["video_duration_seconds"])
+          : Number(probe["duration_seconds"]);
       if (!(length > 0))
         return handoffFailed(run, clip, kind, isLast, {
           code: "PROBE_FAILED",
@@ -739,12 +790,12 @@ async function followTask(
         output_width: Number(probe["width"]) > 0 ? Number(probe["width"]) : clip.output_width,
         output_height: Number(probe["height"]) > 0 ? Number(probe["height"]) : clip.output_height,
       };
-      // Measured. The last clip needs no start frame taken from it.
+      // Measured. Then its last frame: the next clip's start, or the last clip's final frame.
       const { data: moved } = await db
         .from("long_video_clips")
         .update({
           ...measured,
-          handoff_status: isLast ? "not_needed" : "extracting",
+          handoff_status: "extracting",
           handoff_task_id: null,
           claimed_at: now(),
         })
@@ -764,7 +815,7 @@ async function followTask(
           })
           .eq("id", clip.output_asset_id)
           .is("duration_seconds", null);
-      return isLast ? true : enqueueHandoff(run, next, "frame", isLast);
+      return enqueueHandoff(run, next, "frame", isLast);
     }
     if (!task.result_asset_id)
       return handoffFailed(run, clip, kind, isLast, {
@@ -772,11 +823,21 @@ async function followTask(
         message: "No frame came back",
         retryable: true,
       });
+    // A frame found by counting the clip's frames: the clip plays through it
+    // (the next clip skips its own copy of it), and its exact length is known.
+    const counted = handoffFrameOf(((task.output_payload ?? {}) as Json)["metadata"]);
     const { data: ready } = await db
       .from("long_video_clips")
       .update({
         handoff_status: "ready",
         handoff_asset_id: task.result_asset_id,
+        ...(counted
+          ? {
+              handoff_time_seconds: inclusiveCut(counted),
+              output_duration_seconds: countedLength(counted),
+              output_fps: counted.fps,
+            }
+          : {}),
         error_code: null,
         error_message: null,
       })
@@ -787,7 +848,12 @@ async function followTask(
     if (ready?.length)
       await db
         .from("assets")
-        .update({ title: `${run.title} · clip ${clip.position + 2} start frame`.slice(0, 120) })
+        .update({
+          title: (isLast
+            ? `${run.title} · final frame`
+            : `${run.title} · clip ${clip.position + 2} start frame`
+          ).slice(0, 120),
+        })
         .eq("id", task.result_asset_id);
     return true;
   }
@@ -840,9 +906,13 @@ async function handoffFailed(
 ): Promise<boolean> {
   const failures = clip.handoff_attempts + 1;
   const status = kind === "probe" ? "probing" : "extracting";
-  if (!problem.retryable || failures >= MAX_HANDOFF_FAILURES) {
+  // Tries in this round (see resetHandoff): each round has the full number.
+  const thisRound = (clip.handoff_attempts % MAX_HANDOFF_FAILURES) + 1;
+  if (!problem.retryable || thisRound >= MAX_HANDOFF_FAILURES) {
     if (isLast) {
-      // Without a measurement the Editor uses the length the clip was asked for.
+      // The last clip is done without it: without a measurement the Editor
+      // uses the length the clip was asked for, and without its final frame
+      // the end card is laid out on its own.
       const { data } = await db
         .from("long_video_clips")
         .update({
@@ -850,7 +920,10 @@ async function handoffFailed(
           handoff_attempts: failures,
           handoff_task_id: null,
           error_code: problem.code,
-          error_message: `It couldn't be measured: ${problem.message}`,
+          error_message:
+            kind === "probe"
+              ? `It couldn't be measured: ${problem.message}`
+              : `Its final frame couldn't be taken: ${problem.message}`,
         })
         .eq("id", clip.id)
         .eq("handoff_status", status)
@@ -1022,18 +1095,27 @@ export async function retryLongVideoClip(input: {
   await advanceLongVideo(clip.long_video_id);
 }
 
-async function resetHandoff(clip: Pick<ClipRow, "id">): Promise<void> {
+/**
+ * A failed handoff tried afresh, with a full round of tries. Tries keep
+ * counting from round to round (each round starts at the next multiple of
+ * MAX_HANDOFF_FAILURES), so a fresh round asks the media service for new
+ * tasks rather than finding the ones that already failed under the same keys.
+ */
+async function resetHandoff(clip: Pick<ClipRow, "id" | "handoff_attempts">): Promise<void> {
+  const nextRound =
+    Math.ceil(Math.max(1, clip.handoff_attempts) / MAX_HANDOFF_FAILURES) * MAX_HANDOFF_FAILURES;
   await db
     .from("long_video_clips")
     .update({
       handoff_status: "none",
-      handoff_attempts: 0,
+      handoff_attempts: nextRound,
       handoff_task_id: null,
       error_code: null,
       error_message: null,
     })
     .eq("id", clip.id)
-    .eq("handoff_status", "failed");
+    .eq("handoff_status", "failed")
+    .eq("handoff_attempts", clip.handoff_attempts);
 }
 
 /**
@@ -1044,7 +1126,7 @@ async function resetHandoff(clip: Pick<ClipRow, "id">): Promise<void> {
 export async function continueLongVideo(longVideoId: string): Promise<void> {
   const { data: failed } = await db
     .from("long_video_clips")
-    .select("id")
+    .select("id,handoff_attempts")
     .eq("long_video_id", longVideoId)
     .eq("handoff_status", "failed");
   for (const clip of failed ?? []) await resetHandoff(clip);
@@ -1156,6 +1238,20 @@ export async function openLongVideoInEditor(input: {
       };
   }
 
+  // Handoff frames found by counting the clip's frames (its true last frame),
+  // as against ones taken by time just before its end, by task.
+  const handoffTaskIds = (clips ?? []).flatMap((clip) =>
+    clip.handoff_status === "ready" && clip.handoff_task_id ? [clip.handoff_task_id] : [],
+  );
+  const { data: handoffTasks } = handoffTaskIds.length
+    ? await db.from("media_tasks").select("id,output_payload").in("id", handoffTaskIds)
+    : { data: [] as { id: string; output_payload: unknown }[] };
+  const counted = new Set(
+    (handoffTasks ?? []).flatMap((task) =>
+      handoffFrameOf(((task.output_payload ?? {}) as Json)["metadata"]) ? [task.id] : [],
+    ),
+  );
+
   const result = compileFromLongVideo(
     { title: run.title, settings: (run.settings ?? {}) as Json },
     (clips ?? []).map((clip) => ({
@@ -1168,6 +1264,7 @@ export async function openLongVideoInEditor(input: {
       fps: Number(clip.output_fps) || null,
       width: clip.output_width,
       height: clip.output_height,
+      handsOffLastFrame: !!clip.handoff_task_id && counted.has(clip.handoff_task_id),
     })),
     (assets ?? []).map((asset) => ({
       id: asset.id,

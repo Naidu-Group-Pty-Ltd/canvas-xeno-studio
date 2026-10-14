@@ -1,7 +1,8 @@
 /**
  * Laying pictures out in frames in the browser, on a canvas: reframed images
- * and long videos' end cards. The picture itself is never changed, only where
- * it sits, what fills the frame around it, and the frame's size (see ./frame).
+ * (long videos' end cards have their own layout: see ./brand-card). The
+ * picture itself is never changed, only where it sits, what fills the frame
+ * around it, and the frame's size (see ./frame).
  */
 import { containRect, coverCrop, hexColor, type FrameFit, type FramePoint } from "./frame";
 

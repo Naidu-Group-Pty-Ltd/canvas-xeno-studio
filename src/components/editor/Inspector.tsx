@@ -525,6 +525,24 @@ function ClipInspector({
                 />
               </Field>
             )}
+            {clip.kind === "video" && (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="text-xs" htmlFor={`match-${clip.id}`}>
+                    Match colour to the clip before
+                  </Label>
+                  <Switch
+                    id={`match-${clip.id}`}
+                    checked={clip.matchPrevious}
+                    onCheckedChange={(checked) => set({ matchPrevious: checked })}
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  For a clip that carries straight on from the one before: the render matches its
+                  colour at the join, easing back to its own over a couple of seconds.
+                </p>
+              </div>
+            )}
           </>
         )}
       </Section>
