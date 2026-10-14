@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import type { ModelRegistryEntry } from "@/lib/model-schema";
 import {
   clipStarts,
+  extendsVideo,
   formatLength,
   LONG_VIDEO_LIMITS,
   modelLine,
@@ -43,6 +44,9 @@ interface Props {
   briefId: string | null;
   /** The end card's size: the video's own shape. */
   endCardSize: { width: number; height: number };
+  /** Where files made for the video (its end card, extended artwork) are kept. */
+  projectId: string | null;
+  campaignId: string | null;
   /** Why the AI can't write beats right now, if it can't. */
   aiUnavailableReason: string | null;
 }
@@ -57,6 +61,8 @@ export function LongVideoSetup({
   images,
   briefId,
   endCardSize,
+  projectId,
+  campaignId,
   aiUnavailableReason,
 }: Props) {
   const [planning, setPlanning] = useState(false);
@@ -242,6 +248,7 @@ export function LongVideoSetup({
                     {plan.candidates.map((entry) => (
                       <SelectItem key={entry.id} value={entry.id}>
                         {entry.display_name}
+                        {extendsVideo(entry) ? " · experimental" : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -271,16 +278,38 @@ export function LongVideoSetup({
               {" · "}
               {formatLength(plan.totalSeconds)} in total
             </p>
-            <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-              Each clip runs as long as it can, up to {plan.maxClipSeconds}s, and the last takes
-              what's left. Each one starts from a frame taken just before the end of the one before
-              and is made by {modelLine(model)} too, with the same story (the prompt below),
-              settings and reference images, so the clips play as one continuous shot.
-              {plan.start?.kind === "reference"
-                ? ` ${modelLine(model)} has no start-frame input, so that frame goes in as each clip's first reference image and the prompt tells it to start there.`
-                : ""}{" "}
-              When they're all in, open them in the Editor as one edit.
-            </p>
+            {plan.start?.kind === "video" ? (
+              <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                Each clip runs as long as it can, up to {plan.maxClipSeconds}s, and the last takes
+                what's left. Each one after the first extends the clip before: {modelLine(model)} is
+                given that clip's video, not a still of its end, so movement, light and sound carry
+                straight on through the join, with the same story (the prompt below), settings and
+                reference images. When they're all in, open them in the Editor as one edit.
+              </p>
+            ) : (
+              <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                Each clip runs as long as it can, up to {plan.maxClipSeconds}s, and the last takes
+                what's left. Each one starts from the true last frame of the one before (taken
+                losslessly), is told how the camera was moving as it ended, and is made by{" "}
+                {modelLine(model)} too, with the same story (the prompt below), settings and
+                reference images, so the clips play as one continuous shot.
+                {plan.start?.kind === "reference"
+                  ? ` ${modelLine(model)} has no start-frame input, so that frame goes in as each clip's first reference image and the prompt tells it to start there.`
+                  : ""}{" "}
+                When they're all in, open them in the Editor as one edit.
+              </p>
+            )}
+            {plan.start?.kind === "video" && (
+              <p
+                className="mt-1 text-[11px] leading-relaxed text-warning"
+                data-testid="long-video-extend-note"
+              >
+                Experimental: video extend hasn't been proven in a full run yet, so try a short
+                video first. Each later clip is also billed for the clip it's given (the estimate
+                includes it), and the video can't move into a finisher, which holds as an end card
+                instead.
+              </p>
+            )}
             {plan.durations.length >= LONG_VIDEO_LIMITS.maxClips &&
               plan.totalSeconds + 0.5 < draft.targetSeconds && (
                 <p className="mt-1 text-[11px] text-warning">
@@ -297,7 +326,26 @@ export function LongVideoSetup({
             plan={plan}
             startRole={startFrameSlot(model)?.role ?? null}
             size={endCardSize}
+            projectId={projectId}
+            campaignId={campaignId}
             onChange={(finale, off) => set({ finale, finaleOff: off })}
+            // Lands a while after it was asked for: applied to the setup as it is
+            // by then, and only while the same image is still the finisher.
+            onExtend={(finisherAssetId, sourceAssetId) =>
+              onChange((current) =>
+                current.finale?.assetId === finisherAssetId
+                  ? {
+                      ...current,
+                      finale: {
+                        ...current.finale,
+                        sourceAssetId,
+                        style: { ...current.finale.style, scale: null },
+                        suggested: null,
+                      },
+                    }
+                  : current,
+              )
+            }
           />
 
           <div className="grid gap-4 sm:grid-cols-2">

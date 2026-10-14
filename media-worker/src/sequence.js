@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { rm, writeFile } from "node:fs/promises";
 import { ffmpeg, probe } from "./ffmpeg.js";
 import { TaskError } from "./net.js";
+import { planeThumbnail, SEAM_EASE_SECONDS, seamCorrection, seamEaseChain } from "./seam.js";
 
 /**
  * Sequence rendering: an edited timeline (ordered clips with trims, stills,
@@ -176,6 +177,9 @@ export function planSequence(params, sources) {
       motion: choice(clip.motion, MOTIONS, "none", `clip ${index + 1} motion`),
       transitionType,
       transitionFrames,
+      // Carries straight on from the clip before (a long video's join): its
+      // colour is eased in from that clip's last frame.
+      matchPrevious: kind === "video" && index > 0 && clip.match_previous === true,
     };
   });
 
@@ -360,8 +364,18 @@ function motionExpression(motion, totalFrames) {
   }
 }
 
+/**
+ * Where a clip's source is opened. A trim that falls on a frame (a long
+ * video's clip skipping the frame it repeats from the one before) can come out
+ * a hair after that frame's own time once both are rounded, so the seek starts
+ * a millisecond early: the frame meant is the one used, never the next.
+ */
+export function seekPoint(trimStart) {
+  return Math.max(0, trimStart - 0.001);
+}
+
 /** Arguments for pass 1: one clip normalised to an exact-length intermediate. */
-export function clipArgs(clip, plan, sourcePath, hasAudio, out) {
+export function clipArgs(clip, plan, sourcePath, hasAudio, out, seam = null) {
   const { width, height, fps } = plan;
   const duration = seconds(clip.durationFrames / fps);
   const args = [];
@@ -384,14 +398,20 @@ export function clipArgs(clip, plan, sourcePath, hasAudio, out) {
     }
   } else {
     const span = seconds((clip.durationFrames / fps) * clip.speed + 0.25);
-    args.push("-ss", seconds(clip.trimStart), "-t", span, "-i", sourcePath);
+    args.push("-ss", seconds(seekPoint(clip.trimStart)), "-t", span, "-i", sourcePath);
     const speed = clip.speed === 1 ? "setpts=PTS-STARTPTS" : `setpts=(PTS-STARTPTS)/${clip.speed}`;
     // Non-square source pixels are squared up first so nothing is stretched.
     filters.push(`[0:v]scale=trunc(iw*sar/2)*2:ih,setsar=1,${speed},fps=${fps}[paced]`);
     filters.push(frameChain("paced", "framed", width, height, clip.fit, "f", clip.focus));
+    let framed = "framed";
+    if (seam) {
+      // Matched to the clip before at the join, easing back to its own colour.
+      filters.push(seamEaseChain("framed", "matched", seam.correction, seam.seconds, "m"));
+      framed = "matched";
+    }
     // A source shorter than the requested length holds its last frame.
     filters.push(
-      `[framed]setsar=1,format=yuv420p,tpad=stop_mode=clone:stop_duration=${seconds(clip.durationFrames / fps + 1)},` +
+      `[${framed}]setsar=1,format=yuv420p,tpad=stop_mode=clone:stop_duration=${seconds(clip.durationFrames / fps + 1)},` +
         `trim=end_frame=${clip.durationFrames},setpts=PTS-STARTPTS[v]`,
     );
   }
@@ -796,14 +816,22 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
 
   // Pass 1: every clip normalised to the output format at its exact length.
   const intermediates = [];
+  const seams = [];
   for (const [index, clip] of plan.clips.entries()) {
     progress((index / plan.clips.length) * 0.45, `Preparing clip ${index + 1} of ${plan.clips.length}`);
     const info = clip.kind === "video" ? await inspect(clip.source) : null;
     if (clip.kind === "video" && info && info.duration_seconds && clip.trimStart >= info.duration_seconds) {
       throw bad(`Clip ${index + 1} starts after its source ends`);
     }
+    const previous = plan.clips[index - 1];
+    // A join that can't be measured is left as it is: easing colour is never worth a failed render.
+    const seam =
+      clip.matchPrevious && previous?.kind === "video" && intermediates[index - 1]
+        ? await seamFor({ clip, previous, previousPath: intermediates[index - 1], plan, sourcePath: sources[clip.source].path, info, dir, index }).catch(() => null)
+        : null;
+    if (seam) seams.push({ clip: index, likeness: seam.correction.likeness, largest_shift: seam.correction.largest_shift });
     const out = join(dir, `clip-${String(index).padStart(3, "0")}.mkv`);
-    await ffmpeg(clipArgs(clip, plan, sources[clip.source].path, Boolean(info?.has_audio), out));
+    await ffmpeg(clipArgs(clip, plan, sources[clip.source].path, Boolean(info?.has_audio), out, seam));
     intermediates.push(out);
   }
   // The pictures' sources aren't needed again (only the audio's are): their
@@ -877,6 +905,31 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
       planned_duration_seconds: Number(plan.total.toFixed(3)),
       clip_count: plan.clips.length,
       loudness_lufs: loudness ? plan.loudness : null,
+      ...(seams.length ? { seams_matched: seams } : {}),
     },
   };
+}
+
+/**
+ * How a clip's colour is eased in from the clip before it: measured on the
+ * last frame the clip before shows (from its finished intermediate, exactly)
+ * against this clip's frame of the same moment, which is the frame before its
+ * first when it skips one it repeats (a long video's join), else its first.
+ * Null when they aren't the same picture, or already match.
+ */
+async function seamFor({ clip, previous, previousPath, plan, sourcePath, info, dir, index }) {
+  const easeSeconds = Math.min(SEAM_EASE_SECONDS, (clip.durationFrames - 2) / plan.fps);
+  if (easeSeconds < 0.2) return null;
+  const target = await planeThumbnail(["-i", previousPath], `[0:v]select=eq(n\\,${previous.durationFrames - 1}),`, dir, `p${index}`);
+  const rate = info?.fps && info.fps > 0 ? info.fps : plan.fps;
+  const anchor = Math.max(0, clip.trimStart - 1 / rate);
+  const layout = frameChain("sp", "sf", plan.width, plan.height, clip.fit, "s", clip.focus);
+  const current = await planeThumbnail(
+    ["-ss", seconds(seekPoint(anchor)), "-i", sourcePath],
+    `[0:v]scale=trunc(iw*sar/2)*2:ih,setsar=1[sp];${layout};[sf]`,
+    dir,
+    `c${index}`,
+  );
+  const correction = seamCorrection(target, current);
+  return correction ? { correction, seconds: easeSeconds } : null;
 }

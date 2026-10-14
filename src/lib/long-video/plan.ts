@@ -4,12 +4,19 @@
  * and Supercomputer (to show and check the plan) and the server (to check it
  * again and run it), so all of them always agree.
  *
- * Continuity: every clip after the first starts from a frame taken just before
- * the end of the clip before it (the handoff frame), with the same story,
- * continuity notes, settings and reference images, on the same model (the
- * same workflow, or that model's own workflow for starting from an image). The
- * Editor later cuts each clip at its handoff frame, so the next clip picks up
- * exactly where it left off.
+ * Continuity: every clip after the first starts from the true last frame of
+ * the clip before it (the handoff frame), with the same story, continuity
+ * notes, settings and reference images, on the same model (the same
+ * workflow, or that model's own workflow for starting from an image), told
+ * how the camera was moving as that clip ended. The Editor later plays each
+ * clip through its handoff frame and the next from just after its copy of
+ * it, so the next clip picks up exactly where the last left off.
+ *
+ * Where the model also has a workflow that extends a video (Seedance's video
+ * extend), the later clips can be made by it instead: each is given the clip
+ * before itself, not a still of its end, so motion, light and sound carry on
+ * through the join. That is experimental, so it is only ever chosen, never
+ * picked automatically.
  */
 import {
   defaultsForModel,
@@ -20,6 +27,7 @@ import {
   type InputSlot,
   type ModelRegistryEntry,
 } from "../model-schema";
+import { billableInputSeconds, meteredQuote, parseMeteredRates } from "../higgsfield/metered";
 
 export const LONG_VIDEO_LIMITS = {
   minClips: 2,
@@ -33,9 +41,11 @@ export const LONG_VIDEO_LIMITS = {
 } as const;
 
 /**
- * How far before a clip's end its handoff frame is taken, by try. Close to the
- * end so little is cut, but clear of the last frames, which some models fade
- * or blur and which a measured length can overstate by a frame or two.
+ * The handoff frame is each clip's true last frame, found by counting its
+ * frames (see ./handoff). A media service that can't count frames takes one
+ * by time instead, this far before the clip's end, by try: close to the end
+ * so little is cut, but clear of the last frames, which a measured length can
+ * overstate by a frame or two.
  */
 export const HANDOFF_MARGINS_SECONDS = [0.25, 0.6, 1.2] as const;
 
@@ -115,14 +125,40 @@ export function startFrameSlot(model: ModelRegistryEntry | null | undefined): In
  */
 const REFERENCE_START_PATHS = [/^higgsfield\/cinema-studio\//];
 
-/** How a model starts a clip from a given frame. */
+/** The video a workflow continues (video extend's source video), if it takes one. */
+export function sourceVideoSlot(model: ModelRegistryEntry | null | undefined): InputSlot | null {
+  return (
+    model?.capabilities?.inputs?.find((slot) => slot.type === "video" && slot.role === "source") ??
+    null
+  );
+}
+
+/**
+ * A workflow that carries a given video on past its end, for a length you
+ * choose (Seedance's video extend). As the later clips of a long video it is
+ * given the clip before itself rather than a still of its last frame.
+ */
+export function extendsVideo(model: ModelRegistryEntry | null | undefined): boolean {
+  return (
+    !!model &&
+    model.output_type === "video" &&
+    model.operation === "video-extend" &&
+    !!sourceVideoSlot(model) &&
+    durationChoices(model).length > 0
+  );
+}
+
+/** How a model starts a clip from where the clip before left off. */
 export type ClipStart =
   /** Its start-frame input. */
   | { kind: "frame"; role: string }
   /** Its first reference image, named in the prompt. */
-  | { kind: "reference"; role: string };
+  | { kind: "reference"; role: string }
+  /** Its source video: the clip before, which it extends. */
+  | { kind: "video"; role: string };
 
 export function clipStart(model: ModelRegistryEntry | null | undefined): ClipStart | null {
+  if (extendsVideo(model)) return { kind: "video", role: sourceVideoSlot(model)!.role };
   const frame = startFrameSlot(model);
   if (frame) return { kind: "frame", role: frame.role };
   if (
@@ -139,9 +175,9 @@ export function clipStart(model: ModelRegistryEntry | null | undefined): ClipSta
   return slot ? { kind: "reference", role: slot.role } : null;
 }
 
-/** A model that can make the clips after the first: it starts from a given frame. */
+/** A model that can make the clips after the first: it starts from a given frame, or extends the clip before. */
 export function canContinue(model: ModelRegistryEntry | null | undefined): boolean {
-  return longVideoEligible(model) && !!clipStart(model);
+  return (longVideoEligible(model) && !!clipStart(model)) || extendsVideo(model);
 }
 
 /** A model's name without its workflow, e.g. "Kling 3.0 Pro" for "Kling 3.0 Pro (Image to video)". */
@@ -167,18 +203,28 @@ function hasReferenceSlot(model: ModelRegistryEntry): boolean {
  * that can (one that also takes reference images first when there are some,
  * then image to video). Empty when no workflow of the model starts from a
  * frame, and then the model can't make a long video.
+ *
+ * With `extend`, the model's video extend workflow is listed too, last: it
+ * is experimental, so it is offered but never the one picked by default.
  */
 export function continuationCandidates(
   first: ModelRegistryEntry,
   models: ModelRegistryEntry[],
-  options: { withReferences?: boolean } = {},
+  options: { withReferences?: boolean; extend?: boolean } = {},
 ): ModelRegistryEntry[] {
   const score = (model: ModelRegistryEntry) =>
     (model.id === first.id ? 100 : 0) +
     (options.withReferences && hasReferenceSlot(model) ? 5 : 0) +
-    (model.operation === "image-to-video" ? 2 : 0);
+    (model.operation === "image-to-video" ? 2 : 0) -
+    (extendsVideo(model) ? 1000 : 0);
   return models
-    .filter((model) => model.is_active && sameModel(model, first) && canContinue(model))
+    .filter(
+      (model) =>
+        model.is_active &&
+        sameModel(model, first) &&
+        canContinue(model) &&
+        (options.extend || !extendsVideo(model)),
+    )
     .sort((a, b) => score(b) - score(a) || a.sort_order - b.sort_order);
 }
 
@@ -318,8 +364,18 @@ export function clipPrompt(input: {
   return parts.filter(Boolean).join("\n\n");
 }
 
+/**
+ * How a later clip opens. It is generated from one still frame and so knows
+ * nothing of the motion before it; told nothing, a model starts from rest and
+ * the join reads as a stop and start.
+ */
 const FRAME_OPENING =
-  "Continue seamlessly from the first frame, as the next moment of the same continuous shot.";
+  "Continue seamlessly from the first frame, as the very next moment of the same continuous shot: everything already in motion (camera, people, objects, light) keeps moving in the same direction and at the same pace from the first instant, with no pause, reset or ease-in.";
+
+/** Openings earlier versions wrote, still recognised in stored prompts. */
+const PAST_FRAME_OPENINGS = [
+  "Continue seamlessly from the first frame, as the next moment of the same continuous shot.",
+];
 
 /** How the last clip is told to end on the brand's end card, which is its final frame. */
 export const FINALE_REVEAL_NOTE =
@@ -329,7 +385,7 @@ export const FINALE_REVEAL_NOTE =
 function clipPlace(index: number, count: number, finale: FinaleMode | null): string {
   const part = `Part ${index + 1} of ${count}`;
   if (index < count - 1)
-    return `${part} of one continuous video. It carries straight on into the next part, so don't end or wrap up here: no closing shot, logo reveal or end card.`;
+    return `${part} of one continuous video. It carries straight on into the next part, so don't end or wrap up here: keep the camera and action moving right through the final frame (no slowing down, settling or holding still at the end), and no closing shot, logo reveal or end card.`;
   if (finale && finaleReveals(finale)) return `${part}, the last. ${FINALE_REVEAL_NOTE}`;
   if (finale)
     return `${part}, the last: bring the video to a calm close. The brand's end card follows straight after it, so no logo reveal or end card of its own.`;
@@ -338,7 +394,23 @@ function clipPlace(index: number, count: number, finale: FinaleMode | null): str
 
 /** How a clip that starts from its first reference image is told so. */
 export const REFERENCE_OPENING =
-  "<<<image_1>>> is this clip's first frame: the last moment of the clip before. Start exactly on it and continue seamlessly, as the next moment of the same continuous shot.";
+  "<<<image_1>>> is this clip's first frame: the last moment of the clip before. Start exactly on it and continue seamlessly, as the very next moment of the same continuous shot, with everything already in motion carrying on at the same pace from the first instant.";
+
+const PAST_REFERENCE_OPENINGS = [
+  "<<<image_1>>> is this clip's first frame: the last moment of the clip before. Start exactly on it and continue seamlessly, as the next moment of the same continuous shot.",
+];
+
+/** How a clip that extends the clip before is told so: it is given that clip's video, not a still. */
+export const VIDEO_OPENING =
+  "Extend the given video: carry it straight on past its last frame, as the very next moment of the same continuous shot. Everything already in motion (camera, people, objects, light and sound) keeps moving in the same direction and at the same pace, with no cut, pause, reset or ease-in.";
+
+/** A later clip's prompt for a workflow that extends the clip before: the opening that says so. */
+function videoStartPrompt(prompt: string): string {
+  if (prompt.startsWith(VIDEO_OPENING)) return prompt;
+  const opening = [FRAME_OPENING, ...PAST_FRAME_OPENINGS].find((text) => prompt.startsWith(text));
+  const body = opening ? prompt.slice(opening.length).trimStart() : prompt;
+  return [VIDEO_OPENING, body].filter(Boolean).join("\n\n");
+}
 
 const MEDIA_TOKEN = /<<<(image|video|audio)_(\d+)>>>/g;
 const IMAGE_TOKEN = /<<<image_(\d+)>>>/g;
@@ -360,10 +432,10 @@ const FINISHER_WORDS = "the brand's end card";
  * plain words, as the provider refuses a token with nothing behind it.
  */
 function referenceStartPrompt(prompt: string, imageNumber: ImageNumber): string {
-  if (prompt.startsWith(REFERENCE_OPENING)) return prompt;
-  const body = prompt.startsWith(FRAME_OPENING)
-    ? prompt.slice(FRAME_OPENING.length).trimStart()
-    : prompt;
+  if ([REFERENCE_OPENING, ...PAST_REFERENCE_OPENINGS].some((text) => prompt.startsWith(text)))
+    return prompt;
+  const opening = [FRAME_OPENING, ...PAST_FRAME_OPENINGS].find((text) => prompt.startsWith(text));
+  const body = opening ? prompt.slice(opening.length).trimStart() : prompt;
   const renumbered = body.replace(MEDIA_TOKEN, (_, type: string, n: string) => {
     const next = type === "image" ? imageNumber(Number(n)) : null;
     if (typeof next === "number") return `<<<image_${next}>>>`;
@@ -464,6 +536,17 @@ export interface RunFinale {
    * on and the Editor holds. Without it, the finisher itself is used.
    */
   frameAssetId?: string | null | undefined;
+  /**
+   * How its end card was laid out (see EndCardStyle), so a card held after
+   * the last clip can be laid out again over the video's final moment.
+   */
+  style?: { background: string; scale: number | null } | null | undefined;
+  /**
+   * The finisher (designed artwork) extended to the video's own shape with
+   * AI, its own pixels laid back over the result: what its end card is made
+   * from in its place. Without it, the finisher as uploaded.
+   */
+  sourceAssetId?: string | null | undefined;
 }
 
 /** The finisher holds as an end card after the last clip. */
@@ -564,7 +647,9 @@ export function planClips(input: {
   const { first, continuation, values } = input;
   const finale = input.finale ?? null;
   const finisher = new Set(
-    [finale?.assetId, finale?.frameAssetId].filter((id): id is string => !!id),
+    [finale?.assetId, finale?.frameAssetId, finale?.sourceAssetId].filter(
+      (id): id is string => !!id,
+    ),
   );
   const references = input.references.filter((item) => !finisher.has(item.assetId));
   const start = clipStart(continuation);
@@ -625,6 +710,8 @@ export function planClips(input: {
     // Later clips start from the frame before as image 1, then the carried references.
     else if (!isFirst && start?.kind === "reference")
       prompt = referenceStartPrompt(prompt, numberIn(sent, 1));
+    // ...or are given the clip before itself, to extend.
+    else if (!isFirst && start?.kind === "video") prompt = videoStartPrompt(prompt);
     // ...and the last ends on the finisher, after them.
     if (ends && end?.kind === "reference") prompt = namedEnding(prompt, sent.length + 2);
     return {
@@ -746,6 +833,38 @@ export function approxRunCost(
   runSeconds: number,
 ): number {
   return (firstClipUsd / firstClipSeconds) * runSeconds;
+}
+
+/**
+ * A long video's approximate cost when its later clips extend the clip before
+ * (video extend): each is billed for the clip it is given as well as for what
+ * it makes, at the provider's rate for requests with video input. Null when
+ * the provider's rates can't be read from its pricing description.
+ */
+export function approxExtendRunCost(input: {
+  firstClipUsd: number;
+  durations: number[];
+  /** The provider's pricing description, which gives its rates. */
+  description: string | null | undefined;
+  resolution: string | null | undefined;
+  /** The video's shape; the extensions keep the first clip's. */
+  aspectRatio: string | null | undefined;
+}): number | null {
+  const rates = parseMeteredRates(input.description);
+  if (!rates) return null;
+  let total = input.firstClipUsd;
+  for (let index = 1; index < input.durations.length; index += 1) {
+    const quote = meteredQuote({
+      rates,
+      resolution: input.resolution,
+      aspectRatio: input.aspectRatio,
+      seconds: input.durations[index],
+      inputVideoSeconds: billableInputSeconds(input.durations[index - 1]!),
+    });
+    if (!quote) return null;
+    total += quote.usd;
+  }
+  return total;
 }
 
 /** "45s", "1:30", "10:00". */

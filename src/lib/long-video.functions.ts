@@ -61,6 +61,16 @@ const finaleSchema = z.object({
     .max(FINALE_SECONDS.max)
     .default(FINALE_SECONDS.default),
   frameAssetId: z.string().uuid().nullable().optional(),
+  /** How its end card was laid out, so the Editor can lay it out again over the video's end. */
+  style: z
+    .object({
+      background: z.string().max(16),
+      scale: z.number().min(0.3).max(1).nullable(),
+    })
+    .nullable()
+    .optional(),
+  /** The finisher extended to the video's shape with AI, its end card made from it. */
+  sourceAssetId: z.string().uuid().nullable().optional(),
 });
 
 const startInput = z.object({

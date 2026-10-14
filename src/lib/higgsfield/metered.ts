@@ -42,8 +42,8 @@ export function parseMeteredRates(description: string | null | undefined): Meter
   const fullHd = fullHdMatch ? money(fullHdMatch) : null;
   // "multiplied by 0.6" or "(0.6× the standard rate)"; without either, video input is billed at the full rate.
   const factorMatch =
-    /multiplied by ([\d.]+)/i.exec(text)?.[1] ??
-    /\(([\d.]+)\s*[×x] the standard rate\)/i.exec(text)?.[1];
+    /multiplied by (\d+(?:\.\d+)?)/i.exec(text)?.[1] ??
+    /\((\d+(?:\.\d+)?)\s*[×x] the standard rate\)/i.exec(text)?.[1];
   const videoInputFactor = factorMatch ? money(factorMatch) : 1;
   const fps = Number(/[×x]\s*(\d+)\s*(?:fps)?\s*\/\s*1024/i.exec(text)?.[1] ?? 24);
   return {

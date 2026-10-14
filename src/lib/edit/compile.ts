@@ -315,13 +315,26 @@ export interface LongVideoClipCut {
   position: number;
   /** The clip's video, once it is in. */
   assetId: string | null;
-  /** Where the next clip's start frame was taken from this one. */
+  /** Where the clip ends when the next one follows it (see `handsOffLastFrame`). */
   cutSeconds: number | null;
   /** The clip's measured length. */
   lengthSeconds: number | null;
   fps: number | null;
   width: number | null;
   height: number | null;
+  /**
+   * The next clip starts from this clip's true last frame, which this clip
+   * plays through (`cutSeconds` is just after it), so the next clip skips its
+   * own first frame, its copy of it. Otherwise the next clip starts from the
+   * frame just after `cutSeconds`, and shows it itself.
+   */
+  handsOffLastFrame?: boolean;
+  /**
+   * The clip extends the one before it (it was given that clip's video): its
+   * first frame is new footage, the moment after that clip's last, so that
+   * clip plays to its very end and this one from its own start.
+   */
+  extendsPrevious?: boolean;
 }
 
 export interface LongVideoAsset {
@@ -360,6 +373,8 @@ function endCardFit(card: LongVideoEndCard, frame: { width: number; height: numb
 
 /** The longest cross-fade at a join: the footage after a handoff frame both clips show. */
 const BLEND_SECONDS = 0.2;
+/** A soft join between clips that share only the handoff frame: a dissolve this many frames long. */
+const BLEND_FRAMES = 3;
 
 /** The Editor frame rate closest to the clips' own (23.976 is 24, 29.97 is 30). */
 function editFps(rates: (number | null)[]): Timeline["fps"] {
@@ -376,10 +391,20 @@ const FPS_CHOICES = [24, 25, 30, 60] as const;
 /**
  * A long video as one edit. Each clip after the first starts from a frame
  * taken from the one before it, so that clip is cut exactly there and the
- * next picks up on the same frame: one continuous shot. Asked to blend, a
- * clip runs on a moment past its handoff frame and cross-fades into the next
- * over footage both show, so nothing ghosts or jumps. An end card, when there
- * is one, holds after the last clip.
+ * next picks up on the same frame: one continuous shot. That frame is the
+ * clip's true last frame (`handsOffLastFrame`): the clip plays to its end
+ * and the next skips its own first frame, its copy of that one, so no moment
+ * is shown twice. (Clips from before frames were counted were cut on a frame
+ * just before their end instead.) A clip that extends the one before it (it
+ * was given that clip's video) follows on from that clip's very end, with no
+ * frame in common. Each join's colour is eased: the next
+ * clip's picture is matched to the frame it continues from, and drifts back
+ * to its own over a couple of seconds, so a re-rendered frame doesn't blink.
+ *
+ * Asked to blend, clips cross-fade at the join: a clip cut before its end
+ * runs on a moment and fades over footage both clips show; a clip played to
+ * its true last frame dissolves into the next over a few frames.
+ * An end card, when there is one, holds after the last clip.
  */
 export function compileFromLongVideo(
   run: { title: string; settings: Record<string, unknown> },
@@ -409,11 +434,12 @@ export function compileFromLongVideo(
 
   const result: TimelineClip[] = [];
   const missing: number[] = [];
-  let blendIn = 0;
+  // How the clip being added joins the one before it, as that one left it.
+  let join = { continues: false, fadeIn: 0, skipFirst: false };
   usable.forEach((entry, index) => {
     if (!entry) {
       missing.push(ordered[index]!.position);
-      blendIn = 0;
+      join = { continues: false, fadeIn: 0, skipFirst: false };
       return;
     }
     const { clip, asset } = entry;
@@ -424,23 +450,46 @@ export function compileFromLongVideo(
       durationSeconds: length,
       title: `Clip ${clip.position + 1}`,
     });
-    // Cut at the handoff frame only when the clip that starts from it is here too.
-    const continues = !!usable[index + 1] && clip.cutSeconds !== null && clip.cutSeconds > 0;
-    let blendOut = 0;
-    if (continues) {
+    // Its first frame is its own copy of the frame the clip before ended on: skipped.
+    const clipFps = clip.fps && clip.fps > 0 ? clip.fps : fps;
+    const trim = join.skipFirst ? Number((1 / clipFps).toFixed(6)) : 0;
+    // Cut at the handoff frame only when the clip that starts from it is here
+    // too; one that extends this clip goes on from its very end instead.
+    const following = usable[index + 1];
+    const extended = !!following?.clip.extendsPrevious;
+    const continues =
+      !!following && (extended ? length !== null : clip.cutSeconds !== null && clip.cutSeconds > 0);
+    const next = { continues, fadeIn: 0, skipFirst: false };
+    let end = length;
+    if (continues && extended) {
+      if (options.seam === "blend") next.fadeIn = BLEND_FRAMES / fps;
+    } else if (continues) {
       const frame = 1 / fps;
-      const spare = length !== null ? length - clip.cutSeconds! - frame : 0;
-      blendOut =
-        options.seam === "blend" && spare >= 2 * frame ? Math.min(BLEND_SECONDS, spare) : 0;
-      item.duration = Math.max(0.1, clip.cutSeconds! + blendOut);
+      let blendOut = 0;
+      if (clip.handsOffLastFrame) {
+        // Played through the frame the next one starts from: the next skips
+        // its copy of it, or (blending) dissolves in from its first frame.
+        if (options.seam === "blend") next.fadeIn = BLEND_FRAMES / fps;
+        else next.skipFirst = true;
+      } else {
+        const spare = length !== null ? length - clip.cutSeconds! - frame : 0;
+        blendOut =
+          options.seam === "blend" && spare >= 2 * frame ? Math.min(BLEND_SECONDS, spare) : 0;
+        next.fadeIn = blendOut;
+      }
+      end = clip.cutSeconds! + blendOut;
     }
+    if (trim > 0) item.trimStart = trim;
+    if (end !== null) item.duration = Math.max(0.1, Math.min(end - trim, LIMITS.clipSeconds));
     item.volume = options.keepSound ? 1 : 0;
     item.transition =
-      result.length && blendIn > 0
-        ? { type: "fade", duration: Number(blendIn.toFixed(3)) }
+      result.length && join.fadeIn > 0
+        ? { type: "fade", duration: Number(join.fadeIn.toFixed(3)) }
         : { type: "cut", duration: 0 };
+    // Carrying straight on from the clip before: its colour eases in from that clip's.
+    item.matchPrevious = result.length > 0 && join.continues;
     result.push(item);
-    blendIn = blendOut;
+    join = next;
   });
 
   const card = options.endCard;

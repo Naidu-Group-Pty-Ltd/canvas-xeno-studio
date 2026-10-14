@@ -167,6 +167,12 @@ export const clipSchema = z.object({
   transition: z
     .object({ type: z.enum(TRANSITION_IDS), duration: finite(0, LIMITS.transitionSeconds) })
     .default({ type: "cut", duration: 0 }),
+  /**
+   * The clip carries straight on from the clip before it (a long video's
+   * join): the render matches its colour to that clip's last frame, easing
+   * back to its own over a couple of seconds.
+   */
+  matchPrevious: z.boolean().default(false),
   label: z.string().max(200).optional(),
   /** Length of the source media, cached so the editor can bound trims. */
   sourceDuration: z.number().finite().positive().nullable().optional(),
@@ -784,6 +790,7 @@ export function buildRenderRequest(timeline: Timeline): {
       type: clip.transition.type,
       duration: clip.transition.type === "cut" ? 0 : clip.transition.duration,
     },
+    ...(clip.kind === "video" && clip.matchPrevious ? { match_previous: true } : {}),
   }));
 
   const audio = audibleAudio(timeline, layout.total).map((item) => ({

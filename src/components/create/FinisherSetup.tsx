@@ -13,8 +13,17 @@ import {
   type FinaleMode,
 } from "@/lib/long-video/plan";
 import { END_CARD_BACKGROUNDS } from "@/lib/media/end-card";
+import {
+  analyseFinisher,
+  DEFAULT_MARK_SCALE,
+  defaultScale,
+  finisherTreatment,
+} from "@/lib/media/brand-card";
 import { hexColor } from "@/lib/media/frame";
-import { FramePreview } from "@/components/studio/FramePreview";
+import { pictureSize } from "@/lib/media/compose";
+import { shapeDiffers } from "@/lib/media/extend-artwork";
+import { ArtworkExtender } from "@/components/create/ArtworkExtender";
+import { EndCardPreview } from "@/components/studio/EndCardPreview";
 import { useFinisherPicture } from "@/hooks/useFinisherPicture";
 import { MediaPreview } from "@/components/studio/MediaPreview";
 import { Label } from "@/components/ui/label";
@@ -57,7 +66,10 @@ export function FinisherSetup({
   plan,
   startRole,
   size,
+  projectId,
+  campaignId,
   onChange,
+  onExtend,
 }: {
   images: ReferenceItem[];
   finale: FinaleDraft | null;
@@ -66,27 +78,56 @@ export function FinisherSetup({
   startRole: string | null;
   /** The end card's size: the video's own shape. */
   size: { width: number; height: number };
+  /** Where files made for it (the extended artwork) are kept. */
+  projectId: string | null;
+  campaignId: string | null;
   /** `off` is true when the person chose no finisher. */
   onChange: (finale: FinaleDraft | null, off: boolean) => void;
+  /** Uses the finisher extended to the video's shape with AI in its place (null: as uploaded). */
+  onExtend: (finisherAssetId: string, sourceAssetId: string | null) => void;
 }) {
   // The finisher the plan uses (none when its image is gone or clip 1 starts from it).
   const chosen =
     finale && plan.finale?.assetId === finale.assetId
       ? images.find((image) => image.assetId === finale.assetId)
       : undefined;
-  const picture = useFinisherPicture(
+  const original = useFinisherPicture(
     chosen ? { assetId: chosen.assetId, bucket: chosen.bucket, path: chosen.path } : null,
   );
+  // Artwork extended to the video's shape with AI stands in for it on the card.
+  const extendedId = chosen ? (finale?.sourceAssetId ?? null) : null;
+  const extended = useFinisherPicture(extendedId ? { assetId: extendedId } : null);
+  const picture = extendedId ? extended : original;
   const canMoveInto = !!plan.end;
   const mode = plan.finale?.mode ?? finale?.mode ?? "end_card";
   const set = (patch: Partial<FinaleDraft>) =>
     finale && onChange({ ...finale, ...patch, suggested: null }, false);
-  const preview = { width: 160, height: Math.round((160 * size.height) / size.width) };
+  const preview =
+    size.width >= size.height
+      ? { width: 240, height: Math.round((240 * size.height) / size.width) }
+      : { width: Math.round((200 * size.width) / size.height), height: 200 };
   const customColour = finale ? hexColor(finale.style.background) : null;
+  // The video's final moment exists only once the video does: for a card held after it.
+  const backgrounds = END_CARD_BACKGROUNDS.filter(
+    (option) => option.value !== "scene" || mode === "end_card",
+  );
   const backgroundValue =
-    finale && END_CARD_BACKGROUNDS.some((option) => option.value === finale.style.background)
+    finale && backgrounds.some((option) => option.value === finale.style.background)
       ? finale.style.background
-      : "custom";
+      : finale && !customColour
+        ? "auto"
+        : "custom";
+  const backgroundHint = backgrounds.find((option) => option.value === backgroundValue)?.hint;
+  const analysis = picture ? analyseFinisher(picture) : null;
+  // Designed artwork of another shape can have its background painted out to the frame's edges.
+  const extendable =
+    !extendedId &&
+    !!original &&
+    analyseFinisher(original).kind === "artwork" &&
+    shapeDiffers(pictureSize(original), size);
+  const autoScale =
+    picture && analysis ? defaultScale(picture, analysis, size) : DEFAULT_MARK_SCALE;
+  const scale = finale?.style.scale ?? autoScale;
 
   return (
     <div
@@ -209,8 +250,9 @@ export function FinisherSetup({
           </div>
           {!canMoveInto && plan.continuation && (
             <p className="text-[11px] text-muted-foreground">
-              {modelLine(plan.continuation)} can't end a clip on a given image, so the finisher
-              holds as an end card after the last clip.
+              {plan.start?.kind === "video"
+                ? "A clip that extends the one before can't end on a given image, so the finisher holds as an end card after the last clip."
+                : `${modelLine(plan.continuation)} can't end a clip on a given image, so the finisher holds as an end card after the last clip.`}
             </p>
           )}
 
@@ -239,6 +281,45 @@ export function FinisherSetup({
                   </Select>
                 </div>
               )}
+              {extendedId ? (
+                <p
+                  className="rounded-md bg-muted/40 px-2.5 py-1.5 text-[11px] leading-relaxed"
+                  data-testid="finisher-treatment"
+                >
+                  Your artwork, extended to the video's shape with AI: it fills the frame, with your
+                  own artwork laid over the painted background exactly.{" "}
+                  <button
+                    type="button"
+                    className="text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                    onClick={() => onExtend(finale.assetId, null)}
+                    data-testid="finisher-extend-undo"
+                  >
+                    Use the original
+                  </button>
+                </p>
+              ) : (
+                analysis && (
+                  <p
+                    className="rounded-md bg-muted/40 px-2.5 py-1.5 text-[11px] leading-relaxed"
+                    data-testid="finisher-treatment"
+                  >
+                    {finisherTreatment(analysis)}
+                  </p>
+                )
+              )}
+              {extendable && original && (
+                <ArtworkExtender
+                  key={finale.assetId}
+                  finisherAssetId={finale.assetId}
+                  picture={original}
+                  frame={size}
+                  scale={finale.style.scale}
+                  title={chosen.title ?? "Brand artwork"}
+                  projectId={projectId}
+                  campaignId={campaignId}
+                  onExtended={(assetId) => onExtend(finale.assetId, assetId)}
+                />
+              )}
               <div className="space-y-1.5">
                 <Label className="text-xs">Around the logo</Label>
                 <div className="flex flex-wrap items-center gap-2">
@@ -253,11 +334,11 @@ export function FinisherSetup({
                       })
                     }
                   >
-                    <SelectTrigger className="h-8 w-44" aria-label="End card background">
+                    <SelectTrigger className="h-8 w-56" aria-label="End card background">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {END_CARD_BACKGROUNDS.map((option) => (
+                      {backgrounds.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
                           {option.label}
                         </SelectItem>
@@ -277,40 +358,59 @@ export function FinisherSetup({
                     />
                   )}
                 </div>
+                {backgroundHint && (
+                  <p className="text-[11px] text-muted-foreground">{backgroundHint}</p>
+                )}
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">
-                  Logo size · {Math.round(finale.style.scale * 100)}% of the frame
-                </Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="text-xs">
+                    {analysis?.kind === "artwork" ? "Artwork size" : "Logo size"} ·{" "}
+                    {Math.round(scale * 100)}%{finale.style.scale === null ? " (auto)" : ""}
+                  </Label>
+                  {finale.style.scale !== null && (
+                    <button
+                      type="button"
+                      className="text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                      onClick={() => set({ style: { ...finale.style, scale: null } })}
+                    >
+                      Auto
+                    </button>
+                  )}
+                </div>
                 <Slider
                   min={30}
                   max={100}
                   step={5}
-                  value={[Math.round(finale.style.scale * 100)]}
+                  value={[Math.round(scale * 100)]}
                   onValueChange={([value]) =>
                     set({ style: { ...finale.style, scale: (value ?? 80) / 100 } })
                   }
                   className="max-w-56"
-                  aria-label="Logo size"
+                  aria-label={analysis?.kind === "artwork" ? "Artwork size" : "Logo size"}
                 />
               </div>
               <p className="text-[11px] leading-relaxed text-muted-foreground">
-                The end card is your image exactly as uploaded, laid out at the video's shape (
-                {size.width}×{size.height}).
+                Laid out for the video's shape ({size.width}×{size.height}): your logo's own pixels
+                are never redrawn, only placed.
                 {finaleReveals(mode)
-                  ? " The last clip ends on it."
+                  ? " The last clip ends on this card."
                   : " It's added after the last clip when you open the video in the Editor."}
+                {mode === "end_card" &&
+                (finale.style.background === "auto" || finale.style.background === "scene") &&
+                analysis?.kind !== "artwork"
+                  ? " There it sits over the video's final moment, softly defocused; the preview shows it on its own."
+                  : ""}
               </p>
             </div>
-            <FramePreview
+            <EndCardPreview
               picture={picture}
-              layout={{
-                ...preview,
-                fit: "contain",
-                background: finale.style.background,
-                scale: finale.style.scale,
-              }}
-              className="h-40 w-auto justify-self-start"
+              style={finale.style}
+              width={preview.width}
+              height={preview.height}
+              className={
+                size.width >= size.height ? "w-60 justify-self-start" : "h-52 justify-self-start"
+              }
               label="End card preview"
             />
           </div>

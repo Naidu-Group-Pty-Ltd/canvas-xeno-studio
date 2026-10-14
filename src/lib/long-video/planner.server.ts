@@ -15,6 +15,8 @@ Write:
 - continuity: one compact paragraph (at most 500 characters) listing what must look the same in every clip: each character (age, build, hair, wardrobe and its colours), key props or product, location, time of day, lighting, colour palette and camera style. Concrete visual details only, no story.
 - beats: exactly one per clip, in order. Each says only what happens during that clip's seconds: the action, the camera's movement, and the pose or composition it ends on (which the next clip starts from). Pace each beat to its length, about one clear action every four to five seconds. Present tense, at most 350 characters, no cuts within a clip, and don't repeat the continuity details.
 
+Motion runs straight through every join. Each clip after the first is generated from a single still frame, so it only knows how things were moving if its beat says so: begin each beat after the first by continuing the camera move and action the previous beat ended on (same direction and pace) before anything changes, and end every beat but the last mid-motion, never slowing to a stop, settling or holding still. Change camera direction gradually within a clip, never at a join.
+
 Keep the user's story, product, brand and setting. Never add on-screen text, captions or logos unless asked. If the story is thin, make confident cinematic choices that suit it. If continuity notes are given, keep them and only make them more precise.
 
 Every clip but the last carries straight on into the next, so its beat never wraps the story up: no closing shot, logo reveal or end card before the last clip.

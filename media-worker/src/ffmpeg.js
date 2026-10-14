@@ -95,6 +95,8 @@ export async function probe(filePath) {
   const audio = (parsed.streams ?? []).find((stream) => stream.codec_type === "audio");
   return {
     duration_seconds: Number(parsed.format?.duration ?? video?.duration ?? 0) || null,
+    // The picture's own length: the container's can run on with the sound.
+    video_duration_seconds: Number(video?.duration ?? 0) || null,
     width: video?.width ?? null,
     height: video?.height ?? null,
     fps: video?.avg_frame_rate && video.avg_frame_rate !== "0/0" ? evaluateRate(video.avg_frame_rate) : null,
