@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { AppError } from "./higgsfield/errors";
 import { FINALE_MODES, FINALE_SECONDS, LONG_VIDEO_LIMITS } from "./long-video/plan";
+import { CHARACTER_LIMITS } from "./characters/model";
 
 /**
  * Long videos: chains of clips that play as one continuous shot. Runs are
@@ -90,6 +91,15 @@ const startInput = z.object({
   projectId: z.string().uuid().nullable().optional(),
   campaignId: z.string().uuid().nullable().optional(),
   clientRequestId: z.string().min(8).max(64).optional(),
+  /** Characters who must look the same throughout. */
+  characterIds: z.array(z.string().uuid()).max(CHARACTER_LIMITS.perRun).default([]),
+  /** Check every clip against the characters' images before the next is made. */
+  identityCheck: z.boolean().default(true),
+  /** Paint the keyframes first with this image model, and whether a person reviews them. */
+  keyframes: z
+    .object({ painterModelId: z.string().uuid(), review: z.boolean().default(true) })
+    .nullable()
+    .optional(),
 });
 
 /** Starts a long video: records every clip, then starts the first one. */
@@ -113,6 +123,9 @@ export const startLongVideo = createServerFn({ method: "POST" })
       projectId: data.projectId ?? null,
       campaignId: data.campaignId ?? null,
       clientRequestId: data.clientRequestId ?? null,
+      characterIds: data.characterIds,
+      identityCheck: data.identityCheck,
+      keyframes: data.keyframes ?? null,
     });
   });
 
@@ -133,6 +146,10 @@ const planInput = z.object({
     .object({ assetId: z.string().uuid(), mode: z.enum(FINALE_MODES) })
     .nullable()
     .optional(),
+  /** Characters who must look the same throughout (the AI sees their images too). */
+  characterIds: z.array(z.string().uuid()).max(CHARACTER_LIMITS.perRun).default([]),
+  /** Each clip's final moment is painted as a keyframe first. */
+  keyframes: z.boolean().default(false),
 });
 
 /** Suggests a title, continuity notes and one beat per clip. Nothing is generated. */
@@ -150,10 +167,15 @@ export const planLongVideo = createServerFn({ method: "POST" })
     const continuation = models?.find((row) => row.id === data.continuationModelId);
     if (!first?.is_active || !continuation?.is_active)
       throw new AppError("INVALID_PARAMETERS", "That model is unavailable");
-    if (!data.story.trim() && !data.referenceAssetIds.length && !data.briefId)
+    if (
+      !data.story.trim() &&
+      !data.referenceAssetIds.length &&
+      !data.briefId &&
+      !data.characterIds.length
+    )
       throw new AppError(
         "INVALID_PARAMETERS",
-        "Describe the video first (or attach a reference or brief), then ask for beats.",
+        "Describe the video first (or attach a reference, brief or character), then ask for beats.",
       );
 
     const agent = await import("./supercomputer/agent.server");
@@ -175,6 +197,34 @@ export const planLongVideo = createServerFn({ method: "POST" })
         .filter((source): source is NonNullable<typeof source> => !!source)
         .slice(0, 6),
     );
+    // The characters, each with their best views (at least one each), after the references.
+    const { charactersForRun } = await import("./characters/service.server");
+    const characters = data.characterIds.length ? await charactersForRun(data.characterIds) : [];
+    const perCharacter = characters.length ? Math.max(1, Math.floor(6 / characters.length)) : 0;
+    const characterImages: { name: string; description: string; images: number[] }[] = [];
+    for (const character of characters) {
+      const ids = character.images.slice(0, perCharacter).map((image) => image.assetId);
+      const { data: rows } = await db
+        .from("assets")
+        .select("id,asset_type,storage_bucket,storage_path,title,mime_type,metadata")
+        .in("id", ids)
+        .is("deleted_at", null);
+      const signed = await agent.signVisionSources(
+        ids
+          .flatMap((id) => {
+            const row = (rows ?? []).find((entry) => entry.id === id);
+            return row ? [agent.visionSourceFor(row)] : [];
+          })
+          .filter((source): source is NonNullable<typeof source> => !!source),
+      );
+      const numbers = signed.urls.map((_, index) => vision.urls.length + index + 1);
+      vision.urls.push(...signed.urls);
+      characterImages.push({
+        name: character.name,
+        description: character.description,
+        images: numbers,
+      });
+    }
 
     let briefBlock = "";
     if (data.briefId) {
@@ -206,6 +256,8 @@ export const planLongVideo = createServerFn({ method: "POST" })
       finale: data.finale
         ? { image: imageIds.indexOf(data.finale.assetId) + 1 || null, mode: data.finale.mode }
         : null,
+      characters: characterImages,
+      keyframes: data.keyframes,
     });
     const { finisherImage, ...plan } = suggestion;
     // The image the AI took for the brand's logo or end card, when none is chosen yet.
@@ -269,6 +321,81 @@ export const checkLongVideo = createServerFn({ method: "POST" })
     await activeMember(context.userId);
     const service = await import("./long-video/service.server");
     await service.advanceLongVideo(data.longVideoId);
+    return { ok: true };
+  });
+
+/** Approves a run's keyframes: its clips start. */
+export const approveStoryboard = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => runInput.parse(data))
+  .handler(async ({ data, context }) => {
+    await assertCanManage(context.userId, data.longVideoId);
+    const service = await import("./long-video/service.server");
+    await service.approveStoryboard(data.longVideoId);
+    return { ok: true };
+  });
+
+/** Which run a keyframe or clip belongs to (for checking who may change it). */
+async function runOf(
+  table: "long_video_keyframes" | "long_video_clips",
+  id: string,
+): Promise<string> {
+  const db = await admin();
+  const { data } = await db.from(table).select("long_video_id").eq("id", id).maybeSingle();
+  if (!data) throw new AppError("INVALID_PARAMETERS", "That no longer exists");
+  return data.long_video_id;
+}
+
+/** Paints a keyframe again (billed), or it and every one after it, with a note on what to change. */
+export const redoKeyframes = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        keyframeId: z.string().uuid(),
+        scope: z.enum(["one", "rest"]).default("one"),
+        note: z.string().max(1000).default(""),
+        confirmUncertain: z.boolean().default(false),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    await assertCanManage(context.userId, await runOf("long_video_keyframes", data.keyframeId));
+    const service = await import("./long-video/service.server");
+    await service.redoKeyframes(data);
+    return { ok: true };
+  });
+
+/** Keeps a keyframe the check flagged. */
+export const keepKeyframe = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => z.object({ keyframeId: z.string().uuid() }).parse(data))
+  .handler(async ({ data, context }) => {
+    await assertCanManage(context.userId, await runOf("long_video_keyframes", data.keyframeId));
+    const service = await import("./long-video/service.server");
+    await service.keepKeyframe(data);
+    return { ok: true };
+  });
+
+/** Makes a finished clip again (billed), e.g. one whose character check failed. */
+export const redoLongVideoClip = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => z.object({ clipId: z.string().uuid() }).parse(data))
+  .handler(async ({ data, context }) => {
+    await assertCanManage(context.userId, await runOf("long_video_clips", data.clipId));
+    const service = await import("./long-video/service.server");
+    await service.redoLongVideoClip(data);
+    return { ok: true };
+  });
+
+/** Keeps a clip whose character check failed, and carries on. */
+export const keepLongVideoClip = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => z.object({ clipId: z.string().uuid() }).parse(data))
+  .handler(async ({ data, context }) => {
+    await assertCanManage(context.userId, await runOf("long_video_clips", data.clipId));
+    const service = await import("./long-video/service.server");
+    await service.keepLongVideoClip(data);
     return { ok: true };
   });
 

@@ -135,9 +135,10 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
         // A long video's handoff task moves its run on once its result is recorded:
         // after the response, so the worker isn't held up (the reconcile job
         // catches it if this is cut short).
+        const taskInput = (task.input_payload ?? {}) as Record<string, unknown>;
         const forLongVideo =
-          typeof (task.input_payload as Record<string, unknown> | null)?.["long_video_clip_id"] ===
-          "string";
+          typeof taskInput["long_video_clip_id"] === "string" ||
+          typeof taskInput["long_video_keyframe_id"] === "string";
         const moveLongVideoOn = async () => {
           if (!forLongVideo) return;
           const { runAfterResponse } = await import("@/lib/generation-pipeline.server");
@@ -182,10 +183,18 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
         const metadata = (payload["metadata"] ?? null) as Record<string, unknown> | null;
         const bucket = task.storage_bucket ?? "generated-assets";
 
+        // Frames the server takes for its own checks (a long video clip's
+        // identity check) are kept in storage but not added to the library.
+        const registered = input["register_outputs"] !== false;
+        const files: { bucket: string; path: string; timestamp_seconds: unknown }[] = [];
         const assetIds: string[] = [];
         for (const [index, output] of outputs.entries()) {
           const path = (typeof output["storage_key"] === "string" ? output["storage_key"] : storagePaths[index]) ?? null;
           if (!path) continue;
+          if (!registered) {
+            files.push({ bucket, path, timestamp_seconds: output["timestamp_seconds"] ?? null });
+            continue;
+          }
 
           // The (bucket, path) pair is unique, so a replayed callback can never
           // create a second asset row for the same rendered file.
@@ -272,7 +281,12 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
             status: "completed",
             completed_at: now,
             result_asset_id: assetIds[0] ?? null,
-            output_payload: { asset_ids: assetIds, metadata, duration_ms: payload["duration_ms"] ?? null } as never,
+            output_payload: {
+              asset_ids: assetIds,
+              ...(registered ? {} : { files }),
+              metadata,
+              duration_ms: payload["duration_ms"] ?? null,
+            } as never,
           })
           .eq("id", task.id);
         if (taskError) return notRecorded("media task", taskError.message);

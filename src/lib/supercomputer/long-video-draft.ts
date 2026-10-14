@@ -1,11 +1,12 @@
 /**
  * A Supercomputer draft that makes a long video: its plan, worked out with the
- * same helpers Create and the server use, from the draft's story, settings and
- * references and the catalogue as it is now. The server uses it to check a
- * draft when the agent writes it; the draft card uses it to show, quote and
- * start the run, so all three agree.
+ * same helpers Create and the server use, from the draft's story, settings,
+ * references and characters and the catalogue as it is now. The server uses
+ * it to check a draft when the agent writes it; the draft card uses it to
+ * show, quote and start the run, so all three agree.
  */
 import type { ModelRegistryEntry } from "../model-schema";
+import type { RunCharacter } from "../characters/model";
 import {
   clipEnd,
   clipPrompt,
@@ -18,14 +19,30 @@ import {
   planClips,
   planDurations,
   planIssues,
+  startFrameSlot,
   totalSeconds,
   type ClipDraft,
   type PlannedClip,
   type RunFinale,
+  type RunReference,
 } from "../long-video/plan";
+import {
+  choosePainter,
+  clipQuote,
+  keyframeCount,
+  keyframeQuote,
+  keyframeWorkflow,
+  openingHasImages,
+  painterValues,
+  standInImage,
+  videoAspect,
+  type QuoteRequest,
+} from "../long-video/keyframes";
 import type { DraftLongVideo, DraftReference } from "./types";
 
 export interface DraftLongVideoPlan {
+  /** The model that makes clip 1: the draft's own, or its keyframe workflow. */
+  first: ModelRegistryEntry;
   /** The model's workflow for clips 2 onward, or null when none can continue. */
   continuation: ModelRegistryEntry | null;
   durations: number[];
@@ -39,6 +56,19 @@ export interface DraftLongVideoPlan {
   capped: boolean;
   /** The finisher it ends on, as the run will use it (moving into it only where the model can). */
   finale: RunFinale | null;
+  /** The characters kept the same throughout (their sheets, best view first). */
+  characters: RunCharacter[];
+  /** The model's workflow that can move from keyframe to keyframe, if it has one. */
+  workflow: ModelRegistryEntry | null;
+  /** Keyframes are painted first (on, and possible). */
+  keyframed: boolean;
+  /** The image model that paints them. */
+  painter: ModelRegistryEntry | null;
+  keyframeCount: number;
+  /** The first clip as it will be sent (a stand-in image where a frame goes), to price it. */
+  quote: QuoteRequest | null;
+  /** One keyframe as it will be painted, to price it. */
+  keyframeQuote: QuoteRequest | null;
 }
 
 /** The workflow of the draft's model that makes clips 2 onward, best first. */
@@ -84,16 +114,26 @@ export function planDraftLongVideo(input: {
   models: ModelRegistryEntry[];
   longVideo: Pick<
     DraftLongVideo,
-    "targetSeconds" | "continuationModelId" | "continuity" | "beats" | "finisher"
+    "targetSeconds" | "continuationModelId" | "continuity" | "beats" | "finisher" | "keyframes"
   >;
   /** The draft's settings; their prompt is the story. */
   values: Record<string, unknown>;
   references: DraftReference[];
+  /** The draft's characters, as they are now. */
+  characters?: RunCharacter[];
 }): DraftLongVideoPlan {
   const { model, models, longVideo, values, references } = input;
-  const continuation = draftContinuation(model, models, references, longVideo.continuationModelId);
+  const characters = input.characters ?? [];
+  // Keyframes, as Create sets them: on with characters, where a workflow of
+  // the model can end a clip on a given frame; then it makes every clip.
+  const workflow = keyframeWorkflow(model, models);
+  const keyframed = !!workflow && (longVideo.keyframes ?? characters.length > 0);
+  const first = keyframed ? workflow! : model;
+  const continuation = keyframed
+    ? workflow
+    : draftContinuation(model, models, references, longVideo.continuationModelId);
   const durations = continuation
-    ? draftDurations(model, continuation, longVideo.targetSeconds)
+    ? draftDurations(first, continuation, longVideo.targetSeconds)
     : [];
   const story = typeof values["prompt"] === "string" ? values["prompt"] : "";
   const finisher = longVideo.finisher ?? null;
@@ -120,28 +160,32 @@ export function planDraftLongVideo(input: {
       }),
     };
   });
+  const runReferences: RunReference[] = references.map((ref) => ({
+    assetId: ref.assetId,
+    role: ref.role,
+    assetType: ref.assetType,
+  }));
   const planned = continuation
     ? planClips({
-        first: model,
+        first,
         continuation,
         values,
-        references: references.map((ref) => ({
-          assetId: ref.assetId,
-          role: ref.role,
-          assetType: ref.assetType,
-        })),
+        references: runReferences,
         clips,
         finale,
+        characters,
+        keyframes: keyframed,
       })
     : [];
   const total = totalSeconds(durations);
   // Clip 1 is checked with every setting of the draft, so this covers them too.
   const issues = planIssues({
-    first: model,
+    first,
     continuation,
     clips: planned,
     targetSeconds: total,
     finale,
+    keyframes: keyframed,
   }).map((issue) =>
     // Create's way out ("switch to One clip") isn't on a draft.
     planned.length && planned.length < LONG_VIDEO_LIMITS.minClips && issue.position === null
@@ -150,7 +194,45 @@ export function planDraftLongVideo(input: {
         : issue.message
       : issue.message,
   );
+
+  // The keyframes: painted at the video's shape by the best image model on.
+  const startRole = startFrameSlot(first)?.role ?? null;
+  const aspect = videoAspect(values);
+  const choice = choosePainter({
+    models,
+    aspect,
+    openingImages: openingHasImages({ startRole, references: runReferences, characters }),
+  });
+  const painter = keyframed ? choice.painter : null;
+  if (keyframed) issues.push(...choice.issues);
+  const standIn = standInImage({ keyframed, startRole, references: runReferences, characters });
   const capped =
     durations.length >= LONG_VIDEO_LIMITS.maxClips && total + 0.5 < longVideo.targetSeconds;
-  return { continuation, durations, totalSeconds: total, clips, planned, issues, capped, finale };
+  return {
+    first,
+    continuation,
+    durations,
+    totalSeconds: total,
+    clips,
+    planned,
+    issues,
+    capped,
+    finale,
+    characters,
+    workflow,
+    keyframed,
+    painter,
+    keyframeCount: keyframed ? keyframeCount(planned.length, finale?.mode ?? null) : 0,
+    quote: planned[0] ? clipQuote(planned[0], standIn) : null,
+    keyframeQuote:
+      painter && standIn
+        ? keyframeQuote({
+            painter,
+            values: painterValues(painter, aspect.ratio),
+            standIn,
+            characters,
+            references: runReferences,
+          })
+        : null,
+  };
 }

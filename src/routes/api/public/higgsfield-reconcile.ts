@@ -6,8 +6,8 @@ const CLEANUP_MS = 20_000;
 
 /**
  * Recovery worker: dispatches locally queued jobs, polls stale provider jobs
- * whose webhook may have been missed, ingests pending outputs and moves long
- * videos on. It also clears licensed music uploads whose licence was never
+ * whose webhook may have been missed, ingests pending outputs, moves long
+ * videos on and follows Soul ID trainings. It also clears licensed music uploads whose licence was never
  * recorded, and closes media tasks the media service never reported back on.
  */
 export const Route = createFileRoute("/api/public/higgsfield-reconcile")({
@@ -50,6 +50,17 @@ export const Route = createFileRoute("/api/public/higgsfield-reconcile")({
             },
           );
 
+          // Soul ID trainings are asked how they're going (and starts that were
+          // cut short settled), so a character becomes usable without anyone
+          // keeping its page open.
+          const { sweepSoulTrainings } = await import("@/lib/characters/service.server");
+          const soulTrainings = await sweepSoulTrainings().catch((error: unknown) => {
+            console.error("soul id sweep failed", {
+              message: error instanceof Error ? error.message : String(error),
+            });
+            return 0;
+          });
+
           // Media tasks the media service never reported back on are closed (a
           // result that still comes is recorded).
           const { closeLostMediaTasks } = await import("@/lib/media/submit.server");
@@ -66,6 +77,7 @@ export const Route = createFileRoute("/api/public/higgsfield-reconcile")({
               polled,
               ingested,
               longVideos,
+              soulTrainings,
               mediaTasks,
               musicUploads: await musicUploads,
             }),

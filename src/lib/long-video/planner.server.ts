@@ -12,7 +12,7 @@ export const LONG_VIDEO_PLANNER_SYSTEM = `You plan long videos for a creative st
 
 Write:
 - title: two to six words naming the piece.
-- continuity: one compact paragraph (at most 500 characters) listing what must look the same in every clip: each character (age, build, hair, wardrobe and its colours), key props or product, location, time of day, lighting, colour palette and camera style. Concrete visual details only, no story.
+- continuity: one compact paragraph (at most 500 characters) listing what must look the same in every clip: each character (age, build, hair, wardrobe and its colours) except those listed under CHARACTERS (the studio adds their look itself), key props or product, location, time of day, lighting, colour palette and camera style. Concrete visual details only, no story.
 - beats: exactly one per clip, in order. Each says only what happens during that clip's seconds: the action, the camera's movement, and the pose or composition it ends on (which the next clip starts from). Pace each beat to its length, about one clear action every four to five seconds. Present tense, at most 350 characters, no cuts within a clip, and don't repeat the continuity details.
 
 Motion runs straight through every join. Each clip after the first is generated from a single still frame, so it only knows how things were moving if its beat says so: begin each beat after the first by continuing the camera move and action the previous beat ended on (same direction and pace) before anything changes, and end every beat but the last mid-motion, never slowing to a stop, settling or holding still. Change camera direction gradually within a clip, never at a join.
@@ -56,6 +56,13 @@ export async function suggestLongVideoPlan(input: {
   briefBlock: string;
   /** The finisher chosen, by its image number (null when it isn't among them), and how it ends the video. */
   finale?: { image: number | null; mode: FinaleMode } | null;
+  /**
+   * The characters who must look the same throughout, with the numbers of
+   * their images among `imageUrls` (after the person's own references).
+   */
+  characters?: { name: string; description: string; images: number[] }[];
+  /** Each clip's final moment is painted as a still first (a keyframe). */
+  keyframes?: boolean;
 }): Promise<LongVideoPlanSuggestion> {
   const { resolveReasoning } = await import("../reasoning/provider.server");
   const route = await resolveReasoning("director");
@@ -84,6 +91,7 @@ export async function suggestLongVideoPlan(input: {
     input.imageUrls.length
       ? `REFERENCE IMAGES: ${input.imageUrls.length} attached, numbered in order from 1. Use them for how the characters, product and setting look.`
       : "",
+    charactersBlock(input.characters ?? [], !!input.keyframes),
     finisherLine(input.finale ?? null),
     input.briefBlock,
   ]
@@ -118,6 +126,35 @@ export async function suggestLongVideoPlan(input: {
         ? finisher
         : null,
   };
+}
+
+/**
+ * What the beat writer is told about the characters: who they are (their look
+ * is added to every clip's prompt by the studio, so it isn't repeated), and
+ * that each must stay recognisable where clips join, since the next clip (or
+ * its keyframe) is made from that moment.
+ */
+function charactersBlock(
+  characters: { name: string; description: string; images: number[] }[],
+  keyframes: boolean,
+): string {
+  if (!characters.length) return "";
+  const who = characters
+    .map(
+      (character) =>
+        `- ${character.name}${character.images.length ? ` (reference image${character.images.length > 1 ? "s" : ""} ${character.images.join(", ")})` : ""}${character.description ? `: ${character.description}` : ""}`,
+    )
+    .join("\n");
+  return [
+    `CHARACTERS who must look exactly the same in every clip:\n${who}`,
+    "Call each by name. The studio adds their look to every clip, so don't describe their appearance or clothes in the beats or the continuity notes (keep those to the setting, props, light and style), and don't change their clothes, hair or props unless the story asks for it.",
+    "Keep them recognisable where clips join: end every beat but the last with each character in the shot facing the camera or in three-quarter view, face clear and unobstructed, at a medium shot or closer, never turned away, in silhouette, blurred, tiny or hidden behind something (unless the story has them leave the shot).",
+    keyframes
+      ? "The final moment of every beat is painted as a still before its clip is made, then the clip moves into it: say concretely where each character is, which way they face and how the shot is framed at that moment."
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 /** What the beat writer is told about the brand finisher. */

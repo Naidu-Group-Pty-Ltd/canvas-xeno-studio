@@ -3,6 +3,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useProviderHealth } from "@/components/layout/AppShell";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  CHARACTERS_KEY,
+  fetchCharacters,
+  planCharacter,
+  useCharacters,
+  type CharacterEntry,
+} from "@/hooks/useCharacters";
 import { useModels, useSettings } from "@/hooks/useStudioData";
 import { supabase } from "@/integrations/supabase/client";
 import { estimateGeneration, submitGeneration } from "@/lib/generation.functions";
@@ -10,7 +17,8 @@ import { startLongVideo } from "@/lib/long-video.functions";
 import { endCardSize } from "@/lib/long-video/finisher";
 import { approxRunCost, finaleReveals, type RunFinale } from "@/lib/long-video/plan";
 import { DEFAULT_END_CARD_STYLE, makeEndCard } from "@/lib/media/end-card";
-import { planDraftLongVideo } from "@/lib/supercomputer/long-video-draft";
+import type { RunCharacter } from "@/lib/characters/model";
+import { planDraftLongVideo, type DraftLongVideoPlan } from "@/lib/supercomputer/long-video-draft";
 import {
   draftRunKey,
   type DraftReference,
@@ -26,7 +34,13 @@ export type DraftEstimate =
   | {
       kind: "ready";
       costUsd: number;
-      longVideo?: { firstClipUsd: number; clips: number };
+      longVideo?: {
+        firstClipUsd: number;
+        clips: number;
+        /** Keyframes painted first, and their price in all (null: Higgsfield gave none). */
+        keyframes: number;
+        keyframesUsd: number | null;
+      };
     }
   | { kind: "metered"; description: string }
   /** `blocking`: the draft can't run as it is, whatever the estimate policy. */
@@ -41,7 +55,7 @@ export interface DraftRunInput {
   estimate: DraftEstimate | null;
 }
 
-function inputsFor(references: DraftReference[]) {
+function inputsFor(references: { assetId: string; role: string }[]) {
   return references.map((ref, position) => ({ assetId: ref.assetId, role: ref.role, position }));
 }
 
@@ -52,15 +66,48 @@ function inputsFor(references: DraftReference[]) {
  */
 const unsettledRuns = new Map<string, number>();
 
+/**
+ * A draft's characters as they are now (sheets, best view first), from the
+ * team's library (`library`: undefined while it loads), and why any of them
+ * can't be kept the same.
+ */
+function castOf(
+  draft: SupercomputerDraft,
+  library: CharacterEntry[] | undefined,
+  failed: boolean,
+): { characters: RunCharacter[]; problems: string[] } {
+  const wanted = draft.characters ?? [];
+  if (!wanted.length) return { characters: [], problems: [] };
+  if (!library)
+    return {
+      characters: [],
+      problems: [failed ? "The characters couldn't be loaded" : "Loading the characters…"],
+    };
+  const characters: RunCharacter[] = [];
+  const problems: string[] = [];
+  for (const character of wanted) {
+    const entry = library.find((candidate) => candidate.id === character.id);
+    const planned = entry ? planCharacter(entry) : null;
+    if (planned?.images.length) characters.push(planned);
+    else
+      problems.push(
+        entry
+          ? `${entry.name} has no reference images any more: add some on the Characters page`
+          : `${character.name} is no longer in the Characters library`,
+      );
+  }
+  return { characters, problems };
+}
+
 /** The provider's quote for one generation, put the way a draft shows it. */
 async function estimateOne(
   modelId: string,
   values: Record<string, unknown>,
-  references: DraftReference[],
+  inputs: { assetId: string; role: string }[],
 ): Promise<DraftEstimate> {
   try {
     const result = await estimateGeneration({
-      data: { modelId, parameters: values, inputs: inputsFor(references) },
+      data: { modelId, parameters: values, inputs: inputsFor(inputs) },
     });
     if (result.ok && result.costUsd !== null) return { kind: "ready", costUsd: result.costUsd };
     if (result.ok && result.pricingDescription)
@@ -100,19 +147,62 @@ export function useDraftRunner(context: {
   const { data: health } = useProviderHealth();
   const { data: settings } = useSettings();
   const { data: models = [] } = useModels();
+  const { data: library, isError: charactersFailed } = useCharacters();
   const inFlight = useRef(new Set<string>());
 
   const providerReason = health ? providerBlockReason(health) : "Checking the provider…";
   const requireEstimate = settings?.["require_cost_estimate"] === true;
 
-  /** A long-video draft's plan as it would run now, or null when its model is gone. */
-  const longPlan = useCallback(
-    (draft: SupercomputerDraft, values: Record<string, unknown>, references: DraftReference[]) => {
+  /**
+   * A long-video draft's plan as it would run now with its characters as they
+   * are now (`characters`: the team's library, undefined while it loads), or
+   * null when its model is gone.
+   */
+  const planWith = useCallback(
+    (
+      draft: SupercomputerDraft,
+      values: Record<string, unknown>,
+      references: DraftReference[],
+      library: { characters: CharacterEntry[] | undefined; failed: boolean },
+    ): DraftLongVideoPlan | null => {
       const model = models.find((entry) => entry.id === draft.modelId);
       if (!draft.longVideo || !model) return null;
-      return planDraftLongVideo({ model, models, longVideo: draft.longVideo, values, references });
+      const cast = castOf(draft, library.characters, library.failed);
+      const plan = planDraftLongVideo({
+        model,
+        models,
+        longVideo: draft.longVideo,
+        values,
+        references,
+        characters: cast.characters,
+      });
+      return cast.problems.length ? { ...plan, issues: [...cast.problems, ...plan.issues] } : plan;
     },
     [models],
+  );
+
+  /** A long-video draft's plan as it would run now, as the card shows it. */
+  const longPlan = useCallback(
+    (draft: SupercomputerDraft, values: Record<string, unknown>, references: DraftReference[]) =>
+      planWith(draft, values, references, { characters: library, failed: charactersFailed }),
+    [planWith, library, charactersFailed],
+  );
+
+  /** The plan as it is started and priced: with the characters read, not still loading. */
+  const settledPlan = useCallback(
+    async (
+      draft: SupercomputerDraft,
+      values: Record<string, unknown>,
+      references: DraftReference[],
+    ) => {
+      const characters = draft.characters?.length
+        ? await queryClient
+            .ensureQueryData({ queryKey: CHARACTERS_KEY, queryFn: fetchCharacters })
+            .catch(() => undefined)
+        : [];
+      return planWith(draft, values, references, { characters, failed: !characters });
+    },
+    [planWith, queryClient],
   );
 
   const estimate = useCallback(
@@ -122,30 +212,45 @@ export function useDraftRunner(context: {
       references: DraftReference[],
     ): Promise<DraftEstimate> => {
       if (!draft.longVideo) return estimateOne(draft.modelId, values, references);
-      const plan = longPlan(draft, values, references);
+      const plan = await settledPlan(draft, values, references);
       if (!plan)
         return { kind: "unavailable", reason: "This model is no longer active", blocking: true };
       const first = plan.planned[0];
-      if (plan.issues.length || !first)
+      if (plan.issues.length || !first || !plan.quote)
         return {
           kind: "unavailable",
           reason: plan.issues[0] ?? "This long video can't be planned",
           blocking: true,
         };
-      // Quoted by its first clip, exactly as that clip will be sent (the finisher isn't).
-      const quote = await estimateOne(
-        draft.modelId,
-        first.values,
-        references.filter((ref) => first.inputs.some((input) => input.assetId === ref.assetId)),
-      );
+      // Quoted by its first clip, exactly as that clip will be sent (a stand-in
+      // image where its keyframes go), and one keyframe as it will be painted.
+      const [quote, keyframe] = await Promise.all([
+        estimateOne(plan.quote.model.id, plan.quote.values, plan.quote.inputs),
+        plan.keyframeQuote
+          ? estimateOne(
+              plan.keyframeQuote.model.id,
+              plan.keyframeQuote.values,
+              plan.keyframeQuote.inputs,
+            )
+          : Promise.resolve(null),
+      ]);
       if (quote.kind !== "ready") return quote;
+      const keyframesUsd =
+        keyframe?.kind === "ready" ? keyframe.costUsd * plan.keyframeCount : null;
       return {
         kind: "ready",
-        costUsd: approxRunCost(quote.costUsd, first.durationSeconds, plan.totalSeconds),
-        longVideo: { firstClipUsd: quote.costUsd, clips: plan.planned.length },
+        costUsd:
+          approxRunCost(quote.costUsd, first.durationSeconds, plan.totalSeconds) +
+          (keyframesUsd ?? 0),
+        longVideo: {
+          firstClipUsd: quote.costUsd,
+          clips: plan.planned.length,
+          keyframes: plan.keyframeCount,
+          keyframesUsd,
+        },
       };
     },
-    [longPlan],
+    [settledPlan],
   );
 
   /**
@@ -274,7 +379,7 @@ export function useDraftRunner(context: {
   const runLongVideo = useCallback(
     async ({ draft, index, runNumber, values, references }: DraftRunInput): Promise<boolean> => {
       if (!draft.longVideo) return false;
-      const plan = longPlan(draft, values, references);
+      const plan = await settledPlan(draft, values, references);
       if (!plan?.continuation || plan.issues.length) {
         toast.error(plan?.issues[0] ?? "This model is no longer active");
         return false;
@@ -290,7 +395,8 @@ export function useDraftRunner(context: {
         const result = await startLongVideo({
           data: {
             title,
-            firstModelId: draft.modelId,
+            // Clip 1 too is made by the keyframe workflow when keyframes are painted.
+            firstModelId: plan.first.id,
             continuationModelId: plan.continuation.id,
             story: typeof values["prompt"] === "string" ? values["prompt"] : draft.prompt,
             continuity: draft.longVideo.continuity,
@@ -301,6 +407,14 @@ export function useDraftRunner(context: {
             projectId: context.projectId,
             campaignId: context.campaignId,
             clientRequestId: key,
+            // Create's defaults: every clip checked against the characters, and
+            // the keyframes looked over before any clip is made.
+            characterIds: plan.characters.map((character) => character.id),
+            identityCheck: true,
+            keyframes:
+              plan.keyframed && plan.painter
+                ? { painterModelId: plan.painter.id, review: true }
+                : null,
           },
         });
         settle(true);
@@ -308,6 +422,10 @@ export function useDraftRunner(context: {
           toast.info(`"${draft.title}" had already started. Follow it in its card.`);
         else if (result.status === "needs_attention")
           toast.warning(`"${draft.title}" stopped before its first clip. See why in its card.`);
+        else if (plan.keyframed)
+          toast.success(
+            `"${draft.title}" started: ${plan.keyframeCount} keyframes are painted first, for you to look over in its card before the ${plan.clips.length} clips are made.`,
+          );
         else
           toast.success(
             `"${draft.title}" started: ${plan.clips.length} clips, made one after another. Follow it in its card.`,
@@ -323,7 +441,7 @@ export function useDraftRunner(context: {
         await queryClient.invalidateQueries({ queryKey: ["generations"] });
       }
     },
-    [context.projectId, context.campaignId, longPlan, queryClient, runKey, withEndCard],
+    [context.projectId, context.campaignId, settledPlan, queryClient, runKey, withEndCard],
   );
 
   const run = useCallback(

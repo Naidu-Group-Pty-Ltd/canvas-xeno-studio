@@ -445,6 +445,10 @@ export const sendSupercomputerMessage = createServerFn({ method: "POST" })
             suggestedUse: imageNotes.get(asset.id)?.suggestedUse ?? null,
           })),
       )?.assetId ?? null;
+    // The team's characters, for drafts to cast: who they are, their images and Soul IDs.
+    const { charactersForAgent } = await import("./characters/service.server");
+    const { characterLines } = await import("./supercomputer/draft-characters");
+    const characters = await charactersForAgent();
     const mediaLines = [...allowed.values()].map((asset) => {
       const shown = imageIndex.get(asset.id);
       return `- ${asset.id} · ${asset.type} · "${asset.title ?? "untitled"}" · ${asset.origin}${shown ? ` · shown as image #${shown}` : ""}${asset.id === finisherHint ? " · the brand's logo or end card: a long video's finisher, never one of its clips' references" : ""}`;
@@ -458,6 +462,8 @@ export const sendSupercomputerMessage = createServerFn({ method: "POST" })
       voiceBlock,
       "## REFERENCE MEDIA (asset ids usable in drafts)",
       mediaLines.length ? mediaLines.join("\n") : "(none)",
+      '## CHARACTERS (the team\'s recurring people and mascots; ids usable in "character_ids")',
+      characters.length ? characterLines(characters, models).join("\n") : "(none yet)",
       "## MODEL CATALOGUE (JSON)",
       JSON.stringify(agent.compactCatalogue(models, { longVideo: true })),
       "## REQUEST",
@@ -494,6 +500,7 @@ export const sendSupercomputerMessage = createServerFn({ method: "POST" })
       const ideas = agent.normalizeIdeas(raw["ideas"]);
       const { drafts, dropped, indexMap } = agent.normalizeDrafts(raw["drafts"], models, allowed, {
         finisherHint,
+        characters,
       });
       // A long video isn't a shot of an edit: it opens in the Editor as its own clips.
       const shotMap = indexMap.map((index) =>

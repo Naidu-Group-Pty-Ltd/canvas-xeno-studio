@@ -25,6 +25,7 @@ import {
   longVideoEligible,
   modelLine,
   nearest,
+  promptBudget,
   startFrameSlot,
   type FinaleMode,
 } from "../long-video/plan";
@@ -34,6 +35,9 @@ import {
   draftLongestClips,
   planDraftLongVideo,
 } from "./long-video-draft";
+import { keyframeWorkflow } from "../long-video/keyframes";
+import { CHARACTER_LIMITS, type CharacterSummary } from "../characters/model";
+import { castIntoDraft, draftCast, namesList } from "./draft-characters";
 import type {
   DraftFinisher,
   DraftLongVideo,
@@ -81,6 +85,12 @@ Long videos
 - The brand finisher: when the brand's logo, wordmark or end card is among the reference media (see the brief's image notes), set "long_video.finisher" to it instead of listing it in "references". It is never sent with the clips (a model shows any reference it is given, so the logo would turn up partway through) and closes the video instead: "mode" "both" (the last clip moves into it, then it holds; the default), "reveal" (the last clip moves into it) or "end_card" (it holds after the last clip), "seconds" how long it holds (3 is usual). No beat but the last shows the logo; the last beat leads into it. When the user doesn't want the video to end on the logo, set "long_video.finisher.asset_id" to "none".
 - Every clip but the last carries straight on into the next, so its beat never wraps the story up: no closing shot, logo reveal or end card before the last clip.
 - Separate drafts are for different shots cut together with an edit plan; one continuous take longer than a clip is a long video.
+
+Characters
+- CHARACTERS lists the team's recurring people and mascots: each has reference images and a description of their look, and some have a Soul ID. When a draft shows one of them, put their id in the draft's "character_ids" (at most 4) and call them by name in the prompt and in a long video's beats. Don't describe their face, hair, build or clothes: the studio adds their look from their description and sends their images.
+- A long video keeps them the same from the first frame to the last: their images go with the clips and, where the model can, the frame each clip ends on is painted first (keyframes, which the user looks over before the clips are made), and every clip is checked against their images before the next is made. Write a beat for every clip, name who is in it, and end each beat with their faces clearly visible (not turned away, hidden or tiny). Leave "long_video.keyframes" unset; set it to false only when the user asks for no keyframes or no storyboard.
+- For a single image or clip, choose a model whose inputs take several images (the studio sends their images there), or, for a person, a Soul model on which their Soul ID is trained (CHARACTERS says which).
+- A character id is only ever for "character_ids", never a setting or a reference. Anyone not in CHARACTERS is described in the prompt like any other subject.
 
 Edit plans
 - When the drafts are shots of one video (a reel, ad, story, product film or teaser), also return "edit_plan": the cut order by draft number (0 is the first draft), how long each shot holds on screen, the transition into each shot ("cut" for most; "fade", "dissolve", "dip to black", "whip", "slide", "wipe" or "zoom" where they add meaning), and the music direction (genre, mood, tempo in BPM, instrumental or with vocals).
@@ -150,6 +160,11 @@ export const SUPERCOMPUTER_SCHEMA: Record<string, unknown> = {
             },
           },
           notes: { type: "string" },
+          character_ids: {
+            ...STRING_ARRAY,
+            description:
+              "Ids from CHARACTERS of the team's characters this draft shows (at most 4).",
+          },
           long_video: {
             type: "object",
             description:
@@ -164,6 +179,11 @@ export const SUPERCOMPUTER_SCHEMA: Record<string, unknown> = {
               beats: {
                 ...STRING_ARRAY,
                 description: "What happens in each clip, in order, one per clip.",
+              },
+              keyframes: {
+                type: "boolean",
+                description:
+                  "Leave unset (keyframes are painted first when the video has characters); false only when the user asks for none.",
               },
               finisher: {
                 type: "object",
@@ -410,6 +430,7 @@ function longVideoRequest(value: unknown) {
   const seconds = Number(finisher?.["seconds"]);
   return {
     targetSeconds: Math.min(LONG_VIDEO_LIMITS.maxSeconds, total),
+    keyframes: typeof raw["keyframes"] === "boolean" ? raw["keyframes"] : null,
     title: text(raw["title"], LONG_VIDEO_LIMITS.titleChars),
     continuity: text(raw["continuity"], LONG_VIDEO_LIMITS.continuityChars),
     beats: (Array.isArray(raw["beats"]) ? raw["beats"] : []).map((beat) =>
@@ -514,8 +535,11 @@ export function normalizeDrafts(
   options: {
     /** The image the brief (or its name) marks as the brand's logo: a long video's finisher if none is named. */
     finisherHint?: string | null;
+    /** The team's characters, as the agent was told about them. */
+    characters?: CharacterSummary[];
   } = {},
 ): { drafts: SupercomputerDraft[]; dropped: string[]; indexMap: (number | null)[] } {
+  const known = options.characters ?? [];
   const drafts: SupercomputerDraft[] = [];
   const dropped: string[] = [];
   // Where each proposal ended up, so an edit plan's draft numbers still point
@@ -546,6 +570,26 @@ export function normalizeDrafts(
       Object.assign(rawParams, params);
     }
     delete rawParams["prompt"];
+
+    // The team's characters it shows. One named where a Soul ID goes (by its
+    // id or name rather than the ID itself) is one of them, its ID set below.
+    const cast = draftCast(proposal["character_ids"], known, CHARACTER_LIMITS.perRun);
+    const soulAsked =
+      typeof rawParams["custom_reference_id"] === "string"
+        ? rawParams["custom_reference_id"].trim()
+        : "";
+    const soulNamed = soulAsked
+      ? known.find(
+          (character) =>
+            character.id === soulAsked ||
+            character.soul?.referenceId === soulAsked ||
+            character.name.toLowerCase() === soulAsked.toLowerCase(),
+        )
+      : undefined;
+    if (soulNamed) {
+      delete rawParams["custom_reference_id"];
+      if (!cast.includes(soulNamed) && cast.length < CHARACTER_LIMITS.perRun) cast.push(soulNamed);
+    }
 
     const wantsLong = longVideoRequest(proposal["long_video"]);
     const seen = new Set<string>();
@@ -581,46 +625,102 @@ export function normalizeDrafts(
       wantsLong && longContinuation
         ? draftFinisher(askedFor, hint, longContinuation, allowed)
         : null;
-    const references = assignRoles(
+    let references = assignRoles(
       proposed.filter((ref) => ref.assetId !== finisher?.assetId),
       model,
     ).filter((ref) => ref.role !== UNUSED_ROLE);
-    const roles = references.map((ref) => ref.role);
 
     // A long video is planned the way Create plans it: the same model all the
-    // way through, every clip as long as it allows. One that fits in a clip
-    // becomes that clip; a model that can't chain clips makes one clip, said so.
-    const continuation = wantsLong ? draftContinuation(model, models, references) : null;
+    // way through, every clip as long as it allows; with characters, every
+    // clip by its workflow that moves between keyframes, where it has one. One
+    // that fits in a clip becomes that clip; a model that can't chain clips
+    // makes one clip, said so.
+    const runCast = cast.filter((character) => character.images.length);
+    const workflow = wantsLong ? keyframeWorkflow(model, models) : null;
+    const keyframed = !!workflow && (wantsLong?.keyframes ?? runCast.length > 0);
+    const continuation = wantsLong
+      ? keyframed
+        ? workflow
+        : draftContinuation(model, models, references)
+      : null;
     const durations =
-      wantsLong && continuation ? draftDurations(model, continuation, wantsLong.targetSeconds) : [];
-    if (durations.length) rawParams["duration"] = durationValue(model, durations[0]!);
-    let longNote = "";
+      wantsLong && continuation
+        ? draftDurations(keyframed ? workflow! : model, continuation, wantsLong.targetSeconds)
+        : [];
+    if (durations.length) {
+      const own = durationChoices(model);
+      rawParams["duration"] = durationValue(
+        model,
+        own.length ? nearest(own, durations[0]!) : durations[0]!,
+      );
+    }
+    const isLong = !!wantsLong && !!continuation && durations.length > 1;
+    const notes: string[] = [text(proposal["notes"], 600)];
     if (wantsLong && !continuation) {
       // One clip instead, as close to the length asked for as the model allows.
       const choices = durationChoices(model);
       const seconds = choices.length ? nearest(choices, wantsLong.targetSeconds) : null;
       if (seconds !== null) rawParams["duration"] = durationValue(model, seconds);
       const clip = seconds !== null ? `one ${seconds}s clip` : "one clip";
-      longNote =
+      notes.push(
         model.output_type !== "video"
           ? `${model.display_name} makes ${model.output_type === "image" ? "images" : "audio"}, not long videos.`
           : longVideoEligible(model)
             ? `${modelLine(model)} has no workflow that starts from a frame, so it can't chain clips into a long video; this is ${clip}.`
-            : `${model.display_name} can't make a long video; this is ${clip}.`;
+            : `${model.display_name} can't make a long video; this is ${clip}.`,
+      );
     }
 
-    const { values } = normalizeParameters(model, rawParams, roles);
+    let { values } = normalizeParameters(
+      model,
+      rawParams,
+      references.map((ref) => ref.role),
+    );
     const promptField = (model.parameter_schema?.fields ?? []).find(
       (field) => field.key === "prompt",
     );
-    const prompt = text(
+    let prompt = text(
       proposal["prompt"],
-      promptField?.maxLength ?? (durations.length > 1 ? LONG_VIDEO_LIMITS.storyChars : 4000),
+      promptField?.maxLength ?? (isLong ? LONG_VIDEO_LIMITS.storyChars : 4000),
     );
+
+    // Its characters: a long video keeps them the same throughout (only those
+    // with reference images can be); one image or clip is sent their Soul ID
+    // or their images, their look written into its prompt.
+    let characters: CharacterSummary[] = [];
+    if (cast.length && isLong) {
+      characters = runCast;
+      const imageless = cast.filter((character) => !character.images.length);
+      if (imageless.length)
+        notes.push(
+          `${namesList(imageless.map((character) => character.name))} ${imageless.length === 1 ? "has" : "have"} no reference images yet (only a Soul ID), so a long video can't keep them the same: add some on the Characters page.`,
+        );
+    } else if (cast.length && model.output_type !== "audio") {
+      const cast1 = castIntoDraft({
+        model,
+        values,
+        references,
+        cast,
+        prompt,
+        promptMax: promptField?.maxLength ?? promptBudget(model),
+        hasPrompt: !!promptField,
+      });
+      characters = cast;
+      references = cast1.references;
+      Object.assign(rawParams, cast1.parameters);
+      values = normalizeParameters(
+        model,
+        rawParams,
+        references.map((ref) => ref.role),
+      ).values;
+      prompt = cast1.prompt;
+      notes.push(...cast1.notes);
+    }
     if (promptField) values["prompt"] = prompt;
+    const roles = references.map((ref) => ref.role);
 
     let longVideo: DraftLongVideo | undefined;
-    if (wantsLong && continuation && durations.length > 1) {
+    if (isLong && wantsLong && continuation) {
       longVideo = {
         title: wantsLong.title || title,
         targetSeconds: wantsLong.targetSeconds,
@@ -629,6 +729,7 @@ export function normalizeDrafts(
         continuity: wantsLong.continuity,
         beats: fitBeats(wantsLong.beats, durations.length),
         finisher,
+        ...(wantsLong.keyframes !== null ? { keyframes: wantsLong.keyframes } : {}),
       };
     }
 
@@ -642,14 +743,22 @@ export function normalizeDrafts(
       parameters: values,
       references,
       issues: longVideo
-        ? planDraftLongVideo({ model, models, longVideo, values, references }).issues
+        ? planDraftLongVideo({ model, models, longVideo, values, references, characters }).issues
         : validateParameters(model, values, roles).map((issue) => issue.message),
       ...(longVideo ? { longVideo } : {}),
+      ...(characters.length
+        ? {
+            characters: characters.map((character) => ({
+              id: character.id,
+              name: character.name,
+            })),
+          }
+        : {}),
     };
     const purpose = text(proposal["purpose"], 200);
-    const notes = [text(proposal["notes"], 600), longNote].filter(Boolean).join(" ");
+    const note = notes.filter(Boolean).join(" ");
     if (purpose) draft.purpose = purpose;
-    if (notes) draft.notes = notes;
+    if (note) draft.notes = note;
     indexMap.push(drafts.length < 8 ? drafts.length : null);
     drafts.push(draft);
   }

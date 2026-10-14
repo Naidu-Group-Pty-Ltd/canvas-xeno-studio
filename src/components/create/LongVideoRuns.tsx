@@ -24,16 +24,20 @@ import {
 } from "@/hooks/useLongVideos";
 import {
   continueLongVideo,
+  keepLongVideoClip,
   openLongVideoInEditor,
+  redoLongVideoClip,
   retryLongVideoClip,
   stopLongVideo,
 } from "@/lib/long-video.functions";
+import { StoryboardPanel } from "@/components/create/StoryboardPanel";
 import { endCardSize, storedFinale } from "@/lib/long-video/finisher";
 import {
   FINALE_SECONDS,
   finaleHolds,
   finaleReveals,
   formatLength,
+  PERSON_PAUSES,
   type RunFinale,
 } from "@/lib/long-video/plan";
 import { DEFAULT_END_CARD_STYLE, makeEndCard, type EndCardScene } from "@/lib/media/end-card";
@@ -69,8 +73,25 @@ const RUN_STATUS: Record<string, { label: string; tone: string }> = {
   canceled: { label: "Stopped", tone: "border-border text-muted-foreground" },
 };
 
+/** Whether a run checks its clips against its characters. */
+function checksCharacters(run: LongVideoRow): boolean {
+  return run.identity_check === true && Array.isArray(run.characters) && run.characters.length > 0;
+}
+
+/** Checks that let a clip through. */
+const SETTLED_CHECKS = new Set(["passed", "accepted", "unavailable", "skipped"]);
+
+/** A clip is done once it's in, its next start frame taken and (with characters) its check settled. */
+function clipDone(run: LongVideoRow, clip: LongVideoClipRow, isLast: boolean): boolean {
+  return (
+    clip.status === "completed" &&
+    (clip.handoff_status === "ready" || (isLast && clip.handoff_status === "not_needed")) &&
+    (!checksCharacters(run) || SETTLED_CHECKS.has(clip.check_status))
+  );
+}
+
 /** What a clip is doing, in a few words. */
-function clipState(clip: LongVideoClipRow, isLast: boolean): string {
+function clipState(run: LongVideoRow, clip: LongVideoClipRow, isLast: boolean): string {
   switch (clip.status) {
     case "waiting":
       return "Waiting";
@@ -83,11 +104,25 @@ function clipState(clip: LongVideoClipRow, isLast: boolean): string {
     case "canceled":
       return "Stopped";
     default:
-      if (clip.handoff_status === "ready" || (isLast && clip.handoff_status === "not_needed"))
-        return "Done";
+      if (clip.handoff_status === "ready" || (isLast && clip.handoff_status === "not_needed")) {
+        if (!checksCharacters(run)) return "Done";
+        if (clip.check_status === "flagged") return "Someone changed";
+        if (clip.check_status === "passed") return "Done · checked";
+        if (clip.check_status === "accepted") return "Done · kept";
+        if (clip.check_status === "unavailable") return "Done · not checked";
+        return "Checking characters";
+      }
       if (clip.handoff_status === "failed") return "Frame failed";
       return isLast ? "Finishing" : "Preparing the next clip";
   }
+}
+
+/** The names of a run's characters, as it keeps them. */
+function characterNames(run: LongVideoRow): string[] {
+  return (Array.isArray(run.characters) ? run.characters : []).flatMap((entry) => {
+    const name = (entry as Record<string, unknown> | null)?.["name"];
+    return typeof name === "string" ? [name] : [];
+  });
 }
 
 /** Long videos in progress and recently finished, with their clips. */
@@ -117,6 +152,7 @@ function runImages(run: LongVideoRow): string[] {
 export function LongVideoRunList({ runs }: { runs: LongVideoRow[] }) {
   const assetIds = runs.flatMap((run) => [
     ...run.clips.flatMap((clip) => (clip.output_asset_id ? [clip.output_asset_id] : [])),
+    ...run.keyframes.flatMap((keyframe) => (keyframe.asset_id ? [keyframe.asset_id] : [])),
     ...runImages(run),
   ]);
   const { data: assets } = useAssetsById(assetIds);
@@ -142,6 +178,7 @@ function RunCard({
   const { user, isAdmin } = useAuth();
   const [busy, setBusy] = useState<string | null>(null);
   const [retrying, setRetrying] = useState<LongVideoClipRow | null>(null);
+  const [redoingClip, setRedoingClip] = useState<LongVideoClipRow | null>(null);
   const [seam, setSeam] = useState<"cut" | "blend">("cut");
   const [keepSound, setKeepSound] = useState(true);
   // The end card: the run's finisher when it holds after the last clip; any
@@ -162,12 +199,18 @@ function RunCard({
   const status = RUN_STATUS[run.status] ?? RUN_STATUS["running"]!;
   const failedClip = run.clips.find((clip) => clip.status === "failed");
   const failedHandoff = run.clips.find((clip) => clip.handoff_status === "failed");
-  const done = run.clips.filter(
-    (clip, index) =>
-      clip.status === "completed" &&
-      (clip.handoff_status === "ready" ||
-        (index === run.clips.length - 1 && clip.handoff_status === "not_needed")),
+  const done = run.clips.filter((clip, index) =>
+    clipDone(run, clip, index === run.clips.length - 1),
   ).length;
+  // Waiting on a person's choice (keyframes to review, a character who changed), not a failure.
+  const personPause =
+    run.status === "needs_attention" &&
+    (PERSON_PAUSES as readonly string[]).includes(run.error_code ?? "");
+  const flaggedClip =
+    run.error_code === "CHARACTER_CHECK"
+      ? run.clips.find((clip) => clip.check_status === "flagged")
+      : undefined;
+  const names = characterNames(run);
 
   async function act(name: string, work: () => Promise<unknown>, success?: string) {
     setBusy(name);
@@ -300,13 +343,25 @@ function RunCard({
               <Flag className="size-3 text-primary" /> {finaleSummary(finale)}
             </p>
           )}
+          {names.length > 0 && (
+            <p className="mt-0.5 text-[11px] text-muted-foreground" data-testid="long-video-cast">
+              With {names.join(", ")}
+              {checksCharacters(run) ? " · every clip checked" : ""}
+            </p>
+          )}
         </div>
         <Badge
           variant="outline"
-          className={cn("shrink-0", status.tone)}
+          className={cn("shrink-0", personPause ? "border-primary/50 text-primary" : status.tone)}
           data-testid="long-video-status"
         >
-          {status.label}
+          {run.error_code === "STORYBOARD_READY" && run.status === "needs_attention"
+            ? "Review keyframes"
+            : run.error_code === "CHARACTER_CHECK" && run.status === "needs_attention"
+              ? "Check a clip"
+              : run.keyframe_model_id && !run.storyboard_approved_at && run.status === "running"
+                ? "Painting keyframes"
+                : status.label}
         </Badge>
       </div>
 
@@ -317,10 +372,14 @@ function RunCard({
         />
       </div>
 
+      {run.keyframes.length > 0 && (
+        <StoryboardPanel run={run} assets={assets} canManage={canManage} act={act} busy={busy} />
+      )}
+
       <ol className="grid grid-cols-3 gap-2 sm:grid-cols-6" data-testid="long-video-clips">
         {run.clips.map((clip, index) => {
           const asset = clip.output_asset_id ? assets?.get(clip.output_asset_id) : undefined;
-          const state = clipState(clip, index === run.clips.length - 1);
+          const state = clipState(run, clip, index === run.clips.length - 1);
           return (
             <li
               key={clip.id}
@@ -350,7 +409,8 @@ function RunCard({
                 )}
               </div>
               <p className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                {state === "Done" && <CheckCircle2 className="size-3 text-success" />}
+                {state.startsWith("Done") && <CheckCircle2 className="size-3 text-success" />}
+                {state === "Someone changed" && <AlertTriangle className="size-3 text-warning" />}
                 <span className="truncate">
                   {index + 1} · {state}
                 </span>
@@ -532,6 +592,34 @@ function RunCard({
           </>
         )}
 
+        {canManage && run.status === "needs_attention" && flaggedClip && (
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy !== null}
+              onClick={() => setRedoingClip(flaggedClip)}
+              data-testid="long-video-redo-clip"
+            >
+              <RotateCcw className="mr-1.5 size-3.5" /> Redo clip {flaggedClip.position + 1}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy !== null}
+              onClick={() =>
+                void act(
+                  "keep",
+                  () => keepLongVideoClip({ data: { clipId: flaggedClip.id } }),
+                  "Kept. Carrying on.",
+                )
+              }
+              data-testid="long-video-keep-clip"
+            >
+              Keep it and carry on
+            </Button>
+          </>
+        )}
         {canManage && run.status === "needs_attention" && failedClip && (
           <Button
             size="sm"
@@ -544,7 +632,8 @@ function RunCard({
           </Button>
         )}
         {canManage &&
-          (run.status === "canceled" || (run.status === "needs_attention" && !failedClip)) &&
+          (run.status === "canceled" ||
+            (run.status === "needs_attention" && !failedClip && !personPause)) &&
           done < run.clip_count && (
             <Button
               size="sm"
@@ -586,6 +675,36 @@ function RunCard({
           </Button>
         )}
       </div>
+
+      <AlertDialog open={!!redoingClip} onOpenChange={(open) => !open && setRedoingClip(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Make clip {(redoingClip?.position ?? 0) + 1} again?</AlertDialogTitle>
+            <AlertDialogDescription>
+              It's made again as a new generation, charged like any other, from the same start
+              {run.keyframe_model_id ? " and keyframe" : " frame"}, and checked again. The clip you
+              have now stays in the library.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const clip = redoingClip;
+                setRedoingClip(null);
+                if (clip)
+                  void act(
+                    "redo-clip",
+                    () => redoLongVideoClip({ data: { clipId: clip.id } }),
+                    `Clip ${clip.position + 1} is being made again.`,
+                  );
+              }}
+            >
+              Make it again
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!retrying} onOpenChange={(open) => !open && setRetrying(null)}>
         <AlertDialogContent>

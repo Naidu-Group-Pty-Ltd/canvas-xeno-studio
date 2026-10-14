@@ -24,6 +24,10 @@ export interface CreatePrefill {
     continuationModelId?: string | null;
     /** The brand finisher it ends on (one of the inputs), or null for none. */
     finisher?: { assetId: string; mode: FinaleMode; seconds: number } | null;
+    /** Characters who must look the same throughout. */
+    characterIds?: string[];
+    /** Paint the keyframes first; null or unset: on with characters, where the model can. */
+    keyframes?: boolean | null;
   };
 }
 

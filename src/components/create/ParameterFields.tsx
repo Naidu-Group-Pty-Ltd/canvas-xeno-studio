@@ -8,6 +8,8 @@ import {
   type ModelRegistryEntry,
 } from "@/lib/model-schema";
 import { listProviderPresets } from "@/lib/generation.functions";
+import { soulVersionFor } from "@/lib/characters/model";
+import { SoulCharacterField } from "@/components/characters/SoulCharacterField";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -38,18 +40,34 @@ export function ParameterFields({
   issues,
   hiddenKeys,
 }: Props) {
+  // A Soul model's trained character is chosen by name in the main settings
+  // (in place of its raw ID among the advanced ones).
+  const soul = soulVersionFor(model.model_path);
+  const soulField = soul
+    ? (model.parameter_schema?.fields ?? []).find((field) => field.key === "custom_reference_id")
+    : undefined;
   const fields = (model.parameter_schema?.fields ?? []).filter(
     (field) =>
       Boolean(field.advanced) === advanced &&
       fieldVisible(field, values, inputRoles) &&
       field.key !== "prompt" &&
+      !(soulField && field.key === soulField.key) &&
       !hiddenKeys?.includes(field.key),
   );
+  const characterPicker = !advanced && soul && soulField;
 
-  if (!fields.length) return null;
+  if (!fields.length && !characterPicker) return null;
 
   return (
     <div className="space-y-5">
+      {characterPicker && (
+        <SoulCharacterField
+          version={soul}
+          value={values[soulField.key]}
+          onChange={(value) => onChange(soulField.key, value)}
+          issue={issues?.[soulField.key]}
+        />
+      )}
       {fields.map((field) => (
         <FieldControl
           key={field.key}
