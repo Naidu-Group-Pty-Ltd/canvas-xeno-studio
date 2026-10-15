@@ -640,7 +640,7 @@ function CreatePage() {
       setEstimate({
         kind: "metered",
         description:
-          "Each clip is priced just before it's made: with no image to stand in for its frames, clip 1 can't be priced until its opening keyframe is painted.",
+          "Each clip is priced just before it's made: with no image to stand in for its frames, clip 1 can't be priced until its opening keyframe is painted. The clips are tried with Higgsfield then, before any other keyframe is painted.",
       });
       return;
     }

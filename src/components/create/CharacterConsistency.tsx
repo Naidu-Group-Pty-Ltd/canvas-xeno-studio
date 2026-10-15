@@ -181,7 +181,8 @@ export function CharacterConsistency({
                 {draft.identityCheck && aiUnavailableReason && (
                   <p className="flex items-start gap-1 text-[11px] text-warning">
                     <AlertTriangle className="mt-0.5 size-3 shrink-0" />
-                    No AI model is set up ({aiUnavailableReason}), so clips can't be checked.
+                    No AI model is set up (add an AI key in Settings → AI), so clips can't be
+                    checked.
                   </p>
                 )}
               </div>

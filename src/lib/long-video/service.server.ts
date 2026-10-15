@@ -69,27 +69,23 @@ import {
   type RunReference,
 } from "./plan";
 import {
-  choosePainter,
   clipQuote,
   keyframeBeat,
-  keyframeCount,
   keyframeInputs,
   keyframePainters,
   keyframeQuote,
   keyframePrompt,
   KEYFRAME_PROMPT_MAX,
-  keyframeSize,
   movesBetweenFrames,
-  painterSlot,
   planKeyframes,
   painterValues,
   storedKeyframeSettings,
-  videoAspect,
   type KeyframeSettings,
   type KeyframesPlan,
 } from "./keyframes";
 import type { RunCharacter } from "../characters/model";
 import type { IdentityResult } from "../characters/identity.server";
+import type { ProviderCall } from "../higgsfield/provider.server";
 
 type RunRow = Database["public"]["Tables"]["long_videos"]["Row"];
 type ClipRow = Database["public"]["Tables"]["long_video_clips"]["Row"];
@@ -377,6 +373,7 @@ export async function startLongVideo(
   // Something new is asked of the models (characters' images, keyframes): each
   // kind of request is priced first (free), so one Higgsfield won't take stops
   // the run before anything is paid for.
+  let keptClipQuotes: KeptClipQuote[] = [];
   if (characters.length || keyframed) {
     const checked = await preflight({
       planned,
@@ -392,6 +389,7 @@ export async function startLongVideo(
     });
     if (checked.problem) throw new AppError("INVALID_PARAMETERS", checked.problem);
     if (keyframeSettings) keyframeSettings.unitUsd = checked.keyframeUsd;
+    keptClipQuotes = checked.kept;
   }
 
   const { data: run, error } = await db
@@ -425,7 +423,10 @@ export async function startLongVideo(
       ...(painter && keyframeSettings
         ? {
             keyframe_model_id: painter.id,
-            keyframe_settings: keyframeSettings,
+            // With the clip requests kept to try once the opening keyframe is painted, if any.
+            keyframe_settings: keptClipQuotes.length
+              ? { ...keyframeSettings, clipQuotes: keptClipQuotes }
+              : keyframeSettings,
             storyboard_review: request.keyframes?.review !== false,
           }
         : {}),
@@ -506,23 +507,12 @@ export async function startLongVideo(
 }
 
 /**
- * Prices (free) one of each kind of request a run with characters or
- * keyframes will send: a keyframe, the first clip, a later clip and the last
- * one, a stand-in image where a frame will go. One Higgsfield refuses as set
- * up stops the run before anything is paid for; one it just couldn't price
- * doesn't. Gives one keyframe's price too.
+ * Asks Higgsfield to price requests as they would be sent (free), each image
+ * uploaded once. A request whose images can't be read isn't asked (null).
  */
-async function preflight(input: {
-  planned: PlannedClip[];
-  painter: ModelRegistryEntry | null;
-  keyframeSettings: KeyframeSettings | null;
-  characters: RunCharacter[];
-  references: RunReference[];
-  standIn: string | null;
-}): Promise<{ problem: string | null; keyframeUsd: number | null }> {
-  const { standIn, planned, painter, keyframeSettings } = input;
+async function quoteAsker() {
   const { providerMediaUrl } = await import("../generation-pipeline.server");
-  const { higgsfieldProvider, extractCost } = await import("../higgsfield/provider.server");
+  const { higgsfieldProvider } = await import("../higgsfield/provider.server");
   const { providerPayload } = await import("../model-schema");
 
   const urls = new Map<string, string>();
@@ -548,11 +538,11 @@ async function preflight(input: {
     }
   }
   /** Higgsfield's answer to a request priced as it would be sent (null: couldn't be asked). */
-  async function ask(
+  return async function ask(
     model: ModelRegistryEntry,
     parameters: Record<string, unknown>,
     inputs: { assetId: string; role: string }[],
-  ) {
+  ): Promise<ProviderCall<unknown> | null> {
     const media: { role: string; url: string }[] = [];
     for (const item of inputs) {
       const url = await urlOf(item.assetId);
@@ -560,9 +550,60 @@ async function preflight(input: {
       media.push({ role: item.role, url });
     }
     return higgsfieldProvider.estimate(model.model_path, providerPayload(model, parameters, media));
-  }
-  const refused = (call: Awaited<ReturnType<typeof ask>>) =>
-    !!call && !call.ok && call.errorCode === "INVALID_PARAMETERS";
+  };
+}
+
+/** Higgsfield refused the request as set up (not just couldn't price it). */
+function refusedQuote(call: ProviderCall<unknown> | null): boolean {
+  return !!call && !call.ok && call.errorCode === "INVALID_PARAMETERS";
+}
+
+/**
+ * Where a frame goes in a clip request kept to be tried later: the opening
+ * keyframe takes its place once it is painted (see tryKeptClips).
+ */
+const STAND_IN = "stand-in";
+
+/** A clip request kept (long_videos.keyframe_settings.clipQuotes) to be tried once a frame exists. */
+type KeptClipQuote = {
+  position: number;
+  modelId: string;
+  values: Record<string, unknown>;
+  inputs: { assetId: string; role: string }[];
+};
+
+/** The first clip, a later one and the last, as each will be sent with `standIn` where a frame goes. */
+function clipQuotes(planned: PlannedClip[], standIn: string) {
+  const positions = [...new Set([0, 1, planned.length - 1])].filter(
+    (position) => position >= 0 && position < planned.length,
+  );
+  return positions.flatMap((position) => {
+    // A clip given the clip before itself can't be tried with a stand-in.
+    const request = clipQuote(planned[position]!, standIn);
+    return request ? [{ position, ...request }] : [];
+  });
+}
+
+/**
+ * Prices (free) one of each kind of request a run with characters or
+ * keyframes will send: a keyframe, the first clip, a later clip and the last
+ * one, a stand-in image where a frame will go. One Higgsfield refuses as set
+ * up stops the run before anything is paid for; one it just couldn't price
+ * doesn't. Gives one keyframe's price too. With no image to stand in at all,
+ * a keyframed run's clip requests are kept (`kept`) and tried once its
+ * opening keyframe is painted, before the rest are.
+ */
+async function preflight(input: {
+  planned: PlannedClip[];
+  painter: ModelRegistryEntry | null;
+  keyframeSettings: KeyframeSettings | null;
+  characters: RunCharacter[];
+  references: RunReference[];
+  standIn: string | null;
+}): Promise<{ problem: string | null; keyframeUsd: number | null; kept: KeptClipQuote[] }> {
+  const { standIn, planned, painter, keyframeSettings } = input;
+  const { extractCost } = await import("../higgsfield/provider.server");
+  const ask = await quoteAsker();
 
   let keyframeUsd: number | null = null;
   if (painter && keyframeSettings) {
@@ -574,35 +615,79 @@ async function preflight(input: {
       references: input.references,
     });
     const call = await ask(sample.model, sample.values, sample.inputs);
-    if (refused(call))
+    if (refusedQuote(call))
       return {
         problem: `Keyframes: ${painter.display_name} won't take them as set up (${call!.errorMessage})`,
         keyframeUsd: null,
+        kept: [],
       };
     keyframeUsd = call?.ok ? extractCost(call.data) : null;
   }
 
-  // The clips need an image where their frames go; with none at all, each is
-  // priced just before it is made.
-  if (!standIn) return { problem: null, keyframeUsd };
+  // The clips need an image where their frames go. With none at all, a
+  // keyframed run keeps them to try with its opening keyframe; otherwise each
+  // is priced just before it is made.
+  if (!standIn)
+    return {
+      problem: null,
+      keyframeUsd,
+      kept: painter
+        ? clipQuotes(planned, STAND_IN).map(({ position, model, values, inputs }) => ({
+            position,
+            modelId: model.id,
+            values,
+            inputs,
+          }))
+        : [],
+    };
 
-  // The first clip, a later one and the last, as each will be sent.
-  const positions = [...new Set([0, 1, planned.length - 1])].filter(
-    (position) => position >= 0 && position < planned.length,
-  );
-  for (const position of positions) {
-    const clip = planned[position]!;
-    // A clip given the clip before itself can't be tried with a stand-in.
-    const request = clipQuote(clip, standIn);
-    if (!request) continue;
+  for (const request of clipQuotes(planned, standIn)) {
     const call = await ask(request.model, request.values, request.inputs);
-    if (refused(call))
+    if (refusedQuote(call))
       return {
-        problem: `Clip ${position + 1}: ${clip.model.display_name} won't take it as set up (${call!.errorMessage})`,
+        problem: `Clip ${request.position + 1}: ${request.model.display_name} won't take it as set up (${call!.errorMessage})`,
         keyframeUsd,
+        kept: [],
       };
   }
-  return { problem: null, keyframeUsd };
+  return { problem: null, keyframeUsd, kept: [] };
+}
+
+/**
+ * Tries (free) the clip requests a keyframed run kept at its start because no
+ * image could stand in for their frames, with its opening keyframe in their
+ * place: one Higgsfield refuses as set up stops the run before more
+ * keyframes are painted (and paid for) for clips that couldn't be made. Done
+ * once, whatever comes of it. The problem, or null.
+ */
+async function tryKeptClips(run: RunRow, keyframes: KeyframeRow[]): Promise<string | null> {
+  const settings = (run.keyframe_settings ?? {}) as Json;
+  const kept = Array.isArray(settings["clipQuotes"])
+    ? (settings["clipQuotes"] as KeptClipQuote[])
+    : [];
+  const opening = keyframes.find((keyframe) => keyframe.position === 0);
+  if (!kept.length || opening?.status !== "completed" || !opening.asset_id) return null;
+  const frame = opening.asset_id;
+  const ask = await quoteAsker();
+  let problem: string | null = null;
+  for (const quote of kept) {
+    const model = await loadModel(quote.modelId);
+    if (!model) continue;
+    const inputs = quote.inputs.map((item) =>
+      item.assetId === STAND_IN ? { ...item, assetId: frame } : item,
+    );
+    const call = await ask(model, quote.values, inputs);
+    if (refusedQuote(call)) {
+      problem = `Clip ${quote.position + 1}: ${model.display_name} won't take it as set up (${call!.errorMessage})`;
+      break;
+    }
+  }
+  // Tried: a later step doesn't ask again.
+  await db
+    .from("long_videos")
+    .update({ keyframe_settings: { ...settings, clipQuotes: [] } as never })
+    .eq("id", run.id);
+  return problem;
 }
 
 /* ------------------------------------------------------------------ */
@@ -2018,6 +2103,36 @@ async function checkFrames(
 }
 
 /**
+ * Deletes the frames taken from inside a clip for its check, once the check
+ * has its verdict: they were kept out of the library and only the check read
+ * them. Its last frame (the next clip's start, a library image) is never one
+ * of them. One that can't be deleted now is only logged.
+ */
+async function dropCheckFrames(clip: Pick<ClipRow, "id" | "check_task_id">): Promise<void> {
+  if (!clip.check_task_id) return;
+  const { data: task, error } = await db
+    .from("media_tasks")
+    .select("output_payload")
+    .eq("id", clip.check_task_id)
+    .maybeSingle();
+  const files = ((task?.output_payload ?? {}) as Json)["files"];
+  if (error || !Array.isArray(files)) return;
+  const byBucket = new Map<string, string[]>();
+  for (const file of files as Record<string, unknown>[])
+    if (typeof file["bucket"] === "string" && typeof file["path"] === "string")
+      byBucket.set(file["bucket"], [...(byBucket.get(file["bucket"]) ?? []), file["path"]]);
+  for (const [bucket, paths] of byBucket) {
+    const { error: removeError } = await db.storage.from(bucket).remove(paths);
+    if (removeError)
+      console.error("check frames not deleted", {
+        clipId: clip.id,
+        bucket,
+        message: removeError.message,
+      });
+  }
+}
+
+/**
  * The check itself, under a lease: only one worker runs it at a time, a run
  * cut short is taken up again once its lease lapses (that isn't a failure),
  * and only the worker holding the lease writes the answer.
@@ -2026,11 +2141,14 @@ async function runClipCheck(run: RunRow, clip: ClipRow, deadline: number | null)
   if (!leaseFree(clip.check_claimed_at)) return false;
   const time = checkTime(deadline);
   if (time === null) return false;
-  if (clip.check_claims >= MAX_CHECK_CLAIMS)
-    return settleCheck("long_video_clips", clip, clip.check_claimed_at, {
+  if (clip.check_claims >= MAX_CHECK_CLAIMS) {
+    const ended = await settleCheck("long_video_clips", clip, clip.check_claimed_at, {
       check_status: "unavailable",
       check_result: { error: "The check kept being cut short" },
     });
+    if (ended) await dropCheckFrames(clip);
+    return ended;
+  }
   const claim = now();
   const leased = db
     .from("long_video_clips")
@@ -2067,6 +2185,7 @@ async function runClipCheck(run: RunRow, clip: ClipRow, deadline: number | null)
   // Only a verdict that was written stops the run (the lease may have lapsed).
   const settled = await settleCheck("long_video_clips", clip, claim, patch);
   if (!settled) return false;
+  if (patch.check_status !== "checking") await dropCheckFrames(clip);
   if (patch.check_status === "flagged") {
     const result = patch.check_result as unknown as IdentityResult;
     await pause(
@@ -2255,10 +2374,24 @@ async function stepStoryboard(
       .select("id");
     return !!lifted?.length;
   }
+  // Clips that couldn't be tried when the video started (no image could stand
+  // in for their frames) are tried with the opening keyframe before the next
+  // one is painted.
+  if (current.status === "waiting" && current.position > 0) {
+    const refused = await tryKeptClips(run, keyframes);
+    if (refused) {
+      await pause(
+        run,
+        "CLIP_REFUSED",
+        `${refused}. Nothing more is painted for it: stop this video and start it again set up another way.`,
+      );
+      return false;
+    }
+  }
   const previous = keyframes.find((keyframe) => keyframe.position === current.position - 1) ?? null;
   switch (current.status) {
     case "waiting":
-      return startKeyframe(run, current, previous, clips, keyframes.length);
+      return startKeyframe(run, current, previous, clips);
     case "submitting":
       return recoverKeyframeClaim(current);
     case "generating":
@@ -2336,7 +2469,6 @@ async function startKeyframe(
   keyframe: KeyframeRow,
   previous: KeyframeRow | null,
   clips: ClipRow[],
-  count: number,
 ): Promise<boolean> {
   // Claimed as read (its attempt too): the request key below is this attempt's.
   const { data: claimed } = await db
@@ -2378,7 +2510,6 @@ async function startKeyframe(
   });
   const prompt = keyframePrompt({
     position: keyframe.position,
-    count,
     final: keyframe.position === clips.length,
     budget: Math.min(promptBudget(painter) ?? KEYFRAME_PROMPT_MAX, KEYFRAME_PROMPT_MAX),
     story: run.story,

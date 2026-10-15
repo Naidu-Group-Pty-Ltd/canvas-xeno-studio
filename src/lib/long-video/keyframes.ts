@@ -16,7 +16,6 @@ import {
   clipKeyframes,
   clipStart,
   continuationCandidates,
-  durationChoices,
   extendsVideo,
   finaleReveals,
   longVideoEligible,
@@ -310,8 +309,6 @@ function cut(text: string, max: number): string {
 export function keyframePrompt(input: {
   /** 0 for the opening frame, i for the frame clip i ends on. */
   position: number;
-  /** How many keyframes there are. */
-  count: number;
   /** It ends the video's last clip: the video's final moment. */
   final?: boolean;
   /** The most the painter reads (null: no limit). */
@@ -407,11 +404,6 @@ export function keyframePrompt(input: {
   if (prompt.length <= budget) return prompt;
   prompt = compose({ storyChars: 0, keepChars: 0, descriptionChars: 120 });
   return prompt.length <= budget ? prompt : cut(prompt, budget);
-}
-
-/** How long a keyframed video's clips may be: what its workflow accepts. */
-export function keyframeClipChoices(workflow: ModelRegistryEntry | null): number[] {
-  return workflow ? durationChoices(workflow) : [];
 }
 
 /** Frames up to this size are kept as lossless PNG; larger ones as best-quality JPEG. */

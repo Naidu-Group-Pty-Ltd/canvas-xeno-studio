@@ -101,6 +101,10 @@ export function SoulIdPanel({
         toast.warning(
           "Higgsfield's answer was unclear, so the training may or may not have started. Check Higgsfield before training again.",
         );
+      else if (result.status === "failed")
+        toast.error("Higgsfield couldn't train it. The reason is shown under Soul ID.");
+      else if (result.status === "ready")
+        toast.success(`Soul ID ready. Pick ${character.name} under Character in Create.`);
       else toast.success("Training started. It usually takes a few minutes.");
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "The training couldn't be started");

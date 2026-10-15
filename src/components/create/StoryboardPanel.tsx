@@ -172,11 +172,13 @@ export function StoryboardPanel({
                 ? "Redo the keyframe that didn't come back"
                 : flaggedStop
                   ? "Redo or keep the flagged keyframe"
-                  : painting
-                    ? "Painting the keyframes…"
-                    : run.status === "canceled"
-                      ? "Stopped: continue to paint the rest"
-                      : "Checking the keyframes…"}
+                  : run.error_code === "CLIP_REFUSED"
+                    ? "Stopped: a clip can't be made as set up"
+                    : painting
+                      ? "Painting the keyframes…"
+                      : run.status === "canceled"
+                        ? "Stopped: continue to paint the rest"
+                        : "Checking the keyframes…"}
           </Button>
         )}
       </div>

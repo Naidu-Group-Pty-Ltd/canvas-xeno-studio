@@ -994,7 +994,9 @@ export async function sweepSoulTrainings(
   jobDeadline: number | null = null,
 ): Promise<number> {
   const deadline = Math.min(Date.now() + SOUL_SWEEP_MS, jobDeadline ?? Number.POSITIVE_INFINITY);
-  // Trainings under way, starts cut short, and unclear trainings Higgsfield gave an id for.
+  // Trainings under way, starts cut short, and unclear trainings Higgsfield gave
+  // an id for; archived characters' too, as a training already paid for is
+  // still followed to its end and recorded.
   const since = new Date(Date.now() - UNCERTAIN_ASK_MS).toISOString();
   const { data, error } = await db
     .from("characters")
@@ -1002,7 +1004,6 @@ export async function sweepSoulTrainings(
     .or(
       `soul_status.in.(training,submitting),and(soul_status.eq.uncertain,soul_training_id.not.is.null,soul_requested_at.gt.${since})`,
     )
-    .is("archived_at", null)
     .order("soul_checked_at", { ascending: true, nullsFirst: true })
     .limit(limit);
   if (error) {
