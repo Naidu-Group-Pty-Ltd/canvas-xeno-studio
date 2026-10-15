@@ -594,7 +594,12 @@ async function logTrainingRequest(row: TrainingLogRow): Promise<void> {
     console.error("soul id training not logged", { key: row.request_key, message: error.message });
 }
 
-/** Keeps a training's log row in step with what was just written to its character. */
+/**
+ * Keeps a training's log row in step with what was just written to its
+ * character, tried again a few times: how a training ended is written once
+ * (nothing comes back to settle it again), so a passing database error
+ * mustn't leave Usage without it.
+ */
 async function logTraining(key: string | null | undefined, patch: CharacterUpdate): Promise<void> {
   if (!key) return;
   const row: TrainingLogUpdate = {
@@ -605,9 +610,13 @@ async function logTraining(key: string | null | undefined, patch: CharacterUpdat
     ...(patch.soul_error !== undefined ? { error: patch.soul_error } : {}),
   };
   if (!Object.keys(row).length) return;
-  const { error } = await db.from("soul_id_trainings").update(row).eq("request_key", key);
-  if (error && !isMissingTable(error))
-    console.error("soul id training log not updated", { key, message: error.message });
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const { error } = await db.from("soul_id_trainings").update(row).eq("request_key", key);
+    if (!error || isMissingTable(error)) return;
+    if (attempt === 3)
+      console.error("soul id training log not updated", { key, message: error.message });
+    else await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+  }
 }
 
 /**
