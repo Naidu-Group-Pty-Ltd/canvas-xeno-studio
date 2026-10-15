@@ -219,6 +219,14 @@ function RunCard({
     run.error_code === "CHARACTER_CHECK"
       ? run.clips.find((clip) => clip.check_status === "flagged")
       : undefined;
+  // Stops Continue can't get past, so it isn't offered: its keyframes were
+  // never recorded (its start was cut short), or Higgsfield refused one of its
+  // clips as set up. It is started again from Create instead.
+  const deadEnd =
+    run.error_code === "CLIP_REFUSED" ||
+    (!!run.keyframe_model_id &&
+      run.keyframes.length === 0 &&
+      run.error_code === "KEYFRAME_MISSING");
   const names = characterNames(run);
 
   async function act(name: string, work: () => Promise<unknown>, success?: string) {
@@ -646,6 +654,7 @@ function RunCard({
             </Button>
           )}
         {canManage &&
+          !deadEnd &&
           (run.status === "canceled" ||
             (run.status === "needs_attention" && !failedClip && !personPause)) &&
           done < run.clip_count && (
