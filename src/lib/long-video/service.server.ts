@@ -660,8 +660,9 @@ async function preflight(input: {
  * keyframes are painted (and paid for) for clips that couldn't be made. Done
  * once, whatever comes of it, and recorded as done before any more keyframes
  * are painted (`recorded`: not yet, so a later step tries them again first).
- * A refusal is recorded with the run's stop, in one write, so a step running
- * alongside never finds the requests tried and the run still going.
+ * A refusal stops the run in one write and keeps the requests, so neither a
+ * step running alongside nor a run reopened later (a keyframe redone) paints
+ * on past it: they're tried again first, with the opening keyframe as it is then.
  */
 async function tryKeptClips(
   run: RunRow,
@@ -689,20 +690,20 @@ async function tryKeptClips(
       break;
     }
   }
-  // Tried: a later step doesn't ask again. Only while the run is still going:
-  // one stopped meanwhile is left as it is.
+  // Refused: stopped, the requests kept. Otherwise tried, so a later step
+  // doesn't ask again. Either only while the run is still going: one stopped
+  // meanwhile is left as it is.
   const { data, error } = await db
     .from("long_videos")
-    .update({
-      keyframe_settings: { ...settings, clipQuotes: [] } as never,
-      ...(problem
+    .update(
+      problem
         ? {
             status: "needs_attention",
             error_code: "CLIP_REFUSED",
             error_message: `${problem}. Nothing more is painted for it: stop this video and start it again set up another way.`,
           }
-        : {}),
-    })
+        : { keyframe_settings: { ...settings, clipQuotes: [] } as never },
+    )
     .eq("id", run.id)
     .eq("status", "running")
     .select("id");
