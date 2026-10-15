@@ -29,6 +29,14 @@ interface LedgerRow {
   generation_id: string;
 }
 
+/** A Soul ID training (soul_id_trainings): billed by Higgsfield, which doesn't quote its price. */
+interface TrainingRow {
+  requested_at: string;
+  requested_by: string | null;
+  status: string;
+  sent_at: string | null;
+}
+
 function UsagePage() {
   const [days, setDays] = useState(30);
   const [modelFilter, setModelFilter] = useState("all");
@@ -41,17 +49,23 @@ function UsagePage() {
   const { data, isLoading } = useQuery({
     queryKey: ["usage", days],
     queryFn: async () => {
-      const [ledger, generations] = await Promise.all([
+      const [ledger, generations, trainings] = await Promise.all([
         supabase
           .from("usage_ledger")
           .select("created_at,estimated_cost_usd,actual_cost_usd,user_id,model_registry_id,generation_id")
           .gte("created_at", since)
           .order("created_at"),
         supabase.from("generations").select("id,status,created_at,model_registry_id,user_id").gte("created_at", since),
+        // None before the database has the training log (migration 0012).
+        supabase
+          .from("soul_id_trainings")
+          .select("requested_at,requested_by,status,sent_at")
+          .gte("requested_at", since),
       ]);
       return {
         ledger: (ledger.data ?? []) as LedgerRow[],
         generations: generations.data ?? [],
+        trainings: (trainings.data ?? []) as TrainingRow[],
       };
     },
   });
@@ -65,6 +79,17 @@ function UsagePage() {
     (row) =>
       (modelFilter === "all" || row.model_registry_id === modelFilter) &&
       (memberFilter === "all" || row.user_id === memberFilter),
+  );
+  // Trainings sent to Higgsfield (only those can have been billed). They aren't
+  // a generation model's, so a model chosen above leaves them out.
+  const trainings = useMemo(
+    () =>
+      modelFilter === "all"
+        ? (data?.trainings ?? []).filter(
+            (row) => !!row.sent_at && (memberFilter === "all" || row.requested_by === memberFilter),
+          )
+        : [],
+    [data, modelFilter, memberFilter],
   );
 
   const spendSince = (windowDays: number) => {
@@ -120,6 +145,24 @@ function UsagePage() {
     }
     return [...map.values()].sort((a, b) => b.spend - a.spend);
   }, [ledger, team]);
+
+  const trainingsByMember = useMemo(() => {
+    const map = new Map<
+      string,
+      { member: string; count: number; ready: number; failed: number; unclear: number }
+    >();
+    for (const row of trainings) {
+      const person = team.find((member) => member.id === row.requested_by);
+      const name = person?.full_name ?? person?.email ?? "Unknown";
+      const entry = map.get(name) ?? { member: name, count: 0, ready: 0, failed: 0, unclear: 0 };
+      entry.count += 1;
+      if (row.status === "ready") entry.ready += 1;
+      else if (row.status === "failed") entry.failed += 1;
+      else if (row.status === "uncertain") entry.unclear += 1;
+      map.set(name, entry);
+    }
+    return [...map.values()].sort((a, b) => b.count - a.count);
+  }, [trainings, team]);
 
   const counts = {
     completed: generations.filter((row) => row.status === "completed").length,
@@ -234,6 +277,23 @@ function UsagePage() {
               ]}
               head={["Media type", "Generations"]}
             />
+          </Panel>
+          <Panel title="Soul ID trainings">
+            <Table
+              rows={trainingsByMember.map((row) => [
+                row.member,
+                String(row.count),
+                String(row.ready),
+                String(row.failed),
+                String(row.unclear),
+              ])}
+              head={["Member", "Trainings", "Ready", "Failed", "Unclear"]}
+            />
+            <p className="mt-3 text-xs text-muted-foreground">
+              Billed by Higgsfield, which doesn't quote a training's price, so they aren't in the
+              spend figures above.
+              {modelFilter === "all" ? "" : " Shown with All models only."}
+            </p>
           </Panel>
         </div>
       </div>

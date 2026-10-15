@@ -575,6 +575,38 @@ const SOUL_ASK_MS = 20_000;
 const SOUL_SWEEP_MS = 30_000;
 
 type CharacterUpdate = Database["public"]["Tables"]["characters"]["Update"];
+type TrainingLogRow = Database["public"]["Tables"]["soul_id_trainings"]["Insert"];
+type TrainingLogUpdate = Database["public"]["Tables"]["soul_id_trainings"]["Update"];
+
+/** Where a training has come to an end (for now: an unclear one may still turn out ready). */
+const SETTLED_TRAINING = new Set(["ready", "failed", "uncertain"]);
+
+/**
+ * Starts a training's row in the training log (soul_id_trainings, what Usage
+ * counts), as it is claimed: not sent yet, so nothing billed. Never in the
+ * way: a failed write, or a database without the log yet, is only logged.
+ */
+async function logTrainingRequest(row: TrainingLogRow): Promise<void> {
+  const { error } = await db.from("soul_id_trainings").insert(row);
+  if (error && !isMissingTable(error))
+    console.error("soul id training not logged", { key: row.request_key, message: error.message });
+}
+
+/** Keeps a training's log row in step with what was just written to its character. */
+async function logTraining(key: string | null | undefined, patch: CharacterUpdate): Promise<void> {
+  if (!key) return;
+  const row: TrainingLogUpdate = {
+    ...(patch.soul_status ? { status: patch.soul_status } : {}),
+    ...(patch.soul_status && SETTLED_TRAINING.has(patch.soul_status) ? { settled_at: now() } : {}),
+    ...(patch.soul_submitted_at ? { sent_at: patch.soul_submitted_at } : {}),
+    ...(patch.soul_training_id !== undefined ? { training_id: patch.soul_training_id } : {}),
+    ...(patch.soul_error !== undefined ? { error: patch.soul_error } : {}),
+  };
+  if (!Object.keys(row).length) return;
+  const { error } = await db.from("soul_id_trainings").update(row).eq("request_key", key);
+  if (error && !isMissingTable(error))
+    console.error("soul id training log not updated", { key, message: error.message });
+}
 
 /**
  * Writes what a training request came to, to its own row only (its request
@@ -599,6 +631,7 @@ async function settleTraining(
         status: patch.soul_status,
         trainingId: patch.soul_training_id,
       });
+      await logTraining(key, patch);
       return;
     }
     if (attempt === 3) {
@@ -667,6 +700,7 @@ export async function trainSoulId(input: {
   // follows: a second click (or a second person) finds it taken, and the
   // provider sees the same key on a repeat.
   const key = crypto.randomUUID();
+  const requestedAt = now();
   const claim = db
     .from("characters")
     .update({
@@ -675,7 +709,7 @@ export async function trainSoulId(input: {
       soul_training_version: input.version,
       soul_training_id: null,
       soul_error: null,
-      soul_requested_at: now(),
+      soul_requested_at: requestedAt,
       soul_submitted_at: null,
       soul_checked_at: null,
       soul_image_count: usable.length,
@@ -690,6 +724,15 @@ export async function trainSoulId(input: {
   if (claimError) fail(claimError, "The training couldn't be recorded");
   if (!claimed?.length)
     throw new AppError("INVALID_PARAMETERS", "Someone just started training this character");
+  await logTrainingRequest({
+    request_key: key,
+    character_id: input.characterId,
+    character_name: character.name,
+    requested_by: input.userId,
+    model_version: input.version,
+    image_count: usable.length,
+    requested_at: requestedAt,
+  });
 
   const settle = (patch: CharacterUpdate) => settleTraining(input.characterId, key, patch);
 
@@ -715,9 +758,10 @@ export async function trainSoulId(input: {
 
   // Marked sent just before it is: a start the sweep has meanwhile given up
   // on (as cut short, nothing charged) is never sent after all.
+  const sentAt = now();
   const { data: sending } = await db
     .from("characters")
-    .update({ soul_submitted_at: now() })
+    .update({ soul_submitted_at: sentAt })
     .eq("id", input.characterId)
     .eq("soul_request_key", key)
     .eq("soul_status", "submitting")
@@ -727,6 +771,7 @@ export async function trainSoulId(input: {
       "UNKNOWN",
       "The training was stopped before it was sent to Higgsfield, so nothing was charged. Try again.",
     );
+  await logTraining(key, { soul_submitted_at: sentAt });
 
   const { createCustomReference, readCustomReference } =
     await import("../higgsfield/provider.server");
@@ -816,21 +861,20 @@ export async function refreshSoulId(
     const sent = row.soul_submitted_at;
     const since = Date.now() - new Date(sent ?? row.soul_requested_at ?? 0).getTime();
     if (since <= (sent ? SENT_STALE_MS : UNSENT_STALE_MS)) return { status: "submitting" };
+    const patch: CharacterUpdate = sent
+      ? {
+          soul_status: "uncertain",
+          soul_error:
+            "The training's start was interrupted after it was sent, so it may or may not be training.",
+        }
+      : {
+          soul_status: "failed",
+          soul_error:
+            "The training's start was interrupted before it reached Higgsfield, so nothing was charged. Try again.",
+        };
     const update = db
       .from("characters")
-      .update(
-        sent
-          ? {
-              soul_status: "uncertain",
-              soul_error:
-                "The training's start was interrupted after it was sent, so it may or may not be training.",
-            }
-          : {
-              soul_status: "failed",
-              soul_error:
-                "The training's start was interrupted before it reached Higgsfield, so nothing was charged. Try again.",
-            },
-      )
+      .update(patch)
       .eq("id", characterId)
       .eq("soul_status", "submitting");
     // Only as it was read: a start marked sent meanwhile is not failed as unsent.
@@ -838,6 +882,7 @@ export async function refreshSoulId(
       sent ? update.not("soul_submitted_at", "is", null) : update.is("soul_submitted_at", null),
     ).select("id");
     if (!settled?.length) return { status: "submitting" };
+    await logTraining(row.soul_request_key, patch);
     return { status: sent ? "uncertain" : "failed" };
   }
   // A training is asked about while it runs; one whose answer was unclear but
@@ -857,8 +902,12 @@ export async function refreshSoulId(
   )
     return { status: row.soul_status };
   const from = row.soul_status;
-  const update = (patch: CharacterUpdate) =>
-    fenced(db.from("characters").update(patch).eq("id", characterId).eq("soul_status", from));
+  const update = async (patch: CharacterUpdate) => {
+    const { data: written } = await fenced(
+      db.from("characters").update(patch).eq("id", characterId).eq("soul_status", from),
+    ).select("id");
+    if (written?.length) await logTraining(row.soul_request_key, patch);
+  };
 
   const { getCustomReference, readCustomReference } = await import("../higgsfield/provider.server");
   const call = await getCustomReference(row.soul_training_id!);
@@ -979,6 +1028,7 @@ export async function attachSoulId(input: {
     trainingId: reference.id,
     status: reference.state,
   });
+  await logTraining(character.soul_request_key, patch);
   return { status: reference.state };
 }
 

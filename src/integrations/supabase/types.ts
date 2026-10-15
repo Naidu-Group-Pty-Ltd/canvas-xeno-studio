@@ -4618,6 +4618,72 @@ export type Database = {
           },
         ]
       }
+      soul_id_trainings: {
+        Row: {
+          character_id: string | null
+          character_name: string
+          error: string | null
+          id: string
+          image_count: number
+          model_version: string
+          request_key: string
+          requested_at: string
+          requested_by: string | null
+          sent_at: string | null
+          settled_at: string | null
+          status: string
+          training_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          character_id?: string | null
+          character_name?: string
+          error?: string | null
+          id?: string
+          image_count?: number
+          model_version: string
+          request_key: string
+          requested_at?: string
+          requested_by?: string | null
+          sent_at?: string | null
+          settled_at?: string | null
+          status?: string
+          training_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          character_id?: string | null
+          character_name?: string
+          error?: string | null
+          id?: string
+          image_count?: number
+          model_version?: string
+          request_key?: string
+          requested_at?: string
+          requested_by?: string | null
+          sent_at?: string | null
+          settled_at?: string | null
+          status?: string
+          training_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "soul_id_trainings_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "soul_id_trainings_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       storyboards: {
         Row: {
           campaign_id: string | null
