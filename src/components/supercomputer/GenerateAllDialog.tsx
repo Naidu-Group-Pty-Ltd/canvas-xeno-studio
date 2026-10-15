@@ -52,13 +52,17 @@ export function GenerateAllDialog({ open, onOpenChange, messageId, drafts, conte
 
   const values = [...quotes.values()];
   const loading = values.some((quote) => quote.kind === "loading");
-  const total = values.reduce(
-    (sum, quote) => sum + (quote.kind === "ready" ? quote.costUsd : 0),
-    0,
-  );
   const allowed = drafts.filter((entry) =>
     estimateAllows(quotes.get(entry.index) ?? null, runner.requireEstimate),
   );
+  // Only the drafts that will run are counted: one skipped for want of an
+  // estimate (e.g. keyframes Higgsfield didn't price) costs nothing.
+  const counted = allowed.map((entry) => quotes.get(entry.index));
+  const total = counted.reduce(
+    (sum, quote) => sum + (quote?.kind === "ready" ? quote.costUsd : 0),
+    0,
+  );
+  const unpriced = counted.some((quote) => quote?.kind === "ready" && !!quote.unpriced);
   // A long video's clips as planned now (its quote plans it against the current catalogue).
   const longClips = (index: number) => {
     const quote = quotes.get(index);
@@ -110,9 +114,7 @@ export function GenerateAllDialog({ open, onOpenChange, messageId, drafts, conte
                 <span className="font-mono text-foreground">
                   {loading ? "Calculating…" : `$${total.toFixed(2)}`}
                 </span>
-                {!loading && values.some((quote) => quote.kind === "ready" && quote.unpriced)
-                  ? " plus keyframes Higgsfield didn't price"
-                  : ""}
+                {!loading && unpriced ? " plus keyframes Higgsfield didn't price" : ""}
                 {allowed.length < drafts.length && !loading
                   ? ` · ${drafts.length - allowed.length} without a valid estimate will be skipped`
                   : ""}

@@ -141,8 +141,8 @@ export function slotLabel(slot: Pick<InputSlot, "role" | "label">): string {
   return slot.label ?? SLOT_ROLE_LABELS[slot.role] ?? slot.role;
 }
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const UUID_EXAMPLE = "3db34ab5-3439-4317-9e03-08dc30852e69";
+export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const UUID_EXAMPLE = "3db34ab5-3439-4317-9e03-08dc30852e69";
 
 const MEDIA_NOUNS: Record<InputMediaType, string> = {
   image: "an image",

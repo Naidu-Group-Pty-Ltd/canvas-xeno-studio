@@ -179,3 +179,17 @@ export const refreshSoulId = createServerFn({ method: "POST" })
     await activeMember(context.userId);
     return (await service()).refreshSoulId(data.characterId);
   });
+
+/**
+ * Gives a training whose answer was unclear the Soul ID a person found at
+ * Higgsfield (checked with Higgsfield first; nothing is trained or charged).
+ */
+export const attachSoulId = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) =>
+    z.object({ characterId: id, referenceId: z.string().trim().uuid() }).parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    await assertCanEdit(context.userId, data.characterId);
+    return (await service()).attachSoulId(data);
+  });

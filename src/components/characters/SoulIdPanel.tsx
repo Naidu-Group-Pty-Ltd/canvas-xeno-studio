@@ -4,14 +4,16 @@ import { formatDistanceToNow } from "date-fns";
 import { AlertTriangle, CheckCircle2, Fingerprint, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import type { CharacterEntry } from "@/hooks/useCharacters";
-import { refreshSoulId, trainSoulId } from "@/lib/characters.functions";
+import { attachSoulId, refreshSoulId, trainSoulId } from "@/lib/characters.functions";
 import {
   CHARACTER_LIMITS,
   SOUL_VERSION_LABELS,
   SOUL_VERSIONS,
   type SoulVersion,
 } from "@/lib/characters/model";
+import { UUID, UUID_EXAMPLE } from "@/lib/model-schema";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -54,7 +56,16 @@ export function SoulIdPanel({
   );
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
-  // One training per click: a second click while the first is on its way does nothing.
+  // An unclear training's Soul ID, as found at Higgsfield (its id, if Higgsfield gave one).
+  // A new training (its own request key) starts it afresh, so an earlier
+  // attempt's id is never offered for it; edits within one attempt are kept.
+  const [referenceId, setReferenceId] = useState(character.soul_training_id ?? "");
+  const [referenceFor, setReferenceFor] = useState(character.soul_request_key);
+  if (referenceFor !== character.soul_request_key) {
+    setReferenceFor(character.soul_request_key);
+    setReferenceId(character.soul_training_id ?? "");
+  }
+  // One training (or Soul ID given) per click: a second click while the first is on its way does nothing.
   const lock = useRef(false);
   const status = character.soul_status;
   const images = character.images.length;
@@ -93,6 +104,29 @@ export function SoulIdPanel({
       else toast.success("Training started. It usually takes a few minutes.");
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "The training couldn't be started");
+    } finally {
+      lock.current = false;
+      setBusy(false);
+      void queryClient.invalidateQueries({ queryKey: ["characters"] });
+    }
+  }
+
+  /** Gives an unclear training the Soul ID found at Higgsfield (asked about first; nothing is charged). */
+  async function attach() {
+    if (lock.current) return;
+    lock.current = true;
+    setBusy(true);
+    try {
+      const result = await attachSoulId({
+        data: { characterId: character.id, referenceId: referenceId.trim() },
+      });
+      if (result.status === "ready")
+        toast.success(`Soul ID in use. Pick ${character.name} under Character in Create.`);
+      else if (result.status === "failed")
+        toast.warning("Higgsfield says that training failed, so it can be trained again.");
+      else toast.success("Found it: it's still training, and comes into use once it's ready.");
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "The Soul ID couldn't be given");
     } finally {
       lock.current = false;
       setBusy(false);
@@ -169,6 +203,47 @@ export function SoulIdPanel({
           </p>
         )}
       </div>
+
+      {canEdit && status === "uncertain" && (
+        <form
+          className="flex flex-wrap items-end gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void attach();
+          }}
+          data-testid="character-attach-soul"
+        >
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <Label htmlFor={`soul-id-${character.id}`} className="text-xs">
+              Found it at Higgsfield? Its Soul ID
+            </Label>
+            <Input
+              id={`soul-id-${character.id}`}
+              value={referenceId}
+              onChange={(event) => setReferenceId(event.target.value)}
+              placeholder={UUID_EXAMPLE}
+              autoComplete="off"
+              spellCheck={false}
+              className="h-9 font-mono text-xs"
+            />
+          </div>
+          <Button
+            type="submit"
+            size="sm"
+            variant="outline"
+            className="h-9"
+            disabled={busy || !UUID.test(referenceId.trim())}
+          >
+            {busy && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
+            Use this Soul ID
+          </Button>
+          <p className="basis-full text-[11px] text-muted-foreground">
+            Higgsfield is asked about it first, which is free. It's used
+            {trainingVersion ? ` for ${SOUL_VERSION_LABELS[trainingVersion]}` : ""} once it's ready,
+            and nothing is trained or charged again.
+          </p>
+        </form>
+      )}
 
       {canEdit && !active && (
         <div className="flex flex-wrap items-end gap-2">

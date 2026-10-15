@@ -1822,14 +1822,17 @@ async function startSampling(run: RunRow, clip: ClipRow): Promise<boolean> {
 }
 
 async function enqueueSampling(run: RunRow, clip: ClipRow, claim: string): Promise<boolean> {
-  const { data: video } = clip.output_asset_id
+  const { data: video, error: videoError } = clip.output_asset_id
     ? await db
         .from("assets")
         .select("id,storage_bucket,storage_path,mime_type")
         .eq("id", clip.output_asset_id)
         .is("deleted_at", null)
         .maybeSingle()
-    : { data: null };
+    : { data: null, error: null };
+  // Not read just now: this claim lapses and the frames are asked for again
+  // (followSampling), rather than the clip being checked without them.
+  if (videoError) return false;
   const length = Number(clip.output_duration_seconds ?? clip.duration_seconds);
   // Without its video (or its length), the check looks at its last frame alone.
   if (!video || !(length > 0.5)) return checkWithoutSamples(clip, claim);
@@ -1911,11 +1914,13 @@ async function followSampling(run: RunRow, clip: ClipRow): Promise<boolean> {
     const next = reclaimed?.[0];
     return next ? enqueueSampling(run, next, claim) : true;
   }
-  const { data: task } = await db
+  const { data: task, error: taskError } = await db
     .from("media_tasks")
     .select("id,status,created_at,updated_at")
     .eq("id", clip.check_task_id)
     .maybeSingle();
+  // Not read just now: asked again on a later step, not taken for frames that didn't come.
+  if (taskError) return false;
   if (task?.status === "completed") {
     const { data } = await db
       .from("long_video_clips")
@@ -1968,17 +1973,22 @@ async function followSampling(run: RunRow, clip: ClipRow): Promise<boolean> {
   return !!data?.length;
 }
 
-/** The frames a clip is checked on: those taken from inside it, then its last frame. */
+/**
+ * The frames a clip is checked on: those taken from inside it, then its last
+ * frame. Null when they couldn't be read just now (the database, not the
+ * clip), so the check is tried again rather than done without them.
+ */
 async function checkFrames(
   clip: ClipRow,
-): Promise<{ bucket: string; path: string; label: string }[]> {
+): Promise<{ bucket: string; path: string; label: string }[] | null> {
   const frames: { bucket: string; path: string; label: string }[] = [];
   if (clip.check_task_id) {
-    const { data: task } = await db
+    const { data: task, error } = await db
       .from("media_tasks")
       .select("status,output_payload")
       .eq("id", clip.check_task_id)
       .maybeSingle();
+    if (error) return null;
     const files = ((task?.output_payload ?? {}) as Json)["files"];
     if (task?.status === "completed" && Array.isArray(files))
       for (const [index, file] of (files as Record<string, unknown>[]).entries())
@@ -1990,12 +2000,13 @@ async function checkFrames(
           });
   }
   if (clip.handoff_asset_id) {
-    const { data: last } = await db
+    const { data: last, error } = await db
       .from("assets")
       .select("storage_bucket,storage_path")
       .eq("id", clip.handoff_asset_id)
       .is("deleted_at", null)
       .maybeSingle();
+    if (error) return null;
     if (last)
       frames.push({
         bucket: last.storage_bucket,
@@ -2036,20 +2047,22 @@ async function runClipCheck(run: RunRow, clip: ClipRow, deadline: number | null)
 
   const frames = await checkFrames(clip);
   const { checkIdentity } = await import("../characters/identity.server");
-  const outcome = frames.length
-    ? await checkIdentity({
-        characters: castFor(run, clip.beat),
-        frames,
-        what: clipLabel(clip).toLowerCase(),
-        beat: clip.beat,
-        timeoutMs: time,
-      })
-    : ({
-        ok: false,
-        code: "NO_FRAMES",
-        message: "No frames of it could be read",
-        retryable: false,
-      } as const);
+  const outcome = !frames
+    ? FRAMES_UNREAD
+    : frames.length
+      ? await checkIdentity({
+          characters: castFor(run, clip.beat),
+          frames,
+          what: clipLabel(clip).toLowerCase(),
+          beat: clip.beat,
+          timeoutMs: time,
+        })
+      : ({
+          ok: false,
+          code: "NO_FRAMES",
+          message: "No frames of it could be read",
+          retryable: false,
+        } as const);
   const patch = checkPatch(outcome, clip.check_attempts, time);
   // Only a verdict that was written stops the run (the lease may have lapsed).
   const settled = await settleCheck("long_video_clips", clip, claim, patch);
@@ -2075,17 +2088,33 @@ type CheckPatch = {
   checked_at?: string;
 };
 
+/**
+ * A check whose frames couldn't be read just now (a database error): never
+ * taken for a clip or keyframe with nothing to check, which would let the
+ * next paid clip go ahead unchecked.
+ */
+const FRAMES_UNREAD = {
+  ok: false,
+  code: "FRAMES_UNREAD",
+  message: "Its frames couldn't be read just now",
+  retryable: true,
+} as const;
+
 /** What a check's outcome writes: its verdict, or a try again in a little while, or "unavailable". */
 function checkPatch(
   outcome: Awaited<ReturnType<typeof import("../characters/identity.server").checkIdentity>>,
   attempts: number,
   time: number,
 ): CheckPatch {
-  // Cut short only by the time this pass had left: not the AI failing, so
-  // tried again by the next pass at once; the lease it took still counts, so
-  // a check that never fits ends as "unavailable" (MAX_CHECK_CLAIMS) and the
-  // run goes on.
-  if (!outcome.ok && outcome.code === "REASONING_TIMEOUT" && time < CHECK_TIME_MS)
+  // Cut short only by the time this pass had left, or its frames not read
+  // just now: not the AI failing, so tried again by the next pass at once;
+  // the lease it took still counts, so a check that never gets through ends
+  // as "unavailable" (MAX_CHECK_CLAIMS) and the run goes on.
+  if (
+    !outcome.ok &&
+    ((outcome.code === "REASONING_TIMEOUT" && time < CHECK_TIME_MS) ||
+      outcome.code === FRAMES_UNREAD.code)
+  )
     return {
       check_status: "checking",
       check_result: { error: outcome.message, code: outcome.code },
@@ -2194,6 +2223,37 @@ async function stepStoryboard(
     });
     if (error) throw new Error(`The keyframes couldn't be approved: ${error.message}`);
     return (data as { outcome?: string } | null)?.outcome === "approved";
+  }
+  // Each keyframe is painted from the one before: one the check flagged is
+  // looked at (redone, or kept) before any more are painted, and paid for,
+  // from it. One already being painted still finishes.
+  const flagged = keyframes.find(
+    (keyframe) => keyframe.position < current.position && keyframe.check_status === "flagged",
+  );
+  if (flagged && current.status === "waiting") {
+    const result = (flagged.check_result ?? {}) as Partial<IdentityResult>;
+    await pause(
+      run,
+      "KEYFRAME_CHECK",
+      `${keyframeLabel(flagged)}: ${result.summary ?? "a character looks different"}. Redo it, or keep it, before the rest are painted from it.`,
+    );
+    // Kept (or redone) after these keyframes were read, so before the pause
+    // landed: Keep found the run still going and had nothing to lift, so the
+    // pause is lifted here and the storyboard goes on.
+    const { data: still } = await db
+      .from("long_video_keyframes")
+      .select("check_status")
+      .eq("id", flagged.id)
+      .maybeSingle();
+    if (!still || still.check_status === "flagged") return false;
+    const { data: lifted } = await db
+      .from("long_videos")
+      .update({ status: "running", error_code: null, error_message: null })
+      .eq("id", run.id)
+      .eq("status", "needs_attention")
+      .eq("error_code", "KEYFRAME_CHECK")
+      .select("id");
+    return !!lifted?.length;
   }
   const previous = keyframes.find((keyframe) => keyframe.position === current.position - 1) ?? null;
   switch (current.status) {
@@ -2650,7 +2710,7 @@ async function checkKeyframe(
   ).select("id");
   if (!held?.length) return true;
 
-  const { data: image } = await db
+  const { data: image, error: imageError } = await db
     .from("assets")
     .select("storage_bucket,storage_path")
     .eq("id", keyframe.asset_id)
@@ -2660,20 +2720,24 @@ async function checkKeyframe(
     clips.map((clip) => clip.beat),
   );
   const { checkIdentity } = await import("../characters/identity.server");
-  const outcome = image
-    ? await checkIdentity({
-        characters: castFor(run, beat),
-        frames: [{ bucket: image.storage_bucket, path: image.storage_path, label: "the keyframe" }],
-        what: keyframeLabel(keyframe).toLowerCase(),
-        beat,
-        timeoutMs: time,
-      })
-    : ({
-        ok: false,
-        code: "NO_FRAMES",
-        message: "The keyframe couldn't be read",
-        retryable: false,
-      } as const);
+  const outcome = imageError
+    ? FRAMES_UNREAD
+    : image
+      ? await checkIdentity({
+          characters: castFor(run, beat),
+          frames: [
+            { bucket: image.storage_bucket, path: image.storage_path, label: "the keyframe" },
+          ],
+          what: keyframeLabel(keyframe).toLowerCase(),
+          beat,
+          timeoutMs: time,
+        })
+      : ({
+          ok: false,
+          code: "NO_FRAMES",
+          message: "The keyframe couldn't be read",
+          retryable: false,
+        } as const);
   const patch = checkPatch(outcome, keyframe.check_attempts, time);
   const settled = await settleCheck("long_video_keyframes", keyframe, claim, patch);
   return settled && patch.check_status !== "checking";
@@ -2735,19 +2799,24 @@ export async function advanceForMediaTask(taskId: string): Promise<void> {
 
 /**
  * How long the reconcile job's pass spends on long videos (it runs last, after
- * the quick passes). A check gets what is left of it, at most a minute, and is
- * only started with half a minute or more, so the pass ends well within the
- * two minutes the scheduler waits.
+ * the quick passes), and never past the job's own deadline: the passes before
+ * it may have used much of the two minutes the scheduler waits. A check gets
+ * what is left, at most a minute, and is only started with half a minute or
+ * more, so it isn't cut off with the call.
  */
 const SWEEP_BUDGET_MS = 70_000;
 
 /**
  * The reconcile job's pass: moves on every running run, and records clips that
  * finished in stopped runs, picking up anything an event missed. It takes no
- * new step past its time budget; what's left waits for the next pass.
+ * new step past its time budget (or `jobDeadline`, when the job set one);
+ * what's left waits for the next pass.
  */
-export async function sweepLongVideos(limit = 25): Promise<number> {
-  const deadline = Date.now() + SWEEP_BUDGET_MS;
+export async function sweepLongVideos(
+  limit = 25,
+  jobDeadline: number | null = null,
+): Promise<number> {
+  const deadline = Math.min(Date.now() + SWEEP_BUDGET_MS, jobDeadline ?? Number.POSITIVE_INFINITY);
   const [{ data: running }, { data: generating }] = await Promise.all([
     db
       .from("long_videos")
@@ -3032,13 +3101,27 @@ export async function approveStoryboard(longVideoId: string): Promise<void> {
   await advanceAfter(longVideoId);
 }
 
-/** Keeps a keyframe the check flagged (the storyboard still waits to be approved). */
+/**
+ * Keeps a keyframe the check flagged. A storyboard stopped on it goes on (the
+ * rest are painted from it); one that's all in still waits to be approved.
+ */
 export async function keepKeyframe(input: { keyframeId: string }): Promise<void> {
-  await db
+  const { data: kept } = await db
     .from("long_video_keyframes")
     .update({ check_status: "accepted" })
     .eq("id", input.keyframeId)
-    .eq("check_status", "flagged");
+    .eq("check_status", "flagged")
+    .select("long_video_id");
+  const runId = kept?.[0]?.long_video_id;
+  if (!runId) return;
+  const { data: reopened } = await db
+    .from("long_videos")
+    .update({ status: "running", error_code: null, error_message: null })
+    .eq("id", runId)
+    .eq("status", "needs_attention")
+    .eq("error_code", "KEYFRAME_CHECK")
+    .select("id");
+  if (reopened?.length) await advanceAfter(runId);
 }
 
 /**

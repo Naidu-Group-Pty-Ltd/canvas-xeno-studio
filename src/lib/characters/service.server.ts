@@ -569,6 +569,10 @@ const CHECK_EVERY_MS = 45_000;
 /** An unclear training with a known id is still asked about this often, for this long. */
 const UNCERTAIN_CHECK_EVERY_MS = 30 * 60_000;
 const UNCERTAIN_ASK_MS = 48 * 60 * 60_000;
+/** The longest one question to Higgsfield about a training takes (getCustomReference's timeout). */
+const SOUL_ASK_MS = 20_000;
+/** The most of the reconcile job its Soul ID pass takes, so the long videos after it get their turn. */
+const SOUL_SWEEP_MS = 30_000;
 
 type CharacterUpdate = Database["public"]["Tables"]["characters"]["Update"];
 
@@ -902,8 +906,94 @@ export async function refreshSoulId(
   return { status: from };
 }
 
-/** The reconcile job's pass: trainings in progress are asked about, and cut-short starts settled. */
-export async function sweepSoulTrainings(limit = 10): Promise<number> {
+/**
+ * Takes into use the Soul ID a person found at Higgsfield for a training
+ * whose answer was unclear, so getting it never means training (and paying)
+ * again. Higgsfield is asked about it first (free, and only references on the
+ * studio's own account are found): a ready one is taken into use, one still
+ * training is followed like any training, and one that failed is recorded.
+ */
+export async function attachSoulId(input: {
+  characterId: string;
+  referenceId: string;
+}): Promise<{ status: string }> {
+  const character = await loadCharacter(input.characterId);
+  if (character.soul_status !== "uncertain")
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      "Only a training whose answer was unclear can be given its Soul ID",
+    );
+  const referenceId = input.referenceId.trim().toLowerCase();
+  const { getCustomReference, readCustomReference } = await import("../higgsfield/provider.server");
+  const call = await getCustomReference(referenceId);
+  if (!call.ok && call.status === 404)
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      "Higgsfield has no Soul ID with that id on the studio's account",
+    );
+  const reference = call.ok ? readCustomReference(call.data) : null;
+  if (!reference || reference.id.toLowerCase() !== referenceId)
+    throw new AppError(
+      "UNKNOWN",
+      `Higgsfield couldn't say how that Soul ID is doing just now${call.errorMessage ? ` (${call.errorMessage})` : ""}. Try again.`,
+    );
+
+  const version = character.soul_training_version ?? character.soul_model_version;
+  const found = { soul_training_id: reference.id, soul_checked_at: now() };
+  const patch: CharacterUpdate =
+    reference.state === "ready"
+      ? {
+          ...found,
+          soul_status: "ready",
+          soul_reference_id: reference.id,
+          soul_model_version: version,
+          soul_ready_at: now(),
+          soul_error: null,
+        }
+      : reference.state === "failed"
+        ? {
+            ...found,
+            soul_status: "failed",
+            soul_error: reference.message ?? "Higgsfield couldn't train it",
+          }
+        : { ...found, soul_status: "training", soul_error: null };
+  // Only the unclear training as it was read: one settled or trained again meanwhile is left alone.
+  const update = db
+    .from("characters")
+    .update(patch)
+    .eq("id", input.characterId)
+    .eq("soul_status", "uncertain");
+  const { data: saved, error } = await (
+    character.soul_request_key
+      ? update.eq("soul_request_key", character.soul_request_key)
+      : update.is("soul_request_key", null)
+  ).select("id");
+  if (error) fail(error, "The Soul ID couldn't be saved");
+  if (!saved?.length)
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      "This character's training has just changed: look again before giving it a Soul ID",
+    );
+  console.info("soul id attached", {
+    characterId: input.characterId,
+    trainingId: reference.id,
+    status: reference.state,
+  });
+  return { status: reference.state };
+}
+
+/**
+ * The reconcile job's pass: trainings in progress are asked about, and
+ * cut-short starts settled. Higgsfield is only asked with time left for its
+ * answer, within the pass's share of the job (and never past `jobDeadline`),
+ * so a slow Higgsfield doesn't hold up the passes after it; the rest are
+ * asked on the next run.
+ */
+export async function sweepSoulTrainings(
+  limit = 10,
+  jobDeadline: number | null = null,
+): Promise<number> {
+  const deadline = Math.min(Date.now() + SOUL_SWEEP_MS, jobDeadline ?? Number.POSITIVE_INFINITY);
   // Trainings under way, starts cut short, and unclear trainings Higgsfield gave an id for.
   const since = new Date(Date.now() - UNCERTAIN_ASK_MS).toISOString();
   const { data, error } = await db
@@ -920,6 +1010,7 @@ export async function sweepSoulTrainings(limit = 10): Promise<number> {
     throw new Error(error.message);
   }
   for (const row of data ?? []) {
+    if (Date.now() + SOUL_ASK_MS > deadline) break;
     try {
       await refreshSoulId(row.id);
     } catch (problem) {
