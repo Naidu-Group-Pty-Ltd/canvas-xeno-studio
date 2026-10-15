@@ -660,9 +660,11 @@ async function preflight(input: {
  * keyframes are painted (and paid for) for clips that couldn't be made. Done
  * once, whatever comes of it, and recorded as done before any more keyframes
  * are painted (`recorded`: not yet, so a later step tries them again first).
- * A refusal stops the run in one write and keeps the requests, so neither a
- * step running alongside nor a run reopened later (a keyframe redone) paints
- * on past it: they're tried again first, with the opening keyframe as it is then.
+ * A refusal stops the run and keeps the requests, so neither a step running
+ * alongside nor a run reopened later (a keyframe redone) paints on past it:
+ * they're tried again first, with the opening keyframe as it is then. Recorded
+ * under the run's lock (record_long_video_clip_try) only while the run is
+ * going and the opening keyframe is the one they were tried with.
  */
 async function tryKeptClips(
   run: RunRow,
@@ -692,24 +694,21 @@ async function tryKeptClips(
   }
   // Refused: stopped, the requests kept (written back, in case a step
   // alongside got no refusal and cleared them first). Otherwise tried, so a
-  // later step doesn't ask again. Either only while the run is still going:
-  // one stopped meanwhile is left as it is.
-  const { data, error } = await db
-    .from("long_videos")
-    .update(
-      problem
-        ? {
-            status: "needs_attention",
-            error_code: "CLIP_REFUSED",
-            error_message: `${problem}. Nothing more is painted for it: stop this video and start it again set up another way.`,
-            keyframe_settings: settings as never,
-          }
-        : { keyframe_settings: { ...settings, clipQuotes: [] } as never },
-    )
-    .eq("id", run.id)
-    .eq("status", "running")
-    .select("id");
-  return { refused: !!problem, recorded: !error && !!data?.length };
+  // later step doesn't ask again. A run stopped meanwhile, or an opening
+  // keyframe redone meanwhile, is left as it is.
+  const { data, error } = await db.rpc("record_long_video_clip_try", {
+    p_run_id: run.id,
+    p_opening_attempt: opening.attempt,
+    p_quotes: kept as never,
+    p_refusal: problem
+      ? `${problem}. Nothing more is painted for it: stop this video and start it again set up another way.`
+      : null,
+  });
+  if (error) throw new Error(`The clip requests' try couldn't be recorded: ${error.message}`);
+  return {
+    refused: !!problem,
+    recorded: (data as { outcome?: string } | null)?.outcome === "recorded",
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -2487,15 +2486,22 @@ async function startKeyframe(
   previous: KeyframeRow | null,
   clips: ClipRow[],
 ): Promise<boolean> {
-  // Claimed as read (its attempt too): the request key below is this attempt's.
-  const { data: claimed } = await db
-    .from("long_video_keyframes")
-    .update({ status: "submitting", claimed_at: now(), error_code: null, error_message: null })
-    .eq("id", keyframe.id)
-    .eq("status", "waiting")
-    .eq("attempt", keyframe.attempt)
-    .select("id");
-  if (!claimed?.length) return true;
+  // Claimed as read (its attempt too): the request key below is this
+  // attempt's. Under the run's lock, and only while the keyframe it is painted
+  // from is still the one read (a redo meanwhile replaces it) and no kept
+  // clip requests wait to be tried (claim_long_video_keyframe).
+  const { data: claim, error: claimError } = await db.rpc("claim_long_video_keyframe", {
+    p_keyframe_id: keyframe.id,
+    p_attempt: keyframe.attempt,
+    p_previous_id: previous?.asset_id ? previous.id : null,
+    p_previous_attempt: previous?.asset_id ? previous.attempt : null,
+    p_previous_asset_id: previous?.asset_id ?? null,
+  });
+  if (claimError) throw new Error(`The keyframe couldn't be claimed: ${claimError.message}`);
+  const outcome = (claim as { outcome?: string } | null)?.outcome;
+  // Taken, or the one before changed: read again. Kept clip requests first,
+  // or the run stopped: nothing more now.
+  if (outcome !== "claimed") return outcome === "taken" || outcome === "stale";
 
   const painter = run.keyframe_model_id ? await loadModel(run.keyframe_model_id) : null;
   const settings = storedKeyframeSettings(run.keyframe_settings);

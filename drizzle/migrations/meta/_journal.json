@@ -92,6 +92,13 @@
       "when": 1791300405140,
       "tag": "0012_soul_id_trainings",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791302405140,
+      "tag": "0013_keyframe_start_fence",
+      "breakpoints": true
     }
   ]
 }
