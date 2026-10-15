@@ -582,12 +582,14 @@ type TrainingLogUpdate = Database["public"]["Tables"]["soul_id_trainings"]["Upda
 const SETTLED_TRAINING = new Set(["ready", "failed", "uncertain"]);
 
 /**
- * Starts a training's row in the training log (soul_id_trainings, what Usage
- * counts), as it is claimed: not sent yet, so nothing billed. Never in the
- * way: a failed write, or a database without the log yet, is only logged.
+ * Writes a training's row in the training log (soul_id_trainings, what Usage
+ * counts): as it is claimed (not sent yet, so nothing billed), then again in
+ * full as it is sent, so a row the first write missed is there for a training
+ * that may be billed. Never in the way: a failed write, or a database without
+ * the log yet, is only logged.
  */
 async function logTrainingRequest(row: TrainingLogRow): Promise<void> {
-  const { error } = await db.from("soul_id_trainings").insert(row);
+  const { error } = await db.from("soul_id_trainings").upsert(row, { onConflict: "request_key" });
   if (error && !isMissingTable(error))
     console.error("soul id training not logged", { key: row.request_key, message: error.message });
 }
@@ -724,7 +726,7 @@ export async function trainSoulId(input: {
   if (claimError) fail(claimError, "The training couldn't be recorded");
   if (!claimed?.length)
     throw new AppError("INVALID_PARAMETERS", "Someone just started training this character");
-  await logTrainingRequest({
+  const logged: TrainingLogRow = {
     request_key: key,
     character_id: input.characterId,
     character_name: character.name,
@@ -732,7 +734,8 @@ export async function trainSoulId(input: {
     model_version: input.version,
     image_count: usable.length,
     requested_at: requestedAt,
-  });
+  };
+  await logTrainingRequest(logged);
 
   const settle = (patch: CharacterUpdate) => settleTraining(input.characterId, key, patch);
 
@@ -771,7 +774,7 @@ export async function trainSoulId(input: {
       "UNKNOWN",
       "The training was stopped before it was sent to Higgsfield, so nothing was charged. Try again.",
     );
-  await logTraining(key, { soul_submitted_at: sentAt });
+  await logTrainingRequest({ ...logged, sent_at: sentAt });
 
   const { createCustomReference, readCustomReference } =
     await import("../higgsfield/provider.server");
