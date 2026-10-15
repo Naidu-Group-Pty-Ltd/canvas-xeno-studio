@@ -57,7 +57,14 @@ export function SoulIdPanel({
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   // An unclear training's Soul ID, as found at Higgsfield (its id, if Higgsfield gave one).
+  // A new training (its own request key) starts it afresh, so an earlier
+  // attempt's id is never offered for it; edits within one attempt are kept.
   const [referenceId, setReferenceId] = useState(character.soul_training_id ?? "");
+  const [referenceFor, setReferenceFor] = useState(character.soul_request_key);
+  if (referenceFor !== character.soul_request_key) {
+    setReferenceFor(character.soul_request_key);
+    setReferenceId(character.soul_training_id ?? "");
+  }
   // One training (or Soul ID given) per click: a second click while the first is on its way does nothing.
   const lock = useRef(false);
   const status = character.soul_status;

@@ -2237,7 +2237,23 @@ async function stepStoryboard(
       "KEYFRAME_CHECK",
       `${keyframeLabel(flagged)}: ${result.summary ?? "a character looks different"}. Redo it, or keep it, before the rest are painted from it.`,
     );
-    return false;
+    // Kept (or redone) after these keyframes were read, so before the pause
+    // landed: Keep found the run still going and had nothing to lift, so the
+    // pause is lifted here and the storyboard goes on.
+    const { data: still } = await db
+      .from("long_video_keyframes")
+      .select("check_status")
+      .eq("id", flagged.id)
+      .maybeSingle();
+    if (!still || still.check_status === "flagged") return false;
+    const { data: lifted } = await db
+      .from("long_videos")
+      .update({ status: "running", error_code: null, error_message: null })
+      .eq("id", run.id)
+      .eq("status", "needs_attention")
+      .eq("error_code", "KEYFRAME_CHECK")
+      .select("id");
+    return !!lifted?.length;
   }
   const previous = keyframes.find((keyframe) => keyframe.position === current.position - 1) ?? null;
   switch (current.status) {
