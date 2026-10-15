@@ -5332,6 +5332,16 @@ export type Database = {
         Args: { p_claimed_at: string; p_clip_id: string }
         Returns: Json
       }
+      claim_long_video_keyframe: {
+        Args: {
+          p_attempt: number
+          p_keyframe_id: string
+          p_previous_asset_id: string | null
+          p_previous_attempt: number | null
+          p_previous_id: string | null
+        }
+        Returns: Json
+      }
       claim_ready_operations: {
         Args: { claim_limit?: number }
         Returns: {
@@ -5405,6 +5415,15 @@ export type Database = {
       record_added_voice: {
         Args: { p_attempt: string; p_voice: string }
         Returns: boolean
+      }
+      record_long_video_clip_try: {
+        Args: {
+          p_opening_attempt: number
+          p_quotes: Json
+          p_refusal: string | null
+          p_run_id: string
+        }
+        Returns: Json
       }
       redo_long_video_keyframes: {
         Args: {
