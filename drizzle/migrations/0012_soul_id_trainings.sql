@@ -31,7 +31,8 @@ CREATE TABLE IF NOT EXISTS public.soul_id_trainings (
   settled_at timestamptz,
   updated_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS soul_id_trainings_requested_idx ON public.soul_id_trainings (requested_at DESC);
+-- Usage reads trainings by when they were sent.
+CREATE INDEX IF NOT EXISTS soul_id_trainings_sent_idx ON public.soul_id_trainings (sent_at DESC);
 CREATE INDEX IF NOT EXISTS soul_id_trainings_character_idx ON public.soul_id_trainings (character_id);
 
 DROP TRIGGER IF EXISTS soul_id_trainings_set_updated_at ON public.soul_id_trainings;

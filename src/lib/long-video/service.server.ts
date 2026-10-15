@@ -658,15 +658,20 @@ async function preflight(input: {
  * image could stand in for their frames, with its opening keyframe in their
  * place: one Higgsfield refuses as set up stops the run before more
  * keyframes are painted (and paid for) for clips that couldn't be made. Done
- * once, whatever comes of it. The problem, or null.
+ * once, whatever comes of it, and recorded as done before any more keyframes
+ * are painted (`recorded`: not yet, so a later step tries them again first).
  */
-async function tryKeptClips(run: RunRow, keyframes: KeyframeRow[]): Promise<string | null> {
+async function tryKeptClips(
+  run: RunRow,
+  keyframes: KeyframeRow[],
+): Promise<{ refused: string | null; recorded: boolean }> {
   const settings = (run.keyframe_settings ?? {}) as Json;
   const kept = Array.isArray(settings["clipQuotes"])
     ? (settings["clipQuotes"] as KeptClipQuote[])
     : [];
   const opening = keyframes.find((keyframe) => keyframe.position === 0);
-  if (!kept.length || opening?.status !== "completed" || !opening.asset_id) return null;
+  if (!kept.length || opening?.status !== "completed" || !opening.asset_id)
+    return { refused: null, recorded: true };
   const frame = opening.asset_id;
   const ask = await quoteAsker();
   let problem: string | null = null;
@@ -683,11 +688,11 @@ async function tryKeptClips(run: RunRow, keyframes: KeyframeRow[]): Promise<stri
     }
   }
   // Tried: a later step doesn't ask again.
-  await db
+  const { error } = await db
     .from("long_videos")
     .update({ keyframe_settings: { ...settings, clipQuotes: [] } as never })
     .eq("id", run.id);
-  return problem;
+  return { refused: problem, recorded: !error };
 }
 
 /* ------------------------------------------------------------------ */
@@ -2378,15 +2383,17 @@ async function stepStoryboard(
   // in for their frames) are tried with the opening keyframe before the next
   // one is painted.
   if (current.status === "waiting" && current.position > 0) {
-    const refused = await tryKeptClips(run, keyframes);
-    if (refused) {
+    const tried = await tryKeptClips(run, keyframes);
+    if (tried.refused) {
       await pause(
         run,
         "CLIP_REFUSED",
-        `${refused}. Nothing more is painted for it: stop this video and start it again set up another way.`,
+        `${tried.refused}. Nothing more is painted for it: stop this video and start it again set up another way.`,
       );
       return false;
     }
+    // Not recorded as tried: a later step tries them again before any more are painted.
+    if (!tried.recorded) return false;
   }
   const previous = keyframes.find((keyframe) => keyframe.position === current.position - 1) ?? null;
   switch (current.status) {

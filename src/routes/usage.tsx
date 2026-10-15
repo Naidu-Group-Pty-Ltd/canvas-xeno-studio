@@ -56,11 +56,12 @@ function UsagePage() {
           .gte("created_at", since)
           .order("created_at"),
         supabase.from("generations").select("id,status,created_at,model_registry_id,user_id").gte("created_at", since),
-        // None before the database has the training log (migration 0012).
+        // Sent in the period (when it could be billed). None before the
+        // database has the training log (migration 0012).
         supabase
           .from("soul_id_trainings")
           .select("requested_at,requested_by,status,sent_at")
-          .gte("requested_at", since),
+          .gte("sent_at", since),
       ]);
       return {
         ledger: (ledger.data ?? []) as LedgerRow[],
