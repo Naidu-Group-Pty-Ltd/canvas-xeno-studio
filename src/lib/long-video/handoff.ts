@@ -35,6 +35,25 @@ export function handoffFrameOf(metadata: unknown): HandoffFrame | null {
   return { index, count, fps };
 }
 
+/**
+ * The frame taken by its number (a clip made to a voiceover hands off from
+ * the frame just after where it is cut), or null for one taken otherwise.
+ * `index` is the frame taken; where the clip was shorter than asked for, it is
+ * the clip's last and `requested` says which was wanted.
+ */
+export function indexedFrameOf(metadata: unknown): (HandoffFrame & { requested: number }) | null {
+  const meta = (metadata ?? {}) as Json;
+  if (meta["frame_mode"] !== "index") return null;
+  const index = Number(meta["frame_index"]);
+  const count = Number(meta["frame_count"]);
+  const fps = Number(meta["fps"]);
+  const requested = Number(meta["requested_index"]);
+  if (!Number.isInteger(index) || !Number.isInteger(count) || index < 0 || index >= count)
+    return null;
+  if (!(fps > 0 && fps <= 240)) return null;
+  return { index, count, fps, requested: Number.isInteger(requested) ? requested : index };
+}
+
 /** Where the Editor ends a clip that hands off from `frame`: just after it, so it is shown. */
 export function inclusiveCut(frame: HandoffFrame): number {
   return Number(((frame.index + 1) / frame.fps).toFixed(6));

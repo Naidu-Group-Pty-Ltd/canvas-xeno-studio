@@ -12,17 +12,22 @@ import type { MediaKind } from "./tasks";
 const OUTPUT_BUCKET = "generated-assets";
 const SOURCE_URL_TTL = 2 * 60 * 60;
 
+export interface InternalTaskSource {
+  assetId: string;
+  assetType: MediaKind;
+  bucket: string;
+  path: string;
+  mimeType: string | null;
+}
+
 export interface InternalTaskRequest {
   createdBy: string | null;
   projectId: string | null;
-  taskType: "probe" | "extract_frames" | "trim_video" | "resize_image";
-  source: {
-    assetId: string;
-    assetType: MediaKind;
-    bucket: string;
-    path: string;
-    mimeType: string | null;
-  };
+  taskType:
+    "probe" | "extract_frames" | "trim_video" | "resize_image" | "prepare_audio" | "measure_sync";
+  source: InternalTaskSource;
+  /** More sources after the first, each in its role (measure_sync's voiceover piece, as "audio"). */
+  extraSources?: (InternalTaskSource & { role: string })[];
   params: Record<string, unknown>;
   /** One task per key: asking again returns the task already recorded. */
   dedupeKey: string;
@@ -30,6 +35,8 @@ export interface InternalTaskRequest {
   output: { count: number; ext: string; mime: string; kind: MediaKind };
   /** Kept with the task so its result can be routed back, e.g. the long video clip it is for. */
   context?: Record<string, unknown>;
+  /** What can't be done when the media service isn't set up, in the words of what asked. */
+  notConfiguredMessage?: string;
 }
 
 export type InternalTaskResult =
@@ -49,6 +56,7 @@ export async function enqueueInternalMediaTask(
       ok: false,
       code: "MEDIA_WORKER_NOT_CONFIGURED",
       message:
+        request.notConfiguredMessage ??
         "The media service is not configured, so the next clip's start frame can't be taken. An admin needs to set MEDIA_WORKER_URL and MEDIA_WORKER_SHARED_SECRET.",
       retryable: false,
     };
@@ -84,7 +92,10 @@ export async function enqueueInternalMediaTask(
     storage_path: storagePaths[0] ?? null,
     input_payload: {
       params: request.params,
-      sources: [request.source.assetId],
+      sources: [
+        request.source.assetId,
+        ...(request.extraSources ?? []).map((source) => source.assetId),
+      ],
       storage_paths: storagePaths,
       mime_type: request.output.mime,
       output_kind: request.output.kind,
@@ -128,6 +139,15 @@ export async function enqueueInternalMediaTask(
     .createSignedUrl(request.source.path, SOURCE_URL_TTL);
   if (!signed?.signedUrl)
     return fail("STORAGE_FAILED", "The clip could not be read from storage", true);
+  const extras: { role: string; url: string; mime: string | null }[] = [];
+  for (const source of request.extraSources ?? []) {
+    const { data: extra } = await supabaseAdmin.storage
+      .from(source.bucket)
+      .createSignedUrl(source.path, SOURCE_URL_TTL);
+    if (!extra?.signedUrl)
+      return fail("STORAGE_FAILED", "A file for the task could not be read from storage", true);
+    extras.push({ role: source.role, url: extra.signedUrl, mime: source.mimeType });
+  }
 
   const uploads: { url: string; method: "PUT"; storage_key: string }[] = [];
   for (const path of storagePaths) {
@@ -148,6 +168,7 @@ export async function enqueueInternalMediaTask(
         url: signed.signedUrl,
         mime: request.source.mimeType,
       },
+      ...extras,
     ],
     uploads,
     params: request.params,

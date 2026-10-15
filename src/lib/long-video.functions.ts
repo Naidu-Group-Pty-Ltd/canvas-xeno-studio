@@ -74,33 +74,64 @@ const finaleSchema = z.object({
   sourceAssetId: z.string().uuid().nullable().optional(),
 });
 
-const startInput = z.object({
-  title: z.string().max(LONG_VIDEO_LIMITS.titleChars).default(""),
-  firstModelId: z.string().uuid(),
-  continuationModelId: z.string().uuid(),
-  story: z.string().max(LONG_VIDEO_LIMITS.storyChars).default(""),
-  continuity: z.string().max(LONG_VIDEO_LIMITS.continuityChars).default(""),
-  values: z.record(z.unknown()).default({}),
-  references: z
-    .array(z.object({ assetId: z.string().uuid(), role: z.string().min(1).max(40) }))
-    .max(60)
-    .default([]),
-  clips: z.array(clipSchema).min(LONG_VIDEO_LIMITS.minClips).max(LONG_VIDEO_LIMITS.maxClips),
-  /** The brand's logo or end card the video ends on, kept out of the clips. */
-  finale: finaleSchema.nullable().optional(),
-  projectId: z.string().uuid().nullable().optional(),
-  campaignId: z.string().uuid().nullable().optional(),
-  clientRequestId: z.string().min(8).max(64).optional(),
-  /** Characters who must look the same throughout. */
-  characterIds: z.array(z.string().uuid()).max(CHARACTER_LIMITS.perRun).default([]),
-  /** Check every clip against the characters' images before the next is made. */
-  identityCheck: z.boolean().default(true),
-  /** Paint the keyframes first with this image model, and whether a person reviews them. */
-  keyframes: z
-    .object({ painterModelId: z.string().uuid(), review: z.boolean().default(true) })
-    .nullable()
-    .optional(),
-});
+const startInput = z
+  .object({
+    title: z.string().max(LONG_VIDEO_LIMITS.titleChars).default(""),
+    firstModelId: z.string().uuid(),
+    continuationModelId: z.string().uuid(),
+    story: z.string().max(LONG_VIDEO_LIMITS.storyChars).default(""),
+    continuity: z.string().max(LONG_VIDEO_LIMITS.continuityChars).default(""),
+    values: z.record(z.unknown()).default({}),
+    references: z
+      .array(z.object({ assetId: z.string().uuid(), role: z.string().min(1).max(40) }))
+      .max(60)
+      .default([]),
+    // Made to a voiceover, a video can be one clip (its piece is the whole voiceover).
+    clips: z.array(clipSchema).min(1).max(LONG_VIDEO_LIMITS.maxClips),
+    /** The brand's logo or end card the video ends on, kept out of the clips. */
+    finale: finaleSchema.nullable().optional(),
+    projectId: z.string().uuid().nullable().optional(),
+    campaignId: z.string().uuid().nullable().optional(),
+    clientRequestId: z.string().min(8).max(64).optional(),
+    /** Characters who must look the same throughout. */
+    characterIds: z.array(z.string().uuid()).max(CHARACTER_LIMITS.perRun).default([]),
+    /** Check every clip against the characters' images before the next is made. */
+    identityCheck: z.boolean().default(true),
+    /** Paint the keyframes first with this image model, and whether a person reviews them. */
+    keyframes: z
+      .object({ painterModelId: z.string().uuid(), review: z.boolean().default(true) })
+      .nullable()
+      .optional(),
+    /** Made to a voiceover: its preparation, and the piece of it each clip is made from. */
+    voiceover: z
+      .object({
+        preparationId: z.string().uuid(),
+        pieces: z
+          .array(
+            z.object({
+              start: z
+                .number()
+                .min(0)
+                .max(LONG_VIDEO_LIMITS.maxSeconds + 1),
+              end: z
+                .number()
+                .positive()
+                .max(LONG_VIDEO_LIMITS.maxSeconds + 1),
+              requestSeconds: z.number().positive().max(120),
+            }),
+          )
+          .min(1)
+          .max(LONG_VIDEO_LIMITS.maxClips),
+        keepClipSound: z.boolean().default(false),
+      })
+      .nullable()
+      .optional(),
+  })
+  // Without a voiceover, a long video is at least two clips.
+  .refine((value) => !!value.voiceover || value.clips.length >= LONG_VIDEO_LIMITS.minClips, {
+    message: "That length fits in one clip; switch to One clip",
+    path: ["clips"],
+  });
 
 /** Starts a long video: records every clip, then starts the first one. */
 export const startLongVideo = createServerFn({ method: "POST" })
@@ -126,6 +157,7 @@ export const startLongVideo = createServerFn({ method: "POST" })
       characterIds: data.characterIds,
       identityCheck: data.identityCheck,
       keyframes: data.keyframes ?? null,
+      voiceover: data.voiceover ?? null,
     });
   });
 
@@ -135,10 +167,7 @@ const planInput = z.object({
   story: z.string().max(LONG_VIDEO_LIMITS.storyChars).default(""),
   continuity: z.string().max(LONG_VIDEO_LIMITS.continuityChars).default(""),
   title: z.string().max(LONG_VIDEO_LIMITS.titleChars).default(""),
-  durations: z
-    .array(z.number().positive().max(120))
-    .min(LONG_VIDEO_LIMITS.minClips)
-    .max(LONG_VIDEO_LIMITS.maxClips),
+  durations: z.array(z.number().positive().max(120)).min(1).max(LONG_VIDEO_LIMITS.maxClips),
   referenceAssetIds: z.array(z.string().uuid()).max(6).default([]),
   briefId: z.string().uuid().nullable().optional(),
   /** The finisher the video ends on, when one is chosen (one of the references). */
@@ -150,6 +179,8 @@ const planInput = z.object({
   characterIds: z.array(z.string().uuid()).max(CHARACTER_LIMITS.perRun).default([]),
   /** Each clip's final moment is painted as a keyframe first. */
   keyframes: z.boolean().default(false),
+  /** Made to a voiceover: the words spoken in each clip (empty where unknown). */
+  spoken: z.array(z.string().max(4000)).max(LONG_VIDEO_LIMITS.maxClips).nullable().optional(),
 });
 
 /** Suggests a title, continuity notes and one beat per clip. Nothing is generated. */
@@ -258,6 +289,7 @@ export const planLongVideo = createServerFn({ method: "POST" })
         : null,
       characters: characterImages,
       keyframes: data.keyframes,
+      spoken: data.spoken ?? null,
     });
     const { finisherImage, ...plan } = suggestion;
     // The image the AI took for the brand's logo or end card, when none is chosen yet.
@@ -412,6 +444,8 @@ export const openLongVideoInEditor = createServerFn({ method: "POST" })
         seam: z.enum(["cut", "blend"]).default("cut"),
         keepSound: z.boolean().default(true),
         fresh: z.boolean().default(false),
+        // Made to a voiceover: its words as captions.
+        captions: z.boolean().default(false),
         endCard: z
           .object({
             assetId: z.string().uuid(),

@@ -34,7 +34,12 @@ import { AppError } from "../higgsfield/errors";
 import { assertGenerationAllowed, createAndSubmitGeneration } from "../generation-create.server";
 import { mediaWorkerConfigured } from "../media/worker.server";
 import { enqueueInternalMediaTask } from "../media/enqueue.server";
-import { compileFromLongVideo, type LongVideoEndCard, type LongVideoSeam } from "../edit/compile";
+import {
+  compileFromLongVideo,
+  compileFromVoiceoverLongVideo,
+  type LongVideoEndCard,
+  type LongVideoSeam,
+} from "../edit/compile";
 import { isMissingTableError } from "../edit/errors";
 import type { ModelRegistryEntry } from "../model-schema";
 import { storedFinale, storeFinale } from "./finisher";
@@ -45,6 +50,7 @@ import {
   frameTrimStart,
   handoffFrameOf,
   inclusiveCut,
+  indexedFrameOf,
   withCameraLine,
 } from "./handoff";
 import {
@@ -86,6 +92,18 @@ import {
 import type { RunCharacter } from "../characters/model";
 import type { IdentityResult } from "../characters/identity.server";
 import type { ProviderCall } from "../higgsfield/provider.server";
+import { drivingAudioSlot, LIP_SYNC, lipSyncValues } from "../lip-sync/models";
+import { cutFrameIndex } from "../lip-sync/placement";
+import { syncOffsetOf, syncReading } from "../lip-sync/sync";
+import { readWords } from "../lip-sync/analysis";
+import {
+  storedVoiceover,
+  storeVoiceover,
+  voiceoverModelProblem,
+  voiceoverPlanProblems,
+  type PlannedPiece,
+  type RunVoiceover,
+} from "./voiceover";
 
 type RunRow = Database["public"]["Tables"]["long_videos"]["Row"];
 type ClipRow = Database["public"]["Tables"]["long_video_clips"]["Row"];
@@ -152,12 +170,70 @@ export interface StartLongVideoRequest {
   identityCheck?: boolean;
   /** Paint the keyframes first with this image model, and whether a person reviews them (null: none). */
   keyframes?: { painterModelId: string; review: boolean } | null;
+  /**
+   * Made to a voiceover (see ./voiceover): its preparation, and the piece of it
+   * each clip is made from, in order (each clip asked for its piece's length).
+   */
+  voiceover?: { preparationId: string; pieces: PlannedPiece[]; keepClipSound?: boolean } | null;
 }
 
 const TABLES_MISSING =
   "Long videos need a database update (migration 0010_long_videos). Ask an admin to apply it.";
 const CHARACTER_TABLES_MISSING =
   "Characters and keyframes need a database update (migration 0011_characters_and_keyframes). Ask an admin to apply it.";
+const VOICEOVER_TABLES_MISSING =
+  "Videos made to a voiceover need a database update (migration 0014_voiceover_lip_sync). Ask an admin to apply it.";
+
+/**
+ * A run's voiceover, checked: ready and usable, on models that move lips to
+ * it, and cut as the plan the browser showed says (checked again here).
+ */
+async function voiceoverForRun(
+  request: StartLongVideoRequest,
+  first: ModelRegistryEntry,
+  continuation: ModelRegistryEntry,
+): Promise<{
+  preparationId: string;
+  /** The voiceover's own files (as given, and prepared): the voiceover, not references. */
+  files: Set<string>;
+  pieces: PlannedPiece[];
+  stored: RunVoiceover;
+}> {
+  const asked = request.voiceover!;
+  if (request.keyframes)
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      "Keyframes and a voiceover can't be used together yet: turn keyframes off to make the video to the voiceover.",
+    );
+  const problem = voiceoverModelProblem(first, continuation);
+  if (problem) throw new AppError("INVALID_PARAMETERS", problem);
+  const { usableVoiceover } = await import("../lip-sync/prepare.server");
+  const { row, view, title } = await usableVoiceover(asked.preparationId);
+  const durationSeconds = Number(row.samples) / Number(row.sample_rate);
+  const problems = voiceoverPlanProblems({
+    pieces: asked.pieces,
+    clipSeconds: request.clips.map((clip) => clip.durationSeconds),
+    durationSeconds,
+    first,
+    continuation,
+  });
+  if (problems.length) throw new AppError("INVALID_PARAMETERS", problems.join(" "));
+  return {
+    preparationId: row.id,
+    files: new Set([row.source_asset_id, view.preparedAssetId!]),
+    pieces: asked.pieces,
+    stored: {
+      preparedAssetId: view.preparedAssetId!,
+      durationSeconds: Number(durationSeconds.toFixed(6)),
+      sampleRate: Number(row.sample_rate),
+      samples: Number(row.samples),
+      fps: LIP_SYNC.gridFps,
+      headroomSeconds: LIP_SYNC.headroomSeconds,
+      title,
+      keepClipSound: asked.keepClipSound === true,
+    },
+  };
+}
 
 /** A run's characters as it keeps them (long_videos.characters). */
 function storedCharacters(value: unknown): RunCharacter[] {
@@ -229,6 +305,7 @@ export async function startLongVideo(
       "Long videos need the media service, which takes each clip's last frame. An admin needs to set MEDIA_WORKER_URL and MEDIA_WORKER_SHARED_SECRET.",
     );
   await assertGenerationAllowed(request.userId);
+  const voiced = request.voiceover ? await voiceoverForRun(request, first, continuation) : null;
 
   // References are checked against the library, never taken from the browser's word.
   const finale = request.finale;
@@ -258,6 +335,8 @@ export async function startLongVideo(
       };
   const references: RunReference[] = [];
   for (const item of request.references) {
+    // The voiceover attached as the driving audio is the run's voiceover, not a reference.
+    if (voiced?.files.has(item.assetId)) continue;
     const asset = (assets ?? []).find((entry) => entry.id === item.assetId);
     if (!asset)
       throw new AppError("INVALID_PARAMETERS", "A reference file is no longer in the library");
@@ -277,6 +356,11 @@ export async function startLongVideo(
         throw new AppError("INVALID_PARAMETERS", "The finisher must be an image");
     }
   }
+  if (voiced && references.some((item) => item.assetType === "audio"))
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      "A video made to a voiceover takes its sound from the voiceover alone: remove the other audio.",
+    );
   // The finisher ends the video; it isn't one of the clips' references.
   const finisher = new Set(
     [finale?.assetId, finale?.frameAssetId, finale?.sourceAssetId].filter(Boolean),
@@ -357,8 +441,12 @@ export async function startLongVideo(
     finale,
     characters,
     keyframes: keyframed,
+    voiceover: !!voiced,
   });
-  const target = totalSeconds(request.clips.map((clip) => clip.durationSeconds));
+  // Made to a voiceover, the video is as long as the voiceover.
+  const target = voiced
+    ? voiced.stored.durationSeconds
+    : totalSeconds(request.clips.map((clip) => clip.durationSeconds));
   const issues = planIssues({
     first,
     continuation,
@@ -366,6 +454,7 @@ export async function startLongVideo(
     targetSeconds: target,
     finale,
     keyframes: keyframed,
+    voiceover: !!voiced,
   });
   if (issues.length)
     throw new AppError("INVALID_PARAMETERS", issues.map((issue) => issue.message).join("; "));
@@ -405,7 +494,9 @@ export async function startLongVideo(
       continuity: request.continuity.slice(0, LONG_VIDEO_LIMITS.continuityChars),
       target_seconds: target,
       clip_count: planned.length,
-      settings: request.values as never,
+      settings: (voiced
+        ? lipSyncValues(request.values, [first, continuation])
+        : request.values) as never,
       // The finisher is kept with them, for the Editor's end card.
       references_used: [
         ...clipReferences.map((item) => ({ asset_id: item.assetId, role: item.role })),
@@ -430,6 +521,12 @@ export async function startLongVideo(
             storyboard_review: request.keyframes?.review !== false,
           }
         : {}),
+      ...(voiced
+        ? {
+            voiceover_preparation_id: voiced.preparationId,
+            voiceover: storeVoiceover(voiced.stored),
+          }
+        : {}),
     } as never)
     .select("id")
     .single();
@@ -443,6 +540,8 @@ export async function startLongVideo(
       if (raced) return { longVideoId: raced.id, status: raced.status, duplicate: true };
     }
     if (isMissingTableError(error)) throw new AppError("UNKNOWN", TABLES_MISSING);
+    if (voiced && /column|schema cache/i.test(error?.message ?? ""))
+      throw new AppError("UNKNOWN", VOICEOVER_TABLES_MISSING);
     if ((characters.length || painter) && /column|schema cache/i.test(error?.message ?? ""))
       throw new AppError("UNKNOWN", CHARACTER_TABLES_MISSING);
     throw new AppError("UNKNOWN", error?.message ?? "The long video could not be recorded");
@@ -458,6 +557,13 @@ export async function startLongVideo(
       duration_seconds: clip.durationSeconds,
       parameters: clip.values as never,
       inputs: clip.inputs.map((item) => ({ asset_id: item.assetId, role: item.role })) as never,
+      // Its piece of the voiceover (cut, and sent as its driving audio, when it starts).
+      ...(voiced
+        ? {
+            audio_start_seconds: voiced.pieces[clip.position]!.start,
+            audio_end_seconds: voiced.pieces[clip.position]!.end,
+          }
+        : {}),
     })),
   );
   if (clipsError) {
@@ -1045,6 +1151,32 @@ async function startClip(
     if (typeof item.asset_id === "string" && typeof item.role === "string")
       inputs.push({ assetId: item.asset_id, role: item.role, position: inputs.length });
   }
+  // Made to a voiceover: its own piece of it, cut now, as its driving audio.
+  if (drivenByVoiceover(run, clip)) {
+    const slot = drivingAudioSlot(model);
+    if (!slot)
+      return failClip(
+        run,
+        clip,
+        "submitting",
+        "MODEL_UNAVAILABLE",
+        "Its model can no longer move a speaker's lips to a voiceover",
+      );
+    const piece = await pieceFor(run, clip);
+    if ("problem" in piece)
+      return failClip(
+        run,
+        clip,
+        "submitting",
+        piece.code,
+        `Its piece of the voiceover couldn't be cut, so nothing was started: ${piece.problem}`,
+      );
+    inputs.push({ assetId: piece.assetId, role: slot.role, position: inputs.length });
+    await db
+      .from("long_video_clips")
+      .update({ audio_asset_id: piece.assetId } as never)
+      .eq("id", clip.id);
+  }
   // The keyframe it ends on comes last (a prompt naming it counts it there).
   if (frames && frames.end !== null) {
     const end = clipEnd(model);
@@ -1350,6 +1482,9 @@ async function followHandoff(run: RunRow, clip: ClipRow, isLast: boolean): Promi
     case "probing":
       return followTask(run, clip, "probe", isLast);
     case "extracting":
+      // Made to a voiceover: its sync is measured first, as its frame is
+      // taken where it is cut, which the sync moves.
+      if (syncPending(run, clip)) return followSync(run, clip, isLast);
       return followTask(run, clip, "frame", isLast);
     case "failed":
       await pause(
@@ -1392,7 +1527,10 @@ async function enqueueHandoff(
       retryable: false,
     });
 
-  const point = kind === "frame" ? handoffPoint(clip) : null;
+  // A clip made to a voiceover hands off from where it is cut, not its last frame.
+  const voiced = kind === "frame" && drivenByVoiceover(run, clip);
+  const cut = voiced ? voiceoverCut(clip) : null;
+  const point = kind === "frame" ? (cut ?? handoffPoint(clip)) : null;
   const file = handoffFile(clip);
   const result = await enqueueInternalMediaTask({
     createdBy: run.created_by,
@@ -1405,9 +1543,19 @@ async function enqueueHandoff(
       path: asset.storage_path,
       mimeType: asset.mime_type,
     },
-    // The true last frame; the time is for a media service that can't count frames.
+    // The true last frame (or, made to a voiceover, the frame where it is
+    // cut); the time is for a media service that can't count frames.
     params: point
-      ? { frame: "last", format: file.ext, times_seconds: [point.at], width: frameWidth(clip) }
+      ? {
+          ...(cut
+            ? cut.index !== null
+              ? { frame: "index", index: cut.index }
+              : {}
+            : { frame: "last" }),
+          format: file.ext,
+          times_seconds: [point.at],
+          width: frameWidth(clip),
+        }
       : {},
     dedupeKey: `lvh:${clip.id}:${clip.attempt}:${kind}:${clip.handoff_attempts}`,
     output:
@@ -1523,6 +1671,8 @@ async function followTask(
           })
           .eq("id", clip.output_asset_id)
           .is("duration_seconds", null);
+      // Made to a voiceover: its sync is measured before its frame is taken.
+      if (syncPending(run, next)) return followSync(run, next, isLast);
       return enqueueHandoff(run, next, "frame", isLast);
     }
     if (!task.result_asset_id)
@@ -1534,6 +1684,10 @@ async function followTask(
     // A frame found by counting the clip's frames: the clip plays through it
     // (the next clip skips its own copy of it), and its exact length is known.
     const counted = handoffFrameOf(((task.output_payload ?? {}) as Json)["metadata"]);
+    // A frame taken by its number (made to a voiceover): the clip is cut just before it.
+    const indexed = counted
+      ? null
+      : indexedFrameOf(((task.output_payload ?? {}) as Json)["metadata"]);
     const { data: ready } = await db
       .from("long_video_clips")
       .update({
@@ -1544,6 +1698,13 @@ async function followTask(
               handoff_time_seconds: inclusiveCut(counted),
               output_duration_seconds: countedLength(counted),
               output_fps: counted.fps,
+            }
+          : {}),
+        ...(indexed
+          ? {
+              handoff_time_seconds: Number((indexed.index / indexed.fps).toFixed(6)),
+              output_duration_seconds: countedLength(indexed),
+              output_fps: indexed.fps,
             }
           : {}),
         error_code: null,
@@ -1614,6 +1775,301 @@ function measuredFrom(payload: unknown, clip: ClipRow) {
     output_width: Number(probe["width"]) > 0 ? Number(probe["width"]) : clip.output_width,
     output_height: Number(probe["height"]) > 0 ? Number(probe["height"]) : clip.output_height,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Clips made to a voiceover                                           */
+/* ------------------------------------------------------------------ */
+
+/** Tries at measuring a clip's sync before it is taken as in step. */
+const MAX_SYNC_FAILURES = 3;
+
+/** A clip made from a piece of its run's voiceover (see ./voiceover). */
+function drivenByVoiceover(
+  run: Pick<RunRow, "voiceover_preparation_id">,
+  clip: Pick<ClipRow, "audio_start_seconds" | "audio_end_seconds">,
+): boolean {
+  return (
+    !!run.voiceover_preparation_id &&
+    clip.audio_start_seconds !== null &&
+    clip.audio_start_seconds !== undefined &&
+    clip.audio_end_seconds !== null &&
+    clip.audio_end_seconds !== undefined
+  );
+}
+
+/** Made to a voiceover, and its sync not yet settled (measured, or taken as in step). */
+function syncPending(run: Pick<RunRow, "voiceover_preparation_id">, clip: ClipRow): boolean {
+  return (
+    drivenByVoiceover(run, clip) &&
+    (clip.sync_status === "none" || clip.sync_status === "measuring")
+  );
+}
+
+/**
+ * Where a clip made to a voiceover is cut: where its piece of the voiceover
+ * ends, moved by where its sound was measured to have the speech (see
+ * ../lip-sync/placement). The next clip starts from the frame just after the
+ * last one shown, which the media service takes by its number; a media
+ * service that can't is asked for it by time, half a frame early, as it
+ * returns the first frame at or after a time. With no frame rate known, by
+ * time alone.
+ */
+function voiceoverCut(clip: ClipRow): { index: number | null; cut: number; at: number } {
+  const piece = {
+    start: Number(clip.audio_start_seconds),
+    end: Number(clip.audio_end_seconds),
+    offsetSeconds: syncOffsetOf(clip),
+  };
+  const fps = Number(clip.output_fps) || 0;
+  if (fps > 0) {
+    const index = cutFrameIndex(piece, fps);
+    return {
+      index,
+      cut: Number((index / fps).toFixed(6)),
+      at: Number(Math.max(0, (index - 0.5) / fps).toFixed(4)),
+    };
+  }
+  const cut = Math.max(
+    0,
+    Number((piece.end - piece.start + (piece.offsetSeconds ?? 0)).toFixed(3)),
+  );
+  return { index: null, cut, at: cut };
+}
+
+/**
+ * A clip's piece of the voiceover, cut (once) from the canonical file. A
+ * storage read that failed is tried once more at once; anything else is a
+ * reason the clip can't start, for a person.
+ */
+async function pieceFor(
+  run: RunRow,
+  clip: ClipRow,
+): Promise<{ assetId: string } | { code: string; problem: string }> {
+  const { voiceoverPiece } = await import("../lip-sync/slices.server");
+  let failure: unknown = null;
+  for (let tries = 0; tries < 2; tries += 1) {
+    try {
+      const piece = await voiceoverPiece({
+        preparationId: run.voiceover_preparation_id!,
+        startSeconds: Number(clip.audio_start_seconds),
+        endSeconds: Number(clip.audio_end_seconds),
+        createdBy: run.created_by,
+        projectId: run.project_id,
+        label: `${run.title} · clip ${clip.position + 1}`,
+      });
+      return { assetId: piece.assetId };
+    } catch (error) {
+      failure = error;
+      if (!(error instanceof AppError && error.code === "STORAGE_FAILED")) break;
+    }
+  }
+  return {
+    code: failure instanceof AppError ? failure.code : "UNKNOWN",
+    problem: failure instanceof Error ? failure.message : "it couldn't be read",
+  };
+}
+
+/**
+ * After a clip made to a voiceover is measured: where its sound has the
+ * speech against its piece, measured by the media service (measure_sync),
+ * then its frame taken where it is cut. Measuring refines the cut and never
+ * holds the run up for long: a clip that can't be measured is taken as in
+ * step (its lips are where its piece put them) and the run goes on.
+ */
+async function followSync(run: RunRow, clip: ClipRow, isLast: boolean): Promise<boolean> {
+  if (clip.sync_status === "none") {
+    const { data: claimed } = await db
+      .from("long_video_clips")
+      .update({ sync_status: "measuring", sync_task_id: null, claimed_at: now() } as never)
+      .eq("id", clip.id)
+      .eq("sync_status", "none")
+      .eq("attempt", clip.attempt)
+      .select("*");
+    const next = claimed?.[0];
+    return next ? enqueueSync(run, next, isLast) : true;
+  }
+  if (!clip.sync_task_id) {
+    // Claimed, but its task was never recorded: asked again once the claim is stale.
+    if (clip.claimed_at && Date.now() - new Date(clip.claimed_at).getTime() < CLAIM_STALE_MS)
+      return false;
+    const { data: reclaimed } = await db
+      .from("long_video_clips")
+      .update({ claimed_at: now() })
+      .eq("id", clip.id)
+      .eq("sync_status", "measuring")
+      .eq("sync_attempts", clip.sync_attempts)
+      .is("sync_task_id", null)
+      .select("*");
+    const next = reclaimed?.[0];
+    return next ? enqueueSync(run, next, isLast) : true;
+  }
+
+  const { data: task } = await db
+    .from("media_tasks")
+    .select("id,status,error_code,error_message,output_payload,created_at,updated_at")
+    .eq("id", clip.sync_task_id)
+    .maybeSingle();
+  if (!task)
+    return syncFailed(run, clip, isLast, {
+      code: "TASK_MISSING",
+      message: "The media task went missing",
+      retryable: true,
+      again: true,
+    });
+  if (task.status === "completed") {
+    const reading = syncReading(((task.output_payload ?? {}) as Json)["metadata"]);
+    const { data: settled } = await db
+      .from("long_video_clips")
+      .update({
+        sync_status: reading.status,
+        sync_offset_seconds: reading.offsetSeconds,
+        sync_result: { ...reading.result, ...(reading.reason ? { reason: reading.reason } : {}) },
+        synced_at: now(),
+        claimed_at: now(),
+      } as never)
+      .eq("id", clip.id)
+      .eq("sync_status", "measuring")
+      .eq("sync_task_id", task.id)
+      .select("*");
+    const next = settled?.[0];
+    return next ? enqueueHandoff(run, next, "frame", isLast) : true;
+  }
+  if (task.status === "failed")
+    return syncFailed(run, clip, isLast, {
+      code: task.error_code ?? "SYNC_FAILED",
+      message: task.error_message ?? "The media service couldn't measure it",
+      retryable: true,
+      again: true,
+    });
+  const since = new Date(task.updated_at ?? task.created_at).getTime();
+  if (Date.now() - since > HANDOFF_TASK_STALE_MS) {
+    // Taken as lost: a late result is still recorded, but no longer used.
+    await db
+      .from("media_tasks")
+      .update({
+        status: "failed",
+        error_code: "STALLED",
+        error_message: "No result from the media service in time",
+        completed_at: now(),
+      })
+      .eq("id", task.id)
+      .in("status", ["submitting", "processing"]);
+    return syncFailed(run, clip, isLast, {
+      code: "STALLED",
+      message: "The media service didn't answer",
+      retryable: true,
+      again: true,
+    });
+  }
+  return false;
+}
+
+async function enqueueSync(run: RunRow, clip: ClipRow, isLast: boolean): Promise<boolean> {
+  const ids = [clip.output_asset_id, clip.audio_asset_id].filter((id): id is string => !!id);
+  const { data: rows } =
+    ids.length === 2
+      ? await db
+          .from("assets")
+          .select("id,asset_type,storage_bucket,storage_path,mime_type")
+          .in("id", ids)
+      : { data: [] };
+  const video = (rows ?? []).find((row) => row.id === clip.output_asset_id);
+  // Its piece is a working file, kept out of the library, so it is read as it is.
+  const piece = (rows ?? []).find((row) => row.id === clip.audio_asset_id);
+  if (!video || !piece)
+    return syncFailed(run, clip, isLast, {
+      code: "SOURCE_MISSING",
+      message: "The clip or its piece of the voiceover is no longer stored",
+      retryable: false,
+    });
+  const result = await enqueueInternalMediaTask({
+    createdBy: run.created_by,
+    projectId: run.project_id,
+    taskType: "measure_sync",
+    source: {
+      assetId: video.id,
+      assetType: "video",
+      bucket: video.storage_bucket,
+      path: video.storage_path,
+      mimeType: video.mime_type,
+    },
+    extraSources: [
+      {
+        assetId: piece.id,
+        assetType: "audio",
+        bucket: piece.storage_bucket,
+        path: piece.storage_path,
+        mimeType: piece.mime_type,
+        role: "audio",
+      },
+    ],
+    params: { max_lag_seconds: 1 },
+    dedupeKey: `lvs:${clip.id}:${clip.attempt}:${clip.sync_attempts}`,
+    output: { count: 0, ext: "json", mime: "application/json", kind: "audio" },
+    context: { long_video_clip_id: clip.id },
+  });
+  if (!result.ok)
+    return syncFailed(run, clip, isLast, {
+      code: result.code,
+      message: result.message,
+      // A media service from before it could measure sync says so at once: not asked again.
+      retryable: result.retryable && !/unknown task/i.test(result.message),
+    });
+  await db
+    .from("long_video_clips")
+    .update({ sync_task_id: result.taskId } as never)
+    .eq("id", clip.id)
+    .eq("sync_status", "measuring")
+    .eq("sync_attempts", clip.sync_attempts);
+  return true;
+}
+
+/**
+ * A measuring try that didn't work: tried again a few times (at once when the
+ * media service ran it and failed, on a later pass when it couldn't take it),
+ * then the clip is taken as in step and its frame taken, so the run goes on.
+ */
+async function syncFailed(
+  run: RunRow,
+  clip: ClipRow,
+  isLast: boolean,
+  problem: { code: string; message: string; retryable: boolean; again?: boolean },
+): Promise<boolean> {
+  const attempts = clip.sync_attempts + 1;
+  if (!problem.retryable || attempts >= MAX_SYNC_FAILURES) {
+    const { data: settled } = await db
+      .from("long_video_clips")
+      .update({
+        sync_status: "failed",
+        sync_attempts: attempts,
+        sync_task_id: null,
+        sync_offset_seconds: null,
+        sync_result: { error_code: problem.code, error_message: problem.message },
+        synced_at: now(),
+        claimed_at: now(),
+      } as never)
+      .eq("id", clip.id)
+      .eq("sync_status", "measuring")
+      .eq("sync_attempts", clip.sync_attempts)
+      .select("*");
+    const next = settled?.[0];
+    return next ? enqueueHandoff(run, next, "frame", isLast) : true;
+  }
+  const { data: moved } = await db
+    .from("long_video_clips")
+    .update({
+      sync_attempts: attempts,
+      sync_task_id: null,
+      claimed_at: problem.again ? now() : new Date(Date.now() - CLAIM_STALE_MS).toISOString(),
+    } as never)
+    .eq("id", clip.id)
+    .eq("sync_status", "measuring")
+    .eq("sync_attempts", clip.sync_attempts)
+    .select("*");
+  const next = moved?.[0];
+  if (!next) return true;
+  return problem.again ? enqueueSync(run, next, isLast) : false;
 }
 
 /* ------------------------------------------------------------------ */
@@ -2943,6 +3399,12 @@ export async function advanceForMediaTask(taskId: string): Promise<void> {
     .eq("check_task_id", taskId)
     .maybeSingle();
   if (checking) return advanceLongVideo(checking.long_video_id, { deadline });
+  const { data: syncing } = await db
+    .from("long_video_clips")
+    .select("long_video_id")
+    .eq("sync_task_id", taskId)
+    .maybeSingle();
+  if (syncing) return advanceLongVideo(syncing.long_video_id, { deadline });
   const { data: sizing } = await db
     .from("long_video_keyframes")
     .select("long_video_id")
@@ -3055,6 +3517,7 @@ export async function retryLongVideoClip(input: {
         handoff_asset_id: null,
         // Only where the database has them (a plain run works before it does).
         ...("check_status" in clip ? CLEARED_CHECK : {}),
+        ...("sync_status" in clip ? CLEARED_SYNC : {}),
         error_code: null,
         error_message: null,
       })
@@ -3121,6 +3584,17 @@ export async function stopLongVideo(longVideoId: string): Promise<void> {
     .in("status", ["running", "needs_attention"]);
 }
 
+/** A clip's sync as if never measured (a new attempt is measured afresh, and its piece cut again). */
+const CLEARED_SYNC = {
+  sync_status: "none",
+  sync_task_id: null,
+  sync_attempts: 0,
+  sync_offset_seconds: null,
+  sync_result: null,
+  synced_at: null,
+  audio_asset_id: null,
+} as const;
+
 /** A clip's identity check as if never run (a new attempt is checked afresh). */
 const CLEARED_CHECK = {
   check_status: "none",
@@ -3181,6 +3655,7 @@ export async function redoLongVideoClip(input: { clipId: string }): Promise<void
       handoff_time_seconds: null,
       handoff_asset_id: null,
       ...CLEARED_CHECK,
+      ...("sync_status" in clip ? CLEARED_SYNC : {}),
       error_code: null,
       error_message: null,
     })
@@ -3380,6 +3855,8 @@ export async function openLongVideoInEditor(input: {
   keepSound: boolean;
   fresh: boolean;
   endCard?: { assetId: string; seconds: number } | null | undefined;
+  /** Made to a voiceover: show its words as captions. */
+  captions?: boolean;
 }): Promise<{ sequenceId: string; created: boolean; missing: number[] }> {
   const { data: run } = await db
     .from("long_videos")
@@ -3455,6 +3932,27 @@ export async function openLongVideoInEditor(input: {
       };
   }
 
+  // Made to a voiceover: the voiceover plays whole and each clip is laid
+  // where its piece of it is, by its measured sync (see compileFromVoiceoverLongVideo).
+  const voiceover = run.voiceover_preparation_id ? storedVoiceover(run.voiceover) : null;
+  if (voiceover && run.voiceover_preparation_id)
+    return openVoiceoverRunInEditor({
+      run,
+      clips: clips ?? [],
+      assets: (assets ?? []).map((asset) => ({
+        id: asset.id,
+        durationSeconds: asset.duration_seconds === null ? null : Number(asset.duration_seconds),
+        width: asset.width,
+        height: asset.height,
+      })),
+      voiceover,
+      endCard,
+      userId: input.userId,
+      keepSound: input.keepSound,
+      captions: input.captions === true,
+      fresh: input.fresh,
+    });
+
   // Handoff frames found by counting the clip's frames (its true last frame),
   // as against ones taken by time just before its end, by task.
   const handoffTaskIds = (clips ?? []).flatMap((clip) =>
@@ -3504,7 +4002,23 @@ export async function openLongVideoInEditor(input: {
   );
   if (!result.timeline.clips.length)
     throw new AppError("INVALID_PARAMETERS", "The clips' videos are no longer in the library");
+  return saveRunEdit({ run, result, userId: input.userId, fresh: input.fresh });
+}
 
+/**
+ * Keeps a run's edit and links the run to it. Linked only if nobody linked
+ * another edit meanwhile (two clicks at once); then theirs is opened and this
+ * copy removed. `prepare` runs on the new edit before it is linked (a step
+ * that fails removes it).
+ */
+async function saveRunEdit(input: {
+  run: RunRow;
+  result: { title: string; timeline: unknown; missing: number[] };
+  userId: string;
+  fresh: boolean;
+  prepare?: (sequenceId: string) => Promise<void>;
+}): Promise<{ sequenceId: string; created: boolean; missing: number[] }> {
+  const { run, result } = input;
   const { data: sequence, error } = await db
     .from("sequences")
     .insert({
@@ -3519,9 +4033,15 @@ export async function openLongVideoInEditor(input: {
     .single();
   if (error || !sequence)
     throw new AppError("UNKNOWN", error?.message ?? "The edit could not be created");
+  if (input.prepare) {
+    try {
+      await input.prepare(sequence.id);
+    } catch (problem) {
+      await db.from("sequences").delete().eq("id", sequence.id);
+      throw problem;
+    }
+  }
 
-  // Linked only if nobody linked another edit meanwhile (two clicks at once);
-  // then theirs is opened and this copy removed.
   const link = db.from("long_videos").update({ sequence_id: sequence.id }).eq("id", run.id);
   const { data: linked } = await (
     run.sequence_id ? link.eq("sequence_id", run.sequence_id) : link.is("sequence_id", null)
@@ -3540,4 +4060,82 @@ export async function openLongVideoInEditor(input: {
   if (!linked?.length)
     await db.from("long_videos").update({ sequence_id: sequence.id }).eq("id", run.id);
   return { sequenceId: sequence.id, created: true, missing: result.missing };
+}
+
+/**
+ * A run made to a voiceover, as one edit: the voiceover (as one of the edit's
+ * takes, so it renders like a take made in the Voice tab) plays whole from the
+ * start, each clip laid where its piece of it is by its measured sync, cut
+ * (never blended: a blend shows two mouths at once), its own sound muted
+ * unless asked for, and its words as captions where they are known.
+ */
+async function openVoiceoverRunInEditor(input: {
+  run: RunRow;
+  clips: ClipRow[];
+  assets: {
+    id: string;
+    durationSeconds: number | null;
+    width: number | null;
+    height: number | null;
+  }[];
+  voiceover: RunVoiceover;
+  endCard: LongVideoEndCard | null;
+  userId: string;
+  keepSound: boolean;
+  captions: boolean;
+  fresh: boolean;
+}): Promise<{ sequenceId: string; created: boolean; missing: number[] }> {
+  const { run } = input;
+  const { preparationById, takeForEdit } = await import("../lip-sync/prepare.server");
+  const preparation = await preparationById(run.voiceover_preparation_id!);
+  if (!preparation || preparation.status !== "ready" || !preparation.prepared_asset_id)
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      "The voiceover this video was made to is no longer prepared, so its clips can't be lined up with it.",
+    );
+  const result = compileFromVoiceoverLongVideo(
+    { title: run.title, settings: (run.settings ?? {}) as Json },
+    input.clips.map((clip) => ({
+      position: clip.position,
+      assetId: clip.status === "completed" ? clip.output_asset_id : null,
+      audioStart: Number(clip.audio_start_seconds ?? 0),
+      audioEnd: Number(clip.audio_end_seconds ?? 0),
+      offsetSeconds: syncOffsetOf(clip),
+      lengthSeconds: Number(clip.output_duration_seconds) || Number(clip.duration_seconds) || null,
+    })),
+    input.assets,
+    {
+      assetId: preparation.prepared_asset_id,
+      durationSeconds: input.voiceover.durationSeconds,
+      fps: input.voiceover.fps,
+      title: `Voiceover · ${input.voiceover.title}`,
+      words: readWords(preparation.words),
+    },
+    {
+      keepSound: input.keepSound,
+      captions: input.captions,
+      endCard: input.endCard,
+    },
+  );
+  if (!result.timeline.clips.length)
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      input.clips.some((clip) => clip.position === 0 && clip.status === "completed")
+        ? "The clips' videos are no longer in the library"
+        : "Clip 1 hasn't finished yet, and the clips are laid in order along the voiceover",
+    );
+  return saveRunEdit({
+    run,
+    result,
+    userId: input.userId,
+    fresh: input.fresh,
+    // The voiceover becomes one of the edit's takes before anyone can open it.
+    prepare: async (sequenceId) => {
+      await takeForEdit({
+        userId: input.userId,
+        preparationId: preparation.id,
+        sequenceId,
+      });
+    },
+  });
 }

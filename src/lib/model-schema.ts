@@ -97,6 +97,12 @@ export interface ModelCapabilities {
    * prompt names as <<<image_1>>> (for a model with no start-frame input).
    */
   referenceStart?: boolean;
+  /**
+   * Its audio input drives the picture (lips and timing follow the sound,
+   * from the clip's first frame), rather than being a loose reference. See
+   * lib/lip-sync/models.
+   */
+  drivingAudio?: boolean;
 }
 
 export interface ModelRegistryEntry {

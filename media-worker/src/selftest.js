@@ -346,6 +346,145 @@ await check("rejects an unsupported parameter value", async () => {
   throw new Error("invalid mode was accepted");
 });
 
+await check("extract_frames takes a frame by its number", async () => {
+  const clip = await numberedClip("indexed.mp4", "N*4");
+  const result = await TASKS.extract_frames.run({ sources: [{ path: clip }], params: { frame: "index", index: 30, format: "png", times_seconds: [1.25] }, dir });
+  const meta = result.metadata;
+  if (meta.frame_mode !== "index" || meta.frame_index !== 30 || meta.frame_count !== 48) {
+    throw new Error(`expected frame 30 of 48, got ${meta.frame_index} of ${meta.frame_count} (${meta.frame_mode})`);
+  }
+  const [taken] = await colourOfFrame(result.outputs[0].path, 0);
+  const [wanted] = await colourOfFrame(clip, 30);
+  const [before] = await colourOfFrame(clip, 29);
+  if (Math.abs(taken - wanted) > 1 || Math.abs(taken - before) < 3) {
+    throw new Error(`the frame taken (grey ${taken}) should be frame 30 (${wanted}), not 29 (${before})`);
+  }
+  const past = await TASKS.extract_frames.run({ sources: [{ path: clip }], params: { frame: "index", index: 500 }, dir });
+  if (past.metadata.frame_index !== 47) throw new Error(`a number past the end should take the last frame, got ${past.metadata.frame_index}`);
+});
+
+// A "voiceover": three phrases of modulated tone over pink room noise, with
+// pauses at 1.40-1.90 s and 3.20-3.70 s, encoded as an MP3 (whose encoder
+// delay the canonical file must not keep).
+const takeMp3 = join(dir, "take.mp3");
+await ffmpeg([
+  "-f", "lavfi", "-i",
+  "aevalsrc='0.4*sin(2*PI*220*t)*(between(t,0.30,1.40)+between(t,1.90,3.20)+between(t,3.70,4.60))*(0.6+0.4*sin(2*PI*5*t))':s=44100:d=5",
+  "-f", "lavfi", "-i", "anoisesrc=a=0.002:c=pink:d=5:r=44100",
+  "-filter_complex", "[0:a][1:a]amix=inputs=2:normalize=0",
+  "-c:a", "libmp3lame", "-b:a", "128k", takeMp3,
+]);
+
+await check("prepare_audio makes the canonical WAV and finds the pauses between the speech", async () => {
+  const { readWavInfo } = await import("./voice.js");
+  const result = await TASKS.prepare_audio.run({ sources: [{ path: takeMp3, role: "audio" }], params: {}, dir });
+  const meta = result.metadata;
+  if (result.outputs.length !== 2) throw new Error(`expected 2 files, got ${result.outputs.length}`);
+  const wav = await readWavInfo(result.outputs[0].path);
+  if (wav.tag !== 1 || wav.rate !== 48000 || wav.channels !== 1 || wav.bits !== 16) throw new Error(`unexpected format ${JSON.stringify(wav)}`);
+  if (wav.samples !== meta.samples) throw new Error(`the reported length (${meta.samples}) isn't the file's (${wav.samples})`);
+  if (Math.abs(meta.duration_seconds - 5) > 0.03) throw new Error(`the MP3's 5 s came out as ${meta.duration_seconds} s`);
+  const speech = await readWavInfo(result.outputs[1].path);
+  if (speech.rate !== 16000 || speech.channels !== 1) throw new Error("the speech copy should be 16 kHz mono");
+  if (!meta.clear_pauses) throw new Error("the pauses should be clear");
+  // The speech starts where it was made to: the encoder's delay is gone.
+  if (Math.abs(meta.speech_start_seconds - 0.3) > 0.03) throw new Error(`speech should start at 0.30 s, found ${meta.speech_start_seconds}`);
+  const near = (from, to) => meta.pauses.some(([a, b]) => Math.abs(a - from) <= 0.04 && Math.abs(b - to) <= 0.04);
+  if (!near(1.4, 1.9) || !near(3.2, 3.7)) throw new Error(`expected pauses at 1.40-1.90 and 3.20-3.70, found ${JSON.stringify(meta.pauses)}`);
+  if (meta.pauses.some(([a, b]) => a > 0.35 && b < 4.55 && !(Math.abs(a - 1.4) <= 0.04 || Math.abs(a - 3.2) <= 0.04))) {
+    throw new Error(`found a pause in the middle of a phrase: ${JSON.stringify(meta.pauses)}`);
+  }
+  if (!meta.envelope?.data || meta.envelope.rate !== 25) throw new Error("no waveform");
+});
+
+// The voiceover piece a clip is made from, and the clip as a provider might
+// deliver it: H.264 with AAC in MP4, its sound late, early or in step.
+const drive = join(dir, "drive.wav");
+await ffmpeg([
+  "-f", "lavfi", "-i",
+  "aevalsrc='0.5*sin(2*PI*180*t)*(between(t,0.2,0.9)+between(t,1.3,1.6)+between(t,2.0,3.1)+between(t,3.5,3.8))*(0.55+0.45*sin(2*PI*6*t))':s=48000:d=4",
+  "-c:a", "pcm_s16le", drive,
+]);
+async function clipWithSound(name, soundFilter) {
+  const path = join(dir, name);
+  await ffmpeg([
+    "-f", "lavfi", "-i", "testsrc2=s=320x240:r=30:d=4.5",
+    "-i", drive,
+    "-filter_complex", `[1:a]${soundFilter},apad[a]`,
+    "-map", "0:v", "-map", "[a]", "-t", "4.5",
+    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", path,
+  ]);
+  return path;
+}
+
+for (const [label, filter, expected] of [
+  ["120 ms late", "adelay=120:all=1", 0.12],
+  ["80 ms early", "atrim=start=0.08,asetpts=PTS-STARTPTS", -0.08],
+  ["in step", "anull", 0],
+]) {
+  await check(`measure_sync finds a clip's sound ${label}`, async () => {
+    const clip = await clipWithSound(`sync-${expected}.mp4`, filter);
+    const { outputs, metadata } = await TASKS.measure_sync.run({
+      sources: [{ path: clip, role: "video" }, { path: drive, role: "audio" }],
+      params: {},
+      dir,
+    });
+    if (outputs.length) throw new Error("measure_sync makes no files");
+    if (metadata.status !== "measured") throw new Error(`expected a clear measurement, got ${JSON.stringify(metadata)}`);
+    if (Math.abs(metadata.offset_seconds - expected) > 0.005) {
+      throw new Error(`expected ${expected} s, measured ${metadata.offset_seconds} s (${JSON.stringify(metadata)})`);
+    }
+    if (metadata.drift_seconds !== null && Math.abs(metadata.drift_seconds) > 0.01) throw new Error(`no drift expected, found ${metadata.drift_seconds}`);
+  });
+}
+
+await check("measure_sync finds the speech in a clip whose voice was made anew", async () => {
+  // The same words at the same times in another voice (another pitch, with
+  // harmonics), 60 ms late: nothing of the waveform is left to match.
+  const gate = "(between(t,0.2,0.9)+between(t,1.3,1.6)+between(t,2.0,3.1)+between(t,3.5,3.8))*(0.55+0.45*sin(2*PI*6*t))";
+  const clip = join(dir, "revoiced.mp4");
+  await ffmpeg([
+    "-f", "lavfi", "-i", "testsrc2=s=320x240:r=30:d=4.5",
+    "-f", "lavfi", "-i", `aevalsrc='(0.3*sin(2*PI*290*t)+0.15*sin(2*PI*580*t)+0.08*sin(2*PI*870*t))*${gate}':s=48000:d=4`,
+    "-filter_complex", "[1:a]adelay=60:all=1,apad[a]",
+    "-map", "0:v", "-map", "[a]", "-t", "4.5",
+    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", clip,
+  ]);
+  const { metadata } = await TASKS.measure_sync.run({ sources: [{ path: clip, role: "video" }, { path: drive, role: "audio" }], params: {}, dir });
+  if (metadata.status !== "measured" || Math.abs(metadata.offset_seconds - 0.06) > 0.005) {
+    throw new Error(`expected 0.06 s, measured ${JSON.stringify(metadata)}`);
+  }
+});
+
+await check("prepare_audio keeps an M4A's timing (its encoder priming left out)", async () => {
+  const take = join(dir, "take.m4a");
+  await ffmpeg(["-i", takeMp3, "-c:a", "aac", "-b:a", "128k", take]);
+  const { metadata } = await TASKS.prepare_audio.run({ sources: [{ path: take, role: "audio" }], params: {}, dir });
+  if (Math.abs(metadata.speech_start_seconds - 0.3) > 0.03) throw new Error(`speech should start at 0.30 s, found ${metadata.speech_start_seconds}`);
+  if (!metadata.pauses.some(([a, b]) => Math.abs(a - 1.4) <= 0.04 && Math.abs(b - 1.9) <= 0.04)) {
+    throw new Error(`expected the pause at 1.40-1.90, found ${JSON.stringify(metadata.pauses)}`);
+  }
+});
+
+await check("prepare_audio refuses a file with no sound", async () => {
+  const mute = join(dir, "mute.mp4");
+  await ffmpeg(["-f", "lavfi", "-i", "testsrc2=s=160x120:r=30:d=1", "-c:v", "libx264", "-pix_fmt", "yuv420p", mute]);
+  try {
+    await TASKS.prepare_audio.run({ sources: [{ path: mute }], params: {}, dir });
+  } catch (error) {
+    if (error.code === "INVALID_PARAMETERS") return;
+    throw error;
+  }
+  throw new Error("a file with no sound was accepted as a voiceover");
+});
+
+await check("measure_sync says when a clip has no sound", async () => {
+  const silent = join(dir, "silent.mp4");
+  await ffmpeg(["-f", "lavfi", "-i", "testsrc2=s=320x240:r=30:d=2", "-c:v", "libx264", "-pix_fmt", "yuv420p", silent]);
+  const { metadata } = await TASKS.measure_sync.run({ sources: [{ path: silent, role: "video" }, { path: drive, role: "audio" }], params: {}, dir });
+  if (metadata.status !== "no_audio" || metadata.has_audio !== false) throw new Error(`expected no_audio, got ${JSON.stringify(metadata)}`);
+});
+
 await rm(dir, { recursive: true, force: true });
 console.log(failures === 0 ? "all checks passed" : `${failures} check(s) failed`);
 process.exit(failures === 0 ? 0 : 1);

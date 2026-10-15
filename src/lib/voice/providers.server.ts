@@ -161,12 +161,15 @@ export async function openAISpeech(input: {
  */
 export async function openAIWordTimings(
   audio: Uint8Array,
+  file: { mime: string; name: string } = { mime: "audio/mpeg", name: "voiceover.mp3" },
 ): Promise<{ words: TimedWord[]; duration: number | null } | null> {
   const key = process.env["OPENAI_API_KEY"]?.trim();
   if (!key) return null;
+  // Over the transcription service's limit: none rather than a refusal.
+  if (audio.byteLength > 25 * 1024 * 1024) return null;
   try {
     const form = new FormData();
-    form.append("file", new Blob([new Uint8Array(audio)], { type: "audio/mpeg" }), "voiceover.mp3");
+    form.append("file", new Blob([new Uint8Array(audio)], { type: file.mime }), file.name);
     form.append("model", "whisper-1");
     form.append("response_format", "verbose_json");
     form.append("timestamp_granularities[]", "word");

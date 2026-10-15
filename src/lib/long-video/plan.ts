@@ -29,6 +29,8 @@ import {
 } from "../model-schema";
 import { billableInputSeconds, meteredQuote, parseMeteredRates } from "../higgsfield/metered";
 import { charactersLine, interleaveSheets, type RunCharacter } from "../characters/model";
+import { drivingAudioSlot, lipSyncCapable, lipSyncValues } from "../lip-sync/models";
+import { withLipSyncLine } from "../lip-sync/prompt";
 
 /**
  * Why a run waits on a person rather than on something Continue can fix
@@ -874,6 +876,11 @@ export interface PlannedClip extends ClipDraft {
  * `continuation` (a workflow that starts from a frame and ends on one): clip
  * 1 starts on the opening keyframe, every clip ends on its keyframe, and the
  * person's own start or end frame stands in for the first or last keyframe.
+ *
+ * With `voiceover`, every clip is made from its own piece of a voiceover (see
+ * ./voiceover): sent in its model's driving-audio input when it starts (the
+ * piece is cut then, as the start frame is taken then), with no other sound,
+ * as one continuous shot, and told that someone speaks it.
  */
 export function planClips(input: {
   first: ModelRegistryEntry;
@@ -884,8 +891,11 @@ export function planClips(input: {
   finale?: RunFinale | null;
   characters?: RunCharacter[];
   keyframes?: boolean;
+  voiceover?: boolean;
 }): PlannedClip[] {
-  const { continuation, values } = input;
+  const { continuation } = input;
+  const voiced = !!input.voiceover;
+  const values = voiced ? lipSyncValues(input.values, [input.first, continuation]) : input.values;
   const keyframed = !!input.keyframes;
   const first = keyframed ? continuation : input.first;
   const finale = input.finale ?? null;
@@ -906,8 +916,12 @@ export function planClips(input: {
       ? [start?.kind === "frame" ? startRole : null, endWay?.kind === "frame" ? endWay.role : null]
       : [],
   );
+  // A voiceover is the only sound a clip made to it is sent.
   const references = input.references.filter(
-    (item) => !finisher.has(item.assetId) && !frameRoles.has(item.role),
+    (item) =>
+      !finisher.has(item.assetId) &&
+      !frameRoles.has(item.role) &&
+      !(voiced && item.assetType === "audio"),
   );
   const laterValues = carryValues(values, continuation);
   const slot = referenceSlot(continuation);
@@ -950,6 +964,9 @@ export function planClips(input: {
     const endsOnFinisher = position === lastPosition && !isFirst && !!reveal && !!finale;
     const endsOnKeyframe = frames.end !== null && !!endWay;
     const endRole = endsOnKeyframe ? endWay!.role : null;
+    // Its piece of the voiceover, supplied when it starts.
+    const audioRole = voiced ? (drivingAudioSlot(model)?.role ?? null) : null;
+    const audioRoles = audioRole ? [audioRole] : [];
     const ending =
       endsOnFinisher && reveal && finale
         ? { assetId: finale.frameAssetId || finale.assetId, role: reveal.role }
@@ -971,7 +988,10 @@ export function planClips(input: {
       const extra: { assetId: string; role: string; characterId: string }[] = [];
       if (firstSlot)
         for (const entry of interleaveSheets(cast, new Set(own1.map((item) => item.assetId)))) {
-          const roles1 = [...own1, ...extra, { role: firstSlot.role }].map((item) => item.role);
+          const roles1 = [
+            ...[...own1, ...extra, { role: firstSlot.role }].map((item) => item.role),
+            ...audioRoles,
+          ];
           if (fitsInputs(first, values, roles1))
             extra.push({
               assetId: entry.assetId,
@@ -980,7 +1000,7 @@ export function planClips(input: {
             });
         }
       inputs = [...own1, ...extra.map(({ assetId, role }) => ({ assetId, role }))];
-      roles = inputs.map((item) => item.role);
+      roles = [...inputs.map((item) => item.role), ...audioRoles];
       // A prompt names images by their place among those in the start role (Cinema Studio).
       numbered = inputs
         .filter((item) => item.role === startRole)
@@ -1002,7 +1022,7 @@ export function planClips(input: {
             (slot.max ?? 1) - (start?.kind === "reference" ? 1 : 0) - (endsOnReference ? 1 : 0),
           )
         : 0;
-      const tail = [...(endRole ? [endRole] : []), ...(ending ? [ending.role] : [])];
+      const tail = [...(endRole ? [endRole] : []), ...(ending ? [ending.role] : []), ...audioRoles];
       const chosen: { assetId: string; characterId: string | null }[] = [];
       if (slot)
         for (const entry of clipImages(cast, own)) {
@@ -1013,7 +1033,7 @@ export function planClips(input: {
         }
       const sent = slot ? chosen.map((entry) => ({ assetId: entry.assetId, role: slot.role })) : [];
       inputs = ending ? [...sent, ending] : sent;
-      roles = rolesWith(inputs, endRole);
+      roles = [...rolesWith(inputs, endRole), ...audioRoles];
       numbered = chosen;
       before = 1;
       characterCount = chosen.filter((entry) => entry.characterId).length;
@@ -1053,7 +1073,7 @@ export function planClips(input: {
       if (!room || composed.length <= room || !cast.length) break;
       composed = fitPrompt(afterBeat(prompt, clip.beat, line(chars)), room);
     }
-    prompt = composed;
+    prompt = voiced ? withLipSyncLine(composed) : composed;
 
     return {
       ...clip,
@@ -1098,6 +1118,8 @@ export function planIssues(input: {
   targetSeconds: number;
   finale?: RunFinale | null;
   keyframes?: boolean;
+  /** Made to a voiceover (see ./voiceover): its clips can be as few as one. */
+  voiceover?: boolean;
 }): PlanIssue[] {
   const { first, continuation, clips } = input;
   const finale = input.finale ?? null;
@@ -1105,6 +1127,25 @@ export function planIssues(input: {
   if (!first || !longVideoEligible(first))
     return [
       { position: null, message: "Choose a video model that generates clips of a set length" },
+    ];
+  // Made to a voiceover: what the model can do with it is the first question.
+  if (
+    input.voiceover &&
+    !(lipSyncCapable(first) && (!continuation || lipSyncCapable(continuation)))
+  )
+    return [
+      {
+        position: null,
+        message: `${modelLine(first)} can't move a speaker's lips to a voiceover. Choose a model with driving audio (Wan 2.6 or Wan 2.7).`,
+      },
+    ];
+  if (input.voiceover && input.keyframes)
+    return [
+      {
+        position: null,
+        message:
+          "Keyframes and a voiceover can't be used together yet: turn keyframes off to make the video to the voiceover.",
+      },
     ];
   if (!continuation)
     return [
@@ -1158,7 +1199,7 @@ export function planIssues(input: {
         message: `${modelLine(continuation)} can't end a clip on a given image, so the video can't move into the finisher. Choose "End card" to hold it after the last clip instead.`,
       });
   }
-  if (clips.length < LONG_VIDEO_LIMITS.minClips)
+  if (clips.length < (input.voiceover ? 1 : LONG_VIDEO_LIMITS.minClips))
     issues.push({ position: null, message: "That length fits in one clip; switch to One clip" });
   if (clips.length > LONG_VIDEO_LIMITS.maxClips)
     issues.push({

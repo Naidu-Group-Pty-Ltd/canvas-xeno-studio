@@ -7,6 +7,7 @@ import {
   Flag,
   Images,
   Loader2,
+  Mic,
   Plus,
   RefreshCw,
   Upload,
@@ -24,6 +25,7 @@ import {
   UNUSED_ROLE,
 } from "@/lib/references";
 import { ACCEPT_ATTRIBUTE, conversionHint } from "@/lib/storage";
+import { drivingAudioSlot } from "@/lib/lip-sync/models";
 import { getMediaWorkerStatus, listMediaTasks, submitMediaTask } from "@/lib/media.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { MediaPreview } from "@/components/studio/MediaPreview";
@@ -347,7 +349,10 @@ function ReferenceTile({
   onRemove: () => void;
 }) {
   const roles = rolesForType(model, item.assetType);
-  const hint = conversionHint(item.assetType, item.mimeType);
+  // A voiceover driving the lips is prepared and sent as a WAV, whatever it was uploaded as.
+  const voiceover =
+    item.assetType === "audio" && !!item.role && drivingAudioSlot(model)?.role === item.role;
+  const hint = voiceover ? null : conversionHint(item.assetType, item.mimeType);
   return (
     <div className="w-20 space-y-1">
       <div className="group relative size-20 overflow-hidden rounded-md border border-border bg-background">
@@ -365,6 +370,15 @@ function ReferenceTile({
             data-testid="reference-finisher"
           >
             <Flag className="size-2.5" /> Finisher
+          </span>
+        )}
+        {voiceover && (
+          <span
+            className="absolute top-1 left-1 flex items-center gap-0.5 rounded bg-background/90 px-1 py-0.5 text-[9px] font-medium text-primary"
+            title="The voiceover the speaker's lips move to: prepared for lip sync, then sent as a WAV"
+            data-testid="reference-voiceover"
+          >
+            <Mic className="size-2.5" /> Lip sync
           </span>
         )}
         <button

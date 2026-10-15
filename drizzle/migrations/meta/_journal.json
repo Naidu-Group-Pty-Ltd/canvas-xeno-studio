@@ -99,6 +99,13 @@
       "when": 1791302405140,
       "tag": "0013_keyframe_start_fence",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1791304405140,
+      "tag": "0014_voiceover_lip_sync",
+      "breakpoints": true
     }
   ]
 }

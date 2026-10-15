@@ -105,16 +105,19 @@ export function CharacterConsistency({
                     <Switch
                       id="long-video-keyframes"
                       checked={plan.keyframed}
+                      disabled={!!plan.voiceover}
                       onCheckedChange={(on) => onChange({ keyframes: on })}
                       data-testid="long-video-keyframes"
                     />
                   </div>
                   <p className="text-[11px] leading-relaxed text-muted-foreground">
-                    {plan.keyframed
-                      ? `${plan.paintedKeyframes} stills${keyframeCost}: the opening frame and the frame each clip ends on${plan.keyframeCount > plan.paintedKeyframes ? " (your own frames are used as they are)" : ""}, painted from ${chosen.length ? "their images" : "your references"}. Every clip is then made by ${modelLine(plan.workflow)} and ${softEnd ? "steered toward" : "ends on"} its keyframe, so no one can drift for more than a clip. Motion can settle for a moment where clips meet.`
-                      : chosen.length
-                        ? `Recommended with characters: the frame each clip ends on is painted first, so no one can drift for more than a clip (${modelLine(plan.workflow)} makes every clip).`
-                        : `The frame each clip ends on can be painted first and looked over, so the video goes exactly where you want (${modelLine(plan.workflow)} makes every clip).`}
+                    {plan.voiceover
+                      ? "Not with a voiceover: its clips are cut where the voiceover pauses, so none can be made to end on a painted frame. The characters still carry from clip to clip by their images and description."
+                      : plan.keyframed
+                        ? `${plan.paintedKeyframes} stills${keyframeCost}: the opening frame and the frame each clip ends on${plan.keyframeCount > plan.paintedKeyframes ? " (your own frames are used as they are)" : ""}, painted from ${chosen.length ? "their images" : "your references"}. Every clip is then made by ${modelLine(plan.workflow)} and ${softEnd ? "steered toward" : "ends on"} its keyframe, so no one can drift for more than a clip. Motion can settle for a moment where clips meet.`
+                        : chosen.length
+                          ? `Recommended with characters: the frame each clip ends on is painted first, so no one can drift for more than a clip (${modelLine(plan.workflow)} makes every clip).`
+                          : `The frame each clip ends on can be painted first and looked over, so the video goes exactly where you want (${modelLine(plan.workflow)} makes every clip).`}
                   </p>
                   {plan.keyframed && (
                     <div className="grid gap-2 sm:grid-cols-2">

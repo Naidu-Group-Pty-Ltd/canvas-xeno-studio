@@ -53,7 +53,14 @@ export async function createAndSubmitGeneration(
   // Only inputs that map to a slot the model declares are kept, so a stray
   // reference is never uploaded to the provider for nothing.
   const slotRoles = new Set((model.capabilities?.inputs ?? []).map((slot) => slot.role));
-  const inputs = request.inputs.filter((input) => slotRoles.has(input.role));
+  // A prepared voiceover in a driving-audio input goes as its piece (see
+  // lip-sync/clip.server): a WAV the provider takes, exactly as it will be measured.
+  const { withVoiceoverPieces } = await import("./lip-sync/clip.server");
+  const inputs = await withVoiceoverPieces(
+    model,
+    request.inputs.filter((input) => slotRoles.has(input.role)),
+    { userId: request.userId, projectId: request.projectId ?? null },
+  );
   const roles = inputs.map((i) => i.role);
   const issues = validateParameters(model, request.parameters, roles);
   if (issues.length)

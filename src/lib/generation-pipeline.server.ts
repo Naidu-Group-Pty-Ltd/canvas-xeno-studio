@@ -183,8 +183,10 @@ export async function recordProviderHealth(success: boolean, message?: string) {
 
 /**
  * Tells the long video a generation belongs to (if any) that it reached an
- * end, so the run moves on now rather than at the next reconcile pass. Never
- * fails the caller: the reconcile job picks up anything this misses.
+ * end, so the run moves on now rather than at the next reconcile pass; and a
+ * single clip made to a voiceover that it is in, so its sync is measured.
+ * Never fails the caller: the reconcile job picks up anything a long video
+ * misses.
  */
 export async function notifyLongVideo(generationId: string): Promise<void> {
   try {
@@ -192,6 +194,15 @@ export async function notifyLongVideo(generationId: string): Promise<void> {
     await advanceForGeneration(generationId);
   } catch (error) {
     console.error("long video not moved on", {
+      generationId,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+  try {
+    const { measureClipSync } = await import("./lip-sync/clip.server");
+    await measureClipSync(generationId);
+  } catch (error) {
+    console.error("clip sync not measured", {
       generationId,
       message: error instanceof Error ? error.message : String(error),
     });

@@ -9,6 +9,7 @@ import {
   Film,
   Flag,
   Loader2,
+  Mic,
   Play,
   RotateCcw,
   Square,
@@ -41,6 +42,8 @@ import {
   type RunFinale,
 } from "@/lib/long-video/plan";
 import { DEFAULT_END_CARD_STYLE, makeEndCard, type EndCardScene } from "@/lib/media/end-card";
+import { syncSummary } from "@/lib/lip-sync/sync";
+import { storedVoiceover } from "@/lib/long-video/voiceover";
 import { MediaPreview } from "@/components/studio/MediaPreview";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -113,6 +116,8 @@ function clipState(run: LongVideoRow, clip: LongVideoClipRow, isLast: boolean): 
         return "Checking characters";
       }
       if (clip.handoff_status === "failed") return "Frame failed";
+      // Made to a voiceover: where its speech is, measured before its frame is taken.
+      if (clip.sync_status === "measuring") return "Measuring lip sync";
       return isLast ? "Finishing" : "Preparing the next clip";
   }
 }
@@ -179,8 +184,12 @@ function RunCard({
   const [busy, setBusy] = useState<string | null>(null);
   const [retrying, setRetrying] = useState<LongVideoClipRow | null>(null);
   const [redoingClip, setRedoingClip] = useState<LongVideoClipRow | null>(null);
+  // Made to a voiceover: its clips' own sound is their piece of it again, so
+  // the Editor plays the voiceover alone unless asked otherwise.
+  const voiceover = run.voiceover_preparation_id ? storedVoiceover(run.voiceover) : null;
   const [seam, setSeam] = useState<"cut" | "blend">("cut");
-  const [keepSound, setKeepSound] = useState(true);
+  const [keepSound, setKeepSound] = useState(!voiceover);
+  const [captions, setCaptions] = useState(false);
   // The end card: the run's finisher when it holds after the last clip; any
   // of its images (or none) can be chosen when opening it in the Editor.
   const finale = storedFinale(run.references_used);
@@ -324,6 +333,7 @@ function RunCard({
           longVideoId: run.id,
           seam,
           keepSound,
+          captions,
           // A different end card makes a new edit, so the one made before stays as it is.
           fresh: fresh || (endCard !== undefined && !!run.sequence_id),
           ...(endCard !== undefined ? { endCard } : {}),
@@ -349,9 +359,18 @@ function RunCard({
         <div className="min-w-0">
           <p className="truncate font-display text-sm font-semibold">{run.title}</p>
           <p className="text-[11px] text-muted-foreground">
-            {run.clip_count} clips · {formatLength(Number(run.target_seconds))} ·{" "}
+            {run.clip_count} {run.clip_count === 1 ? "clip" : "clips"} ·{" "}
+            {formatLength(Number(run.target_seconds))} ·{" "}
             {formatDistanceToNow(new Date(run.created_at), { addSuffix: true })}
           </p>
+          {voiceover && (
+            <p
+              className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground"
+              data-testid="long-video-voiceover"
+            >
+              <Mic className="size-3 text-primary" /> Made to “{voiceover.title}”, lips in sync
+            </p>
+          )}
           {finale && (
             <p
               className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground"
@@ -399,6 +418,7 @@ function RunCard({
         {run.clips.map((clip, index) => {
           const asset = clip.output_asset_id ? assets?.get(clip.output_asset_id) : undefined;
           const state = clipState(run, clip, index === run.clips.length - 1);
+          const sync = syncSummary(clip);
           return (
             <li
               key={clip.id}
@@ -434,6 +454,22 @@ function RunCard({
                   {index + 1} · {state}
                 </span>
               </p>
+              {voiceover && sync && clip.sync_status !== "measuring" && (
+                <p
+                  className={cn(
+                    "truncate text-[10px]",
+                    sync.tone === "good"
+                      ? "text-success"
+                      : sync.tone === "warning"
+                        ? "text-warning"
+                        : "text-muted-foreground",
+                  )}
+                  title={sync.detail}
+                  data-testid="long-video-clip-sync"
+                >
+                  {sync.label}
+                </p>
+              )}
             </li>
           );
         })}
@@ -475,39 +511,62 @@ function RunCard({
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-72 space-y-3 text-xs">
-                <div className="space-y-1.5">
-                  <p className="font-medium">Joins between clips</p>
-                  {(
-                    [
+                {voiceover ? (
+                  <div className="space-y-1.5" data-testid="long-video-voiceover-options">
+                    <p className="font-medium">Made to the voiceover</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      The voiceover plays whole and each clip is laid where its piece of it is,
+                      lined up by its own sound. Clips are cut, never blended: a blend would show
+                      two mouths at once.
+                    </p>
+                    <div className="flex items-center justify-between gap-2">
+                      <Label htmlFor={`captions-${run.id}`} className="text-xs">
+                        Captions from its words
+                      </Label>
+                      <Switch
+                        id={`captions-${run.id}`}
+                        checked={captions}
+                        onCheckedChange={setCaptions}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <p className="font-medium">Joins between clips</p>
+                    {(
                       [
-                        "cut",
-                        "Seamless cut",
-                        "Each clip plays to the frame the next one starts from, and the next carries straight on, its colour eased to match.",
-                      ],
-                      [
-                        "blend",
-                        "Soft blend",
-                        "The same, with a brief dissolve at each join to soften any jump.",
-                      ],
-                    ] as const
-                  ).map(([value, label, hint]) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => setSeam(value)}
-                      className={cn(
-                        "block w-full rounded-md border px-2.5 py-1.5 text-left",
-                        seam === value ? "border-primary/60 bg-primary/10" : "border-border",
-                      )}
-                    >
-                      <span className="block font-medium">{label}</span>
-                      <span className="block text-[11px] text-muted-foreground">{hint}</span>
-                    </button>
-                  ))}
-                </div>
+                        [
+                          "cut",
+                          "Seamless cut",
+                          "Each clip plays to the frame the next one starts from, and the next carries straight on, its colour eased to match.",
+                        ],
+                        [
+                          "blend",
+                          "Soft blend",
+                          "The same, with a brief dissolve at each join to soften any jump.",
+                        ],
+                      ] as const
+                    ).map(([value, label, hint]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setSeam(value)}
+                        className={cn(
+                          "block w-full rounded-md border px-2.5 py-1.5 text-left",
+                          seam === value ? "border-primary/60 bg-primary/10" : "border-border",
+                        )}
+                      >
+                        <span className="block font-medium">{label}</span>
+                        <span className="block text-[11px] text-muted-foreground">{hint}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="flex items-center justify-between gap-2">
                   <Label htmlFor={`keep-sound-${run.id}`} className="text-xs">
-                    Keep the clips' generated sound
+                    {voiceover
+                      ? "Keep the clips' own sound too (their piece of the voiceover)"
+                      : "Keep the clips' generated sound"}
                   </Label>
                   <Switch
                     id={`keep-sound-${run.id}`}

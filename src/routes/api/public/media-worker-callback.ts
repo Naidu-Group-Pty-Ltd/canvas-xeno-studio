@@ -135,15 +135,30 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
         // A long video's handoff task moves its run on once its result is recorded:
         // after the response, so the worker isn't held up (the reconcile job
         // catches it if this is cut short).
+        // A voiceover being prepared for lip sync takes its result in the same
+        // way (its files join the library then, not here).
         const taskInput = (task.input_payload ?? {}) as Record<string, unknown>;
         const forLongVideo =
           typeof taskInput["long_video_clip_id"] === "string" ||
           typeof taskInput["long_video_keyframe_id"] === "string";
+        const forVoiceover = typeof taskInput["audio_preparation_id"] === "string";
+        // ...and so does a single clip made to a voiceover whose sync was measured.
+        const forClipSync = typeof taskInput["lip_sync_clip_asset_id"] === "string";
         const moveLongVideoOn = async () => {
-          if (!forLongVideo) return;
+          if (!forLongVideo && !forVoiceover && !forClipSync) return;
           const { runAfterResponse } = await import("@/lib/generation-pipeline.server");
-          const { advanceForMediaTask } = await import("@/lib/long-video/service.server");
-          await runAfterResponse(request, () => advanceForMediaTask(task.id));
+          if (forVoiceover) {
+            const { finishAudioPreparation } = await import("@/lib/lip-sync/prepare.server");
+            await runAfterResponse(request, () => finishAudioPreparation(task.id));
+          }
+          if (forClipSync) {
+            const { finishClipSync } = await import("@/lib/lip-sync/clip.server");
+            await runAfterResponse(request, () => finishClipSync(task.id));
+          }
+          if (forLongVideo) {
+            const { advanceForMediaTask } = await import("@/lib/long-video/service.server");
+            await runAfterResponse(request, () => advanceForMediaTask(task.id));
+          }
         };
 
         const settingsUpdate =
