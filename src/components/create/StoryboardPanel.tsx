@@ -89,6 +89,11 @@ export function StoryboardPanel({
   const [scope, setScope] = useState<"one" | "rest">("one");
   const approved = !!run.storyboard_approved_at;
   const waiting = run.status === "needs_attention" && run.error_code === "STORYBOARD_READY";
+  // Stopped on a keyframe the check flagged, before the rest are painted from it.
+  const flaggedStop =
+    run.status === "needs_attention" &&
+    run.error_code === "KEYFRAME_CHECK" &&
+    run.keyframes.some((keyframe) => keyframe.check_status === "flagged");
   // Checks the run makes of its keyframes (none without characters, or with the check off).
   const checks = run.identity_check && Array.isArray(run.characters) && run.characters.length > 0;
   const settled = (keyframe: LongVideoKeyframeRow) =>
@@ -165,11 +170,13 @@ export function StoryboardPanel({
               ? "Make the video"
               : anyFailed
                 ? "Redo the keyframe that didn't come back"
-                : painting
-                  ? "Painting the keyframes…"
-                  : run.status === "canceled"
-                    ? "Stopped: continue to paint the rest"
-                    : "Checking the keyframes…"}
+                : flaggedStop
+                  ? "Redo or keep the flagged keyframe"
+                  : painting
+                    ? "Painting the keyframes…"
+                    : run.status === "canceled"
+                      ? "Stopped: continue to paint the rest"
+                      : "Checking the keyframes…"}
           </Button>
         )}
       </div>
@@ -177,6 +184,12 @@ export function StoryboardPanel({
         <p className="text-[11px] text-muted-foreground">
           Look them over: redo any that's off (say what to change), keep any the check flagged if
           it's right, then make the video. The clips are billed as they're made.
+        </p>
+      )}
+      {flaggedStop && (
+        <p className="text-[11px] text-muted-foreground">
+          The check flagged a keyframe, so the rest wait: each is painted from the one before. Redo
+          it (say what to change), or keep it if it's right, and the rest are painted from it.
         </p>
       )}
       <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
@@ -265,7 +278,11 @@ export function StoryboardPanel({
                       className="h-6 flex-1 px-1.5 text-[10px]"
                       disabled={busy !== null}
                       onClick={() =>
-                        void act("keep", () => keepKeyframe({ data: { keyframeId: keyframe.id } }))
+                        void act(
+                          "keep",
+                          () => keepKeyframe({ data: { keyframeId: keyframe.id } }),
+                          flaggedStop ? "Kept: the rest are painted from it." : undefined,
+                        )
                       }
                     >
                       Keep

@@ -202,9 +202,9 @@ function RunCard({
   const done = run.clips.filter((clip, index) =>
     clipDone(run, clip, index === run.clips.length - 1),
   ).length;
-  // Waiting on a person's choice (keyframes to review, a keyframe to redo, a
-  // character who changed), and only while that is still so: a pause that
-  // landed just after the choice was made is carried on with Continue.
+  // Waiting on a person's choice (keyframes to review, a keyframe to redo or
+  // keep, a character who changed), and only while that is still so: a pause
+  // that landed just after the choice was made is carried on with Continue.
   const personPause =
     run.status === "needs_attention" &&
     (PERSON_PAUSES as readonly string[]).includes(run.error_code ?? "") &&
@@ -212,7 +212,9 @@ function RunCard({
       ? !run.storyboard_approved_at
       : run.error_code === "KEYFRAME_FAILED"
         ? run.keyframes.some((keyframe) => keyframe.status === "failed")
-        : run.clips.some((clip) => clip.check_status === "flagged"));
+        : run.error_code === "KEYFRAME_CHECK"
+          ? run.keyframes.some((keyframe) => keyframe.check_status === "flagged")
+          : run.clips.some((clip) => clip.check_status === "flagged"));
   const flaggedClip =
     run.error_code === "CHARACTER_CHECK"
       ? run.clips.find((clip) => clip.check_status === "flagged")
@@ -364,11 +366,13 @@ function RunCard({
         >
           {run.error_code === "STORYBOARD_READY" && run.status === "needs_attention"
             ? "Review keyframes"
-            : run.error_code === "CHARACTER_CHECK" && run.status === "needs_attention"
-              ? "Check a clip"
-              : run.keyframe_model_id && !run.storyboard_approved_at && run.status === "running"
-                ? "Painting keyframes"
-                : status.label}
+            : run.error_code === "KEYFRAME_CHECK" && run.status === "needs_attention"
+              ? "Check a keyframe"
+              : run.error_code === "CHARACTER_CHECK" && run.status === "needs_attention"
+                ? "Check a clip"
+                : run.keyframe_model_id && !run.storyboard_approved_at && run.status === "running"
+                  ? "Painting keyframes"
+                  : status.label}
         </Badge>
       </div>
 

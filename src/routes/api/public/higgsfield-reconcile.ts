@@ -5,6 +5,14 @@ import { authenticateCronRequest } from "@/integrations/supabase/cron-auth";
 const CLEANUP_MS = 20_000;
 
 /**
+ * How long the passes may keep taking new steps, counted from the start of
+ * the call: the scheduler waits two minutes for it (pg_net's timeout), so a
+ * slow pass early on leaves the later ones less time instead of pushing them
+ * past the point where the call is cut off.
+ */
+const JOB_BUDGET_MS = 110_000;
+
+/**
  * Recovery worker: dispatches locally queued jobs, polls stale provider jobs
  * whose webhook may have been missed, ingests pending outputs, moves long
  * videos on and follows Soul ID trainings. It also clears licensed music uploads whose licence was never
@@ -16,6 +24,7 @@ export const Route = createFileRoute("/api/public/higgsfield-reconcile")({
       POST: async ({ request }) => {
         const unauthorized = await authenticateCronRequest(request);
         if (unauthorized) return unauthorized;
+        const deadline = Date.now() + JOB_BUDGET_MS;
 
         const { dispatchQueue, reconcileStaleGenerations, ingestPending, runWhileConnected } =
           await import("@/lib/generation-pipeline.server");
@@ -42,7 +51,7 @@ export const Route = createFileRoute("/api/public/higgsfield-reconcile")({
           // cut short settled), so a character becomes usable without anyone
           // keeping its page open.
           const { sweepSoulTrainings } = await import("@/lib/characters/service.server");
-          const soulTrainings = await sweepSoulTrainings().catch((error: unknown) => {
+          const soulTrainings = await sweepSoulTrainings(10, deadline).catch((error: unknown) => {
             console.error("soul id sweep failed", {
               message: error instanceof Error ? error.message : String(error),
             });
@@ -63,14 +72,14 @@ export const Route = createFileRoute("/api/public/higgsfield-reconcile")({
           // callback, a busy media service) move on here: last, as the longest
           // (an AI check can take a minute), so the quick passes above always run.
           const { sweepLongVideos } = await import("@/lib/long-video/service.server");
-          const longVideos = await runWhileConnected(request, () => sweepLongVideos()).catch(
-            (error: unknown) => {
-              console.error("long video sweep failed", {
-                message: error instanceof Error ? error.message : String(error),
-              });
-              return 0;
-            },
-          );
+          const longVideos = await runWhileConnected(request, () =>
+            sweepLongVideos(25, deadline),
+          ).catch((error: unknown) => {
+            console.error("long video sweep failed", {
+              message: error instanceof Error ? error.message : String(error),
+            });
+            return 0;
+          });
 
           return new Response(
             JSON.stringify({
