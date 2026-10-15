@@ -38,6 +38,22 @@ export interface DraftLongVideo {
   beats: string[];
   /** The brand's logo or end card it ends on, kept out of every clip. */
   finisher?: DraftFinisher | null;
+  /**
+   * Paint the keyframes first (the frame each clip ends on), where the model
+   * can; unset: on when the draft has characters.
+   */
+  keyframes?: boolean | null;
+}
+
+/**
+ * One of the team's characters in a draft. A long video keeps them the same
+ * throughout (their images, keyframes, a check after every clip); a single
+ * generation is sent their images (or their Soul ID), their look written
+ * into its prompt.
+ */
+export interface DraftCharacter {
+  id: string;
+  name: string;
 }
 
 /**
@@ -66,6 +82,8 @@ export interface SupercomputerDraft {
   notes?: string;
   issues: string[];
   longVideo?: DraftLongVideo;
+  /** The team's characters in it. */
+  characters?: DraftCharacter[];
 }
 
 /** How the agent would cut its drafts into one video. Indices refer to `drafts`. */

@@ -18,6 +18,8 @@ import {
 } from "@/components/create/long-video-plan";
 import type { ReferenceItem } from "@/components/create/reference-files";
 import { FinisherSetup } from "@/components/create/FinisherSetup";
+import { CharacterConsistency } from "@/components/create/CharacterConsistency";
+import type { CharacterEntry } from "@/hooks/useCharacters";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +51,10 @@ interface Props {
   campaignId: string | null;
   /** Why the AI can't write beats right now, if it can't. */
   aiUnavailableReason: string | null;
+  /** The team's characters, to choose from. */
+  characters: CharacterEntry[];
+  /** Higgsfield's price for one keyframe, when known. */
+  keyframeUsd: number | null;
 }
 
 /** One clip or a long video, and everything about the long video: its length, clips and beats. */
@@ -64,6 +70,8 @@ export function LongVideoSetup({
   projectId,
   campaignId,
   aiUnavailableReason,
+  characters,
+  keyframeUsd,
 }: Props) {
   const [planning, setPlanning] = useState(false);
   const set = (patch: Partial<LongVideoDraft>) => onChange({ ...draft, ...patch });
@@ -88,6 +96,8 @@ export function LongVideoSetup({
           referenceAssetIds: images.slice(0, 6).map((image) => image.assetId),
           briefId,
           finale: plan.finale ? { assetId: plan.finale.assetId, mode: plan.finale.mode } : null,
+          characterIds: plan.characters.map((character) => character.id),
+          keyframes: plan.keyframed,
         },
       });
       // Merged into the setup as it is now, not as it was when asked: the
@@ -141,6 +151,15 @@ export function LongVideoSetup({
   const runIssue = plan.issues.find((issue) => issue.position === null);
   const sameLength = plan.durations.every((value) => value === plan.durations[0]);
   const starts = clipStarts(plan.durations);
+  // How many reference images later clips are sent (0: the model takes none with a frame).
+  const carriedImages = plan.planned
+    .slice(1)
+    .reduce(
+      (most, clip) =>
+        Math.max(most, clip.inputs.filter((item) => item.role === "reference").length),
+      0,
+    );
+  const names = new Map(plan.characters.map((character) => [character.id, character.name]));
 
   return (
     <div className="space-y-4" data-testid="long-video-setup">
@@ -235,8 +254,10 @@ export function LongVideoSetup({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Clips 2 onward use</Label>
-              {plan.candidates.length > 1 ? (
+              <Label className="text-xs">
+                {plan.keyframed ? "Every clip is made by" : "Clips 2 onward use"}
+              </Label>
+              {plan.candidates.length > 1 && !plan.keyframed ? (
                 <Select
                   value={plan.continuation?.id ?? ""}
                   onValueChange={(value) => set({ continuationModelId: value })}
@@ -286,15 +307,34 @@ export function LongVideoSetup({
                 straight on through the join, with the same story (the prompt below), settings and
                 reference images. When they're all in, open them in the Editor as one edit.
               </p>
+            ) : plan.keyframed ? (
+              <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                Each clip runs as long as it can, up to {plan.maxClipSeconds}s, and the last takes
+                what's left. First {plan.paintedKeyframes} keyframes are painted: the opening frame
+                and the frame each clip ends on
+                {plan.keyframeCount > plan.paintedKeyframes
+                  ? " (your own frames are used as they are)"
+                  : ""}
+                . Clip 1 starts on the opening keyframe; every clip after it starts from the true
+                last frame of the one before (taken losslessly) and is told how the camera was
+                moving; each ends on its own keyframe. When they're all in, open them in the Editor
+                as one edit.
+              </p>
             ) : (
               <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
                 Each clip runs as long as it can, up to {plan.maxClipSeconds}s, and the last takes
                 what's left. Each one starts from the true last frame of the one before (taken
                 losslessly), is told how the camera was moving as it ended, and is made by{" "}
-                {modelLine(model)} too, with the same story (the prompt below), settings and
-                reference images, so the clips play as one continuous shot.
+                {modelLine(model)} too, with the same story (the prompt below) and settings
+                {carriedImages > 0
+                  ? `, and up to ${carriedImages} reference image${carriedImages === 1 ? "" : "s"}`
+                  : ""}
+                , so the clips play as one continuous shot.
                 {plan.start?.kind === "reference"
                   ? ` ${modelLine(model)} has no start-frame input, so that frame goes in as each clip's first reference image and the prompt tells it to start there.`
+                  : ""}
+                {images.length > 0 && carriedImages === 0 && plan.durations.length > 1
+                  ? ` Your reference images shape clip 1 only: ${plan.continuation ? modelLine(plan.continuation) : "the model"}'s later clips can't take them with a start frame.`
                   : ""}{" "}
                 When they're all in, open them in the Editor as one edit.
               </p>
@@ -319,6 +359,16 @@ export function LongVideoSetup({
               )}
             {runIssue && <p className="mt-1 text-[11px] text-primary">{runIssue.message}</p>}
           </div>
+
+          <CharacterConsistency
+            model={model}
+            draft={draft}
+            plan={plan}
+            characters={characters}
+            onChange={set}
+            keyframeUsd={keyframeUsd}
+            aiUnavailableReason={aiUnavailableReason}
+          />
 
           <FinisherSetup
             images={images}
@@ -412,8 +462,14 @@ export function LongVideoSetup({
                       className="text-[11px] text-muted-foreground"
                     >
                       Clip {index + 1} · {formatLength(from)}–{formatLength(from + seconds)}
-                      {index === 0 && plan.continuation && plan.continuation.id !== model.id
+                      {index === 0 &&
+                      !plan.keyframed &&
+                      plan.continuation &&
+                      plan.continuation.id !== model.id
                         ? ` · ${model.display_name}`
+                        : ""}
+                      {plan.characters.length > 1 && plan.planned[index]?.cast.length
+                        ? ` · ${plan.planned[index]!.cast.map((id) => names.get(id) ?? "").join(", ")}`
                         : ""}
                     </Label>
                     <Textarea

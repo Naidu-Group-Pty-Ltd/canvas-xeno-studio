@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowDown,
@@ -52,6 +52,8 @@ interface Props {
   uploading: number;
   /** The image a long video closes on (its brand finisher), marked as it isn't sent with the clips. */
   finisherId?: string | null;
+  /** More ways to add references (e.g. a character's images), next to Upload and Library. */
+  extraActions?: ReactNode;
 }
 
 /**
@@ -71,6 +73,7 @@ export function ReferenceTray({
   addFiles,
   uploading,
   finisherId = null,
+  extraActions,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -159,6 +162,7 @@ export function ReferenceTray({
           >
             <FileText className="mr-1 size-3.5" /> Brief
           </Button>
+          {extraActions}
         </div>
       </div>
 

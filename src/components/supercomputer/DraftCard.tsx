@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -13,7 +13,9 @@ import {
   Paperclip,
   Pencil,
   RotateCcw,
+  ShieldCheck,
   Sparkles,
+  UserRound,
   Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -36,7 +38,10 @@ import {
   type FinaleMode,
 } from "@/lib/long-video/plan";
 import type { DraftLongVideoPlan } from "@/lib/supercomputer/long-video-draft";
-import type { DraftFinisher, SupercomputerDraft } from "@/lib/supercomputer/types";
+import { namesList } from "@/lib/supercomputer/draft-characters";
+import type { DraftCharacter, DraftFinisher, SupercomputerDraft } from "@/lib/supercomputer/types";
+import { useCharacters } from "@/hooks/useCharacters";
+import { CharacterAvatar } from "@/components/characters/CharacterPicker";
 import { ParameterFields } from "@/components/create/ParameterFields";
 import { LongVideoRunList } from "@/components/create/LongVideoRuns";
 import { MediaPreview } from "@/components/studio/MediaPreview";
@@ -44,6 +49,8 @@ import { SaveStatus } from "@/components/studio/SaveStatus";
 import { StatusBadge } from "@/components/studio/StatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -64,6 +71,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
 import { estimateAllows, formatEstimate, useDraftRunner, type DraftEstimate } from "./draft-runner";
 
 interface Props {
@@ -101,9 +109,14 @@ export function DraftCard({
   const [busy, setBusy] = useState(false);
   // How a long video ends on the brand's finisher; changeable here before it runs.
   const [finisher, setFinisher] = useState<DraftFinisher | null>(draft.longVideo?.finisher ?? null);
+  // Whether a long video paints its keyframes first (null: on with characters, where it can).
+  const [keyframes, setKeyframes] = useState<boolean | null>(draft.longVideo?.keyframes ?? null);
   const runnable = useMemo(
-    () => (draft.longVideo ? { ...draft, longVideo: { ...draft.longVideo, finisher } } : draft),
-    [draft, finisher],
+    () =>
+      draft.longVideo
+        ? { ...draft, longVideo: { ...draft.longVideo, finisher, keyframes } }
+        : draft,
+    [draft, finisher, keyframes],
   );
 
   const hasPromptField = !!model?.parameter_schema?.fields?.some((field) => field.key === "prompt");
@@ -113,11 +126,27 @@ export function DraftCard({
   );
   const roles = draft.references.map((ref) => ref.role);
   // A long video: the prompt is its story, and the plan sets each clip's length.
-  // Planned as the runner will quote and start it.
-  const { longPlan: planLong } = runner;
+  // Planned as the runner will quote and start it, with its opening frame's
+  // shape (a keyframed video takes it).
+  const { longPlan: planLong, openingFrame } = runner;
+  const openingId = runnable.longVideo ? openingFrame(runnable, draft.references) : null;
+  const { data: openingSize } = useQuery({
+    queryKey: ["asset-size", openingId],
+    enabled: !!openingId,
+    staleTime: Infinity,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("assets")
+        .select("width,height")
+        .eq("id", openingId!)
+        .maybeSingle();
+      return data ?? null;
+    },
+  });
   const longPlan = useMemo(
-    () => (runnable.longVideo ? planLong(runnable, submitValues, draft.references) : null),
-    [runnable, draft.references, planLong, submitValues],
+    () =>
+      runnable.longVideo ? planLong(runnable, submitValues, draft.references, openingSize) : null,
+    [runnable, draft.references, planLong, submitValues, openingSize],
   );
   const issues = !model
     ? ["This model is no longer active"]
@@ -135,7 +164,8 @@ export function DraftCard({
   const edited =
     prompt !== draft.prompt ||
     JSON.stringify(values) !== JSON.stringify(draft.parameters) ||
-    JSON.stringify(finisher) !== JSON.stringify(draft.longVideo?.finisher ?? null);
+    JSON.stringify(finisher) !== JSON.stringify(draft.longVideo?.finisher ?? null) ||
+    keyframes !== (draft.longVideo?.keyframes ?? null);
   const blocked = runner.providerReason ?? issues[0] ?? null;
   // Plain and long-video runs share the draft's run keys, so they count together.
   const runNumber = runs.length + longRuns.length + 1;
@@ -184,6 +214,8 @@ export function DraftCard({
               beats: draft.longVideo.beats,
               continuationModelId: draft.longVideo.continuationModelId,
               finisher,
+              characterIds: (draft.characters ?? []).map((character) => character.id),
+              keyframes,
             },
           }
         : {}),
@@ -221,6 +253,10 @@ export function DraftCard({
           </Badge>
         </div>
       </div>
+
+      {draft.characters && draft.characters.length > 0 && (
+        <DraftCharacters characters={draft.characters} />
+      )}
 
       {(chips.length > 0 || draft.references.length > 0) && (
         <div className="flex flex-wrap items-center gap-1.5">
@@ -274,6 +310,7 @@ export function DraftCard({
           targetSeconds={draft.longVideo.targetSeconds}
           continuity={draft.longVideo.continuity}
           beats={draft.longVideo.beats}
+          onKeyframes={setKeyframes}
         />
       )}
 
@@ -340,6 +377,7 @@ export function DraftCard({
               setPrompt(draft.prompt);
               setValues(draft.parameters);
               setFinisher(draft.longVideo?.finisher ?? null);
+              setKeyframes(draft.longVideo?.keyframes ?? null);
             }}
           >
             <RotateCcw className="mr-1.5 size-3.5" /> Reset
@@ -430,13 +468,23 @@ export function DraftCard({
               <div className="space-y-2 text-sm">
                 {longPlan ? (
                   <p>
+                    {longPlan.keyframed
+                      ? `First ${longPlan.paintedKeyframes} keyframes are painted by ${longPlan.painter?.display_name ?? "an image model"}, for you to look over in this card; then `
+                      : ""}
                     {longPlan.planned.length} clips (
                     {longPlan.durations.map((v) => `${v}s`).join(" + ")}),{" "}
-                    {formatLength(longPlan.totalSeconds)} in all, every one by {draft.modelName}
-                    {longPlan.continuation && longPlan.continuation.id !== draft.modelId
+                    {formatLength(longPlan.totalSeconds)} in all, every one by{" "}
+                    {longPlan.keyframed ? modelLine(longPlan.first) : draft.modelName}
+                    {!longPlan.keyframed &&
+                    longPlan.continuation &&
+                    longPlan.continuation.id !== draft.modelId
                       ? ` (clips 2 onward with ${longPlan.continuation.display_name})`
                       : ""}
-                    , made one after another, each starting from the last frame of the one before.
+                    , made one after another, each starting from the last frame of the one before
+                    {longPlan.keyframed ? " and ending on its keyframe" : ""}.
+                    {longPlan.characters.length
+                      ? ` ${namesList(longPlan.characters.map((character) => character.name))} ${longPlan.characters.length === 1 ? "is" : "are"} checked after every clip, and the video stops for you if anyone changes.`
+                      : ""}
                     {longPlan.capped && draft.longVideo
                       ? ` ${cappedNote(longPlan, draft.longVideo.targetSeconds)}`
                       : ""}
@@ -446,11 +494,36 @@ export function DraftCard({
                         Clip 1 is estimated at{" "}
                         <span className="font-mono text-foreground">
                           ${quote.longVideo.firstClipUsd.toFixed(2)}
-                        </span>{" "}
-                        and the whole video at roughly{" "}
-                        <span className="font-mono text-foreground">
-                          ${quote.costUsd.toFixed(2)}
                         </span>
+                        {quote.longVideo.keyframes > 0 && (
+                          <>
+                            , the {quote.longVideo.keyframes} keyframes at{" "}
+                            {quote.longVideo.keyframesUsd !== null ? (
+                              <span className="font-mono text-foreground">
+                                ${quote.longVideo.keyframesUsd.toFixed(2)}
+                              </span>
+                            ) : (
+                              "a price Higgsfield didn't give"
+                            )}
+                          </>
+                        )}
+                        {quote.unpriced ? (
+                          <>
+                            , and the clips at roughly{" "}
+                            <span className="font-mono text-foreground">
+                              ${quote.costUsd.toFixed(2)}
+                            </span>{" "}
+                            ({quote.unpriced} aren't included: Higgsfield didn't price them)
+                          </>
+                        ) : (
+                          <>
+                            {" "}
+                            and the whole video at roughly{" "}
+                            <span className="font-mono text-foreground">
+                              ${quote.costUsd.toFixed(2)}
+                            </span>
+                          </>
+                        )}
                         ; each clip is quoted again before it is sent.
                       </>
                     ) : (
@@ -491,7 +564,9 @@ export function DraftCard({
               }}
             >
               {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-              {quote?.kind === "ready" ? `Generate · ~$${quote.costUsd.toFixed(2)}` : "Generate"}
+              {quote?.kind === "ready" && !quote.unpriced
+                ? `Generate · ~$${quote.costUsd.toFixed(2)}`
+                : "Generate"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -581,21 +656,25 @@ function DraftFinisherRow({
   );
 }
 
-/** A long-video draft's plan: its clips, what stays the same and what happens in each. */
+/** A long-video draft's plan: its clips, who and what stays the same, and what happens in each. */
 function LongVideoSummary({
   model,
   plan,
   targetSeconds,
   continuity,
   beats,
+  onKeyframes,
 }: {
   model: ModelRegistryEntry;
   plan: DraftLongVideoPlan;
   targetSeconds: number;
   continuity: string;
   beats: string[];
+  onKeyframes: (on: boolean) => void;
 }) {
   const starts = clipStarts(plan.durations);
+  const switchId = useId();
+  const names = namesList(plan.characters.map((character) => character.name));
   return (
     <div
       className="space-y-1.5 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs"
@@ -607,13 +686,62 @@ function LongVideoSummary({
         {formatLength(plan.totalSeconds)}
       </p>
       <p className="text-[11px] leading-relaxed text-muted-foreground">
-        Every clip is made by {modelLine(model)}
-        {plan.continuation && plan.continuation.id !== model.id
+        Every clip is made by {modelLine(plan.keyframed ? plan.first : model)}
+        {!plan.keyframed && plan.continuation && plan.continuation.id !== model.id
           ? ` (clips 2 onward with ${plan.continuation.display_name})`
           : ""}
         , each as long as it allows and starting from the last frame of the one before, so the whole
         video plays as one continuous shot.
       </p>
+      {(plan.characters.length > 0 || plan.workflow) && (
+        <div
+          className="space-y-1.5 rounded-md bg-background/60 px-2.5 py-2"
+          data-testid="draft-long-video-consistency"
+        >
+          {plan.workflow && (
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor={switchId} className="text-[11px] font-medium">
+                Paint keyframes first
+              </Label>
+              <Switch
+                id={switchId}
+                checked={plan.keyframed}
+                onCheckedChange={onKeyframes}
+                data-testid="draft-keyframes"
+              />
+            </div>
+          )}
+          {plan.workflow && (
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              {plan.keyframed
+                ? `${plan.paintedKeyframes} stills are painted first${plan.painter ? ` by ${plan.painter.display_name}` : ""}: the opening frame and the frame each clip ends on${plan.keyframeCount > plan.paintedKeyframes ? " (your own frames are used as they are)" : ""}${plan.characters.length ? `, from ${names}'s images` : ""}. You look them over in this card before the clips are made, and every clip ends on its keyframe, so no one can drift for more than a clip.`
+                : plan.characters.length
+                  ? `Recommended with characters: the frame each clip ends on is painted first and looked over, so no one can drift for more than a clip.`
+                  : "The frame each clip ends on can be painted first and looked over, so the video goes exactly where you want."}
+            </p>
+          )}
+          {plan.characters.length > 0 && !plan.workflow && (
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              {modelLine(model)} can't end a clip on a given frame, so there are no keyframes:{" "}
+              {names} {plan.characters.length === 1 ? "is" : "are"} kept by{" "}
+              {(plan.planned[1]?.characterImages ?? 0) > 0
+                ? "their images in every clip"
+                : "the last frame of each clip"}{" "}
+              and their description.
+            </p>
+          )}
+          {plan.characters.length > 0 && (
+            <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-muted-foreground">
+              <ShieldCheck className="mt-0.5 size-3 shrink-0 text-primary" />
+              <span>
+                Every clip is checked against {names}&apos;s images before the next is made; if
+                anyone&apos;s face, hair or clothes change, the video stops for you to redo that
+                clip or keep it.
+              </span>
+            </p>
+          )}
+        </div>
+      )}
       {plan.capped && (
         <p className="text-[11px] text-warning" data-testid="draft-long-video-capped">
           {cappedNote(plan, targetSeconds)}
@@ -647,6 +775,36 @@ function LongVideoSummary({
           </CollapsibleContent>
         </Collapsible>
       )}
+    </div>
+  );
+}
+
+/** The team's characters a draft shows, by face and name. */
+function DraftCharacters({ characters }: { characters: DraftCharacter[] }) {
+  const { data: library } = useCharacters();
+  return (
+    <div className="flex flex-wrap items-center gap-1.5" data-testid="draft-characters">
+      {characters.map((character) => {
+        const entry = library?.find((candidate) => candidate.id === character.id);
+        const gone = !!library && !entry;
+        return (
+          <span
+            key={character.id}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border py-0.5 pr-2 pl-0.5 text-[11px]",
+              gone ? "border-warning/50 text-warning" : "border-primary/40 bg-primary/10",
+            )}
+            title={gone ? "No longer in the Characters library" : undefined}
+          >
+            {entry ? (
+              <CharacterAvatar character={entry} className="size-5" />
+            ) : (
+              <UserRound className="mx-0.5 size-3.5" />
+            )}
+            {entry?.name ?? character.name}
+          </span>
+        );
+      })}
     </div>
   );
 }

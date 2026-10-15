@@ -188,9 +188,27 @@ export function useStudioRealtime() {
         queryClient.invalidateQueries({ queryKey: ["long_videos"] });
       })
       .subscribe();
+    // Characters and keyframes (one database update) on a channel of their own too.
+    const characters = supabase
+      .channel("character-updates")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "long_video_keyframes" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["long_videos"] });
+        },
+      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "characters" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["characters"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "character_images" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["characters"] });
+      })
+      .subscribe();
     return () => {
       supabase.removeChannel(channel);
       supabase.removeChannel(longVideos);
+      supabase.removeChannel(characters);
     };
   }, [queryClient]);
 }

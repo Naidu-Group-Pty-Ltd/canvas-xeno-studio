@@ -1,0 +1,157 @@
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
+import { isMissingTableError } from "@/lib/edit/errors";
+import type { AssetRow } from "@/hooks/useStudioData";
+import {
+  CHARACTER_VIEWS,
+  runCharacter,
+  type CharacterImage,
+  type CharacterImageRole,
+  type CharacterView,
+  type RunCharacter,
+  type SoulStatus,
+  type SoulVersion,
+} from "@/lib/characters/model";
+
+type CharacterTableRow = Database["public"]["Tables"]["characters"]["Row"];
+
+/** One of a character's images, with its library file (null once deleted from the library). */
+export interface CharacterImageEntry extends CharacterImage {
+  asset: AssetRow | null;
+}
+
+/** A character as the studio shows it: its record and its images, in their arranged order. */
+export interface CharacterEntry extends Omit<
+  CharacterTableRow,
+  "soul_status" | "soul_model_version" | "soul_training_version"
+> {
+  /** The latest training's state (the Soul ID in use is soul_reference_id, for soul_model_version). */
+  soul_status: SoulStatus;
+  soul_model_version: SoulVersion | null;
+  soul_training_version: SoulVersion | null;
+  images: CharacterImageEntry[];
+}
+
+function asView(value: string): CharacterView {
+  return (CHARACTER_VIEWS as readonly string[]).includes(value)
+    ? (value as CharacterView)
+    : "other";
+}
+
+/** The query the team's characters are cached under (kept fresh by the realtime channel). */
+export const CHARACTERS_KEY = ["characters"] as const;
+
+const CHARACTERS_PAGE = 500;
+
+/** The database doesn't have the characters' tables yet (its update is still to come). */
+export class CharactersNotSetUp extends Error {
+  constructor() {
+    super("Characters need a database update that hasn't been applied yet");
+    this.name = "CharactersNotSetUp";
+  }
+}
+
+/**
+ * The team's characters, most recently changed first, each with its images
+ * (only those still in the library). Live through the studio's realtime
+ * channel. Empty until the database has the tables.
+ */
+export function useCharacters(options: { enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: CHARACTERS_KEY,
+    enabled: options.enabled ?? true,
+    queryFn: fetchCharacters,
+    // A database without the tables won't have them on a second try.
+    retry: (count, error) => !(error instanceof CharactersNotSetUp) && count < 3,
+  });
+}
+
+/** Reads the team's characters (see useCharacters). */
+export async function fetchCharacters(): Promise<CharacterEntry[]> {
+  type Row = CharacterTableRow & {
+    character_images: { asset_id: string; role: string; view: string; position: number }[];
+  };
+  // All of them, read in pages (a character missing from the list would look
+  // deleted), oldest first: an edit doesn't move one between pages, and one
+  // added meanwhile comes last. Shown most recently changed first.
+  const byId = new Map<string, Row>();
+  for (let from = 0; ; from += CHARACTERS_PAGE) {
+    const { data, error } = await supabase
+      .from("characters")
+      .select("*, character_images(asset_id, role, view, position)")
+      .is("archived_at", null)
+      .order("created_at", { ascending: true })
+      .order("id")
+      .range(from, from + CHARACTERS_PAGE - 1);
+    if (error) {
+      if (isMissingTableError(error)) throw new CharactersNotSetUp();
+      throw error;
+    }
+    for (const row of (data ?? []) as Row[]) byId.set(row.id, row);
+    if ((data ?? []).length < CHARACTERS_PAGE) break;
+  }
+  const rows = [...byId.values()].sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+  const ids = [
+    ...new Set(rows.flatMap((row) => row.character_images.map((image) => image.asset_id))),
+  ];
+  const assets = new Map<string, AssetRow>();
+  // Fetched in pages: a long `in` list can pass what a request URL holds.
+  for (let start = 0; start < ids.length; start += 150) {
+    const { data: page, error: assetsError } = await supabase
+      .from("assets")
+      .select("*")
+      .in("id", ids.slice(start, start + 150))
+      .is("deleted_at", null);
+    if (assetsError) throw assetsError;
+    for (const asset of (page ?? []) as unknown as AssetRow[]) assets.set(asset.id, asset);
+  }
+  return rows.map(({ character_images: images, ...row }) => ({
+    ...row,
+    soul_status: row.soul_status as SoulStatus,
+    soul_model_version: (row.soul_model_version as SoulVersion | null) ?? null,
+    soul_training_version: (row.soul_training_version as SoulVersion | null) ?? null,
+    images: [...images]
+      .sort((a, b) => a.position - b.position)
+      .flatMap((image) => {
+        const asset = assets.get(image.asset_id) ?? null;
+        return asset
+          ? [
+              {
+                assetId: image.asset_id,
+                role: (image.role === "photo" ? "photo" : "sheet") as CharacterImageRole,
+                view: asView(image.view),
+                position: image.position,
+                asset,
+              },
+            ]
+          : [];
+      }),
+  }));
+}
+
+/** One character, from the team's list. */
+export function useCharacter(id: string | null | undefined) {
+  const query = useCharacters({ enabled: !!id });
+  return { ...query, data: query.data?.find((entry) => entry.id === id) ?? null };
+}
+
+/** A character as plans use it (its reference sheet, best view first). */
+export function planCharacter(entry: CharacterEntry): RunCharacter {
+  return runCharacter({
+    id: entry.id,
+    name: entry.name,
+    description: entry.description,
+    images: entry.images,
+  });
+}
+
+/** The sheet's best image, for a character's thumbnail. */
+export function characterCover(entry: CharacterEntry): AssetRow | null {
+  const sheet = planCharacter(entry).images[0];
+  return (
+    (sheet ? entry.images.find((image) => image.assetId === sheet.assetId)?.asset : null) ??
+    entry.images[0]?.asset ??
+    null
+  );
+}

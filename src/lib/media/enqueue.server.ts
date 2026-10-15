@@ -15,7 +15,7 @@ const SOURCE_URL_TTL = 2 * 60 * 60;
 export interface InternalTaskRequest {
   createdBy: string | null;
   projectId: string | null;
-  taskType: "probe" | "extract_frames" | "trim_video";
+  taskType: "probe" | "extract_frames" | "trim_video" | "resize_image";
   source: {
     assetId: string;
     assetType: MediaKind;

@@ -48,15 +48,20 @@ import {
   type LongVideoDraft,
 } from "@/components/create/long-video-plan";
 import { useFinisherSuggestion } from "@/hooks/useFinisherSuggestion";
+import { planCharacter, useCharacters } from "@/hooks/useCharacters";
+import { AddCharacterReferences } from "@/components/characters/AddCharacterReferences";
 import { startLongVideo } from "@/lib/long-video.functions";
 import { endCardSize } from "@/lib/long-video/finisher";
 import {
   approxExtendRunCost,
   approxRunCost,
+  durationChoices,
+  durationValue,
   finaleHolds,
   finaleReveals,
   formatLength,
   LONG_VIDEO_LIMITS,
+  nearest,
   startFrameSlot,
   type RunFinale,
 } from "@/lib/long-video/plan";
@@ -319,6 +324,8 @@ function CreatePage() {
                   }
                 : null,
               finaleOff: prefill.longVideo.finisher === null,
+              characterIds: prefill.longVideo.characterIds ?? [],
+              keyframes: prefill.longVideo.keyframes ?? null,
             }
           : DEFAULT_LONG_VIDEO_DRAFT,
       );
@@ -428,6 +435,72 @@ function CreatePage() {
         .map((item) => ({ assetId: item.assetId, role: item.role, assetType: item.assetType })),
     [references],
   );
+  // The end card (and a keyframed video's frames) take the video's own shape:
+  // its aspect ratio setting, else (a model that takes it from its start
+  // frame) that frame's.
+  const startFrame = references.find(
+    (item) => item.assetType === "image" && ["source", "first_frame", "image"].includes(item.role),
+  );
+  const { data: startFrameSize } = useQuery({
+    queryKey: ["asset-size", startFrame?.assetId ?? null],
+    enabled: mediaType === "video" && longDraft.enabled && !!startFrame,
+    staleTime: Infinity,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("assets")
+        .select("width,height")
+        .eq("id", startFrame!.assetId)
+        .maybeSingle();
+      return data ?? null;
+    },
+  });
+  // The characters chosen for a long video, as the plan uses them.
+  const charactersQuery = useCharacters({
+    enabled: mediaType === "video" && longDraft.enabled,
+  });
+  const characterEntries = useMemo(() => charactersQuery.data ?? [], [charactersQuery.data]);
+  const chosenCharacters = useMemo(
+    () =>
+      longDraft.characterIds.flatMap((id) => {
+        const entry = characterEntries.find((character) => character.id === id);
+        return entry ? [planCharacter(entry)] : [];
+      }),
+    [longDraft.characterIds, characterEntries],
+  );
+  // A character chosen elsewhere (a Supercomputer draft) that has since left
+  // the library is taken out, said so; until the library is read, nothing starts.
+  useEffect(() => {
+    if (!charactersQuery.isSuccess) return;
+    const gone = longDraft.characterIds.filter(
+      (id) => !characterEntries.some((character) => character.id === id),
+    );
+    if (!gone.length) return;
+    setLongDraft((current) => ({
+      ...current,
+      characterIds: current.characterIds.filter((id) => !gone.includes(id)),
+    }));
+    toast.warning(
+      gone.length === 1
+        ? "A character chosen for this video is no longer in the Characters library, so it was taken out."
+        : `${gone.length} characters chosen for this video are no longer in the Characters library, so they were taken out.`,
+    );
+  }, [charactersQuery.isSuccess, characterEntries, longDraft.characterIds]);
+  const characterIssues: { key: string; message: string }[] =
+    longDraft.characterIds.length && !charactersQuery.isSuccess
+      ? [
+          {
+            key: "long-video-characters",
+            message: charactersQuery.isError
+              ? "The characters couldn't be loaded"
+              : "Loading the characters…",
+          },
+        ]
+      : chosenCharacters
+          .filter((character) => !character.images.length)
+          .map((character) => ({
+            key: `long-video-character-${character.id}`,
+            message: `${character.name} has no reference images yet: add some on the Characters page, or take them out`,
+          }));
   const longPlan = useLongVideoPlan({
     draft: longDraft,
     model,
@@ -435,6 +508,9 @@ function CreatePage() {
     values,
     references: runReferences,
     cinema: { on: cinemaOn, selection: cinema },
+    characters: chosenCharacters,
+    // Undefined while its size is still being read.
+    openingFrame: startFrame ? startFrameSize : null,
   });
   const longMode = mediaType === "video" && longDraft.enabled && longPlan.eligible;
   const longPanel = mediaType === "video" && longDraft.enabled && !!model;
@@ -473,39 +549,24 @@ function CreatePage() {
     firstFrameRole,
   ]);
 
-  // The end card is laid out at the video's own shape: its aspect ratio
-  // setting, else (a model that takes it from its start frame) that frame's.
-  const startFrame = references.find(
-    (item) => item.assetType === "image" && ["source", "first_frame", "image"].includes(item.role),
-  );
-  const { data: startFrameSize } = useQuery({
-    queryKey: ["asset-size", startFrame?.assetId ?? null],
-    enabled: longPanel && !!startFrame,
-    staleTime: Infinity,
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("assets")
-        .select("width,height")
-        .eq("id", startFrame!.assetId)
-        .maybeSingle();
-      return data ?? null;
-    },
-  });
   const endCard = endCardSize(values, startFrameSize ?? null);
 
-  // A long video's first clip is checked with the media it is sent (never the finisher).
-  const baseIssues = model
-    ? validateParameters(
-        model,
-        values,
-        longMode ? (longPlan.planned[0]?.roles ?? inputRoles) : inputRoles,
-      )
-    : [];
+  // A long video's first clip is checked with the media it is sent (never the
+  // finisher); a keyframed one's clips are all checked on its workflow, per clip.
+  const baseIssues =
+    model && !(longMode && longPlan.keyframed)
+      ? validateParameters(
+          model,
+          values,
+          longMode ? (longPlan.planned[0]?.roles ?? inputRoles) : inputRoles,
+        )
+      : [];
   // In a long video the plan sets each clip's length and prompt (a beat can
   // stand in for the story), so those are checked per clip instead.
   const issues = longMode
     ? [
         ...baseIssues.filter((issue) => issue.key !== "prompt" && issue.key !== "duration"),
+        ...characterIssues,
         ...longPlan.issues.map((issue) => ({
           key: `long-video-${issue.position ?? "run"}`,
           message: issue.message,
@@ -529,17 +590,39 @@ function CreatePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model?.id, JSON.stringify(values), JSON.stringify(cinema), cinemaOn]);
 
-  // A long video is quoted by its first clip, exactly as that clip will be sent.
-  const estimateValues = longMode ? (longPlan.planned[0]?.values ?? submitValues) : submitValues;
-
-  // ...with the media clip 1 is sent (the finisher isn't).
-  const estimateInputs = longMode ? (longPlan.planned[0]?.inputs ?? []) : usable;
+  // A long video is quoted by its first clip, exactly as that clip will be sent:
+  // its model (a keyframed video's workflow), settings and media (the finisher
+  // isn't sent; a stand-in image goes where its keyframes will).
+  // With keyframes and no image at all to stand in for clip 1's frames, the
+  // model's own clip is priced instead (about the same), at one of its lengths.
+  const ownChoices = model ? durationChoices(model) : [];
+  const ownSeconds =
+    longMode && !longPlan.quote && ownChoices.length && longPlan.durations[0]
+      ? nearest(ownChoices, longPlan.durations[0])
+      : null;
+  const estimateModel = longMode ? (longPlan.quote?.model ?? model) : model;
+  const estimateValues = longMode
+    ? (longPlan.quote?.values ??
+      (model && ownSeconds !== null
+        ? { ...submitValues, duration: durationValue(model, ownSeconds) }
+        : submitValues))
+    : submitValues;
+  const estimateInputs = longMode ? (longPlan.quote?.inputs ?? []) : usable;
+  // ...unless the model itself needs an image to start from: then clip 1 is
+  // priced just before it is made, once its opening keyframe is painted.
+  const clipPricedLater =
+    longMode &&
+    longPlan.keyframed &&
+    !longPlan.quote &&
+    !!model?.capabilities?.inputs?.some((slot) => slot.required && slot.type === "image");
+  /** How long the clip the estimate prices runs. */
+  const quotedSeconds = ownSeconds ?? longPlan.durations[0];
 
   // Debounced live estimate; any parameter or reference change invalidates the previous one.
   const referenceKey = JSON.stringify(estimateInputs.map((item) => [item.assetId, item.role]));
   const valuesKey = JSON.stringify(estimateValues);
   useEffect(() => {
-    if (!model || !health?.configured || issues.length) {
+    if (!model || !estimateModel || !health?.configured || issues.length) {
       setEstimate(
         !health?.configured
           ? {
@@ -553,6 +636,14 @@ function CreatePage() {
       );
       return;
     }
+    if (clipPricedLater) {
+      setEstimate({
+        kind: "metered",
+        description:
+          "Each clip is priced just before it's made: with no image to stand in for its frames, clip 1 can't be priced until its opening keyframe is painted.",
+      });
+      return;
+    }
     setEstimate({ kind: "loading" });
     // A slower answer for settings that have since changed must not overwrite the current one.
     let cancelled = false;
@@ -560,7 +651,7 @@ function CreatePage() {
       try {
         const result = await estimateGeneration({
           data: {
-            modelId: model.id,
+            modelId: estimateModel.id,
             parameters: estimateValues,
             inputs: estimateInputs.map((item, index) => ({
               assetId: item.assetId,
@@ -590,8 +681,55 @@ function CreatePage() {
       clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [model?.id, valuesKey, referenceKey, health?.configured, issues.length, isAdmin]);
+  }, [
+    model?.id,
+    estimateModel?.id,
+    valuesKey,
+    referenceKey,
+    health?.configured,
+    issues.length,
+    isAdmin,
+    clipPricedLater,
+  ]);
 
+  // One keyframe's price (a keyframed long video paints several before its clips).
+  const keyframeQuote = longMode && longPlan.keyframed ? longPlan.keyframeQuote : null;
+  const { data: keyframePrice = null, isFetching: keyframePricing } = useQuery({
+    queryKey: [
+      "keyframe-quote",
+      keyframeQuote?.model.id ?? null,
+      JSON.stringify(keyframeQuote?.values ?? null),
+      JSON.stringify(keyframeQuote?.inputs ?? null),
+    ],
+    enabled: !!keyframeQuote && health?.configured === true,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const result = await estimateGeneration({
+        data: {
+          modelId: keyframeQuote!.model.id,
+          parameters: keyframeQuote!.values,
+          inputs: keyframeQuote!.inputs.map((item, index) => ({
+            assetId: item.assetId,
+            role: item.role,
+            position: index,
+          })),
+        },
+      });
+      return result.ok
+        ? { usd: result.costUsd, metered: result.costUsd === null && !!result.pricingDescription }
+        : null;
+    },
+  });
+  const keyframeUsd = keyframePrice?.usd ?? null;
+
+  // Under the studio's estimate policy, the keyframes' price is needed too.
+  const keyframesUnpriced =
+    requireEstimate &&
+    longMode &&
+    longPlan.keyframed &&
+    longPlan.paintedKeyframes > 0 &&
+    keyframeUsd === null &&
+    !keyframePrice?.metered;
   const canGenerate =
     !!model &&
     !!user &&
@@ -599,7 +737,8 @@ function CreatePage() {
     issues.length === 0 &&
     health?.configured === true &&
     health?.state !== "disabled" &&
-    (!requireEstimate || estimate.kind === "ready" || estimate.kind === "metered");
+    (!requireEstimate || estimate.kind === "ready" || estimate.kind === "metered") &&
+    !keyframesUnpriced;
 
   const disabledReason = !health?.configured
     ? "Higgsfield credentials are not configured"
@@ -611,7 +750,11 @@ function CreatePage() {
           ? estimate.reason
           : requireEstimate && estimate.kind !== "ready" && estimate.kind !== "metered"
             ? "Waiting for a valid cost estimate"
-            : null;
+            : keyframesUnpriced
+              ? keyframePricing || !keyframeQuote
+                ? "Waiting for the keyframes' price"
+                : "Higgsfield couldn't price the keyframes, and a cost estimate is required"
+              : null;
   // Only an estimate the provider couldn't give (not one it refused for the
   // settings or the balance) can be worked around by generating without one.
   const estimateBypassHint =
@@ -752,8 +895,15 @@ function CreatePage() {
       const result = await startLongVideo({
         data: {
           title,
-          firstModelId: model.id,
+          // A keyframed video's clips are all made by its workflow.
+          firstModelId: longPlan.keyframed && longPlan.workflow ? longPlan.workflow.id : model.id,
           continuationModelId: longPlan.continuation.id,
+          characterIds: longPlan.characters.map((character) => character.id),
+          identityCheck: longDraft.identityCheck,
+          keyframes:
+            longPlan.keyframed && longPlan.painter
+              ? { painterModelId: longPlan.painter.id, review: longDraft.reviewKeyframes }
+              : null,
           story,
           continuity: longDraft.continuity,
           values,
@@ -768,6 +918,10 @@ function CreatePage() {
       requestIdRef.current = null;
       if (result.status === "needs_attention")
         toast.warning("The long video stopped before its first clip. See why under Long videos.");
+      else if (longPlan.keyframed)
+        toast.success(
+          `Painting ${longPlan.paintedKeyframes} keyframes first${longDraft.reviewKeyframes ? ": you'll review them under Long videos before the clips are made" : ", then the clips"}.`,
+        );
       else
         toast.success(
           `Long video started: ${longPlan.clips.length} clips, made one after another. Follow it under Long videos.`,
@@ -811,7 +965,23 @@ function CreatePage() {
                 ? estimateValues["aspect_ratio"]
                 : null,
           })
-        : approxRunCost(estimate.costUsd, longPlan.durations[0], longPlan.totalSeconds)
+        : quotedSeconds
+          ? approxRunCost(estimate.costUsd, quotedSeconds, longPlan.totalSeconds)
+          : null
+      : null;
+  // Only the keyframes that are painted are billed (the person's own frames aren't).
+  const keyframesEstimate =
+    longMode && longPlan.keyframed && keyframeUsd !== null
+      ? keyframeUsd * longPlan.paintedKeyframes
+      : null;
+  // A total only once every part of it is priced: without the keyframes' price
+  // it would say less than the video costs.
+  const keyframesPriced =
+    !(longMode && longPlan.keyframed && longPlan.paintedKeyframes > 0) ||
+    keyframesEstimate !== null;
+  const longGrandTotal =
+    longTotalEstimate !== null && keyframesPriced
+      ? longTotalEstimate + (keyframesEstimate ?? 0)
       : null;
 
   /** Hands the current prompt, references and context to Supercomputer (nothing is sent automatically). */
@@ -1034,6 +1204,8 @@ function CreatePage() {
                         ? null
                         : "Add an AI key in Settings → AI to write beats"
                     }
+                    characters={characterEntries}
+                    keyframeUsd={keyframeUsd}
                   />
                 )}
 
@@ -1054,6 +1226,29 @@ function CreatePage() {
                     items={references}
                     onChange={setReferences}
                     finisherId={longMode ? (longPlan.finale?.assetId ?? null) : null}
+                    // A long video takes its characters in its own panel.
+                    extraActions={
+                      longMode ? undefined : (
+                        <AddCharacterReferences
+                          room={maxReferences(model) - references.length}
+                          onAdd={(assets) =>
+                            setReferences((current) =>
+                              assignRoles(
+                                [
+                                  ...current,
+                                  ...assets
+                                    .filter(
+                                      (asset) => !current.some((item) => item.assetId === asset.id),
+                                    )
+                                    .map(assetToReference),
+                                ],
+                                model,
+                              ),
+                            )
+                          }
+                        />
+                      )
+                    }
                     onSwitchModel={(next) => {
                       setMediaType(next.output_type === "video" ? "video" : "image");
                       applyModel(next, { prompt: values["prompt"] });
@@ -1235,9 +1430,10 @@ function CreatePage() {
                   {estimate.kind === "ready"
                     ? ` · clip 1 $${estimate.costUsd.toFixed(2)}`
                     : " · the estimate is for clip 1"}
-                  {longTotalEstimate !== null
-                    ? ` · approx. $${longTotalEstimate.toFixed(2)} in all`
+                  {longPlan.keyframed && longPlan.paintedKeyframes > 0
+                    ? ` · ${longPlan.paintedKeyframes} keyframes ${keyframesEstimate !== null ? `$${keyframesEstimate.toFixed(2)}` : "(not priced yet)"}`
                     : ""}
+                  {longGrandTotal !== null ? ` · approx. $${longGrandTotal.toFixed(2)} in all` : ""}
                 </p>
               )}
               {batchCount > 1 && (
@@ -1367,9 +1563,17 @@ function CreatePage() {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {longMode
-                ? `This makes ${longPlan.clips.length} clips one after another, about ${formatLength(longPlan.totalSeconds)} in all, each starting from the last frame of the one before. ${finisherSummary}${
+                ? `${
+                    longPlan.keyframed
+                      ? `First ${longPlan.paintedKeyframes} keyframes are painted${keyframesEstimate !== null ? ` (about $${keyframesEstimate.toFixed(2)})` : " (not priced yet)"}${longDraft.reviewKeyframes ? ", for you to review" : ""}; then ${longPlan.clips.length} clips are made one after another, each moving into its keyframe.`
+                      : `This makes ${longPlan.clips.length} clips one after another, each starting from the last frame of the one before.`
+                  } About ${formatLength(longPlan.totalSeconds)} in all. ${
+                    longPlan.characters.length
+                      ? `${longPlan.characters.map((character) => character.name).join(", ")} ${longPlan.characters.length === 1 ? "is" : "are"} kept the same throughout${longDraft.identityCheck ? ", and every clip is checked before the next is made" : ""}. `
+                      : ""
+                  }${finisherSummary}${
                     estimate.kind === "ready"
-                      ? `Clip 1 is estimated at $${estimate.costUsd.toFixed(2)}${longTotalEstimate !== null ? ` and the whole video at roughly $${longTotalEstimate.toFixed(2)}` : ""}. `
+                      ? `Clip 1 is estimated at $${estimate.costUsd.toFixed(2)}${longGrandTotal !== null ? ` and the whole video at roughly $${longGrandTotal.toFixed(2)}` : ""}. `
                       : ""
                   }Each clip is quoted again by the provider before it is sent, and you can stop the run at any point.`
                 : batchCount > 1

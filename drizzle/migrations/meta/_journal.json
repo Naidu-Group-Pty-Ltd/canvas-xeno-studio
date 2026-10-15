@@ -78,6 +78,13 @@
       "when": 1791296405140,
       "tag": "0010_long_videos",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791298405140,
+      "tag": "0011_characters_and_keyframes",
+      "breakpoints": true
     }
   ]
 }

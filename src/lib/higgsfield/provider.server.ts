@@ -4,6 +4,7 @@
  * The rest of the application only speaks the GenerationProvider interface, so
  * a second provider can be added without touching the frontend.
  */
+import type { SoulVersion } from "../characters/model";
 import { AppError } from "./errors";
 
 export const HIGGSFIELD_BASE_URL = process.env["HF_BASE_URL"] || "https://api.higgsfield.ai";
@@ -21,6 +22,9 @@ export const HF_ENDPOINTS = {
   uploadUrl: "/files/generate-upload-url",
   /** Cheapest authenticated call available: an estimate charges nothing. */
   health: "/estimate/higgsfield-ai/soul/v2/standard",
+  /** Soul ID: training a reusable character reference, then reading how it's going. */
+  customReferences: "/v1/custom-references",
+  customReference: (id: string) => `/v1/custom-references/${encodeURIComponent(id)}`,
 };
 
 /**
@@ -438,6 +442,69 @@ export const higgsfieldProvider: GenerationProvider = {
     return hfFetch(`${path}${query}`, { timeoutMs: 20_000 });
   },
 };
+
+/* ------------------------------------------------------------------ */
+/* Soul ID: trained character references                               */
+/* ------------------------------------------------------------------ */
+
+/** Where a character reference's training stands. */
+export type SoulTrainingState = "training" | "ready" | "failed";
+
+export interface CustomReference {
+  id: string;
+  state: SoulTrainingState;
+  /** The provider's own word for it (not_ready, queued, in_progress, completed, failed). */
+  status: string;
+  /** Why it failed, when the provider says. */
+  message: string | null;
+}
+
+/** A character reference as the provider reports it; null when the answer has no id. */
+export function readCustomReference(payload: unknown): CustomReference | null {
+  if (!payload || typeof payload !== "object") return null;
+  const record = payload as Record<string, unknown>;
+  const nested = record["data"];
+  if (typeof record["id"] !== "string" && nested && typeof nested === "object")
+    return readCustomReference(nested);
+  const id = typeof record["id"] === "string" ? record["id"] : null;
+  if (!id) return null;
+  const status = String(record["status"] ?? "").toLowerCase();
+  const state: SoulTrainingState =
+    status === "completed" ? "ready" : status === "failed" ? "failed" : "training";
+  const message =
+    (typeof record["error"] === "string" && record["error"]) ||
+    (typeof record["error_message"] === "string" && record["error_message"]) ||
+    (typeof record["message"] === "string" && record["message"]) ||
+    null;
+  return { id, state, status: status || "queued", message };
+}
+
+/**
+ * Starts training a Soul ID character reference from public image URLs
+ * (POST /v1/custom-references). Billed by Higgsfield; the idempotency key
+ * makes a repeat of the same request return the first instead of training
+ * (and charging) twice, where the API honours it.
+ */
+export function createCustomReference(
+  input: { name: string; modelVersion: SoulVersion; imageUrls: string[] },
+  idempotencyKey: string,
+): Promise<ProviderCall<unknown>> {
+  return hfFetch(HF_ENDPOINTS.customReferences, {
+    method: "POST",
+    body: {
+      name: input.name.slice(0, 100),
+      model_version: input.modelVersion,
+      input_images: input.imageUrls.map((url) => ({ type: "image_url", image_url: url })),
+    },
+    timeoutMs: 60_000,
+    headers: { "Idempotency-Key": idempotencyKey },
+  });
+}
+
+/** How a character reference's training is going (GET /v1/custom-references/{id}). */
+export function getCustomReference(id: string): Promise<ProviderCall<unknown>> {
+  return hfFetch(HF_ENDPOINTS.customReference(id), { timeoutMs: 20_000 });
+}
 
 /**
  * Cheap authenticated round-trip used for the provider health indicator.

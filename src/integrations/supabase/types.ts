@@ -2098,6 +2098,135 @@ export type Database = {
           },
         ]
       }
+      character_images: {
+        Row: {
+          added_by: string | null
+          asset_id: string
+          character_id: string
+          created_at: string
+          id: string
+          position: number
+          role: string
+          view: string
+        }
+        Insert: {
+          added_by?: string | null
+          asset_id: string
+          character_id: string
+          created_at?: string
+          id?: string
+          position?: number
+          role?: string
+          view?: string
+        }
+        Update: {
+          added_by?: string | null
+          asset_id?: string
+          character_id?: string
+          created_at?: string
+          id?: string
+          position?: number
+          role?: string
+          view?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "character_images_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "character_images_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "character_images_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      characters: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          name: string
+          soul_checked_at: string | null
+          soul_error: string | null
+          soul_image_count: number | null
+          soul_model_version: string | null
+          soul_ready_at: string | null
+          soul_reference_id: string | null
+          soul_request_key: string | null
+          soul_requested_at: string | null
+          soul_status: string
+          soul_submitted_at: string | null
+          soul_training_id: string | null
+          soul_training_version: string | null
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          name: string
+          soul_checked_at?: string | null
+          soul_error?: string | null
+          soul_image_count?: number | null
+          soul_model_version?: string | null
+          soul_ready_at?: string | null
+          soul_reference_id?: string | null
+          soul_request_key?: string | null
+          soul_requested_at?: string | null
+          soul_status?: string
+          soul_submitted_at?: string | null
+          soul_training_id?: string | null
+          soul_training_version?: string | null
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          name?: string
+          soul_checked_at?: string | null
+          soul_error?: string | null
+          soul_image_count?: number | null
+          soul_model_version?: string | null
+          soul_ready_at?: string | null
+          soul_reference_id?: string | null
+          soul_request_key?: string | null
+          soul_requested_at?: string | null
+          soul_status?: string
+          soul_submitted_at?: string | null
+          soul_training_id?: string | null
+          soul_training_version?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "characters_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       continuity_pack_items: {
         Row: {
           asset_id: string
@@ -2661,10 +2790,18 @@ export type Database = {
         Row: {
           attempt: number
           beat: string
+          check_attempts: number
+          check_claimed_at: string | null
+          check_claims: number
+          check_result: Json | null
+          check_status: string
+          check_task_id: string | null
+          checked_at: string | null
           claimed_at: string | null
           completed_at: string | null
           created_at: string
           duration_seconds: number
+          end_frame_asset_id: string | null
           error_code: string | null
           error_message: string | null
           generation_id: string | null
@@ -2693,10 +2830,18 @@ export type Database = {
         Insert: {
           attempt?: number
           beat?: string
+          check_attempts?: number
+          check_claimed_at?: string | null
+          check_claims?: number
+          check_result?: Json | null
+          check_status?: string
+          check_task_id?: string | null
+          checked_at?: string | null
           claimed_at?: string | null
           completed_at?: string | null
           created_at?: string
           duration_seconds: number
+          end_frame_asset_id?: string | null
           error_code?: string | null
           error_message?: string | null
           generation_id?: string | null
@@ -2725,10 +2870,18 @@ export type Database = {
         Update: {
           attempt?: number
           beat?: string
+          check_attempts?: number
+          check_claimed_at?: string | null
+          check_claims?: number
+          check_result?: Json | null
+          check_status?: string
+          check_task_id?: string | null
+          checked_at?: string | null
           claimed_at?: string | null
           completed_at?: string | null
           created_at?: string
           duration_seconds?: number
+          end_frame_asset_id?: string | null
           error_code?: string | null
           error_message?: string | null
           generation_id?: string | null
@@ -2804,11 +2957,149 @@ export type Database = {
             referencedRelation: "assets"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "long_video_clips_check_task_id_fkey"
+            columns: ["check_task_id"]
+            isOneToOne: false
+            referencedRelation: "media_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "long_video_clips_end_frame_asset_id_fkey"
+            columns: ["end_frame_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      long_video_keyframes: {
+        Row: {
+          asset_id: string | null
+          attempt: number
+          check_attempts: number
+          check_claimed_at: string | null
+          check_claims: number
+          check_result: Json | null
+          check_status: string
+          checked_at: string | null
+          claimed_at: string | null
+          completed_at: string | null
+          created_at: string
+          error_code: string | null
+          error_message: string | null
+          generation_id: string | null
+          id: string
+          long_video_id: string
+          note: string
+          position: number
+          prompt: string
+          provided: boolean
+          raw_asset_id: string | null
+          size_attempts: number
+          size_task_id: string | null
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          asset_id?: string | null
+          attempt?: number
+          check_attempts?: number
+          check_claimed_at?: string | null
+          check_claims?: number
+          check_result?: Json | null
+          check_status?: string
+          checked_at?: string | null
+          claimed_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          generation_id?: string | null
+          id?: string
+          long_video_id: string
+          note?: string
+          position: number
+          prompt?: string
+          provided?: boolean
+          raw_asset_id?: string | null
+          size_attempts?: number
+          size_task_id?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          asset_id?: string | null
+          attempt?: number
+          check_attempts?: number
+          check_claimed_at?: string | null
+          check_claims?: number
+          check_result?: Json | null
+          check_status?: string
+          checked_at?: string | null
+          claimed_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          generation_id?: string | null
+          id?: string
+          long_video_id?: string
+          note?: string
+          position?: number
+          prompt?: string
+          provided?: boolean
+          raw_asset_id?: string | null
+          size_attempts?: number
+          size_task_id?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "long_video_keyframes_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "long_video_keyframes_generation_id_fkey"
+            columns: ["generation_id"]
+            isOneToOne: false
+            referencedRelation: "generations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "long_video_keyframes_long_video_id_fkey"
+            columns: ["long_video_id"]
+            isOneToOne: false
+            referencedRelation: "long_videos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "long_video_keyframes_raw_asset_id_fkey"
+            columns: ["raw_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "long_video_keyframes_size_task_id_fkey"
+            columns: ["size_task_id"]
+            isOneToOne: false
+            referencedRelation: "media_tasks"
+            referencedColumns: ["id"]
+          },
         ]
       }
       long_videos: {
         Row: {
           campaign_id: string | null
+          characters: Json
           client_request_id: string | null
           clip_count: number
           completed_at: string | null
@@ -2820,18 +3111,24 @@ export type Database = {
           error_message: string | null
           first_model_id: string
           id: string
+          identity_check: boolean
+          keyframe_model_id: string | null
+          keyframe_settings: Json
           project_id: string | null
           references_used: Json
           sequence_id: string | null
           settings: Json
           status: string
           story: string
+          storyboard_approved_at: string | null
+          storyboard_review: boolean
           target_seconds: number
           title: string
           updated_at: string
         }
         Insert: {
           campaign_id?: string | null
+          characters?: Json
           client_request_id?: string | null
           clip_count: number
           completed_at?: string | null
@@ -2843,18 +3140,24 @@ export type Database = {
           error_message?: string | null
           first_model_id: string
           id?: string
+          identity_check?: boolean
+          keyframe_model_id?: string | null
+          keyframe_settings?: Json
           project_id?: string | null
           references_used?: Json
           sequence_id?: string | null
           settings?: Json
           status?: string
           story?: string
+          storyboard_approved_at?: string | null
+          storyboard_review?: boolean
           target_seconds: number
           title?: string
           updated_at?: string
         }
         Update: {
           campaign_id?: string | null
+          characters?: Json
           client_request_id?: string | null
           clip_count?: number
           completed_at?: string | null
@@ -2866,12 +3169,17 @@ export type Database = {
           error_message?: string | null
           first_model_id?: string
           id?: string
+          identity_check?: boolean
+          keyframe_model_id?: string | null
+          keyframe_settings?: Json
           project_id?: string | null
           references_used?: Json
           sequence_id?: string | null
           settings?: Json
           status?: string
           story?: string
+          storyboard_approved_at?: string | null
+          storyboard_review?: boolean
           target_seconds?: number
           title?: string
           updated_at?: string
@@ -2917,6 +3225,13 @@ export type Database = {
             columns: ["sequence_id"]
             isOneToOne: false
             referencedRelation: "sequences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "long_videos_keyframe_model_id_fkey"
+            columns: ["keyframe_model_id"]
+            isOneToOne: false
+            referencedRelation: "model_registry"
             referencedColumns: ["id"]
           },
         ]
@@ -4930,6 +5245,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_long_video_storyboard: {
+        Args: { p_by_person: boolean; p_run_id: string }
+        Returns: Json
+      }
       avatar_get_provider_secret: { Args: { _name: string }; Returns: string }
       avatar_set_provider_secret: {
         Args: { _meta: Json; _name: string; _value: string }
@@ -4941,6 +5260,10 @@ export type Database = {
       }
       claim_added_voice: {
         Args: { p_attempt: string; p_fresh: string[] }
+        Returns: Json
+      }
+      claim_long_video_clip: {
+        Args: { p_claimed_at: string; p_clip_id: string }
         Returns: Json
       }
       claim_ready_operations: {
@@ -5016,6 +5339,16 @@ export type Database = {
       record_added_voice: {
         Args: { p_attempt: string; p_voice: string }
         Returns: boolean
+      }
+      redo_long_video_keyframes: {
+        Args: {
+          p_confirm_uncertain: boolean
+          p_keyframe_ids: string[]
+          p_note: string
+          p_run_id: string
+          p_target_id: string
+        }
+        Returns: Json
       }
       revoke_team_invitation: {
         Args: { p_invitation_id: string; p_revoked_by: string }
