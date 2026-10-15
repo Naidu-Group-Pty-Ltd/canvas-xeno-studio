@@ -690,9 +690,10 @@ async function tryKeptClips(
       break;
     }
   }
-  // Refused: stopped, the requests kept. Otherwise tried, so a later step
-  // doesn't ask again. Either only while the run is still going: one stopped
-  // meanwhile is left as it is.
+  // Refused: stopped, the requests kept (written back, in case a step
+  // alongside got no refusal and cleared them first). Otherwise tried, so a
+  // later step doesn't ask again. Either only while the run is still going:
+  // one stopped meanwhile is left as it is.
   const { data, error } = await db
     .from("long_videos")
     .update(
@@ -701,6 +702,7 @@ async function tryKeptClips(
             status: "needs_attention",
             error_code: "CLIP_REFUSED",
             error_message: `${problem}. Nothing more is painted for it: stop this video and start it again set up another way.`,
+            keyframe_settings: settings as never,
           }
         : { keyframe_settings: { ...settings, clipQuotes: [] } as never },
     )
