@@ -2,6 +2,10 @@ import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { ModelRegistryEntry } from "@/lib/model-schema";
+import { USAGE_BALANCE_KEY } from "@/hooks/useUsageBalance";
+
+/** Generation statuses that settle what a generation cost (or that it was refused). */
+const FINISHED = new Set(["completed", "failed", "nsfw", "canceled", "submission_uncertain"]);
 
 export function useModels(includeInactive = false) {
   return useQuery({
@@ -161,9 +165,14 @@ export function useStudioRealtime() {
   useEffect(() => {
     const channel = supabase
       .channel("studio-updates")
-      .on("postgres_changes", { event: "*", schema: "public", table: "generations" }, () => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "generations" }, (payload) => {
         queryClient.invalidateQueries({ queryKey: ["generations"] });
         queryClient.invalidateQueries({ queryKey: ["usage"] });
+        // A generation that finished, or was refused, changes the top bar's balance.
+        const status = (payload.new as { status?: string } | null)?.status;
+        if (status && FINISHED.has(status)) {
+          queryClient.invalidateQueries({ queryKey: USAGE_BALANCE_KEY });
+        }
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "assets" }, () => {
         queryClient.invalidateQueries({ queryKey: ["assets"] });

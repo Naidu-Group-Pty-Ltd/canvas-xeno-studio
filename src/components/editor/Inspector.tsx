@@ -1,6 +1,16 @@
 import { useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, Copy, Plus, Scissors, Trash2, Type, Wand2 } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Blend,
+  Copy,
+  Plus,
+  Scissors,
+  Trash2,
+  Type,
+  Wand2,
+} from "lucide-react";
 import type { AssetRow } from "@/hooks/useStudioData";
 import {
   ASPECT_LABELS,
@@ -33,8 +43,16 @@ import {
   TRANSITIONS,
   updateClip,
   audioPlayLength,
+  canBlendJoin,
   channelOf,
+  joinCounts,
+  joinFields,
+  joinModeOf,
+  JOIN_MODE_LABELS,
+  JOIN_MODES,
   MIX_CHANNEL_LABELS,
+  withAllJoins,
+  type JoinMode,
   type MixChannel,
   type AspectRatio,
   type Fit,
@@ -66,6 +84,7 @@ import type { PlaybackClock, Selection } from "./state";
 import { VoiceoverPanel, type VoiceoverContext } from "./VoiceoverPanel";
 import { MusicPanel, type MusicContext } from "./MusicPanel";
 import { Mixer } from "./Mixer";
+import { SendToKatana } from "@/components/katana/SendToKatana";
 
 interface InspectorProps {
   timeline: Timeline;
@@ -240,6 +259,68 @@ function FocusField({
         )}
       </div>
     </Field>
+  );
+}
+
+/** Whether the deployed media service makes smart joins (it matches colour only without); null until known. */
+function useSmartJoins(): boolean | null {
+  const { data: worker } = useQuery({
+    queryKey: ["media-worker-status"],
+    queryFn: () => getMediaWorkerStatus(),
+    staleTime: 60_000,
+  });
+  return worker ? (worker.features ?? []).includes("smart_join") : null;
+}
+
+const JOIN_HINTS: Record<JoinMode, string> = {
+  smart:
+    "Puts this clip back in register with the one before at the cut: its framing, colour and detail, and the two clips' own sound. Each eases back to this clip's own over a few seconds, too slowly to see. Made when the video renders; the preview plays the plain cut.",
+  colour:
+    "Matches only this clip's colour at the cut, easing back to its own over a couple of seconds.",
+  plain: "Leaves the join as it is.",
+};
+
+/**
+ * How a clip that carries straight on from the one before meets it: smart
+ * blend, colour match or plain (see JOIN_MODES).
+ */
+function JoinField({ mode, onChange }: { mode: JoinMode; onChange: (mode: JoinMode) => void }) {
+  const smart = useSmartJoins();
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs">Join with the clip before</Label>
+      <div
+        className="grid grid-cols-3 gap-1"
+        role="radiogroup"
+        aria-label="Join with the clip before"
+        data-testid="clip-join"
+      >
+        {JOIN_MODES.map((value) => (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={mode === value}
+            onClick={() => onChange(value)}
+            className={cn(
+              "rounded-md border px-1.5 py-1 text-[11px] font-medium transition-colors",
+              mode === value
+                ? "border-primary/60 bg-primary/15 text-foreground"
+                : "border-border text-muted-foreground hover:border-input hover:text-foreground",
+            )}
+          >
+            {JOIN_MODE_LABELS[value]}
+          </button>
+        ))}
+      </div>
+      <p className="text-[11px] text-muted-foreground">{JOIN_HINTS[mode]}</p>
+      {mode === "smart" && smart === false && (
+        <p className="text-[11px] text-warning" data-testid="smart-join-unavailable">
+          The media service hasn't been updated for smart blends yet: until it is, this join's
+          colour is matched only.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -426,6 +507,13 @@ function ClipInspector({
         >
           <Scissors className="mr-1.5 size-3.5" /> Split at playhead (S)
         </Button>
+        {asset && (
+          <SendToKatana
+            file={asset}
+            label={clip.kind === "video" ? "Send its footage to Katana" : "Send it to Katana"}
+            className="h-8 w-full"
+          />
+        )}
       </Section>
 
       <Section title={clip.kind === "image" ? "Timing" : "Trim"}>
@@ -542,23 +630,14 @@ function ClipInspector({
                 />
               </Field>
             )}
-            {clip.kind === "video" && (
-              <div className="space-y-1">
-                <div className="flex items-center justify-between gap-2">
-                  <Label className="text-xs" htmlFor={`match-${clip.id}`}>
-                    Match colour to the clip before
-                  </Label>
-                  <Switch
-                    id={`match-${clip.id}`}
-                    checked={clip.matchPrevious}
-                    onCheckedChange={(checked) => set({ matchPrevious: checked })}
-                  />
-                </div>
+            {canBlendJoin(timeline, index) ? (
+              <JoinField mode={joinModeOf(clip)} onChange={(mode) => set(joinFields(mode))} />
+            ) : (
+              clip.kind === "video" && (
                 <p className="text-[11px] text-muted-foreground">
-                  For a clip that carries straight on from the one before: the render matches its
-                  colour at the join, easing back to its own over a couple of seconds.
+                  A join can be smart-blended between two video clips.
                 </p>
-              </div>
+              )
             )}
           </>
         )}
@@ -966,6 +1045,7 @@ function SequenceSettings({ timeline, layout, onChange }: InspectorProps) {
           </Field>
         </div>
       </Section>
+      <JoinsSection timeline={timeline} onChange={onChange} />
       <Section title="Mix">
         <Mixer timeline={timeline} onChange={onChange} />
       </Section>
@@ -988,6 +1068,70 @@ function SequenceSettings({ timeline, layout, onChange }: InspectorProps) {
         </div>
       </Section>
     </div>
+  );
+}
+
+/** Every join between video clips set at once, smart-blended most of all. */
+function JoinsSection({
+  timeline,
+  onChange,
+}: {
+  timeline: Timeline;
+  onChange: (timeline: Timeline, key?: string) => void;
+}) {
+  const smart = useSmartJoins();
+  const { joins, smart: blended } = joinCounts(timeline);
+  if (!joins) return null;
+  const colour = timeline.clips.filter(
+    (clip, index) => canBlendJoin(timeline, index) && joinModeOf(clip) === "colour",
+  ).length;
+  const all = (mode: JoinMode) =>
+    timeline.clips.every(
+      (clip, index) => !canBlendJoin(timeline, index) || joinModeOf(clip) === mode,
+    );
+  return (
+    <Section title="Joins">
+      <p className="text-xs text-muted-foreground" data-testid="join-counts">
+        {joins} join{joins === 1 ? "" : "s"} between video clips: {blended} smart-blended
+        {colour ? `, ${colour} colour-matched` : ""}
+        {joins - blended - colour ? `, ${joins - blended - colour} plain` : ""}
+      </p>
+      <Button
+        variant={all("smart") ? "secondary" : "outline"}
+        size="sm"
+        className="h-8 w-full"
+        disabled={all("smart")}
+        onClick={() => onChange(withAllJoins(timeline, "smart"))}
+        data-testid="smart-blend-all"
+      >
+        <Blend className="mr-1.5 size-3.5" />
+        {all("smart") ? "Every join is smart-blended" : "Smart-blend every join"}
+      </Button>
+      <p className="text-[11px] text-muted-foreground">
+        For clips that carry straight on from each other, like a long video's. Each join is put back
+        in register when the video renders: framing, colour, detail and sound. A join between clips
+        that don't show the same picture is left as it is.
+      </p>
+      {smart === false && blended > 0 && (
+        <p className="text-[11px] text-warning">
+          The media service hasn't been updated for smart blends yet: until it is, these joins'
+          colour is matched only.
+        </p>
+      )}
+      <div className="flex flex-wrap gap-x-3 gap-y-1">
+        {(["colour", "plain"] as const).map((mode) => (
+          <button
+            key={mode}
+            type="button"
+            disabled={all(mode)}
+            className="text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:pointer-events-none disabled:opacity-50"
+            onClick={() => onChange(withAllJoins(timeline, mode))}
+          >
+            {mode === "colour" ? "Colour-match every join" : "Plain cuts everywhere"}
+          </button>
+        ))}
+      </div>
+    </Section>
   );
 }
 

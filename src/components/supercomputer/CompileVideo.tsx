@@ -6,7 +6,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { createSequence } from "@/hooks/useEditorData";
 import type { AssetRow, GenerationRow } from "@/hooks/useStudioData";
 import { bestOutput, compileFromDrafts, type CompileRun } from "@/lib/edit/compile";
+import { katanaFromPlan } from "@/lib/supercomputer/katana";
 import type { SupercomputerDraft, SupercomputerEditPlan } from "@/lib/supercomputer/types";
+import { SendBundleToKatana } from "@/components/katana/SendToKatana";
 import { Button } from "@/components/ui/button";
 
 interface CompileVideoProps {
@@ -120,6 +122,27 @@ export function CompileVideo({ messageId, drafts, byDraft, plan, context }: Comp
       )}
       Compile into a video{order.length > 1 ? ` (${ready}/${order.length} ready)` : ""}
     </Button>
+  );
+}
+
+/**
+ * Hands the agent's edit plan to Katana to cut: its clips as the footage (up
+ * to three), its stills, the plan as the brief and the drafts' characters.
+ */
+export function SendPlanToKatana({
+  drafts,
+  byDraft,
+  plan,
+  context,
+}: Pick<CompileVideoProps, "drafts" | "byDraft" | "context"> & { plan: SupercomputerEditPlan }) {
+  const { send, reason } = katanaFromPlan(drafts, runsFor(byDraft), plan, context);
+  return (
+    <SendBundleToKatana
+      send={send}
+      disabledReason={reason}
+      label="Cut it with Katana"
+      className="h-8"
+    />
   );
 }
 

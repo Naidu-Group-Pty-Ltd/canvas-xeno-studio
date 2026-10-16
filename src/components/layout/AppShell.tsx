@@ -52,6 +52,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { GlobalSearch } from "@/components/layout/GlobalSearch";
+import { BalanceChip } from "@/components/layout/BalanceChip";
+import { AvatarBalanceChip } from "@/features/avatar-studio/components/AvatarBalanceChip";
 import { CommandPalette } from "@/components/layout/CommandPalette";
 import { cn } from "@/lib/utils";
 
@@ -283,6 +285,7 @@ export function AppShell({ children, title }: { children: ReactNode; title?: str
           <div className="ml-auto flex items-center gap-2">
             <GlobalSearch />
             <ActiveCounter />
+            {pathname.startsWith("/avatar") ? <AvatarBalanceChip /> : <BalanceChip />}
             <HealthPill />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

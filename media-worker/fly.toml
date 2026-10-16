@@ -16,6 +16,12 @@ kill_timeout = "30s"
   CONCURRENCY = "2"
   MAX_QUEUE_DEPTH = "50"
   TASK_TIMEOUT_SECONDS = "900"
+  # Editor renders: each FFmpeg step may take up to 12 hours (the longest edit,
+  # ten minutes at 60 fps, on shared vCPUs throttled under sustained load, two
+  # renders at once); a step that writes nothing new for 20 minutes has hung
+  # and is stopped.
+  RENDER_TIMEOUT_SECONDS = "43200"
+  RENDER_STALL_SECONDS = "1200"
 
 [http_service]
   internal_port = 8080

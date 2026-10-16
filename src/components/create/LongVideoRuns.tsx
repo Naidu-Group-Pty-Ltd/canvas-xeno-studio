@@ -32,6 +32,8 @@ import {
   stopLongVideo,
 } from "@/lib/long-video.functions";
 import { StoryboardPanel } from "@/components/create/StoryboardPanel";
+import { SendToKatana } from "@/components/katana/SendToKatana";
+import { useAssetsByIds, useSequenceRenders } from "@/hooks/useEditorData";
 import { endCardSize, storedFinale } from "@/lib/long-video/finisher";
 import {
   FINALE_SECONDS,
@@ -43,6 +45,7 @@ import {
 } from "@/lib/long-video/plan";
 import { DEFAULT_END_CARD_STYLE, makeEndCard, type EndCardScene } from "@/lib/media/end-card";
 import { syncSummary } from "@/lib/lip-sync/sync";
+import type { LongVideoSeam } from "@/lib/edit/compile";
 import { storedVoiceover } from "@/lib/long-video/voiceover";
 import { MediaPreview } from "@/components/studio/MediaPreview";
 import { Button } from "@/components/ui/button";
@@ -122,6 +125,44 @@ function clipState(run: LongVideoRow, clip: LongVideoClipRow, isLast: boolean): 
   }
 }
 
+/** A run's characters as it keeps them, for keeping them in a Katana run too. */
+function characterRefs(run: LongVideoRow): { id: string; name: string }[] {
+  return (Array.isArray(run.characters) ? run.characters : []).flatMap((entry) => {
+    const record = (entry ?? {}) as Record<string, unknown>;
+    return typeof record["id"] === "string"
+      ? [{ id: record["id"], name: typeof record["name"] === "string" ? record["name"] : "" }]
+      : [];
+  });
+}
+
+/**
+ * The long video's latest render in the Editor, to Katana: the finished
+ * video as one piece of footage (Katana edits three clips at most).
+ */
+function RenderToKatana({
+  sequenceId,
+  title,
+  characters,
+}: {
+  sequenceId: string;
+  title: string;
+  characters: { id: string; name: string }[];
+}) {
+  const { data: renders = [] } = useSequenceRenders(sequenceId);
+  const latest = renders.find((render) => render.status === "completed" && render.asset_id);
+  const { data: files } = useAssetsByIds(latest?.asset_id ? [latest.asset_id] : []);
+  const file = latest?.asset_id ? files?.get(latest.asset_id) : undefined;
+  if (!file) return null;
+  return (
+    <SendToKatana
+      file={file}
+      characters={characters}
+      title={`${title} · Katana`}
+      label={`Send version ${latest!.sequence_version} to Katana`}
+    />
+  );
+}
+
 /** The names of a run's characters, as it keeps them. */
 function characterNames(run: LongVideoRow): string[] {
   return (Array.isArray(run.characters) ? run.characters : []).flatMap((entry) => {
@@ -187,7 +228,7 @@ function RunCard({
   // Made to a voiceover: its clips' own sound is their piece of it again, so
   // the Editor plays the voiceover alone unless asked otherwise.
   const voiceover = run.voiceover_preparation_id ? storedVoiceover(run.voiceover) : null;
-  const [seam, setSeam] = useState<"cut" | "blend">("cut");
+  const [seam, setSeam] = useState<LongVideoSeam>("smart");
   const [keepSound, setKeepSound] = useState(!voiceover);
   const [captions, setCaptions] = useState(false);
   // The end card: the run's finisher when it holds after the last clip; any
@@ -240,6 +281,7 @@ function RunCard({
       run.keyframes.length === 0 &&
       run.error_code === "KEYFRAME_MISSING");
   const names = characterNames(run);
+  const cast = characterRefs(run);
 
   async function act(name: string, work: () => Promise<unknown>, success?: string) {
     setBusy(name);
@@ -429,7 +471,17 @@ function RunCard({
               data-testid="long-video-clip"
               data-state={state}
             >
-              <div className="relative aspect-video overflow-hidden rounded-md border border-border bg-surface">
+              <div className="group relative aspect-video overflow-hidden rounded-md border border-border bg-surface">
+                {asset && clip.status === "completed" && (
+                  <SendToKatana
+                    file={asset}
+                    characters={cast}
+                    title={`${run.title} · clip ${index + 1}`}
+                    look="pill"
+                    label=""
+                    className="absolute top-1 right-1 z-10 opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 data-[state=open]:opacity-100"
+                  />
+                )}
                 {asset ? (
                   <MediaPreview
                     bucket={asset.storage_bucket}
@@ -542,14 +594,19 @@ function RunCard({
                     {(
                       [
                         [
-                          "cut",
-                          "Seamless cut",
-                          "Each clip plays to the frame the next one starts from, and the next carries straight on, its colour eased to match.",
+                          "smart",
+                          "Smart blend",
+                          "Each clip plays to the frame the next one starts from, and the next carries straight on, put back in register with it: its framing, colour and detail matched at the join and eased back over a few seconds.",
                         ],
                         [
                           "blend",
-                          "Soft blend",
-                          "The same, with a brief dissolve at each join to soften any jump.",
+                          "Smart blend with a dissolve",
+                          "The same, with a brief dissolve at each join as well.",
+                        ],
+                        [
+                          "cut",
+                          "Colour-matched cut",
+                          "The clips meet on the frame they share, with only the colour eased to match.",
                         ],
                       ] as const
                     ).map(([value, label, hint]) => (
@@ -673,6 +730,9 @@ function RunCard({
                 )}
               </PopoverContent>
             </Popover>
+            {run.sequence_id && (
+              <RenderToKatana sequenceId={run.sequence_id} title={run.title} characters={cast} />
+            )}
           </>
         )}
 

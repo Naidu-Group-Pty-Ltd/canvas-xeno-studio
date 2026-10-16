@@ -6069,6 +6069,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      higgsfield_api_spend_since: { Args: { p_since: string }; Returns: Json }
       is_active_member: { Args: never; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
       katana_recount_credits: {

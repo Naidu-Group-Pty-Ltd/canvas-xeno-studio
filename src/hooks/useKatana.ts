@@ -1,10 +1,13 @@
 import { useEffect, useRef } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { getKatanaOverview, pollKatanaRun } from "@/lib/katana.functions";
 import { KATANA_ACTIVE_STATUSES } from "@/lib/katana/model";
 import { isMissingTableError } from "@/lib/edit/errors";
+import { useFeatureFlags } from "@/hooks/useV2Data";
+import { sendToKatana, type KatanaSend } from "@/lib/katana/handoff";
 
 export type KatanaRunRow = Database["public"]["Tables"]["katana_runs"]["Row"];
 export type KatanaEventRow = Database["public"]["Tables"]["katana_run_events"]["Row"];
@@ -12,6 +15,42 @@ export type KatanaSpendRow = Database["public"]["Tables"]["katana_spend"]["Row"]
 export type KatanaResultRow = Database["public"]["Tables"]["katana_results"]["Row"];
 
 export class KatanaNotSetUp extends Error {}
+
+/** Whether Katana is switched on (its flag counts as on until an admin stores one). */
+export function useKatanaEnabled(): boolean {
+  const { data: flags } = useFeatureFlags();
+  return flags?.find((flag) => flag.key === "v2_katana")?.enabled ?? true;
+}
+
+/** Sends something to Katana's form and opens it (nothing runs until Start is pressed there). */
+export function useSendToKatana() {
+  const navigate = useNavigate();
+  return (send: KatanaSend) => {
+    sendToKatana(send);
+    void navigate({ to: "/katana" });
+  };
+}
+
+/** The runs a character is in (through their images), newest first. */
+export function useCharacterKatanaRuns(characterId: string, limit = 6) {
+  return useQuery({
+    queryKey: ["katana-runs", "character", characterId, limit],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("katana_runs")
+        .select("id,title,status,mode,preset_name,preset_slug,created_at")
+        .contains("inputs", JSON.stringify([{ character_id: characterId }]))
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      if (error) {
+        if (isMissingTableError(error)) throw new KatanaNotSetUp(error.message);
+        throw error;
+      }
+      return data ?? [];
+    },
+    retry: (count, error) => !(error instanceof KatanaNotSetUp) && count < 2,
+  });
+}
 
 /** Whether Katana can run: the Claude key, the Higgsfield connection, the defaults. */
 export function useKatanaOverview() {

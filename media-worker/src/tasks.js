@@ -52,8 +52,9 @@ function pick(value, allowed, fallback, name) {
  * before it at a join ("seam_match"), a frame taken by its number
  * ("frame_index"), a voiceover made ready to drive lip sync
  * ("audio_prepare"), a clip's lip sync measured against its voiceover
- * ("audio_sync"), and the mixer's channel levels applied to each sound bus
- * ("channel_mix").
+ * ("audio_sync"), the mixer's channel levels applied to each sound bus
+ * ("channel_mix"), and joins put in register: framing, colour, detail and
+ * sound ("smart_join").
  */
 export const FEATURES = [
   "frame_focus",
@@ -64,6 +65,7 @@ export const FEATURES = [
   "audio_prepare",
   "audio_sync",
   "channel_mix",
+  "smart_join",
 ];
 
 /** The point of the picture (0-1 across and down) a crop keeps in frame: the centre unless given. */

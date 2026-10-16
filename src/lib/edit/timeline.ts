@@ -173,6 +173,12 @@ export const clipSchema = z.object({
    * back to its own over a couple of seconds.
    */
   matchPrevious: z.boolean().default(false),
+  /**
+   * The join into this clip is smart-blended: the render puts the two clips
+   * back in register at the cut (framing, colour, detail and sound), each
+   * easing back to the clip's own over a few seconds. See JOIN_MODES.
+   */
+  smartBlend: z.boolean().default(false),
   label: z.string().max(200).optional(),
   /** Length of the source media, cached so the editor can bound trims. */
   sourceDuration: z.number().finite().positive().nullable().optional(),
@@ -443,6 +449,66 @@ export interface ClipSource {
 
 export const DEFAULT_STILL_SECONDS = 3;
 
+/**
+ * How a clip meets the clip before it in the render, when it carries straight
+ * on from it (a long video's join, the clip generated from the frame the one
+ * before ends on, which it re-renders a little stretched, lighter or darker,
+ * and softer):
+ *   - smart: the two are put back in register at the cut: the picture's
+ *     framing, colour and detail, and the clips' own sound, each easing back
+ *     to the clip's own over a few seconds
+ *   - colour: the colour is matched at the cut, easing back
+ *   - plain: the join is left as it is
+ */
+export const JOIN_MODES = ["smart", "colour", "plain"] as const;
+export type JoinMode = (typeof JOIN_MODES)[number];
+export const JOIN_MODE_LABELS: Record<JoinMode, string> = {
+  smart: "Smart blend",
+  colour: "Colour match",
+  plain: "Plain",
+};
+
+export function joinModeOf(clip: TimelineClip): JoinMode {
+  if (clip.kind !== "video") return "plain";
+  return clip.smartBlend ? "smart" : clip.matchPrevious ? "colour" : "plain";
+}
+
+/** The clip fields a join mode sets. A smart blend matches colour too, for a media service without it. */
+export function joinFields(mode: JoinMode): Pick<TimelineClip, "smartBlend" | "matchPrevious"> {
+  return { smartBlend: mode === "smart", matchPrevious: mode !== "plain" };
+}
+
+/** Whether the join into the clip at `index` can be blended: a video clip after a video clip. */
+export function canBlendJoin(timeline: Timeline, index: number): boolean {
+  return (
+    index > 0 &&
+    timeline.clips[index]?.kind === "video" &&
+    timeline.clips[index - 1]?.kind === "video"
+  );
+}
+
+/** How many joins between video clips the edit has, and how many are smart-blended. */
+export function joinCounts(timeline: Timeline): { joins: number; smart: number } {
+  let joins = 0;
+  let smart = 0;
+  timeline.clips.forEach((clip, index) => {
+    if (!canBlendJoin(timeline, index)) return;
+    joins += 1;
+    if (clip.smartBlend) smart += 1;
+  });
+  return { joins, smart };
+}
+
+/** Every join between two video clips set to `mode`. */
+export function withAllJoins(timeline: Timeline, mode: JoinMode): Timeline {
+  return {
+    ...timeline,
+    clips: timeline.clips.map((clip, index) =>
+      canBlendJoin(timeline, index) ? { ...clip, ...joinFields(mode) } : clip,
+    ),
+  };
+}
+
 export function clipFromSource(
   source: ClipSource,
   options: { transition?: TimelineClip["transition"] } = {},
@@ -532,6 +598,8 @@ export function splitClipAt(timeline: Timeline, time: number, clipId?: string | 
     trimStart: clip.kind === "image" ? 0 : clip.trimStart + firstDuration * clip.speed,
     duration: clip.duration - firstDuration,
     transition: { type: "cut", duration: 0 },
+    // The same footage carries on unbroken: nothing to match.
+    ...joinFields("plain"),
   };
   const clips = [...timeline.clips];
   clips.splice(entry.index, 1, first, second);
@@ -886,7 +954,12 @@ export function buildRenderRequest(
       type: clip.transition.type,
       duration: clip.transition.type === "cut" ? 0 : clip.transition.duration,
     },
-    ...(clip.kind === "video" && clip.matchPrevious ? { match_previous: true } : {}),
+    // A smart join is sent as a colour join too, which a media service
+    // without smart joins makes instead.
+    ...(clip.kind === "video" && (clip.matchPrevious || clip.smartBlend)
+      ? { match_previous: true }
+      : {}),
+    ...(clip.kind === "video" && clip.smartBlend ? { join: "smart" } : {}),
   }));
 
   const audio = audibleAudio(timeline, layout.total).map((item) => ({

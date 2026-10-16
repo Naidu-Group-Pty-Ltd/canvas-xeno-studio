@@ -7,18 +7,33 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { Film, ImageIcon, Mic, Music, Sparkles, Type, Volume2, VolumeX, Waves } from "lucide-react";
+import {
+  Blend,
+  Film,
+  ImageIcon,
+  Mic,
+  Music,
+  Palette,
+  Sparkles,
+  Type,
+  Volume2,
+  VolumeX,
+  Waves,
+} from "lucide-react";
 import type { AssetRow } from "@/hooks/useStudioData";
 import type { SignedMedia } from "@/hooks/useEditorData";
 import {
   audioPlayLength,
+  canBlendJoin,
   clampAudio,
   formatTime,
+  joinModeOf,
   maxClipDuration,
   moveClip,
   updateClip,
   withChannel,
   MIX_CHANNEL_LABELS,
+  type JoinMode,
   type LaidOutClip,
   type MixChannel,
   type Timeline,
@@ -307,6 +322,7 @@ export function TimelineView(props: TimelineViewProps) {
                 asset={props.assets.get(entry.clip.assetId)}
                 media={props.media.get(entry.clip.assetId)}
                 selected={props.selection?.kind === "clip" && props.selection.id === entry.clip.id}
+                join={canBlendJoin(props.timeline, entry.index) ? joinModeOf(entry.clip) : null}
                 onPointerDown={startClipDrag}
               />
             ))}
@@ -509,6 +525,8 @@ interface ClipBlockProps {
   asset: AssetRow | undefined;
   media: SignedMedia | undefined;
   selected: boolean;
+  /** How it meets the clip before, when both are video. */
+  join: JoinMode | null;
   onPointerDown: (
     event: ReactPointerEvent,
     entry: LaidOutClip,
@@ -516,14 +534,21 @@ interface ClipBlockProps {
   ) => void;
 }
 
+const JOIN_MARKS: Partial<Record<JoinMode, { icon: typeof Blend; title: string }>> = {
+  smart: { icon: Blend, title: "Smart-blended with the clip before" },
+  colour: { icon: Palette, title: "Colour matched to the clip before" },
+};
+
 const ClipBlock = memo(function ClipBlock({
   entry,
   pps,
   asset,
   media,
   selected,
+  join,
   onPointerDown,
 }: ClipBlockProps) {
+  const mark = join ? JOIN_MARKS[join] : undefined;
   const left = entry.start * pps;
   const width = Math.max(6, (entry.end - entry.start) * pps - 1);
   const overlap = entry.transitionIn * pps;
@@ -564,6 +589,19 @@ const ClipBlock = memo(function ClipBlock({
           style={{ width: overlap }}
           title={`Transition: ${entry.transitionType}`}
         />
+      )}
+      {mark && (
+        <span
+          className={cn(
+            "absolute left-1 top-1 flex size-4 items-center justify-center rounded-full text-white",
+            join === "smart" ? "bg-primary/90" : "bg-black/60",
+          )}
+          title={mark.title}
+          data-testid={`clip-join-${join}`}
+        >
+          <mark.icon className="size-2.5" aria-hidden />
+          <span className="sr-only">{mark.title}</span>
+        </span>
       )}
       <div className="absolute inset-x-0 bottom-0 flex items-center gap-1 bg-gradient-to-t from-black/80 to-transparent px-1.5 pb-0.5 pt-3 text-[10px] text-white">
         {clip.kind === "image" ? (

@@ -5,6 +5,8 @@ import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Too
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/layout/AppShell";
 import { useModels, useTeam } from "@/hooks/useStudioData";
+import { useUsageBalance } from "@/hooks/useUsageBalance";
+import { BalanceDetails } from "@/components/layout/BalanceChip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -51,6 +53,7 @@ function UsagePage() {
   const [memberFilter, setMemberFilter] = useState("all");
   const { data: models = [] } = useModels(true);
   const { data: team = [] } = useTeam();
+  const { data: balance } = useUsageBalance();
 
   const since = useMemo(() => new Date(Date.now() - days * 86_400_000).toISOString(), [days]);
 
@@ -251,6 +254,14 @@ function UsagePage() {
             </SelectContent>
           </Select>
         </div>
+
+        {balance && (
+          <Panel title="Balances">
+            <div className="max-w-xl">
+              <BalanceDetails balance={balance} />
+            </div>
+          </Panel>
+        )}
 
         <p className="text-xs text-muted-foreground">
           All spend figures are provider cost estimates captured at submission time. Actual provider charges are only

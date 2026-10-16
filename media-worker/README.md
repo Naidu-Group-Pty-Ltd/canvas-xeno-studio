@@ -88,7 +88,7 @@ frame. The app sends one source per distinct asset (role `video`, `image` or
   given), `motion` for stills (`zoom_in`, `zoom_out`, `pan_left`, `pan_right`,
   `pan_up`, `pan_down`), `transition` into the clip (`type` from the xfade
   set or `cut`, `duration` up to 3 s; shortened when the clips are too short),
-  `match_previous` (see below). A trim that falls on a frame is honoured to
+  `match_previous` and `join` (see below). A trim that falls on a frame is honoured to
   the frame: the seek starts a millisecond early so rounding never skips it
 - `audio[]`: `source_index`, `role` (`voiceover`, `music`, `sfx`), `start`,
   `trim_start`, `duration`, `volume`, `fade_in`, `fade_out`, and for music
@@ -135,14 +135,46 @@ one shot. Two capabilities make the joins seamless:
   from the clip before. The clip's colour is matched to the last frame the
   clip before shows, compared with this clip's frame of the same moment (the
   one before its first, when it skips its copy of the handoff frame), and
-  eases back to its own over 2.5 s. The match is made on the picture's own
-  planes (`lutyuv`), so nothing is converted and the clip is bit for bit
-  itself once it has eased off; only mid-tones are compared, shifts are
-  capped, and nothing changes unless both frames show the same picture. The
-  render's metadata lists the joins matched (`seams_matched`).
+  eases back to its own over 2.5 s, in steps too small to see. The match is
+  made on the picture's own planes (`lutyuv`, rounded), so nothing is
+  converted, and only the frames it eases over are touched: the rest of the
+  clip is bit for bit itself. Only mid-tones are compared, shifts are capped,
+  and nothing changes unless both frames show the same picture. The render's
+  metadata lists the joins matched (`seams_matched`).
+- **`render_sequence` clips with `"join": "smart"`** (feature `smart_join`;
+  send `match_previous` too, so a worker without it still matches colour)
+  put the join back in register. A clip generated from the frame another
+  ends on re-renders that frame, and video models fit their start image to
+  their own working size, so the picture comes back stretched by a few
+  percent from a corner (showing a little more on one side), lighter or
+  darker, and softer. The two frames of the shared moment are compared once
+  in register (`src/align.js`: an affine map with a gain and offset, fitted
+  coarse to fine by Gauss-Newton with robust weights, on frames about 480 px
+  along their longer side), and each difference is put right:
+  - framing: the clip is warped onto the frame before (`perspective`) and
+    the warp eases off over 1.5–8 s, slowly enough not to be seen drifting
+    (at most 0.8% of the frame a second). A warp only samples picture its
+    clip has: where the clip lacks part of the one before, the clip before
+    eases into the framing they share over its last moments instead (in the
+    final pass)
+  - colour: matched as above, on the frames in register
+  - detail: the clip's first frame shown is sharpened (or softened) to the
+    clip before's (`unsharp`, the amount solved from a Laplacian measure of
+    the frames as they will be shown), easing off with the colour
+  - sound: the clips' own sound meets at a cut with a 10 ms fade each side
+
+  Nothing changes unless the frames are the same picture once in register,
+  and a fit that doesn't clearly improve how alike they are, or that is
+  larger than a re-render can be, is not used. The render's metadata lists
+  each smart join (`smart_joins`: `matched`, `likeness_before` /
+  `likeness_after`, `framing` with the measured `scale_x`, `scale_y`,
+  `shift_x`, `shift_y`, how much of the frame it `moved` and the ease
+  seconds each side, `colour`, `detail`, or `left` with why nothing was
+  done).
 
 `probe` also reports `video_duration_seconds`, the picture's own length.
-`/health` lists `last_frame` and `seam_match` among its `features`.
+`/health` lists `last_frame`, `seam_match` and `smart_join` among its
+`features`.
 
 ## Reframing
 
@@ -231,9 +263,18 @@ Fly's dashboard keeps the image it had; only a deploy brings new code.
 ## Sizing
 
 FFmpeg is CPU bound. Two vCPUs handle `CONCURRENCY=2` comfortably for short
-social-length clips. Raise `TASK_TIMEOUT_SECONDS` before rendering long
-timelines, and give the container a writable `/tmp` at least twice the size of
-the largest job's sources plus outputs.
+social-length clips. Give the container a writable `/tmp` at least twice the
+size of the largest job's sources plus outputs.
+
+Each FFmpeg step of a task may take `TASK_TIMEOUT_SECONDS` (900), except an
+Editor render's (`render_sequence`), which may take `RENDER_TIMEOUT_SECONDS`
+(43200, twelve hours): an edit runs up to ten minutes at up to 60 fps, and
+Fly's shared vCPUs are throttled to a sixteenth of a core once their burst
+balance is spent, so a long render on them takes hours. A render's step that
+writes its output as it goes and writes nothing new for `RENDER_STALL_SECONDS`
+(1200) has hung, and is stopped (`TASK_STALLED`), so a stuck render doesn't
+hold its edit for the whole limit. Performance vCPUs aren't throttled. `/health`
+reports these `limits`.
 
 Each source file is capped at `MAX_DOWNLOAD_MB` (1024), and all of one task's
 sources together at `MAX_TASK_DOWNLOAD_MB` (2048): an edit can name dozens of

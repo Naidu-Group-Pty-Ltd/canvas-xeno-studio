@@ -8,6 +8,7 @@ import { cancelGeneration, refreshGenerationStatus, resubmitGeneration } from "@
 import { prefillFromGeneration } from "@/lib/asset-actions";
 import { StatusBadge } from "@/components/studio/StatusBadge";
 import { MediaPreview } from "@/components/studio/MediaPreview";
+import { SendToKatana } from "@/components/katana/SendToKatana";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
@@ -114,12 +115,18 @@ export function GenerationDetail({
               {!!data?.assets.length && (
                 <div className="grid grid-cols-3 gap-2">
                   {data.assets.map((asset) => (
-                    <div key={asset.id} className="aspect-square overflow-hidden rounded-md border border-border">
+                    <div key={asset.id} className="group relative aspect-square overflow-hidden rounded-md border border-border">
                       <MediaPreview
                         bucket={asset.storage_bucket}
                         path={asset.storage_path}
                         type={asset.asset_type as "image" | "video"}
                         contain
+                      />
+                      <SendToKatana
+                        file={asset}
+                        look="pill"
+                        className="absolute right-1 bottom-1 opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 data-[state=open]:opacity-100"
+                        onSent={() => onOpenChange(false)}
                       />
                     </div>
                   ))}

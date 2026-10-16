@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { AppError } from "./higgsfield/errors";
+import { KATANA_CHARACTERS_MAX } from "./katana/cast";
 
 /**
  * Katana: Higgsfield's video workflow, run from the studio. Members read runs
@@ -152,6 +153,7 @@ export const startKatana = createServerFn({ method: "POST" })
         brief: z.string().max(4000).default(""),
         referenceUrl: z.string().max(2048).nullable().default(null),
         inputs: z.array(fileInput).max(16).default([]),
+        characterIds: z.array(z.string().uuid()).max(KATANA_CHARACTERS_MAX).default([]),
         creditLimit: z.number().positive().max(100_000),
         claudeBudgetUsd: z.number().min(1).max(1000),
         projectId: z.string().uuid().nullable().default(null),

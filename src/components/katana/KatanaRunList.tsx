@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useKatanaRuns } from "@/hooks/useKatana";
 import { KATANA_MODE_LABELS, formatUsd } from "@/lib/katana/model";
 import { formatCredits } from "@/lib/katana/guard";
+import { castOfInputs, type CastInput } from "@/lib/katana/cast";
 import { KatanaStatusBadge } from "./KatanaStatusBadge";
 
 /** The team's recent Katana runs, newest first. */
@@ -38,34 +39,47 @@ export function KatanaRunList() {
   }
   return (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-      {runs.map((run) => (
-        <Link
-          key={run.id}
-          to="/katana/$runId"
-          params={{ runId: run.id }}
-          className="panel block space-y-2 p-4 transition-colors hover:border-input"
-        >
-          <div className="flex items-start justify-between gap-2">
-            <span className="line-clamp-2 text-sm font-medium">{run.title || "Katana run"}</span>
-            <KatanaStatusBadge status={run.status} />
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {run.mode === "preset"
-              ? `Preset · ${run.preset_name ?? run.preset_slug}`
-              : KATANA_MODE_LABELS[run.mode as "remix" | "edit"]}
-            {" · "}
-            {formatDistanceToNow(new Date(run.created_at), { addSuffix: true })}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {formatCredits(Number(run.credits_reserved))} of{" "}
-            {formatCredits(Number(run.credit_limit))} credits · {formatUsd(run.claude_cost_cents)}{" "}
-            of {formatUsd(run.claude_budget_cents)} Claude
-          </p>
-          {(run.status_detail || run.error) && (
-            <p className="line-clamp-2 text-xs text-warning">{run.error ?? run.status_detail}</p>
-          )}
-        </Link>
-      ))}
+      {runs.map((run) => {
+        const cast = castOfInputs(
+          (Array.isArray(run.inputs) ? run.inputs : []) as unknown as CastInput[],
+        );
+        return (
+          <Link
+            key={run.id}
+            to="/katana/$runId"
+            params={{ runId: run.id }}
+            className="panel block space-y-2 p-4 transition-colors hover:border-input"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <span className="line-clamp-2 text-sm font-medium">{run.title || "Katana run"}</span>
+              <KatanaStatusBadge status={run.status} />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {run.mode === "preset"
+                ? `Preset · ${run.preset_name ?? run.preset_slug}`
+                : KATANA_MODE_LABELS[run.mode as "remix" | "edit"]}
+              {" · "}
+              {formatDistanceToNow(new Date(run.created_at), { addSuffix: true })}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {formatCredits(Number(run.credits_reserved))} of{" "}
+              {formatCredits(Number(run.credit_limit))} credits · {formatUsd(run.claude_cost_cents)}{" "}
+              of {formatUsd(run.claude_budget_cents)} Claude
+            </p>
+            {cast.length > 0 && (
+              <p
+                className="truncate text-xs text-muted-foreground"
+                data-testid="katana-run-list-cast"
+              >
+                With {cast.map((character) => character.name).join(", ")}
+              </p>
+            )}
+            {(run.status_detail || run.error) && (
+              <p className="line-clamp-2 text-xs text-warning">{run.error ?? run.status_detail}</p>
+            )}
+          </Link>
+        );
+      })}
     </div>
   );
 }

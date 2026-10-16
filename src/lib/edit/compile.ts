@@ -312,8 +312,18 @@ export function compileFromStoryboard(
 /* Long videos                                                         */
 /* ------------------------------------------------------------------ */
 
-/** How clips join: a cut on the handoff frame, or a short cross-fade over footage both clips share. */
-export type LongVideoSeam = "cut" | "blend";
+/**
+ * How clips join: a cut on the handoff frame, smart-blended (the next clip put
+ * back in register with the one before: framing, colour, detail and sound) or
+ * only colour-matched; or a short cross-fade over footage both clips share,
+ * smart-blended too.
+ */
+export type LongVideoSeam = "smart" | "cut" | "blend";
+export const LONG_VIDEO_SEAMS = [
+  "smart",
+  "cut",
+  "blend",
+] as const satisfies readonly LongVideoSeam[];
 
 export interface LongVideoClipCut {
   position: number;
@@ -401,9 +411,10 @@ const FPS_CHOICES = [24, 25, 30, 60] as const;
  * is shown twice. (Clips from before frames were counted were cut on a frame
  * just before their end instead.) A clip that extends the one before it (it
  * was given that clip's video) follows on from that clip's very end, with no
- * frame in common. Each join's colour is eased: the next
- * clip's picture is matched to the frame it continues from, and drifts back
- * to its own over a couple of seconds, so a re-rendered frame doesn't blink.
+ * frame in common. Each join is eased: the next clip's picture is matched to
+ * the frame it continues from (smart-blended, its framing, colour and detail;
+ * or, asked for a plain cut, its colour only) and drifts back to its own over
+ * a few seconds, so a re-rendered frame doesn't jump or blink.
  *
  * Asked to blend, clips cross-fade at the join: a clip cut before its end
  * runs on a moment and fades over footage both clips show; a clip played to
@@ -490,8 +501,9 @@ export function compileFromLongVideo(
       result.length && join.fadeIn > 0
         ? { type: "fade", duration: Number(join.fadeIn.toFixed(3)) }
         : { type: "cut", duration: 0 };
-    // Carrying straight on from the clip before: its colour eases in from that clip's.
+    // Carrying straight on from the clip before: eased in from that clip's picture.
     item.matchPrevious = result.length > 0 && join.continues;
+    item.smartBlend = item.matchPrevious && options.seam !== "cut";
     result.push(item);
     join = next;
   });
@@ -638,8 +650,9 @@ export function compileFromVoiceoverLongVideo(
     item.duration = placed.duration;
     item.volume = options.keepSound ? 1 : 0;
     item.transition = { type: "cut", duration: 0 };
-    // Carrying straight on from the clip before: its colour eases in from that clip's.
+    // Carrying straight on from the clip before: put back in register with it at the cut.
     item.matchPrevious = index > 0;
+    item.smartBlend = index > 0;
     return item;
   });
 
