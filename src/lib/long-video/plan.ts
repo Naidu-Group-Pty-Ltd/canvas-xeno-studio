@@ -1139,14 +1139,6 @@ export function planIssues(input: {
         message: `${modelLine(first)} can't move a speaker's lips to a voiceover. Choose a model with driving audio (Wan 2.6 or Wan 2.7).`,
       },
     ];
-  if (input.voiceover && input.keyframes)
-    return [
-      {
-        position: null,
-        message:
-          "Keyframes and a voiceover can't be used together yet: turn keyframes off to make the video to the voiceover.",
-      },
-    ];
   if (!continuation)
     return [
       {

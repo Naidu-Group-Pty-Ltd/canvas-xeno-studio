@@ -11,6 +11,7 @@
  */
 import { defaultsForModel, normalizeOption, type ModelRegistryEntry } from "../model-schema";
 import { charactersLine, interleaveSheets, type RunCharacter } from "../characters/model";
+import { lipSyncCapable } from "../lip-sync/models";
 import {
   clipEnd,
   clipKeyframes,
@@ -53,16 +54,19 @@ function hasReferenceImages(model: ModelRegistryEntry): boolean {
  * video, best first: the chosen workflow itself when it can, then one that
  * also takes reference images (so the characters' sheets go with every clip
  * too), then image to video. Null when no workflow of the model can end a
- * clip on a given frame.
+ * clip on a given frame. Made to a voiceover (`drivingAudio`), only one whose
+ * audio also moves the speaker's lips (Wan 2.7's image to video).
  */
 export function keyframeWorkflow(
   chosen: ModelRegistryEntry | null | undefined,
   models: ModelRegistryEntry[],
+  options: { drivingAudio?: boolean } = {},
 ): ModelRegistryEntry | null {
   if (!chosen || !longVideoEligible(chosen)) return null;
   const candidates = [chosen, ...continuationCandidates(chosen, models, { withReferences: true })]
     .filter((model, index, list) => list.findIndex((entry) => entry.id === model.id) === index)
-    .filter(movesBetweenFrames);
+    .filter(movesBetweenFrames)
+    .filter((model) => !options.drivingAudio || lipSyncCapable(model));
   const score = (model: ModelRegistryEntry) =>
     (model.id === chosen.id ? 100 : 0) +
     (hasReferenceImages(model) ? 5 : 0) +

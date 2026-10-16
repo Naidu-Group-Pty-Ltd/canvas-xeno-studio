@@ -97,6 +97,39 @@ describe("laying clips made to a voiceover in an edit", () => {
     expect(placement.clips[1]!.shortSeconds).toBeCloseTo(0.3, 6);
   });
 
+  test("plays a last clip made to end on a frame out to its own end, the rest as they were", () => {
+    const clips = clipsWith([0, 0.12, 0, 0.1]);
+    const plain = placeSyncedClips({ clips, fps: FPS });
+    const placement = placeSyncedClips({ clips, fps: FPS, playOutLast: true });
+    expect(placement.clips.slice(0, 3)).toEqual(plain.clips.slice(0, 3));
+    const last = placement.clips[3]!;
+    // Its 7 s, less the 0.1 s its speech came late, to its last whole frame.
+    expect(last.start).toBeCloseTo(plain.clips[3]!.start, 9);
+    expect(last.trimStart).toBeCloseTo(0.1, 6);
+    expect(last.frames).toBe(Math.floor((7 - 0.1) * FPS));
+    expect(last.shortSeconds).toBe(0);
+    expect(placement.totalFrames).toBeGreaterThan(plain.totalFrames);
+    expect(placement.voiceover).toEqual(plain.voiceover);
+  });
+
+  test("never plays a last clip out shorter than its piece, nor without its length", () => {
+    const clips = clipsWith([0, 0, 0, 0]);
+    const plain = placeSyncedClips({ clips, fps: FPS });
+    const unknown = clips.map((clip, index) =>
+      index === 3 ? { ...clip, sourceSeconds: null } : clip,
+    );
+    expect(placeSyncedClips({ clips: unknown, fps: FPS, playOutLast: true })).toEqual(
+      placeSyncedClips({ clips: unknown, fps: FPS }),
+    );
+    // A clip that came back no longer than its piece keeps its place.
+    const short = clips.map((clip, index) =>
+      index === 3 ? { ...clip, sourceSeconds: clip.end - clip.start } : clip,
+    );
+    expect(placeSyncedClips({ clips: short, fps: FPS, playOutLast: true }).totalFrames).toBe(
+      plain.totalFrames,
+    );
+  });
+
   test("takes the next clip's first frame from just after the last one shown", () => {
     expect(cutFrameIndex({ start: 0, end: grid(7.41), offsetSeconds: null }, 30)).toBe(
       Math.round(7.41 * 30),

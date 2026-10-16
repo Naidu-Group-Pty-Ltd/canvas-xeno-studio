@@ -29,7 +29,14 @@ import {
   type VoiceoverSegment,
 } from "../lip-sync/segments";
 import { timingOf, type PreparedAnalysis } from "../lip-sync/analysis";
-import { durationChoices, LONG_VIDEO_LIMITS, modelLine } from "./plan";
+import {
+  clipKeyframes,
+  durationChoices,
+  finaleReveals,
+  LONG_VIDEO_LIMITS,
+  modelLine,
+  type RunFinale,
+} from "./plan";
 
 /** A long video's voiceover, as the run keeps it (long_videos.voiceover). */
 export interface RunVoiceover {
@@ -131,6 +138,34 @@ export function voiceoverPlanProblems(input: {
         );
     });
   return problems;
+}
+
+/**
+ * Whether the last clip of a video made to a voiceover plays out to its own
+ * end. Every clip is cut where its piece ends, so the next can start from
+ * that frame; but a last clip made to end on a given frame (its closing
+ * keyframe, or the brand's end card it moves into) would then never reach
+ * it. So it plays on after its piece (the voiceover is over by then), the
+ * video lands on that frame, and its final frame is its true last one.
+ */
+export function lastClipPlaysOut(input: {
+  position: number;
+  clipCount: number;
+  /** The video paints its keyframes first. */
+  keyframed: boolean;
+  finale: Pick<RunFinale, "assetId" | "frameAssetId" | "mode"> | null;
+  /** The keyframe it was sent to end on, if any. */
+  endFrameAssetId: string | null;
+  /** The media it was sent (its references, and the end card it moves into). */
+  inputAssetIds: string[];
+}): boolean {
+  if (input.position !== input.clipCount - 1) return false;
+  if (input.endFrameAssetId) return true;
+  const mode = input.finale?.mode ?? null;
+  if (input.keyframed && clipKeyframes(input.position, input.clipCount, mode).end !== null)
+    return true;
+  if (!input.finale || !finaleReveals(input.finale.mode)) return false;
+  return input.inputAssetIds.includes(input.finale.frameAssetId || input.finale.assetId);
 }
 
 /** What is said in each piece, from the voiceover's word timings (empty where unknown). */

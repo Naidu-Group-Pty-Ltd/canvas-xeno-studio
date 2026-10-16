@@ -334,12 +334,16 @@ export function LongVideoSetup({
               >
                 Made to the voiceover: it is cut into one piece per clip, only where nobody is
                 speaking (at the end of a sentence where its words are known), on the Editor's frame
-                grid. Each clip is made from its own piece as {modelLine(model)}'s driving audio,
-                asked for a moment longer than its piece so none of it is cut off, and each one
-                after the first starts from the frame where the clip before is cut, so the picture
-                runs on as one shot. When they're in, open them in the Editor: the voiceover plays
-                whole and every clip is laid where its piece is, lined up to the frame by its own
-                sound.
+                grid. Each clip is made from its own piece as{" "}
+                {modelLine(plan.keyframed && plan.workflow ? plan.workflow : model)}'s driving
+                audio, asked for a moment longer than its piece so none of it is cut off, and each
+                one after the first starts from the frame where the clip before is cut, so the
+                picture runs on as one shot.
+                {plan.keyframed
+                  ? " With keyframes, each clip moves toward its keyframe as its words are said and is cut where they end, and the last plays on after the voiceover to land on its own."
+                  : ""}{" "}
+                When they're in, open them in the Editor: the voiceover plays whole and every clip
+                is laid where its piece is, lined up to the frame by its own sound.
               </p>
             ) : plan.start?.kind === "video" ? (
               <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
@@ -495,8 +499,10 @@ export function LongVideoSetup({
             </div>
             <p className="text-[11px] text-muted-foreground">
               {voiced
-                ? "Optional. Say how the speaker moves and reacts as they say each clip's words: never the words themselves, which the voiceover gives."
-                : "Optional. Without a beat, a clip carries the story on from where the last one ended."}
+                ? `${plan.keyframed ? "Needed: each clip's keyframe is painted from its beat." : "Optional."} Say how the speaker moves and reacts as they say each clip's words: never the words themselves, which the voiceover gives.`
+                : plan.keyframed
+                  ? "Needed: each clip's keyframe, the moment it ends on, is painted from its beat."
+                  : "Optional. Without a beat, a clip carries the story on from where the last one ended."}
             </p>
             <ol className="space-y-2">
               {plan.durations.map((seconds, index) => {

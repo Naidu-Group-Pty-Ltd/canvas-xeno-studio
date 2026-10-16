@@ -539,6 +539,12 @@ export interface VoiceoverClipCut {
   offsetSeconds: number | null;
   /** The clip's measured length. */
   lengthSeconds: number | null;
+  /**
+   * The last clip, made to end on a given frame (its closing keyframe, or the
+   * brand's end card it moves into): it plays out to its own end, after its
+   * piece of the voiceover, so the video lands on that frame.
+   */
+  playsOut?: boolean;
 }
 
 /** The voiceover a long video was made to: its canonical file, which the edit plays whole. */
@@ -611,6 +617,8 @@ export function compileFromVoiceoverLongVideo(
     })),
     fps,
     maxOffsetSeconds: LIP_SYNC.maxOffsetSeconds,
+    // Only with every clip in, so the last laid is the video's own last clip.
+    playOutLast: !missing.length && usable.at(-1)?.clip.playsOut === true,
   });
 
   const result: TimelineClip[] = usable.map(({ clip, asset }, index) => {
