@@ -20,6 +20,7 @@ import {
   Scissors,
   Settings,
   Sparkles,
+  Sword,
   Swords,
   TrendingUp,
   Wand2,
@@ -60,6 +61,7 @@ const NAV = [
   { to: "/", label: "Create", icon: Sparkles, flag: null },
   { to: "/characters", label: "Characters", icon: UsersRound, flag: null },
   { to: "/storyboards", label: "Storyboards", icon: Clapperboard, flag: "v2_storyboards" },
+  { to: "/katana", label: "Katana", icon: Sword, flag: "v2_katana" },
   { to: "/editor", label: "Editor", icon: Film, flag: "v2_editor" },
   { to: "/voices", label: "Brand voices", icon: AudioLines, flag: "v2_brand_voices" },
   { to: "/music", label: "Music", icon: Music2, flag: "v2_music" },
@@ -90,7 +92,7 @@ const AVATAR_NAV = [
 type NavItem = { to: string; label: string; icon: typeof Sparkles; flag: string | null };
 
 /** Flags that count as enabled until an admin has stored a value for them. */
-const DEFAULT_ON_FLAGS = new Set(["v2_supercomputer", "v2_editor", "v2_brand_voices", "v2_music"]);
+const DEFAULT_ON_FLAGS = new Set(["v2_supercomputer", "v2_editor", "v2_brand_voices", "v2_music", "v2_katana"]);
 
 /** Sections only appear when their feature flag is enabled; the vertical follows the URL. */
 function useNavItems(): NavItem[] {

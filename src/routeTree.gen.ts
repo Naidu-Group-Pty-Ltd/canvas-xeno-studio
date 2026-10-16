@@ -41,12 +41,17 @@ import { Route as CharactersIndexRouteImport } from './routes/characters.index'
 import { Route as CharactersCharacterIdRouteImport } from './routes/characters.$characterId'
 import { Route as EditorIndexRouteImport } from './routes/editor.index'
 import { Route as EditorSequenceIdRouteImport } from './routes/editor.$sequenceId'
+import { Route as KatanaIndexRouteImport } from './routes/katana.index'
+import { Route as KatanaRunIdRouteImport } from './routes/katana.$runId'
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
 import { Route as ApiPublicAvatarHeygenWebhookRouteImport } from './routes/api/public/avatar-heygen-webhook'
 import { Route as ApiPublicAvatarReconcileRouteImport } from './routes/api/public/avatar-reconcile'
+import { Route as ApiPublicHiggsfieldOauthRouteImport } from './routes/api/public/higgsfield-oauth'
 import { Route as ApiPublicHiggsfieldReconcileRouteImport } from './routes/api/public/higgsfield-reconcile'
 import { Route as ApiPublicHiggsfieldWebhookRouteImport } from './routes/api/public/higgsfield-webhook'
+import { Route as ApiPublicKatanaTickRouteImport } from './routes/api/public/katana-tick'
+import { Route as ApiPublicKatanaWebhookRouteImport } from './routes/api/public/katana-webhook'
 import { Route as ApiPublicMediaWorkerCallbackRouteImport } from './routes/api/public/media-worker-callback'
 import { Route as ApiPublicMediaWorkerCredentialsRouteImport } from './routes/api/public/media-worker-credentials'
 
@@ -210,6 +215,16 @@ const EditorSequenceIdRoute = EditorSequenceIdRouteImport.update({
   path: '/editor/$sequenceId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const KatanaIndexRoute = KatanaIndexRouteImport.update({
+  id: '/katana/',
+  path: '/katana/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KatanaRunIdRoute = KatanaRunIdRouteImport.update({
+  id: '/katana/$runId',
+  path: '/katana/$runId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProjectsIndexRoute = ProjectsIndexRouteImport.update({
   id: '/projects/',
   path: '/projects/',
@@ -232,6 +247,12 @@ const ApiPublicAvatarReconcileRoute =
     path: '/api/public/avatar-reconcile',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHiggsfieldOauthRoute =
+  ApiPublicHiggsfieldOauthRouteImport.update({
+    id: '/api/public/higgsfield-oauth',
+    path: '/api/public/higgsfield-oauth',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHiggsfieldReconcileRoute =
   ApiPublicHiggsfieldReconcileRouteImport.update({
     id: '/api/public/higgsfield-reconcile',
@@ -244,6 +265,16 @@ const ApiPublicHiggsfieldWebhookRoute =
     path: '/api/public/higgsfield-webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicKatanaTickRoute = ApiPublicKatanaTickRouteImport.update({
+  id: '/api/public/katana-tick',
+  path: '/api/public/katana-tick',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicKatanaWebhookRoute = ApiPublicKatanaWebhookRouteImport.update({
+  id: '/api/public/katana-webhook',
+  path: '/api/public/katana-webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicMediaWorkerCallbackRoute =
   ApiPublicMediaWorkerCallbackRouteImport.update({
     id: '/api/public/media-worker-callback',
@@ -287,15 +318,20 @@ export interface FileRoutesByFullPath {
   '/avatar/voices': typeof AvatarVoicesRoute
   '/characters/$characterId': typeof CharactersCharacterIdRoute
   '/editor/$sequenceId': typeof EditorSequenceIdRoute
+  '/katana/$runId': typeof KatanaRunIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/avatar/': typeof AvatarIndexRoute
   '/characters/': typeof CharactersIndexRoute
   '/editor/': typeof EditorIndexRoute
+  '/katana/': typeof KatanaIndexRoute
   '/projects/': typeof ProjectsIndexRoute
   '/api/public/avatar-heygen-webhook': typeof ApiPublicAvatarHeygenWebhookRoute
   '/api/public/avatar-reconcile': typeof ApiPublicAvatarReconcileRoute
+  '/api/public/higgsfield-oauth': typeof ApiPublicHiggsfieldOauthRoute
   '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
   '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
+  '/api/public/katana-tick': typeof ApiPublicKatanaTickRoute
+  '/api/public/katana-webhook': typeof ApiPublicKatanaWebhookRoute
   '/api/public/media-worker-callback': typeof ApiPublicMediaWorkerCallbackRoute
   '/api/public/media-worker-credentials': typeof ApiPublicMediaWorkerCredentialsRoute
 }
@@ -328,15 +364,20 @@ export interface FileRoutesByTo {
   '/avatar/voices': typeof AvatarVoicesRoute
   '/characters/$characterId': typeof CharactersCharacterIdRoute
   '/editor/$sequenceId': typeof EditorSequenceIdRoute
+  '/katana/$runId': typeof KatanaRunIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/avatar': typeof AvatarIndexRoute
   '/characters': typeof CharactersIndexRoute
   '/editor': typeof EditorIndexRoute
+  '/katana': typeof KatanaIndexRoute
   '/projects': typeof ProjectsIndexRoute
   '/api/public/avatar-heygen-webhook': typeof ApiPublicAvatarHeygenWebhookRoute
   '/api/public/avatar-reconcile': typeof ApiPublicAvatarReconcileRoute
+  '/api/public/higgsfield-oauth': typeof ApiPublicHiggsfieldOauthRoute
   '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
   '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
+  '/api/public/katana-tick': typeof ApiPublicKatanaTickRoute
+  '/api/public/katana-webhook': typeof ApiPublicKatanaWebhookRoute
   '/api/public/media-worker-callback': typeof ApiPublicMediaWorkerCallbackRoute
   '/api/public/media-worker-credentials': typeof ApiPublicMediaWorkerCredentialsRoute
 }
@@ -371,15 +412,20 @@ export interface FileRoutesById {
   '/avatar/voices': typeof AvatarVoicesRoute
   '/characters/$characterId': typeof CharactersCharacterIdRoute
   '/editor/$sequenceId': typeof EditorSequenceIdRoute
+  '/katana/$runId': typeof KatanaRunIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/avatar/': typeof AvatarIndexRoute
   '/characters/': typeof CharactersIndexRoute
   '/editor/': typeof EditorIndexRoute
+  '/katana/': typeof KatanaIndexRoute
   '/projects/': typeof ProjectsIndexRoute
   '/api/public/avatar-heygen-webhook': typeof ApiPublicAvatarHeygenWebhookRoute
   '/api/public/avatar-reconcile': typeof ApiPublicAvatarReconcileRoute
+  '/api/public/higgsfield-oauth': typeof ApiPublicHiggsfieldOauthRoute
   '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
   '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
+  '/api/public/katana-tick': typeof ApiPublicKatanaTickRoute
+  '/api/public/katana-webhook': typeof ApiPublicKatanaWebhookRoute
   '/api/public/media-worker-callback': typeof ApiPublicMediaWorkerCallbackRoute
   '/api/public/media-worker-credentials': typeof ApiPublicMediaWorkerCredentialsRoute
 }
@@ -415,15 +461,20 @@ export interface FileRouteTypes {
     | '/avatar/voices'
     | '/characters/$characterId'
     | '/editor/$sequenceId'
+    | '/katana/$runId'
     | '/projects/$projectId'
     | '/avatar/'
     | '/characters/'
     | '/editor/'
+    | '/katana/'
     | '/projects/'
     | '/api/public/avatar-heygen-webhook'
     | '/api/public/avatar-reconcile'
+    | '/api/public/higgsfield-oauth'
     | '/api/public/higgsfield-reconcile'
     | '/api/public/higgsfield-webhook'
+    | '/api/public/katana-tick'
+    | '/api/public/katana-webhook'
     | '/api/public/media-worker-callback'
     | '/api/public/media-worker-credentials'
   fileRoutesByTo: FileRoutesByTo
@@ -456,15 +507,20 @@ export interface FileRouteTypes {
     | '/avatar/voices'
     | '/characters/$characterId'
     | '/editor/$sequenceId'
+    | '/katana/$runId'
     | '/projects/$projectId'
     | '/avatar'
     | '/characters'
     | '/editor'
+    | '/katana'
     | '/projects'
     | '/api/public/avatar-heygen-webhook'
     | '/api/public/avatar-reconcile'
+    | '/api/public/higgsfield-oauth'
     | '/api/public/higgsfield-reconcile'
     | '/api/public/higgsfield-webhook'
+    | '/api/public/katana-tick'
+    | '/api/public/katana-webhook'
     | '/api/public/media-worker-callback'
     | '/api/public/media-worker-credentials'
   id:
@@ -498,15 +554,20 @@ export interface FileRouteTypes {
     | '/avatar/voices'
     | '/characters/$characterId'
     | '/editor/$sequenceId'
+    | '/katana/$runId'
     | '/projects/$projectId'
     | '/avatar/'
     | '/characters/'
     | '/editor/'
+    | '/katana/'
     | '/projects/'
     | '/api/public/avatar-heygen-webhook'
     | '/api/public/avatar-reconcile'
+    | '/api/public/higgsfield-oauth'
     | '/api/public/higgsfield-reconcile'
     | '/api/public/higgsfield-webhook'
+    | '/api/public/katana-tick'
+    | '/api/public/katana-webhook'
     | '/api/public/media-worker-callback'
     | '/api/public/media-worker-credentials'
   fileRoutesById: FileRoutesById
@@ -533,14 +594,19 @@ export interface RootRouteChildren {
   VoicesRoute: typeof VoicesRoute
   CharactersCharacterIdRoute: typeof CharactersCharacterIdRoute
   EditorSequenceIdRoute: typeof EditorSequenceIdRoute
+  KatanaRunIdRoute: typeof KatanaRunIdRoute
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
   CharactersIndexRoute: typeof CharactersIndexRoute
   EditorIndexRoute: typeof EditorIndexRoute
+  KatanaIndexRoute: typeof KatanaIndexRoute
   ProjectsIndexRoute: typeof ProjectsIndexRoute
   ApiPublicAvatarHeygenWebhookRoute: typeof ApiPublicAvatarHeygenWebhookRoute
   ApiPublicAvatarReconcileRoute: typeof ApiPublicAvatarReconcileRoute
+  ApiPublicHiggsfieldOauthRoute: typeof ApiPublicHiggsfieldOauthRoute
   ApiPublicHiggsfieldReconcileRoute: typeof ApiPublicHiggsfieldReconcileRoute
   ApiPublicHiggsfieldWebhookRoute: typeof ApiPublicHiggsfieldWebhookRoute
+  ApiPublicKatanaTickRoute: typeof ApiPublicKatanaTickRoute
+  ApiPublicKatanaWebhookRoute: typeof ApiPublicKatanaWebhookRoute
   ApiPublicMediaWorkerCallbackRoute: typeof ApiPublicMediaWorkerCallbackRoute
   ApiPublicMediaWorkerCredentialsRoute: typeof ApiPublicMediaWorkerCredentialsRoute
 }
@@ -771,6 +837,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EditorSequenceIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/katana/': {
+      id: '/katana/'
+      path: '/katana'
+      fullPath: '/katana/'
+      preLoaderRoute: typeof KatanaIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/katana/$runId': {
+      id: '/katana/$runId'
+      path: '/katana/$runId'
+      fullPath: '/katana/$runId'
+      preLoaderRoute: typeof KatanaRunIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/projects/': {
       id: '/projects/'
       path: '/projects'
@@ -799,6 +879,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicAvatarReconcileRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/higgsfield-oauth': {
+      id: '/api/public/higgsfield-oauth'
+      path: '/api/public/higgsfield-oauth'
+      fullPath: '/api/public/higgsfield-oauth'
+      preLoaderRoute: typeof ApiPublicHiggsfieldOauthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/higgsfield-reconcile': {
       id: '/api/public/higgsfield-reconcile'
       path: '/api/public/higgsfield-reconcile'
@@ -811,6 +898,20 @@ declare module '@tanstack/react-router' {
       path: '/api/public/higgsfield-webhook'
       fullPath: '/api/public/higgsfield-webhook'
       preLoaderRoute: typeof ApiPublicHiggsfieldWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/katana-tick': {
+      id: '/api/public/katana-tick'
+      path: '/api/public/katana-tick'
+      fullPath: '/api/public/katana-tick'
+      preLoaderRoute: typeof ApiPublicKatanaTickRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/katana-webhook': {
+      id: '/api/public/katana-webhook'
+      path: '/api/public/katana-webhook'
+      fullPath: '/api/public/katana-webhook'
+      preLoaderRoute: typeof ApiPublicKatanaWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/media-worker-callback': {
@@ -879,14 +980,19 @@ const rootRouteChildren: RootRouteChildren = {
   VoicesRoute: VoicesRoute,
   CharactersCharacterIdRoute: CharactersCharacterIdRoute,
   EditorSequenceIdRoute: EditorSequenceIdRoute,
+  KatanaRunIdRoute: KatanaRunIdRoute,
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,
   CharactersIndexRoute: CharactersIndexRoute,
   EditorIndexRoute: EditorIndexRoute,
+  KatanaIndexRoute: KatanaIndexRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,
   ApiPublicAvatarHeygenWebhookRoute: ApiPublicAvatarHeygenWebhookRoute,
   ApiPublicAvatarReconcileRoute: ApiPublicAvatarReconcileRoute,
+  ApiPublicHiggsfieldOauthRoute: ApiPublicHiggsfieldOauthRoute,
   ApiPublicHiggsfieldReconcileRoute: ApiPublicHiggsfieldReconcileRoute,
   ApiPublicHiggsfieldWebhookRoute: ApiPublicHiggsfieldWebhookRoute,
+  ApiPublicKatanaTickRoute: ApiPublicKatanaTickRoute,
+  ApiPublicKatanaWebhookRoute: ApiPublicKatanaWebhookRoute,
   ApiPublicMediaWorkerCallbackRoute: ApiPublicMediaWorkerCallbackRoute,
   ApiPublicMediaWorkerCredentialsRoute: ApiPublicMediaWorkerCredentialsRoute,
 }

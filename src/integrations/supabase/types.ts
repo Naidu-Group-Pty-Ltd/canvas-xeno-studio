@@ -2900,6 +2900,486 @@ export type Database = {
           },
         ]
       }
+      higgsfield_connections: {
+        Row: {
+          access_token: string | null
+          account_email: string | null
+          account_name: string | null
+          account_subject: string | null
+          client_id: string | null
+          client_secret: string | null
+          connected_at: string | null
+          connected_by: string | null
+          expires_at: string | null
+          id: string
+          issuer: string | null
+          last_error: string | null
+          last_refreshed_at: string | null
+          refresh_claimed_until: string | null
+          refresh_token: string | null
+          revocation_endpoint: string | null
+          scope: string | null
+          status: string
+          token_auth_method: string
+          token_endpoint: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token?: string | null
+          account_email?: string | null
+          account_name?: string | null
+          account_subject?: string | null
+          client_id?: string | null
+          client_secret?: string | null
+          connected_at?: string | null
+          connected_by?: string | null
+          expires_at?: string | null
+          id?: string
+          issuer?: string | null
+          last_error?: string | null
+          last_refreshed_at?: string | null
+          refresh_claimed_until?: string | null
+          refresh_token?: string | null
+          revocation_endpoint?: string | null
+          scope?: string | null
+          status?: string
+          token_auth_method?: string
+          token_endpoint?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string | null
+          account_email?: string | null
+          account_name?: string | null
+          account_subject?: string | null
+          client_id?: string | null
+          client_secret?: string | null
+          connected_at?: string | null
+          connected_by?: string | null
+          expires_at?: string | null
+          id?: string
+          issuer?: string | null
+          last_error?: string | null
+          last_refreshed_at?: string | null
+          refresh_claimed_until?: string | null
+          refresh_token?: string | null
+          revocation_endpoint?: string | null
+          scope?: string | null
+          status?: string
+          token_auth_method?: string
+          token_endpoint?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "higgsfield_connections_connected_by_fkey"
+            columns: ["connected_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      higgsfield_oauth_clients: {
+        Row: {
+          client_id: string
+          client_secret: string | null
+          created_at: string
+          id: string
+          issuer: string
+          redirect_uri: string
+          token_auth_method: string
+        }
+        Insert: {
+          client_id: string
+          client_secret?: string | null
+          created_at?: string
+          id?: string
+          issuer: string
+          redirect_uri: string
+          token_auth_method?: string
+        }
+        Update: {
+          client_id?: string
+          client_secret?: string | null
+          created_at?: string
+          id?: string
+          issuer?: string
+          redirect_uri?: string
+          token_auth_method?: string
+        }
+        Relationships: []
+      }
+      higgsfield_oauth_states: {
+        Row: {
+          client_id: string
+          code_verifier: string
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          issuer: string
+          redirect_uri: string
+          return_origin: string
+          state: string
+        }
+        Insert: {
+          client_id: string
+          code_verifier: string
+          created_at?: string
+          created_by?: string | null
+          expires_at: string
+          issuer: string
+          redirect_uri: string
+          return_origin: string
+          state: string
+        }
+        Update: {
+          client_id?: string
+          code_verifier?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          issuer?: string
+          redirect_uri?: string
+          return_origin?: string
+          state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "higgsfield_oauth_states_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      katana_results: {
+        Row: {
+          asset_id: string | null
+          attempts: number
+          claimed_until: string | null
+          created_at: string
+          error: string | null
+          id: string
+          media_id: string
+          run_id: string
+          status: string
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          asset_id?: string | null
+          attempts?: number
+          claimed_until?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          media_id: string
+          run_id: string
+          status?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          asset_id?: string | null
+          attempts?: number
+          claimed_until?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          media_id?: string
+          run_id?: string
+          status?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "katana_results_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "katana_results_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "katana_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      katana_run_events: {
+        Row: {
+          body: string
+          created_at: string
+          data: Json
+          id: string
+          kind: string
+          occurred_at: string
+          run_id: string
+          source_id: string | null
+          title: string
+        }
+        Insert: {
+          body?: string
+          created_at?: string
+          data?: Json
+          id?: string
+          kind: string
+          occurred_at?: string
+          run_id: string
+          source_id?: string | null
+          title?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          data?: Json
+          id?: string
+          kind?: string
+          occurred_at?: string
+          run_id?: string
+          source_id?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "katana_run_events_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "katana_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      katana_runs: {
+        Row: {
+          agent_version: number | null
+          balance_end: number | null
+          balance_start: number | null
+          boundary_event_ids: string[]
+          brief: string
+          claude_budget_cents: number
+          claude_cost_cents: number
+          created_at: string
+          created_by: string | null
+          credit_limit: number
+          credits_reserved: number
+          error: string | null
+          finished_at: string | null
+          id: string
+          inputs: Json
+          known_media: Json
+          last_event_at: string | null
+          mode: string
+          parent_run_id: string | null
+          preset_name: string | null
+          preset_slug: string | null
+          project_id: string | null
+          reference_url: string | null
+          resume_line: string | null
+          session_id: string | null
+          started_at: string | null
+          status: string
+          status_detail: string | null
+          summary: string | null
+          sync_lease_until: string | null
+          synced_at: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          agent_version?: number | null
+          balance_end?: number | null
+          balance_start?: number | null
+          boundary_event_ids?: string[]
+          brief?: string
+          claude_budget_cents: number
+          claude_cost_cents?: number
+          created_at?: string
+          created_by?: string | null
+          credit_limit: number
+          credits_reserved?: number
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          inputs?: Json
+          known_media?: Json
+          last_event_at?: string | null
+          mode: string
+          parent_run_id?: string | null
+          preset_name?: string | null
+          preset_slug?: string | null
+          project_id?: string | null
+          reference_url?: string | null
+          resume_line?: string | null
+          session_id?: string | null
+          started_at?: string | null
+          status?: string
+          status_detail?: string | null
+          summary?: string | null
+          sync_lease_until?: string | null
+          synced_at?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          agent_version?: number | null
+          balance_end?: number | null
+          balance_start?: number | null
+          boundary_event_ids?: string[]
+          brief?: string
+          claude_budget_cents?: number
+          claude_cost_cents?: number
+          created_at?: string
+          created_by?: string | null
+          credit_limit?: number
+          credits_reserved?: number
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          inputs?: Json
+          known_media?: Json
+          last_event_at?: string | null
+          mode?: string
+          parent_run_id?: string | null
+          preset_name?: string | null
+          preset_slug?: string | null
+          project_id?: string | null
+          reference_url?: string | null
+          resume_line?: string | null
+          session_id?: string | null
+          started_at?: string | null
+          status?: string
+          status_detail?: string | null
+          summary?: string | null
+          sync_lease_until?: string | null
+          synced_at?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "katana_runs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "katana_runs_parent_run_id_fkey"
+            columns: ["parent_run_id"]
+            isOneToOne: false
+            referencedRelation: "katana_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "katana_runs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      katana_setup: {
+        Row: {
+          agent_id: string | null
+          agent_version: number | null
+          claimed_until: string | null
+          config_hash: string | null
+          credential_expires_at: string | null
+          credential_id: string | null
+          credential_synced_at: string | null
+          environment_id: string | null
+          id: string
+          updated_at: string
+          vault_id: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          agent_version?: number | null
+          claimed_until?: string | null
+          config_hash?: string | null
+          credential_expires_at?: string | null
+          credential_id?: string | null
+          credential_synced_at?: string | null
+          environment_id?: string | null
+          id?: string
+          updated_at?: string
+          vault_id?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          agent_version?: number | null
+          claimed_until?: string | null
+          config_hash?: string | null
+          credential_expires_at?: string | null
+          credential_id?: string | null
+          credential_synced_at?: string | null
+          environment_id?: string | null
+          id?: string
+          updated_at?: string
+          vault_id?: string | null
+        }
+        Relationships: []
+      }
+      katana_spend: {
+        Row: {
+          credits: number
+          decided_at: string
+          decision: string
+          id: string
+          items: Json
+          job_ids: string[]
+          priced: boolean
+          reason: string | null
+          run_id: string
+          sent_at: string | null
+          tool_name: string
+          tool_use_id: string
+        }
+        Insert: {
+          credits?: number
+          decided_at?: string
+          decision: string
+          id?: string
+          items?: Json
+          job_ids?: string[]
+          priced?: boolean
+          reason?: string | null
+          run_id: string
+          sent_at?: string | null
+          tool_name: string
+          tool_use_id: string
+        }
+        Update: {
+          credits?: number
+          decided_at?: string
+          decision?: string
+          id?: string
+          items?: Json
+          job_ids?: string[]
+          priced?: boolean
+          reason?: string | null
+          run_id?: string
+          sent_at?: string | null
+          tool_name?: string
+          tool_use_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "katana_spend_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "katana_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       long_video_clips: {
         Row: {
           attempt: number
