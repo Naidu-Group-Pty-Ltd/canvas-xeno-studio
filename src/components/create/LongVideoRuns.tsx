@@ -197,6 +197,9 @@ function RunCard({
     (id, index, list) => list.indexOf(id) === index && assets?.get(id)?.asset_type === "image",
   );
   const defaultCard = finale && finaleHolds(finale.mode) ? finale.assetId : null;
+  // Its last clip ends on a given frame (a closing keyframe, or the end card it moves into).
+  const endsOnFrame =
+    !!run.keyframe_model_id || (!!finale && finaleReveals(finale.mode) && run.clip_count > 1);
   const [cardImage, setCardImage] = useState<string | null>(defaultCard);
   const [cardSeconds, setCardSeconds] = useState<number>(finale?.seconds ?? FINALE_SECONDS.default);
   const cardChanged =
@@ -518,6 +521,9 @@ function RunCard({
                       The voiceover plays whole and each clip is laid where its piece of it is,
                       lined up by its own sound. Clips are cut, never blended: a blend would show
                       two mouths at once.
+                      {endsOnFrame
+                        ? " The last clip plays on after the voiceover, to land on the frame it was made to end on."
+                        : ""}
                     </p>
                     <div className="flex items-center justify-between gap-2">
                       <Label htmlFor={`captions-${run.id}`} className="text-xs">

@@ -257,10 +257,10 @@ export function useLongVideoPlan(input: {
     if (!model || !longVideoEligible(model)) return NOT_ELIGIBLE;
     // A voiceover attached as the model's driving audio: the video is made to it.
     const voiced = !!attachedVoice && lipSyncCapable(model);
-    // Keyframes: every clip by the model's workflow that moves from a frame to a frame
-    // (not with a voiceover yet).
-    const workflow = keyframeWorkflow(model, models);
-    const keyframed = !voiced && !!workflow && (draft.keyframes ?? characters.length > 0);
+    // Keyframes: every clip by the model's workflow that moves from a frame to a
+    // frame (made to a voiceover, one that also moves lips to it: Wan 2.7).
+    const workflow = keyframeWorkflow(model, models, { drivingAudio: voiced });
+    const keyframed = !!workflow && (draft.keyframes ?? characters.length > 0);
     // Video extend is offered too, but only ever used when chosen: it is experimental.
     const candidates = keyframed
       ? [workflow!]

@@ -960,8 +960,10 @@ export function planClips(input: {
     const frames = keyframed
       ? clipKeyframes(position, input.clips.length, finale?.mode ?? null)
       : { start: null, end: null };
-    // Ends on the brand's end card, on a keyframe, or on nothing given.
-    const endsOnFinisher = position === lastPosition && !isFirst && !!reveal && !!finale;
+    // Ends on the brand's end card, on a keyframe, or on nothing given. (A
+    // keyframed video's only clip too: its closing keyframe is the end card.)
+    const endsOnFinisher =
+      position === lastPosition && (!isFirst || keyframed) && !!reveal && !!finale;
     const endsOnKeyframe = frames.end !== null && !!endWay;
     const endRole = endsOnKeyframe ? endWay!.role : null;
     // Its piece of the voiceover, supplied when it starts.
@@ -1048,6 +1050,10 @@ export function planClips(input: {
         : referenceStartPrompt(prompt, numberIn(numbered, 1));
     // ...or are given the clip before itself, to extend.
     else if (!isFirst && start?.kind === "video") prompt = videoStartPrompt(prompt);
+    // A video of one clip isn't told where it falls (see clipPrompt), so moving
+    // into the end card is said here.
+    if (ending && lastPosition === 0 && !prompt.includes(FINALE_REVEAL_NOTE))
+      prompt = `${prompt}\n\n${FINALE_REVEAL_NOTE}`;
     // The end card or keyframe a reference model ends on comes after the images.
     if (ending && reveal?.kind === "reference") prompt = namedEnding(prompt, inputs.length + 1);
     else if (endsOnKeyframe && endWay?.kind === "reference")
@@ -1137,14 +1143,6 @@ export function planIssues(input: {
       {
         position: null,
         message: `${modelLine(first)} can't move a speaker's lips to a voiceover. Choose a model with driving audio (Wan 2.6 or Wan 2.7).`,
-      },
-    ];
-  if (input.voiceover && input.keyframes)
-    return [
-      {
-        position: null,
-        message:
-          "Keyframes and a voiceover can't be used together yet: turn keyframes off to make the video to the voiceover.",
       },
     ];
   if (!continuation)

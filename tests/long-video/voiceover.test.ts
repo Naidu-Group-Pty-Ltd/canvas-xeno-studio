@@ -2,8 +2,15 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ModelRegistryEntry } from "../../src/lib/model-schema";
-import { clipPrompt, planClips, planIssues, type ClipDraft } from "../../src/lib/long-video/plan";
 import {
+  clipPrompt,
+  FINALE_REVEAL_NOTE,
+  planClips,
+  planIssues,
+  type ClipDraft,
+} from "../../src/lib/long-video/plan";
+import {
+  lastClipPlaysOut,
   pieceTranscripts,
   planVoiceoverClips,
   storedVoiceover,
@@ -14,6 +21,7 @@ import {
 } from "../../src/lib/long-video/voiceover";
 import { LIP_SYNC_LINE, withLipSyncLine } from "../../src/lib/lip-sync/prompt";
 import { lipSyncChoices, lipSyncValues } from "../../src/lib/lip-sync/models";
+import { keyframeWorkflow, planKeyframes } from "../../src/lib/long-video/keyframes";
 import type { PreparedAnalysis } from "../../src/lib/lip-sync/analysis";
 
 const registry = JSON.parse(
@@ -224,7 +232,7 @@ describe("clips made to a voiceover", () => {
     ).toContain("That length fits in one clip; switch to One clip");
   });
 
-  test("can't be made by a model without driving audio, or with keyframes", () => {
+  test("can't be made by a model without driving audio, nor keyframed on one that can't end on a frame", () => {
     expect(
       planIssues({
         first: kling,
@@ -236,18 +244,195 @@ describe("clips made to a voiceover", () => {
     ).toMatch(/driving audio/);
     expect(
       planIssues({
-        first: wan27,
-        continuation: wan27,
+        first: wan26,
+        continuation: wan26,
         clips: [],
         targetSeconds: 20,
         voiceover: true,
         keyframes: true,
       })[0]?.message,
-    ).toMatch(/Keyframes and a voiceover/);
+    ).toMatch(/can't end a clip on a given frame/);
   });
 
   test("never carry the line twice", () => {
     expect(withLipSyncLine(withLipSyncLine("A"))).toBe(`A\n\n${LIP_SYNC_LINE}`);
+  });
+});
+
+describe("keyframes with a voiceover", () => {
+  // The catalogue as the studio loads it: every model on.
+  const active = registry.map((row) => ({ ...row, is_active: true }));
+  const on = (model: ModelRegistryEntry) => active.find((row) => row.id === model.id)!;
+
+  test("are made by a workflow that moves lips to it and ends on a frame (Wan 2.7), or not at all", () => {
+    expect(keyframeWorkflow(on(wan27t), active, { drivingAudio: true })?.model_path).toBe(
+      "wan/v2.7/image-to-video",
+    );
+    expect(keyframeWorkflow(on(wan27), active, { drivingAudio: true })?.id).toBe(wan27.id);
+    expect(keyframeWorkflow(on(wan26), active, { drivingAudio: true })).toBeNull();
+    const ending = active.find(
+      (row) =>
+        row.output_type === "video" &&
+        keyframeWorkflow(row, active) !== null &&
+        keyframeWorkflow(row, active, { drivingAudio: true }) === null,
+    );
+    // A model that can end on a frame but not move lips keeps keyframes without a voiceover only.
+    expect(ending).toBeDefined();
+  });
+
+  const plan = planVoiceoverClips({ analysis: longRead, first: wan27, continuation: wan27 });
+  const clips: ClipDraft[] = plan.segments.map((segment, index) => ({
+    beat: `The founder, beat ${index + 1}`,
+    durationSeconds: segment.requestSeconds,
+    prompt: clipPrompt({
+      story: "A founder talks to camera.",
+      beat: `The founder, beat ${index + 1}`,
+      index,
+      count: plan.segments.length,
+    }),
+  }));
+  const references = [
+    { assetId: "22222222-2222-4222-8222-222222222222", role: "audio", assetType: "audio" as const },
+  ];
+  const planned = planClips({
+    first: wan27,
+    continuation: wan27,
+    values: { prompt: "A founder talks to camera." },
+    references,
+    clips,
+    keyframes: true,
+    voiceover: true,
+  });
+
+  test("send every clip its start frame, its piece and the keyframe it ends on", () => {
+    expect(plan.problem).toBeNull();
+    expect(planned.length).toBeGreaterThan(1);
+    planned.forEach((clip, index) => {
+      expect([...clip.roles].sort()).toEqual(["audio", "last_frame", "source"]);
+      // The frames and the piece are supplied when it starts, never from the references.
+      expect(clip.inputs).toEqual([]);
+      expect(clip.startKeyframe).toBe(index === 0 ? 0 : null);
+      expect(clip.endKeyframe).toBe(index + 1);
+      expect(clip.prompt.endsWith(LIP_SYNC_LINE)).toBe(true);
+      expect(clip.durationSeconds).toBe(plan.segments[index]!.requestSeconds);
+    });
+  });
+
+  test("pass the plan's checks, with a storyboard of one keyframe per clip and the opening", () => {
+    expect(
+      planIssues({
+        first: wan27,
+        continuation: wan27,
+        clips: planned,
+        targetSeconds: longRead.duration_seconds,
+        keyframes: true,
+        voiceover: true,
+      }),
+    ).toEqual([]);
+    const storyboard = planKeyframes({
+      models: registry,
+      painterModelId: null,
+      workflow: wan27,
+      values: { prompt: "A founder talks to camera.", aspect_ratio: "16:9" },
+      clips: planned.length,
+      finale: null,
+      references,
+      characters: [],
+    });
+    expect(storyboard.count).toBe(planned.length + 1);
+  });
+
+  test("of a single clip still move into the end card, which stands for its closing keyframe", () => {
+    const card = "eeeeeeee-1111-4111-8111-111111111111";
+    const finale = { assetId: card, mode: "both" as const, seconds: 3 };
+    const [only] = planClips({
+      first: wan27,
+      continuation: wan27,
+      values: { prompt: "A founder says thank you." },
+      references: [...references, { assetId: card, role: "unused", assetType: "image" }],
+      clips: [
+        {
+          beat: "The founder smiles",
+          durationSeconds: 4,
+          prompt: clipPrompt({
+            story: "A founder says thank you.",
+            index: 0,
+            count: 1,
+            finale: "both",
+          }),
+        },
+      ],
+      finale,
+      keyframes: true,
+      voiceover: true,
+    });
+    expect(only!.startKeyframe).toBe(0);
+    expect(only!.endKeyframe).toBeNull();
+    expect(only!.inputs).toEqual([{ assetId: card, role: "last_frame" }]);
+    expect([...only!.roles].sort()).toEqual(["audio", "last_frame", "source"]);
+    expect(only!.prompt.split(FINALE_REVEAL_NOTE)).toHaveLength(2);
+    expect(
+      lastClipPlaysOut({
+        position: 0,
+        clipCount: 1,
+        keyframed: true,
+        finale,
+        endFrameAssetId: null,
+        inputAssetIds: only!.inputs.map((item) => item.assetId),
+      }),
+    ).toBe(true);
+  });
+});
+
+describe("the last clip of a video made to a voiceover", () => {
+  const card = "cccccccc-1111-4111-8111-111111111111";
+  const laidOut = "dddddddd-1111-4111-8111-111111111111";
+  const base = {
+    position: 3,
+    clipCount: 4,
+    keyframed: false,
+    finale: null,
+    endFrameAssetId: null,
+    inputAssetIds: [] as string[],
+  };
+
+  test("plays out when it ends on its closing keyframe", () => {
+    expect(lastClipPlaysOut({ ...base, keyframed: true })).toBe(true);
+    expect(lastClipPlaysOut({ ...base, endFrameAssetId: laidOut })).toBe(true);
+    // ...but not a clip before the last, which the next one starts from where it's cut.
+    expect(lastClipPlaysOut({ ...base, position: 2, keyframed: true })).toBe(false);
+  });
+
+  test("plays out when it moves into the brand's end card, and only then", () => {
+    const reveal = { assetId: card, frameAssetId: laidOut, mode: "reveal" as const };
+    expect(lastClipPlaysOut({ ...base, finale: reveal, inputAssetIds: [laidOut] })).toBe(true);
+    expect(
+      lastClipPlaysOut({
+        ...base,
+        finale: { ...reveal, frameAssetId: null },
+        inputAssetIds: [card],
+      }),
+    ).toBe(true);
+    // A single clip isn't sent the end card, so it is cut as usual.
+    expect(lastClipPlaysOut({ ...base, finale: reveal, inputAssetIds: [] })).toBe(false);
+    // Held after the last clip, the end card isn't something it moves into.
+    expect(
+      lastClipPlaysOut({
+        ...base,
+        finale: { ...reveal, mode: "end_card" },
+        inputAssetIds: [laidOut],
+      }),
+    ).toBe(false);
+    expect(lastClipPlaysOut(base)).toBe(false);
+  });
+
+  test("with keyframes, moving into the end card counts too", () => {
+    const reveal = { assetId: card, frameAssetId: null, mode: "both" as const };
+    // Its keyframe is replaced by the end card, which it is sent instead.
+    expect(lastClipPlaysOut({ ...base, keyframed: true, finale: reveal })).toBe(false);
+    expect(
+      lastClipPlaysOut({ ...base, keyframed: true, finale: reveal, inputAssetIds: [card] }),
+    ).toBe(true);
   });
 });
 

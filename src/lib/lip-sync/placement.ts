@@ -11,6 +11,10 @@
  * it early is started a frame or two later, the clip before it playing on to
  * fill the gap (it was made with room to spare), or for the first clip, the
  * voiceover's silence before the first word is that much shorter.
+ *
+ * A last clip made to end on a given frame (its closing keyframe, or the
+ * brand's end card it moves into) plays out to its own end, after its piece
+ * (the voiceover is over by then), so the video lands on that frame.
  */
 
 export interface SyncedClipInput {
@@ -56,6 +60,10 @@ export function placeSyncedClips(input: {
   fps: number;
   /** Offsets past this aren't believed and count as unmeasured. */
   maxOffsetSeconds?: number;
+  /** The last clip plays out to the end of its own picture (it ends on a frame it was made to reach). */
+  playOutLast?: boolean;
+  /** How long the edit may run, so playing out never takes it past what can be rendered. */
+  maxTotalSeconds?: number;
 }): SyncedPlacement {
   const { clips, fps } = input;
   if (!clips.length)
@@ -89,6 +97,19 @@ export function placeSyncedClips(input: {
   // Every clip at least two frames (an edit's shortest).
   for (let index = 1; index < bounds.length; index += 1)
     bounds[index] = Math.max(bounds[index]!, bounds[index - 1]! + 2);
+  // Played out: the last clip runs on past its piece to its own last whole frame.
+  const lastIndex = clips.length - 1;
+  const lastSource = clips[lastIndex]!.sourceSeconds;
+  if (input.playOutLast && lastSource !== null && lastSource > 0) {
+    const from = bounds[lastIndex]!;
+    const trim = Math.max(0, idealTrim(lastIndex, from));
+    const end = from + Math.floor((lastSource - trim) * fps + 1e-6);
+    const cap =
+      input.maxTotalSeconds !== undefined
+        ? Math.floor(input.maxTotalSeconds * fps + 1e-6)
+        : Infinity;
+    bounds[lastIndex + 1] = Math.max(bounds[lastIndex + 1]!, Math.min(end, cap));
+  }
 
   const placed = clips.map((clip, index): SyncedClipPlacement => {
     const from = bounds[index]!;

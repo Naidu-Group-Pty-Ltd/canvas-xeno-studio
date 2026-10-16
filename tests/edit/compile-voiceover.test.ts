@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { compileFromVoiceoverLongVideo, type VoiceoverClipCut } from "../../src/lib/edit/compile";
-import { layoutTimeline } from "../../src/lib/edit/timeline";
+import { layoutTimeline, renderBlockers } from "../../src/lib/edit/timeline";
 
 const FPS = 30;
 const grid = (seconds: number) => Math.round(seconds * FPS) / FPS;
@@ -127,6 +127,77 @@ describe("a long video made to a voiceover, in the Editor", () => {
       start: 0.4,
       text: "Meet the new range.",
     });
+  });
+
+  test("plays a last clip made to end on a frame out after the voiceover, then cuts to the end card", () => {
+    const ending = cuts([null, null, null, null]).map((clip, index) =>
+      index === 3 ? { ...clip, playsOut: true } : clip,
+    );
+    const endCard = { assetId: ids[0]!, seconds: 3, width: 1280, height: 720, revealed: true };
+    const { timeline } = compileFromVoiceoverLongVideo(
+      { title: "Launch", settings: {} },
+      ending,
+      assets,
+      voiceover,
+      { keepSound: false, captions: false, endCard },
+    );
+    const layout = layoutTimeline(timeline);
+    const last = layout.clips[3]!;
+    // The whole of its 7 s, past the voiceover's end, so it lands on its closing frame.
+    expect(Math.round(last.start * FPS)).toBe(Math.round(pieces[3]![0] * FPS));
+    expect(Math.round(last.clip.duration! * FPS)).toBe(7 * FPS);
+    expect(Math.round((last.start + last.clip.duration!) * FPS)).toBeGreaterThan(
+      Math.round(26.4371 * FPS),
+    );
+    // The voiceover still plays whole, and the end card follows on a cut.
+    expect(timeline.audio[0]!.duration).toBeNull();
+    expect(timeline.clips[4]).toMatchObject({ kind: "image", duration: 3 });
+    expect(timeline.clips[4]!.transition.type).toBe("cut");
+
+    // With a clip before it not in yet, nothing plays out.
+    const partial = compileFromVoiceoverLongVideo(
+      { title: "Launch", settings: {} },
+      ending.map((clip, index) => (index === 2 ? { ...clip, assetId: null } : clip)),
+      assets,
+      voiceover,
+      { keepSound: false, captions: false },
+    );
+    expect(partial.timeline.clips).toHaveLength(2);
+  });
+
+  test("keeps a played-out edit within the render limit, its end card included", () => {
+    // A voiceover just under the limit with a 3 s end card: no room left to play out.
+    const long = 600 - 3;
+    const start = grid(long - 4.5);
+    const edge = [
+      { ...cuts([null])[0]!, audioEnd: start, lengthSeconds: Math.ceil(start + 0.25) },
+      {
+        position: 1,
+        assetId: ids[1]!,
+        audioStart: start,
+        audioEnd: long,
+        offsetSeconds: null,
+        lengthSeconds: 5,
+        playsOut: true,
+      },
+    ];
+    const { timeline } = compileFromVoiceoverLongVideo(
+      { title: "Launch", settings: {} },
+      edge,
+      [
+        { ...assets[0]!, durationSeconds: Math.ceil(start + 0.25) },
+        { ...assets[1]!, durationSeconds: 5 },
+      ],
+      { ...voiceover, durationSeconds: long },
+      {
+        keepSound: false,
+        captions: false,
+        endCard: { assetId: ids[2]!, seconds: 3, width: 1280, height: 720, revealed: true },
+      },
+    );
+    const layout = layoutTimeline(timeline);
+    expect(layout.total).toBeLessThanOrEqual(600 + 1e-9);
+    expect(renderBlockers(timeline).some((problem) => /limit is 600s/.test(problem))).toBe(false);
   });
 
   test("shifts the voiceover, not the clips, when the first clip's speech came early", () => {

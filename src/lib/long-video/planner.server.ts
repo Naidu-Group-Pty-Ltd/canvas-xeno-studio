@@ -90,7 +90,7 @@ export async function suggestLongVideoPlan(input: {
     spoken
       ? "Each clip runs as long as its part of the voiceover: pace each beat to its own seconds, and give the last one an ending that fits its length."
       : "Every clip is as long as the model allows except usually the last, which takes what is left: pace each beat to its own seconds, and give the last one an ending that fits its length.",
-    spoken ? voiceoverBlock(spoken) : "",
+    spoken ? voiceoverBlock(spoken, !!input.keyframes) : "",
     `TOTAL: ${start} seconds in ${clips.length} clips. Return exactly ${clips.length} beats.`,
     input.title.trim() ? `WORKING TITLE: ${input.title.trim()}` : "",
     input.story.trim()
@@ -172,11 +172,16 @@ function charactersBlock(
  * recording, so each beat is about how they say it (never what), and keeps
  * their face where the lips can be seen.
  */
-function voiceoverBlock(spoken: string[]): string {
+function voiceoverBlock(spoken: string[], keyframes: boolean): string {
   return [
     `VOICEOVER: the video is made to a recorded voiceover, cut into these clips where it pauses. In every clip the speaker says that clip's words, their lips moving to the recording. Words per clip (JSON): ${JSON.stringify(spoken.map((words, index) => ({ clip: index + 1, words: words || "(not transcribed)" })))}`,
     "Write each beat around the speaker as they say those words: their expression, gestures and small movements suiting what is said, and the camera's move. Never put the words themselves, or any other dialogue, in a beat. Keep the speaker's face clear, lit and towards the camera, at a medium shot or closer, whenever they speak.",
-  ].join("\n");
+    keyframes
+      ? "The final moment of every beat is painted as a still before its clip is made, and the clip moves into it as the words are said; the next clip starts a moment before it, as the words end. So keep each beat's final moment close to how the speaker looks as they finish speaking (no big move after the words), and say concretely where the speaker is, which way they face and how the shot is framed then."
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 /** What the beat writer is told about the brand finisher. */

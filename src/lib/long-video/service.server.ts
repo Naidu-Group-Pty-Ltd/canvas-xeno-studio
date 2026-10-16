@@ -97,6 +97,7 @@ import { cutFrameIndex } from "../lip-sync/placement";
 import { syncOffsetOf, syncReading } from "../lip-sync/sync";
 import { readWords } from "../lip-sync/analysis";
 import {
+  lastClipPlaysOut,
   storedVoiceover,
   storeVoiceover,
   voiceoverModelProblem,
@@ -200,11 +201,6 @@ async function voiceoverForRun(
   stored: RunVoiceover;
 }> {
   const asked = request.voiceover!;
-  if (request.keyframes)
-    throw new AppError(
-      "INVALID_PARAMETERS",
-      "Keyframes and a voiceover can't be used together yet: turn keyframes off to make the video to the voiceover.",
-    );
   const problem = voiceoverModelProblem(first, continuation);
   if (problem) throw new AppError("INVALID_PARAMETERS", problem);
   const { usableVoiceover } = await import("../lip-sync/prepare.server");
@@ -470,6 +466,16 @@ export async function startLongVideo(
       keyframeSettings,
       characters,
       references: clipReferences,
+      drivingAudio: voiced
+        ? (clip) =>
+            pieceInput(clip, {
+              preparationId: voiced.preparationId,
+              piece: voiced.pieces[clip.position],
+              createdBy: request.userId,
+              projectId: request.projectId,
+              label: `${request.title.trim().slice(0, LONG_VIDEO_LIMITS.titleChars) || "Long video"} · clip ${clip.position + 1}`,
+            })
+        : null,
       standIn:
         storyboard?.standIn ??
         characters[0]?.images[0]?.assetId ??
@@ -678,25 +684,79 @@ type KeptClipQuote = {
   inputs: { assetId: string; role: string }[];
 };
 
-/** The first clip, a later one and the last, as each will be sent with `standIn` where a frame goes. */
-function clipQuotes(planned: PlannedClip[], standIn: string) {
+/** A clip's driving audio as it will be sent (made to a voiceover), or null when it has none. */
+type DrivingAudio = (clip: PlannedClip) => Promise<{ assetId: string; role: string } | null>;
+
+/**
+ * The first clip, a later one and the last, as each will be sent with
+ * `standIn` where a frame goes and, made to a voiceover, its own piece of it.
+ */
+async function clipQuotes(
+  planned: PlannedClip[],
+  standIn: string,
+  drivingAudio: DrivingAudio | null,
+) {
   const positions = [...new Set([0, 1, planned.length - 1])].filter(
     (position) => position >= 0 && position < planned.length,
   );
-  return positions.flatMap((position) => {
+  const quotes = [];
+  for (const position of positions) {
     // A clip given the clip before itself can't be tried with a stand-in.
     const request = clipQuote(planned[position]!, standIn);
-    return request ? [{ position, ...request }] : [];
-  });
+    if (!request) continue;
+    const audio = drivingAudio ? await drivingAudio(planned[position]!) : null;
+    quotes.push({
+      position,
+      ...request,
+      inputs: audio ? [...request.inputs, audio] : request.inputs,
+    });
+  }
+  return quotes;
+}
+
+/**
+ * A planned clip's piece of the voiceover in its driving-audio input, cut
+ * now: the same piece (cut once, see ../lip-sync/slices.server) its clip is
+ * sent when it starts. Null when it can't be cut now; the clip's own start
+ * says why, if it still can't.
+ */
+async function pieceInput(
+  clip: PlannedClip,
+  input: {
+    preparationId: string;
+    piece: PlannedPiece | undefined;
+    createdBy: string;
+    projectId: string | null;
+    label: string;
+  },
+): Promise<{ assetId: string; role: string } | null> {
+  const slot = drivingAudioSlot(clip.model);
+  if (!slot || !input.piece) return null;
+  const { voiceoverPiece } = await import("../lip-sync/slices.server");
+  try {
+    const piece = await voiceoverPiece({
+      preparationId: input.preparationId,
+      startSeconds: input.piece.start,
+      endSeconds: input.piece.end,
+      createdBy: input.createdBy,
+      projectId: input.projectId,
+      label: input.label,
+    });
+    return { assetId: piece.assetId, role: slot.role };
+  } catch {
+    return null;
+  }
 }
 
 /**
  * Prices (free) one of each kind of request a run with characters or
  * keyframes will send: a keyframe, the first clip, a later clip and the last
- * one, a stand-in image where a frame will go. One Higgsfield refuses as set
- * up stops the run before anything is paid for; one it just couldn't price
- * doesn't. Gives one keyframe's price too. With no image to stand in at all,
- * a keyframed run's clip requests are kept (`kept`) and tried once its
+ * one, a stand-in image where a frame will go (and, made to a voiceover, each
+ * with its own piece of it, so a model that won't take an end frame with its
+ * driving audio says so before a keyframe is painted). One Higgsfield refuses
+ * as set up stops the run before anything is paid for; one it just couldn't
+ * price doesn't. Gives one keyframe's price too. With no image to stand in at
+ * all, a keyframed run's clip requests are kept (`kept`) and tried once its
  * opening keyframe is painted, before the rest are.
  */
 async function preflight(input: {
@@ -705,6 +765,7 @@ async function preflight(input: {
   keyframeSettings: KeyframeSettings | null;
   characters: RunCharacter[];
   references: RunReference[];
+  drivingAudio: DrivingAudio | null;
   standIn: string | null;
 }): Promise<{ problem: string | null; keyframeUsd: number | null; kept: KeptClipQuote[] }> {
   const { standIn, planned, painter, keyframeSettings } = input;
@@ -738,16 +799,18 @@ async function preflight(input: {
       problem: null,
       keyframeUsd,
       kept: painter
-        ? clipQuotes(planned, STAND_IN).map(({ position, model, values, inputs }) => ({
-            position,
-            modelId: model.id,
-            values,
-            inputs,
-          }))
+        ? (await clipQuotes(planned, STAND_IN, input.drivingAudio)).map(
+            ({ position, model, values, inputs }) => ({
+              position,
+              modelId: model.id,
+              values,
+              inputs,
+            }),
+          )
         : [],
     };
 
-  for (const request of clipQuotes(planned, standIn)) {
+  for (const request of await clipQuotes(planned, standIn, input.drivingAudio)) {
     const call = await ask(request.model, request.values, request.inputs);
     if (refusedQuote(call))
       return {
@@ -1527,8 +1590,9 @@ async function enqueueHandoff(
       retryable: false,
     });
 
-  // A clip made to a voiceover hands off from where it is cut, not its last frame.
-  const voiced = kind === "frame" && drivenByVoiceover(run, clip);
+  // A clip made to a voiceover hands off from where it is cut, not its last
+  // frame (unless it is the last and plays out to its own end).
+  const voiced = kind === "frame" && drivenByVoiceover(run, clip) && !playsOut(run, clip, isLast);
   const cut = voiced ? voiceoverCut(clip) : null;
   const point = kind === "frame" ? (cut ?? handoffPoint(clip)) : null;
   const file = handoffFile(clip);
@@ -1795,6 +1859,34 @@ function drivenByVoiceover(
     clip.audio_start_seconds !== undefined &&
     clip.audio_end_seconds !== null &&
     clip.audio_end_seconds !== undefined
+  );
+}
+
+/** The last clip of a run made to a voiceover, playing out to the frame it was made to end on (see ./voiceover). */
+function playsOut(
+  run: Pick<
+    RunRow,
+    "voiceover_preparation_id" | "references_used" | "keyframe_model_id" | "clip_count"
+  >,
+  clip: Pick<
+    ClipRow,
+    "position" | "audio_start_seconds" | "audio_end_seconds" | "end_frame_asset_id" | "inputs"
+  >,
+  isLast: boolean,
+): boolean {
+  return (
+    isLast &&
+    drivenByVoiceover(run, clip) &&
+    lastClipPlaysOut({
+      position: clip.position,
+      clipCount: run.clip_count,
+      keyframed: !!run.keyframe_model_id,
+      finale: storedFinale(run.references_used),
+      endFrameAssetId: clip.end_frame_asset_id,
+      inputAssetIds: ((clip.inputs ?? []) as { asset_id?: unknown }[]).flatMap((item) =>
+        typeof item.asset_id === "string" ? [item.asset_id] : [],
+      ),
+    })
   );
 }
 
@@ -4102,6 +4194,7 @@ async function openVoiceoverRunInEditor(input: {
       audioEnd: Number(clip.audio_end_seconds ?? 0),
       offsetSeconds: syncOffsetOf(clip),
       lengthSeconds: Number(clip.output_duration_seconds) || Number(clip.duration_seconds) || null,
+      playsOut: playsOut(run, clip, clip.position === run.clip_count - 1),
     })),
     input.assets,
     {
