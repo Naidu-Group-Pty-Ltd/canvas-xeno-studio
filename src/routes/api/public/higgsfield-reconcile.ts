@@ -16,8 +16,9 @@ const JOB_BUDGET_MS = 110_000;
  * Recovery worker: dispatches locally queued jobs, polls stale provider jobs
  * whose webhook may have been missed, ingests pending outputs, moves long
  * videos on and follows Soul ID trainings. It also clears licensed music uploads whose licence was never
- * recorded, closes media tasks the media service never reported back on, and
- * settles the lip sync of single clips made to a voiceover.
+ * recorded, closes media tasks the media service never reported back on,
+ * settles the lip sync of single clips made to a voiceover, and follows Katana
+ * runs a tick missed.
  */
 export const Route = createFileRoute("/api/public/higgsfield-reconcile")({
   server: {
@@ -81,6 +82,20 @@ export const Route = createFileRoute("/api/public/higgsfield-reconcile")({
             return 0;
           });
 
+          // Katana runs are followed by their own one-minute tick; this pass is
+          // its fallback (a tick that didn't come), answering paid calls that
+          // wait and saving finished videos.
+          const { sweepKatanaRuns } = await import("@/lib/katana/service.server");
+          const katanaRuns = await sweepKatanaRuns(
+            10,
+            Math.min(deadline, Date.now() + 20_000),
+          ).catch((error: unknown) => {
+            console.error("katana sweep failed", {
+              message: error instanceof Error ? error.message : String(error),
+            });
+            return 0;
+          });
+
           // Long videos whose next step an event didn't take (a missed webhook or
           // callback, a busy media service) move on here: last, as the longest
           // (an AI check can take a minute), so the quick passes above always run.
@@ -103,6 +118,7 @@ export const Route = createFileRoute("/api/public/higgsfield-reconcile")({
               soulTrainings,
               mediaTasks,
               clipSyncs,
+              katanaRuns,
               musicUploads: await musicUploads,
             }),
             { status: 200, headers: { "Content-Type": "application/json" } },

@@ -37,6 +37,14 @@ interface TrainingRow {
   sent_at: string | null;
 }
 
+/** A Katana run (katana_runs): credits its guard committed, and its Claude session's cost. */
+interface KatanaUsageRow {
+  created_at: string;
+  created_by: string | null;
+  credits_reserved: number;
+  claude_cost_cents: number;
+}
+
 function UsagePage() {
   const [days, setDays] = useState(30);
   const [modelFilter, setModelFilter] = useState("all");
@@ -49,7 +57,7 @@ function UsagePage() {
   const { data, isLoading } = useQuery({
     queryKey: ["usage", days],
     queryFn: async () => {
-      const [ledger, generations, trainings] = await Promise.all([
+      const [ledger, generations, trainings, katana] = await Promise.all([
         supabase
           .from("usage_ledger")
           .select("created_at,estimated_cost_usd,actual_cost_usd,user_id,model_registry_id,generation_id")
@@ -62,11 +70,17 @@ function UsagePage() {
           .from("soul_id_trainings")
           .select("requested_at,requested_by,status,sent_at")
           .gte("sent_at", since),
+        // None before the database has Katana's tables (migration 0015).
+        supabase
+          .from("katana_runs")
+          .select("created_at,created_by,credits_reserved,claude_cost_cents")
+          .gte("created_at", since),
       ]);
       return {
         ledger: (ledger.data ?? []) as LedgerRow[],
         generations: generations.data ?? [],
         trainings: (trainings.data ?? []) as TrainingRow[],
+        katana: (katana.data ?? []) as KatanaUsageRow[],
       };
     },
   });
@@ -164,6 +178,26 @@ function UsagePage() {
     }
     return [...map.values()].sort((a, b) => b.count - a.count);
   }, [trainings, team]);
+
+  // Katana runs aren't a generation model's either, so a model chosen above leaves them out.
+  const katanaByMember = useMemo(() => {
+    const map = new Map<
+      string,
+      { member: string; runs: number; credits: number; claudeCents: number }
+    >();
+    if (modelFilter !== "all") return [];
+    for (const row of data?.katana ?? []) {
+      if (memberFilter !== "all" && row.created_by !== memberFilter) continue;
+      const person = team.find((member) => member.id === row.created_by);
+      const name = person?.full_name ?? person?.email ?? "Unknown";
+      const entry = map.get(name) ?? { member: name, runs: 0, credits: 0, claudeCents: 0 };
+      entry.runs += 1;
+      entry.credits += Number(row.credits_reserved ?? 0);
+      entry.claudeCents += Number(row.claude_cost_cents ?? 0);
+      map.set(name, entry);
+    }
+    return [...map.values()].sort((a, b) => b.runs - a.runs);
+  }, [data, team, modelFilter, memberFilter]);
 
   const counts = {
     completed: generations.filter((row) => row.status === "completed").length,
@@ -293,6 +327,22 @@ function UsagePage() {
             <p className="mt-3 text-xs text-muted-foreground">
               Billed by Higgsfield, which doesn't quote a training's price, so they aren't in the
               spend figures above.
+              {modelFilter === "all" ? "" : " Shown with All models only."}
+            </p>
+          </Panel>
+          <Panel title="Katana runs">
+            <Table
+              rows={katanaByMember.map((row) => [
+                row.member,
+                String(row.runs),
+                (Math.round(row.credits * 100) / 100).toString(),
+                `$${(row.claudeCents / 100).toFixed(2)}`,
+              ])}
+              head={["Member", "Runs", "Credits committed", "Claude"]}
+            />
+            <p className="mt-3 text-xs text-muted-foreground">
+              Credits are what Katana's credit guard let runs commit, at Higgsfield's own quotes;
+              Claude is each run's session cost. Neither is in the spend figures above.
               {modelFilter === "all" ? "" : " Shown with All models only."}
             </p>
           </Panel>

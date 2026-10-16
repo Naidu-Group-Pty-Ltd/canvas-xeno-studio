@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { AccountSection } from "@/components/settings/AccountSection";
 import { TeamSection } from "@/components/settings/TeamSection";
+import { KatanaSettings } from "@/components/katana/KatanaSettings";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -119,6 +120,15 @@ function SettingsPage() {
         >
           <MediaWorkerStatus />
         </Section>
+
+        <div id="katana" className="scroll-mt-20">
+          <Section
+            title="Katana"
+            description="Higgsfield's Katana video workflow, run by Claude on the team's Higgsfield account."
+          >
+            <KatanaSettings isAdmin={isAdmin} settings={draft} />
+          </Section>
+        </div>
 
 
 
