@@ -98,8 +98,14 @@ frame. The app sends one source per distinct asset (role `video`, `image` or
   `size`, `uppercase`) and `overlays[]` (titles, subtitles, call-to-action
   badges), burned in with the Inter typeface; text is written to an ASS file
   by the worker and stripped of markup
+- `mix` (feature `channel_mix`): channel levels, each 0–2 and 1 when left
+  out, that scale a whole sound bus before the final mix on top of the items'
+  own volumes: `picture` (the clips' own sound), `voiceover`, `music` and
+  `sfx`. A channel at 0 is left out of the render altogether
 - `fade_in` / `fade_out` from and to black, and `normalize_loudness`
-  (two-pass EBU R128 to `loudness_lufs`, default −14 LUFS)
+  (two-pass EBU R128 to `loudness_lufs`, default −14 LUFS). Loudness is
+  evened out after the mix, so channel levels set the balance between the
+  channels, not the final loudness
 
 Timings are snapped to the frame grid, so the output has exactly the planned
 number of frames. Clips are normalised one at a time, which keeps memory flat

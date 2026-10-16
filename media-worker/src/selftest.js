@@ -171,6 +171,45 @@ await check("render_sequence fades out a short voice where its sound ends", asyn
   if (!(middle - end > 10)) throw new Error(`no fade before the voice ends (middle ${middle} dB, end ${end} dB)`);
 });
 
+await check("render_sequence applies channel levels to whole buses", async () => {
+  let run = 0;
+  const meanVolume = async (mix, audio) => {
+    // A render removes its sources once used, so each gets its own.
+    run += 1;
+    const still = join(dir, `mix-still-${run}.jpg`);
+    const voice = join(dir, `mix-voice-${run}.wav`);
+    const bed = join(dir, `mix-bed-${run}.wav`);
+    await ffmpeg(["-f", "lavfi", "-i", "testsrc2=s=640x360:d=1", "-frames:v", "1", still]);
+    await ffmpeg(["-f", "lavfi", "-i", "sine=frequency=500:duration=2", voice]);
+    await ffmpeg(["-f", "lavfi", "-i", "sine=frequency=300:duration=2", bed]);
+    const result = await TASKS.render_sequence.run({
+      sources: [
+        { path: still, role: "image" },
+        { path: voice, role: "audio" },
+        { path: bed, role: "audio" },
+      ],
+      params: {
+        width: 360, height: 640, fps: 25, normalize_loudness: false,
+        clips: [{ source_index: 0, kind: "image", duration: 2 }],
+        audio,
+        ...(mix ? { mix } : {}),
+      },
+      dir,
+    });
+    const { stderr } = await ffmpeg(["-ss", "0.5", "-t", "1", "-i", result.outputs[0].path, "-vn", "-af", "volumedetect", "-f", "null", "-"]);
+    return Number(/mean_volume:\s*(-?[\d.]+) dB/.exec(stderr)?.[1] ?? Number.NaN);
+  };
+  const voiceOnly = [{ source_index: 1, role: "voiceover", start: 0 }];
+  const full = await meanVolume(null, voiceOnly);
+  const half = await meanVolume({ voiceover: 0.5 }, voiceOnly);
+  // Half the amplitude is about 6 dB quieter.
+  if (!(Math.abs(full - half - 6.02) < 1)) throw new Error(`voiceover at 0.5 should be ~6 dB quieter (full ${full} dB, half ${half} dB)`);
+  // A silent channel is left out: only the voiceover remains.
+  const both = [...voiceOnly, { source_index: 2, role: "music", start: 0, duck: false }];
+  const musicOff = await meanVolume({ music: 0 }, both);
+  if (!(Math.abs(musicOff - full) < 0.5)) throw new Error(`music at 0 should leave just the voice (voice ${full} dB, mix ${musicOff} dB)`);
+});
+
 // A two-colour clip (red left, blue right) for checking where a crop lands.
 const halves = join(dir, "halves.mp4");
 await ffmpeg([

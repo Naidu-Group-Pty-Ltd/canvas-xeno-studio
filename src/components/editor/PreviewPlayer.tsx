@@ -11,8 +11,12 @@ import type { AssetRow } from "@/hooks/useStudioData";
 import type { SignedMedia } from "@/hooks/useEditorData";
 import {
   audioFades,
+  audioGain,
   audioLoops,
   audioPlayLength,
+  channelGain,
+  channelOf,
+  clipGain,
   clipsAt,
   editFadeLevel,
   frameSize,
@@ -110,6 +114,7 @@ export function PreviewPlayer({ timeline, layout, assets, media, clock }: Previe
               time={time}
               playing={playing}
               mix={mix}
+              channel={channelGain(timeline, "picture")}
               level={level * fadeLevel}
               transition={incoming?.transitionType ?? "cut"}
               fit={entry.clip.fit ?? timeline.fit}
@@ -125,7 +130,8 @@ export function PreviewPlayer({ timeline, layout, assets, media, clock }: Previe
             time={time}
             playing={playing}
             total={layout.total}
-            voiceRanges={voiceRanges(timeline.audio, layout.total)}
+            voiceRanges={voiceRanges(timeline, layout.total)}
+            channel={channelGain(timeline, channelOf(item.role))}
             level={level * fadeLevel}
           />
         ))}
@@ -148,9 +154,10 @@ export function PreviewPlayer({ timeline, layout, assets, media, clock }: Previe
   );
 }
 
-function voiceRanges(audio: TimelineAudio[], total: number): [number, number][] {
-  return audio
-    .filter((item) => item.role === "voiceover" && item.volume > 0)
+/** Where a voiceover is heard (a muted voiceover channel ducks nothing, as in the render). */
+function voiceRanges(timeline: Timeline, total: number): [number, number][] {
+  return timeline.audio
+    .filter((item) => item.role === "voiceover" && audioGain(timeline, item) > 0)
     .map((item) => [item.start, item.start + audioPlayLength(item, total)] as [number, number]);
 }
 
@@ -166,6 +173,8 @@ interface ClipLayerProps {
   time: number;
   playing: boolean;
   mix: number;
+  /** The mixer's picture channel gain. */
+  channel: number;
   /** See `previewLevel`, times the edit's opening or closing fade. */
   level: number;
   transition: TransitionType;
@@ -227,10 +236,8 @@ function transitionStyle(
  */
 function previewLevel(timeline: Timeline): number {
   let loudest = 1;
-  for (const clip of timeline.clips) {
-    if (clip.kind === "video") loudest = Math.max(loudest, clip.volume);
-  }
-  for (const item of timeline.audio) loudest = Math.max(loudest, item.volume);
+  for (const clip of timeline.clips) loudest = Math.max(loudest, clipGain(timeline, clip));
+  for (const item of timeline.audio) loudest = Math.max(loudest, audioGain(timeline, item));
   return 1 / loudest;
 }
 
@@ -296,6 +303,7 @@ const ClipLayer = memo(function ClipLayer({
   time,
   playing,
   mix,
+  channel,
   level,
   transition,
   fit,
@@ -308,10 +316,10 @@ const ClipLayer = memo(function ClipLayer({
   useEffect(() => {
     const element = video.current;
     if (!element || clip.kind !== "video") return;
-    const audible = role !== "preload" && clip.volume > 0;
+    const audible = role !== "preload" && clip.volume * channel > 0;
     const gain = role === "incoming" ? mix : role === "current" && mix > 0 ? 1 - mix : 1;
     element.muted = !audible;
-    element.volume = Math.max(0, Math.min(1, clip.volume * gain * level));
+    element.volume = Math.max(0, Math.min(1, clip.volume * channel * gain * level));
     if (role === "preload") {
       if (element.playbackRate !== clip.speed) element.playbackRate = clip.speed;
       if (!element.paused) element.pause();
@@ -329,7 +337,19 @@ const ClipLayer = memo(function ClipLayer({
       if (element.readyState >= 1 && Math.abs(element.currentTime - expected) > 0.03)
         element.currentTime = expected;
     }
-  }, [time, playing, role, mix, level, clip.kind, clip.volume, clip.speed, clip.trimStart, entry]);
+  }, [
+    time,
+    playing,
+    role,
+    mix,
+    channel,
+    level,
+    clip.kind,
+    clip.volume,
+    clip.speed,
+    clip.trimStart,
+    entry,
+  ]);
 
   useEffect(() => {
     const element = video.current;
@@ -417,6 +437,8 @@ interface AudioLayerProps {
   playing: boolean;
   total: number;
   voiceRanges: [number, number][];
+  /** The gain of the mixer channel the item plays on. */
+  channel: number;
   /** See `previewLevel`, times the edit's opening or closing fade. */
   level: number;
 }
@@ -437,6 +459,7 @@ const AudioLayer = memo(function AudioLayer({
   playing,
   total,
   voiceRanges,
+  channel,
   level,
 }: AudioLayerProps) {
   const audio = useRef<HTMLAudioElement>(null);
@@ -447,12 +470,12 @@ const AudioLayer = memo(function AudioLayer({
     const length = audioPlayLength(item, total);
     const elapsed = time - item.start;
     const active = elapsed >= 0 && elapsed < length;
-    if (!active || item.volume === 0) {
+    if (!active || item.volume * channel === 0) {
       if (!element.paused) element.pause();
       return;
     }
     const { fadeIn, fadeOut } = audioFades(item, total);
-    let gain = item.volume;
+    let gain = item.volume * channel;
     if (fadeIn > 0 && elapsed < fadeIn) gain *= elapsed / fadeIn;
     if (fadeOut > 0 && elapsed > length - fadeOut)
       gain *= Math.max(0, (length - elapsed) / fadeOut);
@@ -474,7 +497,7 @@ const AudioLayer = memo(function AudioLayer({
       if (element.readyState >= 1 && Math.abs(element.currentTime - expected) > 0.03)
         element.currentTime = expected;
     }
-  }, [item, time, playing, total, voiceRanges, level]);
+  }, [item, time, playing, total, voiceRanges, channel, level]);
 
   useEffect(() => {
     const element = audio.current;

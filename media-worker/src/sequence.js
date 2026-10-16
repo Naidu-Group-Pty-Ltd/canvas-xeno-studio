@@ -119,6 +119,23 @@ export function cleanText(value, max = SEQUENCE_LIMITS.textLength) {
 }
 
 /**
+ * The mixer's channel levels (0–2, default 1): the clips' own sound
+ * ("picture"), the voiceover, music and sound effects. Each scales its whole
+ * bus before the final mix, on top of the items' own volumes.
+ */
+export const MIX_CHANNELS = ["picture", "voiceover", "music", "sfx"];
+
+function planMix(raw) {
+  const value = raw && typeof raw === "object" ? raw : {};
+  return Object.fromEntries(
+    MIX_CHANNELS.map((channel) => [
+      channel,
+      num(value[channel], { min: 0, max: 2, fallback: 1, name: `mix ${channel}` }),
+    ]),
+  );
+}
+
+/**
  * Validates the timeline and turns it into a render plan with exact,
  * frame-aligned timings. Pure: no I/O, so it is unit-testable.
  *
@@ -132,6 +149,7 @@ export function planSequence(params, sources) {
   const fps = num(p.fps, { min: 24, max: 60, fallback: 30, name: "fps" });
   if (!FPS_VALUES.has(fps)) throw bad("fps must be 24, 25, 30 or 60");
   const fit = choice(p.fit, FITS, "cover", "fit");
+  const mix = planMix(p.mix);
 
   const rawClips = Array.isArray(p.clips) ? p.clips : [];
   if (rawClips.length === 0) throw bad("A sequence needs at least one clip");
@@ -214,6 +232,7 @@ export function planSequence(params, sources) {
     const item = raw && typeof raw === "object" ? raw : {};
     const role = choice(item.role, AUDIO_ROLES, "music", `audio ${index + 1} role`);
     const source = sourceAt(item.source_index, ["audio"], `Audio ${index + 1}`);
+    if (mix[role] === 0) continue; // its channel is silent
     const start = num(item.start, { min: 0, max: SEQUENCE_LIMITS.totalSeconds, fallback: 0, name: `audio ${index + 1} start` });
     if (start >= total - 0.05) continue; // starts after the picture ends
     const requested = item.duration === undefined || item.duration === null || item.duration === ""
@@ -286,8 +305,10 @@ export function planSequence(params, sources) {
     width,
     height,
     fps,
-    clips,
+    // A silent picture channel leaves the clips' own sound out altogether.
+    clips: mix.picture === 0 ? clips.map((clip) => ({ ...clip, volume: 0 })) : clips,
     audio,
+    mix,
     captions,
     overlays,
     totalFrames,
@@ -544,7 +565,9 @@ export function mixArgs(plan, intermediatePaths, audioPaths, out, voiceActivity 
   const lines = [];
   const joinedSound = joinChain(plan, "a");
   lines.push(...joinedSound.lines);
-  lines.push(`[${joinedSound.label}]apad,atrim=end=${total},asetpts=PTS-STARTPTS[clips]`);
+  const gains = { picture: 1, voiceover: 1, music: 1, sfx: 1, ...(plan.mix ?? {}) };
+  const level = (gain) => (gain === 1 ? "" : `,volume=${gain}`);
+  lines.push(`[${joinedSound.label}]apad,atrim=end=${total},asetpts=PTS-STARTPTS${level(gains.picture)}[clips]`);
 
   const groups = { voiceover: [], music: [], sfx: [] };
   // Phrases closer together than this are treated as one, so the music does
@@ -573,22 +596,22 @@ export function mixArgs(plan, intermediatePaths, audioPaths, out, voiceActivity 
     else groups.music.push(label);
   }
 
-  const merge = (labels, output) => {
+  const merge = (labels, output, gain) => {
     if (labels.length === 0) return null;
     if (labels.length === 1) {
-      lines.push(`[${labels[0]}]anull[${output}]`);
+      lines.push(`[${labels[0]}]${gain === 1 ? "anull" : `volume=${gain}`}[${output}]`);
     } else {
-      lines.push(`${labels.map((label) => `[${label}]`).join("")}amix=inputs=${labels.length}:normalize=0:duration=longest[${output}]`);
+      lines.push(`${labels.map((label) => `[${label}]`).join("")}amix=inputs=${labels.length}:normalize=0:duration=longest${level(gain)}[${output}]`);
     }
     return output;
   };
 
   const finalInputs = ["clips"];
-  const voice = merge(groups.voiceover, "voice");
+  const voice = merge(groups.voiceover, "voice", gains.voiceover);
   if (voice) finalInputs.push(voice);
-  const music = merge(groups.music, "musicbed");
+  const music = merge(groups.music, "musicbed", gains.music);
   if (music) finalInputs.push(music);
-  const sfx = merge(groups.sfx, "sfxbed");
+  const sfx = merge(groups.sfx, "sfxbed", gains.sfx);
   if (sfx) finalInputs.push(sfx);
 
   if (finalInputs.length === 1) {
