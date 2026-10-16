@@ -9,7 +9,7 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { AppError } from "../higgsfield/errors";
 import { appBaseUrl } from "../generation-pipeline.server";
-import { mediaWorkerConfigured, submitWorkerTask } from "../media/worker.server";
+import { mediaWorkerConfigured, submitWorkerTask, workerHealth } from "../media/worker.server";
 import {
   licenceBlocker,
   licenceTerms,
@@ -30,10 +30,33 @@ import {
   buildRenderRequest,
   frameSize,
   layoutTimeline,
+  mixNeedsChannelLevels,
   parseTimeline,
   renderBlockers,
   type Timeline,
 } from "./timeline";
+
+/**
+ * The render request for a timeline. Channel levels are folded into the
+ * items' volumes, which gives the same mix, unless a boosted channel would
+ * take an item past 200%: then the media service has to apply them itself.
+ */
+async function renderRequestFor(timeline: Timeline) {
+  if (!mixNeedsChannelLevels(timeline)) return buildRenderRequest(timeline);
+  const health = await workerHealth();
+  if (!health.ok)
+    throw new AppError(
+      "PROVIDER_TIMEOUT",
+      "The media service isn't answering. Try again in a moment.",
+    );
+  if (!health.data?.features?.includes("channel_mix")) {
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      "The mixer boosts some sound past 200%, which the media service can't do yet. Lower that channel or the items' own volume, or render again once the service has been updated.",
+    );
+  }
+  return buildRenderRequest(timeline, { channelMix: true });
+}
 
 const OUTPUT_BUCKET = "generated-assets";
 const SOURCE_URL_TTL = 3 * 60 * 60;
@@ -288,7 +311,7 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
     })),
   );
   if (music.blocker) throw new AppError("INVALID_PARAMETERS", music.blocker);
-  const request = buildRenderRequest(timeline);
+  const request = await renderRequestFor(timeline);
 
   const renderId = crypto.randomUUID();
   const taskId = crypto.randomUUID();
@@ -663,7 +686,7 @@ async function resumed(renderId: string): Promise<RenderStarted> {
     renderId,
     taskId: task.id,
     assets,
-    request: buildRenderRequest(timeline),
+    request: await renderRequestFor(timeline),
     videoPath: paths[0],
     posterPath: paths[1],
   });

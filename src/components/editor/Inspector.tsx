@@ -33,6 +33,9 @@ import {
   TRANSITIONS,
   updateClip,
   audioPlayLength,
+  channelOf,
+  MIX_CHANNEL_LABELS,
+  type MixChannel,
   type AspectRatio,
   type Fit,
   type Motion,
@@ -62,6 +65,7 @@ import { cn } from "@/lib/utils";
 import type { PlaybackClock, Selection } from "./state";
 import { VoiceoverPanel, type VoiceoverContext } from "./VoiceoverPanel";
 import { MusicPanel, type MusicContext } from "./MusicPanel";
+import { Mixer } from "./Mixer";
 
 interface InspectorProps {
   timeline: Timeline;
@@ -256,6 +260,19 @@ function Field({
       </div>
       {children}
     </div>
+  );
+}
+
+/** Says when the mixer changes what an item's volume gives. */
+function ChannelNote({ timeline, channel }: { timeline: Timeline; channel: MixChannel }) {
+  const settings = timeline.mix[channel];
+  if (!settings.muted && settings.level === 1) return null;
+  return (
+    <p className="text-[11px] text-muted-foreground" data-testid="channel-note">
+      {settings.muted
+        ? `The ${MIX_CHANNEL_LABELS[channel]} channel is muted in the mixer, so this isn't heard.`
+        : `The ${MIX_CHANNEL_LABELS[channel]} channel is at ${Math.round(settings.level * 100)}% in the mixer, on top of this.`}
+    </p>
   );
 }
 
@@ -604,6 +621,7 @@ function ClipInspector({
               aria-label="Clip volume"
             />
             {clip.volume > 1 && <BoostNote />}
+            <ChannelNote timeline={timeline} channel="picture" />
           </Field>
           <div className="flex items-center justify-between">
             <Label className="text-xs" htmlFor={`mute-${clip.id}`}>
@@ -784,6 +802,7 @@ function AudioInspector({
             aria-label="Track volume"
           />
           {item.volume > 1 && <BoostNote />}
+          <ChannelNote timeline={timeline} channel={channelOf(item.role)} />
         </Field>
         <div className="grid grid-cols-2 gap-2">
           <Field label="Fade in">
@@ -947,6 +966,9 @@ function SequenceSettings({ timeline, layout, onChange }: InspectorProps) {
           </Field>
         </div>
       </Section>
+      <Section title="Mix">
+        <Mixer timeline={timeline} onChange={onChange} />
+      </Section>
       <Section title="Sound">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -954,7 +976,8 @@ function SequenceSettings({ timeline, layout, onChange }: InspectorProps) {
               Balance loudness for social
             </Label>
             <p className="text-[11px] text-muted-foreground">
-              Evens the final mix to −14 LUFS, the level Instagram, TikTok and YouTube expect.
+              Evens the final mix to −14 LUFS, the level Instagram, TikTok and YouTube expect. The
+              mixer sets the balance between the channels; this sets the overall level.
             </p>
           </div>
           <Switch

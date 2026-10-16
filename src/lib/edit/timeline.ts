@@ -225,6 +225,32 @@ export const overlaySchema = z.object({
 });
 export type Overlay = z.infer<typeof overlaySchema>;
 
+/**
+ * The mixer's channels: the clips' own sound, the voiceover, and music with
+ * sound effects (the timeline's "Music & FX" row).
+ */
+export const MIX_CHANNELS = ["picture", "voiceover", "audio"] as const;
+export type MixChannel = (typeof MIX_CHANNELS)[number];
+export const MIX_CHANNEL_LABELS: Record<MixChannel, string> = {
+  picture: "Picture",
+  voiceover: "Voiceover",
+  audio: "Music & FX",
+};
+
+/** One channel's fader: a level on top of each item's own volume, and a mute that keeps it. */
+export const mixChannelSchema = z.object({
+  level: finite(0, 2).default(1),
+  muted: z.boolean().default(false),
+});
+export type MixChannelSettings = z.infer<typeof mixChannelSchema>;
+
+export const mixSchema = z.object({
+  picture: mixChannelSchema.default({}),
+  voiceover: mixChannelSchema.default({}),
+  audio: mixChannelSchema.default({}),
+});
+export type Mix = z.infer<typeof mixSchema>;
+
 export const timelineSchema = z.object({
   version: z.literal(1).default(1),
   aspectRatio: z.enum(ASPECT_RATIOS).default("9:16"),
@@ -238,6 +264,8 @@ export const timelineSchema = z.object({
   fadeIn: finite(0, 3).default(0),
   fadeOut: finite(0, 3).default(0),
   normalizeLoudness: z.boolean().default(true),
+  /** Channel levels; an edit saved before the mixer existed plays as it did. */
+  mix: mixSchema.default({}),
 });
 export type Timeline = z.infer<typeof timelineSchema>;
 
@@ -554,6 +582,39 @@ export function clampAudio(item: TimelineAudio): TimelineAudio {
   };
 }
 
+/** The mixer channel an audio item plays on. */
+export function channelOf(role: AudioRole): MixChannel {
+  return role === "voiceover" ? "voiceover" : "audio";
+}
+
+/** A channel's gain: its level, or 0 while it is muted. */
+export function channelGain(timeline: Pick<Timeline, "mix">, channel: MixChannel): number {
+  const settings = timeline.mix[channel];
+  return settings.muted ? 0 : settings.level;
+}
+
+/** How loud an audio item plays: its own volume through its channel. */
+export function audioGain(timeline: Pick<Timeline, "mix">, item: TimelineAudio): number {
+  return item.volume * channelGain(timeline, channelOf(item.role));
+}
+
+/** How loud a clip's own sound plays: its volume through the picture channel (stills are silent). */
+export function clipGain(timeline: Pick<Timeline, "mix">, clip: TimelineClip): number {
+  return clip.kind === "video" ? clip.volume * channelGain(timeline, "picture") : 0;
+}
+
+/** A copy of the timeline with one mixer channel changed. */
+export function withChannel(
+  timeline: Timeline,
+  channel: MixChannel,
+  patch: Partial<MixChannelSettings>,
+): Timeline {
+  return {
+    ...timeline,
+    mix: { ...timeline.mix, [channel]: { ...timeline.mix[channel], ...patch } },
+  };
+}
+
 /** Whether an audio item loops: only music beds do, in the preview and the render alike. */
 export function audioLoops(item: Pick<TimelineAudio, "role" | "loop">): boolean {
   return item.role === "music" && item.loop;
@@ -751,16 +812,46 @@ export interface RenderSource {
   role: "video" | "image" | "audio";
 }
 
-/** The audio heard in a render: it starts before the picture ends and isn't muted. */
+/**
+ * The audio heard in a render: it starts before the picture ends and neither
+ * it nor its channel is silent.
+ */
 export function audibleAudio(timeline: Timeline, total = layoutTimeline(timeline).total) {
-  return timeline.audio.filter((item) => item.start < total && item.volume > 0);
+  return timeline.audio.filter((item) => item.start < total && audioGain(timeline, item) > 0);
+}
+
+export interface RenderOptions {
+  /**
+   * The media service applies the mixer's channel levels itself (its
+   * "channel_mix" feature). Without it, each level is folded into the items'
+   * own volumes, which the service caps at 200%.
+   */
+  channelMix?: boolean;
+}
+
+const VOLUME_MAX = 2;
+
+/**
+ * Whether any heard item's volume through its channel goes past the 200%
+ * an item can carry, so the channel levels have to be applied by the media
+ * service rather than folded into the items (otherwise the two are the same).
+ */
+export function mixNeedsChannelLevels(timeline: Timeline): boolean {
+  const picture = channelGain(timeline, "picture");
+  return (
+    timeline.clips.some((clip) => clip.kind === "video" && clip.volume * picture > VOLUME_MAX) ||
+    audibleAudio(timeline).some((item) => audioGain(timeline, item) > VOLUME_MAX)
+  );
 }
 
 /**
  * The media worker's render_sequence parameters for a timeline, plus the
  * ordered list of distinct assets it needs (one download per asset).
  */
-export function buildRenderRequest(timeline: Timeline): {
+export function buildRenderRequest(
+  timeline: Timeline,
+  options: RenderOptions = {},
+): {
   sources: RenderSource[];
   params: Record<string, unknown>;
 } {
@@ -775,6 +866,11 @@ export function buildRenderRequest(timeline: Timeline): {
   };
   const { width, height } = frameSize(timeline.aspectRatio, timeline.resolution);
   const layout = layoutTimeline(timeline);
+  // A muted (or zero) channel is always folded in, so its sound is never fetched or mixed.
+  const busMix = options.channelMix === true;
+  const fold = (volume: number, gain: number) =>
+    gain === 0 ? 0 : busMix ? volume : Math.min(VOLUME_MAX, Number((volume * gain).toFixed(4)));
+  const pictureGain = channelGain(timeline, "picture");
 
   const clips = timeline.clips.map((clip) => ({
     source_index: indexFor(clip.assetId, clip.kind),
@@ -782,7 +878,7 @@ export function buildRenderRequest(timeline: Timeline): {
     trim_start: clip.kind === "image" ? 0 : clip.trimStart,
     duration: clip.duration,
     speed: clip.kind === "image" ? 1 : clip.speed,
-    volume: clip.kind === "image" ? 0 : clip.volume,
+    volume: clip.kind === "image" ? 0 : fold(clip.volume, pictureGain),
     fit: clip.fit ?? timeline.fit,
     ...(clip.focus ? { focus_x: clip.focus.x, focus_y: clip.focus.y } : {}),
     motion: clip.kind === "image" ? clip.motion : "none",
@@ -799,7 +895,7 @@ export function buildRenderRequest(timeline: Timeline): {
     start: item.start,
     trim_start: item.trimStart,
     duration: item.duration,
-    volume: item.volume,
+    volume: fold(item.volume, channelGain(timeline, channelOf(item.role))),
     fade_in: item.fadeIn,
     fade_out: item.fadeOut,
     loop: audioLoops(item),
@@ -855,6 +951,16 @@ export function buildRenderRequest(timeline: Timeline): {
       fade_in: timeline.fadeIn,
       fade_out: timeline.fadeOut,
       normalize_loudness: timeline.normalizeLoudness,
+      ...(busMix
+        ? {
+            mix: {
+              picture: pictureGain,
+              voiceover: channelGain(timeline, "voiceover"),
+              music: channelGain(timeline, "audio"),
+              sfx: channelGain(timeline, "audio"),
+            },
+          }
+        : {}),
     },
   };
 }

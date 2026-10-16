@@ -7,7 +7,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { Film, ImageIcon, Mic, Music, Sparkles, Type, Waves } from "lucide-react";
+import { Film, ImageIcon, Mic, Music, Sparkles, Type, Volume2, VolumeX, Waves } from "lucide-react";
 import type { AssetRow } from "@/hooks/useStudioData";
 import type { SignedMedia } from "@/hooks/useEditorData";
 import {
@@ -17,7 +17,10 @@ import {
   maxClipDuration,
   moveClip,
   updateClip,
+  withChannel,
+  MIX_CHANNEL_LABELS,
   type LaidOutClip,
+  type MixChannel,
   type Timeline,
   type TimelineAudio,
   type TimelineLayout,
@@ -25,7 +28,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useClockTime, type PlaybackClock, type Selection } from "./state";
 
-const LABEL_WIDTH = 92;
+const LABEL_WIDTH = 108;
 const ROW = { ruler: 22, picture: 64, audio: 34, text: 26 } as const;
 
 interface TimelineViewProps {
@@ -268,14 +271,19 @@ export function TimelineView(props: TimelineViewProps) {
   };
 
   const height = ROW.ruler + ROW.picture + ROW.audio * 2 + ROW.text + 10;
+  const mute = {
+    timeline: props.timeline,
+    onMute: (channel: MixChannel, muted: boolean) =>
+      props.onChange(withChannel(props.timeline, channel, { muted })),
+  };
 
   return (
     <div className="flex select-none text-xs" style={{ height }}>
       <div className="shrink-0 border-r border-border bg-surface" style={{ width: LABEL_WIDTH }}>
         <div style={{ height: ROW.ruler }} />
-        <TrackLabel icon={Film} label="Picture" height={ROW.picture} />
-        <TrackLabel icon={Mic} label="Voiceover" height={ROW.audio} />
-        <TrackLabel icon={Music} label="Music & FX" height={ROW.audio} />
+        <TrackLabel icon={Film} label="Picture" height={ROW.picture} channel="picture" {...mute} />
+        <TrackLabel icon={Mic} label="Voiceover" height={ROW.audio} channel="voiceover" {...mute} />
+        <TrackLabel icon={Music} label="Music & FX" height={ROW.audio} channel="audio" {...mute} />
         <TrackLabel icon={Type} label="Text" height={ROW.text} />
       </div>
       <div
@@ -400,18 +408,46 @@ function TrackLabel({
   icon: Icon,
   label,
   height,
+  channel,
+  timeline,
+  onMute,
 }: {
   icon: typeof Film;
   label: string;
   height: number;
+  /** The mixer channel the row plays on, for its mute button. */
+  channel?: MixChannel;
+  timeline?: Timeline;
+  onMute?: (channel: MixChannel, muted: boolean) => void;
 }) {
+  const muted = channel && timeline ? timeline.mix[channel].muted : false;
+  const name = channel ? MIX_CHANNEL_LABELS[channel] : label;
   return (
     <div
-      className="flex items-center gap-1.5 border-t border-border px-2 text-muted-foreground"
+      className={cn(
+        "flex items-center gap-1.5 border-t border-border px-2 text-muted-foreground",
+        muted && "text-muted-foreground/50",
+      )}
       style={{ height }}
     >
       <Icon className="size-3.5 shrink-0" />
-      <span className="truncate">{label}</span>
+      <span className={cn("min-w-0 flex-1 truncate", muted && "line-through")}>{label}</span>
+      {channel && onMute && (
+        <button
+          type="button"
+          className={cn(
+            "grid size-5 shrink-0 place-items-center rounded hover:bg-muted",
+            muted ? "text-destructive" : "text-muted-foreground",
+          )}
+          aria-label={muted ? `Unmute ${name}` : `Mute ${name}`}
+          aria-pressed={muted}
+          title={muted ? `Unmute ${name}` : `Mute ${name}`}
+          onClick={() => onMute(channel, !muted)}
+          data-testid={`track-mute-${channel}`}
+        >
+          {muted ? <VolumeX className="size-3" /> : <Volume2 className="size-3" />}
+        </button>
+      )}
     </div>
   );
 }
