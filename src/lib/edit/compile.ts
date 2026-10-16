@@ -4,9 +4,13 @@
  * storyboard's selected takes, or a hand-picked set of library files.
  * Pure functions: callers fetch the rows, these decide the edit.
  */
+import { LIP_SYNC } from "../lip-sync/models";
+import { placeSyncedClips, type SyncedPlacement } from "../lip-sync/placement";
 import {
   aspectFromValue,
+  audioFromSource,
   captionsFromScript,
+  captionsFromWords,
   clipFromSource,
   emptyTimeline,
   frameSize,
@@ -517,5 +521,160 @@ export function compileFromLongVideo(
     title: run.title,
     timeline: { ...timeline, clips: result.slice(0, LIMITS.clips) },
     missing,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Long videos made to a voiceover                                     */
+/* ------------------------------------------------------------------ */
+
+export interface VoiceoverClipCut {
+  position: number;
+  /** The clip's video, once it is in. */
+  assetId: string | null;
+  /** Its piece of the voiceover, in seconds on the voiceover's clock. */
+  audioStart: number;
+  audioEnd: number;
+  /** Where its sound has the speech against its piece (positive: later), when measured. */
+  offsetSeconds: number | null;
+  /** The clip's measured length. */
+  lengthSeconds: number | null;
+}
+
+/** The voiceover a long video was made to: its canonical file, which the edit plays whole. */
+export interface VoiceoverTrack {
+  /** A take of the voiceover (the render plays only takes). */
+  assetId: string;
+  durationSeconds: number;
+  /** The frame rate its cuts are on: the edit plays at it. */
+  fps: number;
+  title: string;
+  /** Its words, timed on its own clock, for captions. */
+  words: { text: string; start: number; end: number }[];
+}
+
+export interface VoiceoverCompileResult extends LongVideoCompileResult {
+  /** Where each clip went, for the clips that are in (by position). */
+  placement: SyncedPlacement;
+}
+
+/**
+ * A long video made to a voiceover, as one edit: the voiceover plays whole
+ * from the start, and each clip is laid where its piece of it is, started as
+ * far in as its sound was measured to have the speech late (see
+ * ../lip-sync/placement), so every clip's lips meet the voiceover to the frame.
+ * Every boundary comes from the voiceover's own clock, so nothing builds up
+ * from clip to clip. The clips are cut, never blended: a cross-fade would show
+ * two mouths at once. Their own sound (their piece again) is muted unless
+ * asked for.
+ *
+ * Clips are laid only up to the first that isn't in: a gap would put every
+ * clip after it out of step with the voiceover, so those wait (in `missing`)
+ * and the voiceover stops where the picture does.
+ */
+export function compileFromVoiceoverLongVideo(
+  run: { title: string; settings: Record<string, unknown> },
+  clips: VoiceoverClipCut[],
+  assets: LongVideoAsset[],
+  voiceover: VoiceoverTrack,
+  options: { keepSound: boolean; captions: boolean; endCard?: LongVideoEndCard | null },
+): VoiceoverCompileResult {
+  const ordered = [...clips].sort((a, b) => a.position - b.position);
+  const usable: { clip: VoiceoverClipCut; asset: LongVideoAsset }[] = [];
+  const missing: number[] = [];
+  for (const clip of ordered) {
+    const asset = clip.assetId ? assets.find((entry) => entry.id === clip.assetId) : undefined;
+    if (asset && !missing.length) usable.push({ clip, asset });
+    else missing.push(clip.position);
+  }
+  const sized = usable.find((entry) => entry.asset.width && entry.asset.height);
+  const aspect =
+    aspectFromValue(run.settings["aspect_ratio"]) ??
+    (sized ? aspectFromValue(`${sized.asset.width}:${sized.asset.height}`) : null) ??
+    "16:9";
+  const fps = (FPS_CHOICES as readonly number[]).includes(voiceover.fps)
+    ? (voiceover.fps as Timeline["fps"])
+    : 30;
+  const timeline: Timeline = {
+    ...emptyTimeline(aspect),
+    fps,
+    resolution:
+      sized && Math.min(sized.asset.width!, sized.asset.height!) < 1000 ? "720p" : "1080p",
+  };
+
+  const placement = placeSyncedClips({
+    clips: usable.map(({ clip, asset }) => ({
+      start: clip.audioStart,
+      end: clip.audioEnd,
+      offsetSeconds: clip.offsetSeconds,
+      sourceSeconds: clip.lengthSeconds ?? asset.durationSeconds ?? null,
+    })),
+    fps,
+    maxOffsetSeconds: LIP_SYNC.maxOffsetSeconds,
+  });
+
+  const result: TimelineClip[] = usable.map(({ clip, asset }, index) => {
+    const placed = placement.clips[index]!;
+    const item = clipFromSource({
+      assetId: asset.id,
+      kind: "video",
+      durationSeconds: clip.lengthSeconds ?? asset.durationSeconds ?? null,
+      title: `Clip ${clip.position + 1}`,
+    });
+    item.trimStart = placed.trimStart;
+    item.duration = placed.duration;
+    item.volume = options.keepSound ? 1 : 0;
+    item.transition = { type: "cut", duration: 0 };
+    // Carrying straight on from the clip before: its colour eases in from that clip's.
+    item.matchPrevious = index > 0;
+    return item;
+  });
+
+  if (result.length) {
+    // The voiceover, whole, from the start (or as far as the clips that are in reach).
+    const voice = audioFromSource(
+      {
+        assetId: voiceover.assetId,
+        durationSeconds: voiceover.durationSeconds,
+        title: voiceover.title,
+      },
+      "voiceover",
+      0,
+    );
+    voice.trimStart = placement.voiceover.trimStart;
+    voice.duration = missing.length ? Math.max(0.1, placement.totalSeconds) : null;
+    timeline.audio = [voice];
+    if (voiceover.words.length) {
+      timeline.captions = {
+        ...timeline.captions,
+        enabled: options.captions,
+        segments: captionsFromWords(voiceover.words, -placement.voiceover.trimStart, {
+          until: placement.totalSeconds,
+        }),
+      };
+    }
+  }
+
+  const card = options.endCard;
+  if (card && result.length && !missing.length) {
+    const still = clipFromSource({
+      assetId: card.assetId,
+      kind: "image",
+      durationSeconds: null,
+      title: "End card",
+    });
+    still.motion = "none";
+    still.fit = endCardFit(card, frameSize(timeline.aspectRatio, timeline.resolution));
+    // A cut, not a fade: a fade would pull the end card over the last words.
+    still.transition = { type: "cut", duration: 0 };
+    still.duration = Math.max(0.5, Math.min(card.seconds, LIMITS.clipSeconds));
+    result.push(still);
+  }
+
+  return {
+    title: run.title,
+    timeline: { ...timeline, clips: result.slice(0, LIMITS.clips) },
+    missing,
+    placement,
   };
 }

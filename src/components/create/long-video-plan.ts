@@ -32,6 +32,10 @@ import {
   type RunReference,
 } from "@/lib/long-video/plan";
 import { DEFAULT_END_CARD_STYLE, type EndCardStyle } from "@/lib/media/end-card";
+import { lipSyncCapable, lipSyncChoices } from "@/lib/lip-sync/models";
+import type { VoiceoverSegment } from "@/lib/lip-sync/segments";
+import type { LipSyncVoiceover } from "@/lib/lip-sync/view";
+import { pieceTranscripts, planVoiceoverClips } from "@/lib/long-video/voiceover";
 import type { RunCharacter } from "@/lib/characters/model";
 import {
   clipQuote,
@@ -123,6 +127,17 @@ export const DEFAULT_LONG_VIDEO_DRAFT: LongVideoDraft = {
   identityCheck: true,
 };
 
+/** A long video made to a voiceover: where it is cut, and what is said in each clip. */
+export interface VoiceoverPlan {
+  preparationId: string;
+  /** The video's length: the voiceover's. */
+  durationSeconds: number;
+  /** One piece per clip, end to end; empty until the voiceover is ready. */
+  segments: VoiceoverSegment[];
+  /** What is said in each clip ("" where its words aren't known). */
+  spoken: string[];
+}
+
 export interface LongVideoPlan {
   eligible: boolean;
   /** The first clip's model's workflows that can make the later clips. */
@@ -159,6 +174,8 @@ export interface LongVideoPlan {
   quote: QuoteRequest | null;
   /** One keyframe as it will be painted, to price it. */
   keyframeQuote: QuoteRequest | null;
+  /** Made to a voiceover (attached as the model's driving audio): its cuts. */
+  voiceover: VoiceoverPlan | null;
 }
 
 const NOT_ELIGIBLE: LongVideoPlan = {
@@ -185,6 +202,7 @@ const NOT_ELIGIBLE: LongVideoPlan = {
   aspect: { ratio: 16 / 9, label: "16:9" },
   quote: null,
   keyframeQuote: null,
+  voiceover: null,
 };
 
 /**
@@ -206,6 +224,12 @@ export function useLongVideoPlan(input: {
    * shape must match it): undefined while it is still being read.
    */
   openingFrame?: { width: number | null; height: number | null } | null | undefined;
+  /**
+   * The voiceover attached as the model's driving audio, as prepared (null
+   * while it isn't asked for yet): the video is made to it, cut into clips
+   * where nobody is speaking.
+   */
+  voiceover?: { assetId: string; preparation: LipSyncVoiceover | null } | null;
 }): LongVideoPlan {
   const { draft, model, models, values, references, cinema } = input;
   const characters = input.characters ?? [];
@@ -216,37 +240,82 @@ export function useLongVideoPlan(input: {
   const openingKey = JSON.stringify(
     input.openingFrame === undefined ? "reading" : input.openingFrame,
   );
+  const attachedVoice = input.voiceover ?? null;
+  const voiceKey = JSON.stringify(
+    attachedVoice
+      ? [
+          attachedVoice.assetId,
+          attachedVoice.preparation?.id,
+          attachedVoice.preparation?.status,
+          attachedVoice.preparation?.transcriptStatus,
+          attachedVoice.preparation?.words.length,
+          attachedVoice.preparation?.usable,
+        ]
+      : null,
+  );
   return useMemo(() => {
     if (!model || !longVideoEligible(model)) return NOT_ELIGIBLE;
-    // Keyframes: every clip by the model's workflow that moves from a frame to a frame.
+    // A voiceover attached as the model's driving audio: the video is made to it.
+    const voiced = !!attachedVoice && lipSyncCapable(model);
+    // Keyframes: every clip by the model's workflow that moves from a frame to a frame
+    // (not with a voiceover yet).
     const workflow = keyframeWorkflow(model, models);
-    const keyframed = !!workflow && (draft.keyframes ?? characters.length > 0);
+    const keyframed = !voiced && !!workflow && (draft.keyframes ?? characters.length > 0);
     // Video extend is offered too, but only ever used when chosen: it is experimental.
     const candidates = keyframed
       ? [workflow!]
       : continuationCandidates(model, models, {
           withReferences: references.some((item) => item.assetType === "image"),
-          extend: true,
-        });
+          extend: !voiced,
+        }).filter((entry) => !voiced || lipSyncCapable(entry));
     const continuation = keyframed
       ? workflow
       : (candidates.find((entry) => entry.id === draft.continuationModelId) ??
         candidates.find((entry) => !extendsVideo(entry)) ??
         null);
     const firstModel = keyframed ? workflow! : model;
-    const lengthChoices = clipLengthChoices(continuation);
+    const lengthChoices = voiced
+      ? lipSyncChoices(clipLengthChoices(continuation))
+      : clipLengthChoices(continuation);
     const maxClipSeconds =
       draft.clipSeconds !== null && lengthChoices.includes(draft.clipSeconds)
         ? draft.clipSeconds
         : (lengthChoices.at(-1) ?? 0);
-    const durations = continuation
-      ? planDurations({
-          targetSeconds: draft.targetSeconds,
-          maxClipSeconds,
-          firstChoices: durationChoices(firstModel),
-          continuationChoices: lengthChoices,
-        })
-      : [];
+    // Made to a voiceover, its pieces decide the clips; else the length asked for does.
+    const preparation = voiced ? (attachedVoice?.preparation ?? null) : null;
+    const voicePlan =
+      voiced &&
+      continuation &&
+      preparation?.status === "ready" &&
+      preparation.analysis &&
+      preparation.durationSeconds
+        ? planVoiceoverClips({
+            analysis: preparation.analysis,
+            words: preparation.words,
+            first: firstModel,
+            continuation,
+            maxClipSeconds,
+          })
+        : null;
+    const voiceover: VoiceoverPlan | null =
+      voiced && preparation
+        ? {
+            preparationId: preparation.id,
+            durationSeconds: preparation.durationSeconds ?? 0,
+            segments: voicePlan?.segments ?? [],
+            spoken: pieceTranscripts(voicePlan?.segments ?? [], preparation.words),
+          }
+        : null;
+    const durations = voiced
+      ? (voicePlan?.segments.map((segment) => segment.requestSeconds) ?? [])
+      : continuation
+        ? planDurations({
+            targetSeconds: draft.targetSeconds,
+            maxClipSeconds,
+            firstChoices: durationChoices(firstModel),
+            continuationChoices: lengthChoices,
+          })
+        : [];
     const story = typeof values["prompt"] === "string" ? values["prompt"] : "";
     const end = clipEnd(continuation);
     // A finisher still among the references; it can only be moved into where the model can.
@@ -297,17 +366,36 @@ export function useLongVideoPlan(input: {
           finale,
           characters,
           keyframes: keyframed,
+          voiceover: voiced,
         })
       : [];
     const total = totalSeconds(durations);
-    const issues = planIssues({
-      first: firstModel,
-      continuation,
-      clips: planned,
-      targetSeconds: total,
-      finale,
-      keyframes: keyframed,
-    });
+    const issues: PlanIssue[] = [];
+    if (voiced) {
+      // Nothing can start until the voiceover is ready to be cut.
+      const waiting = !preparation
+        ? "Confirm the voice in the voiceover may be used, so it can be prepared for lip sync"
+        : preparation.status === "preparing"
+          ? "The voiceover is being prepared for lip sync…"
+          : preparation.status === "failed"
+            ? (preparation.errorMessage ?? "The voiceover couldn't be prepared for lip sync")
+            : !preparation.usable
+              ? "Confirm the voice in the voiceover may be used"
+              : (voicePlan?.problem ?? null);
+      if (waiting) issues.push({ position: null, message: waiting });
+    }
+    if (!voiced || durations.length)
+      issues.push(
+        ...planIssues({
+          first: firstModel,
+          continuation,
+          clips: planned,
+          targetSeconds: voiceover ? voiceover.durationSeconds : total,
+          finale,
+          keyframes: keyframed,
+          voiceover: voiced,
+        }),
+      );
 
     // The keyframes: painted by the chosen image model at the video's shape,
     // planned exactly as the server will (its own frames, shape and painter).
@@ -372,7 +460,18 @@ export function useLongVideoPlan(input: {
       aspect: storyboard?.aspect ?? videoAspect(values, input.openingFrame ?? null),
       quote,
       keyframeQuote,
+      voiceover,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft, model, models, valuesKey, referencesKey, cinemaKey, charactersKey, openingKey]);
+  }, [
+    draft,
+    model,
+    models,
+    valuesKey,
+    referencesKey,
+    cinemaKey,
+    charactersKey,
+    openingKey,
+    voiceKey,
+  ]);
 }

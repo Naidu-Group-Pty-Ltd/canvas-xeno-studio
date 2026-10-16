@@ -18,6 +18,7 @@ import {
 } from "@/components/create/long-video-plan";
 import type { ReferenceItem } from "@/components/create/reference-files";
 import { FinisherSetup } from "@/components/create/FinisherSetup";
+import { voiceLength } from "@/lib/lip-sync/view";
 import { CharacterConsistency } from "@/components/create/CharacterConsistency";
 import type { CharacterEntry } from "@/hooks/useCharacters";
 import { Button } from "@/components/ui/button";
@@ -81,8 +82,12 @@ export function LongVideoSetup({
 
   if (!plan.eligible) return null;
 
+  // Made to a voiceover, a clip is as long as its piece of it (which may be one clip).
+  const voiced = plan.voiceover;
+  const minClipsForBeats = voiced ? 1 : 2;
+
   async function writeBeats() {
-    if (!plan.continuation || plan.durations.length < 2) return;
+    if (!plan.continuation || plan.durations.length < minClipsForBeats) return;
     setPlanning(true);
     try {
       const suggestion = await planLongVideo({
@@ -92,7 +97,13 @@ export function LongVideoSetup({
           story,
           continuity: draft.continuity,
           title: draft.title,
-          durations: plan.durations,
+          // What each clip shows: its piece of the voiceover, else the length it is made.
+          durations: voiced
+            ? voiced.segments.map((segment) =>
+                Math.max(0.1, Number((segment.end - segment.start).toFixed(2))),
+              )
+            : plan.durations,
+          spoken: voiced ? voiced.spoken : null,
           referenceAssetIds: images.slice(0, 6).map((image) => image.assetId),
           briefId,
           finale: plan.finale ? { assetId: plan.finale.assetId, mode: plan.finale.mode } : null,
@@ -197,44 +208,58 @@ export function LongVideoSetup({
       {draft.enabled && (
         <div className="space-y-4 rounded-lg border border-primary/30 bg-primary/5 p-4">
           <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="long-video-length" className="text-xs">
-                Total length (seconds)
-              </Label>
-              <Input
-                id="long-video-length"
-                type="number"
-                min={1}
-                max={LONG_VIDEO_LIMITS.maxSeconds}
-                step={1}
-                value={draft.targetSeconds}
-                onChange={(event) => {
-                  const value = Number(event.target.value);
-                  if (Number.isFinite(value))
-                    set({
-                      targetSeconds: Math.max(1, Math.min(LONG_VIDEO_LIMITS.maxSeconds, value)),
-                    });
-                }}
-                className="h-9"
-              />
-              <div className="flex flex-wrap gap-1">
-                {LENGTH_PRESETS.map((seconds) => (
-                  <button
-                    key={seconds}
-                    type="button"
-                    onClick={() => set({ targetSeconds: seconds })}
-                    className={cn(
-                      "rounded-full border px-2 py-0.5 text-[10px] transition-colors",
-                      draft.targetSeconds === seconds
-                        ? "border-primary/60 bg-primary/10"
-                        : "border-border text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {formatLength(seconds)}
-                  </button>
-                ))}
+            {voiced ? (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Length</Label>
+                <p
+                  className="flex h-9 items-center rounded-md border border-border px-3 text-xs"
+                  data-testid="long-video-voiceover-length"
+                >
+                  {voiced.durationSeconds
+                    ? `${voiceLength(voiced.durationSeconds)}, the voiceover's`
+                    : "The voiceover's, once it's prepared"}
+                </p>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-1.5">
+                <Label htmlFor="long-video-length" className="text-xs">
+                  Total length (seconds)
+                </Label>
+                <Input
+                  id="long-video-length"
+                  type="number"
+                  min={1}
+                  max={LONG_VIDEO_LIMITS.maxSeconds}
+                  step={1}
+                  value={draft.targetSeconds}
+                  onChange={(event) => {
+                    const value = Number(event.target.value);
+                    if (Number.isFinite(value))
+                      set({
+                        targetSeconds: Math.max(1, Math.min(LONG_VIDEO_LIMITS.maxSeconds, value)),
+                      });
+                  }}
+                  className="h-9"
+                />
+                <div className="flex flex-wrap gap-1">
+                  {LENGTH_PRESETS.map((seconds) => (
+                    <button
+                      key={seconds}
+                      type="button"
+                      onClick={() => set({ targetSeconds: seconds })}
+                      className={cn(
+                        "rounded-full border px-2 py-0.5 text-[10px] transition-colors",
+                        draft.targetSeconds === seconds
+                          ? "border-primary/60 bg-primary/10"
+                          : "border-border text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {formatLength(seconds)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label className="text-xs">Clips up to</Label>
               <Select
@@ -296,10 +321,27 @@ export function LongVideoSetup({
                   ? ` · ${plan.durations[0]}s each`
                   : ` · ${plan.durations.map((value) => `${value}s`).join(" + ")}`
                 : ""}
-              {" · "}
-              {formatLength(plan.totalSeconds)} in total
+              {voiced
+                ? voiced.durationSeconds
+                  ? ` made · ${voiceLength(voiced.durationSeconds)} of voiceover`
+                  : ""
+                : ` · ${formatLength(plan.totalSeconds)} in total`}
             </p>
-            {plan.start?.kind === "video" ? (
+            {voiced ? (
+              <p
+                className="mt-1 text-[11px] leading-relaxed text-muted-foreground"
+                data-testid="long-video-voiceover-note"
+              >
+                Made to the voiceover: it is cut into one piece per clip, only where nobody is
+                speaking (at the end of a sentence where its words are known), on the Editor's frame
+                grid. Each clip is made from its own piece as {modelLine(model)}'s driving audio,
+                asked for a moment longer than its piece so none of it is cut off, and each one
+                after the first starts from the frame where the clip before is cut, so the picture
+                runs on as one shot. When they're in, open them in the Editor: the voiceover plays
+                whole and every clip is laid where its piece is, lined up to the frame by its own
+                sound.
+              </p>
+            ) : plan.start?.kind === "video" ? (
               <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
                 Each clip runs as long as it can, up to {plan.maxClipSeconds}s, and the last takes
                 what's left. Each one after the first extends the clip before: {modelLine(model)} is
@@ -436,7 +478,9 @@ export function LongVideoSetup({
                 variant="outline"
                 size="sm"
                 className="h-8"
-                disabled={planning || !!aiUnavailableReason || plan.durations.length < 2}
+                disabled={
+                  planning || !!aiUnavailableReason || plan.durations.length < minClipsForBeats
+                }
                 title={aiUnavailableReason ?? undefined}
                 onClick={() => void writeBeats()}
                 data-testid="long-video-write-beats"
@@ -450,18 +494,25 @@ export function LongVideoSetup({
               </Button>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Optional. Without a beat, a clip carries the story on from where the last one ended.
+              {voiced
+                ? "Optional. Say how the speaker moves and reacts as they say each clip's words: never the words themselves, which the voiceover gives."
+                : "Optional. Without a beat, a clip carries the story on from where the last one ended."}
             </p>
             <ol className="space-y-2">
               {plan.durations.map((seconds, index) => {
-                const from = starts[index] ?? 0;
+                const piece = voiced?.segments[index] ?? null;
+                const from = piece ? piece.start : (starts[index] ?? 0);
+                const to = piece ? piece.end : from + seconds;
+                const words = voiced?.spoken[index] ?? "";
                 return (
                   <li key={index} className="space-y-1">
                     <Label
                       htmlFor={`long-video-beat-${index}`}
                       className="text-[11px] text-muted-foreground"
                     >
-                      Clip {index + 1} · {formatLength(from)}–{formatLength(from + seconds)}
+                      Clip {index + 1} · {piece ? voiceLength(from) : formatLength(from)}–
+                      {piece ? voiceLength(to) : formatLength(to)}
+                      {piece ? ` · made ${seconds}s` : ""}
                       {index === 0 &&
                       !plan.keyframed &&
                       plan.continuation &&
@@ -472,6 +523,14 @@ export function LongVideoSetup({
                         ? ` · ${plan.planned[index]!.cast.map((id) => names.get(id) ?? "").join(", ")}`
                         : ""}
                     </Label>
+                    {words && (
+                      <p
+                        className="line-clamp-2 text-[11px] italic text-muted-foreground"
+                        data-testid={`long-video-spoken-${index}`}
+                      >
+                        “{words}”
+                      </p>
+                    )}
                     <Textarea
                       id={`long-video-beat-${index}`}
                       rows={2}

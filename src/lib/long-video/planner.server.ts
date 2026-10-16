@@ -63,6 +63,11 @@ export async function suggestLongVideoPlan(input: {
   characters?: { name: string; description: string; images: number[] }[];
   /** Each clip's final moment is painted as a still first (a keyframe). */
   keyframes?: boolean;
+  /**
+   * Made to a voiceover: the words spoken in each clip (empty where they
+   * aren't known), the clips cut where the voiceover pauses.
+   */
+  spoken?: string[] | null;
 }): Promise<LongVideoPlanSuggestion> {
   const { resolveReasoning } = await import("../reasoning/provider.server");
   const route = await resolveReasoning("director");
@@ -78,10 +83,14 @@ export async function suggestLongVideoPlan(input: {
     start += seconds;
     return entry;
   });
+  const spoken = input.spoken?.length ? input.spoken : null;
   const prompt = [
     `MODEL: ${modelLine(input.first)} makes every clip; each clip after the first starts from the previous clip's last frame.`,
     `CLIPS (JSON): ${JSON.stringify(clips)}`,
-    "Every clip is as long as the model allows except usually the last, which takes what is left: pace each beat to its own seconds, and give the last one an ending that fits its length.",
+    spoken
+      ? "Each clip runs as long as its part of the voiceover: pace each beat to its own seconds, and give the last one an ending that fits its length."
+      : "Every clip is as long as the model allows except usually the last, which takes what is left: pace each beat to its own seconds, and give the last one an ending that fits its length.",
+    spoken ? voiceoverBlock(spoken) : "",
     `TOTAL: ${start} seconds in ${clips.length} clips. Return exactly ${clips.length} beats.`,
     input.title.trim() ? `WORKING TITLE: ${input.title.trim()}` : "",
     input.story.trim()
@@ -155,6 +164,19 @@ function charactersBlock(
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+/**
+ * What the beat writer is told about a voiceover the video is made to: the
+ * words in each clip, which a speaker says with their lips driven by the
+ * recording, so each beat is about how they say it (never what), and keeps
+ * their face where the lips can be seen.
+ */
+function voiceoverBlock(spoken: string[]): string {
+  return [
+    `VOICEOVER: the video is made to a recorded voiceover, cut into these clips where it pauses. In every clip the speaker says that clip's words, their lips moving to the recording. Words per clip (JSON): ${JSON.stringify(spoken.map((words, index) => ({ clip: index + 1, words: words || "(not transcribed)" })))}`,
+    "Write each beat around the speaker as they say those words: their expression, gestures and small movements suiting what is said, and the camera's move. Never put the words themselves, or any other dialogue, in a beat. Keep the speaker's face clear, lit and towards the camera, at a medium shot or closer, whenever they speak.",
+  ].join("\n");
 }
 
 /** What the beat writer is told about the brand finisher. */

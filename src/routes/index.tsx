@@ -67,6 +67,15 @@ import {
 } from "@/lib/long-video/plan";
 import { makeEndCard } from "@/lib/media/end-card";
 import {
+  drivingAudioSlot,
+  lipSyncChoices,
+  longestSegmentFor,
+  requestSecondsFor,
+} from "@/lib/lip-sync/models";
+import { useLipSyncVoiceover } from "@/hooks/useLipSyncVoiceover";
+import { VoiceoverLipSync } from "@/components/create/VoiceoverLipSync";
+import { voiceLength } from "@/lib/lip-sync/view";
+import {
   cinemaSupported,
   compileCinemaPrompt,
   promptCinemaGroups,
@@ -413,10 +422,28 @@ function CreatePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaType, models]);
 
+  // A voiceover attached as the model's driving audio (Wan 2.6 and 2.7) drives
+  // the speaker's lips: it is prepared once, so it can be cut and lined up exactly.
+  const drivingSlot = mediaType === "video" ? drivingAudioSlot(model) : null;
+  const voiceReference = drivingSlot
+    ? (references.find(
+        (item) =>
+          item.role === drivingSlot.role &&
+          (item.assetType === "audio" || item.assetType === "video"),
+      ) ?? null)
+    : null;
+  const lipSync = useLipSyncVoiceover({
+    assetId: voiceReference?.assetId ?? null,
+    projectId,
+    enabled: !!voiceReference,
+  });
+
   // Only references mapped onto one of the model's inputs are estimated and submitted.
   const usable = usableReferences(references);
   const inputRoles = usable.map((item) => item.role);
   const conversionIssues = usable.flatMap((item) => {
+    // A voiceover goes as its prepared piece, a WAV, whatever it was uploaded as.
+    if (voiceReference && item.assetId === voiceReference.assetId) return [];
     const hint = conversionHint(item.assetType, item.mimeType);
     return hint ? [{ key: item.role, message: `${item.title ?? "A reference"}: ${hint}` }] : [];
   });
@@ -511,9 +538,71 @@ function CreatePage() {
     characters: chosenCharacters,
     // Undefined while its size is still being read.
     openingFrame: startFrame ? startFrameSize : null,
+    voiceover: voiceReference
+      ? { assetId: voiceReference.assetId, preparation: lipSync.voiceover }
+      : null,
   });
   const longMode = mediaType === "video" && longDraft.enabled && longPlan.eligible;
   const longPanel = mediaType === "video" && longDraft.enabled && !!model;
+
+  // One clip made to a voiceover: asked for the voiceover's length and a
+  // moment more, once that is known, and never shorter than it.
+  const voiceReady =
+    lipSync.voiceover?.status === "ready" && lipSync.voiceover.durationSeconds
+      ? lipSync.voiceover
+      : null;
+  const clipVoiceChoices = model && drivingSlot ? lipSyncChoices(durationChoices(model)) : [];
+  const longestVoice = clipVoiceChoices.length ? longestSegmentFor(clipVoiceChoices) : 0;
+  const voiceRequest =
+    voiceReady && clipVoiceChoices.length
+      ? requestSecondsFor(clipVoiceChoices, voiceReady.durationSeconds!)
+      : null;
+  useEffect(() => {
+    if (!model || longDraft.enabled || voiceRequest === null) return;
+    const wanted = durationValue(model, voiceRequest);
+    setValues((current) =>
+      current["duration"] === wanted ? current : { ...current, duration: wanted },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model?.id, longDraft.enabled, voiceRequest, voiceReady?.id]);
+  const lipSyncIssues: { key: string; message: string }[] =
+    !voiceReference || longMode
+      ? []
+      : !lipSync.voiceover
+        ? [
+            {
+              key: "lip-sync",
+              message: lipSync.needsConfirmation
+                ? "Confirm the voice in the voiceover may be used (under Lip sync), so it can be prepared"
+                : "The voiceover is being prepared for lip sync…",
+            },
+          ]
+        : lipSync.voiceover.status === "preparing"
+          ? [{ key: "lip-sync", message: "The voiceover is being prepared for lip sync…" }]
+          : lipSync.voiceover.status === "failed"
+            ? [
+                {
+                  key: "lip-sync",
+                  message:
+                    lipSync.voiceover.errorMessage ??
+                    "The voiceover couldn't be prepared for lip sync",
+                },
+              ]
+            : voiceReady && voiceReady.durationSeconds! > longestVoice + 1e-6
+              ? [
+                  {
+                    key: "lip-sync",
+                    message: `The voiceover runs ${voiceLength(voiceReady.durationSeconds!)}; one clip holds up to ${voiceLength(Math.floor(longestVoice * 10) / 10)} of it. Make it as a long video.`,
+                  },
+                ]
+              : voiceReady && Number(values["duration"]) + 1e-9 < voiceReady.durationSeconds!
+                ? [
+                    {
+                      key: "duration",
+                      message: `The clip is shorter than its voiceover, which would be cut off: make it at least ${voiceRequest ?? Math.ceil(voiceReady.durationSeconds!)}s long`,
+                    },
+                  ]
+                : [];
 
   // The brand finisher is one of the reference images (one taken off the
   // references stops counting), suggested when one looks like the logo: its
@@ -574,7 +663,7 @@ function CreatePage() {
         ...conversionIssues,
       ]
     : model
-      ? [...baseIssues, ...conversionIssues]
+      ? [...baseIssues, ...conversionIssues, ...lipSyncIssues]
       : [];
   const issueMap = Object.fromEntries(issues.map((issue) => [issue.key, issue.message]));
   const submitValues = useMemo(() => {
@@ -907,12 +996,27 @@ function CreatePage() {
           story,
           continuity: longDraft.continuity,
           values,
-          references: runReferences.map((item) => ({ assetId: item.assetId, role: item.role })),
+          // Made to a voiceover, the voiceover is sent as the run's own, not as a reference.
+          references: runReferences
+            .filter((item) => !(longPlan.voiceover && voiceReference?.assetId === item.assetId))
+            .map((item) => ({ assetId: item.assetId, role: item.role })),
           clips: longPlan.clips,
           finale,
           projectId,
           campaignId,
           clientRequestId,
+          // Made to a voiceover: each clip from its own piece of it.
+          voiceover: longPlan.voiceover?.segments.length
+            ? {
+                preparationId: longPlan.voiceover.preparationId,
+                pieces: longPlan.voiceover.segments.map(({ start, end, requestSeconds }) => ({
+                  start,
+                  end,
+                  requestSeconds,
+                })),
+                keepClipSound: false,
+              }
+            : null,
         },
       });
       requestIdRef.current = null;
@@ -921,6 +1025,10 @@ function CreatePage() {
       else if (longPlan.keyframed)
         toast.success(
           `Painting ${longPlan.paintedKeyframes} keyframes first${longDraft.reviewKeyframes ? ": you'll review them under Long videos before the clips are made" : ", then the clips"}.`,
+        );
+      else if (longPlan.voiceover)
+        toast.success(
+          `Long video started: ${longPlan.clips.length} ${longPlan.clips.length === 1 ? "clip" : "clips"}, each made to its own piece of the voiceover. Follow it under Long videos.`,
         );
       else
         toast.success(
@@ -1269,6 +1377,29 @@ function CreatePage() {
                     }}
                     addFiles={referenceFiles.addFiles}
                     uploading={referenceFiles.uploading}
+                  />
+                )}
+
+                {model && voiceReference && drivingSlot && (
+                  <VoiceoverLipSync
+                    model={model}
+                    state={lipSync}
+                    title={voiceReference.title}
+                    clip={
+                      longMode
+                        ? null
+                        : {
+                            requestSeconds: voiceRequest,
+                            longestSeconds: longestVoice,
+                            onLongVideo: () =>
+                              setLongDraft((current) => ({ ...current, enabled: true })),
+                          }
+                    }
+                    cuts={
+                      longMode && longPlan.voiceover
+                        ? longPlan.voiceover.segments.slice(1).map((segment) => segment.start)
+                        : null
+                    }
                   />
                 )}
 

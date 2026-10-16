@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import type { ModelRegistryEntry } from "@/lib/model-schema";
 import { assignRoles, referenceCapacity } from "@/lib/references";
 import { conversionHint, mediaKindFor, uploadReference } from "@/lib/storage";
+import { drivingAudioSlot } from "@/lib/lip-sync/models";
 import { isBriefFile } from "@/lib/briefs/parse-document";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -81,7 +82,13 @@ export function useReferenceFiles(options: {
           };
           const next = assignRoles([...latest.current.items, item], latest.current.model);
           latest.current.onChange(next);
-          const hint = conversionHint(kind, asset.mime_type);
+          // A voiceover driving the lips is prepared and sent as a WAV, whatever it is.
+          const placed = next.find((entry) => entry.assetId === asset.id);
+          const drivesLips =
+            kind === "audio" &&
+            !!placed?.role &&
+            drivingAudioSlot(latest.current.model)?.role === placed.role;
+          const hint = drivesLips ? null : conversionHint(kind, asset.mime_type);
           if (hint) toast.warning(`${file.name}: ${hint}`);
         } catch (error) {
           toast.error(

@@ -122,9 +122,23 @@ export const estimateGeneration = createServerFn({ method: "POST" })
 
     const { supabaseAdmin, model } = await loadContext(null as never, data.modelId);
     const slotRoles = new Set((model.capabilities?.inputs ?? []).map((slot) => slot.role));
-    const inputs = data.inputs
-      .filter((input) => slotRoles.has(input.role))
-      .sort((a, b) => a.position - b.position);
+    // Priced as it will be sent: a prepared voiceover as its piece (see lip-sync/clip.server).
+    const { withVoiceoverPieces } = await import("./lip-sync/clip.server");
+    let inputs: { assetId: string; role: string; position: number }[];
+    try {
+      inputs = await withVoiceoverPieces(
+        model,
+        data.inputs
+          .filter((input) => slotRoles.has(input.role))
+          .sort((a, b) => a.position - b.position),
+        { userId: context.userId, projectId: null },
+      );
+    } catch (error) {
+      return unavailable(
+        "UPLOAD_FAILED",
+        error instanceof Error ? error.message : "The voiceover couldn't be prepared",
+      );
+    }
     const issues = validateParameters(
       model,
       data.parameters,

@@ -3,6 +3,7 @@ import { probe, ffmpeg } from "./ffmpeg.js";
 import { TaskError } from "./net.js";
 import { renderSequence, SEQUENCE_LIMITS } from "./sequence.js";
 import { cameraMotion, decodeThumbnails, extractFrameByIndex, pickHandoffFrame } from "./frames.js";
+import { measureSync, prepareAudio } from "./voice.js";
 
 /**
  * Task catalogue.
@@ -47,10 +48,21 @@ function pick(value, allowed, fallback, name) {
 /**
  * What this worker understands beyond the basics, for the app to offer it:
  * framing (crop position, pad colour), a clip's true last frame taken by
- * counting its frames ("last_frame"), and easing a clip's colour into the
- * one before it at a join ("seam_match").
+ * counting its frames ("last_frame"), easing a clip's colour into the one
+ * before it at a join ("seam_match"), a frame taken by its number
+ * ("frame_index"), a voiceover made ready to drive lip sync
+ * ("audio_prepare"), and a clip's lip sync measured against its voiceover
+ * ("audio_sync").
  */
-export const FEATURES = ["frame_focus", "frame_background", "last_frame", "seam_match"];
+export const FEATURES = [
+  "frame_focus",
+  "frame_background",
+  "last_frame",
+  "seam_match",
+  "frame_index",
+  "audio_prepare",
+  "audio_sync",
+];
 
 /** The point of the picture (0-1 across and down) a crop keeps in frame: the centre unless given. */
 function focusOf(params) {
@@ -136,13 +148,15 @@ export const TASKS = {
   extract_frames: {
     sources: { min: 1, max: 1 },
     /**
-     * One output per requested timestamp, or one for `frame: "last"` (which
-     * wins over timestamps: an app sends both, so a worker without it still
-     * takes a frame). The app supplies a matching number of upload slots.
+     * One output per requested timestamp, or one for `frame: "last"` or
+     * `frame: "index"` (which win over timestamps: an app sends both, so a
+     * worker without them still takes a frame). The app supplies a matching
+     * number of upload slots.
      */
-    outputs: (params) => (params?.frame === "last" ? 1 : timestamps(params).length),
+    outputs: (params) => (params?.frame === "last" || params?.frame === "index" ? 1 : timestamps(params).length),
     async run({ sources, params, dir }) {
       if (params.frame === "last") return lastFrame(sources[0].path, params, dir);
+      if (params.frame === "index") return frameAtIndex(sources[0].path, params, dir);
       const times = timestamps(params);
       const width = even(num(params.width, { min: 64, max: 3840, fallback: 960, name: "width" }));
       const outputs = [];
@@ -377,6 +391,27 @@ export const TASKS = {
     outputs: () => 2,
     run: renderSequence,
   },
+
+  /**
+   * A voiceover made ready to drive lip sync: the canonical 48 kHz mono WAV
+   * every time is measured in, a 16 kHz copy for transcription, and where its
+   * speech and pauses are (see voice.js).
+   */
+  prepare_audio: {
+    sources: { min: 1, max: 1 },
+    outputs: () => 2,
+    run: prepareAudio,
+  },
+
+  /**
+   * Where a generated clip has the speech of the voiceover piece it was made
+   * from, measured from the clip's own sound (see voice.js). Produces no file.
+   */
+  measure_sync: {
+    sources: { min: 2, max: 2 },
+    outputs: () => 0,
+    run: measureSync,
+  },
 };
 
 async function clipDuration(clip, sources) {
@@ -424,6 +459,43 @@ async function lastFrame(path, params, dir) {
       source_width: info.width,
       source_height: info.height,
       motion: cameraMotion(thumbs, chosen.index, rate ?? 0),
+    },
+  };
+}
+
+/**
+ * A clip's frame by its number (0 is the first), counted by decoding every
+ * frame as for its last frame: where a clip made to a voiceover is cut, the
+ * next clip starts from the frame that would have come next. A number past
+ * the end takes the last frame. Reports the same facts as the last frame.
+ */
+async function frameAtIndex(path, params, dir) {
+  const format = pick(params.format, { png: 1, jpg: 1 }, "png", "format");
+  const width = params.width ? even(num(params.width, { min: 64, max: 3840, name: "width" })) : null;
+  const wanted = Math.round(num(params.index, { min: 0, max: 1_000_000, name: "index" }));
+  const info = await probe(path);
+  const thumbs = await decodeThumbnails(path, dir, { width: info.width, height: info.height });
+  const rate = info.fps && info.fps > 0 ? info.fps : info.duration_seconds ? thumbs.count / info.duration_seconds : null;
+  const index = Math.min(wanted, thumbs.count - 1);
+  const out = join(dir, `frame-${index}.${format}`);
+  await extractFrameByIndex(path, index, out, { width, sourceWidth: info.width, format });
+  const image = await probe(out);
+  const at = rate ? Number((index / rate).toFixed(6)) : null;
+  return {
+    outputs: [{ path: out, mime: IMAGE_FORMATS[format], kind: "image", ...(at !== null ? { timestamp_seconds: at } : {}) }],
+    metadata: {
+      frame_mode: "index",
+      frame_count: thumbs.count,
+      frame_index: index,
+      requested_index: wanted,
+      fps: rate ? Number(rate.toFixed(6)) : null,
+      clip_duration_seconds: rate ? Number((thumbs.count / rate).toFixed(6)) : null,
+      frame_times: at !== null ? [at] : [],
+      width: image.width,
+      height: image.height,
+      source_width: info.width,
+      source_height: info.height,
+      motion: cameraMotion(thumbs, index, rate ?? 0),
     },
   };
 }

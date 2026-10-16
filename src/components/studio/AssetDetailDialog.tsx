@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Brain, Crop, Cpu, Download, Film, Heart, Loader2, Repeat, Shuffle, SquareStack, Trash2 } from "lucide-react";
+import { Brain, Crop, Cpu, Download, Film, Heart, Loader2, Mic, Repeat, Shuffle, SquareStack, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { AssetRow } from "@/hooks/useStudioData";
@@ -20,6 +20,8 @@ import {
   toggleFavorite,
 } from "@/lib/asset-actions";
 import { analyseAsset, type AssetAnalysis } from "@/lib/analysis.functions";
+import { openLipSyncClip } from "@/lib/lip-sync.functions";
+import { clipLipSyncOf, clipSyncSummary } from "@/lib/lip-sync/clip";
 import { setSupercomputerHandoff } from "@/lib/supercomputer/handoff";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -49,7 +51,10 @@ export function AssetDetailDialog({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [reframing, setReframing] = useState(false);
   const [analysing, setAnalysing] = useState(false);
+  const [openingWithVoice, setOpeningWithVoice] = useState(false);
   const analysis = (asset?.metadata as { analysis?: AssetAnalysis } | null)?.analysis ?? null;
+  // A clip made to a voiceover: it opens in the Editor with it, lips lined up.
+  const lipSync = asset?.asset_type === "video" ? clipLipSyncOf(asset.metadata) : null;
 
   async function runAnalysis() {
     if (!asset || analysing) return;
@@ -198,6 +203,47 @@ export function AssetDetailDialog({
                   </SelectContent>
                 </Select>
               </div>
+
+              {lipSync && (
+                <div
+                  className="space-y-2 rounded-md border border-border p-3 text-xs"
+                  data-testid="asset-lip-sync"
+                >
+                  <p className="flex items-center gap-1.5 font-medium">
+                    <Mic className="size-3.5 text-primary" /> Made to a voiceover
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {clipSyncSummary(lipSync)?.detail ?? "Measuring where it puts the speech…"}
+                  </p>
+                  <Button
+                    size="sm"
+                    disabled={openingWithVoice}
+                    onClick={guard(async () => {
+                      setOpeningWithVoice(true);
+                      try {
+                        const result = await openLipSyncClip({
+                          data: { assetId: asset.id, keepSound: false, captions: false },
+                        });
+                        onOpenChange(false);
+                        navigate({
+                          to: "/editor/$sequenceId",
+                          params: { sequenceId: result.sequenceId },
+                        });
+                      } finally {
+                        setOpeningWithVoice(false);
+                      }
+                    })}
+                    data-testid="asset-open-lip-sync"
+                  >
+                    {openingWithVoice ? (
+                      <Loader2 className="mr-1.5 size-4 animate-spin" />
+                    ) : (
+                      <Film className="mr-1.5 size-4" />
+                    )}
+                    Open in Editor with its voiceover
+                  </Button>
+                </div>
+              )}
 
               <div className="flex flex-wrap gap-2">
                 <Button size="sm" onClick={guard(() => downloadAsset(asset))}>

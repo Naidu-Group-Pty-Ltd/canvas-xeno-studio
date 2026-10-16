@@ -334,6 +334,120 @@ export type Database = {
           },
         ]
       }
+      audio_preparations: {
+        Row: {
+          analysis: Json | null
+          attempts: number
+          completed_at: string | null
+          consent: Json | null
+          created_at: string
+          created_by: string | null
+          duration_seconds: number | null
+          error_code: string | null
+          error_message: string | null
+          id: string
+          media_task_id: string | null
+          prepared_asset_id: string | null
+          project_id: string | null
+          sample_rate: number | null
+          samples: number | null
+          source_asset_id: string
+          speech_storage_bucket: string | null
+          speech_storage_path: string | null
+          status: string
+          transcript: string | null
+          transcript_status: string
+          updated_at: string
+          words: Json | null
+        }
+        Insert: {
+          analysis?: Json | null
+          attempts?: number
+          completed_at?: string | null
+          consent?: Json | null
+          created_at?: string
+          created_by?: string | null
+          duration_seconds?: number | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          media_task_id?: string | null
+          prepared_asset_id?: string | null
+          project_id?: string | null
+          sample_rate?: number | null
+          samples?: number | null
+          source_asset_id: string
+          speech_storage_bucket?: string | null
+          speech_storage_path?: string | null
+          status?: string
+          transcript?: string | null
+          transcript_status?: string
+          updated_at?: string
+          words?: Json | null
+        }
+        Update: {
+          analysis?: Json | null
+          attempts?: number
+          completed_at?: string | null
+          consent?: Json | null
+          created_at?: string
+          created_by?: string | null
+          duration_seconds?: number | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          media_task_id?: string | null
+          prepared_asset_id?: string | null
+          project_id?: string | null
+          sample_rate?: number | null
+          samples?: number | null
+          source_asset_id?: string
+          speech_storage_bucket?: string | null
+          speech_storage_path?: string | null
+          status?: string
+          transcript?: string | null
+          transcript_status?: string
+          updated_at?: string
+          words?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audio_preparations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audio_preparations_media_task_id_fkey"
+            columns: ["media_task_id"]
+            isOneToOne: false
+            referencedRelation: "media_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audio_preparations_prepared_asset_id_fkey"
+            columns: ["prepared_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audio_preparations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audio_preparations_source_asset_id_fkey"
+            columns: ["source_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       avatar_asset_relationships: {
         Row: {
           created_at: string
@@ -2789,6 +2903,9 @@ export type Database = {
       long_video_clips: {
         Row: {
           attempt: number
+          audio_asset_id: string | null
+          audio_end_seconds: number | null
+          audio_start_seconds: number | null
           beat: string
           check_attempts: number
           check_claimed_at: string | null
@@ -2825,10 +2942,19 @@ export type Database = {
           start_frame_asset_id: string | null
           started_at: string | null
           status: string
+          sync_attempts: number
+          sync_offset_seconds: number | null
+          sync_result: Json | null
+          sync_status: string
+          sync_task_id: string | null
+          synced_at: string | null
           updated_at: string
         }
         Insert: {
           attempt?: number
+          audio_asset_id?: string | null
+          audio_end_seconds?: number | null
+          audio_start_seconds?: number | null
           beat?: string
           check_attempts?: number
           check_claimed_at?: string | null
@@ -2865,10 +2991,19 @@ export type Database = {
           start_frame_asset_id?: string | null
           started_at?: string | null
           status?: string
+          sync_attempts?: number
+          sync_offset_seconds?: number | null
+          sync_result?: Json | null
+          sync_status?: string
+          sync_task_id?: string | null
+          synced_at?: string | null
           updated_at?: string
         }
         Update: {
           attempt?: number
+          audio_asset_id?: string | null
+          audio_end_seconds?: number | null
+          audio_start_seconds?: number | null
           beat?: string
           check_attempts?: number
           check_claimed_at?: string | null
@@ -2905,6 +3040,12 @@ export type Database = {
           start_frame_asset_id?: string | null
           started_at?: string | null
           status?: string
+          sync_attempts?: number
+          sync_offset_seconds?: number | null
+          sync_result?: Json | null
+          sync_status?: string
+          sync_task_id?: string | null
+          synced_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2969,6 +3110,20 @@ export type Database = {
             columns: ["end_frame_asset_id"]
             isOneToOne: false
             referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "long_video_clips_audio_asset_id_fkey"
+            columns: ["audio_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "long_video_clips_sync_task_id_fkey"
+            columns: ["sync_task_id"]
+            isOneToOne: false
+            referencedRelation: "media_tasks"
             referencedColumns: ["id"]
           },
         ]
@@ -3125,6 +3280,8 @@ export type Database = {
           target_seconds: number
           title: string
           updated_at: string
+          voiceover: Json | null
+          voiceover_preparation_id: string | null
         }
         Insert: {
           campaign_id?: string | null
@@ -3154,6 +3311,8 @@ export type Database = {
           target_seconds: number
           title?: string
           updated_at?: string
+          voiceover?: Json | null
+          voiceover_preparation_id?: string | null
         }
         Update: {
           campaign_id?: string | null
@@ -3183,6 +3342,8 @@ export type Database = {
           target_seconds?: number
           title?: string
           updated_at?: string
+          voiceover?: Json | null
+          voiceover_preparation_id?: string | null
         }
         Relationships: [
           {
@@ -3232,6 +3393,13 @@ export type Database = {
             columns: ["keyframe_model_id"]
             isOneToOne: false
             referencedRelation: "model_registry"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "long_videos_voiceover_preparation_id_fkey"
+            columns: ["voiceover_preparation_id"]
+            isOneToOne: false
+            referencedRelation: "audio_preparations"
             referencedColumns: ["id"]
           },
         ]

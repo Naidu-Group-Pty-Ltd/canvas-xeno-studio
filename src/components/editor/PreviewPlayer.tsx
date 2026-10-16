@@ -256,6 +256,38 @@ function motionStyle(motion: string, progress: number): CSSProperties {
   }
 }
 
+/** A slip from the edit's clock past this is put right with a seek. */
+const SEEK_DRIFT = 0.25;
+/** A slip within this (half a frame at 30 fps) is left alone: currentTime itself jitters by about that. */
+const DRIFT_DEADBAND = 0.015;
+/** How much faster or slower a slipping element is played, per second of slip, and at most. */
+const NUDGE_GAIN = 0.6;
+const MAX_NUDGE = 0.06;
+
+/**
+ * Keeps a playing element on the edit's clock, as the render keeps every
+ * track on one: a large slip is a seek, a small one is taken up by playing a
+ * touch faster or slower for a moment (unheard: browsers keep the pitch), so a
+ * clip's lips and a voiceover stay within a frame of each other in the
+ * preview, rather than wandering up to a third of a second apart between
+ * seeks.
+ */
+function followClock(element: HTMLMediaElement, expected: number, speed: number) {
+  if (element.readyState < 1) return;
+  const drift = element.currentTime - expected;
+  if (Math.abs(drift) > SEEK_DRIFT) {
+    element.currentTime = expected;
+    if (element.playbackRate !== speed) element.playbackRate = speed;
+    return;
+  }
+  const nudge =
+    Math.abs(drift) <= DRIFT_DEADBAND
+      ? 0
+      : Math.max(-MAX_NUDGE, Math.min(MAX_NUDGE, -drift * NUDGE_GAIN));
+  const rate = speed * (1 + nudge);
+  if (Math.abs(element.playbackRate - rate) > 0.0005) element.playbackRate = rate;
+}
+
 const ClipLayer = memo(function ClipLayer({
   entry,
   asset,
@@ -280,8 +312,8 @@ const ClipLayer = memo(function ClipLayer({
     const gain = role === "incoming" ? mix : role === "current" && mix > 0 ? 1 - mix : 1;
     element.muted = !audible;
     element.volume = Math.max(0, Math.min(1, clip.volume * gain * level));
-    if (element.playbackRate !== clip.speed) element.playbackRate = clip.speed;
     if (role === "preload") {
+      if (element.playbackRate !== clip.speed) element.playbackRate = clip.speed;
       if (!element.paused) element.pause();
       if (element.readyState >= 1 && Math.abs(element.currentTime - clip.trimStart) > 0.05)
         element.currentTime = clip.trimStart;
@@ -289,10 +321,10 @@ const ClipLayer = memo(function ClipLayer({
     }
     const expected = sourceTimeFor(entry, Math.max(time, entry.start));
     if (playing) {
-      if (element.readyState >= 1 && Math.abs(element.currentTime - expected) > 0.3)
-        element.currentTime = expected;
+      followClock(element, expected, clip.speed);
       if (element.paused) void element.play().catch(() => undefined);
     } else {
+      if (element.playbackRate !== clip.speed) element.playbackRate = clip.speed;
       if (!element.paused) element.pause();
       if (element.readyState >= 1 && Math.abs(element.currentTime - expected) > 0.03)
         element.currentTime = expected;
@@ -434,12 +466,12 @@ const AudioLayer = memo(function AudioLayer({
     element.volume = Math.max(0, Math.min(1, gain * level));
     const expected = audioSourceTime(item, elapsed);
     if (playing) {
-      if (element.readyState >= 1 && Math.abs(element.currentTime - expected) > 0.3)
-        element.currentTime = expected;
+      followClock(element, expected, 1);
       if (element.paused) void element.play().catch(() => undefined);
     } else {
+      if (element.playbackRate !== 1) element.playbackRate = 1;
       if (!element.paused) element.pause();
-      if (element.readyState >= 1 && Math.abs(element.currentTime - expected) > 0.05)
+      if (element.readyState >= 1 && Math.abs(element.currentTime - expected) > 0.03)
         element.currentTime = expected;
     }
   }, [item, time, playing, total, voiceRanges, level]);

@@ -148,6 +148,39 @@ unless given); `blur_pad` shows it whole on a blurred copy of itself.
 `/health` lists `features` (`frame_focus`, `frame_background`) so the app only
 offers what the deployed worker can do.
 
+## Voiceovers that drive lip sync
+
+A clip generated from a voiceover (Wan's "driving audio") moves its lips to
+that sound, so the edit has to put the same sound under it at the same moment.
+Three things make that exact rather than close:
+
+- `prepare_audio` (one audio or video source, two outputs) turns any voiceover
+  into the canonical file every time is then measured in: 48 kHz mono 16-bit
+  PCM WAV with nothing in its header but format and sound (a WAV has no encoder
+  delay or priming, which MP3 and M4A each handle their own way). The second
+  output is a 16 kHz mono copy for transcription. `metadata` has the exact
+  length (`samples`, `sample_rate`, `duration_seconds`), where the speech is
+  and the pauses between (`speech`, `pauses`, as `[start, end]` seconds,
+  found against the recording's own noise floor; `clear_pauses` is false when
+  speech can't be told from the rest), levels, and a 25-per-second waveform.
+  A voiceover runs at most ten minutes, an edit's length.
+- `measure_sync` (a `video` source and an `audio` source, no output) matches a
+  generated clip's own sound against the voiceover piece it was made from and
+  reports where the speech landed: `offset_seconds` (positive: later in the
+  clip, counted from the clip's first picture), `confidence`, `margin` (how far
+  the match stands out), `waveform_correlation` (high when the clip kept the
+  sound as given, low when the model voiced it anew) and `drift_seconds`
+  (first against last third). `status` is `measured`, `unclear`, `no_audio` or
+  `no_speech`. Speech envelopes are matched to the millisecond, then the
+  waveforms to the sample where they still agree. `max_lag_seconds` (default
+  1, at most 2) bounds how far either way it looks.
+- `extract_frames` with `frame: "index"` and `index` takes a frame by its
+  number (counted by decoding, as for `frame: "last"`): where a clip is cut at
+  its piece of the voiceover, the next clip starts from the frame that would
+  have come next.
+
+`/health` lists them as `audio_prepare`, `audio_sync` and `frame_index`.
+
 ## Configuration
 
 Copy `.env.example`. The only required variable is
