@@ -86,14 +86,15 @@ export const Route = createFileRoute("/api/public/higgsfield-reconcile")({
           // its fallback (a tick that didn't come), answering paid calls that
           // wait and saving finished videos.
           const { sweepKatanaRuns } = await import("@/lib/katana/service.server");
-          const katanaRuns = await sweepKatanaRuns(10, Math.min(deadline, Date.now() + 20_000)).catch(
-            (error: unknown) => {
-              console.error("katana sweep failed", {
-                message: error instanceof Error ? error.message : String(error),
-              });
-              return 0;
-            },
-          );
+          const katanaRuns = await sweepKatanaRuns(
+            10,
+            Math.min(deadline, Date.now() + 20_000),
+          ).catch((error: unknown) => {
+            console.error("katana sweep failed", {
+              message: error instanceof Error ? error.message : String(error),
+            });
+            return 0;
+          });
 
           // Long videos whose next step an event didn't take (a missed webhook or
           // callback, a busy media service) move on here: last, as the longest

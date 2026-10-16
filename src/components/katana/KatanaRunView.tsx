@@ -646,7 +646,9 @@ function Results({ results, runStatus }: { results: KatanaResultRow[]; runStatus
                   onClick={async () => {
                     try {
                       await retryKatanaResult({ data: { resultId: result.id } });
-                      await queryClient.invalidateQueries({ queryKey: ["katana-run", result.run_id] });
+                      await queryClient.invalidateQueries({
+                        queryKey: ["katana-run", result.run_id],
+                      });
                       await queryClient.invalidateQueries({ queryKey: ["katana-result-assets"] });
                     } catch (cause) {
                       toast.error(cause instanceof Error ? cause.message : "It couldn't be saved");

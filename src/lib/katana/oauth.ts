@@ -132,6 +132,18 @@ export function readTokenResponse(body: unknown, now = Date.now()): TokenRespons
   };
 }
 
+/**
+ * Whether a token endpoint's refusal means the sign-in itself is over: the
+ * OAuth error codes (RFC 6749 §5.2) for a refresh token or a client that is no
+ * longer accepted. Anything else (a rate limit, a server fault, an unreadable
+ * answer) may pass, so the connection is kept.
+ */
+export function signInEnded(body: unknown): boolean {
+  if (typeof body !== "object" || body === null) return false;
+  const code = (body as Record<string, unknown>)["error"];
+  return code === "invalid_grant" || code === "invalid_client" || code === "unauthorized_client";
+}
+
 /** The account a sign-in was for, from its ID token's claims. */
 export function accountFromClaims(claims: Record<string, unknown> | null): {
   email: string | null;

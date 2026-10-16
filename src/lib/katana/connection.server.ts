@@ -23,6 +23,7 @@ import {
   pkceChallenge,
   randomToken,
   readTokenResponse,
+  signInEnded,
 } from "./oauth";
 
 type ConnectionRow = Database["public"]["Tables"]["higgsfield_connections"]["Row"];
@@ -408,6 +409,7 @@ export async function completeHiggsfieldConnect(input: {
     issuer: server.issuer,
     token_endpoint: server.tokenEndpoint,
     revocation_endpoint: server.revocationEndpoint,
+    resource: server.resource,
     client_id: client.clientId,
     client_secret: client.clientSecret,
     token_auth_method: client.authMethod,
@@ -628,7 +630,8 @@ async function renewToken(minValidityMs: number): Promise<HiggsfieldToken> {
     result = await tokenRequest(claimed.token_endpoint, client, {
       grant_type: "refresh_token",
       refresh_token: claimed.refresh_token,
-      resource: HIGGSFIELD_MCP_URL,
+      // The same resource the sign-in was for, so the renewed token has the same audience.
+      resource: claimed.resource ?? HIGGSFIELD_MCP_URL,
     });
   } catch (error) {
     const message = `Higgsfield's sign-in couldn't be renewed: ${error instanceof Error ? error.message : String(error)}`;
@@ -640,7 +643,7 @@ async function renewToken(minValidityMs: number): Promise<HiggsfieldToken> {
   const tokens = result.ok ? readTokenResponse(result.body) : null;
   if (!tokens) {
     const reason = oauthError(result.body) ?? `HTTP ${result.status}`;
-    const dead = result.status === 400 || result.status === 401;
+    const dead = signInEnded(result.body);
     await release(
       dead
         ? {

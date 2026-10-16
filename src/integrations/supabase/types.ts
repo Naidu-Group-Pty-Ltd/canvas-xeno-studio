@@ -2917,6 +2917,7 @@ export type Database = {
           last_refreshed_at: string | null
           refresh_claimed_until: string | null
           refresh_token: string | null
+          resource: string | null
           revocation_endpoint: string | null
           scope: string | null
           status: string
@@ -2940,6 +2941,7 @@ export type Database = {
           last_refreshed_at?: string | null
           refresh_claimed_until?: string | null
           refresh_token?: string | null
+          resource?: string | null
           revocation_endpoint?: string | null
           scope?: string | null
           status?: string
@@ -2963,6 +2965,7 @@ export type Database = {
           last_refreshed_at?: string | null
           refresh_claimed_until?: string | null
           refresh_token?: string | null
+          resource?: string | null
           revocation_endpoint?: string | null
           scope?: string | null
           status?: string
@@ -3162,6 +3165,7 @@ export type Database = {
           balance_start: number | null
           boundary_event_ids: string[]
           brief: string
+          cancel_requested: boolean
           claude_budget_cents: number
           claude_cost_cents: number
           created_at: string
@@ -3183,9 +3187,11 @@ export type Database = {
           resume_line: string | null
           session_id: string | null
           started_at: string | null
+          state_checked_at: string | null
           status: string
           status_detail: string | null
           summary: string | null
+          sync_lease_owner: string | null
           sync_lease_until: string | null
           synced_at: string | null
           title: string
@@ -3197,6 +3203,7 @@ export type Database = {
           balance_start?: number | null
           boundary_event_ids?: string[]
           brief?: string
+          cancel_requested?: boolean
           claude_budget_cents: number
           claude_cost_cents?: number
           created_at?: string
@@ -3218,9 +3225,11 @@ export type Database = {
           resume_line?: string | null
           session_id?: string | null
           started_at?: string | null
+          state_checked_at?: string | null
           status?: string
           status_detail?: string | null
           summary?: string | null
+          sync_lease_owner?: string | null
           sync_lease_until?: string | null
           synced_at?: string | null
           title?: string
@@ -3232,6 +3241,7 @@ export type Database = {
           balance_start?: number | null
           boundary_event_ids?: string[]
           brief?: string
+          cancel_requested?: boolean
           claude_budget_cents?: number
           claude_cost_cents?: number
           created_at?: string
@@ -3253,9 +3263,11 @@ export type Database = {
           resume_line?: string | null
           session_id?: string | null
           started_at?: string | null
+          state_checked_at?: string | null
           status?: string
           status_detail?: string | null
           summary?: string | null
+          sync_lease_owner?: string | null
           sync_lease_until?: string | null
           synced_at?: string | null
           title?: string
@@ -3337,6 +3349,7 @@ export type Database = {
           job_ids: string[]
           priced: boolean
           reason: string | null
+          result_at: string | null
           run_id: string
           sent_at: string | null
           tool_name: string
@@ -3351,6 +3364,7 @@ export type Database = {
           job_ids?: string[]
           priced?: boolean
           reason?: string | null
+          result_at?: string | null
           run_id: string
           sent_at?: string | null
           tool_name: string
@@ -3365,6 +3379,7 @@ export type Database = {
           job_ids?: string[]
           priced?: boolean
           reason?: string | null
+          result_at?: string | null
           run_id?: string
           sent_at?: string | null
           tool_name?: string
@@ -6056,6 +6071,30 @@ export type Database = {
       }
       is_active_member: { Args: never; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
+      katana_recount_credits: {
+        Args: { p_run_id: string }
+        Returns: number
+      }
+      katana_release_credits: {
+        Args: { p_credits: number; p_reason: string | null; p_run_id: string; p_tool_use_id: string }
+        Returns: number
+      }
+      katana_reserve_credits: {
+        Args: {
+          p_credits: number
+          p_items: Json
+          p_priced: boolean
+          p_run_id: string
+          p_tool_name: string
+          p_tool_use_id: string
+        }
+        Returns: {
+          o_allowed: boolean
+          o_committed: number
+          o_existing: boolean
+          o_limit: number
+        }[]
+      }
       reclaim_sequence_render: {
         Args: { p_render_id: string; p_sequence_id: string }
         Returns: string

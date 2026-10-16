@@ -312,10 +312,16 @@ export function KatanaSettings({
             onSave={(value) => void save("katana_default_claude_budget_usd", value)}
           />
           <NumberSetting
-            label="Credits counted for a background removal"
+            label="Credits counted for an image's background removal"
             value={data.settings.removeBackgroundCredits}
             step={0.5}
             onSave={(value) => void save("katana_remove_background_credits", value)}
+          />
+          <NumberSetting
+            label="Credits counted for a video's background removal"
+            value={data.settings.removeBackgroundVideoCredits}
+            step={0.5}
+            onSave={(value) => void save("katana_remove_background_video_credits", value)}
           />
         </div>
       )}

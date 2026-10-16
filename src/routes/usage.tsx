@@ -181,7 +181,10 @@ function UsagePage() {
 
   // Katana runs aren't a generation model's either, so a model chosen above leaves them out.
   const katanaByMember = useMemo(() => {
-    const map = new Map<string, { member: string; runs: number; credits: number; claudeCents: number }>();
+    const map = new Map<
+      string,
+      { member: string; runs: number; credits: number; claudeCents: number }
+    >();
     if (modelFilter !== "all") return [];
     for (const row of data?.katana ?? []) {
       if (memberFilter !== "all" && row.created_by !== memberFilter) continue;

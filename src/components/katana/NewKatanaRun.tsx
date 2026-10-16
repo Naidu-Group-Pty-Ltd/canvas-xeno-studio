@@ -402,7 +402,7 @@ export function NewKatanaRun({ defaults, disabled }: { defaults: Defaults; disab
           ) : (
             <Sparkles className="mr-1.5 size-4" />
           )}
-          {starting ? "Handing over your files…" : "Start Katana"}
+          {starting ? "Starting…" : "Start Katana"}
         </Button>
       </div>
     </div>

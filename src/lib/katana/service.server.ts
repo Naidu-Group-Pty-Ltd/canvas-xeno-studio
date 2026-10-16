@@ -7,9 +7,12 @@
  *
  * A session's events are read by whoever gets there first (the run's page,
  * the one-minute tick, the five-minute reconcile job or an Anthropic webhook),
- * one at a time per run, from where the last reader stopped. Starting a
- * session is never retried on its own: an unclear answer is checked against
- * the sessions Anthropic lists before anything else happens.
+ * one reader per run at a time (a lease with an owner token), from where the
+ * last reader stopped. Credits are committed in the database in one locked
+ * step per call, never from a running total, so no ordering of readers can
+ * let a run spend past its limit. Starting a session is never retried on its
+ * own: an unclear answer is checked against the sessions Anthropic lists
+ * before anything else happens.
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { Database, Json } from "@/integrations/supabase/types";
@@ -33,8 +36,10 @@ import {
 import {
   KATANA_EVENT_TYPES,
   interpretEvents,
+  type EventEffects,
   type FeedEntry,
   type SessionEventLike,
+  type SessionState,
   type ToolUse,
 } from "./events";
 import {
@@ -47,11 +52,11 @@ import {
   quoteParams,
   requestCount,
   submittedJobIds,
-  type GuardDecision,
+  unmadeIndexes,
   type PricedItem,
 } from "./guard";
 import { findAll, firstUrl, isObject, isUuid } from "./mcp";
-import type { HiggsfieldMcpClient } from "./mcp-client.server";
+import { HiggsfieldMcpError, type HiggsfieldMcpClient } from "./mcp-client.server";
 import {
   FIELD_KIND,
   KATANA_FIELDS,
@@ -84,13 +89,29 @@ export const ACTIVE_RUN_STATUSES = [
 ] as const;
 const SETTLED = new Set(["delivered", "idle", "paused", "failed", "cancelled"]);
 
-/** What the studio hands Higgsfield by URL; bigger files are uploaded. */
+/** What Higgsfield takes by URL; bigger files are uploaded (streamed). */
 const IMPORT_MAX_BYTES = 50 * 1024 * 1024;
-const UPLOAD_MAX_BYTES = 95 * 1024 * 1024;
-/** The finished video is downloaded whole; Katana delivers a size-capped file. */
-const RESULT_MAX_BYTES = 300 * 1024 * 1024;
+const UPLOAD_MAX_BYTES = 500 * 1024 * 1024;
+/** A file the runtime can't stream with a known length is held in memory, up to this. */
+const BUFFER_MAX_BYTES = 60 * 1024 * 1024;
+/** Katana delivers a size-capped file (about 90 MB a minute at 1080p). */
+const RESULT_MAX_BYTES = 500 * 1024 * 1024;
 const MAX_RESULT_ATTEMPTS = 5;
 const STUDIO_BUCKETS = new Set(["generation-inputs", "generated-assets"]);
+
+/** How long one reader holds a run (renewed before it answers the session). */
+const LEASE_MS = 150_000;
+/** How long handing a run's files over may hold it between renewals. */
+const HANDOVER_LEASE_MS = 5 * 60_000;
+/** A run still being handed over after this long is settled as not started. */
+const PREPARE_MAX_MS = 30 * 60_000;
+const QUOTE_TIMEOUT_MS = 30_000;
+/** A run whose events stopped this long ago has its session asked where it stands. */
+const QUIET_MS = 10 * 60_000;
+const STATE_CHECK_EVERY_MS = 5 * 60_000;
+
+const CANCELLED_MESSAGE =
+  "This run was cancelled, so nothing more is made for it. End your turn now.";
 
 const LIMITS = {
   images: 10,
@@ -107,6 +128,7 @@ export interface KatanaSettings {
   maxCreditLimit: number;
   defaultClaudeBudgetUsd: number;
   removeBackgroundCredits: number;
+  removeBackgroundVideoCredits: number;
 }
 
 function positive(value: unknown, fallback: number): number {
@@ -125,6 +147,7 @@ export async function katanaSettings(): Promise<KatanaSettings> {
     maxCreditLimit,
     defaultClaudeBudgetUsd: positive(settings["katana_default_claude_budget_usd"], 25),
     removeBackgroundCredits: positive(settings["katana_remove_background_credits"], 2),
+    removeBackgroundVideoCredits: positive(settings["katana_remove_background_video_credits"], 5),
   };
 }
 
@@ -145,28 +168,54 @@ async function updateRun(runId: string, values: RunUpdate): Promise<void> {
   if (error) throw new AppError("STORAGE_FAILED", error.message);
 }
 
+/** One reader's hold on a run: only its owner token can renew or release it. */
+interface Lease {
+  run: RunRow;
+  token: string;
+}
+
 /** Holds a run for one reader; null when another one has it. */
 async function claimRun(
   runId: string,
-  ms: number,
   statuses?: readonly string[],
-): Promise<RunRow | null> {
+  ms = LEASE_MS,
+): Promise<Lease | null> {
   const now = new Date();
+  const token = crypto.randomUUID();
   let query = db
     .from("katana_runs")
-    .update({ sync_lease_until: new Date(now.getTime() + ms).toISOString() })
+    .update({
+      sync_lease_until: new Date(now.getTime() + ms).toISOString(),
+      sync_lease_owner: token,
+    })
     .eq("id", runId)
     .or(`sync_lease_until.is.null,sync_lease_until.lt.${now.toISOString()}`);
   if (statuses) query = query.in("status", [...statuses]);
   const { data } = await query.select("*").maybeSingle();
-  return data ?? null;
+  return data ? { run: data, token } : null;
 }
 
-async function releaseRun(runId: string, values: RunUpdate = {}): Promise<void> {
-  await db
+/** Extends a hold (writing `values` with it), or says it was lost to another reader. */
+async function stillHeld(lease: Lease, ms = LEASE_MS, values: RunUpdate = {}): Promise<boolean> {
+  const { data } = await db
     .from("katana_runs")
-    .update({ ...values, sync_lease_until: null })
-    .eq("id", runId);
+    .update({ ...values, sync_lease_until: new Date(Date.now() + ms).toISOString() })
+    .eq("id", lease.run.id)
+    .eq("sync_lease_owner", lease.token)
+    .select("id");
+  return !!data?.length;
+}
+
+/** Ends a hold, writing `values` with it; false when the hold had already been lost. */
+async function releaseRun(lease: Lease, values: RunUpdate = {}): Promise<boolean> {
+  const { data, error } = await db
+    .from("katana_runs")
+    .update({ ...values, sync_lease_until: null, sync_lease_owner: null })
+    .eq("id", lease.run.id)
+    .eq("sync_lease_owner", lease.token)
+    .select("id");
+  if (error) throw new AppError("STORAGE_FAILED", error.message);
+  return !!data?.length;
 }
 
 async function addFeed(runId: string, entries: FeedEntry[]): Promise<void> {
@@ -205,6 +254,69 @@ async function note(
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+// ---------- Streams ----------
+
+type FixedLengthStreamClass = new (length: number) => TransformStream<Uint8Array, Uint8Array>;
+
+/** Cloudflare's FixedLengthStream, which lets a streamed request carry its Content-Length. */
+function fixedLengthStream(): FixedLengthStreamClass | null {
+  const candidate = (globalThis as { FixedLengthStream?: FixedLengthStreamClass })
+    .FixedLengthStream;
+  return typeof candidate === "function" ? candidate : null;
+}
+
+/** A stream sent with its length (where the runtime can), else null. */
+function withLength(
+  stream: ReadableStream<Uint8Array>,
+  length: number,
+): ReadableStream<Uint8Array> | null {
+  const Fixed = fixedLengthStream();
+  if (!Fixed || !(length > 0)) return null;
+  const fixed = new Fixed(length);
+  void stream.pipeTo(fixed.writable).catch(() => undefined);
+  return fixed.readable;
+}
+
+/** Counts what passes and stops a stream that grows past `max` bytes. */
+function byteCounter(max: number): {
+  stream: TransformStream<Uint8Array, Uint8Array>;
+  bytes: () => number;
+} {
+  let bytes = 0;
+  return {
+    stream: new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        bytes += chunk.byteLength;
+        if (bytes > max) controller.error(new Error("The file is too large"));
+        else controller.enqueue(chunk);
+      },
+    }),
+    bytes: () => bytes,
+  };
+}
+
+/**
+ * Fetches a file from Higgsfield, following at most three redirects by hand so
+ * every hop is checked to be one of Higgsfield's addresses.
+ */
+async function fetchFromHiggsfield(url: string, timeoutMs: number): Promise<Response> {
+  let current = url;
+  for (let hop = 0; hop < 4; hop += 1) {
+    if (!isAllowedOutputUrl(current))
+      throw new Error("The file's address isn't one of Higgsfield's");
+    const response = await fetch(current, {
+      redirect: "manual",
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (response.status < 300 || response.status >= 400) return response;
+    const location = response.headers.get("location");
+    await response.body?.cancel().catch(() => undefined);
+    if (!location) throw new Error(`Higgsfield answered ${response.status} with nowhere to go`);
+    current = new URL(location, current).toString();
+  }
+  throw new Error("Too many redirects");
 }
 
 // ---------- Inputs ----------
@@ -283,7 +395,7 @@ async function resolveInputs(
     if ((asset.file_size ?? 0) > UPLOAD_MAX_BYTES) {
       throw new AppError(
         "INVALID_PARAMETERS",
-        `${asset.title ?? "A chosen file"} is over 95 MB; trim or compress it first`,
+        `${asset.title ?? "A chosen file"} is over 500 MB; trim or compress it first`,
       );
     }
     return {
@@ -313,31 +425,47 @@ async function handOver(mcp: HiggsfieldMcpClient, input: RunInputRow): Promise<s
   if (!asset || !STUDIO_BUCKETS.has(asset.storage_bucket)) {
     throw new AppError("UPLOAD_FAILED", `${input.title} is no longer in the library`);
   }
+  const signed = await db.storage
+    .from(asset.storage_bucket)
+    .createSignedUrl(asset.storage_path, 30 * 60);
+  if (signed.error || !signed.data?.signedUrl)
+    throw new AppError("UPLOAD_FAILED", `${input.title} couldn't be shared with Higgsfield`);
   if ((asset.file_size ?? 0) <= IMPORT_MAX_BYTES) {
-    const signed = await db.storage
-      .from(asset.storage_bucket)
-      .createSignedUrl(asset.storage_path, 30 * 60);
-    if (signed.error || !signed.data?.signedUrl)
-      throw new AppError("UPLOAD_FAILED", `${input.title} couldn't be shared with Higgsfield`);
-    const imported = await mcp.callTool(
-      "media_import_url",
-      { url: signed.data.signedUrl, type: input.kind },
-      { timeoutMs: 150_000 },
-    );
-    const mediaId = imported.isError ? null : firstMediaId(imported.payload);
-    if (mediaId) return mediaId;
-    // An import Higgsfield refused (or answered without an ID) is tried once more as an upload.
+    try {
+      const imported = await mcp.callTool(
+        "media_import_url",
+        { url: signed.data.signedUrl, type: input.kind },
+        { timeoutMs: 150_000 },
+      );
+      const mediaId = imported.isError ? null : firstMediaId(imported.payload);
+      if (mediaId) return mediaId;
+    } catch (error) {
+      // Adding media is free, so an import that failed or timed out is tried once more as
+      // an upload below; a refused sign-in would refuse that too.
+      if (error instanceof HiggsfieldMcpError && error.kind === "auth") throw error;
+    }
   }
 
-  const download = await db.storage.from(asset.storage_bucket).download(asset.storage_path);
-  if (download.error || !download.data)
+  const source = await fetch(signed.data.signedUrl, { signal: AbortSignal.timeout(300_000) });
+  if (!source.ok || !source.body)
     throw new AppError("UPLOAD_FAILED", `${input.title} couldn't be read from the library`);
-  const bytes = await download.data.arrayBuffer();
-  if (bytes.byteLength > UPLOAD_MAX_BYTES)
-    throw new AppError("UPLOAD_FAILED", `${input.title} is over 95 MB`);
+  const length = Number(source.headers.get("content-length") ?? asset.file_size ?? 0);
+  if (length > UPLOAD_MAX_BYTES) {
+    await source.body.cancel().catch(() => undefined);
+    throw new AppError("UPLOAD_FAILED", `${input.title} is over 500 MB`);
+  }
+  // Streamed with its length where the runtime allows; otherwise only a small file is held in memory.
+  let body: ReadableStream<Uint8Array> | ArrayBuffer | null = withLength(source.body, length);
+  if (!body) {
+    if (!(length > 0) || length > BUFFER_MAX_BYTES) {
+      await source.body.cancel().catch(() => undefined);
+      throw new AppError("UPLOAD_FAILED", `${input.title} is too large to hand over from here`);
+    }
+    body = await source.arrayBuffer();
+  }
   const mime =
     asset.mime_type ||
-    download.data.type ||
+    source.headers.get("content-type")?.split(";")[0] ||
     (input.kind === "image" ? "image/png" : input.kind === "audio" ? "audio/mpeg" : "video/mp4");
   const extension =
     (asset.storage_path.split(".").pop() ?? "").replace(/[^a-z0-9]/gi, "").slice(0, 5) ||
@@ -349,6 +477,7 @@ async function handOver(mcp: HiggsfieldMcpClient, input: RunInputRow): Promise<s
   const uploadUrl = firstUrl(slot.payload, ["upload_url"]);
   const mediaId = firstMediaId(slot.payload);
   if (slot.isError || !uploadUrl || !mediaId) {
+    if (body instanceof ReadableStream) await body.cancel().catch(() => undefined);
     throw new AppError("UPLOAD_FAILED", `Higgsfield didn't give an upload slot for ${input.title}`);
   }
   const extraHeaders: Record<string, string> = {};
@@ -359,10 +488,11 @@ async function handOver(mcp: HiggsfieldMcpClient, input: RunInputRow): Promise<s
   }
   const put = await fetch(uploadUrl, {
     method: "PUT",
-    body: bytes,
+    body,
     headers: { "Content-Type": mime, ...extraHeaders },
-    signal: AbortSignal.timeout(180_000),
-  });
+    signal: AbortSignal.timeout(300_000),
+    ...(body instanceof ReadableStream ? { duplex: "half" } : {}),
+  } as RequestInit);
   await put.body?.cancel().catch(() => undefined);
   if (!put.ok)
     throw new AppError(
@@ -464,6 +594,11 @@ function checkReferenceUrl(url: string | null): string | null {
   return parsed.toString().slice(0, 2048);
 }
 
+/**
+ * Saves a new run. Its media is handed over and its session started by the
+ * next reader (the run's page, which opens next, or the tick), so a slow
+ * hand-over never looks like a failed start.
+ */
 export async function startKatanaRun(input: StartKatanaRunInput): Promise<{ runId: string }> {
   const settings = await assertReady();
   checkLimits(settings, input.creditLimit, input.claudeBudgetUsd);
@@ -546,9 +681,6 @@ export async function startKatanaRun(input: StartKatanaRunInput): Promise<{ runI
     throw new AppError("STORAGE_FAILED", error?.message ?? "The run couldn't be saved");
   }
   await note(run.id, "user", "Run requested", brief, { mode: input.mode, preset: presetSlug });
-  await advanceRun(run.id).catch((cause: unknown) => {
-    console.error("katana start failed", { runId: run.id, message: messageOf(cause) });
-  });
   return { runId: run.id };
 }
 
@@ -597,9 +729,6 @@ export async function startKatanaRevision(input: {
   if (error || !run)
     throw new AppError("STORAGE_FAILED", error?.message ?? "The revision couldn't be saved");
   await note(run.id, "user", "Revision requested", text, { parent: parent.id });
-  await advanceRun(run.id).catch((cause: unknown) => {
-    console.error("katana revision start failed", { runId: run.id, message: messageOf(cause) });
-  });
   return { runId: run.id };
 }
 
@@ -610,28 +739,51 @@ async function advanceRun(runId: string): Promise<void> {
   if (run.status === "starting" || run.status === "uncertain") return recoverStart(run);
 }
 
-async function failRun(runId: string, message: string, values: RunUpdate = {}): Promise<void> {
-  await releaseRun(runId, {
-    ...values,
-    status: "failed",
-    error: message.slice(0, 2000),
-    status_detail: null,
-    finished_at: nowIso(),
-  });
-  await note(runId, "error", "The run couldn't start", message);
+/** Settles a run as failed (only from the statuses given, so a cancel is never overwritten). */
+async function failRun(lease: Lease, message: string, statuses: readonly string[]): Promise<void> {
+  const { data } = await db
+    .from("katana_runs")
+    .update({
+      status: "failed",
+      error: message.slice(0, 2000),
+      status_detail: null,
+      finished_at: nowIso(),
+      sync_lease_until: null,
+      sync_lease_owner: null,
+    })
+    .eq("id", lease.run.id)
+    .eq("sync_lease_owner", lease.token)
+    .in("status", [...statuses])
+    .select("id");
+  if (data?.length) await note(lease.run.id, "error", "The run couldn't start", message);
+  else await releaseRun(lease).catch(() => undefined);
 }
 
 async function prepareRun(runId: string): Promise<void> {
-  const run = await claimRun(runId, 5 * 60_000, ["preparing"]);
-  if (!run) return;
+  const lease = await claimRun(runId, ["preparing"], HANDOVER_LEASE_MS);
+  if (!lease) return;
+  // Readers that keep getting cut off midway would otherwise retry forever.
+  if (Date.now() - Date.parse(lease.run.created_at) > PREPARE_MAX_MS) {
+    await failRun(
+      lease,
+      "Handing the files to Higgsfield didn't finish within 30 minutes, so the run didn't start and nothing was charged. Start it again; smaller files hand over faster.",
+      ["preparing"],
+    );
+    return;
+  }
   let mcp: HiggsfieldMcpClient | null = null;
   try {
     mcp = await higgsfieldMcp({ timeoutMs: 60_000 });
-    const inputs = runInputs(run);
+    const inputs = runInputs(lease.run);
     for (const input of inputs) {
       if (input.media_id) continue;
       input.media_id = await handOver(mcp, input);
-      await updateRun(runId, { inputs: inputs as unknown as Json });
+      // Each file handed over is kept (and the hold renewed), so a reader cut off midway
+      // leaves the next one less to do. A hold lost to another reader ends this one.
+      const kept = await stillHeld(lease, HANDOVER_LEASE_MS, {
+        inputs: inputs as unknown as Json,
+      });
+      if (!kept) return;
     }
     if (inputs.length)
       await note(
@@ -640,7 +792,7 @@ async function prepareRun(runId: string): Promise<void> {
         `Handed ${inputs.length} file${inputs.length === 1 ? "" : "s"} to Higgsfield`,
       );
     const balance = await accountBalance(mcp);
-    // Only this request moves it on: a second reader finds it "starting".
+    // Only the hold's owner moves it on, and only if nobody cancelled it meanwhile.
     const { data: moved } = await db
       .from("katana_runs")
       .update({
@@ -651,22 +803,18 @@ async function prepareRun(runId: string): Promise<void> {
       })
       .eq("id", runId)
       .eq("status", "preparing")
+      .eq("sync_lease_owner", lease.token)
       .select("*")
       .maybeSingle();
-    if (!moved) return;
-    await startSession(moved);
-  } catch (error) {
-    const current = await readRun(runId).catch(() => null);
-    if (current?.status === "preparing" || current?.status === "starting") {
-      await failRun(runId, messageOf(error));
+    if (!moved) {
+      await releaseRun(lease).catch(() => undefined);
+      return;
     }
+    await startSession({ run: moved, token: lease.token });
+  } catch (error) {
+    await failRun(lease, messageOf(error), ["preparing", "starting"]);
   } finally {
     await mcp?.close();
-    await db
-      .from("katana_runs")
-      .update({ sync_lease_until: null })
-      .eq("id", runId)
-      .in("status", ["preparing", "failed"]);
   }
 }
 
@@ -675,7 +823,26 @@ function definitelyRefused(error: unknown): boolean {
   return isApiStatus(error, 400, 401, 403, 404, 409, 413, 422, 429);
 }
 
-async function startSession(run: RunRow): Promise<void> {
+/** Sends a stop to a session; true when it arrived (or the session was already done). */
+async function interrupt(sessionId: string): Promise<boolean> {
+  try {
+    await anthropicClient().beta.sessions.events.send(sessionId, {
+      events: [{ type: "user.interrupt" }],
+    });
+    return true;
+  } catch (error) {
+    // A finished or missing session has nothing left to stop.
+    return isApiStatus(error, 400, 404, 409);
+  }
+}
+
+/**
+ * Starts a run's session. Once Anthropic has answered with a session, nothing
+ * here throws: if its record can't be written, the start check finds the
+ * session by the run's ID instead.
+ */
+async function startSession(lease: Lease): Promise<void> {
+  const { run } = lease;
   const setup = await ensureKatanaSetup();
   await ensureVaultToken(45 * 60_000);
   const inputs = mediaInputs(runInputs(run));
@@ -716,92 +883,151 @@ async function startSession(run: RunRow): Promise<void> {
     );
   } catch (error) {
     if (definitelyRefused(error)) {
-      await failRun(run.id, `Anthropic didn't start the session: ${messageOf(error)}`);
+      await failRun(lease, `Anthropic didn't start the session: ${messageOf(error)}`, ["starting"]);
       return;
     }
-    await releaseRun(run.id, {
+    await releaseRun(lease, {
       status: "uncertain",
       status_detail:
         "Starting the session got no clear answer; checking whether it began before doing anything else.",
-    });
+    }).catch(() => undefined);
     await note(run.id, "status", "Checking whether the session started", messageOf(error));
     return;
   }
-  const { data: attached } = await db
-    .from("katana_runs")
-    .update({
-      status: "running",
-      session_id: session.id,
-      agent_version: setup.agentVersion,
-      status_detail: null,
-      error: null,
-      sync_lease_until: null,
-    })
-    .eq("id", run.id)
-    .eq("status", "starting")
-    .select("id")
-    .maybeSingle();
-  if (!attached) {
-    // Cancelled while the session was starting: keep its record, and stop it.
-    await releaseRun(run.id, { session_id: session.id, agent_version: setup.agentVersion });
-    await anthropic.beta.sessions.events
-      .send(session.id, { events: [{ type: "user.interrupt" }] })
-      .catch(() => undefined);
+  try {
+    // A start check that ran meanwhile may have marked the run uncertain; it is still this one.
+    const { data: attached } = await db
+      .from("katana_runs")
+      .update({
+        status: "running",
+        session_id: session.id,
+        agent_version: setup.agentVersion,
+        status_detail: null,
+        error: null,
+        sync_lease_until: null,
+        sync_lease_owner: null,
+      })
+      .eq("id", run.id)
+      .in("status", ["starting", "uncertain"])
+      .select("id")
+      .maybeSingle();
+    if (attached) {
+      await note(run.id, "status", "Katana is working", "", { session: session.id });
+      return;
+    }
+    const current = await readRun(run.id);
+    if (current.session_id === session.id && current.status !== "cancelled") {
+      // The start check found this session first and follows it already.
+      await releaseRun(lease).catch(() => undefined);
+      return;
+    }
+    // Cancelled (or settled) while the session was starting: keep its record, and stop it.
+    const stopped = await interrupt(session.id);
+    await db
+      .from("katana_runs")
+      .update({
+        session_id: current.session_id ?? session.id,
+        agent_version: current.agent_version ?? setup.agentVersion,
+        cancel_requested: !stopped,
+      })
+      .eq("id", run.id);
+    await releaseRun(lease).catch(() => undefined);
     await note(
       run.id,
       "status",
-      "The session started after the run was cancelled, so it was stopped",
+      current.status === "cancelled"
+        ? "The session started after the run was cancelled, so it was stopped"
+        : "The session started after the run had settled, so it was stopped",
     );
-    return;
+  } catch (error) {
+    console.error("katana session record not written", {
+      runId: run.id,
+      sessionId: session.id,
+      message: messageOf(error),
+    });
   }
-  await note(run.id, "status", "Katana is working", "", { session: session.id });
+}
+
+/** The session started for a run, found among Anthropic's by the run's ID. */
+async function findSessionFor(runId: string, startedAt: number): Promise<string | null> {
+  const { data: setup } = await db
+    .from("katana_setup")
+    .select("agent_id")
+    .eq("id", "default")
+    .maybeSingle();
+  if (!setup?.agent_id) return null;
+  const page = await anthropicClient().beta.sessions.list({
+    agent_id: setup.agent_id,
+    "created_at[gte]": new Date(startedAt - 5 * 60_000).toISOString(),
+    limit: 100,
+    include_archived: true,
+  });
+  return page.data.find((session) => session.metadata?.["xeno_run_id"] === runId)?.id ?? null;
 }
 
 /** A start that got no clear answer: find its session among Anthropic's, or settle it as not started. */
 async function recoverStart(run: RunRow): Promise<void> {
   if (run.session_id) {
-    await updateRun(run.id, { status: "running", status_detail: null });
+    await db
+      .from("katana_runs")
+      .update({ status: "running", status_detail: null })
+      .eq("id", run.id)
+      .in("status", ["starting", "uncertain"]);
     return;
   }
   const startedAt = Date.parse(run.started_at ?? run.created_at);
   // A start still in progress elsewhere is left alone for a few minutes.
   if (run.status === "starting" && Date.now() - startedAt < 4 * 60_000) return;
-  const claimed = await claimRun(run.id, 60_000, ["starting", "uncertain"]);
-  if (!claimed) return;
+  const lease = await claimRun(run.id, ["starting", "uncertain"], 60_000);
+  if (!lease) return;
   try {
-    const { data: setup } = await db
-      .from("katana_setup")
-      .select("agent_id")
-      .eq("id", "default")
-      .maybeSingle();
-    const anthropic = anthropicClient();
-    if (setup?.agent_id) {
-      const page = await anthropic.beta.sessions.list({
-        agent_id: setup.agent_id,
-        "created_at[gte]": new Date(startedAt - 5 * 60_000).toISOString(),
-        limit: 100,
-        include_archived: true,
+    const found = await findSessionFor(run.id, startedAt);
+    if (found) {
+      await releaseRun(lease, { status: "running", session_id: found, status_detail: null });
+      await note(run.id, "status", "The session had started; following it now", "", {
+        session: found,
       });
-      const found = page.data.find((session) => session.metadata?.["xeno_run_id"] === run.id);
-      if (found) {
-        await releaseRun(run.id, { status: "running", session_id: found.id, status_detail: null });
-        await note(run.id, "status", "The session had started; following it now", "", {
-          session: found.id,
-        });
-        return;
-      }
+      return;
     }
     if (Date.now() - startedAt > 15 * 60_000) {
       await failRun(
-        run.id,
+        lease,
         "The session never appeared at Anthropic, so it didn't start and nothing was charged. Start the run again.",
+        ["starting", "uncertain"],
       );
       return;
     }
-    await releaseRun(run.id, { status: "uncertain" });
+    await releaseRun(lease, { status: "uncertain" });
   } catch (error) {
-    await releaseRun(run.id);
+    await releaseRun(lease).catch(() => undefined);
     console.error("katana start check failed", { runId: run.id, message: messageOf(error) });
+  }
+}
+
+/**
+ * A cancelled run whose session wasn't known, or whose stop didn't arrive:
+ * find the session and stop it, giving up after twenty minutes without one.
+ */
+async function followCancel(run: RunRow): Promise<void> {
+  const lease = await claimRun(run.id, undefined, 60_000);
+  if (!lease) return;
+  try {
+    const startedAt = Date.parse(run.started_at ?? run.created_at);
+    const sessionId = run.session_id ?? (await findSessionFor(run.id, startedAt));
+    if (sessionId) {
+      if (await interrupt(sessionId)) {
+        await releaseRun(lease, { session_id: sessionId, cancel_requested: false });
+        await note(run.id, "status", "Stopped the cancelled run's session");
+        return;
+      }
+    } else if (Date.now() - startedAt > 20 * 60_000) {
+      await releaseRun(lease, { cancel_requested: false });
+      return;
+    }
+    await releaseRun(lease);
+  } catch (error) {
+    await releaseRun(lease).catch(() => undefined);
+    console.error("katana cancel follow-up failed", { runId: run.id, message: messageOf(error) });
   }
 }
 
@@ -848,7 +1074,7 @@ async function readNewEvents(sessionId: string, run: RunRow, max = 600): Promise
   return { events, lastEventAt, boundary: boundary.slice(-200) };
 }
 
-/** Names of earlier calls (read in a previous pass) that results in this pass answer. */
+/** Earlier calls (read in a previous pass) that results in this pass answer, as far as they matter. */
 async function earlierCalls(
   runId: string,
   events: SessionEventLike[],
@@ -870,9 +1096,15 @@ async function earlierCalls(
   for (const row of data ?? []) {
     const value = isObject(row.data) ? row.data : {};
     if (!row.source_id || typeof value["tool"] !== "string") continue;
+    const delivery = isObject(value["delivery"]) ? value["delivery"] : null;
     found.set(row.source_id, {
       name: value["tool"],
-      input: value["quote"] === true ? { params: { get_cost: true } } : null,
+      input:
+        value["quote"] === true
+          ? { params: { get_cost: true } }
+          : delivery
+            ? { action: "katana_video", media_id: delivery["media_id"], url: delivery["url"] }
+            : null,
     });
   }
   return found;
@@ -881,74 +1113,76 @@ async function earlierCalls(
 interface GuardContext {
   run: RunRow;
   settings: KatanaSettings;
-  reserved: number;
   mcp: HiggsfieldMcpClient | null;
 }
 
 async function pricingClient(context: GuardContext): Promise<HiggsfieldMcpClient> {
-  if (!context.mcp) context.mcp = await higgsfieldMcp({ timeoutMs: 45_000 });
+  if (!context.mcp) context.mcp = await higgsfieldMcp({ timeoutMs: QUOTE_TIMEOUT_MS });
   return context.mcp;
 }
 
-function deny(reason: string, items: PricedItem[] = []): GuardDecision {
-  return { allow: false, credits: 0, priced: true, reason, items };
-}
+/** What one paid call comes to, before the ledger decides whether it fits. */
+type Pricing =
+  | { kind: "answer"; allow: boolean; reason: string }
+  | { kind: "paid"; items: PricedItem[]; priced: boolean; label: string };
 
-/** The guard's answer to one paid call. */
-async function decide(context: GuardContext, ask: ToolUse): Promise<GuardDecision> {
-  const { run } = context;
-  if (run.status === "cancelled")
-    return deny("This run was cancelled, so nothing more is made for it. End your turn now.");
+const answer = (allow: boolean, reason: string): Pricing => ({ kind: "answer", allow, reason });
+
+async function price(context: GuardContext, ask: ToolUse): Promise<Pricing> {
+  if (context.run.status === "cancelled") return answer(false, CANCELLED_MESSAGE);
   const call = classifyGuardedCall(ask.name, ask.input);
   switch (call.kind) {
     case "quote":
-      return { allow: true, credits: 0, priced: true, reason: "Price check (free)", items: [] };
+      return answer(true, "Price check (free)");
     case "invalid":
-      return deny(
+      return answer(
+        false,
         `The studio's credit guard turned this call down: ${call.reason}. Nothing was made or charged.`,
       );
     case "preset_session":
       return call.free
-        ? deny(
+        ? answer(
+            false,
             "This run is billed to credits, not a free Katana run: call get_katana_config with free_generation: false.",
           )
-        : {
-            allow: true,
-            credits: 0,
-            priced: true,
-            reason: "Preset run session (no charge by itself)",
-            items: [],
-          };
+        : answer(true, "Preset run session (no charge by itself)");
     case "estimate": {
-      const credits = context.settings.removeBackgroundCredits * call.jobs;
-      return decideSpend({
-        items: [{ index: 0, model: "remove_background", credits }],
-        reserved: context.reserved,
-        limit: Number(run.credit_limit),
+      const each =
+        call.mediaType === "image"
+          ? context.settings.removeBackgroundCredits
+          : context.settings.removeBackgroundVideoCredits;
+      return {
+        kind: "paid",
+        items: [{ index: 0, model: "remove_background", credits: each * call.jobs }],
         priced: false,
-        label: "a background removal",
-      });
+        label:
+          call.mediaType === "image"
+            ? "an image's background removal"
+            : "a video's background removal",
+      };
     }
     case "submit": {
       for (const item of call.items) {
         const flag = freeBillingFlag(item.params);
         if (flag) {
-          return deny(
+          return answer(
+            false,
             `This run is billed to credits: send the call without ${flag}. Nothing was made or charged.`,
           );
         }
         if (requestCount(item.params) > 1) {
-          return deny(
+          return answer(
+            false,
             "The studio prices one result per request: send count 1 (or one batch item per result). Nothing was made or charged.",
           );
         }
       }
       const mcp = await pricingClient(context);
-      const priced: PricedItem[] = [];
+      const items: PricedItem[] = [];
       // A few at a time: a batch has up to twelve.
       for (let start = 0; start < call.items.length; start += 4) {
         const slice = call.items.slice(start, start + 4);
-        priced.push(
+        items.push(
           ...(await Promise.all(
             slice.map(async (item) => {
               const model = typeof item.params["model"] === "string" ? item.params["model"] : null;
@@ -956,7 +1190,7 @@ async function decide(context: GuardContext, ask: ToolUse): Promise<GuardDecisio
                 const quote = await mcp.callTool(
                   call.quoteTool,
                   { params: quoteParams(item.params) },
-                  { timeoutMs: 45_000 },
+                  { timeoutMs: QUOTE_TIMEOUT_MS },
                 );
                 return {
                   index: item.index,
@@ -970,23 +1204,53 @@ async function decide(context: GuardContext, ask: ToolUse): Promise<GuardDecisio
           )),
         );
       }
-      return decideSpend({
-        items: priced,
-        reserved: context.reserved,
-        limit: Number(run.credit_limit),
-        label: callLabel(call),
-      });
+      return { kind: "paid", items, priced: true, label: callLabel(call) };
     }
   }
 }
 
-/** Decides every paid call waiting in this pass (in order, so each sees the ones before it). */
+/** Records a decision that costs nothing (a price check, a refusal). The first answer stays. */
+async function recordAnswer(
+  run: RunRow,
+  ask: ToolUse,
+  allow: boolean,
+  reason: string,
+  items: PricedItem[] = [],
+  credits = 0,
+): Promise<boolean> {
+  const { data, error } = await db
+    .from("katana_spend")
+    .upsert(
+      {
+        run_id: run.id,
+        tool_use_id: ask.id,
+        tool_name: ask.name,
+        decision: allow ? "allowed" : "denied",
+        credits: allow ? 0 : credits,
+        priced: true,
+        reason: reason.slice(0, 1000),
+        items: items as unknown as Json,
+      },
+      { onConflict: "run_id,tool_use_id", ignoreDuplicates: true },
+    )
+    .select("id");
+  if (error) throw new AppError("STORAGE_FAILED", error.message);
+  return !!data?.length;
+}
+
+/**
+ * Decides every paid call waiting in this pass. A call with credits is
+ * committed by the database in one locked step (what the run's allowed calls
+ * add up to, plus this one, against its limit), so readers racing each other
+ * can never both spend the same room.
+ */
 async function guardAsks(context: GuardContext, asks: ToolUse[]): Promise<void> {
   if (!asks.length) return;
+  const { run } = context;
   const { data: existing } = await db
     .from("katana_spend")
     .select("tool_use_id")
-    .eq("run_id", context.run.id)
+    .eq("run_id", run.id)
     .in(
       "tool_use_id",
       asks.map((ask) => ask.id),
@@ -994,58 +1258,119 @@ async function guardAsks(context: GuardContext, asks: ToolUse[]): Promise<void> 
   const decided = new Set((existing ?? []).map((row) => row.tool_use_id));
   for (const ask of asks) {
     if (decided.has(ask.id)) continue;
-    let decision: GuardDecision;
+    let pricing: Pricing;
     try {
-      decision = await decide(context, ask);
+      pricing = await price(context, ask);
     } catch (error) {
-      decision = deny(
+      pricing = answer(
+        false,
         `The studio couldn't check this call's price (${messageOf(error).slice(0, 200)}), so it wasn't submitted. Nothing was made or charged; you may try it once more later.`,
       );
     }
-    const { error } = await db.from("katana_spend").insert({
-      run_id: context.run.id,
-      tool_use_id: ask.id,
-      tool_name: ask.name,
-      decision: decision.allow ? "allowed" : "denied",
-      credits: decision.credits,
-      priced: decision.priced,
-      reason: decision.reason.slice(0, 1000),
-      items: decision.items as unknown as Json,
-    });
-    if (error && !/duplicate|unique/i.test(error.message))
-      throw new AppError("STORAGE_FAILED", error.message);
-    if (error) continue;
-    if (decision.allow) context.reserved += decision.credits;
-    if (decision.credits > 0 || !decision.allow) {
-      await note(
-        context.run.id,
-        "credit",
-        decision.allow ? "Credit guard: allowed" : "Credit guard: turned down",
-        decision.reason,
-        {
+    if (pricing.kind === "answer") {
+      const fresh = await recordAnswer(run, ask, pricing.allow, pricing.reason);
+      if (fresh && !pricing.allow) {
+        await note(run.id, "credit", "Credit guard: turned down", pricing.reason, {
           tool: ask.name,
-          credits: decision.credits,
-          allowed: decision.allow,
-        },
-      );
+          allowed: false,
+        });
+      }
+      continue;
     }
+    const total = pricing.items.reduce((sum, item) => sum + (item.credits ?? 0), 0);
+    if (pricing.items.some((item) => item.credits === null)) {
+      const unpriced = decideSpend({
+        items: pricing.items,
+        reserved: 0,
+        limit: Number(run.credit_limit),
+        priced: pricing.priced,
+        label: pricing.label,
+      });
+      if (await recordAnswer(run, ask, false, unpriced.reason, pricing.items)) {
+        await note(run.id, "credit", "Credit guard: turned down", unpriced.reason, {
+          tool: ask.name,
+          allowed: false,
+        });
+      }
+      continue;
+    }
+    const { data, error } = await db.rpc("katana_reserve_credits", {
+      p_run_id: run.id,
+      p_tool_use_id: ask.id,
+      p_tool_name: ask.name,
+      p_credits: Math.round(total * 1000) / 1000,
+      p_priced: pricing.priced,
+      p_items: pricing.items as unknown as Json,
+    });
+    if (error) throw new AppError("STORAGE_FAILED", error.message);
+    const outcome = data?.[0];
+    if (!outcome || outcome.o_existing) continue;
+    const committed = Number(outcome.o_committed);
+    const decision = decideSpend({
+      items: pricing.items,
+      reserved: outcome.o_allowed ? committed - total : committed,
+      limit: Number(outcome.o_limit),
+      priced: pricing.priced,
+      label: pricing.label,
+    });
+    // The ledger's answer stands; its words come from the same arithmetic. They only
+    // differ when the run was cancelled as this call was priced.
+    const reason =
+      decision.allow === outcome.o_allowed
+        ? decision.reason
+        : outcome.o_allowed
+          ? `${pricing.label}: ${formatCredits(total)} credits.`
+          : CANCELLED_MESSAGE;
+    await db
+      .from("katana_spend")
+      .update({ reason: reason.slice(0, 1000) })
+      .eq("run_id", run.id)
+      .eq("tool_use_id", ask.id);
+    await note(
+      run.id,
+      "credit",
+      outcome.o_allowed ? "Credit guard: allowed" : "Credit guard: turned down",
+      reason,
+      { tool: ask.name, credits: total, allowed: outcome.o_allowed },
+    );
   }
-  await updateRun(context.run.id, { credits_reserved: Math.round(context.reserved * 1000) / 1000 });
 }
 
-/** Sends every decided answer the session hasn't had yet. */
-async function sendAnswers(run: RunRow): Promise<number> {
-  if (!run.session_id) return 0;
+/**
+ * Sends every decided answer the session hasn't had yet, while this reader
+ * still holds the run (the one that took it over sends otherwise). A run
+ * cancelled meanwhile has its unsent allowances turned into refusals first.
+ */
+async function sendAnswers(lease: Lease): Promise<number> {
+  const sessionId = lease.run.session_id;
+  if (!sessionId || !(await stillHeld(lease))) return 0;
+  const current = await readRun(lease.run.id);
+  if (current.status === "cancelled") {
+    const { data: withdrawn } = await db
+      .from("katana_spend")
+      .update({ decision: "denied", credits: 0, reason: CANCELLED_MESSAGE })
+      .eq("run_id", lease.run.id)
+      .eq("decision", "allowed")
+      .is("sent_at", null)
+      .select("id");
+    if (withdrawn?.length) await db.rpc("katana_recount_credits", { p_run_id: lease.run.id });
+  }
   const { data: unsent } = await db
     .from("katana_spend")
     .select("id,tool_use_id,decision,reason")
-    .eq("run_id", run.id)
+    .eq("run_id", lease.run.id)
     .is("sent_at", null)
     .order("decided_at", { ascending: true })
     .limit(50);
   if (!unsent?.length) return 0;
+  return sendConfirmations(sessionId, unsent);
+}
+
+type Confirmable = { id: string; tool_use_id: string; decision: string; reason: string | null };
+
+async function sendConfirmations(sessionId: string, rows: Confirmable[]): Promise<number> {
   const anthropic = anthropicClient();
-  const confirmation = (row: (typeof unsent)[number]) =>
+  const confirmation = (row: Confirmable) =>
     row.decision === "allowed"
       ? {
           type: "user.tool_confirmation" as const,
@@ -1061,16 +1386,17 @@ async function sendAnswers(run: RunRow): Promise<number> {
   const markSent = (ids: string[]) =>
     db.from("katana_spend").update({ sent_at: nowIso() }).in("id", ids);
   try {
-    await anthropic.beta.sessions.events.send(run.session_id, { events: unsent.map(confirmation) });
-    await markSent(unsent.map((row) => row.id));
-    return unsent.length;
+    await anthropic.beta.sessions.events.send(sessionId, { events: rows.map(confirmation) });
+    await markSent(rows.map((row) => row.id));
+    return rows.length;
   } catch (error) {
     if (!isApiStatus(error, 400, 409)) throw error;
     // One of them was already answered (or the session moved on): send them one by one.
+    // One that still waits is answered again when the session is next asked where it stands.
     let sent = 0;
-    for (const row of unsent) {
+    for (const row of rows) {
       try {
-        await anthropic.beta.sessions.events.send(run.session_id, { events: [confirmation(row)] });
+        await anthropic.beta.sessions.events.send(sessionId, { events: [confirmation(row)] });
         sent += 1;
       } catch (single) {
         if (!isApiStatus(single, 400, 409)) throw single;
@@ -1081,42 +1407,48 @@ async function sendAnswers(run: RunRow): Promise<number> {
   }
 }
 
-/** Records the jobs each allowed call made, and frees what Higgsfield turned away unmade. */
-async function recordJobs(
-  run: RunRow,
-  results: ReturnType<typeof interpretEvents>["toolResults"],
-): Promise<number> {
-  let released = 0;
+/**
+ * Reads each allowed call's result once: records the jobs it made, and frees
+ * the credits of jobs Higgsfield said it didn't make (a concurrency refusal, an
+ * unlimited-generations question, a preset suggestion). Any other failure may
+ * still have made a job, so its credits stay committed.
+ */
+async function recordJobs(run: RunRow, results: EventEffects["toolResults"]): Promise<void> {
   for (const result of results) {
     const tool = result.tool ?? "";
     if (!tool.startsWith("generate_") && tool !== "remove_background") continue;
     const { data: spend } = await db
       .from("katana_spend")
-      .select("id,decision,credits,items,job_ids")
+      .select("id,decision,credits,items,result_at")
       .eq("run_id", run.id)
       .eq("tool_use_id", result.toolUseId)
       .maybeSingle();
-    if (!spend || spend.decision !== "allowed" || Number(spend.credits) <= 0) continue;
+    if (!spend || spend.decision !== "allowed" || spend.result_at || Number(spend.credits) <= 0)
+      continue;
+    const items = (Array.isArray(spend.items) ? spend.items : []) as unknown as PricedItem[];
     const jobs = submittedJobIds(result.payload);
-    const values: Database["public"]["Tables"]["katana_spend"]["Update"] = {};
-    if (jobs.length) values.job_ids = jobs;
-    // Higgsfield said no job was made (a concurrency limit, a rejected request): nothing is charged
-    // for it. An unclear answer (a timeout) may still have made one, so its credits stay counted.
-    const unclear = /time[sd]?\s*out|timeout|unknown|uncertain|network|connection/i.test(
-      result.text,
+    const unmade = new Set(
+      unmadeIndexes(
+        result.payload,
+        result.text,
+        items.map((item) => item.index),
+      ),
     );
-    const refusedUnmade =
-      jobs.length === 0 &&
-      !unclear &&
-      (result.isError || /rate limit reached|created no job/i.test(result.text));
-    if (refusedUnmade) {
-      released += Number(spend.credits);
-      values.credits = 0;
-      values.reason = "Higgsfield didn't make it, so nothing was charged.";
-    }
-    if (Object.keys(values).length) await db.from("katana_spend").update(values).eq("id", spend.id);
+    const freed = items
+      .filter((item) => unmade.has(item.index))
+      .reduce((sum, item) => sum + (item.credits ?? 0), 0);
+    if (jobs.length) await db.from("katana_spend").update({ job_ids: jobs }).eq("id", spend.id);
+    const { error } = await db.rpc("katana_release_credits", {
+      p_run_id: run.id,
+      p_tool_use_id: result.toolUseId,
+      p_credits: Math.round(freed * 1000) / 1000,
+      p_reason:
+        freed > 0
+          ? `Higgsfield made no job for ${unmade.size === items.length ? "it" : `${unmade.size} of its requests`}, so ${formatCredits(freed)} credits were freed.`
+          : null,
+    });
+    if (error) throw new AppError("STORAGE_FAILED", error.message);
   }
-  return released;
 }
 
 async function resultKey(candidate: {
@@ -1132,6 +1464,126 @@ async function resultKey(candidate: {
     .join("")}`;
 }
 
+/** The run's state that follows from where its session stands. */
+function stateUpdate(
+  run: RunRow,
+  state: SessionState,
+  options: { answered: number; hasResult: boolean; noResult: string | null },
+): RunUpdate {
+  const values: RunUpdate = {};
+  if (state.kind === "running") {
+    values.status = "running";
+    values.status_detail = null;
+  } else if (state.kind === "idle") {
+    if (state.stop === "requires_action") {
+      values.status = options.answered > 0 ? "running" : "waiting";
+    } else if (state.stop === "end_turn") {
+      const delivered = options.hasResult && !options.noResult;
+      values.status = delivered ? "delivered" : "idle";
+      values.status_detail = options.noResult ? options.noResult.slice(0, 1000) : null;
+      if (delivered) values.finished_at = nowIso();
+    } else if (state.stop === "budget_reached") {
+      values.status = "paused";
+      values.status_detail = "The run's Claude budget is used up. Raise it to let Katana carry on.";
+    } else {
+      values.status = "failed";
+      values.status_detail = null;
+      values.error = (
+        state.stop === "refusal"
+          ? `Claude declined to continue${state.refusal ? `: ${state.refusal}` : ""}`
+          : "Katana stopped after repeated errors."
+      ).slice(0, 2000);
+      values.finished_at = nowIso();
+    }
+  } else {
+    values.status = options.hasResult ? "delivered" : "failed";
+    if (!options.hasResult) values.error = "The session ended without a finished video.";
+    values.finished_at = nowIso();
+  }
+  if (run.status === values.status && values.status !== "delivered") delete values.finished_at;
+  return values;
+}
+
+/**
+ * A run whose events stopped coming: the session itself is asked where it
+ * stands (every few minutes at most). A call it still waits on is answered
+ * again, or decided when it was never read.
+ */
+async function checkState(lease: Lease, context: GuardContext): Promise<SessionState | null> {
+  const { run } = lease;
+  const sessionId = run.session_id;
+  if (!sessionId || !["running", "waiting"].includes(run.status)) return null;
+  const lastActivity = Date.parse(run.last_event_at ?? run.started_at ?? run.created_at);
+  if (Date.now() - lastActivity < QUIET_MS) return null;
+  if (
+    run.state_checked_at &&
+    Date.now() - Date.parse(run.state_checked_at) < STATE_CHECK_EVERY_MS
+  ) {
+    return null;
+  }
+  await updateRun(run.id, { state_checked_at: nowIso() });
+  const anthropic = anthropicClient();
+  const session = await anthropic.beta.sessions.retrieve(sessionId);
+  if (session.status === "terminated") return { kind: "terminated" };
+  if (session.status !== "idle") return null;
+  const latest = await anthropic.beta.sessions.events.list(sessionId, {
+    order: "desc",
+    limit: 1,
+    types: ["session.status_idle"],
+  });
+  const idle = latest.data[0] as unknown as SessionEventLike | undefined;
+  if (!idle) return null;
+  const effects = interpretEvents([idle], () => null);
+  const state = effects.state;
+  if (state?.kind !== "idle" || state.stop !== "requires_action") return state;
+
+  // Still waiting on calls: answer the decided ones again, decide the ones never read.
+  const { data: decided } = await db
+    .from("katana_spend")
+    .select("id,tool_use_id,decision,reason")
+    .eq("run_id", run.id)
+    .in("tool_use_id", state.eventIds.length ? state.eventIds : ["-"]);
+  const known = new Set((decided ?? []).map((row) => row.tool_use_id));
+  const missing = state.eventIds.filter((id) => !known.has(id));
+  if (missing.length) {
+    const recent = await anthropic.beta.sessions.events.list(sessionId, {
+      order: "desc",
+      limit: 100,
+      types: ["agent.mcp_tool_use"],
+    });
+    const asks = interpretEvents(
+      (recent.data as unknown as SessionEventLike[]).filter((event) => missing.includes(event.id)),
+      () => null,
+    ).asks;
+    await guardAsks(context, asks);
+  }
+  if (await stillHeld(lease)) {
+    const { data: waiting } = await db
+      .from("katana_spend")
+      .select("id,tool_use_id,decision,reason")
+      .eq("run_id", run.id)
+      .in("tool_use_id", state.eventIds.length ? state.eventIds : ["-"]);
+    if (waiting?.length) await sendConfirmations(sessionId, waiting);
+  }
+  return null;
+}
+
+/** Writes where a reader got to, and the run's new state unless it was cancelled meanwhile. */
+async function finishPass(lease: Lease, progress: RunUpdate, outcome: RunUpdate): Promise<void> {
+  if (Object.keys(outcome).length) {
+    const { data, error } = await db
+      .from("katana_runs")
+      .update({ ...progress, ...outcome, sync_lease_until: null, sync_lease_owner: null })
+      .eq("id", lease.run.id)
+      .eq("sync_lease_owner", lease.token)
+      .neq("status", "cancelled")
+      .select("id");
+    if (error) throw new AppError("STORAGE_FAILED", error.message);
+    if (data?.length) return;
+  }
+  await releaseRun(lease, progress);
+}
+
 /**
  * Reads what happened in a run's session since the last reader, answers the
  * paid calls waiting on the guard and saves anything it delivered. Safe to
@@ -1142,6 +1594,7 @@ export async function syncKatanaRun(
   options: { force?: boolean } = {},
 ): Promise<void> {
   const current = await readRun(runId);
+  if (current.cancel_requested) await followCancel(current).catch(() => undefined);
   if (
     current.status === "preparing" ||
     current.status === "starting" ||
@@ -1161,38 +1614,47 @@ export async function syncKatanaRun(
     await savePendingResults(runId);
     return;
   }
-  const run = await claimRun(runId, 90_000);
-  if (!run || !run.session_id) return;
-  const settings = await katanaSettings();
-  const context: GuardContext = {
-    run,
-    settings,
-    reserved: Number(run.credits_reserved),
-    mcp: null,
-  };
-  let released = false;
+  const lease = await claimRun(runId);
+  if (!lease || !lease.run.session_id) return;
+  const { run } = lease;
+  const sessionId = lease.run.session_id;
+  const context: GuardContext = { run, settings: await katanaSettings(), mcp: null };
+  let finished = false;
   try {
-    const read = await readNewEvents(run.session_id, run);
+    let read: ReadEvents;
+    try {
+      read = await readNewEvents(sessionId, run);
+    } catch (error) {
+      if (!isApiStatus(error, 404)) throw error;
+      // The session is gone (deleted, or the key now belongs elsewhere): nothing more will come.
+      await finishPass(
+        lease,
+        { synced_at: nowIso() },
+        {
+          status: "failed",
+          error: "The run's session no longer exists at Anthropic.",
+          finished_at: nowIso(),
+        },
+      );
+      finished = true;
+      return;
+    }
     const earlier = await earlierCalls(run.id, read.events);
     const effects = interpretEvents(read.events, (id) => earlier.get(id) ?? null);
     await addFeed(run.id, effects.feed);
-
-    const freed = await recordJobs(run, effects.toolResults);
-    if (freed > 0) context.reserved = Math.max(0, context.reserved - freed);
+    await recordJobs(run, effects.toolResults);
     await guardAsks(context, effects.asks);
-    const answered = await sendAnswers(run);
+    const answered = await sendAnswers(lease);
 
     for (const candidate of effects.results) {
       const key = await resultKey(candidate);
       if (!key) continue;
-      await db.from("katana_results").upsert(
-        {
-          run_id: run.id,
-          media_id: key,
-          url: candidate.url ?? effects.knownMedia[candidate.mediaId ?? ""] ?? null,
-        },
-        { onConflict: "run_id,media_id", ignoreDuplicates: true },
-      );
+      await db
+        .from("katana_results")
+        .upsert(
+          { run_id: run.id, media_id: key, url: candidate.url },
+          { onConflict: "run_id,media_id", ignoreDuplicates: true },
+        );
       if (candidate.url) {
         await db
           .from("katana_results")
@@ -1203,79 +1665,43 @@ export async function syncKatanaRun(
       }
     }
 
-    const values: RunUpdate = {
+    const progress: RunUpdate = {
       last_event_at: read.lastEventAt,
       boundary_event_ids: read.boundary,
       synced_at: nowIso(),
-      credits_reserved: Math.round(context.reserved * 1000) / 1000,
     };
     if (Object.keys(effects.knownMedia).length) {
       const known = isObject(run.known_media) ? run.known_media : {};
-      const merged = Object.fromEntries(
+      progress.known_media = Object.fromEntries(
         Object.entries({ ...known, ...effects.knownMedia }).slice(-200),
-      );
-      values.known_media = merged as Json;
+      ) as Json;
     }
-    if (effects.resumeLine) values.resume_line = effects.resumeLine;
-    if (effects.summary) values.summary = effects.summary.slice(0, 8000);
-    if (effects.claudeCostCents !== null) values.claude_cost_cents = effects.claudeCostCents;
+    if (effects.resumeLine) progress.resume_line = effects.resumeLine.slice(0, 4000);
+    if (effects.summary) progress.summary = effects.summary.slice(0, 8000);
+    if (effects.claudeCostCents !== null) progress.claude_cost_cents = effects.claudeCostCents;
 
     const { count: resultCount } = await db
       .from("katana_results")
       .select("id", { count: "exact", head: true })
       .eq("run_id", run.id);
     const hasResult = (resultCount ?? 0) > 0;
-    const state = effects.state;
-    if (!state && answered > 0 && run.status === "waiting") values.status = "running";
+    const state = effects.state ?? (read.events.length ? null : await checkState(lease, context));
+    let outcome: RunUpdate = {};
     if (state && run.status !== "cancelled") {
-      if (state.kind === "running") {
-        values.status = "running";
-        values.status_detail = null;
-      } else if (state.kind === "idle") {
-        if (state.stop === "requires_action") {
-          values.status = answered > 0 ? "running" : "waiting";
-        } else if (state.stop === "end_turn") {
-          values.status = effects.noResult ? "idle" : hasResult ? "delivered" : "idle";
-          values.status_detail = effects.noResult;
-          if (hasResult && !effects.noResult) values.finished_at = nowIso();
-        } else if (state.stop === "budget_reached") {
-          values.status = "paused";
-          values.status_detail =
-            "The run's Claude budget is used up. Raise it to let Katana carry on.";
-        } else {
-          values.status = "failed";
-          values.status_detail = null;
-          values.error =
-            state.stop === "refusal"
-              ? `Claude declined to continue${state.refusal ? `: ${state.refusal}` : ""}`
-              : "Katana stopped after repeated errors.";
-          values.finished_at = nowIso();
-        }
-      } else if (state.kind === "terminated" || state.kind === "deleted") {
-        values.status = hasResult ? "delivered" : "failed";
-        if (!hasResult) values.error = "The session ended without a finished video.";
-        values.finished_at = nowIso();
-      }
+      outcome = stateUpdate(run, state, { answered, hasResult, noResult: effects.noResult });
+    } else if (!state && answered > 0 && run.status === "waiting") {
+      outcome = { status: "running" };
     }
     const settling =
-      values.status && ["delivered", "failed"].includes(values.status) && !SETTLED.has(run.status);
-    if (settling || (run.status === "cancelled" && run.balance_end === null && run.finished_at)) {
+      outcome.status &&
+      ["delivered", "failed"].includes(outcome.status) &&
+      !SETTLED.has(run.status);
+    if (settling || (run.status === "cancelled" && run.balance_end === null)) {
       const mcp = await pricingClient(context).catch(() => null);
-      if (mcp) values.balance_end = await accountBalance(mcp);
+      if (mcp) progress.balance_end = await accountBalance(mcp);
     }
-    // Where the reading got to is always kept; the run's state only moves if nobody cancelled
-    // it meanwhile (this pass read the run before a cancel could land).
-    const { status, status_detail, error, finished_at, ...progress } = values;
-    await releaseRun(run.id, progress);
-    released = true;
-    const outcome: RunUpdate = {};
-    if (status !== undefined) outcome.status = status;
-    if (status_detail !== undefined) outcome.status_detail = status_detail;
-    if (error !== undefined) outcome.error = error;
-    if (finished_at !== undefined) outcome.finished_at = finished_at;
-    if (Object.keys(outcome).length) {
-      await db.from("katana_runs").update(outcome).eq("id", run.id).neq("status", "cancelled");
-    }
+    await finishPass(lease, progress, outcome);
+    finished = true;
 
     if (effects.mcpAuthFailed) {
       const renewed = await renewHiggsfieldToken();
@@ -1286,7 +1712,7 @@ export async function syncKatanaRun(
     }
   } finally {
     await context.mcp?.close();
-    if (!released) await releaseRun(run.id);
+    if (!finished) await releaseRun(lease).catch(() => undefined);
   }
   await savePendingResults(runId);
 }
@@ -1313,13 +1739,13 @@ async function savePendingResults(runId: string): Promise<void> {
 async function findMediaUrl(mcp: HiggsfieldMcpClient, mediaId: string): Promise<string | null> {
   let cursor: number | null = null;
   for (let page = 0; page < 4; page += 1) {
-    const answer = await mcp.callTool("show_medias", {
+    const listing = await mcp.callTool("show_medias", {
       type: "video",
       size: 100,
       ...(cursor !== null ? { cursor } : {}),
     });
-    if (answer.isError) return null;
-    const payload = answer.payload;
+    if (listing.isError) return null;
+    const payload = listing.payload;
     const lists = [
       ...findAll(payload, "items"),
       ...findAll(payload, "medias"),
@@ -1340,13 +1766,27 @@ async function findMediaUrl(mcp: HiggsfieldMcpClient, mediaId: string): Promise<
   return null;
 }
 
+/** An address Katana itself named is used only when it is on Higgsfield's own domain. */
+function onHiggsfieldDomain(url: string | null): url is string {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    return (
+      parsed.protocol === "https:" && (host === "higgsfield.ai" || host.endsWith(".higgsfield.ai"))
+    );
+  } catch {
+    return false;
+  }
+}
+
 export async function saveKatanaResult(resultId: string): Promise<void> {
   const now = new Date();
   const { data: claimed } = await db
     .from("katana_results")
     .update({
       status: "saving",
-      claimed_until: new Date(now.getTime() + 5 * 60_000).toISOString(),
+      claimed_until: new Date(now.getTime() + 10 * 60_000).toISOString(),
       error: null,
     })
     .eq("id", resultId)
@@ -1372,16 +1812,20 @@ export async function saveKatanaResult(resultId: string): Promise<void> {
   };
   let mcp: HiggsfieldMcpClient | null = null;
   try {
-    let url = result.url;
-    const known = isObject(run.known_media) ? run.known_media : {};
-    if (!url && typeof known[result.media_id] === "string") url = known[result.media_id] as string;
-    if (!url && isUuid(result.media_id)) {
+    // The file is found through Higgsfield's own answers: the account's media list
+    // (by the confirmed media ID), then its tools' media answers; an address Katana
+    // only wrote down counts only on Higgsfield's own domain.
+    let url: string | null = null;
+    if (isUuid(result.media_id)) {
       mcp = await higgsfieldMcp({ timeoutMs: 30_000 });
       url = await findMediaUrl(mcp, result.media_id);
     }
-    if (!url) return fail("The finished video's file wasn't found on Higgsfield yet.");
+    const known = isObject(run.known_media) ? run.known_media : {};
+    if (!url && typeof known[result.media_id] === "string") url = known[result.media_id] as string;
+    if (!url && onHiggsfieldDomain(result.url)) url = result.url;
+    if (!url) return await fail("The finished video's file wasn't found on Higgsfield yet.");
     if (!isAllowedOutputUrl(url))
-      return fail("The finished video's address isn't one of Higgsfield's.");
+      return await fail("The finished video's address isn't one of Higgsfield's.");
 
     const scope = run.project_id
       ? `projects/${run.project_id}`
@@ -1394,22 +1838,27 @@ export async function saveKatanaResult(resultId: string): Promise<void> {
       .maybeSingle();
     let assetId = existing?.id ?? null;
     if (!assetId) {
-      const response = await fetch(url, { signal: AbortSignal.timeout(240_000) });
-      if (!response.ok)
-        return fail(`Downloading the finished video failed (HTTP ${response.status}).`);
+      const response = await fetchFromHiggsfield(url, 300_000);
+      if (!response.ok || !response.body)
+        return await fail(`Downloading the finished video failed (HTTP ${response.status}).`);
       const declared = Number(response.headers.get("content-length") ?? 0);
       if (declared > RESULT_MAX_BYTES) {
-        await response.body?.cancel().catch(() => undefined);
-        return fail("The finished video is too large to keep in the library.");
+        await response.body.cancel().catch(() => undefined);
+        return await fail("The finished video is too large to keep in the library.");
       }
       const mime = response.headers.get("content-type")?.split(";")[0] || "video/mp4";
-      const buffer = await response.arrayBuffer();
-      if (buffer.byteLength > RESULT_MAX_BYTES)
-        return fail("The finished video is too large to keep in the library.");
+      // Streamed into storage (with its length where the runtime allows), so a large
+      // video never has to fit in memory.
+      const counter = byteCounter(RESULT_MAX_BYTES);
+      const counted = response.body.pipeThrough(counter.stream);
+      let body: ReadableStream<Uint8Array> | ArrayBuffer = withLength(counted, declared) ?? counted;
+      if (!fixedLengthStream() && declared > 0 && declared <= BUFFER_MAX_BYTES) {
+        body = await new Response(counted).arrayBuffer();
+      }
       const upload = await db.storage
         .from("generated-assets")
-        .upload(path, buffer, { contentType: mime, upsert: true });
-      if (upload.error) return fail(`The video couldn't be stored: ${upload.error.message}`);
+        .upload(path, body, { contentType: mime, upsert: true });
+      if (upload.error) return await fail(`The video couldn't be stored: ${upload.error.message}`);
       const { data: asset, error } = await db
         .from("assets")
         .insert({
@@ -1421,7 +1870,7 @@ export async function saveKatanaResult(resultId: string): Promise<void> {
           storage_bucket: "generated-assets",
           storage_path: path,
           mime_type: mime,
-          file_size: buffer.byteLength,
+          file_size: counter.bytes() || declared || null,
           metadata: {
             provider: "higgsfield_katana",
             katana_run_id: run.id,
@@ -1433,7 +1882,7 @@ export async function saveKatanaResult(resultId: string): Promise<void> {
         .select("id")
         .single();
       if (error || !asset)
-        return fail(
+        return await fail(
           `The video couldn't be added to the library: ${error?.message ?? "unknown error"}`,
         );
       assetId = asset.id;
@@ -1477,6 +1926,7 @@ export async function sendKatanaFollowUp(input: {
       "Katana is still working on this run. Wait until it finishes its turn.",
     );
   }
+  const added = await resolveInputs(input.assets);
   const anthropic = anthropicClient();
   const session = await anthropic.beta.sessions.retrieve(run.session_id);
   if (session.status === "terminated") {
@@ -1488,58 +1938,104 @@ export async function sendKatanaFollowUp(input: {
   if (session.status === "running")
     throw new AppError("INVALID_PARAMETERS", "Katana is still working on this run.");
 
-  const added = await resolveInputs(input.assets);
-  if (added.length) {
-    const mcp = await higgsfieldMcp({ timeoutMs: 60_000 });
-    try {
-      for (const entry of added) entry.media_id = await handOver(mcp, entry);
-    } finally {
-      await mcp.close();
-    }
+  // One follow-up at a time, and no reader acts on the run while its files are handed over
+  // and the message sent (a state check could otherwise settle it again first).
+  let lease: Lease | null = null;
+  for (let attempt = 0; attempt < 3 && !lease; attempt += 1) {
+    if (attempt) await new Promise((resolve) => setTimeout(resolve, 1_500));
+    lease = await claimRun(run.id, ["delivered", "idle"], HANDOVER_LEASE_MS);
   }
-  await ensureVaultToken(30 * 60_000);
+  if (!lease) {
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      "Someone just sent this run a follow-up, or the studio is checking on it. Try again in a moment.",
+    );
+  }
+  const held = lease;
+  const sessionId = run.session_id;
+  try {
+    if (added.length) {
+      const mcp = await higgsfieldMcp({ timeoutMs: 60_000 });
+      try {
+        for (const entry of added) entry.media_id = await handOver(mcp, entry);
+      } finally {
+        await mcp.close();
+      }
+    }
+    await ensureVaultToken(30 * 60_000);
+  } catch (error) {
+    await releaseRun(held).catch(() => undefined);
+    throw error;
+  }
+  // A hand-over that outlasted the hold may have let another follow-up in.
+  if (!(await stillHeld(held))) {
+    throw new AppError(
+      "PROVIDER_TIMEOUT",
+      "Handing the files over took too long, so the message wasn't sent. Send it again.",
+    );
+  }
+  const inputs = [...runInputs(held.run), ...added] as unknown as Json;
+  /** The message is (or may be) on its way: Katana is working, unless the run was cancelled meanwhile. */
+  const markSent = async () => {
+    const { data } = await db
+      .from("katana_runs")
+      .update({
+        status: "running",
+        status_detail: null,
+        finished_at: null,
+        inputs,
+        state_checked_at: nowIso(),
+        sync_lease_until: null,
+        sync_lease_owner: null,
+      })
+      .eq("id", run.id)
+      .in("status", ["delivered", "idle"])
+      .select("id");
+    if (data?.length) return;
+    await releaseRun(held, { inputs }).catch(() => undefined);
+    const current = await readRun(run.id);
+    if (current.status === "cancelled" && !(await interrupt(sessionId)))
+      await updateRun(run.id, { cancel_requested: true });
+  };
   const message = followUpMessage({ text, inputs: mediaInputs(added) });
   try {
     await anthropic.beta.sessions.events.send(
-      run.session_id,
+      sessionId,
       { events: [{ type: "user.message", content: [{ type: "text", text: message }] }] },
       { maxRetries: 0 },
     );
   } catch (error) {
-    if (definitelyRefused(error))
+    if (definitelyRefused(error)) {
+      await releaseRun(held).catch(() => undefined);
       throw new AppError("PROVIDER_REJECTED", `The message wasn't delivered: ${messageOf(error)}`);
+    }
+    // Followed as if it arrived: a session that stays idle is settled again by the state check.
+    await markSent();
     await note(run.id, "user", "Follow-up (delivery unclear)", text);
     throw new AppError(
       "SUBMISSION_UNCERTAIN",
       "The message may not have arrived. Check the run's progress before sending it again.",
     );
   }
-  await updateRun(run.id, {
-    status: "running",
-    status_detail: null,
-    finished_at: null,
-    inputs: [...runInputs(run), ...added] as unknown as Json,
-  });
+  await markSent();
   await note(run.id, "user", "Follow-up", text, { by: input.userId, files: added.length });
 }
 
 export async function cancelKatanaRun(input: { userId: string; runId: string }): Promise<void> {
   const run = await readRun(input.runId);
   if (run.status === "cancelled" || run.status === "failed") return;
+  // A session that may be starting (or start) without the studio knowing it yet is
+  // looked for and stopped by the tick.
+  const unseen = !run.session_id && (run.status === "starting" || run.status === "uncertain");
   await updateRun(run.id, {
     status: "cancelled",
     status_detail:
       "Cancelled from the studio. Jobs Higgsfield had already started still finish there.",
     finished_at: nowIso(),
+    cancel_requested: unseen,
   });
-  if (run.session_id) {
-    try {
-      await anthropicClient().beta.sessions.events.send(run.session_id, {
-        events: [{ type: "user.interrupt" }],
-      });
-    } catch (error) {
-      console.error("katana interrupt failed", { runId: run.id, message: messageOf(error) });
-    }
+  if (run.session_id && !(await interrupt(run.session_id))) {
+    await updateRun(run.id, { cancel_requested: true });
   }
   await note(run.id, "status", "Run cancelled", "", { by: input.userId });
   // Answers any call still waiting (each is turned down now).
@@ -1555,10 +2051,12 @@ export async function updateKatanaLimits(input: {
   const run = await readRun(input.runId);
   const values: RunUpdate = {};
   if (input.creditLimit !== null) {
-    if (input.creditLimit < Number(run.credits_reserved)) {
+    const { data: committed } = await db.rpc("katana_recount_credits", { p_run_id: run.id });
+    const already = Number(committed ?? run.credits_reserved);
+    if (input.creditLimit < already) {
       throw new AppError(
         "INVALID_PARAMETERS",
-        `This run has already committed ${formatCredits(Number(run.credits_reserved))} credits.`,
+        `This run has already committed ${formatCredits(already)} credits.`,
       );
     }
     if (input.creditLimit > settings.maxCreditLimit) {
@@ -1584,6 +2082,7 @@ export async function updateKatanaLimits(input: {
       );
     }
     if (run.session_id) {
+      // A session paused at its budget carries on by itself once the budget is raised.
       await anthropicClient().beta.sessions.update(run.session_id, {
         budget: { type: "limit", max_list_cost: { amount: String(cents), currency: "USD" } },
       });
@@ -1612,14 +2111,15 @@ export async function updateKatanaLimits(input: {
 // ---------- Background work ----------
 
 /**
- * One pass over the runs still going: each is read (and answered) once, and
- * saves still owed are retried. Returns how many runs were looked at.
+ * One pass over the runs still going (and cancelled runs whose session is
+ * still to be stopped): each is read (and answered) once, and saves still
+ * owed are retried. Returns how many runs were looked at.
  */
 export async function sweepKatanaRuns(limit = 20, deadline = Date.now() + 60_000): Promise<number> {
   const { data, error } = await db
     .from("katana_runs")
     .select("id")
-    .in("status", [...ACTIVE_RUN_STATUSES])
+    .or(`status.in.(${ACTIVE_RUN_STATUSES.join(",")}),cancel_requested.eq.true`)
     .order("created_at", { ascending: true })
     .limit(limit);
   if (error) {
@@ -1637,8 +2137,8 @@ export async function sweepKatanaRuns(limit = 20, deadline = Date.now() + 60_000
   const { data: owed } = await db
     .from("katana_results")
     .select("run_id")
-    .in("status", ["pending", "failed"])
     .lt("attempts", MAX_RESULT_ATTEMPTS)
+    .or(`status.in.(pending,failed),and(status.eq.saving,claimed_until.lt.${nowIso()})`)
     .limit(10);
   for (const runId of new Set((owed ?? []).map((row) => row.run_id))) {
     if (Date.now() > deadline) break;
@@ -1682,7 +2182,7 @@ export async function syncRunForSession(sessionId: string): Promise<boolean> {
     .eq("session_id", sessionId)
     .maybeSingle();
   if (!data) return false;
-  await syncKatanaRun(data.id);
+  await syncKatanaRun(data.id, { force: true });
   return true;
 }
 
@@ -1705,18 +2205,18 @@ export async function listKatanaPresets(input: {
 }> {
   const mcp = await higgsfieldMcp({ timeoutMs: 30_000 });
   try {
-    const answer = await mcp.callTool("get_presets", {
+    const listing = await mcp.callTool("get_presets", {
       source: "katana",
       limit: 20,
       ...(input.cursor ? { cursor: input.cursor } : {}),
       ...(input.category ? { category: input.category } : {}),
     });
-    if (answer.isError)
+    if (listing.isError)
       throw new AppError(
         "PROVIDER_REJECTED",
-        `Higgsfield didn't list its presets: ${answer.text.slice(0, 200)}`,
+        `Higgsfield didn't list its presets: ${listing.text.slice(0, 200)}`,
       );
-    const items = findAll(answer.payload, "items").find(Array.isArray) ?? [];
+    const items = findAll(listing.payload, "items").find(Array.isArray) ?? [];
     const presets: KatanaPreset[] = [];
     for (const item of items as unknown[]) {
       if (!isObject(item)) continue;
@@ -1730,7 +2230,7 @@ export async function listKatanaPresets(input: {
         previewUrl: typeof item["preview_url"] === "string" ? item["preview_url"] : null,
       });
     }
-    const next = findAll(answer.payload, "next_cursor").find(
+    const next = findAll(listing.payload, "next_cursor").find(
       (value) => typeof value === "string" && value,
     );
     return { presets, nextCursor: typeof next === "string" ? next : null };
@@ -1750,16 +2250,18 @@ export async function katanaPresetDetails(slug: string): Promise<{
     throw new AppError("INVALID_PARAMETERS", "That isn't a Katana preset");
   const mcp = await higgsfieldMcp({ timeoutMs: 30_000 });
   try {
-    const answer = await mcp.callTool("get_preset_instructions", { preset: `/katana/${slug}` });
-    if (answer.isError)
+    const instructions = await mcp.callTool("get_preset_instructions", {
+      preset: `/katana/${slug}`,
+    });
+    if (instructions.isError)
       throw new AppError(
         "PROVIDER_REJECTED",
-        `Higgsfield didn't open that preset: ${answer.text.slice(0, 200)}`,
+        `Higgsfield didn't open that preset: ${instructions.text.slice(0, 200)}`,
       );
     const markdown =
-      (findAll(answer.payload, "instructions_markdown").find(
+      (findAll(instructions.payload, "instructions_markdown").find(
         (value) => typeof value === "string",
-      ) as string | undefined) ?? answer.text;
+      ) as string | undefined) ?? instructions.text;
     const title =
       markdown.match(/^#\s*Katana preset:\s*(.+?)\s*\(\/katana\//m)?.[1]?.trim() ?? slug;
     const referenceUrl =
@@ -1777,20 +2279,20 @@ export async function testHiggsfieldConnection(): Promise<{
 }> {
   const mcp = await higgsfieldMcp({ timeoutMs: 20_000 });
   try {
-    const answer = await mcp.callTool("balance", {});
-    if (answer.isError)
+    const balance = await mcp.callTool("balance", {});
+    if (balance.isError)
       throw new AppError(
         "PROVIDER_REJECTED",
-        answer.text.slice(0, 300) || "Higgsfield didn't answer",
+        balance.text.slice(0, 300) || "Higgsfield didn't answer",
       );
     const plan =
-      findAll(answer.payload, "subscription_plan_type").find(
+      findAll(balance.payload, "subscription_plan_type").find(
         (value) => typeof value === "string",
       ) ??
-      findAll(answer.payload, "plan").find((value) => typeof value === "string") ??
+      findAll(balance.payload, "plan").find((value) => typeof value === "string") ??
       null;
     return {
-      credits: balanceCredits(answer.payload),
+      credits: balanceCredits(balance.payload),
       plan: typeof plan === "string" ? plan : null,
     };
   } finally {

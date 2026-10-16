@@ -10,6 +10,7 @@ import {
   readParams,
   requestCount,
   submittedJobIds,
+  unmadeIndexes,
 } from "../../src/lib/katana/guard";
 
 const JOB_A = "11111111-1111-4111-8111-111111111111";
@@ -69,7 +70,17 @@ describe("classifyGuardedCall", () => {
       kind: "estimate",
       tool: "remove_background",
       jobs: 1,
+      mediaType: "video",
     });
+    expect(
+      classifyGuardedCall("remove_background", {
+        params: { media_id: JOB_A, media_type: "image" },
+      }),
+    ).toMatchObject({ kind: "estimate", mediaType: "image" });
+    // An unknown kind is counted as the dearer one.
+    expect(classifyGuardedCall("remove_background", { params: { media_id: JOB_A } })).toMatchObject(
+      { kind: "estimate", mediaType: "video" },
+    );
     expect(
       classifyGuardedCall("get_katana_config", {
         preset: "/katana/power-suit",
@@ -216,5 +227,59 @@ describe("submittedJobIds", () => {
         jobs: [{ index: 2, error: "Rate limit reached: max 6 concurrent job(s)" }],
       }),
     ).toEqual([]);
+  });
+});
+
+describe("unmadeIndexes", () => {
+  const RATE_LIMITED = "Rate limit reached: max 1 concurrent job(s)";
+
+  test("a call Higgsfield turned away at its concurrency limit made no job", () => {
+    expect(unmadeIndexes({ text: RATE_LIMITED }, RATE_LIMITED, [0])).toEqual([0]);
+    expect(
+      unmadeIndexes({ error: RATE_LIMITED }, JSON.stringify({ error: RATE_LIMITED }), [0, 1]),
+    ).toEqual([0, 1]);
+  });
+
+  test("a preset suggestion or an unlimited-generations question made no job", () => {
+    const notice = {
+      notice: {
+        type: "preset_recommendation",
+        data: { retry_literal_with: { declined_preset_id: JOB_B } },
+      },
+    };
+    expect(unmadeIndexes(notice, JSON.stringify(notice), [0])).toEqual([0]);
+    const unlim = { unlim_choice: { question: "Use unlimited?" } };
+    expect(unmadeIndexes(unlim, JSON.stringify(unlim), [0])).toEqual([0]);
+  });
+
+  test("an error that isn't a known refusal stays counted", () => {
+    const text = "Upstream timed out after 60s";
+    expect(unmadeIndexes({ text }, text, [0])).toEqual([]);
+    expect(unmadeIndexes(null, "", [0])).toEqual([]);
+  });
+
+  test("a call that made a job stays counted, whatever it says", () => {
+    const payload = { results: [{ id: JOB_A }], message: RATE_LIMITED };
+    expect(unmadeIndexes(payload, JSON.stringify(payload), [0])).toEqual([]);
+  });
+
+  test("a batch is read item by item", () => {
+    const payload = {
+      jobs: [
+        { index: 0, job_id: JOB_A, status: "queued" },
+        { index: 1, error: RATE_LIMITED },
+        { index: 2, error: "internal error" },
+        { index: 3, status: "submission_failed", preset_recommendation: { preset_id: JOB_B } },
+      ],
+    };
+    expect(unmadeIndexes(payload, JSON.stringify(payload), [0, 1, 2, 3])).toEqual([1, 3]);
+  });
+
+  test("a batch item listed as both made and refused stays counted", () => {
+    const payload = {
+      jobs: [{ index: 0, job_id: JOB_A }],
+      results: [{ index: 0, error: RATE_LIMITED }],
+    };
+    expect(unmadeIndexes(payload, JSON.stringify(payload), [0, 1])).toEqual([]);
   });
 });

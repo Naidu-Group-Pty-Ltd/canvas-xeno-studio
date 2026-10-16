@@ -8,6 +8,7 @@ import {
   decodeJwtClaims,
   pkceChallenge,
   readTokenResponse,
+  signInEnded,
 } from "../../src/lib/katana/oauth";
 import {
   KATANA_FREE_TOOLS,
@@ -93,6 +94,18 @@ describe("oauth", () => {
       idToken: null,
     });
     expect(readTokenResponse({ error: "invalid_grant" })).toBeNull();
+  });
+
+  test("only a dead grant or client ends the sign-in", () => {
+    expect(signInEnded({ error: "invalid_grant" })).toBe(true);
+    expect(signInEnded({ error: "invalid_client", error_description: "x" })).toBe(true);
+    expect(signInEnded({ error: "unauthorized_client" })).toBe(true);
+    // A malformed request, a rate limit or a server fault may pass: the connection is kept.
+    expect(signInEnded({ error: "invalid_request" })).toBe(false);
+    expect(signInEnded({ error: "invalid_target" })).toBe(false);
+    expect(signInEnded({ error: "temporarily_unavailable" })).toBe(false);
+    expect(signInEnded({ message: "Too many requests" })).toBe(false);
+    expect(signInEnded(null)).toBe(false);
   });
 
   test("the account is read from the ID token", () => {

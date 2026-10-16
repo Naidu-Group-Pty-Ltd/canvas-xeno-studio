@@ -228,6 +228,20 @@ export function describeToolUse(name: string, input: unknown): { title: string; 
   }
 }
 
+/** Higgsfield tools whose answers name media files (and whose URLs the studio may trust). */
+export const MEDIA_TOOLS = new Set([
+  "media_upload",
+  "media_confirm",
+  "media_import_url",
+  "show_medias",
+  "show_result",
+  "show_katana_result",
+  "register_katana_result",
+  "jobs_wait",
+  "show_generations",
+  "show_generation_by_ids",
+]);
+
 /** A generation call that only asks for its price. */
 export function isQuote(name: string, input: unknown): boolean {
   if (name !== "generate_image" && name !== "generate_video" && name !== "generate_audio")
@@ -315,7 +329,10 @@ export function interpretEvents(
         if (result?.delivered)
           effects.results.push({ mediaId: result.mediaId, url: result.url, via: "message" });
         else if (result && !result.delivered)
-          effects.noResult = result.reason ?? "Katana stopped without a finished video.";
+          effects.noResult = (result.reason ?? "Katana stopped without a finished video.").slice(
+            0,
+            1000,
+          );
         const visible = visibleText(text);
         if (visible) {
           effects.summary = visible;
@@ -337,7 +354,6 @@ export function interpretEvents(
         const permission = str(event["evaluated_permission"]);
         if (permission === "ask") effects.asks.push({ id: event.id, name, input, permission });
         const delivered = deliveredBy(name, input);
-        if (delivered) effects.results.push(delivered);
         const { title, body } = describeToolUse(name, input);
         effects.feed.push({
           sourceId: event.id,
@@ -347,6 +363,8 @@ export function interpretEvents(
           data: {
             tool: name,
             ...(isQuote(name, input) ? { quote: true } : {}),
+            // A delivery counts once its call succeeds; kept so a later pass can match its result.
+            ...(delivered ? { delivery: { media_id: delivered.mediaId, url: delivered.url } } : {}),
             ...(permission === "deny" ? { refused: true } : {}),
           },
           occurredAt: at,
@@ -368,7 +386,13 @@ export function interpretEvents(
           text,
           isError,
         });
-        Object.assign(effects.knownMedia, mediaUrls(payload));
+        // File addresses are taken only from Higgsfield's own media answers, never from
+        // sandbox output (which can print anything).
+        if (use && MEDIA_TOOLS.has(use.name)) Object.assign(effects.knownMedia, mediaUrls(payload));
+        if (!isError && use) {
+          const delivered = deliveredBy(use.name, use.input);
+          if (delivered) effects.results.push(delivered);
+        }
         if (isError) {
           effects.feed.push({
             sourceId: event.id,

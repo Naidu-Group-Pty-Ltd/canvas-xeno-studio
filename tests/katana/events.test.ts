@@ -131,18 +131,25 @@ describe("interpretEvents", () => {
           processed_at: at(1),
         },
         {
+          id: "r1",
+          type: "agent.mcp_tool_result",
+          mcp_tool_use_id: "u1",
+          content: text('{"ok":true}'),
+          processed_at: at(2),
+        },
+        {
           id: "m1",
           type: "agent.message",
           content: text(
             `Delivered the remix.\nRESUME katana slug=s state=https://x/s.tgz stage=delivered jobs=\nXENO_RESULT media_id=${MEDIA} url=https://d8j0ntlcm91z4.cloudfront.net/final.mp4`,
           ),
-          processed_at: at(2),
+          processed_at: at(3),
         },
         {
           id: "i1",
           type: "session.status_idle",
           stop_reason: { type: "end_turn" },
-          processed_at: at(3),
+          processed_at: at(4),
         },
       ],
       none,
@@ -158,6 +165,88 @@ describe("interpretEvents", () => {
       "Delivered the remix.\nRESUME katana slug=s state=https://x/s.tgz stage=delivered jobs=",
     );
     expect(effects.state).toMatchObject({ kind: "idle", stop: "end_turn" });
+    expect(effects.feed.find((entry) => entry.sourceId === "u1")?.data).toMatchObject({
+      delivery: { media_id: MEDIA, url: null },
+    });
+  });
+
+  test("a delivery counts only once its call succeeds", () => {
+    const use: SessionEventLike = {
+      id: "u1",
+      type: "agent.mcp_tool_use",
+      name: "show_result",
+      input: { action: "katana_video", media_id: MEDIA },
+      evaluated_permission: "allow",
+      processed_at: at(1),
+    };
+    expect(interpretEvents([use], none).results).toEqual([]);
+    const failed = interpretEvents(
+      [
+        use,
+        {
+          id: "r1",
+          type: "agent.mcp_tool_result",
+          mcp_tool_use_id: "u1",
+          content: text("media not found"),
+          is_error: true,
+          processed_at: at(2),
+        },
+      ],
+      none,
+    );
+    expect(failed.results).toEqual([]);
+    // A result read in a later pass is matched to the call from an earlier one.
+    const later = interpretEvents(
+      [
+        {
+          id: "r1",
+          type: "agent.mcp_tool_result",
+          mcp_tool_use_id: "u1",
+          content: text('{"ok":true}'),
+          processed_at: at(2),
+        },
+      ],
+      (id) => (id === "u1" ? { name: "show_result", input: use.input } : null),
+    );
+    expect(later.results).toEqual([{ mediaId: MEDIA, url: null, via: "show_result" }]);
+  });
+
+  test("file addresses are read only from Higgsfield's media answers", () => {
+    const answer = text(
+      JSON.stringify({ media_id: MEDIA, url: "https://attacker.example/final.mp4" }),
+    );
+    const sandbox = interpretEvents(
+      [
+        {
+          id: "r1",
+          type: "agent.mcp_tool_result",
+          mcp_tool_use_id: "u1",
+          content: answer,
+          processed_at: at(1),
+        },
+      ],
+      () => ({ name: "sandbox_exec", input: { command: "cat result.json" } }),
+    );
+    expect(sandbox.knownMedia).toEqual({});
+    const medias = interpretEvents(
+      [
+        {
+          id: "r1",
+          type: "agent.mcp_tool_result",
+          mcp_tool_use_id: "u1",
+          content: text(
+            JSON.stringify({
+              medias: [{ id: MEDIA, url: "https://d8j0ntlcm91z4.cloudfront.net/final.mp4" }],
+            }),
+          ),
+          processed_at: at(1),
+        },
+      ],
+      () => ({ name: "show_medias", input: { media_ids: [MEDIA] } }),
+    );
+    expect(medias.knownMedia).toEqual({
+      [MEDIA]: "https://d8j0ntlcm91z4.cloudfront.net/final.mp4",
+    });
   });
 
   test("a stop without a video says why", () => {
@@ -173,6 +262,18 @@ describe("interpretEvents", () => {
       none,
     );
     expect(effects.noResult).toBe("the credit limit ran out");
+    const long = interpretEvents(
+      [
+        {
+          id: "m2",
+          type: "agent.message",
+          content: text(`XENO_RESULT none reason=${"x".repeat(5000)}`),
+          processed_at: at(2),
+        },
+      ],
+      none,
+    );
+    expect(long.noResult?.length).toBeLessThanOrEqual(1000);
     expect(effects.feed).toEqual([]);
   });
 

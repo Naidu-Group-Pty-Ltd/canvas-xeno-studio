@@ -19,7 +19,7 @@ export type GuardCall =
   /** Jobs to submit: one for a single call, up to twelve for a batch. */
   | { kind: "submit"; tool: string; quoteTool: GenerationTool; items: GuardItem[] }
   /** A paid call Higgsfield can't quote: priced at the studio's set estimate. */
-  | { kind: "estimate"; tool: string; jobs: number }
+  | { kind: "estimate"; tool: string; jobs: number; mediaType: "image" | "video" }
   /** Starts a preset's run session (billed when free_generation is true). */
   | { kind: "preset_session"; tool: string; free: boolean; preset: string | null }
   | { kind: "invalid"; tool: string; reason: string };
@@ -88,7 +88,12 @@ export function classifyGuardedCall(tool: string, input: unknown): GuardCall {
     }
     return { kind: "submit", tool, quoteTool: batch, items };
   }
-  if (tool === "remove_background") return { kind: "estimate", tool, jobs: 1 };
+  if (tool === "remove_background") {
+    const params = readParams(args["params"]);
+    // A video's matte can cost more than an image's, so an unknown kind counts as a video.
+    const mediaType = params?.["media_type"] === "image" ? "image" : "video";
+    return { kind: "estimate", tool, jobs: 1, mediaType };
+  }
   if (tool === "get_katana_config") {
     return {
       kind: "preset_session",
@@ -249,4 +254,54 @@ export function submittedJobIds(payload: unknown): string[] {
     if (typeof value === "string" && uuid.test(value)) ids.add(value);
   }
   return [...ids];
+}
+
+/** Higgsfield's words for a request it turned away before making any job. */
+const NOT_MADE = /rate limit reached|created no job|no job was created/i;
+
+/**
+ * The answers Higgsfield gives instead of making a job: a preset suggestion
+ * (`notice.type: "preset_recommendation"`, or that key on a batch item) and
+ * an unlimited-generations question (`unlim_choice`).
+ */
+const NO_JOB_SHAPES = ["preset_recommendation", "unlim_choice"];
+
+function refusedWithoutJob(value: unknown, text: string): boolean {
+  if (submittedJobIds(value).length) return false;
+  if (NOT_MADE.test(text)) return true;
+  const types = findAll(value, "type");
+  return NO_JOB_SHAPES.some((shape) => findAll(value, shape).length > 0 || types.includes(shape));
+}
+
+/**
+ * Which of a submit's requests Higgsfield says it made no job for. A batch is
+ * read item by item when its answer lists them; otherwise the whole call
+ * counts (a concurrency refusal, a preset suggestion or an unlimited-
+ * generations question, with no job). Anything else, an error included, may
+ * still have made a job (Higgsfield warns that a transport failure can hide a
+ * submitted one), so it stays counted.
+ */
+export function unmadeIndexes(payload: unknown, text: string, indexes: number[]): number[] {
+  if (indexes.length > 1) {
+    const entries: JsonObject[] = [];
+    for (const list of [...findAll(payload, "jobs"), ...findAll(payload, "results")]) {
+      if (!Array.isArray(list)) continue;
+      for (const entry of list)
+        if (isObject(entry) && typeof entry["index"] === "number") entries.push(entry);
+    }
+    if (entries.length) {
+      const refused = new Set(
+        entries
+          .filter((entry) => refusedWithoutJob(entry, JSON.stringify(entry)))
+          .map((entry) => entry["index"] as number),
+      );
+      const made = new Set(
+        entries
+          .filter((entry) => submittedJobIds(entry).length > 0)
+          .map((entry) => entry["index"] as number),
+      );
+      return indexes.filter((index) => refused.has(index) && !made.has(index));
+    }
+  }
+  return refusedWithoutJob(payload, text) ? [...indexes] : [];
 }

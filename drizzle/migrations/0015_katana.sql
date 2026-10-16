@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS public.higgsfield_connections (
   token_auth_method text NOT NULL DEFAULT 'none'
     CHECK (token_auth_method IN ('none', 'client_secret_basic', 'client_secret_post')),
   scope text,
+  -- The resource the tokens were issued for (sent again when renewing them).
+  resource text,
   access_token text,
   refresh_token text,
   -- Null when Higgsfield gave no lifetime.
@@ -138,8 +140,16 @@ CREATE TABLE IF NOT EXISTS public.katana_runs (
   last_event_at timestamptz,
   boundary_event_ids text[] NOT NULL DEFAULT '{}',
   -- Held while one request reads the session, so a page, the tick and a
-  -- webhook never answer the same call twice.
+  -- webhook never answer the same call twice. The owner token makes sure a
+  -- reader only ever releases (or writes under) its own hold.
   sync_lease_until timestamptz,
+  sync_lease_owner text CHECK (char_length(sync_lease_owner) <= 64),
+  -- Cancelled before its session was known, or its stop didn't go through:
+  -- the session is still to be found and stopped.
+  cancel_requested boolean NOT NULL DEFAULT false,
+  -- When the session itself was last asked where it stands (a run whose
+  -- events stopped coming).
+  state_checked_at timestamptz,
   synced_at timestamptz,
   -- Katana's own resume line (its saved state), for a revision in a new session.
   resume_line text CHECK (char_length(resume_line) <= 4000),
@@ -197,6 +207,9 @@ CREATE TABLE IF NOT EXISTS public.katana_spend (
   job_ids text[] NOT NULL DEFAULT '{}',
   -- When the answer reached the session (null: still to send).
   sent_at timestamptz,
+  -- When the call's own result was read (its jobs recorded, any credits for
+  -- jobs Higgsfield didn't make freed), so it is read only once.
+  result_at timestamptz,
   decided_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (run_id, tool_use_id)
 );
@@ -239,6 +252,104 @@ BEGIN
   END LOOP;
 END $$;
 
+-- ---------- The credit guard's ledger ----------
+
+-- Commits one paid call's credits, or turns the call down, in one step: the
+-- run is locked, what its allowed calls have committed is summed from the
+-- spend rows (never taken from a running total), and the call is allowed only
+-- if it fits the run's limit. A call already decided keeps its first answer.
+CREATE OR REPLACE FUNCTION public.katana_reserve_credits(
+  p_run_id uuid,
+  p_tool_use_id text,
+  p_tool_name text,
+  p_credits numeric,
+  p_priced boolean,
+  p_items jsonb
+)
+RETURNS TABLE (o_allowed boolean, o_committed numeric, o_limit numeric, o_existing boolean)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path TO '' AS $function$
+declare
+  v_limit numeric;
+  v_status text;
+  v_committed numeric;
+  v_decision text;
+begin
+  select r.credit_limit, r.status into v_limit, v_status
+    from public.katana_runs r where r.id = p_run_id for update;
+  if not found then raise exception 'katana run % not found', p_run_id; end if;
+  select coalesce(sum(s.credits), 0) into v_committed
+    from public.katana_spend s where s.run_id = p_run_id and s.decision = 'allowed';
+  select s.decision into v_decision
+    from public.katana_spend s where s.run_id = p_run_id and s.tool_use_id = p_tool_use_id;
+  if v_decision is not null then
+    return query select v_decision = 'allowed', v_committed, v_limit, true;
+    return;
+  end if;
+  if v_status = 'cancelled' or p_credits is null or p_credits < 0
+     or v_committed + p_credits > v_limit + 0.000001 then
+    insert into public.katana_spend (run_id, tool_use_id, tool_name, decision, credits, priced, items)
+      values (p_run_id, p_tool_use_id, p_tool_name, 'denied', greatest(coalesce(p_credits, 0), 0),
+              coalesce(p_priced, true), coalesce(p_items, '[]'::jsonb));
+    return query select false, v_committed, v_limit, false;
+    return;
+  end if;
+  insert into public.katana_spend (run_id, tool_use_id, tool_name, decision, credits, priced, items)
+    values (p_run_id, p_tool_use_id, p_tool_name, 'allowed', p_credits, coalesce(p_priced, true),
+            coalesce(p_items, '[]'::jsonb));
+  update public.katana_runs set credits_reserved = v_committed + p_credits where id = p_run_id;
+  return query select true, v_committed + p_credits, v_limit, false;
+end;
+$function$;
+
+-- Reads a call's result once: frees `p_credits` of what it committed (for
+-- jobs Higgsfield said it didn't make) and recounts the run's total.
+CREATE OR REPLACE FUNCTION public.katana_release_credits(
+  p_run_id uuid,
+  p_tool_use_id text,
+  p_credits numeric,
+  p_reason text
+)
+RETURNS numeric
+LANGUAGE plpgsql SECURITY DEFINER SET search_path TO '' AS $function$
+declare
+  v_committed numeric;
+begin
+  perform 1 from public.katana_runs r where r.id = p_run_id for update;
+  update public.katana_spend s
+     set credits = greatest(s.credits - greatest(coalesce(p_credits, 0), 0), 0),
+         reason = coalesce(p_reason, s.reason),
+         result_at = now()
+   where s.run_id = p_run_id and s.tool_use_id = p_tool_use_id
+     and s.decision = 'allowed' and s.result_at is null;
+  select coalesce(sum(s.credits), 0) into v_committed
+    from public.katana_spend s where s.run_id = p_run_id and s.decision = 'allowed';
+  update public.katana_runs set credits_reserved = v_committed where id = p_run_id;
+  return v_committed;
+end;
+$function$;
+
+-- Recounts a run's committed credits from its spend rows.
+CREATE OR REPLACE FUNCTION public.katana_recount_credits(p_run_id uuid)
+RETURNS numeric
+LANGUAGE plpgsql SECURITY DEFINER SET search_path TO '' AS $function$
+declare
+  v_committed numeric;
+begin
+  perform 1 from public.katana_runs r where r.id = p_run_id for update;
+  select coalesce(sum(s.credits), 0) into v_committed
+    from public.katana_spend s where s.run_id = p_run_id and s.decision = 'allowed';
+  update public.katana_runs set credits_reserved = v_committed where id = p_run_id;
+  return v_committed;
+end;
+$function$;
+
+REVOKE ALL ON FUNCTION public.katana_reserve_credits(uuid, text, text, numeric, boolean, jsonb) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.katana_release_credits(uuid, text, numeric, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.katana_recount_credits(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.katana_reserve_credits(uuid, text, text, numeric, boolean, jsonb) TO service_role;
+GRANT EXECUTE ON FUNCTION public.katana_release_credits(uuid, text, numeric, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.katana_recount_credits(uuid) TO service_role;
+
 -- ---------- The Katana tick ----------
 
 -- Katana stops at every paid call until the studio answers, so while a run is
@@ -253,9 +364,11 @@ declare
 begin
   if not exists (
     select 1 from public.katana_runs
-    where status in ('preparing', 'starting', 'running', 'waiting', 'uncertain')
+    where status in ('preparing', 'starting', 'running', 'waiting', 'uncertain') or cancel_requested
   ) and not exists (
-    select 1 from public.katana_results where status in ('pending', 'failed') and attempts < 5
+    select 1 from public.katana_results
+    where attempts < 5
+      and (status in ('pending', 'failed') or (status = 'saving' and claimed_until < now()))
   ) then
     return null;
   end if;
@@ -281,7 +394,8 @@ INSERT INTO public.app_settings (key, value) VALUES
   ('katana_default_credit_limit', '300'::jsonb),
   ('katana_max_credit_limit', '3000'::jsonb),
   ('katana_default_claude_budget_usd', '25'::jsonb),
-  ('katana_remove_background_credits', '2'::jsonb)
+  ('katana_remove_background_credits', '2'::jsonb),
+  ('katana_remove_background_video_credits', '5'::jsonb)
 ON CONFLICT (key) DO NOTHING;
 
 INSERT INTO public.feature_flags (key, label, description, enabled) VALUES
