@@ -16,7 +16,8 @@ const JOB_BUDGET_MS = 110_000;
  * Recovery worker: dispatches locally queued jobs, polls stale provider jobs
  * whose webhook may have been missed, ingests pending outputs, moves long
  * videos on and follows Soul ID trainings. It also clears licensed music uploads whose licence was never
- * recorded, and closes media tasks the media service never reported back on.
+ * recorded, closes media tasks the media service never reported back on, and
+ * settles the lip sync of single clips made to a voiceover.
  */
 export const Route = createFileRoute("/api/public/higgsfield-reconcile")({
   server: {
@@ -68,6 +69,18 @@ export const Route = createFileRoute("/api/public/higgsfield-reconcile")({
             return 0;
           });
 
+          // Single clips made to a voiceover whose sync no event settled (an
+          // answer not taken in, a task closed just above as lost, a link
+          // never written) are settled, so each still opens with its voiceover
+          // and ends up measured or taken as in step.
+          const { sweepClipSyncs } = await import("@/lib/lip-sync/clip.server");
+          const clipSyncs = await sweepClipSyncs(25, deadline).catch((error: unknown) => {
+            console.error("clip sync sweep failed", {
+              message: error instanceof Error ? error.message : String(error),
+            });
+            return 0;
+          });
+
           // Long videos whose next step an event didn't take (a missed webhook or
           // callback, a busy media service) move on here: last, as the longest
           // (an AI check can take a minute), so the quick passes above always run.
@@ -89,6 +102,7 @@ export const Route = createFileRoute("/api/public/higgsfield-reconcile")({
               longVideos,
               soulTrainings,
               mediaTasks,
+              clipSyncs,
               musicUploads: await musicUploads,
             }),
             { status: 200, headers: { "Content-Type": "application/json" } },

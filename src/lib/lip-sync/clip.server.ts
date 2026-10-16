@@ -13,7 +13,9 @@
  * Once the clip is in the library its sound is measured against that piece
  * (measure_sync), the answer kept on the clip's file (metadata.lip_sync), and
  * "Open in Editor" lays the clip and the voiceover so its lips meet the voice
- * (the same placement a long video's clips get).
+ * (the same placement a long video's clips get). A measurement no event
+ * settled (an answer not taken in, a task the media service lost, a link the
+ * notification never wrote) is settled by the reconcile job (sweepClipSyncs).
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { AppError } from "../higgsfield/errors";
@@ -32,7 +34,7 @@ import {
   takeForEdit,
 } from "./prepare.server";
 import { pieceOf, voiceoverPiece } from "./slices.server";
-import { clipLipSyncOf, type ClipLipSync } from "./clip";
+import { clipLipSyncOf, clipSyncStep, MAX_SYNC_ATTEMPTS, type ClipLipSync } from "./clip";
 
 export { clipLipSyncOf, type ClipLipSync } from "./clip";
 
@@ -42,8 +44,10 @@ const asRecord = (value: unknown): Json =>
 
 type Input = { assetId: string; role: string; position: number };
 
-/** Tries at measuring a clip's sync before it is taken as in step. */
-const MAX_SYNC_ATTEMPTS = 3;
+/** How far back the reconcile job looks for single clips still being measured. */
+const SWEEP_WINDOW_MS = 7 * 24 * 60 * 60_000;
+/** How far back it looks for clips made to a voiceover whose link was never written. */
+const UNLINKED_WINDOW_MS = 24 * 60 * 60_000;
 
 /**
  * A generation's inputs with a voiceover in the model's driving-audio input
@@ -156,10 +160,31 @@ async function enqueueClipSync(
     output: { count: 0, ext: "json", mime: "application/json", kind: "audio" },
     context: { lip_sync_clip_asset_id: output.id },
   });
+  if (result.ok) {
+    await writeLipSync(output.id, {
+      ...link,
+      status: "measuring",
+      attempts: attempt,
+      task_id: result.taskId,
+      updated_at: now,
+    });
+    // A quick answer can come before its task is recorded here, and is then
+    // not taken in: it is taken in now (taking it in twice changes nothing).
+    const { data: task } = await supabaseAdmin
+      .from("media_tasks")
+      .select("status")
+      .eq("id", result.taskId)
+      .maybeSingle();
+    if (task?.status === "completed" || task?.status === "failed")
+      await finishClipSync(result.taskId);
+    return;
+  }
+  // A busy or unreachable media service is asked again by the reconcile job;
+  // one that can't measure it at all leaves it taken as in step.
   await writeLipSync(
     output.id,
-    result.ok
-      ? { ...link, status: "measuring", attempts: attempt, task_id: result.taskId, updated_at: now }
+    result.retryable && !/unknown task/i.test(result.message)
+      ? { ...link, status: "measuring", attempts: attempt, task_id: null, updated_at: now }
       : {
           ...link,
           status: "failed",
@@ -175,35 +200,35 @@ async function enqueueClipSync(
  * A single clip made from a voiceover piece is in the library: its link to the
  * voiceover is kept on its file and its sync measured. A long video's clips
  * are measured by their run; any other generation is left alone. Repeating it
- * changes nothing.
+ * changes nothing. True when it linked the clip.
  */
-export async function measureClipSync(generationId: string): Promise<void> {
+export async function measureClipSync(generationId: string): Promise<boolean> {
   const { data: generation } = await supabaseAdmin
     .from("generations")
     .select("id,status,ingest_status,user_id,project_id")
     .eq("id", generationId)
     .maybeSingle();
   if (!generation || generation.status !== "completed" || generation.ingest_status !== "completed")
-    return;
+    return false;
   const { data: inLongVideo } = await supabaseAdmin
     .from("long_video_clips")
     .select("id")
     .eq("generation_id", generationId)
     .maybeSingle();
-  if (inLongVideo) return;
+  if (inLongVideo) return false;
   const { data: inputs } = await supabaseAdmin
     .from("generation_inputs")
     .select("asset_id")
     .eq("generation_id", generationId);
   const ids = (inputs ?? []).flatMap((input) => (input.asset_id ? [input.asset_id] : []));
-  if (!ids.length) return;
+  if (!ids.length) return false;
   const { data: rows } = await supabaseAdmin
     .from("assets")
     .select("id,storage_bucket,storage_path,metadata")
     .in("id", ids);
   const pieceRow = (rows ?? []).find((row) => pieceOf(row));
   const piece = pieceRow ? pieceOf(pieceRow) : null;
-  if (!pieceRow || !piece) return;
+  if (!pieceRow || !piece) return false;
   const { data: output } = await supabaseAdmin
     .from("assets")
     .select("id,storage_bucket,storage_path,mime_type,metadata")
@@ -213,20 +238,25 @@ export async function measureClipSync(generationId: string): Promise<void> {
     .order("created_at")
     .limit(1)
     .maybeSingle();
-  if (!output || clipLipSyncOf(output.metadata)) return;
-  await enqueueClipSync(
-    output,
-    {
-      preparation_id: piece.preparationId,
-      piece_asset_id: pieceRow.id,
-      start_seconds: Number((piece.fromSample / piece.sampleRate).toFixed(6)),
-      end_seconds: Number((piece.toSample / piece.sampleRate).toFixed(6)),
-      status: "measuring",
-      attempts: 0,
-      updated_at: new Date().toISOString(),
-    },
-    { userId: generation.user_id, projectId: generation.project_id },
-  );
+  if (!output || clipLipSyncOf(output.metadata)) return false;
+  const link: ClipLipSync = {
+    preparation_id: piece.preparationId,
+    piece_asset_id: pieceRow.id,
+    start_seconds: Number((piece.fromSample / piece.sampleRate).toFixed(6)),
+    end_seconds: Number((piece.toSample / piece.sampleRate).toFixed(6)),
+    status: "measuring",
+    attempts: 0,
+    task_id: null,
+    updated_at: new Date().toISOString(),
+  };
+  // The link is kept first: a clip whose measurement can't be asked for now
+  // still opens with its voiceover, and the reconcile job asks for it.
+  await writeLipSync(output.id, link);
+  await enqueueClipSync(output, link, {
+    userId: generation.user_id,
+    projectId: generation.project_id,
+  });
+  return true;
 }
 
 /** The media service's answer to a single clip's measure_sync, taken in (or tried again). */
@@ -272,6 +302,149 @@ export async function finishClipSync(taskId: string): Promise<void> {
     return;
   }
   await enqueueClipSync(output, link, { userId: task.created_by, projectId: task.project_id });
+}
+
+/**
+ * Single clips made to a voiceover whose sync no event settled, settled by the
+ * reconcile job (see clipSyncStep): an answer that wasn't taken in, a task the
+ * media service lost (closeLostMediaTasks closes it first), a measurement that
+ * couldn't be asked for, and a clip whose link was never written because the
+ * notification that writes it failed. Each step is one an event would have
+ * taken, so taking it twice changes nothing. Returns how many clips it moved on.
+ */
+export async function sweepClipSyncs(
+  limit = 25,
+  jobDeadline: number | null = null,
+): Promise<number> {
+  const deadline = jobDeadline ?? Number.POSITIVE_INFINITY;
+  let moved = 0;
+
+  const { data: measuring, error } = await supabaseAdmin
+    .from("assets")
+    .select("id,storage_bucket,storage_path,mime_type,metadata,uploaded_by,project_id")
+    .eq("asset_type", "video")
+    .is("deleted_at", null)
+    .eq("metadata->lip_sync->>status", "measuring")
+    .gte("created_at", new Date(Date.now() - SWEEP_WINDOW_MS).toISOString())
+    .order("created_at", { ascending: true })
+    .limit(limit);
+  if (error) throw new Error(error.message);
+  const failed = (assetId: string, problem: unknown) =>
+    console.error("clip sync sweep step failed", {
+      assetId,
+      message: problem instanceof Error ? problem.message : String(problem),
+    });
+  for (const output of measuring ?? []) {
+    if (Date.now() > deadline) return moved;
+    try {
+      if (await settleClipSync(output)) moved += 1;
+    } catch (problem) {
+      failed(output.id, problem);
+    }
+  }
+
+  // Clips made from a piece of a voiceover in the last day that were never linked.
+  const { data: inputs, error: inputsError } = await supabaseAdmin
+    .from("generation_inputs")
+    .select("generation_id,asset_id")
+    .eq("input_type", "audio")
+    .not("asset_id", "is", null)
+    .gte("created_at", new Date(Date.now() - UNLINKED_WINDOW_MS).toISOString())
+    .limit(200);
+  if (inputsError) throw new Error(inputsError.message);
+  const assetIds = [
+    ...new Set((inputs ?? []).flatMap((row) => (row.asset_id ? [row.asset_id] : []))),
+  ];
+  if (!assetIds.length) return moved;
+  const { data: pieces, error: piecesError } = await supabaseAdmin
+    .from("assets")
+    .select("id,storage_bucket,storage_path,metadata")
+    .in("id", assetIds);
+  if (piecesError) throw new Error(piecesError.message);
+  const pieceIds = new Set((pieces ?? []).filter((row) => pieceOf(row)).map((row) => row.id));
+  const made = [
+    ...new Set(
+      (inputs ?? []).flatMap((row) =>
+        row.asset_id && pieceIds.has(row.asset_id) ? [row.generation_id] : [],
+      ),
+    ),
+  ];
+  if (!made.length) return moved;
+  const [runClips, outputs] = await Promise.all([
+    supabaseAdmin.from("long_video_clips").select("generation_id").in("generation_id", made),
+    supabaseAdmin
+      .from("assets")
+      .select("generation_id,metadata")
+      .in("generation_id", made)
+      .eq("asset_type", "video")
+      .is("deleted_at", null),
+  ]);
+  if (runClips.error) throw new Error(runClips.error.message);
+  if (outputs.error) throw new Error(outputs.error.message);
+  const inRuns = new Set((runClips.data ?? []).map((row) => row.generation_id));
+  const linked = new Set(
+    (outputs.data ?? [])
+      .filter((row) => clipLipSyncOf(row.metadata))
+      .map((row) => row.generation_id),
+  );
+  const unlinked = [
+    ...new Set(
+      (outputs.data ?? []).flatMap((row) => (row.generation_id ? [row.generation_id] : [])),
+    ),
+  ].filter((id) => !inRuns.has(id) && !linked.has(id));
+  for (const generationId of unlinked.slice(0, limit)) {
+    if (Date.now() > deadline) break;
+    try {
+      if (await measureClipSync(generationId)) moved += 1;
+    } catch (problem) {
+      failed(generationId, problem);
+    }
+  }
+  return moved;
+}
+
+/**
+ * One clip still being measured, moved on as clipSyncStep says, given its task
+ * as it stands. True when a step was taken.
+ */
+async function settleClipSync(output: {
+  id: string;
+  storage_bucket: string;
+  storage_path: string;
+  mime_type: string | null;
+  metadata: unknown;
+  uploaded_by: string | null;
+  project_id: string | null;
+}): Promise<boolean> {
+  const link = clipLipSyncOf(output.metadata);
+  if (!link) return false;
+  let task: { status: string } | null = null;
+  if (link.task_id) {
+    const { data, error } = await supabaseAdmin
+      .from("media_tasks")
+      .select("status")
+      .eq("id", link.task_id)
+      .maybeSingle();
+    // A task that couldn't be read isn't one that is gone: left for the next run.
+    if (error) return false;
+    task = data;
+  }
+  const step = clipSyncStep(link, task, Date.now());
+  if (step === "record") await finishClipSync(link.task_id!);
+  else if (step === "ask")
+    await enqueueClipSync(output, link, {
+      userId: output.uploaded_by,
+      projectId: output.project_id,
+    });
+  else if (step === "give_up")
+    await writeLipSync(output.id, {
+      ...link,
+      status: "failed",
+      task_id: null,
+      reason: "The media service never answered about its sync, so it is taken as in step.",
+      updated_at: new Date().toISOString(),
+    });
+  return step !== null;
 }
 
 /** The offset a single clip is placed by: a measured one, else none (a stalled measurement counts as none). */
