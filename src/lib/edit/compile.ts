@@ -608,6 +608,9 @@ export function compileFromVoiceoverLongVideo(
       sized && Math.min(sized.asset.width!, sized.asset.height!) < 1000 ? "720p" : "1080p",
   };
 
+  const card = options.endCard;
+  const cardSeconds =
+    card && !missing.length ? Math.max(0.5, Math.min(card.seconds, LIMITS.clipSeconds)) : 0;
   const placement = placeSyncedClips({
     clips: usable.map(({ clip, asset }) => ({
       start: clip.audioStart,
@@ -619,6 +622,8 @@ export function compileFromVoiceoverLongVideo(
     maxOffsetSeconds: LIP_SYNC.maxOffsetSeconds,
     // Only with every clip in, so the last laid is the video's own last clip.
     playOutLast: !missing.length && usable.at(-1)?.clip.playsOut === true,
+    // ...never past what can be rendered, with the end card after it.
+    maxTotalSeconds: LIMITS.totalSeconds - cardSeconds,
   });
 
   const result: TimelineClip[] = usable.map(({ clip, asset }, index) => {
@@ -663,7 +668,6 @@ export function compileFromVoiceoverLongVideo(
     }
   }
 
-  const card = options.endCard;
   if (card && result.length && !missing.length) {
     const still = clipFromSource({
       assetId: card.assetId,
@@ -675,7 +679,7 @@ export function compileFromVoiceoverLongVideo(
     still.fit = endCardFit(card, frameSize(timeline.aspectRatio, timeline.resolution));
     // A cut, not a fade: a fade would pull the end card over the last words.
     still.transition = { type: "cut", duration: 0 };
-    still.duration = Math.max(0.5, Math.min(card.seconds, LIMITS.clipSeconds));
+    still.duration = cardSeconds;
     result.push(still);
   }
 

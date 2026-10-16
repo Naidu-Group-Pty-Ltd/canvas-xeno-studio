@@ -62,6 +62,8 @@ export function placeSyncedClips(input: {
   maxOffsetSeconds?: number;
   /** The last clip plays out to the end of its own picture (it ends on a frame it was made to reach). */
   playOutLast?: boolean;
+  /** How long the edit may run, so playing out never takes it past what can be rendered. */
+  maxTotalSeconds?: number;
 }): SyncedPlacement {
   const { clips, fps } = input;
   if (!clips.length)
@@ -102,7 +104,11 @@ export function placeSyncedClips(input: {
     const from = bounds[lastIndex]!;
     const trim = Math.max(0, idealTrim(lastIndex, from));
     const end = from + Math.floor((lastSource - trim) * fps + 1e-6);
-    bounds[lastIndex + 1] = Math.max(bounds[lastIndex + 1]!, end);
+    const cap =
+      input.maxTotalSeconds !== undefined
+        ? Math.floor(input.maxTotalSeconds * fps + 1e-6)
+        : Infinity;
+    bounds[lastIndex + 1] = Math.max(bounds[lastIndex + 1]!, Math.min(end, cap));
   }
 
   const placed = clips.map((clip, index): SyncedClipPlacement => {

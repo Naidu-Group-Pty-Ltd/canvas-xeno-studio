@@ -2,7 +2,13 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ModelRegistryEntry } from "../../src/lib/model-schema";
-import { clipPrompt, planClips, planIssues, type ClipDraft } from "../../src/lib/long-video/plan";
+import {
+  clipPrompt,
+  FINALE_REVEAL_NOTE,
+  planClips,
+  planIssues,
+  type ClipDraft,
+} from "../../src/lib/long-video/plan";
 import {
   lastClipPlaysOut,
   pieceTranscripts,
@@ -334,6 +340,47 @@ describe("keyframes with a voiceover", () => {
       characters: [],
     });
     expect(storyboard.count).toBe(planned.length + 1);
+  });
+
+  test("of a single clip still move into the end card, which stands for its closing keyframe", () => {
+    const card = "eeeeeeee-1111-4111-8111-111111111111";
+    const finale = { assetId: card, mode: "both" as const, seconds: 3 };
+    const [only] = planClips({
+      first: wan27,
+      continuation: wan27,
+      values: { prompt: "A founder says thank you." },
+      references: [...references, { assetId: card, role: "unused", assetType: "image" }],
+      clips: [
+        {
+          beat: "The founder smiles",
+          durationSeconds: 4,
+          prompt: clipPrompt({
+            story: "A founder says thank you.",
+            index: 0,
+            count: 1,
+            finale: "both",
+          }),
+        },
+      ],
+      finale,
+      keyframes: true,
+      voiceover: true,
+    });
+    expect(only!.startKeyframe).toBe(0);
+    expect(only!.endKeyframe).toBeNull();
+    expect(only!.inputs).toEqual([{ assetId: card, role: "last_frame" }]);
+    expect([...only!.roles].sort()).toEqual(["audio", "last_frame", "source"]);
+    expect(only!.prompt.split(FINALE_REVEAL_NOTE)).toHaveLength(2);
+    expect(
+      lastClipPlaysOut({
+        position: 0,
+        clipCount: 1,
+        keyframed: true,
+        finale,
+        endFrameAssetId: null,
+        inputAssetIds: only!.inputs.map((item) => item.assetId),
+      }),
+    ).toBe(true);
   });
 });
 

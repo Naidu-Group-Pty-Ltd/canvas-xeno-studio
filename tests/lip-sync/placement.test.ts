@@ -112,6 +112,16 @@ describe("laying clips made to a voiceover in an edit", () => {
     expect(placement.voiceover).toEqual(plain.voiceover);
   });
 
+  test("never plays a last clip out past what the edit may run to", () => {
+    const clips = clipsWith([0, 0, 0, 0]);
+    const plain = placeSyncedClips({ clips, fps: FPS });
+    const capped = placeSyncedClips({ clips, fps: FPS, playOutLast: true, maxTotalSeconds: 26.6 });
+    expect(capped.totalFrames).toBe(Math.floor(26.6 * FPS));
+    // A cap inside the voiceover never cuts it short: only the play-out is held back.
+    const tight = placeSyncedClips({ clips, fps: FPS, playOutLast: true, maxTotalSeconds: 20 });
+    expect(tight.totalFrames).toBe(plain.totalFrames);
+  });
+
   test("never plays a last clip out shorter than its piece, nor without its length", () => {
     const clips = clipsWith([0, 0, 0, 0]);
     const plain = placeSyncedClips({ clips, fps: FPS });
