@@ -262,19 +262,54 @@ Fly's dashboard keeps the image it had; only a deploy brings new code.
 
 ## Sizing
 
-FFmpeg is CPU bound. Two vCPUs handle `CONCURRENCY=2` comfortably for short
-social-length clips. Give the container a writable `/tmp` at least twice the
-size of the largest job's sources plus outputs.
+FFmpeg is CPU bound. On Fly the worker runs on a `performance-4x` machine (four
+dedicated vCPUs, 8 GB): Fly's shared vCPUs are throttled to a sixteenth of a
+core each once their burst balance (at most about nine minutes of full speed)
+is spent, which made long renders some fifteen times slower. Give the container
+a writable `/tmp` at least twice the size of the largest job's sources plus
+outputs.
+
+**Not always on.** The worker exits after `IDLE_STOP_SECONDS` (600 on Fly, 0
+elsewhere: keep running) with nothing running, queued or still being reported,
+and its machine stops: a stopped machine is billed for its disk only. Fly's
+proxy starts it again for the next request (`auto_start_machines = true`), in a
+couple of seconds. Fly's own auto-stop stays off (`auto_stop_machines = "off"`),
+because tasks are acknowledged with `202` and rendered afterwards, so the proxy
+would take a machine mid-render for idle. A clean exit leaves the machine
+stopped under the `on-failure` restart policy; a crash restarts it. While it
+stops, a task is turned away with `503 WORKER_STOPPING`, and the app sends it
+again a few seconds later, which starts the machine afresh. `/health` reports
+`idle_stop_seconds`. The app remembers what the worker last said it can do
+(its `/health`, or its answer to a task), so pages that only need its features
+don't wake it; Settings → Media service → Re-check asks it live.
+
+**Two lanes.** Renders and the other tasks that encode video run
+`HEAVY_CONCURRENCY` (2) at once; probes, thumbnails, frames, image resizes and
+audio run in their own lane, `QUICK_CONCURRENCY` (2) at once, so the frame a
+long video's next clip starts from never waits behind a render. `/health`
+reports both `lanes`. (`CONCURRENCY`, the old single setting, is still read as
+the heavy lane's default.)
+
+**Encoding.** A render's final pass is x264 `veryfast` at CRF 17. On a real
+1080×1920 reel that looks the same as `medium` at CRF 19, the old setting for
+edits up to 90 seconds (SSIM 0.9948 against 0.9947), in 2.65 times less time,
+for files about a sixth bigger. Other video tasks encode MP4 with `veryfast` two
+CRF steps below the one asked for. A render's intermediates, encoded again in
+the final pass, are `superfast` at CRF 14 for edits up to five minutes (0.6 of
+the time of `veryfast`, for files 1.7 times bigger) and `veryfast` beyond, to
+stay within the task's disk. A render's clips that aren't joined to the one
+before are prepared `CLIP_PARALLELISM` at a time (2 with four or more CPUs,
+else 1); a joined clip waits for the one before it, which it is measured
+against. The output is the same, bit for bit, either way.
 
 Each FFmpeg step of a task may take `TASK_TIMEOUT_SECONDS` (900), except an
 Editor render's (`render_sequence`), which may take `RENDER_TIMEOUT_SECONDS`
-(43200, twelve hours): an edit runs up to ten minutes at up to 60 fps, and
-Fly's shared vCPUs are throttled to a sixteenth of a core once their burst
-balance is spent, so a long render on them takes hours. A render's step that
-writes its output as it goes and writes nothing new for `RENDER_STALL_SECONDS`
-(1200) has hung, and is stopped (`TASK_STALLED`), so a stuck render doesn't
-hold its edit for the whole limit. Performance vCPUs aren't throttled. `/health`
-reports these `limits`.
+(43200, twelve hours): an edit runs up to ten minutes at up to 60 fps, two
+renders at once, and the limit also covers a worker on throttled shared vCPUs.
+A render's step that writes its output as it goes and writes nothing new for
+`RENDER_STALL_SECONDS` (1200) has hung, and is stopped (`TASK_STALLED`), so a
+stuck render doesn't hold its edit for the whole limit. `/health` reports these
+`limits`.
 
 Each source file is capped at `MAX_DOWNLOAD_MB` (1024), and all of one task's
 sources together at `MAX_TASK_DOWNLOAD_MB` (2048): an edit can name dozens of
@@ -283,5 +318,5 @@ files, so a task past its budget stops downloading and fails with
 intermediates, the sound mix and its outputs) is capped at
 `MAX_TASK_WORKSPACE_MB` (4096): past it, the task's processes are stopped and it
 fails with `WORKSPACE_TOO_LARGE`. Renders also delete their sources and
-intermediates as soon as they're done with them. Size `/tmp` for `CONCURRENCY ×
-MAX_TASK_WORKSPACE_MB`.
+intermediates as soon as they're done with them. Size `/tmp` for
+`(HEAVY_CONCURRENCY + QUICK_CONCURRENCY) × MAX_TASK_WORKSPACE_MB`.

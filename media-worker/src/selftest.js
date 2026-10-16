@@ -3,14 +3,18 @@
  * no network and no app involvement. Run inside the image after building:
  *   docker run --rm -e MEDIA_WORKER_SHARED_SECRET=0123456789abcdef xeno-media-worker npm run selftest
  */
-import { execFileSync } from "node:child_process";
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { execFileSync, spawn } from "node:child_process";
+import { createHmac } from "node:crypto";
+import { request as httpRequest } from "node:http";
+import { copyFile, mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { ffmpeg, probe } from "./ffmpeg.js";
 import { TASKS } from "./tasks.js";
-import { fitAudioToSources } from "./sequence.js";
+import { clipRuns, fitAudioToSources, inParallel } from "./sequence.js";
 import { alignFrames, detailLevel, downscale } from "./align.js";
+import { Lanes, idleLongEnough, laneOf } from "./lanes.js";
+import { config } from "./config.js";
 
 const dir = await mkdtemp(join(tmpdir(), "selftest-"));
 let failures = 0;
@@ -660,6 +664,161 @@ await check("measure_sync says when a clip has no sound", async () => {
   await ffmpeg(["-f", "lavfi", "-i", "testsrc2=s=320x240:r=30:d=2", "-c:v", "libx264", "-pix_fmt", "yuv420p", silent]);
   const { metadata } = await TASKS.measure_sync.run({ sources: [{ path: silent, role: "video" }, { path: drive, role: "audio" }], params: {}, dir });
   if (metadata.status !== "no_audio" || metadata.has_audio !== false) throw new Error(`expected no_audio, got ${JSON.stringify(metadata)}`);
+});
+
+await check("a quick task runs while the render lane is full", async () => {
+  const started = [];
+  const finish = new Map();
+  const lanes = new Lanes({ heavy: 1, quick: 1 }, (task) => {
+    started.push(task.taskId);
+    return new Promise((resolve) => finish.set(task.taskId, resolve));
+  });
+  const render = { taskId: "render-1", taskType: "render_sequence" };
+  const second = { taskId: "render-2", taskType: "reframe_video" };
+  const frame = { taskId: "frame-1", taskType: "extract_frames" };
+  lanes.add(render);
+  lanes.add(second);
+  lanes.add(frame);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  if (started.join() !== "render-1,frame-1") throw new Error(`started ${started.join()}`);
+  if (lanes.position(second) !== 0 || lanes.busy !== 2 || lanes.queued !== 1) throw new Error("the second render should wait first in its lane");
+  finish.get("render-1")();
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  if (started.at(-1) !== "render-2") throw new Error("the waiting render didn't start when the first finished");
+  if (laneOf("probe") !== "quick" || laneOf("render_sequence") !== "heavy" || laneOf("add_audio") !== "heavy") throw new Error("lanes misassigned");
+});
+
+await check("the worker stops only when nothing runs, waits or is being reported", async () => {
+  const base = { busy: 0, queued: 0, reporting: 0, idleSince: 0, now: 600_000, stopAfterMs: 600_000 };
+  if (!idleLongEnough(base)) throw new Error("ten idle minutes should stop it");
+  for (const [key, value] of [["busy", 1], ["queued", 1], ["reporting", 1], ["now", 599_999], ["stopAfterMs", 0]]) {
+    if (idleLongEnough({ ...base, [key]: value })) throw new Error(`it stopped with ${key} = ${value}`);
+  }
+});
+
+await check("clips joined to the one before are made in order, other runs side by side", async () => {
+  const clips = [
+    { kind: "video" },
+    { kind: "video", matchPrevious: true },
+    { kind: "image" },
+    { kind: "video", matchPrevious: true },
+    { kind: "video" },
+    { kind: "video", matchPrevious: true },
+  ];
+  // An image before a clip breaks the join: it has no picture to match.
+  const runs = JSON.stringify(clipRuns(clips));
+  if (runs !== "[[0,1],[2],[3],[4,5]]") throw new Error(`runs ${runs}`);
+  let running = 0;
+  let most = 0;
+  const done = [];
+  await inParallel([1, 2, 3, 4, 5], 2, async (item) => {
+    running += 1;
+    most = Math.max(most, running);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    running -= 1;
+    done.push(item);
+  });
+  if (most !== 2 || done.length !== 5) throw new Error(`at most ${most} at a time, ${done.length} done`);
+  const after = [];
+  const failed = await inParallel([1, 2, 3, 4], 1, async (item) => {
+    after.push(item);
+    if (item === 2) throw new Error("boom");
+  }).then(() => null, (error) => error);
+  if (failed?.message !== "boom" || after.join() !== "1,2") throw new Error("nothing more should start after a failure");
+});
+
+await check("a render made with clips side by side matches one made in order", async () => {
+  // Moving pictures with sound, so a clip in the wrong place would show.
+  const moving = join(dir, "moving.mp4");
+  const pattern = join(dir, "pattern.mp4");
+  for (const [path, source] of [[moving, "testsrc2=s=320x180:r=25:d=3"], [pattern, "smptebars=s=320x180:r=25:d=3"]]) {
+    await ffmpeg([
+      "-f", "lavfi", "-i", source,
+      "-f", "lavfi", "-i", "sine=frequency=330:duration=3",
+      "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", path,
+    ]);
+  }
+  const outputs = [];
+  for (const parallelism of [1, 2]) {
+    const runDir = await mkdtemp(join(dir, `clips-${parallelism}-`));
+    // A render deletes its pictures' sources once it has made its clips.
+    const red = join(runDir, "moving.mp4");
+    const blue = join(runDir, "pattern.mp4");
+    await copyFile(moving, red);
+    await copyFile(pattern, blue);
+    const before = config.clipParallelism;
+    config.clipParallelism = parallelism;
+    try {
+      const result = await TASKS.render_sequence.run({
+        sources: [{ path: red, role: "video" }, { path: blue, role: "video" }],
+        params: {
+          width: 320,
+          height: 180,
+          fps: 25,
+          normalize_loudness: false,
+          clips: [
+            { source_index: 0, duration: 1 },
+            { source_index: 1, duration: 1, transition: { type: "fade", duration: 0.2 } },
+            { source_index: 0, duration: 1 },
+          ],
+        },
+        dir: runDir,
+      });
+      outputs.push(execFileSync("ffmpeg", ["-v", "error", "-i", result.outputs[0].path, "-map", "0:v", "-f", "framemd5", "-"]).toString());
+    } finally {
+      config.clipParallelism = before;
+    }
+  }
+  if (outputs[0] !== outputs[1]) throw new Error("the picture differs when clips are made side by side");
+});
+
+await check("an idle worker stops cleanly, and turns away a task read as it decides to", async () => {
+  const secret = "0123456789abcdef";
+  // The source is an address, so validating the task needs no DNS; the task is never run.
+  const worker = spawn(process.execPath, [new URL("./server.js", import.meta.url).pathname], {
+    env: { ...process.env, PORT: "0", IDLE_STOP_SECONDS: "1", MEDIA_WORKER_SHARED_SECRET: secret, ALLOWED_HOST_SUFFIXES: "1.1.1.1", WORK_DIR: join(dir, "idle-work") },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let log = "";
+  worker.stdout.on("data", (chunk) => (log += chunk));
+  worker.stderr.on("data", (chunk) => (log += chunk));
+  const exited = new Promise((resolve) => worker.on("exit", (code) => resolve(code)));
+  const until = async (what, test) => {
+    const deadline = Date.now() + 20_000;
+    while (!test()) {
+      if (Date.now() > deadline) throw new Error(`timed out waiting for ${what}: ${log.trim()}`);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+  };
+  try {
+    await until("it to listen", () => /listening on :\d+/.test(log));
+    const port = Number(log.match(/listening on :(\d+)/)[1]);
+    const health = await (await fetch(`http://127.0.0.1:${port}/health`)).json();
+    if (health.idle_stop_seconds !== 1 || !health.lanes?.heavy || !health.lanes?.quick) throw new Error(`health ${JSON.stringify(health)}`);
+
+    const body = JSON.stringify({ task_id: "selftest-idle-0001", task_type: "probe", sources: [{ url: "https://1.1.1.1/clip.mp4", role: "video" }], uploads: [], params: {} });
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const signature = `sha256=${createHmac("sha256", secret).update(`${timestamp}.${body}`).digest("hex")}`;
+    const sending = httpRequest({ host: "127.0.0.1", port, method: "POST", path: "/tasks", headers: { "content-type": "application/json", "content-length": Buffer.byteLength(body), "x-xeno-timestamp": timestamp, "x-xeno-signature": signature } });
+    const answered = new Promise((resolve, reject) => {
+      sending.on("response", (response) => {
+        let text = "";
+        response.on("data", (chunk) => (text += chunk));
+        response.on("end", () => resolve({ status: response.statusCode, text }));
+      });
+      sending.on("error", reject);
+    });
+    // Half the task now, the rest once the worker has decided to stop.
+    sending.write(body.slice(0, 40));
+    await until("it to stop", () => log.includes("stopping until the next task"));
+    sending.end(body.slice(40));
+    const answer = await answered;
+    if (answer.status !== 503 || !answer.text.includes("WORKER_STOPPING")) throw new Error(`a task read while stopping got ${answer.status} ${answer.text}`);
+    const code = await Promise.race([exited, new Promise((resolve) => setTimeout(() => resolve("still running"), 10_000))]);
+    if (code !== 0) throw new Error(`it exited with ${code}`);
+  } finally {
+    worker.kill();
+  }
 });
 
 await rm(dir, { recursive: true, force: true });

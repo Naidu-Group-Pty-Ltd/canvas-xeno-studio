@@ -15,43 +15,112 @@ import { MEDIA_TASKS, MEDIA_TASK_TYPES, type MediaKind } from "./media/tasks";
 const OUTPUT_BUCKET = "generated-assets";
 const SOURCE_URL_TTL = 2 * 60 * 60;
 
+/**
+ * How long what the media worker said it can do is taken as still so. It
+ * stops itself when idle and starts again for the next request, so a status
+ * check that asked it each time would wake it just to look; what it last
+ * said is renewed by every task it takes.
+ */
+const REMEMBERED_FOR_MS = 12 * 60 * 60 * 1000;
+
+const statusInput = z.object({
+  /** Ask the worker now, starting it if it has stopped, instead of answering from what it last said. */
+  refresh: z.boolean().default(false),
+});
+
+export interface MediaWorkerStatus {
+  configured: boolean;
+  reachable: boolean;
+  /** Whether the worker was asked just now; otherwise this is what it last said. */
+  live: boolean;
+  /** When it last answered. */
+  checkedAt: string | null;
+  message: string;
+  tasks: string[];
+  features: string[];
+  ffmpeg: string | null;
+  /** Its queue, when it was asked just now. */
+  queued: number | null;
+  running: number | null;
+  /** How long an Editor render's steps may take, from a worker that says. */
+  renderTimeoutSeconds: number | null;
+  renderStallSeconds: number | null;
+  /** Seconds idle before it stops itself; 0 or null: it keeps running. */
+  idleStopSeconds: number | null;
+}
+
 export const getMediaWorkerStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async () => {
-    const { mediaWorkerConfigured, workerHealth } = await import("./media/worker.server");
+  .inputValidator((data: unknown) => statusInput.parse(data ?? {}))
+  .handler(async ({ data }): Promise<MediaWorkerStatus> => {
+    const { mediaWorkerConfigured, rememberedWorker, workerHealth } = await import("./media/worker.server");
     if (!mediaWorkerConfigured()) {
       return {
         configured: false,
         reachable: false,
+        live: false,
+        checkedAt: null,
         message: "Not configured — set MEDIA_WORKER_URL and MEDIA_WORKER_SHARED_SECRET to enable rendering tasks.",
-        tasks: [] as string[],
-        features: [] as string[],
-        ffmpeg: null as string | null,
+        tasks: [],
+        features: [],
+        ffmpeg: null,
+        queued: null,
+        running: null,
+        renderTimeoutSeconds: null,
+        renderStallSeconds: null,
+        idleStopSeconds: null,
       };
     }
+
+    if (!data.refresh) {
+      const remembered = await rememberedWorker(REMEMBERED_FOR_MS);
+      if (remembered) {
+        return {
+          configured: true,
+          reachable: true,
+          live: false,
+          checkedAt: remembered.at,
+          message: remembered.idleStopSeconds
+            ? "Media service ready — it starts when a task arrives"
+            : "Media service reachable",
+          tasks: remembered.tasks,
+          features: remembered.features,
+          ffmpeg: remembered.ffmpeg,
+          queued: null,
+          running: null,
+          renderTimeoutSeconds: remembered.limits?.render_timeout_seconds ?? null,
+          renderStallSeconds: remembered.limits?.render_stall_seconds ?? null,
+          idleStopSeconds: remembered.idleStopSeconds,
+        };
+      }
+    }
+
     const health = await workerHealth();
+    const checkedAt = new Date().toISOString();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await supabaseAdmin
       .from("app_settings")
       .update(
         health.ok
-          ? ({ value: new Date().toISOString() as never } as never)
-          : ({ value: { at: new Date().toISOString(), message: health.errorMessage } as never } as never),
+          ? ({ value: checkedAt as never } as never)
+          : ({ value: { at: checkedAt, message: health.errorMessage } as never } as never),
       )
       .eq("key", health.ok ? "media_worker_last_success_at" : "media_worker_last_error");
 
     return {
       configured: true,
       reachable: health.ok,
+      live: true,
+      checkedAt: health.ok ? checkedAt : null,
       message: health.ok ? "Media service reachable" : (health.errorMessage ?? "Media service unreachable"),
       tasks: health.data?.tasks ?? [],
       features: health.data?.features ?? [],
       ffmpeg: health.data?.ffmpeg ?? null,
-      queued: health.data?.queued ?? 0,
-      running: health.data?.running ?? 0,
-      // How long an Editor render's steps may take, from a worker that says.
+      queued: health.data?.queued ?? null,
+      running: health.data?.running ?? null,
       renderTimeoutSeconds: health.data?.limits?.render_timeout_seconds ?? null,
       renderStallSeconds: health.data?.limits?.render_stall_seconds ?? null,
+      idleStopSeconds: health.data?.idle_stop_seconds ?? null,
     };
   });
 
