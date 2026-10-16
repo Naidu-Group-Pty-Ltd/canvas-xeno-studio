@@ -14,6 +14,7 @@ import { setCreatePrefill } from "@/lib/create-draft";
 import { useAuth } from "@/hooks/useAuth";
 import { createSequence } from "@/hooks/useEditorData";
 import { compileFromStoryboard, type CompileAsset, type CompileTake } from "@/lib/edit/compile";
+import { SendToKatana } from "@/components/katana/SendToKatana";
 
 export const Route = createFileRoute("/storyboards")({
   head: () => ({
@@ -211,7 +212,10 @@ function StoryboardsPage() {
                                 <span className="text-xs text-muted-foreground">{shot.status}</span>
                               </div>
                               <p className="mt-1 line-clamp-3 text-xs text-muted-foreground">{shot.prompt}</p>
-                              <ShotTakes shotId={shot.id} />
+                              <ShotTakes
+                                shotId={shot.id}
+                                shotName={shot.name ?? `Shot ${shot.shot_number}`}
+                              />
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -243,7 +247,7 @@ function StoryboardsPage() {
 }
 
 /** Every generation launched from a shot is filed here as a numbered take. */
-function ShotTakes({ shotId }: { shotId: string }) {
+function ShotTakes({ shotId, shotName }: { shotId: string; shotName: string }) {
   const queryClient = useQueryClient();
   const { data } = useQuery({
     queryKey: ["shot_takes", shotId],
@@ -259,14 +263,20 @@ function ShotTakes({ shotId }: { shotId: string }) {
       const { data: assets } = generationIds.length
         ? await supabase
             .from("assets")
-            .select("generation_id,asset_type,storage_bucket,storage_path")
+            .select("id,title,project_id,generation_id,asset_type,storage_bucket,storage_path")
             .in("generation_id", generationIds)
             .is("deleted_at", null)
         : { data: [] };
-      return (data ?? []).map((take) => ({
-        ...take,
-        asset: (assets ?? []).find((asset) => asset.generation_id === take.generation_id) ?? null,
-      }));
+      return (data ?? []).map((take) => {
+        const outputs = (assets ?? []).filter(
+          (asset) => asset.generation_id === take.generation_id,
+        );
+        // A take's video when it has one (as compiling picks it), else its image.
+        return {
+          ...take,
+          asset: outputs.find((asset) => asset.asset_type === "video") ?? outputs[0] ?? null,
+        };
+      });
     },
   });
 
@@ -286,21 +296,31 @@ function ShotTakes({ shotId }: { shotId: string }) {
       {data.map((take) => {
         const asset = take.asset;
         return (
-          <button
-            key={take.id}
-            type="button"
-            onClick={() => void select(take.id)}
-            title={`Take ${take.take_number}`}
-            className={`h-14 w-20 overflow-hidden rounded border ${take.is_selected ? "border-primary" : "border-border"}`}
-          >
-            {asset ? (
-              <MediaPreview bucket={asset.storage_bucket} path={asset.storage_path} type={asset.asset_type} contain />
-            ) : (
-              <span className="flex size-full items-center justify-center text-[10px] text-muted-foreground">
-                Take {take.take_number}
-              </span>
+          <div key={take.id} className="group relative">
+            <button
+              type="button"
+              onClick={() => void select(take.id)}
+              title={`Take ${take.take_number}`}
+              className={`h-14 w-20 overflow-hidden rounded border ${take.is_selected ? "border-primary" : "border-border"}`}
+            >
+              {asset ? (
+                <MediaPreview bucket={asset.storage_bucket} path={asset.storage_path} type={asset.asset_type} contain />
+              ) : (
+                <span className="flex size-full items-center justify-center text-[10px] text-muted-foreground">
+                  Take {take.take_number}
+                </span>
+              )}
+            </button>
+            {asset && (
+              <SendToKatana
+                file={asset}
+                title={`${shotName} · take ${take.take_number}`}
+                look="pill"
+                label=""
+                className="absolute top-0.5 right-0.5 px-1.5 opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 data-[state=open]:opacity-100"
+              />
             )}
-          </button>
+          </div>
         );
       })}
     </div>

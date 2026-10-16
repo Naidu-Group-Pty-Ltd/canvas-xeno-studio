@@ -23,6 +23,7 @@ import { analyseAsset, type AssetAnalysis } from "@/lib/analysis.functions";
 import { openLipSyncClip } from "@/lib/lip-sync.functions";
 import { clipLipSyncOf, clipSyncSummary } from "@/lib/lip-sync/clip";
 import { setSupercomputerHandoff } from "@/lib/supercomputer/handoff";
+import { SendToKatana } from "@/components/katana/SendToKatana";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -298,6 +299,7 @@ export function AssetDetailDialog({
                 >
                   <Cpu className="mr-1.5 size-4" /> Ask Supercomputer
                 </Button>
+                <SendToKatana file={asset} onSent={() => onOpenChange(false)} />
                 {asset.asset_type !== "audio" && (
                   <Button
                     size="sm"

@@ -44,6 +44,7 @@ import { useCharacters } from "@/hooks/useCharacters";
 import { CharacterAvatar } from "@/components/characters/CharacterPicker";
 import { ParameterFields } from "@/components/create/ParameterFields";
 import { LongVideoRunList } from "@/components/create/LongVideoRuns";
+import { SendToKatana } from "@/components/katana/SendToKatana";
 import { MediaPreview } from "@/components/studio/MediaPreview";
 import { SaveStatus } from "@/components/studio/SaveStatus";
 import { StatusBadge } from "@/components/studio/StatusBadge";
@@ -440,6 +441,14 @@ export function DraftCard({
                           contain
                         />
                       </button>
+                      <SendToKatana
+                        file={asset}
+                        characters={draft.characters}
+                        title={draft.title}
+                        look="pill"
+                        label=""
+                        className="absolute bottom-1 left-1 opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 data-[state=open]:opacity-100"
+                      />
                       <button
                         type="button"
                         onClick={() => onAttach(asset)}

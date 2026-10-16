@@ -55,6 +55,7 @@ import {
   unmadeIndexes,
   type PricedItem,
 } from "./guard";
+import { KATANA_CHARACTERS_MAX, castOfInputs, tagCast, type CastCharacter } from "./cast";
 import { findAll, firstUrl, isObject, isUuid } from "./mcp";
 import { HiggsfieldMcpError, type HiggsfieldMcpClient } from "./mcp-client.server";
 import {
@@ -66,6 +67,7 @@ import {
   kickoffMessage,
   parsePresetInputs,
   revisionMessage,
+  type KickoffCharacter,
   type KatanaMediaInput,
   type KatanaMediaKind,
   type KatanaMode,
@@ -327,6 +329,11 @@ export interface RunInputRow {
   kind: KatanaMediaKind;
   title: string;
   media_id: string | null;
+  /** The team's character the image shows (one of their sheet images or photos), if any. */
+  character_id?: string | null;
+  character_name?: string | null;
+  /** Which of their views it is. */
+  view?: string | null;
 }
 
 function runInputs(run: Pick<RunRow, "inputs">): RunInputRow[] {
@@ -406,6 +413,93 @@ async function resolveInputs(
       media_id: null,
     };
   });
+}
+
+/**
+ * Marks the run's images that show its characters. Each character must still
+ * be on the Characters page and be shown by at least one image: that is how a
+ * character is in a run.
+ */
+async function castCharacters(ids: string[], inputs: RunInputRow[]): Promise<RunInputRow[]> {
+  const wanted = [...new Set(ids)];
+  if (!wanted.length) return inputs;
+  if (wanted.length > KATANA_CHARACTERS_MAX) {
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      `A run keeps ${KATANA_CHARACTERS_MAX} characters the same at most`,
+    );
+  }
+  const { data, error } = await db
+    .from("characters")
+    .select("id,name,archived_at,character_images(asset_id,view,position)")
+    .in("id", wanted);
+  if (error) throw new AppError("STORAGE_FAILED", error.message);
+  type Row = {
+    id: string;
+    name: string;
+    archived_at: string | null;
+    character_images: { asset_id: string; view: string; position: number }[] | null;
+  };
+  const rows = new Map(((data ?? []) as unknown as Row[]).map((row) => [row.id, row]));
+  const characters: CastCharacter[] = wanted.map((id) => {
+    const row = rows.get(id);
+    if (!row || row.archived_at) {
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        "One of the chosen characters is no longer on the Characters page",
+      );
+    }
+    return {
+      id: row.id,
+      name: row.name,
+      images: [...(row.character_images ?? [])]
+        .sort((a, b) => a.position - b.position)
+        .map((image) => ({ assetId: image.asset_id, view: image.view })),
+    };
+  });
+  const { inputs: tagged, missing } = tagCast(inputs, characters);
+  if (missing.length) {
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      `Add at least one of ${missing[0]}'s reference images, or take ${missing[0]} out`,
+    );
+  }
+  return tagged;
+}
+
+/**
+ * The run's characters for its first message: their handed-over images, and
+ * their names and looks as they are now (or as the run recorded them, if the
+ * characters can't be read).
+ */
+async function kickoffCast(inputs: RunInputRow[]): Promise<KickoffCharacter[]> {
+  const cast = castOfInputs(inputs)
+    .map((character) => ({
+      ...character,
+      images: character.images.flatMap((image) =>
+        image.mediaId ? [{ mediaId: image.mediaId, view: image.view }] : [],
+      ),
+    }))
+    .filter((character) => character.images.length);
+  if (!cast.length) return [];
+  const rows = new Map<string, { name: string; description: string }>();
+  try {
+    const { data } = await db
+      .from("characters")
+      .select("id,name,description")
+      .in(
+        "id",
+        cast.map((character) => character.id),
+      );
+    for (const row of data ?? []) rows.set(row.id, row);
+  } catch {
+    // The names the run recorded are enough to start with.
+  }
+  return cast.map((character) => ({
+    name: rows.get(character.id)?.name.trim() || character.name,
+    description: rows.get(character.id)?.description ?? "",
+    images: character.images,
+  }));
 }
 
 function firstMediaId(payload: unknown): string | null {
@@ -539,6 +633,8 @@ export interface StartKatanaRunInput {
   brief: string;
   referenceUrl: string | null;
   inputs: Array<{ assetId: string; field: string }>;
+  /** The team's characters in it, each shown by some of the images in `inputs`. */
+  characterIds: string[];
   creditLimit: number;
   claudeBudgetUsd: number;
   projectId: string | null;
@@ -604,7 +700,7 @@ export async function startKatanaRun(input: StartKatanaRunInput): Promise<{ runI
   checkLimits(settings, input.creditLimit, input.claudeBudgetUsd);
   const brief = input.brief.trim().slice(0, LIMITS.briefChars);
   const referenceUrl = input.mode === "remix" ? checkReferenceUrl(input.referenceUrl) : null;
-  const inputs = await resolveInputs(input.inputs);
+  const inputs = await castCharacters(input.characterIds, await resolveInputs(input.inputs));
   const count = (field: string) => inputs.filter((entry) => entry.field === field).length;
   const images = inputs.filter((entry) => entry.kind === "image").length;
   if (images > LIMITS.images)
@@ -680,7 +776,14 @@ export async function startKatanaRun(input: StartKatanaRunInput): Promise<{ runI
     if (isMissingTable(error)) throw new AppError("PROVIDER_NOT_CONFIGURED", KATANA_TABLES_MISSING);
     throw new AppError("STORAGE_FAILED", error?.message ?? "The run couldn't be saved");
   }
-  await note(run.id, "user", "Run requested", brief, { mode: input.mode, preset: presetSlug });
+  const cast = [
+    ...new Set(inputs.flatMap((entry) => (entry.character_name ? [entry.character_name] : []))),
+  ];
+  await note(run.id, "user", "Run requested", brief, {
+    mode: input.mode,
+    preset: presetSlug,
+    ...(cast.length ? { characters: cast } : {}),
+  });
   return { runId: run.id };
 }
 
@@ -861,6 +964,7 @@ async function startSession(lease: Lease): Promise<void> {
           referenceUrl: run.reference_url,
           inputs,
           creditLimit: Number(run.credit_limit),
+          characters: await kickoffCast(runInputs(run)),
         });
   const anthropic = anthropicClient();
   let session;

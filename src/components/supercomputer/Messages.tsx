@@ -18,7 +18,7 @@ import { Markdown } from "@/components/studio/Markdown";
 import { MediaPreview } from "@/components/studio/MediaPreview";
 import { Button } from "@/components/ui/button";
 import { useProviderHealth } from "@/components/layout/AppShell";
-import { CompileVideo, EditPlanCard } from "./CompileVideo";
+import { CompileVideo, EditPlanCard, SendPlanToKatana } from "./CompileVideo";
 import { DraftCard } from "./DraftCard";
 import { providerBlockReason } from "./draft-runner";
 import { GenerateAllDialog } from "./GenerateAllDialog";
@@ -137,13 +137,21 @@ export function AssistantMessage({
           <div className="space-y-3">
             {payload.editPlan && (
               <EditPlanCard plan={payload.editPlan} drafts={drafts}>
-                <CompileVideo
-                  messageId={message.id}
-                  drafts={drafts}
-                  byDraft={byDraft}
-                  plan={payload.editPlan}
-                  context={context}
-                />
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <SendPlanToKatana
+                    drafts={drafts}
+                    byDraft={byDraft}
+                    plan={payload.editPlan}
+                    context={context}
+                  />
+                  <CompileVideo
+                    messageId={message.id}
+                    drafts={drafts}
+                    byDraft={byDraft}
+                    plan={payload.editPlan}
+                    context={context}
+                  />
+                </div>
               </EditPlanCard>
             )}
             <div className="flex flex-wrap items-center justify-between gap-2">

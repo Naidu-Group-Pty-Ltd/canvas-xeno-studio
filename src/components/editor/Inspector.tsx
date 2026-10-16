@@ -84,6 +84,7 @@ import type { PlaybackClock, Selection } from "./state";
 import { VoiceoverPanel, type VoiceoverContext } from "./VoiceoverPanel";
 import { MusicPanel, type MusicContext } from "./MusicPanel";
 import { Mixer } from "./Mixer";
+import { SendToKatana } from "@/components/katana/SendToKatana";
 
 interface InspectorProps {
   timeline: Timeline;
@@ -506,6 +507,13 @@ function ClipInspector({
         >
           <Scissors className="mr-1.5 size-3.5" /> Split at playhead (S)
         </Button>
+        {asset && (
+          <SendToKatana
+            file={asset}
+            label={clip.kind === "video" ? "Send its footage to Katana" : "Send it to Katana"}
+            className="h-8 w-full"
+          />
+        )}
       </Section>
 
       <Section title={clip.kind === "image" ? "Timing" : "Trim"}>

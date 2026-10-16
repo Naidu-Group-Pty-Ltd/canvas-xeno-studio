@@ -5,6 +5,7 @@
  * block of `<input>: <JSON value>` lines), so Katana's instructions apply to
  * them unchanged. Pure.
  */
+import { VIEW_LABELS, trimDescription, type CharacterView } from "../characters/model";
 import { formatCredits } from "./guard";
 
 export type KatanaMode = "remix" | "preset" | "edit";
@@ -67,6 +68,60 @@ function section(lines: string[]): string {
   return lines.join("\n");
 }
 
+/** One of the team's characters in a run: who they are, and their sheet among its media. */
+export interface KickoffCharacter {
+  name: string;
+  description: string;
+  /** Their reference images among the run's media, best view first. */
+  images: { mediaId: string; view: string | null }[];
+}
+
+/** How much of a character's look the first message carries (all a character can have). */
+const LOOK_CHARS = 600;
+
+const oneLine = (text: string) => text.replace(/\s+/g, " ").trim();
+
+function viewName(view: string | null): string | null {
+  if (!view || view === "other" || !Object.hasOwn(VIEW_LABELS, view)) return null;
+  const label = VIEW_LABELS[view as CharacterView];
+  return label.charAt(0).toLowerCase() + label.slice(1);
+}
+
+function namesOf(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? "";
+  return `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+}
+
+/**
+ * Who the run's characters are: each one's sheet among the media, their look,
+ * and that the sheet is who to keep, not footage. Katana's own rules already
+ * keep the hero in the clothes of the user's images.
+ */
+function castBlock(characters: KickoffCharacter[]): string[] {
+  const cast = characters
+    .map((character) => ({ ...character, name: oneLine(character.name) || "The hero" }))
+    .filter((character) => character.images.length);
+  if (!cast.length) return [];
+  const lines = cast.map((character) => {
+    const sheet = character.images
+      .map((image) => {
+        const view = viewName(image.view);
+        return `media_id=${image.mediaId}${view ? ` (${view})` : ""}`;
+      })
+      .join(", ");
+    const text = character.description.trim()
+      ? trimDescription(character.description, LOOK_CHARS)
+      : "";
+    const look = text ? ` Look: ${/[.!?…]$/.test(text) ? text : `${text}.`}` : "";
+    return `- ${character.name}: reference sheet ${sheet}.${look}`;
+  });
+  const only = cast.length === 1 ? cast[0]!.name : null;
+  const lead = only
+    ? `${only} is the hero of the new video. These images are identity references, not shots to cut in: keep ${only}'s face, hair, build and clothing as they are there in every scene ${only} appears in, unless the brief says otherwise.`
+    : `${namesOf(cast.map((character) => character.name))} are the people in the new video. Each sheet's images are identity references, not shots to cut in: keep each person's face, hair, build and clothing as in their own sheet in every scene they appear in, unless the brief says otherwise.`;
+  return ["CHARACTERS:", ...lines, lead];
+}
+
 export interface KickoffInput {
   mode: KatanaMode;
   presetSlug: string | null;
@@ -74,9 +129,14 @@ export interface KickoffInput {
   referenceUrl: string | null;
   inputs: KatanaMediaInput[];
   creditLimit: number;
+  /** The team's characters in it, whose sheets are among `inputs`. */
+  characters?: KickoffCharacter[];
 }
 
-/** The run's first message: a Katana request as Higgsfield's form would write it, plus its limits. */
+/**
+ * The run's first message: a Katana request as Higgsfield's form would write
+ * it, who its characters are (when it has any), and its limits.
+ */
 export function kickoffMessage(input: KickoffInput): string {
   const brief = input.brief.trim();
   const parts: string[] = [];
@@ -95,6 +155,8 @@ export function kickoffMessage(input: KickoffInput): string {
   }
   const media = mediaBlock(input.inputs);
   if (media.length) parts.push(section(media));
+  const cast = castBlock(input.characters ?? []);
+  if (cast.length) parts.push(section(cast));
   const values = section(inputsBlock(input.mode === "edit" ? {} : { "slot_values.prompt": brief }));
   if (values) parts.push(values);
   parts.push(limitsBlock(input.creditLimit));

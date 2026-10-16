@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronRight,
   Coins,
+  Film,
   Info,
   Loader2,
   RotateCcw,
@@ -46,6 +47,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
+import { createSequence } from "@/hooks/useEditorData";
 import type { AssetRow } from "@/hooks/useStudioData";
 import type {
   KatanaEventRow,
@@ -63,9 +65,14 @@ import {
 import { KATANA_MODE_LABELS, formatUsd, katanaActions } from "@/lib/katana/model";
 import { KATANA_FIELDS } from "@/lib/katana/messages";
 import { formatCredits } from "@/lib/katana/guard";
+import { VIEW_SHORT, castOfInputs } from "@/lib/katana/cast";
+import { compileFromAssets } from "@/lib/edit/compile";
+import { aspectFromValue } from "@/lib/edit/timeline";
 import { cn } from "@/lib/utils";
 import { KatanaStatusBadge } from "./KatanaStatusBadge";
 import { MediaSlot } from "./MediaSlot";
+import { SendToKatana } from "./SendToKatana";
+import type { CharacterView } from "@/lib/characters/model";
 
 interface RunInput {
   asset_id: string;
@@ -73,10 +80,14 @@ interface RunInput {
   kind: "image" | "video" | "audio";
   title: string;
   media_id: string | null;
+  character_id?: string | null;
+  character_name?: string | null;
+  view?: string | null;
 }
 
 export function KatanaRunView({ detail }: { detail: KatanaRunDetail }) {
   const { run, events, spend, results } = detail;
+  const runInputs = (Array.isArray(run.inputs) ? run.inputs : []) as unknown as RunInput[];
   const { user, isAdmin } = useAuth();
   const canSteer = !!user && (run.created_by === user.id || isAdmin);
   const actions = katanaActions(run.status, {
@@ -140,9 +151,15 @@ export function KatanaRunView({ detail }: { detail: KatanaRunDetail }) {
           {canSteer && !actions.followUp && actions.revise && <Revise detail={detail} />}
         </div>
         <div className="min-w-0 space-y-3">
-          <Results results={results} runStatus={run.status} />
+          <Results
+            results={results}
+            runStatus={run.status}
+            title={run.title}
+            projectId={run.project_id}
+            cast={castOfInputs(runInputs)}
+          />
           <Spend detail={detail} spend={spend} />
-          <Inputs inputs={(Array.isArray(run.inputs) ? run.inputs : []) as unknown as RunInput[]} />
+          <Inputs inputs={runInputs} />
           {run.session_id && (
             <div className="panel space-y-1 p-4 text-xs text-muted-foreground">
               <span className="label-eyebrow block">Session</span>
@@ -592,7 +609,84 @@ function LimitsButton({ detail, claude }: { detail: KatanaRunDetail; claude: boo
 
 // ---------- Side panels ----------
 
-function Results({ results, runStatus }: { results: KatanaResultRow[]; runStatus: string }) {
+/** A delivered video as a new edit in the Editor, at its own shape. */
+function OpenInEditor({
+  asset,
+  title,
+  projectId,
+}: {
+  asset: AssetRow;
+  title: string;
+  projectId: string | null;
+}) {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [opening, setOpening] = useState(false);
+  async function open() {
+    if (!user || opening) return;
+    setOpening(true);
+    try {
+      const aspectRatio =
+        (asset.width && asset.height ? aspectFromValue(`${asset.width}x${asset.height}`) : null) ??
+        "9:16";
+      const result = compileFromAssets(
+        [
+          {
+            id: asset.id,
+            asset_type: asset.asset_type,
+            title: asset.title,
+            duration_seconds: asset.duration_seconds,
+            created_at: asset.created_at,
+          },
+        ],
+        { title, aspectRatio },
+      );
+      const sequenceId = await createSequence({
+        userId: user.id,
+        title: result.title,
+        timeline: result.timeline,
+        projectId,
+        source: { kind: "katana", asset_id: asset.id },
+      });
+      void navigate({ to: "/editor/$sequenceId", params: { sequenceId } });
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : "The edit couldn't be created");
+    } finally {
+      setOpening(false);
+    }
+  }
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      disabled={opening || !user}
+      onClick={() => void open()}
+      data-testid="katana-result-editor"
+    >
+      {opening ? (
+        <Loader2 className="mr-1.5 size-4 animate-spin" />
+      ) : (
+        <Film className="mr-1.5 size-4" />
+      )}
+      Open in Editor
+    </Button>
+  );
+}
+
+function Results({
+  results,
+  runStatus,
+  title,
+  projectId,
+  cast,
+}: {
+  results: KatanaResultRow[];
+  runStatus: string;
+  title: string;
+  projectId: string | null;
+  /** The run's characters, to keep in a run made from its video. */
+  cast: { id: string; name: string }[];
+}) {
   const queryClient = useQueryClient();
   const assetIds = results.map((result) => result.asset_id).filter((id): id is string => !!id);
   const { data: assets = [] } = useQuery({
@@ -664,9 +758,20 @@ function Results({ results, runStatus }: { results: KatanaResultRow[]; runStatus
               </p>
             )}
             {asset && (
-              <Button asChild size="sm" variant="outline">
-                <Link to="/assets">Open the library</Link>
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <OpenInEditor asset={asset} title={title || "Katana video"} projectId={projectId} />
+                <SendToKatana
+                  file={asset}
+                  characters={cast}
+                  title={title ? `${title} · again` : null}
+                  label="Katana again"
+                />
+                <Button asChild size="sm" variant="ghost">
+                  <Link to="/assets" search={{ asset: asset.id }}>
+                    Open the library
+                  </Link>
+                </Button>
+              </div>
             )}
           </div>
         );
@@ -765,15 +870,40 @@ function Inputs({ inputs }: { inputs: RunInput[] }) {
     [KATANA_FIELDS.videos]: "Footage",
     [KATANA_FIELDS.audio]: "Soundtrack",
   };
+  const cast = castOfInputs(inputs);
   return (
     <div className="panel space-y-2 p-4">
       <span className="label-eyebrow block">Inputs</span>
+      {cast.length > 0 && (
+        <p className="text-xs" data-testid="katana-run-cast">
+          {cast.length === 1 ? "Hero: " : "Cast: "}
+          {cast.map((character, index) => (
+            <span key={character.id}>
+              {index > 0 && ", "}
+              <Link
+                to="/characters/$characterId"
+                params={{ characterId: character.id }}
+                className="font-medium hover:underline"
+              >
+                {character.name}
+              </Link>
+              <span className="text-muted-foreground">
+                {" "}
+                ({character.images.length} reference image
+                {character.images.length === 1 ? "" : "s"})
+              </span>
+            </span>
+          ))}
+        </p>
+      )}
       <ul className="space-y-1 text-xs">
         {inputs.map((input) => (
           <li key={`${input.asset_id}-${input.field}`} className="flex justify-between gap-2">
             <span className="truncate">{input.title}</span>
             <span className="shrink-0 text-muted-foreground">
-              {roles[input.field] ?? input.field.replace(/^media\./, "")}
+              {input.character_name
+                ? `${input.character_name} · ${(input.view && VIEW_SHORT[input.view as CharacterView]) || "sheet"}`
+                : (roles[input.field] ?? input.field.replace(/^media\./, ""))}
             </span>
           </li>
         ))}

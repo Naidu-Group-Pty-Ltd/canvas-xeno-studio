@@ -7,6 +7,7 @@ import {
   MoreHorizontal,
   Search,
   ShieldCheck,
+  Sword,
   Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -26,6 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/useAuth";
+import { useKatanaEnabled, useSendToKatana } from "@/hooks/useKatana";
 import { supabase } from "@/integrations/supabase/client";
 import { useMusicStatus, useMusicTracks } from "@/hooks/useMusicData";
 import { makeInstrumentalTrack, setMusicArchived } from "@/lib/music.functions";
@@ -47,6 +49,8 @@ export function MusicLibrary({
   showArchived?: boolean;
 }) {
   const { user, isAdmin } = useAuth();
+  const katana = useKatanaEnabled();
+  const sendToKatana = useSendToKatana();
   // A recorded track whose licence's terms are being updated (say renewed once run out).
   const [renewing, setRenewing] = useState<MusicTrackRow | null>(null);
   const queryClient = useQueryClient();
@@ -234,6 +238,13 @@ export function MusicLibrary({
             track.instrumental !== true &&
             track.asset_id &&
             !licenceBlocker(track);
+          // Katana cuts to a track it may use (one whose licence still runs).
+          const canKatana =
+            !onAdd &&
+            katana &&
+            track.status === "ready" &&
+            !!track.asset_id &&
+            !licenceBlocker(track);
           return (
             <TrackItem
               key={track.id}
@@ -242,7 +253,7 @@ export function MusicLibrary({
               onAdd={onAdd}
               added={!!track.asset_id && !!addedAssetIds?.has(track.asset_id)}
               actions={
-                !onAdd && (canChange || canSplit) ? (
+                !onAdd && (canChange || canSplit || canKatana) ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -260,6 +271,24 @@ export function MusicLibrary({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      {canKatana && (
+                        <DropdownMenuItem
+                          onClick={() =>
+                            sendToKatana({
+                              files: [
+                                {
+                                  assetId: track.asset_id!,
+                                  slot: "soundtrack",
+                                  title: track.title,
+                                },
+                              ],
+                            })
+                          }
+                          data-testid="track-to-katana"
+                        >
+                          <Sword className="mr-2 size-4" /> Cut to it in Katana
+                        </DropdownMenuItem>
+                      )}
                       {canSplit && !heldSplits.has(track.id) && !madeSplits.has(track.id) && (
                         <DropdownMenuItem onClick={() => void instrumental(track)}>
                           <Wand2 className="mr-2 size-4" /> Make instrumental

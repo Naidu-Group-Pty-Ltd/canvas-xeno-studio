@@ -8,6 +8,8 @@ import { EmptyState } from "@/components/studio/EmptyState";
 import { CharacterImages } from "@/components/characters/CharacterImages";
 import { SoulIdPanel } from "@/components/characters/SoulIdPanel";
 import { ViewsMaker } from "@/components/characters/ViewsMaker";
+import { CharacterKatanaRuns } from "@/components/katana/CharacterKatanaRuns";
+import { CharacterToKatana } from "@/components/katana/SendToKatana";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -129,16 +131,19 @@ function CharacterEditor({ character, canEdit }: { character: CharacterEntry; ca
         ) : (
           <h2 className="font-display text-lg font-semibold">{character.name}</h2>
         )}
-        {canEdit && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="ml-auto text-xs text-muted-foreground"
-            onClick={() => setArchiving(true)}
-          >
-            <Archive className="mr-1.5 size-3.5" /> Remove character
-          </Button>
-        )}
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <CharacterToKatana character={character} />
+          {canEdit && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs text-muted-foreground"
+              onClick={() => setArchiving(true)}
+            >
+              <Archive className="mr-1.5 size-3.5" /> Remove character
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
@@ -233,6 +238,7 @@ function CharacterEditor({ character, canEdit }: { character: CharacterEntry; ca
         <div className="space-y-4">
           <ViewsMaker character={character} canEdit={canEdit} />
           <SoulIdPanel character={character} canEdit={canEdit} />
+          <CharacterKatanaRuns character={character} />
         </div>
       </div>
 

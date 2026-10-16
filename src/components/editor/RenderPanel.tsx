@@ -14,6 +14,7 @@ import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAssetsByIds, useSequenceRenders, type RenderRow } from "@/hooks/useEditorData";
+import type { AssetRow } from "@/hooks/useStudioData";
 import { getMediaWorkerStatus } from "@/lib/media.functions";
 import { recoverRender, renderSequence, resendRender } from "@/lib/edit.functions";
 import { keepAttempt, savedAttempt } from "@/lib/attempts";
@@ -22,6 +23,7 @@ import { joinSummary, readJoinReport } from "@/lib/edit/join-report";
 import { signedUrl } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { SendToKatana } from "@/components/katana/SendToKatana";
 import { cn } from "@/lib/utils";
 import {
   RENDER_BUSY_RETRY_MS,
@@ -392,7 +394,7 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
                 key={render.id}
                 render={render}
                 title={title}
-                kept={render.asset_id ? renderedFiles?.get(render.asset_id)?.metadata : undefined}
+                file={render.asset_id ? renderedFiles?.get(render.asset_id) : undefined}
               />
             ))}
           </ul>
@@ -417,13 +419,14 @@ function keptMusic(metadata: unknown): { credits: string[]; terms: string[] } {
 function RenderItem({
   render,
   title,
-  kept,
+  file,
 }: {
   render: RenderRow;
   title: string;
-  /** The rendered video's library record metadata, with its music credit and terms. */
-  kept?: unknown;
+  /** The rendered video's library record, with its music credit and terms in its metadata. */
+  file?: AssetRow | undefined;
 }) {
+  const kept = file?.metadata;
   const [opening, setOpening] = useState(false);
   // What this version's music asks for, as kept when it was rendered (the edit
   // may use other music by now).
@@ -513,6 +516,14 @@ function RenderItem({
               <ExternalLink className="size-3.5" />
             </Link>
           </Button>
+          {file && (
+            <SendToKatana
+              file={file}
+              title={`${title} · Katana`}
+              look="icon"
+              label="Send this version to Katana"
+            />
+          )}
         </div>
       )}
       {render.status === "completed" && music.credits.length > 0 && (
