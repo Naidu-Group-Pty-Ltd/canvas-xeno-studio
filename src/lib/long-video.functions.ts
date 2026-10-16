@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { AppError } from "./higgsfield/errors";
 import { FINALE_MODES, FINALE_SECONDS, LONG_VIDEO_LIMITS } from "./long-video/plan";
+import { LONG_VIDEO_SEAMS } from "./edit/compile";
 import { CHARACTER_LIMITS } from "./characters/model";
 
 /**
@@ -441,7 +442,7 @@ export const openLongVideoInEditor = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) =>
     runInput
       .extend({
-        seam: z.enum(["cut", "blend"]).default("cut"),
+        seam: z.enum(LONG_VIDEO_SEAMS).default("smart"),
         keepSound: z.boolean().default(true),
         fresh: z.boolean().default(false),
         // Made to a voiceover: its words as captions.

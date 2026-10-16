@@ -43,6 +43,7 @@ import {
 } from "@/lib/long-video/plan";
 import { DEFAULT_END_CARD_STYLE, makeEndCard, type EndCardScene } from "@/lib/media/end-card";
 import { syncSummary } from "@/lib/lip-sync/sync";
+import type { LongVideoSeam } from "@/lib/edit/compile";
 import { storedVoiceover } from "@/lib/long-video/voiceover";
 import { MediaPreview } from "@/components/studio/MediaPreview";
 import { Button } from "@/components/ui/button";
@@ -187,7 +188,7 @@ function RunCard({
   // Made to a voiceover: its clips' own sound is their piece of it again, so
   // the Editor plays the voiceover alone unless asked otherwise.
   const voiceover = run.voiceover_preparation_id ? storedVoiceover(run.voiceover) : null;
-  const [seam, setSeam] = useState<"cut" | "blend">("cut");
+  const [seam, setSeam] = useState<LongVideoSeam>("smart");
   const [keepSound, setKeepSound] = useState(!voiceover);
   const [captions, setCaptions] = useState(false);
   // The end card: the run's finisher when it holds after the last clip; any
@@ -542,14 +543,19 @@ function RunCard({
                     {(
                       [
                         [
-                          "cut",
-                          "Seamless cut",
-                          "Each clip plays to the frame the next one starts from, and the next carries straight on, its colour eased to match.",
+                          "smart",
+                          "Smart blend",
+                          "Each clip plays to the frame the next one starts from, and the next carries straight on, put back in register with it: its framing, colour and detail matched at the join and eased back over a few seconds.",
                         ],
                         [
                           "blend",
-                          "Soft blend",
-                          "The same, with a brief dissolve at each join to soften any jump.",
+                          "Smart blend with a dissolve",
+                          "The same, with a brief dissolve at each join as well.",
+                        ],
+                        [
+                          "cut",
+                          "Colour-matched cut",
+                          "The clips meet on the frame they share, with only the colour eased to match.",
                         ],
                       ] as const
                     ).map(([value, label, hint]) => (

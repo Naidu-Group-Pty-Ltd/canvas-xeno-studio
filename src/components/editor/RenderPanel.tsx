@@ -18,6 +18,7 @@ import { getMediaWorkerStatus } from "@/lib/media.functions";
 import { recoverRender, renderSequence, resendRender } from "@/lib/edit.functions";
 import { keepAttempt, savedAttempt } from "@/lib/attempts";
 import { audibleAudio, formatTime, renderBlockers, type Timeline } from "@/lib/edit/timeline";
+import { joinSummary, readJoinReport } from "@/lib/edit/join-report";
 import { signedUrl } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -427,6 +428,7 @@ function RenderItem({
   // What this version's music asks for, as kept when it was rendered (the edit
   // may use other music by now).
   const music = keptMusic(kept);
+  const joins = readJoinReport(kept);
   const stalled =
     (render.status === "queued" || render.status === "rendering") && !renderInProgress(render);
   const when = new Date(render.created_at).toLocaleString(undefined, {
@@ -536,6 +538,11 @@ function RenderItem({
             </p>
           ))}
         </div>
+      )}
+      {render.status === "completed" && joins && (
+        <p className="mt-1 text-[11px] text-muted-foreground" data-testid="render-joins">
+          {joinSummary(joins)}
+        </p>
       )}
       {render.status === "completed" && music.terms.length > 0 && (
         <p className="mt-1 text-[11px] text-muted-foreground" data-testid="render-music-terms">
