@@ -11,8 +11,9 @@ import { ffmpeg } from "./ffmpeg.js";
  * eases off over a couple of seconds, back to the clip's own colour.
  *
  * The match is made on the picture's own planes (Y for light, U and V for
- * colour), as it is encoded, so nothing is converted on the way and the clip
- * comes out bit for bit itself once the match has eased off. Only mid-tones
+ * colour), as it is encoded, so nothing is converted on the way, and only the
+ * frames the match eases over are touched: the rest of the clip comes out bit
+ * for bit itself. Only mid-tones
  * are compared (5th to 95th percentiles), so a light moving in or out of
  * frame isn't taken for a change of exposure, and nothing is changed unless
  * both frames show the same picture.
@@ -123,19 +124,22 @@ function planePoints(target, current, { maxShift, light }) {
 
 /**
  * A piecewise-linear level mapping as an FFmpeg lut expression on `val`
- * (0-255). It goes inside single quotes in the filtergraph, which keep its
- * commas; it has no colons or quotes of its own.
+ * (0-255), moved `share` of the way from no change (1: all of it). It goes
+ * inside single quotes in the filtergraph, which keep its commas; it has no
+ * colons or quotes of its own. The lut keeps a level's whole part, so half a
+ * level is added first: levels are rounded, never all pulled down.
  */
-function lutExpression(points) {
+export function lutExpression(points, share = 1) {
+  const moved = points.map(([from, to]) => [from, from + (to - from) * share]);
   let expression = "val";
-  for (let index = points.length - 1; index >= 1; index -= 1) {
-    const [x0, y0] = points[index - 1];
-    const [x1, y1] = points[index];
+  for (let index = moved.length - 1; index >= 1; index -= 1) {
+    const [x0, y0] = moved[index - 1];
+    const [x1, y1] = moved[index];
     const slope = (y1 - y0) / Math.max(1e-6, x1 - x0);
     const segment = `${y0.toFixed(3)}+(val-${x0.toFixed(3)})*${slope.toFixed(5)}`;
-    expression = index === points.length - 1 ? segment : `if(lt(val,${x1.toFixed(3)}),${segment},${expression})`;
+    expression = index === moved.length - 1 ? segment : `if(lt(val,${x1.toFixed(3)}),${segment},${expression})`;
   }
-  return `clip(${expression},0,255)`;
+  return `clip(${expression}+0.5,0,255)`;
 }
 
 /**
@@ -161,18 +165,52 @@ export function seamCorrection(target, current) {
     y: lutExpression(maps.y),
     u: lutExpression(maps.u),
     v: lutExpression(maps.v),
+    // The mappings themselves, (from, to) points on 0-255, for measuring the matched picture.
+    levels: maps,
   };
 }
 
+/** A level that moves less than this from one step of an ease to the next can't be seen to. */
+const STEP_LEVELS = 0.35;
+/** A sharpening that changes less than this from one step to the next can't be seen to. */
+const STEP_SHARPEN = 0.04;
+
 /**
- * Filtergraph lines that ease `input` from corrected into itself over
- * `seconds`: the corrected picture first, cross-fading into the untouched one.
+ * A filtergraph line that eases `input` from matched into itself over its
+ * first `frames` frames: the match in full on the first frame, then a little
+ * less at each step (each too small to see), and the frames after the ease
+ * untouched, bit for bit. The match is a level mapping on each plane
+ * (`levels`, seam correction points; null for none) and an unsharp `amount`
+ * on the light (null for none).
+ *
+ * Each step is its own filter, switched on for its frames only, on the
+ * picture's own planes as it is encoded, and rounded. (A cross-fade, xfade,
+ * would convert the whole clip to 4:4:4 and back, and its blend drops a
+ * level's fraction, so a brightening match would fall a level the frame after
+ * the cut.)
  */
-export function seamEaseChain(input, output, correction, seconds, tag) {
-  const duration = Math.max(0.1, seconds).toFixed(6);
-  return (
-    `[${input}]format=yuv420p,split=2[${tag}sa][${tag}sb];` +
-    `[${tag}sa]lutyuv=y='${correction.y}':u='${correction.u}':v='${correction.v}'[${tag}sc];` +
-    `[${tag}sc][${tag}sb]xfade=transition=fade:duration=${duration}:offset=0[${output}]`
-  );
+export function easedLooksChain(input, output, { levels, amount, frames }) {
+  const largest = levels
+    ? Math.max(...Object.values(levels).flatMap((points) => points.map(([from, to]) => Math.abs(to - from))))
+    : 0;
+  const steps = Math.max(2, Math.min(frames, 30, Math.ceil(Math.max(largest / STEP_LEVELS, Math.abs(amount ?? 0) / STEP_SHARPEN))));
+  const filters = ["format=yuv420p"];
+  for (let index = 0; index < steps; index += 1) {
+    const start = Math.round((index * frames) / steps);
+    const end = Math.round(((index + 1) * frames) / steps) - 1;
+    if (end < start) continue;
+    // The share of the match this step keeps: all of it first, a step's worth less each time.
+    const share = 1 - index / steps;
+    const enable = `enable='between(n,${start},${end})'`;
+    if (levels) {
+      filters.push(`lutyuv=y='${lutExpression(levels.y, share)}':u='${lutExpression(levels.u, share)}':v='${lutExpression(levels.v, share)}':${enable}`);
+    }
+    if (amount) filters.push(`unsharp=luma_msize_x=5:luma_msize_y=5:luma_amount=${Number((amount * share).toFixed(4))}:${enable}`);
+  }
+  return `[${input}]${filters.join(",")}[${output}]`;
+}
+
+/** A filtergraph line that eases `input` from corrected into itself over its first `frames` frames. */
+export function seamEaseChain(input, output, correction, frames) {
+  return easedLooksChain(input, output, { levels: correction.levels, amount: null, frames: Math.max(2, frames) });
 }

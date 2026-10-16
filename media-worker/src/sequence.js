@@ -3,6 +3,7 @@ import { rm, writeFile } from "node:fs/promises";
 import { ffmpeg, probe } from "./ffmpeg.js";
 import { TaskError } from "./net.js";
 import { planeThumbnail, SEAM_EASE_SECONDS, seamCorrection, seamEaseChain } from "./seam.js";
+import { easedWarpFilter, joinHeadChain, JOIN_SOUND_SECONDS, measureJoin } from "./joins.js";
 
 /**
  * Sequence rendering: an edited timeline (ordered clips with trims, stills,
@@ -196,8 +197,14 @@ export function planSequence(params, sources) {
       transitionType,
       transitionFrames,
       // Carries straight on from the clip before (a long video's join): its
-      // colour is eased in from that clip's last frame.
-      matchPrevious: kind === "video" && index > 0 && clip.match_previous === true,
+      // colour is eased in from that clip's last frame. A smart join puts the
+      // two in register too (framing, colour, detail and sound; see ./joins.js).
+      matchPrevious: kind === "video" && index > 0 && (clip.match_previous === true || clip.join === "smart"),
+      smartJoin: kind === "video" && index > 0 && clip.join === "smart",
+      // The clip's own sound fades in or out over a few milliseconds where it
+      // meets a clip at a smart cut, so the cut can't click.
+      soundIn: false,
+      soundOut: false,
     };
   });
 
@@ -214,6 +221,12 @@ export function planSequence(params, sources) {
       clip.transitionFrames = 0;
       clip.transitionType = "cut";
     }
+  }
+
+  for (let index = 1; index < clips.length; index += 1) {
+    if (!clips[index].smartJoin || clips[index].transitionFrames > 0 || clips[index - 1].kind !== "video") continue;
+    clips[index].soundIn = true;
+    clips[index - 1].soundOut = true;
   }
 
   let cursor = 0;
@@ -425,9 +438,13 @@ export function clipArgs(clip, plan, sourcePath, hasAudio, out, seam = null) {
     filters.push(`[0:v]scale=trunc(iw*sar/2)*2:ih,setsar=1,${speed},fps=${fps}[paced]`);
     filters.push(frameChain("paced", "framed", width, height, clip.fit, "f", clip.focus));
     let framed = "framed";
-    if (seam) {
+    if (seam?.head) {
+      // In register with the clip before at the join, easing back to its own picture.
+      filters.push(joinHeadChain("framed", "matched", seam.head, "m"));
+      framed = "matched";
+    } else if (seam) {
       // Matched to the clip before at the join, easing back to its own colour.
-      filters.push(seamEaseChain("framed", "matched", seam.correction, seam.seconds, "m"));
+      filters.push(seamEaseChain("framed", "matched", seam.correction, Math.round(seam.seconds * fps)));
       framed = "matched";
     }
     // A source shorter than the requested length holds its last frame.
@@ -440,9 +457,14 @@ export function clipArgs(clip, plan, sourcePath, hasAudio, out, seam = null) {
   const useSourceAudio = clip.kind === "video" && hasAudio && clip.volume > 0;
   if (useSourceAudio) {
     const tempo = clip.speed === 1 ? "" : `${atempoChain(clip.speed)},`;
+    const fades = [];
+    if (clip.soundIn) fades.push(`afade=t=in:st=0:d=${seconds(JOIN_SOUND_SECONDS)}`);
+    if (clip.soundOut) {
+      fades.push(`afade=t=out:st=${seconds(Math.max(0, clip.durationFrames / fps - JOIN_SOUND_SECONDS))}:d=${seconds(JOIN_SOUND_SECONDS)}`);
+    }
     filters.push(
       `[0:a]asetpts=PTS-STARTPTS,${tempo}aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,` +
-        `volume=${clip.volume},apad,atrim=end=${duration},asetpts=PTS-STARTPTS[a]`,
+        `volume=${clip.volume},apad,atrim=end=${duration},${fades.map((fade) => `${fade},`).join("")}asetpts=PTS-STARTPTS[a]`,
     );
   } else {
     args.push("-f", "lavfi", "-t", duration, "-i", "anullsrc=r=48000:cl=stereo");
@@ -469,9 +491,14 @@ export function clipArgs(clip, plan, sourcePath, hasAudio, out, seam = null) {
 export function joinChain(plan, kind) {
   const lines = [];
   for (let index = 0; index < plan.clips.length; index += 1) {
+    const clip = plan.clips[index];
+    // A clip easing into the framing the next shares with it, over its last moments (see ./joins.js).
+    const tail = clip.tailWarp
+      ? `,${easedWarpFilter(clip.tailWarp.map, plan.width, plan.height, { frames: clip.tailWarp.frames, direction: "in", total: clip.durationFrames })}`
+      : "";
     lines.push(
       kind === "v"
-        ? `[${index}:v]fps=${plan.fps},settb=AVTB,setpts=PTS-STARTPTS[v${index}]`
+        ? `[${index}:v]fps=${plan.fps},settb=AVTB,setpts=PTS-STARTPTS${tail}[v${index}]`
         : `[${index}:a]aformat=sample_fmts=fltp:channel_layouts=stereo,asetpts=PTS-STARTPTS[a${index}]`,
     );
   }
@@ -840,6 +867,7 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
   // Pass 1: every clip normalised to the output format at its exact length.
   const intermediates = [];
   const seams = [];
+  const joins = [];
   for (const [index, clip] of plan.clips.entries()) {
     progress((index / plan.clips.length) * 0.45, `Preparing clip ${index + 1} of ${plan.clips.length}`);
     const info = clip.kind === "video" ? await inspect(clip.source) : null;
@@ -847,12 +875,21 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
       throw bad(`Clip ${index + 1} starts after its source ends`);
     }
     const previous = plan.clips[index - 1];
-    // A join that can't be measured is left as it is: easing colour is never worth a failed render.
-    const seam =
-      clip.matchPrevious && previous?.kind === "video" && intermediates[index - 1]
-        ? await seamFor({ clip, previous, previousPath: intermediates[index - 1], plan, sourcePath: sources[clip.source].path, info, dir, index }).catch(() => null)
-        : null;
-    if (seam) seams.push({ clip: index, likeness: seam.correction.likeness, largest_shift: seam.correction.largest_shift });
+    const joinable = clip.matchPrevious && previous?.kind === "video" && intermediates[index - 1];
+    // A join that can't be measured is left as it is: easing it is never worth a failed render.
+    let seam = null;
+    if (joinable && clip.smartJoin) {
+      const measured = await smartJoinFor({ clip, previous, previousPath: intermediates[index - 1], plan, sourcePath: sources[clip.source].path, info, dir, index }).catch((error) => {
+        console.error(JSON.stringify({ event: "smart_join_unmeasured", clip: index, message: error instanceof Error ? error.message : String(error) }));
+        return null;
+      });
+      if (measured?.tail) previous.tailWarp = measured.tail.warp;
+      if (measured?.head) seam = { head: measured.head };
+      joins.push({ clip: index, matched: Boolean(measured?.head || measured?.tail), ...(measured?.report ?? { left: "unmeasured" }) });
+    } else if (joinable) {
+      seam = await seamFor({ clip, previous, previousPath: intermediates[index - 1], plan, sourcePath: sources[clip.source].path, info, dir, index }).catch(() => null);
+      if (seam) seams.push({ clip: index, likeness: seam.correction.likeness, largest_shift: seam.correction.largest_shift });
+    }
     const out = join(dir, `clip-${String(index).padStart(3, "0")}.mkv`);
     await ffmpeg(clipArgs(clip, plan, sources[clip.source].path, Boolean(info?.has_audio), out, seam));
     intermediates.push(out);
@@ -929,8 +966,32 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
       clip_count: plan.clips.length,
       loudness_lufs: loudness ? plan.loudness : null,
       ...(seams.length ? { seams_matched: seams } : {}),
+      ...(joins.length ? { smart_joins: joins } : {}),
     },
   };
+}
+
+/**
+ * How a smart join is made (see ./joins.js): measured, like a colour join, on
+ * the last frame the clip before shows against this clip's frame of the same
+ * moment, laid out like the render.
+ */
+async function smartJoinFor({ clip, previous, previousPath, plan, sourcePath, info, dir, index }) {
+  const rate = info?.fps && info.fps > 0 ? info.fps : plan.fps;
+  const anchor = Math.max(0, clip.trimStart - 1 / rate);
+  const layout = frameChain("sp", "sf", plan.width, plan.height, clip.fit, "s", clip.focus);
+  return measureJoin({
+    previous: { path: previousPath, frames: previous.durationFrames },
+    next: {
+      input: ["-ss", seconds(seekPoint(anchor)), "-i", sourcePath],
+      shownInput: clip.trimStart - anchor > 0.5 / rate ? ["-ss", seconds(seekPoint(clip.trimStart)), "-i", sourcePath] : null,
+      filters: `[0:v]scale=trunc(iw*sar/2)*2:ih,setsar=1[sp];${layout};[sf]`,
+      frames: clip.durationFrames,
+    },
+    plan,
+    dir,
+    tag: `j${index}`,
+  });
 }
 
 /**

@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 import { ffmpeg, probe } from "./ffmpeg.js";
 import { TASKS } from "./tasks.js";
 import { fitAudioToSources } from "./sequence.js";
+import { alignFrames, detailLevel, downscale } from "./align.js";
 
 const dir = await mkdtemp(join(tmpdir(), "selftest-"));
 let failures = 0;
@@ -363,6 +364,121 @@ await check("render_sequence eases a clip's colour into the clip before at a joi
   // Eased back to the clip's own colour by the end.
   const drift = eased.later.reduce((sum, value, index) => sum + Math.abs(value - plain.later[index]), 0) / 3;
   if (drift > 3) throw new Error(`the clip should be back to its own colour later on (off by ${drift})`);
+});
+
+/** Frame `n` of a file as a grey plane, at its own size. */
+async function greyFrame(path, n, width, height) {
+  const out = join(dir, `grey-${Math.random().toString(36).slice(2)}.gray`);
+  await ffmpeg(["-i", path, "-vf", `select=eq(n\\,${n}),format=gray`, "-fps_mode", "passthrough", "-frames:v", "1", "-f", "rawvideo", out]);
+  const plane = await readFile(out);
+  await rm(out, { force: true });
+  return { data: downscale(plane, width, height, 1).data, plane, width, height };
+}
+
+/** How a file steps from one frame to another: the stretch and shift between them, and the change in light and in detail. */
+async function frameStep(path, before, after) {
+  const a = await greyFrame(path, before, 640, 360);
+  const b = await greyFrame(path, after, 640, 360);
+  const fit = alignFrames(a, b);
+  const mean = (plane) => plane.reduce((sum, value) => sum + value, 0) / plane.length;
+  return {
+    stretch: [fit.map.a, fit.map.d],
+    shift: [fit.map.tx, fit.map.ty],
+    light: mean(b.plane) - mean(a.plane),
+    detail: detailLevel(b.plane, 640, 360, 8) / detailLevel(a.plane, 640, 360, 8),
+  };
+}
+
+/** How far a cut's step is from the scene's own step between the same two moments. */
+function offStep(step, reference) {
+  return {
+    stretch: Math.max(...step.stretch.map((value, index) => Math.abs(value - reference.stretch[index]))),
+    shift: Math.max(...step.shift.map((value, index) => Math.abs(value - reference.shift[index]))),
+    light: Math.abs(step.light - reference.light),
+    detail: Math.abs(step.detail - reference.detail),
+  };
+}
+
+// One continuous camera move over a textured scene, filmed wider than the
+// frame, for joins whose second clip is re-rendered the way a video model
+// re-renders its start image.
+const scene = join(dir, "scene.mp4");
+await ffmpeg([
+  "-f", "lavfi", "-i", "testsrc2=s=900x480:r=25:d=5,noise=alls=50:allf=u,gblur=sigma=1.2,crop=704:396:x='t*24':y='t*6'",
+  "-c:v", "libx264", "-qp", "0", "-pix_fmt", "yuv420p", scene,
+]);
+// The scene's own step from frame 49 to 50, with no join between them.
+const unbroken = join(dir, "unbroken.mp4");
+await ffmpeg(["-i", scene, "-vf", "crop=640:360:0:0", "-frames:v", "60", "-c:v", "libx264", "-qp", "0", "-pix_fmt", "yuv420p", unbroken]);
+const sceneStep = await frameStep(unbroken, 49, 50);
+
+/**
+ * Renders the scene's first 50 frames, then a re-render of the rest (made by
+ * `rerender`, from frame 49, which the second clip skips as its copy of the
+ * first's last), joined plainly or smartly, each in its own folder.
+ */
+async function renderJoin(name, rerender, how) {
+  const work = await mkdtemp(join(dir, `${name}-${how}-`));
+  const first = join(work, "first.mp4");
+  const second = join(work, "second.mp4");
+  await ffmpeg(["-i", scene, "-vf", "select='lte(n,49)',crop=640:360:0:0", "-fps_mode", "passthrough", "-c:v", "libx264", "-qp", "0", "-pix_fmt", "yuv420p", first]);
+  await ffmpeg(["-i", scene, "-vf", `select='gte(n,49)',setpts=N/25/TB,${rerender}`, "-fps_mode", "passthrough", "-c:v", "libx264", "-qp", "0", "-pix_fmt", "yuv420p", second]);
+  const result = await TASKS.render_sequence.run({
+    sources: [{ path: first, role: "video" }, { path: second, role: "video" }],
+    params: {
+      width: 640, height: 360, fps: 25, normalize_loudness: false,
+      clips: [
+        { source_index: 0, duration: 2 },
+        { source_index: 1, duration: 3, trim_start: 0.04, ...(how === "smart" ? { join: "smart", match_previous: true } : {}) },
+      ],
+    },
+    dir: work,
+  });
+  return { path: result.outputs[0].path, report: result.metadata.smart_joins?.[0] ?? null };
+}
+
+await check("render_sequence puts a re-rendered join back in register (framing, light, detail)", async () => {
+  // The second clip's start image fitted to a larger working size from the
+  // top-left corner (so it shows a little more right and below, its picture
+  // 3% narrower and 1% shorter), a little darker and softer.
+  const rerender = "crop=661:364:0:0,scale=640:360,setsar=1,eq=brightness=-0.05,gblur=sigma=0.5";
+  const plain = await renderJoin("stretched", rerender, "plain");
+  const smart = await renderJoin("stretched", rerender, "smart");
+  const report = smart.report;
+  if (!report?.matched || !report.framing) throw new Error(`the join wasn't put in register: ${JSON.stringify(report)}`);
+  if (Math.abs(report.framing.scale_x - 640 / 661) > 0.004 || Math.abs(report.framing.scale_y - 360 / 364) > 0.004) {
+    throw new Error(`the re-render's stretch was misread: ${JSON.stringify(report.framing)}`);
+  }
+  if (!report.detail || !(report.detail.amount > 0)) throw new Error(`the softer start should have been sharpened: ${JSON.stringify(report)}`);
+  const before = offStep(await frameStep(plain.path, 49, 50), sceneStep);
+  const after = offStep(await frameStep(smart.path, 49, 50), sceneStep);
+  if (!(before.stretch > 0.02)) throw new Error(`the plain cut should jump in framing (${before.stretch})`);
+  if (!(after.stretch < 0.004 && after.shift < 0.8)) throw new Error(`the smart cut should step like the scene (stretch ${after.stretch}, shift ${after.shift})`);
+  if (!(after.light < before.light * 0.5)) throw new Error(`the light should step less (${after.light} vs ${before.light})`);
+  if (!(after.detail < before.detail * 0.6)) throw new Error(`the detail should step less (${after.detail} vs ${before.detail})`);
+  // By its last frame the clip is back to its own picture.
+  const own = alignFrames(await greyFrame(plain.path, 124, 640, 360), await greyFrame(smart.path, 124, 640, 360));
+  if (Math.max(Math.abs(own.map.a), Math.abs(own.map.d)) > 0.002 || Math.abs(own.gain - 1) > 0.02) {
+    throw new Error(`the clip should end on its own picture (${JSON.stringify(own.map)}, gain ${own.gain})`);
+  }
+});
+
+await check("render_sequence eases the clip before into a re-render that lost some of its picture", async () => {
+  // The start image cropped and enlarged: the second clip lacks the first's
+  // edges, so the first eases into the framing they share instead.
+  const rerender = "crop=621:349:10:6,scale=640:360,setsar=1";
+  const plain = await renderJoin("cropped", rerender, "plain");
+  const smart = await renderJoin("cropped", rerender, "smart");
+  if (!(smart.report?.framing?.previous_seconds > 0)) throw new Error(`the clip before should ease in: ${JSON.stringify(smart.report)}`);
+  const before = offStep(await frameStep(plain.path, 49, 50), sceneStep);
+  const after = offStep(await frameStep(smart.path, 49, 50), sceneStep);
+  if (!(before.stretch > 0.02)) throw new Error(`the plain cut should jump in framing (${before.stretch})`);
+  if (!(after.stretch < 0.004 && after.shift < 0.8)) throw new Error(`the smart cut should step like the scene (stretch ${after.stretch}, shift ${after.shift})`);
+  // The first clip is untouched before its ease (here, on its first frame: it is short).
+  const early = alignFrames(await greyFrame(plain.path, 0, 640, 360), await greyFrame(smart.path, 0, 640, 360));
+  if (Math.max(Math.abs(early.map.a), Math.abs(early.map.d)) > 0.0005 || Math.hypot(early.map.tx, early.map.ty) > 0.05) {
+    throw new Error(`the first clip should be untouched before its ease (${JSON.stringify(early.map)})`);
+  }
 });
 
 await check("rejects a background that isn't a colour", async () => {
