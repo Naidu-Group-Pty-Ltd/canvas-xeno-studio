@@ -73,6 +73,13 @@ const server = createServer(async (request, response) => {
       running,
       queued: queue.length,
       concurrency: config.concurrency,
+      // Seconds an FFmpeg step may take: any task's, an Editor render's, and
+      // how long a render's step may write nothing new before it is stopped.
+      limits: {
+        task_timeout_seconds: config.taskTimeoutSeconds,
+        render_timeout_seconds: config.renderTimeoutSeconds,
+        render_stall_seconds: config.renderStallSeconds,
+      },
     });
     return;
   }

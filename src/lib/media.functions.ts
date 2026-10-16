@@ -49,6 +49,9 @@ export const getMediaWorkerStatus = createServerFn({ method: "GET" })
       ffmpeg: health.data?.ffmpeg ?? null,
       queued: health.data?.queued ?? 0,
       running: health.data?.running ?? 0,
+      // How long an Editor render's steps may take, from a worker that says.
+      renderTimeoutSeconds: health.data?.limits?.render_timeout_seconds ?? null,
+      renderStallSeconds: health.data?.limits?.render_stall_seconds ?? null,
     };
   });
 

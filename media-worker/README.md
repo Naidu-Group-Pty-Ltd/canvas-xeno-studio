@@ -263,9 +263,18 @@ Fly's dashboard keeps the image it had; only a deploy brings new code.
 ## Sizing
 
 FFmpeg is CPU bound. Two vCPUs handle `CONCURRENCY=2` comfortably for short
-social-length clips. Raise `TASK_TIMEOUT_SECONDS` before rendering long
-timelines, and give the container a writable `/tmp` at least twice the size of
-the largest job's sources plus outputs.
+social-length clips. Give the container a writable `/tmp` at least twice the
+size of the largest job's sources plus outputs.
+
+Each FFmpeg step of a task may take `TASK_TIMEOUT_SECONDS` (900), except an
+Editor render's (`render_sequence`), which may take `RENDER_TIMEOUT_SECONDS`
+(43200, twelve hours): an edit runs up to ten minutes at up to 60 fps, and
+Fly's shared vCPUs are throttled to a sixteenth of a core once their burst
+balance is spent, so a long render on them takes hours. A render's step that
+writes its output as it goes and writes nothing new for `RENDER_STALL_SECONDS`
+(1200) has hung, and is stopped (`TASK_STALLED`), so a stuck render doesn't
+hold its edit for the whole limit. Performance vCPUs aren't throttled. `/health`
+reports these `limits`.
 
 Each source file is capped at `MAX_DOWNLOAD_MB` (1024), and all of one task's
 sources together at `MAX_TASK_DOWNLOAD_MB` (2048): an edit can name dozens of

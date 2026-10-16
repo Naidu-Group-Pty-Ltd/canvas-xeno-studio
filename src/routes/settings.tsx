@@ -390,6 +390,17 @@ function NumberSetting({
   );
 }
 
+/** A limit in seconds as a person would say it: "12 hours", "20 minutes". */
+function formatLimit(seconds: number): string {
+  if (seconds >= 3600 && seconds % 3600 === 0) {
+    return `${seconds / 3600} hour${seconds === 3600 ? "" : "s"}`;
+  }
+  if (seconds >= 60 && seconds % 60 === 0) {
+    return `${seconds / 60} minute${seconds === 60 ? "" : "s"}`;
+  }
+  return `${seconds} seconds`;
+}
+
 /**
  * Media service status. Reports only Configured / Reachable — never any secret
  * value — and states plainly when the service has not been deployed.
@@ -427,6 +438,15 @@ function MediaWorkerStatus() {
           Queue: {data.running ?? 0} running · {data.queued ?? 0} waiting
         </p>
       )}
+      {data?.reachable && "renderTimeoutSeconds" in data && data.renderTimeoutSeconds ? (
+        <p className="text-xs text-muted-foreground" data-testid="render-limits">
+          Editor renders: each step may take up to {formatLimit(data.renderTimeoutSeconds)}
+          {data.renderStallSeconds
+            ? `, and one that writes nothing for ${formatLimit(data.renderStallSeconds)} is stopped as stuck`
+            : ""}
+          .
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -15,7 +15,7 @@ export async function run(binary, args, options = {}) {
   return spawned(binary, args, options, track);
 }
 
-function spawned(binary, args, { timeoutSeconds = config.taskTimeoutSeconds, onStdoutLine } = {}, track) {
+function spawned(binary, args, { timeoutSeconds = config.taskTimeoutSeconds, onStdoutLine, watch } = {}, track) {
   return new Promise((resolve, reject) => {
     if (!Array.isArray(args) || args.some((arg) => typeof arg !== "string")) {
       reject(new TaskError("INVALID_PARAMETERS", "Internal argument construction error"));
@@ -31,6 +31,21 @@ function spawned(binary, args, { timeoutSeconds = config.taskTimeoutSeconds, onS
       child.kill("SIGKILL");
       reject(new TaskError("TASK_TIMEOUT", `${binary} exceeded ${timeoutSeconds}s and was stopped`));
     }, timeoutSeconds * 1000);
+    // `watch` is asked now and then whether the process should be stopped
+    // (an error to fail with), as when it has stopped making progress.
+    const watcher = watch
+      ? setInterval(() => {
+          const problem = watch.check();
+          if (!problem) return;
+          clearInterval(watcher);
+          child.kill("SIGKILL");
+          reject(problem);
+        }, watch.everyMs)
+      : null;
+    const stopWatching = () => {
+      clearTimeout(timer);
+      if (watcher) clearInterval(watcher);
+    };
 
     child.stdout.on("data", (chunk) => {
       stdout += chunk;
@@ -53,11 +68,11 @@ function spawned(binary, args, { timeoutSeconds = config.taskTimeoutSeconds, onS
       if (stderr.length > 2_000_000) stderr = stderr.slice(-1_000_000);
     });
     child.on("error", () => {
-      clearTimeout(timer);
+      stopWatching();
       reject(new TaskError("WORKER_ERROR", `${binary} is not available in this image`));
     });
     child.on("close", (code) => {
-      clearTimeout(timer);
+      stopWatching();
       if (code === 0) resolve({ stdout, stderr });
       else reject(new TaskError("RENDER_FAILED", `${binary} failed: ${stderr.trim().split("\n").slice(-3).join(" ")}`));
     });
@@ -66,16 +81,38 @@ function spawned(binary, args, { timeoutSeconds = config.taskTimeoutSeconds, onS
 
 /**
  * Runs FFmpeg. With `onProgress`, FFmpeg reports how much output it has
- * written (in seconds of media) as it goes.
+ * written (in seconds of media) as it goes. With `stallSeconds`, a run whose
+ * output hasn't moved on for that long has hung and is stopped (TASK_STALLED),
+ * however long its time limit: only for runs that write their output as they
+ * go, not ones that pick out a single frame at the end.
  */
-export function ffmpeg(args, { onProgress, ...options } = {}) {
-  if (!onProgress) return run("ffmpeg", ["-hide_banner", "-nostdin", "-y", ...args], options);
+export function ffmpeg(args, { onProgress, stallSeconds, ...options } = {}) {
+  if (!onProgress && !stallSeconds) return run("ffmpeg", ["-hide_banner", "-nostdin", "-y", ...args], options);
+  let furthest = -1;
+  let movedAt = Date.now();
   return run("ffmpeg", ["-hide_banner", "-nostdin", "-y", "-progress", "pipe:1", "-nostats", ...args], {
     ...options,
     onStdoutLine: (line) => {
       const match = /^out_time_(?:us|ms)=(\d+)$/.exec(line);
-      if (match) onProgress(Number(match[1]) / 1_000_000);
+      if (!match) return;
+      const written = Number(match[1]);
+      if (written > furthest) {
+        furthest = written;
+        movedAt = Date.now();
+      }
+      if (onProgress) onProgress(written / 1_000_000);
     },
+    ...(stallSeconds
+      ? {
+          watch: {
+            everyMs: Math.max(250, Math.min(30_000, stallSeconds * 250)),
+            check: () =>
+              Date.now() - movedAt > stallSeconds * 1000
+                ? new TaskError("TASK_STALLED", `ffmpeg wrote nothing new for ${stallSeconds}s and was stopped`)
+                : null,
+          },
+        }
+      : {}),
   });
 }
 

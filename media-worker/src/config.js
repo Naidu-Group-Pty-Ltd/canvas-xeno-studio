@@ -45,6 +45,15 @@ export const config = {
     randomUUID(),
   /** Hard wall-clock limit for a single FFmpeg invocation. */
   taskTimeoutSeconds: intEnv("TASK_TIMEOUT_SECONDS", 900),
+  /**
+   * The same limit for each FFmpeg step of an Editor render (render_sequence),
+   * which can take hours: an edit runs up to ten minutes at up to 60 fps, and
+   * shared vCPUs are throttled to a fraction of a core under sustained load.
+   * A step that stops making progress is caught sooner, by the stall limit.
+   */
+  renderTimeoutSeconds: intEnv("RENDER_TIMEOUT_SECONDS", 12 * 60 * 60),
+  /** An Editor render's FFmpeg step that writes nothing new for this long has hung, and is stopped. */
+  renderStallSeconds: intEnv("RENDER_STALL_SECONDS", 20 * 60),
   /** Refuse source media larger than this. */
   maxDownloadBytes: intEnv("MAX_DOWNLOAD_MB", 1024) * 1024 * 1024,
   /**

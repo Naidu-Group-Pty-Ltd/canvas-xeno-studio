@@ -38,9 +38,9 @@ const MIN_LIKENESS = 0.82;
 /**
  * A small picture of one frame as its three planes, full size each (Y, then
  * U, then V), as a Buffer. `input` are the arguments that open the frame;
- * `filters` lay it out like the render.
+ * `filters` lay it out like the render; `options` go to FFmpeg (its time limit).
  */
-export async function planeThumbnail(input, filters, dir, tag) {
+export async function planeThumbnail(input, filters, dir, tag, options = {}) {
   const out = join(dir, `seam-${tag}-${Date.now().toString(36)}.yuv`);
   await ffmpeg([
     ...input,
@@ -50,7 +50,7 @@ export async function planeThumbnail(input, filters, dir, tag) {
     "-frames:v", "1",
     "-f", "rawvideo",
     out,
-  ]);
+  ], options);
   const data = await readFile(out);
   await rm(out, { force: true });
   const size = Math.floor(data.length / 3);

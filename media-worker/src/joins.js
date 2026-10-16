@@ -348,7 +348,7 @@ export function sharpenAmount(plane, width, height, target, margin) {
 /* ------------------------------------------------------------------ */
 
 /** One frame as raw planes (Y, U, V at full size each), laid out like the render. */
-async function framePlanes(input, filters, width, height, dir, tag) {
+async function framePlanes(input, filters, width, height, dir, tag, limit) {
   const out = join(dir, `join-${tag}-${Date.now().toString(36)}.yuv`);
   await ffmpeg([
     ...input,
@@ -358,7 +358,7 @@ async function framePlanes(input, filters, width, height, dir, tag) {
     "-frames:v", "1",
     "-f", "rawvideo",
     out,
-  ]);
+  ], limit);
   const data = await readFile(out);
   await rm(out, { force: true });
   const size = width * height;
@@ -367,7 +367,7 @@ async function framePlanes(input, filters, width, height, dir, tag) {
 }
 
 /** A plane as it will be shown after `map` (null: as it is), warped by FFmpeg itself. */
-async function shownPlane(plane, map, width, height, dir, tag) {
+async function shownPlane(plane, map, width, height, dir, tag, limit) {
   if (!map) return plane;
   const source = join(dir, `join-${tag}-${Date.now().toString(36)}.gray`);
   const out = `${source}.out`;
@@ -378,7 +378,7 @@ async function shownPlane(plane, map, width, height, dir, tag) {
     "-frames:v", "1",
     "-f", "rawvideo", "-pix_fmt", "gray",
     out,
-  ]);
+  ], limit);
   const data = await readFile(out);
   await rm(source, { force: true });
   await rm(out, { force: true });
@@ -455,19 +455,20 @@ function mapLevel(points, value) {
  * clip before shows (`previous`, its finished intermediate and frame count)
  * against the next clip's frame of the same moment (`next`: how to open that
  * frame and the one shown first, the filters that lay them out like the
- * render, and the clip's frame count). Returns the changes to make at the
- * start of the next clip (`head`) and the end of the clip before (`tail`),
- * each null when there are none (as when the frames aren't the same
- * picture), and a report of what was measured and done.
+ * render, and the clip's frame count), each FFmpeg step held to `limit` (its
+ * time limit). Returns the changes to make at the start of the next clip
+ * (`head`) and the end of the clip before (`tail`), each null when there are
+ * none (as when the frames aren't the same picture), and a report of what was
+ * measured and done.
  */
-export async function measureJoin({ previous, next, plan, dir, tag }) {
+export async function measureJoin({ previous, next, plan, dir, tag, limit = {} }) {
   const { width, height, fps } = plan;
-  const target = await framePlanes(["-i", previous.path], `[0:v]select=eq(n\\,${previous.frames - 1}),`, width, height, dir, `${tag}p`);
-  const current = await framePlanes(next.input, next.filters, width, height, dir, `${tag}n`);
+  const target = await framePlanes(["-i", previous.path], `[0:v]select=eq(n\\,${previous.frames - 1}),`, width, height, dir, `${tag}p`, limit);
+  const current = await framePlanes(next.input, next.filters, width, height, dir, `${tag}n`, limit);
   // The frame shown first, when it isn't that one (a clip skipping its copy of
   // the frame before's): detail is matched on it, as a re-rendered start
   // softens over its first frames.
-  const shown = next.shownInput ? await framePlanes(next.shownInput, next.filters, width, height, dir, `${tag}s`) : current;
+  const shown = next.shownInput ? await framePlanes(next.shownInput, next.filters, width, height, dir, `${tag}s`, limit) : current;
 
   const factor = Math.max(1, Math.round(Math.max(width, height) / ANALYSIS_SIZE));
   const small = (planes) => ({
@@ -501,8 +502,8 @@ export async function measureJoin({ previous, next, plan, dir, tag }) {
 
   // Detail, measured on the two frames as they will be shown.
   const margin = Math.max(4, Math.round(Math.min(width, height) * 0.02));
-  const shownTarget = await shownPlane(target.y, maps.previous, width, height, dir, `${tag}pd`);
-  const warpedCurrent = await shownPlane(shown.y, maps.next, width, height, dir, `${tag}nd`);
+  const shownTarget = await shownPlane(target.y, maps.previous, width, height, dir, `${tag}pd`, limit);
+  const warpedCurrent = await shownPlane(shown.y, maps.next, width, height, dir, `${tag}nd`, limit);
   const levels = correction ? Float32Array.from({ length: 256 }, (_, value) => mapLevel(correction.levels.y, value)) : null;
   const shownCurrent = levels ? Float32Array.from(warpedCurrent, (value) => levels[value]) : Float32Array.from(warpedCurrent);
   const sharpen = sharpenAmount(shownCurrent, width, height, detailLevel(shownTarget, width, height, margin), margin);

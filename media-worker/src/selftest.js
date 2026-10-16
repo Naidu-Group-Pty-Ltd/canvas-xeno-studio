@@ -3,6 +3,7 @@
  * no network and no app involvement. Run inside the image after building:
  *   docker run --rm -e MEDIA_WORKER_SHARED_SECRET=0123456789abcdef xeno-media-worker npm run selftest
  */
+import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -479,6 +480,27 @@ await check("render_sequence eases the clip before into a re-render that lost so
   if (Math.max(Math.abs(early.map.a), Math.abs(early.map.d)) > 0.0005 || Math.hypot(early.map.tx, early.map.ty) > 0.05) {
     throw new Error(`the first clip should be untouched before its ease (${JSON.stringify(early.map)})`);
   }
+});
+
+await check("a render step that stops writing is stopped as hung, well before its time limit", async () => {
+  // An input that never opens: FFmpeg waits on it, writing nothing.
+  const fifo = join(dir, "never.fifo");
+  execFileSync("mkfifo", [fifo]);
+  const started = Date.now();
+  try {
+    await ffmpeg(["-f", "s16le", "-ar", "8000", "-ac", "1", "-i", fifo, "-f", "null", "-"], { timeoutSeconds: 120, stallSeconds: 2 });
+  } catch (error) {
+    if (error.code !== "TASK_STALLED") throw error;
+    if (Date.now() - started > 20_000) throw new Error(`stopped after ${Date.now() - started} ms, not soon after 2 s`);
+    return;
+  }
+  throw new Error("a step writing nothing was left running");
+});
+
+await check("a render step that keeps writing isn't taken for hung", async () => {
+  // Three seconds of real-time output: it moves on all along, though the
+  // stall limit is shorter than the whole run.
+  await ffmpeg(["-re", "-f", "lavfi", "-i", "sine=frequency=440:duration=3", "-f", "null", "-"], { timeoutSeconds: 60, stallSeconds: 1 });
 });
 
 await check("rejects a background that isn't a colour", async () => {

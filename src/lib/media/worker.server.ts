@@ -155,6 +155,12 @@ export interface WorkerHealth {
   running?: number;
   queued?: number;
   concurrency?: number;
+  /** Seconds an FFmpeg step may take: any task's, an Editor render's, and a render's step writing nothing. */
+  limits?: {
+    task_timeout_seconds?: number;
+    render_timeout_seconds?: number;
+    render_stall_seconds?: number;
+  };
 }
 
 export function workerHealth(): Promise<WorkerCall<WorkerHealth>> {

@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { rm, writeFile } from "node:fs/promises";
+import { config } from "./config.js";
 import { ffmpeg, probe } from "./ffmpeg.js";
 import { TaskError } from "./net.js";
 import { planeThumbnail, SEAM_EASE_SECONDS, seamCorrection, seamEaseChain } from "./seam.js";
@@ -855,8 +856,20 @@ export async function fitAudioToSources(audio, durationOf) {
   return fitted;
 }
 
+/**
+ * The time each FFmpeg step of a render may take (`limit`), and with a stall
+ * watchdog for the steps that write their output as they go (`watched`): an
+ * edit can take hours on throttled shared vCPUs, while a step that has hung
+ * is stopped soon after it stops writing.
+ */
+function renderLimits() {
+  const limit = { timeoutSeconds: config.renderTimeoutSeconds };
+  return { limit, watched: { ...limit, stallSeconds: config.renderStallSeconds } };
+}
+
 export async function renderSequence({ sources, params, dir, progress = () => {} }) {
   const plan = planSequence(params, sources);
+  const { limit, watched } = renderLimits();
   const probes = new Map();
   const inspect = async (index) => {
     if (!probes.has(index)) probes.set(index, await probe(sources[index].path));
@@ -879,7 +892,7 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
     // A join that can't be measured is left as it is: easing it is never worth a failed render.
     let seam = null;
     if (joinable && clip.smartJoin) {
-      const measured = await smartJoinFor({ clip, previous, previousPath: intermediates[index - 1], plan, sourcePath: sources[clip.source].path, info, dir, index }).catch((error) => {
+      const measured = await smartJoinFor({ clip, previous, previousPath: intermediates[index - 1], plan, sourcePath: sources[clip.source].path, info, dir, index, limit }).catch((error) => {
         console.error(JSON.stringify({ event: "smart_join_unmeasured", clip: index, message: error instanceof Error ? error.message : String(error) }));
         return null;
       });
@@ -887,11 +900,11 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
       if (measured?.head) seam = { head: measured.head };
       joins.push({ clip: index, matched: Boolean(measured?.head || measured?.tail), ...(measured?.report ?? { left: "unmeasured" }) });
     } else if (joinable) {
-      seam = await seamFor({ clip, previous, previousPath: intermediates[index - 1], plan, sourcePath: sources[clip.source].path, info, dir, index }).catch(() => null);
+      seam = await seamFor({ clip, previous, previousPath: intermediates[index - 1], plan, sourcePath: sources[clip.source].path, info, dir, index, limit }).catch(() => null);
       if (seam) seams.push({ clip: index, likeness: seam.correction.likeness, largest_shift: seam.correction.largest_shift });
     }
     const out = join(dir, `clip-${String(index).padStart(3, "0")}.mkv`);
-    await ffmpeg(clipArgs(clip, plan, sources[clip.source].path, Boolean(info?.has_audio), out, seam));
+    await ffmpeg(clipArgs(clip, plan, sources[clip.source].path, Boolean(info?.has_audio), out, seam), watched);
     intermediates.push(out);
   }
   // The pictures' sources aren't needed again (only the audio's are): their
@@ -911,19 +924,19 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
     const { stderr } = await ffmpeg([
       "-ss", seconds(item.trimStart), "-t", seconds(item.length), "-i", sources[item.source].path,
       "-af", "silencedetect=n=-38dB:d=0.35", "-f", "null", "-",
-    ]);
+    ], watched);
     for (const [from, to] of speechRegions(stderr, item.length)) {
       voiceActivity.push([item.start + from, Math.min(plan.total, item.start + to)]);
     }
   }
   const mixPath = join(dir, "mix.wav");
-  await ffmpeg(mixArgs(plan, intermediates, plan.audio.map((item) => sources[item.source].path), mixPath, voiceActivity));
+  await ffmpeg(mixArgs(plan, intermediates, plan.audio.map((item) => sources[item.source].path), mixPath, voiceActivity), watched);
 
   // Pass 3: loudness, measured on the finished mix so the target is met evenly.
   let loudness = null;
   if (plan.normalize) {
     progress(0.55, "Balancing loudness");
-    const { stderr } = await ffmpeg(["-i", mixPath, "-af", `loudnorm=I=${plan.loudness}:TP=-1.5:LRA=11:print_format=json`, "-f", "null", "-"]);
+    const { stderr } = await ffmpeg(["-i", mixPath, "-af", `loudnorm=I=${plan.loudness}:TP=-1.5:LRA=11:print_format=json`, "-f", "null", "-"], watched);
     const measured = parseLoudness(stderr);
     // A silent or near-silent mix has nothing to normalise.
     if (measured && measured.input_i > -60) loudness = measured;
@@ -939,6 +952,7 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
   }
   const out = join(dir, "sequence.mp4");
   await ffmpeg(finalArgs(plan, intermediates, mixPath, subtitlePath, loudness, out), {
+    ...watched,
     onProgress: (done) => progress(0.6 + 0.38 * Math.min(1, done / plan.total), "Rendering the final cut"),
   });
   // Only the finished cut is kept from here.
@@ -952,7 +966,7 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
     "-vf", `scale=${Math.min(720, plan.width)}:-2`,
     "-q:v", "3",
     poster,
-  ]);
+  ], limit);
 
   const metadata = await probe(out);
   return {
@@ -976,7 +990,7 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
  * the last frame the clip before shows against this clip's frame of the same
  * moment, laid out like the render.
  */
-async function smartJoinFor({ clip, previous, previousPath, plan, sourcePath, info, dir, index }) {
+async function smartJoinFor({ clip, previous, previousPath, plan, sourcePath, info, dir, index, limit }) {
   const rate = info?.fps && info.fps > 0 ? info.fps : plan.fps;
   const anchor = Math.max(0, clip.trimStart - 1 / rate);
   const layout = frameChain("sp", "sf", plan.width, plan.height, clip.fit, "s", clip.focus);
@@ -991,6 +1005,7 @@ async function smartJoinFor({ clip, previous, previousPath, plan, sourcePath, in
     plan,
     dir,
     tag: `j${index}`,
+    limit,
   });
 }
 
@@ -1001,10 +1016,10 @@ async function smartJoinFor({ clip, previous, previousPath, plan, sourcePath, in
  * first when it skips one it repeats (a long video's join), else its first.
  * Null when they aren't the same picture, or already match.
  */
-async function seamFor({ clip, previous, previousPath, plan, sourcePath, info, dir, index }) {
+async function seamFor({ clip, previous, previousPath, plan, sourcePath, info, dir, index, limit }) {
   const easeSeconds = Math.min(SEAM_EASE_SECONDS, (clip.durationFrames - 2) / plan.fps);
   if (easeSeconds < 0.2) return null;
-  const target = await planeThumbnail(["-i", previousPath], `[0:v]select=eq(n\\,${previous.durationFrames - 1}),`, dir, `p${index}`);
+  const target = await planeThumbnail(["-i", previousPath], `[0:v]select=eq(n\\,${previous.durationFrames - 1}),`, dir, `p${index}`, limit);
   const rate = info?.fps && info.fps > 0 ? info.fps : plan.fps;
   const anchor = Math.max(0, clip.trimStart - 1 / rate);
   const layout = frameChain("sp", "sf", plan.width, plan.height, clip.fit, "s", clip.focus);
@@ -1013,6 +1028,7 @@ async function seamFor({ clip, previous, previousPath, plan, sourcePath, info, d
     `[0:v]scale=trunc(iw*sar/2)*2:ih,setsar=1[sp];${layout};[sf]`,
     dir,
     `c${index}`,
+    limit,
   );
   const correction = seamCorrection(target, current);
   return correction ? { correction, seconds: easeSeconds } : null;
