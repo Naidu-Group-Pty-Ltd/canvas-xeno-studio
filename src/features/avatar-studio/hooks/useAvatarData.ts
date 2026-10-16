@@ -110,6 +110,19 @@ export function useSignedUrl(bucket?: string | null, path?: string | null) {
   });
 }
 
+/**
+ * Job statuses at which HeyGen has taken a job's charge, or returned it: the
+ * provider status (with the account's balance, on the top bar) is read again.
+ */
+const BILLING_STATUSES = new Set([
+  "provider_pending",
+  "completed",
+  "failed",
+  "canceled",
+  "blocked",
+  "ingest_failed",
+]);
+
 /** Keeps Avatar Studio views in sync with job, asset and resource changes. */
 export function useAvatarRealtime() {
   const qc = useQueryClient();
@@ -117,9 +130,11 @@ export function useAvatarRealtime() {
     const inv = (k: string) => () => qc.invalidateQueries({ queryKey: ["avatar", k] });
     const ch = supabase
       .channel("avatar-studio")
-      .on("postgres_changes", { event: "*", schema: "public", table: "avatar_jobs" }, () => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "avatar_jobs" }, (payload) => {
         inv("jobs")();
         inv("job-events")();
+        const status = (payload.new as { status?: string } | null)?.status;
+        if (status && BILLING_STATUSES.has(status)) inv("status")();
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "avatar_assets" }, inv("assets"))
       .on("postgres_changes", { event: "*", schema: "public", table: "avatar_characters" }, inv("characters"))
