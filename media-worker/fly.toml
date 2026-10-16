@@ -13,25 +13,35 @@ kill_timeout = "30s"
 
 [env]
   PORT = "8080"
-  CONCURRENCY = "2"
+  # Two lanes: renders and other video encodes, and quick tasks (probes,
+  # thumbnails, frames, audio) that never wait behind a render.
+  HEAVY_CONCURRENCY = "2"
+  QUICK_CONCURRENCY = "2"
+  # A render's clips that aren't joined to the one before are made two at a time.
+  CLIP_PARALLELISM = "2"
   MAX_QUEUE_DEPTH = "50"
   TASK_TIMEOUT_SECONDS = "900"
   # Editor renders: each FFmpeg step may take up to 12 hours (the longest edit,
-  # ten minutes at 60 fps, on shared vCPUs throttled under sustained load, two
-  # renders at once); a step that writes nothing new for 20 minutes has hung
-  # and is stopped.
+  # ten minutes at 60 fps, two renders at once); a step that writes nothing new
+  # for 20 minutes has hung and is stopped.
   RENDER_TIMEOUT_SECONDS = "43200"
   RENDER_STALL_SECONDS = "1200"
+  # Not always on: after 10 minutes with nothing running, queued or still
+  # being reported, the worker exits and its machine stops (billed only for its
+  # disk). Fly starts it again for the next request, in a few seconds.
+  IDLE_STOP_SECONDS = "600"
 
 [http_service]
   internal_port = 8080
   force_https = true
-  # Tasks are acknowledged with 202 and rendered afterwards, so Fly would see
-  # an idle machine mid-render. Keep it running instead of auto-stopping.
-  # The queue and task_id idempotency are in memory: run exactly one machine.
+  # Tasks are acknowledged with 202 and rendered afterwards, so Fly's proxy
+  # would see a machine mid-render as idle: its auto-stop stays off, and the
+  # worker stops itself once idle (IDLE_STOP_SECONDS). The proxy starts the
+  # machine again for the next request. The queue and task_id idempotency are
+  # in memory: run exactly one machine.
   auto_stop_machines = "off"
   auto_start_machines = true
-  min_machines_running = 1
+  min_machines_running = 0
 
   [http_service.concurrency]
     type = "requests"
@@ -45,8 +55,17 @@ kill_timeout = "30s"
     timeout = "5s"
     grace_period = "15s"
 
-# FFmpeg is CPU bound: two vCPUs comfortably serve CONCURRENCY=2.
+# A clean exit (the worker stopping itself when idle) leaves the machine
+# stopped; a crash restarts it.
+[[restart]]
+  policy = "on-failure"
+  retries = 10
+
+# FFmpeg is CPU bound. Performance vCPUs are dedicated: never throttled, where
+# shared ones drop to a sixteenth of a core each once their burst balance (at
+# most about nine minutes of full speed) is spent. Billed per second while the
+# machine runs; it stops when idle.
 [[vm]]
-  cpu_kind = "shared"
-  cpus = 2
-  memory = "2gb"
+  cpu_kind = "performance"
+  cpus = 4
+  memory = "8gb"

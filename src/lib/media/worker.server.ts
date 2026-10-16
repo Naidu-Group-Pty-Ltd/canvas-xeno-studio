@@ -161,12 +161,132 @@ export interface WorkerHealth {
     render_timeout_seconds?: number;
     render_stall_seconds?: number;
   };
+  /** Its two lanes: renders and other video encodes, and quick tasks. */
+  lanes?: Record<"heavy" | "quick", { running: number; queued: number; concurrency: number }>;
+  /** Seconds idle before it stops itself (0: it keeps running). */
+  idle_stop_seconds?: number;
 }
 
-export function workerHealth(): Promise<WorkerCall<WorkerHealth>> {
-  return call<WorkerHealth>("/health", { method: "GET" });
+/**
+ * What the worker last said it can do. It stops itself when idle (and Fly
+ * starts it again for the next request), so asking it wakes it: pages that
+ * only need to know what it can do read this instead.
+ */
+export interface RememberedWorker {
+  /** When it said so. */
+  at: string;
+  ffmpeg: string | null;
+  tasks: string[];
+  features: string[];
+  limits: WorkerHealth["limits"] | null;
+  idleStopSeconds: number | null;
 }
 
-export function submitWorkerTask(task: MediaWorkerTask): Promise<WorkerCall<{ accepted: boolean; task_id: string }>> {
-  return call("/tasks", { method: "POST", body: JSON.stringify(task) });
+const REMEMBERED_KEY = "media_worker_health";
+
+/** What a worker's answer (its health, or its answer to a task) says it can do; null if it doesn't say. */
+export function rememberedFrom(data: unknown, at: Date): RememberedWorker | null {
+  const record = (data ?? {}) as Record<string, unknown>;
+  const strings = (value: unknown) =>
+    Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : null;
+  const features = strings(record["features"]);
+  if (!features) return null;
+  return {
+    at: at.toISOString(),
+    ffmpeg: typeof record["ffmpeg"] === "string" ? record["ffmpeg"] : null,
+    tasks: strings(record["tasks"]) ?? [],
+    features,
+    limits: (record["limits"] as WorkerHealth["limits"] | undefined) ?? null,
+    idleStopSeconds:
+      typeof record["idle_stop_seconds"] === "number" ? record["idle_stop_seconds"] : null,
+  };
+}
+
+/** Keeps what the worker said it can do (from its health, or its answer to a task). */
+async function remember(data: unknown): Promise<void> {
+  const remembered = rememberedFrom(data, new Date());
+  if (!remembered) return;
+  // Kept in the worker's own words, so it reads back as an answer does.
+  const value = {
+    at: remembered.at,
+    ffmpeg: remembered.ffmpeg,
+    tasks: remembered.tasks,
+    features: remembered.features,
+    limits: remembered.limits,
+    idle_stop_seconds: remembered.idleStopSeconds,
+  };
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  await supabaseAdmin.from("app_settings").upsert({
+    key: REMEMBERED_KEY,
+    value: value as never,
+    updated_at: remembered.at,
+  } as never);
+}
+
+/** Forgets it, once the worker couldn't be reached: the next status check asks it. */
+async function forget(): Promise<void> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  await supabaseAdmin.from("app_settings").delete().eq("key", REMEMBERED_KEY);
+}
+
+/** What the worker last said it can do, if it said so within `maxAgeMs`. */
+export async function rememberedWorker(maxAgeMs: number): Promise<RememberedWorker | null> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await supabaseAdmin
+    .from("app_settings")
+    .select("value")
+    .eq("key", REMEMBERED_KEY)
+    .maybeSingle();
+  const value = (data?.value ?? null) as Record<string, unknown> | null;
+  const at = typeof value?.["at"] === "string" ? Date.parse(value["at"]) : Number.NaN;
+  if (!value || !Number.isFinite(at) || Date.now() - at > maxAgeMs) return null;
+  return rememberedFrom(value, new Date(at));
+}
+
+/** Asks the worker how it is (which starts it, if it was stopped), and remembers what it can do. */
+export async function workerHealth(): Promise<WorkerCall<WorkerHealth>> {
+  const result = await call<WorkerHealth>("/health", { method: "GET" });
+  if (result.ok) await remember(result.data).catch(() => undefined);
+  else if (result.status === 0 || result.status >= 500) await forget().catch(() => undefined);
+  return result;
+}
+
+/**
+ * A quick failure of the kind a worker stopping or starting gives: it turns
+ * tasks away (503) while it stops, and a request caught between the two can
+ * be refused or fail at Fly's proxy. A slow one (a timeout) isn't.
+ */
+export function restarting(result: WorkerCall<unknown>): boolean {
+  return (
+    !result.ok &&
+    result.durationMs < 10_000 &&
+    (result.status === 0 || result.status === 502 || result.status === 503 || result.status === 504)
+  );
+}
+
+/** How long to wait before each resend of a task caught while the worker stops or starts. */
+const RESTART_WAITS_MS = [2000, 4000, 8000];
+
+/**
+ * Sends a task. One caught while the worker stops or starts is sent again a
+ * few seconds later: the worker never runs a task id twice. Its answer says
+ * what it can do, which is remembered; if it can't be reached, that is
+ * forgotten.
+ */
+export async function submitWorkerTask(
+  task: MediaWorkerTask,
+  waits: number[] = RESTART_WAITS_MS,
+): Promise<WorkerCall<{ accepted: boolean; task_id: string }>> {
+  const body = JSON.stringify(task);
+  const send = () =>
+    call<{ accepted: boolean; task_id: string }>("/tasks", { method: "POST", body });
+  let result = await send();
+  for (const wait of waits) {
+    if (!restarting(result)) break;
+    await new Promise((resolve) => setTimeout(resolve, wait));
+    result = await send();
+  }
+  if (result.ok) await remember(result.data).catch(() => undefined);
+  else if (result.status === 0 || result.status >= 500) await forget().catch(() => undefined);
+  return result;
 }

@@ -42,6 +42,7 @@ export async function validateTask(body) {
 
   return {
     taskId,
+    taskType: body.task_type,
     definition,
     sources,
     params,
@@ -271,6 +272,12 @@ function progressReporter(task) {
   };
 }
 
+/** Results still being delivered in the background (the worker doesn't stop while there are any). */
+let reporting = 0;
+export function pendingReports() {
+  return reporting;
+}
+
 /**
  * Signed callback to the app with a task's result, repeated until the app
  * answers. The callback is idempotent on the app side, so a 2xx or a 4xx is an
@@ -308,12 +315,17 @@ async function report(task, payload) {
     if (await answered()) return;
     if (attempt < 4) await sleep(attempt * 2000);
   }
+  reporting += 1;
   void (async () => {
-    for (let attempt = 5; Date.now() < deadline; attempt += 1) {
-      await sleep(Math.min(60_000, 1000 * 2 ** (attempt - 1)));
-      if (await answered()) return;
+    try {
+      for (let attempt = 5; Date.now() < deadline; attempt += 1) {
+        await sleep(Math.min(60_000, 1000 * 2 ** (attempt - 1)));
+        if (await answered()) return;
+      }
+      console.log(`[xeno-media-worker] task ${task.taskId}: the app never took its result`);
+    } finally {
+      reporting -= 1;
     }
-    console.log(`[xeno-media-worker] task ${task.taskId}: the app never took its result`);
   })();
 }
 

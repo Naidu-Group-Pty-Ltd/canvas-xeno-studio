@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { formatDistanceToNow } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell, useProviderHealth } from "@/components/layout/AppShell";
 import { useAuth } from "@/hooks/useAuth";
@@ -403,42 +404,96 @@ function formatLimit(seconds: number): string {
 
 /**
  * Media service status. Reports only Configured / Reachable — never any secret
- * value — and states plainly when the service has not been deployed.
+ * value — and states plainly when the service has not been deployed. The
+ * service stops itself when idle, so this shows what it last said rather than
+ * waking it; Re-check asks it now (and starts it, if it had stopped).
  */
 function MediaWorkerStatus() {
-  const { data, isLoading, refetch, isFetching } = useQuery({
+  const queryClient = useQueryClient();
+  const [rechecking, setRechecking] = useState(false);
+  const { data, isLoading } = useQuery({
     queryKey: ["media-worker-status"],
     queryFn: () => getMediaWorkerStatus(),
     staleTime: 30_000,
   });
 
-  if (isLoading) return <p className="text-xs text-muted-foreground">Checking the media service…</p>;
+  async function recheck() {
+    setRechecking(true);
+    try {
+      const status = await getMediaWorkerStatus({ data: { refresh: true } });
+      queryClient.setQueryData(["media-worker-status"], status);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The media service couldn't be checked");
+    } finally {
+      setRechecking(false);
+    }
+  }
+
+  if (isLoading)
+    return <p className="text-xs text-muted-foreground">Checking the media service…</p>;
+
+  const onDemand = Boolean(data?.idleStopSeconds);
+  const badge = !data?.configured
+    ? "Not configured"
+    : !data.reachable
+      ? "Configured, unreachable"
+      : data.live
+        ? "Reachable"
+        : onDemand
+          ? "Ready · starts on demand"
+          : "Reachable";
 
   return (
     <div className="space-y-3 text-sm">
       <div className="flex flex-wrap items-center gap-3">
-        <Badge variant={data?.reachable ? "default" : "outline"} className="gap-1.5">
-          {data?.reachable ? <CheckCircle2 className="size-3" /> : <AlertTriangle className="size-3" />}
-          {data?.configured ? (data.reachable ? "Reachable" : "Configured, unreachable") : "Not configured"}
+        <Badge
+          variant={data?.reachable ? "default" : "outline"}
+          className="gap-1.5"
+          data-testid="media-worker-badge"
+        >
+          {data?.reachable ? (
+            <CheckCircle2 className="size-3" />
+          ) : (
+            <AlertTriangle className="size-3" />
+          )}
+          {badge}
         </Badge>
         <span className="text-xs text-muted-foreground">
           Required secrets: MEDIA_WORKER_URL, MEDIA_WORKER_SHARED_SECRET
         </span>
-        <Button size="sm" variant="outline" disabled={isFetching} onClick={() => void refetch()}>
-          Re-check
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={rechecking}
+          onClick={() => void recheck()}
+          title={onDemand ? "Asks the media service now, starting it if it has stopped" : undefined}
+        >
+          {rechecking ? "Checking…" : "Re-check"}
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground">{data?.message}</p>
+      <p className="text-xs text-muted-foreground">
+        {data?.message}
+        {data?.reachable && data.checkedAt && !data.live
+          ? ` · last heard from ${formatDistanceToNow(new Date(data.checkedAt), { addSuffix: true })}`
+          : ""}
+      </p>
+      {data?.reachable && onDemand && data.idleStopSeconds ? (
+        <p className="text-xs text-muted-foreground" data-testid="media-worker-idle">
+          It stops itself after {formatLimit(data.idleStopSeconds)} with nothing to do, so it
+          isn&apos;t billed for its CPUs while idle, and starts again within seconds when a task
+          arrives.
+        </p>
+      ) : null}
       {data?.ffmpeg && <p className="text-xs text-muted-foreground">Renderer: {data.ffmpeg}</p>}
       {!!data?.tasks?.length && (
         <p className="text-xs text-muted-foreground">Available tasks: {data.tasks.join(", ")}</p>
       )}
-      {data?.reachable && (
+      {data?.reachable && data.live && (
         <p className="text-xs text-muted-foreground">
           Queue: {data.running ?? 0} running · {data.queued ?? 0} waiting
         </p>
       )}
-      {data?.reachable && "renderTimeoutSeconds" in data && data.renderTimeoutSeconds ? (
+      {data?.reachable && data.renderTimeoutSeconds ? (
         <p className="text-xs text-muted-foreground" data-testid="render-limits">
           Editor renders: each step may take up to {formatLimit(data.renderTimeoutSeconds)}
           {data.renderStallSeconds

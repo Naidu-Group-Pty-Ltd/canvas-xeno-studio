@@ -3,6 +3,7 @@
  * baked into the image and no credential is ever accepted inside a task body.
  */
 import { randomUUID } from "node:crypto";
+import { availableParallelism } from "node:os";
 
 const instanceId = (value) =>
   typeof value === "string" && /^[\w-]{1,64}$/.test(value) ? value : null;
@@ -20,8 +21,27 @@ export const config = {
   sharedSecret: process.env["MEDIA_WORKER_SHARED_SECRET"] ?? "",
   /** Signature freshness window, in seconds. */
   signatureWindowSeconds: intEnv("SIGNATURE_WINDOW_SECONDS", 300),
-  /** How many tasks may run at once. FFmpeg is CPU bound: keep this small. */
-  concurrency: intEnv("CONCURRENCY", 2),
+  /**
+   * How many heavy tasks (renders and other video encodes) may run at once.
+   * FFmpeg is CPU bound: keep this small. (CONCURRENCY is its older name.)
+   */
+  heavyConcurrency: intEnv("HEAVY_CONCURRENCY", intEnv("CONCURRENCY", 2)),
+  /**
+   * How many quick tasks (probes, thumbnails, frames, image resizes, audio)
+   * may run at once, in a lane of their own, so they never wait behind a render.
+   */
+  quickConcurrency: intEnv("QUICK_CONCURRENCY", 2),
+  /**
+   * How many of a render's clips are encoded side by side (clips joined to the
+   * one before go in order). Two on a machine with four cores or more.
+   */
+  clipParallelism: intEnv("CLIP_PARALLELISM", availableParallelism() >= 4 ? 2 : 1),
+  /**
+   * With nothing running, queued or still being reported for this long, the
+   * worker exits, and so its Fly machine stops; Fly starts it again for the
+   * next request. 0 (the default) keeps it running.
+   */
+  idleStopSeconds: intEnv("IDLE_STOP_SECONDS", 0),
   /** Tasks waiting beyond this depth are rejected with 429 rather than queued forever. */
   maxQueueDepth: intEnv("MAX_QUEUE_DEPTH", 50),
   heartbeatSeconds: intEnv("HEARTBEAT_SECONDS", 60),
