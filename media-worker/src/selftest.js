@@ -286,6 +286,30 @@ await check("render_sequence lays a logo over the picture between its times, and
   if (!script.includes("\\1c&H00FF00&") || !script.includes("\\3c&H332211&")) throw new Error("the title isn't in the brand's colours");
 });
 
+await check("render_sequence lays a GIF logo from the edit's first frame, decoded once", async () => {
+  const blue = join(dir, "blue-gif.mp4");
+  const logo = join(dir, "logo.gif");
+  await ffmpeg(["-f", "lavfi", "-i", "color=c=blue:s=320x180:d=1:r=25", "-pix_fmt", "yuv420p", blue]);
+  await ffmpeg(["-f", "lavfi", "-i", "color=c=red:s=100x100:d=0.2:r=10", logo]);
+  const result = await TASKS.render_sequence.run({
+    sources: [
+      { path: blue, role: "video" },
+      { path: logo, role: "image" },
+    ],
+    params: {
+      width: 320, height: 180, fps: 25, normalize_loudness: false,
+      clips: [{ source_index: 0, duration: 1, volume: 0 }],
+      images: [{ source_index: 1, start: 0, end: 1, x: 0.25, y: 0.5, width: 0.2, fade: 0 }],
+    },
+    dir,
+  });
+  const out = result.outputs[0].path;
+  if (!near(await colourAtTime(out, 0, "10:10:75:85"), [255, 0, 0])) throw new Error("the logo isn't on the first frame");
+  if (!near(await colourAtTime(out, 0.96, "10:10:75:85"), [255, 0, 0])) throw new Error("the logo isn't on the last frame");
+  const info = await probe(out);
+  if (Math.abs(info.duration_seconds - 1) > 0.06) throw new Error(`rendered ${info.duration_seconds}s`);
+});
+
 await check("reframe_video crops around its focus point", async () => {
   const left = await TASKS.reframe_video.run({ sources: [{ path: halves }], params: { width: 180, height: 320, mode: "cover", focus_x: 0 }, dir });
   const leftColour = await colourAt(left.outputs[0].path, "40:40:70:140");

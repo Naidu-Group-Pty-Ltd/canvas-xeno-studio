@@ -450,12 +450,19 @@ export function frameChain(input, output, width, height, fit, tag, focus = { x: 
  * between them (see RETIME_MODES). Interpolation runs at the source's own
  * size, before the picture is scaled, which keeps it as quick as it can be.
  */
-export function retimeFilter(retime, fps, sourceFps, speed = 1) {
+export function retimeFilter(retime, fps, sourceFps, speed = 1, frame = null) {
   const effective = sourceFps && sourceFps > 0 ? sourceFps * speed : null;
-  const differs = effective !== null && Math.abs(effective - fps) / fps > 0.005;
-  if (!differs || retime === "duplicate") return `fps=${fps}`;
+  // Only a clip with fewer frames than the edit needs (by more than a
+  // variable-rate phone clip wanders) is given new ones; one with more just
+  // drops the extra, as ever.
+  const short = effective !== null && effective < fps * 0.985;
+  if (!short || retime === "duplicate") return `fps=${fps}`;
   if (retime === "blend") return `framerate=fps=${fps}:interp_start=15:interp_end=240:scene=8.2`;
-  return `minterpolate=fps=${fps}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1:scd=fdiff:scd_threshold=8`;
+  // Interpolated at no more than the edit's own size: a 4K source isn't worked on at 4K.
+  const fit = frame
+    ? `scale=w='min(iw,${frame.width})':h='min(ih,${frame.height})':force_original_aspect_ratio=decrease:force_divisible_by=2,`
+    : "";
+  return `${fit}minterpolate=fps=${fps}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1:scd=fdiff:scd_threshold=8`;
 }
 
 /** atempo only takes 0.5-2 per instance in older builds; chain it for wider speeds. */
@@ -594,7 +601,7 @@ export function clipArgs(clip, plan, sourcePath, hasAudio, out, seam = null, sou
     args.push("-ss", seconds(seekPoint(clip.trimStart)), "-t", span, "-i", sourcePath);
     const speed = clip.speed === 1 ? "setpts=PTS-STARTPTS" : `setpts=(PTS-STARTPTS)/${clip.speed}`;
     // Non-square source pixels are squared up first so nothing is stretched.
-    filters.push(`[0:v]scale=trunc(iw*sar/2)*2:ih,setsar=1,${speed},${retimeFilter(plan.retime, fps, sourceFps, clip.speed)}[paced]`);
+    filters.push(`[0:v]scale=trunc(iw*sar/2)*2:ih,setsar=1,${speed},${retimeFilter(plan.retime, fps, sourceFps, clip.speed, { width, height })}[paced]`);
     filters.push(frameChain("paced", "framed", width, height, clip.fit, "f", clip.focus, sharp));
     let framed = "framed";
     if (seam?.head) {
@@ -846,7 +853,8 @@ export function finalArgs(plan, intermediatePaths, mixPath, subtitlePath, loudne
   for (const path of intermediatePaths) args.push("-i", path);
   args.push("-i", mixPath);
   // Each picture laid over the edit, held for the whole of it (it shows only between its times).
-  for (const path of imagePaths) args.push("-loop", "1", "-framerate", String(plan.fps), "-t", seconds(plan.total), "-i", path);
+  // Each picture laid over the edit, read once (a GIF too): its first frame, held.
+  for (const path of imagePaths) args.push("-i", path);
 
   const lines = [];
   const joinedPicture = joinChain(plan, "v");
@@ -855,19 +863,24 @@ export function finalArgs(plan, intermediatePaths, mixPath, subtitlePath, loudne
 
   if (plan.images.length) {
     lines.push(`[${pictureLabel}]setpts=PTS-STARTPTS[over0]`);
-    const frame = 1 / plan.fps;
     for (const [index, image] of plan.images.entries()) {
       const input = intermediatePaths.length + 1 + index;
       const width = even(Math.max(2, image.width * plan.width));
-      // Faded in and out on its own clear background: unseen outside its times.
-      const fade = Math.max(frame, image.fade);
+      // Scaled once, then that one frame held at the edit's rate (never decoded again).
+      const held =
+        `[${input}:v]trim=end_frame=1,format=rgba,scale=${width}:-2:flags=lanczos,colorchannelmixer=aa=${image.opacity.toFixed(3)},` +
+        `loop=loop=-1:size=1,setpts=N/(${plan.fps}*TB)`;
+      // Faded in and out on its own clear background, unseen outside its times;
+      // with no fade, shown from its first frame to its last.
+      const fades =
+        image.fade > 0
+          ? `,fade=t=in:st=${seconds(image.start)}:d=${seconds(image.fade)}:alpha=1,` +
+            `fade=t=out:st=${seconds(Math.max(image.start, image.end - image.fade))}:d=${seconds(image.fade)}:alpha=1`
+          : "";
+      const shown = image.fade > 0 ? "" : `:enable=gte(t\\,${seconds(image.start)})*lt(t\\,${seconds(image.end)})`;
+      lines.push(`${held}${fades}[img${index}]`);
       lines.push(
-        `[${input}:v]format=rgba,scale=${width}:-2:flags=lanczos,colorchannelmixer=aa=${image.opacity.toFixed(3)},` +
-          `fade=t=in:st=${seconds(image.start)}:d=${seconds(fade)}:alpha=1,` +
-          `fade=t=out:st=${seconds(Math.max(image.start, image.end - fade))}:d=${seconds(fade)}:alpha=1[img${index}]`,
-      );
-      lines.push(
-        `[over${index}][img${index}]overlay=x=W*${image.x.toFixed(4)}-w/2:y=H*${image.y.toFixed(4)}-h/2:format=auto:shortest=1[over${index + 1}]`,
+        `[over${index}][img${index}]overlay=x=W*${image.x.toFixed(4)}-w/2:y=H*${image.y.toFixed(4)}-h/2:format=auto:shortest=1${shown}[over${index + 1}]`,
       );
     }
     pictureLabel = `over${plan.images.length}`;
@@ -1235,7 +1248,7 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
 async function smartJoinFor({ clip, previous, previousPath, plan, sourcePath, info, dir, index, limit }) {
   const rate = info?.fps && info.fps > 0 ? info.fps : plan.fps;
   const anchor = Math.max(0, clip.trimStart - 1 / rate);
-  const layout = frameChain("sp", "sf", plan.width, plan.height, clip.fit, "s", clip.focus);
+  const layout = frameChain("sp", "sf", plan.width, plan.height, clip.fit, "s", clip.focus, plan.upscale === "sharp");
   return measureJoin({
     previous: { path: previousPath, frames: previous.durationFrames },
     next: {
@@ -1264,7 +1277,7 @@ async function seamFor({ clip, previous, previousPath, plan, sourcePath, info, d
   const target = await planeThumbnail(["-i", previousPath], `[0:v]select=eq(n\\,${previous.durationFrames - 1}),`, dir, `p${index}`, limit);
   const rate = info?.fps && info.fps > 0 ? info.fps : plan.fps;
   const anchor = Math.max(0, clip.trimStart - 1 / rate);
-  const layout = frameChain("sp", "sf", plan.width, plan.height, clip.fit, "s", clip.focus);
+  const layout = frameChain("sp", "sf", plan.width, plan.height, clip.fit, "s", clip.focus, plan.upscale === "sharp");
   const current = await planeThumbnail(
     ["-ss", seconds(seekPoint(anchor)), "-i", sourcePath],
     `[0:v]scale=trunc(iw*sar/2)*2:ih,setsar=1[sp];${layout};[sf]`,

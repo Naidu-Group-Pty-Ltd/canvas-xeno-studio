@@ -112,14 +112,17 @@ frame. The app sends one source per distinct asset (role `video`, `image`,
 - `images[]` (feature `image_overlays`): pictures laid over the edit, such as
   a logo: `source_index` (an `image` source), `start`, `end`, `x` / `y` (0–1,
   where its centre sits), `width` (0.03–1 of the frame's width; its height
-  follows its shape), `opacity` and `fade` (seconds in and out). A PNG keeps
-  its transparency. They go under the text and the edit's fades
+  follows its shape), `opacity` and `fade` (seconds in and out; 0 shows it
+  from its first frame to its last). A PNG keeps its transparency; a GIF is
+  read for its first frame. Each is decoded and scaled once, then held. They
+  go under the text and the edit's fades
 - `frame_rate_conversion` (feature `frame_rate_conversion`): how a clip made
   at another rate (24 fps B-roll in a 30 fps edit) is brought to the edit's:
   `duplicate` (frames repeated, as before), `blend` (neighbouring frames
   mixed) or `motion` (frames made from the movement between them, at the
-  source's own size; several times slower). Clips already at the edit's rate
-  are only re-timed. `upscale: "sharp"` scales pictures with Lanczos and a
+  source's own size, no larger than the edit's frame; several times slower).
+  Only a clip with fewer frames than the edit needs is given new ones: one
+  at the edit's rate (or within 1.5% of it) or above is only re-timed. `upscale: "sharp"` scales pictures with Lanczos and a
   light unsharp mask, for 720p clips in a 1080p edit
 - `mix` (feature `channel_mix`): channel levels, each 0–2 and 1 when left
   out, that scale a whole sound bus before the final mix on top of the items'
