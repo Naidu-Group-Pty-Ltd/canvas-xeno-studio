@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   balanceChipLabel,
+  balanceWarning,
   balanceInUsd,
   formatUsd,
   higgsfieldBalanceView,
@@ -195,5 +196,41 @@ describe("entering the Console's figure", () => {
     expect(formatUsd(1234.5)).toBe("$1,234.50");
     expect(formatUsd(0.075)).toBe("$0.08");
     expect(formatUsd(-3)).toBe("−$3.00");
+  });
+});
+
+describe("before work that costs is started", () => {
+  test("says when it would cost more than is left, so it would stop part-way", () => {
+    // $100 recorded, $26.96 spent since: about $73.04 left.
+    const view = higgsfieldBalanceView({ recorded, spend: spend(), today: null, now: NOW });
+    expect(balanceWarning(view, 20)).toBeNull();
+    expect(balanceWarning(view, 65)?.level).toBe("caution");
+    const over = balanceWarning(view, 80.5)!;
+    expect(over.level).toBe("stop");
+    expect(over.message).toContain("$80.50");
+    expect(over.message).toContain("$73.04");
+  });
+
+  test("says when Higgsfield has refused for want of credits, whatever it would cost", () => {
+    const view = higgsfieldBalanceView({
+      recorded,
+      spend: spend({
+        lastAcceptedAt: "2026-10-16T10:00:00Z",
+        lastRefusal: {
+          at: "2026-10-16T12:00:00Z",
+          message: "Not enough credits",
+          kind: "generation",
+        },
+      }),
+      today: null,
+      now: NOW,
+    });
+    expect(balanceWarning(view, null)?.level).toBe("stop");
+  });
+
+  test("has nothing to say without a recorded figure or a price", () => {
+    const view = higgsfieldBalanceView({ recorded: null, spend: null, today: spend(), now: NOW });
+    expect(balanceWarning(view, 500)).toBeNull();
+    expect(balanceWarning(null, 5)).toBeNull();
   });
 });

@@ -105,6 +105,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import type { MeteredQuote } from "@/lib/higgsfield/metered";
+import { balanceWarning } from "@/lib/usage-balance";
+import { useUsageBalance } from "@/hooks/useUsageBalance";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -1107,6 +1109,21 @@ function CreatePage() {
       ? longTotalEstimate + (keyframesEstimate ?? 0)
       : null;
 
+  // Lip-scored clips can be made again (up to the takes chosen): the most the run could cost.
+  const longTakes = longMode && longDraft.lipCheck ? Math.max(1, longDraft.takes) : 1;
+  const longWorstCase =
+    longGrandTotal !== null && longTakes > 1 && longTotalEstimate !== null
+      ? longGrandTotal + longTotalEstimate * (longTakes - 1)
+      : null;
+  // What this would cost, against what is thought to be left on the Higgsfield balance.
+  const { data: usageBalance } = useUsageBalance();
+  const plannedCost = longMode
+    ? longGrandTotal
+    : estimate.kind === "ready"
+      ? estimate.costUsd * Math.max(1, batchCount)
+      : null;
+  const creditWarning = balanceWarning(usageBalance?.higgsfield, plannedCost);
+
   /** Hands the current prompt, references and context to Supercomputer (nothing is sent automatically). */
   function openInSupercomputer() {
     const prompt = typeof values["prompt"] === "string" ? values["prompt"].trim() : "";
@@ -1601,6 +1618,23 @@ function CreatePage() {
                     ? ` · ${longPlan.paintedKeyframes} keyframes ${keyframesEstimate !== null ? `$${keyframesEstimate.toFixed(2)}` : "(not priced yet)"}`
                     : ""}
                   {longGrandTotal !== null ? ` · approx. $${longGrandTotal.toFixed(2)} in all` : ""}
+                  {longWorstCase !== null
+                    ? ` (up to $${longWorstCase.toFixed(2)} if every clip needs all its takes)`
+                    : ""}
+                </p>
+              )}
+              {creditWarning && (
+                <p
+                  className={cn(
+                    "flex gap-1.5 rounded-md px-2 py-1.5 text-[11px] leading-relaxed",
+                    creditWarning.level === "stop"
+                      ? "bg-destructive/10 text-destructive"
+                      : "bg-warning/10 text-foreground",
+                  )}
+                  data-testid="credit-warning"
+                >
+                  <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                  {creditWarning.message}
                 </p>
               )}
               {batchCount > 1 && (
