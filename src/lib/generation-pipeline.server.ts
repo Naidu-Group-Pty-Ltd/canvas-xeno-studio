@@ -1044,7 +1044,17 @@ export async function ingestOutputs(
     failures,
     code: complete ? undefined : "INGEST_FAILED",
   });
-  if (complete) await notifyLongVideo(generationId);
+  if (complete) {
+    await notifyLongVideo(generationId);
+    // Its videos measured exactly (the provider gives the length asked for).
+    const { measureGeneratedAssets } = await import("./media/measure-asset.server");
+    await measureGeneratedAssets(generationId).catch((error: unknown) => {
+      console.error("generated media not measured", {
+        generationId,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    });
+  }
   return created;
 }
 

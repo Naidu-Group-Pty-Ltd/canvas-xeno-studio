@@ -55,8 +55,9 @@ function pick(value, allowed, fallback, name) {
  * ("audio_prepare"), a clip's lip sync measured against its voiceover
  * ("audio_sync"), the mixer's channel levels applied to each sound bus
  * ("channel_mix"), joins put in register: framing, colour, detail and
- * sound ("smart_join"), and, where the image has it, a clip's lips scored
- * from its picture ("lip_check").
+ * sound ("smart_join"), a title's height on the frame and what keeps it
+ * readable ("overlay_layout"), and, where the image has it, a clip's lips
+ * scored from its picture ("lip_check").
  */
 export const FEATURES = [
   "frame_focus",
@@ -68,6 +69,7 @@ export const FEATURES = [
   "audio_sync",
   "channel_mix",
   "smart_join",
+  "overlay_layout",
   ...(lipCheckAvailable ? ["lip_check"] : []),
 ];
 

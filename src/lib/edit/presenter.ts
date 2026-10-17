@@ -74,6 +74,8 @@ export interface PresenterTitle {
   seconds: number;
   style?: Overlay["style"] | undefined;
   position?: Overlay["position"] | undefined;
+  /** Its height on the frame (0 top to 1 bottom), else by its position. */
+  y?: number | null | undefined;
 }
 
 export interface PresenterEditOptions {
@@ -421,6 +423,9 @@ export function compilePresenterEdit(
         end,
         style: title.style ?? "title",
         position: title.position ?? "center",
+        y: title.y ?? null,
+        // On a halo: a title read over B-roll and white flashes alike.
+        backing: title.style === "cta" ? "outline" : "halo",
       },
     ];
   });

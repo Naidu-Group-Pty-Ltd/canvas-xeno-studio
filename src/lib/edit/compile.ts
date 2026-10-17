@@ -222,6 +222,8 @@ export function compileFromDrafts(
       end: Math.min(2.5, total / 2),
       style: "title" as const,
       position: "center" as const,
+      y: null,
+      backing: "halo" as const,
     });
   }
   if (plan?.closingCta?.trim() && total > 2) {
@@ -232,6 +234,8 @@ export function compileFromDrafts(
       end: total,
       style: "cta" as const,
       position: "bottom" as const,
+      y: null,
+      backing: "outline" as const,
     });
   }
   if (overlays.length) next = { ...next, overlays };

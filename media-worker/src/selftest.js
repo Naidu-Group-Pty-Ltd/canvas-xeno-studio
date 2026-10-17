@@ -94,7 +94,7 @@ await check("assemble_video (cross-fade)", async () => {
   if ((await stat(result.outputs[0].path)).size < 5000) throw new Error("assembled file too small");
 });
 
-await check("render_sequence (transitions, still, voice, ducked music, captions)", async () => {
+await check("render_sequence (transitions, still, voice, ducked music, captions, titles)", async () => {
   const still = join(dir, "still.jpg");
   const voice = join(dir, "voice.wav");
   const music = join(dir, "music.wav");
@@ -122,6 +122,11 @@ await check("render_sequence (transitions, still, voice, ducked music, captions)
         { source_index: 4, role: "music", loop: true, volume: 0.6 },
       ],
       captions: { segments: [{ start: 0.5, end: 2.5, text: "Self-test caption" }] },
+      // A title at a height of its own on a halo, and a subtitle on a box.
+      overlays: [
+        { start: 0.2, end: 1.8, text: "SELF-TEST TITLE", style: "title", y: 0.4, backing: "halo" },
+        { start: 2, end: 3.5, text: "On a box", style: "subtitle", position: "bottom", backing: "box" },
+      ],
     },
     dir,
     progress: (value) => marks.push(value),

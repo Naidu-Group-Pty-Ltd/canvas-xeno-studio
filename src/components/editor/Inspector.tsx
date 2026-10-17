@@ -35,6 +35,8 @@ import {
   moveClip,
   newId,
   placeAt,
+  OVERLAY_BACKING_LABELS,
+  OVERLAY_BACKINGS,
   OVERLAY_POSITIONS,
   OVERLAY_STYLE_LABELS,
   OVERLAY_STYLES,
@@ -1217,6 +1219,9 @@ function TextPanel({
       end: Number(Math.min(layout.total || at + 2.5, at + 2.5, LIMITS.totalSeconds).toFixed(2)),
       style,
       position: style === "cta" ? "bottom" : "center",
+      y: null,
+      // New titles read on any picture.
+      backing: style === "cta" ? "outline" : "halo",
     };
     onChange({ ...timeline, overlays: [...timeline.overlays, overlay].slice(0, LIMITS.overlays) });
     onSelect({ kind: "overlay", id: overlay.id });
@@ -1456,6 +1461,56 @@ function TextPanel({
                   </SelectContent>
                 </Select>
               </div>
+              {overlay.style !== "cta" && (
+                <Select
+                  value={overlay.backing}
+                  onValueChange={(value) =>
+                    updateOverlay(overlay.id, { backing: value as Overlay["backing"] })
+                  }
+                >
+                  <SelectTrigger className="h-7 text-xs" aria-label="What keeps it readable">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {OVERLAY_BACKINGS.map((backing) => (
+                      <SelectItem key={backing} value={backing}>
+                        {OVERLAY_BACKING_LABELS[backing]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <Field
+                label="Height"
+                hint={overlay.y === null ? "by position" : `${Math.round(overlay.y * 100)}% down`}
+              >
+                <div className="flex items-center gap-2">
+                  <Slider
+                    min={4}
+                    max={96}
+                    step={1}
+                    value={[Math.round((overlay.y ?? 0.5) * 100)]}
+                    onValueChange={([value]) =>
+                      updateOverlay(
+                        overlay.id,
+                        { y: (value ?? 50) / 100 },
+                        `overlay-y:${overlay.id}`,
+                      )
+                    }
+                    aria-label="Title height on the frame"
+                  />
+                  {overlay.y !== null && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-1.5 text-[11px]"
+                      onClick={() => updateOverlay(overlay.id, { y: null })}
+                    >
+                      Reset
+                    </Button>
+                  )}
+                </div>
+              </Field>
               <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-1.5">
                 <Field label="From">
                   <Seconds

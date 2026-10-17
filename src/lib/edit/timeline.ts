@@ -134,6 +134,18 @@ export const OVERLAY_STYLE_LABELS: Record<OverlayStyle, string> = {
 };
 export const OVERLAY_POSITIONS = ["top", "center", "bottom"] as const;
 export type OverlayPosition = (typeof OVERLAY_POSITIONS)[number];
+/**
+ * What keeps a title readable over the picture: its outline (as titles always
+ * had), a soft dark halo (white text that reads on a white flash as well as
+ * on a dark shot), or a box behind it.
+ */
+export const OVERLAY_BACKINGS = ["outline", "halo", "box"] as const;
+export type OverlayBacking = (typeof OVERLAY_BACKINGS)[number];
+export const OVERLAY_BACKING_LABELS: Record<OverlayBacking, string> = {
+  outline: "Outline",
+  halo: "Soft halo",
+  box: "Box behind",
+};
 
 export const LIMITS = {
   clips: 60,
@@ -228,6 +240,9 @@ export const overlaySchema = z.object({
   end: finite(0, LIMITS.totalSeconds),
   style: z.enum(OVERLAY_STYLES).default("title"),
   position: z.enum(OVERLAY_POSITIONS).default("center"),
+  /** Its height on the frame (the middle of the text, 0 top to 1 bottom); null: by its position. */
+  y: finite(0.04, 0.96).nullable().default(null),
+  backing: z.enum(OVERLAY_BACKINGS).default("outline"),
 });
 export type Overlay = z.infer<typeof overlaySchema>;
 
@@ -1000,6 +1015,9 @@ export function buildRenderRequest(
       end: Math.min(overlay.end, layout.total),
       style: overlay.style,
       position: overlay.position,
+      // Sent only when set, so a media service from before them renders the rest.
+      ...(overlay.y !== null ? { y: overlay.y } : {}),
+      ...(overlay.backing !== "outline" ? { backing: overlay.backing } : {}),
     }));
 
   return {

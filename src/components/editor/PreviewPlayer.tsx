@@ -600,7 +600,10 @@ function TextLayer({
           lineHeight: 1.15,
           whiteSpace: "pre-line",
         };
-        if (overlay.position === "top") style.top = `${(portrait ? 0.16 : 0.1) * 100}%`;
+        if (overlay.y !== null) {
+          style.top = `${overlay.y * 100}%`;
+          style.transform = "translateY(-50%)";
+        } else if (overlay.position === "top") style.top = `${(portrait ? 0.16 : 0.1) * 100}%`;
         else if (overlay.position === "bottom") style.bottom = `${(portrait ? 0.3 : 0.16) * 100}%`;
         else {
           style.top = "50%";
@@ -620,7 +623,25 @@ function TextLayer({
                 {overlay.text}
               </span>
             ) : (
-              <span style={{ color: "#fff", textShadow: "0 0 6px #000, 0 2px 8px #000" }}>
+              <span
+                style={
+                  overlay.backing === "box"
+                    ? {
+                        color: "#fff",
+                        background: "rgba(0,0,0,0.65)",
+                        padding: "0.15em 0.4em",
+                        boxDecorationBreak: "clone",
+                        WebkitBoxDecorationBreak: "clone",
+                      }
+                    : overlay.backing === "halo"
+                      ? {
+                          color: "#fff",
+                          textShadow:
+                            "0 0 0.12em rgba(0,0,0,0.6), 0 0 0.3em rgba(0,0,0,0.55), 0 0.05em 0.25em rgba(0,0,0,0.6)",
+                        }
+                      : { color: "#fff", textShadow: "0 0 6px #000, 0 2px 8px #000" }
+                }
+              >
                 {overlay.text}
               </span>
             )}

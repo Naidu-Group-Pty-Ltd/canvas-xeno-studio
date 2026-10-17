@@ -68,6 +68,7 @@ const AUDIO_ROLES = new Set(["voiceover", "music", "sfx"]);
 const CAPTION_STYLES = new Set(["clean", "boxed", "bold", "minimal"]);
 const CAPTION_POSITIONS = new Set(["bottom", "lower_third", "center", "top"]);
 const OVERLAY_STYLES = new Set(["title", "subtitle", "cta"]);
+const OVERLAY_BACKINGS = new Set(["outline", "halo", "box"]);
 const FPS_VALUES = new Set([24, 25, 30, 60]);
 
 /* ------------------------------------------------------------------ */
@@ -308,6 +309,10 @@ export function planSequence(params, sources) {
         text: cleanText(overlay.text, 160),
         style: choice(overlay.style, OVERLAY_STYLES, "title", `overlay ${index + 1} style`),
         position: choice(overlay.position, new Set(["top", "center", "bottom"]), "center", `overlay ${index + 1} position`),
+        // Its height on the frame (the middle of the text, 0 top to 1 bottom), when set; else its position.
+        y: overlay.y === undefined || overlay.y === null ? null : num(overlay.y, { min: 0.04, max: 0.96, name: `overlay ${index + 1} y` }),
+        // What keeps it readable: its outline (as ever), a soft dark halo, or a box behind it.
+        backing: choice(overlay.backing, OVERLAY_BACKINGS, "outline", `overlay ${index + 1} backing`),
       };
     })
     .filter((overlay) => overlay.text && overlay.end - overlay.start >= 0.1);
@@ -851,14 +856,28 @@ export function buildSubtitles(plan) {
       `Style: Title,${FONT},${titleSize},&H00FFFFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,${Math.max(2, Math.round(titleSize * 0.06))},${Math.max(1, Math.round(titleSize * 0.04))},5,${margin},${margin},0,1`,
       `Style: Subtitle,${FONT},${subtitleSize},&H00FFFFFF,&H000000FF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,${Math.max(2, Math.round(subtitleSize * 0.06))},1,5,${margin},${margin},0,1`,
       `Style: Cta,${FONT},${ctaSize},&H00000000,&H000000FF,&H00FFFFFF,&H00FFFFFF,-1,0,0,0,100,100,0,0,3,${Math.round(ctaSize * 0.35)},0,5,${margin},${margin},0,1`,
+      // A title or subtitle on a box: the box is the outline colour, in BorderStyle 3.
+      `Style: TitleBox,${FONT},${titleSize},&H00FFFFFF,&H000000FF,&H59000000,&H00000000,-1,0,0,0,100,100,0,0,3,${Math.round(titleSize * 0.3)},0,5,${margin},${margin},0,1`,
+      `Style: SubtitleBox,${FONT},${subtitleSize},&H00FFFFFF,&H000000FF,&H59000000,&H00000000,0,0,0,0,100,100,0,0,3,${Math.round(subtitleSize * 0.3)},0,5,${margin},${margin},0,1`,
     );
     for (const overlay of plan.overlays) {
-      const styleName = overlay.style === "cta" ? "Cta" : overlay.style === "subtitle" ? "Subtitle" : "Title";
+      const boxed = overlay.backing === "box" && overlay.style !== "cta";
+      const base = overlay.style === "cta" ? "Cta" : overlay.style === "subtitle" ? "Subtitle" : "Title";
+      const styleName = boxed ? `${base}Box` : base;
+      const size = overlay.style === "cta" ? ctaSize : overlay.style === "subtitle" ? subtitleSize : titleSize;
       const alignment = overlay.position === "top" ? 8 : overlay.position === "bottom" ? 2 : 5;
       const marginV =
         overlay.position === "center" ? 0 : Math.round(height * (overlay.position === "top" ? (portrait ? 0.16 : 0.1) : portrait ? 0.3 : 0.16));
+      // At a height of its own: centred there, whatever its position says.
+      const place = overlay.y !== null ? `\\an5\\pos(${Math.round(width / 2)},${Math.round(height * overlay.y)})` : `\\an${alignment}`;
+      // A soft dark halo: a wide, blurred, half-clear outline and shadow, so a
+      // white title reads on a white picture as well as a dark one.
+      const halo =
+        overlay.backing === "halo" && overlay.style !== "cta"
+          ? `\\bord${Math.max(3, Math.round(size * 0.12))}\\3c&H000000&\\3a&H70&\\blur${Math.max(2, Math.round(size * 0.08))}\\shad${Math.max(1, Math.round(size * 0.05))}\\4a&H60&`
+          : "";
       const text = overlay.text.replace(/\n/g, "\\N");
-      events.push(`Dialogue: 1,${assTime(overlay.start)},${assTime(overlay.end)},${styleName},,0,0,${marginV},,{\\an${alignment}\\fad(250,250)}${text}`);
+      events.push(`Dialogue: 1,${assTime(overlay.start)},${assTime(overlay.end)},${styleName},,0,0,${overlay.y !== null ? 0 : marginV},,{${place}${halo}\\fad(250,250)}${text}`);
     }
   }
 
