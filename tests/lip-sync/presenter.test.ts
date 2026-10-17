@@ -8,6 +8,7 @@ import {
   lipSyncWarnings,
   PRESENTER_NEGATIVE_PROMPT,
   presenterPrompt,
+  presenterStory,
   presenterValues,
 } from "../../src/lib/lip-sync/presenter";
 
@@ -73,5 +74,16 @@ describe("lip-sync guards", () => {
         values: presenterValues(wan27, {}),
       }),
     ).toEqual([]);
+  });
+});
+
+describe("a story put to the recipe", () => {
+  test("loses its camera moves and gains the locked-off camera, once", () => {
+    const story = presenterStory("Janice explains the report. A slow push-in as she smiles.");
+    expect(story).toStartWith("Janice explains the report.");
+    expect(story).not.toContain("push-in as");
+    expect(cameraMovesIn(story)).toEqual([]);
+    expect(presenterStory(story)).toBe(story);
+    expect(presenterStory("")).toBe(presenterPrompt());
   });
 });

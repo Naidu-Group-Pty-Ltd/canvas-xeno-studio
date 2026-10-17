@@ -38,6 +38,22 @@ export function presenterPrompt(
 }
 
 /**
+ * A story prompt made to follow the recipe: the presenter's own (a minimal one
+ * when there is none), any sentence asking for a camera move taken out, and
+ * the locked-off camera line added once.
+ */
+export function presenterStory(prompt: string): string {
+  const text = prompt.trim();
+  if (!text) return presenterPrompt();
+  const sentences = text
+    .split(/(?<=[.!?])\s+/)
+    .filter((sentence) => !cameraMovesIn(sentence).length);
+  const kept = sentences.join(" ").trim();
+  if (!kept) return presenterPrompt();
+  return kept.includes(LOCKED_CAMERA_LINE) ? kept : `${kept} ${LOCKED_CAMERA_LINE}`;
+}
+
+/**
  * A model's settings with the presenter recipe applied where it has them: the
  * prompt kept as written (no provider extension) and the negative prompt
  * holding the recipe's terms, after any of the person's own.

@@ -134,3 +134,40 @@ export function useNudgeStalledRuns(runs: LongVideoRow[]) {
     return () => window.clearInterval(timer);
   }, []);
 }
+
+export type LongVideoTakeRow = Database["public"]["Tables"]["long_video_clip_takes"]["Row"];
+
+/**
+ * Whether the database can run presenter videos (migration 0017): every clip
+ * from one still, B-roll cutaways, lip scores and takes. Undefined while it
+ * is being asked; false before the migration is applied, when those are off.
+ */
+export function usePresenterRuns(): boolean | undefined {
+  const { data } = useQuery({
+    queryKey: ["presenter-runs-supported"],
+    staleTime: 10 * 60_000,
+    queryFn: async () => {
+      const { error } = await supabase.from("long_videos").select("start_from").limit(1);
+      return !error;
+    },
+  });
+  return data;
+}
+
+/** The kept takes of some runs' clips, oldest first (none before the database has takes). */
+export function useClipTakes(runIds: string[]) {
+  const key = [...new Set(runIds)].sort();
+  return useQuery({
+    queryKey: ["long_video_clip_takes", key],
+    enabled: key.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("long_video_clip_takes")
+        .select("*")
+        .in("long_video_id", key)
+        .order("attempt");
+      if (error) return [] as LongVideoTakeRow[];
+      return (data ?? []) as LongVideoTakeRow[];
+    },
+  });
+}

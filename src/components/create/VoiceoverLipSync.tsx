@@ -18,10 +18,13 @@ import { cn } from "@/lib/utils";
 export function VoiceoverWaveform({
   analysis,
   cuts = [],
+  cutaways = [],
   className,
 }: {
   analysis: PreparedAnalysis;
   cuts?: number[];
+  /** Stretches covered by B-roll, hatched. */
+  cutaways?: { start: number; end: number }[];
   className?: string;
 }) {
   const duration = analysis.samples / analysis.sample_rate;
@@ -70,6 +73,16 @@ export function VoiceoverWaveform({
             />
           );
         })}
+      {cutaways.map(({ start, end }, index) => (
+        <rect
+          key={`cutaway-${index}`}
+          x={x(start)}
+          y={0}
+          width={Math.max(0.5, x(end) - x(start))}
+          height={height}
+          className="fill-muted-foreground/25"
+        />
+      ))}
       {cuts.map((at, index) => (
         <line
           key={`cut-${index}`}
@@ -100,6 +113,8 @@ interface Props {
   } | null;
   /** A long video: where the voiceover is cut into clips. */
   cuts?: number[] | null;
+  /** A long video: the stretches covered by B-roll. */
+  cutaways?: { start: number; end: number }[] | null;
 }
 
 /**
@@ -108,7 +123,7 @@ interface Props {
  * shown with its speech and pauses, and for one clip, the length the clip is
  * asked for so none of it is cut off.
  */
-export function VoiceoverLipSync({ model, state, title, clip, cuts }: Props) {
+export function VoiceoverLipSync({ model, state, title, clip, cuts, cutaways }: Props) {
   const [confirmed, setConfirmed] = useState(false);
   const { voiceover } = state;
   const name = title?.trim() || "The voiceover";
@@ -199,7 +214,11 @@ export function VoiceoverLipSync({ model, state, title, clip, cuts }: Props) {
         </div>
       ) : ready && seconds ? (
         <div className="space-y-2">
-          <VoiceoverWaveform analysis={ready.analysis!} cuts={cuts ?? []} />
+          <VoiceoverWaveform
+            analysis={ready.analysis!}
+            cuts={cuts ?? []}
+            cutaways={cutaways ?? []}
+          />
           <p className="text-[11px] text-muted-foreground" data-testid="voiceover-summary">
             <span className="font-medium text-foreground">{voiceLength(seconds)}</span>
             {ready.analysis!.clear_pauses

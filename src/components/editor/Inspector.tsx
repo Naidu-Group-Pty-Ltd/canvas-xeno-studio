@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   ArrowLeft,
   ArrowRight,
@@ -85,6 +86,8 @@ import { VoiceoverPanel, type VoiceoverContext } from "./VoiceoverPanel";
 import { MusicPanel, type MusicContext } from "./MusicPanel";
 import { Mixer } from "./Mixer";
 import { SendToKatana } from "@/components/katana/SendToKatana";
+import { useVoiceovers } from "@/hooks/useVoiceData";
+import { phraseCaptions } from "@/lib/edit/captions";
 
 interface InspectorProps {
   timeline: Timeline;
@@ -1139,21 +1142,57 @@ function JoinsSection({
 /* Captions and titles                                                 */
 /* ------------------------------------------------------------------ */
 
-function TextPanel({ timeline, layout, clock, selection, onSelect, onChange }: InspectorProps) {
+function TextPanel({
+  timeline,
+  layout,
+  clock,
+  selection,
+  onSelect,
+  onChange,
+  voiceover,
+}: InspectorProps) {
   const captions = timeline.captions;
   const setCaptions = (patch: Partial<Timeline["captions"]>, key?: string) =>
     onChange({ ...timeline, captions: { ...captions, ...patch } }, key);
   const [script, setScript] = useState("");
+  const [terms, setTerms] = useState("");
   const voice = timeline.audio.find((item) => item.role === "voiceover");
+  // The voiceover's word timings, where it is one of the edit's takes.
+  const { data: takes = [] } = useVoiceovers(voiceover?.sequenceId ?? null);
+  const words = voice
+    ? (takes.find((take) => take.asset_id === voice.assetId)?.alignment?.words ?? [])
+    : [];
 
   const writeFromScript = () => {
     const from = voice ? voice.start : 0.3;
     const to = voice
       ? voice.start + audioPlayLength(voice, layout.total)
       : Math.max(0.6, layout.total - 0.3);
+    const until = Math.min(to, layout.total);
+    // With the voiceover's word timings, the script's words land where they
+    // were said, as phrases; without them, it is spread over the voiceover.
+    if (voice && words.length) {
+      const timed = phraseCaptions(words, voice.start - voice.trimStart, {
+        script,
+        terms: terms
+          .split(",")
+          .map((term) => term.trim())
+          .filter(Boolean),
+        from: voice.start,
+        until,
+      });
+      if (timed.segments.length) {
+        setCaptions({ enabled: true, segments: timed.segments });
+        if (timed.source === "words")
+          toast.message("The script didn't match what the voiceover says", {
+            description: "The captions show the voiceover's own words instead.",
+          });
+        return;
+      }
+    }
     setCaptions({
       enabled: true,
-      segments: captionsFromScript(script, from, Math.min(to, layout.total)),
+      segments: captionsFromScript(script, from, until),
     });
   };
 
@@ -1206,11 +1245,21 @@ function TextPanel({ timeline, layout, clock, selection, onSelect, onChange }: I
             className="min-h-[72px] text-sm"
           />
         </Field>
+        {voice && words.length > 0 && (
+          <Field label="Names to spell right (comma-separated)">
+            <Input
+              value={terms}
+              onChange={(event) => setTerms(event.target.value)}
+              placeholder="e.g. Aurixa Systems"
+              className="h-8 text-xs"
+            />
+          </Field>
+        )}
         <Button
           size="sm"
           variant="secondary"
           className="w-full"
-          disabled={!script.trim() || layout.total < 0.5}
+          disabled={(!script.trim() && !(voice && words.length)) || layout.total < 0.5}
           onClick={writeFromScript}
         >
           <Wand2 className="mr-1.5 size-3.5" />{" "}

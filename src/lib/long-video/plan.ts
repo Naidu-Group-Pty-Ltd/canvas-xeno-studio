@@ -367,15 +367,24 @@ export function clipPrompt(input: {
   count?: number;
   /** How the video ends on the brand's finisher, when it has one. */
   finale?: FinaleMode | null;
+  /**
+   * The clip starts afresh from a still (the run's anchor frame, or after a
+   * cutaway), not from the moment the clip before ends: it isn't told to
+   * carry anything on, nor where it falls in the video (a presenter clip is
+   * told as little as can be, see ../lip-sync/presenter).
+   */
+  standalone?: boolean;
 }): string {
   const story = input.story.trim();
   const beat = input.beat?.trim() ?? "";
   const continuity = input.continuity?.trim() ?? "";
   const keep = continuity ? `Keep consistent throughout: ${continuity}` : "";
   const place =
-    input.count && input.count > 1 ? clipPlace(input.index, input.count, input.finale ?? null) : "";
+    input.count && input.count > 1 && !input.standalone
+      ? clipPlace(input.index, input.count, input.finale ?? null)
+      : "";
   const parts: string[] = [];
-  if (input.index > 0) parts.push(FRAME_OPENING);
+  if (input.index > 0 && !input.standalone) parts.push(FRAME_OPENING);
   if (beat) parts.push(beat, place, keep, story ? `Scene: ${story}` : "");
   else parts.push(story, place, keep);
   return parts.filter(Boolean).join("\n\n");

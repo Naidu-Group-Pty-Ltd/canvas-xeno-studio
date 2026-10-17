@@ -19,7 +19,9 @@ import {
 import type { ReferenceItem } from "@/components/create/reference-files";
 import { FinisherSetup } from "@/components/create/FinisherSetup";
 import { voiceLength } from "@/lib/lip-sync/view";
+import { SECTION_LIMITS } from "@/lib/lip-sync/sections";
 import { CharacterConsistency } from "@/components/create/CharacterConsistency";
+import { PresenterSetup } from "@/components/create/PresenterSetup";
 import type { CharacterEntry } from "@/hooks/useCharacters";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +37,8 @@ import {
 import { cn } from "@/lib/utils";
 
 const LENGTH_PRESETS = [30, 60, 90, 120, 180];
+/** How far a clip after a cutaway reaches back into it (its lead-in). */
+const SECTION_LEAD = SECTION_LIMITS.leadInSeconds;
 
 interface Props {
   model: ModelRegistryEntry;
@@ -56,6 +60,10 @@ interface Props {
   characters: CharacterEntry[];
   /** Higgsfield's price for one keyframe, when known. */
   keyframeUsd: number | null;
+  /** The database can run presenter videos (undefined while asking, false before migration 0017). */
+  presenterRuns?: boolean | undefined;
+  /** Puts the presenter recipe in the prompt and settings (null: nothing to set). */
+  onApplyPresenterRecipe?: (() => void) | null;
 }
 
 /** One clip or a long video, and everything about the long video: its length, clips and beats. */
@@ -73,6 +81,8 @@ export function LongVideoSetup({
   aiUnavailableReason,
   characters,
   keyframeUsd,
+  presenterRuns,
+  onApplyPresenterRecipe = null,
 }: Props) {
   const [planning, setPlanning] = useState(false);
   const set = (patch: Partial<LongVideoDraft>) => onChange({ ...draft, ...patch });
@@ -336,9 +346,13 @@ export function LongVideoSetup({
                 speaking (at the end of a sentence where its words are known), on the Editor's frame
                 grid. Each clip is made from its own piece as{" "}
                 {modelLine(plan.keyframed && plan.workflow ? plan.workflow : model)}'s driving
-                audio, asked for a moment longer than its piece so none of it is cut off, and each
-                one after the first starts from the frame where the clip before is cut, so the
-                picture runs on as one shot.
+                audio, asked for a moment longer than its piece so none of it is cut off
+                {plan.startFrom === "anchor"
+                  ? ", and every clip starts from clip 1's start image, so the presenter looks the same in each."
+                  : ", and each one after the first starts from the frame where the clip before is cut, so the picture runs on as one shot."}
+                {voiced.cutaways.length
+                  ? ` No clip is made for the ${voiced.cutaways.length === 1 ? "line" : "lines"} covered by B-roll.`
+                  : ""}
                 {plan.keyframed
                   ? " With keyframes, each clip moves toward its keyframe as its words are said and is cut where they end, and the last plays on after the voiceover to land on its own."
                   : ""}{" "}
@@ -405,6 +419,14 @@ export function LongVideoSetup({
               )}
             {runIssue && <p className="mt-1 text-[11px] text-primary">{runIssue.message}</p>}
           </div>
+
+          <PresenterSetup
+            draft={draft}
+            plan={plan}
+            onChange={set}
+            presenterRuns={presenterRuns}
+            onApplyRecipe={onApplyPresenterRecipe}
+          />
 
           <CharacterConsistency
             model={model}
@@ -510,8 +532,25 @@ export function LongVideoSetup({
                 const from = piece ? piece.start : (starts[index] ?? 0);
                 const to = piece ? piece.end : from + seconds;
                 const words = voiced?.spoken[index] ?? "";
+                const cutawayBefore =
+                  piece && index > 0
+                    ? voiced?.cutaways.find(
+                        (item) =>
+                          item.start >= (voiced.segments[index - 1]?.end ?? 0) - 1e-3 &&
+                          item.end <= piece.start + SECTION_LEAD + 1e-3,
+                      )
+                    : null;
                 return (
                   <li key={index} className="space-y-1">
+                    {cutawayBefore && (
+                      <p
+                        className="rounded border border-dashed border-border px-2 py-1 text-[11px] text-muted-foreground"
+                        data-testid={`long-video-cutaway-${index}`}
+                      >
+                        B-roll · {voiceLength(cutawayBefore.start)}–{voiceLength(cutawayBefore.end)}{" "}
+                        (no clip made)
+                      </p>
+                    )}
                     <Label
                       htmlFor={`long-video-beat-${index}`}
                       className="text-[11px] text-muted-foreground"
