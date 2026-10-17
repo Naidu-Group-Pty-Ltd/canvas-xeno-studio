@@ -82,15 +82,21 @@ export function toolList(caller: ApiCaller) {
 
 /** One JSON-RPC message, answered (null for a notification, which gets no answer). */
 export async function handleMcpMessage(message: unknown, caller: ApiCaller): Promise<Json | null> {
-  const request = (message ?? {}) as Json;
+  if (!message || typeof message !== "object" || Array.isArray(message))
+    return rpcError(null, -32600, "Invalid request");
+  const request = message as Json;
   const id = (
     typeof request["id"] === "string" || typeof request["id"] === "number" ? request["id"] : null
   ) as JsonRpcId;
+  // A response from the client (to nothing this server asks) needs no answer.
+  if (!("method" in request) && ("result" in request || "error" in request)) return null;
   const isNotification = !("id" in request);
   if (request["jsonrpc"] !== "2.0" || typeof request["method"] !== "string")
     return isNotification ? null : rpcError(id, -32600, "Invalid request");
   const method = request["method"];
-  const params = (request["params"] ?? {}) as Json;
+  const params = (
+    request["params"] && typeof request["params"] === "object" ? request["params"] : {}
+  ) as Json;
   if (isNotification) return null;
 
   switch (method) {

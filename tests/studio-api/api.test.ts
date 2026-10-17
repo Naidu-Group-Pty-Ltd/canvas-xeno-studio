@@ -169,6 +169,17 @@ describe("the MCP server", () => {
     ).json()) as Record<string, unknown>[];
     expect(ping).toEqual({ jsonrpc: "2.0", id: 3, result: {} });
     expect((missing!["error"] as { code: number }).code).toBe(-32601);
+
+    // Not a message at all: an invalid request, never a server error.
+    const odd = await mcp.handleMcpRequest(post("/api/public/studio-mcp", reader, [1, null]));
+    expect(odd.status).toBe(200);
+    const answers = (await odd.json()) as { error: { code: number } }[];
+    expect(answers.map((answer) => answer.error.code)).toEqual([-32600, -32600]);
+    // A response from the client needs no answer.
+    const response = await mcp.handleMcpRequest(
+      post("/api/public/studio-mcp", reader, { jsonrpc: "2.0", id: 7, result: {} }),
+    );
+    expect(response.status).toBe(202);
   });
 
   test("runs a tool and returns its result; a tool's failure is its answer, not a protocol error", async () => {

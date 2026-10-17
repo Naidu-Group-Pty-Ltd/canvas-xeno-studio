@@ -60,6 +60,12 @@ async function renderRequestFor(timeline: Timeline) {
       message:
         "This edit lays a logo or picture over the video, which the media service can't do until it is updated. Remove it, or render again once the service has been updated.",
     });
+  if (request.params["frame_rate_conversion"] || request.params["upscale"])
+    needed.push({
+      feature: "frame_rate_conversion",
+      message:
+        "This edit blends or interpolates frames (or scales sharply), which the media service can't do until it is updated. Set the Picture settings back to repeat frames and standard scaling, or render again once the service has been updated.",
+    });
   if (request.fonts.length || usesBrandColours(request.params))
     needed.push({
       feature: "brand_text",

@@ -171,6 +171,8 @@ export function higgsfieldBalanceView(input: {
 export function balanceWarning(
   view: HiggsfieldBalanceView | null | undefined,
   costUsd: number | null,
+  /** The most it could cost (every retake made), where that is more. */
+  worstCaseUsd: number | null = null,
 ): { level: "stop" | "caution"; message: string } | null {
   if (!view) return null;
   if (view.state === "out")
@@ -195,6 +197,11 @@ export function balanceWarning(
     return {
       level: "caution",
       message: `This would use most of the ≈${formatUsd(left)} left on the Higgsfield API balance; retakes or other work could run it out.`,
+    };
+  if (worstCaseUsd !== null && worstCaseUsd > left)
+    return {
+      level: "caution",
+      message: `If every clip needed all its takes this could cost ${formatUsd(worstCaseUsd)}, more than the ≈${formatUsd(left)} left on the Higgsfield API balance: fewer takes, or a top-up, keeps it from stopping part-way.`,
     };
   return null;
 }

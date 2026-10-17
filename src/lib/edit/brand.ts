@@ -123,7 +123,7 @@ export function kitForProject(kits: BrandKit[], projectId: string | null): Brand
   );
 }
 
-/** Black or white, whichever reads better on a colour. */
+/** Black or white, whichever reads better on a colour (the higher WCAG contrast ratio). */
 export function contrastOn(hex: string): "#000000" | "#ffffff" {
   const value = HEX.test(hex) ? hex : "#000000";
   const channel = (offset: number) => {
@@ -131,7 +131,9 @@ export function contrastOn(hex: string): "#000000" | "#ffffff" {
     return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
   };
   const luminance = 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
-  return luminance > 0.4 ? "#000000" : "#ffffff";
+  const onBlack = (luminance + 0.05) / 0.05;
+  const onWhite = 1.05 / (luminance + 0.05);
+  return onBlack > onWhite ? "#000000" : "#ffffff";
 }
 
 /* ------------------------------------------------------------------ */
@@ -221,6 +223,22 @@ export function applyBrandKit(timeline: Timeline, kit: BrandKit): Timeline {
   };
 }
 
+/** An edit back in the studio's own text style: no kit's fonts, colours or font files. */
+export function clearBrand(timeline: Timeline): Timeline {
+  return {
+    ...timeline,
+    brandKitId: null,
+    fonts: [],
+    overlays: timeline.overlays.map((overlay) => ({
+      ...overlay,
+      font: null,
+      color: null,
+      accent: null,
+    })),
+    captions: { ...timeline.captions, font: null, color: null, accent: null },
+  };
+}
+
 /* ------------------------------------------------------------------ */
 /* End card                                                            */
 /* ------------------------------------------------------------------ */
@@ -307,8 +325,10 @@ export function addEndCard(timeline: Timeline, kit: BrandKit, input: EndCardInpu
   };
   const laid = layoutTimeline(withCard).clips.at(-1);
   if (!laid || laid.clip.id !== clip.id) return timeline;
-  const from = Number((laid.start + laid.transitionIn + 0.2).toFixed(3));
   const to = Number(laid.end.toFixed(3));
+  // Once it has dissolved in; on a card too short for that, from its start.
+  const settled = laid.start + laid.transitionIn + 0.2;
+  const from = Number((settled < to - 0.3 ? settled : laid.start).toFixed(3));
   const place = endCardLayout(timeline.aspectRatio, input.area);
 
   const images: ImageOverlay[] = input.logoAssetId

@@ -151,17 +151,11 @@ export async function checkAssetText(input: {
     return { status: "failed", message: "Only pictures and videos have text to check" };
   const metadata = (asset.metadata ?? {}) as Json;
   const kept = textCheckOf(metadata);
-  let round = typeof metadata["text_check_round"] === "number" ? metadata["text_check_round"] : 0;
+  let round = roundOf(metadata);
   if (kept && !input.again) return { status: "checked", result: kept };
   if (kept && input.again) {
     // A fresh check: a new round of frames, the old verdict set aside.
-    round += 1;
-    delete metadata["text_check"];
-    metadata["text_check_round"] = round;
-    await supabaseAdmin
-      .from("assets")
-      .update({ metadata: metadata as never })
-      .eq("id", asset.id);
+    round = await startRound(asset.id, round);
   }
 
   let urls: string[] = [];
@@ -197,34 +191,79 @@ export async function checkAssetText(input: {
     if (!task.ok) return { status: "failed", message: task.message };
     const sampled = await sampledFrames(task.taskId);
     if (!sampled) return { status: "sampling" };
-    if ("failed" in sampled) return { status: "failed", message: sampled.failed };
+    // A round whose frames couldn't be taken (or read) is over: asked again,
+    // the check takes them afresh rather than finding this round's failure.
+    if ("failed" in sampled) {
+      await startRound(asset.id, round);
+      return { status: "failed", message: `${sampled.failed}. Ask again to try once more.` };
+    }
     frames = sampled.files;
     for (const frame of frames) {
       const url = await signed(frame.bucket, frame.path);
       if (url) urls.push(url);
     }
-    if (!urls.length) return { status: "failed", message: "The video's frames couldn't be read" };
+    if (!urls.length) {
+      await startRound(asset.id, round);
+      await removeFrames(frames);
+      return {
+        status: "failed",
+        message: "The video's frames couldn't be read. Ask again to try once more.",
+      };
+    }
     what = `${urls.length} frames taken through one video, in time order`;
   }
+
+  // Another request may have finished this round meanwhile (two tabs, or the app and the API).
+  const before = await currentMetadata(asset.id);
+  const done = textCheckOf(before);
+  if (done && roundOf(before) === round) return { status: "checked", result: done };
 
   const outcome = await checkPicturesForText({
     urls,
     what,
     ...(input.expected ? { expected: input.expected } : {}),
   });
+  // Its frames are kept for another try while the AI couldn't answer.
   if (!outcome.ok) return { status: "failed", message: outcome.message };
-  const { data: fresh } = await supabaseAdmin
+  // Written over what the file holds now, and only while this is still its round.
+  const now = await currentMetadata(asset.id);
+  if (roundOf(now) === round)
+    await supabaseAdmin
+      .from("assets")
+      .update({ metadata: { ...now, text_check: outcome.result } as never })
+      .eq("id", asset.id);
+  await removeFrames(frames);
+  return { status: "checked", result: outcome.result };
+}
+
+const roundOf = (metadata: Json): number =>
+  typeof metadata["text_check_round"] === "number" ? metadata["text_check_round"] : 0;
+
+/** A file's metadata as it is now (others write to it too). */
+async function currentMetadata(assetId: string): Promise<Json> {
+  const { data } = await supabaseAdmin
     .from("assets")
     .select("metadata")
-    .eq("id", asset.id)
+    .eq("id", assetId)
     .maybeSingle();
+  return { ...((data?.metadata ?? {}) as Json) };
+}
+
+/** Starts the next round of a file's check (its verdict set aside), unless one has already. */
+async function startRound(assetId: string, round: number): Promise<number> {
+  const now = await currentMetadata(assetId);
+  if (roundOf(now) !== round) return roundOf(now);
+  delete now["text_check"];
+  now["text_check_round"] = round + 1;
   await supabaseAdmin
     .from("assets")
-    .update({
-      metadata: { ...((fresh?.metadata ?? metadata) as Json), text_check: outcome.result } as never,
-    })
-    .eq("id", asset.id);
-  // The frames were only for this check.
+    .update({ metadata: now as never })
+    .eq("id", assetId);
+  return round + 1;
+}
+
+/** Deletes frames taken only for a check. */
+async function removeFrames(frames: { bucket: string; path: string }[]): Promise<void> {
   const byBucket = new Map<string, string[]>();
   for (const frame of frames)
     byBucket.set(frame.bucket, [...(byBucket.get(frame.bucket) ?? []), frame.path]);
@@ -233,5 +272,4 @@ export async function checkAssetText(input: {
       .from(bucket)
       .remove(paths)
       .catch(() => undefined);
-  return { status: "checked", result: outcome.result };
 }

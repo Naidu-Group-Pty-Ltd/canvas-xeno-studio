@@ -4,6 +4,7 @@ import {
   addEndCard,
   applyBrandKit,
   brandKitOf,
+  clearBrand,
   contrastOn,
   endCardLayout,
   kitForProject,
@@ -91,6 +92,10 @@ describe("a brand kit", () => {
     expect(cta).toMatchObject({ font: "Aurixa Sans", accent: "#1e40af", color: "#ffffff" });
     expect(branded.captions).toMatchObject({ font: null, color: "#ffffff", accent: "#1e40af" });
     expect(contrastOn("#fde047")).toBe("#000000");
+    // Mid-bright accents read better in black (orange, teal); a deep rose in white.
+    for (const accent of ["#ff8800", "#f97316", "#14b8a6"])
+      expect(contrastOn(accent)).toBe("#000000");
+    for (const accent of ["#1e40af", "#e11d48"]) expect(contrastOn(accent)).toBe("#ffffff");
   });
 
   test("a branded edit renders with its font file and colours; an older edit as it did", () => {
@@ -183,6 +188,29 @@ describe("the platform's clear area and the end card", () => {
     const request = buildRenderRequest(next);
     expect(request.sources.map((source) => source.role)).toEqual(["video", "image", "image"]);
     expect(request.params["images"]).toHaveLength(1);
+  });
+
+  test("a very short video background still shows the logo and words", () => {
+    const next = addEndCard(edit(), kit, {
+      seconds: 3,
+      area: "none",
+      background: { assetId: CARD, kind: "video", durationSeconds: 0.6 },
+      logoAssetId: LOGO,
+    });
+    const logo = next.images[0]!;
+    expect(logo.end - logo.start).toBeGreaterThan(0.1);
+    for (const overlay of next.overlays.slice(3))
+      expect(overlay.end - overlay.start).toBeGreaterThan(0.1);
+  });
+
+  test("an edit can go back to the studio's own text style", () => {
+    const plain = clearBrand(applyBrandKit(edit(), kit));
+    expect(plain.brandKitId).toBeNull();
+    expect(plain.fonts).toEqual([]);
+    expect(
+      plain.overlays.every((overlay) => !overlay.font && !overlay.color && !overlay.accent),
+    ).toBe(true);
+    expect(buildRenderRequest(plain).fonts).toEqual([]);
   });
 
   test("a video background is held only as long as it runs", () => {

@@ -228,6 +228,14 @@ describe("before work that costs is started", () => {
     expect(balanceWarning(view, null)?.level).toBe("stop");
   });
 
+  test("cautions when every retake being made would run it out", () => {
+    const view = higgsfieldBalanceView({ recorded, spend: spend(), today: null, now: NOW });
+    expect(balanceWarning(view, 30, 50)).toBeNull();
+    const worst = balanceWarning(view, 30, 90)!;
+    expect(worst.level).toBe("caution");
+    expect(worst.message).toContain("$90.00");
+  });
+
   test("has nothing to say without a recorded figure or a price", () => {
     const view = higgsfieldBalanceView({ recorded: null, spend: null, today: spend(), now: NOW });
     expect(balanceWarning(view, 500)).toBeNull();

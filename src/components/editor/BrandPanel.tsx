@@ -4,10 +4,12 @@ import { toast } from "sonner";
 import type { AssetRow } from "@/hooks/useStudioData";
 import { useAuth } from "@/hooks/useAuth";
 import { useEditBrandKit } from "@/hooks/useBrandKits";
+import { useAssetsById } from "@/hooks/useLongVideos";
 import { uploadAssetBlob, storageScope } from "@/lib/storage";
 import {
   addEndCard,
   applyBrandKit,
+  clearBrand,
   safeInsets,
   SAFE_AREA_LABELS,
   SAFE_AREAS,
@@ -76,18 +78,21 @@ async function colourStill(input: {
 export function BrandSection({
   timeline,
   layout,
-  assets,
   projectId,
   onChange,
+  onUpdate,
 }: {
   timeline: Timeline;
   layout: TimelineLayout;
-  assets: Map<string, AssetRow>;
   projectId: string | null;
   onChange: (timeline: Timeline, key?: string) => void;
+  /** Applies a change to the timeline as it is when the change lands (after an upload). */
+  onUpdate: (apply: (timeline: Timeline) => Timeline) => void;
 }) {
   const { user } = useAuth();
   const { kit, kits, supported } = useEditBrandKit(timeline, projectId);
+  // The kit's end-card background, read for what it is (a still or a video) and how long it runs.
+  const { data: kitAssets } = useAssetsById(kit?.endCardAssetId ? [kit.endCardAssetId] : []);
   const [seconds, setSeconds] = useState(3);
   const [making, setMaking] = useState(false);
   if (!supported) return null;
@@ -97,7 +102,7 @@ export function BrandSection({
   const area = timeline.safeArea as SafeArea;
 
   const addLogo = () => {
-    if (!kit?.logoAssetId) return;
+    if (!kit?.logoAssetId || layout.total < 0.2) return;
     const insets = safeInsets(area, timeline.aspectRatio);
     const width = aspectQuotient(timeline.aspectRatio) < 1 ? 0.22 : 0.12;
     const logo: ImageOverlay = {
@@ -120,7 +125,9 @@ export function BrandSection({
     if (!kit || !user) return;
     setMaking(true);
     try {
-      const background = kit.endCardAssetId ? assets.get(kit.endCardAssetId) : undefined;
+      const background = kit.endCardAssetId ? kitAssets?.get(kit.endCardAssetId) : undefined;
+      if (kit.endCardAssetId && !background)
+        throw new Error("The kit's end card background isn't in the library any more");
       const backgroundId =
         kit.endCardAssetId ??
         (await colourStill({
@@ -132,7 +139,7 @@ export function BrandSection({
         }));
       const kind: "video" | "image" =
         kit.endCardAssetId && background?.asset_type === "video" ? "video" : "image";
-      const next = addEndCard(timeline, kit, {
+      const input = {
         seconds,
         area,
         background: {
@@ -144,9 +151,9 @@ export function BrandSection({
               : null,
         },
         logoAssetId: kit.logoAssetId,
-      });
-      if (next === timeline) throw new Error("The edit has no room for another clip");
-      onChange(next);
+      };
+      // Laid on the edit as it is once the background is ready, so nothing done meanwhile is lost.
+      onUpdate((current) => addEndCard(current, kit, input));
       toast.success("End card added after the last clip.", {
         description: "Its background, logo and words are ordinary items: change any of them.",
       });
@@ -202,13 +209,25 @@ export function BrandSection({
                 size="sm"
                 variant="outline"
                 className="h-8 text-xs"
-                disabled={!kit.logoAssetId || timeline.images.length >= LIMITS.images}
+                disabled={
+                  !kit.logoAssetId || timeline.images.length >= LIMITS.images || layout.total < 0.2
+                }
                 title={kit.logoAssetId ? undefined : "The kit has no logo"}
                 onClick={addLogo}
               >
                 <Stamp className="mr-1 size-3.5" /> Add logo
               </Button>
             </div>
+          )}
+          {timeline.brandKitId && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 w-full text-xs"
+              onClick={() => onChange(clearBrand(timeline))}
+            >
+              Back to the studio's own text style
+            </Button>
           )}
           {kit && (
             <div className="flex items-center gap-1.5">
@@ -386,7 +405,7 @@ export function ImageOverlaysSection({
               0,
               Math.max(0.1, layout.total - 0.1),
               0.1,
-              (start) => ({ start: Math.min(start, image.end - 0.1) }),
+              (start) => ({ start: Math.max(0, Math.min(start, image.end - 0.1)) }),
               formatTime(image.start),
             )}
             {slider(

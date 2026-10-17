@@ -91,23 +91,35 @@ export const saveBrandKit = createServerFn({ method: "POST" })
       );
 
     const { data: existing } = data.id
-      ? await db.from("brand_kits").select("id,fonts,is_default").eq("id", data.id).maybeSingle()
+      ? await db
+          .from("brand_kits")
+          .select("id,fonts,is_default")
+          .eq("id", data.id)
+          .eq("is_archived", false)
+          .maybeSingle()
       : { data: null };
     if (data.id && !existing)
       throw new AppError("INVALID_PARAMETERS", "That brand kit no longer exists");
 
-    // Fonts already on the kit were read when they were added; new ones are read now.
-    const known = new Set(
-      (Array.isArray(existing?.fonts) ? (existing.fonts as { path?: unknown }[]) : []).map((font) =>
-        String(font.path ?? ""),
+    // Fonts already on the kit were read when they were added (and keep the
+    // family read then); new ones are read now.
+    const stored = Array.isArray(existing?.fonts)
+      ? (existing.fonts as { path?: unknown; family?: unknown }[])
+      : [];
+    const known = new Map(
+      stored.flatMap((font) =>
+        typeof font.path === "string" && typeof font.family === "string"
+          ? [[font.path, font.family] as const]
+          : [],
       ),
     );
     const fonts: { family: string; bucket: string; path: string }[] = [];
     for (const font of data.fonts) {
       if (!isBrandFontFile(font))
         throw new AppError("INVALID_PARAMETERS", "A font must be uploaded as a brand font");
-      if (known.has(font.path)) {
-        fonts.push(font);
+      const kept = known.get(font.path);
+      if (kept) {
+        fonts.push({ ...font, family: kept });
         continue;
       }
       const family = await familyOfStoredFont(font);

@@ -229,7 +229,7 @@ const listAssets = tool({
       .limit(args.limit);
     if (args.kind) query = query.eq("asset_type", args.kind);
     if (args.projectId) query = query.eq("project_id", args.projectId);
-    if (args.search) query = query.ilike("title", `%${args.search.replace(/[%_]/g, "")}%`);
+    if (args.search) query = query.ilike("title", `%${args.search.replace(/[%_*\\]/g, "")}%`);
     const { data, error } = await query;
     if (error) throw new AppError("UNKNOWN", "The library couldn't be read");
     return data ?? [];
@@ -384,6 +384,7 @@ const getRender = tool({
           .from("assets")
           .select("storage_bucket,storage_path")
           .eq("id", render.asset_id)
+          .is("deleted_at", null)
           .maybeSingle()
       : { data: null };
     return {
@@ -635,6 +636,11 @@ const steerClip = tool({
     confirmUncertain: z.boolean().default(false),
   }),
   run: async (args, caller) => {
+    if (args.action === "start_frame" && args.startFrame === undefined)
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        'startFrame: give a library image id, "anchor", or null for its usual start',
+      );
     await assertCanManageRun(caller.userId, await runOfClip(args.clipId));
     const service = await import("../long-video/service.server");
     switch (args.action) {
@@ -751,7 +757,11 @@ const openInEditor = tool({
       .array(
         z.object({
           text: z.string().min(1).max(160),
-          at: z.number().min(0).describe("Seconds on the voiceover's clock"),
+          at: z
+            .number()
+            .min(0)
+            .max(LONG_VIDEO_LIMITS.maxSeconds)
+            .describe("Seconds on the voiceover's clock"),
           seconds: z.number().min(0.5).max(30),
           style: z.enum(["title", "subtitle", "cta"]).optional(),
           position: z.enum(["top", "center", "bottom"]).optional(),

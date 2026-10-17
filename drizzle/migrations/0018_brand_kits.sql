@@ -49,12 +49,18 @@ CREATE TRIGGER brand_kits_updated BEFORE UPDATE ON public.brand_kits
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- Makes a kit the default in one statement (the one before stops being it).
+-- Only a kit that can be the default (kept for any project, not archived) is
+-- made it; asked for any other, nothing changes and it says so.
 CREATE OR REPLACE FUNCTION public.set_default_brand_kit(_kit_id uuid) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM public.brand_kits WHERE id = _kit_id AND project_id IS NULL AND NOT is_archived
+  ) THEN
+    RAISE EXCEPTION 'That brand kit can''t be the default';
+  END IF;
   UPDATE public.brand_kits SET is_default = false WHERE is_default AND id <> _kit_id;
-  UPDATE public.brand_kits SET is_default = true
-    WHERE id = _kit_id AND project_id IS NULL AND NOT is_archived;
+  UPDATE public.brand_kits SET is_default = true WHERE id = _kit_id;
 END $$;
 REVOKE ALL ON FUNCTION public.set_default_brand_kit(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.set_default_brand_kit(uuid) TO service_role;

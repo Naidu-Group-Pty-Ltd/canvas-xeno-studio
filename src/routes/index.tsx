@@ -1122,7 +1122,7 @@ function CreatePage() {
     : estimate.kind === "ready"
       ? estimate.costUsd * Math.max(1, batchCount)
       : null;
-  const creditWarning = balanceWarning(usageBalance?.higgsfield, plannedCost);
+  const creditWarning = balanceWarning(usageBalance?.higgsfield, plannedCost, longWorstCase);
 
   /** Hands the current prompt, references and context to Supercomputer (nothing is sent automatically). */
   function openInSupercomputer() {

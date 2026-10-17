@@ -1216,6 +1216,7 @@ function TextPanel({
   selection,
   onSelect,
   onChange,
+  onUpdate,
   voiceover,
   music,
 }: InspectorProps) {
@@ -1309,9 +1310,9 @@ function TextPanel({
       <BrandSection
         timeline={timeline}
         layout={layout}
-        assets={assets}
         projectId={projectId}
         onChange={onChange}
+        onUpdate={onUpdate}
       />
       <Section
         title="Captions"
