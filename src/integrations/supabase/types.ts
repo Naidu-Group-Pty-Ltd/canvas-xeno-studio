@@ -2061,6 +2061,110 @@ export type Database = {
           },
         ]
       }
+      brand_kits: {
+        Row: {
+          accent_color: string
+          background_color: string
+          body_font: string
+          call_to_action: string | null
+          created_at: string
+          created_by: string | null
+          end_card_asset_id: string | null
+          fonts: Json
+          heading_font: string
+          id: string
+          is_archived: boolean
+          is_default: boolean
+          logo_asset_id: string | null
+          name: string
+          project_id: string | null
+          tagline: string | null
+          terms: string[]
+          text_color: string
+          title_backing: string
+          updated_at: string
+          uppercase_titles: boolean
+          website: string | null
+        }
+        Insert: {
+          accent_color?: string
+          background_color?: string
+          body_font?: string
+          call_to_action?: string | null
+          created_at?: string
+          created_by?: string | null
+          end_card_asset_id?: string | null
+          fonts?: Json
+          heading_font?: string
+          id?: string
+          is_archived?: boolean
+          is_default?: boolean
+          logo_asset_id?: string | null
+          name: string
+          project_id?: string | null
+          tagline?: string | null
+          terms?: string[]
+          text_color?: string
+          title_backing?: string
+          updated_at?: string
+          uppercase_titles?: boolean
+          website?: string | null
+        }
+        Update: {
+          accent_color?: string
+          background_color?: string
+          body_font?: string
+          call_to_action?: string | null
+          created_at?: string
+          created_by?: string | null
+          end_card_asset_id?: string | null
+          fonts?: Json
+          heading_font?: string
+          id?: string
+          is_archived?: boolean
+          is_default?: boolean
+          logo_asset_id?: string | null
+          name?: string
+          project_id?: string | null
+          tagline?: string | null
+          terms?: string[]
+          text_color?: string
+          title_backing?: string
+          updated_at?: string
+          uppercase_titles?: boolean
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_kits_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_kits_end_card_asset_id_fkey"
+            columns: ["end_card_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_kits_logo_asset_id_fkey"
+            columns: ["logo_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_kits_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_voices: {
         Row: {
           created_at: string
@@ -6336,6 +6440,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      set_default_brand_kit: {
+        Args: { _kit_id: string }
+        Returns: undefined
       }
       set_default_brand_voice: { Args: { p_voice_id: string }; Returns: string }
       settle_team_invitations: { Args: never; Returns: number }

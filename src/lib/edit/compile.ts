@@ -224,6 +224,9 @@ export function compileFromDrafts(
       position: "center" as const,
       y: null,
       backing: "halo" as const,
+      font: null,
+      color: null,
+      accent: null,
     });
   }
   if (plan?.closingCta?.trim() && total > 2) {
@@ -236,6 +239,9 @@ export function compileFromDrafts(
       position: "bottom" as const,
       y: null,
       backing: "outline" as const,
+      font: null,
+      color: null,
+      accent: null,
     });
   }
   if (overlays.length) next = { ...next, overlays };

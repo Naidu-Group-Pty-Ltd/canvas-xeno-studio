@@ -94,6 +94,9 @@ import { Mixer } from "./Mixer";
 import { SendToKatana } from "@/components/katana/SendToKatana";
 import { useVoiceovers } from "@/hooks/useVoiceData";
 import { phraseCaptions } from "@/lib/edit/captions";
+import { brandedOverlay } from "@/lib/edit/brand";
+import { BrandSection, ImageOverlaysSection } from "./BrandPanel";
+import { useEditBrandKit } from "@/hooks/useBrandKits";
 
 interface InspectorProps {
   timeline: Timeline;
@@ -1208,12 +1211,17 @@ function JoinsSection({
 function TextPanel({
   timeline,
   layout,
+  assets,
   clock,
   selection,
   onSelect,
   onChange,
   voiceover,
+  music,
 }: InspectorProps) {
+  const projectId = voiceover?.projectId ?? music?.projectId ?? null;
+  // The brand kit titles are set from, and whose names captions spell right.
+  const { kit } = useEditBrandKit(timeline, projectId);
   const captions = timeline.captions;
   const setCaptions = (patch: Partial<Timeline["captions"]>, key?: string) =>
     onChange({ ...timeline, captions: { ...captions, ...patch } }, key);
@@ -1237,10 +1245,13 @@ function TextPanel({
     if (voice && words.length) {
       const timed = phraseCaptions(words, voice.start - voice.trimStart, {
         script,
-        terms: terms
-          .split(",")
-          .map((term) => term.trim())
-          .filter(Boolean),
+        terms: [
+          ...terms
+            .split(",")
+            .map((term) => term.trim())
+            .filter(Boolean),
+          ...(kit?.terms ?? []),
+        ],
         from: voice.start,
         until,
       });
@@ -1283,13 +1294,25 @@ function TextPanel({
       y: null,
       // New titles read on any picture.
       backing: style === "cta" ? "outline" : "halo",
+      font: null,
+      color: null,
+      accent: null,
     };
-    onChange({ ...timeline, overlays: [...timeline.overlays, overlay].slice(0, LIMITS.overlays) });
+    // In the brand's look, where the edit has been styled from a kit.
+    const added = kit && timeline.brandKitId === kit.id ? brandedOverlay(overlay, kit) : overlay;
+    onChange({ ...timeline, overlays: [...timeline.overlays, added].slice(0, LIMITS.overlays) });
     onSelect({ kind: "overlay", id: overlay.id });
   };
 
   return (
     <div>
+      <BrandSection
+        timeline={timeline}
+        layout={layout}
+        assets={assets}
+        projectId={projectId}
+        onChange={onChange}
+      />
       <Section
         title="Captions"
         action={
@@ -1316,7 +1339,11 @@ function TextPanel({
             <Input
               value={terms}
               onChange={(event) => setTerms(event.target.value)}
-              placeholder="e.g. Aurixa Systems"
+              placeholder={
+                kit?.terms.length
+                  ? `${kit.name}'s are used too: ${kit.terms.slice(0, 3).join(", ")}`
+                  : "e.g. Aurixa Systems"
+              }
               className="h-8 text-xs"
             />
           </Field>
@@ -1610,6 +1637,12 @@ function TextPanel({
           );
         })}
       </Section>
+      <ImageOverlaysSection
+        timeline={timeline}
+        layout={layout}
+        assets={assets}
+        onChange={onChange}
+      />
     </div>
   );
 }

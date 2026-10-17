@@ -20,6 +20,7 @@ import { Separator } from "@/components/ui/separator";
 import { AccountSection } from "@/components/settings/AccountSection";
 import { TeamSection } from "@/components/settings/TeamSection";
 import { KatanaSettings } from "@/components/katana/KatanaSettings";
+import { BrandKitsPanel } from "@/components/brand/BrandKitsPanel";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -228,6 +229,13 @@ function SettingsPage() {
               </p>
             </div>
           </div>
+        </Section>
+
+        <Section
+          title="Brand kits"
+          description="Each brand's fonts, colours, logo and end card, applied in the Editor in one click."
+        >
+          <BrandKitsPanel />
         </Section>
 
         <Section title="Your account" description="Your sign-in details.">

@@ -366,6 +366,48 @@ describe("a presenter video with cutaways, every clip from one still", async () 
     expect(timeline.clips[0]!.trimStart).toBeGreaterThan(0);
   });
 
+  test("opens in the brand's look where the team has a default kit", async () => {
+    const kit = db.add("brand_kits", {
+      name: "Aurixa Systems",
+      project_id: null,
+      is_default: true,
+      is_archived: false,
+      heading_font: "Inter",
+      body_font: "Inter",
+      fonts: [],
+      text_color: "#fbbf24",
+      accent_color: "#1e40af",
+      background_color: "#0b1020",
+      title_backing: "box",
+      uppercase_titles: true,
+      terms: ["Aurixa Systems"],
+    });
+    try {
+      const opened = await service.openLongVideoInEditor({
+        longVideoId: runId,
+        userId: String(user["id"]),
+        seam: "smart",
+        keepSound: false,
+        fresh: true,
+        captions: false,
+        titles: [{ text: "Aurixa Systems", at: 1, seconds: 2 }],
+      });
+      const timeline = db.find("sequences", opened.sequenceId)!["timeline"] as {
+        brandKitId: string | null;
+        overlays: { text: string; color: string | null; backing: string }[];
+      };
+      expect(timeline.brandKitId).toBe(String(kit["id"]));
+      expect(timeline.overlays[0]).toMatchObject({
+        text: "AURIXA SYSTEMS",
+        color: "#fbbf24",
+        backing: "box",
+      });
+      expect(opened.notes?.some((note) => note.includes("Aurixa Systems"))).toBe(true);
+    } finally {
+      db.rows("brand_kits").splice(0);
+    }
+  });
+
   test("a held clip waits, and the run carries on once it is released", async () => {
     const plan2 = planVoiceoverClips({
       analysis: read,

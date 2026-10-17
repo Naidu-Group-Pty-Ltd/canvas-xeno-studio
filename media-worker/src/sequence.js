@@ -1,10 +1,11 @@
 import { join } from "node:path";
-import { rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { config } from "./config.js";
 import { ffmpeg, probe } from "./ffmpeg.js";
 import { TaskError } from "./net.js";
 import { planeThumbnail, SEAM_EASE_SECONDS, seamCorrection, seamEaseChain } from "./seam.js";
 import { easedWarpFilter, joinHeadChain, JOIN_SOUND_SECONDS, measureJoin } from "./joins.js";
+import { fontFamily, sfntKind } from "./fonts.js";
 
 /**
  * Sequence rendering: an edited timeline (ordered clips with trims, stills,
@@ -31,6 +32,10 @@ export const SEQUENCE_LIMITS = {
   audio: 16,
   captions: 600,
   overlays: 20,
+  /** Pictures laid over the edit (a brand's logo). */
+  images: 8,
+  /** A brand's own font files. */
+  fonts: 4,
   totalSeconds: 600,
   textLength: 220,
 };
@@ -104,6 +109,20 @@ function choice(value, allowed, fallback, name) {
   const key = String(value).toLowerCase();
   if (!allowed.has(key)) throw bad(`${name} "${value}" is not supported`);
   return key;
+}
+
+/** A colour as #rrggbb, or null when none is given. */
+function colour(value, name) {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value !== "string" || !/^#[0-9a-f]{6}$/i.test(value)) throw bad(`${name} must be a colour like #1a2b3c`);
+  return value.toLowerCase();
+}
+
+/** A font family's name, as text sets it: letters, numbers, spaces and a little punctuation. */
+function family(value, name) {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value !== "string" || !/^[\p{L}\p{N} ._'&+-]{1,80}$/u.test(value.trim())) throw bad(`${name} isn't a font name`);
+  return value.trim();
 }
 
 function even(value) {
@@ -302,6 +321,10 @@ export function planSequence(params, sources) {
         position: choice(captionsRaw.position, CAPTION_POSITIONS, "lower_third", "caption position"),
         size: num(captionsRaw.size, { min: 0.5, max: 2, fallback: 1, name: "caption size" }),
         uppercase: captionsRaw.uppercase === true,
+        // A brand's look (feature brand_text): its font, its text colour, and its accent (the box, or bold text).
+        font: family(captionsRaw.font, "caption font"),
+        color: colour(captionsRaw.color, "caption color"),
+        accent: colour(captionsRaw.accent, "caption accent"),
         segments,
       };
     }
@@ -324,9 +347,47 @@ export function planSequence(params, sources) {
         y: overlay.y === undefined || overlay.y === null ? null : num(overlay.y, { min: 0.04, max: 0.96, name: `overlay ${index + 1} y` }),
         // What keeps it readable: its outline (as ever), a soft dark halo, or a box behind it.
         backing: choice(overlay.backing, OVERLAY_BACKINGS, "outline", `overlay ${index + 1} backing`),
+        // A brand's look: its font, its text colour, and its accent (a box's or a call to action's badge).
+        font: family(overlay.font, `overlay ${index + 1} font`),
+        color: colour(overlay.color, `overlay ${index + 1} color`),
+        accent: colour(overlay.accent, `overlay ${index + 1} accent`),
       };
     })
     .filter((overlay) => overlay.text && overlay.end - overlay.start >= 0.1);
+
+  // Pictures laid over the edit (feature image_overlays): a logo, centred
+  // where it is put (0-1 across and down), so wide a share of the frame.
+  const rawImages = Array.isArray(p.images) ? p.images : [];
+  if (rawImages.length > SEQUENCE_LIMITS.images) throw bad(`At most ${SEQUENCE_LIMITS.images} pictures can be laid over an edit`);
+  const images = rawImages
+    .map((raw, index) => {
+      const image = raw && typeof raw === "object" ? raw : {};
+      const what = `image ${index + 1}`;
+      const start = Math.min(num(image.start, { min: 0, max: SEQUENCE_LIMITS.totalSeconds, name: `${what} start` }), total);
+      const end = Math.min(num(image.end, { min: 0, max: SEQUENCE_LIMITS.totalSeconds, name: `${what} end` }), total);
+      return {
+        source: sourceAt(image.source_index, ["image"], what[0].toUpperCase() + what.slice(1)),
+        start,
+        end,
+        x: num(image.x, { min: 0, max: 1, fallback: 0.5, name: `${what} x` }),
+        y: num(image.y, { min: 0, max: 1, fallback: 0.5, name: `${what} y` }),
+        width: num(image.width, { min: 0.03, max: 1, fallback: 0.3, name: `${what} width` }),
+        opacity: num(image.opacity, { min: 0, max: 1, fallback: 1, name: `${what} opacity` }),
+        fade: Math.min(num(image.fade, { min: 0, max: 2, fallback: 0.3, name: `${what} fade` }), (end - start) / 2),
+      };
+    })
+    .filter((image) => image.end - image.start >= 0.1 && image.opacity > 0);
+
+  // A brand's own fonts (feature brand_text): each a font file, by the family text asks for.
+  const rawFonts = Array.isArray(p.fonts) ? p.fonts : [];
+  if (rawFonts.length > SEQUENCE_LIMITS.fonts) throw bad(`At most ${SEQUENCE_LIMITS.fonts} font files are supported`);
+  const fonts = rawFonts.map((raw, index) => {
+    const font = raw && typeof raw === "object" ? raw : {};
+    return {
+      source: sourceAt(font.source_index, ["font"], `Font ${index + 1}`),
+      family: family(font.family, `font ${index + 1} family`) ?? `Font ${index + 1}`,
+    };
+  });
 
   const introFade = num(p.fade_in, { min: 0, max: 3, fallback: 0, name: "fade_in" });
   const outroFade = num(p.fade_out, { min: 0, max: 3, fallback: 0, name: "fade_out" });
@@ -343,6 +404,8 @@ export function planSequence(params, sources) {
     mix,
     captions,
     overlays,
+    images,
+    fonts,
     totalFrames,
     total,
     introFade: Math.min(introFade, total / 3),
@@ -778,18 +841,40 @@ export function parseLoudness(stderr) {
 }
 
 /** Arguments for the final pass: picture, transitions, text and the mixed sound. */
-export function finalArgs(plan, intermediatePaths, mixPath, subtitlePath, loudness, out) {
+export function finalArgs(plan, intermediatePaths, mixPath, subtitlePath, loudness, out, imagePaths = [], fontsDir = null) {
   const args = [];
   for (const path of intermediatePaths) args.push("-i", path);
   args.push("-i", mixPath);
+  // Each picture laid over the edit, held for the whole of it (it shows only between its times).
+  for (const path of imagePaths) args.push("-loop", "1", "-framerate", String(plan.fps), "-t", seconds(plan.total), "-i", path);
 
   const lines = [];
   const joinedPicture = joinChain(plan, "v");
   lines.push(...joinedPicture.lines);
-  const pictureLabel = joinedPicture.label;
+  let pictureLabel = joinedPicture.label;
+
+  if (plan.images.length) {
+    lines.push(`[${pictureLabel}]setpts=PTS-STARTPTS[over0]`);
+    const frame = 1 / plan.fps;
+    for (const [index, image] of plan.images.entries()) {
+      const input = intermediatePaths.length + 1 + index;
+      const width = even(Math.max(2, image.width * plan.width));
+      // Faded in and out on its own clear background: unseen outside its times.
+      const fade = Math.max(frame, image.fade);
+      lines.push(
+        `[${input}:v]format=rgba,scale=${width}:-2:flags=lanczos,colorchannelmixer=aa=${image.opacity.toFixed(3)},` +
+          `fade=t=in:st=${seconds(image.start)}:d=${seconds(fade)}:alpha=1,` +
+          `fade=t=out:st=${seconds(Math.max(image.start, image.end - fade))}:d=${seconds(fade)}:alpha=1[img${index}]`,
+      );
+      lines.push(
+        `[over${index}][img${index}]overlay=x=W*${image.x.toFixed(4)}-w/2:y=H*${image.y.toFixed(4)}-h/2:format=auto:shortest=1[over${index + 1}]`,
+      );
+    }
+    pictureLabel = `over${plan.images.length}`;
+  }
 
   const finishing = ["setpts=PTS-STARTPTS"];
-  if (subtitlePath) finishing.push(`ass=filename=${subtitlePath}`);
+  if (subtitlePath) finishing.push(`ass=filename=${subtitlePath}${fontsDir ? `:fontsdir=${fontsDir}` : ""}`);
   if (plan.introFade > 0) finishing.push(`fade=t=in:st=0:d=${seconds(plan.introFade)}`);
   if (plan.outroFade > 0) finishing.push(`fade=t=out:st=${seconds(plan.total - plan.outroFade)}:d=${seconds(plan.outroFade)}`);
   finishing.push("format=yuv420p");
@@ -839,12 +924,20 @@ function assTime(value) {
 
 const FONT = "Inter";
 
+/** A #rrggbb colour as ASS writes it: in a style (&HAABBGGRR) or an override tag (&HBBGGRR&). */
+function assColour(hex, alpha = "00") {
+  const bgr = `${hex.slice(5, 7)}${hex.slice(3, 5)}${hex.slice(1, 3)}`.toUpperCase();
+  return { style: `&H${alpha}${bgr}`, tag: `&H${bgr}&` };
+}
+
 /**
  * Builds an ASS script for captions and title overlays. Positions keep text
  * clear of the areas social apps cover with their own buttons and captions.
  */
-export function buildSubtitles(plan) {
+export function buildSubtitles(plan, families = new Map()) {
   const { width, height } = plan;
+  // The family each font is set in: a brand font's own name for it, as read from its file.
+  const fontOf = (name) => (name ? (families.get(name) ?? name) : FONT);
   const short = Math.min(width, height);
   const portrait = height > width;
   const styles = [];
@@ -867,11 +960,14 @@ export function buildSubtitles(plan) {
     const borderStyle = style === "boxed" ? 3 : 1;
     const outline = style === "boxed" ? Math.round(fontSize * 0.25) : style === "minimal" ? Math.max(1, Math.round(fontSize * 0.04)) : Math.max(2, Math.round(fontSize * 0.08));
     const shadow = style === "boxed" || style === "minimal" ? 0 : Math.max(1, Math.round(fontSize * 0.04));
-    const outlineColour = style === "boxed" ? "&H59000000" : "&H00000000";
-    const primary = style === "bold" ? "&H0000E5FF" : "&H00FFFFFF";
-    const back = style === "boxed" ? "&H59000000" : "&H80000000";
+    const { font, color, accent } = plan.captions;
+    // A brand's accent is the box behind boxed captions, and the text of bold ones.
+    const outlineColour = style === "boxed" ? (accent ? assColour(accent, "59").style : "&H59000000") : "&H00000000";
+    const primary = style === "bold" ? (accent ? assColour(accent).style : "&H0000E5FF") : color ? assColour(color).style : "&H00FFFFFF";
+    const back = style === "boxed" ? (accent ? assColour(accent, "59").style : "&H59000000") : "&H80000000";
+    // A brand font is set as it was drawn, never made bolder.
     styles.push(
-      `Style: Caption,${FONT},${fontSize},${primary},&H000000FF,${outlineColour},${back},${bold},0,0,0,100,100,0,0,${borderStyle},${outline},${shadow},${alignment},${margin},${margin},${marginV},1`,
+      `Style: Caption,${fontOf(font)},${fontSize},${primary},&H000000FF,${outlineColour},${back},${font ? 0 : bold},0,0,0,100,100,0,0,${borderStyle},${outline},${shadow},${alignment},${margin},${margin},${marginV},1`,
     );
     for (const segment of plan.captions.segments) {
       const text = (plan.captions.uppercase ? segment.text.toUpperCase() : segment.text).replace(/\n/g, "\\N");
@@ -908,8 +1004,14 @@ export function buildSubtitles(plan) {
         overlay.backing === "halo" && overlay.style !== "cta"
           ? `\\bord${Math.max(3, Math.round(size * 0.12))}\\3c&H000000&\\3a&H70&\\blur${Math.max(2, Math.round(size * 0.08))}\\shad${Math.max(1, Math.round(size * 0.05))}\\4a&H60&`
           : "";
+      // A brand's look: its font (as drawn, never made bolder), text colour, and accent behind it.
+      const brand = [
+        overlay.font ? `\\fn${fontOf(overlay.font)}\\b0` : "",
+        overlay.color ? `\\1c${assColour(overlay.color).tag}` : "",
+        overlay.accent && (boxed || overlay.style === "cta") ? `\\3c${assColour(overlay.accent).tag}\\4c${assColour(overlay.accent).tag}` : "",
+      ].join("");
       const text = overlay.text.replace(/\n/g, "\\N");
-      events.push(`Dialogue: 1,${assTime(overlay.start)},${assTime(overlay.end)},${styleName},,0,0,${overlay.y !== null ? 0 : marginV},,{${place}${halo}\\fad(250,250)}${text}`);
+      events.push(`Dialogue: 1,${assTime(overlay.start)},${assTime(overlay.end)},${styleName},,0,0,${overlay.y !== null ? 0 : marginV},,{${place}${halo}${brand}\\fad(250,250)}${text}`);
     }
   }
 
@@ -1029,9 +1131,13 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
   joins.sort((a, b) => a.clip - b.clip);
   // The pictures' sources aren't needed again (only the audio's are): their
   // room goes to the mix and the final cut.
-  const audioSources = new Set(plan.audio.map((item) => item.source));
+  const kept = new Set([
+    ...plan.audio.map((item) => item.source),
+    ...plan.images.map((image) => image.source),
+    ...plan.fonts.map((font) => font.source),
+  ]);
   for (const [index, source] of sources.entries()) {
-    if (!audioSources.has(index)) await rm(source.path, { force: true });
+    if (!kept.has(index)) await rm(source.path, { force: true });
   }
 
   // Pass 2: the soundtrack. Music ducks where the voiceover actually speaks,
@@ -1064,14 +1170,30 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
 
   // Pass 4: the picture, with transitions and text, encoded once.
   progress(0.6, "Rendering the final cut");
-  const script = buildSubtitles(plan);
+  // A brand's fonts, in a directory of their own, each set by the family its file names.
+  let fontsDir = null;
+  const families = new Map();
+  if (plan.fonts.length) {
+    fontsDir = join(dir, "fonts");
+    await mkdir(fontsDir, { recursive: true });
+    for (const [index, font] of plan.fonts.entries()) {
+      const bytes = await readFile(sources[font.source].path);
+      const kind = sfntKind(bytes);
+      if (!kind) throw bad(`Font ${index + 1} isn't a TrueType or OpenType font file`);
+      await writeFile(join(fontsDir, `font-${index}.${kind}`), bytes);
+      const named = fontFamily(bytes);
+      if (named && /^[\p{L}\p{N} ._'&+-]{1,80}$/u.test(named)) families.set(font.family, named);
+    }
+  }
+  const script = buildSubtitles(plan, families);
   let subtitlePath = null;
   if (script) {
     subtitlePath = join(dir, "text.ass");
     await writeFile(subtitlePath, script, "utf8");
   }
   const out = join(dir, "sequence.mp4");
-  await ffmpeg(finalArgs(plan, intermediates, mixPath, subtitlePath, loudness, out), {
+  const imagePaths = plan.images.map((image) => sources[image.source].path);
+  await ffmpeg(finalArgs(plan, intermediates, mixPath, subtitlePath, loudness, out, imagePaths, fontsDir), {
     ...watched,
     onProgress: (done) => progress(0.6 + 0.38 * Math.min(1, done / plan.total), "Rendering the final cut"),
   });

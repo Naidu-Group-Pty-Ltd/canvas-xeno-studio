@@ -42,6 +42,7 @@ import {
   type VoiceoverTrack,
 } from "../edit/compile";
 import { compilePresenterEdit, type PresenterTitle } from "../edit/presenter";
+import { applyBrandKit, brandKitOf, kitForProject, type BrandKit } from "../edit/brand";
 import { isMissingTableError } from "../edit/errors";
 import type { ModelRegistryEntry } from "../model-schema";
 import { storedFinale, storeFinale } from "./finisher";
@@ -5248,6 +5249,8 @@ async function openVoiceoverRunInEditor(input: {
   titles: PresenterTitle[];
 }): Promise<{ sequenceId: string; created: boolean; missing: number[]; notes?: string[] }> {
   const { run } = input;
+  // The brand's kit (the project's, else the team's default): its titles, captions and names.
+  const kit = await brandKitFor(run.project_id);
   const { preparationById, takeForEdit } = await import("../lip-sync/prepare.server");
   const preparation = await preparationById(run.voiceover_preparation_id!);
   if (!preparation || preparation.status !== "ready" || !preparation.prepared_asset_id)
@@ -5262,7 +5265,7 @@ async function openVoiceoverRunInEditor(input: {
     title: `Voiceover · ${input.voiceover.title}`,
     words: readWords(preparation.words),
     script: input.script,
-    terms: input.terms,
+    terms: [...new Set([...input.terms, ...(kit?.terms ?? [])])],
   };
   // The voiceover becomes one of the edit's takes before anyone can open it.
   const prepare = async (sequenceId: string) => {
@@ -5283,12 +5286,17 @@ async function openVoiceoverRunInEditor(input: {
       );
     const saved = await saveRunEdit({
       run,
-      result: presenter,
+      result: kit ? { ...presenter, timeline: applyBrandKit(presenter.timeline, kit) } : presenter,
       userId: input.userId,
       fresh: input.fresh,
       prepare,
     });
-    return { ...saved, notes: presenter.notes };
+    return {
+      ...saved,
+      notes: kit
+        ? [...presenter.notes, `Titles and captions are in ${kit.name}'s fonts and colours.`]
+        : presenter.notes,
+    };
   }
 
   const result = compileFromVoiceoverLongVideo(
@@ -5318,7 +5326,32 @@ async function openVoiceoverRunInEditor(input: {
         ? "The clips' videos are no longer in the library"
         : "Clip 1 hasn't finished yet, and the clips are laid in order along the voiceover",
     );
-  return saveRunEdit({ run, result, userId: input.userId, fresh: input.fresh, prepare });
+  return saveRunEdit({
+    run,
+    result: kit ? { ...result, timeline: applyBrandKit(result.timeline, kit) } : result,
+    userId: input.userId,
+    fresh: input.fresh,
+    prepare,
+  });
+}
+
+/**
+ * The brand kit a run's edit is styled from: its project's, else the team's
+ * default. None before the database has kits (migration 0018), or when it
+ * can't be read just now: the edit is made in the studio's own style.
+ */
+async function brandKitFor(projectId: string | null): Promise<BrandKit | null> {
+  try {
+    // A team keeps a handful of kits: all are read, and the right one picked here.
+    const { data, error } = await db.from("brand_kits").select("*").eq("is_archived", false);
+    if (error || !data?.length) return null;
+    return kitForProject(
+      data.map((row) => brandKitOf(row as unknown as Json)),
+      projectId,
+    );
+  } catch {
+    return null;
+  }
 }
 
 /** What fills each cutaway of a run (long_videos.cutaway_fills), in order. */

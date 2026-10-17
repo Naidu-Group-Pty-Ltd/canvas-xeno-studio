@@ -240,6 +240,52 @@ async function colourAt(path, crop) {
 }
 const near = (colour, [r, g, b]) => Math.abs(colour[0] - r) < 60 && Math.abs(colour[1] - g) < 60 && Math.abs(colour[2] - b) < 60;
 
+/** The average colour of a region of a file's picture at a time, as [r, g, b]. */
+async function colourAtTime(path, time, crop) {
+  const out = join(dir, `pixel-${Math.random().toString(36).slice(2)}.ppm`);
+  await ffmpeg(["-ss", String(time), "-i", path, "-frames:v", "1", "-vf", `crop=${crop},scale=1:1`, "-c:v", "ppm", out]);
+  const bytes = await readFile(out);
+  return [...bytes.subarray(bytes.length - 3)];
+}
+
+await check("render_sequence lays a logo over the picture between its times, and sets titles in a brand's font and colours", async () => {
+  const blue = join(dir, "blue.mp4");
+  const logo = join(dir, "logo.png");
+  await ffmpeg(["-f", "lavfi", "-i", "color=c=blue:s=320x180:d=2:r=25", "-pix_fmt", "yuv420p", blue]);
+  await ffmpeg(["-f", "lavfi", "-i", "color=c=red:s=100x100,format=rgba", "-frames:v", "1", logo]);
+  const fontFile = execFileSync("sh", ["-c", "find /usr/share/fonts -type f \\( -name '*.ttf' -o -name '*.otf' \\) | sort | head -1"]).toString().trim();
+  if (!fontFile) throw new Error("no font installed to test with");
+  const brandFont = join(dir, "brand-font");
+  await copyFile(fontFile, brandFont);
+  const result = await TASKS.render_sequence.run({
+    sources: [
+      { path: blue, role: "video" },
+      { path: logo, role: "image" },
+      { path: brandFont, role: "font" },
+    ],
+    params: {
+      width: 320, height: 180, fps: 25, normalize_loudness: false,
+      clips: [{ source_index: 0, duration: 2, volume: 0 }],
+      images: [{ source_index: 1, start: 0.6, end: 1.4, x: 0.25, y: 0.5, width: 0.2, fade: 0 }],
+      fonts: [{ source_index: 2, family: "Declared Brand" }],
+      captions: { font: "Declared Brand", color: "#ffcc00", segments: [{ start: 0, end: 2, text: "Brand caption" }] },
+      overlays: [{ start: 0, end: 2, text: "BRAND", style: "subtitle", y: 0.15, font: "Declared Brand", color: "#00ff00", accent: "#112233", backing: "box" }],
+    },
+    dir,
+  });
+  const out = result.outputs[0].path;
+  // The logo's centre, a quarter across: red while it shows, blue before and after.
+  if (!near(await colourAtTime(out, 1.0, "10:10:75:85"), [255, 0, 0])) throw new Error("the logo isn't there while it shows");
+  if (!near(await colourAtTime(out, 0.3, "10:10:75:85"), [0, 0, 255])) throw new Error("the logo shows before its time");
+  if (!near(await colourAtTime(out, 1.8, "10:10:75:85"), [0, 0, 255])) throw new Error("the logo shows after its time");
+  // The text is set in the family the font file names itself by, in the brand's colours.
+  const script = await readFile(join(dir, "text.ass"), "utf8");
+  const named = (await import("./fonts.js")).fontFamily(await readFile(fontFile));
+  if (!named || !script.includes(`\\fn${named}\\b0`)) throw new Error(`the title isn't set in ${named}`);
+  if (!script.includes(`Style: Caption,${named},`)) throw new Error("the captions aren't set in the brand font");
+  if (!script.includes("\\1c&H00FF00&") || !script.includes("\\3c&H332211&")) throw new Error("the title isn't in the brand's colours");
+});
+
 await check("reframe_video crops around its focus point", async () => {
   const left = await TASKS.reframe_video.run({ sources: [{ path: halves }], params: { width: 180, height: 320, mode: "cover", focus_x: 0 }, dir });
   const leftColour = await colourAt(left.outputs[0].path, "40:40:70:140");

@@ -71,6 +71,8 @@ export const FEATURES = [
   "smart_join",
   "overlay_layout",
   "frame_rate_conversion",
+  "brand_text",
+  "image_overlays",
   ...(lipCheckAvailable ? ["lip_check"] : []),
 ];
 
@@ -402,7 +404,7 @@ export const TASKS = {
    * normalisation. Produces the video and a poster frame.
    */
   render_sequence: {
-    sources: { min: 1, max: SEQUENCE_LIMITS.clips + SEQUENCE_LIMITS.audio },
+    sources: { min: 1, max: SEQUENCE_LIMITS.clips + SEQUENCE_LIMITS.audio + SEQUENCE_LIMITS.images + SEQUENCE_LIMITS.fonts },
     outputs: () => 2,
     run: renderSequence,
   },

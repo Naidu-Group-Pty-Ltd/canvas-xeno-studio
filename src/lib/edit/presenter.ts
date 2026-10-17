@@ -426,6 +426,9 @@ export function compilePresenterEdit(
         y: title.y ?? null,
         // On a halo: a title read over B-roll and white flashes alike.
         backing: title.style === "cta" ? "outline" : "halo",
+        font: null,
+        color: null,
+        accent: null,
       },
     ];
   });
