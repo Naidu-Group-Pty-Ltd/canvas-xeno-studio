@@ -4,6 +4,7 @@ import { TaskError } from "./net.js";
 import { renderSequence, SEQUENCE_LIMITS } from "./sequence.js";
 import { cameraMotion, decodeThumbnails, extractFrameByIndex, pickHandoffFrame } from "./frames.js";
 import { measureSync, prepareAudio } from "./voice.js";
+import { lipCheck, lipCheckAvailable } from "./lipcheck.js";
 
 /**
  * Task catalogue.
@@ -53,8 +54,9 @@ function pick(value, allowed, fallback, name) {
  * ("frame_index"), a voiceover made ready to drive lip sync
  * ("audio_prepare"), a clip's lip sync measured against its voiceover
  * ("audio_sync"), the mixer's channel levels applied to each sound bus
- * ("channel_mix"), and joins put in register: framing, colour, detail and
- * sound ("smart_join").
+ * ("channel_mix"), joins put in register: framing, colour, detail and
+ * sound ("smart_join"), and, where the image has it, a clip's lips scored
+ * from its picture ("lip_check").
  */
 export const FEATURES = [
   "frame_focus",
@@ -66,6 +68,7 @@ export const FEATURES = [
   "audio_sync",
   "channel_mix",
   "smart_join",
+  ...(lipCheckAvailable ? ["lip_check"] : []),
 ];
 
 /** The point of the picture (0-1 across and down) a crop keeps in frame: the centre unless given. */
@@ -421,6 +424,21 @@ export const TASKS = {
     outputs: () => 0,
     run: measureSync,
   },
+
+  /**
+   * How well a clip's lips follow its voice, seen in its picture (SyncNet; see
+   * lipcheck.js): scored against its piece of the voiceover, or its own
+   * sound. Produces no file. Only on a worker whose image has it.
+   */
+  ...(lipCheckAvailable
+    ? {
+        lip_check: {
+          sources: { min: 1, max: 2 },
+          outputs: () => 0,
+          run: lipCheck,
+        },
+      }
+    : {}),
 };
 
 async function clipDuration(clip, sources) {

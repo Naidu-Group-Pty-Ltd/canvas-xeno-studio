@@ -10,7 +10,8 @@ import { copyFile, mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { ffmpeg, probe } from "./ffmpeg.js";
-import { TASKS } from "./tasks.js";
+import { FEATURES, TASKS } from "./tasks.js";
+import { lipCheckAvailable } from "./lipcheck.js";
 import { clipRuns, fitAudioToSources, inParallel } from "./sequence.js";
 import { alignFrames, detailLevel, downscale } from "./align.js";
 import { Lanes, idleLongEnough, laneOf } from "./lanes.js";
@@ -819,6 +820,18 @@ await check("an idle worker stops cleanly, and turns away a task read as it deci
   } finally {
     worker.kill();
   }
+});
+
+// With its files (an image built with LIP_CHECK=1), SyncNet runs end to end: a
+// test pattern has no face to score. Without them, it isn't offered at all.
+await check(lipCheckAvailable ? "lip_check runs SyncNet, and finds no face in a test pattern" : "lip_check isn't offered without its files", async () => {
+  if (!lipCheckAvailable) {
+    if (TASKS.lip_check || FEATURES.includes("lip_check")) throw new Error("offered without its files");
+    return;
+  }
+  if (!FEATURES.includes("lip_check")) throw new Error("not in the features");
+  const { metadata } = await TASKS.lip_check.run({ sources: [{ path: clipA, role: "video" }], params: { window_seconds: 3 }, dir });
+  if (metadata.status !== "no_face") throw new Error(`reported ${JSON.stringify(metadata)}`);
 });
 
 await rm(dir, { recursive: true, force: true });

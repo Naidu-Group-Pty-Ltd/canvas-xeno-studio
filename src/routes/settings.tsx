@@ -69,6 +69,21 @@ function SettingsPage() {
     toast.success("Setting saved");
   }
 
+  /** The member cap may not have a row yet, so it is upserted; 0 clears it. */
+  async function saveMemberCap(value: number) {
+    const { error } = await supabase.from("app_settings").upsert({
+      key: "member_monthly_cap_usd",
+      // 0 is no cap (the column can't hold null).
+      value: (Number.isFinite(value) && value > 0 ? value : 0) as never,
+    });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ["app_settings"] });
+    toast.success(value > 0 ? "Monthly cap saved" : "Monthly cap removed");
+  }
+
   const imageModels = models.filter((model) => model.output_type === "image");
   const videoModels = models.filter((model) => model.output_type === "video");
 
@@ -198,6 +213,20 @@ function SettingsPage() {
               step={1}
               onSave={(value) => void saveSetting("max_provider_concurrency", value)}
             />
+            <div className="space-y-1 sm:col-span-2">
+              <NumberSetting
+                label="Monthly cap per member for work outside a project or campaign (USD, 0 for none)"
+                value={Number(draft["member_monthly_cap_usd"] ?? 0) || 0}
+                disabled={!isAdmin}
+                step={5}
+                onSave={(value) => void saveMemberCap(value)}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Projects and campaigns have their own limits. Work in neither counts here, per
+                member and calendar month; a long video that would go over it is refused before it
+                starts.
+              </p>
+            </div>
           </div>
         </Section>
 

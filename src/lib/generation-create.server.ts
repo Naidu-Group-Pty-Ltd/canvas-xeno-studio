@@ -44,6 +44,26 @@ export async function assertGenerationAllowed(userId: string): Promise<void> {
     throw new AppError("NOT_AUTHORIZED", "Your account is not an active team member");
 }
 
+/**
+ * Whether a member may spend `amount` more on work with no project or
+ * campaign this month (see migration 0017's check_member_spend_allowance).
+ * Allowed when no cap is set, and before the database has caps.
+ */
+export async function memberAllowance(
+  userId: string,
+  amount: number,
+): Promise<{ allowed: boolean; message?: string; warning?: string | null }> {
+  const { data, error } = await supabaseAdmin.rpc("check_member_spend_allowance", {
+    _user_id: userId,
+    _amount: Math.max(0, amount),
+  });
+  if (error) return { allowed: true, warning: null };
+  const verdict = (data ?? {}) as { allowed?: boolean; message?: string; warning?: string | null };
+  return verdict.allowed === false
+    ? { allowed: false, message: verdict.message ?? "This would go over your monthly spending cap" }
+    : { allowed: true, warning: verdict.warning ?? null };
+}
+
 /** Creates the generation record first, then submits exactly once. */
 export async function createAndSubmitGeneration(
   request: GenerationRequest,
@@ -81,8 +101,14 @@ export async function createAndSubmitGeneration(
 
   // Spending limits are checked atomically in the database (the owning row is
   // locked), so two simultaneous submissions cannot together pass a hard limit.
+  // Work with neither a project nor a campaign counts against its owner's own
+  // monthly cap, where an admin set one.
   let budgetWarning: string | null = null;
-  if (request.projectId || request.campaignId) {
+  if (!request.projectId && !request.campaignId) {
+    const verdict = await memberAllowance(request.userId, request.estimatedCostUsd ?? 0);
+    if (verdict.allowed === false) throw new AppError("BUDGET_EXCEEDED", verdict.message);
+    budgetWarning = verdict.warning ?? null;
+  } else {
     const { data: allowance } = await supabaseAdmin.rpc("check_spend_allowance", {
       _project_id: (request.projectId ?? null) as string,
       _campaign_id: (request.campaignId ?? null) as string,

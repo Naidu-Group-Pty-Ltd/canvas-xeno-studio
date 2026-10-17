@@ -24,7 +24,13 @@ export interface InternalTaskRequest {
   createdBy: string | null;
   projectId: string | null;
   taskType:
-    "probe" | "extract_frames" | "trim_video" | "resize_image" | "prepare_audio" | "measure_sync";
+    | "probe"
+    | "extract_frames"
+    | "trim_video"
+    | "resize_image"
+    | "prepare_audio"
+    | "measure_sync"
+    | "lip_check";
   source: InternalTaskSource;
   /** More sources after the first, each in its role (measure_sync's voiceover piece, as "audio"). */
   extraSources?: (InternalTaskSource & { role: string })[];

@@ -5,6 +5,8 @@ import { AppError } from "./higgsfield/errors";
 import { FINALE_MODES, FINALE_SECONDS, LONG_VIDEO_LIMITS } from "./long-video/plan";
 import { LONG_VIDEO_SEAMS } from "./edit/compile";
 import { CHARACTER_LIMITS } from "./characters/model";
+import { SECTION_LIMITS } from "./lip-sync/sections";
+import { LIP_CHECK } from "./lip-sync/lip-check";
 
 /**
  * Long videos: chains of clips that play as one continuous shot. Runs are
@@ -124,6 +126,34 @@ const startInput = z
           .min(1)
           .max(LONG_VIDEO_LIMITS.maxClips),
         keepClipSound: z.boolean().default(false),
+        /** Stretches covered by B-roll: no clip is made for them. */
+        cutaways: z
+          .array(
+            z.object({
+              start: z
+                .number()
+                .min(0)
+                .max(LONG_VIDEO_LIMITS.maxSeconds + 1),
+              end: z
+                .number()
+                .positive()
+                .max(LONG_VIDEO_LIMITS.maxSeconds + 1),
+            }),
+          )
+          .max(SECTION_LIMITS.maxCutaways)
+          .default([]),
+      })
+      .nullable()
+      .optional(),
+    /** Every clip from clip 1's start image (anchor), or each from the one before (chain). */
+    startFrom: z.enum(["chain", "anchor"]).default("chain"),
+    /** What the whole run is expected to cost, checked against spending limits before it starts. */
+    estimatedCostUsd: z.number().min(0).max(100_000).nullable().optional(),
+    /** Lips scored from each clip's picture, and takes to reach a good score. */
+    qc: z
+      .object({
+        lipCheck: z.boolean().default(false),
+        takes: z.number().int().min(1).max(LIP_CHECK.maxTakes).default(1),
       })
       .nullable()
       .optional(),
@@ -159,6 +189,9 @@ export const startLongVideo = createServerFn({ method: "POST" })
       identityCheck: data.identityCheck,
       keyframes: data.keyframes ?? null,
       voiceover: data.voiceover ?? null,
+      startFrom: data.startFrom,
+      qc: data.qc ?? null,
+      estimatedCostUsd: data.estimatedCostUsd ?? null,
     });
   });
 
@@ -410,14 +443,91 @@ export const keepKeyframe = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/** Makes a finished clip again (billed), e.g. one whose character check failed. */
+/** A frame for a clip to start from: an image in the library, the run's anchor, or its usual start (null). */
+const startFrameInput = z.union([z.string().uuid(), z.literal("anchor"), z.null()]);
+
+/**
+ * Makes a finished clip again (billed), e.g. one whose character check failed
+ * or whose lips scored poorly; its current take is kept to swap back. It can
+ * start from another frame this time (the run's anchor, or a chosen image).
+ */
 export const redoLongVideoClip = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => z.object({ clipId: z.string().uuid() }).parse(data))
+  .inputValidator((data: unknown) =>
+    z.object({ clipId: z.string().uuid(), startFrame: startFrameInput.optional() }).parse(data),
+  )
   .handler(async ({ data, context }) => {
     await assertCanManage(context.userId, await runOf("long_video_clips", data.clipId));
     const service = await import("./long-video/service.server");
     await service.redoLongVideoClip(data);
+    return { ok: true };
+  });
+
+/** Puts one of a clip's kept takes back in use (its current take is kept in turn). */
+export const chooseLongVideoTake = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => z.object({ takeId: z.string().uuid() }).parse(data))
+  .handler(async ({ data, context }) => {
+    const db = await admin();
+    const { data: take } = await db
+      .from("long_video_clip_takes")
+      .select("long_video_id")
+      .eq("id", data.takeId)
+      .maybeSingle();
+    if (!take) throw new AppError("INVALID_PARAMETERS", "That take no longer exists");
+    await assertCanManage(context.userId, take.long_video_id);
+    const service = await import("./long-video/service.server");
+    await service.chooseLongVideoTake(data);
+    return { ok: true };
+  });
+
+/** Holds a clip that hasn't started (the run waits at it), or releases it. */
+export const holdLongVideoClip = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) =>
+    z.object({ clipId: z.string().uuid(), held: z.boolean() }).parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    await assertCanManage(context.userId, await runOf("long_video_clips", data.clipId));
+    const service = await import("./long-video/service.server");
+    await service.holdLongVideoClip(data);
+    return { ok: true };
+  });
+
+/** Chooses the frame a clip that hasn't started (or failed) will start from. */
+export const setClipStartFrame = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) =>
+    z.object({ clipId: z.string().uuid(), startFrame: startFrameInput }).parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    await assertCanManage(context.userId, await runOf("long_video_clips", data.clipId));
+    const service = await import("./long-video/service.server");
+    await service.setClipStartFrame(data);
+    return { ok: true };
+  });
+
+/** Chooses the B-roll for one of a run's cutaways (null clears it). */
+export const setCutawayFill = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) =>
+    runInput
+      .extend({
+        index: z.number().int().min(0).max(SECTION_LIMITS.maxCutaways),
+        fill: z
+          .object({
+            assetId: z.string().uuid(),
+            inPoint: z.number().min(0).max(86_400).default(0),
+            label: z.string().max(120).nullable().optional(),
+          })
+          .nullable(),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    await assertCanManage(context.userId, data.longVideoId);
+    const service = await import("./long-video/service.server");
+    await service.setCutawayFill(data);
     return { ok: true };
   });
 
@@ -445,8 +555,24 @@ export const openLongVideoInEditor = createServerFn({ method: "POST" })
         seam: z.enum(LONG_VIDEO_SEAMS).default("smart"),
         keepSound: z.boolean().default(true),
         fresh: z.boolean().default(false),
-        // Made to a voiceover: its words as captions.
+        // Made to a voiceover: its words as captions, in the script's words where given.
         captions: z.boolean().default(false),
+        script: z.string().max(20_000).nullable().optional(),
+        terms: z.array(z.string().min(1).max(60)).max(30).default([]),
+        // Made to a voiceover: a licensed music bed, and titles on the voiceover's clock.
+        musicAssetId: z.string().uuid().nullable().optional(),
+        titles: z
+          .array(
+            z.object({
+              text: z.string().min(1).max(160),
+              at: z.number().min(0).max(LONG_VIDEO_LIMITS.maxSeconds),
+              seconds: z.number().min(0.5).max(30),
+              style: z.enum(["title", "subtitle", "cta"]).optional(),
+              position: z.enum(["top", "center", "bottom"]).optional(),
+            }),
+          )
+          .max(20)
+          .default([]),
         endCard: z
           .object({
             assetId: z.string().uuid(),

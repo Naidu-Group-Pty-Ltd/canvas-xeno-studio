@@ -447,9 +447,61 @@ describe("a run's voiceover as stored", () => {
       headroomSeconds: 0.25,
       title: "Launch read",
       keepClipSound: false,
+      cutaways: [] as { start: number; end: number }[],
     };
     expect(storedVoiceover(storeVoiceover(voiceover))).toEqual(voiceover);
+    // With B-roll: its cutaways come back as planned.
+    const withBroll = { ...voiceover, cutaways: [{ start: 8.1, end: 17.4 }] };
+    expect(storedVoiceover(storeVoiceover(withBroll))).toEqual(withBroll);
+    // An older run's has none.
+    expect(
+      storedVoiceover({ ...storeVoiceover(voiceover), cutaways: undefined })?.cutaways,
+    ).toEqual([]);
     expect(storedVoiceover(null)).toBeNull();
     expect(storedVoiceover({ prepared_asset_id: "x" })).toBeNull();
+  });
+});
+
+describe("a voiceover with cutaways to B-roll", () => {
+  const cutaways = [
+    { start: 9.4, end: 18.6 },
+    { start: 28, end: 37.1 },
+  ];
+  const plan = planVoiceoverClips({
+    analysis: longRead,
+    first: wan27,
+    continuation: wan27,
+    cutaways,
+  });
+
+  test("is cut into clips for the presenter's lines only, which pass the server's check", () => {
+    expect(plan.problem).toBeNull();
+    expect(plan.cutaways.length).toBe(2);
+    for (const segment of plan.segments)
+      expect(
+        plan.cutaways.some((item) => segment.start >= item.start && segment.end <= item.end),
+      ).toBe(false);
+    expect(
+      voiceoverPlanProblems({
+        pieces: plan.segments,
+        clipSeconds: plan.segments.map((segment) => segment.requestSeconds),
+        durationSeconds: longRead.samples / longRead.sample_rate,
+        first: wan27,
+        continuation: wan27,
+        cutaways: plan.cutaways,
+      }),
+    ).toEqual([]);
+  });
+
+  test("is refused as a plain plan, whose pieces must cover the voiceover end to end", () => {
+    expect(
+      voiceoverPlanProblems({
+        pieces: plan.segments,
+        clipSeconds: plan.segments.map((segment) => segment.requestSeconds),
+        durationSeconds: longRead.samples / longRead.sample_rate,
+        first: wan27,
+        continuation: wan27,
+      }).length,
+    ).toBeGreaterThan(0);
   });
 });

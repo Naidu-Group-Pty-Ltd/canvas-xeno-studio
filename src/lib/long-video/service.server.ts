@@ -39,7 +39,9 @@ import {
   compileFromVoiceoverLongVideo,
   type LongVideoEndCard,
   type LongVideoSeam,
+  type VoiceoverTrack,
 } from "../edit/compile";
+import { compilePresenterEdit, type PresenterTitle } from "../edit/presenter";
 import { isMissingTableError } from "../edit/errors";
 import type { ModelRegistryEntry } from "../model-schema";
 import { storedFinale, storeFinale } from "./finisher";
@@ -94,6 +96,16 @@ import type { IdentityResult } from "../characters/identity.server";
 import type { ProviderCall } from "../higgsfield/provider.server";
 import { drivingAudioSlot, LIP_SYNC, lipSyncValues } from "../lip-sync/models";
 import { cutFrameIndex } from "../lip-sync/placement";
+import { normaliseCutaways, type Cutaway } from "../lip-sync/sections";
+import {
+  bestTake,
+  DEFAULT_QC,
+  lipLeadOf,
+  lipReading,
+  storedQc,
+  storeQc,
+  type QcSettings,
+} from "../lip-sync/lip-check";
 import { syncOffsetOf, syncReading } from "../lip-sync/sync";
 import { readWords } from "../lip-sync/analysis";
 import {
@@ -175,7 +187,26 @@ export interface StartLongVideoRequest {
    * Made to a voiceover (see ./voiceover): its preparation, and the piece of it
    * each clip is made from, in order (each clip asked for its piece's length).
    */
-  voiceover?: { preparationId: string; pieces: PlannedPiece[]; keepClipSound?: boolean } | null;
+  voiceover?: {
+    preparationId: string;
+    pieces: PlannedPiece[];
+    keepClipSound?: boolean;
+    /** Stretches covered by B-roll (see ../lip-sync/sections): no clip is made for them. */
+    cutaways?: Cutaway[];
+  } | null;
+  /**
+   * Where clips start: each from the frame the one before is cut on (chain),
+   * or every one from clip 1's start image (anchor), so a likeness never
+   * drifts and clips are made side by side.
+   */
+  startFrom?: "chain" | "anchor";
+  /** Lips scored from each clip's picture, and takes to reach a good score. */
+  qc?: Partial<QcSettings> | null;
+  /**
+   * What the whole run is expected to cost (the browser's quote of clip 1,
+   * by the second): checked against spending limits before anything starts.
+   */
+  estimatedCostUsd?: number | null;
 }
 
 const TABLES_MISSING =
@@ -184,6 +215,8 @@ const CHARACTER_TABLES_MISSING =
   "Characters and keyframes need a database update (migration 0011_characters_and_keyframes). Ask an admin to apply it.";
 const VOICEOVER_TABLES_MISSING =
   "Videos made to a voiceover need a database update (migration 0014_voiceover_lip_sync). Ask an admin to apply it.";
+const PRESENTER_TABLES_MISSING =
+  "Starting clips from one frame, B-roll cutaways and lip scores need a database update (migration 0017_presenter_runs). Ask an admin to apply it.";
 
 /**
  * A run's voiceover, checked: ready and usable, on models that move lips to
@@ -206,12 +239,18 @@ async function voiceoverForRun(
   const { usableVoiceover } = await import("../lip-sync/prepare.server");
   const { row, view, title } = await usableVoiceover(asked.preparationId);
   const durationSeconds = Number(row.samples) / Number(row.sample_rate);
+  // Cutaways as the browser planned around them: checked as given (a plan
+  // made around other cutaways is refused), kept as a plan keeps them.
+  const cutaways = asked.cutaways?.length
+    ? normaliseCutaways(asked.cutaways, durationSeconds, LIP_SYNC.gridFps)
+    : [];
   const problems = voiceoverPlanProblems({
     pieces: asked.pieces,
     clipSeconds: request.clips.map((clip) => clip.durationSeconds),
     durationSeconds,
     first,
     continuation,
+    cutaways: asked.cutaways?.length ? asked.cutaways : null,
   });
   if (problems.length) throw new AppError("INVALID_PARAMETERS", problems.join(" "));
   return {
@@ -227,6 +266,7 @@ async function voiceoverForRun(
       headroomSeconds: LIP_SYNC.headroomSeconds,
       title,
       keepClipSound: asked.keepClipSound === true,
+      cutaways,
     },
   };
 }
@@ -276,9 +316,65 @@ function checksCharacters(run: Pick<RunRow, "identity_check" | "characters">): b
   return run.identity_check === true && storedCharacters(run.characters).length > 0;
 }
 
+/**
+ * Whether a whole run fits its spending limits before it starts: a project's
+ * or campaign's hard limit, or (with neither) its owner's monthly cap. A run
+ * that wouldn't is refused up front, rather than stopping half made. Also
+ * says, as a warning, when the Higgsfield balance an admin recorded looks
+ * short of it (the figure can be stale, so that never refuses it).
+ */
+async function runAllowance(request: StartLongVideoRequest): Promise<string[]> {
+  const estimate = Number(request.estimatedCostUsd);
+  if (!(estimate > 0) || estimate > 100_000) return [];
+  const warnings: string[] = [];
+  const about = `about $${estimate.toFixed(2)}`;
+  if (request.projectId || request.campaignId) {
+    const { data } = await db.rpc("check_spend_allowance", {
+      _project_id: (request.projectId ?? null) as string,
+      _campaign_id: (request.campaignId ?? null) as string,
+      _amount: estimate,
+    });
+    const verdict = (data ?? {}) as {
+      allowed?: boolean;
+      message?: string;
+      warning?: string | null;
+    };
+    if (verdict.allowed === false)
+      throw new AppError(
+        "BUDGET_EXCEEDED",
+        `This video would cost ${about}. ${verdict.message ?? "That goes over the spending limit."}`,
+      );
+    if (verdict.warning) warnings.push(verdict.warning);
+  } else {
+    const { memberAllowance } = await import("../generation-create.server");
+    const verdict = await memberAllowance(request.userId, estimate);
+    if (!verdict.allowed)
+      throw new AppError("BUDGET_EXCEEDED", `This video would cost ${about}. ${verdict.message}`);
+    if (verdict.warning) warnings.push(verdict.warning);
+  }
+  // The balance an admin recorded, less what was spent since.
+  const { data: setting } = await db
+    .from("app_settings")
+    .select("value")
+    .eq("key", "higgsfield_api_balance")
+    .maybeSingle();
+  const { readRecordedBalance } = await import("../usage-balance");
+  const recorded = readRecordedBalance(setting?.value ?? null);
+  if (recorded) {
+    const { data: spend } = await db.rpc("higgsfield_api_spend_since", { p_since: recorded.at });
+    const spent = spend as { spent_usd?: number; in_flight_usd?: number } | null;
+    const left = recorded.usd - Number(spent?.spent_usd ?? 0) - Number(spent?.in_flight_usd ?? 0);
+    if (Number.isFinite(left) && left < estimate)
+      warnings.push(
+        `This video would cost ${about}, and the Higgsfield API balance looks like about $${Math.max(0, left).toFixed(2)}: top it up in the Higgsfield Console, or it will stop part way (Continue picks it up once topped up).`,
+      );
+  }
+  return warnings;
+}
+
 export async function startLongVideo(
   request: StartLongVideoRequest,
-): Promise<{ longVideoId: string; status: string; duplicate: boolean }> {
+): Promise<{ longVideoId: string; status: string; duplicate: boolean; warnings?: string[] }> {
   if (request.clientRequestId) {
     const { data: existing, error } = await db
       .from("long_videos")
@@ -301,6 +397,7 @@ export async function startLongVideo(
       "Long videos need the media service, which takes each clip's last frame. An admin needs to set MEDIA_WORKER_URL and MEDIA_WORKER_SHARED_SECRET.",
     );
   await assertGenerationAllowed(request.userId);
+  const warnings = await runAllowance(request);
   const voiced = request.voiceover ? await voiceoverForRun(request, first, continuation) : null;
 
   // References are checked against the library, never taken from the browser's word.
@@ -425,6 +522,38 @@ export async function startLongVideo(
     };
   }
 
+  // Where clips start: from one frame (the anchor), and in any case after a cutaway.
+  const cutawayRun = !!voiced?.stored.cutaways.length;
+  const anchored = request.startFrom === "anchor";
+  if ((anchored || cutawayRun) && keyframed)
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      anchored
+        ? "Keyframes chain every clip from the one before, so they can't be used with every clip starting from one frame. Turn one of them off."
+        : "Keyframes can't be used with B-roll cutaways: turn keyframes off.",
+    );
+  const anchorRole = startFrameSlot(first)?.role ?? null;
+  const anchorFrame = anchorRole
+    ? (clipReferences.find((item) => item.assetType === "image" && item.role === anchorRole)
+        ?.assetId ?? null)
+    : null;
+  if (anchored) {
+    if (clipStart(continuation)?.kind !== "frame")
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        `${continuation.display_name} can't start a clip from a given frame, so its clips can't all start from one. Start each from the one before instead.`,
+      );
+    if (!anchorFrame)
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        "Every clip starts from clip 1's start image: attach the image the presenter should look like, or start each clip from the one before.",
+      );
+  }
+  // Lips scored from each clip's picture (made to a voiceover only).
+  const qc: QcSettings | null =
+    voiced && request.qc ? storedQc(storeQc({ ...DEFAULT_QC, ...request.qc })) : null;
+  const usesQc = !!qc && (qc.lipCheck || qc.takes > 1);
+
   const planned = planClips({
     first,
     continuation,
@@ -533,6 +662,10 @@ export async function startLongVideo(
             voiceover: storeVoiceover(voiced.stored),
           }
         : {}),
+      // Only when used, so a run that doesn't starts before the database has these.
+      ...(anchored ? { start_from: "anchor" } : {}),
+      ...((anchored || cutawayRun) && anchorFrame ? { anchor_frame_asset_id: anchorFrame } : {}),
+      ...(usesQc && qc ? { qc_settings: storeQc(qc) } : {}),
     } as never)
     .select("id")
     .single();
@@ -546,6 +679,10 @@ export async function startLongVideo(
       if (raced) return { longVideoId: raced.id, status: raced.status, duplicate: true };
     }
     if (isMissingTableError(error)) throw new AppError("UNKNOWN", TABLES_MISSING);
+    if ((anchored || cutawayRun || usesQc) && /column|schema cache/i.test(error?.message ?? ""))
+      throw new AppError("UNKNOWN", PRESENTER_TABLES_MISSING);
+    if (planned.length < 2 && /clip_count/i.test(error?.message ?? ""))
+      throw new AppError("UNKNOWN", PRESENTER_TABLES_MISSING);
     if (voiced && /column|schema cache/i.test(error?.message ?? ""))
       throw new AppError("UNKNOWN", VOICEOVER_TABLES_MISSING);
     if ((characters.length || painter) && /column|schema cache/i.test(error?.message ?? ""))
@@ -613,9 +750,22 @@ export async function startLongVideo(
     }
   }
 
+  // The whole run's estimate, kept with it (only where the database has it).
+  const estimate = Number(request.estimatedCostUsd);
+  if (estimate > 0 && estimate <= 100_000)
+    await db
+      .from("long_videos")
+      .update({ estimated_cost_usd: Number(estimate.toFixed(4)) } as never)
+      .eq("id", run.id);
+
   await advanceAfter(run.id);
   const { data: latest } = await db.from("long_videos").select("status").eq("id", run.id).single();
-  return { longVideoId: run.id, status: latest?.status ?? "running", duplicate: false };
+  return {
+    longVideoId: run.id,
+    status: latest?.status ?? "running",
+    duplicate: false,
+    ...(warnings.length ? { warnings } : {}),
+  };
 }
 
 /**
@@ -922,25 +1072,76 @@ async function keyframesOf(run: Pick<RunRow, "id" | "keyframe_model_id">): Promi
   return data ?? [];
 }
 
-/** A clip's video is in and measured and, for all but the last, the next clip's start frame taken. */
-function handoffDone(clip: ClipRow, lastPosition: number): boolean {
+/** Two moments of the voiceover this close are the same one. */
+const SAME_MOMENT = 1e-3;
+
+/**
+ * Whether a clip starts from the run's anchor frame (the approved still)
+ * rather than from the frame the clip before it is cut on: every later clip
+ * of an anchored run, and in a chain, a clip after a cutaway (its piece of the
+ * voiceover doesn't carry on from the one before, so neither does its shot).
+ */
+function startsFromAnchor(
+  run: Pick<RunRow, "start_from" | "anchor_frame_asset_id" | "voiceover_preparation_id">,
+  clip: ClipRow,
+  previous: ClipRow | null,
+): boolean {
+  if (clip.position === 0 || !run.anchor_frame_asset_id) return false;
+  if (run.start_from === "anchor") return true;
   return (
-    clip.status === "completed" &&
-    (clip.handoff_status === "ready" ||
-      (clip.position === lastPosition && clip.handoff_status === "not_needed"))
+    !!previous &&
+    drivenByVoiceover(run, clip) &&
+    drivenByVoiceover(run, previous) &&
+    Math.abs(Number(previous.audio_end_seconds) - Number(clip.audio_start_seconds)) > SAME_MOMENT
   );
+}
+
+/** Whether a clip starts from a frame of the clip before it, and so waits for that clip. */
+function startsFromPrevious(
+  run: Pick<RunRow, "start_from" | "anchor_frame_asset_id" | "voiceover_preparation_id">,
+  clip: ClipRow,
+  previous: ClipRow | null,
+): boolean {
+  return (
+    clip.position > 0 &&
+    !clip.start_frame_override_asset_id &&
+    !startsFromAnchor(run, clip, previous)
+  );
+}
+
+/**
+ * A clip's video is in and measured and, where the clip after it starts from
+ * it, that clip's start frame taken. (The last clip's final frame is taken
+ * too, for the end card, but it is done without one.)
+ */
+function handoffDone(run: RunRow, clip: ClipRow, next: ClipRow | null): boolean {
+  if (clip.status !== "completed") return false;
+  if (clip.handoff_status === "ready") return true;
+  return clip.handoff_status === "not_needed" && (!next || !startsFromPrevious(run, next, clip));
 }
 
 /** Checks that let a clip (or keyframe) through: passed, kept by a person, couldn't be checked, or not needed. */
 const SETTLED_CHECKS = new Set(["passed", "accepted", "unavailable", "skipped"]);
 
 /** A clip is done once its handoff is and, in a run that checks its characters, its check is settled. */
-function clipDone(run: RunRow, clip: ClipRow, lastPosition: number): boolean {
+function clipDone(run: RunRow, clip: ClipRow, next: ClipRow | null): boolean {
   return (
-    handoffDone(clip, lastPosition) &&
+    handoffDone(run, clip, next) &&
     (!checksCharacters(run) || SETTLED_CHECKS.has(clip.check_status))
   );
 }
+
+/**
+ * A run whose clips don't all wait for the clip before: they start from its
+ * anchor frame, or it has cutaways (a clip after one starts afresh). Its
+ * clips are made side by side (see stepScheduled).
+ */
+function scheduledRun(run: RunRow): boolean {
+  return run.start_from === "anchor" || (storedVoiceover(run.voiceover)?.cutaways.length ?? 0) > 0;
+}
+
+/** Clips being made at once, at most, in a run whose clips don't wait for each other. */
+const PARALLEL_CLIPS = 3;
 
 /**
  * One step. True when something moved, so another look may move it further.
@@ -963,10 +1164,9 @@ async function stepRun(longVideoId: string, deadline: number | null = null): Pro
   const keyframes = await keyframesOf(run);
 
   if (run.status !== "running") {
-    // A stopped run starts nothing new, but a clip (or keyframe) that was
-    // already being made still finishes: it is recorded, so it isn't lost.
-    const generating = clips.find((clip) => clip.status === "generating");
-    if (generating) await followGeneration(run, generating);
+    // A stopped run starts nothing new, but clips (or a keyframe) already
+    // being made still finish: they are recorded, so they aren't lost.
+    for (const clip of clips) if (clip.status === "generating") await followGeneration(run, clip);
     const painting = keyframes.find((keyframe) => keyframe.status === "generating");
     if (painting) await followKeyframeGeneration(run, painting);
     return false;
@@ -976,7 +1176,10 @@ async function stepRun(longVideoId: string, deadline: number | null = null): Pro
   if (run.keyframe_model_id && !run.storyboard_approved_at)
     return stepStoryboard(run, clips, keyframes, deadline);
 
-  const current = clips.find((clip) => !clipDone(run, clip, lastPosition));
+  if (scheduledRun(run)) return stepScheduled(run, clips, deadline);
+
+  const nextOf = (clip: ClipRow) => clips[clip.position + 1] ?? null;
+  const current = clips.find((clip) => !clipDone(run, clip, nextOf(clip)));
   if (!current) {
     await db
       .from("long_videos")
@@ -989,6 +1192,10 @@ async function stepRun(longVideoId: string, deadline: number | null = null): Pro
 
   switch (current.status) {
     case "waiting":
+      if (current.held) {
+        await pause(run, "CLIP_HELD", `${clipLabel(current)} is held: release it to carry on.`);
+        return false;
+      }
       return startClip(run, current, previous);
     case "submitting":
       return recoverClaim(current);
@@ -996,7 +1203,7 @@ async function stepRun(longVideoId: string, deadline: number | null = null): Pro
       return followGeneration(run, current);
     case "completed":
       // Its handoff first, then (a run with characters) its check.
-      return handoffDone(current, lastPosition)
+      return handoffDone(run, current, nextOf(current))
         ? followCheck(run, current, deadline)
         : followHandoff(run, current, current.position === lastPosition);
     default:
@@ -1007,6 +1214,98 @@ async function stepRun(longVideoId: string, deadline: number | null = null): Pro
       );
       return false;
   }
+}
+
+/**
+ * One step of a run whose clips don't all wait for the one before (see
+ * scheduledRun). First anything a clip already started is waiting on is
+ * followed (its generation, its measuring, its check), every clip in order;
+ * then, unless something stopped the run for a person, the next clip that can
+ * start does, while fewer than PARALLEL_CLIPS are being made. A clip that
+ * starts from the one before still waits for it to be done; a held clip
+ * waits for a person, and stops the run once nothing else is left to do.
+ */
+async function stepScheduled(
+  run: RunRow,
+  clips: ClipRow[],
+  deadline: number | null,
+): Promise<boolean> {
+  const nextOf = (clip: ClipRow) => clips[clip.position + 1] ?? null;
+  const lastPosition = clips.length - 1;
+  let pending = 0;
+  for (const clip of clips) {
+    if (clipDone(run, clip, nextOf(clip))) continue;
+    pending += 1;
+    let moved = false;
+    switch (clip.status) {
+      case "submitting":
+        moved = await recoverClaim(clip);
+        break;
+      case "generating":
+        moved = await followGeneration(run, clip);
+        break;
+      case "completed":
+        moved = handoffDone(run, clip, nextOf(clip))
+          ? await followCheck(run, clip, deadline)
+          : await followHandoff(run, clip, clip.position === lastPosition);
+        break;
+      default:
+        break;
+    }
+    if (moved) return true;
+  }
+  if (!pending) {
+    await db
+      .from("long_videos")
+      .update({ status: "completed", completed_at: now(), error_code: null, error_message: null })
+      .eq("id", run.id)
+      .eq("status", "running");
+    return false;
+  }
+
+  // A clip that failed stops the run before anything new is paid for.
+  const failed = clips.find((clip) => clip.status === "failed" || clip.status === "canceled");
+  if (failed) {
+    await pause(
+      run,
+      failed.error_code ?? "CLIP_FAILED",
+      failed.error_message
+        ? `${clipLabel(failed)}: ${failed.error_message}`
+        : `${clipLabel(failed)} didn't finish`,
+    );
+    return false;
+  }
+  const inFlight = clips.filter(
+    (clip) => clip.status === "submitting" || clip.status === "generating",
+  ).length;
+  const waiting = clips.filter((clip) => clip.status === "waiting");
+  const ready = waiting.find((clip) => {
+    if (clip.held) return false;
+    const previous = clips[clip.position - 1] ?? null;
+    return (
+      !startsFromPrevious(run, clip, previous) || (!!previous && clipDone(run, previous, clip))
+    );
+  });
+  if (ready && inFlight < PARALLEL_CLIPS) {
+    // Anything followed above may have stopped the run (a check that flagged
+    // a clip, a frame that couldn't be taken): nothing new starts then.
+    const { data: latest } = await db
+      .from("long_videos")
+      .select("status")
+      .eq("id", run.id)
+      .maybeSingle();
+    if (latest?.status !== "running") return false;
+    return startClip(run, ready, clips[ready.position - 1] ?? null);
+  }
+  // Nothing being made or measured, and nothing can start but held clips (and
+  // clips waiting on them): the run waits for a person.
+  const busy = clips.some(
+    (clip) => clip.status !== "waiting" && !clipDone(run, clip, nextOf(clip)),
+  );
+  const held = waiting.find((clip) => clip.held);
+  if (held && !busy && !ready)
+    await pause(run, "CLIP_HELD", `${clipLabel(held)} is held: release it to carry on.`);
+  return false;
 }
 
 /**
@@ -1147,6 +1446,9 @@ async function startClip(
 
   const inputs: { assetId: string; role: string; position: number }[] = [];
   const start = clipStart(model);
+  // A frame a person chose for it (a frame start only), or the run's anchor.
+  const override = start?.kind === "frame" ? (clip.start_frame_override_asset_id ?? null) : null;
+  const anchored = startsFromAnchor(run, clip, previous);
   // A keyframed run: clip 1 starts on the opening keyframe, every clip ends on its own.
   const frames = run.keyframe_model_id
     ? clipKeyframes(clip.position, run.clip_count, storedFinale(run.references_used)?.mode ?? null)
@@ -1195,10 +1497,12 @@ async function startClip(
         .from("long_video_clips")
         .update({ start_frame_asset_id: previous.handoff_asset_id })
         .eq("id", clip.id);
-  } else if (clip.position > 0) {
-    // Its start frame, or (Cinema Studio) its first reference image, which its prompt names.
+  } else if (clip.position > 0 || override) {
+    // Its start frame, or (Cinema Studio) its first reference image, which its
+    // prompt names: one a person chose for it, else the run's anchor frame,
+    // else the frame the clip before is cut on.
     const role = start?.role;
-    const frame = previous?.handoff_asset_id;
+    const frame = override ?? (anchored ? run.anchor_frame_asset_id : previous?.handoff_asset_id);
     if (!role || !frame)
       return failClip(
         run,
@@ -1207,10 +1511,32 @@ async function startClip(
         "HANDOFF_FAILED",
         "The frame it starts from isn't available",
       );
+    if (override || anchored) {
+      // A still a person chose can since have been deleted from the library.
+      const { data: still, error: stillError } = await db
+        .from("assets")
+        .select("id")
+        .eq("id", frame)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (stillError) return releaseClip(clip);
+      if (!still)
+        return failClip(
+          run,
+          clip,
+          "submitting",
+          "START_FRAME_MISSING",
+          override
+            ? "The frame chosen for it to start from is no longer in the library, so nothing was started. Choose another, then retry it."
+            : "The image every clip starts from is no longer in the library, so nothing was started. Choose a start frame for it, then retry it.",
+        );
+    }
     inputs.push({ assetId: frame, role, position: 0 });
     await db.from("long_video_clips").update({ start_frame_asset_id: frame }).eq("id", clip.id);
   }
   for (const item of (clip.inputs ?? []) as { asset_id?: string; role?: string }[]) {
+    // Clip 1 started from a chosen frame: its own start image gives way to it.
+    if (clip.position === 0 && override && item.role === start?.role) continue;
     if (typeof item.asset_id === "string" && typeof item.role === "string")
       inputs.push({ assetId: item.asset_id, role: item.role, position: inputs.length });
   }
@@ -1253,11 +1579,21 @@ async function startClip(
   // A later clip is told how the camera was moving as the one before ended,
   // so it carries the move on instead of starting from rest. (One that
   // extends the clip before sees the move for itself.) Only where it fits
-  // what the model reads.
+  // what the model reads, and never for a clip that doesn't carry on from
+  // the one before, nor one made to a voiceover: a moving camera is what most
+  // weakens lip sync (see ../lip-sync/presenter).
   const parameters = { ...((clip.parameters ?? {}) as Json) };
   if (clip.position > 0 && start?.kind !== "video" && typeof parameters["prompt"] === "string") {
-    const motion = await handoffMotion(previous);
+    const carriesOn = !override && !anchored && !drivenByVoiceover(run, clip);
+    const motion = carriesOn ? await handoffMotion(previous) : null;
     parameters["prompt"] = withCameraLine(parameters["prompt"], motion, promptBudget(model));
+  }
+  // Another take of a clip set to a fixed seed would come back the same: each
+  // attempt takes the next seed along.
+  const seedField = (model.parameter_schema?.fields ?? []).find((field) => field.key === "seed");
+  if (clip.attempt > 1 && seedField && typeof parameters["seed"] === "number") {
+    const most = typeof seedField.max === "number" ? seedField.max : 2_147_483_646;
+    parameters["seed"] = (Math.round(parameters["seed"]) + (clip.attempt - 1) * 7919) % (most + 1);
   }
 
   const key = clipRequestKey(clip);
@@ -1290,7 +1626,15 @@ async function startClip(
     }
     const code = error instanceof AppError ? error.code : "UNKNOWN";
     const message = error instanceof Error ? error.message : "It couldn't be started";
-    return failClip(run, clip, "submitting", code, message);
+    return failClip(
+      run,
+      clip,
+      "submitting",
+      code,
+      code === "BUDGET_EXCEEDED"
+        ? `${message} Nothing was started; press Continue once the limit allows.`
+        : (freeFailureMessage(code) ?? message),
+    );
   }
 }
 
@@ -1323,6 +1667,30 @@ async function recoverClaim(clip: ClipRow): Promise<boolean> {
     .eq("claimed_at", clip.claimed_at)
     .select("id");
   return !!data?.length;
+}
+
+/**
+ * Failures that cost nothing and clear once a person has acted (topped up the
+ * balance, raised a limit, or waited out a rate limit): Continue makes such a
+ * clip again rather than waiting for its own Retry.
+ */
+const FREE_FAILURES = new Set([
+  "INSUFFICIENT_PROVIDER_BALANCE",
+  "BUDGET_EXCEEDED",
+  "RATE_LIMITED",
+  "NOT_SUBMITTED",
+]);
+
+/** How a failure that cost nothing reads, with what to do about it. */
+function freeFailureMessage(code: string): string | null {
+  switch (code) {
+    case "INSUFFICIENT_PROVIDER_BALANCE":
+      return "Higgsfield's API balance ran out, so it wasn't made and nothing was charged. Top it up in the Higgsfield Console, then press Continue: it is made again and the video carries on.";
+    case "RATE_LIMITED":
+      return "Higgsfield is limiting how many requests it takes right now, so it wasn't made and nothing was charged. Press Continue in a few minutes.";
+    default:
+      return null;
+  }
 }
 
 const FAILED_GENERATION: Record<string, string> = {
@@ -1449,7 +1817,13 @@ async function followGeneration(run: RunRow, clip: ClipRow): Promise<boolean> {
       );
       return false;
     case "failed":
-      return failClip(run, clip, "generating", outcome.code, outcome.message);
+      return failClip(
+        run,
+        clip,
+        "generating",
+        outcome.code,
+        freeFailureMessage(outcome.code) ?? outcome.message,
+      );
     case "done": {
       const video = outcome.asset;
       const { data: done } = await db
@@ -1546,8 +1920,9 @@ async function followHandoff(run: RunRow, clip: ClipRow, isLast: boolean): Promi
       return followTask(run, clip, "probe", isLast);
     case "extracting":
       // Made to a voiceover: its sync is measured first, as its frame is
-      // taken where it is cut, which the sync moves.
+      // taken where it is cut, which the sync moves; then its lips scored.
       if (syncPending(run, clip)) return followSync(run, clip, isLast);
+      if (lipPending(run, clip)) return followLip(run, clip, isLast);
       return followTask(run, clip, "frame", isLast);
     case "failed":
       await pause(
@@ -1647,6 +2022,43 @@ async function enqueueHandoff(
   return true;
 }
 
+/**
+ * What follows a clip's measuring, in order: its sync (made to a voiceover),
+ * its lips scored (where the run scores them), then its frame, taken where
+ * the clip after it starts from it (and from the last clip, for the end
+ * card); otherwise there is nothing more to take.
+ */
+async function afterMeasured(run: RunRow, clip: ClipRow, isLast: boolean): Promise<boolean> {
+  if (syncPending(run, clip)) return followSync(run, clip, isLast);
+  if (lipPending(run, clip)) return followLip(run, clip, isLast);
+  if (isLast || (await frameWanted(run, clip))) return enqueueHandoff(run, clip, "frame", isLast);
+  const { data } = await db
+    .from("long_video_clips")
+    .update({
+      handoff_status: "not_needed",
+      handoff_task_id: null,
+      error_code: null,
+      error_message: null,
+    })
+    .eq("id", clip.id)
+    .eq("handoff_status", "extracting")
+    .eq("handoff_attempts", clip.handoff_attempts)
+    .select("id");
+  return !!data?.length;
+}
+
+/** Whether the clip after this one starts from its frame (taken as so when that can't be read). */
+async function frameWanted(run: RunRow, clip: ClipRow): Promise<boolean> {
+  const { data: next, error } = await db
+    .from("long_video_clips")
+    .select("*")
+    .eq("long_video_id", clip.long_video_id)
+    .eq("position", clip.position + 1)
+    .maybeSingle();
+  if (error || !next) return true;
+  return startsFromPrevious(run, next, clip);
+}
+
 async function followTask(
   run: RunRow,
   clip: ClipRow,
@@ -1667,7 +2079,10 @@ async function followTask(
       .is("handoff_task_id", null)
       .select("*");
     const next = reclaimed?.[0];
-    return next ? enqueueHandoff(run, next, kind, isLast) : true;
+    if (!next) return true;
+    return kind === "frame"
+      ? afterMeasured(run, next, isLast)
+      : enqueueHandoff(run, next, kind, isLast);
   }
 
   const { data: task } = await db
@@ -1735,9 +2150,8 @@ async function followTask(
           })
           .eq("id", clip.output_asset_id)
           .is("duration_seconds", null);
-      // Made to a voiceover: its sync is measured before its frame is taken.
-      if (syncPending(run, next)) return followSync(run, next, isLast);
-      return enqueueHandoff(run, next, "frame", isLast);
+      // Made to a voiceover: its sync is measured (and its lips scored) before its frame is taken.
+      return afterMeasured(run, next, isLast);
     }
     if (!task.result_asset_id)
       return handoffFailed(run, clip, kind, isLast, {
@@ -2025,7 +2439,7 @@ async function followSync(run: RunRow, clip: ClipRow, isLast: boolean): Promise<
       .eq("sync_task_id", task.id)
       .select("*");
     const next = settled?.[0];
-    return next ? enqueueHandoff(run, next, "frame", isLast) : true;
+    return next ? afterMeasured(run, next, isLast) : true;
   }
   if (task.status === "failed")
     return syncFailed(run, clip, isLast, {
@@ -2146,7 +2560,7 @@ async function syncFailed(
       .eq("sync_attempts", clip.sync_attempts)
       .select("*");
     const next = settled?.[0];
-    return next ? enqueueHandoff(run, next, "frame", isLast) : true;
+    return next ? afterMeasured(run, next, isLast) : true;
   }
   const { data: moved } = await db
     .from("long_video_clips")
@@ -2162,6 +2576,442 @@ async function syncFailed(
   const next = moved?.[0];
   if (!next) return true;
   return problem.again ? enqueueSync(run, next, isLast) : false;
+}
+
+/* ------------------------------------------------------------------ */
+/* Lips scored from the picture, and takes                             */
+/* ------------------------------------------------------------------ */
+
+/** Tries at scoring a clip's lips before it is let through unscored. */
+const MAX_LIP_FAILURES = 3;
+/** How long what the media service said it can do is believed. */
+const WORKER_MEMORY_MS = 12 * 60 * 60_000;
+
+/** A run that scores its clips' lips, and a clip of it made to its voiceover not scored yet. */
+function lipPending(run: RunRow, clip: ClipRow): boolean {
+  return (
+    storedQc(run.qc_settings).lipCheck &&
+    drivenByVoiceover(run, clip) &&
+    (clip.lip_status === "none" || clip.lip_status === "checking")
+  );
+}
+
+/**
+ * After a clip made to a voiceover has its sync settled: its lips scored by
+ * the media service (lip_check, see ../lip-sync/lip-check), then whatever
+ * the score calls for (see afterLipScored). Scoring never holds a run up for
+ * long: a clip that can't be scored goes on unscored.
+ */
+async function followLip(run: RunRow, clip: ClipRow, isLast: boolean): Promise<boolean> {
+  if (clip.lip_status === "none") {
+    const { data: claimed } = await db
+      .from("long_video_clips")
+      .update({ lip_status: "checking", lip_task_id: null, claimed_at: now() })
+      .eq("id", clip.id)
+      .eq("lip_status", "none")
+      .eq("attempt", clip.attempt)
+      .select("*");
+    const next = claimed?.[0];
+    return next ? enqueueLip(run, next, isLast) : true;
+  }
+  if (!clip.lip_task_id) {
+    // Claimed, but its task was never recorded: asked again once the claim is stale.
+    if (clip.claimed_at && Date.now() - new Date(clip.claimed_at).getTime() < CLAIM_STALE_MS)
+      return false;
+    const { data: reclaimed } = await db
+      .from("long_video_clips")
+      .update({ claimed_at: now() })
+      .eq("id", clip.id)
+      .eq("lip_status", "checking")
+      .eq("lip_attempts", clip.lip_attempts)
+      .is("lip_task_id", null)
+      .select("*");
+    const next = reclaimed?.[0];
+    return next ? enqueueLip(run, next, isLast) : true;
+  }
+
+  const { data: task } = await db
+    .from("media_tasks")
+    .select("id,status,error_code,error_message,output_payload,created_at,updated_at")
+    .eq("id", clip.lip_task_id)
+    .maybeSingle();
+  if (!task)
+    return lipFailed(run, clip, isLast, {
+      code: "TASK_MISSING",
+      message: "The media task went missing",
+      retryable: true,
+      again: true,
+    });
+  if (task.status === "completed") {
+    const reading = lipReading(((task.output_payload ?? {}) as Json)["metadata"]);
+    const { data: settled } = await db
+      .from("long_video_clips")
+      .update({
+        lip_status: reading.status,
+        lip_score: reading.score,
+        lip_score_at_zero: reading.scoreAtZero,
+        lip_offset_frames: reading.offsetFrames,
+        lip_result: { ...reading.result, ...(reading.reason ? { reason: reading.reason } : {}) },
+        lip_checked_at: now(),
+        claimed_at: now(),
+      })
+      .eq("id", clip.id)
+      .eq("lip_status", "checking")
+      .eq("lip_task_id", task.id)
+      .select("*");
+    const next = settled?.[0];
+    return next ? afterLipScored(run, next, isLast) : true;
+  }
+  if (task.status === "failed")
+    return lipFailed(run, clip, isLast, {
+      code: task.error_code ?? "LIP_CHECK_FAILED",
+      message: task.error_message ?? "The media service couldn't score its lips",
+      // A media service that can't score lips says so at once: not asked again.
+      retryable: !/unknown task|not supported|unavailable/i.test(task.error_message ?? ""),
+      again: true,
+    });
+  const since = new Date(task.updated_at ?? task.created_at).getTime();
+  if (Date.now() - since > HANDOFF_TASK_STALE_MS) {
+    await db
+      .from("media_tasks")
+      .update({
+        status: "failed",
+        error_code: "STALLED",
+        error_message: "No result from the media service in time",
+        completed_at: now(),
+      })
+      .eq("id", task.id)
+      .in("status", ["submitting", "processing"]);
+    return lipFailed(run, clip, isLast, {
+      code: "STALLED",
+      message: "The media service didn't answer",
+      retryable: true,
+      again: true,
+    });
+  }
+  return false;
+}
+
+async function enqueueLip(run: RunRow, clip: ClipRow, isLast: boolean): Promise<boolean> {
+  // A media service known not to score lips isn't asked.
+  const { rememberedWorker } = await import("../media/worker.server");
+  const known = await rememberedWorker(WORKER_MEMORY_MS).catch(() => null);
+  if (known && !known.features.includes("lip_check"))
+    return lipFailed(run, clip, isLast, {
+      code: "LIP_CHECK_UNAVAILABLE",
+      message: "The media service can't score lips",
+      retryable: false,
+      skipped: true,
+    });
+  const ids = [clip.output_asset_id, clip.audio_asset_id].filter((id): id is string => !!id);
+  const { data: rows } =
+    ids.length === 2
+      ? await db
+          .from("assets")
+          .select("id,asset_type,storage_bucket,storage_path,mime_type")
+          .in("id", ids)
+      : { data: [] };
+  const video = (rows ?? []).find((row) => row.id === clip.output_asset_id);
+  const piece = (rows ?? []).find((row) => row.id === clip.audio_asset_id);
+  if (!video || !piece)
+    return lipFailed(run, clip, isLast, {
+      code: "SOURCE_MISSING",
+      message: "The clip or its piece of the voiceover is no longer stored",
+      retryable: false,
+    });
+  const result = await enqueueInternalMediaTask({
+    createdBy: run.created_by,
+    projectId: run.project_id,
+    taskType: "lip_check",
+    source: {
+      assetId: video.id,
+      assetType: "video",
+      bucket: video.storage_bucket,
+      path: video.storage_path,
+      mimeType: video.mime_type,
+    },
+    extraSources: [
+      {
+        assetId: piece.id,
+        assetType: "audio",
+        bucket: piece.storage_bucket,
+        path: piece.storage_path,
+        mimeType: piece.mime_type,
+        role: "audio",
+      },
+    ],
+    // Scored over the piece's own length (the clip runs a moment longer), and in three-second windows.
+    params: {
+      duration_seconds: Number(
+        (Number(clip.audio_end_seconds) - Number(clip.audio_start_seconds)).toFixed(3),
+      ),
+      window_seconds: 3,
+    },
+    dedupeKey: `lvl:${clip.id}:${clip.attempt}:${clip.lip_attempts}`,
+    output: { count: 0, ext: "json", mime: "application/json", kind: "video" },
+    context: { long_video_clip_id: clip.id },
+  });
+  if (!result.ok)
+    return lipFailed(run, clip, isLast, {
+      code: result.code,
+      message: result.message,
+      retryable: result.retryable && !/unknown task/i.test(result.message),
+      skipped: /unknown task/i.test(result.message),
+    });
+  await db
+    .from("long_video_clips")
+    .update({ lip_task_id: result.taskId })
+    .eq("id", clip.id)
+    .eq("lip_status", "checking")
+    .eq("lip_attempts", clip.lip_attempts);
+  return true;
+}
+
+/**
+ * A scoring try that didn't work: tried again a few times, then the clip
+ * goes on unscored ("failed", or "skipped" where the media service can't
+ * score lips at all), so the run goes on.
+ */
+async function lipFailed(
+  run: RunRow,
+  clip: ClipRow,
+  isLast: boolean,
+  problem: {
+    code: string;
+    message: string;
+    retryable: boolean;
+    again?: boolean;
+    skipped?: boolean;
+  },
+): Promise<boolean> {
+  const attempts = clip.lip_attempts + 1;
+  if (!problem.retryable || attempts >= MAX_LIP_FAILURES) {
+    const { data: settled } = await db
+      .from("long_video_clips")
+      .update({
+        lip_status: problem.skipped ? "skipped" : "failed",
+        lip_attempts: attempts,
+        lip_task_id: null,
+        lip_result: { error_code: problem.code, error_message: problem.message },
+        lip_checked_at: now(),
+        claimed_at: now(),
+      })
+      .eq("id", clip.id)
+      .eq("lip_status", "checking")
+      .eq("lip_attempts", clip.lip_attempts)
+      .select("*");
+    const next = settled?.[0];
+    return next ? afterMeasured(run, next, isLast) : true;
+  }
+  const { data: moved } = await db
+    .from("long_video_clips")
+    .update({
+      lip_attempts: attempts,
+      lip_task_id: null,
+      claimed_at: problem.again ? now() : new Date(Date.now() - CLAIM_STALE_MS).toISOString(),
+    })
+    .eq("id", clip.id)
+    .eq("lip_status", "checking")
+    .eq("lip_attempts", clip.lip_attempts)
+    .select("*");
+  const next = moved?.[0];
+  if (!next) return true;
+  return problem.again ? enqueueLip(run, next, isLast) : false;
+}
+
+/**
+ * A clip's lips were scored. Under the run's "make again" score, it gets
+ * another take while the run allows more (the same request, a new attempt);
+ * once they are spent the best take is used, and if even that is poor the run
+ * stops for a person (Continue keeps it; Another take tries again). Anything
+ * else goes on to its frame.
+ */
+async function afterLipScored(run: RunRow, clip: ClipRow, isLast: boolean): Promise<boolean> {
+  const qc = storedQc(run.qc_settings);
+  const score =
+    clip.lip_status === "scored" && clip.lip_score !== null ? Number(clip.lip_score) : null;
+  if (score === null || score >= qc.redoBelow) return afterMeasured(run, clip, isLast);
+  const takes = await takesOf(clip.id);
+  if (takes.length + 1 < qc.takes) return makeAnotherTake(run, clip, "best_of");
+  const candidates = [
+    ...takes.map((take) => ({
+      lipScore: take.lip_score === null ? null : Number(take.lip_score),
+      attempt: take.attempt,
+      take,
+    })),
+    { lipScore: score, attempt: clip.attempt, take: null },
+  ];
+  const best = bestTake(candidates);
+  if (best?.take && (best.lipScore ?? -Infinity) > score) {
+    await restoreTake(run, clip, best.take);
+    return true;
+  }
+  if (score < qc.redoBelow) {
+    // Continue keeps it: its frame is taken at once, not after a claim lapses.
+    await db
+      .from("long_video_clips")
+      .update({ claimed_at: null })
+      .eq("id", clip.id)
+      .eq("attempt", clip.attempt)
+      .eq("handoff_status", "extracting");
+    await pause(
+      run,
+      "LIP_CHECK",
+      `${clipLabel(clip)}'s lips barely follow the voice (SyncNet ${score.toFixed(1)}${takes.length ? ` after ${takes.length + 1} takes` : ""}). Make another take, or press Continue to keep it.`,
+    );
+    return false;
+  }
+  return afterMeasured(run, clip, isLast);
+}
+
+/** A clip's fields that belong to one take of it, kept with the take and restored with it. */
+const TAKE_FIELDS = [
+  "generation_id",
+  "output_asset_id",
+  "output_duration_seconds",
+  "output_fps",
+  "output_width",
+  "output_height",
+  "start_frame_asset_id",
+  "end_frame_asset_id",
+  "audio_asset_id",
+  "started_at",
+  "completed_at",
+  "sync_status",
+  "sync_offset_seconds",
+  "sync_result",
+  "synced_at",
+  "lip_status",
+  "lip_score",
+  "lip_score_at_zero",
+  "lip_offset_frames",
+  "lip_result",
+  "lip_checked_at",
+] as const;
+
+type TakeRow = Database["public"]["Tables"]["long_video_clip_takes"]["Row"];
+
+/** A clip's kept takes, oldest first (none before the database has them). */
+async function takesOf(clipId: string): Promise<TakeRow[]> {
+  const { data, error } = await db
+    .from("long_video_clip_takes")
+    .select("*")
+    .eq("clip_id", clipId)
+    .order("attempt");
+  if (error) return [];
+  return data ?? [];
+}
+
+/** The attempt a clip's video came from (its generation's request key says), else its own. */
+async function takeAttemptOf(clip: ClipRow): Promise<number> {
+  if (!clip.generation_id) return clip.attempt;
+  const { data } = await db
+    .from("generations")
+    .select("client_request_id")
+    .eq("id", clip.generation_id)
+    .maybeSingle();
+  const match = /^lvc:[^:]+:(\d+)$/.exec(data?.client_request_id ?? "");
+  return match ? Number(match[1]) : clip.attempt;
+}
+
+/** Keeps the take a clip has now (once), so it can be swapped back in. A database without takes keeps none. */
+async function keepTake(clip: ClipRow, reason: "take" | "redo" | "best_of"): Promise<void> {
+  if (clip.status !== "completed" || !clip.output_asset_id) return;
+  const snapshot: Json = {};
+  for (const field of TAKE_FIELDS) snapshot[field] = (clip as unknown as Json)[field] ?? null;
+  const { error } = await db.from("long_video_clip_takes").upsert(
+    {
+      long_video_id: clip.long_video_id,
+      clip_id: clip.id,
+      attempt: await takeAttemptOf(clip),
+      generation_id: clip.generation_id,
+      output_asset_id: clip.output_asset_id,
+      start_frame_asset_id: clip.start_frame_asset_id,
+      snapshot: snapshot as never,
+      lip_score: clip.lip_status === "scored" ? clip.lip_score : null,
+      reason,
+    },
+    { onConflict: "clip_id,attempt", ignoreDuplicates: true },
+  );
+  if (error && !isMissingTableError(error))
+    console.error("take not kept", { clipId: clip.id, message: error.message });
+}
+
+/**
+ * Makes a finished clip again as a new attempt (a new, billed generation from
+ * the same request), keeping the take it has as one to swap back. The edit
+ * made from the run (if any) is let go, so opening it again shows the new one.
+ */
+async function makeAnotherTake(
+  run: Pick<RunRow, "id">,
+  clip: ClipRow,
+  reason: "redo" | "best_of",
+  options: { startFrame?: string | null } = {},
+): Promise<boolean> {
+  await keepTake(clip, reason);
+  const { data: reset } = await db
+    .from("long_video_clips")
+    .update({
+      ...CLEARED_TAKE,
+      ...CLEARED_CHECK,
+      ...("sync_status" in clip ? CLEARED_SYNC : {}),
+      ...("lip_status" in clip ? CLEARED_LIP : {}),
+      ...(options.startFrame !== undefined
+        ? { start_frame_override_asset_id: options.startFrame }
+        : {}),
+      status: "waiting",
+      attempt: clip.attempt + 1,
+    })
+    .eq("id", clip.id)
+    .eq("status", "completed")
+    .eq("attempt", clip.attempt)
+    .select("id");
+  if (!reset?.length) return false;
+  await db.from("long_videos").update({ sequence_id: null }).eq("id", run.id);
+  return true;
+}
+
+/**
+ * Puts a kept take back in place of the one a clip has (which is kept in
+ * turn): its video and what was measured of it. Its frame and its identity
+ * check are taken again for it, so the run goes on from this take.
+ */
+async function restoreTake(
+  run: Pick<RunRow, "id">,
+  clip: ClipRow,
+  take: TakeRow,
+): Promise<boolean> {
+  await keepTake(clip, "take");
+  const snapshot = (take.snapshot ?? {}) as Json;
+  const restored: Json = {};
+  for (const field of TAKE_FIELDS) if (field in snapshot) restored[field] = snapshot[field];
+  const nextRound =
+    Math.ceil((clip.handoff_attempts + 1) / MAX_HANDOFF_FAILURES) * MAX_HANDOFF_FAILURES;
+  const { data: swapped } = await db
+    .from("long_video_clips")
+    .update({
+      ...CLEARED_CHECK,
+      ...restored,
+      status: "completed",
+      handoff_status: "extracting",
+      handoff_task_id: null,
+      handoff_asset_id: null,
+      handoff_time_seconds: null,
+      handoff_attempts: nextRound,
+      sync_task_id: null,
+      lip_task_id: null,
+      claimed_at: null,
+      error_code: null,
+      error_message: null,
+    } as never)
+    .eq("id", clip.id)
+    .eq("attempt", clip.attempt)
+    .eq("status", "completed")
+    .select("id");
+  if (!swapped?.length) return false;
+  await db.from("long_video_clip_takes").delete().eq("id", take.id);
+  await db.from("long_videos").update({ sequence_id: null }).eq("id", run.id);
+  return true;
 }
 
 /* ------------------------------------------------------------------ */
@@ -2299,7 +3149,7 @@ async function separated(
         title: `${run.title} · clip ${clip.position + 1}, with clip ${clip.position}`.slice(0, 120),
       })
       .eq("id", asReturned);
-  return enqueueHandoff(run, next, "frame", isLast);
+  return afterMeasured(run, next, isLast);
 }
 
 /**
@@ -3497,6 +4347,13 @@ export async function advanceForMediaTask(taskId: string): Promise<void> {
     .eq("sync_task_id", taskId)
     .maybeSingle();
   if (syncing) return advanceLongVideo(syncing.long_video_id, { deadline });
+  // A lip score (none before the database has them).
+  const { data: scoring } = await db
+    .from("long_video_clips")
+    .select("long_video_id")
+    .eq("lip_task_id", taskId)
+    .maybeSingle();
+  if (scoring) return advanceLongVideo(scoring.long_video_id, { deadline });
   const { data: sizing } = await db
     .from("long_video_keyframes")
     .select("long_video_id")
@@ -3574,6 +4431,8 @@ async function reopen(runId: string): Promise<void> {
 export async function retryLongVideoClip(input: {
   clipId: string;
   confirmUncertain: boolean;
+  /** Move the run on afterwards (a caller doing that itself says no). */
+  advance?: boolean;
 }): Promise<void> {
   const { data: clip } = await db
     .from("long_video_clips")
@@ -3610,6 +4469,7 @@ export async function retryLongVideoClip(input: {
         // Only where the database has them (a plain run works before it does).
         ...("check_status" in clip ? CLEARED_CHECK : {}),
         ...("sync_status" in clip ? CLEARED_SYNC : {}),
+        ...("lip_status" in clip ? CLEARED_LIP : {}),
         error_code: null,
         error_message: null,
       })
@@ -3624,6 +4484,7 @@ export async function retryLongVideoClip(input: {
   } else {
     throw new AppError("INVALID_PARAMETERS", "That clip hasn't failed");
   }
+  if (input.advance === false) return;
   await reopen(clip.long_video_id);
   await advanceAfter(clip.long_video_id);
 }
@@ -3663,6 +4524,18 @@ export async function continueLongVideo(longVideoId: string): Promise<void> {
     .eq("long_video_id", longVideoId)
     .eq("handoff_status", "failed");
   for (const clip of failed ?? []) await resetHandoff(clip);
+  // Clips that failed without costing anything (no balance, a limit, a rate
+  // limit) are made again: that is what the person pressed Continue for.
+  const { data: free } = await db
+    .from("long_video_clips")
+    .select("*")
+    .eq("long_video_id", longVideoId)
+    .eq("status", "failed")
+    .in("error_code", [...FREE_FAILURES]);
+  for (const clip of free ?? [])
+    await retryLongVideoClip({ clipId: clip.id, confirmUncertain: false, advance: false }).catch(
+      () => undefined,
+    );
   await reopen(longVideoId);
   await advanceAfter(longVideoId);
 }
@@ -3687,6 +4560,38 @@ const CLEARED_SYNC = {
   audio_asset_id: null,
 } as const;
 
+/** A clip's lip score as if never taken (a new attempt is scored afresh). */
+const CLEARED_LIP = {
+  lip_status: "none",
+  lip_task_id: null,
+  lip_attempts: 0,
+  lip_score: null,
+  lip_score_at_zero: null,
+  lip_offset_frames: null,
+  lip_result: null,
+  lip_checked_at: null,
+} as const;
+
+/** A clip's take as if never made: no generation, video or handoff (a new attempt starts afresh). */
+const CLEARED_TAKE = {
+  generation_id: null,
+  claimed_at: null,
+  started_at: null,
+  completed_at: null,
+  output_asset_id: null,
+  output_duration_seconds: null,
+  output_fps: null,
+  output_width: null,
+  output_height: null,
+  handoff_status: "none",
+  handoff_task_id: null,
+  handoff_attempts: 0,
+  handoff_time_seconds: null,
+  handoff_asset_id: null,
+  error_code: null,
+  error_message: null,
+} as const;
+
 /** A clip's identity check as if never run (a new attempt is checked afresh). */
 const CLEARED_CHECK = {
   check_status: "none",
@@ -3700,76 +4605,225 @@ const CLEARED_CHECK = {
 } as const;
 
 /**
- * Makes a finished clip again as a new attempt (billed like any generation),
- * e.g. one whose check found a character changed. Only while the clip after it
- * hasn't started, since that one starts from this clip's last frame. The edit
- * made from the run (if any) is let go, so opening it again shows the new clip.
+ * Makes a finished clip again as a new attempt (billed like any generation):
+ * one whose check found a character changed, or any take a person wants
+ * another of (its lips, say). The take it has is kept, to swap back in. Only
+ * while no clip that starts from this one's frame has started. It can be told
+ * to start from another frame this time: the run's anchor (the approved
+ * still), or an image a person chose; null goes back to its usual start. The
+ * edit made from the run (if any) is let go, so opening it again shows the
+ * new clip.
  */
-export async function redoLongVideoClip(input: { clipId: string }): Promise<void> {
+export async function redoLongVideoClip(input: {
+  clipId: string;
+  /** Start from this frame instead ("anchor": the run's own still). Undefined: as before. */
+  startFrame?: string | "anchor" | null | undefined;
+}): Promise<void> {
   const { data: clip } = await db
     .from("long_video_clips")
     .select("*")
     .eq("id", input.clipId)
     .maybeSingle();
   if (!clip) throw new AppError("INVALID_PARAMETERS", "That clip no longer exists");
-  if (clip.status !== "completed" || clip.check_status !== "flagged")
-    throw new AppError(
-      "INVALID_PARAMETERS",
-      "Only a finished clip the check flagged can be made again",
-    );
-  const { data: later } = await db
-    .from("long_video_clips")
-    .select("position,status")
-    .eq("long_video_id", clip.long_video_id)
-    .gt("position", clip.position);
-  if ((later ?? []).some((entry) => entry.status !== "waiting"))
-    throw new AppError(
-      "INVALID_PARAMETERS",
-      "The clips after it have started from its last frame, so it can't be made again on its own",
-    );
-  const { data: reset } = await db
-    .from("long_video_clips")
-    .update({
-      status: "waiting",
-      attempt: clip.attempt + 1,
-      generation_id: null,
-      claimed_at: null,
-      started_at: null,
-      completed_at: null,
-      output_asset_id: null,
-      output_duration_seconds: null,
-      output_fps: null,
-      output_width: null,
-      output_height: null,
-      handoff_status: "none",
-      handoff_task_id: null,
-      handoff_attempts: 0,
-      handoff_time_seconds: null,
-      handoff_asset_id: null,
-      ...CLEARED_CHECK,
-      ...("sync_status" in clip ? CLEARED_SYNC : {}),
-      error_code: null,
-      error_message: null,
-    })
-    .eq("id", clip.id)
-    .eq("status", "completed")
-    .eq("attempt", clip.attempt)
-    // Still flagged: once kept (and the next clip free to start from it), it stays.
-    .eq("check_status", "flagged")
-    .select("id");
-  if (!reset?.length)
-    throw new AppError("INVALID_PARAMETERS", "That clip has just been kept or changed");
+  const { data: run } = await db
+    .from("long_videos")
+    .select("*")
+    .eq("id", clip.long_video_id)
+    .maybeSingle();
+  if (!run) throw new AppError("INVALID_PARAMETERS", "That long video no longer exists");
+  if (clip.status !== "completed")
+    throw new AppError("INVALID_PARAMETERS", "Only a finished clip can be made again");
+  await assertNothingStartedFrom(run, clip);
+  const startFrame =
+    input.startFrame === "anchor" ? await anchorOf(run) : await startFrameChoice(input.startFrame);
+  // A take made again in a chain is let go only while it was flagged, or once a person asks.
+  const made = await makeAnotherTake(run, clip, "redo", {
+    ...(input.startFrame !== undefined ? { startFrame } : {}),
+  });
+  if (!made) throw new AppError("INVALID_PARAMETERS", "That clip has just been kept or changed");
   await db
     .from("long_videos")
-    .update({
-      sequence_id: null,
-      status: "running",
-      error_code: null,
-      error_message: null,
-      completed_at: null,
-    })
+    .update({ status: "running", error_code: null, error_message: null, completed_at: null })
     .eq("id", clip.long_video_id)
     .in("status", ["running", "needs_attention", "canceled", "completed"]);
+  await advanceAfter(clip.long_video_id);
+}
+
+/**
+ * Refuses a change to a clip a started clip depends on (it started from this
+ * one's frame), or one the next clip may be starting from right now (a run
+ * going, unless the check flagged this clip, which holds the next one back).
+ */
+async function assertNothingStartedFrom(run: RunRow, clip: ClipRow): Promise<void> {
+  const { data: later } = await db
+    .from("long_video_clips")
+    .select("*")
+    .eq("long_video_id", clip.long_video_id)
+    .gt("position", clip.position)
+    .order("position");
+  // Only the chain of clips that start, each from the one before, from this one.
+  let previous: ClipRow = clip;
+  for (const [index, entry] of (later ?? []).entries()) {
+    if (!startsFromPrevious(run, entry, previous)) break;
+    if (entry.status !== "waiting")
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        `Clip ${entry.position + 1} has started from this clip's last frame, so this one can't be changed on its own`,
+      );
+    if (index === 0 && run.status === "running" && clip.check_status !== "flagged")
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        `Clip ${entry.position + 1} is about to start from this clip's last frame: stop the video first, then change this clip`,
+      );
+    previous = entry;
+  }
+}
+
+/** The run's anchor frame, while it is still in the library. */
+async function anchorOf(run: RunRow): Promise<string> {
+  if (!run.anchor_frame_asset_id)
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      "This video has no frame every clip starts from: choose an image for the clip instead",
+    );
+  return (await startFrameChoice(run.anchor_frame_asset_id))!;
+}
+
+/** An image a person chose for a clip to start from: one still in the library (null: none). */
+async function startFrameChoice(assetId: string | null | undefined): Promise<string | null> {
+  if (!assetId) return null;
+  const { data: image } = await db
+    .from("assets")
+    .select("id,asset_type")
+    .eq("id", assetId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (!image || image.asset_type !== "image")
+    throw new AppError("INVALID_PARAMETERS", "A clip starts from an image in the library");
+  return image.id;
+}
+
+/**
+ * Puts one of a clip's kept takes back in use (the one it has is kept in
+ * turn): its frame and identity check are taken again for it and the run
+ * goes on from it. Only while no clip that starts from this one's frame has
+ * started.
+ */
+export async function chooseLongVideoTake(input: { takeId: string }): Promise<void> {
+  const { data: take, error } = await db
+    .from("long_video_clip_takes")
+    .select("*")
+    .eq("id", input.takeId)
+    .maybeSingle();
+  if (error && isMissingTableError(error)) throw new AppError("UNKNOWN", PRESENTER_TABLES_MISSING);
+  if (!take) throw new AppError("INVALID_PARAMETERS", "That take no longer exists");
+  const { data: clip } = await db
+    .from("long_video_clips")
+    .select("*")
+    .eq("id", take.clip_id)
+    .maybeSingle();
+  const { data: run } = await db
+    .from("long_videos")
+    .select("*")
+    .eq("id", take.long_video_id)
+    .maybeSingle();
+  if (!clip || !run) throw new AppError("INVALID_PARAMETERS", "That clip no longer exists");
+  if (clip.status !== "completed")
+    throw new AppError("INVALID_PARAMETERS", "Wait for the clip's current take to finish first");
+  if (!take.output_asset_id)
+    throw new AppError("INVALID_PARAMETERS", "That take's video is no longer in the library");
+  await assertNothingStartedFrom(run, clip);
+  if (!(await restoreTake(run, clip, take)))
+    throw new AppError("INVALID_PARAMETERS", "That clip has just changed: look again");
+  await reopen(run.id);
+  await db
+    .from("long_videos")
+    .update({ status: "running", error_code: null, error_message: null, completed_at: null })
+    .eq("id", run.id)
+    .eq("status", "completed");
+  await advanceAfter(run.id);
+}
+
+/**
+ * Holds a clip that hasn't started (the run waits at it, making the rest
+ * where it can), or releases it. A run stopped at a held clip carries on once
+ * it is released.
+ */
+export async function holdLongVideoClip(input: { clipId: string; held: boolean }): Promise<void> {
+  const { data: clip } = await db
+    .from("long_video_clips")
+    .select("id,long_video_id,status,held")
+    .eq("id", input.clipId)
+    .maybeSingle();
+  if (!clip) throw new AppError("INVALID_PARAMETERS", "That clip no longer exists");
+  if (!("held" in clip)) throw new AppError("UNKNOWN", PRESENTER_TABLES_MISSING);
+  if (input.held && clip.status !== "waiting")
+    throw new AppError("INVALID_PARAMETERS", "Only a clip that hasn't started can be held");
+  const { data: changed } = await db
+    .from("long_video_clips")
+    .update({ held: input.held })
+    .eq("id", clip.id)
+    .eq("status", input.held ? "waiting" : clip.status)
+    .select("id");
+  if (!changed?.length) throw new AppError("INVALID_PARAMETERS", "That clip has just started");
+  if (!input.held) {
+    await db
+      .from("long_videos")
+      .update({ status: "running", error_code: null, error_message: null })
+      .eq("id", clip.long_video_id)
+      .eq("status", "needs_attention")
+      .eq("error_code", "CLIP_HELD");
+    await advanceAfter(clip.long_video_id);
+  }
+}
+
+/**
+ * Chooses the frame a clip that hasn't started will start from: an image in
+ * the library, the run's anchor ("anchor"), or its usual start again (null).
+ */
+export async function setClipStartFrame(input: {
+  clipId: string;
+  startFrame: string | "anchor" | null;
+}): Promise<void> {
+  const { data: clip } = await db
+    .from("long_video_clips")
+    .select("*")
+    .eq("id", input.clipId)
+    .maybeSingle();
+  if (!clip) throw new AppError("INVALID_PARAMETERS", "That clip no longer exists");
+  if (!("start_frame_override_asset_id" in clip))
+    throw new AppError("UNKNOWN", PRESENTER_TABLES_MISSING);
+  const { data: run } = await db
+    .from("long_videos")
+    .select("*")
+    .eq("id", clip.long_video_id)
+    .maybeSingle();
+  if (!run) throw new AppError("INVALID_PARAMETERS", "That long video no longer exists");
+  if (run.keyframe_model_id)
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      "A keyframed video's clips start from their keyframes",
+    );
+  if (clip.status !== "waiting" && clip.status !== "failed")
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      "Only a clip that hasn't started (or failed) can be given another start frame: make it again instead",
+    );
+  const model = await loadModel(clip.model_registry_id);
+  if (clipStart(model)?.kind !== "frame")
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      `${model?.display_name ?? "Its model"} doesn't start a clip from a given frame`,
+    );
+  const frame =
+    input.startFrame === "anchor" ? await anchorOf(run) : await startFrameChoice(input.startFrame);
+  const { data: changed } = await db
+    .from("long_video_clips")
+    .update({ start_frame_override_asset_id: frame })
+    .eq("id", clip.id)
+    .in("status", ["waiting", "failed"])
+    .select("id");
+  if (!changed?.length) throw new AppError("INVALID_PARAMETERS", "That clip has just started");
   await advanceAfter(clip.long_video_id);
 }
 
@@ -3949,7 +5003,15 @@ export async function openLongVideoInEditor(input: {
   endCard?: { assetId: string; seconds: number } | null | undefined;
   /** Made to a voiceover: show its words as captions. */
   captions?: boolean;
-}): Promise<{ sequenceId: string; created: boolean; missing: number[] }> {
+  /** The script the voiceover was read from: captions show its words (see ../edit/captions). */
+  script?: string | null | undefined;
+  /** The brand's names as captions should spell them. */
+  terms?: string[] | undefined;
+  /** A licensed music bed under the voice (made to a voiceover). */
+  musicAssetId?: string | null | undefined;
+  /** Titles on the voiceover's clock (made to a voiceover). */
+  titles?: PresenterTitle[] | undefined;
+}): Promise<{ sequenceId: string; created: boolean; missing: number[]; notes?: string[] }> {
   const { data: run } = await db
     .from("long_videos")
     .select("*")
@@ -4043,6 +5105,10 @@ export async function openLongVideoInEditor(input: {
       keepSound: input.keepSound,
       captions: input.captions === true,
       fresh: input.fresh,
+      script: input.script ?? null,
+      terms: input.terms ?? [],
+      musicAssetId: input.musicAssetId ?? null,
+      titles: input.titles ?? [],
     });
 
   // Handoff frames found by counting the clip's frames (its true last frame),
@@ -4176,7 +5242,11 @@ async function openVoiceoverRunInEditor(input: {
   keepSound: boolean;
   captions: boolean;
   fresh: boolean;
-}): Promise<{ sequenceId: string; created: boolean; missing: number[] }> {
+  script: string | null;
+  terms: string[];
+  musicAssetId: string | null;
+  titles: PresenterTitle[];
+}): Promise<{ sequenceId: string; created: boolean; missing: number[]; notes?: string[] }> {
   const { run } = input;
   const { preparationById, takeForEdit } = await import("../lip-sync/prepare.server");
   const preparation = await preparationById(run.voiceover_preparation_id!);
@@ -4185,6 +5255,42 @@ async function openVoiceoverRunInEditor(input: {
       "INVALID_PARAMETERS",
       "The voiceover this video was made to is no longer prepared, so its clips can't be lined up with it.",
     );
+  const track = {
+    assetId: preparation.prepared_asset_id,
+    durationSeconds: input.voiceover.durationSeconds,
+    fps: input.voiceover.fps,
+    title: `Voiceover · ${input.voiceover.title}`,
+    words: readWords(preparation.words),
+    script: input.script,
+    terms: input.terms,
+  };
+  // The voiceover becomes one of the edit's takes before anyone can open it.
+  const prepare = async (sequenceId: string) => {
+    await takeForEdit({
+      userId: input.userId,
+      preparationId: preparation.id,
+      sequenceId,
+    });
+  };
+
+  // With cutaways: the presenter and the B-roll, shot by shot on the voiceover's clock.
+  if (input.voiceover.cutaways.length) {
+    const presenter = await presenterEdit({ ...input, track });
+    if (!presenter.timeline.clips.length)
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        "No clip has finished yet, so there is nothing to edit",
+      );
+    const saved = await saveRunEdit({
+      run,
+      result: presenter,
+      userId: input.userId,
+      fresh: input.fresh,
+      prepare,
+    });
+    return { ...saved, notes: presenter.notes };
+  }
+
   const result = compileFromVoiceoverLongVideo(
     { title: run.title, settings: (run.settings ?? {}) as Json },
     input.clips.map((clip) => ({
@@ -4193,17 +5299,12 @@ async function openVoiceoverRunInEditor(input: {
       audioStart: Number(clip.audio_start_seconds ?? 0),
       audioEnd: Number(clip.audio_end_seconds ?? 0),
       offsetSeconds: syncOffsetOf(clip),
+      lipLeadSeconds: lipLeadOf(clip),
       lengthSeconds: Number(clip.output_duration_seconds) || Number(clip.duration_seconds) || null,
       playsOut: playsOut(run, clip, clip.position === run.clip_count - 1),
     })),
     input.assets,
-    {
-      assetId: preparation.prepared_asset_id,
-      durationSeconds: input.voiceover.durationSeconds,
-      fps: input.voiceover.fps,
-      title: `Voiceover · ${input.voiceover.title}`,
-      words: readWords(preparation.words),
-    },
+    track,
     {
       keepSound: input.keepSound,
       captions: input.captions,
@@ -4217,18 +5318,167 @@ async function openVoiceoverRunInEditor(input: {
         ? "The clips' videos are no longer in the library"
         : "Clip 1 hasn't finished yet, and the clips are laid in order along the voiceover",
     );
-  return saveRunEdit({
-    run,
-    result,
-    userId: input.userId,
-    fresh: input.fresh,
-    // The voiceover becomes one of the edit's takes before anyone can open it.
-    prepare: async (sequenceId) => {
-      await takeForEdit({
-        userId: input.userId,
-        preparationId: preparation.id,
-        sequenceId,
-      });
-    },
+  return saveRunEdit({ run, result, userId: input.userId, fresh: input.fresh, prepare });
+}
+
+/** What fills each cutaway of a run (long_videos.cutaway_fills), in order. */
+function storedFills(
+  value: unknown,
+): ({ assetId: string; inPoint: number; label: string | null } | null)[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((entry) => {
+    const record = (entry ?? {}) as Json;
+    return typeof record["asset_id"] === "string"
+      ? {
+          assetId: record["asset_id"],
+          inPoint: Math.max(0, Number(record["in_point"]) || 0),
+          label: typeof record["label"] === "string" ? record["label"] : null,
+        }
+      : null;
   });
+}
+
+/**
+ * A run with cutaways as one edit (see ../edit/presenter): its clips on the
+ * voiceover's clock, the B-roll chosen for each cutaway (else a placeholder:
+ * the frame the clips start from), captions, titles and music as asked.
+ */
+async function presenterEdit(input: {
+  run: RunRow;
+  clips: ClipRow[];
+  assets: {
+    id: string;
+    durationSeconds: number | null;
+    width: number | null;
+    height: number | null;
+  }[];
+  voiceover: RunVoiceover;
+  track: VoiceoverTrack;
+  endCard: LongVideoEndCard | null;
+  keepSound: boolean;
+  captions: boolean;
+  musicAssetId: string | null;
+  titles: PresenterTitle[];
+}) {
+  const { run } = input;
+  const fills = storedFills(run.cutaway_fills);
+  const placeholderId = run.anchor_frame_asset_id ?? input.clips[0]?.start_frame_asset_id ?? null;
+  const wanted = [
+    ...fills.flatMap((fill) => (fill ? [fill.assetId] : [])),
+    ...(placeholderId ? [placeholderId] : []),
+    ...(input.musicAssetId ? [input.musicAssetId] : []),
+  ];
+  const { data: rows } = wanted.length
+    ? await db
+        .from("assets")
+        .select("id,asset_type,duration_seconds,width,height,title")
+        .in("id", wanted)
+        .is("deleted_at", null)
+    : { data: [] };
+  const row = (id: string | null) => (rows ?? []).find((entry) => entry.id === id) ?? null;
+  const placeholder = row(placeholderId);
+  const music = row(input.musicAssetId);
+  if (input.musicAssetId && music?.asset_type !== "audio")
+    throw new AppError("INVALID_PARAMETERS", "The music must be audio in the library");
+  return compilePresenterEdit(
+    { title: run.title, settings: (run.settings ?? {}) as Json },
+    input.clips.map((clip, index) => ({
+      position: clip.position,
+      assetId: clip.status === "completed" ? clip.output_asset_id : null,
+      audioStart: Number(clip.audio_start_seconds ?? 0),
+      audioEnd: Number(clip.audio_end_seconds ?? 0),
+      offsetSeconds: syncOffsetOf(clip),
+      lipLeadSeconds: lipLeadOf(clip),
+      lengthSeconds: Number(clip.output_duration_seconds) || Number(clip.duration_seconds) || null,
+      continuesPrevious: startsFromPrevious(run, clip, input.clips[index - 1] ?? null),
+    })),
+    input.assets,
+    input.track,
+    input.voiceover.cutaways,
+    {
+      keepSound: input.keepSound,
+      captions: input.captions,
+      endCard: input.endCard,
+      fills: fills.map((fill) => {
+        const asset = fill ? row(fill.assetId) : null;
+        if (!fill || !asset || (asset.asset_type !== "video" && asset.asset_type !== "image"))
+          return null;
+        return {
+          assetId: asset.id,
+          kind: asset.asset_type,
+          inPoint: fill.inPoint,
+          sourceSeconds: asset.duration_seconds === null ? null : Number(asset.duration_seconds),
+          label: fill.label ?? asset.title,
+        };
+      }),
+      placeholder:
+        placeholder?.asset_type === "image"
+          ? { assetId: placeholder.id, width: placeholder.width, height: placeholder.height }
+          : null,
+      music: music
+        ? {
+            assetId: music.id,
+            durationSeconds:
+              music.duration_seconds === null ? null : Number(music.duration_seconds),
+            title: music.title,
+          }
+        : null,
+      titles: input.titles,
+    },
+  );
+}
+
+/**
+ * Chooses the B-roll for a run's cutaway (by its place in order): a video or
+ * image in the library, from a point in it; null clears it. The run's edit is
+ * let go, so opening it again lays the B-roll in.
+ */
+export async function setCutawayFill(input: {
+  longVideoId: string;
+  index: number;
+  fill: { assetId: string; inPoint?: number | undefined; label?: string | null | undefined } | null;
+}): Promise<void> {
+  const { data: run } = await db
+    .from("long_videos")
+    .select("*")
+    .eq("id", input.longVideoId)
+    .maybeSingle();
+  if (!run) throw new AppError("INVALID_PARAMETERS", "That long video no longer exists");
+  if (!("cutaway_fills" in run)) throw new AppError("UNKNOWN", PRESENTER_TABLES_MISSING);
+  const voiceover = storedVoiceover(run.voiceover);
+  const count = voiceover?.cutaways.length ?? 0;
+  if (!Number.isInteger(input.index) || input.index < 0 || input.index >= count)
+    throw new AppError("INVALID_PARAMETERS", "This video has no such cutaway");
+  if (input.fill) {
+    const { data: asset } = await db
+      .from("assets")
+      .select("id,asset_type")
+      .eq("id", input.fill.assetId)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (!asset || (asset.asset_type !== "video" && asset.asset_type !== "image"))
+      throw new AppError("INVALID_PARAMETERS", "B-roll is a video or an image in the library");
+  }
+  const fills: (Json | null)[] = Array.from({ length: count }, (_, index) => {
+    const kept = storedFills(run.cutaway_fills)[index] ?? null;
+    return kept
+      ? {
+          asset_id: kept.assetId,
+          in_point: kept.inPoint,
+          ...(kept.label ? { label: kept.label } : {}),
+        }
+      : null;
+  });
+  fills[input.index] = input.fill
+    ? {
+        asset_id: input.fill.assetId,
+        in_point: Math.max(0, Number(input.fill.inPoint) || 0),
+        ...(input.fill.label?.trim() ? { label: input.fill.label.trim().slice(0, 120) } : {}),
+      }
+    : null;
+  const { error } = await db
+    .from("long_videos")
+    .update({ cutaway_fills: fills as never, sequence_id: null })
+    .eq("id", run.id);
+  if (error) throw new AppError("UNKNOWN", error.message);
 }

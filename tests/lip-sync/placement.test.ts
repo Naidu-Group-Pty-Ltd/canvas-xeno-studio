@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   cutFrameIndex,
+  effectiveOffset,
   placeSyncedClips,
   type SyncedClipInput,
 } from "../../src/lib/lip-sync/placement";
@@ -21,7 +22,7 @@ function lipError(clips: SyncedClipInput[], fps = FPS) {
     for (let frame = 0; frame < placed.frames; frame += 1) {
       const t = placed.start + frame / fps;
       const tau = placed.trimStart + (t - placed.start);
-      const lips = clip.start + tau - (clip.offsetSeconds ?? 0);
+      const lips = clip.start + tau - (clip.offsetSeconds ?? 0) + (clip.lipLeadSeconds ?? 0);
       const heard = placement.voiceover.trimStart + t;
       worst = Math.max(worst, Math.abs(lips - heard));
     }
@@ -148,3 +149,64 @@ describe("laying clips made to a voiceover in an edit", () => {
     expect(cutFrameIndex({ start: 0, end: 7.4, offsetSeconds: 0 }, 24)).toBe(178);
   });
 });
+
+describe("cuts kept to six decimals, and lips that lead their sound", () => {
+  // As a run stores them: 245/30 is kept as 8.166667, a third of a microsecond late.
+  const stored = (frame: number) => Number((frame / FPS).toFixed(6));
+  const pieces: [number, number][] = [
+    [0, stored(245)],
+    [stored(245), stored(522)],
+    [stored(522), stored(808)],
+  ];
+  const clips = (extra: Partial<SyncedClipInput>[] = []): SyncedClipInput[] =>
+    pieces.map(([start, end], index) => ({
+      start,
+      end,
+      offsetSeconds: 0,
+      sourceSeconds: end - start + 0.5,
+      ...(extra[index] ?? {}),
+    }));
+
+  test("lays every clip on its own frame, never a frame late and trimmed", () => {
+    const placement = placeSyncedClips({ clips: clips(), fps: FPS });
+    expect(placement.clips.map((placed) => Math.round(placed.start * FPS))).toEqual([0, 245, 522]);
+    for (const placed of placement.clips) {
+      expect(placed.trimStart).toBe(0);
+      expect(placed.errorSeconds).toBe(0);
+    }
+    expect(placement.voiceover.trimStart).toBe(0);
+  });
+
+  test("lays a clip whose lips lead by a frame a frame later, its lips on the voice", () => {
+    const lead = 1 / FPS;
+    const input = clips([{}, { lipLeadSeconds: lead }, {}]);
+    const { placement, worst } = lipError(input);
+    expect(worst).toBeLessThan(ON_GRID);
+    expect(Math.round(placement.clips[1]!.start * FPS)).toBe(246);
+    expect(placement.clips[1]!.trimStart).toBe(0);
+    // The clip before plays on for that frame.
+    expect(placement.clips[0]!.frames).toBe(246);
+  });
+
+  test("starts the edit a frame into the voiceover when the first clip's lips lead", () => {
+    const input = clips([{ lipLeadSeconds: 1 / FPS }, {}, {}]);
+    const { placement, worst } = lipError(input);
+    expect(worst).toBeLessThan(ON_GRID);
+    expect(placement.voiceover.trimStart).toBeCloseTo(1 / FPS, 6);
+    expect(placement.clips[0]!.trimStart).toBe(0);
+  });
+
+  test("folds the lead into the measured offset, believing neither past the limit", () => {
+    expect(effectiveOffset({ offsetSeconds: 0.1, lipLeadSeconds: 0.04 })).toBeCloseTo(0.06, 9);
+    expect(effectiveOffset({ offsetSeconds: null, lipLeadSeconds: 0.04 })).toBeCloseTo(-0.04, 9);
+    expect(effectiveOffset({ offsetSeconds: 0.9, lipLeadSeconds: 0.04 }, 0.5)).toBeCloseTo(
+      -0.04,
+      9,
+    );
+    expect(effectiveOffset({ offsetSeconds: 0.04, lipLeadSeconds: 0.04 })).toBe(0);
+    expect(effectiveOffset({ offsetSeconds: 3e-7 })).toBe(0);
+  });
+});
+
+/** Within rounding of a frame boundary (cuts kept to six decimals). */
+const ON_GRID = 1e-5;
