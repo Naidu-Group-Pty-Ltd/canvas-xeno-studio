@@ -97,7 +97,11 @@ frame. The app sends one source per distinct asset (role `video`, `image` or
 - `captions` (`segments[]` of `start`/`end`/`text`, `style`, `position`,
   `size`, `uppercase`) and `overlays[]` (titles, subtitles, call-to-action
   badges), burned in with the Inter typeface; text is written to an ASS file
-  by the worker and stripped of markup
+  by the worker and stripped of markup. With feature `overlay_layout`, an
+  overlay can also give `y` (0.04–0.96, the height of its centre in the frame,
+  in place of `position`) and `backing`: `outline` (the default, as before),
+  `halo` (a soft dark glow that keeps text readable over busy footage) or
+  `box` (a solid panel; a call-to-action badge keeps its own)
 - `mix` (feature `channel_mix`): channel levels, each 0–2 and 1 when left
   out, that scale a whole sound bus before the final mix on top of the items'
   own volumes: `picture` (the clips' own sound), `voiceover`, `music` and
@@ -218,6 +222,28 @@ Three things make that exact rather than close:
   have come next.
 
 `/health` lists them as `audio_prepare`, `audio_sync` and `frame_index`.
+
+## Lip scores
+
+`lip_check` (a `video` source and, optionally, the `audio` piece it was made
+from; no output) scores how well a clip's lips follow the voice with SyncNet
+(`lipcheck/syncnet_score.py`, run in its own Python; see `tools/qc/README.md`
+to run it by hand). `params`: `duration_seconds` (score only the clip's first
+part, the length of its piece of the voiceover) and `window_seconds` (1–30,
+default 3). `metadata.status` is `scored`, `no_face` or `no_speech`; a scored
+clip has `offset_frames` (at 25 fps; negative: the lips lead the sound),
+`confidence` at that offset and `confidence_at_zero` (where the clip actually
+sits), `min_distance`, and the same per window in `windows[]`. Real,
+well-synced speech scores about 6 to 8; under about 3 the lips don't follow at
+all. The app flags a clip under 6.5, makes it again under 4, and takes out a
+confident lead of up to three frames when it lays the clip.
+
+The scorer is optional. The image builds it by default (`LIP_CHECK=1`); build
+with `--build-arg LIP_CHECK=0` to leave it out (a much smaller image), or set
+`SYNCNET_SHA256` to require a known checksum of the SyncNet weights (the build
+prints the one it fetched). If anything it needs can't be fetched, the build
+still succeeds without it. A worker without its files doesn't list `lip_check`
+in its features, and the app makes clips without scores.
 
 ## Configuration
 

@@ -5,7 +5,7 @@ import { TaskError } from "./net.js";
 
 /**
  * How well a clip's lips follow its voice, seen in its picture: SyncNet
- * (tools/qc/syncnet_score.py, run in its own Python) scores the mouth against
+ * (lipcheck/syncnet_score.py, run in its own Python) scores the mouth against
  * the sound at every offset up to fifteen frames either way, for the whole
  * clip and in windows of a few seconds. The app keeps the score with the
  * clip, takes out a lead of a frame or two when it lays the clip, and makes
