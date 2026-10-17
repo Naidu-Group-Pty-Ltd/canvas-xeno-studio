@@ -6,11 +6,13 @@
 import { execFileSync, spawn } from "node:child_process";
 import { createHmac } from "node:crypto";
 import { request as httpRequest } from "node:http";
+import { existsSync } from "node:fs";
 import { copyFile, mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { ffmpeg, probe } from "./ffmpeg.js";
-import { TASKS } from "./tasks.js";
+import { FEATURES, TASKS } from "./tasks.js";
+import { lipCheckAvailable, lipCheckDir, lipCheckPython } from "./lipcheck.js";
 import { clipRuns, fitAudioToSources, inParallel } from "./sequence.js";
 import { alignFrames, detailLevel, downscale } from "./align.js";
 import { Lanes, idleLongEnough, laneOf } from "./lanes.js";
@@ -93,7 +95,7 @@ await check("assemble_video (cross-fade)", async () => {
   if ((await stat(result.outputs[0].path)).size < 5000) throw new Error("assembled file too small");
 });
 
-await check("render_sequence (transitions, still, voice, ducked music, captions)", async () => {
+await check("render_sequence (transitions, still, voice, ducked music, captions, titles)", async () => {
   const still = join(dir, "still.jpg");
   const voice = join(dir, "voice.wav");
   const music = join(dir, "music.wav");
@@ -121,6 +123,11 @@ await check("render_sequence (transitions, still, voice, ducked music, captions)
         { source_index: 4, role: "music", loop: true, volume: 0.6 },
       ],
       captions: { segments: [{ start: 0.5, end: 2.5, text: "Self-test caption" }] },
+      // A title at a height of its own on a halo, and a subtitle on a box.
+      overlays: [
+        { start: 0.2, end: 1.8, text: "SELF-TEST TITLE", style: "title", y: 0.4, backing: "halo" },
+        { start: 2, end: 3.5, text: "On a box", style: "subtitle", position: "bottom", backing: "box" },
+      ],
     },
     dir,
     progress: (value) => marks.push(value),
@@ -233,6 +240,76 @@ async function colourAt(path, crop) {
 }
 const near = (colour, [r, g, b]) => Math.abs(colour[0] - r) < 60 && Math.abs(colour[1] - g) < 60 && Math.abs(colour[2] - b) < 60;
 
+/** The average colour of a region of a file's picture at a time, as [r, g, b]. */
+async function colourAtTime(path, time, crop) {
+  const out = join(dir, `pixel-${Math.random().toString(36).slice(2)}.ppm`);
+  await ffmpeg(["-ss", String(time), "-i", path, "-frames:v", "1", "-vf", `crop=${crop},scale=1:1`, "-c:v", "ppm", out]);
+  const bytes = await readFile(out);
+  return [...bytes.subarray(bytes.length - 3)];
+}
+
+await check("render_sequence lays a logo over the picture between its times, and sets titles in a brand's font and colours", async () => {
+  const blue = join(dir, "blue.mp4");
+  const logo = join(dir, "logo.png");
+  await ffmpeg(["-f", "lavfi", "-i", "color=c=blue:s=320x180:d=2:r=25", "-pix_fmt", "yuv420p", blue]);
+  await ffmpeg(["-f", "lavfi", "-i", "color=c=red:s=100x100,format=rgba", "-frames:v", "1", logo]);
+  const fontFile = execFileSync("sh", ["-c", "find /usr/share/fonts -type f \\( -name '*.ttf' -o -name '*.otf' \\) | sort | head -1"]).toString().trim();
+  if (!fontFile) throw new Error("no font installed to test with");
+  const brandFont = join(dir, "brand-font");
+  await copyFile(fontFile, brandFont);
+  const result = await TASKS.render_sequence.run({
+    sources: [
+      { path: blue, role: "video" },
+      { path: logo, role: "image" },
+      { path: brandFont, role: "font" },
+    ],
+    params: {
+      width: 320, height: 180, fps: 25, normalize_loudness: false,
+      clips: [{ source_index: 0, duration: 2, volume: 0 }],
+      images: [{ source_index: 1, start: 0.6, end: 1.4, x: 0.25, y: 0.5, width: 0.2, fade: 0 }],
+      fonts: [{ source_index: 2, family: "Declared Brand" }],
+      captions: { font: "Declared Brand", color: "#ffcc00", segments: [{ start: 0, end: 2, text: "Brand caption" }] },
+      overlays: [{ start: 0, end: 2, text: "BRAND", style: "subtitle", y: 0.15, font: "Declared Brand", color: "#00ff00", accent: "#112233", backing: "box" }],
+    },
+    dir,
+  });
+  const out = result.outputs[0].path;
+  // The logo's centre, a quarter across: red while it shows, blue before and after.
+  if (!near(await colourAtTime(out, 1.0, "10:10:75:85"), [255, 0, 0])) throw new Error("the logo isn't there while it shows");
+  if (!near(await colourAtTime(out, 0.3, "10:10:75:85"), [0, 0, 255])) throw new Error("the logo shows before its time");
+  if (!near(await colourAtTime(out, 1.8, "10:10:75:85"), [0, 0, 255])) throw new Error("the logo shows after its time");
+  // The text is set in the family the font file names itself by, in the brand's colours.
+  const script = await readFile(join(dir, "text.ass"), "utf8");
+  const named = (await import("./fonts.js")).fontFamily(await readFile(fontFile));
+  if (!named || !script.includes(`\\fn${named}\\b0`)) throw new Error(`the title isn't set in ${named}`);
+  if (!script.includes(`Style: Caption,${named},`)) throw new Error("the captions aren't set in the brand font");
+  if (!script.includes("\\1c&H00FF00&") || !script.includes("\\3c&H332211&")) throw new Error("the title isn't in the brand's colours");
+});
+
+await check("render_sequence lays a GIF logo from the edit's first frame, decoded once", async () => {
+  const blue = join(dir, "blue-gif.mp4");
+  const logo = join(dir, "logo.gif");
+  await ffmpeg(["-f", "lavfi", "-i", "color=c=blue:s=320x180:d=1:r=25", "-pix_fmt", "yuv420p", blue]);
+  await ffmpeg(["-f", "lavfi", "-i", "color=c=red:s=100x100:d=0.2:r=10", logo]);
+  const result = await TASKS.render_sequence.run({
+    sources: [
+      { path: blue, role: "video" },
+      { path: logo, role: "image" },
+    ],
+    params: {
+      width: 320, height: 180, fps: 25, normalize_loudness: false,
+      clips: [{ source_index: 0, duration: 1, volume: 0 }],
+      images: [{ source_index: 1, start: 0, end: 1, x: 0.25, y: 0.5, width: 0.2, fade: 0 }],
+    },
+    dir,
+  });
+  const out = result.outputs[0].path;
+  if (!near(await colourAtTime(out, 0, "10:10:75:85"), [255, 0, 0])) throw new Error("the logo isn't on the first frame");
+  if (!near(await colourAtTime(out, 0.96, "10:10:75:85"), [255, 0, 0])) throw new Error("the logo isn't on the last frame");
+  const info = await probe(out);
+  if (Math.abs(info.duration_seconds - 1) > 0.06) throw new Error(`rendered ${info.duration_seconds}s`);
+});
+
 await check("reframe_video crops around its focus point", async () => {
   const left = await TASKS.reframe_video.run({ sources: [{ path: halves }], params: { width: 180, height: 320, mode: "cover", focus_x: 0 }, dir });
   const leftColour = await colourAt(left.outputs[0].path, "40:40:70:140");
@@ -289,6 +366,39 @@ async function numberedClip(name, level) {
   ]);
   return path;
 }
+
+/** Each frame's average brightness (0-255), in order. */
+async function lumaLevels(path) {
+  const { stderr } = await ffmpeg(["-i", path, "-vf", "signalstats,metadata=print:key=lavfi.signalstats.YAVG", "-f", "null", "-"]);
+  return [...stderr.matchAll(/lavfi\.signalstats\.YAVG=([\d.]+)/g)].map((match) => Number(match[1]));
+}
+
+for (const [retime, most] of [["duplicate", null], ["blend", 1], ["motion", 1]]) {
+  await check(`render_sequence brings a 24 fps clip to 30 fps (${retime})`, async () => {
+    // Brightness climbs 4 levels a source frame, so a repeated frame shows as a step of nothing.
+    const clip = await numberedClip(`retime-${retime}.mp4`, "N*4");
+    const result = await TASKS.render_sequence.run({
+      sources: [{ path: clip, role: "video" }],
+      params: { width: 256, height: 144, fps: 30, normalize_loudness: false, frame_rate_conversion: retime, clips: [{ source_index: 0, duration: 1.5, volume: 0 }] },
+      dir,
+    });
+    const levels = await lumaLevels(result.outputs[0].path);
+    if (levels.length !== 45) throw new Error(`expected 45 frames, got ${levels.length}`);
+    const repeats = levels.slice(1).filter((level, index) => Math.abs(level - levels[index]) < 1).length;
+    if (most === null ? repeats < 6 : repeats > most) throw new Error(`${repeats} repeated frames`);
+  });
+}
+
+await check("render_sequence scales sharply when asked", async () => {
+  const clip = await numberedClip("sharp.mp4", "N*4");
+  const result = await TASKS.render_sequence.run({
+    sources: [{ path: clip, role: "video" }],
+    params: { width: 360, height: 640, fps: 25, normalize_loudness: false, upscale: "sharp", clips: [{ source_index: 0, duration: 0.4 }] },
+    dir,
+  });
+  const info = await probe(result.outputs[0].path);
+  if (info.width !== 360 || info.height !== 640) throw new Error(`rendered ${info.width}x${info.height}`);
+});
 
 await check("extract_frames takes a clip's true last frame, by counting its frames", async () => {
   const clip = await numberedClip("numbered.mp4", "N*4");
@@ -819,6 +929,21 @@ await check("an idle worker stops cleanly, and turns away a task read as it deci
   } finally {
     worker.kill();
   }
+});
+
+// With its files (an image built with LIP_CHECK=1), SyncNet runs end to end: a
+// test pattern has no face to score. Without them, it isn't offered at all.
+await check(lipCheckAvailable ? "lip_check runs SyncNet, and finds no face in a test pattern" : "lip_check isn't offered without its files", async () => {
+  if (!lipCheckAvailable) {
+    if (TASKS.lip_check || FEATURES.includes("lip_check")) throw new Error("offered without its files");
+    return;
+  }
+  if (!FEATURES.includes("lip_check")) throw new Error("not in the features");
+  const { metadata } = await TASKS.lip_check.run({ sources: [{ path: clipA, role: "video" }], params: { window_seconds: 3 }, dir });
+  if (metadata.status !== "no_face") throw new Error(`reported ${JSON.stringify(metadata)}`);
+  // Framing and the mouth in silences, with the image's own numpy.
+  const tests = join(lipCheckDir, "tests", "test_face_qc.py");
+  if (existsSync(tests)) execFileSync(lipCheckPython, ["-I", tests], { stdio: "pipe" });
 });
 
 await rm(dir, { recursive: true, force: true });

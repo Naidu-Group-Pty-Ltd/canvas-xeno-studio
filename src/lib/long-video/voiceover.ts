@@ -30,6 +30,12 @@ import {
 } from "../lip-sync/segments";
 import { timingOf, type PreparedAnalysis } from "../lip-sync/analysis";
 import {
+  normaliseCutaways,
+  planSectionedSegments,
+  sectionedPlanProblems,
+  type Cutaway,
+} from "../lip-sync/sections";
+import {
   clipKeyframes,
   durationChoices,
   finaleReveals,
@@ -51,6 +57,12 @@ export interface RunVoiceover {
   title: string;
   /** The Editor plays the clips' own sound under the voiceover. */
   keepClipSound: boolean;
+  /**
+   * Stretches covered by other footage (B-roll), on the voiceover's clock: no
+   * clip is made for them (see ../lip-sync/sections). Empty: the presenter
+   * throughout.
+   */
+  cutaways: Cutaway[];
 }
 
 /** A piece of the voiceover a clip is made from, as the browser sends it and the server checks it. */
@@ -93,9 +105,23 @@ export function planVoiceoverClips(input: {
   continuation: ModelRegistryEntry;
   /** The longest a clip may be; none for the longest the model allows. */
   maxClipSeconds?: number | null;
-}): SegmentPlan {
+  /** Stretches covered by B-roll, which no clip is made for. */
+  cutaways?: Cutaway[] | null;
+}): SegmentPlan & { cutaways: Cutaway[] } {
   const choices = voiceoverChoices(input.first, input.continuation);
-  return planVoiceoverSegments({
+  if (input.cutaways?.length)
+    return planSectionedSegments({
+      timing: timingOf(input.analysis),
+      words: input.words ?? null,
+      firstChoices: choices.first,
+      laterChoices: choices.later,
+      ...(input.maxClipSeconds ? { maxClipSeconds: input.maxClipSeconds } : {}),
+      fps: LIP_SYNC.gridFps,
+      headroomSeconds: LIP_SYNC.headroomSeconds,
+      maxClips: LONG_VIDEO_LIMITS.maxClips,
+      cutaways: input.cutaways,
+    });
+  const plan = planVoiceoverSegments({
     timing: timingOf(input.analysis),
     words: input.words ?? null,
     firstChoices: choices.first,
@@ -105,6 +131,7 @@ export function planVoiceoverClips(input: {
     headroomSeconds: LIP_SYNC.headroomSeconds,
     maxClips: LONG_VIDEO_LIMITS.maxClips,
   });
+  return { ...plan, cutaways: [] };
 }
 
 /**
@@ -118,16 +145,21 @@ export function voiceoverPlanProblems(input: {
   durationSeconds: number;
   first: ModelRegistryEntry;
   continuation: ModelRegistryEntry;
+  /** Stretches covered by B-roll, as planned: the pieces leave them out. */
+  cutaways?: Cutaway[] | null;
 }): string[] {
   const choices = voiceoverChoices(input.first, input.continuation);
-  const problems = segmentProblems(input.pieces, {
+  const checks = {
     firstChoices: choices.first,
     laterChoices: choices.later,
     durationSeconds: input.durationSeconds,
     fps: LIP_SYNC.gridFps,
     headroomSeconds: LIP_SYNC.headroomSeconds,
     maxClips: LONG_VIDEO_LIMITS.maxClips,
-  });
+  };
+  const problems = input.cutaways?.length
+    ? sectionedPlanProblems(input.pieces, input.cutaways, checks)
+    : segmentProblems(input.pieces, checks);
   if (input.clipSeconds.length !== input.pieces.length)
     problems.push("Every clip needs its own piece of the voiceover.");
   else
@@ -190,6 +222,17 @@ export function storedVoiceover(value: unknown): RunVoiceover | null {
   const sampleRate = number("sample_rate");
   const samples = number("samples");
   if (!preparedAssetId || !durationSeconds || !sampleRate || !samples) return null;
+  const cutaways = Array.isArray(record["cutaways"])
+    ? normaliseCutaways(
+        (record["cutaways"] as Record<string, unknown>[]).flatMap((item) =>
+          typeof item?.["start"] === "number" && typeof item?.["end"] === "number"
+            ? [{ start: item["start"], end: item["end"] }]
+            : [],
+        ),
+        durationSeconds,
+        number("fps") ?? LIP_SYNC.gridFps,
+      )
+    : [];
   return {
     preparedAssetId,
     durationSeconds,
@@ -199,6 +242,7 @@ export function storedVoiceover(value: unknown): RunVoiceover | null {
     headroomSeconds: number("headroom_seconds") ?? LIP_SYNC.headroomSeconds,
     title: typeof record["title"] === "string" ? record["title"] : "Voiceover",
     keepClipSound: record["keep_clip_sound"] === true,
+    cutaways,
   };
 }
 
@@ -213,5 +257,8 @@ export function storeVoiceover(voiceover: RunVoiceover): Record<string, unknown>
     headroom_seconds: voiceover.headroomSeconds,
     title: voiceover.title,
     keep_clip_sound: voiceover.keepClipSound,
+    ...(voiceover.cutaways.length
+      ? { cutaways: voiceover.cutaways.map(({ start, end }) => ({ start, end })) }
+      : {}),
   };
 }

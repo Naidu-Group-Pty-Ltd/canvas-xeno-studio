@@ -408,3 +408,37 @@ export const listMediaTasks = createServerFn({ method: "GET" })
     const { data: rows } = await query;
     return rows ?? [];
   });
+
+/**
+ * Checks a picture or video for garbled text (see ./media/text-check): an
+ * image at once; a video once the media service has taken frames through it,
+ * so while it answers "sampling" the browser asks again a few seconds later.
+ */
+export const checkAssetText = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        assetId: z.string().uuid(),
+        again: z.boolean().default(false),
+        expected: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("is_active")
+      .eq("id", context.userId)
+      .maybeSingle();
+    if (!profile?.is_active)
+      throw new AppError("NOT_AUTHORIZED", "Your account is not an active team member");
+    const { checkAssetText: check } = await import("./media/text-check.server");
+    return check({
+      assetId: data.assetId,
+      userId: context.userId,
+      again: data.again,
+      ...(data.expected ? { expected: data.expected } : {}),
+    });
+  });

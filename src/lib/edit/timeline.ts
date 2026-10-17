@@ -8,6 +8,7 @@
  * shows is what the render produces.
  */
 import { z } from "zod";
+import { FONT_FAMILY_PATTERN, isBrandFontFile } from "./font-family";
 
 export const ASPECT_RATIOS = [
   "9:16",
@@ -134,6 +135,40 @@ export const OVERLAY_STYLE_LABELS: Record<OverlayStyle, string> = {
 };
 export const OVERLAY_POSITIONS = ["top", "center", "bottom"] as const;
 export type OverlayPosition = (typeof OVERLAY_POSITIONS)[number];
+/**
+ * What keeps a title readable over the picture: its outline (as titles always
+ * had), a soft dark halo (white text that reads on a white flash as well as
+ * on a dark shot), or a box behind it.
+ */
+export const OVERLAY_BACKINGS = ["outline", "halo", "box"] as const;
+export type OverlayBacking = (typeof OVERLAY_BACKINGS)[number];
+export const OVERLAY_BACKING_LABELS: Record<OverlayBacking, string> = {
+  outline: "Outline",
+  halo: "Soft halo",
+  box: "Box behind",
+};
+
+/**
+ * How a clip made at another frame rate (24 fps B-roll in a 30 fps edit) is
+ * brought to the edit's: frames repeated (quick; a slow camera move can
+ * judder), neighbouring frames blended, or new frames made from the motion
+ * between them (smoothest, and much slower to render).
+ */
+export const FRAME_RATE_CONVERSIONS = ["duplicate", "blend", "motion"] as const;
+export type FrameRateConversion = (typeof FRAME_RATE_CONVERSIONS)[number];
+export const FRAME_RATE_CONVERSION_LABELS: Record<FrameRateConversion, string> = {
+  duplicate: "Repeat frames (fastest)",
+  blend: "Blend frames",
+  motion: "Motion-interpolate (smoothest, slow)",
+};
+
+/** How pictures smaller than the frame are scaled up: as before, or sharper (720p clips in a 1080p edit). */
+export const UPSCALES = ["standard", "sharp"] as const;
+export type Upscale = (typeof UPSCALES)[number];
+export const UPSCALE_LABELS: Record<Upscale, string> = {
+  standard: "Standard",
+  sharp: "Sharp (Lanczos)",
+};
 
 export const LIMITS = {
   clips: 60,
@@ -145,9 +180,21 @@ export const LIMITS = {
   transitionSeconds: 3,
   captionChars: 220,
   overlayChars: 160,
+  /** Pictures over the edit (a logo) and brand font files. */
+  images: 8,
+  fonts: 4,
 } as const;
 
 const finite = (min: number, max: number) => z.number().finite().min(min).max(max);
+/** A colour as #rrggbb, or null for the style's own. */
+const hexColour = z
+  .string()
+  .regex(/^#[0-9a-fA-F]{6}$/)
+  .transform((value) => value.toLowerCase())
+  .nullable()
+  .default(null);
+/** A brand font's family (see ./font-family), or null for Inter. */
+const fontName = z.string().regex(FONT_FAMILY_PATTERN).nullable().default(null);
 
 export const clipSchema = z.object({
   id: z.string().min(1).max(64),
@@ -217,6 +264,10 @@ export const captionsSchema = z.object({
   position: z.enum(CAPTION_POSITIONS).default("lower_third"),
   size: finite(0.5, 2).default(1),
   uppercase: z.boolean().default(false),
+  /** A brand's look: its font, text colour and accent (the box, or bold captions' text). */
+  font: fontName,
+  color: hexColour,
+  accent: hexColour,
   segments: z.array(captionSegmentSchema).max(LIMITS.captions).default([]),
 });
 export type Captions = z.infer<typeof captionsSchema>;
@@ -228,8 +279,43 @@ export const overlaySchema = z.object({
   end: finite(0, LIMITS.totalSeconds),
   style: z.enum(OVERLAY_STYLES).default("title"),
   position: z.enum(OVERLAY_POSITIONS).default("center"),
+  /** Its height on the frame (the middle of the text, 0 top to 1 bottom); null: by its position. */
+  y: finite(0.04, 0.96).nullable().default(null),
+  backing: z.enum(OVERLAY_BACKINGS).default("outline"),
+  /** A brand's look: its font, text colour and accent (a box's, or a call to action's badge). */
+  font: fontName,
+  color: hexColour,
+  accent: hexColour,
 });
 export type Overlay = z.infer<typeof overlaySchema>;
+
+/** A picture laid over the edit (a brand's logo), centred where it is put. */
+export const imageOverlaySchema = z.object({
+  id: z.string().min(1).max(64),
+  assetId: z.string().uuid(),
+  start: finite(0, LIMITS.totalSeconds),
+  end: finite(0, LIMITS.totalSeconds),
+  /** Its centre, 0-1 across and down the frame. */
+  x: finite(0, 1).default(0.5),
+  y: finite(0, 1).default(0.5),
+  /** Its width as a share of the frame's (its height follows its shape). */
+  width: finite(0.03, 1).default(0.3),
+  opacity: finite(0, 1).default(1),
+  /** Seconds it fades in and out over. */
+  fade: finite(0, 2).default(0.3),
+  label: z.string().max(200).optional(),
+});
+export type ImageOverlay = z.infer<typeof imageOverlaySchema>;
+
+/** A brand font file an edit's text is set in (kept where brand fonts are; see ./brand). */
+export const fontFileSchema = z
+  .object({
+    family: z.string().regex(FONT_FAMILY_PATTERN),
+    bucket: z.string().max(64),
+    path: z.string().max(300),
+  })
+  .refine(isBrandFontFile, "A font must be one of the brand's own font files");
+export type FontFile = z.infer<typeof fontFileSchema>;
 
 /**
  * The mixer's channels: the clips' own sound, the voiceover, and music with
@@ -272,6 +358,17 @@ export const timelineSchema = z.object({
   normalizeLoudness: z.boolean().default(true),
   /** Channel levels; an edit saved before the mixer existed plays as it did. */
   mix: mixSchema.default({}),
+  /** Clips at another frame rate: see FRAME_RATE_CONVERSIONS. */
+  frameRateConversion: z.enum(FRAME_RATE_CONVERSIONS).default("duplicate"),
+  upscale: z.enum(UPSCALES).default("standard"),
+  /** Pictures laid over the edit (a logo). */
+  images: z.array(imageOverlaySchema).max(LIMITS.images).default([]),
+  /** The brand font files its text is set in. */
+  fonts: z.array(fontFileSchema).max(LIMITS.fonts).default([]),
+  /** The brand kit it was styled from, for the Editor to offer again. */
+  brandKitId: z.string().uuid().nullable().default(null),
+  /** The platform whose clear area the preview shows (see ./brand SAFE_AREAS). */
+  safeArea: z.enum(["none", "tiktok", "reels", "shorts", "youtube"]).default("none"),
 });
 export type Timeline = z.infer<typeof timelineSchema>;
 
@@ -880,6 +977,19 @@ export interface RenderSource {
   role: "video" | "image" | "audio";
 }
 
+/** The families an edit's text asks for that it carries a font file for. */
+export function usedFonts(timeline: Pick<Timeline, "fonts" | "overlays" | "captions">): FontFile[] {
+  const wanted = new Set<string>();
+  for (const overlay of timeline.overlays) if (overlay.font) wanted.add(overlay.font);
+  if (timeline.captions.enabled && timeline.captions.font) wanted.add(timeline.captions.font);
+  const seen = new Set<string>();
+  return timeline.fonts.filter((font) => {
+    if (!wanted.has(font.family) || seen.has(font.family)) return false;
+    seen.add(font.family);
+    return true;
+  });
+}
+
 /**
  * The audio heard in a render: it starts before the picture ends and neither
  * it nor its channel is silent.
@@ -922,6 +1032,8 @@ export function buildRenderRequest(
 ): {
   sources: RenderSource[];
   params: Record<string, unknown>;
+  /** Brand font files, sent after the sources in this order (role "font"). */
+  fonts: FontFile[];
 } {
   const sources: RenderSource[] = [];
   const indexFor = (assetId: string, role: RenderSource["role"]) => {
@@ -989,6 +1101,19 @@ export function buildRenderRequest(
         }))
     : [];
 
+  // A font is asked for only where its file goes with the render; otherwise the text is set in Inter.
+  const fonts = usedFonts(timeline);
+  const carried = new Set(fonts.map((font) => font.family));
+  const brandText = (item: {
+    font: string | null;
+    color: string | null;
+    accent: string | null;
+  }) => ({
+    ...(item.font && carried.has(item.font) ? { font: item.font } : {}),
+    ...(item.color ? { color: item.color } : {}),
+    ...(item.accent ? { accent: item.accent } : {}),
+  });
+
   const overlays = timeline.overlays
     .filter(
       (overlay) =>
@@ -1000,10 +1125,30 @@ export function buildRenderRequest(
       end: Math.min(overlay.end, layout.total),
       style: overlay.style,
       position: overlay.position,
+      // Sent only when set, so a media service from before them renders the rest.
+      ...(overlay.y !== null ? { y: overlay.y } : {}),
+      ...(overlay.backing !== "outline" ? { backing: overlay.backing } : {}),
+      ...brandText(overlay),
+    }));
+
+  const images = timeline.images
+    .filter(
+      (image) => image.end - image.start >= 0.1 && image.start < layout.total && image.opacity > 0,
+    )
+    .map((image) => ({
+      source_index: indexFor(image.assetId, "image"),
+      start: image.start,
+      end: Math.min(image.end, layout.total),
+      x: image.x,
+      y: image.y,
+      width: image.width,
+      opacity: image.opacity,
+      fade: image.fade,
     }));
 
   return {
     sources,
+    fonts,
     params: {
       width,
       height,
@@ -1017,13 +1162,29 @@ export function buildRenderRequest(
             position: timeline.captions.position,
             size: timeline.captions.size,
             uppercase: timeline.captions.uppercase,
+            ...brandText(timeline.captions),
             segments,
           }
         : null,
       overlays,
+      // Sent only when there are any, so a media service from before them renders the rest.
+      ...(images.length ? { images } : {}),
+      ...(fonts.length
+        ? {
+            fonts: fonts.map((font, index) => ({
+              source_index: sources.length + index,
+              family: font.family,
+            })),
+          }
+        : {}),
       fade_in: timeline.fadeIn,
       fade_out: timeline.fadeOut,
       normalize_loudness: timeline.normalizeLoudness,
+      // Sent only when chosen, so a media service from before them renders as it did.
+      ...(timeline.frameRateConversion !== "duplicate"
+        ? { frame_rate_conversion: timeline.frameRateConversion }
+        : {}),
+      ...(timeline.upscale !== "standard" ? { upscale: timeline.upscale } : {}),
       ...(busMix
         ? {
             mix: {

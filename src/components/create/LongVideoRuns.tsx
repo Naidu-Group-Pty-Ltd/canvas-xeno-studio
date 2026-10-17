@@ -18,13 +18,18 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useAssetsById,
+  useClipTakes,
   useLongVideos,
   useNudgeStalledRuns,
   type LongVideoClipRow,
   type LongVideoRow,
 } from "@/hooks/useLongVideos";
+import { ClipControls, ClipLipScore, CutawayFills } from "@/components/create/RunControls";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   continueLongVideo,
+  holdLongVideoClip,
   keepLongVideoClip,
   openLongVideoInEditor,
   redoLongVideoClip,
@@ -87,11 +92,28 @@ function checksCharacters(run: LongVideoRow): boolean {
 /** Checks that let a clip through. */
 const SETTLED_CHECKS = new Set(["passed", "accepted", "unavailable", "skipped"]);
 
-/** A clip is done once it's in, its next start frame taken and (with characters) its check settled. */
-function clipDone(run: LongVideoRow, clip: LongVideoClipRow, isLast: boolean): boolean {
+/** Failures that cost nothing, which Continue makes again (see continueLongVideo). */
+const FREE_FAILURES = new Set([
+  "INSUFFICIENT_PROVIDER_BALANCE",
+  "BUDGET_EXCEEDED",
+  "RATE_LIMITED",
+  "NOT_SUBMITTED",
+]);
+
+/**
+ * A clip's handoff is done: its next start frame taken, or none needed (the
+ * last clip, or a clip no other starts from, as in a video whose clips all
+ * start from one still).
+ */
+function handedOff(clip: LongVideoClipRow): boolean {
+  return clip.handoff_status === "ready" || clip.handoff_status === "not_needed";
+}
+
+/** A clip is done once it's in, handed off and (with characters) its check settled. */
+function clipDone(run: LongVideoRow, clip: LongVideoClipRow): boolean {
   return (
     clip.status === "completed" &&
-    (clip.handoff_status === "ready" || (isLast && clip.handoff_status === "not_needed")) &&
+    handedOff(clip) &&
     (!checksCharacters(run) || SETTLED_CHECKS.has(clip.check_status))
   );
 }
@@ -100,7 +122,7 @@ function clipDone(run: LongVideoRow, clip: LongVideoClipRow, isLast: boolean): b
 function clipState(run: LongVideoRow, clip: LongVideoClipRow, isLast: boolean): string {
   switch (clip.status) {
     case "waiting":
-      return "Waiting";
+      return clip.held ? "Held" : "Waiting";
     case "submitting":
       return "Starting";
     case "generating":
@@ -110,7 +132,7 @@ function clipState(run: LongVideoRow, clip: LongVideoClipRow, isLast: boolean): 
     case "canceled":
       return "Stopped";
     default:
-      if (clip.handoff_status === "ready" || (isLast && clip.handoff_status === "not_needed")) {
+      if (handedOff(clip)) {
         if (!checksCharacters(run)) return "Done";
         if (clip.check_status === "flagged") return "Someone changed";
         if (clip.check_status === "passed") return "Done · checked";
@@ -121,6 +143,7 @@ function clipState(run: LongVideoRow, clip: LongVideoClipRow, isLast: boolean): 
       if (clip.handoff_status === "failed") return "Frame failed";
       // Made to a voiceover: where its speech is, measured before its frame is taken.
       if (clip.sync_status === "measuring") return "Measuring lip sync";
+      if (clip.lip_status === "checking") return "Scoring lips";
       return isLast ? "Finishing" : "Preparing the next clip";
   }
 }
@@ -194,12 +217,22 @@ function runImages(run: LongVideoRow): string[] {
   });
 }
 
+/** The B-roll chosen for a run's cutaways, by asset id. */
+function cutawayFillIds(run: LongVideoRow): string[] {
+  const fills = (run as { cutaway_fills?: unknown }).cutaway_fills;
+  return (Array.isArray(fills) ? fills : []).flatMap((entry) => {
+    const id = (entry as Record<string, unknown> | null)?.["asset_id"];
+    return typeof id === "string" ? [id] : [];
+  });
+}
+
 /** A list of long videos, each with its clips and what can be done with it. */
 export function LongVideoRunList({ runs }: { runs: LongVideoRow[] }) {
   const assetIds = runs.flatMap((run) => [
     ...run.clips.flatMap((clip) => (clip.output_asset_id ? [clip.output_asset_id] : [])),
     ...run.keyframes.flatMap((keyframe) => (keyframe.asset_id ? [keyframe.asset_id] : [])),
     ...runImages(run),
+    ...cutawayFillIds(run),
   ]);
   const { data: assets } = useAssetsById(assetIds);
   useNudgeStalledRuns(runs);
@@ -231,6 +264,10 @@ function RunCard({
   const [seam, setSeam] = useState<LongVideoSeam>("smart");
   const [keepSound, setKeepSound] = useState(!voiceover);
   const [captions, setCaptions] = useState(false);
+  // Made to a voiceover: captions in the script's own words, and the brand's spellings.
+  const [script, setScript] = useState("");
+  const [terms, setTerms] = useState("");
+  const { data: takes = [] } = useClipTakes(voiceover ? [run.id] : []);
   // The end card: the run's finisher when it holds after the last clip; any
   // of its images (or none) can be chosen when opening it in the Editor.
   const finale = storedFinale(run.references_used);
@@ -252,9 +289,13 @@ function RunCard({
   const status = RUN_STATUS[run.status] ?? RUN_STATUS["running"]!;
   const failedClip = run.clips.find((clip) => clip.status === "failed");
   const failedHandoff = run.clips.find((clip) => clip.handoff_status === "failed");
-  const done = run.clips.filter((clip, index) =>
-    clipDone(run, clip, index === run.clips.length - 1),
-  ).length;
+  const done = run.clips.filter((clip) => clipDone(run, clip)).length;
+  // A clip that failed without costing anything (no balance, a limit): Continue makes it again.
+  const freeFailure = !!failedClip && FREE_FAILURES.has(failedClip.error_code ?? "");
+  const heldClip =
+    run.status === "needs_attention" && run.error_code === "CLIP_HELD"
+      ? run.clips.find((clip) => clip.held && clip.status === "waiting")
+      : undefined;
   // Waiting on a person's choice (keyframes to review, a keyframe to redo or
   // keep, a character who changed), and only while that is still so: a pause
   // that landed just after the choice was made is carried on with Continue.
@@ -382,8 +423,19 @@ function RunCard({
           // A different end card makes a new edit, so the one made before stays as it is.
           fresh: fresh || (endCard !== undefined && !!run.sequence_id),
           ...(endCard !== undefined ? { endCard } : {}),
+          ...(voiceover && script.trim() ? { script: script.trim() } : {}),
+          ...(voiceover && terms.trim()
+            ? {
+                terms: terms
+                  .split(",")
+                  .map((term) => term.trim())
+                  .filter(Boolean)
+                  .slice(0, 30),
+              }
+            : {}),
         },
       });
+      for (const note of result.notes ?? []) toast.message(note);
       if (result.missing.length)
         toast.message(`Opened ${finished.length} of ${run.clip_count} clips`, {
           description: `Not in yet: clip ${result.missing.map((position) => position + 1).join(", ")}.`,
@@ -508,7 +560,19 @@ function RunCard({
                 <span className="truncate">
                   {index + 1} · {state}
                 </span>
+                {canManage && "held" in clip && (
+                  <span className="ml-auto">
+                    <ClipControls
+                      run={run}
+                      clip={clip}
+                      takes={takes.filter((take) => take.clip_id === clip.id)}
+                      act={act}
+                      busy={busy}
+                    />
+                  </span>
+                )}
               </p>
+              <ClipLipScore run={run} clip={clip} />
               {voiceover && sync && clip.sync_status !== "measuring" && (
                 <p
                   className={cn(
@@ -529,6 +593,17 @@ function RunCard({
           );
         })}
       </ol>
+
+      {voiceover && voiceover.cutaways.length > 0 && (
+        <CutawayFills
+          run={run}
+          cutaways={voiceover.cutaways}
+          assets={assets}
+          canManage={canManage}
+          act={act}
+          busy={busy}
+        />
+      )}
 
       {run.status === "needs_attention" && run.error_message && (
         <p
@@ -587,6 +662,26 @@ function RunCard({
                         onCheckedChange={setCaptions}
                       />
                     </div>
+                    {captions && (
+                      <div className="space-y-1.5" data-testid="long-video-caption-script">
+                        <Textarea
+                          value={script}
+                          onChange={(event) => setScript(event.target.value)}
+                          rows={3}
+                          placeholder="The script it was read from (optional): its words and punctuation are shown, at the times they were said"
+                          className="min-h-9 text-xs"
+                        />
+                        <Input
+                          value={terms}
+                          onChange={(event) => setTerms(event.target.value)}
+                          placeholder="Names to spell right, comma-separated (e.g. Aurixa Systems)"
+                          className="h-8 text-xs"
+                        />
+                        <p className="text-[11px] text-muted-foreground">
+                          Captions come as short phrases, never a word on its own.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-1.5">
@@ -764,9 +859,27 @@ function RunCard({
             </Button>
           </>
         )}
+        {canManage && heldClip && (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy !== null}
+            onClick={() =>
+              void act(
+                "hold",
+                () => holdLongVideoClip({ data: { clipId: heldClip.id, held: false } }),
+                `Clip ${heldClip.position + 1} released. Carrying on.`,
+              )
+            }
+            data-testid="long-video-release"
+          >
+            <Play className="mr-1.5 size-3.5" /> Release clip {heldClip.position + 1}
+          </Button>
+        )}
         {canManage &&
           run.status === "needs_attention" &&
           failedClip &&
+          !freeFailure &&
           failedClip.error_code !== "KEYFRAME_MISSING" && (
             <Button
               size="sm"
@@ -780,8 +893,9 @@ function RunCard({
           )}
         {canManage &&
           !deadEnd &&
+          !heldClip &&
           (run.status === "canceled" ||
-            (run.status === "needs_attention" && !failedClip && !personPause)) &&
+            (run.status === "needs_attention" && (!failedClip || freeFailure) && !personPause)) &&
           done < run.clip_count && (
             <Button
               size="sm"

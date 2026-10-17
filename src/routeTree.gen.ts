@@ -51,6 +51,9 @@ import { Route as ApiPublicHiggsfieldOauthRouteImport } from './routes/api/publi
 import { Route as ApiPublicHiggsfieldReconcileRouteImport } from './routes/api/public/higgsfield-reconcile'
 import { Route as ApiPublicHiggsfieldWebhookRouteImport } from './routes/api/public/higgsfield-webhook'
 import { Route as ApiPublicKatanaTickRouteImport } from './routes/api/public/katana-tick'
+import { Route as ApiPublicLongVideoTickRouteImport } from './routes/api/public/long-video-tick'
+import { Route as ApiPublicStudioMcpRouteImport } from './routes/api/public/studio-mcp'
+import { Route as ApiPublicStudioToolRouteImport } from './routes/api/public/studio/$tool'
 import { Route as ApiPublicKatanaWebhookRouteImport } from './routes/api/public/katana-webhook'
 import { Route as ApiPublicMediaWorkerCallbackRouteImport } from './routes/api/public/media-worker-callback'
 import { Route as ApiPublicMediaWorkerCredentialsRouteImport } from './routes/api/public/media-worker-credentials'
@@ -270,6 +273,21 @@ const ApiPublicKatanaTickRoute = ApiPublicKatanaTickRouteImport.update({
   path: '/api/public/katana-tick',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicLongVideoTickRoute = ApiPublicLongVideoTickRouteImport.update({
+  id: '/api/public/long-video-tick',
+  path: '/api/public/long-video-tick',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicStudioMcpRoute = ApiPublicStudioMcpRouteImport.update({
+  id: '/api/public/studio-mcp',
+  path: '/api/public/studio-mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicStudioToolRoute = ApiPublicStudioToolRouteImport.update({
+  id: '/api/public/studio/$tool',
+  path: '/api/public/studio/$tool',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicKatanaWebhookRoute = ApiPublicKatanaWebhookRouteImport.update({
   id: '/api/public/katana-webhook',
   path: '/api/public/katana-webhook',
@@ -331,6 +349,9 @@ export interface FileRoutesByFullPath {
   '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
   '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
   '/api/public/katana-tick': typeof ApiPublicKatanaTickRoute
+  '/api/public/long-video-tick': typeof ApiPublicLongVideoTickRoute
+  '/api/public/studio-mcp': typeof ApiPublicStudioMcpRoute
+  '/api/public/studio/$tool': typeof ApiPublicStudioToolRoute
   '/api/public/katana-webhook': typeof ApiPublicKatanaWebhookRoute
   '/api/public/media-worker-callback': typeof ApiPublicMediaWorkerCallbackRoute
   '/api/public/media-worker-credentials': typeof ApiPublicMediaWorkerCredentialsRoute
@@ -377,6 +398,9 @@ export interface FileRoutesByTo {
   '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
   '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
   '/api/public/katana-tick': typeof ApiPublicKatanaTickRoute
+  '/api/public/long-video-tick': typeof ApiPublicLongVideoTickRoute
+  '/api/public/studio-mcp': typeof ApiPublicStudioMcpRoute
+  '/api/public/studio/$tool': typeof ApiPublicStudioToolRoute
   '/api/public/katana-webhook': typeof ApiPublicKatanaWebhookRoute
   '/api/public/media-worker-callback': typeof ApiPublicMediaWorkerCallbackRoute
   '/api/public/media-worker-credentials': typeof ApiPublicMediaWorkerCredentialsRoute
@@ -425,6 +449,9 @@ export interface FileRoutesById {
   '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
   '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
   '/api/public/katana-tick': typeof ApiPublicKatanaTickRoute
+  '/api/public/long-video-tick': typeof ApiPublicLongVideoTickRoute
+  '/api/public/studio-mcp': typeof ApiPublicStudioMcpRoute
+  '/api/public/studio/$tool': typeof ApiPublicStudioToolRoute
   '/api/public/katana-webhook': typeof ApiPublicKatanaWebhookRoute
   '/api/public/media-worker-callback': typeof ApiPublicMediaWorkerCallbackRoute
   '/api/public/media-worker-credentials': typeof ApiPublicMediaWorkerCredentialsRoute
@@ -474,6 +501,9 @@ export interface FileRouteTypes {
     | '/api/public/higgsfield-reconcile'
     | '/api/public/higgsfield-webhook'
     | '/api/public/katana-tick'
+    | '/api/public/long-video-tick'
+    | '/api/public/studio-mcp'
+    | '/api/public/studio/$tool'
     | '/api/public/katana-webhook'
     | '/api/public/media-worker-callback'
     | '/api/public/media-worker-credentials'
@@ -520,6 +550,9 @@ export interface FileRouteTypes {
     | '/api/public/higgsfield-reconcile'
     | '/api/public/higgsfield-webhook'
     | '/api/public/katana-tick'
+    | '/api/public/long-video-tick'
+    | '/api/public/studio-mcp'
+    | '/api/public/studio/$tool'
     | '/api/public/katana-webhook'
     | '/api/public/media-worker-callback'
     | '/api/public/media-worker-credentials'
@@ -567,6 +600,9 @@ export interface FileRouteTypes {
     | '/api/public/higgsfield-reconcile'
     | '/api/public/higgsfield-webhook'
     | '/api/public/katana-tick'
+    | '/api/public/long-video-tick'
+    | '/api/public/studio-mcp'
+    | '/api/public/studio/$tool'
     | '/api/public/katana-webhook'
     | '/api/public/media-worker-callback'
     | '/api/public/media-worker-credentials'
@@ -606,6 +642,9 @@ export interface RootRouteChildren {
   ApiPublicHiggsfieldReconcileRoute: typeof ApiPublicHiggsfieldReconcileRoute
   ApiPublicHiggsfieldWebhookRoute: typeof ApiPublicHiggsfieldWebhookRoute
   ApiPublicKatanaTickRoute: typeof ApiPublicKatanaTickRoute
+  ApiPublicLongVideoTickRoute: typeof ApiPublicLongVideoTickRoute
+  ApiPublicStudioMcpRoute: typeof ApiPublicStudioMcpRoute
+  ApiPublicStudioToolRoute: typeof ApiPublicStudioToolRoute
   ApiPublicKatanaWebhookRoute: typeof ApiPublicKatanaWebhookRoute
   ApiPublicMediaWorkerCallbackRoute: typeof ApiPublicMediaWorkerCallbackRoute
   ApiPublicMediaWorkerCredentialsRoute: typeof ApiPublicMediaWorkerCredentialsRoute
@@ -907,6 +946,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicKatanaTickRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/long-video-tick': {
+      id: '/api/public/long-video-tick'
+      path: '/api/public/long-video-tick'
+      fullPath: '/api/public/long-video-tick'
+      preLoaderRoute: typeof ApiPublicLongVideoTickRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/studio-mcp': {
+      id: '/api/public/studio-mcp'
+      path: '/api/public/studio-mcp'
+      fullPath: '/api/public/studio-mcp'
+      preLoaderRoute: typeof ApiPublicStudioMcpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/studio/$tool': {
+      id: '/api/public/studio/$tool'
+      path: '/api/public/studio/$tool'
+      fullPath: '/api/public/studio/$tool'
+      preLoaderRoute: typeof ApiPublicStudioToolRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/katana-webhook': {
       id: '/api/public/katana-webhook'
       path: '/api/public/katana-webhook'
@@ -992,6 +1052,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHiggsfieldReconcileRoute: ApiPublicHiggsfieldReconcileRoute,
   ApiPublicHiggsfieldWebhookRoute: ApiPublicHiggsfieldWebhookRoute,
   ApiPublicKatanaTickRoute: ApiPublicKatanaTickRoute,
+  ApiPublicLongVideoTickRoute: ApiPublicLongVideoTickRoute,
+  ApiPublicStudioMcpRoute: ApiPublicStudioMcpRoute,
+  ApiPublicStudioToolRoute: ApiPublicStudioToolRoute,
   ApiPublicKatanaWebhookRoute: ApiPublicKatanaWebhookRoute,
   ApiPublicMediaWorkerCallbackRoute: ApiPublicMediaWorkerCallbackRoute,
   ApiPublicMediaWorkerCredentialsRoute: ApiPublicMediaWorkerCredentialsRoute,

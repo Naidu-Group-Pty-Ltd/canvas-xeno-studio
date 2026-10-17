@@ -75,6 +75,8 @@ import {
 import { useLipSyncVoiceover } from "@/hooks/useLipSyncVoiceover";
 import { VoiceoverLipSync } from "@/components/create/VoiceoverLipSync";
 import { voiceLength } from "@/lib/lip-sync/view";
+import { presenterStory, presenterValues } from "@/lib/lip-sync/presenter";
+import { usePresenterRuns } from "@/hooks/useLongVideos";
 import {
   cinemaSupported,
   compileCinemaPrompt,
@@ -103,6 +105,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import type { MeteredQuote } from "@/lib/higgsfield/metered";
+import { balanceWarning } from "@/lib/usage-balance";
+import { useUsageBalance } from "@/hooks/useUsageBalance";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
@@ -528,7 +532,10 @@ function CreatePage() {
             key: `long-video-character-${character.id}`,
             message: `${character.name} has no reference images yet: add some on the Characters page, or take them out`,
           }));
+  // Whether the database can run presenter videos (migration 0017).
+  const presenterRuns = usePresenterRuns();
   const longPlan = useLongVideoPlan({
+    presenterRuns,
     draft: longDraft,
     model,
     models,
@@ -1015,11 +1022,21 @@ function CreatePage() {
                   requestSeconds,
                 })),
                 keepClipSound: false,
+                cutaways: longPlan.voiceover.cutaways,
               }
             : null,
+          // Presenter videos (where the database can run them).
+          startFrom: longPlan.voiceover ? longPlan.startFrom : "chain",
+          qc:
+            longPlan.voiceover && presenterRuns
+              ? { lipCheck: longDraft.lipCheck, takes: longDraft.lipCheck ? longDraft.takes : 1 }
+              : null,
+          // The whole video's estimate, checked against spending limits before it starts.
+          estimatedCostUsd: longGrandTotal,
         },
       });
       requestIdRef.current = null;
+      for (const warning of result.warnings ?? []) toast.warning(warning);
       if (result.status === "needs_attention")
         toast.warning("The long video stopped before its first clip. See why under Long videos.");
       else if (longPlan.keyframed)
@@ -1091,6 +1108,21 @@ function CreatePage() {
     longTotalEstimate !== null && keyframesPriced
       ? longTotalEstimate + (keyframesEstimate ?? 0)
       : null;
+
+  // Lip-scored clips can be made again (up to the takes chosen): the most the run could cost.
+  const longTakes = longMode && longDraft.lipCheck ? Math.max(1, longDraft.takes) : 1;
+  const longWorstCase =
+    longGrandTotal !== null && longTakes > 1 && longTotalEstimate !== null
+      ? longGrandTotal + longTotalEstimate * (longTakes - 1)
+      : null;
+  // What this would cost, against what is thought to be left on the Higgsfield balance.
+  const { data: usageBalance } = useUsageBalance();
+  const plannedCost = longMode
+    ? longGrandTotal
+    : estimate.kind === "ready"
+      ? estimate.costUsd * Math.max(1, batchCount)
+      : null;
+  const creditWarning = balanceWarning(usageBalance?.higgsfield, plannedCost, longWorstCase);
 
   /** Hands the current prompt, references and context to Supercomputer (nothing is sent automatically). */
   function openInSupercomputer() {
@@ -1314,6 +1346,26 @@ function CreatePage() {
                     }
                     characters={characterEntries}
                     keyframeUsd={keyframeUsd}
+                    presenterRuns={presenterRuns}
+                    onApplyPresenterRecipe={
+                      longPlan.voiceover
+                        ? () => {
+                            // The prompt and settings the recipe asks for, and no keyframes.
+                            const recipeModel =
+                              longPlan.keyframed && longPlan.workflow ? longPlan.workflow : model;
+                            setValues((current) => ({
+                              ...(recipeModel ? presenterValues(recipeModel, current) : current),
+                              prompt: presenterStory(
+                                typeof current["prompt"] === "string" ? current["prompt"] : "",
+                              ),
+                            }));
+                            setLongDraft((current) => ({ ...current, keyframes: false }));
+                            toast.success(
+                              "Presenter recipe on: a locked-off camera, no prompt rewriting and no keyframes.",
+                            );
+                          }
+                        : null
+                    }
                   />
                 )}
 
@@ -1400,6 +1452,7 @@ function CreatePage() {
                         ? longPlan.voiceover.segments.slice(1).map((segment) => segment.start)
                         : null
                     }
+                    cutaways={longMode && longPlan.voiceover ? longPlan.voiceover.cutaways : null}
                   />
                 )}
 
@@ -1565,6 +1618,23 @@ function CreatePage() {
                     ? ` · ${longPlan.paintedKeyframes} keyframes ${keyframesEstimate !== null ? `$${keyframesEstimate.toFixed(2)}` : "(not priced yet)"}`
                     : ""}
                   {longGrandTotal !== null ? ` · approx. $${longGrandTotal.toFixed(2)} in all` : ""}
+                  {longWorstCase !== null
+                    ? ` (up to $${longWorstCase.toFixed(2)} if every clip needs all its takes)`
+                    : ""}
+                </p>
+              )}
+              {creditWarning && (
+                <p
+                  className={cn(
+                    "flex gap-1.5 rounded-md px-2 py-1.5 text-[11px] leading-relaxed",
+                    creditWarning.level === "stop"
+                      ? "bg-destructive/10 text-destructive"
+                      : "bg-warning/10 text-foreground",
+                  )}
+                  data-testid="credit-warning"
+                >
+                  <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                  {creditWarning.message}
                 </p>
               )}
               {batchCount > 1 && (

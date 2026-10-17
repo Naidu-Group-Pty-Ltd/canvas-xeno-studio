@@ -411,6 +411,26 @@ export function TimelineView(props: TimelineViewProps) {
                 {overlay.text}
               </button>
             ))}
+            {timeline.images.map((image) => (
+              <button
+                key={image.id}
+                type="button"
+                title={image.label ?? "Picture over the video"}
+                onPointerDown={(event) => {
+                  event.stopPropagation();
+                  clock.seek(image.start);
+                }}
+                className="absolute bottom-0 z-10 flex h-[10px] items-center gap-0.5 truncate rounded-sm bg-warning/70 px-1 text-[9px] font-semibold uppercase leading-3 text-background"
+                style={{
+                  left: image.start * pps,
+                  width: Math.max(4, (image.end - image.start) * pps - 1),
+                }}
+                data-testid="timeline-image"
+              >
+                <ImageIcon className="size-2.5 shrink-0" />
+                {image.label ?? "Picture"}
+              </button>
+            ))}
           </div>
 
           <Playhead clock={clock} pps={pps} height={height - 10} />

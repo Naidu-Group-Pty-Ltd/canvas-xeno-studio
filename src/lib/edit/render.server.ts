@@ -35,6 +35,7 @@ import {
   renderBlockers,
   type Timeline,
 } from "./timeline";
+import { isBrandFontFile } from "./font-family";
 
 /**
  * The render request for a timeline. Channel levels are folded into the
@@ -42,20 +43,58 @@ import {
  * take an item past 200%: then the media service has to apply them itself.
  */
 async function renderRequestFor(timeline: Timeline) {
-  if (!mixNeedsChannelLevels(timeline)) return buildRenderRequest(timeline);
+  const channelMix = mixNeedsChannelLevels(timeline);
+  const request = buildRenderRequest(timeline, channelMix ? { channelMix: true } : {});
+  // What only an up-to-date media service can do: without it, a logo or a
+  // brand's fonts and colours would be left out of the render without a word.
+  const needed: { feature: string; message: string }[] = [];
+  if (channelMix)
+    needed.push({
+      feature: "channel_mix",
+      message:
+        "The mixer boosts some sound past 200%, which the media service can't do yet. Lower that channel or the items' own volume, or render again once the service has been updated.",
+    });
+  if (request.params["images"])
+    needed.push({
+      feature: "image_overlays",
+      message:
+        "This edit lays a logo or picture over the video, which the media service can't do until it is updated. Remove it, or render again once the service has been updated.",
+    });
+  if (request.params["frame_rate_conversion"] || request.params["upscale"])
+    needed.push({
+      feature: "frame_rate_conversion",
+      message:
+        "This edit blends or interpolates frames (or scales sharply), which the media service can't do until it is updated. Set the Picture settings back to repeat frames and standard scaling, or render again once the service has been updated.",
+    });
+  if (request.fonts.length || usesBrandColours(request.params))
+    needed.push({
+      feature: "brand_text",
+      message:
+        "This edit's titles or captions use a brand's fonts or colours, which the media service can't set until it is updated. Render again once the service has been updated.",
+    });
+  if (!needed.length) return request;
   const health = await workerHealth();
   if (!health.ok)
     throw new AppError(
       "PROVIDER_TIMEOUT",
       "The media service isn't answering. Try again in a moment.",
     );
-  if (!health.data?.features?.includes("channel_mix")) {
-    throw new AppError(
-      "INVALID_PARAMETERS",
-      "The mixer boosts some sound past 200%, which the media service can't do yet. Lower that channel or the items' own volume, or render again once the service has been updated.",
-    );
-  }
-  return buildRenderRequest(timeline, { channelMix: true });
+  for (const { feature, message } of needed)
+    if (!health.data?.features?.includes(feature))
+      throw new AppError("INVALID_PARAMETERS", message);
+  return request;
+}
+
+/** Whether a render request asks for a brand's colours anywhere. */
+function usesBrandColours(params: Record<string, unknown>): boolean {
+  const branded = (item: unknown) => {
+    const record = (item ?? {}) as Record<string, unknown>;
+    return "color" in record || "accent" in record || "font" in record;
+  };
+  return (
+    branded(params["captions"]) ||
+    (Array.isArray(params["overlays"]) && params["overlays"].some(branded))
+  );
 }
 
 const OUTPUT_BUCKET = "generated-assets";
@@ -92,6 +131,12 @@ async function signUpload(bucket: string, path: string) {
 async function resolveAssets(timeline: Timeline) {
   const wanted = new Map<string, "video" | "image" | "audio">();
   for (const clip of timeline.clips) wanted.set(clip.assetId, clip.kind);
+  // A picture laid over the edit (a logo) is a still.
+  for (const image of timeline.images) {
+    if (wanted.has(image.assetId) && wanted.get(image.assetId) !== "image")
+      throw new AppError("INVALID_PARAMETERS", "A picture laid over the edit must be an image");
+    wanted.set(image.assetId, "image");
+  }
   for (const item of timeline.audio) {
     if (wanted.has(item.assetId) && wanted.get(item.assetId) !== "audio") {
       throw new AppError("INVALID_PARAMETERS", "One file is used both as a clip and as audio");
@@ -348,6 +393,10 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
           mime_type: "video/mp4",
           output_kind: "video",
           sources: request.sources.map((source) => source.assetId),
+          // Brand fonts, sent after the files above (re-signed with them).
+          ...(request.fonts.length
+            ? { font_files: request.fonts.map((font) => `${font.bucket}/${font.path}`) }
+            : {}),
           ...(music.credits.length ? { music_credits: music.credits } : {}),
           ...(music.licences.length ? { music_licences: music.licences } : {}),
         },
@@ -415,6 +464,14 @@ async function submitRender(input: {
     if (!url)
       await fail("STORAGE_FAILED", `"${asset.title ?? "A file"}" could not be read from storage`);
     sources.push({ role: source.role, url: url!, mime: asset.mime_type });
+  }
+  for (const font of request.fonts) {
+    const url = isBrandFontFile(font)
+      ? await signSource({ storage_bucket: font.bucket, storage_path: font.path })
+      : null;
+    if (!url)
+      await fail("STORAGE_FAILED", `The font "${font.family}" could not be read from storage`);
+    sources.push({ role: "font", url: url!, mime: null });
   }
 
   const uploads: { url: string; method: "PUT"; storage_key: string }[] = [];
@@ -826,6 +883,17 @@ export async function refreshRenderCredentials(
   for (const id of ids) {
     const asset = assets.get(id);
     const url = asset ? await signSource(asset) : null;
+    if (!url) return { status: 202 };
+    sources.push({ url });
+  }
+  // Brand fonts, after the files, as first sent.
+  for (const file of strings(input["font_files"])) {
+    const slash = file.indexOf("/");
+    const font = { bucket: file.slice(0, slash), path: file.slice(slash + 1) };
+    const url =
+      slash > 0 && isBrandFontFile(font)
+        ? await signSource({ storage_bucket: font.bucket, storage_path: font.path })
+        : null;
     if (!url) return { status: 202 };
     sources.push({ url });
   }

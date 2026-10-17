@@ -43,7 +43,6 @@ import {
 import { estimatedSeconds, wordCount, type TimedWord } from "@/lib/voice/catalog";
 import {
   audioFromSource,
-  captionsFromWords,
   mergeCaptions,
   formatTime,
   layoutTimeline,
@@ -52,6 +51,7 @@ import {
   type Timeline,
   type TimelineLayout,
 } from "@/lib/edit/timeline";
+import { phraseCaptions } from "@/lib/edit/captions";
 import { isMissingTableError } from "@/lib/edit/errors";
 import { keepAttempt, savedAttempt } from "@/lib/attempts";
 import { BrandVoiceSelect } from "@/components/voices/VoiceAssignment";
@@ -311,7 +311,8 @@ export function VoiceoverPanel({
       };
       const next: Timeline = { ...timeline, audio: [...kept, voice] };
       if (withCaptions && take.words.length) {
-        const segments = captionsFromWords(take.words, voice.start, { until: total });
+        // Phrases, never a word on its own (see lib/edit/captions).
+        const segments = phraseCaptions(take.words, voice.start, { until: total }).segments;
         next.captions = {
           ...timeline.captions,
           enabled: true,

@@ -77,8 +77,8 @@ can't succeed.
 ## Sequence rendering
 
 `render_sequence` turns an edited timeline into a finished video plus a poster
-frame. The app sends one source per distinct asset (role `video`, `image` or
-`audio`) and a timeline in `params`:
+frame. The app sends one source per distinct asset (role `video`, `image`,
+`audio`, or `font` for a brand's font file) and a timeline in `params`:
 
 - `width`, `height`, `fps` (24, 25, 30 or 60), default `fit` (`cover`,
   `contain`, `blur_pad`)
@@ -97,7 +97,33 @@ frame. The app sends one source per distinct asset (role `video`, `image` or
 - `captions` (`segments[]` of `start`/`end`/`text`, `style`, `position`,
   `size`, `uppercase`) and `overlays[]` (titles, subtitles, call-to-action
   badges), burned in with the Inter typeface; text is written to an ASS file
-  by the worker and stripped of markup
+  by the worker and stripped of markup. With feature `overlay_layout`, an
+  overlay can also give `y` (0.04–0.96, the height of its centre in the frame,
+  in place of `position`) and `backing`: `outline` (the default, as before),
+  `halo` (a soft dark glow that keeps text readable over busy footage) or
+  `box` (a solid panel; a call-to-action badge keeps its own)
+- a brand's look (feature `brand_text`): `fonts[]` of `source_index` (a
+  TrueType or OpenType file in role `font`) and `family`; the file is put in a
+  fonts directory the subtitle renderer reads and the text is set in the family
+  the file names itself by. `captions` and each overlay can then give `font`
+  (one of those families; Inter without), `color` (#rrggbb, the text) and
+  `accent` (#rrggbb: a box's colour, a call to action's badge, bold captions'
+  text). A brand font is set as it was drawn, never made bolder
+- `images[]` (feature `image_overlays`): pictures laid over the edit, such as
+  a logo: `source_index` (an `image` source), `start`, `end`, `x` / `y` (0–1,
+  where its centre sits), `width` (0.03–1 of the frame's width; its height
+  follows its shape), `opacity` and `fade` (seconds in and out; 0 shows it
+  from its first frame to its last). A PNG keeps its transparency; a GIF is
+  read for its first frame. Each is decoded and scaled once, then held. They
+  go under the text and the edit's fades
+- `frame_rate_conversion` (feature `frame_rate_conversion`): how a clip made
+  at another rate (24 fps B-roll in a 30 fps edit) is brought to the edit's:
+  `duplicate` (frames repeated, as before), `blend` (neighbouring frames
+  mixed) or `motion` (frames made from the movement between them, at the
+  source's own size, no larger than the edit's frame; several times slower).
+  Only a clip with fewer frames than the edit needs is given new ones: one
+  at the edit's rate (or within 1.5% of it) or above is only re-timed. `upscale: "sharp"` scales pictures with Lanczos and a
+  light unsharp mask, for 720p clips in a 1080p edit
 - `mix` (feature `channel_mix`): channel levels, each 0–2 and 1 when left
   out, that scale a whole sound bus before the final mix on top of the items'
   own volumes: `picture` (the clips' own sound), `voiceover`, `music` and
@@ -218,6 +244,35 @@ Three things make that exact rather than close:
   have come next.
 
 `/health` lists them as `audio_prepare`, `audio_sync` and `frame_index`.
+
+## Lip scores
+
+`lip_check` (a `video` source and, optionally, the `audio` piece it was made
+from; no output) scores how well a clip's lips follow the voice with SyncNet
+(`lipcheck/syncnet_score.py`, run in its own Python; see `tools/qc/README.md`
+to run it by hand). `params`: `duration_seconds` (score only the clip's first
+part, the length of its piece of the voiceover) and `window_seconds` (1–30,
+default 3). `metadata.status` is `scored`, `no_face` or `no_speech`; a scored
+clip has `offset_frames` (at 25 fps; negative: the lips lead the sound),
+`confidence` at that offset and `confidence_at_zero` (where the clip actually
+sits), `min_distance`, and the same per window in `windows[]`. From the same
+face landmarks (`lipcheck/face_qc.py`) it reports `framing` (`eye_span_px`
+and `eye_span_frac`, the span between the outer eye corners; `eye_span_spread`,
+how much it changes within the clip; `face_x` / `face_y`, where the face sits)
+and `silence` (`silent_seconds` judged and `mouth_open_fraction`, the share of
+those frames whose mouth is open, with the worst `spans`). The app flags a clip
+framed unlike the run's first, a camera that pushes in, and a mouth moving
+through the pauses. Real,
+well-synced speech scores about 6 to 8; under about 3 the lips don't follow at
+all. The app flags a clip under 6.5, makes it again under 4, and takes out a
+confident lead of up to three frames when it lays the clip.
+
+The scorer is optional. The image builds it by default (`LIP_CHECK=1`); build
+with `--build-arg LIP_CHECK=0` to leave it out (a much smaller image), or set
+`SYNCNET_SHA256` to require a known checksum of the SyncNet weights (the build
+prints the one it fetched). If anything it needs can't be fetched, the build
+still succeeds without it. A worker without its files doesn't list `lip_check`
+in its features, and the app makes clips without scores.
 
 ## Configuration
 

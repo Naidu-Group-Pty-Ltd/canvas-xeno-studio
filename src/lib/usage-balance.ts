@@ -161,6 +161,51 @@ export function higgsfieldBalanceView(input: {
   return { recorded, spend, estimatedUsd, today, state, refusal };
 }
 
+/**
+ * What to say before work that costs `costUsd` is started, against the
+ * balance as the studio counts it: that Higgsfield has refused a request for
+ * want of credits (nothing will go through until it is topped up), or that
+ * the work would cost more than is thought to be left, so it would stop part
+ * way. Null when there is nothing to say (no figure recorded, or plenty left).
+ */
+export function balanceWarning(
+  view: HiggsfieldBalanceView | null | undefined,
+  costUsd: number | null,
+  /** The most it could cost (every retake made), where that is more. */
+  worstCaseUsd: number | null = null,
+): { level: "stop" | "caution"; message: string } | null {
+  if (!view) return null;
+  if (view.state === "out")
+    return {
+      level: "stop",
+      message:
+        "Higgsfield turned a request away for want of credits, and nothing has gone through since. Top up the API balance in the Higgsfield Console first, or this will stop at the first request.",
+    };
+  if (costUsd === null || !(costUsd > 0) || view.estimatedUsd === null || !view.recorded)
+    return null;
+  const left = Math.max(0, view.estimatedUsd);
+  const recordedOn = new Date(view.recorded.at).toLocaleDateString("en-AU", {
+    day: "numeric",
+    month: "short",
+  });
+  if (costUsd > left)
+    return {
+      level: "stop",
+      message: `This is estimated at ${formatUsd(costUsd)}, but about ${formatUsd(left)} is left on the Higgsfield API balance (counted down from the figure recorded ${recordedOn}). It would stop part-way when the credits run out: top up first, or record the balance again if it has been topped up.`,
+    };
+  if (costUsd > left * 0.8)
+    return {
+      level: "caution",
+      message: `This would use most of the ≈${formatUsd(left)} left on the Higgsfield API balance; retakes or other work could run it out.`,
+    };
+  if (worstCaseUsd !== null && worstCaseUsd > left)
+    return {
+      level: "caution",
+      message: `If every clip needed all its takes this could cost ${formatUsd(worstCaseUsd)}, more than the ≈${formatUsd(left)} left on the Higgsfield API balance: fewer takes, or a top-up, keeps it from stopping part-way.`,
+    };
+  return null;
+}
+
 /** Dollars as the top bar shows them: cents always, thousands grouped. */
 export function formatUsd(value: number): string {
   const sign = value < 0 ? "−" : "";

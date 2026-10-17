@@ -5,6 +5,7 @@
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { AppError } from "./higgsfield/errors";
+import { nextRetryAt, submissionKey, transientFailure, transientRefusal } from "./higgsfield/retry";
 import {
   extractCost,
   extractPricingDescription,
@@ -504,6 +505,31 @@ export async function submitToProvider(generationId: string): Promise<{ status: 
   // earlier figure (the browser's, if any) is already counted, so only the
   // difference is added. Clips started by the server (long videos) and other
   // callers without a browser quote are held to the limits here too.
+  // Work with no project or campaign, against its owner's monthly cap (if set).
+  if (quoted !== null && !generation.project_id && !generation.campaign_id && generation.user_id) {
+    const { memberAllowance } = await import("./generation-create.server");
+    const verdict = await memberAllowance(
+      generation.user_id,
+      quoted - (Number(generation.estimated_cost_usd) || 0),
+    );
+    if (!verdict.allowed) {
+      await supabaseAdmin
+        .from("generations")
+        .update({
+          status: "failed",
+          error_code: "BUDGET_EXCEEDED",
+          error_message: verdict.message ?? "This would go over your monthly spending cap",
+          estimated_cost_usd: quoted,
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", generationId);
+      await logEvent(generationId, "failed", {
+        code: "BUDGET_EXCEEDED",
+        estimated_cost_usd: quoted,
+      });
+      return { status: "failed" };
+    }
+  }
   if (quoted !== null && (generation.project_id || generation.campaign_id)) {
     const { data: allowance } = await supabaseAdmin.rpc("check_spend_allowance", {
       _project_id: (generation.project_id ?? null) as string,
@@ -582,12 +608,14 @@ export async function submitToProvider(generationId: string): Promise<{ status: 
   }
 
   // The generation's id is its idempotency key: the provider never runs one
-  // generation twice, even if this request were ever repeated.
+  // generation twice, even if this request were ever repeated. An automatic
+  // try after a refusal that cost nothing goes under a key of its own.
+  const retries = Number((generation as { auto_retries?: unknown }).auto_retries) || 0;
   const call = await higgsfieldProvider.submit(
     generation.model_path,
     params,
     webhookUrl(),
-    generationId,
+    submissionKey(generationId, retries),
   );
 
   if (call.ok) {
@@ -624,6 +652,16 @@ export async function submitToProvider(generationId: string): Promise<{ status: 
     return { status: "submission_uncertain" };
   }
 
+  // Turned away for the moment (rate limited, a model briefly unavailable):
+  // nothing ran or was charged, so it goes back in the queue to try again.
+  if (
+    transientRefusal({ code: call.errorCode, message: call.errorMessage, status: call.status }) &&
+    (await requeueForRetry(generationId, retries, call.errorMessage ?? "Turned away for now", [
+      "submitting",
+    ]))
+  )
+    return { status: "local_queued" };
+
   await supabaseAdmin
     .from("generations")
     .update({
@@ -637,6 +675,46 @@ export async function submitToProvider(generationId: string): Promise<{ status: 
   await logEvent(generationId, "failed", { code: call.errorCode, message: call.errorMessage });
   if (reflectsProviderHealth(call)) await recordProviderHealth(false, call.errorMessage);
   return { status: "failed" };
+}
+
+/**
+ * Puts a generation that cost nothing back in the local queue, to be sent
+ * again after a wait (see ./higgsfield/retry), while it is still in one of
+ * `from`. False when its tries are spent, it moved on meanwhile, or the
+ * database can't hold retries yet (it then fails as before).
+ */
+async function requeueForRetry(
+  generationId: string,
+  retries: number,
+  reason: string,
+  from: string[],
+): Promise<boolean> {
+  const at = nextRetryAt(retries);
+  if (!at) return false;
+  const { data, error } = await supabaseAdmin
+    .from("generations")
+    .update({
+      status: "local_queued",
+      auto_retries: retries + 1,
+      retry_after: at.toISOString(),
+      hf_request_id: null,
+      hf_status_url: null,
+      hf_cancel_url: null,
+      submitted_at: null,
+      completed_at: null,
+      error_code: null,
+      error_message: `Higgsfield said: ${reason.slice(0, 300)}. Trying again on its own (${retries + 1} of 3); nothing was charged.`,
+    } as never)
+    .eq("id", generationId)
+    .in("status", from as never)
+    .select("id");
+  if (error || !data?.length) return false;
+  await logEvent(generationId, "auto_retry_scheduled", {
+    retry: retries + 1,
+    retry_after: at.toISOString(),
+    reason: reason.slice(0, 300),
+  });
+  return true;
 }
 
 /** Either submits immediately or parks the job in the local FIFO queue. */
@@ -660,12 +738,17 @@ export async function dispatchQueue(): Promise<number> {
   let slots = limit - (await activeProviderCount());
   if (slots <= 0) return 0;
 
-  const { data: waiting } = await supabaseAdmin
-    .from("generations")
-    .select("id")
-    .eq("status", "local_queued")
-    .order("created_at", { ascending: true })
-    .limit(slots);
+  // Jobs whose wait before another try (see requeueForRetry) is over; a
+  // database without retries has no waits.
+  const queued = () =>
+    supabaseAdmin
+      .from("generations")
+      .select("id")
+      .eq("status", "local_queued")
+      .order("created_at", { ascending: true })
+      .limit(slots);
+  const due = await queued().or(`retry_after.is.null,retry_after.lte.${new Date().toISOString()}`);
+  const { data: waiting } = due.error ? await queued() : due;
 
   let dispatched = 0;
   for (const row of waiting ?? []) {
@@ -696,11 +779,30 @@ export async function applyProviderPayload(
 
   const { data: current } = await supabaseAdmin
     .from("generations")
-    .select("id,status,ingest_status")
+    .select("*")
     .eq("id", generationId)
     .maybeSingle();
   if (!current) return "missing";
   if (TERMINAL_STATUSES.includes(current.status)) return current.status; // idempotent
+
+  // Failed for the moment at the provider (and so refunded): queued again to
+  // try again on its own, rather than failed, while its tries last.
+  if (status === "failed") {
+    const reason =
+      (typeof record["error"] === "string" && record["error"]) ||
+      (typeof record["message"] === "string" && record["message"]) ||
+      "";
+    if (
+      transientFailure(reason) &&
+      (await requeueForRetry(
+        generationId,
+        Number((current as { auto_retries?: unknown }).auto_retries) || 0,
+        reason,
+        ["queued", "in_progress"],
+      ))
+    )
+      return "local_queued";
+  }
 
   const update: Json = { provider_response: record, last_polled_at: new Date().toISOString() };
   if (status === "in_progress") {
@@ -942,7 +1044,17 @@ export async function ingestOutputs(
     failures,
     code: complete ? undefined : "INGEST_FAILED",
   });
-  if (complete) await notifyLongVideo(generationId);
+  if (complete) {
+    await notifyLongVideo(generationId);
+    // Its videos measured exactly (the provider gives the length asked for).
+    const { measureGeneratedAssets } = await import("./media/measure-asset.server");
+    await measureGeneratedAssets(generationId).catch((error: unknown) => {
+      console.error("generated media not measured", {
+        generationId,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    });
+  }
   return created;
 }
 

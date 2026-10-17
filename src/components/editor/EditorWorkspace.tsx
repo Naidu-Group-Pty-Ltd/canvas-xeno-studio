@@ -120,8 +120,9 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
     () => [
       ...timeline.clips.map((clip) => clip.assetId),
       ...timeline.audio.map((item) => item.assetId),
+      ...timeline.images.map((image) => image.assetId),
     ],
-    [timeline.clips, timeline.audio],
+    [timeline.clips, timeline.audio, timeline.images],
   );
   const { data: assetMap = new Map<string, AssetRow>() } = useAssetsByIds(assetIds);
   const assetList = useMemo(() => [...assetMap.values()], [assetMap]);

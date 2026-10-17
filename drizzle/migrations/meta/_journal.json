@@ -120,6 +120,27 @@
       "when": 1791308405140,
       "tag": "0016_usage_balance",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791310405140,
+      "tag": "0017_presenter_runs",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791310465140,
+      "tag": "0018_brand_kits",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791310525140,
+      "tag": "0019_studio_api",
+      "breakpoints": true
     }
   ]
 }

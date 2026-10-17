@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   ArrowLeft,
   ArrowRight,
@@ -27,6 +28,10 @@ import {
   FITS,
   formatTime,
   FPS_OPTIONS,
+  FRAME_RATE_CONVERSIONS,
+  FRAME_RATE_CONVERSION_LABELS,
+  UPSCALES,
+  UPSCALE_LABELS,
   LIMITS,
   maxClipDuration,
   MOTION_LABELS,
@@ -34,6 +39,8 @@ import {
   moveClip,
   newId,
   placeAt,
+  OVERLAY_BACKING_LABELS,
+  OVERLAY_BACKINGS,
   OVERLAY_POSITIONS,
   OVERLAY_STYLE_LABELS,
   OVERLAY_STYLES,
@@ -85,6 +92,11 @@ import { VoiceoverPanel, type VoiceoverContext } from "./VoiceoverPanel";
 import { MusicPanel, type MusicContext } from "./MusicPanel";
 import { Mixer } from "./Mixer";
 import { SendToKatana } from "@/components/katana/SendToKatana";
+import { useVoiceovers } from "@/hooks/useVoiceData";
+import { phraseCaptions } from "@/lib/edit/captions";
+import { brandedOverlay } from "@/lib/edit/brand";
+import { BrandSection, ImageOverlaysSection } from "./BrandPanel";
+import { useEditBrandKit } from "@/hooks/useBrandKits";
 
 interface InspectorProps {
   timeline: Timeline;
@@ -946,8 +958,19 @@ function AudioInspector({
 /* Format                                                              */
 /* ------------------------------------------------------------------ */
 
-function SequenceSettings({ timeline, layout, onChange }: InspectorProps) {
+/** How many of an edit's video clips were made at a frame rate other than its own (when measured). */
+function otherRateClips(timeline: Timeline, assets: Map<string, AssetRow>): number {
+  return timeline.clips.filter((clip) => {
+    if (clip.kind !== "video") return false;
+    const metadata = (assets.get(clip.assetId)?.metadata ?? {}) as Record<string, unknown>;
+    const fps = typeof metadata["fps"] === "number" ? metadata["fps"] : null;
+    return fps !== null && Math.abs(fps * clip.speed - timeline.fps) / timeline.fps > 0.005;
+  }).length;
+}
+
+function SequenceSettings({ timeline, layout, assets, onChange }: InspectorProps) {
   const set = (patch: Partial<Timeline>, key?: string) => onChange({ ...timeline, ...patch }, key);
+  const otherRate = otherRateClips(timeline, assets);
   return (
     <div>
       <Section title="Frame">
@@ -1021,6 +1044,52 @@ function SequenceSettings({ timeline, layout, onChange }: InspectorProps) {
         <p className="text-xs text-muted-foreground">
           {layout.clips.length} clip{layout.clips.length === 1 ? "" : "s"} ·{" "}
           {formatTime(layout.total)} long
+        </p>
+      </Section>
+      <Section title="Picture">
+        <Field label="Clips at another frame rate">
+          <Select
+            value={timeline.frameRateConversion}
+            onValueChange={(value) =>
+              set({ frameRateConversion: value as Timeline["frameRateConversion"] })
+            }
+          >
+            <SelectTrigger className="h-8" aria-label="Clips at another frame rate">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {FRAME_RATE_CONVERSIONS.map((mode) => (
+                <SelectItem key={mode} value={mode}>
+                  {FRAME_RATE_CONVERSION_LABELS[mode]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <p className="text-[11px] text-muted-foreground" data-testid="frame-rate-note">
+          {otherRate
+            ? `${otherRate} clip${otherRate === 1 ? " was" : "s were"} made at another frame rate (24 fps B-roll in a ${timeline.fps} fps edit, say). Repeated frames can judder on a slow camera move; blending smooths it, and motion interpolation makes the missing frames (it renders several times slower).`
+            : "Every measured clip is at the edit's frame rate. For one that isn't (24 fps B-roll in a 30 fps edit), blending or motion interpolation keeps a slow camera move from juddering."}
+        </p>
+        <Field label="Scaling up">
+          <Select
+            value={timeline.upscale}
+            onValueChange={(value) => set({ upscale: value as Timeline["upscale"] })}
+          >
+            <SelectTrigger className="h-8" aria-label="Scaling up">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {UPSCALES.map((mode) => (
+                <SelectItem key={mode} value={mode}>
+                  {UPSCALE_LABELS[mode]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <p className="text-[11px] text-muted-foreground">
+          Sharp scales 720p clips up to a 1080p edit with a finer filter and a light sharpen.
         </p>
       </Section>
       <Section title="Open and close">
@@ -1139,21 +1208,66 @@ function JoinsSection({
 /* Captions and titles                                                 */
 /* ------------------------------------------------------------------ */
 
-function TextPanel({ timeline, layout, clock, selection, onSelect, onChange }: InspectorProps) {
+function TextPanel({
+  timeline,
+  layout,
+  assets,
+  clock,
+  selection,
+  onSelect,
+  onChange,
+  onUpdate,
+  voiceover,
+  music,
+}: InspectorProps) {
+  const projectId = voiceover?.projectId ?? music?.projectId ?? null;
+  // The brand kit titles are set from, and whose names captions spell right.
+  const { kit } = useEditBrandKit(timeline, projectId);
   const captions = timeline.captions;
   const setCaptions = (patch: Partial<Timeline["captions"]>, key?: string) =>
     onChange({ ...timeline, captions: { ...captions, ...patch } }, key);
   const [script, setScript] = useState("");
+  const [terms, setTerms] = useState("");
   const voice = timeline.audio.find((item) => item.role === "voiceover");
+  // The voiceover's word timings, where it is one of the edit's takes.
+  const { data: takes = [] } = useVoiceovers(voiceover?.sequenceId ?? null);
+  const words = voice
+    ? (takes.find((take) => take.asset_id === voice.assetId)?.alignment?.words ?? [])
+    : [];
 
   const writeFromScript = () => {
     const from = voice ? voice.start : 0.3;
     const to = voice
       ? voice.start + audioPlayLength(voice, layout.total)
       : Math.max(0.6, layout.total - 0.3);
+    const until = Math.min(to, layout.total);
+    // With the voiceover's word timings, the script's words land where they
+    // were said, as phrases; without them, it is spread over the voiceover.
+    if (voice && words.length) {
+      const timed = phraseCaptions(words, voice.start - voice.trimStart, {
+        script,
+        terms: [
+          ...terms
+            .split(",")
+            .map((term) => term.trim())
+            .filter(Boolean),
+          ...(kit?.terms ?? []),
+        ],
+        from: voice.start,
+        until,
+      });
+      if (timed.segments.length) {
+        setCaptions({ enabled: true, segments: timed.segments });
+        if (timed.source === "words")
+          toast.message("The script didn't match what the voiceover says", {
+            description: "The captions show the voiceover's own words instead.",
+          });
+        return;
+      }
+    }
     setCaptions({
       enabled: true,
-      segments: captionsFromScript(script, from, Math.min(to, layout.total)),
+      segments: captionsFromScript(script, from, until),
     });
   };
 
@@ -1178,13 +1292,28 @@ function TextPanel({ timeline, layout, clock, selection, onSelect, onChange }: I
       end: Number(Math.min(layout.total || at + 2.5, at + 2.5, LIMITS.totalSeconds).toFixed(2)),
       style,
       position: style === "cta" ? "bottom" : "center",
+      y: null,
+      // New titles read on any picture.
+      backing: style === "cta" ? "outline" : "halo",
+      font: null,
+      color: null,
+      accent: null,
     };
-    onChange({ ...timeline, overlays: [...timeline.overlays, overlay].slice(0, LIMITS.overlays) });
+    // In the brand's look, where the edit has been styled from a kit.
+    const added = kit && timeline.brandKitId === kit.id ? brandedOverlay(overlay, kit) : overlay;
+    onChange({ ...timeline, overlays: [...timeline.overlays, added].slice(0, LIMITS.overlays) });
     onSelect({ kind: "overlay", id: overlay.id });
   };
 
   return (
     <div>
+      <BrandSection
+        timeline={timeline}
+        layout={layout}
+        projectId={projectId}
+        onChange={onChange}
+        onUpdate={onUpdate}
+      />
       <Section
         title="Captions"
         action={
@@ -1206,11 +1335,25 @@ function TextPanel({ timeline, layout, clock, selection, onSelect, onChange }: I
             className="min-h-[72px] text-sm"
           />
         </Field>
+        {voice && words.length > 0 && (
+          <Field label="Names to spell right (comma-separated)">
+            <Input
+              value={terms}
+              onChange={(event) => setTerms(event.target.value)}
+              placeholder={
+                kit?.terms.length
+                  ? `${kit.name}'s are used too: ${kit.terms.slice(0, 3).join(", ")}`
+                  : "e.g. Aurixa Systems"
+              }
+              className="h-8 text-xs"
+            />
+          </Field>
+        )}
         <Button
           size="sm"
           variant="secondary"
           className="w-full"
-          disabled={!script.trim() || layout.total < 0.5}
+          disabled={(!script.trim() && !(voice && words.length)) || layout.total < 0.5}
           onClick={writeFromScript}
         >
           <Wand2 className="mr-1.5 size-3.5" />{" "}
@@ -1407,6 +1550,56 @@ function TextPanel({ timeline, layout, clock, selection, onSelect, onChange }: I
                   </SelectContent>
                 </Select>
               </div>
+              {overlay.style !== "cta" && (
+                <Select
+                  value={overlay.backing}
+                  onValueChange={(value) =>
+                    updateOverlay(overlay.id, { backing: value as Overlay["backing"] })
+                  }
+                >
+                  <SelectTrigger className="h-7 text-xs" aria-label="What keeps it readable">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {OVERLAY_BACKINGS.map((backing) => (
+                      <SelectItem key={backing} value={backing}>
+                        {OVERLAY_BACKING_LABELS[backing]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <Field
+                label="Height"
+                hint={overlay.y === null ? "by position" : `${Math.round(overlay.y * 100)}% down`}
+              >
+                <div className="flex items-center gap-2">
+                  <Slider
+                    min={4}
+                    max={96}
+                    step={1}
+                    value={[Math.round((overlay.y ?? 0.5) * 100)]}
+                    onValueChange={([value]) =>
+                      updateOverlay(
+                        overlay.id,
+                        { y: (value ?? 50) / 100 },
+                        `overlay-y:${overlay.id}`,
+                      )
+                    }
+                    aria-label="Title height on the frame"
+                  />
+                  {overlay.y !== null && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-1.5 text-[11px]"
+                      onClick={() => updateOverlay(overlay.id, { y: null })}
+                    >
+                      Reset
+                    </Button>
+                  )}
+                </div>
+              </Field>
               <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-1.5">
                 <Field label="From">
                   <Seconds
@@ -1445,6 +1638,12 @@ function TextPanel({ timeline, layout, clock, selection, onSelect, onChange }: I
           );
         })}
       </Section>
+      <ImageOverlaysSection
+        timeline={timeline}
+        layout={layout}
+        assets={assets}
+        onChange={onChange}
+      />
     </div>
   );
 }

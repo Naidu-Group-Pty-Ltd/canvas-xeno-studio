@@ -35,6 +35,14 @@ import { DEFAULT_END_CARD_STYLE, type EndCardStyle } from "@/lib/media/end-card"
 import { lipSyncCapable, lipSyncChoices } from "@/lib/lip-sync/models";
 import type { VoiceoverSegment } from "@/lib/lip-sync/segments";
 import type { LipSyncVoiceover } from "@/lib/lip-sync/view";
+import { timingOf } from "@/lib/lip-sync/analysis";
+import {
+  cutawaysForLines,
+  voiceoverLines,
+  type Cutaway,
+  type VoiceoverLine,
+} from "@/lib/lip-sync/sections";
+import { lipSyncWarnings } from "@/lib/lip-sync/presenter";
 import { pieceTranscripts, planVoiceoverClips } from "@/lib/long-video/voiceover";
 import type { RunCharacter } from "@/lib/characters/model";
 import {
@@ -108,6 +116,18 @@ export interface LongVideoDraft {
   reviewKeyframes: boolean;
   /** Every clip is checked against the characters' images before the next is made. */
   identityCheck: boolean;
+  /**
+   * Made to a voiceover: every clip from clip 1's start image ("anchor"), or
+   * each from the frame the one before is cut on ("chain"); null for the
+   * studio's choice (the still, where there is one).
+   */
+  startFrom: "chain" | "anchor" | null;
+  /** Made to a voiceover: the lines (by place, see voiceoverLines) covered by B-roll. */
+  brollLines: number[];
+  /** Made to a voiceover: every clip's lips scored from its picture. */
+  lipCheck: boolean;
+  /** Takes a clip may get to reach a good lip score (1: just the one). */
+  takes: number;
 }
 
 export const DEFAULT_LONG_VIDEO_DRAFT: LongVideoDraft = {
@@ -125,6 +145,10 @@ export const DEFAULT_LONG_VIDEO_DRAFT: LongVideoDraft = {
   painterModelId: null,
   reviewKeyframes: true,
   identityCheck: true,
+  startFrom: null,
+  brollLines: [],
+  lipCheck: true,
+  takes: 2,
 };
 
 /** A long video made to a voiceover: where it is cut, and what is said in each clip. */
@@ -136,6 +160,10 @@ export interface VoiceoverPlan {
   segments: VoiceoverSegment[];
   /** What is said in each clip ("" where its words aren't known). */
   spoken: string[];
+  /** The voiceover in lines, to mark the ones covered by B-roll. */
+  lines: VoiceoverLine[];
+  /** The stretches covered by B-roll, as planned: no clip is made for them. */
+  cutaways: Cutaway[];
 }
 
 export interface LongVideoPlan {
@@ -176,6 +204,12 @@ export interface LongVideoPlan {
   keyframeQuote: QuoteRequest | null;
   /** Made to a voiceover (attached as the model's driving audio): its cuts. */
   voiceover: VoiceoverPlan | null;
+  /** Where clips start: from clip 1's start image, or each from the one before. */
+  startFrom: "chain" | "anchor";
+  /** Why every clip can't start from one still, or null when it can. */
+  anchorProblem: string | null;
+  /** What would weaken lip sync (nothing here stops the video). */
+  warnings: string[];
 }
 
 const NOT_ELIGIBLE: LongVideoPlan = {
@@ -203,6 +237,9 @@ const NOT_ELIGIBLE: LongVideoPlan = {
   quote: null,
   keyframeQuote: null,
   voiceover: null,
+  startFrom: "chain",
+  anchorProblem: null,
+  warnings: [],
 };
 
 /**
@@ -230,6 +267,12 @@ export function useLongVideoPlan(input: {
    * where nobody is speaking.
    */
   voiceover?: { assetId: string; preparation: LipSyncVoiceover | null } | null;
+  /**
+   * The database can run presenter videos (every clip from one still,
+   * cutaways, lip scores): undefined while that is being asked, false before
+   * migration 0017, when those are off.
+   */
+  presenterRuns?: boolean | undefined;
 }): LongVideoPlan {
   const { draft, model, models, values, references, cinema } = input;
   const characters = input.characters ?? [];
@@ -241,6 +284,7 @@ export function useLongVideoPlan(input: {
     input.openingFrame === undefined ? "reading" : input.openingFrame,
   );
   const attachedVoice = input.voiceover ?? null;
+  const presenterRuns = input.presenterRuns === true;
   const voiceKey = JSON.stringify(
     attachedVoice
       ? [
@@ -283,18 +327,27 @@ export function useLongVideoPlan(input: {
         : (lengthChoices.at(-1) ?? 0);
     // Made to a voiceover, its pieces decide the clips; else the length asked for does.
     const preparation = voiced ? (attachedVoice?.preparation ?? null) : null;
-    const voicePlan =
+    const ready =
       voiced &&
       continuation &&
       preparation?.status === "ready" &&
       preparation.analysis &&
       preparation.durationSeconds
+        ? preparation
+        : null;
+    // Its lines, some marked for B-roll (never with keyframes, which chain every clip).
+    const lines = ready?.analysis ? voiceoverLines(timingOf(ready.analysis), ready.words) : [];
+    const chosenLines = new Set(draft.brollLines.filter((index) => index < lines.length));
+    const wantedCutaways = keyframed || !presenterRuns ? [] : cutawaysForLines(lines, chosenLines);
+    const voicePlan =
+      ready && continuation
         ? planVoiceoverClips({
-            analysis: preparation.analysis,
-            words: preparation.words,
+            analysis: ready.analysis!,
+            words: ready.words,
             first: firstModel,
             continuation,
             maxClipSeconds,
+            cutaways: wantedCutaways,
           })
         : null;
     const voiceover: VoiceoverPlan | null =
@@ -304,8 +357,26 @@ export function useLongVideoPlan(input: {
             durationSeconds: preparation.durationSeconds ?? 0,
             segments: voicePlan?.segments ?? [],
             spoken: pieceTranscripts(voicePlan?.segments ?? [], preparation.words),
+            lines,
+            cutaways: voicePlan?.cutaways ?? [],
           }
         : null;
+    // Every clip from clip 1's start image: where the model starts from a
+    // frame, an image is attached for it, and there are no keyframes.
+    const anchorRole = startFrameSlot(firstModel)?.role ?? null;
+    const anchorProblem = !voiced
+      ? "Only a video made to a voiceover can start every clip from one still."
+      : !presenterRuns
+        ? "The database needs an update first (migration 0017_presenter_runs)."
+        : keyframed
+          ? "Keyframes chain every clip from the one before."
+          : clipStart(continuation)?.kind !== "frame"
+            ? `${continuation?.display_name ?? "The model"} can't start a clip from a given frame.`
+            : !references.some((item) => item.assetType === "image" && item.role === anchorRole)
+              ? "Attach the image the presenter should look like as clip 1's start frame."
+              : null;
+    const startFrom: "chain" | "anchor" =
+      anchorProblem === null && draft.startFrom !== "chain" ? "anchor" : "chain";
     const durations = voiced
       ? (voicePlan?.segments.map((segment) => segment.requestSeconds) ?? [])
       : continuation
@@ -339,9 +410,16 @@ export function useLongVideoPlan(input: {
           sourceAssetId: chosen.sourceAssetId ?? null,
         }
       : null;
+    const pieces = voiceover?.segments ?? [];
     const clips: ClipDraft[] = durations.map((durationSeconds, index) => {
       const clipModel = index === 0 ? firstModel : continuation!;
       const beat = draft.beats[index] ?? "";
+      // A clip that doesn't carry on from the one before (from the still, or
+      // after a cutaway) isn't told to.
+      const afterCutaway =
+        index > 0 &&
+        !!pieces[index] &&
+        Math.abs(pieces[index]!.start - pieces[index - 1]!.end) > 1e-3;
       const base = clipPrompt({
         story,
         beat,
@@ -349,6 +427,7 @@ export function useLongVideoPlan(input: {
         index,
         count: durations.length,
         finale: finale?.mode ?? null,
+        standalone: startFrom === "anchor" || afterCutaway,
       });
       const prompt =
         cinema.on && cinemaSupported(clipModel)
@@ -383,7 +462,21 @@ export function useLongVideoPlan(input: {
               ? "Confirm the voice in the voiceover may be used"
               : (voicePlan?.problem ?? null);
       if (waiting) issues.push({ position: null, message: waiting });
+      if (draft.startFrom === "anchor" && anchorProblem && !keyframed)
+        issues.push({
+          position: null,
+          message: `Every clip can't start from one still: ${anchorProblem}`,
+        });
     }
+    const warnings = voiced
+      ? lipSyncWarnings({
+          story,
+          beats: draft.beats,
+          keyframed,
+          model: firstModel,
+          values,
+        })
+      : [];
     if (!voiced || durations.length)
       issues.push(
         ...planIssues({
@@ -461,6 +554,9 @@ export function useLongVideoPlan(input: {
       quote,
       keyframeQuote,
       voiceover,
+      startFrom,
+      anchorProblem,
+      warnings,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -473,5 +569,6 @@ export function useLongVideoPlan(input: {
     charactersKey,
     openingKey,
     voiceKey,
+    presenterRuns,
   ]);
 }

@@ -28,6 +28,8 @@ import {
   type TransitionType,
 } from "@/lib/edit/timeline";
 import { useClockPlaying, useClockTime, type PlaybackClock } from "./state";
+import { useBrandFontFaces } from "@/hooks/useBrandKits";
+import { safeInsets, type SafeArea } from "@/lib/edit/brand";
 
 interface PreviewPlayerProps {
   timeline: Timeline;
@@ -43,6 +45,8 @@ interface PreviewPlayerProps {
  * final video, which is produced by the media service.
  */
 export function PreviewPlayer({ timeline, layout, assets, media, clock }: PreviewPlayerProps) {
+  // Brand fonts load into the page, so titles are set in them as the render sets them.
+  useBrandFontFaces(timeline.fonts);
   const time = useClockTime(clock);
   const playing = useClockPlaying(clock);
   const box = useRef<HTMLDivElement>(null);
@@ -135,6 +139,7 @@ export function PreviewPlayer({ timeline, layout, assets, media, clock }: Previe
             level={level * fadeLevel}
           />
         ))}
+        <ImageLayer timeline={timeline} time={time} media={media} />
         <TextLayer
           timeline={timeline}
           time={time}
@@ -142,6 +147,7 @@ export function PreviewPlayer({ timeline, layout, assets, media, clock }: Previe
           frameWidth={target.width}
           frameHeight={target.height}
         />
+        <SafeAreaGuide timeline={timeline} />
         {fadeOpacity > 0 && (
           <div
             className="pointer-events-none absolute inset-0 bg-black"
@@ -511,6 +517,108 @@ const AudioLayer = memo(function AudioLayer({
 });
 
 /* ------------------------------------------------------------------ */
+/* Pictures over the edit, and the platform's clear area               */
+/* ------------------------------------------------------------------ */
+
+/** Logos and pictures laid over the edit, fading in and out as the render fades them. */
+function ImageLayer({
+  timeline,
+  time,
+  media,
+}: {
+  timeline: Timeline;
+  time: number;
+  media: Map<string, SignedMedia>;
+}) {
+  const shown = timeline.images.filter((image) => time >= image.start && time < image.end);
+  if (!shown.length) return null;
+  return (
+    <div className="pointer-events-none absolute inset-0 z-10" data-testid="preview-images">
+      {shown.map((image) => {
+        const url = media.get(image.assetId)?.url;
+        if (!url) return null;
+        const fade = Math.max(0.001, image.fade);
+        const level = Math.min(1, (time - image.start) / fade, (image.end - time) / fade);
+        return (
+          <img
+            key={image.id}
+            src={url}
+            alt=""
+            style={{
+              position: "absolute",
+              left: `${image.x * 100}%`,
+              top: `${image.y * 100}%`,
+              width: `${image.width * 100}%`,
+              transform: "translate(-50%, -50%)",
+              opacity: image.opacity * Math.max(0, level),
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+/** Where the chosen platform's own buttons and captions cover the picture, shaded. */
+function SafeAreaGuide({ timeline }: { timeline: Timeline }) {
+  if (timeline.safeArea === "none") return null;
+  const insets = safeInsets(timeline.safeArea as SafeArea, timeline.aspectRatio);
+  const shade = "rgba(244, 63, 94, 0.18)";
+  return (
+    <div className="pointer-events-none absolute inset-0 z-20" data-testid="safe-area-guide">
+      <div
+        className="absolute inset-x-0 top-0"
+        style={{ height: `${insets.top * 100}%`, background: shade }}
+      />
+      <div
+        className="absolute inset-x-0 bottom-0"
+        style={{ height: `${insets.bottom * 100}%`, background: shade }}
+      />
+      <div
+        className="absolute left-0"
+        style={{
+          top: `${insets.top * 100}%`,
+          bottom: `${insets.bottom * 100}%`,
+          width: `${insets.left * 100}%`,
+          background: shade,
+        }}
+      />
+      <div
+        className="absolute right-0"
+        style={{
+          top: `${insets.top * 100}%`,
+          bottom: `${insets.bottom * 100}%`,
+          width: `${insets.right * 100}%`,
+          background: shade,
+        }}
+      />
+      <div
+        className="absolute border border-dashed border-white/70"
+        style={{
+          top: `${insets.top * 100}%`,
+          bottom: `${insets.bottom * 100}%`,
+          left: `${insets.left * 100}%`,
+          right: `${insets.right * 100}%`,
+        }}
+      />
+    </div>
+  );
+}
+
+/** A brand font's stack, falling back to Inter as the render does. */
+function fontStack(family: string | null): string {
+  return family
+    ? `"${family}", Inter, ui-sans-serif, system-ui, sans-serif`
+    : "Inter, ui-sans-serif, system-ui, sans-serif";
+}
+
+/** A #rrggbb colour at some opacity. */
+function tint(hex: string, alpha: number): string {
+  const value = parseInt(hex.slice(1), 16);
+  return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, ${alpha})`;
+}
+
+/* ------------------------------------------------------------------ */
 /* Captions and titles                                                 */
 /* ------------------------------------------------------------------ */
 
@@ -538,18 +646,19 @@ function TextLayer({
   );
 
   const captionStyle = (): CSSProperties => {
-    const { style, position, size } = timeline.captions;
+    const { style, position, size, font, color, accent } = timeline.captions;
     const fontSize = short * 0.058 * size * scale;
     const base: CSSProperties = {
       position: "absolute",
       left: "8%",
       right: "8%",
       textAlign: "center",
-      fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
-      fontWeight: style === "minimal" ? 500 : 700,
+      fontFamily: fontStack(font),
+      // A brand font is set as it was drawn.
+      fontWeight: font ? 400 : style === "minimal" ? 500 : 700,
       fontSize,
       lineHeight: 1.2,
-      color: style === "bold" ? "#ffe500" : "#ffffff",
+      color: style === "bold" ? (accent ?? "#ffe500") : (color ?? "#ffffff"),
       whiteSpace: "pre-line",
     };
     if (position === "top") base.top = `${(portrait ? 0.14 : 0.08) * 100}%`;
@@ -572,7 +681,9 @@ function TextLayer({
             style={
               timeline.captions.style === "boxed"
                 ? {
-                    background: "rgba(0,0,0,0.65)",
+                    background: timeline.captions.accent
+                      ? tint(timeline.captions.accent, 0.65)
+                      : "rgba(0,0,0,0.65)",
                     padding: "0.1em 0.35em",
                     boxDecorationBreak: "clone",
                     WebkitBoxDecorationBreak: "clone",
@@ -594,13 +705,17 @@ function TextLayer({
           left: "8%",
           right: "8%",
           textAlign: "center",
-          fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
-          fontWeight: overlay.style === "subtitle" ? 500 : 800,
+          fontFamily: fontStack(overlay.font),
+          // A brand font is set as it was drawn.
+          fontWeight: overlay.font ? 400 : overlay.style === "subtitle" ? 500 : 800,
           fontSize: size,
           lineHeight: 1.15,
           whiteSpace: "pre-line",
         };
-        if (overlay.position === "top") style.top = `${(portrait ? 0.16 : 0.1) * 100}%`;
+        if (overlay.y !== null) {
+          style.top = `${overlay.y * 100}%`;
+          style.transform = "translateY(-50%)";
+        } else if (overlay.position === "top") style.top = `${(portrait ? 0.16 : 0.1) * 100}%`;
         else if (overlay.position === "bottom") style.bottom = `${(portrait ? 0.3 : 0.16) * 100}%`;
         else {
           style.top = "50%";
@@ -611,8 +726,8 @@ function TextLayer({
             {overlay.style === "cta" ? (
               <span
                 style={{
-                  background: "#fff",
-                  color: "#000",
+                  background: overlay.accent ?? "#fff",
+                  color: overlay.color ?? "#000",
                   padding: "0.25em 0.6em",
                   borderRadius: 4,
                 }}
@@ -620,7 +735,30 @@ function TextLayer({
                 {overlay.text}
               </span>
             ) : (
-              <span style={{ color: "#fff", textShadow: "0 0 6px #000, 0 2px 8px #000" }}>
+              <span
+                style={
+                  overlay.backing === "box"
+                    ? {
+                        color: overlay.color ?? "#fff",
+                        background: overlay.accent
+                          ? tint(overlay.accent, 0.65)
+                          : "rgba(0,0,0,0.65)",
+                        padding: "0.15em 0.4em",
+                        boxDecorationBreak: "clone",
+                        WebkitBoxDecorationBreak: "clone",
+                      }
+                    : overlay.backing === "halo"
+                      ? {
+                          color: overlay.color ?? "#fff",
+                          textShadow:
+                            "0 0 0.12em rgba(0,0,0,0.6), 0 0 0.3em rgba(0,0,0,0.55), 0 0.05em 0.25em rgba(0,0,0,0.6)",
+                        }
+                      : {
+                          color: overlay.color ?? "#fff",
+                          textShadow: "0 0 6px #000, 0 2px 8px #000",
+                        }
+                }
+              >
                 {overlay.text}
               </span>
             )}

@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_tokens: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: string
+          last_used_at: string | null
+          name: string
+          revoked_at: string | null
+          scopes: string[]
+          token_hash: string
+          token_prefix: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          last_used_at?: string | null
+          name: string
+          revoked_at?: string | null
+          scopes?: string[]
+          token_hash: string
+          token_prefix: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          last_used_at?: string | null
+          name?: string
+          revoked_at?: string | null
+          scopes?: string[]
+          token_hash?: string
+          token_prefix?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_settings: {
         Row: {
           key: string
@@ -2061,6 +2108,110 @@ export type Database = {
           },
         ]
       }
+      brand_kits: {
+        Row: {
+          accent_color: string
+          background_color: string
+          body_font: string
+          call_to_action: string | null
+          created_at: string
+          created_by: string | null
+          end_card_asset_id: string | null
+          fonts: Json
+          heading_font: string
+          id: string
+          is_archived: boolean
+          is_default: boolean
+          logo_asset_id: string | null
+          name: string
+          project_id: string | null
+          tagline: string | null
+          terms: string[]
+          text_color: string
+          title_backing: string
+          updated_at: string
+          uppercase_titles: boolean
+          website: string | null
+        }
+        Insert: {
+          accent_color?: string
+          background_color?: string
+          body_font?: string
+          call_to_action?: string | null
+          created_at?: string
+          created_by?: string | null
+          end_card_asset_id?: string | null
+          fonts?: Json
+          heading_font?: string
+          id?: string
+          is_archived?: boolean
+          is_default?: boolean
+          logo_asset_id?: string | null
+          name: string
+          project_id?: string | null
+          tagline?: string | null
+          terms?: string[]
+          text_color?: string
+          title_backing?: string
+          updated_at?: string
+          uppercase_titles?: boolean
+          website?: string | null
+        }
+        Update: {
+          accent_color?: string
+          background_color?: string
+          body_font?: string
+          call_to_action?: string | null
+          created_at?: string
+          created_by?: string | null
+          end_card_asset_id?: string | null
+          fonts?: Json
+          heading_font?: string
+          id?: string
+          is_archived?: boolean
+          is_default?: boolean
+          logo_asset_id?: string | null
+          name?: string
+          project_id?: string | null
+          tagline?: string | null
+          terms?: string[]
+          text_color?: string
+          title_backing?: string
+          updated_at?: string
+          uppercase_titles?: boolean
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_kits_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_kits_end_card_asset_id_fkey"
+            columns: ["end_card_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_kits_logo_asset_id_fkey"
+            columns: ["logo_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_kits_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_voices: {
         Row: {
           created_at: string
@@ -2762,6 +2913,7 @@ export type Database = {
       generations: {
         Row: {
           actual_cost_usd: number | null
+          auto_retries: number
           campaign_id: string | null
           client_request_id: string | null
           completed_at: string | null
@@ -2787,6 +2939,7 @@ export type Database = {
           prompt: string | null
           provider: string
           provider_response: Json | null
+          retry_after: string | null
           started_at: string | null
           status: Database["public"]["Enums"]["generation_status"]
           submission_started_at: string | null
@@ -2796,6 +2949,7 @@ export type Database = {
         }
         Insert: {
           actual_cost_usd?: number | null
+          auto_retries?: number
           campaign_id?: string | null
           client_request_id?: string | null
           completed_at?: string | null
@@ -2821,6 +2975,7 @@ export type Database = {
           prompt?: string | null
           provider?: string
           provider_response?: Json | null
+          retry_after?: string | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["generation_status"]
           submission_started_at?: string | null
@@ -2830,6 +2985,7 @@ export type Database = {
         }
         Update: {
           actual_cost_usd?: number | null
+          auto_retries?: number
           campaign_id?: string | null
           client_request_id?: string | null
           completed_at?: string | null
@@ -2855,6 +3011,7 @@ export type Database = {
           prompt?: string | null
           provider?: string
           provider_response?: Json | null
+          retry_after?: string | null
           started_at?: string | null
           status?: Database["public"]["Enums"]["generation_status"]
           submission_started_at?: string | null
@@ -3395,6 +3552,84 @@ export type Database = {
           },
         ]
       }
+      long_video_clip_takes: {
+        Row: {
+          attempt: number
+          clip_id: string
+          created_at: string
+          generation_id: string | null
+          id: string
+          lip_score: number | null
+          long_video_id: string
+          output_asset_id: string | null
+          reason: string
+          snapshot: Json
+          start_frame_asset_id: string | null
+        }
+        Insert: {
+          attempt: number
+          clip_id: string
+          created_at?: string
+          generation_id?: string | null
+          id?: string
+          lip_score?: number | null
+          long_video_id: string
+          output_asset_id?: string | null
+          reason?: string
+          snapshot?: Json
+          start_frame_asset_id?: string | null
+        }
+        Update: {
+          attempt?: number
+          clip_id?: string
+          created_at?: string
+          generation_id?: string | null
+          id?: string
+          lip_score?: number | null
+          long_video_id?: string
+          output_asset_id?: string | null
+          reason?: string
+          snapshot?: Json
+          start_frame_asset_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "long_video_clip_takes_clip_id_fkey"
+            columns: ["clip_id"]
+            isOneToOne: false
+            referencedRelation: "long_video_clips"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "long_video_clip_takes_generation_id_fkey"
+            columns: ["generation_id"]
+            isOneToOne: false
+            referencedRelation: "generations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "long_video_clip_takes_long_video_id_fkey"
+            columns: ["long_video_id"]
+            isOneToOne: false
+            referencedRelation: "long_videos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "long_video_clip_takes_output_asset_id_fkey"
+            columns: ["output_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "long_video_clip_takes_start_frame_asset_id_fkey"
+            columns: ["start_frame_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       long_video_clips: {
         Row: {
           attempt: number
@@ -3422,8 +3657,17 @@ export type Database = {
           handoff_status: string
           handoff_task_id: string | null
           handoff_time_seconds: number | null
+          held: boolean
           id: string
           inputs: Json
+          lip_attempts: number
+          lip_checked_at: string | null
+          lip_offset_frames: number | null
+          lip_result: Json | null
+          lip_score: number | null
+          lip_score_at_zero: number | null
+          lip_status: string
+          lip_task_id: string | null
           long_video_id: string
           model_registry_id: string
           output_asset_id: string | null
@@ -3435,6 +3679,7 @@ export type Database = {
           position: number
           prompt: string
           start_frame_asset_id: string | null
+          start_frame_override_asset_id: string | null
           started_at: string | null
           status: string
           sync_attempts: number
@@ -3471,8 +3716,17 @@ export type Database = {
           handoff_status?: string
           handoff_task_id?: string | null
           handoff_time_seconds?: number | null
+          held?: boolean
           id?: string
           inputs?: Json
+          lip_attempts?: number
+          lip_checked_at?: string | null
+          lip_offset_frames?: number | null
+          lip_result?: Json | null
+          lip_score?: number | null
+          lip_score_at_zero?: number | null
+          lip_status?: string
+          lip_task_id?: string | null
           long_video_id: string
           model_registry_id: string
           output_asset_id?: string | null
@@ -3484,6 +3738,7 @@ export type Database = {
           position: number
           prompt?: string
           start_frame_asset_id?: string | null
+          start_frame_override_asset_id?: string | null
           started_at?: string | null
           status?: string
           sync_attempts?: number
@@ -3520,8 +3775,17 @@ export type Database = {
           handoff_status?: string
           handoff_task_id?: string | null
           handoff_time_seconds?: number | null
+          held?: boolean
           id?: string
           inputs?: Json
+          lip_attempts?: number
+          lip_checked_at?: string | null
+          lip_offset_frames?: number | null
+          lip_result?: Json | null
+          lip_score?: number | null
+          lip_score_at_zero?: number | null
+          lip_status?: string
+          lip_task_id?: string | null
           long_video_id?: string
           model_registry_id?: string
           output_asset_id?: string | null
@@ -3533,6 +3797,7 @@ export type Database = {
           position?: number
           prompt?: string
           start_frame_asset_id?: string | null
+          start_frame_override_asset_id?: string | null
           started_at?: string | null
           status?: string
           sync_attempts?: number
@@ -3544,6 +3809,20 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "long_video_clips_lip_task_id_fkey"
+            columns: ["lip_task_id"]
+            isOneToOne: false
+            referencedRelation: "media_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "long_video_clips_start_frame_override_asset_id_fkey"
+            columns: ["start_frame_override_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "long_video_clips_generation_id_fkey"
             columns: ["generation_id"]
@@ -3748,6 +4027,7 @@ export type Database = {
       }
       long_videos: {
         Row: {
+          anchor_frame_asset_id: string | null
           campaign_id: string | null
           characters: Json
           client_request_id: string | null
@@ -3757,17 +4037,21 @@ export type Database = {
           continuity: string
           created_at: string
           created_by: string | null
+          cutaway_fills: Json
           error_code: string | null
           error_message: string | null
+          estimated_cost_usd: number | null
           first_model_id: string
           id: string
           identity_check: boolean
           keyframe_model_id: string | null
           keyframe_settings: Json
           project_id: string | null
+          qc_settings: Json
           references_used: Json
           sequence_id: string | null
           settings: Json
+          start_from: string
           status: string
           story: string
           storyboard_approved_at: string | null
@@ -3779,6 +4063,7 @@ export type Database = {
           voiceover_preparation_id: string | null
         }
         Insert: {
+          anchor_frame_asset_id?: string | null
           campaign_id?: string | null
           characters?: Json
           client_request_id?: string | null
@@ -3788,17 +4073,21 @@ export type Database = {
           continuity?: string
           created_at?: string
           created_by?: string | null
+          cutaway_fills?: Json
           error_code?: string | null
           error_message?: string | null
+          estimated_cost_usd?: number | null
           first_model_id: string
           id?: string
           identity_check?: boolean
           keyframe_model_id?: string | null
           keyframe_settings?: Json
           project_id?: string | null
+          qc_settings?: Json
           references_used?: Json
           sequence_id?: string | null
           settings?: Json
+          start_from?: string
           status?: string
           story?: string
           storyboard_approved_at?: string | null
@@ -3810,6 +4099,7 @@ export type Database = {
           voiceover_preparation_id?: string | null
         }
         Update: {
+          anchor_frame_asset_id?: string | null
           campaign_id?: string | null
           characters?: Json
           client_request_id?: string | null
@@ -3819,17 +4109,21 @@ export type Database = {
           continuity?: string
           created_at?: string
           created_by?: string | null
+          cutaway_fills?: Json
           error_code?: string | null
           error_message?: string | null
+          estimated_cost_usd?: number | null
           first_model_id?: string
           id?: string
           identity_check?: boolean
           keyframe_model_id?: string | null
           keyframe_settings?: Json
           project_id?: string | null
+          qc_settings?: Json
           references_used?: Json
           sequence_id?: string | null
           settings?: Json
+          start_from?: string
           status?: string
           story?: string
           storyboard_approved_at?: string | null
@@ -3841,6 +4135,13 @@ export type Database = {
           voiceover_preparation_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "long_videos_anchor_frame_asset_id_fkey"
+            columns: ["anchor_frame_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "long_videos_campaign_id_fkey"
             columns: ["campaign_id"]
@@ -5983,6 +6284,10 @@ export type Database = {
         Args: { _meta: Json; _name: string; _value: string }
         Returns: undefined
       }
+      check_member_spend_allowance: {
+        Args: { _amount: number; _user_id: string }
+        Returns: Json
+      }
       check_spend_allowance: {
         Args: { _amount: number; _campaign_id: string; _project_id: string }
         Returns: Json
@@ -6182,6 +6487,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      set_default_brand_kit: {
+        Args: { _kit_id: string }
+        Returns: undefined
       }
       set_default_brand_voice: { Args: { p_voice_id: string }; Returns: string }
       settle_team_invitations: { Args: never; Returns: number }

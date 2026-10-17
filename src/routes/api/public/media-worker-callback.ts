@@ -305,6 +305,11 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
           })
           .eq("id", task.id);
         if (taskError) return notRecorded("media task", taskError.message);
+        // A generated file's measurement: its exact length, size and frame rate.
+        if (typeof input["measure_asset_id"] === "string") {
+          const { recordAssetMeasurement } = await import("@/lib/media/measure-asset.server");
+          await recordAssetMeasurement(input["measure_asset_id"], metadata).catch(() => undefined);
+        }
         await moveLongVideoOn();
 
         return new Response(JSON.stringify({ received: true }), {

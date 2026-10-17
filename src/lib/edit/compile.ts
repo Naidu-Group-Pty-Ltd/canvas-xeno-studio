@@ -6,11 +6,11 @@
  */
 import { LIP_SYNC } from "../lip-sync/models";
 import { placeSyncedClips, type SyncedPlacement } from "../lip-sync/placement";
+import { phraseCaptions } from "./captions";
 import {
   aspectFromValue,
   audioFromSource,
   captionsFromScript,
-  captionsFromWords,
   clipFromSource,
   emptyTimeline,
   frameSize,
@@ -222,6 +222,11 @@ export function compileFromDrafts(
       end: Math.min(2.5, total / 2),
       style: "title" as const,
       position: "center" as const,
+      y: null,
+      backing: "halo" as const,
+      font: null,
+      color: null,
+      accent: null,
     });
   }
   if (plan?.closingCta?.trim() && total > 2) {
@@ -232,6 +237,11 @@ export function compileFromDrafts(
       end: total,
       style: "cta" as const,
       position: "bottom" as const,
+      y: null,
+      backing: "outline" as const,
+      font: null,
+      color: null,
+      accent: null,
     });
   }
   if (overlays.length) next = { ...next, overlays };
@@ -549,6 +559,8 @@ export interface VoiceoverClipCut {
   audioEnd: number;
   /** Where its sound has the speech against its piece (positive: later), when measured. */
   offsetSeconds: number | null;
+  /** How far its lips run ahead of its sound (seconds, positive: the mouth first), when measured. */
+  lipLeadSeconds?: number | null;
   /** The clip's measured length. */
   lengthSeconds: number | null;
   /**
@@ -569,6 +581,10 @@ export interface VoiceoverTrack {
   title: string;
   /** Its words, timed on its own clock, for captions. */
   words: { text: string; start: number; end: number }[];
+  /** The script it was read from: the captions show its words (see ./captions). */
+  script?: string | null;
+  /** The brand's names as they should be spelt in the captions. */
+  terms?: string[];
 }
 
 export interface VoiceoverCompileResult extends LongVideoCompileResult {
@@ -628,6 +644,7 @@ export function compileFromVoiceoverLongVideo(
       start: clip.audioStart,
       end: clip.audioEnd,
       offsetSeconds: clip.offsetSeconds,
+      lipLeadSeconds: clip.lipLeadSeconds ?? null,
       sourceSeconds: clip.lengthSeconds ?? asset.durationSeconds ?? null,
     })),
     fps,
@@ -674,9 +691,12 @@ export function compileFromVoiceoverLongVideo(
       timeline.captions = {
         ...timeline.captions,
         enabled: options.captions,
-        segments: captionsFromWords(voiceover.words, -placement.voiceover.trimStart, {
+        // Phrases, in the script's own words where it is known (see ./captions).
+        segments: phraseCaptions(voiceover.words, -placement.voiceover.trimStart, {
           until: placement.totalSeconds,
-        }),
+          script: voiceover.script ?? null,
+          terms: voiceover.terms ?? [],
+        }).segments,
       };
     }
   }
