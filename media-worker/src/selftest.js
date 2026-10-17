@@ -6,12 +6,13 @@
 import { execFileSync, spawn } from "node:child_process";
 import { createHmac } from "node:crypto";
 import { request as httpRequest } from "node:http";
+import { existsSync } from "node:fs";
 import { copyFile, mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { ffmpeg, probe } from "./ffmpeg.js";
 import { FEATURES, TASKS } from "./tasks.js";
-import { lipCheckAvailable } from "./lipcheck.js";
+import { lipCheckAvailable, lipCheckDir, lipCheckPython } from "./lipcheck.js";
 import { clipRuns, fitAudioToSources, inParallel } from "./sequence.js";
 import { alignFrames, detailLevel, downscale } from "./align.js";
 import { Lanes, idleLongEnough, laneOf } from "./lanes.js";
@@ -870,6 +871,9 @@ await check(lipCheckAvailable ? "lip_check runs SyncNet, and finds no face in a 
   if (!FEATURES.includes("lip_check")) throw new Error("not in the features");
   const { metadata } = await TASKS.lip_check.run({ sources: [{ path: clipA, role: "video" }], params: { window_seconds: 3 }, dir });
   if (metadata.status !== "no_face") throw new Error(`reported ${JSON.stringify(metadata)}`);
+  // Framing and the mouth in silences, with the image's own numpy.
+  const tests = join(lipCheckDir, "tests", "test_face_qc.py");
+  if (existsSync(tests)) execFileSync(lipCheckPython, ["-I", tests], { stdio: "pipe" });
 });
 
 await rm(dir, { recursive: true, force: true });

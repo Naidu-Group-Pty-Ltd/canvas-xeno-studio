@@ -9,8 +9,9 @@ import {
   setClipStartFrame,
   setCutawayFill,
 } from "@/lib/long-video.functions";
-import { lipSummary, storedQc } from "@/lib/lip-sync/lip-check";
+import { faceNotes, lipSummary, referenceFraming, storedQc } from "@/lib/lip-sync/lip-check";
 import { voiceLength } from "@/lib/lip-sync/view";
+import { textCheckOf } from "@/lib/media/text-check";
 import type { Cutaway } from "@/lib/lip-sync/sections";
 import { LibraryPicker } from "@/components/studio/LibraryPicker";
 import { MediaPreview } from "@/components/studio/MediaPreview";
@@ -20,25 +21,42 @@ import { cn } from "@/lib/utils";
 
 type Act = (name: string, work: () => Promise<unknown>, success?: string) => Promise<void>;
 
-/** A clip's lip score, as a short line under it (nothing for a run that doesn't score lips). */
+/**
+ * A clip's lip score, as a short line under it, and anything else its face
+ * check found (framed unlike the others, the camera moving, the mouth moving
+ * in pauses). Nothing for a run that doesn't score lips.
+ */
 export function ClipLipScore({ run, clip }: { run: LongVideoRow; clip: LongVideoClipRow }) {
   const summary = lipSummary(clip, storedQc(run.qc_settings));
   if (!summary) return null;
+  const notes = faceNotes(clip, referenceFraming(run.clips));
   return (
-    <p
-      className={cn(
-        "truncate text-[10px]",
-        summary.tone === "good"
-          ? "text-success"
-          : summary.tone === "warning"
-            ? "text-warning"
-            : "text-muted-foreground",
-      )}
-      title={summary.detail}
-      data-testid="long-video-clip-lips"
-    >
-      {summary.label}
-    </p>
+    <>
+      <p
+        className={cn(
+          "truncate text-[10px]",
+          summary.tone === "good"
+            ? "text-success"
+            : summary.tone === "warning"
+              ? "text-warning"
+              : "text-muted-foreground",
+        )}
+        title={summary.detail}
+        data-testid="long-video-clip-lips"
+      >
+        {summary.label}
+      </p>
+      {notes.map((note) => (
+        <p
+          key={note.label}
+          className="truncate text-[10px] text-warning"
+          title={note.detail}
+          data-testid="long-video-clip-face"
+        >
+          {note.label}
+        </p>
+      ))}
+    </>
   );
 }
 
@@ -345,6 +363,15 @@ export function CutawayFills({
                 <p className="truncate text-muted-foreground">
                   {asset?.title ?? (fill ? "Chosen" : "Placeholder in the Editor")}
                 </p>
+                {asset && textCheckOf(asset.metadata)?.verdict === "garbled" && (
+                  <p
+                    className="truncate text-warning"
+                    title={textCheckOf(asset.metadata)!.summary}
+                    data-testid="long-video-cutaway-text"
+                  >
+                    Garbled text in it
+                  </p>
+                )}
               </div>
               {canManage && (
                 <div className="flex shrink-0 gap-0.5">

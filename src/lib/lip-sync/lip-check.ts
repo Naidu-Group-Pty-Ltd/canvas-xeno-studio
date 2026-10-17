@@ -110,6 +110,8 @@ const KEPT = [
   "windows",
   "fps",
   "model",
+  "framing",
+  "silence",
 ] as const;
 
 /** What a lip_check task found, read (its output metadata). */
@@ -243,4 +245,120 @@ export function bestTake<T extends { lipScore: number | null; attempt: number }>
         : best,
     );
   return takes.reduce((latest, take) => (take.attempt > latest.attempt ? take : latest));
+}
+
+/**
+ * Beyond lip sync, from the same face landmarks (media worker
+ * lipcheck/face_qc.py): how big the presenter's face is and where it sits,
+ * and how often the mouth is open where the voice is silent. In the Aurixa
+ * job the eye span held at 136 to 153 px at 720p; a clip far off the others'
+ * was framed differently (a zoom or push-in), and a mouth moving in silence
+ * reads as mumbling.
+ */
+export const FACE_CHECK = {
+  /** A face this much bigger or smaller than the run's first presenter clip's is flagged. */
+  sizeChange: 0.12,
+  /** ...or one that moved this far across or down the frame (a share of it). */
+  moved: 0.08,
+  /** A face whose size changes this much within the clip (a push-in or pull-back). */
+  spread: 0.2,
+  /** The mouth open in this share of the silences' frames... */
+  mouthOpen: 0.35,
+  /** ...over at least this much silence, is flagged. */
+  silentSeconds: 0.6,
+} as const;
+
+export interface ClipFraming {
+  /** The span between the outer eye corners, in pixels and as a share of the frame's width. */
+  eyeSpanPx: number;
+  eyeSpanFrac: number;
+  /** How much it changes within the clip ((90th - 10th percentile) / median). */
+  spread: number;
+  /** Where the face sits, 0-1 across and down. */
+  faceX: number;
+  faceY: number;
+}
+
+export interface SilentMouth {
+  /** Silence judged (seconds, its edges left out). */
+  silentSeconds: number;
+  /** The share of those frames whose mouth was open. */
+  openFraction: number;
+}
+
+/** A clip's framing, as its lip check reported it (null without one). */
+export function framingOf(result: unknown): ClipFraming | null {
+  const framing = asRecord(asRecord(result)["framing"]);
+  const px = finite(framing["eye_span_px"]);
+  const frac = finite(framing["eye_span_frac"]);
+  if (px === null || frac === null || frac <= 0) return null;
+  return {
+    eyeSpanPx: px,
+    eyeSpanFrac: frac,
+    spread: finite(framing["eye_span_spread"]) ?? 0,
+    faceX: finite(framing["face_x"]) ?? 0.5,
+    faceY: finite(framing["face_y"]) ?? 0.5,
+  };
+}
+
+/** How the mouth behaved in a clip's silences, as its lip check reported it (null without any). */
+export function silentMouthOf(result: unknown): SilentMouth | null {
+  const silence = asRecord(asRecord(result)["silence"]);
+  const seconds = finite(silence["silent_seconds"]);
+  const open = finite(silence["mouth_open_fraction"]);
+  if (seconds === null || open === null) return null;
+  return { silentSeconds: seconds, openFraction: open };
+}
+
+/** The framing a run's clips are held to: its first clip (by position) whose framing is known. */
+export function referenceFraming(
+  clips: { position: number; lip_result?: unknown }[],
+): { position: number; framing: ClipFraming } | null {
+  for (const clip of [...clips].sort((a, b) => a.position - b.position)) {
+    const framing = framingOf(clip.lip_result);
+    if (framing) return { position: clip.position, framing };
+  }
+  return null;
+}
+
+/** What a person should know about a clip's face beyond its lip score: one line each. */
+export function faceNotes(
+  clip: { position: number; lip_result?: unknown },
+  reference: { position: number; framing: ClipFraming } | null,
+): { label: string; detail: string }[] {
+  const notes: { label: string; detail: string }[] = [];
+  const framing = framingOf(clip.lip_result);
+  if (framing && reference && reference.position !== clip.position) {
+    const size = framing.eyeSpanFrac / reference.framing.eyeSpanFrac - 1;
+    const moved = Math.hypot(
+      framing.faceX - reference.framing.faceX,
+      framing.faceY - reference.framing.faceY,
+    );
+    if (Math.abs(size) > FACE_CHECK.sizeChange)
+      notes.push({
+        label: size > 0 ? "Framed closer" : "Framed wider",
+        detail: `The face is ${Math.round(Math.abs(size) * 100)}% ${size > 0 ? "bigger" : "smaller"} than in clip ${reference.position + 1} (eye span ${Math.round(framing.eyeSpanPx)} px against ${Math.round(reference.framing.eyeSpanPx)}), so the cut between them jumps. Another take, or one from the video's still, usually matches.`,
+      });
+    else if (moved > FACE_CHECK.moved)
+      notes.push({
+        label: "Face moved",
+        detail: `The face sits ${Math.round(moved * 100)}% of the frame away from where it is in clip ${reference.position + 1}, so the cut between them jumps.`,
+      });
+  }
+  if (framing && framing.spread > FACE_CHECK.spread)
+    notes.push({
+      label: "Camera moves",
+      detail: `The face grows or shrinks by ${Math.round(framing.spread * 100)}% within the clip: the camera pushes in or pulls back, which weakens lip sync. A locked-off camera holds it.`,
+    });
+  const mouth = silentMouthOf(clip.lip_result);
+  if (
+    mouth &&
+    mouth.silentSeconds >= FACE_CHECK.silentSeconds &&
+    mouth.openFraction > FACE_CHECK.mouthOpen
+  )
+    notes.push({
+      label: "Mouth moves in pauses",
+      detail: `The mouth is open in ${Math.round(mouth.openFraction * 100)}% of the ${mouth.silentSeconds.toFixed(1)} s where the voice pauses: it can read as mumbling. Another take may hold it closed.`,
+    });
+  return notes;
 }

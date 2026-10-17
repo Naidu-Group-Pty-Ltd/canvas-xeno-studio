@@ -7,7 +7,9 @@ import { TaskError } from "./net.js";
  * How well a clip's lips follow its voice, seen in its picture: SyncNet
  * (lipcheck/syncnet_score.py, run in its own Python) scores the mouth against
  * the sound at every offset up to fifteen frames either way, for the whole
- * clip and in windows of a few seconds. The app keeps the score with the
+ * clip and in windows of a few seconds. From the same face landmarks it also
+ * reports the clip's framing (the eye span and where the face sits) and how
+ * often the mouth is open where the voice is silent (lipcheck/face_qc.py). The app keeps the score with the
  * clip, takes out a lead of a frame or two when it lays the clip, and makes
  * a poor take again (see src/lib/lip-sync/lip-check.ts).
  *
@@ -18,8 +20,9 @@ import { TaskError } from "./net.js";
 
 const DIR = process.env["LIP_CHECK_DIR"] ?? "/opt/lipcheck";
 const PYTHON = process.env["LIP_CHECK_PYTHON"] ?? join(DIR, "venv", "bin", "python");
+export { DIR as lipCheckDir, PYTHON as lipCheckPython };
 const SCRIPT = join(DIR, "syncnet_score.py");
-const FILES = [PYTHON, SCRIPT, join(DIR, "syncnet", "SyncNetModel.py"), join(DIR, "syncnet", "syncnet_v2.model"), join(DIR, "models", "face_landmarker.task")];
+const FILES = [PYTHON, SCRIPT, join(DIR, "face_qc.py"), join(DIR, "syncnet", "SyncNetModel.py"), join(DIR, "syncnet", "syncnet_v2.model"), join(DIR, "models", "face_landmarker.task")];
 
 /** Whether this worker has what scoring lips needs (checked once, at start). */
 export const lipCheckAvailable = FILES.every((file) => existsSync(file));

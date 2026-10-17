@@ -45,7 +45,9 @@ from scipy.io import wavfile
 HERE = Path(__file__).resolve().parent
 SYNC = Path(os.environ.get("SYNCNET_DIR", str(HERE.parent / "syncnet")))
 sys.path.insert(0, str(SYNC))
+sys.path.insert(0, str(HERE))
 from SyncNetModel import S  # noqa: E402
+import face_qc  # noqa: E402
 
 MODEL = os.environ.get("FACE_MODEL", str(HERE.parent / "models" / "face_landmarker.task"))
 CS = 0.4
@@ -65,7 +67,8 @@ def load_model():
 
 
 def face_crops(clip, workdir, duration=None):
-    """The face, cropped as SyncNet expects, in every frame at 25 fps; and how many frames had a face."""
+    """The face, cropped as SyncNet expects, in every frame at 25 fps; how many frames had a face;
+    each frame's face geometry (see face_qc, None where no face was found); and the frame's size."""
     frames_dir = Path(workdir)
     args = ["ffmpeg", "-nostdin", "-v", "error", "-y", "-i", clip]
     if duration:
@@ -78,25 +81,29 @@ def face_crops(clip, workdir, duration=None):
         base_options=base, running_mode=mp.tasks.vision.RunningMode.IMAGE, num_faces=1
     )
     landmarker = mp.tasks.vision.FaceLandmarker.create_from_options(options)
-    boxes, images = [], []
+    boxes, images, geometry = [], [], []
+    size = (0, 0)
     for f in files:
         img = cv2.imread(str(f))
         h, w = img.shape[:2]
+        size = (w, h)
         res = landmarker.detect(mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(img, cv2.COLOR_BGR2RGB)))
         if res.face_landmarks:
             xs = np.array([p.x * w for p in res.face_landmarks[0]])
             ys = np.array([p.y * h for p in res.face_landmarks[0]])
             boxes.append([(xs.min() + xs.max()) / 2, (ys.min() + ys.max()) / 2, max(xs.max() - xs.min(), ys.max() - ys.min()) / 2])
+            geometry.append(face_qc.frame_geometry([(p.x, p.y) for p in res.face_landmarks[0]], w, h))
         else:
             boxes.append([np.nan, np.nan, np.nan])
+            geometry.append(None)
         images.append(img)
     landmarker.close()
     if not images:
-        return [], 0
+        return [], 0, [], size
     boxes = np.array(boxes, dtype=float)
     found = int(np.sum(~np.isnan(boxes[:, 0])))
     if not found:
-        return [], 0
+        return [], 0, geometry, size
     for c in range(3):
         col = boxes[:, c]
         good = ~np.isnan(col)
@@ -109,7 +116,7 @@ def face_crops(clip, workdir, duration=None):
         my, mx = y + bsi, x + bsi
         face = frame[int(my - s):int(my + s * (1 + 2 * CS)), int(mx - s * (1 + CS)):int(mx + s * (1 + CS))]
         crops.append(cv2.resize(face, (224, 224)))
-    return crops, found
+    return crops, found, geometry, size
 
 
 def distances(model, crops, audio):
@@ -170,9 +177,17 @@ def audio_16k(path, duration=None):
 def json_report(video, audio_path, duration, window):
     model = load_model()
     with tempfile.TemporaryDirectory() as work:
-        crops, found = face_crops(video, work, duration)
+        crops, found, geometry, (width, height) = face_crops(video, work, duration)
     audio = audio_16k(audio_path or video, duration)
     base = {"model": "syncnet_v2", "fps": FPS, "frames": len(crops), "face_frames": found}
+    # Framing, and the mouth wherever the voice is silent: read from the same landmarks.
+    framing = face_qc.framing_report(geometry, width, height) if found else None
+    if framing:
+        base["framing"] = framing
+    if found and len(audio):
+        silence = face_qc.silence_report(geometry, face_qc.frame_levels(audio, AUDIO_RATE, FPS, len(geometry)), FPS)
+        if silence:
+            base["silence"] = silence
     if not crops or found < max(5, 0.5 * len(crops)):
         return {**base, "status": "no_face"}
     if len(audio) < AUDIO_RATE or float(np.sqrt(np.mean(audio.astype(float) ** 2))) < 30:
@@ -224,7 +239,7 @@ def main():
     for arg in sys.argv[2:]:
         key, clip = arg.split("=", 1)
         with tempfile.TemporaryDirectory() as work:
-            crops, _ = face_crops(clip, work)
+            crops, _, _, _ = face_crops(clip, work)
         audio = audio_16k(clip if source == "self" else source)
         result = score(model, crops, audio) if crops else None
         if result is None:

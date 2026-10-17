@@ -9,6 +9,7 @@ import { useModels, useProjects } from "@/hooks/useStudioData";
 import { MediaPreview } from "@/components/studio/MediaPreview";
 import { StatusBadge } from "@/components/studio/StatusBadge";
 import { MediaTaskPanel } from "@/components/studio/MediaTaskPanel";
+import { TextCheckPanel } from "@/components/studio/TextCheckPanel";
 import { ReframeDialog } from "@/components/studio/ReframeDialog";
 import {
   downloadAsset,
@@ -372,6 +373,8 @@ export function AssetDetailDialog({
                     ))}
                   </div>
                 )}
+
+                <TextCheckPanel asset={asset} />
 
                 <MediaTaskPanel asset={asset} />
 

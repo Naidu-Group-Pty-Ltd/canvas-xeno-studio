@@ -45,7 +45,8 @@ RUN if [ "$LIP_CHECK" = "1" ]; then \
 WORKDIR /app
 COPY package.json ./
 COPY src ./src
-COPY lipcheck/syncnet_score.py /opt/lipcheck/syncnet_score.py
+COPY lipcheck/syncnet_score.py lipcheck/face_qc.py /opt/lipcheck/
+COPY lipcheck/tests/test_face_qc.py /opt/lipcheck/tests/
 
 ENV NODE_ENV=production \
     PORT=8080 \

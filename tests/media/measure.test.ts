@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { measurementOf } from "../../src/lib/media/measure-asset.server";
+import { measurementOf } from "../../src/lib/media/measure";
 
 describe("a generated file, measured", () => {
   test("takes its picture's own length over the container's, with its size and frame rate", () => {
