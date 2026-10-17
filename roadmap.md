@@ -19,6 +19,11 @@
 - [x] Budgets: a run's estimate checked against the workspace and the member's monthly cap (Settings) before it starts; out of credits pauses a run cleanly, and Continue picks it up
 - [x] Rate limits and provider busy errors retried automatically, with fresh idempotency keys; a one-minute tick moves running videos on
 - [x] Titles at any height with a halo or box behind them; generated videos measured for their exact length, size and frame rate
-- [ ] Apply migration 0017_presenter_runs: an admin, before anchor mode, cutaways, lip scores, takes, the member cap and the tick turn on (the app works without it, as before)
-- [ ] Deploy the media worker with lip_check (built by default; the image is larger), then pin `SYNCNET_SHA256` from the build log
-- [ ] Not done yet: a lip-sync post-process pass, a headless API / MCP, OCR and framing-drift checks, 24 to 30 fps conversion, a brand kit with end cards
+- [x] QC beyond lips: framing drift (eye span) and the mouth in pauses from the lip check; an AI check for garbled text in generated pictures and videos
+- [x] Brand kits (Settings): fonts, colours, logo, end-card background, tagline, call to action and caption spellings; applied in the Editor, with the end card composed inside TikTok/Reels/Shorts safe areas, and to voiced runs opened in the Editor
+- [x] 24 to 30 fps conversion (blend or motion interpolation) and sharper upscaling in renders
+- [x] Headless studio API and MCP server (docs/studio-api.md), with personal tokens in Settings
+- [x] A warning in Create before work would run out of Higgsfield credits part-way, and a run's worst case with retakes
+- [ ] Apply migrations 0017_presenter_runs, 0018_brand_kits and 0019_studio_api (an admin, in order; the app works without them, with those features off)
+- [ ] Deploy the media worker (lip_check, brand_text, image_overlays, frame_rate_conversion): built by default; then pin `SYNCNET_SHA256` from the build log
+- [ ] Lip-sync post-process: blocked. Higgsfield's catalog has no video-to-video lip-sync model (its video-edit models take audio only as a loose reference, and Seedance replaced the voice in the bake-off), and HeyGen belongs to Avatar Studio, which Creative Studio must not share provider code with. Revisit when a model that re-syncs an existing video's mouth to given audio is offered

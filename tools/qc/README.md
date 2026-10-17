@@ -45,13 +45,24 @@ Always check a metric with controls before trusting it. Two that worked: the sam
 its audio delayed 320 ms should be found about 8 frames off at a similar confidence, and a
 different line's audio should score about 1.
 
-## Other checks worth doing by eye
+## Framing and the mouth in pauses
 
-- **Framing:** the presenter's eye span in pixels should stay steady across clips (it was
-  136–153 px at 720p in the Aurixa job).
-- **Text in generated frames:** dashboards and reports often come back with gibberish text.
-  Step through B-roll frame by frame, or prompt for no text at all.
-- **Mouth in silences:** the mouth should be closed and still wherever the voice pauses.
+The lip check also reports, from the same face landmarks (`media-worker/lipcheck/face_qc.py`,
+numpy only; its tests run with `python3 -I media-worker/lipcheck/tests/test_face_qc.py`):
+
+- **Framing:** the presenter's eye span in pixels and as a share of the frame's width, and how
+  much it changes within the clip. It held at 136–153 px at 720p in the Aurixa job; the studio
+  flags a clip whose face is over 12% bigger or smaller than the run's first presenter clip's, and
+  a face that grows or shrinks by over 20% within a clip (the camera pushing in).
+- **Mouth in silences:** wherever the voice pauses for a third of a second or more, the share of
+  frames whose inner lips are apart. Over 35% of 0.6 s or more of pauses is flagged.
+
+## Text in generated frames
+
+Dashboards and reports often come back with gibberish text. The asset details dialog (and the
+API's `check_text`) has the studio's AI read every piece of lettering in a picture, or in four
+frames through a video, and say whether it is readable. Check the frames yourself before anything
+goes out.
 
 ## Rendering an edit locally with the worker's own code
 
