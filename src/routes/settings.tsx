@@ -21,6 +21,7 @@ import { AccountSection } from "@/components/settings/AccountSection";
 import { TeamSection } from "@/components/settings/TeamSection";
 import { KatanaSettings } from "@/components/katana/KatanaSettings";
 import { BrandKitsPanel } from "@/components/brand/BrandKitsPanel";
+import { ApiTokensPanel } from "@/components/settings/ApiTokensPanel";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
@@ -236,6 +237,13 @@ function SettingsPage() {
           description="Each brand's fonts, colours, logo and end card, applied in the Editor in one click."
         >
           <BrandKitsPanel />
+        </Section>
+
+        <Section
+          title="API access"
+          description="Personal tokens for agents and scripts: the studio's API and MCP server, acting as you."
+        >
+          <ApiTokensPanel />
         </Section>
 
         <Section title="Your account" description="Your sign-in details.">
