@@ -28,6 +28,10 @@ import {
   FITS,
   formatTime,
   FPS_OPTIONS,
+  FRAME_RATE_CONVERSIONS,
+  FRAME_RATE_CONVERSION_LABELS,
+  UPSCALES,
+  UPSCALE_LABELS,
   LIMITS,
   maxClipDuration,
   MOTION_LABELS,
@@ -951,8 +955,19 @@ function AudioInspector({
 /* Format                                                              */
 /* ------------------------------------------------------------------ */
 
-function SequenceSettings({ timeline, layout, onChange }: InspectorProps) {
+/** How many of an edit's video clips were made at a frame rate other than its own (when measured). */
+function otherRateClips(timeline: Timeline, assets: Map<string, AssetRow>): number {
+  return timeline.clips.filter((clip) => {
+    if (clip.kind !== "video") return false;
+    const metadata = (assets.get(clip.assetId)?.metadata ?? {}) as Record<string, unknown>;
+    const fps = typeof metadata["fps"] === "number" ? metadata["fps"] : null;
+    return fps !== null && Math.abs(fps * clip.speed - timeline.fps) / timeline.fps > 0.005;
+  }).length;
+}
+
+function SequenceSettings({ timeline, layout, assets, onChange }: InspectorProps) {
   const set = (patch: Partial<Timeline>, key?: string) => onChange({ ...timeline, ...patch }, key);
+  const otherRate = otherRateClips(timeline, assets);
   return (
     <div>
       <Section title="Frame">
@@ -1026,6 +1041,52 @@ function SequenceSettings({ timeline, layout, onChange }: InspectorProps) {
         <p className="text-xs text-muted-foreground">
           {layout.clips.length} clip{layout.clips.length === 1 ? "" : "s"} ·{" "}
           {formatTime(layout.total)} long
+        </p>
+      </Section>
+      <Section title="Picture">
+        <Field label="Clips at another frame rate">
+          <Select
+            value={timeline.frameRateConversion}
+            onValueChange={(value) =>
+              set({ frameRateConversion: value as Timeline["frameRateConversion"] })
+            }
+          >
+            <SelectTrigger className="h-8" aria-label="Clips at another frame rate">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {FRAME_RATE_CONVERSIONS.map((mode) => (
+                <SelectItem key={mode} value={mode}>
+                  {FRAME_RATE_CONVERSION_LABELS[mode]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <p className="text-[11px] text-muted-foreground" data-testid="frame-rate-note">
+          {otherRate
+            ? `${otherRate} clip${otherRate === 1 ? " was" : "s were"} made at another frame rate (24 fps B-roll in a ${timeline.fps} fps edit, say). Repeated frames can judder on a slow camera move; blending smooths it, and motion interpolation makes the missing frames (it renders several times slower).`
+            : "Every measured clip is at the edit's frame rate. For one that isn't (24 fps B-roll in a 30 fps edit), blending or motion interpolation keeps a slow camera move from juddering."}
+        </p>
+        <Field label="Scaling up">
+          <Select
+            value={timeline.upscale}
+            onValueChange={(value) => set({ upscale: value as Timeline["upscale"] })}
+          >
+            <SelectTrigger className="h-8" aria-label="Scaling up">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {UPSCALES.map((mode) => (
+                <SelectItem key={mode} value={mode}>
+                  {UPSCALE_LABELS[mode]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <p className="text-[11px] text-muted-foreground">
+          Sharp scales 720p clips up to a 1080p edit with a finer filter and a light sharpen.
         </p>
       </Section>
       <Section title="Open and close">

@@ -70,6 +70,7 @@ export const FEATURES = [
   "channel_mix",
   "smart_join",
   "overlay_layout",
+  "frame_rate_conversion",
   ...(lipCheckAvailable ? ["lip_check"] : []),
 ];
 

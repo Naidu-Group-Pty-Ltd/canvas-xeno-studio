@@ -296,6 +296,39 @@ async function numberedClip(name, level) {
   return path;
 }
 
+/** Each frame's average brightness (0-255), in order. */
+async function lumaLevels(path) {
+  const { stderr } = await ffmpeg(["-i", path, "-vf", "signalstats,metadata=print:key=lavfi.signalstats.YAVG", "-f", "null", "-"]);
+  return [...stderr.matchAll(/lavfi\.signalstats\.YAVG=([\d.]+)/g)].map((match) => Number(match[1]));
+}
+
+for (const [retime, most] of [["duplicate", null], ["blend", 1], ["motion", 1]]) {
+  await check(`render_sequence brings a 24 fps clip to 30 fps (${retime})`, async () => {
+    // Brightness climbs 4 levels a source frame, so a repeated frame shows as a step of nothing.
+    const clip = await numberedClip(`retime-${retime}.mp4`, "N*4");
+    const result = await TASKS.render_sequence.run({
+      sources: [{ path: clip, role: "video" }],
+      params: { width: 256, height: 144, fps: 30, normalize_loudness: false, frame_rate_conversion: retime, clips: [{ source_index: 0, duration: 1.5, volume: 0 }] },
+      dir,
+    });
+    const levels = await lumaLevels(result.outputs[0].path);
+    if (levels.length !== 45) throw new Error(`expected 45 frames, got ${levels.length}`);
+    const repeats = levels.slice(1).filter((level, index) => Math.abs(level - levels[index]) < 1).length;
+    if (most === null ? repeats < 6 : repeats > most) throw new Error(`${repeats} repeated frames`);
+  });
+}
+
+await check("render_sequence scales sharply when asked", async () => {
+  const clip = await numberedClip("sharp.mp4", "N*4");
+  const result = await TASKS.render_sequence.run({
+    sources: [{ path: clip, role: "video" }],
+    params: { width: 360, height: 640, fps: 25, normalize_loudness: false, upscale: "sharp", clips: [{ source_index: 0, duration: 0.4 }] },
+    dir,
+  });
+  const info = await probe(result.outputs[0].path);
+  if (info.width !== 360 || info.height !== 640) throw new Error(`rendered ${info.width}x${info.height}`);
+});
+
 await check("extract_frames takes a clip's true last frame, by counting its frames", async () => {
   const clip = await numberedClip("numbered.mp4", "N*4");
   const result = await TASKS.extract_frames.run({ sources: [{ path: clip }], params: { frame: "last", format: "png", times_seconds: [0.5] }, dir });

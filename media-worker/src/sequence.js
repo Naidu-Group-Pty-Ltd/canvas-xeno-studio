@@ -70,6 +70,15 @@ const CAPTION_POSITIONS = new Set(["bottom", "lower_third", "center", "top"]);
 const OVERLAY_STYLES = new Set(["title", "subtitle", "cta"]);
 const OVERLAY_BACKINGS = new Set(["outline", "halo", "box"]);
 const FPS_VALUES = new Set([24, 25, 30, 60]);
+/**
+ * How a clip made at another frame rate (24 fps B-roll in a 30 fps edit) is
+ * brought to the edit's: "duplicate" repeats frames (as ever; a slow camera
+ * move can judder), "blend" mixes neighbouring frames, and "motion" makes the
+ * missing frames from the movement between them (smoothest, and much slower).
+ */
+export const RETIME_MODES = new Set(["duplicate", "blend", "motion"]);
+/** How pictures are scaled: "sharp" uses Lanczos and a light unsharp mask, for 720p sources in a 1080p edit. */
+const UPSCALE_MODES = new Set(["standard", "sharp"]);
 
 /* ------------------------------------------------------------------ */
 /* Validation and planning                                             */
@@ -153,6 +162,8 @@ export function planSequence(params, sources) {
   if (!FPS_VALUES.has(fps)) throw bad("fps must be 24, 25, 30 or 60");
   const fit = choice(p.fit, FITS, "cover", "fit");
   const mix = planMix(p.mix);
+  const retime = choice(p.frame_rate_conversion, RETIME_MODES, "duplicate", "frame_rate_conversion");
+  const upscale = choice(p.upscale, UPSCALE_MODES, "standard", "upscale");
 
   const rawClips = Array.isArray(p.clips) ? p.clips : [];
   if (rawClips.length === 0) throw bad("A sequence needs at least one clip");
@@ -324,6 +335,8 @@ export function planSequence(params, sources) {
     width,
     height,
     fps,
+    retime,
+    upscale,
     // A silent picture channel leaves the clips' own sound out altogether.
     clips: mix.picture === 0 ? clips.map((clip) => ({ ...clip, volume: 0 })) : clips,
     audio,
@@ -349,19 +362,37 @@ const seconds = (value) => value.toFixed(6);
  * Scales one stream into a WxH frame, as a filtergraph segment with unique
  * labels. Filling the frame, it crops around `focus` (the centre by default).
  */
-export function frameChain(input, output, width, height, fit, tag, focus = { x: 0.5, y: 0.5 }) {
+export function frameChain(input, output, width, height, fit, tag, focus = { x: 0.5, y: 0.5 }, sharp = false) {
+  // Sharp: Lanczos for the picture itself, then a light unsharp mask (the blurred backdrop stays as it is).
+  const flags = sharp ? ":flags=lanczos" : "";
+  const crisp = sharp ? ",unsharp=5:5:0.5:5:5:0" : "";
   if (fit === "cover") {
-    return `[${input}]scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}:(iw-ow)*${focus.x}:(ih-oh)*${focus.y}[${output}]`;
+    return `[${input}]scale=${width}:${height}:force_original_aspect_ratio=increase${flags},crop=${width}:${height}:(iw-ow)*${focus.x}:(ih-oh)*${focus.y}${crisp}[${output}]`;
   }
   if (fit === "blur_pad") {
     return (
       `[${input}]split=2[${tag}bg][${tag}fg];` +
       `[${tag}bg]scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},boxblur=luma_radius=40:luma_power=2[${tag}bgb];` +
-      `[${tag}fg]scale=${width}:${height}:force_original_aspect_ratio=decrease[${tag}fgs];` +
+      `[${tag}fg]scale=${width}:${height}:force_original_aspect_ratio=decrease${flags}${crisp}[${tag}fgs];` +
       `[${tag}bgb][${tag}fgs]overlay=(W-w)/2:(H-h)/2[${output}]`
     );
   }
-  return `[${input}]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=black[${output}]`;
+  return `[${input}]scale=${width}:${height}:force_original_aspect_ratio=decrease${flags}${crisp},pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=black[${output}]`;
+}
+
+/**
+ * The filter that brings a clip's picture to the edit's frame rate. A clip
+ * already at it (within half a percent, after its speed change) is only
+ * re-timed; otherwise frames are repeated, blended or made from the motion
+ * between them (see RETIME_MODES). Interpolation runs at the source's own
+ * size, before the picture is scaled, which keeps it as quick as it can be.
+ */
+export function retimeFilter(retime, fps, sourceFps, speed = 1) {
+  const effective = sourceFps && sourceFps > 0 ? sourceFps * speed : null;
+  const differs = effective !== null && Math.abs(effective - fps) / fps > 0.005;
+  if (!differs || retime === "duplicate") return `fps=${fps}`;
+  if (retime === "blend") return `framerate=fps=${fps}:interp_start=15:interp_end=240:scene=8.2`;
+  return `minterpolate=fps=${fps}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1:scd=fdiff:scd_threshold=8`;
 }
 
 /** atempo only takes 0.5-2 per instance in older builds; chain it for wider speeds. */
@@ -473,8 +504,9 @@ export async function inParallel(items, limit, work) {
 }
 
 /** Arguments for pass 1: one clip normalised to an exact-length intermediate. */
-export function clipArgs(clip, plan, sourcePath, hasAudio, out, seam = null) {
+export function clipArgs(clip, plan, sourcePath, hasAudio, out, seam = null, sourceFps = null) {
   const { width, height, fps } = plan;
+  const sharp = plan.upscale === "sharp";
   const duration = seconds(clip.durationFrames / fps);
   const args = [];
   const filters = [];
@@ -485,13 +517,13 @@ export function clipArgs(clip, plan, sourcePath, hasAudio, out, seam = null) {
     if (motion) {
       // Compose at twice the size first so the zoom has pixels to work with
       // and moves smoothly, then let zoompan produce the output frames.
-      filters.push(frameChain("0:v", "framed", width * 2, height * 2, clip.fit, "m", clip.focus));
+      filters.push(frameChain("0:v", "framed", width * 2, height * 2, clip.fit, "m", clip.focus, sharp));
       filters.push(
         `[framed]zoompan=z='${motion.z}':x='${motion.x}':y='${motion.y}':d=1:s=${width}x${height}:fps=${fps},` +
           `setsar=1,format=yuv420p,trim=end_frame=${clip.durationFrames},setpts=PTS-STARTPTS[v]`,
       );
     } else {
-      filters.push(frameChain("0:v", "framed", width, height, clip.fit, "f", clip.focus));
+      filters.push(frameChain("0:v", "framed", width, height, clip.fit, "f", clip.focus, sharp));
       filters.push(`[framed]fps=${fps},setsar=1,format=yuv420p,trim=end_frame=${clip.durationFrames},setpts=PTS-STARTPTS[v]`);
     }
   } else {
@@ -499,8 +531,8 @@ export function clipArgs(clip, plan, sourcePath, hasAudio, out, seam = null) {
     args.push("-ss", seconds(seekPoint(clip.trimStart)), "-t", span, "-i", sourcePath);
     const speed = clip.speed === 1 ? "setpts=PTS-STARTPTS" : `setpts=(PTS-STARTPTS)/${clip.speed}`;
     // Non-square source pixels are squared up first so nothing is stretched.
-    filters.push(`[0:v]scale=trunc(iw*sar/2)*2:ih,setsar=1,${speed},fps=${fps}[paced]`);
-    filters.push(frameChain("paced", "framed", width, height, clip.fit, "f", clip.focus));
+    filters.push(`[0:v]scale=trunc(iw*sar/2)*2:ih,setsar=1,${speed},${retimeFilter(plan.retime, fps, sourceFps, clip.speed)}[paced]`);
+    filters.push(frameChain("paced", "framed", width, height, clip.fit, "f", clip.focus, sharp));
     let framed = "framed";
     if (seam?.head) {
       // In register with the clip before at the join, easing back to its own picture.
@@ -984,7 +1016,7 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
       if (seam) seams.push({ clip: index, likeness: seam.correction.likeness, largest_shift: seam.correction.largest_shift });
     }
     const out = join(dir, `clip-${String(index).padStart(3, "0")}.mkv`);
-    await ffmpeg(clipArgs(clip, plan, sources[clip.source].path, Boolean(info?.has_audio), out, seam), watched);
+    await ffmpeg(clipArgs(clip, plan, sources[clip.source].path, Boolean(info?.has_audio), out, seam, info?.fps ?? null), watched);
     intermediates[index] = out;
     ready += 1;
     progress((ready / plan.clips.length) * 0.45, `Preparing clips (${ready} of ${plan.clips.length} ready)`);

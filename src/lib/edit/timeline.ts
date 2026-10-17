@@ -147,6 +147,28 @@ export const OVERLAY_BACKING_LABELS: Record<OverlayBacking, string> = {
   box: "Box behind",
 };
 
+/**
+ * How a clip made at another frame rate (24 fps B-roll in a 30 fps edit) is
+ * brought to the edit's: frames repeated (quick; a slow camera move can
+ * judder), neighbouring frames blended, or new frames made from the motion
+ * between them (smoothest, and much slower to render).
+ */
+export const FRAME_RATE_CONVERSIONS = ["duplicate", "blend", "motion"] as const;
+export type FrameRateConversion = (typeof FRAME_RATE_CONVERSIONS)[number];
+export const FRAME_RATE_CONVERSION_LABELS: Record<FrameRateConversion, string> = {
+  duplicate: "Repeat frames (fastest)",
+  blend: "Blend frames",
+  motion: "Motion-interpolate (smoothest, slow)",
+};
+
+/** How pictures smaller than the frame are scaled up: as before, or sharper (720p clips in a 1080p edit). */
+export const UPSCALES = ["standard", "sharp"] as const;
+export type Upscale = (typeof UPSCALES)[number];
+export const UPSCALE_LABELS: Record<Upscale, string> = {
+  standard: "Standard",
+  sharp: "Sharp (Lanczos)",
+};
+
 export const LIMITS = {
   clips: 60,
   audio: 16,
@@ -287,6 +309,9 @@ export const timelineSchema = z.object({
   normalizeLoudness: z.boolean().default(true),
   /** Channel levels; an edit saved before the mixer existed plays as it did. */
   mix: mixSchema.default({}),
+  /** Clips at another frame rate: see FRAME_RATE_CONVERSIONS. */
+  frameRateConversion: z.enum(FRAME_RATE_CONVERSIONS).default("duplicate"),
+  upscale: z.enum(UPSCALES).default("standard"),
 });
 export type Timeline = z.infer<typeof timelineSchema>;
 
@@ -1042,6 +1067,11 @@ export function buildRenderRequest(
       fade_in: timeline.fadeIn,
       fade_out: timeline.fadeOut,
       normalize_loudness: timeline.normalizeLoudness,
+      // Sent only when chosen, so a media service from before them renders as it did.
+      ...(timeline.frameRateConversion !== "duplicate"
+        ? { frame_rate_conversion: timeline.frameRateConversion }
+        : {}),
+      ...(timeline.upscale !== "standard" ? { upscale: timeline.upscale } : {}),
       ...(busMix
         ? {
             mix: {
