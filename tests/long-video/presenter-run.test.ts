@@ -144,7 +144,7 @@ mock.module(src("lip-sync/prepare.server.ts"), () => ({
       sample_rate: read.sample_rate,
       source_asset_id: voiceSource["id"],
     },
-    view: { preparedAssetId: voicePrepared["id"] },
+    view: { preparedAssetId: voicePrepared["id"], analysis: read },
     title: "Janice read",
   }),
   preparationById: async () => ({ ...preparation, id: preparation["id"] }),
@@ -621,5 +621,85 @@ describe("a presenter video with cutaways, every clip from one still", async () 
     await settleAll(run5.longVideoId);
     expect(db.find("long_videos", run5.longVideoId)!["status"]).toBe("completed");
     expect(db.find("long_video_clips", refused["id"])!["attempt"]).toBe(2);
+  });
+});
+
+describe("the studio API", () => {
+  test("starts the same presenter video from a voiceover and the lines to cover", async () => {
+    const { runStudioTool } = await import("../../src/lib/studio-api/tools.server");
+    const caller = {
+      userId: String(user["id"]),
+      tokenId: "token",
+      scopes: new Set(["read", "generate", "edit"] as const),
+    };
+    const ask = {
+      title: "Over the API",
+      modelId: wan27.id,
+      startImageAssetId: String(still["id"]),
+      voiceoverPreparationId: String(preparation["id"]),
+      presenter: { who: "Janice", where: "her office at dusk" },
+      values: { resolution: "720p" },
+      brollLines: [2, 3],
+      takes: 2,
+      clientRequestId: "api-presenter-run-1",
+    };
+    const started = (await runStudioTool("start_presenter_video", ask, caller)) as {
+      longVideoId: string;
+      duplicate: boolean;
+      pieces: { start: number; end: number }[];
+      cutaways: { start: number; end: number }[];
+    };
+    const run = db.find("long_videos", started.longVideoId)!;
+    expect(run["start_from"]).toBe("anchor");
+    expect(run["qc_settings"]).toMatchObject({ lip_check: true, takes: 2 });
+    // Lines 2 and 3 run on: one cutaway, and no clip is made for it (the clip
+    // after it starts at most its lead-in before it ends).
+    expect(started.cutaways).toHaveLength(1);
+    const [cut] = started.cutaways;
+    const clips = db
+      .rows("long_video_clips")
+      .filter((clip) => clip["long_video_id"] === started.longVideoId);
+    expect(clips).toHaveLength(started.pieces.length);
+    for (const clip of clips) {
+      const from = Number(clip["audio_start_seconds"]);
+      const to = Number(clip["audio_end_seconds"]);
+      expect(to <= cut!.start + 1e-6 || from >= cut!.end - 0.5 - 1e-6).toBe(true);
+    }
+    // The presenter recipe: a locked camera, said once, from the still.
+    expect(String(clips[0]!["prompt"])).toContain("locked off");
+    expect(String(clips[0]!["prompt"])).toContain("Janice speaks directly to the camera");
+    // Asked again with the same request id: the same run, not a second one.
+    const again = (await runStudioTool("start_presenter_video", ask, caller)) as {
+      longVideoId: string;
+      duplicate: boolean;
+    };
+    expect(again).toMatchObject({ longVideoId: started.longVideoId, duplicate: true });
+  });
+
+  test("won't start one with a model that can't move lips to a voiceover", async () => {
+    const { runStudioTool } = await import("../../src/lib/studio-api/tools.server");
+    const { id: _wan, ...rest } = wan27;
+    const seedance = db.add("model_registry", {
+      ...rest,
+      model_path: "bytedance/seedance-2.5/image-to-video",
+      display_name: "Seedance 2.5",
+    } as never);
+    const caller = {
+      userId: String(user["id"]),
+      tokenId: "token",
+      scopes: new Set(["generate"] as const),
+    };
+    await expect(
+      runStudioTool(
+        "start_presenter_video",
+        {
+          modelId: String(seedance["id"]),
+          startImageAssetId: String(still["id"]),
+          voiceoverPreparationId: String(preparation["id"]),
+          clientRequestId: "api-presenter-run-2",
+        },
+        caller,
+      ),
+    ).rejects.toThrow("doesn't move lips");
   });
 });
