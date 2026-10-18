@@ -268,10 +268,12 @@ all. The app flags a clip under 6.5, makes it again under 4, and takes out a
 confident lead of up to three frames when it lays the clip.
 
 The scorer is optional. The image builds it by default (`LIP_CHECK=1`); build
-with `--build-arg LIP_CHECK=0` to leave it out (a much smaller image), or set
-`SYNCNET_SHA256` to require a known checksum of the SyncNet weights (the build
-prints the one it fetched). If anything it needs can't be fetched, the build
-still succeeds without it. A worker without its files doesn't list `lip_check`
+with `--build-arg LIP_CHECK=0` to leave it out (a much smaller image). The
+SyncNet weights must match the checksum of the copy first deployed
+(`SYNCNET_SHA256`; the build prints the one it fetched, and
+`--build-arg SYNCNET_SHA256=` takes any). If anything it needs can't be
+fetched or doesn't match, the build still succeeds without it and prints
+"lip_check could not be installed". A worker without its files doesn't list `lip_check`
 in its features, and the app makes clips without scores.
 
 ## Configuration

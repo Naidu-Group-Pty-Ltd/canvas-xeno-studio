@@ -43,13 +43,21 @@ from scipy import signal
 from scipy.io import wavfile
 
 HERE = Path(__file__).resolve().parent
-SYNC = Path(os.environ.get("SYNCNET_DIR", str(HERE.parent / "syncnet")))
+
+
+def beside(*parts):
+    """A file kept next to this script (as in the worker's image, /opt/lipcheck), else one folder up."""
+    near = HERE.joinpath(*parts)
+    return near if near.exists() else HERE.parent.joinpath(*parts)
+
+
+SYNC = Path(os.environ.get("SYNCNET_DIR", str(beside("syncnet"))))
 sys.path.insert(0, str(SYNC))
 sys.path.insert(0, str(HERE))
 from SyncNetModel import S  # noqa: E402
 import face_qc  # noqa: E402
 
-MODEL = os.environ.get("FACE_MODEL", str(HERE.parent / "models" / "face_landmarker.task"))
+MODEL = os.environ.get("FACE_MODEL", str(beside("models", "face_landmarker.task")))
 CS = 0.4
 VSHIFT = 15
 FPS = 25
