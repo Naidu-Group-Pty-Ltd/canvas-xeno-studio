@@ -50,6 +50,7 @@ import {
 import { useFinisherSuggestion } from "@/hooks/useFinisherSuggestion";
 import { planCharacter, useCharacters } from "@/hooks/useCharacters";
 import { AddCharacterReferences } from "@/components/characters/AddCharacterReferences";
+import { SoulStartFrame } from "@/components/characters/SoulStartFrame";
 import { startLongVideo } from "@/lib/long-video.functions";
 import { endCardSize } from "@/lib/long-video/finisher";
 import {
@@ -998,7 +999,11 @@ function CreatePage() {
           identityCheck: longDraft.identityCheck,
           keyframes:
             longPlan.keyframed && longPlan.painter
-              ? { painterModelId: longPlan.painter.id, review: longDraft.reviewKeyframes }
+              ? {
+                  painterModelId: longPlan.painter.id,
+                  review: longDraft.reviewKeyframes,
+                  soulOpening: longDraft.soulOpening,
+                }
               : null,
           story,
           continuity: longDraft.continuity,
@@ -1389,24 +1394,57 @@ function CreatePage() {
                     // A long video takes its characters in its own panel.
                     extraActions={
                       longMode ? undefined : (
-                        <AddCharacterReferences
-                          room={maxReferences(model) - references.length}
-                          onAdd={(assets) =>
-                            setReferences((current) =>
-                              assignRoles(
-                                [
-                                  ...current,
-                                  ...assets
-                                    .filter(
-                                      (asset) => !current.some((item) => item.assetId === asset.id),
-                                    )
-                                    .map(assetToReference),
-                                ],
-                                model,
-                              ),
-                            )
-                          }
-                        />
+                        <>
+                          {model.output_type === "video" && startFrameSlot(model) && (
+                            <SoulStartFrame
+                              prompt={String(values["prompt"] ?? "")}
+                              aspectRatio={values["aspect_ratio"]}
+                              projectId={projectId}
+                              onReady={(asset) => {
+                                const role = startFrameSlot(model)?.role ?? "";
+                                // The painted frame takes the start-frame slot (one fits).
+                                setReferences((current) =>
+                                  assignRoles(
+                                    [
+                                      { ...assetToReference(asset), role },
+                                      ...current.filter(
+                                        (item) => item.role !== role && item.assetId !== asset.id,
+                                      ),
+                                    ],
+                                    model,
+                                  ),
+                                );
+                              }}
+                            />
+                          )}
+                          <AddCharacterReferences
+                            room={maxReferences(model) - references.length}
+                            onAdd={(assets) =>
+                              setReferences((current) =>
+                                assignRoles(
+                                  [
+                                    ...current,
+                                    ...assets
+                                      .filter(
+                                        (asset) =>
+                                          !current.some((item) => item.assetId === asset.id),
+                                      )
+                                      .map(assetToReference),
+                                  ],
+                                  model,
+                                ),
+                              )
+                            }
+                            onLook={(line) =>
+                              setValues((current) => {
+                                const prompt = String(current["prompt"] ?? "").trim();
+                                return prompt.includes(line)
+                                  ? current
+                                  : { ...current, prompt: prompt ? `${prompt}\n\n${line}` : line };
+                              })
+                            }
+                          />
+                        </>
                       )
                     }
                     onSwitchModel={(next) => {

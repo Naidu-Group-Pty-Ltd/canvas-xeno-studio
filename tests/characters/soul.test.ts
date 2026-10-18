@@ -10,6 +10,7 @@ import {
   proofKeyPrefix,
   proofPrompt,
   proofRequestKey,
+  soulStillPrompt,
   storedLikeness,
   storedTrainingCheck,
   trainingImageCheck,
@@ -17,6 +18,7 @@ import {
   type CharacterSoul,
   type TrainingImageCheck,
 } from "../../src/lib/characters/soul";
+import { paintsWithSoul, storedKeyframeSettings } from "../../src/lib/long-video/keyframes";
 import {
   readCustomReference,
   readCustomReferenceList,
@@ -285,5 +287,47 @@ describe("Higgsfield's answers about Soul IDs", () => {
     expect(readCustomReferenceList({ data: [{ id: "c" }] }).references[0]?.id).toBe("c");
     expect(readCustomReferenceList({ results: [{ id: "d" }] }).references[0]?.id).toBe("d");
     expect(readCustomReferenceList(null)).toEqual({ references: [], totalPages: null });
+  });
+});
+
+describe("a Soul ID in other workflows", () => {
+  const opening = {
+    modelId: "soul-model",
+    characterId: "janice",
+    version: "v2" as const,
+    referenceId: "ref-1",
+  };
+
+  test("a long video's opening keyframe is painted from the Soul ID only when it shows that character alone", () => {
+    const settings = { soulOpening: opening };
+    expect(paintsWithSoul(settings, 0, [{ id: "janice" }])).toEqual(opening);
+    // Later keyframes keep the painter, chained from the opening one.
+    expect(paintsWithSoul(settings, 1, [{ id: "janice" }])).toBeNull();
+    // Two people in the frame, or someone else: a Soul model paints one person.
+    expect(paintsWithSoul(settings, 0, [{ id: "janice" }, { id: "omar" }])).toBeNull();
+    expect(paintsWithSoul(settings, 0, [{ id: "omar" }])).toBeNull();
+    expect(paintsWithSoul({ soulOpening: null }, 0, [{ id: "janice" }])).toBeNull();
+    expect(paintsWithSoul({}, 0, [{ id: "janice" }])).toBeNull();
+  });
+
+  test("the Soul opening is read back with a run's keyframe settings", () => {
+    const base = { modelId: "painter", values: {}, width: 1080, height: 1920, format: "png" };
+    expect(storedKeyframeSettings({ ...base, soulOpening: opening })?.soulOpening).toEqual(opening);
+    expect(
+      storedKeyframeSettings({ ...base, soulOpening: { ...opening, version: "v9" } })?.soulOpening,
+    ).toBeNull();
+    expect(storedKeyframeSettings(base)?.soulOpening).toBeNull();
+  });
+
+  test("a still painted from a Soul ID carries the scene and the look, not a second face", () => {
+    const prompt = soulStillPrompt("  She walks   through a night market.  ", {
+      description: "A woman in her thirties in a green linen jacket.",
+    });
+    expect(prompt).toStartWith("A photo of this person: A woman in her thirties");
+    expect(prompt).toContain("She walks through a night market.");
+    expect(prompt).toContain("no text");
+    expect(soulStillPrompt("A portrait.", { description: " " })).toStartWith(
+      "A photo of this person. A portrait.",
+    );
   });
 });

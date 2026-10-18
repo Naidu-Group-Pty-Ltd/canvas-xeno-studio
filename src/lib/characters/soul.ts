@@ -482,3 +482,23 @@ export function packPrompt(shot: string, character: { description: string }): st
 export function proofPrompt(shot: string): string {
   return `A photo of this person. ${shot} Photorealistic, natural skin texture, sharp focus.`;
 }
+
+/**
+ * What a still of a character is painted from on their Soul model, as the
+ * frame a video starts from: the scene as the video's prompt describes it,
+ * with their look for the clothes (the Soul ID carries the face), as one
+ * photographic frame.
+ */
+export function soulStillPrompt(scene: string, character: { description: string }): string {
+  const look = character.description.trim()
+    ? trimDescription(character.description, 300).replace(/\.$/, "")
+    : "";
+  const shot = scene.replace(/\s+/g, " ").trim().slice(0, 1500);
+  return [
+    `A photo of this person${look ? `: ${look}` : ""}.`,
+    shot,
+    "One still frame of film, natural photographic detail and light, no text, captions or logos.",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}

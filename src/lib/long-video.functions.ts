@@ -102,7 +102,12 @@ const startInput = z
     identityCheck: z.boolean().default(true),
     /** Paint the keyframes first with this image model, and whether a person reviews them. */
     keyframes: z
-      .object({ painterModelId: z.string().uuid(), review: z.boolean().default(true) })
+      .object({
+        painterModelId: z.string().uuid(),
+        review: z.boolean().default(true),
+        /** Paint the opening keyframe from the character's Soul ID (one character with one). */
+        soulOpening: z.boolean().default(false),
+      })
       .nullable()
       .optional(),
     /** Made to a voiceover: its preparation, and the piece of it each clip is made from. */

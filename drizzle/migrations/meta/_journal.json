@@ -141,6 +141,13 @@
       "when": 1791310525140,
       "tag": "0019_studio_api",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791310585140,
+      "tag": "0020_soul_ids",
+      "breakpoints": true
     }
   ]
 }
