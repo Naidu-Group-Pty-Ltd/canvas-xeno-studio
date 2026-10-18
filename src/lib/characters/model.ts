@@ -58,9 +58,12 @@ export const CHARACTER_LIMITS = {
   photoImages: 40,
   /** Characters one long video can keep consistent. */
   perRun: 4,
-  /** Higgsfield trains on 1–100 images; a few varied ones make a far better likeness. */
-  soulMinImages: 1,
-  soulRecommendedImages: 5,
+  /**
+   * Higgsfield trains on 1–100 images, but under five the likeness is
+   * unreliable, and a dozen varied ones make a far better one.
+   */
+  soulMinImages: 5,
+  soulRecommendedImages: 12,
   soulMaxImages: 100,
 } as const;
 
@@ -103,14 +106,26 @@ export interface RunCharacter {
   description: string;
   /** The reference sheet, best view first. */
   images: { assetId: string; view: CharacterView }[];
+  /**
+   * The Soul ID a still of them is best painted with (a run's opening frame),
+   * when one is trained. Older runs kept none.
+   */
+  soul?: { version: SoulVersion; referenceId: string } | null;
 }
 
 /**
  * One of the team's characters as the Supercomputer is told about it: its
- * sheet as runs use it, and its Soul ID when one is trained.
+ * sheet as runs use it, the Soul ID it is best painted with, and every Soul
+ * ID it has in use (one per Soul model).
  */
 export interface CharacterSummary extends RunCharacter {
   soul: { version: SoulVersion; referenceId: string } | null;
+  souls: {
+    version: SoulVersion;
+    referenceId: string;
+    approved: boolean;
+    likeness: number | null;
+  }[];
 }
 
 /** A character's reference sheet, in the order it is sent: best view first, then as arranged. */

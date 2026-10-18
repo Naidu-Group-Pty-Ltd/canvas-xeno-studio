@@ -3,8 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { isMissingTableError } from "@/lib/edit/errors";
 import type { AssetRow } from "@/hooks/useStudioData";
+import { soulOf, type CharacterSoul } from "@/lib/characters/soul";
 import {
   CHARACTER_VIEWS,
+  SOUL_VERSIONS,
   runCharacter,
   type CharacterImage,
   type CharacterImageRole,
@@ -31,6 +33,8 @@ export interface CharacterEntry extends Omit<
   soul_model_version: SoulVersion | null;
   soul_training_version: SoulVersion | null;
   images: CharacterImageEntry[];
+  /** Its Soul IDs, newest first: one in use per Soul model, and any retired. */
+  souls: CharacterSoul[];
 }
 
 function asView(value: string): CharacterView {
@@ -106,8 +110,10 @@ export async function fetchCharacters(): Promise<CharacterEntry[]> {
     if (assetsError) throw assetsError;
     for (const asset of (page ?? []) as unknown as AssetRow[]) assets.set(asset.id, asset);
   }
+  const souls = await fetchSouls(rows);
   return rows.map(({ character_images: images, ...row }) => ({
     ...row,
+    souls: souls.get(row.id) ?? [],
     soul_status: row.soul_status as SoulStatus,
     soul_model_version: (row.soul_model_version as SoulVersion | null) ?? null,
     soul_training_version: (row.soul_training_version as SoulVersion | null) ?? null,
@@ -128,6 +134,61 @@ export async function fetchCharacters(): Promise<CharacterEntry[]> {
           : [];
       }),
   }));
+}
+
+/**
+ * The characters' Soul IDs, by character. Before the database keeps a Soul
+ * ID per Soul model, a character's one Soul ID comes from its own row.
+ */
+async function fetchSouls(rows: CharacterTableRow[]): Promise<Map<string, CharacterSoul[]>> {
+  const byCharacter = new Map<string, CharacterSoul[]>();
+  const ids = rows.map((row) => row.id);
+  let missing = false;
+  for (let start = 0; start < ids.length && !missing; start += 150) {
+    const { data, error } = await supabase
+      .from("character_souls")
+      .select("*")
+      .in("character_id", ids.slice(start, start + 150))
+      .order("ready_at", { ascending: false });
+    if (error) {
+      if (!isMissingTableError(error)) throw error;
+      missing = true;
+      break;
+    }
+    for (const row of data ?? []) {
+      const soul = soulOf(row);
+      if (soul)
+        byCharacter.set(soul.characterId, [...(byCharacter.get(soul.characterId) ?? []), soul]);
+    }
+  }
+  if (!missing) return byCharacter;
+  byCharacter.clear();
+  for (const row of rows) {
+    const version = row.soul_model_version;
+    if (
+      !row.soul_reference_id ||
+      !version ||
+      !(SOUL_VERSIONS as readonly string[]).includes(version)
+    )
+      continue;
+    byCharacter.set(row.id, [
+      {
+        id: `legacy:${row.id}`,
+        characterId: row.id,
+        version: version as SoulVersion,
+        referenceId: row.soul_reference_id,
+        source: "trained",
+        active: true,
+        imageCount: row.soul_image_count,
+        trainingAssetIds: [],
+        thumbnailUrl: null,
+        likeness: null,
+        approvedAt: null,
+        readyAt: row.soul_ready_at ?? row.updated_at,
+      },
+    ]);
+  }
+  return byCharacter;
 }
 
 /** One character, from the team's list. */

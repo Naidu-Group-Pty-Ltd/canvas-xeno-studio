@@ -2418,6 +2418,88 @@ export type Database = {
           },
         ]
       }
+      character_souls: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          character_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          image_count: number | null
+          is_active: boolean
+          likeness: Json | null
+          model_version: string
+          ready_at: string
+          reference_id: string
+          request_key: string | null
+          source: string
+          thumbnail_url: string | null
+          training_asset_ids: string[]
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          character_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          image_count?: number | null
+          is_active?: boolean
+          likeness?: Json | null
+          model_version: string
+          ready_at?: string
+          reference_id: string
+          request_key?: string | null
+          source?: string
+          thumbnail_url?: string | null
+          training_asset_ids?: string[]
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          character_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          image_count?: number | null
+          is_active?: boolean
+          likeness?: Json | null
+          model_version?: string
+          ready_at?: string
+          reference_id?: string
+          request_key?: string | null
+          source?: string
+          thumbnail_url?: string | null
+          training_asset_ids?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "character_souls_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "character_souls_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "character_souls_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       characters: {
         Row: {
           archived_at: string | null
@@ -2436,6 +2518,7 @@ export type Database = {
           soul_requested_at: string | null
           soul_status: string
           soul_submitted_at: string | null
+          soul_training_asset_ids: string[]
           soul_training_id: string | null
           soul_training_version: string | null
           updated_at: string
@@ -2457,6 +2540,7 @@ export type Database = {
           soul_requested_at?: string | null
           soul_status?: string
           soul_submitted_at?: string | null
+          soul_training_asset_ids?: string[]
           soul_training_id?: string | null
           soul_training_version?: string | null
           updated_at?: string
@@ -2478,6 +2562,7 @@ export type Database = {
           soul_requested_at?: string | null
           soul_status?: string
           soul_submitted_at?: string | null
+          soul_training_asset_ids?: string[]
           soul_training_id?: string | null
           soul_training_version?: string | null
           updated_at?: string
@@ -5584,6 +5669,7 @@ export type Database = {
       }
       soul_id_trainings: {
         Row: {
+          asset_ids: string[]
           character_id: string | null
           character_name: string
           error: string | null
@@ -5600,6 +5686,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          asset_ids?: string[]
           character_id?: string | null
           character_name?: string
           error?: string | null
@@ -5616,6 +5703,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          asset_ids?: string[]
           character_id?: string | null
           character_name?: string
           error?: string | null
