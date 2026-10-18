@@ -276,8 +276,11 @@ export function useLongVideoPlan(input: {
    * migration 0017, when those are off.
    */
   presenterRuns?: boolean | undefined;
+  /** The brand's look the video is made in (its video style line), carried by every clip. */
+  brandLine?: string | null | undefined;
 }): LongVideoPlan {
   const { draft, model, models, values, references, cinema } = input;
+  const brandLine = input.brandLine ?? "";
   const characters = input.characters ?? [];
   const valuesKey = JSON.stringify(values);
   const referencesKey = JSON.stringify(references);
@@ -431,6 +434,7 @@ export function useLongVideoPlan(input: {
         count: durations.length,
         finale: finale?.mode ?? null,
         standalone: startFrom === "anchor" || afterCutaway,
+        brand: brandLine,
       });
       const prompt =
         cinema.on && cinemaSupported(clipModel)
@@ -573,5 +577,6 @@ export function useLongVideoPlan(input: {
     openingKey,
     voiceKey,
     presenterRuns,
+    brandLine,
   ]);
 }

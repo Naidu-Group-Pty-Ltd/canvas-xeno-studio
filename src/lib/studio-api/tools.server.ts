@@ -398,16 +398,46 @@ const listBrandKits = tool({
   name: "list_brand_kits",
   title: "List brand kits",
   description:
-    "The team's brand kits: each brand's fonts, colours, logo, end card, tagline, call to action and the names captions spell right.",
+    "The team's brand kits: each brand's fonts, colours, logo, end card, tagline, call to action, the names captions spell right, and its design system (palette with roles, the look of its imagery, voice and rules). Pass a kit's id as brandKitId to queue_generation to make a picture or clip in its look.",
   scope: "read",
   input: z.object({}),
   run: async () => {
     const { data, error } = await db.from("brand_kits").select("*").eq("is_archived", false);
     if (error) return [];
+    const { brandStyleLine } = await import("../brand/design");
     return (data ?? []).map((row) => {
-      const { fonts, ...kit } = brandKitOf(row as unknown as Json);
-      return { ...kit, fonts: fonts.map((font) => font.family) };
+      const { fonts, design, ...kit } = brandKitOf(row as unknown as Json);
+      return {
+        ...kit,
+        fonts: fonts.map((font) => font.family),
+        mood: design.visual.mood,
+        styleLine: brandStyleLine({ ...kit, design }),
+      };
     });
+  },
+});
+
+const getBrandKit = tool({
+  name: "get_brand_kit",
+  title: "Get a brand kit",
+  description:
+    "One brand kit's whole design system: palette (each colour's role and use), typefaces, the look of its imagery (mood, photography, lighting, grading, composition, motion), its voice (tone, sample lines, words it uses and avoids), its rules, the line generations carry and what they must not show, and its style reference images.",
+  scope: "read",
+  input: z.object({ brandKitId: id() }),
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const { requireBrandKit } = await import("../brand/use.server");
+    const { brandAvoidLine, brandStyleLine, brandVoiceLine } = await import("../brand/design");
+    const kit = await requireBrandKit(args.brandKitId);
+    const { fonts, ...rest } = kit;
+    return {
+      ...rest,
+      fonts: fonts.map((font) => font.family),
+      styleLine: brandStyleLine(kit),
+      videoStyleLine: brandStyleLine(kit, "video"),
+      avoidLine: brandAvoidLine(kit),
+      voiceLine: brandVoiceLine(kit),
+    };
   },
 });
 
@@ -441,6 +471,12 @@ const queueGeneration = tool({
       .max(4)
       .default([])
       .describe("Characters (see list_characters) who must look like themselves"),
+    brandKitId: id()
+      .nullable()
+      .optional()
+      .describe(
+        "A brand kit (see list_brand_kits): its look goes into the prompt and what it never shows into the negative prompt",
+      ),
     projectId: id().nullable().optional(),
     campaignId: id().nullable().optional(),
     estimatedCostUsd: z.number().min(0).max(10_000).nullable().optional(),
@@ -454,6 +490,7 @@ const queueGeneration = tool({
     const cast = args.characterIds.length
       ? await withCharacters(model, args.parameters, args.inputs, args.characterIds)
       : { parameters: args.parameters, inputs: args.inputs };
+    if (args.brandKitId) cast.parameters = await withBrand(model, cast.parameters, args.brandKitId);
     return createAndSubmitGeneration({
       userId: caller.userId,
       model,
@@ -466,6 +503,31 @@ const queueGeneration = tool({
     });
   },
 });
+
+/** A generation's parameters in a brand's look: its style line in the prompt, its avoid line in the negative prompt. */
+async function withBrand(
+  model: ModelRegistryEntry,
+  parameters: Record<string, unknown>,
+  brandKitId: string,
+): Promise<Record<string, unknown>> {
+  const { requireBrandKit } = await import("../brand/use.server");
+  const { brandAvoidLine, withBrandStyle } = await import("../brand/design");
+  const kit = await requireBrandKit(brandKitId);
+  const prompt = typeof parameters["prompt"] === "string" ? parameters["prompt"] : "";
+  const avoid = brandAvoidLine(kit);
+  const negativeField = (model.parameter_schema?.fields ?? []).some(
+    (field) => field.key === "negative_prompt",
+  );
+  const negative =
+    typeof parameters["negative_prompt"] === "string" ? parameters["negative_prompt"].trim() : "";
+  return {
+    ...parameters,
+    prompt: withBrandStyle(prompt, kit, model.output_type === "video" ? "video" : "image"),
+    ...(negativeField && avoid && !negative.includes(avoid)
+      ? { negative_prompt: [negative, avoid].filter(Boolean).join(", ") }
+      : {}),
+  };
+}
 
 /**
  * A generation's parameters and inputs with its characters in it: on a Soul
@@ -690,6 +752,10 @@ const makeSoulStill = tool({
       .optional()
       .describe("Default: the best Soul ID they have"),
     projectId: id().nullable().optional(),
+    brandKitId: id()
+      .nullable()
+      .optional()
+      .describe("A brand kit whose look the still is made in (see list_brand_kits)"),
     clientRequestId: requestId(),
   }),
   run: async (args, caller) => {
@@ -726,10 +792,15 @@ const makeSoulStill = tool({
     return createAndSubmitGeneration({
       userId: caller.userId,
       model: model as unknown as ModelRegistryEntry,
-      parameters: {
-        ...soulStillValues(model as unknown as ModelRegistryEntry, w / h, soul.referenceId),
-        prompt: soulStillPrompt(args.scene, character),
-      },
+      parameters: await (async () => {
+        const values = {
+          ...soulStillValues(model as unknown as ModelRegistryEntry, w / h, soul.referenceId),
+          prompt: soulStillPrompt(args.scene, character),
+        };
+        return args.brandKitId
+          ? withBrand(model as unknown as ModelRegistryEntry, values, args.brandKitId)
+          : values;
+      })(),
       inputs: [],
       projectId: args.projectId ?? null,
       clientRequestId: args.clientRequestId,
@@ -1303,6 +1374,7 @@ export const STUDIO_TOOLS: StudioTool[] = [
   getEdit,
   getRender,
   listBrandKits,
+  getBrandKit,
   listCharacters,
   getCharacter,
   queueGeneration,

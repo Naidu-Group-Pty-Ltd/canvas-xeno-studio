@@ -1,6 +1,17 @@
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ImagePlus, Loader2, Palette, Plus, Star, Trash2, Type, Upload } from "lucide-react";
+import {
+  ImagePlus,
+  Loader2,
+  Palette,
+  Plus,
+  ScanSearch,
+  Star,
+  Trash2,
+  Type,
+  Upload,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import type { AssetRow } from "@/hooks/useStudioData";
 import { useProjects } from "@/hooks/useStudioData";
@@ -8,6 +19,9 @@ import { useAssetsById } from "@/hooks/useLongVideos";
 import { uploadBrandFont, useBrandFontFaces, useBrandKits } from "@/hooks/useBrandKits";
 import { archiveBrandKit, saveBrandKit } from "@/lib/brand.functions";
 import { DEFAULT_FONT, type BrandFont, type BrandKit } from "@/lib/edit/brand";
+import { draftOf, EMPTY, type Draft } from "@/components/brand/kit-draft";
+import { BrandImportDialog } from "@/components/brand/BrandImportDialog";
+import { DesignSystemEditor } from "@/components/brand/DesignSystemEditor";
 import { OVERLAY_BACKING_LABELS, OVERLAY_BACKINGS, type OverlayBacking } from "@/lib/edit/timeline";
 import { LibraryPicker } from "@/components/studio/LibraryPicker";
 import { MediaPreview } from "@/components/studio/MediaPreview";
@@ -24,71 +38,12 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-
-interface Draft {
-  id: string | null;
-  name: string;
-  projectId: string | null;
-  isDefault: boolean;
-  logoAssetId: string | null;
-  endCardAssetId: string | null;
-  headingFont: string;
-  bodyFont: string;
-  fonts: BrandFont[];
-  textColor: string;
-  accentColor: string;
-  backgroundColor: string;
-  titleBacking: OverlayBacking;
-  uppercaseTitles: boolean;
-  tagline: string;
-  callToAction: string;
-  website: string;
-  terms: string;
-}
-
-const EMPTY: Draft = {
-  id: null,
-  name: "",
-  projectId: null,
-  isDefault: false,
-  logoAssetId: null,
-  endCardAssetId: null,
-  headingFont: DEFAULT_FONT,
-  bodyFont: DEFAULT_FONT,
-  fonts: [],
-  textColor: "#ffffff",
-  accentColor: "#2563eb",
-  backgroundColor: "#0b1020",
-  titleBacking: "halo",
-  uppercaseTitles: false,
-  tagline: "",
-  callToAction: "",
-  website: "",
-  terms: "",
-};
-
-function draftOf(kit: BrandKit): Draft {
-  return {
-    id: kit.id,
-    name: kit.name,
-    projectId: kit.projectId,
-    isDefault: kit.isDefault,
-    logoAssetId: kit.logoAssetId,
-    endCardAssetId: kit.endCardAssetId,
-    headingFont: kit.headingFont ?? DEFAULT_FONT,
-    bodyFont: kit.bodyFont ?? DEFAULT_FONT,
-    fonts: kit.fonts,
-    textColor: kit.textColor,
-    accentColor: kit.accentColor,
-    backgroundColor: kit.backgroundColor,
-    titleBacking: kit.titleBacking,
-    uppercaseTitles: kit.uppercaseTitles,
-    tagline: kit.tagline ?? "",
-    callToAction: kit.callToAction ?? "",
-    website: kit.website ?? "",
-    terms: kit.terms.join("\n"),
-  };
-}
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 /**
  * The team's brand kits: each a brand's logo, end-card background, fonts,
@@ -101,6 +56,7 @@ export function BrandKitsPanel() {
   const { data, isLoading } = useBrandKits();
   const { data: projects = [] } = useProjects();
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [importing, setImporting] = useState(false);
   const kits = data?.kits ?? [];
   const assetIds = kits.flatMap((kit) => (kit.logoAssetId ? [kit.logoAssetId] : []));
   const { data: assets } = useAssetsById(assetIds);
@@ -196,24 +152,32 @@ export function BrandKitsPanel() {
           );
         })}
       </ul>
-      <Button size="sm" variant="outline" onClick={() => setDraft({ ...EMPTY })}>
-        <Plus className="mr-1.5 size-3.5" /> New brand kit
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" onClick={() => setImporting(true)}>
+          <ScanSearch className="mr-1.5 size-3.5" /> Import from a website or guidelines
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => setDraft({ ...EMPTY })}>
+          <Plus className="mr-1.5 size-3.5" /> New brand kit
+        </Button>
+      </div>
       {draft && <BrandKitDialog draft={draft} onClose={() => setDraft(null)} />}
+      <BrandImportDialog open={importing} onOpenChange={setImporting} />
     </div>
   );
 }
 
-function BrandKitDialog({ draft: initial, onClose }: { draft: Draft; onClose: () => void }) {
+export function BrandKitDialog({ draft: initial, onClose }: { draft: Draft; onClose: () => void }) {
   const queryClient = useQueryClient();
   const { data: projects = [] } = useProjects();
   const [draft, setDraft] = useState<Draft>(initial);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [picking, setPicking] = useState<"logo" | "endCard" | null>(null);
+  const [picking, setPicking] = useState<"logo" | "endCard" | "references" | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const { data: assets } = useAssetsById(
-    [draft.logoAssetId, draft.endCardAssetId].filter((id): id is string => !!id),
+    [draft.logoAssetId, draft.endCardAssetId, ...draft.referenceAssetIds].filter(
+      (id): id is string => !!id,
+    ),
   );
   useBrandFontFaces(draft.fonts);
   const set = (patch: Partial<Draft>) => setDraft((current) => ({ ...current, ...patch }));
@@ -263,6 +227,9 @@ function BrandKitDialog({ draft: initial, onClose }: { draft: Draft; onClose: ()
             .split(/\n|,/)
             .map((term) => term.trim())
             .filter(Boolean),
+          palette: draft.palette,
+          design: draft.design as unknown as Record<string, unknown>,
+          referenceAssetIds: draft.referenceAssetIds,
         },
       });
       await queryClient.invalidateQueries({ queryKey: ["brand_kits"] });
@@ -600,6 +567,87 @@ function BrandKitDialog({ draft: initial, onClose }: { draft: Draft; onClose: ()
             </p>
           </div>
 
+          <Accordion type="multiple" className="rounded-md border border-border px-3">
+            <AccordionItem value="system" className="border-b-0">
+              <AccordionTrigger className="text-sm">
+                <span className="flex items-center gap-2">
+                  Design system
+                  <span className="flex h-3 w-16 overflow-hidden rounded-sm border border-border">
+                    {draft.palette.slice(0, 8).map((colour) => (
+                      <span
+                        key={colour.hex}
+                        className="flex-1"
+                        style={{ background: colour.hex }}
+                      />
+                    ))}
+                  </span>
+                </span>
+              </AccordionTrigger>
+              <AccordionContent>
+                <DesignSystemEditor
+                  name={draft.name}
+                  palette={draft.palette}
+                  onPalette={(palette) => set({ palette })}
+                  design={draft.design}
+                  onDesign={(design) => set({ design })}
+                />
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="references" className="border-b-0">
+              <AccordionTrigger className="text-sm">
+                Style references ({draft.referenceAssetIds.length})
+              </AccordionTrigger>
+              <AccordionContent className="space-y-2">
+                <p className="text-[11px] text-muted-foreground">
+                  Pictures that show the brand's look, offered as reference images wherever a model
+                  takes them.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {draft.referenceAssetIds.map((id) => {
+                    const asset = picture(id);
+                    return (
+                      <div
+                        key={id}
+                        className="relative h-16 w-24 overflow-hidden rounded border border-border bg-muted"
+                      >
+                        {asset && (
+                          <MediaPreview
+                            bucket={asset.storage_bucket}
+                            path={asset.storage_path}
+                            type="image"
+                            alt="Style reference"
+                          />
+                        )}
+                        <button
+                          type="button"
+                          aria-label="Remove this reference"
+                          className="absolute right-0.5 top-0.5 rounded-full bg-background/90 p-0.5"
+                          onClick={() =>
+                            set({
+                              referenceAssetIds: draft.referenceAssetIds.filter(
+                                (entry) => entry !== id,
+                              ),
+                            })
+                          }
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                  <Button
+                    variant="outline"
+                    className="h-16"
+                    disabled={draft.referenceAssetIds.length >= 12}
+                    onClick={() => setPicking("references")}
+                  >
+                    <ImagePlus className="mr-1.5 size-4" /> Add
+                  </Button>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={onClose}>
               Cancel
@@ -613,13 +661,27 @@ function BrandKitDialog({ draft: initial, onClose }: { draft: Draft; onClose: ()
         <LibraryPicker
           open={picking !== null}
           onOpenChange={(open) => !open && setPicking(null)}
-          accept={picking === "logo" ? ["image"] : ["image", "video"]}
-          max={1}
-          title={picking === "logo" ? "The brand's logo" : "The end card's background"}
+          accept={picking === "endCard" ? ["image", "video"] : ["image"]}
+          max={picking === "references" ? Math.max(1, 12 - draft.referenceAssetIds.length) : 1}
+          title={
+            picking === "logo"
+              ? "The brand's logo"
+              : picking === "references"
+                ? "Pictures in the brand's look"
+                : "The end card's background"
+          }
           onConfirm={(chosen: AssetRow[]) => {
-            const asset = chosen[0];
-            if (asset)
-              set(picking === "logo" ? { logoAssetId: asset.id } : { endCardAssetId: asset.id });
+            if (picking === "references")
+              set({
+                referenceAssetIds: [
+                  ...new Set([...draft.referenceAssetIds, ...chosen.map((asset) => asset.id)]),
+                ].slice(0, 12),
+              });
+            else {
+              const asset = chosen[0];
+              if (asset)
+                set(picking === "logo" ? { logoAssetId: asset.id } : { endCardAssetId: asset.id });
+            }
             setPicking(null);
           }}
         />

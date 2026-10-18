@@ -709,6 +709,8 @@ const assistInput = z.object({
   referenceAssetIds: z.array(z.string().uuid()).max(8).default([]),
   briefId: z.string().uuid().nullable().optional(),
   instruction: z.string().max(1000).optional(),
+  /** The brand kit the prompt is written for: suggestions keep to its look. */
+  brandKitId: z.string().uuid().nullable().optional(),
 });
 
 export const assistPrompt = createServerFn({ method: "POST" })
@@ -769,6 +771,11 @@ export const assistPrompt = createServerFn({ method: "POST" })
         "Choose a brief first, then ask for prompts from it.",
       );
 
+    // The brand's look, so suggestions are made in it (Create adds its style line on its own).
+    const brandText = data.brandKitId
+      ? await (await import("./brand/use.server")).brandBlock(data.brandKitId, 1500)
+      : "";
+
     const maxLength = card?.prompt_max ?? 2000;
     const input = [
       `MODEL (JSON): ${JSON.stringify(card)}`,
@@ -778,6 +785,9 @@ export const assistPrompt = createServerFn({ method: "POST" })
       data.instruction?.trim() ? `USER NOTE: ${data.instruction.trim()}` : "",
       vision.urls.length ? `REFERENCE IMAGES: ${vision.urls.length} attached.` : "",
       briefBlock,
+      brandText
+        ? `${brandText}\nWrite the subject, action and framing in the brand's look; the studio adds the brand's style line itself, so don't repeat it word for word.`
+        : "",
     ]
       .filter(Boolean)
       .join("\n\n");

@@ -64,6 +64,8 @@ interface Props {
   presenterRuns?: boolean | undefined;
   /** Puts the presenter recipe in the prompt and settings (null: nothing to set). */
   onApplyPresenterRecipe?: (() => void) | null;
+  /** The brand kit the video is made in: the AI's beats keep to its look. */
+  brandKitId?: string | null;
 }
 
 /** One clip or a long video, and everything about the long video: its length, clips and beats. */
@@ -83,6 +85,7 @@ export function LongVideoSetup({
   keyframeUsd,
   presenterRuns,
   onApplyPresenterRecipe = null,
+  brandKitId = null,
 }: Props) {
   const [planning, setPlanning] = useState(false);
   const set = (patch: Partial<LongVideoDraft>) => onChange({ ...draft, ...patch });
@@ -119,6 +122,7 @@ export function LongVideoSetup({
           finale: plan.finale ? { assetId: plan.finale.assetId, mode: plan.finale.mode } : null,
           characterIds: plan.characters.map((character) => character.id),
           keyframes: plan.keyframed,
+          brandKitId,
         },
       });
       // Merged into the setup as it is now, not as it was when asked: the

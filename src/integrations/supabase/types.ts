@@ -2108,6 +2108,72 @@ export type Database = {
           },
         ]
       }
+      brand_imports: {
+        Row: {
+          brand_kit_id: string | null
+          created_at: string
+          created_by: string | null
+          error: string | null
+          id: string
+          kind: string
+          proposal: Json | null
+          signals: Json
+          source_title: string | null
+          source_url: string | null
+          stage: string | null
+          staged: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          brand_kit_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          kind: string
+          proposal?: Json | null
+          signals?: Json
+          source_title?: string | null
+          source_url?: string | null
+          stage?: string | null
+          staged?: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          brand_kit_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          kind?: string
+          proposal?: Json | null
+          signals?: Json
+          source_title?: string | null
+          source_url?: string | null
+          stage?: string | null
+          staged?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_imports_brand_kit_id_fkey"
+            columns: ["brand_kit_id"]
+            isOneToOne: false
+            referencedRelation: "brand_kits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_imports_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_kits: {
         Row: {
           accent_color: string
@@ -2116,6 +2182,7 @@ export type Database = {
           call_to_action: string | null
           created_at: string
           created_by: string | null
+          design: Json
           end_card_asset_id: string | null
           fonts: Json
           heading_font: string
@@ -2124,7 +2191,10 @@ export type Database = {
           is_default: boolean
           logo_asset_id: string | null
           name: string
+          palette: Json
           project_id: string | null
+          reference_asset_ids: string[]
+          source: Json | null
           tagline: string | null
           terms: string[]
           text_color: string
@@ -2140,6 +2210,7 @@ export type Database = {
           call_to_action?: string | null
           created_at?: string
           created_by?: string | null
+          design?: Json
           end_card_asset_id?: string | null
           fonts?: Json
           heading_font?: string
@@ -2148,7 +2219,10 @@ export type Database = {
           is_default?: boolean
           logo_asset_id?: string | null
           name: string
+          palette?: Json
           project_id?: string | null
+          reference_asset_ids?: string[]
+          source?: Json | null
           tagline?: string | null
           terms?: string[]
           text_color?: string
@@ -2164,6 +2238,7 @@ export type Database = {
           call_to_action?: string | null
           created_at?: string
           created_by?: string | null
+          design?: Json
           end_card_asset_id?: string | null
           fonts?: Json
           heading_font?: string
@@ -2172,7 +2247,10 @@ export type Database = {
           is_default?: boolean
           logo_asset_id?: string | null
           name?: string
+          palette?: Json
           project_id?: string | null
+          reference_asset_ids?: string[]
+          source?: Json | null
           tagline?: string | null
           terms?: string[]
           text_color?: string
@@ -4113,6 +4191,7 @@ export type Database = {
       long_videos: {
         Row: {
           anchor_frame_asset_id: string | null
+          brand: Json | null
           campaign_id: string | null
           characters: Json
           client_request_id: string | null
@@ -4149,6 +4228,7 @@ export type Database = {
         }
         Insert: {
           anchor_frame_asset_id?: string | null
+          brand?: Json | null
           campaign_id?: string | null
           characters?: Json
           client_request_id?: string | null
@@ -4185,6 +4265,7 @@ export type Database = {
         }
         Update: {
           anchor_frame_asset_id?: string | null
+          brand?: Json | null
           campaign_id?: string | null
           characters?: Json
           client_request_id?: string | null
@@ -5796,6 +5877,51 @@ export type Database = {
           },
         ]
       }
+      supercomputer_memories: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string | null
+          id: string
+          scope: string
+          thread_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          scope?: string
+          thread_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          scope?: string
+          thread_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supercomputer_memories_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supercomputer_memories_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "supercomputer_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supercomputer_messages: {
         Row: {
           attachments: Json
@@ -5808,7 +5934,9 @@ export type Database = {
           payload: Json
           role: string
           status: string
+          superseded_at: string | null
           thread_id: string
+          updated_at: string
         }
         Insert: {
           attachments?: Json
@@ -5821,7 +5949,9 @@ export type Database = {
           payload?: Json
           role: string
           status?: string
+          superseded_at?: string | null
           thread_id: string
+          updated_at?: string
         }
         Update: {
           attachments?: Json
@@ -5834,7 +5964,9 @@ export type Database = {
           payload?: Json
           role?: string
           status?: string
+          superseded_at?: string | null
           thread_id?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -5862,7 +5994,9 @@ export type Database = {
           id: string
           is_archived: boolean
           last_message_at: string
+          pinned: boolean
           project_id: string | null
+          settings: Json
           title: string
           updated_at: string
         }
@@ -5874,7 +6008,9 @@ export type Database = {
           id?: string
           is_archived?: boolean
           last_message_at?: string
+          pinned?: boolean
           project_id?: string | null
+          settings?: Json
           title?: string
           updated_at?: string
         }
@@ -5886,7 +6022,9 @@ export type Database = {
           id?: string
           is_archived?: boolean
           last_message_at?: string
+          pinned?: boolean
           project_id?: string | null
+          settings?: Json
           title?: string
           updated_at?: string
         }

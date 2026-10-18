@@ -338,8 +338,11 @@ export function keyframePrompt(input: {
   aspect: string;
   /** What the person asked to change since the last try. */
   note?: string | null;
+  /** The brand's look the video is made in (its style line), if any. */
+  brand?: string | null;
 }): string {
   const { position, beats, durations } = input;
+  const brand = input.brand?.trim() ?? "";
   const story = input.story.trim();
   const continuity = input.continuity.trim();
   const beat = (position === 0 ? beats[0] : beats[position - 1])?.trim() ?? "";
@@ -378,6 +381,7 @@ export function keyframePrompt(input: {
         "Show any product, logo or place from the other reference images exactly as it appears there.",
       );
     parts.push(`Frame: ${input.aspect}. ${STILL_RULES}`);
+    if (brand) parts.push(brand);
     if (continuity && options.keepChars !== 0)
       parts.push(
         `Keep consistent: ${options.keepChars === null ? continuity : cut(continuity, options.keepChars)}`,

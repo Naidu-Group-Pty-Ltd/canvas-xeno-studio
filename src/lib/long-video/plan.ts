@@ -374,19 +374,22 @@ export function clipPrompt(input: {
    * told as little as can be, see ../lip-sync/presenter).
    */
   standalone?: boolean;
+  /** The brand's look the video is made in (its style line), if any. */
+  brand?: string | null;
 }): string {
   const story = input.story.trim();
   const beat = input.beat?.trim() ?? "";
   const continuity = input.continuity?.trim() ?? "";
   const keep = continuity ? `Keep consistent throughout: ${continuity}` : "";
+  const brand = input.brand?.trim() ?? "";
   const place =
     input.count && input.count > 1 && !input.standalone
       ? clipPlace(input.index, input.count, input.finale ?? null)
       : "";
   const parts: string[] = [];
   if (input.index > 0 && !input.standalone) parts.push(FRAME_OPENING);
-  if (beat) parts.push(beat, place, keep, story ? `Scene: ${story}` : "");
-  else parts.push(story, place, keep);
+  if (beat) parts.push(beat, place, keep, brand, story ? `Scene: ${story}` : "");
+  else parts.push(story, place, keep, brand);
   return parts.filter(Boolean).join("\n\n");
 }
 

@@ -43,6 +43,7 @@ import {
 } from "../edit/compile";
 import { compilePresenterEdit, type PresenterTitle } from "../edit/presenter";
 import { applyBrandKit, brandKitOf, kitForProject, type BrandKit } from "../edit/brand";
+import { storedBrandSnapshot } from "../brand/design";
 import { soulStillValues } from "../characters/views";
 import { isMissingTableError } from "../edit/errors";
 import type { ModelRegistryEntry } from "../model-schema";
@@ -226,6 +227,8 @@ export interface StartLongVideoRequest {
    * by the second): checked against spending limits before anything starts.
    */
   estimatedCostUsd?: number | null;
+  /** The brand kit the video is made in: kept with the run as it is now (see ../brand/design). */
+  brandKitId?: string | null;
 }
 
 const TABLES_MISSING =
@@ -659,6 +662,13 @@ export async function startLongVideo(
     keptClipQuotes = checked.kept;
   }
 
+  // The brand it is made in, as it is now: later keyframes and the edit keep to it.
+  const brand = request.brandKitId
+    ? await (await import("../brand/use.server")).brandSnapshotFor(request.brandKitId)
+    : null;
+  if (request.brandKitId && !brand)
+    throw new AppError("INVALID_PARAMETERS", "That brand kit no longer exists");
+
   const { data: run, error } = await db
     .from("long_videos")
     .insert({
@@ -689,6 +699,7 @@ export async function startLongVideo(
             identity_check: request.identityCheck !== false,
           }
         : {}),
+      ...(brand ? { brand: brand as never } : {}),
       ...(painter && keyframeSettings
         ? {
             keyframe_model_id: painter.id,
@@ -722,6 +733,15 @@ export async function startLongVideo(
       if (raced) return { longVideoId: raced.id, status: raced.status, duplicate: true };
     }
     if (isMissingTableError(error)) throw new AppError("UNKNOWN", TABLES_MISSING);
+    if (
+      brand &&
+      /brand/i.test(error?.message ?? "") &&
+      /column|schema cache/i.test(error?.message ?? "")
+    )
+      throw new AppError(
+        "UNKNOWN",
+        "Making a video in a brand needs a database update (migration 0021_brand_design_systems). Ask an admin to apply it, or start it without a brand.",
+      );
     if ((anchored || cutawayRun || usesQc) && /column|schema cache/i.test(error?.message ?? ""))
       throw new AppError("UNKNOWN", PRESENTER_TABLES_MISSING);
     if (planned.length < 2 && /clip_count/i.test(error?.message ?? ""))
@@ -3995,6 +4015,7 @@ async function startKeyframe(
     references: chosen.references,
     aspect: settings.aspect,
     note: keyframe.note,
+    brand: storedBrandSnapshot(run.brand)?.styleLine ?? null,
   });
   const values = withSoul
     ? soulStillValues(model, settings.width / settings.height, soul!.referenceId)
@@ -5304,7 +5325,7 @@ async function openVoiceoverRunInEditor(input: {
 }): Promise<{ sequenceId: string; created: boolean; missing: number[]; notes?: string[] }> {
   const { run } = input;
   // The brand's kit (the project's, else the team's default): its titles, captions and names.
-  const kit = await brandKitFor(run.project_id);
+  const kit = await brandKitFor(run.project_id, storedBrandSnapshot(run.brand)?.kitId ?? null);
   const { preparationById, takeForEdit } = await import("../lip-sync/prepare.server");
   const preparation = await preparationById(run.voiceover_preparation_id!);
   if (!preparation || preparation.status !== "ready" || !preparation.prepared_asset_id)
@@ -5390,19 +5411,21 @@ async function openVoiceoverRunInEditor(input: {
 }
 
 /**
- * The brand kit a run's edit is styled from: its project's, else the team's
- * default. None before the database has kits (migration 0018), or when it
- * can't be read just now: the edit is made in the studio's own style.
+ * The brand kit a run's edit is styled from: the one it was made in, else its
+ * project's, else the team's default. None before the database has kits
+ * (migration 0018), or when it can't be read just now: the edit is made in
+ * the studio's own style.
  */
-async function brandKitFor(projectId: string | null): Promise<BrandKit | null> {
+async function brandKitFor(
+  projectId: string | null,
+  madeIn: string | null = null,
+): Promise<BrandKit | null> {
   try {
     // A team keeps a handful of kits: all are read, and the right one picked here.
     const { data, error } = await db.from("brand_kits").select("*").eq("is_archived", false);
     if (error || !data?.length) return null;
-    return kitForProject(
-      data.map((row) => brandKitOf(row as unknown as Json)),
-      projectId,
-    );
+    const kits = data.map((row) => brandKitOf(row as unknown as Json));
+    return kits.find((kit) => kit.id === madeIn) ?? kitForProject(kits, projectId);
   } catch {
     return null;
   }

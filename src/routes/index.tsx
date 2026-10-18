@@ -51,6 +51,9 @@ import { useFinisherSuggestion } from "@/hooks/useFinisherSuggestion";
 import { planCharacter, useCharacters } from "@/hooks/useCharacters";
 import { AddCharacterReferences } from "@/components/characters/AddCharacterReferences";
 import { SoulStartFrame } from "@/components/characters/SoulStartFrame";
+import { BrandPicker } from "@/components/brand/BrandPicker";
+import { useBrandKits } from "@/hooks/useBrandKits";
+import { brandAvoidLine, brandStyleLine, withBrandStyle } from "@/lib/brand/design";
 import { startLongVideo } from "@/lib/long-video.functions";
 import { endCardSize } from "@/lib/long-video/finisher";
 import {
@@ -253,6 +256,27 @@ function CreatePage() {
   const [longDraft, setLongDraft] = useState<LongVideoDraft>(DEFAULT_LONG_VIDEO_DRAFT);
   const [shotId, setShotId] = useState<string | null>(null);
   const [briefId, setBriefId] = useState<string | null>(null);
+  // The brand everything is made in, remembered in this browser between visits.
+  const [brandKitId, setBrandKitId] = useState<string | null>(() => {
+    try {
+      return typeof window === "undefined"
+        ? null
+        : window.localStorage.getItem("xeno.create.brandKitId");
+    } catch {
+      return null;
+    }
+  });
+  const chooseBrand = (kitId: string | null) => {
+    setBrandKitId(kitId);
+    try {
+      if (kitId) window.localStorage.setItem("xeno.create.brandKitId", kitId);
+      else window.localStorage.removeItem("xeno.create.brandKitId");
+    } catch {
+      // Remembering it is a convenience only.
+    }
+  };
+  const { data: brandData } = useBrandKits();
+  const brandKit = brandData?.kits.find((kit) => kit.id === brandKitId) ?? null;
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -549,6 +573,7 @@ function CreatePage() {
     voiceover: voiceReference
       ? { assetId: voiceReference.assetId, preparation: lipSync.voiceover }
       : null,
+    brandLine: brandKit ? brandStyleLine(brandKit, "video") : null,
   });
   const longMode = mediaType === "video" && longDraft.enabled && longPlan.eligible;
   const longPanel = mediaType === "video" && longDraft.enabled && !!model;
@@ -675,17 +700,35 @@ function CreatePage() {
       : [];
   const issueMap = Object.fromEntries(issues.map((issue) => [issue.key, issue.message]));
   const submitValues = useMemo(() => {
-    if (!model || !cinemaOn) return values;
+    const prompt = (values["prompt"] as string) ?? "";
+    const compiled =
+      model && cinemaOn
+        ? { ...values, prompt: compileCinemaPrompt(prompt, cinema, promptCinemaGroups(model)) }
+        : values;
+    // Made in a brand: its look in the prompt, what it never shows in the negative prompt.
+    if (!model || !brandKit || typeof compiled["prompt"] !== "string") return compiled;
+    const fields = model.parameter_schema?.fields ?? [];
+    const avoid = brandAvoidLine(brandKit);
+    const negative = fields.some((field) => field.key === "negative_prompt") && avoid;
+    const existing =
+      typeof compiled["negative_prompt"] === "string" ? compiled["negative_prompt"].trim() : "";
     return {
-      ...values,
-      prompt: compileCinemaPrompt(
-        (values["prompt"] as string) ?? "",
-        cinema,
-        promptCinemaGroups(model),
+      ...compiled,
+      prompt: withBrandStyle(
+        compiled["prompt"],
+        brandKit,
+        model.output_type === "video" ? "video" : "image",
       ),
+      ...(negative
+        ? {
+            negative_prompt: existing.includes(avoid)
+              ? existing
+              : [existing, avoid].filter(Boolean).join(", "),
+          }
+        : {}),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [model?.id, JSON.stringify(values), JSON.stringify(cinema), cinemaOn]);
+  }, [model?.id, JSON.stringify(values), JSON.stringify(cinema), cinemaOn, brandKit]);
 
   // A long video is quoted by its first clip, exactly as that clip will be sent:
   // its model (a keyframed video's workflow), settings and media (the finisher
@@ -1038,6 +1081,8 @@ function CreatePage() {
               : null,
           // The whole video's estimate, checked against spending limits before it starts.
           estimatedCostUsd: longGrandTotal,
+          // Its brand, kept with it for every keyframe and its edit.
+          brandKitId: brandKit?.id ?? null,
         },
       });
       requestIdRef.current = null;
@@ -1352,6 +1397,7 @@ function CreatePage() {
                     characters={characterEntries}
                     keyframeUsd={keyframeUsd}
                     presenterRuns={presenterRuns}
+                    brandKitId={brandKit?.id ?? null}
                     onApplyPresenterRecipe={
                       longPlan.voiceover
                         ? () => {
@@ -1494,6 +1540,37 @@ function CreatePage() {
                   />
                 )}
 
+                {model && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <BrandPicker
+                      kitId={brandKit?.id ?? null}
+                      onChange={chooseBrand}
+                      kind={model.output_type === "video" ? "video" : "image"}
+                      room={maxReferences(model) - references.length}
+                      onAddReferences={(assets) =>
+                        setReferences((current) =>
+                          assignRoles(
+                            [
+                              ...current,
+                              ...assets
+                                .filter(
+                                  (asset) => !current.some((item) => item.assetId === asset.id),
+                                )
+                                .map(assetToReference),
+                            ],
+                            model,
+                          ),
+                        )
+                      }
+                    />
+                    {brandKit && !brandStyleLine(brandKit) && (
+                      <span className="text-[11px] text-muted-foreground">
+                        {brandKit.name} has no look yet: import its design system on the Brand page.
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 {promptField && (
                   <PromptComposer
                     value={(values["prompt"] as string) ?? ""}
@@ -1510,6 +1587,7 @@ function CreatePage() {
                               .filter((item) => item.assetType !== "audio")
                               .map((item) => item.assetId),
                             briefId,
+                            brandKitId: brandKit?.id ?? null,
                             unavailableReason: assistantStatus?.backend
                               ? null
                               : "Add an AI key in Settings → AI to use the assistant",
