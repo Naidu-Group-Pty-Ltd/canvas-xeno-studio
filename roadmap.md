@@ -24,6 +24,7 @@
 - [x] 24 to 30 fps conversion (blend or motion interpolation) and sharper upscaling in renders
 - [x] Headless studio API and MCP server (docs/studio-api.md), with personal tokens in Settings
 - [x] A warning in Create before work would run out of Higgsfield credits part-way, and a run's worst case with retakes
-- [ ] Apply migrations 0017_presenter_runs, 0018_brand_kits and 0019_studio_api (an admin, in order; the app works without them, with those features off)
-- [ ] Deploy the media worker (lip_check, brand_text, image_overlays, frame_rate_conversion): built by default; then pin `SYNCNET_SHA256` from the build log
+- [x] Apply migrations 0017_presenter_runs, 0018_brand_kits and 0019_studio_api
+- [x] Deploy the media worker with brand_text, image_overlays and frame_rate_conversion; the SyncNet weights pinned to the checksum that build fetched
+- [ ] Deploy the media worker with lip_check: the first build left it out (Debian's pip turned down a dependency of torch); the image now upgrades pip and fixes torch's dependencies
 - [ ] Lip-sync post-process: blocked. Higgsfield's catalog has no video-to-video lip-sync model (its video-edit models take audio only as a loose reference, and Seedance replaced the voice in the bake-off), and HeyGen belongs to Avatar Studio, which Creative Studio must not share provider code with. Revisit when a model that re-syncs an existing video's mouth to given audio is offered

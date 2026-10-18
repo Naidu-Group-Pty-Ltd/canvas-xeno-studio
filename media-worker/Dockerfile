@@ -12,13 +12,17 @@ RUN apt-get update \
 # doesn't offer lip_check and the app goes on without scores. Kept before the
 # code, so a change to the worker doesn't rebuild it.
 #   - SyncNetModel.py: joonson/syncnet_python (MIT), at a fixed commit.
-#   - syncnet_v2.model: its weights, from the authors' site (its sha256 is
-#     printed; set SYNCNET_SHA256 to require it).
+#   - syncnet_v2.model: its weights, from the authors' site, held to the
+#     checksum of the copy first built (pass SYNCNET_SHA256= to take any).
 #   - face_landmarker.task: MediaPipe's face landmark model.
+# Debian's pip (23.0) turned down typing_extensions as the PyTorch index lists
+# it ("inconsistent Name") and then couldn't build it from source there, so
+# the venv's pip is upgraded first, and torch's own dependencies come from
+# PyPI at fixed versions: the CPU index then serves only torch itself.
 ARG LIP_CHECK=1
 ARG SYNCNET_COMMIT=907c0b579c2e2d83f0eae1b2ac9e720cde4e5623
 ARG SYNCNET_MODEL_SHA256=41b85aed0006546cb2d6dc9180c5bc3dac737ab80eff643022e397a349c30c22
-ARG SYNCNET_SHA256=
+ARG SYNCNET_SHA256=961e8696f888fce4f3f3a6c3d5b3267cf5b343100b238e79b2659bff2c605442
 ARG FACE_MODEL_SHA256=64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff
 # (A chain of &&, not set -e: errexit is ignored on the left of ||.)
 RUN if [ "$LIP_CHECK" = "1" ]; then \
@@ -36,6 +40,8 @@ RUN if [ "$LIP_CHECK" = "1" ]; then \
       && curl -fsSL https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task -o /opt/lipcheck/models/face_landmarker.task \
       && echo "$FACE_MODEL_SHA256  /opt/lipcheck/models/face_landmarker.task" | sha256sum -c - \
       && python3 -m venv /opt/lipcheck/venv \
+      && /opt/lipcheck/venv/bin/pip install --no-cache-dir pip==25.2 \
+      && /opt/lipcheck/venv/bin/pip install --no-cache-dir typing_extensions==4.12.2 filelock==3.16.1 sympy==1.13.3 mpmath==1.3.0 networkx==3.3 jinja2==3.1.4 MarkupSafe==2.1.5 fsspec==2024.9.0 \
       && /opt/lipcheck/venv/bin/pip install --no-cache-dir torch==2.4.1 --index-url https://download.pytorch.org/whl/cpu \
       && /opt/lipcheck/venv/bin/pip install --no-cache-dir numpy==1.26.4 scipy==1.13.1 mediapipe==0.10.14 python_speech_features==0.6 \
       && /opt/lipcheck/venv/bin/python -c "import torch, cv2, mediapipe, python_speech_features, scipy" \
