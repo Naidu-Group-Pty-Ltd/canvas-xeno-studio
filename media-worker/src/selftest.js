@@ -939,7 +939,14 @@ await check(lipCheckAvailable ? "lip_check runs SyncNet, and finds no face in a 
     return;
   }
   if (!FEATURES.includes("lip_check")) throw new Error("not in the features");
-  const { metadata } = await TASKS.lip_check.run({ sources: [{ path: clipA, role: "video" }], params: { window_seconds: 3 }, dir });
+  // Its own clip: the renders above removed theirs once used.
+  const clip = join(dir, "lips.mp4");
+  await ffmpeg([
+    "-f", "lavfi", "-i", "testsrc2=s=640x360:d=3:r=25",
+    "-f", "lavfi", "-i", "sine=frequency=440:duration=3",
+    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", clip,
+  ]);
+  const { metadata } = await TASKS.lip_check.run({ sources: [{ path: clip, role: "video" }], params: { window_seconds: 3 }, dir });
   if (metadata.status !== "no_face") throw new Error(`reported ${JSON.stringify(metadata)}`);
   // Framing and the mouth in silences, with the image's own numpy.
   const tests = join(lipCheckDir, "tests", "test_face_qc.py");
