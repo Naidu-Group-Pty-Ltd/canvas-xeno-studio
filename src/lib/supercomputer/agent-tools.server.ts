@@ -21,7 +21,7 @@ import {
   type StudioTool,
 } from "../studio-api/tools.server";
 import type { ApiCaller } from "../studio-api/tokens.server";
-import type { ApprovalRequest, ToolUi } from "./agent-events";
+import { aboutUsd, type ApprovalRequest, type ToolUi } from "./agent-events";
 import type { AgentThreadSettings } from "./agent-settings";
 import type { SupercomputerPayload } from "./types";
 
@@ -849,7 +849,7 @@ const estimate = ownTool({
       content: resultText(quote),
       summary: quote.ok
         ? quote.costUsd !== null
-          ? `About $${quote.costUsd.toFixed(2)}`
+          ? aboutUsd(quote.costUsd)
           : (quote.pricingDescription ?? "Metered")
         : (quote.message ?? "Couldn't be priced"),
     };

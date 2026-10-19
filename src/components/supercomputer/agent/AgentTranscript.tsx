@@ -29,6 +29,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAssetsById } from "@/hooks/useLongVideos";
 import type { AssetRow } from "@/hooks/useStudioData";
 import {
+  aboutUsd,
   awaitingApprovals,
   type AgentDisplay,
   type ApprovalRequest,
@@ -397,9 +398,7 @@ function Approval({
           <p className="text-[11px] text-muted-foreground">{approval.reason}</p>
         </div>
         <span className="shrink-0 rounded-md bg-background px-2 py-0.5 text-xs font-medium">
-          {approval.estimateUsd !== null
-            ? `About $${approval.estimateUsd.toFixed(2)}`
-            : "Not priced"}
+          {approval.estimateUsd !== null ? aboutUsd(approval.estimateUsd) : "Not priced"}
         </span>
       </div>
       {approval.details.length > 0 && (
@@ -575,7 +574,7 @@ function ApproveAll({
       <span className="min-w-0 flex-1">
         {waiting.length} actions wait for you
         {priced.length
-          ? ` · about $${total.toFixed(2)}${priced.length < waiting.length ? " for the priced ones" : " in all"}`
+          ? ` · ${aboutUsd(total).toLowerCase()}${priced.length < waiting.length ? " for the priced ones" : " in all"}`
           : ""}
       </span>
       <Button size="sm" className="h-7" onClick={() => all("approve")}>

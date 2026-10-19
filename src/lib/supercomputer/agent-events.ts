@@ -380,6 +380,15 @@ export function generationsOf(
   );
 }
 
+/**
+ * A price as the agent's cards say it: "About $0.04", and a fraction of a
+ * cent as "Under $0.01" (Soul stills cost $0.004), not "$0.00", which reads
+ * as free.
+ */
+export function aboutUsd(usd: number): string {
+  return usd > 0 && usd < 0.005 ? "Under $0.01" : `About $${usd.toFixed(2)}`;
+}
+
 /** The calls a turn waits on a person for. */
 export function awaitingApprovals(display: AgentDisplay): ApprovalRequest[] {
   return display.blocks.flatMap(({ block }) =>

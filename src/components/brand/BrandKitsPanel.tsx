@@ -18,7 +18,7 @@ import { useProjects } from "@/hooks/useStudioData";
 import { useAssetsById } from "@/hooks/useLongVideos";
 import { uploadBrandFont, useBrandFontFaces, useBrandKits } from "@/hooks/useBrandKits";
 import { archiveBrandKit, saveBrandKit } from "@/lib/brand.functions";
-import { DEFAULT_FONT, type BrandFont, type BrandKit } from "@/lib/edit/brand";
+import { DEFAULT_FONT, fontChoices, type BrandFont, type BrandKit } from "@/lib/edit/brand";
 import { draftOf, EMPTY, type Draft } from "@/components/brand/kit-draft";
 import { BrandImportDialog } from "@/components/brand/BrandImportDialog";
 import { DesignSystemEditor } from "@/components/brand/DesignSystemEditor";
@@ -181,7 +181,7 @@ export function BrandKitDialog({ draft: initial, onClose }: { draft: Draft; onCl
   );
   useBrandFontFaces(draft.fonts);
   const set = (patch: Partial<Draft>) => setDraft((current) => ({ ...current, ...patch }));
-  const families = [DEFAULT_FONT, ...draft.fonts.map((font) => font.family)];
+  const families = fontChoices(draft.fonts);
 
   const addFont = async (file: File) => {
     setUploading(true);
