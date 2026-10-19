@@ -10,7 +10,12 @@
  * Shared by Create (to show and price it) and the server (to run it).
  */
 import { defaultsForModel, normalizeOption, type ModelRegistryEntry } from "../model-schema";
-import { charactersLine, interleaveSheets, type RunCharacter } from "../characters/model";
+import {
+  charactersLine,
+  interleaveSheets,
+  type RunCharacter,
+  type SoulVersion,
+} from "../characters/model";
 import { lipSyncCapable } from "../lip-sync/models";
 import {
   clipEnd,
@@ -333,8 +338,11 @@ export function keyframePrompt(input: {
   aspect: string;
   /** What the person asked to change since the last try. */
   note?: string | null;
+  /** The brand's look the video is made in (its style line), if any. */
+  brand?: string | null;
 }): string {
   const { position, beats, durations } = input;
+  const brand = input.brand?.trim() ?? "";
   const story = input.story.trim();
   const continuity = input.continuity.trim();
   const beat = (position === 0 ? beats[0] : beats[position - 1])?.trim() ?? "";
@@ -373,6 +381,7 @@ export function keyframePrompt(input: {
         "Show any product, logo or place from the other reference images exactly as it appears there.",
       );
     parts.push(`Frame: ${input.aspect}. ${STILL_RULES}`);
+    if (brand) parts.push(brand);
     if (continuity && options.keepChars !== 0)
       parts.push(
         `Keep consistent: ${options.keepChars === null ? continuity : cut(continuity, options.keepChars)}`,
@@ -455,6 +464,38 @@ export interface KeyframeSettings {
   format: "png" | "jpg";
   /** Higgsfield's estimate for one keyframe when the run was started, if it gave one. */
   unitUsd: number | null;
+  /**
+   * The opening keyframe painted from a character's Soul ID on its Soul model
+   * (the truest likeness to start from) when it shows that character alone;
+   * later keyframes keep the painter, from it. Unset: the painter paints all.
+   */
+  soulOpening?: SoulOpening | null;
+}
+
+/** The Soul model and Soul ID a run's opening keyframe is painted with. */
+export interface SoulOpening {
+  modelId: string;
+  characterId: string;
+  version: SoulVersion;
+  referenceId: string;
+}
+
+/** A stored Soul opening, or null. */
+function storedSoulOpening(value: unknown): SoulOpening | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const version = record["version"];
+  return typeof record["modelId"] === "string" &&
+    typeof record["characterId"] === "string" &&
+    typeof record["referenceId"] === "string" &&
+    (version === "v1" || version === "v2" || version === "cinema")
+    ? {
+        modelId: record["modelId"],
+        characterId: record["characterId"],
+        version,
+        referenceId: record["referenceId"],
+      }
+    : null;
 }
 
 /** A run's keyframe settings as stored, or null when they can't be read. */
@@ -472,7 +513,23 @@ export function storedKeyframeSettings(value: unknown): KeyframeSettings | null 
     height,
     format: record["format"] === "jpg" ? "jpg" : "png",
     unitUsd: typeof record["unitUsd"] === "number" ? record["unitUsd"] : null,
+    soulOpening: storedSoulOpening(record["soulOpening"]),
   };
+}
+
+/**
+ * Whether a keyframe is painted from a Soul ID: the opening one, when the run
+ * was set to and it shows exactly that character.
+ */
+export function paintsWithSoul(
+  settings: Pick<KeyframeSettings, "soulOpening">,
+  position: number,
+  cast: { id: string }[],
+): SoulOpening | null {
+  const soul = settings.soulOpening ?? null;
+  return soul && position === 0 && cast.length === 1 && cast[0]!.id === soul.characterId
+    ? soul
+    : null;
 }
 
 /** The beat a keyframe shows the end of (the opening keyframe: the start of the first). */

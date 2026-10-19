@@ -141,6 +141,27 @@
       "when": 1791310525140,
       "tag": "0019_studio_api",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791310585140,
+      "tag": "0020_soul_ids",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791310645140,
+      "tag": "0021_brand_design_systems",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791310705140,
+      "tag": "0022_supercomputer_agent",
+      "breakpoints": true
     }
   ]
 }

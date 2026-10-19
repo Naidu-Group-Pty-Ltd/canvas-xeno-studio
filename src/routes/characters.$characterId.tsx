@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/layout/AppShell";
 import { EmptyState } from "@/components/studio/EmptyState";
 import { CharacterImages } from "@/components/characters/CharacterImages";
-import { SoulIdPanel } from "@/components/characters/SoulIdPanel";
+import { SoulStudio } from "@/components/characters/soul/SoulStudio";
 import { ViewsMaker } from "@/components/characters/ViewsMaker";
 import { CharacterKatanaRuns } from "@/components/katana/CharacterKatanaRuns";
 import { CharacterToKatana } from "@/components/katana/SendToKatana";
@@ -237,7 +237,7 @@ function CharacterEditor({ character, canEdit }: { character: CharacterEntry; ca
 
         <div className="space-y-4">
           <ViewsMaker character={character} canEdit={canEdit} />
-          <SoulIdPanel character={character} canEdit={canEdit} />
+          <SoulStudio character={character} canEdit={canEdit} />
           <CharacterKatanaRuns character={character} />
         </div>
       </div>

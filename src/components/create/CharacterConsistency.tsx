@@ -1,8 +1,9 @@
 import { AlertTriangle, Film, Fingerprint, Images, ShieldCheck } from "lucide-react";
 import type { ModelRegistryEntry } from "@/lib/model-schema";
 import type { CharacterEntry } from "@/hooks/useCharacters";
-import { CHARACTER_LIMITS } from "@/lib/characters/model";
-import { clipEnd, modelLine } from "@/lib/long-video/plan";
+import { CHARACTER_LIMITS, SOUL_VERSION_LABELS } from "@/lib/characters/model";
+import { pickSoul } from "@/lib/characters/soul";
+import { castOf, clipEnd, modelLine } from "@/lib/long-video/plan";
 import type { LongVideoDraft, LongVideoPlan } from "@/components/create/long-video-plan";
 import { CharacterPicker } from "@/components/characters/CharacterPicker";
 import { Label } from "@/components/ui/label";
@@ -52,6 +53,12 @@ export function CharacterConsistency({
     keyframeUsd !== null && plan.paintedKeyframes
       ? ` · about $${(keyframeUsd * plan.paintedKeyframes).toFixed(2)}`
       : "";
+  // Who the opening frame shows, and their Soul ID (it can paint one person).
+  const opening = castOf(
+    draft.beats[0] ?? "",
+    characters.filter((entry) => chosen.some((character) => character.id === entry.id)),
+  );
+  const openingSoul = opening.length === 1 ? pickSoul(opening[0]!.souls, { look: "image" }) : null;
 
   return (
     <div className="space-y-2" data-testid="long-video-characters">
@@ -149,6 +156,30 @@ export function CharacterConsistency({
                           onCheckedChange={(reviewKeyframes) => onChange({ reviewKeyframes })}
                         />
                       </div>
+                    </div>
+                  )}
+                  {plan.keyframed && openingSoul && opening[0] && (
+                    <div className="space-y-1 rounded-md border border-border px-2.5 py-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <Label
+                          htmlFor="long-video-soul-opening"
+                          className="flex items-center gap-1.5 text-[11px]"
+                        >
+                          <Fingerprint className="size-3.5 text-primary" />
+                          Opening frame from {opening[0].name}'s Soul ID
+                        </Label>
+                        <Switch
+                          id="long-video-soul-opening"
+                          checked={draft.soulOpening}
+                          onCheckedChange={(soulOpening) => onChange({ soulOpening })}
+                          data-testid="long-video-soul-opening"
+                        />
+                      </div>
+                      <p className="text-[11px] leading-relaxed text-muted-foreground">
+                        {draft.soulOpening
+                          ? `${SOUL_VERSION_LABELS[openingSoul.version]} paints the first frame from their trained likeness${openingSoul.likeness ? ` (likeness ${openingSoul.likeness.score.toFixed(1)}/10)` : ""}, and every later keyframe carries it on. Your reference images aren't used for that frame.`
+                          : "The first frame is painted from their images like the others."}
+                      </p>
                     </div>
                   )}
                 </>

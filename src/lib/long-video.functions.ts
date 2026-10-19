@@ -102,7 +102,12 @@ const startInput = z
     identityCheck: z.boolean().default(true),
     /** Paint the keyframes first with this image model, and whether a person reviews them. */
     keyframes: z
-      .object({ painterModelId: z.string().uuid(), review: z.boolean().default(true) })
+      .object({
+        painterModelId: z.string().uuid(),
+        review: z.boolean().default(true),
+        /** Paint the opening keyframe from the character's Soul ID (one character with one). */
+        soulOpening: z.boolean().default(false),
+      })
       .nullable()
       .optional(),
     /** Made to a voiceover: its preparation, and the piece of it each clip is made from. */
@@ -157,6 +162,8 @@ const startInput = z
       })
       .nullable()
       .optional(),
+    /** The brand kit the video is made in. */
+    brandKitId: z.string().uuid().nullable().optional(),
   })
   // Without a voiceover, a long video is at least two clips.
   .refine((value) => !!value.voiceover || value.clips.length >= LONG_VIDEO_LIMITS.minClips, {
@@ -192,6 +199,7 @@ export const startLongVideo = createServerFn({ method: "POST" })
       startFrom: data.startFrom,
       qc: data.qc ?? null,
       estimatedCostUsd: data.estimatedCostUsd ?? null,
+      brandKitId: data.brandKitId ?? null,
     });
   });
 
@@ -215,6 +223,8 @@ const planInput = z.object({
   keyframes: z.boolean().default(false),
   /** Made to a voiceover: the words spoken in each clip (empty where unknown). */
   spoken: z.array(z.string().max(4000)).max(LONG_VIDEO_LIMITS.maxClips).nullable().optional(),
+  /** The brand kit the video is made in: the beats keep to its look and voice. */
+  brandKitId: z.string().uuid().nullable().optional(),
 });
 
 /** Suggests a title, continuity notes and one beat per clip. Nothing is generated. */
@@ -306,6 +316,11 @@ export const planLongVideo = createServerFn({ method: "POST" })
             : brief.extracted_text.slice(0, 12000)
         }`;
       }
+    }
+
+    if (data.brandKitId) {
+      const { brandBlock } = await import("./brand/use.server");
+      briefBlock = [briefBlock, await brandBlock(data.brandKitId)].filter(Boolean).join("\n\n");
     }
 
     const { suggestLongVideoPlan } = await import("./long-video/planner.server");

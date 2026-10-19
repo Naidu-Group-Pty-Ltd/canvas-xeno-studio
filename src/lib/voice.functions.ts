@@ -474,7 +474,19 @@ export const writeVoiceoverScript = createServerFn({ method: "POST" })
       lines.push(`## VIDEO: ${sequence.title}`);
       const timeline = (sequence.timeline ?? {}) as {
         clips?: { label?: string; duration?: number }[];
+        brandKitId?: string | null;
       };
+      // The brand the edit is styled in: the words keep to its voice too.
+      if (typeof timeline.brandKitId === "string") {
+        const { loadBrandKit } = await import("./brand/use.server");
+        const { brandVoiceLine } = await import("./brand/design");
+        const kit = await loadBrandKit(timeline.brandKitId);
+        const voice = kit ? brandVoiceLine(kit) : "";
+        if (kit)
+          lines.push(
+            `## BRAND: ${kit.name}${kit.tagline ? ` ("${kit.tagline}")` : ""}${voice ? `\n${voice}` : ""}${kit.callToAction ? `\nIts call to action: ${kit.callToAction}` : ""}${kit.terms.length ? `\nSpell exactly: ${kit.terms.slice(0, 12).join(", ")}` : ""}`,
+          );
+      }
       const shots = (timeline.clips ?? []).map(
         (clip, index) =>
           `${index + 1}. ${clip.label ?? "Shot"} (${Number(clip.duration ?? 0).toFixed(1)}s)`,

@@ -4,6 +4,7 @@ import { UsersRound } from "lucide-react";
 import { toast } from "sonner";
 import { planCharacter, useCharacters, type CharacterEntry } from "@/hooks/useCharacters";
 import type { AssetRow } from "@/hooks/useStudioData";
+import { charactersLine } from "@/lib/characters/model";
 import { CharacterAvatar } from "@/components/characters/CharacterPicker";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -15,10 +16,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 export function AddCharacterReferences({
   room,
   onAdd,
+  onLook,
 }: {
   /** How many more references can be attached. */
   room: number;
   onAdd: (assets: AssetRow[]) => void;
+  /** Adds the character's look to the prompt (the line every clip of theirs carries). */
+  onLook?: (line: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const { data: characters = [] } = useCharacters({ enabled: open });
@@ -38,8 +42,13 @@ export function AddCharacterReferences({
       return;
     }
     onAdd(assets);
+    // Their look goes into the prompt too: images alone don't keep the clothes and age.
+    const line = onLook
+      ? charactersLine([planCharacter(character)], { references: true, descriptionChars: 300 })
+      : "";
+    if (line) onLook?.(line);
     toast.success(
-      `Added ${assets.length} of ${character.name}'s images. Name ${character.name} in the prompt${character.description ? " (their look is on the Characters page)" : ""}.`,
+      `Added ${assets.length} of ${character.name}'s images${line ? " and their look to the prompt" : ""}. Name ${character.name} in the prompt.`,
     );
   }
 

@@ -14,6 +14,14 @@ import {
   isBrandFontFile,
 } from "./font-family";
 import {
+  designOf,
+  paletteOf,
+  sourceOf,
+  type BrandDesign,
+  type BrandSource,
+  type PaletteColour,
+} from "../brand/design";
+import {
   aspectQuotient,
   layoutTimeline,
   LIMITS,
@@ -59,6 +67,14 @@ export interface BrandKit {
   website: string | null;
   /** Names captions must spell right (the brand dictionary). */
   terms: string[];
+  /** The brand's whole palette, each colour with its role (see ../brand/design). */
+  palette: PaletteColour[];
+  /** Its design language: type, imagery, voice, rules and the line generations carry. */
+  design: BrandDesign;
+  /** Where its design system was imported from, if it was. */
+  source: BrandSource | null;
+  /** Library images that show its look, used as style references. */
+  referenceAssetIds: string[];
 }
 
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -110,6 +126,15 @@ export function brandKitOf(row: Json): BrandKit {
     website: text(row["website"]),
     terms: Array.isArray(row["terms"])
       ? (row["terms"] as unknown[]).flatMap((term) => (text(term) ? [text(term)!] : []))
+      : [],
+    // Kits from before design systems (migration 0021) have none of these yet.
+    palette: paletteOf(row["palette"]),
+    design: designOf(row["design"]),
+    source: sourceOf(row["source"]),
+    referenceAssetIds: Array.isArray(row["reference_asset_ids"])
+      ? (row["reference_asset_ids"] as unknown[]).flatMap((id) =>
+          typeof id === "string" && /^[0-9a-f-]{36}$/i.test(id) ? [id] : [],
+        )
       : [],
   };
 }

@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useModels, useSettings } from "@/hooks/useStudioData";
 import { getMediaWorkerStatus } from "@/lib/media.functions";
 import { useSupercomputerStatus } from "@/hooks/useSupercomputerData";
+import { useAgentStatus } from "@/hooks/useAgent";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -267,6 +268,23 @@ function SettingsPage() {
   );
 }
 
+/** Whether the Supercomputer runs as an agent on Claude, and what turns it on. */
+function AgentStatusLine() {
+  const { data } = useAgentStatus();
+  if (!data) return null;
+  const missing = [
+    data.configured ? null : "add an ANTHROPIC_API_KEY backend secret",
+    data.tablesReady ? null : "apply migration 0022_supercomputer_agent",
+  ].filter(Boolean);
+  return (
+    <p className="text-xs text-muted-foreground">
+      {missing.length
+        ? `Supercomputer agent: off. To run it on Claude (thinking, tools, web research, approvals before spending), ${missing.join(" and ")}.`
+        : "Supercomputer agent: on, running on Claude. Each conversation chooses its model and how hard it thinks."}
+    </p>
+  );
+}
+
 /**
  * Which reasoning backend is live, and the admin choices behind it. Values are
  * upserted so the controls also work before every setting row exists.
@@ -319,6 +337,7 @@ function AiSettings({ isAdmin, settings }: { isAdmin: boolean; settings: Record<
         Add an <code>OPENAI_API_KEY</code> backend secret to bill AI to your OpenAI account. Without it, the project's
         built-in Lovable AI is used and draws on Lovable workspace credits. Planning never spends Higgsfield credits.
       </p>
+      <AgentStatusLine />
       {isAdmin && (
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">

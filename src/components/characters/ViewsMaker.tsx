@@ -26,6 +26,7 @@ import {
   viewRequestKey,
   type MakeableView,
 } from "@/lib/characters/views";
+import { pickSoul } from "@/lib/characters/soul";
 import { MediaPreview } from "@/components/studio/MediaPreview";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -138,13 +139,13 @@ export function ViewsMaker({
   const queryClient = useQueryClient();
   const { data: models = [] } = useModels();
   const painters = useMemo(() => keyframePainters(models), [models]);
-  const soulModel =
-    character.soul_model_version && character.soul_reference_id
-      ? (models.find(
-          (model) =>
-            model.is_active && model.model_path === SOUL_MODEL_PATHS[character.soul_model_version!],
-        ) ?? null)
-      : null;
+  // The Soul ID images of them are best made with (Soul 2 first, an approved likeness before one unproven).
+  const soul = pickSoul(character.souls, { look: "image" });
+  const soulModel = soul
+    ? (models.find(
+        (model) => model.is_active && model.model_path === SOUL_MODEL_PATHS[soul.version],
+      ) ?? null)
+    : null;
   const [source, setSource] = useState<string>("");
   const usingSoul = source === SOUL_SOURCE && !!soulModel;
   const model = usingSoul
@@ -181,11 +182,11 @@ export function ViewsMaker({
 
   function request(view: MakeableView) {
     if (!model) return null;
-    if (usingSoul && character.soul_reference_id)
+    if (usingSoul && soul)
       return {
         modelId: model.id,
         parameters: {
-          ...soulViewValues(model, view, character.soul_reference_id),
+          ...soulViewValues(model, view, soul.referenceId),
           prompt: viewPrompt(view, { fromImages: false, description: character.description }),
         },
         inputs: [] as { assetId: string; role: string; position: number }[],

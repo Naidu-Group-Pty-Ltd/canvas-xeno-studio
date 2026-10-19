@@ -81,6 +81,8 @@ const planInput = z.object({
   brief: z.string().min(4).max(8000),
   sessionId: z.string().uuid().nullable().optional(),
   projectId: z.string().uuid().nullable().optional(),
+  /** The brand kit the production is made in: shots keep to its look and voice. */
+  brandKitId: z.string().uuid().nullable().optional(),
 });
 
 export const createDirectorPlan = createServerFn({ method: "POST" })
@@ -109,9 +111,11 @@ export const createDirectorPlan = createServerFn({ method: "POST" })
     await supabaseAdmin.from("director_messages").insert({ session_id: sessionId, role: "user", content: data.brief });
 
     const catalogue = await activeModelCatalogue();
+    const { brandBlock } = await import("./brand/use.server");
+    const brand = await brandBlock(data.brandKitId, 1500);
     const result = await reasoning.provider.generateStructured<ProductionPlan>({
       system: DIRECTOR_SYSTEM,
-      input: `BRIEF:\n${data.brief}\n\nMODEL CATALOGUE (JSON):\n${JSON.stringify(catalogue)}`,
+      input: `BRIEF:\n${data.brief}${brand ? `\n\n${brand}` : ""}\n\nMODEL CATALOGUE (JSON):\n${JSON.stringify(catalogue)}`,
       schemaName: "production_plan",
       schema: PRODUCTION_PLAN_JSON_SCHEMA,
       model: reasoning.model,

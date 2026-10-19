@@ -76,8 +76,21 @@ export function soulViewValues(
   view: MakeableView,
   referenceId: string,
 ): Record<string, unknown> {
+  return soulStillValues(model, viewRatio(view), referenceId);
+}
+
+/**
+ * A still's settings on a Soul model with a character's Soul ID: the
+ * closest shape to `ratio`, its sharper resolution, one image, and the
+ * prompt left as written.
+ */
+export function soulStillValues(
+  model: ModelRegistryEntry,
+  ratio: number,
+  referenceId: string,
+): Record<string, unknown> {
   const values = defaultsForModel(model);
-  const aspect = closest(model, viewRatio(view));
+  const aspect = closest(model, ratio);
   if (aspect) values["aspect_ratio"] = aspect;
   if (optionValues(model, "resolution").includes("1080p")) values["resolution"] = "1080p";
   if (optionValues(model, "batch_size").includes(1)) values["batch_size"] = 1;

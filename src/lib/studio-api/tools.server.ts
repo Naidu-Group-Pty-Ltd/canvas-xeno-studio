@@ -119,7 +119,7 @@ async function activeModel(modelId: string): Promise<ModelRegistryEntry> {
 }
 
 /** A model, as an API caller needs it: what it takes and what can be set. */
-function modelSummary(model: ModelRegistryEntry) {
+export function modelSummary(model: ModelRegistryEntry) {
   const fields = model.parameter_schema?.fields ?? [];
   return {
     id: model.id,
@@ -398,16 +398,46 @@ const listBrandKits = tool({
   name: "list_brand_kits",
   title: "List brand kits",
   description:
-    "The team's brand kits: each brand's fonts, colours, logo, end card, tagline, call to action and the names captions spell right.",
+    "The team's brand kits: each brand's fonts, colours, logo, end card, tagline, call to action, the names captions spell right, and its design system (palette with roles, the look of its imagery, voice and rules). Pass a kit's id as brandKitId to queue_generation to make a picture or clip in its look.",
   scope: "read",
   input: z.object({}),
   run: async () => {
     const { data, error } = await db.from("brand_kits").select("*").eq("is_archived", false);
     if (error) return [];
+    const { brandStyleLine } = await import("../brand/design");
     return (data ?? []).map((row) => {
-      const { fonts, ...kit } = brandKitOf(row as unknown as Json);
-      return { ...kit, fonts: fonts.map((font) => font.family) };
+      const { fonts, design, ...kit } = brandKitOf(row as unknown as Json);
+      return {
+        ...kit,
+        fonts: fonts.map((font) => font.family),
+        mood: design.visual.mood,
+        styleLine: brandStyleLine({ ...kit, design }),
+      };
     });
+  },
+});
+
+const getBrandKit = tool({
+  name: "get_brand_kit",
+  title: "Get a brand kit",
+  description:
+    "One brand kit's whole design system: palette (each colour's role and use), typefaces, the look of its imagery (mood, photography, lighting, grading, composition, motion), its voice (tone, sample lines, words it uses and avoids), its rules, the line generations carry and what they must not show, and its style reference images.",
+  scope: "read",
+  input: z.object({ brandKitId: id() }),
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const { requireBrandKit } = await import("../brand/use.server");
+    const { brandAvoidLine, brandStyleLine, brandVoiceLine } = await import("../brand/design");
+    const kit = await requireBrandKit(args.brandKitId);
+    const { fonts, ...rest } = kit;
+    return {
+      ...rest,
+      fonts: fonts.map((font) => font.family),
+      styleLine: brandStyleLine(kit),
+      videoStyleLine: brandStyleLine(kit, "video"),
+      avoidLine: brandAvoidLine(kit),
+      voiceLine: brandVoiceLine(kit),
+    };
   },
 });
 
@@ -419,7 +449,7 @@ const queueGeneration = tool({
   name: "queue_generation",
   title: "Queue a generation",
   description:
-    "Makes an image or video with a model (see list_models), from library files in the model's input roles. It passes the same spending checks as the app (project, campaign and your monthly cap) and is billed by the provider. Poll get_generation for its files.",
+    "Makes an image or video with a model (see list_models), from library files in the model's input roles. With characterIds the characters keep their likeness: on a Soul model their Soul ID is used (custom_reference_id), on other models their reference sheet goes in as reference images and their look into the prompt. It passes the same spending checks as the app (project, campaign and your monthly cap) and is billed by the provider. Poll get_generation for its files.",
   scope: "generate",
   readOnly: false,
   input: z.object({
@@ -436,6 +466,17 @@ const queueGeneration = tool({
       )
       .max(20)
       .default([]),
+    characterIds: z
+      .array(id())
+      .max(4)
+      .default([])
+      .describe("Characters (see list_characters) who must look like themselves"),
+    brandKitId: id()
+      .nullable()
+      .optional()
+      .describe(
+        "A brand kit (see list_brand_kits): its look goes into the prompt and what it never shows into the negative prompt",
+      ),
     projectId: id().nullable().optional(),
     campaignId: id().nullable().optional(),
     estimatedCostUsd: z.number().min(0).max(10_000).nullable().optional(),
@@ -446,14 +487,322 @@ const queueGeneration = tool({
     const { assertGenerationAllowed, createAndSubmitGeneration } =
       await import("../generation-create.server");
     await assertGenerationAllowed(caller.userId);
+    const cast = args.characterIds.length
+      ? await withCharacters(model, args.parameters, args.inputs, args.characterIds)
+      : { parameters: args.parameters, inputs: args.inputs };
+    if (args.brandKitId) cast.parameters = await withBrand(model, cast.parameters, args.brandKitId);
     return createAndSubmitGeneration({
       userId: caller.userId,
       model,
-      parameters: args.parameters,
-      inputs: args.inputs.map((input, position) => ({ ...input, position })),
+      parameters: cast.parameters,
+      inputs: cast.inputs.map((input, position) => ({ ...input, position })),
       projectId: args.projectId ?? null,
       campaignId: args.campaignId ?? null,
       estimatedCostUsd: args.estimatedCostUsd ?? null,
+      clientRequestId: args.clientRequestId,
+    });
+  },
+});
+
+/** A generation's parameters in a brand's look: its style line in the prompt, its avoid line in the negative prompt. */
+async function withBrand(
+  model: ModelRegistryEntry,
+  parameters: Record<string, unknown>,
+  brandKitId: string,
+): Promise<Record<string, unknown>> {
+  const { requireBrandKit } = await import("../brand/use.server");
+  const { brandAvoidLine, withBrandStyle } = await import("../brand/design");
+  const kit = await requireBrandKit(brandKitId);
+  const prompt = typeof parameters["prompt"] === "string" ? parameters["prompt"] : "";
+  const avoid = brandAvoidLine(kit);
+  const negativeField = (model.parameter_schema?.fields ?? []).some(
+    (field) => field.key === "negative_prompt",
+  );
+  const negative =
+    typeof parameters["negative_prompt"] === "string" ? parameters["negative_prompt"].trim() : "";
+  return {
+    ...parameters,
+    prompt: withBrandStyle(prompt, kit, model.output_type === "video" ? "video" : "image"),
+    ...(negativeField && avoid && !negative.includes(avoid)
+      ? { negative_prompt: [negative, avoid].filter(Boolean).join(", ") }
+      : {}),
+  };
+}
+
+/**
+ * A generation's parameters and inputs with its characters in it: on a Soul
+ * model the Soul ID trained for it (one character); elsewhere the characters'
+ * reference sheets as reference images (as many as the model takes, everyone's
+ * best view first) and their look written into the prompt.
+ */
+async function withCharacters(
+  model: ModelRegistryEntry,
+  parameters: Record<string, unknown>,
+  inputs: { assetId: string; role: string }[],
+  characterIds: string[],
+): Promise<{ parameters: Record<string, unknown>; inputs: { assetId: string; role: string }[] }> {
+  const { charactersForAgent } = await import("../characters/service.server");
+  const { charactersLine, interleaveSheets, soulVersionFor } = await import("../characters/model");
+  const all = await charactersForAgent(200);
+  const cast = characterIds.map((characterId) => {
+    const character = all.find((entry) => entry.id === characterId);
+    if (!character)
+      throw new AppError("INVALID_PARAMETERS", "A character is no longer in the library");
+    return character;
+  });
+  const version = soulVersionFor(model.model_path);
+  if (version) {
+    if (cast.length !== 1)
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        "A Soul model makes images of one character at a time",
+      );
+    const soul = cast[0]!.souls.find((entry) => entry.version === version);
+    if (!soul)
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        `${cast[0]!.name} has no Soul ID for this Soul model: train one, or pick another model`,
+      );
+    return {
+      parameters: {
+        ...parameters,
+        custom_reference_id: soul.referenceId,
+        custom_reference_strength:
+          Number(parameters["custom_reference_strength"]) > 0
+            ? parameters["custom_reference_strength"]
+            : 1,
+      },
+      inputs,
+    };
+  }
+  const slot =
+    (model.capabilities?.inputs ?? []).find(
+      (entry) =>
+        entry.type === "image" &&
+        (entry.role === "reference" || entry.role === "source") &&
+        (entry.max ?? 1) >= 1,
+    ) ?? null;
+  const taken = inputs.filter((input) => input.role === slot?.role).length;
+  const room = slot ? Math.max(0, (slot.max ?? 1) - taken) : 0;
+  const sheets = interleaveSheets(cast)
+    .filter((entry) => !inputs.some((input) => input.assetId === entry.assetId))
+    .slice(0, room);
+  const prompt = typeof parameters["prompt"] === "string" ? parameters["prompt"].trim() : "";
+  const line = charactersLine(cast, { references: sheets.length > 0, descriptionChars: 300 });
+  return {
+    parameters: {
+      ...parameters,
+      prompt: prompt.includes(line) ? prompt : [prompt, line].filter(Boolean).join("\n\n"),
+    },
+    inputs: [...inputs, ...sheets.map((entry) => ({ assetId: entry.assetId, role: slot!.role }))],
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Characters and Soul IDs                                             */
+/* ------------------------------------------------------------------ */
+
+const listCharacters = tool({
+  name: "list_characters",
+  title: "List characters",
+  description:
+    "The team's characters (people and mascots who must look the same everywhere): their look, how many reference images they have, and their Soul IDs (one per Soul model: v2 Soul 2, cinema Soul Cinema, v1 Soul Standard), with each likeness score (0-10) and whether a person approved it.",
+  scope: "read",
+  input: z.object({ limit: z.number().int().min(1).max(100).default(40) }),
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const { charactersForAgent } = await import("../characters/service.server");
+    return {
+      characters: (await charactersForAgent(args.limit)).map((character) => ({
+        id: character.id,
+        name: character.name,
+        description: character.description,
+        sheetImages: character.images.length,
+        souls: character.souls,
+      })),
+    };
+  },
+});
+
+const getCharacter = tool({
+  name: "get_character",
+  title: "Get a character",
+  description:
+    "One character: their look, reference sheet (with links valid for an hour), training photos, Soul IDs and the state of their latest Soul ID training.",
+  scope: "read",
+  input: z.object({ characterId: id() }),
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const { data: character } = await db
+      .from("characters")
+      .select("id,name,description,soul_status,soul_training_version,soul_error,archived_at")
+      .eq("id", args.characterId)
+      .maybeSingle();
+    if (!character || character.archived_at)
+      throw new AppError("INVALID_PARAMETERS", "That character no longer exists");
+    const { data: images } = await db
+      .from("character_images")
+      .select("asset_id,role,view,position,assets(storage_bucket,storage_path,deleted_at)")
+      .eq("character_id", args.characterId)
+      .order("position");
+    const { soulsOf } = await import("../characters/souls.server");
+    const souls = (await soulsOf([args.characterId])).get(args.characterId) ?? [];
+    const listed = [];
+    for (const image of images ?? []) {
+      const asset = image.assets as unknown as {
+        storage_bucket: string;
+        storage_path: string;
+        deleted_at: string | null;
+      } | null;
+      if (!asset || asset.deleted_at) continue;
+      listed.push({
+        assetId: image.asset_id,
+        role: image.role,
+        view: image.view,
+        url: await signedLink(asset.storage_bucket, asset.storage_path),
+      });
+    }
+    return {
+      id: character.id,
+      name: character.name,
+      description: character.description,
+      sheet: listed.filter((image) => image.role === "sheet"),
+      trainingPhotos: listed.filter((image) => image.role === "photo"),
+      souls: souls.map((soul) => ({
+        id: soul.id,
+        version: soul.version,
+        referenceId: soul.referenceId,
+        inUse: soul.active,
+        source: soul.source,
+        approved: !!soul.approvedAt,
+        likeness: soul.likeness
+          ? {
+              score: soul.likeness.score,
+              verdict: soul.likeness.verdict,
+              summary: soul.likeness.summary,
+            }
+          : null,
+        readyAt: soul.readyAt,
+      })),
+      training: {
+        status: character.soul_status,
+        version: character.soul_training_version,
+        error: character.soul_error,
+      },
+    };
+  },
+});
+
+/** Changing a character (and training its Soul ID, which is billed) is for its maker or an admin. */
+async function assertCanEditCharacter(userId: string, characterId: string): Promise<void> {
+  const role = await roleOf(userId);
+  const { data } = await db
+    .from("characters")
+    .select("created_by")
+    .eq("id", characterId)
+    .maybeSingle();
+  if (!data) throw new AppError("INVALID_PARAMETERS", "That character no longer exists");
+  if (data.created_by !== userId && role !== "admin")
+    throw new AppError(
+      "NOT_AUTHORIZED",
+      "Only the person who made this character, or an admin, can train its Soul ID",
+    );
+}
+
+const trainSoul = tool({
+  name: "train_soul_id",
+  title: "Train a Soul ID",
+  description:
+    "Trains a character's Soul ID (Higgsfield's trained likeness) for one Soul model, on at least 5 of their images (assetIds; default: their training photos when there are 5 or more, else photos and sheet). Billed by Higgsfield. Started once: an unclear answer is never retried without confirmUncertain. Follow it with get_character; once ready, it is used for that Soul model.",
+  scope: "generate",
+  readOnly: false,
+  input: z.object({
+    characterId: id(),
+    version: z.enum(["v2", "cinema", "v1"]).default("v2"),
+    assetIds: z.array(id()).min(5).max(100).optional(),
+    confirmUncertain: z.boolean().default(false),
+  }),
+  run: async (args, caller) => {
+    await assertCanEditCharacter(caller.userId, args.characterId);
+    const { trainSoulId } = await import("../characters/service.server");
+    return trainSoulId({ ...args, userId: caller.userId });
+  },
+});
+
+const makeSoulStill = tool({
+  name: "make_soul_still",
+  title: "Make a still from a Soul ID",
+  description:
+    "Paints one photographic still of a character from their Soul ID, in the scene described, at the shape given: their truest likeness. Use it for portraits, and as the start frame of a video (video models can't take a Soul ID, so the likeness reaches a clip through the frame it starts from). Billed like any generation. Poll get_generation for the image.",
+  scope: "generate",
+  readOnly: false,
+  input: z.object({
+    characterId: id(),
+    scene: z
+      .string()
+      .min(3)
+      .max(1500)
+      .describe("What the still shows: place, action, framing, light"),
+    aspectRatio: z
+      .string()
+      .regex(/^\d+(\.\d+)?:\d+(\.\d+)?$/)
+      .default("9:16"),
+    version: z
+      .enum(["v2", "cinema", "v1"])
+      .optional()
+      .describe("Default: the best Soul ID they have"),
+    projectId: id().nullable().optional(),
+    brandKitId: id()
+      .nullable()
+      .optional()
+      .describe("A brand kit whose look the still is made in (see list_brand_kits)"),
+    clientRequestId: requestId(),
+  }),
+  run: async (args, caller) => {
+    const { charactersForAgent } = await import("../characters/service.server");
+    const { SOUL_MODEL_PATHS } = await import("../characters/model");
+    const { soulStillPrompt } = await import("../characters/soul");
+    const { soulStillValues } = await import("../characters/views");
+    const character = (await charactersForAgent(200)).find(
+      (entry) => entry.id === args.characterId,
+    );
+    if (!character) throw new AppError("INVALID_PARAMETERS", "That character no longer exists");
+    const soul = args.version
+      ? character.souls.find((entry) => entry.version === args.version)
+      : character.soul
+        ? character.souls.find((entry) => entry.referenceId === character.soul!.referenceId)
+        : undefined;
+    if (!soul)
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        `${character.name} has no Soul ID${args.version ? " for that Soul model" : ""} yet`,
+      );
+    const { data: model } = await db
+      .from("model_registry")
+      .select("*")
+      .eq("model_path", SOUL_MODEL_PATHS[soul.version])
+      .eq("is_active", true)
+      .maybeSingle();
+    if (!model) throw new AppError("INVALID_PARAMETERS", "That Soul model is unavailable");
+    const [w = 0, h = 0] = args.aspectRatio.split(":").map(Number);
+    if (!(w > 0 && h > 0)) throw new AppError("INVALID_PARAMETERS", "That shape can't be painted");
+    const { assertGenerationAllowed, createAndSubmitGeneration } =
+      await import("../generation-create.server");
+    await assertGenerationAllowed(caller.userId);
+    return createAndSubmitGeneration({
+      userId: caller.userId,
+      model: model as unknown as ModelRegistryEntry,
+      parameters: await (async () => {
+        const values = {
+          ...soulStillValues(model as unknown as ModelRegistryEntry, w / h, soul.referenceId),
+          prompt: soulStillPrompt(args.scene, character),
+        };
+        return args.brandKitId
+          ? withBrand(model as unknown as ModelRegistryEntry, values, args.brandKitId)
+          : values;
+      })(),
+      inputs: [],
+      projectId: args.projectId ?? null,
       clientRequestId: args.clientRequestId,
     });
   },
@@ -1025,7 +1374,12 @@ export const STUDIO_TOOLS: StudioTool[] = [
   getEdit,
   getRender,
   listBrandKits,
+  getBrandKit,
+  listCharacters,
+  getCharacter,
   queueGeneration,
+  makeSoulStill,
+  trainSoul,
   startPresenterVideo,
   steerLongVideo,
   steerClip,

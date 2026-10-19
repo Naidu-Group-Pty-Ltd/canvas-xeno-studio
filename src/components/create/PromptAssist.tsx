@@ -15,6 +15,8 @@ export interface PromptAssistContext {
   /** Image (or video-poster) references the model may look at. */
   referenceAssetIds: string[];
   briefId: string | null;
+  /** The brand kit the prompt is written for (its look guides the suggestions). */
+  brandKitId?: string | null;
   /** Null when the assistant can run; otherwise why it cannot. */
   unavailableReason: string | null;
 }
@@ -80,6 +82,7 @@ export function PromptAssist({ prompt, context, onApply }: Props) {
           mode: next,
           referenceAssetIds: context.referenceAssetIds.slice(0, 8),
           briefId: context.briefId,
+          brandKitId: context.brandKitId ?? null,
           ...(note.trim() ? { instruction: note.trim() } : {}),
         },
       });

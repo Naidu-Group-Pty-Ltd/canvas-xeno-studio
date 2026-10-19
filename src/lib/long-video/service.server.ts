@@ -43,6 +43,8 @@ import {
 } from "../edit/compile";
 import { compilePresenterEdit, type PresenterTitle } from "../edit/presenter";
 import { applyBrandKit, brandKitOf, kitForProject, type BrandKit } from "../edit/brand";
+import { storedBrandSnapshot } from "../brand/design";
+import { soulStillValues } from "../characters/views";
 import { isMissingTableError } from "../edit/errors";
 import type { ModelRegistryEntry } from "../model-schema";
 import { storedFinale, storeFinale } from "./finisher";
@@ -86,13 +88,14 @@ import {
   keyframePrompt,
   KEYFRAME_PROMPT_MAX,
   movesBetweenFrames,
+  paintsWithSoul,
   planKeyframes,
   painterValues,
   storedKeyframeSettings,
   type KeyframeSettings,
   type KeyframesPlan,
 } from "./keyframes";
-import type { RunCharacter } from "../characters/model";
+import { SOUL_MODEL_PATHS, type RunCharacter, type SoulVersion } from "../characters/model";
 import type { IdentityResult } from "../characters/identity.server";
 import type { ProviderCall } from "../higgsfield/provider.server";
 import { drivingAudioSlot, LIP_SYNC, lipSyncValues } from "../lip-sync/models";
@@ -154,6 +157,17 @@ export function clipRequestKey(clip: Pick<ClipRow, "id" | "attempt">): string {
   return `lvc:${clip.id}:${clip.attempt}`;
 }
 
+/** The Soul model a Soul ID of `version` works with, when it is on. */
+async function soulModelFor(version: SoulVersion): Promise<ModelRegistryEntry | null> {
+  const { data } = await db
+    .from("model_registry")
+    .select("*")
+    .eq("model_path", SOUL_MODEL_PATHS[version])
+    .eq("is_active", true)
+    .maybeSingle();
+  return (data as unknown as ModelRegistryEntry | null) ?? null;
+}
+
 async function loadModel(id: string): Promise<ModelRegistryEntry | null> {
   const { data } = await db.from("model_registry").select("*").eq("id", id).maybeSingle();
   return (data as unknown as ModelRegistryEntry | null) ?? null;
@@ -183,7 +197,12 @@ export interface StartLongVideoRequest {
   /** Check every clip against the characters' images before the next one is made. */
   identityCheck?: boolean;
   /** Paint the keyframes first with this image model, and whether a person reviews them (null: none). */
-  keyframes?: { painterModelId: string; review: boolean } | null;
+  keyframes?: {
+    painterModelId: string;
+    review: boolean;
+    /** Paint the opening keyframe from the character's Soul ID (when it shows one character with one). */
+    soulOpening?: boolean | undefined;
+  } | null;
   /**
    * Made to a voiceover (see ./voiceover): its preparation, and the piece of it
    * each clip is made from, in order (each clip asked for its piece's length).
@@ -208,6 +227,8 @@ export interface StartLongVideoRequest {
    * by the second): checked against spending limits before anything starts.
    */
   estimatedCostUsd?: number | null;
+  /** The brand kit the video is made in: kept with the run as it is now (see ../brand/design). */
+  brandKitId?: string | null;
 }
 
 const TABLES_MISSING =
@@ -282,6 +303,8 @@ function storedCharacters(value: unknown): RunCharacter[] {
     const images = Array.isArray(record["images"])
       ? (record["images"] as Record<string, unknown>[])
       : [];
+    const soul = (record["soul"] ?? null) as Record<string, unknown> | null;
+    const version = soul?.["version"];
     return [
       {
         id,
@@ -297,18 +320,26 @@ function storedCharacters(value: unknown): RunCharacter[] {
               ]
             : [],
         ),
+        ...(soul &&
+        typeof soul["reference_id"] === "string" &&
+        (version === "v1" || version === "v2" || version === "cinema")
+          ? { soul: { version, referenceId: soul["reference_id"] } }
+          : {}),
       },
     ];
   });
 }
 
-/** A run's characters as stored on it. */
+/** A run's characters as stored on it (with the Soul ID each had, if any). */
 function characterSnapshot(characters: RunCharacter[]) {
   return characters.map((character) => ({
     id: character.id,
     name: character.name,
     description: character.description,
     images: character.images.map((image) => ({ asset_id: image.assetId, view: image.view })),
+    ...(character.soul
+      ? { soul: { version: character.soul.version, reference_id: character.soul.referenceId } }
+      : {}),
   }));
 }
 
@@ -521,6 +552,20 @@ export async function startLongVideo(
       ...storyboard.size,
       unitUsd: null,
     };
+    // The opening keyframe from a Soul ID: the character the first beat shows,
+    // when it is exactly one and they have one (on a Soul model that's on).
+    if (request.keyframes.soulOpening) {
+      const opening = castOf(request.clips[0]?.beat ?? "", characters);
+      const soul = opening.length === 1 ? opening[0]!.soul : null;
+      const soulModel = soul ? await soulModelFor(soul.version) : null;
+      if (soul && soulModel)
+        keyframeSettings.soulOpening = {
+          modelId: soulModel.id,
+          characterId: opening[0]!.id,
+          version: soul.version,
+          referenceId: soul.referenceId,
+        };
+    }
   }
 
   // Where clips start: from one frame (the anchor), and in any case after a cutaway.
@@ -617,6 +662,13 @@ export async function startLongVideo(
     keptClipQuotes = checked.kept;
   }
 
+  // The brand it is made in, as it is now: later keyframes and the edit keep to it.
+  const brand = request.brandKitId
+    ? await (await import("../brand/use.server")).brandSnapshotFor(request.brandKitId)
+    : null;
+  if (request.brandKitId && !brand)
+    throw new AppError("INVALID_PARAMETERS", "That brand kit no longer exists");
+
   const { data: run, error } = await db
     .from("long_videos")
     .insert({
@@ -647,6 +699,7 @@ export async function startLongVideo(
             identity_check: request.identityCheck !== false,
           }
         : {}),
+      ...(brand ? { brand: brand as never } : {}),
       ...(painter && keyframeSettings
         ? {
             keyframe_model_id: painter.id,
@@ -680,6 +733,15 @@ export async function startLongVideo(
       if (raced) return { longVideoId: raced.id, status: raced.status, duplicate: true };
     }
     if (isMissingTableError(error)) throw new AppError("UNKNOWN", TABLES_MISSING);
+    if (
+      brand &&
+      /brand/i.test(error?.message ?? "") &&
+      /column|schema cache/i.test(error?.message ?? "")
+    )
+      throw new AppError(
+        "UNKNOWN",
+        "Making a video in a brand needs a database update (migration 0021_brand_design_systems). Ask an admin to apply it, or start it without a brand.",
+      );
     if ((anchored || cutawayRun || usesQc) && /column|schema cache/i.test(error?.message ?? ""))
       throw new AppError("UNKNOWN", PRESENTER_TABLES_MISSING);
     if (planned.length < 2 && /clip_count/i.test(error?.message ?? ""))
@@ -3924,16 +3986,25 @@ async function startKeyframe(
 
   const beats = clips.map((clip) => clip.beat);
   const cast = castFor(run, keyframeBeat(keyframe.position, beats));
-  const chosen = keyframeInputs({
-    painter,
-    previous: before,
-    characters: cast,
-    references: await paintingReferences(run),
-  });
+  // The opening keyframe from the character's Soul ID, when the run was set
+  // to (its Soul model takes no images: the likeness is the Soul ID's, the
+  // scene the prompt's).
+  const soul = paintsWithSoul(settings, keyframe.position, cast);
+  const soulPainter = soul ? await loadModel(soul.modelId) : null;
+  const withSoul = !!soul && !!soulPainter?.is_active;
+  const model = withSoul ? soulPainter! : painter;
+  const chosen = withSoul
+    ? { inputs: [], characterImages: new Map<string, string>(), references: 0 }
+    : keyframeInputs({
+        painter,
+        previous: before,
+        characters: cast,
+        references: await paintingReferences(run),
+      });
   const prompt = keyframePrompt({
     position: keyframe.position,
     final: keyframe.position === clips.length,
-    budget: Math.min(promptBudget(painter) ?? KEYFRAME_PROMPT_MAX, KEYFRAME_PROMPT_MAX),
+    budget: Math.min(promptBudget(model) ?? KEYFRAME_PROMPT_MAX, KEYFRAME_PROMPT_MAX),
     story: run.story,
     beats,
     durations: clips.map((clip) => Number(clip.duration_seconds)),
@@ -3944,7 +4015,11 @@ async function startKeyframe(
     references: chosen.references,
     aspect: settings.aspect,
     note: keyframe.note,
+    brand: storedBrandSnapshot(run.brand)?.styleLine ?? null,
   });
+  const values = withSoul
+    ? soulStillValues(model, settings.width / settings.height, soul!.referenceId)
+    : settings.values;
 
   const key = keyframeRequestKey(keyframe);
   const attach = async (generationId: string) => {
@@ -3971,8 +4046,8 @@ async function startKeyframe(
     await assertGenerationAllowed(run.created_by);
     const started = await createAndSubmitGeneration({
       userId: run.created_by,
-      model: painter,
-      parameters: { ...settings.values, prompt },
+      model,
+      parameters: { ...values, prompt },
       inputs: chosen.inputs.map((item, position) => ({ ...item, position })),
       projectId: run.project_id,
       campaignId: run.campaign_id,
@@ -5250,7 +5325,7 @@ async function openVoiceoverRunInEditor(input: {
 }): Promise<{ sequenceId: string; created: boolean; missing: number[]; notes?: string[] }> {
   const { run } = input;
   // The brand's kit (the project's, else the team's default): its titles, captions and names.
-  const kit = await brandKitFor(run.project_id);
+  const kit = await brandKitFor(run.project_id, storedBrandSnapshot(run.brand)?.kitId ?? null);
   const { preparationById, takeForEdit } = await import("../lip-sync/prepare.server");
   const preparation = await preparationById(run.voiceover_preparation_id!);
   if (!preparation || preparation.status !== "ready" || !preparation.prepared_asset_id)
@@ -5336,19 +5411,21 @@ async function openVoiceoverRunInEditor(input: {
 }
 
 /**
- * The brand kit a run's edit is styled from: its project's, else the team's
- * default. None before the database has kits (migration 0018), or when it
- * can't be read just now: the edit is made in the studio's own style.
+ * The brand kit a run's edit is styled from: the one it was made in, else its
+ * project's, else the team's default. None before the database has kits
+ * (migration 0018), or when it can't be read just now: the edit is made in
+ * the studio's own style.
  */
-async function brandKitFor(projectId: string | null): Promise<BrandKit | null> {
+async function brandKitFor(
+  projectId: string | null,
+  madeIn: string | null = null,
+): Promise<BrandKit | null> {
   try {
     // A team keeps a handful of kits: all are read, and the right one picked here.
     const { data, error } = await db.from("brand_kits").select("*").eq("is_archived", false);
     if (error || !data?.length) return null;
-    return kitForProject(
-      data.map((row) => brandKitOf(row as unknown as Json)),
-      projectId,
-    );
+    const kits = data.map((row) => brandKitOf(row as unknown as Json));
+    return kits.find((kit) => kit.id === madeIn) ?? kitForProject(kits, projectId);
   } catch {
     return null;
   }

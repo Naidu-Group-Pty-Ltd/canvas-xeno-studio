@@ -114,6 +114,8 @@ export interface LongVideoDraft {
   painterModelId: string | null;
   /** A person looks the keyframes over before the clips are made. */
   reviewKeyframes: boolean;
+  /** The opening keyframe is painted from the character's Soul ID (one character with one). */
+  soulOpening: boolean;
   /** Every clip is checked against the characters' images before the next is made. */
   identityCheck: boolean;
   /**
@@ -144,6 +146,7 @@ export const DEFAULT_LONG_VIDEO_DRAFT: LongVideoDraft = {
   keyframes: null,
   painterModelId: null,
   reviewKeyframes: true,
+  soulOpening: true,
   identityCheck: true,
   startFrom: null,
   brollLines: [],
@@ -273,8 +276,11 @@ export function useLongVideoPlan(input: {
    * migration 0017, when those are off.
    */
   presenterRuns?: boolean | undefined;
+  /** The brand's look the video is made in (its video style line), carried by every clip. */
+  brandLine?: string | null | undefined;
 }): LongVideoPlan {
   const { draft, model, models, values, references, cinema } = input;
+  const brandLine = input.brandLine ?? "";
   const characters = input.characters ?? [];
   const valuesKey = JSON.stringify(values);
   const referencesKey = JSON.stringify(references);
@@ -428,6 +434,7 @@ export function useLongVideoPlan(input: {
         count: durations.length,
         finale: finale?.mode ?? null,
         standalone: startFrom === "anchor" || afterCutaway,
+        brand: brandLine,
       });
       const prompt =
         cinema.on && cinemaSupported(clipModel)
@@ -570,5 +577,6 @@ export function useLongVideoPlan(input: {
     openingKey,
     voiceKey,
     presenterRuns,
+    brandLine,
   ]);
 }

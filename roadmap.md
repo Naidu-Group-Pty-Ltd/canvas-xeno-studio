@@ -28,3 +28,14 @@
 - [x] Deploy the media worker with brand_text, image_overlays and frame_rate_conversion; the SyncNet weights pinned to the checksum that build fetched
 - [x] Deploy the media worker with lip_check (#32): the image upgrades pip and fixes torch's dependencies (the first build left it out), and the scorer finds its files beside it
 - [ ] Lip-sync post-process: blocked. Higgsfield's catalog has no video-to-video lip-sync model (its video-edit models take audio only as a loose reference, and Seedance replaced the voice in the bake-off), and HeyGen belongs to Avatar Studio, which Creative Studio must not share provider code with. Revisit when a model that re-syncs an existing video's mouth to given audio is offered
+
+## Soul IDs, brand design systems and the Supercomputer agent
+- [x] Soul ID studio: a Soul ID per Soul model, trained on a checked set (the AI checks each image and the set as a whole), training packs for characters who exist only as AI images, likeness proofs scored and approved by a person, and Soul IDs trained elsewhere taken in
+- [x] Soul IDs in every workflow: long-video openings painted from the character's Soul ID, Create start frames from a Soul ID, the Supercomputer, and the studio API (list_characters, get_character, train_soul_id, make_soul_still)
+- [x] Brand design systems: a brand read from its website or its guidelines (PDF, Word, PowerPoint) into a palette with roles, typefaces (Google fonts installed for titles), imagery, voice and rules, reviewed and kept as a brand kit on the Brand page
+- [x] Brands in generation: Create's brand picker, long videos, beats, the prompt assistant, the Director, voiceover scripts and the studio API work in a brand's look and voice
+- [x] Supercomputer agent on Claude (docs/supercomputer-agent.md): streams its thinking, words and tool calls; generates, looks at what it made and refines it; researches the web; writes documents; remembers; asks before it spends; server-side fallback, so a request one Claude model declines is answered by another
+- [x] Agent conversations: edit and redo, stop from any page, approvals one by one or all at once, a model, effort, brand and spending allowance per conversation, pinned chats, and the Made here and Memory panels
+- [ ] Apply migrations 0020_soul_ids, 0021_brand_design_systems and 0022_supercomputer_agent
+- [ ] Add the ANTHROPIC_API_KEY backend secret, if it isn't set, to turn the agent on
+- [ ] Signed-in test of the agent against Claude and Higgsfield (its page has been run end to end against a simulated endpoint)

@@ -24,11 +24,11 @@ It is served two ways:
 3. Send it with every request: `Authorization: Bearer xs_…`. Revoking it in Settings stops it at
    once.
 
-| Scope | Allows |
-| --- | --- |
-| `read` | Reading models, library files, generations, long videos, edits, renders and brand kits. |
+| Scope      | Allows                                                                                           |
+| ---------- | ------------------------------------------------------------------------------------------------ |
+| `read`     | Reading models, library files, generations, long videos, edits, renders and brand kits.          |
 | `generate` | Queuing generations, starting and steering long videos, and the text check. These spend credits. |
-| `edit` | Making and changing edits, applying brand kits, and rendering. |
+| `edit`     | Making and changing edits, applying brand kits, and rendering.                                   |
 
 Claude Code (`.mcp.json` in a project):
 
@@ -56,38 +56,43 @@ curl -X POST https://<your studio>/api/public/studio/list_models \
 
 **Read** (`read` scope):
 
-| Operation | What it does |
-| --- | --- |
-| `whoami` | The member the token acts as, their role and the token's scopes. |
-| `list_models` | The models the studio offers, filtered by `output`, `search` or `lipSync`. For each: the media inputs it takes (by role) and its parameters, with their options and defaults. |
-| `list_assets` | Library files, newest first, filtered by `kind`, `projectId` or `search`. |
-| `get_asset` | One file: what it is, a download link, its measured frame rate and any text check kept with it. |
-| `get_generation` | A generation's status and cost, and the files it made once it is done. |
-| `get_long_video` | A long video and every clip: status, piece of voiceover, lip score, framing and mouth-in-pause readings, character check, file and kept takes. |
-| `get_edit` | An edit's title and version, its latest render, and its timeline if `includeTimeline` is set. |
-| `get_render` | A render's progress and, once it is done, the video's library id and link. |
-| `list_brand_kits` | The team's brand kits. |
+| Operation         | What it does                                                                                                                                                                   |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `whoami`          | The member the token acts as, their role and the token's scopes.                                                                                                               |
+| `list_models`     | The models the studio offers, filtered by `output`, `search` or `lipSync`. For each: the media inputs it takes (by role) and its parameters, with their options and defaults.  |
+| `list_assets`     | Library files, newest first, filtered by `kind`, `projectId` or `search`.                                                                                                      |
+| `get_asset`       | One file: what it is, a download link, its measured frame rate and any text check kept with it.                                                                                |
+| `get_generation`  | A generation's status and cost, and the files it made once it is done.                                                                                                         |
+| `get_long_video`  | A long video and every clip: status, piece of voiceover, lip score, framing and mouth-in-pause readings, character check, file and kept takes.                                 |
+| `get_edit`        | An edit's title and version, its latest render, and its timeline if `includeTimeline` is set.                                                                                  |
+| `get_render`      | A render's progress and, once it is done, the video's library id and link.                                                                                                     |
+| `list_brand_kits` | The team's brand kits, each with its mood and the style line generations in it carry.                                                                                          |
+| `get_brand_kit`   | One brand kit's whole design system: palette with roles, typefaces, the look of its imagery, its voice and rules, the lines generations carry, and its style reference images. |
+| `list_characters` | The team's characters: their look, how many reference images they have, and their Soul IDs (one per Soul model) with each likeness score and approval.                         |
+| `get_character`   | One character: their reference sheet and training photos (with links), Soul IDs and the state of their latest Soul ID training.                                                |
 
 **Generate** (`generate` scope; spends credits):
 
-| Operation | What it does |
-| --- | --- |
-| `queue_generation` | One image or video. Takes `modelId`, `parameters` and `inputs` (`[{assetId, role}]`) plus a `clientRequestId`. Poll it with `get_generation`. |
-| `start_presenter_video` | A presenter speaking a prepared voiceover, with lip sync (see below). |
-| `steer_long_video` | `continue`, `stop` or `check` a run. |
-| `steer_clip` | `redo` a clip (optionally from another `startFrame`), `retry` it, `hold` or `release` it, `keep` it, or set its `start_frame`. |
-| `choose_take` | Puts a clip's kept take back in use. |
-| `set_cutaway_fill` | Chooses the B-roll for one of a presenter video's cutaways. |
-| `check_text` | Reads the lettering in a generated picture or video and says whether it is garbled. A video answers `"sampling"` at first: ask again a few seconds later. |
+| Operation               | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `queue_generation`      | One image or video. Takes `modelId`, `parameters` and `inputs` (`[{assetId, role}]`) plus a `clientRequestId`. With `characterIds` the characters keep their likeness: on a Soul model their Soul ID is used, elsewhere their reference sheet goes in as reference images and their look into the prompt. With `brandKitId` it is made in that brand's look (its style line in the prompt, what it never shows in the negative prompt). Poll it with `get_generation`. |
+| `make_soul_still`       | One photographic still of a character from their Soul ID, in the `scene` described, at an `aspectRatio`: their truest likeness, and the best start frame for a video of them. Takes a `brandKitId` too.                                                                                                                                                                                                                                                                |
+| `train_soul_id`         | Trains a character's Soul ID for one Soul model (`v2`, `cinema` or `v1`) on at least 5 of their images. Started once: an unclear answer from Higgsfield is never retried unless you pass `confirmUncertain`. Only the character's maker or an admin can train it.                                                                                                                                                                                                      |
+| `start_presenter_video` | A presenter speaking a prepared voiceover, with lip sync (see below).                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `steer_long_video`      | `continue`, `stop` or `check` a run.                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `steer_clip`            | `redo` a clip (optionally from another `startFrame`), `retry` it, `hold` or `release` it, `keep` it, or set its `start_frame`.                                                                                                                                                                                                                                                                                                                                         |
+| `choose_take`           | Puts a clip's kept take back in use.                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `set_cutaway_fill`      | Chooses the B-roll for one of a presenter video's cutaways.                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `check_text`            | Reads the lettering in a generated picture or video and says whether it is garbled. A video answers `"sampling"` at first: ask again a few seconds later.                                                                                                                                                                                                                                                                                                              |
 
 **Edit** (`edit` scope):
 
-| Operation | What it does |
-| --- | --- |
-| `open_in_editor` | Lays a long video out as an edit. Takes captions from the script, titles on the voiceover's clock, music, and the brand kit's look. |
-| `create_edit` / `update_edit` | Makes an edit from a timeline, or changes one. An update is accepted only at the version you read. |
-| `apply_brand_kit` | Applies a kit's fonts and colours to the edit's text, and can add its end card inside a platform's safe area. |
-| `render_edit` | Renders the edit at a version. Poll it with `get_render`. |
+| Operation                     | What it does                                                                                                                        |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `open_in_editor`              | Lays a long video out as an edit. Takes captions from the script, titles on the voiceover's clock, music, and the brand kit's look. |
+| `create_edit` / `update_edit` | Makes an edit from a timeline, or changes one. An update is accepted only at the version you read.                                  |
+| `apply_brand_kit`             | Applies a kit's fonts and colours to the edit's text, and can add its end card inside a platform's safe area.                       |
+| `render_edit`                 | Renders the edit at a version. Poll it with `get_render`.                                                                           |
 
 Every operation that spends or makes something takes your own `clientRequestId` (8 to 64
 characters). Sending the same request again returns the first result, so a retry never bills
@@ -124,6 +129,7 @@ The flow that made the Aurixa "Janice presents" video:
    Each clip's lips are scored with SyncNet. Real speech scores about 6 to 8. A clip under 4 is
    made again, up to `takes` takes, and a clip under 6.5 is flagged. A lip lead of a frame or two
    is taken out when the clip is laid in the edit.
+
 3. **Follow it** with `get_long_video`. For a weak clip, `steer_clip` with `action: "redo"` makes
    another take, and `choose_take` swaps between the takes kept.
 4. **Fill the B-roll.** Generate it with `queue_generation`, check it with `check_text`, then call

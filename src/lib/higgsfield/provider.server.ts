@@ -25,6 +25,9 @@ export const HF_ENDPOINTS = {
   /** Soul ID: training a reusable character reference, then reading how it's going. */
   customReferences: "/v1/custom-references",
   customReference: (id: string) => `/v1/custom-references/${encodeURIComponent(id)}`,
+  /** The account's Soul IDs, a page at a time (newest first). */
+  customReferenceList: (page: number, pageSize: number) =>
+    `/v1/custom-references/list?page=${page}&page_size=${pageSize}`,
 };
 
 /**
@@ -457,6 +460,23 @@ export interface CustomReference {
   status: string;
   /** Why it failed, when the provider says. */
   message: string | null;
+  /** The name it was trained under (the character's, when the studio trained it). */
+  name: string | null;
+  /** The Soul model it works with (v1, v2 or cinema), when the provider says. */
+  modelVersion: SoulVersion | null;
+  /** A small picture of the likeness, while the provider's link lasts. */
+  thumbnailUrl: string | null;
+  createdAt: string | null;
+}
+
+const SOUL_MODEL_VERSIONS: readonly string[] = ["v1", "v2", "cinema"];
+
+function text(record: Record<string, unknown>, ...keys: string[]): string | null {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
 }
 
 /** A character reference as the provider reports it; null when the answer has no id. */
@@ -471,12 +491,54 @@ export function readCustomReference(payload: unknown): CustomReference | null {
   const status = String(record["status"] ?? "").toLowerCase();
   const state: SoulTrainingState =
     status === "completed" ? "ready" : status === "failed" ? "failed" : "training";
-  const message =
-    (typeof record["error"] === "string" && record["error"]) ||
-    (typeof record["error_message"] === "string" && record["error_message"]) ||
-    (typeof record["message"] === "string" && record["message"]) ||
-    null;
-  return { id, state, status: status || "queued", message };
+  const message = text(record, "error", "error_message", "message");
+  const version = String(record["model_version"] ?? record["version"] ?? "").toLowerCase();
+  const thumbnail = text(record, "thumbnail_url", "thumbnail", "preview_url", "image_url");
+  return {
+    id,
+    state,
+    status: status || "queued",
+    message,
+    name: text(record, "name"),
+    modelVersion: SOUL_MODEL_VERSIONS.includes(version) ? (version as SoulVersion) : null,
+    thumbnailUrl: thumbnail && /^https:\/\//i.test(thumbnail) ? thumbnail : null,
+    createdAt: text(record, "created_at", "createdAt"),
+  };
+}
+
+/**
+ * One page of the account's character references (GET
+ * /v1/custom-references/list): the references it holds, and how many pages
+ * there are when the provider says.
+ */
+export function readCustomReferenceList(payload: unknown): {
+  references: CustomReference[];
+  totalPages: number | null;
+} {
+  if (!payload || typeof payload !== "object") return { references: [], totalPages: null };
+  const record = payload as Record<string, unknown>;
+  const nested = record["data"];
+  const items = Array.isArray(record["items"])
+    ? record["items"]
+    : Array.isArray(record["results"])
+      ? record["results"]
+      : Array.isArray(nested)
+        ? nested
+        : nested &&
+            typeof nested === "object" &&
+            Array.isArray((nested as Record<string, unknown>)["items"])
+          ? ((nested as Record<string, unknown>)["items"] as unknown[])
+          : Array.isArray(payload)
+            ? (payload as unknown[])
+            : [];
+  const pages = Number(record["total_pages"] ?? record["pages"]);
+  return {
+    references: items.flatMap((item) => {
+      const reference = readCustomReference(item);
+      return reference ? [reference] : [];
+    }),
+    totalPages: Number.isFinite(pages) && pages > 0 ? Math.floor(pages) : null,
+  };
 }
 
 /**
@@ -504,6 +566,12 @@ export function createCustomReference(
 /** How a character reference's training is going (GET /v1/custom-references/{id}). */
 export function getCustomReference(id: string): Promise<ProviderCall<unknown>> {
   return hfFetch(HF_ENDPOINTS.customReference(id), { timeoutMs: 20_000 });
+}
+
+/** A page of the account's character references (free; nothing is trained). */
+export function listCustomReferences(page = 1, pageSize = 50): Promise<ProviderCall<unknown>> {
+  const size = Math.min(100, Math.max(1, pageSize));
+  return hfFetch(HF_ENDPOINTS.customReferenceList(Math.max(1, page), size), { timeoutMs: 20_000 });
 }
 
 /**

@@ -72,9 +72,18 @@ export function isBriefFile(file: File): boolean {
   return kind !== null && kind !== "legacy";
 }
 
+/** Which pages of a PDF are pictured, when not the first ones (a brand guideline's colour and type pages). */
+export interface SnapshotChoice {
+  /** Whether to picture a page, from its number and text. */
+  pick: (page: number, text: string) => boolean;
+  /** The most pages pictured. */
+  max: number;
+}
+
 export async function parseBriefDocument(
   file: File,
   onProgress?: (message: string) => void,
+  snapshots?: SnapshotChoice,
 ): Promise<ParsedBrief> {
   if (file.size > MAX_BRIEF_BYTES) throw new Error("That document is larger than 80 MB.");
   const kind = briefKind(file);
@@ -85,7 +94,7 @@ export async function parseBriefDocument(
   if (!kind) throw new Error("Import a PDF, Word (.docx), PowerPoint (.pptx) or text file.");
 
   let parsed: ParsedBrief;
-  if (kind === "pdf") parsed = await parsePdf(file, onProgress);
+  if (kind === "pdf") parsed = await parsePdf(file, onProgress, snapshots);
   else if (kind === "docx") parsed = await parseDocx(file, onProgress);
   else if (kind === "pptx") parsed = await parsePptx(file, onProgress);
   else
@@ -311,7 +320,11 @@ const loadPdfjs = import.meta.env.SSR
         import("pdfjs-dist/legacy/build/pdf.worker.min.mjs?url"),
       ]);
 
-async function parsePdf(file: File, onProgress?: (message: string) => void): Promise<ParsedBrief> {
+async function parsePdf(
+  file: File,
+  onProgress?: (message: string) => void,
+  choice?: SnapshotChoice,
+): Promise<ParsedBrief> {
   onProgress?.("Opening PDF…");
   const [pdfjs, worker] = await loadPdfjs();
   pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
@@ -395,7 +408,11 @@ async function parsePdf(file: File, onProgress?: (message: string) => void): Pro
       }
     }
 
-    if (number <= snapshotPages) {
+    if (
+      choice
+        ? snapshots.length < choice.max && choice.pick(number, pageText)
+        : number <= snapshotPages
+    ) {
       const base = page.getViewport({ scale: 1 });
       const viewport = page.getViewport({ scale: Math.min(2.5, 1280 / base.width) });
       const canvas = document.createElement("canvas");

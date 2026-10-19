@@ -60,6 +60,16 @@ function isMissingTable(error: { code?: string; message?: string } | null | unde
   );
 }
 
+/** A column this code writes that the database doesn't have yet (a migration still to come). */
+function isMissingColumn(error: { code?: string; message?: string } | null | undefined): boolean {
+  return (
+    !!error &&
+    (error.code === "42703" ||
+      error.code === "PGRST204" ||
+      /column .* does not exist|could not find the .* column/i.test(error.message ?? ""))
+  );
+}
+
 function fail(error: { code?: string; message?: string } | null, fallback: string): never {
   if (isMissingTable(error)) throw new AppError("UNKNOWN", TABLES_MISSING);
   throw new AppError("UNKNOWN", error?.message ?? fallback);
@@ -346,6 +356,9 @@ export async function charactersForRun(ids: string[]): Promise<RunCharacter[]> {
     .in("id", unique);
   if (error) fail(error, "The characters couldn't be read");
   const sheets = await withSheets((rows ?? []).filter((row) => !row.archived_at));
+  const { soulsOf } = await import("./souls.server");
+  const { pickSoul } = await import("./soul");
+  const souls = await soulsOf(unique);
   return unique.map((id) => {
     const character = sheets.find((entry) => entry.id === id);
     if (!character)
@@ -355,7 +368,11 @@ export async function charactersForRun(ids: string[]): Promise<RunCharacter[]> {
         "INVALID_PARAMETERS",
         `${character.name} has no reference images yet. Add some on the Characters page.`,
       );
-    return character;
+    // The Soul ID a still of them is best painted with (an image's look: Soul 2 first).
+    const soul = pickSoul(souls.get(id) ?? [], { look: "image" });
+    return soul
+      ? { ...character, soul: { version: soul.version, referenceId: soul.referenceId } }
+      : character;
   });
 }
 
@@ -421,14 +438,29 @@ export async function charactersForAgent(limit = 40): Promise<CharacterSummary[]
   if (isMissingTable(error)) return [];
   if (error) fail(error, "The characters couldn't be read");
   const sheets = await withSheets(rows ?? []);
+  const { soulsOf } = await import("./souls.server");
+  const { pickSoul } = await import("./soul");
+  const souls = await soulsOf((rows ?? []).map((row) => row.id));
   return (rows ?? []).flatMap((row) => {
     const sheet = sheets.find((entry) => entry.id === row.id);
-    // The Soul ID in use (a newer one may be training, or have failed).
-    const soul =
-      row.soul_reference_id && row.soul_model_version
-        ? { version: row.soul_model_version as SoulVersion, referenceId: row.soul_reference_id }
-        : null;
-    return sheet && (sheet.images.length || soul) ? [{ ...sheet, soul }] : [];
+    // Every Soul ID in use (one per Soul model), and the one images are best painted with.
+    const own = (souls.get(row.id) ?? []).filter((entry) => entry.active);
+    const best = pickSoul(own, { look: "image" });
+    const soul = best ? { version: best.version, referenceId: best.referenceId } : null;
+    return sheet && (sheet.images.length || soul)
+      ? [
+          {
+            ...sheet,
+            soul,
+            souls: own.map((entry) => ({
+              version: entry.version,
+              referenceId: entry.referenceId,
+              approved: !!entry.approvedAt,
+              likeness: entry.likeness ? Math.round(entry.likeness.score * 10) / 10 : null,
+            })),
+          },
+        ]
+      : [];
   });
 }
 
@@ -589,7 +621,12 @@ const SETTLED_TRAINING = new Set(["ready", "failed", "uncertain"]);
  * the log yet, is only logged.
  */
 async function logTrainingRequest(row: TrainingLogRow): Promise<void> {
-  const { error } = await db.from("soul_id_trainings").upsert(row, { onConflict: "request_key" });
+  let { error } = await db.from("soul_id_trainings").upsert(row, { onConflict: "request_key" });
+  if (isMissingColumn(error)) {
+    // Before migration 0020 the log doesn't keep which images were trained on.
+    const { asset_ids: _set, ...older } = row;
+    ({ error } = await db.from("soul_id_trainings").upsert(older, { onConflict: "request_key" }));
+  }
   if (error && !isMissingTable(error))
     console.error("soul id training not logged", { key: row.request_key, message: error.message });
 }
@@ -670,6 +707,8 @@ export async function trainSoulId(input: {
   userId: string;
   version: SoulVersion;
   confirmUncertain: boolean;
+  /** The images to train on (the character's own); unset: the default set (see defaultTrainingSet). */
+  assetIds?: string[] | undefined;
 }): Promise<{ status: string }> {
   const character = await loadCharacter(input.characterId);
   if (character.soul_status === "submitting" || character.soul_status === "training")
@@ -690,7 +729,7 @@ export async function trainSoulId(input: {
   const { data: assets, error: assetsError } = images.length
     ? await db
         .from("assets")
-        .select("id,asset_type,storage_bucket,storage_path,mime_type")
+        .select("id,asset_type,storage_bucket,storage_path,mime_type,metadata")
         .in(
           "id",
           images.map((row) => row.asset_id),
@@ -698,40 +737,85 @@ export async function trainSoulId(input: {
         .is("deleted_at", null)
     : { data: [], error: null };
   if (assetsError) fail(assetsError, "The character's images couldn't be read");
-  const usable = images
-    .flatMap((row) => {
-      const asset = (assets ?? []).find((entry) => entry.id === row.asset_id);
-      return asset && usableImage(asset) ? [asset] : [];
+  const usableRows = images.filter((row) => {
+    const asset = (assets ?? []).find((entry) => entry.id === row.asset_id);
+    return !!asset && usableImage(asset);
+  });
+  // The set asked for (only the character's own images), else the default:
+  // the training photos when there are enough, leaving out what the check
+  // found unusable.
+  const { defaultTrainingSet, SOUL_TRAINING, storedTrainingCheck } = await import("./soul");
+  const checks = new Map(
+    (assets ?? []).flatMap((asset) => {
+      const check = storedTrainingCheck(asset.metadata);
+      return check ? [[asset.id, check] as const] : [];
+    }),
+  );
+  const chosenIds = input.assetIds?.length
+    ? [...new Set(input.assetIds)].filter((id) => usableRows.some((row) => row.asset_id === id))
+    : defaultTrainingSet(
+        usableRows.map((row) => ({
+          assetId: row.asset_id,
+          role: (row.role === "photo" ? "photo" : "sheet") as CharacterImageRole,
+          view: (CHARACTER_VIEWS as readonly string[]).includes(row.view)
+            ? (row.view as CharacterView)
+            : "other",
+          position: row.position,
+        })),
+        checks,
+      );
+  if (input.assetIds?.length && chosenIds.length < new Set(input.assetIds).size)
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      "Some of the images picked aren't this character's any more. Pick again.",
+    );
+  const usable = chosenIds
+    .flatMap((id) => {
+      const asset = (assets ?? []).find((entry) => entry.id === id);
+      return asset ? [asset] : [];
     })
-    .slice(0, CHARACTER_LIMITS.soulMaxImages);
-  if (usable.length < CHARACTER_LIMITS.soulMinImages)
-    throw new AppError("INVALID_PARAMETERS", "Add images of the character before training");
+    .slice(0, SOUL_TRAINING.maxImages);
+  if (usable.length < SOUL_TRAINING.minImages)
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      `A Soul ID needs at least ${SOUL_TRAINING.minImages} good images of the character (${usable.length} picked). Add training photos, or make a training pack.`,
+    );
 
   // Claimed first, under a key of its own, from exactly the training it
   // follows: a second click (or a second person) finds it taken, and the
   // provider sees the same key on a repeat.
   const key = crypto.randomUUID();
   const requestedAt = now();
-  const claim = db
-    .from("characters")
-    .update({
-      soul_status: "submitting",
-      soul_request_key: key,
-      soul_training_version: input.version,
-      soul_training_id: null,
-      soul_error: null,
-      soul_requested_at: requestedAt,
-      soul_submitted_at: null,
-      soul_checked_at: null,
-      soul_image_count: usable.length,
-    })
-    .eq("id", input.characterId)
-    .eq("soul_status", character.soul_status);
-  const { data: claimed, error: claimError } = await (
-    character.soul_request_key
-      ? claim.eq("soul_request_key", character.soul_request_key)
-      : claim.is("soul_request_key", null)
-  ).select("id");
+  const claimPatch: CharacterUpdate = {
+    soul_status: "submitting",
+    soul_request_key: key,
+    soul_training_version: input.version,
+    soul_training_id: null,
+    soul_error: null,
+    soul_requested_at: requestedAt,
+    soul_submitted_at: null,
+    soul_checked_at: null,
+    soul_image_count: usable.length,
+    soul_training_asset_ids: usable.map((asset) => asset.id),
+  };
+  const claimWith = (patch: CharacterUpdate) => {
+    const claim = db
+      .from("characters")
+      .update(patch)
+      .eq("id", input.characterId)
+      .eq("soul_status", character.soul_status);
+    return (
+      character.soul_request_key
+        ? claim.eq("soul_request_key", character.soul_request_key)
+        : claim.is("soul_request_key", null)
+    ).select("id");
+  };
+  let { data: claimed, error: claimError } = await claimWith(claimPatch);
+  if (isMissingColumn(claimError)) {
+    // Before migration 0020 the set trained on isn't kept on the character.
+    const { soul_training_asset_ids: _set, ...older } = claimPatch;
+    ({ data: claimed, error: claimError } = await claimWith(older));
+  }
   if (claimError) fail(claimError, "The training couldn't be recorded");
   if (!claimed?.length)
     throw new AppError("INVALID_PARAMETERS", "Someone just started training this character");
@@ -742,6 +826,7 @@ export async function trainSoulId(input: {
     requested_by: input.userId,
     model_version: input.version,
     image_count: usable.length,
+    asset_ids: usable.map((asset) => asset.id),
     requested_at: requestedAt,
   };
   await logTrainingRequest(logged);
@@ -833,7 +918,27 @@ export async function trainSoulId(input: {
         ? { soul_status: "failed", soul_error: reference.message ?? "Higgsfield couldn't train it" }
         : { soul_status: "training" }),
   });
+  if (reference.state === "ready")
+    await recordReadySoul({
+      characterId: input.characterId,
+      version: input.version,
+      referenceId: reference.id,
+      source: "trained",
+      requestKey: key,
+      imageCount: usable.length,
+      assetIds: usable.map((asset) => asset.id),
+      thumbnailUrl: reference.thumbnailUrl,
+      userId: input.userId,
+    });
   return { status: reference.state };
+}
+
+/** Records a ready Soul ID as the one in use for its Soul model (see souls.server). */
+async function recordReadySoul(
+  input: Parameters<typeof import("./souls.server").recordSoulReady>[0],
+) {
+  const { recordSoulReady } = await import("./souls.server");
+  await recordSoulReady(input);
 }
 
 /**
@@ -847,9 +952,8 @@ export async function refreshSoulId(
 ): Promise<{ status: string }> {
   const { data: row, error } = await db
     .from("characters")
-    .select(
-      "id,soul_status,soul_training_id,soul_training_version,soul_model_version,soul_checked_at,soul_requested_at,soul_submitted_at,soul_request_key",
-    )
+    // Every column (soul_training_asset_ids only exists from migration 0020 on).
+    .select("*")
     .eq("id", characterId)
     .maybeSingle();
   if (error) fail(error, "The character couldn't be read");
@@ -914,11 +1018,12 @@ export async function refreshSoulId(
   )
     return { status: row.soul_status };
   const from = row.soul_status;
-  const update = async (patch: CharacterUpdate) => {
+  const update = async (patch: CharacterUpdate): Promise<boolean> => {
     const { data: written } = await fenced(
       db.from("characters").update(patch).eq("id", characterId).eq("soul_status", from),
     ).select("id");
     if (written?.length) await logTraining(row.soul_request_key, patch);
+    return !!written?.length;
   };
 
   const { getCustomReference, readCustomReference } = await import("../higgsfield/provider.server");
@@ -927,14 +1032,27 @@ export async function refreshSoulId(
   const state = reference?.state ?? null;
   if (state === "ready") {
     // It becomes the Soul ID in use.
-    await update({
+    const version = (row.soul_training_version ?? row.soul_model_version) as SoulVersion | null;
+    const written = await update({
       soul_checked_at: now(),
       soul_status: "ready",
       soul_reference_id: row.soul_training_id,
-      soul_model_version: row.soul_training_version ?? row.soul_model_version,
+      soul_model_version: version,
       soul_ready_at: now(),
       soul_error: null,
     });
+    if (written && version)
+      await recordReadySoul({
+        characterId,
+        version,
+        referenceId: row.soul_training_id!,
+        source: from === "uncertain" ? "attached" : "trained",
+        requestKey: row.soul_request_key,
+        imageCount: row.soul_image_count,
+        assetIds: row.soul_training_asset_ids ?? [],
+        thumbnailUrl: reference?.thumbnailUrl ?? null,
+        userId: row.created_by,
+      });
     return { status: "ready" };
   }
   if (state === "failed") {
@@ -1041,6 +1159,18 @@ export async function attachSoulId(input: {
     status: reference.state,
   });
   await logTraining(character.soul_request_key, patch);
+  if (reference.state === "ready" && version)
+    await recordReadySoul({
+      characterId: input.characterId,
+      version: version as SoulVersion,
+      referenceId: reference.id,
+      source: "attached",
+      requestKey: character.soul_request_key,
+      imageCount: character.soul_image_count,
+      assetIds: character.soul_training_asset_ids ?? [],
+      thumbnailUrl: reference.thumbnailUrl,
+      userId: character.created_by,
+    });
   return { status: reference.state };
 }
 

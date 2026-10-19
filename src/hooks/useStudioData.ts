@@ -214,10 +214,18 @@ export function useStudioRealtime() {
         queryClient.invalidateQueries({ queryKey: ["characters"] });
       })
       .subscribe();
+    // Soul IDs per Soul model (a later database update) on a channel of their own.
+    const souls = supabase
+      .channel("character-soul-updates")
+      .on("postgres_changes", { event: "*", schema: "public", table: "character_souls" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["characters"] });
+      })
+      .subscribe();
     return () => {
       supabase.removeChannel(channel);
       supabase.removeChannel(longVideos);
       supabase.removeChannel(characters);
+      supabase.removeChannel(souls);
     };
   }, [queryClient]);
 }

@@ -33,14 +33,17 @@ export function SoulCharacterField({
   issue?: string | undefined;
 }) {
   const { data: characters = [] } = useCharacters();
-  // Each character's Soul ID in use (a newer one may be training meanwhile).
-  const ready = characters.filter(
-    (character) => character.soul_model_version === version && !!character.soul_reference_id,
-  );
+  // Each character's Soul ID in use for this model (a newer one may be training meanwhile).
+  const ready = characters.flatMap((character) => {
+    const soul = character.souls.find((entry) => entry.active && entry.version === version);
+    return soul ? [{ character, soul }] : [];
+  });
   const current = typeof value === "string" ? value.trim() : "";
-  const match = ready.find((character) => character.soul_reference_id === current);
+  const match = ready.find(
+    (entry) => entry.soul.referenceId.toLowerCase() === current.toLowerCase(),
+  );
   const [pasting, setPasting] = useState(false);
-  const selected = !current ? (pasting ? OTHER : NONE) : match ? match.id : OTHER;
+  const selected = !current ? (pasting ? OTHER : NONE) : match ? match.character.id : OTHER;
 
   return (
     <div className="space-y-1.5" data-testid="soul-character">
@@ -60,7 +63,7 @@ export function SoulCharacterField({
           } else {
             setPasting(false);
             onChange(
-              ready.find((character) => character.id === next)?.soul_reference_id ?? undefined,
+              ready.find((entry) => entry.character.id === next)?.soul.referenceId ?? undefined,
             );
           }
         }}
@@ -70,11 +73,17 @@ export function SoulCharacterField({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={NONE}>No character</SelectItem>
-          {ready.map((character) => (
+          {ready.map(({ character, soul }) => (
             <SelectItem key={character.id} value={character.id}>
               <span className="flex items-center gap-2">
                 <CharacterAvatar character={character} className="size-5" />
                 {character.name}
+                {soul.likeness ? (
+                  <span className="text-[10px] text-muted-foreground">
+                    likeness {soul.likeness.score.toFixed(1)}
+                    {soul.approvedAt ? ", approved" : ""}
+                  </span>
+                ) : null}
               </span>
             </SelectItem>
           ))}
