@@ -251,7 +251,7 @@ async function writeUserMessage(input: {
       if (!settings.brandKitId) return null;
       const { loadBrandKit, brandBlockOf } = await import("../brand/use.server");
       const kit = await loadBrandKit(settings.brandKitId);
-      return kit ? { id: kit.id, name: kit.name, block: brandBlockOf(kit, 1800) } : null;
+      return kit ? { id: kit.id, name: kit.name, block: brandBlockOf(kit, 2800) } : null;
     })(),
     (async () => {
       if (!thread.brief_id) return null;

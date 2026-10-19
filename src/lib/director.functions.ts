@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { AppError } from "./higgsfield/errors";
+import { CHANNELS } from "./brand/dna";
 import { PRODUCTION_PLAN_JSON_SCHEMA, type ProductionPlan } from "./production-plan-schema";
 import type { ModelRegistryEntry } from "./model-schema";
 
@@ -12,8 +13,13 @@ async function admin() {
 
 async function assertActiveMember(userId: string) {
   const supabaseAdmin = await admin();
-  const { data } = await supabaseAdmin.from("profiles").select("id,is_active,role").eq("id", userId).maybeSingle();
-  if (!data?.is_active) throw new AppError("NOT_AUTHORIZED", "Your account is not an active team member");
+  const { data } = await supabaseAdmin
+    .from("profiles")
+    .select("id,is_active,role")
+    .eq("id", userId)
+    .maybeSingle();
+  if (!data?.is_active)
+    throw new AppError("NOT_AUTHORIZED", "Your account is not an active team member");
   return data;
 }
 
@@ -75,6 +81,8 @@ Turn the brief into a structured production plan.
 You may ONLY route shots to models supplied in the catalogue, referenced by their exact id.
 A video model makes shots of the lengths in its "clip_seconds"; give every video shot a duration its model accepts. A continuous action longer than a model's longest shot becomes consecutive shots on the same model, each as long as the model allows, so the take stays consistent.
 If no supplied model can deliver a required capability, list it under unsupported_capability instead of inventing a model or API route.
+When a BRAND is given, the plan is made in it: its look, voice and rules, and its DNA (claims only from its proof, hooks from its buying moments, its distinctive assets early).
+When a FORMULA is given, build the plan on it: its beats, in order, become the scenes (a beat may take more than one shot), at its timing, so the plan runs its length; keep its rules and never break its guardrails. Say in the creative summary which formula the plan follows.
 Never invent prices. Never output hidden reasoning — return only the structured plan.`;
 
 const planInput = z.object({
@@ -83,6 +91,15 @@ const planInput = z.object({
   projectId: z.string().uuid().nullable().optional(),
   /** The brand kit the production is made in: shots keep to its look and voice. */
   brandKitId: z.string().uuid().nullable().optional(),
+  /** The content formula the plan is built on (see ./brand/formulas), at a length and for a channel. */
+  formula: z
+    .object({
+      id: z.string().min(1).max(60),
+      seconds: z.number().int().min(5).max(600).nullable().optional(),
+      channel: z.enum(CHANNELS).nullable().optional(),
+    })
+    .nullable()
+    .optional(),
 });
 
 export const createDirectorPlan = createServerFn({ method: "POST" })
@@ -108,21 +125,38 @@ export const createDirectorPlan = createServerFn({ method: "POST" })
       sessionId = session.id;
     }
 
-    await supabaseAdmin.from("director_messages").insert({ session_id: sessionId, role: "user", content: data.brief });
+    await supabaseAdmin
+      .from("director_messages")
+      .insert({ session_id: sessionId, role: "user", content: data.brief });
 
     const catalogue = await activeModelCatalogue();
     const { brandBlock } = await import("./brand/use.server");
-    const brand = await brandBlock(data.brandKitId, 1500);
+    const brand = await brandBlock(data.brandKitId, 2600);
+    const { formulaBlock, formulaById } = await import("./brand/formulas");
+    const formula = formulaById(data.formula?.id);
+    if (data.formula && !formula)
+      throw new AppError("INVALID_PARAMETERS", "That content formula isn't in the library");
+    const recipe = formula
+      ? formulaBlock(formula, {
+          seconds: data.formula?.seconds ?? null,
+          channel: data.formula?.channel ?? null,
+        })
+      : "";
     const result = await reasoning.provider.generateStructured<ProductionPlan>({
       system: DIRECTOR_SYSTEM,
-      input: `BRIEF:\n${data.brief}${brand ? `\n\n${brand}` : ""}\n\nMODEL CATALOGUE (JSON):\n${JSON.stringify(catalogue)}`,
+      input: `BRIEF:\n${data.brief}${brand ? `\n\n${brand}` : ""}${recipe ? `\n\n${recipe}` : ""}\n\nMODEL CATALOGUE (JSON):\n${JSON.stringify(catalogue)}`,
       schemaName: "production_plan",
       schema: PRODUCTION_PLAN_JSON_SCHEMA,
       model: reasoning.model,
     });
 
     if (!result.ok || !result.data) {
-      throw new AppError(result.errorCode === "REASONING_NOT_CONFIGURED" ? "PROVIDER_NOT_CONFIGURED" : "PROVIDER_REJECTED", result.errorMessage ?? "Director could not build a plan");
+      throw new AppError(
+        result.errorCode === "REASONING_NOT_CONFIGURED"
+          ? "PROVIDER_NOT_CONFIGURED"
+          : "PROVIDER_REJECTED",
+        result.errorMessage ?? "Director could not build a plan",
+      );
     }
 
     const plan = result.data;
@@ -151,13 +185,16 @@ export const createDirectorPlan = createServerFn({ method: "POST" })
       session_id: sessionId,
       role: "assistant",
       content: plan.creative_summary ?? `Planned ${plan.scenes?.length ?? 0} scenes.`,
-      metadata: { plan_id: saved.id },
+      metadata: { plan_id: saved.id, ...(formula ? { formula_id: formula.id } : {}) },
     });
 
     return { sessionId, planId: saved.id as string, plan };
   });
 
-const reviseInput = z.object({ planId: z.string().uuid(), instruction: z.string().min(2).max(4000) });
+const reviseInput = z.object({
+  planId: z.string().uuid(),
+  instruction: z.string().min(2).max(4000),
+});
 
 export const reviseDirectorPlan = createServerFn({ method: "POST" })
   .inputValidator((data) => reviseInput.parse(data))
@@ -183,12 +220,19 @@ export const reviseDirectorPlan = createServerFn({ method: "POST" })
       model: reasoning.model,
     });
     if (!result.ok || !result.data)
-      throw new AppError("PROVIDER_REJECTED", result.errorMessage ?? "Director could not revise the plan");
+      throw new AppError(
+        "PROVIDER_REJECTED",
+        result.errorMessage ?? "Director could not revise the plan",
+      );
 
     const version = (existing.version ?? 1) + 1;
     await supabaseAdmin
       .from("production_plans")
-      .update({ plan: result.data as never, version, title: result.data.title ?? "Untitled production" })
+      .update({
+        plan: result.data as never,
+        version,
+        title: result.data.title ?? "Untitled production",
+      })
       .eq("id", data.planId);
     await supabaseAdmin.from("production_plan_versions").insert({
       plan_id: data.planId,
@@ -213,7 +257,10 @@ export const reviseDirectorPlan = createServerFn({ method: "POST" })
     return { planId: data.planId, version, plan: result.data };
   });
 
-const storyboardInput = z.object({ planId: z.string().uuid(), projectId: z.string().uuid().nullable().optional() });
+const storyboardInput = z.object({
+  planId: z.string().uuid(),
+  projectId: z.string().uuid().nullable().optional(),
+});
 
 /** Materialises an approved plan into a durable storyboard. No generation is submitted. */
 export const createStoryboardFromPlan = createServerFn({ method: "POST" })
@@ -274,7 +321,10 @@ export const createStoryboardFromPlan = createServerFn({ method: "POST" })
       }
     }
 
-    await supabaseAdmin.from("production_plans").update({ storyboard_id: storyboard.id, status: "approved" }).eq("id", row.id);
+    await supabaseAdmin
+      .from("production_plans")
+      .update({ storyboard_id: storyboard.id, status: "approved" })
+      .eq("id", row.id);
     return { storyboardId: storyboard.id as string };
   });
 
@@ -289,12 +339,19 @@ export const estimateProductionPlan = createServerFn({ method: "POST" })
     const { extractCost, extractPricingDescription } = await import("./higgsfield/provider.server");
     const { meteredQuoteFor } = await import("./higgsfield/metered");
 
-    const { data: row } = await supabaseAdmin.from("production_plans").select("plan").eq("id", data.planId).maybeSingle();
+    const { data: row } = await supabaseAdmin
+      .from("production_plans")
+      .select("plan")
+      .eq("id", data.planId)
+      .maybeSingle();
     if (!row) throw new AppError("INVALID_PARAMETERS", "Plan not found");
     if (!higgsfieldProvider.isConfigured()) throw new AppError("PROVIDER_NOT_CONFIGURED");
     const plan = row.plan as unknown as ProductionPlan;
 
-    const { data: models } = await supabaseAdmin.from("model_registry").select("*").eq("is_active", true);
+    const { data: models } = await supabaseAdmin
+      .from("model_registry")
+      .select("*")
+      .eq("is_active", true);
     const { defaultsForModel, providerPayload } = await import("./model-schema");
     const modelById = new Map(
       ((models ?? []) as unknown as ModelRegistryEntry[]).map((model) => [model.id, model]),
@@ -305,7 +362,9 @@ export const estimateProductionPlan = createServerFn({ method: "POST" })
     const perShot: { shot: string; cost: number | null }[] = [];
     for (const scene of plan.scenes ?? []) {
       for (const shot of scene.shots ?? []) {
-        const model = shot.recommended_model_id ? modelById.get(shot.recommended_model_id) : undefined;
+        const model = shot.recommended_model_id
+          ? modelById.get(shot.recommended_model_id)
+          : undefined;
         if (!model) {
           unknown += 1;
           perShot.push({ shot: `${scene.scene_number}.${shot.shot_number}`, cost: null });
@@ -314,7 +373,8 @@ export const estimateProductionPlan = createServerFn({ method: "POST" })
         // Estimate with the model's own defaults so the quote matches what Create would send.
         const fields = model.parameter_schema?.fields ?? [];
         const params: Record<string, unknown> = { ...defaultsForModel(model), prompt: shot.prompt };
-        if (shot.duration && fields.some((field) => field.key === "duration")) params["duration"] = shot.duration;
+        if (shot.duration && fields.some((field) => field.key === "duration"))
+          params["duration"] = shot.duration;
         // The same request body Create would send (no media is known for a planned shot).
         const payload = providerPayload(model, params, []);
         const call = await higgsfieldProvider.estimate(model.model_path, payload);
@@ -334,6 +394,9 @@ export const estimateProductionPlan = createServerFn({ method: "POST" })
       }
     }
 
-    await supabaseAdmin.from("production_plans").update({ total_estimated_cost_usd: total }).eq("id", data.planId);
+    await supabaseAdmin
+      .from("production_plans")
+      .update({ total_estimated_cost_usd: total })
+      .eq("id", data.planId);
     return { totalEstimatedUsd: total, unresolvedShots: unknown, perShot };
   });

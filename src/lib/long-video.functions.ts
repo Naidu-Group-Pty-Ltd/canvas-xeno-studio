@@ -225,6 +225,8 @@ const planInput = z.object({
   spoken: z.array(z.string().max(4000)).max(LONG_VIDEO_LIMITS.maxClips).nullable().optional(),
   /** The brand kit the video is made in: the beats keep to its look and voice. */
   brandKitId: z.string().uuid().nullable().optional(),
+  /** The content formula the video follows (see ./brand/formulas), timed to its length. */
+  formulaId: z.string().min(1).max(60).nullable().optional(),
 });
 
 /** Suggests a title, continuity notes and one beat per clip. Nothing is generated. */
@@ -323,6 +325,16 @@ export const planLongVideo = createServerFn({ method: "POST" })
       briefBlock = [briefBlock, await brandBlock(data.brandKitId)].filter(Boolean).join("\n\n");
     }
 
+    let formula = "";
+    if (data.formulaId) {
+      const { formulaBlock, formulaById } = await import("./brand/formulas");
+      const chosen = formulaById(data.formulaId);
+      if (!chosen)
+        throw new AppError("INVALID_PARAMETERS", "That content formula isn't in the library");
+      const total = data.durations.reduce((sum, seconds) => sum + seconds, 0);
+      formula = formulaBlock(chosen, { seconds: Math.max(1, Math.round(total)) });
+    }
+
     const { suggestLongVideoPlan } = await import("./long-video/planner.server");
     const imageIds = vision.used.map((source) => source.assetId);
     const suggestion = await suggestLongVideoPlan({
@@ -339,6 +351,7 @@ export const planLongVideo = createServerFn({ method: "POST" })
       characters: characterImages,
       keyframes: data.keyframes,
       spoken: data.spoken ?? null,
+      formula,
     });
     const { finisherImage, ...plan } = suggestion;
     // The image the AI took for the brand's logo or end card, when none is chosen yet.

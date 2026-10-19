@@ -57,6 +57,8 @@ export const kitInput = z.object({
   // The design system: left as it is when not sent (an editor that doesn't show it).
   palette: paletteInput.optional(),
   design: z.record(z.string(), z.unknown()).optional(),
+  // Its DNA (see ./dna): left as it is when not sent, like the design system.
+  dna: z.record(z.string(), z.unknown()).optional(),
   referenceAssetIds: z.array(z.string().uuid()).max(12).optional(),
   source: z
     .object({

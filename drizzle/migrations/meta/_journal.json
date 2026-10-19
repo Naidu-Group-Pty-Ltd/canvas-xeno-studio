@@ -162,6 +162,13 @@
       "when": 1791310705140,
       "tag": "0022_supercomputer_agent",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791310765140,
+      "tag": "0023_brand_dna",
+      "breakpoints": true
     }
   ]
 }

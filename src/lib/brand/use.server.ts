@@ -31,12 +31,12 @@ export async function requireBrandKit(kitId: string): Promise<BrandKit> {
  * The brand for an AI that plans, writes or prompts for it: empty when no
  * kit is named. Its heading tells the AI to keep everything in it.
  */
-export async function brandBlock(kitId: string | null | undefined, max = 2000): Promise<string> {
+export async function brandBlock(kitId: string | null | undefined, max = 3000): Promise<string> {
   const kit = await loadBrandKit(kitId);
   return kit ? brandBlockOf(kit, max) : "";
 }
 
-export function brandBlockOf(kit: BrandKit, max = 2000): string {
+export function brandBlockOf(kit: BrandKit, max = 3000): string {
   return `BRAND (make everything in this brand: its look, palette, voice and rules; never put its logo or text in a picture unless asked):\n${brandBrief(kit, max)}`;
 }
 

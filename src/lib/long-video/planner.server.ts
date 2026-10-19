@@ -21,6 +21,8 @@ Keep the user's story, product, brand and setting. Never add on-screen text, cap
 
 Every clip but the last carries straight on into the next, so its beat never wraps the story up: no closing shot, logo reveal or end card before the last clip.
 
+When a FORMULA is given, the video follows it: each clip carries the formula's beats that fall within its seconds (by their timings), in order, played as continuous action, so the video moves through the formula's stages. Its rules and guardrails hold. What a formula beat says belongs to the voiceover or the edit's captions, not the picture: a beat here describes what is shown and done.
+
 The brand finisher: a logo, wordmark or end card that closes the video. When one is named, no beat shows it or reveals the logo before the end. If it is held as an end card after the last clip, the last beat comes to a calm close without a logo of its own. If the last clip moves into it, the last beat ends by moving into and settling on that end card. Also return finisher_image: the number of the reference image that is the brand's logo, wordmark or end card (its finisher), or 0 when none of them is.`;
 
 export const LONG_VIDEO_PLAN_SCHEMA: Record<string, unknown> = {
@@ -68,6 +70,8 @@ export async function suggestLongVideoPlan(input: {
    * aren't known), the clips cut where the voiceover pauses.
    */
   spoken?: string[] | null;
+  /** The content formula the video follows, written out and timed to its length (see ../brand/formulas). */
+  formula?: string | undefined;
 }): Promise<LongVideoPlanSuggestion> {
   const { resolveReasoning } = await import("../reasoning/provider.server");
   const route = await resolveReasoning("director");
@@ -103,6 +107,7 @@ export async function suggestLongVideoPlan(input: {
     charactersBlock(input.characters ?? [], !!input.keyframes),
     finisherLine(input.finale ?? null),
     input.briefBlock,
+    input.formula ?? "",
   ]
     .filter(Boolean)
     .join("\n\n");

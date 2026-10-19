@@ -21,6 +21,10 @@ import { FinisherSetup } from "@/components/create/FinisherSetup";
 import { voiceLength } from "@/lib/lip-sync/view";
 import { SECTION_LIMITS } from "@/lib/lip-sync/sections";
 import { CharacterConsistency } from "@/components/create/CharacterConsistency";
+import { FormulaBeats, FormulaPicker } from "@/components/brand/FormulaPicker";
+import { useBrandKits } from "@/hooks/useBrandKits";
+import { EMPTY_DNA } from "@/lib/brand/dna";
+import { formulaById } from "@/lib/brand/formulas";
 import { PresenterSetup } from "@/components/create/PresenterSetup";
 import type { CharacterEntry } from "@/hooks/useCharacters";
 import { Button } from "@/components/ui/button";
@@ -88,6 +92,8 @@ export function LongVideoSetup({
   brandKitId = null,
 }: Props) {
   const [planning, setPlanning] = useState(false);
+  const { data: brandData } = useBrandKits();
+  const brandKit = brandData?.kits.find((kit) => kit.id === brandKitId) ?? null;
   const set = (patch: Partial<LongVideoDraft>) => onChange({ ...draft, ...patch });
   // The setup as it is now, for the AI's beats, which come back after it may have changed.
   const latest = useRef({ draft, plan, images, model });
@@ -123,6 +129,7 @@ export function LongVideoSetup({
           characterIds: plan.characters.map((character) => character.id),
           keyframes: plan.keyframed,
           brandKitId,
+          formulaId: formulaById(draft.formulaId)?.id ?? null,
         },
       });
       // Merged into the setup as it is now, not as it was when asked: the
@@ -185,6 +192,9 @@ export function LongVideoSetup({
       0,
     );
   const names = new Map(plan.characters.map((character) => [character.id, character.name]));
+  const formula = formulaById(draft.formulaId);
+  // The video's length as made: the voiceover's, else its clips'.
+  const madeSeconds = Math.round(voiced?.durationSeconds ?? plan.totalSeconds);
 
   return (
     <div className="space-y-4" data-testid="long-video-setup">
@@ -501,8 +511,17 @@ export function LongVideoSetup({
           </div>
 
           <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="label-eyebrow">What happens in each clip</span>
+              <span className="ml-auto">
+                <FormulaPicker
+                  dna={brandKit?.dna ?? EMPTY_DNA}
+                  brandName={brandKit?.name ?? null}
+                  value={draft.formulaId ?? null}
+                  onChange={(formulaId) => set({ formulaId })}
+                  ask={{ seconds: madeSeconds || null }}
+                />
+              </span>
               <Button
                 type="button"
                 variant="outline"
@@ -529,7 +548,11 @@ export function LongVideoSetup({
                 : plan.keyframed
                   ? "Needed: each clip's keyframe, the moment it ends on, is painted from its beat."
                   : "Optional. Without a beat, a clip carries the story on from where the last one ended."}
+              {formula
+                ? " The AI's beats follow the formula, its stages spread over the clips."
+                : ""}
             </p>
+            {formula && madeSeconds > 0 && <FormulaBeats formula={formula} seconds={madeSeconds} />}
             <ol className="space-y-2">
               {plan.durations.map((seconds, index) => {
                 const piece = voiced?.segments[index] ?? null;

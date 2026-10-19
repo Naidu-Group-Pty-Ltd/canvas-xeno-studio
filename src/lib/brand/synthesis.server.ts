@@ -16,6 +16,8 @@ import {
   type BrandDesign,
   type BrandTypeface,
 } from "./design";
+import { dnaOf } from "./dna";
+import { DNA_FIELDS, DNA_SCHEMA } from "./dna-read";
 import { finishPalette, type BrandProposal, type FoundColour, type StagedImage } from "./proposal";
 
 const SYSTEM = `You read a brand's design system from evidence, for a video studio that will make images and videos in the brand's look. The evidence is either a scan of the brand's website (the colours its stylesheets use, with each colour's share of all colour use and where it appears; its fonts and which elements use them; its title, headings, buttons and text; its logo and pictures) or the text, colour codes and page pictures of its brand guidelines.
@@ -37,6 +39,8 @@ Answer with:
 - titleBacking: how its titles stay readable over video: "box" for solid blocks of colour, "outline" for crisp outlined type, "halo" for a soft shadow. uppercaseTitles: whether its headings are set in capitals.
 - logo: the number of the picture that is the logo (0 when none is). references: numbers of up to 4 pictures that best show the brand's photographic or illustrative look (never the logo, never a screenshot of a form or UI).
 - notes: anything a person should check (at most 4 short lines).
+- dna: the brand's DNA, as far as the evidence shows it (null or empty where it doesn't):
+${DNA_FIELDS.replace(/^/gm, "  ")}
 
 Never invent facts, slogans or rules the evidence doesn't support.`;
 
@@ -132,6 +136,7 @@ const SCHEMA: Record<string, unknown> = {
     logo: { type: "number" },
     references: { type: "array", items: { type: "number" } },
     notes: TEXTS,
+    dna: DNA_SCHEMA,
   },
   required: [
     "name",
@@ -146,6 +151,7 @@ const SCHEMA: Record<string, unknown> = {
     "logo",
     "references",
     "notes",
+    "dna",
   ],
 };
 
@@ -178,6 +184,8 @@ export interface DesignEvidence {
   ctas: string[];
   /** Body copy (a site's visible text, or the guideline's text). */
   copy: string;
+  /** Its profiles elsewhere (social platforms, directories): where it publishes. */
+  profiles: string[];
   /** Pictures shown to the AI, numbered from 1 in this order, with signed links. */
   pictures: { image: StagedImage; url: string }[];
   /** Everything staged (some may not have been shown, such as SVG logos). */
@@ -220,6 +228,7 @@ export function evidenceText(evidence: DesignEvidence, maxCopy = 9000): string {
   if (evidence.adobeFonts) lines.push("The site loads an Adobe Fonts kit.");
   if (evidence.headings.length) lines.push("", `Headings: ${evidence.headings.join(" | ")}`);
   if (evidence.ctas.length) lines.push(`Buttons: ${evidence.ctas.join(" | ")}`);
+  if (evidence.profiles.length) lines.push(`Profiles elsewhere: ${evidence.profiles.join(" | ")}`);
   if (evidence.pictures.length) {
     lines.push("", "Pictures (numbered in the order attached):");
     evidence.pictures.forEach(({ image }, index) =>
@@ -302,6 +311,8 @@ export function readAnswer(
     titleBacking: backing === "box" || backing === "outline" ? backing : "halo",
     uppercaseTitles: item["uppercaseTitles"] === true,
     notes: wordsOf(item["notes"], 4, 300),
+    // The formulas it works with are picked by a person (or ranked from it), not read.
+    dna: { ...dnaOf(item["dna"]), formulas: [] },
     model,
     typefaces,
   };

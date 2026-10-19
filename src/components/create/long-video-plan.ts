@@ -130,6 +130,8 @@ export interface LongVideoDraft {
   lipCheck: boolean;
   /** Takes a clip may get to reach a good lip score (1: just the one). */
   takes: number;
+  /** The content formula the AI's beats follow (see @/lib/brand/formulas); null for none. */
+  formulaId?: string | null;
 }
 
 export const DEFAULT_LONG_VIDEO_DRAFT: LongVideoDraft = {
@@ -152,6 +154,7 @@ export const DEFAULT_LONG_VIDEO_DRAFT: LongVideoDraft = {
   brollLines: [],
   lipCheck: true,
   takes: 2,
+  formulaId: null,
 };
 
 /** A long video made to a voiceover: where it is cut, and what is said in each clip. */

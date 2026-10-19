@@ -19,6 +19,7 @@ import { LIP_CHECK } from "../lip-sync/lip-check";
 import { planVoiceoverClips } from "../long-video/voiceover";
 import { clipPrompt, LONG_VIDEO_LIMITS } from "../long-video/plan";
 import { addEndCard, applyBrandKit, brandKitOf, SAFE_AREAS } from "../edit/brand";
+import { CHANNELS, EMPTY_DNA, GOALS } from "../brand/dna";
 import { parseTimeline, timelineSchema } from "../edit/timeline";
 import { textCheckOf } from "../media/text-check";
 import type { ModelRegistryEntry } from "../model-schema";
@@ -430,6 +431,7 @@ const getBrandKit = tool({
     const { brandAvoidLine, brandStyleLine, brandVoiceLine } = await import("../brand/design");
     const kit = await requireBrandKit(args.brandKitId);
     const { fonts, ...rest } = kit;
+    const { formulasForBrand } = await import("../brand/formulas");
     return {
       ...rest,
       fonts: fonts.map((font) => font.family),
@@ -437,6 +439,97 @@ const getBrandKit = tool({
       videoStyleLine: brandStyleLine(kit, "video"),
       avoidLine: brandAvoidLine(kit),
       voiceLine: brandVoiceLine(kit),
+      formulas: formulasForBrand(kit.dna).map((formula) => ({
+        id: formula.id,
+        name: formula.name,
+      })),
+    };
+  },
+});
+
+const listBrandFormulas = tool({
+  name: "list_brand_formulas",
+  title: "List content formulas",
+  description:
+    "The studio's content formulas: proven structures for videos and posts, each a run of timed beats with the rules and guardrails it keeps and the research it rests on, ranked for a brand's DNA (its kind of brand, market, goal, channels and who fronts it) and for what the piece is for. Pass brandKitId to rank for that brand (its own formulas first); goal, channel and seconds narrow it. evidence is A (a measured result for the format), B (official platform guidance or research behind it) or C (an established convention). get_brand_formula writes one out, timed.",
+  scope: "read",
+  input: z.object({
+    brandKitId: id().nullable().optional().describe("A brand kit (see list_brand_kits)"),
+    goal: z.enum(GOALS).nullable().optional(),
+    channel: z.enum(CHANNELS).nullable().optional(),
+    seconds: z.number().int().min(5).max(600).nullable().optional(),
+    limit: z.number().int().min(1).max(40).default(8),
+  }),
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const { rankFormulas } = await import("../brand/formulas");
+    const { requireBrandKit } = await import("../brand/use.server");
+    const kit = args.brandKitId ? await requireBrandKit(args.brandKitId) : null;
+    return rankFormulas(kit?.dna ?? EMPTY_DNA, {
+      goal: args.goal ?? null,
+      channel: args.channel ?? null,
+      seconds: args.seconds ?? null,
+    })
+      .slice(0, args.limit)
+      .map(({ formula, fit, reasons, cautions }) => ({
+        id: formula.id,
+        name: formula.name,
+        summary: formula.summary,
+        origin: formula.origin,
+        purpose: formula.purpose,
+        goals: formula.goals,
+        channels: formula.channels,
+        seconds: formula.seconds,
+        evidence: formula.grade,
+        fit,
+        reasons,
+        cautions,
+        brandsOwn: kit?.dna.formulas.includes(formula.id) ?? false,
+      }));
+  },
+});
+
+const getBrandFormula = tool({
+  name: "get_brand_formula",
+  title: "Get a content formula",
+  description:
+    "One content formula written out: its beats timed to a length (what each moment must do, show and say), the rules it keeps with the channel's own, its guardrails, why it works and its sources. Follow its beats and timing when you script, storyboard or prompt, in the brand's words; keep its guardrails.",
+  scope: "read",
+  input: z.object({
+    formulaId: z.string().min(1).max(60).describe("A formula's id (see list_brand_formulas)"),
+    seconds: z.number().int().min(5).max(600).nullable().optional(),
+    channel: z.enum(CHANNELS).nullable().optional(),
+  }),
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const { CHANNEL_GUIDES, GUARDRAILS, formulaBlock, formulaById, sourcesOf, timedBeats } =
+      await import("../brand/formulas");
+    const formula = formulaById(args.formulaId);
+    if (!formula)
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        `There is no formula called ${args.formulaId} (see list_brand_formulas)`,
+      );
+    const seconds = args.seconds ?? formula.seconds.ideal;
+    const channel = args.channel ?? null;
+    return {
+      id: formula.id,
+      name: formula.name,
+      origin: formula.origin,
+      summary: formula.summary,
+      purpose: formula.purpose,
+      evidence: formula.grade,
+      seconds,
+      shapes: channel ? [CHANNEL_GUIDES[channel].shape] : formula.shapes,
+      beats: timedBeats(formula, seconds),
+      rules: formula.rules,
+      avoid: formula.avoid,
+      guardrails: formula.guardrails.flatMap((key) =>
+        GUARDRAILS[key] ? [GUARDRAILS[key]!.rule] : [],
+      ),
+      why: formula.why,
+      sources: sourcesOf(formula, channel),
+      brief: formulaBlock(formula, { seconds, channel }),
     };
   },
 });
@@ -1375,6 +1468,8 @@ export const STUDIO_TOOLS: StudioTool[] = [
   getRender,
   listBrandKits,
   getBrandKit,
+  listBrandFormulas,
+  getBrandFormula,
   listCharacters,
   getCharacter,
   queueGeneration,

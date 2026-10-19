@@ -6,6 +6,7 @@ import {
   inBatches,
   sanitizeSvg,
 } from "../../src/lib/brand/fetch.server";
+import { EMPTY_DNA } from "../../src/lib/brand/dna";
 import { googleFamiliesOf, siteUrlOf } from "../../src/lib/brand/imports.server";
 import {
   brandNameOf,
@@ -136,6 +137,7 @@ describe("the AI's reading", () => {
     adobeFonts: false,
     headings: ["Your numbers, sorted"],
     ctas: ["Book a demo"],
+    profiles: ["https://www.linkedin.com/company/aurixa"],
     copy: "We help small firms.",
     pictures: [
       { image: logo, url: "https://signed/logo" },
@@ -153,6 +155,7 @@ describe("the AI's reading", () => {
     expect(text).toContain("1. logo candidate");
     expect(text).toContain("3. picture");
     expect(text).toContain("Loaded from Google Fonts: Playfair Display");
+    expect(text).toContain("Profiles elsewhere: https://www.linkedin.com/company/aurixa");
   });
 
   test("an answer is read into a proposal: colours snapped, pictures by number, rules kept", () => {
@@ -230,6 +233,30 @@ describe("the AI's reading", () => {
     expect(read.references).toEqual(["image-1"]);
     // An unreadable palette falls back to the found colours.
     expect(read.palette[0]?.hex).toBe("#0b1f3a");
+  });
+
+  test("the brand's DNA is read from the answer; its formulas are left to people", () => {
+    const read = readAnswer(
+      {
+        name: "Aurixa",
+        dna: {
+          type: "saas",
+          alsoTypes: ["service", "nonsense"],
+          market: "b2b",
+          archetype: "sage",
+          channels: ["linkedin", "myspace"],
+          goal: "consideration",
+          formulas: ["saas-demo-ad"],
+        },
+      },
+      evidence,
+      null,
+    );
+    expect(read.dna.type).toBe("saas");
+    expect(read.dna.alsoTypes).toEqual(["service"]);
+    expect(read.dna.channels).toEqual(["linkedin"]);
+    expect(read.dna.formulas).toEqual([]);
+    expect(readAnswer({ name: "A" }, evidence, null).dna).toEqual(EMPTY_DNA);
   });
 
   test("with no logo picked, the scan's best candidate", () => {

@@ -26,7 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 /** A list edited as text: words split at commas (or lines at line breaks), kept once typing stops. */
-function ListField({
+export function ListField({
   value,
   onChange,
   lines = false,
@@ -70,7 +70,7 @@ function ListField({
   );
 }
 
-function Field({
+export function Field({
   label,
   hint,
   children,
@@ -90,7 +90,7 @@ function Field({
   );
 }
 
-function TextField({
+export function TextField({
   label,
   value,
   onChange,
@@ -120,7 +120,7 @@ function TextField({
   );
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+export function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="space-y-3">
       <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">

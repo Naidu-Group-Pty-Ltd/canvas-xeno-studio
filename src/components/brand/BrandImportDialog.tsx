@@ -36,6 +36,9 @@ import { DEFAULT_FONT, fontChoices, type BrandFont, type BrandKit } from "@/lib/
 import { OVERLAY_BACKING_LABELS, OVERLAY_BACKINGS, type OverlayBacking } from "@/lib/edit/timeline";
 import { signedUrl, storageScope, uploadAssetBlob } from "@/lib/storage";
 import { DesignSystemEditor } from "@/components/brand/DesignSystemEditor";
+import { DnaEditor } from "@/components/brand/DnaEditor";
+import { FormulaBrowser } from "@/components/brand/FormulaBrowser";
+import { mergeSuggestion, type BrandDna } from "@/lib/brand/dna";
 import { LibraryPicker } from "@/components/studio/LibraryPicker";
 import { MediaPreview } from "@/components/studio/MediaPreview";
 import { Button } from "@/components/ui/button";
@@ -139,6 +142,7 @@ interface ReviewDraft {
   target: string;
   projectId: string | null;
   isDefault: boolean;
+  dna: BrandDna;
 }
 
 function draftOf(proposal: BrandProposal, kit: BrandKit | null): ReviewDraft {
@@ -168,6 +172,8 @@ function draftOf(proposal: BrandProposal, kit: BrandKit | null): ReviewDraft {
     target: kit?.id ?? "new",
     projectId: kit?.projectId ?? null,
     isDefault: kit?.isDefault ?? false,
+    // Updating a kit keeps the DNA a person gave it; the reading fills what it left empty.
+    dna: kit ? mergeSuggestion(kit.dna, proposal.dna) : proposal.dna,
   };
 }
 
@@ -331,6 +337,7 @@ function Review({
               .slice(0, 50),
             palette: draft.palette,
             design: draft.design as unknown as Record<string, unknown>,
+            dna: draft.dna as unknown as Record<string, unknown>,
           },
           logo,
           references: draft.references,
@@ -359,9 +366,10 @@ function Review({
         </div>
       )}
       <Tabs defaultValue="identity">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="identity">Identity</TabsTrigger>
           <TabsTrigger value="system">Design system</TabsTrigger>
+          <TabsTrigger value="dna">DNA</TabsTrigger>
           <TabsTrigger value="imagery">Imagery ({draft.references.length})</TabsTrigger>
         </TabsList>
 
@@ -606,6 +614,25 @@ function Review({
             onDesign={(design) => set({ design })}
             found={record.signals.colours}
           />
+        </TabsContent>
+
+        <TabsContent value="dna" className="space-y-4 pt-3">
+          <DnaEditor
+            dna={draft.dna}
+            onDna={(dna) => set({ dna })}
+            name={draft.name}
+            audience={draft.design.audience}
+          />
+          {draft.dna.type && (
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <p className="text-xs font-medium">Formulas that fit it best</p>
+              <FormulaBrowser
+                dna={draft.dna}
+                onFormulas={(formulas) => set({ dna: { ...draft.dna, formulas } })}
+                limit={3}
+              />
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="imagery" className="space-y-3 pt-3">

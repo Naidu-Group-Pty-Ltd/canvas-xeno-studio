@@ -60,19 +60,20 @@ admin, can continue it. Chats can be pinned to the top.
 
 ## What it can use
 
-| Tools                       | What they do                                                                                                                                         |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `list_models`, `get_model`  | The generation models, compactly, then one in full.                                                                                                  |
-| `estimate_generation`       | The provider's price for a generation, without making it.                                                                                            |
-| `queue_generation`          | Makes an image, video or audio (asks first), with references, characters (their Soul IDs on Soul models) and the conversation's brand.               |
-| `wait_for_generation`       | Waits up to two and a half minutes for one to finish.                                                                                                |
-| `view_media`                | Looks at library files (videos by their poster frame), up to six at once.                                                                            |
-| `propose_drafts`            | Ready-to-run drafts, ideas and an edit plan for the person to look over and run themselves.                                                          |
-| `write_document`            | A script, shot list, plan or report shown beside the conversation.                                                                                   |
-| `import_brand`              | Reads a brand's design system from its website, for review on the Brand page.                                                                        |
-| `remember`, `forget`        | Memories kept between conversations.                                                                                                                 |
-| `web_search`, `web_fetch`   | Searches the web and reads pages.                                                                                                                    |
-| The studio API's operations | The library, generations, long videos, characters and Soul IDs, brand kits, presenter videos, edits and renders (docs/studio-api.md), as the person. |
+| Tools                                      | What they do                                                                                                                                                                                                          |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `list_models`, `get_model`                 | The generation models, compactly, then one in full.                                                                                                                                                                   |
+| `estimate_generation`                      | The provider's price for a generation, without making it.                                                                                                                                                             |
+| `queue_generation`                         | Makes an image, video or audio (asks first), with references, characters (their Soul IDs on Soul models) and the conversation's brand.                                                                                |
+| `wait_for_generation`                      | Waits up to two and a half minutes for one to finish.                                                                                                                                                                 |
+| `view_media`                               | Looks at library files (videos by their poster frame), up to six at once.                                                                                                                                             |
+| `propose_drafts`                           | Ready-to-run drafts, ideas and an edit plan for the person to look over and run themselves.                                                                                                                           |
+| `write_document`                           | A script, shot list, plan or report shown beside the conversation.                                                                                                                                                    |
+| `import_brand`                             | Reads a brand's design system from its website, for review on the Brand page.                                                                                                                                         |
+| `remember`, `forget`                       | Memories kept between conversations.                                                                                                                                                                                  |
+| `web_search`, `web_fetch`                  | Searches the web and reads pages.                                                                                                                                                                                     |
+| `list_brand_formulas`, `get_brand_formula` | The content formulas ranked for the brand's DNA, then one written out with its beats timed to the length and channel (docs/brand-dna-and-formulas.md). Content made in a brand follows one, and the agent says which. |
+| The studio API's operations                | The library, generations, long videos, characters and Soul IDs, brand kits, presenter videos, edits and renders (docs/studio-api.md), as the person.                                                                  |
 
 A turn takes at most 32 steps (it says so and stops; "go on" continues it), and each step writes
 at most 32,000 tokens.

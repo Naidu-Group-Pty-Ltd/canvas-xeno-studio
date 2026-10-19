@@ -21,6 +21,7 @@ import {
   type StudioTool,
 } from "../studio-api/tools.server";
 import type { ApiCaller } from "../studio-api/tokens.server";
+import { formulaById } from "../brand/formulas";
 import { aboutUsd, type ApprovalRequest, type ToolUi } from "./agent-events";
 import type { AgentThreadSettings } from "./agent-settings";
 import type { SupercomputerPayload } from "./types";
@@ -142,6 +143,11 @@ const LABELS: Record<string, (input: Json) => string> = {
   get_render: () => "Checking a render",
   list_brand_kits: () => "Looking at the brand kits",
   get_brand_kit: () => "Reading a brand's design system",
+  list_brand_formulas: () => "Choosing a content formula",
+  get_brand_formula: (input) => {
+    const formula = formulaById(text(input["formulaId"], 60));
+    return formula ? `Following the formula · ${formula.name}` : "Reading a content formula";
+  },
   list_characters: () => "Looking at the characters",
   get_character: () => "Reading a character",
   queue_generation: () => "Generating",
@@ -237,6 +243,8 @@ function studioSummary(name: string, result: unknown): string {
     return item["status"] === "submission_uncertain"
       ? "Sent, but Higgsfield's answer was unclear: it won't be sent again"
       : `Started (${String(item["status"] ?? "queued")})`;
+  if (name === "get_brand_formula" && typeof item["name"] === "string")
+    return `${item["name"]} at ${String(item["seconds"])} s`;
   if (typeof item["status"] === "string") return `Status: ${item["status"]}`;
   if (Array.isArray(item["characters"]))
     return `${(item["characters"] as unknown[]).length} characters`;

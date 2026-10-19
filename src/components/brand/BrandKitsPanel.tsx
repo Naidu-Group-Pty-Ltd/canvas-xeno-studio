@@ -22,6 +22,10 @@ import { DEFAULT_FONT, fontChoices, type BrandFont, type BrandKit } from "@/lib/
 import { draftOf, EMPTY, type Draft } from "@/components/brand/kit-draft";
 import { BrandImportDialog } from "@/components/brand/BrandImportDialog";
 import { DesignSystemEditor } from "@/components/brand/DesignSystemEditor";
+import { DnaEditor } from "@/components/brand/DnaEditor";
+import { FormulaBrowser } from "@/components/brand/FormulaBrowser";
+import { isEmptyDna, mergeSuggestion, typeWords } from "@/lib/brand/dna";
+import { suggestDna } from "@/lib/brand/dna-client";
 import { OVERLAY_BACKING_LABELS, OVERLAY_BACKINGS, type OverlayBacking } from "@/lib/edit/timeline";
 import { LibraryPicker } from "@/components/studio/LibraryPicker";
 import { MediaPreview } from "@/components/studio/MediaPreview";
@@ -201,6 +205,34 @@ export function BrandKitDialog({ draft: initial, onClose }: { draft: Draft; onCl
     }
   };
 
+  const [suggesting, setSuggesting] = useState(false);
+  const suggest = async () => {
+    setSuggesting(true);
+    try {
+      const read = await suggestDna({
+        name: draft.name,
+        website: draft.website.trim() || null,
+        tagline: draft.tagline.trim() || null,
+        callToAction: draft.callToAction.trim() || null,
+        terms: draft.terms
+          .split(/\n|,/)
+          .map((term) => term.trim())
+          .filter(Boolean)
+          .slice(0, 50),
+        design: draft.design as unknown as Record<string, unknown>,
+      });
+      const kept = !isEmptyDna(draft.dna);
+      setDraft((current) => ({ ...current, dna: mergeSuggestion(current.dna, read.dna) }));
+      toast.success(
+        `Read from ${read.read.join(" and ")}${read.model ? ` by ${read.model}` : ""}.${kept ? " What you'd written is kept." : ""} Look it over, then save.`,
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The brand's DNA couldn't be read");
+    } finally {
+      setSuggesting(false);
+    }
+  };
+
   const save = async () => {
     setSaving(true);
     try {
@@ -230,6 +262,7 @@ export function BrandKitDialog({ draft: initial, onClose }: { draft: Draft; onCl
           palette: draft.palette,
           design: draft.design as unknown as Record<string, unknown>,
           referenceAssetIds: draft.referenceAssetIds,
+          dna: draft.dna as unknown as Record<string, unknown>,
         },
       });
       await queryClient.invalidateQueries({ queryKey: ["brand_kits"] });
@@ -590,6 +623,48 @@ export function BrandKitDialog({ draft: initial, onClose }: { draft: Draft; onCl
                   onPalette={(palette) => set({ palette })}
                   design={draft.design}
                   onDesign={(design) => set({ design })}
+                />
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="dna" className="border-b-0">
+              <AccordionTrigger className="text-sm">
+                <span className="flex items-center gap-2">
+                  Brand DNA
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {typeWords(draft.dna) ?? "not set"}
+                  </span>
+                </span>
+              </AccordionTrigger>
+              <AccordionContent>
+                <DnaEditor
+                  dna={draft.dna}
+                  onDna={(dna) => set({ dna })}
+                  name={draft.name}
+                  audience={draft.design.audience}
+                  onSuggest={draft.name.trim() ? () => void suggest() : undefined}
+                  suggesting={suggesting}
+                />
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="formulas" className="border-b-0">
+              <AccordionTrigger className="text-sm">
+                <span className="flex items-center gap-2">
+                  Content formulas
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {draft.dna.formulas.length
+                      ? `${draft.dna.formulas.length} pinned`
+                      : "ranked for its DNA"}
+                  </span>
+                </span>
+              </AccordionTrigger>
+              <AccordionContent className="space-y-2">
+                <p className="text-[11px] text-muted-foreground">
+                  Proven structures for its content, each with timed beats, rules and the research
+                  it rests on. Pinned ones come first wherever this brand's content is planned.
+                </p>
+                <FormulaBrowser
+                  dna={draft.dna}
+                  onFormulas={(formulas) => set({ dna: { ...draft.dna, formulas } })}
                 />
               </AccordionContent>
             </AccordionItem>

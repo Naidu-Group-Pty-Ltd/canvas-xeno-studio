@@ -4,6 +4,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import {
   AlertTriangle,
+  BookOpen,
+  Dna,
   FileText,
   Globe,
   Loader2,
@@ -19,6 +21,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/layout/AppShell";
 import { BrandImportDialog } from "@/components/brand/BrandImportDialog";
 import { BrandKitDialog } from "@/components/brand/BrandKitsPanel";
+import { FormulaBrowser } from "@/components/brand/FormulaBrowser";
 import { draftOf, EMPTY, type Draft } from "@/components/brand/kit-draft";
 import { MediaPreview } from "@/components/studio/MediaPreview";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +34,8 @@ import { useProjects } from "@/hooks/useStudioData";
 import { archiveBrandKit } from "@/lib/brand.functions";
 import { discardBrandImport } from "@/lib/brand-import.functions";
 import { brandStyleLine, PALETTE_ROLE_LABELS } from "@/lib/brand/design";
+import { ARCHETYPE_INFO, EMPTY_DNA, MARKET_LABELS, typeWords } from "@/lib/brand/dna";
+import { formulasForBrand } from "@/lib/brand/formulas";
 import { DEFAULT_FONT, type BrandKit } from "@/lib/edit/brand";
 
 export const Route = createFileRoute("/brand")({
@@ -142,6 +147,33 @@ function BrandCard({
             {kit.isDefault ? "Studio default" : project ? project : "Any project"}
           </span>
         </div>
+        {kit.dna.type ? (
+          <div className="space-y-1 text-[11px]" data-testid="brand-dna">
+            <p className="flex items-start gap-1">
+              <Dna className="mt-0.5 size-3 shrink-0 text-primary" />
+              <span>
+                {typeWords(kit.dna)}
+                {kit.dna.market ? ` · ${MARKET_LABELS[kit.dna.market]}` : ""}
+                {kit.dna.archetype ? ` · ${ARCHETYPE_INFO[kit.dna.archetype].label}` : ""}
+              </span>
+            </p>
+            {formulasForBrand(kit.dna).length > 0 && (
+              <p className="flex items-start gap-1 text-muted-foreground">
+                <BookOpen className="mt-0.5 size-3 shrink-0" />
+                <span className="line-clamp-2">
+                  {formulasForBrand(kit.dna)
+                    .map((formula) => formula.name)
+                    .join(" · ")}
+                </span>
+              </p>
+            )}
+          </div>
+        ) : (
+          <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
+            <Dna className="size-3 shrink-0" /> No DNA yet: say what kind of brand it is to rank its
+            content formulas.
+          </p>
+        )}
         {kit.design.visual.mood.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {kit.design.visual.mood.slice(0, 5).map((word) => (
@@ -255,6 +287,45 @@ function ImportRow({
         </Button>
       )}
     </li>
+  );
+}
+
+/** Every formula, ranked for a brand's DNA (the default kit's, to begin with). */
+function FormulaLibrary({ kits }: { kits: BrandKit[] }) {
+  const [kitId, setKitId] = useState<string | null>(null);
+  const kit = kits.find((entry) => entry.id === kitId) ?? kits[0] ?? null;
+  return (
+    <section className="space-y-3" data-testid="formula-library">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div className="space-y-0.5">
+          <h2 className="text-sm font-medium">Formula library</h2>
+          <p className="max-w-2xl text-xs text-muted-foreground">
+            Proven structures for content, each with timed beats, the rules it keeps and the
+            research it rests on: platform guidance (Google, TikTok, Meta, LinkedIn), effectiveness
+            research (the IPA, Ehrenberg-Bass, the LinkedIn B2B Institute) and the regulators' rules
+            on reviews and endorsements. Each says how strong its evidence is. The Director, long
+            videos and the Supercomputer write to them.
+          </p>
+        </div>
+        {kits.length > 0 && (
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            Ranked for
+            <select
+              className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground"
+              value={kit?.id ?? ""}
+              onChange={(event) => setKitId(event.target.value)}
+            >
+              {kits.map((entry) => (
+                <option key={entry.id} value={entry.id}>
+                  {entry.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+      </div>
+      <FormulaBrowser dna={kit?.dna ?? EMPTY_DNA} limit={8} houseRules />
+    </section>
   );
 }
 
@@ -381,6 +452,8 @@ function BrandPage() {
             </div>
           )}
         </section>
+
+        <FormulaLibrary kits={kits} />
       </div>
       {draft && <BrandKitDialog draft={draft} onClose={() => setDraft(null)} />}
       <BrandImportDialog

@@ -38,4 +38,13 @@
 - [x] Agent conversations: edit and redo, stop from any page, approvals one by one or all at once, a model, effort, brand and spending allowance per conversation, pinned chats, and the Made here and Memory panels
 - [x] Apply migrations 0020_soul_ids, 0021_brand_design_systems and 0022_supercomputer_agent
 - [x] The ANTHROPIC_API_KEY backend secret that turns the agent on (already set for Katana)
-- [ ] Signed-in test of the agent against Claude and Higgsfield (its page has been run end to end against a simulated endpoint)
+- [x] Signed-in test of the agent against Claude and Higgsfield on the live app: five of five checks passed after the fixes it found (#36, #37)
+
+## Brand DNA and content formulas
+- [x] Aurixa Systems is the studio's default brand kit, saved from its website (logo, palette, typefaces, imagery, voice and rules)
+- [x] Brand DNA (docs/brand-dna-and-formulas.md): the kind of brand (SaaS, product, personal brand or creator, UGC-led, services, local, coaching and education), who it sells to, its archetype, positioning, content pillars, buying moments, proof, distinctive assets, who fronts it, channels and goal; read by the AI on import or suggested for a kit, reviewed by a person, and carried in the brand brief
+- [x] Content formulas: 40 proven structures with timed beats, rules, guardrails, why they work and an evidence grade, built on 96 sources (platform guidance, effectiveness research, regulators and the frameworks' originators), ranked for a brand's DNA, with the content mix after Binet & Field
+- [x] Formulas in the Director (brand and formula pickers), long-video beats, the Supercomputer agent and the studio API (list_brand_formulas, get_brand_formula)
+- [x] Apply migration 0023_brand_dna
+- [ ] Open the sources read via search and mark them read in full: needs their 44 hosts allowed in the environment's network access settings (listed in the doc)
+- [ ] Pinterest and Snapchat guidance, and Australia's TGA and Ahpra rules for health brands' testimonials and before-and-after content

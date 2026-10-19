@@ -8,6 +8,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { AppError } from "../higgsfield/errors";
 import { FONT_FAMILY_PATTERN, fontFamily, isBrandFontFile } from "../edit/font-family";
 import { designOf, isEmptyDesign, paletteOf } from "./design";
+import { dnaOf, isEmptyDna } from "./dna";
 import type { KitInput } from "./kit-input";
 
 /** The largest font file read. */
@@ -175,7 +176,17 @@ export async function writeBrandKit(userId: string, data: KitInput): Promise<{ i
           .insert({ ...values, created_by: userId } as never)
           .select("id")
           .maybeSingle();
-  let saved = await write({ ...row, ...design });
+  const dna = data.dna ? dnaOf(data.dna) : null;
+  let saved = await write({ ...row, ...design, ...(dna ? { dna } : {}) });
+  if (dna && isMissingColumn(saved.error) && /\bdna\b/i.test(saved.error?.message ?? "")) {
+    // Before migration 0023 a kit saves without its DNA, unless that would lose some.
+    if (!isEmptyDna(dna))
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        "Brand DNA needs a database update (migration 0023_brand_dna). Ask an admin to apply it.",
+      );
+    saved = await write({ ...row, ...design });
+  }
   if (isMissingColumn(saved.error) && Object.keys(design).length) {
     // Before migration 0021 a kit saves without its design system, unless that would lose some.
     if (
