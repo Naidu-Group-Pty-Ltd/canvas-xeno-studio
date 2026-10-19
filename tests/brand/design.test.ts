@@ -256,6 +256,15 @@ describe("what generations carry", () => {
     expect(brief).toContain("Proof it stands behind (use only these): Used by 40 firms");
     expect(brief).toContain("Content formulas it works with: Pain → product proof (saas-demo-ad)");
     expect(brief).toContain("Content mix over time: close to 50:50 brand-building");
+    // Who it serves and what it sells are who it is: before its look.
+    const served = brandBrief(
+      look({
+        dna: dnaOf({ ...dna, audiences: ["Buyers agents"], offers: [{ name: "Passport" }] }),
+      }),
+    ).split("\n");
+    const line = (start: string) => served.findIndex((entry) => entry.startsWith(start));
+    expect(line("Who it serves: Buyers agents")).toBeLessThan(line("Palette"));
+    expect(line("What it sells: Passport")).toBeLessThan(line("Palette"));
     // A line that doesn't fit is left out; the shorter ones after it still go in.
     const long = look({ dna });
     long.design = { ...long.design, summary: "Accounting software. ".repeat(60) };
@@ -265,6 +274,40 @@ describe("what generations carry", () => {
     expect(tight).toContain("Brand type: SaaS & software");
     // A kit without DNA reads as before.
     expect(brandBrief(look({ dna: EMPTY_DNA }))).toBe(brandBrief(look()));
+  });
+
+  test("a brief cut short keeps what it needs most, still in reading order", () => {
+    const brand = look({
+      dna: dnaOf({
+        type: "saas",
+        guardrails: ["Never say 'SOC 2 certified'"],
+        proof: ["Used by 40 firms"],
+        moments: ["When the month-end close slips"],
+      }),
+    });
+    const full = brandBrief(brand).split("\n");
+    const room = Math.floor(full.join("\n").length / 2);
+    const has = (lines: string[], start: string) => lines.some((line) => line.startsWith(start));
+    const half = brandBrief(brand, room).split("\n");
+    expect(half.join("\n").length).toBeLessThanOrEqual(room);
+    for (const start of [
+      "Its guardrails",
+      "Proof it stands behind",
+      "Call to action",
+      "Spell exactly",
+      "Write in Aurixa's voice",
+    ])
+      expect(has(half, start)).toBe(true);
+    // Every picture and clip carries the look anyway: it is the first to go.
+    expect(has(half, "Lighting")).toBe(false);
+    expect(half).toEqual(full.filter((line) => half.includes(line)));
+    // For pictures and clips, the look is kept first instead.
+    const pictures = brandBrief(brand, room, "look").split("\n");
+    expect(has(pictures, "Lighting")).toBe(true);
+    expect(has(pictures, "Never: Never show stock-photo handshakes")).toBe(true);
+    expect(has(pictures, "Proof it stands behind")).toBe(false);
+    // With room for all of it, both are the whole brief.
+    expect(brandBrief(brand, 100_000, "look")).toBe(full.join("\n"));
   });
 
   test("a palette in words", () => {

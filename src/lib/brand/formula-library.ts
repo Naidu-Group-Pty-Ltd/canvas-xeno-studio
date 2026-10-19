@@ -606,6 +606,99 @@ export const SOURCES: Record<string, FormulaSource> = {
     "US Federal Trade Commission",
     "https://www.ftc.gov/business-guidance/resources/ftcs-endorsement-guides-what-people-are-asking",
   ),
+
+  // Australian rules and research for brands in financial and property services
+  "accc-advertising-guide": search(
+    "Advertising and selling guide: advertising techniques",
+    "ACCC",
+    "https://www.accc.gov.au/publications/advertising-selling/advertising-and-selling-guide/advertising-selling-and-promotional-techniques/advertising-techniques",
+    null,
+    "The overall impression counts: a qualification can't contradict a prominent claim, a claim needs a reasonable basis, and puffery is a narrow exception.",
+  ),
+  "asic-rg-234": search(
+    "RG 234 Advertising financial products and services (including credit)",
+    "ASIC",
+    "https://www.asic.gov.au/regulatory-resources/find-a-document/regulatory-guides/rg-234-advertising-financial-products-and-services-including-credit",
+    2026,
+    "Good practice guidance for promoters of financial products, advice and credit, and publishers of their advertising; reissued in 2026.",
+  ),
+  "gov-ai-content": search(
+    "Being clear about AI-generated content",
+    "Department of Industry, Science and Resources (National AI Centre)",
+    "https://www.industry.gov.au/publications/being-clear-about-ai-generated-content",
+    null,
+    "Voluntary guidance: label, watermark or record in metadata how much of the content AI made or changed, more so as its impact rises; the Australian Consumer Law still applies.",
+  ),
+  "asic-rep-798": search(
+    "REP 798 Beware the gap: governance arrangements in the face of AI innovation",
+    "ASIC",
+    "https://www.asic.gov.au/regulatory-resources/find-a-document/reports/rep-798-beware-the-gap-governance-arrangements-in-the-face-of-ai-innovation",
+    2024,
+    "ASIC reviewed 624 AI use cases at 23 licensees and warned that any governance gap 'is likely to widen as AI adoption increases'.",
+  ),
+  "austrac-tranche-2": search(
+    "AUSTRAC opens enrolment for new professions in next step for AML reforms",
+    "AUSTRAC",
+    "https://www.austrac.gov.au/news-and-media/media-release/austrac-opens-enrolment-new-professions-next-step-aml-reforms",
+    2026,
+    "AML/CTF obligations for newly regulated professions, real estate among them, began on 1 July 2026.",
+  ),
+  "austrac-real-estate": search(
+    "Real estate designated services",
+    "AUSTRAC",
+    "https://www.austrac.gov.au/new-austrac/designated-services-newly-regulated-entities/real-estate-designated-services",
+    null,
+    "A buyer's agent's obligations start when an agreement to find or identify a property is signed; developers selling through their own staff are covered.",
+  ),
+  "austrac-expectations-2026": search(
+    "Update to AUSTRAC's regulatory expectations for implementation of the AML/CTF reforms",
+    "AUSTRAC",
+    "https://www.austrac.gov.au/update-austracs-regulatory-expectations-implementation-amlctf-reforms",
+    2026,
+    "'Effort, not perfection' in FY26/27: enrolled, a program and a compliance officer, trained staff, and an implementation plan in progress.",
+  ),
+  "austrac-reliance": search(
+    "Overview of reliance on customer identification by a third party",
+    "AUSTRAC",
+    "https://www.austrac.gov.au/industry-and-business/obligations-and-guidance/your-amlctf-program/customer-due-diligence/reliance-customer-identification-third-party/overview-reliance-customer-identification-third-party",
+    null,
+    "Reliance on another party's customer identification has conditions and needs written records; 'Reliance doesn't include a KYC or outsourced service provider'.",
+  ),
+  "oaic-adm-transparency": search(
+    "New resources on transparency for use of AI and automated decision-making",
+    "OAIC",
+    "https://www.oaic.gov.au/news/media-centre/new-resources-on-transparency-for-use-of-ai-and-automated-decision-making",
+    2026,
+    "From 10 December 2026 privacy policies must describe decisions made, or substantially supported, by computer programs that significantly affect individuals.",
+  ),
+  "edelman-linkedin-tl-2025": search(
+    "2025 B2B Thought Leadership Report",
+    "Edelman and LinkedIn",
+    "https://www.edelman.com/expertise/business-marketing/2025-b2b-thought-leadership-report",
+    2025,
+    "'Hidden buyers' (compliance, finance, legal) read thought leadership, and bold content that challenges their perspectives helps less familiar vendors.",
+  ),
+  "on24-fs-benchmarks-2025": search(
+    "2025 Financial Services Digital Benchmarks",
+    "ON24",
+    "https://www.on24.com/resources/asset/2025-financial-services-digital-benchmarks/",
+    2025,
+    "ON24's platform data on financial-services webinars: attendance and minutes engaged.",
+  ),
+  "investment-trends-advisers-2025": search(
+    "2025 Adviser Technology Needs Report",
+    "Investment Trends",
+    "https://investmenttrends.com/resource/2025-adviser-technology-needs-report/",
+    2025,
+    "Australian advisers want AI built into their advice software rather than another tool.",
+  ),
+  "property-council-ai-2026": search(
+    "Australian property moves on AI but most firms are yet to scale",
+    "Property Council of Australia",
+    "https://www.propertycouncil.com.au/property-australia/australian-property-moves-on-ai-but-most-firms-are-yet-to-scale",
+    2026,
+    "'AI ambition is running ahead of data maturity, systems integration and governance readiness.'",
+  ),
 };
 
 /* ------------------------------------------------------------------ */
@@ -665,7 +758,23 @@ export const GUARDRAILS: Record<string, Guardrail> = {
   },
   "substantiated-claims": {
     rule: "Every claim, number or 'best' is one the brand can prove; claims about health or money go to the brand's compliance review first",
-    sources: ["ftc-endorsement-faq", "meta-health-policy"],
+    sources: ["ftc-endorsement-faq", "meta-health-policy", "accc-advertising-guide"],
+  },
+  "illustrative-figures": {
+    rule: "Financial figures on screen (borrowing capacity, cash flow, returns, projections) are labelled as an illustrative example on hypothetical figures, with their key assumptions, for as long as they show: never a forecast, a recommendation or a promised outcome",
+    sources: ["asic-rg-234", "accc-advertising-guide"],
+  },
+  "no-compliance-promises": {
+    rule: "Never say or imply that a product makes a business compliant, takes over its obligations or is endorsed by a regulator: it helps the business run and record its own process, and the business stays responsible",
+    sources: ["austrac-expectations-2026", "austrac-reliance", "accc-advertising-guide"],
+  },
+  "label-ai": {
+    rule: "AI-generated presenters, and AI-generated scenes that could pass as real footage, are labelled as AI-generated in the piece or its caption",
+    sources: ["gov-ai-content", "accc-ai-snapshot"],
+  },
+  "pre-release": {
+    rule: "Features that aren't generally available are labelled as in development or early access, and waitlists and demos are described as they are: never as available now, or as guaranteed access",
+    sources: ["accc-advertising-guide"],
   },
 };
 
@@ -945,7 +1054,7 @@ export const FORMULAS: BrandFormula[] = [
     ],
     rules: ["The feature shown is the real, shipped feature"],
     avoid: ["Announcing what isn't available yet without saying so"],
-    guardrails: ["real-demo"],
+    guardrails: ["real-demo", "pre-release"],
     why: "No study measures launch videos; the structure applies the short-demo evidence (the product doing one job early, under 30 seconds on LinkedIn) and TikTok's hook, body and close",
     grade: "C",
     sources: ["linkedin-great-video-ads", "linkedin-video-ads", "tiktok-aunz-starter"],
@@ -1193,7 +1302,7 @@ export const FORMULAS: BrandFormula[] = [
       "No hard sell: the takeaway invites a reply or a follow",
     ],
     avoid: ["Engagement bait ('comment X to get Y')"],
-    guardrails: ["substantiated-claims", "no-synthetic-customers"],
+    guardrails: ["substantiated-claims", "no-synthetic-customers", "label-ai"],
     why: "73% of B2B decision-makers find an organisation's thought leadership a more trustworthy basis for judging it than its marketing materials, and 75% say a piece led them to research something they weren't considering (Edelman–LinkedIn 2024). LinkedIn's Thought Leader Ads (a person's own post, promoted) showed 1.7x higher click-through in a directional pilot. Most business buyers aren't in the market at any moment, so useful ideas build preference for later (Ehrenberg-Bass)",
     grade: "B",
     sources: [
@@ -2234,7 +2343,7 @@ export const FORMULAS: BrandFormula[] = [
       "On Shorts, end with a call to the related long video, which pays off the promise in its first 10 seconds",
     ],
     avoid: ["Advice the brand can't stand behind"],
-    guardrails: ["substantiated-claims", "no-synthetic-customers", "disclose-paid"],
+    guardrails: ["substantiated-claims", "no-synthetic-customers", "disclose-paid", "label-ai"],
     why: "Educational and how-to video is the most engaging type in Wistia's data; YouTube advises telling viewers what the video covers within the first five seconds; TikTok's Creator Academy lists tutorials as a content idea",
     grade: "B",
     sources: [
@@ -2304,7 +2413,7 @@ export const FORMULAS: BrandFormula[] = [
     ],
     rules: ["Plain language: explain the jargon"],
     avoid: ["Myths the brand can't disprove with evidence"],
-    guardrails: ["substantiated-claims", "no-synthetic-customers", "disclose-paid"],
+    guardrails: ["substantiated-claims", "no-synthetic-customers", "disclose-paid", "label-ai"],
     why: "Myth-busting, jargon explained and common mistakes to avoid are the content ideas in TikTok's 2026 professional services playbook for Australia and New Zealand, which finds trust comes from showing the human side of expertise; buyers value content that helps them understand their challenges (Edelman–LinkedIn)",
     grade: "B",
     sources: ["tiktok-aunz-proserve", "edelman-beyond-ready"],
@@ -2425,7 +2534,7 @@ export const FORMULAS: BrandFormula[] = [
     ],
     rules: ["A real question from a real person"],
     avoid: ["Made-up questions"],
-    guardrails: ["real-testimony", "no-synthetic-customers", "disclose-paid"],
+    guardrails: ["real-testimony", "no-synthetic-customers", "disclose-paid", "label-ai"],
     why: "Replying to comments can help reach on Instagram, and YouTube recommends interactive features to keep viewers watching. No study measures the format",
     grade: "C",
     sources: ["instagram-creators-faq", "youtube-interactive"],
@@ -3226,6 +3335,7 @@ export const FORMULAS: BrandFormula[] = [
       "typical-results",
       "no-synthetic-customers",
       "disclose-paid",
+      "label-ai",
     ],
     why: "About 40% of webinar registrants attend live, and 31–45 minute replays get more than twice the engagement of shorter ones (Wistia 2026)",
     grade: "B",

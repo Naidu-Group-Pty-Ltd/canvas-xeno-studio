@@ -4,10 +4,12 @@ import {
   ChevronDown,
   ExternalLink,
   FlaskConical,
+  PenLine,
   Pin,
   PinOff,
   Scale,
   ShieldCheck,
+  Trash2,
 } from "lucide-react";
 import {
   CHANNEL_LABELS,
@@ -21,6 +23,8 @@ import {
 import {
   CHANNEL_GUIDES,
   contentMix,
+  formulaById,
+  formulasFor,
   GRADE_INFO,
   GUARDRAILS,
   rankFormulas,
@@ -101,6 +105,26 @@ function SourceItem({ source }: { source: FormulaSource }) {
   );
 }
 
+/** That a formula was written for the brand, and what from. */
+export function OwnBadge({ formula }: { formula: BrandFormula }) {
+  if (!formula.own) return null;
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary"
+      title={
+        formula.own.basedOn.length
+          ? `Written for the brand, after ${formula.own.basedOn
+              .map((id) => formulaById(id)?.name ?? id)
+              .join(" and ")}`
+          : "Written for the brand"
+      }
+    >
+      <PenLine className="size-3" />
+      {formula.own.audience ? `For ${formula.own.audience}` : "Written for the brand"}
+    </span>
+  );
+}
+
 function FormulaCard({
   entry,
   seconds,
@@ -108,6 +132,8 @@ function FormulaCard({
   pinned,
   onPin,
   ranked,
+  onEdit,
+  onRemove,
 }: {
   entry: RankedFormula;
   seconds: number | null;
@@ -116,6 +142,9 @@ function FormulaCard({
   onPin?: (() => void) | undefined;
   /** Ranked for a kind of brand (else its fit says nothing). */
   ranked: boolean;
+  /** For a formula written for the brand: change it, or take it away. */
+  onEdit?: (() => void) | undefined;
+  onRemove?: (() => void) | undefined;
 }) {
   const [open, setOpen] = useState(false);
   const { formula } = entry;
@@ -123,6 +152,10 @@ function FormulaCard({
     seconds && seconds >= formula.seconds.min && seconds <= formula.seconds.max
       ? seconds
       : formula.seconds.ideal;
+  // Its badge already says it was written for the brand.
+  const reasons = formula.own
+    ? entry.reasons.filter((reason) => !reason.startsWith("Written for the brand"))
+    : entry.reasons;
   return (
     <li
       className={cn(
@@ -144,15 +177,17 @@ function FormulaCard({
               {PURPOSE_LABELS[formula.purpose]}
             </span>
             <GradeBadge grade={formula.grade} />
+            <OwnBadge formula={formula} />
           </div>
           <p className="text-xs text-muted-foreground">{formula.summary}</p>
           <p className="text-[11px] text-muted-foreground">
             {formula.seconds.min}–{formula.seconds.max} s ·{" "}
             {formula.channels.map((entry) => CHANNEL_LABELS[entry]).join(", ")} · {formula.origin}
+            {formula.own?.cadence ? ` · ${formula.own.cadence}` : ""}
           </p>
-          {(entry.reasons.length > 0 || entry.cautions.length > 0) && (
+          {(reasons.length > 0 || entry.cautions.length > 0) && (
             <div className="flex flex-wrap gap-1 pt-0.5">
-              {entry.reasons.map((reason) => (
+              {reasons.map((reason) => (
                 <span key={reason} className="rounded bg-muted px-1.5 py-0.5 text-[10px]">
                   {reason}
                 </span>
@@ -168,6 +203,33 @@ function FormulaCard({
             </div>
           )}
         </div>
+        {(onEdit || onRemove) && (
+          <div className="flex shrink-0 gap-1">
+            {onEdit && (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs"
+                onClick={onEdit}
+              >
+                <PenLine className="mr-1 size-3.5" /> Edit
+              </Button>
+            )}
+            {onRemove && (
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="size-7"
+                aria-label={`Remove ${formula.name}`}
+                onClick={onRemove}
+              >
+                <Trash2 className="size-3.5" />
+              </Button>
+            )}
+          </div>
+        )}
         {onPin && (
           <Button
             type="button"
@@ -290,12 +352,20 @@ function FormulaCard({
  */
 export function FormulaBrowser({
   dna,
+  own = [],
   onFormulas,
+  onEditOwn,
+  onRemoveOwn,
   limit = 6,
   houseRules = false,
 }: {
   dna: BrandDna;
+  /** The formulas written for the brand: they come first. */
+  own?: BrandFormula[] | undefined;
   onFormulas?: ((ids: string[]) => void) | undefined;
+  /** Change or take away a formula written for the brand. */
+  onEditOwn?: ((formula: BrandFormula) => void) | undefined;
+  onRemoveOwn?: ((formula: BrandFormula) => void) | undefined;
   /** How many show before "Show all". */
   limit?: number;
   /** Also list the rules every formula keeps. */
@@ -305,11 +375,15 @@ export function FormulaBrowser({
   const [channel, setChannel] = useState<Channel | typeof ANY>(ANY);
   const [seconds, setSeconds] = useState<number | null>(null);
   const [all, setAll] = useState(false);
-  const ranked = rankFormulas(dna, {
-    goal: goal === ANY ? null : goal,
-    channel: channel === ANY ? null : channel,
-    seconds,
-  });
+  const ranked = rankFormulas(
+    dna,
+    {
+      goal: goal === ANY ? null : goal,
+      channel: channel === ANY ? null : channel,
+      seconds,
+    },
+    formulasFor(own),
+  );
   const shown = all ? ranked : ranked.slice(0, limit);
   const pin = (id: string) => {
     if (!onFormulas) return;
@@ -421,6 +495,10 @@ export function FormulaBrowser({
             pinned={dna.formulas.includes(entry.formula.id)}
             onPin={onFormulas ? () => pin(entry.formula.id) : undefined}
             ranked={!!dna.type}
+            onEdit={entry.formula.own && onEditOwn ? () => onEditOwn(entry.formula) : undefined}
+            onRemove={
+              entry.formula.own && onRemoveOwn ? () => onRemoveOwn(entry.formula) : undefined
+            }
           />
         ))}
       </ul>

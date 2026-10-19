@@ -157,11 +157,11 @@ function BrandCard({
                 {kit.dna.archetype ? ` · ${ARCHETYPE_INFO[kit.dna.archetype].label}` : ""}
               </span>
             </p>
-            {formulasForBrand(kit.dna).length > 0 && (
+            {formulasForBrand(kit.dna, 3, kit.ownFormulas).length > 0 && (
               <p className="flex items-start gap-1 text-muted-foreground">
                 <BookOpen className="mt-0.5 size-3 shrink-0" />
                 <span className="line-clamp-2">
-                  {formulasForBrand(kit.dna)
+                  {formulasForBrand(kit.dna, 3, kit.ownFormulas)
                     .map((formula) => formula.name)
                     .join(" · ")}
                 </span>
@@ -324,7 +324,12 @@ function FormulaLibrary({ kits }: { kits: BrandKit[] }) {
           </label>
         )}
       </div>
-      <FormulaBrowser dna={kit?.dna ?? EMPTY_DNA} limit={8} houseRules />
+      <FormulaBrowser
+        dna={kit?.dna ?? EMPTY_DNA}
+        own={kit?.ownFormulas ?? []}
+        limit={Math.max(8, (kit?.ownFormulas.length ?? 0) + 4)}
+        houseRules
+      />
     </section>
   );
 }

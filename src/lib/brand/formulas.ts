@@ -91,6 +91,21 @@ export interface BrandFormula {
   grade: "A" | "B" | "C";
   /** Keys of the sources it rests on (see SOURCES). */
   sources: string[];
+  /**
+   * Written for one brand and kept on its kit (see ./own-formulas): the
+   * library formulas it was written from, the audience it is for and how
+   * often it runs. Library formulas have none.
+   */
+  own?: OwnFormulaNote | undefined;
+}
+
+export interface OwnFormulaNote {
+  /** Ids of the library formulas it was written from. */
+  basedOn: string[];
+  /** The audience it is for (one of the DNA's), if one. */
+  audience: string | null;
+  /** How often it runs, as a suggestion ("Weekly on LinkedIn"). */
+  cadence: string | null;
 }
 
 /** A rule every formula keeps, with what it rests on. */
@@ -117,8 +132,18 @@ export { CHANNEL_GUIDES, FORMULAS, GUARDRAILS, SOURCES, UNIVERSAL_RULES };
 
 const byId = new Map(FORMULAS.map((formula) => [formula.id, formula]));
 
-export function formulaById(id: string | null | undefined): BrandFormula | null {
-  return id ? (byId.get(id) ?? null) : null;
+/** A formula by id: a brand's own first (`own`), then the library's. */
+export function formulaById(
+  id: string | null | undefined,
+  own: readonly BrandFormula[] = [],
+): BrandFormula | null {
+  if (!id) return null;
+  return own.find((formula) => formula.id === id) ?? byId.get(id) ?? null;
+}
+
+/** Everything a brand can make with: its own formulas first, then the library. */
+export function formulasFor(own: readonly BrandFormula[] = []): BrandFormula[] {
+  return own.length ? [...own, ...FORMULAS] : FORMULAS;
 }
 
 /** The sources behind a formula, its platform's guide and its guardrails, each once. */
@@ -242,14 +267,30 @@ export function rankFormulas(
     // Between formulas that fit as well, the one with stronger evidence first.
     score += GRADE_WEIGHT[formula.grade];
 
+    if (formula.own)
+      reasons.unshift(
+        formula.own.audience
+          ? `Written for the brand, for ${formula.own.audience}`
+          : "Written for the brand",
+      );
     const pinned = dna.formulas.indexOf(formula.id);
     if (pinned >= 0) reasons.unshift("One of the brand's formulas");
     return { formula, score, reasons, cautions, pinned, offAsk };
   });
   const top = Math.max(0, ...ranked.map((entry) => entry.score));
-  // The brand's own formulas first, in its order, unless the piece's channel or length rules one out.
+  // The formulas the brand pinned first, in its order, then those written for
+  // it, unless the piece's channel or length rules one out.
+  const written = new Map(
+    library.filter((formula) => formula.own).map((formula, index) => [formula.id, index]),
+  );
   const place = (entry: (typeof ranked)[number]) =>
-    entry.pinned >= 0 && !entry.offAsk ? entry.pinned : Number.MAX_SAFE_INTEGER;
+    entry.offAsk
+      ? Number.MAX_SAFE_INTEGER
+      : entry.pinned >= 0
+        ? entry.pinned
+        : written.has(entry.formula.id)
+          ? 1000 + written.get(entry.formula.id)!
+          : Number.MAX_SAFE_INTEGER;
   ranked.sort(
     (a, b) =>
       place(a) - place(b) || b.score - a.score || a.formula.name.localeCompare(b.formula.name),
@@ -260,10 +301,21 @@ export function rankFormulas(
   }));
 }
 
-/** The formulas a brand works with: its own, else the best for its DNA. */
-export function formulasForBrand(dna: BrandDna, max = 3): BrandFormula[] {
-  const own = dna.formulas.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []));
-  if (own.length) return own.slice(0, max);
+/**
+ * The formulas a brand works with: those it pinned, then those written for
+ * it (`own`), else the best of the library for its DNA.
+ */
+export function formulasForBrand(
+  dna: BrandDna,
+  max = 3,
+  own: readonly BrandFormula[] = [],
+): BrandFormula[] {
+  const pinned = dna.formulas.flatMap((id) => {
+    const formula = formulaById(id, own);
+    return formula ? [formula] : [];
+  });
+  const chosen = [...pinned, ...own.filter((formula) => !pinned.includes(formula))];
+  if (chosen.length) return chosen.slice(0, max);
   if (!dna.type) return [];
   return rankFormulas(dna)
     .filter((entry) => entry.fit !== "possible")
@@ -366,6 +418,10 @@ export function contentMix(market: Market | null): {
 
 const sentence = (text: string) => text.replace(/[\s.]+$/, "");
 
+/** Text ended as a sentence: a full stop unless it already ends in one (or a quoted one). */
+const ended = (text: string) =>
+  /[.!?…]['"’”)]?$/.test(text.trim()) ? text.trim() : `${sentence(text)}.`;
+
 /**
  * A formula written out for the AI that plans, scripts and prompts: its
  * beats timed to the length, what the channel asks, its rules, its
@@ -378,13 +434,22 @@ export function formulaBlock(
   const seconds = options.seconds ?? formula.seconds.ideal;
   const channel = options.channel ?? null;
   const guide = channel ? CHANNEL_GUIDES[channel] : null;
+  const basis = (formula.own?.basedOn ?? []).flatMap((id) => {
+    const base = byId.get(id);
+    return base ? [base.name] : [];
+  });
   const lines = [
     `FORMULA: ${formula.name} (${formula.id}): ${sentence(formula.summary)}.`,
+    ...(formula.own
+      ? [
+          `Written for this brand${formula.own.audience ? `, for ${formula.own.audience}` : ""}${basis.length ? `, after the proven ${basis.join(" and ")} formula${basis.length > 1 ? "s" : ""}` : ""}${formula.own.cadence ? `. How often: ${sentence(formula.own.cadence)}` : ""}.`,
+        ]
+      : []),
     `Length: ${seconds} s (it works from ${formula.seconds.min} to ${formula.seconds.max} s). Shape: ${guide?.shape ?? formula.shapes[0] ?? "9:16"}.${channel ? ` For ${CHANNEL_LABELS[channel]}.` : ""}`,
     "Beats, in order (keep their jobs and timing; adapt the words to the brand and brief):",
     ...timedBeats(formula, seconds).map(
       (beat, index) =>
-        `${index + 1}. ${beat.label} (${beat.from}–${beat.to} s): ${sentence(beat.job)}. Show: ${sentence(beat.show)}. Say: ${sentence(beat.say)}.`,
+        `${index + 1}. ${beat.label} (${beat.from}–${beat.to} s): ${ended(beat.job)} Show: ${ended(beat.show)} Say: ${ended(beat.say)}`,
     ),
     ...(formula.rules.length ? [`Rules: ${formula.rules.map(sentence).join("; ")}.`] : []),
     ...(channel && guide?.rules.length

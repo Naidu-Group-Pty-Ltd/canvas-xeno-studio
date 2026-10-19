@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, mock, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { FakeDb } from "../long-video/fake-db";
 import { isTokenShaped, newApiToken, tokenPrefixOf } from "../../src/lib/studio-api/tokens";
 
@@ -222,6 +223,101 @@ describe("the MCP server", () => {
     const denied = await call("create_edit", { title: "x", timeline: {} });
     expect(denied.isError).toBe(true);
     expect(denied.content[0]!.text).toContain("NOT_AUTHORIZED");
+  });
+});
+
+describe("brands and their formulas over MCP", () => {
+  const seed = JSON.parse(
+    readFileSync(`${import.meta.dir}/../../docs/brands/aurixa-systems.json`, "utf8"),
+  ) as { dna: unknown; formulas: unknown[] };
+  const branded = db.add("brand_kits", {
+    name: "Aurixa with formulas",
+    is_archived: false,
+    is_default: false,
+    fonts: [],
+    terms: [],
+    dna: seed.dna,
+    formulas: seed.formulas,
+  });
+  const archived = db.add("brand_kits", {
+    name: "Archived brand",
+    is_archived: true,
+    is_default: false,
+    fonts: [],
+    terms: [],
+    dna: seed.dna,
+    formulas: seed.formulas,
+  });
+
+  async function call(name: string, args: unknown) {
+    const reader = await tokenFor(member["id"], ["read"]);
+    const answer = (await (
+      await mcp.handleMcpRequest(
+        post("/api/public/studio-mcp", reader, {
+          jsonrpc: "2.0",
+          id: 10,
+          method: "tools/call",
+          params: { name, arguments: args },
+        }),
+      )
+    ).json()) as {
+      result: { isError: boolean; structuredContent?: unknown; content: { text: string }[] };
+    };
+    return answer.result;
+  }
+
+  test("a list of kits names each one's formulas; the kit itself has them whole", async () => {
+    const listed = await call("list_brand_kits", {});
+    expect(listed.isError).toBe(false);
+    const kits = (listed.structuredContent as { result: Record<string, unknown>[] }).result;
+    const aurixa = kits.find((entry) => entry["id"] === branded["id"])!;
+    expect(aurixa["dna"]).toEqual({
+      type: "saas",
+      alsoTypes: ["service"],
+      market: "b2b",
+      archetype: "ruler",
+      category:
+        "a governed AI operating system for Australian property, finance and advisory firms",
+    });
+    const formulas = aurixa["ownFormulas"] as {
+      id: string;
+      name: string;
+      audience: string | null;
+    }[];
+    expect(formulas).toHaveLength(12);
+    expect(formulas[3]).toEqual({
+      id: "aurixa-passport-journey",
+      name: "One Client. One Clear Journey.",
+      audience: "Buyers agents",
+    });
+    // Small enough for the agent to read every kit (it reads 30,000 characters of an answer).
+    expect(JSON.stringify(listed.structuredContent).length).toBeLessThan(12_000);
+    expect(kits.some((entry) => entry["id"] === archived["id"])).toBe(false);
+  });
+
+  test("a brand's own formula needs its kit; a library one reads even if the kit is gone", async () => {
+    const own = await call("get_brand_formula", {
+      formulaId: "aurixa-under-the-hood",
+      brandKitId: branded["id"],
+    });
+    expect(own.isError).toBe(false);
+    expect(own.structuredContent).toMatchObject({
+      id: "aurixa-under-the-hood",
+      writtenForBrand: true,
+      basedOn: ["saas-demo-ad"],
+    });
+    const library = await call("get_brand_formula", {
+      formulaId: "pas",
+      brandKitId: archived["id"],
+    });
+    expect(library.isError).toBe(false);
+    expect(library.structuredContent).toMatchObject({ id: "pas" });
+    const gone = await call("get_brand_formula", {
+      formulaId: "aurixa-under-the-hood",
+      brandKitId: archived["id"],
+    });
+    expect(gone.isError).toBe(true);
+    expect(gone.content[0]!.text).toContain("no longer exists");
   });
 });
 

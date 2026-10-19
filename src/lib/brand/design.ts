@@ -12,7 +12,7 @@
  */
 import { contrastRatio, isNeutral, relativeLuminance } from "./colour";
 import { dnaLines, type BrandDna } from "./dna";
-import { contentMix, formulasForBrand } from "./formulas";
+import { contentMix, formulasForBrand, type BrandFormula } from "./formulas";
 import { clip, wordsOf } from "./text";
 
 export { clip, wordsOf };
@@ -353,6 +353,8 @@ export interface BrandLook {
   terms: string[];
   /** What kind of brand it is (see ./dna); a look without one is read as it was. */
   dna?: BrandDna | undefined;
+  /** The formulas written for it (see ./own-formulas). */
+  ownFormulas?: BrandFormula[] | undefined;
 }
 
 const sentence = (text: string) => text.replace(/[\s.]+$/, "");
@@ -409,27 +411,111 @@ export function brandVoiceLine(brand: BrandLook): string {
     voice.avoid.length ? `It never says: ${voice.avoid.slice(0, 6).join(", ")}` : null,
   ].filter((part): part is string => !!part);
   return parts.length
-    ? (clip(`Write in ${brand.name}'s voice. ${parts.join(". ")}.`, 500) ?? "")
+    ? (clip(`Write in ${brand.name}'s voice. ${parts.join(". ")}.`, 800) ?? "")
     : "";
 }
 
+/** What a brief is for: planning and writing for the brand, or its pictures and clips. */
+export type BriefFocus = "plan" | "look";
+
 /**
- * The brand, briefly, for the AI that plans and writes for it: what it is
- * and what kind of brand (its DNA), its look, its voice, what its content is
- * about and made with, and its rules. Up to `max` characters: a line that
- * doesn't fit is left out, the ones after it still go in.
+ * The lines a brief cut short keeps first, by how they start, most needed
+ * first. For planning and writing: what keeps a piece true to the brand (who
+ * it is, its guardrails, its proof, its call to action and its words), then
+ * how it speaks and to whom, then what it talks about; the look in detail
+ * last, as every picture and clip carries the brand's style line anyway. For
+ * pictures and clips: the look first, with what must not be shown or said.
  */
-export function brandBrief(brand: BrandLook, max = 3000): string {
+const BRIEF_KEEPS: Record<BriefFocus, string[][]> = {
+  plan: [
+    [
+      "Brand:",
+      "What it is",
+      "Brand type",
+      "Positioning",
+      "Its guardrails",
+      "Proof it stands behind",
+      "Call to action",
+      "Spell exactly",
+    ],
+    [
+      "Write in ",
+      "Never:",
+      "Archetype",
+      "The job",
+      "Audience",
+      "Who it serves",
+      "Buying moments",
+      "Content formulas",
+    ],
+    [
+      "What holds them back",
+      "Sounds like",
+      "Look:",
+      "Palette",
+      "Website",
+      "What it sells",
+      "Content pillars",
+      "Distinctive assets",
+      "Always:",
+    ],
+    [
+      "What buyers use instead",
+      "Personality",
+      "Fronted by",
+      "Publishes on",
+      "Most content is for",
+      "Content mix",
+    ],
+  ],
+  look: [
+    ["Brand:", "What it is", "Look:", "Palette", "Never:", "Its guardrails", "Spell exactly"],
+    [
+      "Mood",
+      "Photography",
+      "Lighting",
+      "Grading",
+      "Composition",
+      "Motion",
+      "Type:",
+      "Distinctive assets",
+      "Always:",
+    ],
+    ["Personality", "Brand type", "Archetype", "Fronted by"],
+  ],
+};
+
+/** How soon a brief keeps a line (0 first). */
+function keptAt(line: string, focus: BriefFocus): number {
+  const groups = BRIEF_KEEPS[focus];
+  const at = groups.findIndex((group) => group.some((start) => line.startsWith(start)));
+  return at < 0 ? groups.length : at;
+}
+
+/**
+ * The brand, briefly, for the AI that plans and writes for it (or, with the
+ * "look" focus, makes its pictures and clips): what it is and what kind of
+ * brand (its DNA), its look, its voice, what its content is about and made
+ * with, and its rules. Up to `max` characters: when it all doesn't fit, the
+ * lines it needs most are kept (see BRIEF_KEEPS), still in reading order.
+ */
+export function brandBrief(brand: BrandLook, max = 12000, focus: BriefFocus = "plan"): string {
   const { design } = brand;
   const dna = brand.dna
     ? dnaLines(
         brand.dna,
         { name: brand.name, audience: design.audience },
-        formulasForBrand(brand.dna).map((formula) => `${formula.name} (${formula.id})`),
+        formulasForBrand(brand.dna, 3, brand.ownFormulas ?? []).map(
+          (formula) => `${formula.name} (${formula.id})`,
+        ),
       )
     : [];
   // Who it is goes first; what its content is about and made with, after its voice.
-  const identity = dna.filter((line) => /^(Brand type|Archetype|Positioning|The job)/.test(line));
+  const identity = dna.filter((line) =>
+    /^(Brand type|Archetype|Positioning|The job|Who it serves|What it sells|Its guardrails)/.test(
+      line,
+    ),
+  );
   const mix = brand.dna ? contentMix(brand.dna.market) : null;
   const content = [
     ...dna.filter((line) => !identity.includes(line)),
@@ -438,7 +524,8 @@ export function brandBrief(brand: BrandLook, max = 3000): string {
   const lines = [
     `Brand: ${brand.name}${brand.tagline ? ` ("${brand.tagline}")` : ""}`,
     design.summary ? `What it is: ${design.summary}` : null,
-    design.audience ? `Audience: ${design.audience}` : null,
+    // Its DNA's audiences say who it serves more exactly.
+    design.audience && !brand.dna?.audiences.length ? `Audience: ${design.audience}` : null,
     ...identity,
     design.personality.length ? `Personality: ${design.personality.join(", ")}` : null,
     brand.palette.length
@@ -465,18 +552,24 @@ export function brandBrief(brand: BrandLook, max = 3000): string {
           .join(" ")}`
       : null,
     ...content,
-    design.dos.length ? `Always: ${design.dos.slice(0, 5).join("; ")}` : null,
-    design.donts.length ? `Never: ${design.donts.slice(0, 5).join("; ")}` : null,
+    design.dos.length ? `Always: ${design.dos.slice(0, 5).map(sentence).join("; ")}` : null,
+    design.donts.length ? `Never: ${design.donts.slice(0, 5).map(sentence).join("; ")}` : null,
     brand.callToAction ? `Call to action: ${brand.callToAction}` : null,
     brand.website ? `Website: ${brand.website}` : null,
     brand.terms.length ? `Spell exactly: ${brand.terms.slice(0, 12).join(", ")}` : null,
   ].filter((line): line is string => !!line);
-  let out = "";
-  for (const line of lines) {
-    if (out.length + line.length + 1 > max) continue;
-    out += `${out ? "\n" : ""}${line}`;
+  const kept = new Set<number>();
+  let size = 0;
+  const order = lines
+    .map((line, at) => ({ line, at, keep: keptAt(line, focus) }))
+    .sort((a, b) => a.keep - b.keep || a.at - b.at);
+  for (const { line, at } of order) {
+    const more = line.length + (kept.size ? 1 : 0);
+    if (size + more > max) continue;
+    kept.add(at);
+    size += more;
   }
-  return out;
+  return lines.filter((_, at) => kept.has(at)).join("\n");
 }
 
 /** A prompt with the brand's look added (once: a prompt that already carries it is kept). */
@@ -517,7 +610,7 @@ export function brandSnapshot(
     videoStyleLine: brandStyleLine(kit, "video"),
     avoidLine: brandAvoidLine(kit),
     voiceLine: brandVoiceLine(kit),
-    brief: brandBrief(kit, 2600),
+    brief: brandBrief(kit, 4500),
     terms: kit.terms.slice(0, 50),
     referenceAssetIds: kit.referenceAssetIds.slice(0, 12),
   };
@@ -531,14 +624,14 @@ export function storedBrandSnapshot(value: unknown): BrandSnapshot | null {
   if (!kitId || !name) return null;
   const text = (key: string, max: number) => clip(item[key], max) ?? "";
   // The brief is read line by line, as it was written.
-  const brief = typeof item["brief"] === "string" ? item["brief"].trim().slice(0, 3200) : "";
+  const brief = typeof item["brief"] === "string" ? item["brief"].trim().slice(0, 5500) : "";
   return {
     kitId,
     name,
     styleLine: text("styleLine", 600),
     videoStyleLine: text("videoStyleLine", 600),
     avoidLine: text("avoidLine", 400),
-    voiceLine: text("voiceLine", 600),
+    voiceLine: text("voiceLine", 800),
     brief,
     terms: wordsOf(item["terms"], 50, 80),
     referenceAssetIds: wordsOf(item["referenceAssetIds"], 12, 64),

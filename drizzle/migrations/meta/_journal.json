@@ -169,6 +169,13 @@
       "when": 1791310765140,
       "tag": "0023_brand_dna",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791310825140,
+      "tag": "0024_brand_formulas",
+      "breakpoints": true
     }
   ]
 }

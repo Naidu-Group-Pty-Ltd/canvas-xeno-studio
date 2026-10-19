@@ -2184,6 +2184,7 @@ export type Database = {
           created_by: string | null
           design: Json
           dna: Json
+          formulas: Json
           end_card_asset_id: string | null
           fonts: Json
           heading_font: string
@@ -2213,6 +2214,7 @@ export type Database = {
           created_by?: string | null
           design?: Json
           dna?: Json
+          formulas?: Json
           end_card_asset_id?: string | null
           fonts?: Json
           heading_font?: string
@@ -2242,6 +2244,7 @@ export type Database = {
           created_by?: string | null
           design?: Json
           dna?: Json
+          formulas?: Json
           end_card_asset_id?: string | null
           fonts?: Json
           heading_font?: string

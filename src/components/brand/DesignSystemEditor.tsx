@@ -1,4 +1,12 @@
-import { useEffect, useState, type ReactNode } from "react";
+import {
+  cloneElement,
+  Fragment,
+  isValidElement,
+  useEffect,
+  useId,
+  useState,
+  type ReactNode,
+} from "react";
 import { Plus, Sparkles, X } from "lucide-react";
 import {
   brandAvoidLine,
@@ -81,10 +89,16 @@ export function Field({
   children: ReactNode;
   className?: string | undefined;
 }) {
+  const id = useId();
+  // One control (an input or a text box) is named by the label; a select names its own trigger.
+  const single =
+    isValidElement<{ id?: string }>(children) && children.type !== Fragment && !children.props.id;
   return (
     <div className={cn("space-y-1", className)}>
-      <Label className="text-xs">{label}</Label>
-      {children}
+      <Label htmlFor={single ? id : undefined} className="text-xs">
+        {label}
+      </Label>
+      {single ? cloneElement(children, { id }) : children}
       {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
     </div>
   );

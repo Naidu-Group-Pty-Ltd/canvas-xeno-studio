@@ -105,8 +105,10 @@ describe("the formula library", () => {
             formula.guardrails.includes("real-stories"),
         ).toBe(true);
       }
-      if (formula.faces.includes("presenter"))
+      if (formula.faces.includes("presenter")) {
         expect(formula.guardrails).toContain("no-synthetic-customers");
+        expect(formula.guardrails).toContain("label-ai");
+      }
       if (formula.faces.includes("creators")) expect(formula.guardrails).toContain("disclose-paid");
     }
     expect(GUARDRAILS["real-testimony"]!.sources.length).toBeGreaterThan(0);

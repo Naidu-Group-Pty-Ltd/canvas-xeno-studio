@@ -129,7 +129,7 @@ export function LongVideoSetup({
           characterIds: plan.characters.map((character) => character.id),
           keyframes: plan.keyframed,
           brandKitId,
-          formulaId: formulaById(draft.formulaId)?.id ?? null,
+          formulaId: formulaById(draft.formulaId, brandKit?.ownFormulas ?? [])?.id ?? null,
         },
       });
       // Merged into the setup as it is now, not as it was when asked: the
@@ -192,7 +192,7 @@ export function LongVideoSetup({
       0,
     );
   const names = new Map(plan.characters.map((character) => [character.id, character.name]));
-  const formula = formulaById(draft.formulaId);
+  const formula = formulaById(draft.formulaId, brandKit?.ownFormulas ?? []);
   // The video's length as made: the voiceover's, else its clips'.
   const madeSeconds = Math.round(voiced?.durationSeconds ?? plan.totalSeconds);
 
@@ -516,6 +516,7 @@ export function LongVideoSetup({
               <span className="ml-auto">
                 <FormulaPicker
                   dna={brandKit?.dna ?? EMPTY_DNA}
+                  own={brandKit?.ownFormulas ?? []}
                   brandName={brandKit?.name ?? null}
                   value={draft.formulaId ?? null}
                   onChange={(formulaId) => set({ formulaId })}

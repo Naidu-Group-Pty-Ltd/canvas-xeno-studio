@@ -23,7 +23,7 @@ import { draftOf, EMPTY, type Draft } from "@/components/brand/kit-draft";
 import { BrandImportDialog } from "@/components/brand/BrandImportDialog";
 import { DesignSystemEditor } from "@/components/brand/DesignSystemEditor";
 import { DnaEditor } from "@/components/brand/DnaEditor";
-import { FormulaBrowser } from "@/components/brand/FormulaBrowser";
+import { OwnFormulas } from "@/components/brand/OwnFormulas";
 import { isEmptyDna, mergeSuggestion, typeWords } from "@/lib/brand/dna";
 import { suggestDna } from "@/lib/brand/dna-client";
 import { OVERLAY_BACKING_LABELS, OVERLAY_BACKINGS, type OverlayBacking } from "@/lib/edit/timeline";
@@ -263,6 +263,7 @@ export function BrandKitDialog({ draft: initial, onClose }: { draft: Draft; onCl
           design: draft.design as unknown as Record<string, unknown>,
           referenceAssetIds: draft.referenceAssetIds,
           dna: draft.dna as unknown as Record<string, unknown>,
+          formulas: draft.ownFormulas as unknown as Record<string, unknown>[],
         },
       });
       await queryClient.invalidateQueries({ queryKey: ["brand_kits"] });
@@ -651,20 +652,39 @@ export function BrandKitDialog({ draft: initial, onClose }: { draft: Draft; onCl
                 <span className="flex items-center gap-2">
                   Content formulas
                   <span className="text-xs font-normal text-muted-foreground">
-                    {draft.dna.formulas.length
-                      ? `${draft.dna.formulas.length} pinned`
-                      : "ranked for its DNA"}
+                    {[
+                      draft.ownFormulas.length
+                        ? `${draft.ownFormulas.length} written for it`
+                        : null,
+                      draft.dna.formulas.length ? `${draft.dna.formulas.length} pinned` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "ranked for its DNA"}
                   </span>
                 </span>
               </AccordionTrigger>
               <AccordionContent className="space-y-2">
                 <p className="text-[11px] text-muted-foreground">
                   Proven structures for its content, each with timed beats, rules and the research
-                  it rests on. Pinned ones come first wherever this brand's content is planned.
+                  it rests on. Pinned ones, then those written for it, come first wherever this
+                  brand's content is planned.
                 </p>
-                <FormulaBrowser
-                  dna={draft.dna}
-                  onFormulas={(formulas) => set({ dna: { ...draft.dna, formulas } })}
+                <OwnFormulas
+                  brand={{
+                    name: draft.name,
+                    website: draft.website.trim() || null,
+                    tagline: draft.tagline.trim() || null,
+                    callToAction: draft.callToAction.trim() || null,
+                    terms: draft.terms
+                      .split(/\n|,/)
+                      .map((term) => term.trim())
+                      .filter(Boolean),
+                    design: draft.design as unknown as Record<string, unknown>,
+                    dna: draft.dna,
+                  }}
+                  own={draft.ownFormulas}
+                  onOwn={(ownFormulas) => set({ ownFormulas })}
+                  onPins={(formulas) => set({ dna: { ...draft.dna, formulas } })}
                 />
               </AccordionContent>
             </AccordionItem>

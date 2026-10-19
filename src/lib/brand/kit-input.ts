@@ -59,6 +59,8 @@ export const kitInput = z.object({
   design: z.record(z.string(), z.unknown()).optional(),
   // Its DNA (see ./dna): left as it is when not sent, like the design system.
   dna: z.record(z.string(), z.unknown()).optional(),
+  // The formulas written for it (see ./own-formulas): left as they are when not sent.
+  formulas: z.array(z.record(z.string(), z.unknown())).max(16).optional(),
   referenceAssetIds: z.array(z.string().uuid()).max(12).optional(),
   source: z
     .object({

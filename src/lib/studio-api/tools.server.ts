@@ -399,7 +399,7 @@ const listBrandKits = tool({
   name: "list_brand_kits",
   title: "List brand kits",
   description:
-    "The team's brand kits: each brand's fonts, colours, logo, end card, tagline, call to action, the names captions spell right, and its design system (palette with roles, the look of its imagery, voice and rules). Pass a kit's id as brandKitId to queue_generation to make a picture or clip in its look.",
+    "The team's brand kits: each brand's fonts, colours, logo, end card, tagline, call to action, the names captions spell right, its design system (palette with roles, the look of its imagery, voice and rules), what kind of brand it is, and the formulas written for it by name (get_brand_kit has its whole DNA). Pass a kit's id as brandKitId to queue_generation to make a picture or clip in its look.",
   scope: "read",
   input: z.object({}),
   run: async () => {
@@ -407,12 +407,26 @@ const listBrandKits = tool({
     if (error) return [];
     const { brandStyleLine } = await import("../brand/design");
     return (data ?? []).map((row) => {
-      const { fonts, design, ...kit } = brandKitOf(row as unknown as Json);
+      // A kit's whole DNA and its formulas run to thousands of characters each: a list of kits
+      // says what kind of brand each is and names its formulas; get_brand_kit has the rest.
+      const { fonts, design, dna, ownFormulas, ...kit } = brandKitOf(row as unknown as Json);
       return {
         ...kit,
         fonts: fonts.map((font) => font.family),
         mood: design.visual.mood,
         styleLine: brandStyleLine({ ...kit, design }),
+        dna: {
+          type: dna.type,
+          alsoTypes: dna.alsoTypes,
+          market: dna.market,
+          archetype: dna.archetype,
+          category: dna.category,
+        },
+        ownFormulas: ownFormulas.map((formula) => ({
+          id: formula.id,
+          name: formula.name,
+          audience: formula.own?.audience ?? null,
+        })),
       };
     });
   },
@@ -439,9 +453,16 @@ const getBrandKit = tool({
       videoStyleLine: brandStyleLine(kit, "video"),
       avoidLine: brandAvoidLine(kit),
       voiceLine: brandVoiceLine(kit),
-      formulas: formulasForBrand(kit.dna).map((formula) => ({
+      formulas: formulasForBrand(kit.dna, 3, kit.ownFormulas).map((formula) => ({
         id: formula.id,
         name: formula.name,
+        writtenForBrand: !!formula.own,
+      })),
+      ownFormulas: kit.ownFormulas.map((formula) => ({
+        id: formula.id,
+        name: formula.name,
+        summary: formula.summary,
+        audience: formula.own?.audience ?? null,
       })),
     };
   },
@@ -451,7 +472,7 @@ const listBrandFormulas = tool({
   name: "list_brand_formulas",
   title: "List content formulas",
   description:
-    "The studio's content formulas: proven structures for videos and posts, each a run of timed beats with the rules and guardrails it keeps and the research it rests on, ranked for a brand's DNA (its kind of brand, market, goal, channels and who fronts it) and for what the piece is for. Pass brandKitId to rank for that brand (its own formulas first); goal, channel and seconds narrow it. evidence is A (a measured result for the format), B (official platform guidance or research behind it) or C (an established convention). get_brand_formula writes one out, timed.",
+    "The studio's content formulas: proven structures for videos and posts, each a run of timed beats with the rules and guardrails it keeps and the research it rests on, ranked for a brand's DNA (its kind of brand, market, goal, channels and who fronts it) and for what the piece is for. Pass brandKitId to rank for that brand: the formulas it pinned and those written for it (writtenForBrand, with the audience they are for) come first. goal, channel and seconds narrow it. evidence is A (a measured result for the format), B (official platform guidance or research behind it) or C (an established convention). get_brand_formula writes one out, timed.",
   scope: "read",
   input: z.object({
     brandKitId: id().nullable().optional().describe("A brand kit (see list_brand_kits)"),
@@ -462,14 +483,18 @@ const listBrandFormulas = tool({
   }),
   run: async (args, caller) => {
     await roleOf(caller.userId);
-    const { rankFormulas } = await import("../brand/formulas");
+    const { formulasFor, rankFormulas } = await import("../brand/formulas");
     const { requireBrandKit } = await import("../brand/use.server");
     const kit = args.brandKitId ? await requireBrandKit(args.brandKitId) : null;
-    return rankFormulas(kit?.dna ?? EMPTY_DNA, {
-      goal: args.goal ?? null,
-      channel: args.channel ?? null,
-      seconds: args.seconds ?? null,
-    })
+    return rankFormulas(
+      kit?.dna ?? EMPTY_DNA,
+      {
+        goal: args.goal ?? null,
+        channel: args.channel ?? null,
+        seconds: args.seconds ?? null,
+      },
+      formulasFor(kit?.ownFormulas ?? []),
+    )
       .slice(0, args.limit)
       .map(({ formula, fit, reasons, cautions }) => ({
         id: formula.id,
@@ -485,6 +510,8 @@ const listBrandFormulas = tool({
         reasons,
         cautions,
         brandsOwn: kit?.dna.formulas.includes(formula.id) ?? false,
+        writtenForBrand: !!formula.own,
+        ...(formula.own?.audience ? { audience: formula.own.audience } : {}),
       }));
   },
 });
@@ -493,10 +520,14 @@ const getBrandFormula = tool({
   name: "get_brand_formula",
   title: "Get a content formula",
   description:
-    "One content formula written out: its beats timed to a length (what each moment must do, show and say), the rules it keeps with the channel's own, its guardrails, why it works and its sources. Follow its beats and timing when you script, storyboard or prompt, in the brand's words; keep its guardrails.",
+    "One content formula written out: its beats timed to a length (what each moment must do, show and say), the rules it keeps with the channel's own, its guardrails, why it works and its sources. Pass brandKitId for a formula written for that brand. Follow its beats and timing when you script, storyboard or prompt, in the brand's words; keep its guardrails.",
   scope: "read",
   input: z.object({
     formulaId: z.string().min(1).max(60).describe("A formula's id (see list_brand_formulas)"),
+    brandKitId: id()
+      .nullable()
+      .optional()
+      .describe("The brand kit, for a formula written for that brand"),
     seconds: z.number().int().min(5).max(600).nullable().optional(),
     channel: z.enum(CHANNELS).nullable().optional(),
   }),
@@ -504,11 +535,16 @@ const getBrandFormula = tool({
     await roleOf(caller.userId);
     const { CHANNEL_GUIDES, GUARDRAILS, formulaBlock, formulaById, sourcesOf, timedBeats } =
       await import("../brand/formulas");
-    const formula = formulaById(args.formulaId);
+    // A library formula doesn't need the kit: one archived since still reads them.
+    const { loadBrandKit } = await import("../brand/use.server");
+    const kit = args.brandKitId ? await loadBrandKit(args.brandKitId) : null;
+    const formula = formulaById(args.formulaId, kit?.ownFormulas ?? []);
     if (!formula)
       throw new AppError(
         "INVALID_PARAMETERS",
-        `There is no formula called ${args.formulaId} (see list_brand_formulas)`,
+        args.brandKitId && !kit
+          ? `There is no formula called ${args.formulaId} in the library, and that brand kit no longer exists`
+          : `There is no formula called ${args.formulaId} (see list_brand_formulas${kit ? "" : "; a brand's own formulas need its brandKitId"})`,
       );
     const seconds = args.seconds ?? formula.seconds.ideal;
     const channel = args.channel ?? null;
@@ -528,6 +564,14 @@ const getBrandFormula = tool({
         GUARDRAILS[key] ? [GUARDRAILS[key]!.rule] : [],
       ),
       why: formula.why,
+      ...(formula.own
+        ? {
+            writtenForBrand: true,
+            basedOn: formula.own.basedOn,
+            audience: formula.own.audience,
+            cadence: formula.own.cadence,
+          }
+        : {}),
       sources: sourcesOf(formula, channel),
       brief: formulaBlock(formula, { seconds, channel }),
     };

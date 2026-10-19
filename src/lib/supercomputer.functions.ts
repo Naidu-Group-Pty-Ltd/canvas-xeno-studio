@@ -773,7 +773,7 @@ export const assistPrompt = createServerFn({ method: "POST" })
 
     // The brand's look, so suggestions are made in it (Create adds its style line on its own).
     const brandText = data.brandKitId
-      ? await (await import("./brand/use.server")).brandBlock(data.brandKitId, 2600)
+      ? await (await import("./brand/use.server")).brandBlock(data.brandKitId, 6000, "look")
       : "";
 
     const maxLength = card?.prompt_max ?? 2000;
