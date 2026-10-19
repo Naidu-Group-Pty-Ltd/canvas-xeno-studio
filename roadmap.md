@@ -36,6 +36,6 @@
 - [x] Brands in generation: Create's brand picker, long videos, beats, the prompt assistant, the Director, voiceover scripts and the studio API work in a brand's look and voice
 - [x] Supercomputer agent on Claude (docs/supercomputer-agent.md): streams its thinking, words and tool calls; generates, looks at what it made and refines it; researches the web; writes documents; remembers; asks before it spends; server-side fallback, so a request one Claude model declines is answered by another
 - [x] Agent conversations: edit and redo, stop from any page, approvals one by one or all at once, a model, effort, brand and spending allowance per conversation, pinned chats, and the Made here and Memory panels
-- [ ] Apply migrations 0020_soul_ids, 0021_brand_design_systems and 0022_supercomputer_agent
+- [x] Apply migrations 0020_soul_ids, 0021_brand_design_systems and 0022_supercomputer_agent
 - [ ] Add the ANTHROPIC_API_KEY backend secret, if it isn't set, to turn the agent on
 - [ ] Signed-in test of the agent against Claude and Higgsfield (its page has been run end to end against a simulated endpoint)
