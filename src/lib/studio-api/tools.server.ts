@@ -399,7 +399,7 @@ const listBrandKits = tool({
   name: "list_brand_kits",
   title: "List brand kits",
   description:
-    "The team's brand kits: each brand's fonts, colours, logo, end card, tagline, call to action, the names captions spell right, and its design system (palette with roles, the look of its imagery, voice and rules). Pass a kit's id as brandKitId to queue_generation to make a picture or clip in its look.",
+    "The team's brand kits: each brand's fonts, colours, logo, end card, tagline, call to action, the names captions spell right, its design system (palette with roles, the look of its imagery, voice and rules), what kind of brand it is, and the formulas written for it by name (get_brand_kit has its whole DNA). Pass a kit's id as brandKitId to queue_generation to make a picture or clip in its look.",
   scope: "read",
   input: z.object({}),
   run: async () => {
@@ -407,12 +407,26 @@ const listBrandKits = tool({
     if (error) return [];
     const { brandStyleLine } = await import("../brand/design");
     return (data ?? []).map((row) => {
-      const { fonts, design, ...kit } = brandKitOf(row as unknown as Json);
+      // A kit's whole DNA and its formulas run to thousands of characters each: a list of kits
+      // says what kind of brand each is and names its formulas; get_brand_kit has the rest.
+      const { fonts, design, dna, ownFormulas, ...kit } = brandKitOf(row as unknown as Json);
       return {
         ...kit,
         fonts: fonts.map((font) => font.family),
         mood: design.visual.mood,
         styleLine: brandStyleLine({ ...kit, design }),
+        dna: {
+          type: dna.type,
+          alsoTypes: dna.alsoTypes,
+          market: dna.market,
+          archetype: dna.archetype,
+          category: dna.category,
+        },
+        ownFormulas: ownFormulas.map((formula) => ({
+          id: formula.id,
+          name: formula.name,
+          audience: formula.own?.audience ?? null,
+        })),
       };
     });
   },
@@ -521,13 +535,16 @@ const getBrandFormula = tool({
     await roleOf(caller.userId);
     const { CHANNEL_GUIDES, GUARDRAILS, formulaBlock, formulaById, sourcesOf, timedBeats } =
       await import("../brand/formulas");
-    const { requireBrandKit } = await import("../brand/use.server");
-    const kit = args.brandKitId ? await requireBrandKit(args.brandKitId) : null;
+    // A library formula doesn't need the kit: one archived since still reads them.
+    const { loadBrandKit } = await import("../brand/use.server");
+    const kit = args.brandKitId ? await loadBrandKit(args.brandKitId) : null;
     const formula = formulaById(args.formulaId, kit?.ownFormulas ?? []);
     if (!formula)
       throw new AppError(
         "INVALID_PARAMETERS",
-        `There is no formula called ${args.formulaId} (see list_brand_formulas${kit ? "" : "; a brand's own formulas need its brandKitId"})`,
+        args.brandKitId && !kit
+          ? `There is no formula called ${args.formulaId} in the library, and that brand kit no longer exists`
+          : `There is no formula called ${args.formulaId} (see list_brand_formulas${kit ? "" : "; a brand's own formulas need its brandKitId"})`,
       );
     const seconds = args.seconds ?? formula.seconds.ideal;
     const channel = args.channel ?? null;

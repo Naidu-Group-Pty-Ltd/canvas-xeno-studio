@@ -628,8 +628,9 @@ function Review({
               <p className="text-xs font-medium">Formulas that fit it best</p>
               <FormulaBrowser
                 dna={draft.dna}
+                own={target?.ownFormulas ?? []}
                 onFormulas={(formulas) => set({ dna: { ...draft.dna, formulas } })}
-                limit={3}
+                limit={3 + (target?.ownFormulas.length ?? 0)}
               />
             </div>
           )}

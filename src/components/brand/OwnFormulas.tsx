@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Copy, Loader2, PenLine, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { CHANNEL_LABELS, CHANNELS, type BrandDna, type Channel } from "@/lib/brand/dna";
@@ -47,24 +47,37 @@ export function OwnFormulas({
   onOwn: (own: BrandFormula[]) => void;
   onPins: (ids: string[]) => void;
 }) {
-  // The formula in the editor, and the one of the brand's it replaces (none for a new one).
-  const [editing, setEditing] = useState<{ formula: BrandFormula; replaces: string | null } | null>(
-    null,
-  );
+  // The formula in the editor, the one of the brand's it replaces (none for a new one), and
+  // which opening this is, so every editor starts from its own formula.
+  const [editing, setEditing] = useState<{
+    formula: BrandFormula;
+    replaces: string | null;
+    opened: number;
+  } | null>(null);
+  const openings = useRef(0);
+  const open = (formula: BrandFormula, replaces: string | null) =>
+    setEditing({ formula, replaces, opened: (openings.current += 1) });
   const ranked = rankFormulas(brand.dna).map((entry) => entry.formula);
   const [baseId, setBaseId] = useState<string>(ranked[0]?.id ?? FORMULAS[0]!.id);
   const [audience, setAudience] = useState<string>(ANY);
   const [channel, setChannel] = useState<Channel | typeof ANY>(ANY);
-  const [seconds, setSeconds] = useState<number | null>(null);
+  const [length, setLength] = useState("");
   const [note, setNote] = useState("");
   const [writing, setWriting] = useState(false);
   const full = own.length >= OWN_FORMULA_LIMITS.formulas;
+  const named = !!brand.name.trim();
   const base = FORMULAS.find((formula) => formula.id === baseId) ?? FORMULAS[0]!;
+  // As typed; a length under 5 seconds is no length.
+  const typed = Math.round(Number(length));
+  const seconds = length.trim() && typed >= 5 ? Math.min(600, typed) : null;
 
   const keep = (formula: BrandFormula) => {
     const replaces = editing?.replaces ?? null;
     if (replaces) onOwn(own.map((entry) => (entry.id === replaces ? formula : entry)));
-    else {
+    else if (full) {
+      toast.error(`A brand keeps up to ${OWN_FORMULA_LIMITS.formulas} formulas of its own.`);
+      return;
+    } else {
       // A new one never takes the id of one the brand already has.
       const id = freeId(
         formula.id,
@@ -96,7 +109,8 @@ export function OwnFormulas({
         note: note.trim() || null,
         taken: own.map((formula) => formula.id),
       });
-      setEditing({ formula, replaces: null });
+      // Edit and Copy wait while it is written, so no other formula is open.
+      open(formula, null);
       toast.success(
         `Written${model ? ` by ${model}` : ""}. Look it over: change anything, then keep it.`,
       );
@@ -110,6 +124,7 @@ export function OwnFormulas({
   if (editing)
     return (
       <OwnFormulaEditor
+        key={editing.opened}
         formula={editing.formula}
         dna={brand.dna}
         brandName={brand.name || "the brand"}
@@ -176,14 +191,11 @@ export function OwnFormulas({
             type="number"
             min={5}
             max={600}
-            value={seconds ?? ""}
+            value={length}
             placeholder={`Length (it runs ${base.seconds.min}–${base.seconds.max} s)`}
             className="h-8 text-xs"
             aria-label="Length in seconds"
-            onChange={(event) => {
-              const value = Math.round(Number(event.target.value));
-              setSeconds(event.target.value && value >= 5 ? Math.min(600, value) : null);
-            }}
+            onChange={(event) => setLength(event.target.value)}
           />
         </div>
         <Input
@@ -199,8 +211,14 @@ export function OwnFormulas({
             type="button"
             size="sm"
             className="h-8"
-            disabled={writing || full || !brand.dna.type}
-            title={!brand.dna.type ? "Say what kind of brand this is (its DNA) first" : undefined}
+            disabled={writing || full || !named || !brand.dna.type}
+            title={
+              !named
+                ? "Name the brand first"
+                : !brand.dna.type
+                  ? "Say what kind of brand this is (its DNA) first"
+                  : undefined
+            }
             onClick={() => void write()}
             data-testid="own-formula-write"
           >
@@ -216,16 +234,16 @@ export function OwnFormulas({
             size="sm"
             variant="outline"
             className="h-8"
-            disabled={full}
+            disabled={writing || full}
             onClick={() =>
-              setEditing({
-                formula: copyForBrand(
+              open(
+                copyForBrand(
                   base,
                   brand.name || "Brand",
                   own.map((formula) => formula.id),
                 ),
-                replaces: null,
-              })
+                null,
+              )
             }
           >
             <Copy className="mr-1.5 size-3.5" /> Copy it to rewrite by hand
@@ -241,7 +259,8 @@ export function OwnFormulas({
         dna={brand.dna}
         own={own}
         onFormulas={onPins}
-        onEditOwn={(formula) => setEditing({ formula, replaces: formula.id })}
+        // While one is being written, the others wait to be edited.
+        onEditOwn={writing ? undefined : (formula) => open(formula, formula.id)}
         onRemoveOwn={(formula) => {
           onOwn(own.filter((entry) => entry.id !== formula.id));
           onPins(brand.dna.formulas.filter((id) => id !== formula.id));

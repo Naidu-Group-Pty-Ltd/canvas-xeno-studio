@@ -146,7 +146,11 @@ const LABELS: Record<string, (input: Json) => string> = {
   list_brand_formulas: () => "Choosing a content formula",
   get_brand_formula: (input) => {
     const formula = formulaById(text(input["formulaId"], 60));
-    return formula ? `Following the formula · ${formula.name}` : "Reading a content formula";
+    // The brand's own formulas aren't in the library: their names are in the kit.
+    if (formula) return `Following the formula · ${formula.name}`;
+    return input["brandKitId"]
+      ? "Following one of the brand's own formulas"
+      : "Reading a content formula";
   },
   list_characters: () => "Looking at the characters",
   get_character: () => "Reading a character",
