@@ -17,7 +17,7 @@ import { useProjects } from "@/hooks/useStudioData";
 import { useProductionPlans } from "@/hooks/useV2Data";
 import { CHANNEL_LABELS, CHANNELS, EMPTY_DNA, type Channel } from "@/lib/brand/dna";
 import { CHANNEL_GUIDES, formulaById } from "@/lib/brand/formulas";
-import { kitForProject } from "@/lib/edit/brand";
+import { brandKitIn } from "@/lib/edit/brand";
 import { askDirector } from "@/lib/director-client";
 import {
   createStoryboardFromPlan,
@@ -72,10 +72,7 @@ function DirectorPage() {
 
   const { data: brandData } = useBrandKits();
   const kits = brandData?.kits ?? [];
-  const brandKit =
-    brandChoice === undefined
-      ? kitForProject(kits, projectId)
-      : (kits.find((kit) => kit.id === brandChoice) ?? null);
+  const brandKit = brandKitIn(kits, projectId, brandChoice);
   const formula = formulaById(formulaId, brandKit?.ownFormulas ?? []);
   const length = seconds ?? formula?.seconds.ideal ?? 30;
 

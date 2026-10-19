@@ -761,7 +761,7 @@ export const GUARDRAILS: Record<string, Guardrail> = {
     sources: ["ftc-endorsement-faq", "meta-health-policy", "accc-advertising-guide"],
   },
   "illustrative-figures": {
-    rule: "Financial figures on screen (borrowing capacity, cash flow, returns, projections) are labelled as an illustrative example on hypothetical figures, with their key assumptions, for as long as they show: never a forecast, a recommendation or a promised outcome",
+    rule: "Financial figures on screen (borrowing capacity, cash flow, returns, projections) are labelled as an illustrative example on hypothetical figures, with their key assumptions, for as long as they show: never a forecast, a recommendation or a promised outcome. A published statistic isn't one of these: it carries its source and date instead",
     sources: ["asic-rg-234", "accc-advertising-guide"],
   },
   "no-compliance-promises": {

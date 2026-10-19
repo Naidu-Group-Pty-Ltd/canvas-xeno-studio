@@ -53,6 +53,7 @@ import { AddCharacterReferences } from "@/components/characters/AddCharacterRefe
 import { SoulStartFrame } from "@/components/characters/SoulStartFrame";
 import { BrandPicker } from "@/components/brand/BrandPicker";
 import { useBrandKits } from "@/hooks/useBrandKits";
+import { brandKitIn } from "@/lib/edit/brand";
 import { brandAvoidLine, brandStyleLine, withBrandStyle } from "@/lib/brand/design";
 import { startLongVideo } from "@/lib/long-video.functions";
 import { endCardSize } from "@/lib/long-video/finisher";
@@ -256,27 +257,27 @@ function CreatePage() {
   const [longDraft, setLongDraft] = useState<LongVideoDraft>(DEFAULT_LONG_VIDEO_DRAFT);
   const [shotId, setShotId] = useState<string | null>(null);
   const [briefId, setBriefId] = useState<string | null>(null);
-  // The brand everything is made in, remembered in this browser between visits.
-  const [brandKitId, setBrandKitId] = useState<string | null>(() => {
+  // The brand everything is made in: the one chosen in this browser (remembered between visits,
+  // "none" for no brand), else the project's kit, else the studio's default, as in the Director.
+  const [brandChoice, setBrandChoice] = useState<string | null | undefined>(() => {
     try {
-      return typeof window === "undefined"
-        ? null
-        : window.localStorage.getItem("xeno.create.brandKitId");
+      if (typeof window === "undefined") return undefined;
+      const stored = window.localStorage.getItem("xeno.create.brandKitId");
+      return stored === null ? undefined : stored === "none" ? null : stored;
     } catch {
-      return null;
+      return undefined;
     }
   });
   const chooseBrand = (kitId: string | null) => {
-    setBrandKitId(kitId);
+    setBrandChoice(kitId);
     try {
-      if (kitId) window.localStorage.setItem("xeno.create.brandKitId", kitId);
-      else window.localStorage.removeItem("xeno.create.brandKitId");
+      window.localStorage.setItem("xeno.create.brandKitId", kitId ?? "none");
     } catch {
       // Remembering it is a convenience only.
     }
   };
   const { data: brandData } = useBrandKits();
-  const brandKit = brandData?.kits.find((kit) => kit.id === brandKitId) ?? null;
+  const brandKit = brandKitIn(brandData?.kits ?? [], projectId, brandChoice);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);

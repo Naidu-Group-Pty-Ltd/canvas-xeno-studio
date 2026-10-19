@@ -164,6 +164,21 @@ export function kitForProject(kits: BrandKit[], projectId: string | null): Brand
   );
 }
 
+/**
+ * The kit a page makes things in: the one chosen (null: no brand), else, until one is chosen or
+ * if the one chosen is gone, the project's kit, else the team's default.
+ */
+export function brandKitIn(
+  kits: BrandKit[],
+  projectId: string | null,
+  choice: string | null | undefined,
+): BrandKit | null {
+  if (choice === null) return null;
+  return (
+    (choice ? kits.find((kit) => kit.id === choice) : undefined) ?? kitForProject(kits, projectId)
+  );
+}
+
 /** Black or white, whichever reads better on a colour (the higher WCAG contrast ratio). */
 export function contrastOn(hex: string): "#000000" | "#ffffff" {
   const value = HEX.test(hex) ? hex : "#000000";
