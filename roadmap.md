@@ -52,7 +52,7 @@
 - [x] A brand brief keeps what the brand needs most when it says more than fits: who it is, its guardrails, proof, call to action and spellings first, the look in detail last (the look first for the prompt assistant)
 - [x] Aurixa Systems' DNA and twelve formulas, from its own site and research into its market, its regulators and what content works (docs/brands/aurixa-systems.md)
 - [x] Apply migration 0024_brand_formulas
-- [ ] Load Aurixa's DNA and formulas into its kit
+- [x] Load Aurixa's DNA and formulas into its kit, then check them signed in on the live app: the Brand page, the DNA editor, the AI writing a formula, a Director plan on one of Aurixa's formulas and the agent (20 of 20 checks)
 - [ ] Before Aurixa publishes: the open items in docs/brands/aurixa-systems.md (whose security certifications, a named founder, how a shared Compliance Passport is described, Centre or Center, what is live, outbound calls, licensed data, which ad rules apply, the external sources opened)
 - [ ] Open the sources read via search and mark them read in full: needs their 51 hosts allowed in the environment's network access settings (listed in the doc)
 - [ ] Pinterest and Snapchat guidance, and Australia's TGA and Ahpra rules for health brands' testimonials and before-and-after content
