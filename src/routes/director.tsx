@@ -18,12 +18,11 @@ import { useProductionPlans } from "@/hooks/useV2Data";
 import { CHANNEL_LABELS, CHANNELS, EMPTY_DNA, type Channel } from "@/lib/brand/dna";
 import { CHANNEL_GUIDES, formulaById } from "@/lib/brand/formulas";
 import { kitForProject } from "@/lib/edit/brand";
+import { askDirector } from "@/lib/director-client";
 import {
-  createDirectorPlan,
   createStoryboardFromPlan,
   estimateProductionPlan,
   getReasoningHealth,
-  reviseDirectorPlan,
 } from "@/lib/director.functions";
 import type { ProductionPlan } from "@/lib/production-plan-schema";
 import { setCreatePrefill } from "@/lib/create-draft";
@@ -87,21 +86,21 @@ function DirectorPage() {
     if (!brief.trim()) return;
     setBusy(true);
     try {
-      const result = await createDirectorPlan({
-        data: {
-          brief,
-          projectId,
-          brandKitId: brandKit?.id ?? null,
-          formula: formula ? { id: formula.id, seconds: length, channel } : null,
-        },
+      const result = await askDirector({
+        action: "plan",
+        brief,
+        projectId,
+        brandKitId: brandKit?.id ?? null,
+        formula: formula ? { id: formula.id, seconds: length, channel } : null,
       });
       setActivePlanId(result.planId);
       setBrief("");
-      await queryClient.invalidateQueries({ queryKey: ["production_plans"] });
       toast.success("Production plan ready. Nothing has been generated or charged yet.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Director could not build a plan");
     } finally {
+      // A plan kept on the server shows even if its answer was lost on the way.
+      await queryClient.invalidateQueries({ queryKey: ["production_plans"] });
       setBusy(false);
     }
   }
@@ -110,13 +109,13 @@ function DirectorPage() {
     if (!activePlan || !revision.trim()) return;
     setBusy(true);
     try {
-      await reviseDirectorPlan({ data: { planId: activePlan.id, instruction: revision } });
+      await askDirector({ action: "revise", planId: activePlan.id, instruction: revision });
       setRevision("");
-      await queryClient.invalidateQueries({ queryKey: ["production_plans"] });
       toast.success("Plan revised.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Revision failed");
     } finally {
+      await queryClient.invalidateQueries({ queryKey: ["production_plans"] });
       setBusy(false);
     }
   }
