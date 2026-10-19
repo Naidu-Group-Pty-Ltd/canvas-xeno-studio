@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { decodeEntities, scanHtml } from "../../src/lib/brand/scan-html";
+import { decodeEntities, isSocialProfile, scanHtml } from "../../src/lib/brand/scan-html";
 
 const HOME = `<!DOCTYPE html>
 <html lang="en-AU">
@@ -348,5 +348,39 @@ describe("a site that keeps every picture in a brand folder", () => {
     expect(logos).toContain("https://aurixasystems.com.au/brand/aurixa-symbol-192.webp");
     // A file named as a wordmark counts too.
     expect(logos).toContain("https://aurixasystems.com.au/assets/partner-wordmark.svg");
+  });
+});
+
+describe("the brand's profiles elsewhere", () => {
+  test("a profile is a page on a social platform, not a share button, post or search", () => {
+    expect(isSocialProfile("https://www.linkedin.com/company/aurixa")).toBe(true);
+    expect(isSocialProfile("https://www.instagram.com/aurixa/")).toBe(true);
+    expect(isSocialProfile("https://www.youtube.com/@aurixa")).toBe(true);
+    expect(isSocialProfile("https://www.linkedin.com/shareArticle?url=x")).toBe(false);
+    expect(isSocialProfile("https://www.facebook.com/sharer/sharer.php?u=x")).toBe(false);
+    expect(isSocialProfile("https://x.com/intent/tweet?text=x")).toBe(false);
+    expect(isSocialProfile("https://www.youtube.com/watch?v=abc")).toBe(false);
+    expect(isSocialProfile("https://www.instagram.com/p/abc123/")).toBe(false);
+    expect(isSocialProfile("https://x.com/aurixa/status/1")).toBe(false);
+    expect(isSocialProfile("https://www.linkedin.com/")).toBe(false);
+    expect(isSocialProfile("https://aurixa.example/linkedin.com")).toBe(false);
+    expect(isSocialProfile("not a url")).toBe(false);
+  });
+
+  test("the page's links to its profiles are kept, each once", () => {
+    const page = scanHtml(
+      `<html><body><footer>
+<a href="https://www.linkedin.com/company/aurixa/?trk=footer">LinkedIn</a>
+<a href="https://www.linkedin.com/company/aurixa">LinkedIn again</a>
+<a href="https://www.instagram.com/aurixa">Instagram</a>
+<a href="https://www.facebook.com/sharer/sharer.php?u=https://aurixa.example">Share</a>
+<a href="/contact">Contact</a>
+</footer></body></html>`,
+      "https://aurixa.example/",
+    );
+    expect(page.socials).toEqual([
+      "https://www.linkedin.com/company/aurixa",
+      "https://www.instagram.com/aurixa",
+    ]);
   });
 });

@@ -9,9 +9,15 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { BrandPicker } from "@/components/brand/BrandPicker";
+import { FormulaBeats, FormulaPicker } from "@/components/brand/FormulaPicker";
 import { useAuth } from "@/hooks/useAuth";
+import { useBrandKits } from "@/hooks/useBrandKits";
 import { useProjects } from "@/hooks/useStudioData";
 import { useProductionPlans } from "@/hooks/useV2Data";
+import { CHANNEL_LABELS, CHANNELS, EMPTY_DNA, type Channel } from "@/lib/brand/dna";
+import { CHANNEL_GUIDES, formulaById } from "@/lib/brand/formulas";
+import { kitForProject } from "@/lib/edit/brand";
 import {
   createDirectorPlan,
   createStoryboardFromPlan,
@@ -26,9 +32,15 @@ export const Route = createFileRoute("/director")({
   head: () => ({
     meta: [
       { title: "Director · Xeno Studio" },
-      { name: "description", content: "Turn a creative brief into a structured, costed production plan." },
+      {
+        name: "description",
+        content: "Turn a creative brief into a structured, costed production plan.",
+      },
       { property: "og:title", content: "Director · Xeno Studio" },
-      { property: "og:description", content: "AI creative direction and production planning for the internal team." },
+      {
+        property: "og:description",
+        content: "AI creative direction and production planning for the internal team.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -50,9 +62,23 @@ function DirectorPage() {
 
   const [brief, setBrief] = useState("");
   const [projectId, setProjectId] = useState<string | null>(null);
+  // The brand: the project's (else the studio default) until one is chosen or cleared.
+  const [brandChoice, setBrandChoice] = useState<string | null | undefined>(undefined);
+  const [formulaId, setFormulaId] = useState<string | null>(null);
+  const [channel, setChannel] = useState<Channel | null>(null);
+  const [seconds, setSeconds] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [activePlanId, setActivePlanId] = useState<string | null>(null);
   const [revision, setRevision] = useState("");
+
+  const { data: brandData } = useBrandKits();
+  const kits = brandData?.kits ?? [];
+  const brandKit =
+    brandChoice === undefined
+      ? kitForProject(kits, projectId)
+      : (kits.find((kit) => kit.id === brandChoice) ?? null);
+  const formula = formulaById(formulaId);
+  const length = seconds ?? formula?.seconds.ideal ?? 30;
 
   const activePlan = plans?.find((p) => p.id === activePlanId) ?? plans?.[0] ?? null;
   const plan = (activePlan?.plan ?? null) as ProductionPlan | null;
@@ -61,7 +87,14 @@ function DirectorPage() {
     if (!brief.trim()) return;
     setBusy(true);
     try {
-      const result = await createDirectorPlan({ data: { brief, projectId } });
+      const result = await createDirectorPlan({
+        data: {
+          brief,
+          projectId,
+          brandKitId: brandKit?.id ?? null,
+          formula: formula ? { id: formula.id, seconds: length, channel } : null,
+        },
+      });
       setActivePlanId(result.planId);
       setBrief("");
       await queryClient.invalidateQueries({ queryKey: ["production_plans"] });
@@ -128,8 +161,8 @@ function DirectorPage() {
           </h2>
           {health && !health.configured && (
             <p className="rounded-md border border-warning/40 bg-warning/10 p-3 text-xs text-warning">
-              Reasoning provider not configured. Add an OPENAI_API_KEY backend secret, or enable Lovable AI for
-              this project, to use Director. Manual creation is unaffected.
+              Reasoning provider not configured. Add an OPENAI_API_KEY backend secret, or enable
+              Lovable AI for this project, to use Director. Manual creation is unaffected.
             </p>
           )}
           <Textarea
@@ -151,16 +184,84 @@ function DirectorPage() {
               </option>
             ))}
           </select>
-          <Button className="w-full" disabled={busy || !brief.trim() || !health?.configured} onClick={() => void generatePlan()}>
-            {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Wand2 className="mr-2 size-4" />}
+          <div className="flex flex-wrap items-center gap-1.5" data-testid="director-brand-formula">
+            <BrandPicker
+              kitId={brandKit?.id ?? null}
+              onChange={(kitId) => setBrandChoice(kitId)}
+              kind="video"
+              room={0}
+            />
+            <FormulaPicker
+              dna={brandKit?.dna ?? EMPTY_DNA}
+              brandName={brandKit?.name ?? null}
+              value={formulaId}
+              onChange={(id) => {
+                setFormulaId(id);
+                setSeconds(null);
+              }}
+              ask={{ channel, seconds }}
+            />
+          </div>
+          {formula && (
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  className="h-8 rounded-md border border-border bg-surface-raised px-2 text-xs"
+                  value={channel ?? ""}
+                  onChange={(e) => {
+                    const next = (e.target.value || null) as Channel | null;
+                    setChannel(next);
+                  }}
+                  aria-label="Where it runs"
+                >
+                  <option value="">Any channel</option>
+                  {CHANNELS.map((entry) => (
+                    <option key={entry} value={entry}>
+                      {CHANNEL_LABELS[entry]} · {CHANNEL_GUIDES[entry].shape}
+                    </option>
+                  ))}
+                </select>
+                <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Input
+                    type="number"
+                    min={5}
+                    max={600}
+                    step={1}
+                    value={length}
+                    onChange={(e) => {
+                      const value = Math.round(Number(e.target.value));
+                      if (Number.isFinite(value)) setSeconds(Math.max(5, Math.min(600, value)));
+                    }}
+                    className="h-8 text-xs"
+                    aria-label="Length in seconds"
+                  />
+                  s
+                </label>
+              </div>
+              <FormulaBeats formula={formula} seconds={length} />
+            </div>
+          )}
+          <Button
+            className="w-full"
+            disabled={busy || !brief.trim() || !health?.configured}
+            onClick={() => void generatePlan()}
+          >
+            {busy ? (
+              <Loader2 className="mr-2 size-4 animate-spin" />
+            ) : (
+              <Wand2 className="mr-2 size-4" />
+            )}
             Build production plan
           </Button>
           <p className="text-xs text-muted-foreground">
-            Planning is free. Nothing is submitted to the generation provider until you choose to generate.
+            Planning is free. Nothing is submitted to the generation provider until you choose to
+            generate.
           </p>
 
           <div className="pt-2">
-            <h3 className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Recent plans</h3>
+            <h3 className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">
+              Recent plans
+            </h3>
             <div className="space-y-1">
               {(plans ?? []).map((p) => (
                 <button
@@ -189,10 +290,17 @@ function DirectorPage() {
               <header className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h2 className="font-display text-lg font-semibold">{plan.title}</h2>
-                  <p className="text-sm text-muted-foreground">{plan.creative_summary ?? plan.objective}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {plan.creative_summary ?? plan.objective}
+                  </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" size="sm" disabled={busy} onClick={() => void estimate()}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => void estimate()}
+                  >
                     <Coins className="mr-2 size-4" /> Estimate plan
                   </Button>
                   <Button size="sm" disabled={busy} onClick={() => void toStoryboard()}>
@@ -207,7 +315,9 @@ function DirectorPage() {
                   <span className="font-semibold text-primary">
                     ${Number(activePlan.total_estimated_cost_usd).toFixed(2)}
                   </span>{" "}
-                  <span className="text-xs text-muted-foreground">(provider estimate, not a confirmed charge)</span>
+                  <span className="text-xs text-muted-foreground">
+                    (provider estimate, not a confirmed charge)
+                  </span>
                 </p>
               )}
 
@@ -223,16 +333,23 @@ function DirectorPage() {
                     <h3 className="text-sm font-semibold">
                       Scene {scene.scene_number} · {scene.name}
                     </h3>
-                    {scene.purpose && <p className="text-xs text-muted-foreground">{scene.purpose}</p>}
+                    {scene.purpose && (
+                      <p className="text-xs text-muted-foreground">{scene.purpose}</p>
+                    )}
                     <div className="mt-3 grid gap-2 md:grid-cols-2">
                       {(scene.shots ?? []).map((shot) => (
-                        <div key={shot.shot_number} className="rounded-md bg-surface-raised p-3 text-sm">
+                        <div
+                          key={shot.shot_number}
+                          className="rounded-md bg-surface-raised p-3 text-sm"
+                        >
                           <div className="flex items-center justify-between gap-2">
                             <span className="font-medium">
                               {shot.shot_number}. {shot.name}
                             </span>
                             {shot.duration ? (
-                              <span className="text-xs text-muted-foreground">{shot.duration}s</span>
+                              <span className="text-xs text-muted-foreground">
+                                {shot.duration}s
+                              </span>
                             ) : null}
                           </div>
                           <p className="mt-1 text-xs text-muted-foreground">{shot.description}</p>
@@ -244,7 +361,9 @@ function DirectorPage() {
                             onClick={() => {
                               setCreatePrefill({
                                 prompt: shot.prompt,
-                                ...(shot.recommended_model_id ? { modelId: shot.recommended_model_id } : {}),
+                                ...(shot.recommended_model_id
+                                  ? { modelId: shot.recommended_model_id }
+                                  : {}),
                                 projectId,
                               });
                               navigate({ to: "/" });
@@ -265,7 +384,11 @@ function DirectorPage() {
                   onChange={(e) => setRevision(e.target.value)}
                   placeholder="Make shot 3 darker, use fewer expensive models…"
                 />
-                <Button variant="outline" disabled={busy || !revision.trim()} onClick={() => void revise()}>
+                <Button
+                  variant="outline"
+                  disabled={busy || !revision.trim()}
+                  onClick={() => void revise()}
+                >
                   Revise
                 </Button>
               </div>

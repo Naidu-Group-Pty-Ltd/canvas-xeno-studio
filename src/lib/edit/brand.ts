@@ -21,6 +21,7 @@ import {
   type BrandSource,
   type PaletteColour,
 } from "../brand/design";
+import { dnaOf, type BrandDna } from "../brand/dna";
 import {
   aspectQuotient,
   layoutTimeline,
@@ -80,6 +81,8 @@ export interface BrandKit {
   source: BrandSource | null;
   /** Library images that show its look, used as style references. */
   referenceAssetIds: string[];
+  /** What kind of brand it is and what it stands for, and the formulas it works with (see ../brand/dna). */
+  dna: BrandDna;
 }
 
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -141,6 +144,8 @@ export function brandKitOf(row: Json): BrandKit {
           typeof id === "string" && /^[0-9a-f-]{36}$/i.test(id) ? [id] : [],
         )
       : [],
+    // Kits from before brand DNA (migration 0023) have none yet.
+    dna: dnaOf(row["dna"]),
   };
 }
 

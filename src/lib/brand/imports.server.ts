@@ -581,6 +581,7 @@ async function scanWebsiteSteps(importId: string, rawUrl: string): Promise<void>
     copy: [html.jsonLd.slogan ? `Slogan: ${html.jsonLd.slogan}` : "", html.text]
       .filter(Boolean)
       .join("\n"),
+    profiles: [...new Set([...html.socials, ...html.jsonLd.sameAs])].slice(0, 12),
     pictures: await signedLinks(shown),
     logos,
     imagery,
@@ -709,6 +710,7 @@ async function readDocumentSteps(
     headings: [],
     ctas: [],
     copy: input.text.slice(0, 24_000),
+    profiles: [],
     // Pages first (where swatches and type specimens are), then the pictures in it.
     pictures: await signedLinks([...pages.slice(0, 6), ...embedded.slice(0, 4)]),
     logos: [],

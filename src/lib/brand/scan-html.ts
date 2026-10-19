@@ -62,6 +62,8 @@ export interface HtmlSignals {
   ctas: string[];
   text: string;
   jsonLd: HtmlJsonLd;
+  /** Links to the brand's profiles on social platforms (where it publishes). */
+  socials: string[];
 }
 
 const MAX_INPUT = 2_000_000;
@@ -564,7 +566,29 @@ function emptySignals(url: string): HtmlSignals {
     ctas: [],
     text: "",
     jsonLd: { name: null, logo: null, slogan: null, sameAs: [] },
+    socials: [],
   };
+}
+
+/** Hosts of the social platforms a brand publishes on. */
+const SOCIAL_HOST =
+  /(?:^|\.)(?:tiktok\.com|instagram\.com|youtube\.com|youtu\.be|linkedin\.com|facebook\.com|fb\.com|x\.com|twitter\.com|threads\.net|pinterest\.com)$/i;
+
+/** Whether an address is a profile on a social platform (not a share button). */
+export function isSocialProfile(href: string): boolean {
+  try {
+    const url = new URL(href);
+    return (
+      SOCIAL_HOST.test(url.hostname) &&
+      url.pathname.replace(/\/+$/, "").length > 1 &&
+      // Not a share button, a single post or video, or a search.
+      !/\/(?:share|sharer|intent|shareArticle|watch|embed|status|p|reel|posts|hashtag|explore|search)\b/i.test(
+        url.pathname,
+      )
+    );
+  } catch {
+    return false;
+  }
 }
 
 function scan(html: string, pageUrl: string): HtmlSignals {
@@ -920,6 +944,13 @@ function scan(html: string, pageUrl: string): HtmlSignals {
     if (name === "nav" || role === "navigation") flags.push("nav");
     if (name === "footer" || role === "contentinfo") flags.push("footer");
     if (name === "a" && isHome(attrs.get("href"))) flags.push("home");
+    if (name === "a") {
+      const href = absolute(attrs.get("href"), base);
+      if (href && isSocialProfile(href) && signals.socials.length < 10) {
+        const profile = href.replace(/[?#].*$/, "").replace(/\/+$/, "");
+        if (!signals.socials.includes(profile)) signals.socials.push(profile);
+      }
+    }
     if (PARTNER.test(label)) flags.push("partner");
     else if (/logo|brand/i.test(label)) flags.push("logo");
     if (HERO.test(label)) flags.push("hero");

@@ -22,6 +22,7 @@ import {
   type PaletteColour,
   type PaletteRole,
 } from "./design";
+import { dnaOf, EMPTY_DNA, type BrandDna } from "./dna";
 
 /** A file an import keeps for the review: a logo, a picture of the brand's look, a page of its guidelines. */
 export interface StagedImage {
@@ -98,6 +99,8 @@ export interface BrandProposal {
   uppercaseTitles: boolean;
   /** What the import couldn't do, or wants a person to know. */
   notes: string[];
+  /** What kind of brand it is, as read (see ./dna); empty when read from the scan alone. */
+  dna: BrandDna;
   /** The AI model that read it (null: read without AI, from the scan alone). */
   model: string | null;
 }
@@ -209,6 +212,8 @@ export function proposalOf(value: unknown): BrandProposal | null {
     titleBacking: backing === "outline" || backing === "box" ? backing : "halo",
     uppercaseTitles: item["uppercaseTitles"] === true,
     notes: wordsOf(item["notes"], PROPOSAL_LIMITS.notes, 300),
+    // Imports from before brand DNA have none.
+    dna: dnaOf(item["dna"]),
     model: clip(item["model"], 120),
   };
 }
@@ -369,6 +374,7 @@ export function proposalFromScan(input: {
     titleBacking: "halo",
     uppercaseTitles: false,
     notes: input.notes,
+    dna: EMPTY_DNA,
     model: null,
   };
 }

@@ -11,6 +11,11 @@
  * Shared by the server, the browser and tests.
  */
 import { contrastRatio, isNeutral, relativeLuminance } from "./colour";
+import { dnaLines, type BrandDna } from "./dna";
+import { contentMix, formulasForBrand } from "./formulas";
+import { clip, wordsOf } from "./text";
+
+export { clip, wordsOf };
 
 export const PALETTE_ROLES = [
   "primary",
@@ -165,32 +170,6 @@ export const EMPTY_DESIGN: BrandDesign = {
 type Json = Record<string, unknown>;
 const record = (value: unknown): Json =>
   value && typeof value === "object" && !Array.isArray(value) ? (value as Json) : {};
-
-/** Text cut to `max` characters at a word, or null when empty. */
-export function clip(value: unknown, max: number): string | null {
-  if (typeof value !== "string") return null;
-  const text = value.replace(/\s+/g, " ").trim();
-  if (!text) return null;
-  if (text.length <= max) return text;
-  const cut = text.slice(0, max);
-  const space = cut.lastIndexOf(" ");
-  return `${(space > max * 0.6 ? cut.slice(0, space) : cut).replace(/[\s,;:.-]+$/, "")}…`;
-}
-
-/** Up to `max` distinct non-empty strings, each cut to `chars`. */
-export function wordsOf(value: unknown, max: number, chars = 60): string[] {
-  if (!Array.isArray(value)) return [];
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const entry of value) {
-    const text = clip(entry, chars);
-    if (!text || seen.has(text.toLowerCase())) continue;
-    seen.add(text.toLowerCase());
-    out.push(text);
-    if (out.length >= max) break;
-  }
-  return out;
-}
 
 /** A colour as lowercase #rrggbb (from #rgb or #rrggbb), or null. */
 export function normalizeHex(value: unknown): string | null {
@@ -372,6 +351,8 @@ export interface BrandLook {
   palette: PaletteColour[];
   design: BrandDesign;
   terms: string[];
+  /** What kind of brand it is (see ./dna); a look without one is read as it was. */
+  dna?: BrandDna | undefined;
 }
 
 const sentence = (text: string) => text.replace(/[\s.]+$/, "");
@@ -433,15 +414,32 @@ export function brandVoiceLine(brand: BrandLook): string {
 }
 
 /**
- * The brand, briefly, for the AI that plans and writes for it: what it is,
- * its look, its voice and its rules. Up to `max` characters.
+ * The brand, briefly, for the AI that plans and writes for it: what it is
+ * and what kind of brand (its DNA), its look, its voice, what its content is
+ * about and made with, and its rules. Up to `max` characters: a line that
+ * doesn't fit is left out, the ones after it still go in.
  */
-export function brandBrief(brand: BrandLook, max = 2000): string {
+export function brandBrief(brand: BrandLook, max = 3000): string {
   const { design } = brand;
+  const dna = brand.dna
+    ? dnaLines(
+        brand.dna,
+        { name: brand.name, audience: design.audience },
+        formulasForBrand(brand.dna).map((formula) => `${formula.name} (${formula.id})`),
+      )
+    : [];
+  // Who it is goes first; what its content is about and made with, after its voice.
+  const identity = dna.filter((line) => /^(Brand type|Archetype|Positioning|The job)/.test(line));
+  const mix = brand.dna ? contentMix(brand.dna.market) : null;
+  const content = [
+    ...dna.filter((line) => !identity.includes(line)),
+    ...(mix && brand.dna?.type ? [`Content mix over time: ${mix.short}`] : []),
+  ];
   const lines = [
     `Brand: ${brand.name}${brand.tagline ? ` ("${brand.tagline}")` : ""}`,
     design.summary ? `What it is: ${design.summary}` : null,
     design.audience ? `Audience: ${design.audience}` : null,
+    ...identity,
     design.personality.length ? `Personality: ${design.personality.join(", ")}` : null,
     brand.palette.length
       ? `Palette: ${paletteInOrder(brand.palette)
@@ -466,6 +464,7 @@ export function brandBrief(brand: BrandLook, max = 2000): string {
           .map((line) => `"${line}"`)
           .join(" ")}`
       : null,
+    ...content,
     design.dos.length ? `Always: ${design.dos.slice(0, 5).join("; ")}` : null,
     design.donts.length ? `Never: ${design.donts.slice(0, 5).join("; ")}` : null,
     brand.callToAction ? `Call to action: ${brand.callToAction}` : null,
@@ -474,7 +473,7 @@ export function brandBrief(brand: BrandLook, max = 2000): string {
   ].filter((line): line is string => !!line);
   let out = "";
   for (const line of lines) {
-    if (out.length + line.length + 1 > max) break;
+    if (out.length + line.length + 1 > max) continue;
     out += `${out ? "\n" : ""}${line}`;
   }
   return out;
@@ -518,7 +517,7 @@ export function brandSnapshot(
     videoStyleLine: brandStyleLine(kit, "video"),
     avoidLine: brandAvoidLine(kit),
     voiceLine: brandVoiceLine(kit),
-    brief: brandBrief(kit, 1600),
+    brief: brandBrief(kit, 2600),
     terms: kit.terms.slice(0, 50),
     referenceAssetIds: kit.referenceAssetIds.slice(0, 12),
   };
@@ -532,7 +531,7 @@ export function storedBrandSnapshot(value: unknown): BrandSnapshot | null {
   if (!kitId || !name) return null;
   const text = (key: string, max: number) => clip(item[key], max) ?? "";
   // The brief is read line by line, as it was written.
-  const brief = typeof item["brief"] === "string" ? item["brief"].trim().slice(0, 2000) : "";
+  const brief = typeof item["brief"] === "string" ? item["brief"].trim().slice(0, 3200) : "";
   return {
     kitId,
     name,

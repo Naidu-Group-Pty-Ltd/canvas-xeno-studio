@@ -18,6 +18,7 @@ import {
   type BrandLook,
   type PaletteColour,
 } from "../../src/lib/brand/design";
+import { dnaOf, EMPTY_DNA } from "../../src/lib/brand/dna";
 import { brandKitOf } from "../../src/lib/edit/brand";
 
 const palette: PaletteColour[] = [
@@ -229,6 +230,41 @@ describe("what generations carry", () => {
     expect(brief).toContain("Call to action: Book a demo");
     expect(brief).toContain("Spell exactly: Aurixa, Aurixa Systems");
     expect(brandBrief(look(), 80).length).toBeLessThanOrEqual(80);
+  });
+
+  test("the brief carries the brand's DNA: who it is first, its content after its voice", () => {
+    const dna = dnaOf({
+      type: "saas",
+      market: "b2b",
+      archetype: "sage",
+      category: "AI operating system for small firms",
+      pillars: [{ name: "Month-end, sorted" }],
+      proof: ["Used by 40 firms"],
+      channels: ["linkedin"],
+      goal: "consideration",
+      formulas: ["saas-demo-ad"],
+    });
+    const brief = brandBrief(look({ dna }));
+    const lines = brief.split("\n");
+    const at = (start: string) => lines.findIndex((line) => line.startsWith(start));
+    expect(at("Brand type: SaaS & software, selling to businesses (B2B)")).toBeGreaterThan(
+      at("What it is"),
+    );
+    expect(at("Positioning: Aurixa is an AI operating system for small firms.")).toBeGreaterThan(0);
+    expect(at("Archetype")).toBeLessThan(at("Personality"));
+    expect(at("Content pillars")).toBeGreaterThan(at("Personality"));
+    expect(brief).toContain("Proof it stands behind (use only these): Used by 40 firms");
+    expect(brief).toContain("Content formulas it works with: Pain → product proof (saas-demo-ad)");
+    expect(brief).toContain("Content mix over time: close to 50:50 brand-building");
+    // A line that doesn't fit is left out; the shorter ones after it still go in.
+    const long = look({ dna });
+    long.design = { ...long.design, summary: "Accounting software. ".repeat(60) };
+    const tight = brandBrief(long, 1200);
+    expect(tight.length).toBeLessThanOrEqual(1200);
+    expect(tight).not.toContain("What it is");
+    expect(tight).toContain("Brand type: SaaS & software");
+    // A kit without DNA reads as before.
+    expect(brandBrief(look({ dna: EMPTY_DNA }))).toBe(brandBrief(look()));
   });
 
   test("a palette in words", () => {
