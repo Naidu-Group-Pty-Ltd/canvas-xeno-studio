@@ -1,15 +1,21 @@
 import { describe, expect, test } from "bun:test";
 import {
   applyAgentEvent,
+  awaitingApprovals,
   decodeEvents,
   displayOf,
   displayText,
+  documentsOf,
   EMPTY_DISPLAY,
   encodeEvent,
+  generationsOf,
+  STALE_STREAM_MS,
+  storedDisplay,
   type AgentDisplay,
   type AgentEvent,
 } from "../../src/lib/supercomputer/agent-events";
 import {
+  agentModelLabel,
   DEFAULT_THREAD_SETTINGS,
   threadSettingsOf,
   takesFallbacks,
@@ -30,6 +36,7 @@ import {
 import {
   abandonPending,
   freshState,
+  mergePayload,
   runTurn,
   type ApiMessage,
   type StepStream,
@@ -180,6 +187,102 @@ describe("what the agent shows", () => {
     });
     expect(displayOf(null)).toBeNull();
   });
+
+  test("a kept answer shows as its row says; one that stopped saving was cut off", () => {
+    const writing = run([
+      { type: "block", key: "0:0", block: { kind: "text", text: "Half", done: false } },
+      {
+        type: "block",
+        key: "0:1",
+        block: {
+          kind: "tool",
+          id: "t1",
+          name: "list_assets",
+          label: "Looking",
+          input: {},
+          status: "running",
+          summary: null,
+          ui: null,
+          approval: null,
+        },
+      },
+    ]);
+    const payload = { agent: { display: writing } };
+    const now = Date.parse("2026-10-19T12:00:00Z");
+    const fresh = new Date(now - 5_000).toISOString();
+    const old = new Date(now - STALE_STREAM_MS - 1_000).toISOString();
+
+    expect(storedDisplay({ payload, status: "streaming", updated_at: fresh }, now)?.status).toBe(
+      "streaming",
+    );
+    const cut = storedDisplay({ payload, status: "streaming", updated_at: old }, now)!;
+    expect(cut.status).toBe("failed");
+    expect(cut.error).toMatch(/cut off/);
+    expect(cut.blocks[0]!.block).toMatchObject({ kind: "text", done: true });
+    expect(cut.blocks[1]!.block).toMatchObject({ kind: "tool", status: "error" });
+
+    // Stopped from another page: the row says so, though the display was saved mid-stream.
+    const stopped = storedDisplay({ payload, status: "stopped", updated_at: fresh }, now)!;
+    expect(stopped.status).toBe("stopped");
+    const failed = storedDisplay({ payload, status: "failed", error_message: "Overloaded" }, now)!;
+    expect(failed.error).toBe("Overloaded");
+    expect(storedDisplay({ payload: { intent: "chat" }, status: "complete" })).toBeNull();
+  });
+
+  test("what a conversation made, and what waits for a person", () => {
+    const tool = (id: string, ui: unknown, status = "done", approval: unknown = null) =>
+      ({
+        type: "block",
+        key: `0:${id}`,
+        block: {
+          kind: "tool",
+          id,
+          name: "x",
+          label: "x",
+          input: {},
+          status,
+          summary: null,
+          ui,
+          approval,
+        },
+      }) as AgentEvent;
+    const generation = (id: string) => ({
+      type: "generation",
+      generationId: id,
+      modelName: null,
+      outputType: "image",
+      prompt: `p-${id}`,
+    });
+    const first = run([
+      tool("a", { type: "document", title: "Script", markdown: "# Hi" }),
+      tool("b", generation("g1")),
+    ]);
+    const second = run([
+      tool("c", generation("g1")),
+      tool("d", generation("g2")),
+      tool("e", null, "awaiting_approval", {
+        toolUseId: "e",
+        title: "Make a video",
+        details: [],
+        estimateUsd: 1.5,
+        reason: "It spends credits",
+      }),
+      tool("f", null, "awaiting_approval", {
+        toolUseId: "f",
+        title: "Make another",
+        details: [],
+        estimateUsd: null,
+        reason: "It spends credits",
+      }),
+    ]);
+    expect(documentsOf([first, second])).toEqual([{ title: "Script", markdown: "# Hi" }]);
+    expect(generationsOf([first, second])).toEqual([
+      { generationId: "g1", prompt: "p-g1" },
+      { generationId: "g2", prompt: "p-g2" },
+    ]);
+    expect(awaitingApprovals(second).map((approval) => approval.toolUseId)).toEqual(["e", "f"]);
+    expect(awaitingApprovals(first)).toEqual([]);
+  });
 });
 
 describe("a conversation's settings", () => {
@@ -203,6 +306,14 @@ describe("a conversation's settings", () => {
     ).toEqual(DEFAULT_THREAD_SETTINGS);
     expect(takesFallbacks("claude-haiku-5-5")).toBe(false);
     expect(takesFallbacks("claude-opus-5-5")).toBe(true);
+  });
+
+  test("models are named for people, a fallback one too", () => {
+    expect(agentModelLabel("claude-opus-5-5")).toBe("Claude Opus 5.5");
+    expect(agentModelLabel("claude-opus-4-8")).toBe("Claude Opus 4.8");
+    expect(agentModelLabel("claude-sonnet-5")).toBe("Claude Sonnet 5");
+    expect(agentModelLabel("claude-sonnet-4-5-20250929")).toBe("Claude Sonnet 4.5");
+    expect(agentModelLabel("something-else")).toBe("something-else");
   });
 });
 
@@ -724,6 +835,35 @@ describe("a turn", () => {
     });
     const state = await runTurn(stopped.io, freshState("claude-opus-5-5"));
     expect(state.display.status).toBe("stopped");
+  });
+
+  test("drafts from two calls in a turn are shown together, each plan on its own drafts", () => {
+    const draft = (title: string) => ({ title }) as never;
+    const first = mergePayload(
+      {},
+      {
+        drafts: [draft("a"), draft("b")],
+        editPlan: { shots: [{ draftIndex: 0 }, { draftIndex: 1 }] },
+      },
+    );
+    const both = mergePayload(first, {
+      drafts: [draft("c"), draft("d"), draft("e")],
+      editPlan: { title: "Second", shots: [{ draftIndex: 2 }, { draftIndex: 0 }] },
+    });
+    expect(both.drafts?.map((entry) => (entry as { title: string }).title)).toEqual([
+      "a",
+      "b",
+      "c",
+      "d",
+      "e",
+    ]);
+    // The second plan's shots count its own drafts, which now follow the first call's.
+    expect(both.editPlan).toEqual({
+      title: "Second",
+      shots: [{ draftIndex: 4 }, { draftIndex: 2 }],
+    });
+    // A plan without a second call keeps its shots as they are.
+    expect(mergePayload(first, { ideas: [] }).editPlan).toEqual(first.editPlan);
   });
 
   test("a fallback model that answers is shown", async () => {

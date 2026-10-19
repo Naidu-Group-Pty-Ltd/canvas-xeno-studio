@@ -2,31 +2,73 @@ import { useEffect, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import {
   AlertTriangle,
+  Check,
+  Copy,
   Cpu,
   HelpCircle,
   Layers,
   Lightbulb,
   Loader2,
+  Pencil,
   RefreshCw,
   Sparkles,
+  Square,
 } from "lucide-react";
 import type { AssetRow } from "@/hooks/useStudioData";
 import { useDraftLongVideos, useDraftRuns, type MessageRow } from "@/hooks/useSupercomputerData";
 import type { ModelRegistryEntry } from "@/lib/model-schema";
+import { displayText, type AgentDisplay } from "@/lib/supercomputer/agent-events";
+import { agentModelLabel } from "@/lib/supercomputer/agent-settings";
 import type { SupercomputerIdea, SupercomputerIntent } from "@/lib/supercomputer/types";
 import { Markdown } from "@/components/studio/Markdown";
 import { MediaPreview } from "@/components/studio/MediaPreview";
 import { Button } from "@/components/ui/button";
 import { useProviderHealth } from "@/components/layout/AppShell";
+import { cn } from "@/lib/utils";
+import { AgentTranscript, type TranscriptActions } from "./agent/AgentTranscript";
 import { CompileVideo, EditPlanCard, SendPlanToKatana } from "./CompileVideo";
 import { DraftCard } from "./DraftCard";
 import { providerBlockReason } from "./draft-runner";
 import { GenerateAllDialog } from "./GenerateAllDialog";
 
-export function UserMessage({ message }: { message: MessageRow }) {
+/** Copies text, and says so for a moment. */
+function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 1500);
+    return () => clearTimeout(timer);
+  }, [copied]);
   return (
-    <div className="flex justify-end">
-      <div className="max-w-[min(42rem,90%)] space-y-2">
+    <Button
+      size="icon"
+      variant="ghost"
+      className="size-7 text-muted-foreground hover:text-foreground"
+      aria-label={label}
+      title={label}
+      onClick={() => {
+        void navigator.clipboard?.writeText(text).then(() => setCopied(true));
+      }}
+    >
+      {copied ? <Check className="size-3.5 text-success" /> : <Copy className="size-3.5" />}
+    </Button>
+  );
+}
+
+export function UserMessage({
+  message,
+  onEdit,
+  pending = false,
+}: {
+  message: MessageRow;
+  /** Edits this message: the conversation picks up again from it (null: not now; left out: no edits here). */
+  onEdit?: (() => void) | null | undefined;
+  /** Sent, not yet saved. */
+  pending?: boolean;
+}) {
+  return (
+    <div className="group flex justify-end" data-testid="user-message">
+      <div className={cn("max-w-[min(42rem,90%)] space-y-2", pending && "opacity-80")}>
         {!!message.attachments?.length && (
           <div className="flex flex-wrap justify-end gap-1.5">
             {message.attachments.map((item) => (
@@ -40,12 +82,45 @@ export function UserMessage({ message }: { message: MessageRow }) {
             ))}
           </div>
         )}
-        <div className="rounded-2xl rounded-tr-md bg-surface-raised px-4 py-2.5 text-sm whitespace-pre-wrap">
-          {message.content}
-        </div>
+        {message.content && (
+          <div className="rounded-2xl rounded-tr-md bg-surface-raised px-4 py-2.5 text-sm whitespace-pre-wrap">
+            {message.content}
+          </div>
+        )}
+        {!pending && onEdit !== undefined && (
+          <div className="flex justify-end gap-0.5 transition-opacity focus-within:opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
+            {message.content && <CopyButton text={message.content} />}
+            {onEdit && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="size-7 text-muted-foreground hover:text-foreground"
+                aria-label="Edit"
+                title="Edit: the conversation picks up again from here"
+                onClick={onEdit}
+              >
+                <Pencil className="size-3.5" />
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
+}
+
+/** An answer of the agent's: what it showed, and what can be done with it. */
+export interface AgentView {
+  display: AgentDisplay;
+  actions: TranscriptActions;
+  /** Makes this answer again (null: it can't be redone now). */
+  onRegenerate: (() => void) | null;
+  /** Stops it while it's being written from another page (null: not from here). */
+  onStop?: (() => void) | null;
+}
+
+function tokens(count: number): string {
+  return count >= 1000 ? `${(count / 1000).toFixed(count >= 10_000 ? 0 : 1)}k` : String(count);
 }
 
 interface AssistantProps {
@@ -62,6 +137,8 @@ interface AssistantProps {
   onRetry: (messageId: string) => void;
   onOpenAsset: (asset: AssetRow) => void;
   onAttach: (asset: AssetRow) => void;
+  /** An answer of the agent's (it shows its transcript). */
+  agent?: AgentView | undefined;
 }
 
 export function AssistantMessage({
@@ -73,6 +150,7 @@ export function AssistantMessage({
   onRetry,
   onOpenAsset,
   onAttach,
+  agent,
 }: AssistantProps) {
   const payload = message.payload ?? {};
   const drafts = payload.drafts ?? [];
@@ -93,19 +171,36 @@ export function AssistantMessage({
   const { data: health } = useProviderHealth();
   const providerBlocked = health ? providerBlockReason(health) : null;
 
+  const display = agent?.display;
+  const streaming = display?.status === "streaming";
+  const usage = display?.usage;
+  const answered = display ? (display.model ?? message.model) : message.model;
+
   return (
-    <div className="flex gap-3">
+    <div className="group flex gap-3" data-testid="assistant-message">
       <span className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
         <Cpu className="size-4" />
       </span>
       <div className="min-w-0 flex-1 space-y-4">
-        <p className="text-[11px] text-muted-foreground">
+        <p
+          className="text-[11px] text-muted-foreground"
+          title={
+            usage
+              ? `${usage.inputTokens + usage.cacheReadTokens + usage.cacheWriteTokens} tokens read (${usage.cacheReadTokens} from cache), ${usage.outputTokens} written`
+              : undefined
+          }
+        >
           Supercomputer
-          {message.model ? ` · ${message.model}` : ""} ·{" "}
+          {answered ? ` · ${display ? agentModelLabel(answered) : answered}` : ""} ·{" "}
           {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
+          {usage && !streaming
+            ? ` · ${tokens(usage.inputTokens + usage.cacheReadTokens + usage.cacheWriteTokens)} in, ${tokens(usage.outputTokens)} out`
+            : ""}
         </p>
 
-        {message.status === "failed" ? (
+        {display && agent ? (
+          <AgentTranscript display={display} actions={agent.actions} />
+        ) : message.status === "failed" ? (
           <div className="flex flex-wrap items-center gap-3 rounded-lg border border-primary/30 bg-primary/10 p-3 text-xs">
             <AlertTriangle className="size-4 text-primary" />
             <span className="min-w-0 flex-1">
@@ -228,6 +323,30 @@ export function AssistantMessage({
                 {suggestion}
               </button>
             ))}
+          </div>
+        )}
+
+        {display && agent && streaming && agent.onStop && (
+          <Button size="sm" variant="outline" className="-mt-2 h-7 text-xs" onClick={agent.onStop}>
+            <Square className="mr-1.5 size-3 fill-current" /> Stop
+          </Button>
+        )}
+
+        {display && agent && !streaming && (
+          <div className="-mt-2 flex gap-0.5 opacity-60 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+            {displayText(display) && <CopyButton text={displayText(display)} />}
+            {agent.onRegenerate && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="size-7 text-muted-foreground hover:text-foreground"
+                aria-label="Try again"
+                title="Try again: a fresh answer to your last message"
+                onClick={agent.onRegenerate}
+              >
+                <RefreshCw className="size-3.5" />
+              </Button>
+            )}
           </div>
         )}
       </div>

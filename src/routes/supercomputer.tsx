@@ -4,13 +4,21 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import {
   AlertTriangle,
+  ArrowDown,
+  Brain,
   Clapperboard,
   Cpu,
   FileText,
+  Globe,
   Images,
   Lightbulb,
+  Palette,
   PanelLeft,
+  RefreshCw,
+  Sparkles,
   Upload,
+  Wand2,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,8 +28,16 @@ import { LibraryPicker } from "@/components/studio/LibraryPicker";
 import { BriefImportDialog } from "@/components/briefs/BriefImportDialog";
 import { BriefPanel } from "@/components/briefs/BriefPanel";
 import { Composer } from "@/components/supercomputer/Composer";
-import { AssistantMessage, ThinkingBubble, UserMessage } from "@/components/supercomputer/Messages";
+import {
+  AssistantMessage,
+  ThinkingBubble,
+  UserMessage,
+  type AgentView,
+} from "@/components/supercomputer/Messages";
 import { ThreadSidebar } from "@/components/supercomputer/ThreadSidebar";
+import { AgentComposer } from "@/components/supercomputer/agent/AgentComposer";
+import { ArtifactsPanel, MemoryDialog } from "@/components/supercomputer/agent/AgentPanels";
+import type { ApprovalDecisions } from "@/components/supercomputer/agent/AgentTranscript";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -33,16 +49,34 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
+import { useAgentStatus, useAgentStream } from "@/hooks/useAgent";
 import { useModels, useProjects, type AssetRow } from "@/hooks/useStudioData";
 import { useCampaigns } from "@/hooks/useV2Data";
 import {
+  THREAD_COLUMNS,
   useBriefs,
   useSupercomputerRealtime,
   useSupercomputerStatus,
   useThreadMessages,
+  type MessageRow,
   type ThreadRow,
 } from "@/hooks/useSupercomputerData";
 import { sendSupercomputerMessage } from "@/lib/supercomputer.functions";
+import { saveAgentSettings, stopAgentTurn } from "@/lib/supercomputer-agent.functions";
+import {
+  documentsOf,
+  generationsOf,
+  storedDisplay,
+  type AgentDisplay,
+} from "@/lib/supercomputer/agent-events";
+import {
+  AGENT_EFFORT_LABELS,
+  agentModelLabel,
+  DEFAULT_THREAD_SETTINGS,
+  takesFallbacks,
+  threadSettingsOf,
+  type AgentThreadSettings,
+} from "@/lib/supercomputer/agent-settings";
 import { takeSupercomputerHandoff } from "@/lib/supercomputer/handoff";
 import type {
   BriefDeliverable,
@@ -66,7 +100,7 @@ export const Route = createFileRoute("/supercomputer")({
       {
         name: "description",
         content:
-          "Brainstorm concepts, work from imported briefs and get ready-to-run drafts for every studio model.",
+          "The studio's creative agent: it thinks, researches, works from briefs and brands, makes images and videos and checks its own work.",
       },
       { property: "og:title", content: "Supercomputer · Xeno Studio" },
       { property: "og:description", content: "The studio's creative AI agent." },
@@ -78,6 +112,8 @@ export const Route = createFileRoute("/supercomputer")({
 });
 
 const MAX_ATTACHMENTS = 16;
+
+type SendOptions = { fromComposer?: boolean; newThread?: boolean; briefId?: string | null };
 
 function toAttachment(asset: {
   id: string;
@@ -95,20 +131,54 @@ function toAttachment(asset: {
   };
 }
 
-function useThread(threadId: string | null, enabled: boolean) {
+function useThread(threadId: string | null, enabled: boolean, agentColumns: boolean) {
   return useQuery({
-    queryKey: ["supercomputer_threads", "detail", threadId],
+    queryKey: ["supercomputer_threads", "detail", threadId, agentColumns],
     enabled: enabled && !!threadId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("supercomputer_threads")
-        .select("id,title,project_id,campaign_id,brief_id,created_by,last_message_at,created_at")
+        .select(agentColumns ? `${THREAD_COLUMNS},settings,pinned` : THREAD_COLUMNS)
         .eq("id", threadId!)
         .maybeSingle();
       if (error) throw error;
-      return (data ?? null) as ThreadRow | null;
+      return (data ?? null) as unknown as ThreadRow | null;
     },
   });
+}
+
+/** The model and effort a new conversation starts with: the last ones chosen in this browser. */
+const AGENT_DEFAULTS_KEY = "xeno.supercomputer.agent";
+
+function agentDefaults(): AgentThreadSettings {
+  try {
+    const raw = window.localStorage.getItem(AGENT_DEFAULTS_KEY);
+    const saved = (raw ? JSON.parse(raw) : {}) as Record<string, unknown>;
+    return threadSettingsOf({ model: saved["model"], effort: saved["effort"] });
+  } catch {
+    return DEFAULT_THREAD_SETTINGS;
+  }
+}
+
+function keepAgentDefaults(settings: AgentThreadSettings) {
+  try {
+    window.localStorage.setItem(
+      AGENT_DEFAULTS_KEY,
+      JSON.stringify({ model: settings.model, effort: settings.effort }),
+    );
+  } catch {
+    // A convenience of this browser only.
+  }
+}
+
+/** A clock for things shown by age (an answer that stopped moving is shown as cut off). */
+function useClock(intervalMs: number) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(timer);
+  }, [intervalMs]);
+  return now;
 }
 
 function SupercomputerPage() {
@@ -122,17 +192,48 @@ function SupercomputerPage() {
   const statusFailed = statusQuery.isError;
   const tablesReady = status?.tablesReady === true;
   const aiReady = !!status?.backend;
+  // The agent: on Claude, once its key is set and its database update (0022) is in.
+  const agentQuery = useAgentStatus();
+  const agentSettled = agentQuery.data !== undefined || agentQuery.fetchStatus === "idle";
+  const agentTables = tablesReady && agentQuery.data?.tablesReady === true;
+  const agentMode = agentTables && agentQuery.data?.configured === true;
   const { data: models = [] } = useModels();
   const { data: projects = [] } = useProjects();
   const { data: campaigns = [] } = useCampaigns();
   const { data: briefs = [] } = useBriefs(tablesReady);
 
   const threadId = search.thread ?? null;
-  const { data: thread } = useThread(threadId, tablesReady);
+  const threadIdRef = useRef(threadId);
+  threadIdRef.current = threadId;
+  const { data: thread } = useThread(threadId, tablesReady && agentSettled, agentTables);
   const { data: messages = [], isLoading: messagesLoading } = useThreadMessages(
-    tablesReady ? threadId : null,
+    tablesReady && agentSettled ? threadId : null,
+    agentTables,
   );
-  useSupercomputerRealtime(threadId, tablesReady);
+  // Following a conversation this page started, into the page it gets once it's made.
+  const [following, setFollowing] = useState(false);
+  const followingRef = useRef(false);
+  const follow = useCallback((value: boolean) => {
+    followingRef.current = value;
+    setFollowing(value);
+  }, []);
+  const stream = useAgentStream({
+    onThread: (id) => {
+      if (!followingRef.current || threadIdRef.current === id) return;
+      void navigate({
+        search: (previous) => ({
+          ...(previous.brief ? { brief: previous.brief } : {}),
+          thread: id,
+        }),
+      });
+    },
+  });
+  const live = stream.live;
+  const liveHere =
+    live && (live.threadId === threadId || (following && threadId === null && live.origin === null))
+      ? live
+      : null;
+  useSupercomputerRealtime(threadId, tablesReady, live?.threadId ?? null);
 
   // Context for a chat that does not exist yet; an open thread carries its own.
   const [draftContext, setDraftContext] = useState<{
@@ -164,6 +265,31 @@ function SupercomputerPage() {
   const [dragging, setDragging] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const atBottomRef = useRef(true);
+  const [atBottom, setAtBottom] = useState(true);
+  const [editing, setEditing] = useState<{
+    messageId: string;
+    before: { text: string; attachments: MessageAttachment[] };
+  } | null>(null);
+  const [artifactsOpen, setArtifactsOpen] = useState(false);
+  const [artifactFocus, setArtifactFocus] = useState<string | null>(null);
+  const [memoryOpen, setMemoryOpen] = useState(false);
+
+  // How the agent runs: a new conversation's own choice, or the open one's (saved with it).
+  const [draftSettings, setDraftSettings] = useState<AgentThreadSettings>(DEFAULT_THREAD_SETTINGS);
+  const [settingsPatch, setSettingsPatch] = useState<{
+    threadId: string;
+    patch: Partial<AgentThreadSettings>;
+  } | null>(null);
+  useEffect(() => setDraftSettings(agentDefaults()), []);
+  const settings = thread
+    ? threadSettingsOf({
+        ...((thread.settings ?? {}) as Record<string, unknown>),
+        ...(settingsPatch?.threadId === thread.id ? settingsPatch.patch : {}),
+      })
+    : draftSettings;
+  const canAct = !thread || thread.created_by === user?.id || isAdmin;
+  const clock = useClock(30_000);
 
   // Prefill from Create / Library hand-offs. Nothing is sent automatically.
   useEffect(() => {
@@ -184,12 +310,26 @@ function SupercomputerPage() {
   useEffect(() => {
     const element = scrollRef.current;
     if (element) element.scrollTo({ top: element.scrollHeight, behavior: "smooth" });
-  }, [messages.length, pending]);
+    atBottomRef.current = true;
+  }, [messages.length, pending, liveHere?.assistantMessageId]);
+
+  // An answer being written keeps the view at its end, unless the person scrolled up to read.
+  const liveDisplay = liveHere?.display;
+  useEffect(() => {
+    const element = scrollRef.current;
+    if (element && liveDisplay && atBottomRef.current) element.scrollTop = element.scrollHeight;
+  }, [liveDisplay]);
 
   const selectThread = useCallback(
     (id: string | null) => {
       setSidebarOpen(false);
       setPending(null);
+      follow(false);
+      if (editing) {
+        setText(editing.before.text);
+        setAttachments(editing.before.attachments);
+        setEditing(null);
+      }
       if (!id) setDraftContext({ projectId: null, campaignId: null, briefId: null });
       void navigate({
         search: (previous) => ({
@@ -198,7 +338,7 @@ function SupercomputerPage() {
         }),
       });
     },
-    [navigate],
+    [navigate, follow, editing],
   );
 
   const openBrief = useCallback(
@@ -224,10 +364,10 @@ function SupercomputerPage() {
           ? "AI is not configured"
           : null;
 
-  async function send(
+  async function sendClassic(
     body: string,
     chosenIntent: SupercomputerIntent,
-    options: { fromComposer?: boolean; newThread?: boolean; briefId?: string | null } = {},
+    options: SendOptions = {},
   ) {
     const content = body.trim();
     if (!content || pending || disabledReason) return;
@@ -308,6 +448,123 @@ function SupercomputerPage() {
     }
   }
 
+  const agentDisabledReason = statusFailed
+    ? "Supercomputer is unreachable"
+    : !canAct
+      ? "Only whoever started this conversation can continue it"
+      : null;
+
+  /** Sends a message to the agent (or an edit of an earlier one, from the composer). */
+  async function sendAgent(
+    body: string,
+    options: { fromComposer?: boolean; newThread?: boolean; briefId?: string | null } = {},
+  ) {
+    const content = body.trim();
+    const files = options.fromComposer ? attachments : [];
+    if ((!content && !files.length) || stream.busy || agentDisabledReason) return;
+    const target = options.newThread ? null : threadId;
+    const brief = options.briefId !== undefined ? options.briefId : context.briefId;
+    const briefRow = brief ? briefs.find((entry) => entry.id === brief) : undefined;
+    const edit = options.fromComposer && target ? editing : null;
+    const before = { text, attachments, editing };
+    if (options.fromComposer) {
+      setText("");
+      setAttachments([]);
+      setEditing(null);
+    }
+    if (!target) {
+      follow(true);
+      // A new conversation from inside another opens on its own page.
+      if (threadId) void navigate({ search: {} });
+    }
+    const outcome = await stream.run(
+      {
+        threadId: target,
+        text: content,
+        attachmentAssetIds: files.map((item) => item.assetId),
+        // An open thread that hasn't loaded yet keeps its brief, project and campaign.
+        briefId: options.briefId !== undefined || !target || thread ? (brief ?? null) : undefined,
+        projectId: target
+          ? thread
+            ? context.projectId
+            : undefined
+          : (context.projectId ?? briefRow?.project_id ?? null),
+        campaignId: target
+          ? thread
+            ? context.campaignId
+            : undefined
+          : (context.campaignId ?? briefRow?.campaign_id ?? null),
+        settings: target ? settings : draftSettings,
+        ...(edit ? { editMessageId: edit.messageId } : {}),
+      },
+      { text: content, attachments: files, replacing: edit?.messageId ?? null },
+    );
+    // Nothing was taken: the message goes back where it was written.
+    if (!outcome.started && options.fromComposer) {
+      setText(before.text);
+      setAttachments(before.attachments);
+      setEditing(before.editing);
+    }
+  }
+
+  /** Answers the calls an answer waits on, and lets it carry on from where it was. */
+  function decide(message: MessageRow, decisions: ApprovalDecisions) {
+    void stream.run(
+      { threadId: message.thread_id, approval: { messageId: message.id, decisions }, settings },
+      { resuming: message.id, initial: storedDisplay(message) },
+    );
+  }
+
+  /** A fresh answer to the last message, in place of this one. */
+  function regenerate(message: MessageRow) {
+    void stream.run(
+      { threadId: message.thread_id, regenerate: true, settings },
+      { replacing: message.id },
+    );
+  }
+
+  function startEdit(message: MessageRow) {
+    setEditing({
+      messageId: message.id,
+      before: editing ? editing.before : { text, attachments },
+    });
+    setText(message.content);
+    setAttachments(message.attachments ?? []);
+  }
+
+  function cancelEdit() {
+    if (!editing) return;
+    setText(editing.before.text);
+    setAttachments(editing.before.attachments);
+    setEditing(null);
+  }
+
+  function changeSettings(patch: Partial<AgentThreadSettings>) {
+    const next = threadSettingsOf({ ...settings, ...patch });
+    keepAgentDefaults(next);
+    if (!thread) {
+      setDraftSettings(next);
+      return;
+    }
+    setSettingsPatch((current) => ({
+      threadId: thread.id,
+      patch: { ...(current?.threadId === thread.id ? current.patch : {}), ...patch },
+    }));
+    if (!canAct) return;
+    saveAgentSettings({ data: { threadId: thread.id, settings: patch } })
+      .then(() =>
+        queryClient.invalidateQueries({ queryKey: ["supercomputer_threads", "detail", thread.id] }),
+      )
+      .catch((error: unknown) =>
+        toast.error(error instanceof Error ? error.message : "The setting couldn't be saved"),
+      );
+  }
+
+  function openDocument(document: { title: string; markdown: string }) {
+    setArtifactFocus(document.title);
+    setArtifactsOpen(true);
+  }
+
   function addAttachments(items: MessageAttachment[]) {
     setAttachments((current) => {
       const next = [...current];
@@ -383,6 +640,8 @@ function SupercomputerPage() {
     if (!briefId) return;
     openBrief(null);
     const sameThread = !!thread && thread.brief_id === briefId;
+    const send = (body: string, chosen: SupercomputerIntent, options: SendOptions) =>
+      agentMode ? void sendAgent(body, options) : sendClassic(body, chosen, options);
     if (kind === "brainstorm")
       void send(
         "Brainstorm five genuinely different campaign concepts for this brief.",
@@ -421,7 +680,109 @@ function SupercomputerPage() {
   const showOptimisticUser =
     !!pending?.text && !(lastMessage?.role === "user" && lastMessage.content === pending.text);
   const activeBrief = briefs.find((entry) => entry.id === context.briefId) ?? null;
-  const empty = !threadId || (!messagesLoading && messages.length === 0 && !pending);
+
+  // The conversation as shown: what an edit or a redo in progress replaces makes way for it.
+  const replacing = liveHere?.replacing ?? null;
+  const shown = useMemo(() => {
+    const rows = messages.filter((message) => !message.superseded_at);
+    const at = replacing ? rows.findIndex((message) => message.id === replacing) : -1;
+    return at >= 0 ? rows.slice(0, at) : rows;
+  }, [messages, replacing]);
+  const stored = useMemo(() => {
+    const map = new Map<string, AgentDisplay>();
+    if (!agentTables) return map;
+    for (const message of shown) {
+      if (message.role !== "assistant") continue;
+      const display = storedDisplay(message, clock);
+      if (display) map.set(message.id, display);
+    }
+    return map;
+  }, [shown, agentTables, clock]);
+  const lastShown = shown.at(-1);
+  const liveRowShown =
+    !!liveHere && shown.some((message) => message.id === liveHere.assistantMessageId);
+  const liveUserPending =
+    !!liveHere &&
+    !liveRowShown &&
+    (!!liveHere.userText || liveHere.attachments.length > 0) &&
+    !shown.some((message) => message.id === liveHere.userMessageId);
+  const displays = [
+    ...shown.flatMap((message) => {
+      if (liveHere && message.id === liveHere.assistantMessageId) return [liveHere.display];
+      const display = stored.get(message.id);
+      return display ? [display] : [];
+    }),
+    ...(liveHere && !liveRowShown ? [liveHere.display] : []),
+  ];
+  const artifacts = { documents: documentsOf(displays), generations: generationsOf(displays) };
+  const artifactCount = artifacts.documents.length + artifacts.generations.length;
+  const empty = !pending && !liveHere && (!threadId || (!messagesLoading && shown.length === 0));
+
+  const messageContext = {
+    projectId: context.projectId,
+    campaignId: context.campaignId,
+    briefId: context.briefId,
+    threadId,
+  };
+  const messagesBusy = agentMode
+    ? stream.busy || !!agentDisabledReason
+    : !!pending || !!disabledReason;
+  const sendFromMessage = (body: string, chosen: SupercomputerIntent) =>
+    agentMode ? void sendAgent(body) : void sendClassic(body, chosen);
+
+  const agentView = (message: MessageRow, display: AgentDisplay, isLive: boolean): AgentView => ({
+    display,
+    actions: {
+      onDecide:
+        agentMode && canAct && !isLive && !stream.busy && message.status === "awaiting_approval"
+          ? (decisions) => decide(message, decisions)
+          : null,
+      onOpenAsset: setSelectedAsset,
+      onOpenDocument: openDocument,
+    },
+    onRegenerate:
+      agentMode &&
+      canAct &&
+      !isLive &&
+      !stream.busy &&
+      message.id === lastShown?.id &&
+      display.status !== "streaming"
+        ? () => regenerate(message)
+        : null,
+    onStop:
+      canAct && !isLive && display.status === "streaming"
+        ? () =>
+            void stopAgentTurn({ data: { messageId: message.id } })
+              .then(() =>
+                queryClient.invalidateQueries({
+                  queryKey: ["supercomputer_messages", message.thread_id],
+                }),
+              )
+              .catch(() => toast.error("It couldn't be stopped from here"))
+        : null,
+  });
+
+  const assistantRow = (message: MessageRow) => {
+    const isLive = !!liveHere && message.id === liveHere.assistantMessageId;
+    const display = isLive ? liveHere.display : (stored.get(message.id) ?? null);
+    return (
+      <AssistantMessage
+        key={message.id}
+        message={message}
+        models={models}
+        context={messageContext}
+        busy={messagesBusy}
+        onSend={sendFromMessage}
+        onRetry={(id) => void retry(id)}
+        onOpenAsset={setSelectedAsset}
+        onAttach={(asset) => {
+          addAttachments([toAttachment(asset)]);
+          toast.success("Attached to your next message.");
+        }}
+        agent={display ? agentView(message, display, isLive) : undefined}
+      />
+    );
+  };
 
   const sidebar = (
     <ThreadSidebar
@@ -434,6 +795,8 @@ function SupercomputerPage() {
         setImportFile(null);
         setImportOpen(true);
       }}
+      pinsEnabled={agentTables}
+      streamingThreadId={live?.threadId ?? null}
     />
   );
 
@@ -504,127 +867,300 @@ function SupercomputerPage() {
                 <FileText className="mr-1 size-3.5" /> View brief
               </Button>
             )}
+            {agentMode && (
+              <>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 gap-1.5 text-xs"
+                  onClick={() => {
+                    setArtifactFocus(null);
+                    setArtifactsOpen(true);
+                  }}
+                  data-testid="agent-artifacts"
+                >
+                  <Sparkles className="size-3.5" /> Made here
+                  {artifactCount ? (
+                    <span className="rounded-full bg-primary/15 px-1.5 text-[10px] text-primary">
+                      {artifactCount}
+                    </span>
+                  ) : null}
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="size-8"
+                  aria-label="Memory"
+                  title="What the Supercomputer remembers"
+                  onClick={() => setMemoryOpen(true)}
+                >
+                  <Brain className="size-4" />
+                </Button>
+              </>
+            )}
           </header>
 
-          <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto scroll-slim">
-            <div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-6">
-              {statusFailed && (
-                <SetupNotice kind="offline" onRetry={() => void statusQuery.refetch()} />
-              )}
-              {!statusLoading && !statusFailed && !tablesReady && <SetupNotice kind="tables" />}
-              {!statusLoading && tablesReady && !aiReady && (
-                <SetupNotice kind="ai" isAdmin={isAdmin} />
-              )}
-
-              {empty && !messagesLoading && (
-                <EmptyHero
-                  onPick={(starter) => {
-                    if (starter === "brief") {
-                      setImportFile(null);
-                      setImportOpen(true);
-                      return;
-                    }
-                    if (starter === "references") {
-                      setIntent("drafts");
-                      setText("Write production-ready prompts that build on these references: ");
-                      setLibraryOpen(true);
-                      return;
-                    }
-                    if (starter === "film") {
-                      setIntent("drafts");
-                      setText(
-                        "Plan a 30-second product film in six shots, with a ready-to-run video draft for each shot, for ",
-                      );
-                      return;
-                    }
-                    setIntent("brainstorm");
-                    setText("Brainstorm five distinct campaign concepts for ");
-                  }}
-                />
-              )}
-
-              {threadId && messagesLoading && <Skeleton className="h-32 w-full" />}
-
-              {messages.map((message) =>
-                message.role === "user" ? (
-                  <UserMessage key={message.id} message={message} />
-                ) : (
-                  <AssistantMessage
-                    key={message.id}
-                    message={message}
-                    models={models}
-                    context={{
-                      projectId: context.projectId,
-                      campaignId: context.campaignId,
-                      briefId: context.briefId,
-                      threadId,
-                    }}
-                    busy={!!pending || !!disabledReason}
-                    onSend={(body, chosen) => void send(body, chosen)}
-                    onRetry={(id) => void retry(id)}
-                    onOpenAsset={setSelectedAsset}
-                    onAttach={(asset) => {
-                      addAttachments([toAttachment(asset)]);
-                      toast.success("Attached to your next message.");
-                    }}
+          <div className="relative min-h-0 flex-1">
+            <div
+              ref={scrollRef}
+              className="h-full overflow-y-auto scroll-slim"
+              onScroll={(event) => {
+                const element = event.currentTarget;
+                const bottom =
+                  element.scrollHeight - element.scrollTop - element.clientHeight < 120;
+                atBottomRef.current = bottom;
+                setAtBottom(bottom);
+              }}
+            >
+              <div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-6">
+                {statusFailed && (
+                  <SetupNotice kind="offline" onRetry={() => void statusQuery.refetch()} />
+                )}
+                {!statusLoading && !statusFailed && !tablesReady && <SetupNotice kind="tables" />}
+                {!statusLoading && tablesReady && !aiReady && !agentMode && (
+                  <SetupNotice kind="ai" isAdmin={isAdmin} />
+                )}
+                {isAdmin && tablesReady && !agentMode && agentQuery.data && (
+                  <AgentSetupNotice
+                    configured={agentQuery.data.configured}
+                    tablesReady={agentQuery.data.tablesReady}
                   />
-                ),
-              )}
+                )}
 
-              {pending && (
-                <>
-                  {showOptimisticUser && (
-                    <UserMessage
-                      message={{
-                        id: "pending",
-                        thread_id: threadId ?? "",
-                        role: "user",
-                        content: pending.text,
-                        attachments: pending.attachments,
-                        payload: {},
-                        model: null,
-                        status: "complete",
-                        error_message: null,
-                        created_by: user?.id ?? null,
-                        created_at: new Date(pending.startedAt).toISOString(),
+                {empty &&
+                  !messagesLoading &&
+                  (agentMode ? (
+                    <AgentHero
+                      onPick={(starter) => {
+                        if (starter.id === "brief") {
+                          setImportFile(null);
+                          setImportOpen(true);
+                          return;
+                        }
+                        setText(starter.text);
                       }}
                     />
+                  ) : (
+                    <EmptyHero
+                      onPick={(starter) => {
+                        if (starter === "brief") {
+                          setImportFile(null);
+                          setImportOpen(true);
+                          return;
+                        }
+                        if (starter === "references") {
+                          setIntent("drafts");
+                          setText(
+                            "Write production-ready prompts that build on these references: ",
+                          );
+                          setLibraryOpen(true);
+                          return;
+                        }
+                        if (starter === "film") {
+                          setIntent("drafts");
+                          setText(
+                            "Plan a 30-second product film in six shots, with a ready-to-run video draft for each shot, for ",
+                          );
+                          return;
+                        }
+                        setIntent("brainstorm");
+                        setText("Brainstorm five distinct campaign concepts for ");
+                      }}
+                    />
+                  ))}
+
+                {threadId && messagesLoading && <Skeleton className="h-32 w-full" />}
+
+                {shown.map((message) =>
+                  message.role === "user" ? (
+                    <UserMessage
+                      key={message.id}
+                      message={message}
+                      onEdit={
+                        agentMode
+                          ? canAct && !stream.busy
+                            ? () => startEdit(message)
+                            : null
+                          : undefined
+                      }
+                    />
+                  ) : (
+                    assistantRow(message)
+                  ),
+                )}
+
+                {liveHere && !liveRowShown && (
+                  <>
+                    {liveUserPending && (
+                      <UserMessage
+                        pending
+                        message={{
+                          id: "pending",
+                          thread_id: threadId ?? "",
+                          role: "user",
+                          content: liveHere.userText,
+                          attachments: liveHere.attachments,
+                          payload: {},
+                          model: null,
+                          status: "complete",
+                          error_message: null,
+                          created_by: user?.id ?? null,
+                          created_at: new Date(liveHere.startedAt).toISOString(),
+                        }}
+                      />
+                    )}
+                    {assistantRow({
+                      id: liveHere.assistantMessageId ?? "live",
+                      thread_id: liveHere.threadId ?? "",
+                      role: "assistant",
+                      content: "",
+                      attachments: [],
+                      payload: {},
+                      model: settings.model,
+                      status: "streaming",
+                      error_message: null,
+                      created_by: user?.id ?? null,
+                      created_at: new Date(liveHere.startedAt).toISOString(),
+                    })}
+                  </>
+                )}
+
+                {agentMode &&
+                  canAct &&
+                  !liveHere &&
+                  !stream.busy &&
+                  !messagesLoading &&
+                  lastShown?.role === "user" && (
+                    <div className="flex items-center gap-2 pl-10 text-xs text-muted-foreground">
+                      No answer to this yet.
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() =>
+                          void stream.run({
+                            threadId: lastShown.thread_id,
+                            regenerate: true,
+                            settings,
+                          })
+                        }
+                      >
+                        <RefreshCw className="mr-1.5 size-3.5" /> Answer it
+                      </Button>
+                    </div>
                   )}
-                  <ThinkingBubble startedAt={pending.startedAt} />
-                </>
-              )}
+
+                {pending && (
+                  <>
+                    {showOptimisticUser && (
+                      <UserMessage
+                        message={{
+                          id: "pending",
+                          thread_id: threadId ?? "",
+                          role: "user",
+                          content: pending.text,
+                          attachments: pending.attachments,
+                          payload: {},
+                          model: null,
+                          status: "complete",
+                          error_message: null,
+                          created_by: user?.id ?? null,
+                          created_at: new Date(pending.startedAt).toISOString(),
+                        }}
+                      />
+                    )}
+                    <ThinkingBubble startedAt={pending.startedAt} />
+                  </>
+                )}
+              </div>
             </div>
+            {!atBottom && (
+              <Button
+                size="icon"
+                variant="secondary"
+                className="absolute bottom-3 left-1/2 size-8 -translate-x-1/2 rounded-full shadow-md"
+                aria-label="Jump to the latest"
+                onClick={() => {
+                  const element = scrollRef.current;
+                  element?.scrollTo({ top: element.scrollHeight, behavior: "smooth" });
+                }}
+              >
+                <ArrowDown className="size-4" />
+              </Button>
+            )}
           </div>
 
           <div className="mx-auto w-full max-w-4xl px-4 pb-4">
-            <Composer
-              value={text}
-              onChange={setText}
-              attachments={attachments}
-              onRemoveAttachment={(assetId) =>
-                setAttachments((current) => current.filter((item) => item.assetId !== assetId))
-              }
-              uploading={uploading}
-              intent={intent}
-              onIntentChange={setIntent}
-              hasBrief={!!context.briefId}
-              busy={!!pending}
-              disabledReason={disabledReason}
-              onSend={() => void send(text, intent, { fromComposer: true })}
-              onFiles={(files) => void handleFiles(files)}
-              onOpenLibrary={() => setLibraryOpen(true)}
-              onImportBrief={() => {
-                setImportFile(null);
-                setImportOpen(true);
-              }}
-            />
+            {agentMode ? (
+              <AgentComposer
+                value={text}
+                onChange={setText}
+                attachments={attachments}
+                onRemoveAttachment={(assetId) =>
+                  setAttachments((current) => current.filter((item) => item.assetId !== assetId))
+                }
+                uploading={uploading}
+                settings={settings}
+                onSettings={changeSettings}
+                busy={stream.busy}
+                disabledReason={agentDisabledReason}
+                editing={!!editing}
+                onCancelEdit={cancelEdit}
+                onSend={() => void sendAgent(text, { fromComposer: true })}
+                onStop={stream.stop}
+                onFiles={(files) => void handleFiles(files)}
+                onOpenLibrary={() => setLibraryOpen(true)}
+                onImportBrief={() => {
+                  setImportFile(null);
+                  setImportOpen(true);
+                }}
+              />
+            ) : (
+              <Composer
+                value={text}
+                onChange={setText}
+                attachments={attachments}
+                onRemoveAttachment={(assetId) =>
+                  setAttachments((current) => current.filter((item) => item.assetId !== assetId))
+                }
+                uploading={uploading}
+                intent={intent}
+                onIntentChange={setIntent}
+                hasBrief={!!context.briefId}
+                busy={!!pending}
+                disabledReason={disabledReason}
+                onSend={() => void sendClassic(text, intent, { fromComposer: true })}
+                onFiles={(files) => void handleFiles(files)}
+                onOpenLibrary={() => setLibraryOpen(true)}
+                onImportBrief={() => {
+                  setImportFile(null);
+                  setImportOpen(true);
+                }}
+              />
+            )}
             <p className="mt-1.5 px-2 text-[10px] text-muted-foreground">
-              Planning is free of Higgsfield credits. Nothing is generated until you press Generate
-              on a draft
-              {status?.backend
-                ? ` · AI: ${status.backend === "openai" ? "OpenAI" : "Lovable AI"} (${status.model})`
-                : ""}
-              .
+              {agentMode ? (
+                <>
+                  On {agentModelLabel(settings.model)} ·{" "}
+                  {AGENT_EFFORT_LABELS[settings.effort].toLowerCase()} thinking ·{" "}
+                  {settings.autoApproveUsd > 0
+                    ? `goes ahead with actions up to $${settings.autoApproveUsd} and asks before anything more`
+                    : "asks before it spends Higgsfield credits"}
+                  {takesFallbacks(settings.model)
+                    ? " · another Claude model steps in if this one is overloaded"
+                    : ""}
+                  .
+                </>
+              ) : (
+                <>
+                  Planning is free of Higgsfield credits. Nothing is generated until you press
+                  Generate on a draft
+                  {status?.backend
+                    ? ` · AI: ${status.backend === "openai" ? "OpenAI" : "Lovable AI"} (${status.model})`
+                    : ""}
+                  .
+                </>
+              )}
             </p>
           </div>
 
@@ -660,6 +1196,7 @@ function SupercomputerPage() {
               <BriefPanel
                 briefId={search.brief}
                 aiReady={aiReady}
+                draftsReady={aiReady || agentMode}
                 onBrainstorm={() => briefAction("brainstorm")}
                 onDraftAll={() => briefAction("all")}
                 onDraftDeliverable={(deliverable) => briefAction("deliverable", deliverable)}
@@ -705,6 +1242,19 @@ function SupercomputerPage() {
         asset={selectedAsset}
         onOpenChange={(open) => !open && setSelectedAsset(null)}
       />
+
+      {agentMode && (
+        <>
+          <ArtifactsPanel
+            open={artifactsOpen}
+            onOpenChange={setArtifactsOpen}
+            artifacts={artifacts}
+            focus={artifactFocus}
+            onOpenAsset={setSelectedAsset}
+          />
+          <MemoryDialog open={memoryOpen} onOpenChange={setMemoryOpen} />
+        </>
+      )}
     </AppShell>
   );
 }
@@ -799,6 +1349,123 @@ function EmptyHero({ onPick }: { onPick: (id: (typeof STARTERS)[number]["id"]) =
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+const AGENT_STARTERS = [
+  {
+    id: "make",
+    icon: Wand2,
+    title: "Make it, check it, refine it",
+    body: "It picks the model, generates, looks at what came back and improves it.",
+    text: "Make a 9:16 hero image of our product on a clean studio set, look at the result and refine it until it's right.",
+  },
+  {
+    id: "research",
+    icon: Globe,
+    title: "Research, then plan",
+    body: "Searches the web, reads what matters and plans the content around it.",
+    text: "Research what's working in short-form video in our category right now, then plan three videos for us.",
+  },
+  {
+    id: "brief",
+    icon: FileText,
+    title: "Turn a brief into content",
+    body: "Import a PDF, Word or PowerPoint brief and get every deliverable drafted.",
+    text: "",
+  },
+  {
+    id: "brand",
+    icon: Palette,
+    title: "Learn a brand",
+    body: "Reads a website's colours, fonts and voice into a brand design system.",
+    text: "Read the brand's design system from this website: ",
+  },
+] as const;
+
+function AgentHero({ onPick }: { onPick: (starter: (typeof AGENT_STARTERS)[number]) => void }) {
+  return (
+    <div className="space-y-6 py-6 text-center">
+      <div className="space-y-2">
+        <span className="mx-auto inline-flex size-12 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+          <Cpu className="size-6" />
+        </span>
+        <h1 className="font-display text-2xl font-semibold tracking-tight">Supercomputer</h1>
+        <p className="mx-auto max-w-xl text-sm text-muted-foreground">
+          The studio's agent, on Claude. It thinks a request through, researches the web, works from
+          your library, briefs and brands, makes images and videos with the right model, then looks
+          at what it made and refines it. It shows you what it will spend before it does.
+        </p>
+      </div>
+      <div className="grid gap-3 text-left sm:grid-cols-2">
+        {AGENT_STARTERS.map((starter) => (
+          <button
+            key={starter.id}
+            type="button"
+            onClick={() => onPick(starter)}
+            className="group flex gap-3 rounded-xl border border-border bg-surface p-4 transition-colors hover:border-primary/50"
+          >
+            <starter.icon className="mt-0.5 size-5 shrink-0 text-primary" />
+            <span>
+              <span className="block text-sm font-medium">{starter.title}</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">{starter.body}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const AGENT_NOTICE_KEY = "xeno.supercomputer.agent-notice";
+
+/** For admins: what turns the Supercomputer into an agent here. */
+function AgentSetupNotice({
+  configured,
+  tablesReady,
+}: {
+  configured: boolean;
+  tablesReady: boolean;
+}) {
+  const [hidden, setHidden] = useState(true);
+  useEffect(() => {
+    try {
+      setHidden(window.localStorage.getItem(AGENT_NOTICE_KEY) === "hidden");
+    } catch {
+      setHidden(false);
+    }
+  }, []);
+  if (hidden) return null;
+  const steps = [
+    !configured ? "add an ANTHROPIC_API_KEY backend secret" : null,
+    !tablesReady ? "apply migration 0022_supercomputer_agent" : null,
+  ].filter(Boolean);
+  return (
+    <div className="flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4 text-sm">
+      <Sparkles className="mt-0.5 size-4 shrink-0 text-primary" />
+      <div className="min-w-0 flex-1">
+        <p className="font-medium">The Supercomputer can work as an agent.</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          On Claude it thinks, researches the web, uses the studio's tools, generates and checks its
+          own work, and asks before it spends. To turn it on, {steps.join(" and ")}.
+        </p>
+      </div>
+      <button
+        type="button"
+        aria-label="Hide"
+        className="text-muted-foreground hover:text-foreground"
+        onClick={() => {
+          setHidden(true);
+          try {
+            window.localStorage.setItem(AGENT_NOTICE_KEY, "hidden");
+          } catch {
+            // Hidden for this visit only.
+          }
+        }}
+      >
+        <X className="size-4" />
+      </button>
     </div>
   );
 }

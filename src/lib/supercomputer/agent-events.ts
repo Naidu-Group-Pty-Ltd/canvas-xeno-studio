@@ -290,6 +290,90 @@ export function displayText(display: AgentDisplay): string {
     .trim();
 }
 
+/** An answer still marked streaming that hasn't been saved for this long was cut off. */
+export const STALE_STREAM_MS = 3 * 60_000;
+
+/**
+ * The display kept with an answer, as it should show now. The row's status
+ * wins over the display's (an answer stopped from another page), and one
+ * still marked streaming that hasn't been saved for a while was cut off
+ * (it saves every few seconds while it works).
+ */
+export function storedDisplay(
+  row: {
+    payload: unknown;
+    status: string;
+    error_message?: string | null;
+    updated_at?: string | null;
+  },
+  now = Date.now(),
+): AgentDisplay | null {
+  const agent = ((row.payload ?? {}) as Record<string, unknown>)["agent"];
+  const display = displayOf((agent as Record<string, unknown> | undefined)?.["display"]);
+  if (!display) return null;
+  if (row.status === "streaming") {
+    const saved = row.updated_at ? Date.parse(row.updated_at) : Number.NaN;
+    if (!Number.isFinite(saved) || now - saved < STALE_STREAM_MS)
+      return { ...display, status: "streaming" };
+    return applyAgentEvent(display, {
+      type: "status",
+      status: "failed",
+      error: "This answer was cut off before it finished. Try again to have it redone.",
+    });
+  }
+  const status: AgentTurnStatus =
+    row.status === "awaiting_approval" ||
+    row.status === "complete" ||
+    row.status === "stopped" ||
+    row.status === "failed"
+      ? row.status
+      : display.status;
+  if (status === display.status && (status !== "failed" || display.error)) return display;
+  return applyAgentEvent(display, {
+    type: "status",
+    status,
+    error:
+      status === "failed"
+        ? (display.error ?? row.error_message ?? "The Supercomputer couldn't answer")
+        : null,
+  });
+}
+
+/** Every document written in a set of turns, oldest first. */
+export function documentsOf(displays: AgentDisplay[]): { title: string; markdown: string }[] {
+  return displays.flatMap((display) =>
+    display.blocks.flatMap(({ block }) =>
+      block.kind === "tool" && block.ui?.type === "document"
+        ? [{ title: block.ui.title, markdown: block.ui.markdown }]
+        : [],
+    ),
+  );
+}
+
+/** Every generation started in a set of turns, oldest first. */
+export function generationsOf(
+  displays: AgentDisplay[],
+): { generationId: string; prompt: string | null }[] {
+  const seen = new Set<string>();
+  return displays.flatMap((display) =>
+    display.blocks.flatMap(({ block }) => {
+      if (block.kind !== "tool" || block.ui?.type !== "generation") return [];
+      if (seen.has(block.ui.generationId)) return [];
+      seen.add(block.ui.generationId);
+      return [{ generationId: block.ui.generationId, prompt: block.ui.prompt }];
+    }),
+  );
+}
+
+/** The calls a turn waits on a person for. */
+export function awaitingApprovals(display: AgentDisplay): ApprovalRequest[] {
+  return display.blocks.flatMap(({ block }) =>
+    block.kind === "tool" && block.status === "awaiting_approval" && block.approval
+      ? [block.approval]
+      : [],
+  );
+}
+
 /** Encodes an event for an event stream. */
 export function encodeEvent(event: AgentEvent): string {
   return `data: ${JSON.stringify(event)}\n\n`;

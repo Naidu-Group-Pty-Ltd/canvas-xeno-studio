@@ -450,6 +450,15 @@ async function runRequest(
       throw new AppError("INVALID_PARAMETERS", "That answer isn't waiting for an approval");
     const kept = stateOf(row.payload);
     if (!kept?.pending) throw new AppError("INVALID_PARAMETERS", "There's nothing to approve");
+    // Taken for this request: the same approval from another page finds it already going.
+    const { data: claimed } = await db
+      .from("supercomputer_messages")
+      .update({ status: "streaming" })
+      .eq("id", row.id)
+      .eq("status", "awaiting_approval")
+      .select("id");
+    if (!claimed?.length)
+      throw new AppError("INVALID_PARAMETERS", "That answer is already carrying on");
     state = { ...kept, model: settings.model };
     assistantId = row.id;
     decisions = input.approval.decisions;
@@ -536,6 +545,23 @@ async function runRequest(
   const titling =
     isNew && input.text.trim() ? writeTitle(thread.id, input.text, emit) : Promise.resolve();
 
+  // The turn ends when its page goes, or when it is stopped from another page
+  // (stopAgentTurn marks the answer stopped; this notices within seconds).
+  const ending = new AbortController();
+  const end = () => ending.abort();
+  if (signal.aborted) end();
+  else signal.addEventListener("abort", end, { once: true });
+  const watch = setInterval(() => {
+    void db
+      .from("supercomputer_messages")
+      .select("status")
+      .eq("id", assistantId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.status === "stopped") end();
+      });
+  }, 4000);
+
   const context: AgentContext = {
     userId,
     threadId: thread.id,
@@ -543,33 +569,38 @@ async function runRequest(
     settings,
     projectId: thread.project_id,
     campaignId: thread.campaign_id,
-    signal,
+    signal: ending.signal,
   };
   const base = rows.find((entry) => entry.id === assistantId)?.payload ?? { intent: "chat" };
-  await runTurn(
-    {
-      context,
-      system: AGENT_SYSTEM,
-      history,
-      emit,
-      resolve: resolveAssets,
-      persist: async (current, phase) => {
-        const status = STATUS_OF[current.display.status] ?? "streaming";
-        const values = {
-          content: displayText(current.display).slice(0, 32_000),
-          payload: payloadOf(base, current) as never,
-          model: current.display.model ?? settings.model,
-          status: phase === "streaming" ? "streaming" : status,
-          error_message: current.display.error,
-        };
-        // A person who stopped it elsewhere wins over a late save while it streams.
-        const query = db.from("supercomputer_messages").update(values).eq("id", assistantId);
-        await (phase === "streaming" ? query.eq("status", "streaming") : query);
+  try {
+    await runTurn(
+      {
+        context,
+        system: AGENT_SYSTEM,
+        history,
+        emit,
+        resolve: resolveAssets,
+        persist: async (current, phase) => {
+          const status = STATUS_OF[current.display.status] ?? "streaming";
+          const values = {
+            content: displayText(current.display).slice(0, 32_000),
+            payload: payloadOf(base, current) as never,
+            model: current.display.model ?? settings.model,
+            status: phase === "streaming" ? "streaming" : status,
+            error_message: current.display.error,
+          };
+          // A person who stopped it elsewhere wins over the saves it makes while it works.
+          const query = db.from("supercomputer_messages").update(values).eq("id", assistantId);
+          await (phase === "final" ? query : query.eq("status", "streaming"));
+        },
       },
-    },
-    state,
-    decisions,
-  );
+      state,
+      decisions,
+    );
+  } finally {
+    clearInterval(watch);
+    signal.removeEventListener("abort", end);
+  }
   await db
     .from("supercomputer_threads")
     .update({ last_message_at: new Date().toISOString() })
@@ -655,8 +686,5 @@ export async function handleAgentRequest(request: Request): Promise<Response> {
 export function agentReady(): boolean {
   return agentConfigured();
 }
-
-/** An answer still streaming that has stopped moving is shown as cut off (its page was closed). */
-export const STALE_STREAM_MS = 3 * 60_000;
 
 export { storedAgent };

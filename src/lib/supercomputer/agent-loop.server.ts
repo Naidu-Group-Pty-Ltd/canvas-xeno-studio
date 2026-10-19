@@ -784,16 +784,24 @@ export function abandonPending(state: TurnState): TurnState {
   };
 }
 
-function mergePayload(
+export function mergePayload(
   base: Partial<SupercomputerPayload>,
   next: Partial<SupercomputerPayload>,
 ): Partial<SupercomputerPayload> {
   // Drafts from several calls in one turn are shown together; the latest edit plan wins.
+  // A plan counts its own call's drafts, which now follow the ones already shown.
+  const offset = base.drafts?.length ?? 0;
+  const drafts = next.drafts ? [...(base.drafts ?? []), ...next.drafts].slice(0, 24) : base.drafts;
+  const shots = next.editPlan?.shots
+    .map((shot) => ({ ...shot, draftIndex: shot.draftIndex + offset }))
+    .filter((shot) => shot.draftIndex < (drafts?.length ?? 0));
   return {
     ...base,
     ...(next.ideas ? { ideas: [...(base.ideas ?? []), ...next.ideas].slice(0, 12) } : {}),
-    ...(next.drafts ? { drafts: [...(base.drafts ?? []), ...next.drafts].slice(0, 24) } : {}),
-    ...(next.editPlan ? { editPlan: next.editPlan } : {}),
+    ...(next.drafts ? { drafts } : {}),
+    ...(next.editPlan && shots && shots.length > 1
+      ? { editPlan: { ...next.editPlan, shots } }
+      : {}),
     ...(next.dropped ? { dropped: [...(base.dropped ?? []), ...next.dropped].slice(0, 24) } : {}),
   };
 }

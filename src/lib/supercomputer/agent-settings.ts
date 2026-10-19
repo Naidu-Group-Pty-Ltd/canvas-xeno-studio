@@ -82,7 +82,12 @@ export function takesFallbacks(model: AgentModel): boolean {
   return model !== "claude-haiku-5-5";
 }
 
-/** The model's label for people. */
+/** The model's label for people (a fallback model that answered may be one not offered here). */
 export function agentModelLabel(model: string): string {
-  return AGENT_MODELS.find((entry) => entry.id === model)?.label ?? model;
+  const known = AGENT_MODELS.find((entry) => entry.id === model);
+  if (known) return known.label;
+  const match = /^claude-([a-z]+)-(\d+)(?:-(\d{1,2}))?(?:-\d{8})?$/.exec(model);
+  if (!match) return model;
+  const family = match[1]!.charAt(0).toUpperCase() + match[1]!.slice(1);
+  return `Claude ${family} ${match[2]}${match[3] ? `.${match[3]}` : ""}`;
 }

@@ -3,8 +3,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import {
   FileText,
+  Loader2,
   MessageSquare,
   MoreHorizontal,
+  Pin,
+  PinOff,
   Plus,
   Search,
   Trash2,
@@ -32,6 +35,10 @@ interface Props {
   onSelectThread: (id: string | null) => void;
   onOpenBrief: (id: string) => void;
   onImportBrief: () => void;
+  /** Conversations can be pinned (migration 0022). */
+  pinsEnabled?: boolean;
+  /** The conversation an answer is being written in, from this page. */
+  streamingThreadId?: string | null;
 }
 
 const BRIEF_DOT: Record<string, string> = {
@@ -48,6 +55,8 @@ export function ThreadSidebar({
   onSelectThread,
   onOpenBrief,
   onImportBrief,
+  pinsEnabled = false,
+  streamingThreadId = null,
 }: Props) {
   const { user, isAdmin } = useAuth();
   const queryClient = useQueryClient();
@@ -55,7 +64,7 @@ export function ThreadSidebar({
   const [term, setTerm] = useState("");
   const [renaming, setRenaming] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
-  const { data: threads = [], isLoading } = useThreads(scope, enabled);
+  const { data: threads = [], isLoading } = useThreads(scope, enabled, pinsEnabled);
   const { data: briefs = [] } = useBriefs(enabled);
 
   const filtered = threads.filter((thread) =>
@@ -67,6 +76,12 @@ export function ThreadSidebar({
     setRenaming(null);
     if (!title) return;
     const { error } = await supabase.from("supercomputer_threads").update({ title }).eq("id", id);
+    if (error) toast.error(error.message);
+    await queryClient.invalidateQueries({ queryKey: ["supercomputer_threads"] });
+  }
+
+  async function pin(id: string, pinned: boolean) {
+    const { error } = await supabase.from("supercomputer_threads").update({ pinned }).eq("id", id);
     if (error) toast.error(error.message);
     await queryClient.invalidateQueries({ queryKey: ["supercomputer_threads"] });
   }
@@ -155,7 +170,11 @@ export function ThreadSidebar({
                   onClick={() => onSelectThread(thread.id)}
                   className="flex min-w-0 flex-1 items-start gap-2 px-2 py-1.5 text-left"
                 >
-                  {thread.brief_id ? (
+                  {thread.id === streamingThreadId ? (
+                    <Loader2 className="mt-0.5 size-3.5 shrink-0 animate-spin text-primary" />
+                  ) : thread.pinned ? (
+                    <Pin className="mt-0.5 size-3.5 shrink-0 text-primary" />
+                  ) : thread.brief_id ? (
                     <FileText className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
                   ) : (
                     <MessageSquare className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
@@ -187,6 +206,19 @@ export function ThreadSidebar({
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    {pinsEnabled && (
+                      <DropdownMenuItem onClick={() => void pin(thread.id, !thread.pinned)}>
+                        {thread.pinned ? (
+                          <>
+                            <PinOff className="mr-2 size-3.5" /> Unpin
+                          </>
+                        ) : (
+                          <>
+                            <Pin className="mr-2 size-3.5" /> Pin to the top
+                          </>
+                        )}
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem
                       onClick={() => {
                         setDraftTitle(thread.title);

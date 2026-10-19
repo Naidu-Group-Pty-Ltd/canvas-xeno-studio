@@ -29,6 +29,8 @@ import { cn } from "@/lib/utils";
 interface Props {
   briefId: string;
   aiReady: boolean;
+  /** Brainstorming and drafting can run (the agent may run them without the analyser's AI). */
+  draftsReady?: boolean;
   onBrainstorm?: () => void;
   onDraftAll?: () => void;
   onDraftDeliverable?: (deliverable: BriefDeliverable) => void;
@@ -46,6 +48,7 @@ const STATUS: Record<string, { label: string; tone: string }> = {
 export function BriefPanel({
   briefId,
   aiReady,
+  draftsReady = aiReady,
   onBrainstorm,
   onDraftAll,
   onDraftDeliverable,
@@ -132,12 +135,12 @@ export function BriefPanel({
 
       <div className="flex flex-wrap gap-2">
         {onBrainstorm && (
-          <Button size="sm" onClick={onBrainstorm} disabled={!aiReady}>
+          <Button size="sm" onClick={onBrainstorm} disabled={!draftsReady}>
             <Lightbulb className="mr-1.5 size-4" /> Brainstorm concepts
           </Button>
         )}
         {onDraftAll && (
-          <Button size="sm" variant="outline" onClick={onDraftAll} disabled={!aiReady}>
+          <Button size="sm" variant="outline" onClick={onDraftAll} disabled={!draftsReady}>
             <ListChecks className="mr-1.5 size-4" /> Draft every deliverable
           </Button>
         )}
@@ -268,7 +271,7 @@ export function BriefPanel({
                       size="sm"
                       variant="ghost"
                       className="mt-auto h-7 w-fit px-2 text-xs text-primary"
-                      disabled={!aiReady}
+                      disabled={!draftsReady}
                       onClick={() => onDraftDeliverable(item)}
                     >
                       <Sparkles className="mr-1 size-3.5" /> Draft this

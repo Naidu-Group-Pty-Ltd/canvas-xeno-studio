@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -32,24 +32,32 @@ export interface ThreadRow {
   created_by: string | null;
   last_message_at: string;
   created_at: string;
+  /** Once the agent's update (migration 0022) is in. */
+  pinned?: boolean;
+  settings?: unknown;
 }
 
-export function useThreads(scope: "mine" | "team", enabled = true) {
+export const THREAD_COLUMNS =
+  "id,title,project_id,campaign_id,brief_id,created_by,last_message_at,created_at";
+
+/** Conversations, newest first; pinned ones first of all once pins exist (migration 0022). */
+export function useThreads(scope: "mine" | "team", enabled = true, withPins = false) {
   const { user } = useAuth();
   return useQuery({
-    queryKey: ["supercomputer_threads", scope, user?.id ?? null],
+    queryKey: ["supercomputer_threads", scope, user?.id ?? null, withPins],
     enabled: enabled && !!user,
     queryFn: async () => {
       let query = supabase
         .from("supercomputer_threads")
-        .select("id,title,project_id,campaign_id,brief_id,created_by,last_message_at,created_at")
+        .select(withPins ? `${THREAD_COLUMNS},pinned` : THREAD_COLUMNS)
         .eq("is_archived", false)
         .order("last_message_at", { ascending: false })
         .limit(80);
       if (scope === "mine" && user) query = query.eq("created_by", user.id);
       const { data, error } = await query;
       if (error) throw error;
-      return (data ?? []) as ThreadRow[];
+      const rows = (data ?? []) as unknown as ThreadRow[];
+      return withPins ? [...rows].sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned)) : rows;
     },
   });
 }
@@ -62,17 +70,86 @@ export interface MessageRow {
   attachments: MessageAttachment[];
   payload: SupercomputerPayload;
   model: string | null;
-  status: "complete" | "failed";
+  /** streaming, awaiting_approval and stopped: the agent's answers (migration 0022). */
+  status: "complete" | "failed" | "streaming" | "awaiting_approval" | "stopped";
   error_message: string | null;
   created_by: string | null;
   created_at: string;
+  updated_at?: string | null;
+  /** An edited or redone message's place was taken: it is no longer part of the conversation. */
+  superseded_at?: string | null;
 }
 
-export function useThreadMessages(threadId: string | null) {
+/**
+ * What the page reads of a message once the agent's update is in: everything
+ * it shows, but not the transcript each answer keeps for Claude (tool results
+ * and search pages can be large), which stays on the server.
+ */
+const AGENT_MESSAGE_COLUMNS = [
+  "id",
+  "thread_id",
+  "role",
+  "content",
+  "attachments",
+  "model",
+  "status",
+  "error_message",
+  "created_by",
+  "created_at",
+  "updated_at",
+  "superseded_at",
+  "intent:payload->intent",
+  "ideas:payload->ideas",
+  "drafts:payload->drafts",
+  "editPlan:payload->editPlan",
+  "questions:payload->questions",
+  "suggestions:payload->suggestions",
+  "dropped:payload->dropped",
+  "backend:payload->backend",
+  "display:payload->agent->display",
+].join(",");
+
+const PAYLOAD_KEYS = [
+  "intent",
+  "ideas",
+  "drafts",
+  "editPlan",
+  "questions",
+  "suggestions",
+  "dropped",
+  "backend",
+] as const;
+
+/** A message read with the agent's columns, put back in the shape the page uses. */
+function agentMessage(row: Record<string, unknown>): MessageRow {
+  const payload: Record<string, unknown> = {};
+  for (const key of PAYLOAD_KEYS) if (row[key] != null) payload[key] = row[key];
+  if (row["display"] != null) payload["agent"] = { display: row["display"] };
+  const message = { ...row, payload } as Record<string, unknown>;
+  for (const key of [...PAYLOAD_KEYS, "display"]) delete message[key];
+  return message as unknown as MessageRow;
+}
+
+/**
+ * A conversation's messages, oldest first. With the agent's update in, the
+ * ones an edit or a redo replaced are left out.
+ */
+export function useThreadMessages(threadId: string | null, agentColumns = false) {
   return useQuery({
-    queryKey: ["supercomputer_messages", threadId],
+    queryKey: ["supercomputer_messages", threadId, agentColumns],
     enabled: !!threadId,
     queryFn: async () => {
+      if (agentColumns) {
+        const { data, error } = await supabase
+          .from("supercomputer_messages")
+          .select(AGENT_MESSAGE_COLUMNS)
+          .eq("thread_id", threadId!)
+          .is("superseded_at", null)
+          .order("created_at", { ascending: true })
+          .limit(300);
+        if (error) throw error;
+        return ((data ?? []) as unknown as Record<string, unknown>[]).map(agentMessage);
+      }
       const { data, error } = await supabase
         .from("supercomputer_messages")
         .select("*")
@@ -237,9 +314,20 @@ export function useDraftLongVideos(messageId: string, enabled: boolean) {
   return { byDraft };
 }
 
-/** Live updates for the open conversation and for briefs being analysed. */
-export function useSupercomputerRealtime(threadId: string | null, enabled: boolean) {
+/**
+ * Live updates for the open conversation and for briefs being analysed. The
+ * conversation this page is streaming an answer into (`quietThreadId`) isn't
+ * read again on every save: the page shows the answer as it comes and reads
+ * the conversation once it ends.
+ */
+export function useSupercomputerRealtime(
+  threadId: string | null,
+  enabled: boolean,
+  quietThreadId: string | null = null,
+) {
   const queryClient = useQueryClient();
+  const quiet = useRef(quietThreadId);
+  quiet.current = quietThreadId;
   useEffect(() => {
     if (!enabled) return;
     const channel = supabase
@@ -248,10 +336,13 @@ export function useSupercomputerRealtime(threadId: string | null, enabled: boole
         "postgres_changes",
         { event: "*", schema: "public", table: "supercomputer_messages" },
         (change) => {
-          const row = (change.new ?? change.old) as { thread_id?: string } | null;
-          if (row?.thread_id)
+          const row = ((change.new && Object.keys(change.new).length ? change.new : change.old) ??
+            null) as { thread_id?: string; status?: string } | null;
+          if (row?.thread_id && row.thread_id !== quiet.current)
             queryClient.invalidateQueries({ queryKey: ["supercomputer_messages", row.thread_id] });
-          queryClient.invalidateQueries({ queryKey: ["supercomputer_threads"] });
+          // An answer being written saves every few seconds; the list only changes when one is added or ends.
+          if (change.eventType !== "UPDATE" || row?.status !== "streaming")
+            queryClient.invalidateQueries({ queryKey: ["supercomputer_threads"] });
         },
       )
       .on("postgres_changes", { event: "*", schema: "public", table: "creative_briefs" }, () => {
