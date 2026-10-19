@@ -57,6 +57,7 @@ import { Route as ApiPublicLongVideoTickRouteImport } from './routes/api/public/
 import { Route as ApiPublicMediaWorkerCallbackRouteImport } from './routes/api/public/media-worker-callback'
 import { Route as ApiPublicMediaWorkerCredentialsRouteImport } from './routes/api/public/media-worker-credentials'
 import { Route as ApiPublicStudioMcpRouteImport } from './routes/api/public/studio-mcp'
+import { Route as ApiPublicSupercomputerAgentRouteImport } from './routes/api/public/supercomputer-agent'
 import { Route as ApiPublicStudioToolRouteImport } from './routes/api/public/studio/$tool'
 
 const IndexRoute = IndexRouteImport.update({
@@ -306,6 +307,12 @@ const ApiPublicStudioMcpRoute = ApiPublicStudioMcpRouteImport.update({
   path: '/api/public/studio-mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicSupercomputerAgentRoute =
+  ApiPublicSupercomputerAgentRouteImport.update({
+    id: '/api/public/supercomputer-agent',
+    path: '/api/public/supercomputer-agent',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicStudioToolRoute = ApiPublicStudioToolRouteImport.update({
   id: '/api/public/studio/$tool',
   path: '/api/public/studio/$tool',
@@ -361,6 +368,7 @@ export interface FileRoutesByFullPath {
   '/api/public/media-worker-callback': typeof ApiPublicMediaWorkerCallbackRoute
   '/api/public/media-worker-credentials': typeof ApiPublicMediaWorkerCredentialsRoute
   '/api/public/studio-mcp': typeof ApiPublicStudioMcpRoute
+  '/api/public/supercomputer-agent': typeof ApiPublicSupercomputerAgentRoute
   '/api/public/studio/$tool': typeof ApiPublicStudioToolRoute
 }
 export interface FileRoutesByTo {
@@ -411,6 +419,7 @@ export interface FileRoutesByTo {
   '/api/public/media-worker-callback': typeof ApiPublicMediaWorkerCallbackRoute
   '/api/public/media-worker-credentials': typeof ApiPublicMediaWorkerCredentialsRoute
   '/api/public/studio-mcp': typeof ApiPublicStudioMcpRoute
+  '/api/public/supercomputer-agent': typeof ApiPublicSupercomputerAgentRoute
   '/api/public/studio/$tool': typeof ApiPublicStudioToolRoute
 }
 export interface FileRoutesById {
@@ -463,6 +472,7 @@ export interface FileRoutesById {
   '/api/public/media-worker-callback': typeof ApiPublicMediaWorkerCallbackRoute
   '/api/public/media-worker-credentials': typeof ApiPublicMediaWorkerCredentialsRoute
   '/api/public/studio-mcp': typeof ApiPublicStudioMcpRoute
+  '/api/public/supercomputer-agent': typeof ApiPublicSupercomputerAgentRoute
   '/api/public/studio/$tool': typeof ApiPublicStudioToolRoute
 }
 export interface FileRouteTypes {
@@ -516,6 +526,7 @@ export interface FileRouteTypes {
     | '/api/public/media-worker-callback'
     | '/api/public/media-worker-credentials'
     | '/api/public/studio-mcp'
+    | '/api/public/supercomputer-agent'
     | '/api/public/studio/$tool'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -566,6 +577,7 @@ export interface FileRouteTypes {
     | '/api/public/media-worker-callback'
     | '/api/public/media-worker-credentials'
     | '/api/public/studio-mcp'
+    | '/api/public/supercomputer-agent'
     | '/api/public/studio/$tool'
   id:
     | '__root__'
@@ -617,6 +629,7 @@ export interface FileRouteTypes {
     | '/api/public/media-worker-callback'
     | '/api/public/media-worker-credentials'
     | '/api/public/studio-mcp'
+    | '/api/public/supercomputer-agent'
     | '/api/public/studio/$tool'
   fileRoutesById: FileRoutesById
 }
@@ -660,6 +673,7 @@ export interface RootRouteChildren {
   ApiPublicMediaWorkerCallbackRoute: typeof ApiPublicMediaWorkerCallbackRoute
   ApiPublicMediaWorkerCredentialsRoute: typeof ApiPublicMediaWorkerCredentialsRoute
   ApiPublicStudioMcpRoute: typeof ApiPublicStudioMcpRoute
+  ApiPublicSupercomputerAgentRoute: typeof ApiPublicSupercomputerAgentRoute
   ApiPublicStudioToolRoute: typeof ApiPublicStudioToolRoute
 }
 
@@ -1001,6 +1015,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicStudioMcpRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/supercomputer-agent': {
+      id: '/api/public/supercomputer-agent'
+      path: '/api/public/supercomputer-agent'
+      fullPath: '/api/public/supercomputer-agent'
+      preLoaderRoute: typeof ApiPublicSupercomputerAgentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/studio/$tool': {
       id: '/api/public/studio/$tool'
       path: '/api/public/studio/$tool'
@@ -1078,6 +1099,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicMediaWorkerCallbackRoute: ApiPublicMediaWorkerCallbackRoute,
   ApiPublicMediaWorkerCredentialsRoute: ApiPublicMediaWorkerCredentialsRoute,
   ApiPublicStudioMcpRoute: ApiPublicStudioMcpRoute,
+  ApiPublicSupercomputerAgentRoute: ApiPublicSupercomputerAgentRoute,
   ApiPublicStudioToolRoute: ApiPublicStudioToolRoute,
 }
 export const routeTree = rootRouteImport

@@ -119,7 +119,7 @@ async function activeModel(modelId: string): Promise<ModelRegistryEntry> {
 }
 
 /** A model, as an API caller needs it: what it takes and what can be set. */
-function modelSummary(model: ModelRegistryEntry) {
+export function modelSummary(model: ModelRegistryEntry) {
   const fields = model.parameter_schema?.fields ?? [];
   return {
     id: model.id,
