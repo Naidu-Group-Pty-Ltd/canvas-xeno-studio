@@ -61,6 +61,8 @@ export function PromptAssist({ prompt, context, onApply }: Props) {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [suggestions, setSuggestions] = useState<PromptSuggestion[]>([]);
+  // What to add after generating, e.g. a label the brand's rules ask for.
+  const [notes, setNotes] = useState<string | null>(null);
 
   const availability: Record<Mode, string | null> = {
     enhance: prompt.trim() ? null : "Write a rough prompt first",
@@ -74,6 +76,7 @@ export function PromptAssist({ prompt, context, onApply }: Props) {
     setMode(next);
     setBusy(true);
     setSuggestions([]);
+    setNotes(null);
     try {
       const result = await assistPrompt({
         data: {
@@ -87,6 +90,7 @@ export function PromptAssist({ prompt, context, onApply }: Props) {
         },
       });
       setSuggestions(result.suggestions);
+      setNotes(result.notes?.trim() || null);
       if (!result.suggestions.length)
         toast.info("No suggestions this time. Try again or add a note.");
     } catch (error) {
@@ -196,6 +200,11 @@ export function PromptAssist({ prompt, context, onApply }: Props) {
               </div>
             ))}
           </div>
+        )}
+        {!busy && suggestions.length > 0 && notes && (
+          <p className="rounded-md bg-muted/60 px-2.5 py-2 text-[11px] leading-relaxed text-muted-foreground">
+            {notes}
+          </p>
         )}
         {!busy && !suggestions.length && (
           <p className="text-[11px] text-muted-foreground">
