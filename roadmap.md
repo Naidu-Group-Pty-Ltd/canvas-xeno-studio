@@ -46,5 +46,6 @@
 - [x] Content formulas: 40 proven structures with timed beats, rules, guardrails, why they work and an evidence grade, built on 96 sources (platform guidance, effectiveness research, regulators and the frameworks' originators), ranked for a brand's DNA, with the content mix after Binet & Field
 - [x] Formulas in the Director (brand and formula pickers), long-video beats, the Supercomputer agent and the studio API (list_brand_formulas, get_brand_formula)
 - [x] Apply migration 0023_brand_dna
+- [x] Director plans and revisions stream past the gateway's 30-second limit (the live check found a plan took about a minute, so it was kept but never reached the page), and a revision keeps the plan's brand and formula
 - [ ] Open the sources read via search and mark them read in full: needs their 44 hosts allowed in the environment's network access settings (listed in the doc)
 - [ ] Pinterest and Snapchat guidance, and Australia's TGA and Ahpra rules for health brands' testimonials and before-and-after content

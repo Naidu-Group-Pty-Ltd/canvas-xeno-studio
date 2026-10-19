@@ -167,7 +167,7 @@ Reels and YouTube Shorts 9:16; LinkedIn and Facebook feeds 4:5; YouTube, X and t
   guardrails, sources and evidence grade, the brand's content mix, and the house rules.
 - **Director**: a brand (the project's, else the studio default) and a formula, with a channel and
   length. The plan's scenes follow the formula's beats and timing, and its creative summary says
-  which formula it follows.
+  which formula it follows. Revisions keep to the same brand and formula.
 - **Long videos**: a formula for the AI's beats, its stages spread over the clips. What a beat says
   goes in the voiceover or the edit's captions, not the picture.
 - **Supercomputer agent**: content for a brand follows a formula that fits its DNA, goal and
