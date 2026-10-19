@@ -51,7 +51,8 @@
 - [x] A brand's own formulas: a library formula rewritten for the brand by the studio's AI (for a person to look over) or by hand, keeping its guardrails, sources and evidence grade; listed first on the Brand page and used by the Director, long videos, the agent and the studio API (migration 0024_brand_formulas)
 - [x] A brand brief keeps what the brand needs most when it says more than fits: who it is, its guardrails, proof, call to action and spellings first, the look in detail last (the look first for the prompt assistant)
 - [x] Aurixa Systems' DNA and twelve formulas, from its own site and research into its market, its regulators and what content works (docs/brands/aurixa-systems.md)
-- [ ] Apply migration 0024_brand_formulas and load Aurixa's DNA and formulas into its kit
+- [x] Apply migration 0024_brand_formulas
+- [ ] Load Aurixa's DNA and formulas into its kit
 - [ ] Before Aurixa publishes: the open items in docs/brands/aurixa-systems.md (whose security certifications, a named founder, how a shared Compliance Passport is described, Centre or Center, what is live, outbound calls, licensed data, which ad rules apply, the external sources opened)
 - [ ] Open the sources read via search and mark them read in full: needs their 51 hosts allowed in the environment's network access settings (listed in the doc)
 - [ ] Pinterest and Snapchat guidance, and Australia's TGA and Ahpra rules for health brands' testimonials and before-and-after content
