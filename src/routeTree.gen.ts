@@ -48,6 +48,7 @@ import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
 import { Route as ApiPublicAvatarHeygenWebhookRouteImport } from './routes/api/public/avatar-heygen-webhook'
 import { Route as ApiPublicAvatarReconcileRouteImport } from './routes/api/public/avatar-reconcile'
+import { Route as ApiPublicBrandImportRouteImport } from './routes/api/public/brand-import'
 import { Route as ApiPublicHiggsfieldOauthRouteImport } from './routes/api/public/higgsfield-oauth'
 import { Route as ApiPublicHiggsfieldReconcileRouteImport } from './routes/api/public/higgsfield-reconcile'
 import { Route as ApiPublicHiggsfieldWebhookRouteImport } from './routes/api/public/higgsfield-webhook'
@@ -257,6 +258,11 @@ const ApiPublicAvatarReconcileRoute =
     path: '/api/public/avatar-reconcile',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicBrandImportRoute = ApiPublicBrandImportRouteImport.update({
+  id: '/api/public/brand-import',
+  path: '/api/public/brand-import',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHiggsfieldOauthRoute =
   ApiPublicHiggsfieldOauthRouteImport.update({
     id: '/api/public/higgsfield-oauth',
@@ -359,6 +365,7 @@ export interface FileRoutesByFullPath {
   '/projects/': typeof ProjectsIndexRoute
   '/api/public/avatar-heygen-webhook': typeof ApiPublicAvatarHeygenWebhookRoute
   '/api/public/avatar-reconcile': typeof ApiPublicAvatarReconcileRoute
+  '/api/public/brand-import': typeof ApiPublicBrandImportRoute
   '/api/public/higgsfield-oauth': typeof ApiPublicHiggsfieldOauthRoute
   '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
   '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
@@ -410,6 +417,7 @@ export interface FileRoutesByTo {
   '/projects': typeof ProjectsIndexRoute
   '/api/public/avatar-heygen-webhook': typeof ApiPublicAvatarHeygenWebhookRoute
   '/api/public/avatar-reconcile': typeof ApiPublicAvatarReconcileRoute
+  '/api/public/brand-import': typeof ApiPublicBrandImportRoute
   '/api/public/higgsfield-oauth': typeof ApiPublicHiggsfieldOauthRoute
   '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
   '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
@@ -463,6 +471,7 @@ export interface FileRoutesById {
   '/projects/': typeof ProjectsIndexRoute
   '/api/public/avatar-heygen-webhook': typeof ApiPublicAvatarHeygenWebhookRoute
   '/api/public/avatar-reconcile': typeof ApiPublicAvatarReconcileRoute
+  '/api/public/brand-import': typeof ApiPublicBrandImportRoute
   '/api/public/higgsfield-oauth': typeof ApiPublicHiggsfieldOauthRoute
   '/api/public/higgsfield-reconcile': typeof ApiPublicHiggsfieldReconcileRoute
   '/api/public/higgsfield-webhook': typeof ApiPublicHiggsfieldWebhookRoute
@@ -517,6 +526,7 @@ export interface FileRouteTypes {
     | '/projects/'
     | '/api/public/avatar-heygen-webhook'
     | '/api/public/avatar-reconcile'
+    | '/api/public/brand-import'
     | '/api/public/higgsfield-oauth'
     | '/api/public/higgsfield-reconcile'
     | '/api/public/higgsfield-webhook'
@@ -568,6 +578,7 @@ export interface FileRouteTypes {
     | '/projects'
     | '/api/public/avatar-heygen-webhook'
     | '/api/public/avatar-reconcile'
+    | '/api/public/brand-import'
     | '/api/public/higgsfield-oauth'
     | '/api/public/higgsfield-reconcile'
     | '/api/public/higgsfield-webhook'
@@ -620,6 +631,7 @@ export interface FileRouteTypes {
     | '/projects/'
     | '/api/public/avatar-heygen-webhook'
     | '/api/public/avatar-reconcile'
+    | '/api/public/brand-import'
     | '/api/public/higgsfield-oauth'
     | '/api/public/higgsfield-reconcile'
     | '/api/public/higgsfield-webhook'
@@ -664,6 +676,7 @@ export interface RootRouteChildren {
   ProjectsIndexRoute: typeof ProjectsIndexRoute
   ApiPublicAvatarHeygenWebhookRoute: typeof ApiPublicAvatarHeygenWebhookRoute
   ApiPublicAvatarReconcileRoute: typeof ApiPublicAvatarReconcileRoute
+  ApiPublicBrandImportRoute: typeof ApiPublicBrandImportRoute
   ApiPublicHiggsfieldOauthRoute: typeof ApiPublicHiggsfieldOauthRoute
   ApiPublicHiggsfieldReconcileRoute: typeof ApiPublicHiggsfieldReconcileRoute
   ApiPublicHiggsfieldWebhookRoute: typeof ApiPublicHiggsfieldWebhookRoute
@@ -952,6 +965,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicAvatarReconcileRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/brand-import': {
+      id: '/api/public/brand-import'
+      path: '/api/public/brand-import'
+      fullPath: '/api/public/brand-import'
+      preLoaderRoute: typeof ApiPublicBrandImportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/higgsfield-oauth': {
       id: '/api/public/higgsfield-oauth'
       path: '/api/public/higgsfield-oauth'
@@ -1090,6 +1110,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProjectsIndexRoute: ProjectsIndexRoute,
   ApiPublicAvatarHeygenWebhookRoute: ApiPublicAvatarHeygenWebhookRoute,
   ApiPublicAvatarReconcileRoute: ApiPublicAvatarReconcileRoute,
+  ApiPublicBrandImportRoute: ApiPublicBrandImportRoute,
   ApiPublicHiggsfieldOauthRoute: ApiPublicHiggsfieldOauthRoute,
   ApiPublicHiggsfieldReconcileRoute: ApiPublicHiggsfieldReconcileRoute,
   ApiPublicHiggsfieldWebhookRoute: ApiPublicHiggsfieldWebhookRoute,

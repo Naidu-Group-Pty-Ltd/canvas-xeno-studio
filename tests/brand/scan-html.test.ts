@@ -315,3 +315,38 @@ describe("whatever HTML it's given", () => {
     ).toBe("A & B <3 'x' ' …–&bogus; �");
   });
 });
+
+describe("a site that keeps every picture in a brand folder", () => {
+  // As aurixasystems.com.au does: the lockup in the home link, the symbol
+  // labelled a logo, and content pictures that merely live under /brand/.
+  const page = scanHtml(
+    `<!doctype html><html><head><title>Aurixa Systems</title></head><body>
+<header><a aria-label="Aurixa Systems home" href="/"><img src="/brand/aurixa-lockup.webp" alt="Aurixa Systems" width="480" height="160"></a></header>
+<main>
+  <section><img src="/brand/layer-01-operational-intelligence.webp" alt="Operational Intelligence" loading="lazy"></section>
+  <section><img src="/brand/layer-02-strategic-intelligence.webp" alt="Strategic Intelligence" loading="lazy"></section>
+  <div class="cta"><img src="/brand/aurixa-symbol-192.webp" alt="Aurixa Systems logo" width="96" height="96"></div>
+  <img src="/assets/partner-wordmark.svg" alt="Partner" width="200" height="60">
+</main></body></html>`,
+    "https://aurixasystems.com.au/",
+  );
+
+  test("its pictures are imagery, not logos", () => {
+    const images = page.images.map((image) => image.url);
+    expect(images).toContain(
+      "https://aurixasystems.com.au/brand/layer-01-operational-intelligence.webp",
+    );
+    expect(images).toContain(
+      "https://aurixasystems.com.au/brand/layer-02-strategic-intelligence.webp",
+    );
+    expect(page.logos.some((logo) => logo.url?.includes("layer-0"))).toBe(false);
+  });
+
+  test("its logos are the ones the page marks as logos", () => {
+    const logos = page.logos.map((logo) => logo.url);
+    expect(logos[0]).toBe("https://aurixasystems.com.au/brand/aurixa-lockup.webp");
+    expect(logos).toContain("https://aurixasystems.com.au/brand/aurixa-symbol-192.webp");
+    // A file named as a wordmark counts too.
+    expect(logos).toContain("https://aurixasystems.com.au/assets/partner-wordmark.svg");
+  });
+});

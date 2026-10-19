@@ -9,6 +9,8 @@
  * Shared by the server, the browser and tests.
  */
 
+import { decodeEventStream, encodeStreamEvent } from "../event-stream";
+
 /** Something a tool made or found, shown with its call. */
 export type ToolUi =
   | {
@@ -75,6 +77,8 @@ export type DisplayBlock =
       query: string;
       results: { title: string; url: string }[];
       status: "running" | "done" | "error";
+      /** Why it came back empty, in words (displays kept before this have none). */
+      summary?: string | null;
     }
   | { kind: "notice"; tone: "info" | "warning" | "error"; text: string };
 
@@ -156,6 +160,7 @@ function patchBlock(block: DisplayBlock, patch: BlockPatch): DisplayBlock {
       next.status = patch.status;
     if (patch.query !== undefined) next.query = patch.query;
     if (patch.results !== undefined) next.results = patch.results.slice(0, 12);
+    if (patch.summary !== undefined) next.summary = patch.summary;
     return next;
   }
   return block;
@@ -231,18 +236,28 @@ export function applyAgentEvent(display: AgentDisplay, event: AgentEvent): Agent
             : display.blocks.map((entry) =>
                 entry.block.kind === "text" || entry.block.kind === "thinking"
                   ? { ...entry, block: { ...entry.block, done: true } }
-                  : entry.block.kind === "tool" &&
-                      (entry.block.status === "streaming" || entry.block.status === "running") &&
-                      event.status !== "awaiting_approval"
+                  : entry.block.kind === "web" && entry.block.status === "running"
                     ? {
                         ...entry,
                         block: {
                           ...entry.block,
-                          status: "error" as const,
-                          summary: entry.block.summary ?? "Stopped before it finished",
+                          status: entry.block.results.length
+                            ? ("done" as const)
+                            : ("error" as const),
                         },
                       }
-                    : entry,
+                    : entry.block.kind === "tool" &&
+                        (entry.block.status === "streaming" || entry.block.status === "running") &&
+                        event.status !== "awaiting_approval"
+                      ? {
+                          ...entry,
+                          block: {
+                            ...entry.block,
+                            status: "error" as const,
+                            summary: entry.block.summary ?? "Stopped before it finished",
+                          },
+                        }
+                      : entry,
               ),
       };
     default:
@@ -376,7 +391,7 @@ export function awaitingApprovals(display: AgentDisplay): ApprovalRequest[] {
 
 /** Encodes an event for an event stream. */
 export function encodeEvent(event: AgentEvent): string {
-  return `data: ${JSON.stringify(event)}\n\n`;
+  return encodeStreamEvent(event);
 }
 
 /**
@@ -384,26 +399,5 @@ export function encodeEvent(event: AgentEvent): string {
  * ones, and what is left over until more arrives.
  */
 export function decodeEvents(buffer: string): { events: AgentEvent[]; rest: string } {
-  const events: AgentEvent[] = [];
-  let rest = buffer;
-  for (;;) {
-    const end = rest.indexOf("\n\n");
-    if (end < 0) break;
-    const chunk = rest.slice(0, end);
-    rest = rest.slice(end + 2);
-    const data = chunk
-      .split("\n")
-      .filter((line) => line.startsWith("data:"))
-      .map((line) => line.slice(5).trimStart())
-      .join("\n");
-    if (!data) continue;
-    try {
-      const parsed = JSON.parse(data) as AgentEvent;
-      if (parsed && typeof parsed === "object" && typeof parsed.type === "string")
-        events.push(parsed);
-    } catch {
-      // A malformed event is skipped; the next arrives on its own.
-    }
-  }
-  return { events, rest };
+  return decodeEventStream<AgentEvent>(buffer);
 }

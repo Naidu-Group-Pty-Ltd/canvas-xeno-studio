@@ -20,10 +20,9 @@ import { useBrandImport, type BrandImport } from "@/hooks/useBrandImports";
 import {
   applyBrandImport,
   discardBrandImport,
-  importBrandFromWebsite,
-  readBrandDocument,
   startBrandDocumentImport,
 } from "@/lib/brand-import.functions";
+import { streamBrandImport } from "@/lib/brand/import-client";
 import {
   picturesToSend,
   readGuidelines,
@@ -802,8 +801,8 @@ export function BrandImportDialog({
     setWorking(true);
     setError(null);
     try {
-      const result = await importBrandFromWebsite({ data: { url: url.trim() } });
-      setImportId(result.importId);
+      // The import shows (and is followed) from the moment the server makes it.
+      const result = await streamBrandImport({ action: "website", url: url.trim() }, setImportId);
       if (!result.ok) setError(result.error);
       await queryClient.invalidateQueries({ queryKey: ["brand_import", result.importId] });
     } catch (cause) {
@@ -831,14 +830,16 @@ export function BrandImportDialog({
         setLocal,
       );
       setLocal("Reading the brand…");
-      const result = await readBrandDocument({
-        data: {
+      const result = await streamBrandImport(
+        {
+          action: "document",
           importId: started.importId,
           text: parsed.text.slice(0, 200_000),
           pageCount: parsed.pageCount,
           pictures,
         },
-      });
+        () => undefined,
+      );
       if (!result.ok) setError(result.error);
       await queryClient.invalidateQueries({ queryKey: ["brand_import", started.importId] });
     } catch (cause) {

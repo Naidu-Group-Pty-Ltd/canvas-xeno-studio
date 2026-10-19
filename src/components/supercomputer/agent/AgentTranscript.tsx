@@ -489,8 +489,25 @@ function ToolCall({
   );
 }
 
-function Web({ block }: { block: Extract<DisplayBlock, { kind: "web" }> }) {
+function Web({
+  block,
+  streaming,
+}: {
+  block: Extract<DisplayBlock, { kind: "web" }>;
+  streaming: boolean;
+}) {
   const [open, setOpen] = useState(false);
+  // A finished turn has nothing still searching. Answers kept before searches
+  // were told apart from the code that sorts their results show those as rows
+  // with no query or results: they are left out.
+  if (!streaming && block.status === "running" && !block.query && !block.results.length)
+    return null;
+  const status =
+    !streaming && block.status === "running"
+      ? block.results.length
+        ? "done"
+        : "error"
+      : block.status;
   return (
     <div className="space-y-1.5 text-xs">
       <button
@@ -509,8 +526,11 @@ function Web({ block }: { block: Extract<DisplayBlock, { kind: "web" }> }) {
           {block.results.length > 0 && block.tool === "web_search" && (
             <span className="text-muted-foreground"> · {block.results.length} results</span>
           )}
+          {status === "error" && block.summary && (
+            <span className="text-muted-foreground"> · {block.summary}</span>
+          )}
         </span>
-        <StatusMark status={block.status} />
+        <StatusMark status={status} />
       </button>
       {open && block.results.length > 0 && (
         <ul className="space-y-1 pl-8">
@@ -597,7 +617,7 @@ export function AgentTranscript({
             <Markdown key={key} text={block.text} streaming={!block.done} />
           ) : null;
         if (block.kind === "tool") return <ToolCall key={key} block={block} actions={actions} />;
-        if (block.kind === "web") return <Web key={key} block={block} />;
+        if (block.kind === "web") return <Web key={key} block={block} streaming={streaming} />;
         return (
           <p
             key={key}
