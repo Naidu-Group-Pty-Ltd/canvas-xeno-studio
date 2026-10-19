@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  aboutUsd,
   applyAgentEvent,
   awaitingApprovals,
   decodeEvents,
@@ -285,6 +286,14 @@ describe("what the agent shows", () => {
     ]);
     expect(awaitingApprovals(second).map((approval) => approval.toolUseId)).toEqual(["e", "f"]);
     expect(awaitingApprovals(first)).toEqual([]);
+  });
+
+  test("a price under a cent isn't shown as $0.00", () => {
+    expect(aboutUsd(0.004)).toBe("Under $0.01");
+    expect(aboutUsd(0.015)).toBe("About $0.01");
+    expect(aboutUsd(1.5)).toBe("About $1.50");
+    // Nothing to pay (an account's discount covers it) is said as it is.
+    expect(aboutUsd(0)).toBe("About $0.00");
   });
 });
 
