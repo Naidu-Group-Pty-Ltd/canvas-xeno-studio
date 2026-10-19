@@ -21,6 +21,7 @@ import {
   takesFallbacks,
 } from "../../src/lib/supercomputer/agent-settings";
 import {
+  addressesIn,
   contextText,
   historyOf,
   stateOf,
@@ -381,6 +382,101 @@ describe("the conversation as Claude reads it", () => {
     ]);
   });
 
+  test("a stopped answer says so, so the next turn doesn't pick its work up", () => {
+    const ask = (id: string, text: string) =>
+      row({
+        id,
+        role: "user",
+        content: text,
+        payload: { agent: { content: [{ type: "text", text }] } },
+      });
+    const stoppedBefore = row({
+      id: "s1",
+      role: "assistant",
+      status: "stopped",
+      payload: { agent: { transcript: [], steps: 0, display: { blocks: [], status: "stopped" } } },
+    });
+    // Stopped part-way through a second step: its words so far, after the first step's exchange.
+    const firstStep: ApiMessage[] = [
+      {
+        role: "assistant",
+        content: [{ type: "tool_use", id: "t", name: "list_assets", input: {} }],
+      },
+      { role: "user", content: [{ type: "tool_result", tool_use_id: "t", content: "ok" }] },
+    ];
+    const stoppedMidway = row({
+      id: "s2",
+      role: "assistant",
+      status: "stopped",
+      payload: {
+        agent: {
+          transcript: firstStep,
+          steps: 1,
+          display: {
+            status: "stopped",
+            blocks: [
+              { key: "0:0", block: { kind: "text", text: "Looking first.", done: true } },
+              { key: "1:0", block: { kind: "text", text: "Once upon a time", done: true } },
+            ],
+          },
+        },
+      },
+    });
+    const messages = historyOf([
+      ask("u1", "Write a story"),
+      stoppedBefore,
+      ask("u2", "Write another"),
+      stoppedMidway,
+      ask("u3", "Remember I like squares"),
+    ]);
+    expect(messages.map((message) => message.role)).toEqual([
+      "user",
+      "assistant",
+      "user",
+      "assistant",
+      "user",
+      "assistant",
+      "user",
+    ]);
+    expect(messages[1]!.content).toEqual([
+      { type: "text", text: "[The person stopped this answer before it was written.]" },
+    ]);
+    expect(messages[5]!.content).toEqual([
+      { type: "text", text: "Once upon a time\n\n[Stopped here by the person.]" },
+    ]);
+  });
+
+  test("the web addresses a message names are written out in full", () => {
+    expect(
+      addressesIn(
+        "Search for what Aurixa Systems (aurixasystems.com.au) does, see https://Example.com/a/b?x=1. and http://www.plain.org!",
+      ),
+    ).toEqual([
+      "https://aurixasystems.com.au",
+      "https://example.com/a/b?x=1",
+      "http://www.plain.org",
+    ]);
+    // Not addresses: an email, file names, versions, abbreviations; each address once.
+    expect(
+      addressesIn(
+        "Mail rugesh@aurixasystems.com.au the logo.png and brief.pdf, built on next.js v2.7, e.g. twice: aurixa.io aurixa.io",
+      ),
+    ).toEqual(["https://aurixa.io"]);
+    const text = contextText({
+      person: { name: null, role: "member" },
+      project: null,
+      campaign: null,
+      brand: null,
+      brief: null,
+      memories: [],
+      attachments: [],
+      addresses: ["https://aurixasystems.com.au"],
+      changed: { brand: false, brief: false, first: false },
+      now: new Date("2026-10-19T00:00:00Z"),
+    });
+    expect(text).toContain("Web addresses in this message:\n- https://aurixasystems.com.au");
+  });
+
   test("a kept turn is resumed with its drafts", () => {
     const state = stateOf({
       drafts: [{ title: "x" }],
@@ -548,8 +644,11 @@ function scripted(content: Block[], stopReason: string, model = "claude-opus-5-5
         index,
         delta: { type: "thinking_delta", thinking: block["thinking"] },
       });
-    } else if (block["type"] === "fallback") {
+    } else if (block["type"] === "fallback" || String(block["type"]).endsWith("_tool_result")) {
       events.push({ type: "content_block_start", index, content_block: block });
+    } else if (block["type"] === "server_tool_use") {
+      // Sent with its input empty and never streamed: the finished message has it.
+      events.push({ type: "content_block_start", index, content_block: { ...block, input: {} } });
     } else if (block["type"] === "tool_use") {
       events.push({
         type: "content_block_start",
@@ -985,6 +1084,83 @@ describe("a turn", () => {
     expect(requests[1]!["betas"]).toBeUndefined();
     expect(requests[2]!["betas"]).toBeUndefined();
     expect(requests[2]!["output_config"]).toEqual({ effort: "high" });
+  });
+
+  test("searches and page reads are shown with what they looked for; the code sorting them isn't", async () => {
+    const { io } = harness([
+      () =>
+        scripted(
+          [
+            { type: "server_tool_use", id: "c1", name: "code_execution", input: { code: "x" } },
+            {
+              type: "server_tool_use",
+              id: "w1",
+              name: "web_search",
+              input: { query: "aurixa systems" },
+            },
+            {
+              type: "web_search_tool_result",
+              tool_use_id: "w1",
+              content: [{ type: "web_search_result", url: "https://a.example/", title: "A" }],
+            },
+            {
+              type: "code_execution_tool_result",
+              tool_use_id: "c1",
+              content: { type: "code_execution_result", stdout: "A" },
+            },
+            {
+              type: "server_tool_use",
+              id: "f1",
+              name: "web_fetch",
+              input: { url: "https://aurixasystems.com.au" },
+            },
+            {
+              type: "web_fetch_tool_result",
+              tool_use_id: "f1",
+              content: {
+                type: "web_fetch_tool_result_error",
+                error_code: "url_not_in_prior_context",
+              },
+            },
+            { type: "text", text: "Done." },
+          ],
+          "end_turn",
+        ),
+    ]);
+    const state = await runTurn(io, freshState("claude-opus-5-5"));
+    const web = state.display.blocks.flatMap(({ block }) => (block.kind === "web" ? [block] : []));
+    expect(
+      web.map((block) => [block.tool, block.query, block.status, block.results.length]),
+    ).toEqual([
+      ["web_search", "aurixa systems", "done", 1],
+      ["web_fetch", "https://aurixasystems.com.au", "error", 0],
+    ]);
+    expect(web[1]!.summary).toContain("already in the conversation");
+    // Kept as the API returned it, code and all.
+    expect((state.transcript[0]!.content as Block[]).length).toBe(7);
+  });
+
+  test("a finished turn leaves no search running", () => {
+    const search = (id: string, results: number): AgentEvent => ({
+      type: "block",
+      key: `0:${id}`,
+      block: {
+        kind: "web",
+        id,
+        tool: "web_search",
+        query: "q",
+        results: Array.from({ length: results }, (_, index) => ({
+          title: "t",
+          url: `https://x.example/${index}`,
+        })),
+        status: "running",
+      },
+    });
+    const ended = run([search("a", 2), search("b", 0), { type: "status", status: "complete" }]);
+    expect(ended.blocks.map(({ block }) => block.kind === "web" && block.status)).toEqual([
+      "done",
+      "error",
+    ]);
   });
 
   test("a fallback model that answers is shown", async () => {

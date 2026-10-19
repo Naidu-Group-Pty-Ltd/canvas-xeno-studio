@@ -487,20 +487,25 @@ async function streamStep(
             },
           });
         } else if (kind === "server_tool_use") {
+          // Searches and page reads are shown; the code that sorts through
+          // their results (web search's dynamic filtering) runs out of sight.
           const name = String(block["name"]);
-          webKeys.set(String(block["id"]), key);
-          emit({
-            type: "block",
-            key,
-            block: {
-              kind: "web",
-              id: String(block["id"]),
-              tool: name === "web_fetch" ? "web_fetch" : "web_search",
-              query: "",
-              results: [],
-              status: "running",
-            },
-          });
+          if (name === "web_search" || name === "web_fetch") {
+            webKeys.set(String(block["id"]), key);
+            emit({
+              type: "block",
+              key,
+              block: {
+                kind: "web",
+                id: String(block["id"]),
+                tool: name,
+                query: webQuery(block["input"]),
+                results: [],
+                status: "running",
+                summary: null,
+              },
+            });
+          }
         } else if (kind === "fallback") {
           const from = ((block["from"] ?? {}) as Json)["model"];
           const to = ((block["to"] ?? {}) as Json)["model"];
@@ -513,7 +518,7 @@ async function streamStep(
               text: `${typeof from === "string" ? agentModelLabel(from) : "Claude"} declined this, so ${typeof to === "string" ? agentModelLabel(to) : "another Claude model"} took over.`,
             },
           });
-        } else if (kind === "web_search_tool_result" || kind === "web_fetch_tool_result") {
+        } else if (kind.endsWith("_tool_result")) {
           const target = webKeys.get(String(block["tool_use_id"]));
           if (target) emit({ type: "update", key: target, patch: webResultPatch(block) });
         }
@@ -536,23 +541,28 @@ async function streamStep(
         if (!key) continue;
         const kind = kinds.get(event.index);
         const json = partial.get(event.index);
-        // A web search's query shows once it is written.
-        if (json && kind === "server_tool_use") {
+        // A web search's query (or the page read) shows once it is written.
+        if (json && kind === "server_tool_use" && [...webKeys.values()].includes(key)) {
           try {
-            const input = JSON.parse(json) as Json;
-            emit({
-              type: "update",
-              key,
-              patch: { query: String(input["query"] ?? input["url"] ?? "") },
-            });
+            const query = webQuery(JSON.parse(json));
+            if (query) emit({ type: "update", key, patch: { query } });
           } catch {
-            // Shown without its query.
+            // Shown without its query until the message is whole.
           }
         }
         if (kind === "text" || kind === "thinking") emit({ type: "end", key });
       }
     }
-    return stream.finalMessage();
+    const message = await stream.finalMessage();
+    // A search sent whole (not streamed) shows its query from the finished message.
+    message.content.forEach((block, index) => {
+      const item = block as unknown as Json;
+      const key = `${step}:${index}`;
+      if (item["type"] !== "server_tool_use" || webKeys.get(String(item["id"])) !== key) return;
+      const query = webQuery(item["input"]);
+      if (query) emit({ type: "update", key, patch: { query } });
+    });
+    return message;
   };
 
   // An account or model that doesn't take an optional part: the same step
@@ -569,11 +579,32 @@ async function streamStep(
   }
 }
 
-function webResultPatch(block: Json) {
+/** What a web search looked for, or the page a read opened. */
+function webQuery(input: unknown): string {
+  const item = (input && typeof input === "object" ? input : {}) as Json;
+  const value = item["query"] ?? item["url"];
+  return typeof value === "string" ? value.slice(0, 300) : "";
+}
+
+/** Why a search or a page read came back empty, in words. */
+const WEB_ERRORS: Record<string, string> = {
+  url_not_in_prior_context: "not opened: it can only read addresses already in the conversation",
+  url_not_accessible: "the site couldn't be opened",
+  url_not_allowed: "that site isn't allowed",
+  unsupported_content_type: "not a page it can read",
+  max_uses_exceeded: "too many in one answer",
+  too_many_requests: "too many at once: try again shortly",
+  query_too_long: "the search was too long",
+  invalid_input: "it couldn't be run as written",
+  unavailable: "the web tool was unavailable",
+};
+
+export function webResultPatch(block: Json) {
   const content = block["content"];
   if (Array.isArray(content))
     return {
       status: "done" as const,
+      summary: null,
       results: (content as Json[])
         .filter((entry) => typeof entry["url"] === "string")
         .slice(0, 12)
@@ -586,6 +617,7 @@ function webResultPatch(block: Json) {
   if (typeof fetched["url"] === "string")
     return {
       status: "done" as const,
+      summary: null,
       results: [
         {
           title: String(((fetched["content"] ?? {}) as Json)["title"] ?? fetched["url"]),
@@ -593,7 +625,11 @@ function webResultPatch(block: Json) {
         },
       ],
     };
-  return { status: "error" as const };
+  const code = typeof fetched["error_code"] === "string" ? fetched["error_code"] : "";
+  return {
+    status: "error" as const,
+    summary: WEB_ERRORS[code] ?? (code.replace(/_/g, " ") || null),
+  };
 }
 
 /* ------------------------------------------------------------------ */

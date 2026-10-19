@@ -125,6 +125,19 @@ function legacyAnswer(row: MessageRow): string {
   return parts.filter(Boolean).join("\n");
 }
 
+/** What a stopped answer leaves in the conversation: the words of its unfinished step, and that it was stopped. */
+function stoppedNote(agent: StoredAgent): string {
+  const display = displayOf(agent.display);
+  const written = (display?.blocks ?? [])
+    .filter(({ key, block }) => key.startsWith(`${agent.steps}:`) && block.kind === "text")
+    .map(({ block }) => (block.kind === "text" ? block.text : ""))
+    .join("\n\n")
+    .trim();
+  return written
+    ? `${written.slice(0, 4000)}\n\n[Stopped here by the person.]`
+    : "[The person stopped this answer before it was written.]";
+}
+
 /**
  * The conversation before `until` (a message's time, not included), as the
  * API takes it. Superseded and failed messages are left out; an answer
@@ -143,6 +156,10 @@ export function historyOf(rows: MessageRow[]): ApiMessage[] {
     if (agent) {
       // Only the consistent part of a turn is kept (see ./agent-loop.server).
       if (row.status !== "awaiting_approval") messages.push(...agent.transcript);
+      // A stopped answer says so, with what it had written of its last step,
+      // so the next turn doesn't pick the stopped work up unasked.
+      if (row.status === "stopped" && messages.at(-1)?.role === "user")
+        messages.push({ role: "assistant", content: [{ type: "text", text: stoppedNote(agent) }] });
       continue;
     }
     const text = legacyAnswer(row);
@@ -239,6 +256,8 @@ export interface ContextFacts {
   brief: { id: string; title: string; block: string } | null;
   memories: { id: string; content: string; scope: string }[];
   attachments: { assetId: string; type: string; title: string | null }[];
+  /** The web addresses the message names, in full (see addressesIn). */
+  addresses?: string[];
   /** What changed since the last message (the brand and brief are given in full only then). */
   changed: { brand: boolean; brief: boolean; first: boolean };
   now: Date;
@@ -288,7 +307,37 @@ export function contextText(facts: ContextFacts): string {
         (item) => `- ${item.assetId} · ${item.type} · "${item.title ?? "untitled"}"`,
       ),
     );
+  if (facts.addresses?.length)
+    lines.push("", "Web addresses in this message:", ...facts.addresses.map((url) => `- ${url}`));
   return `<context>\n${lines.join("\n")}\n</context>`;
+}
+
+const FILE_ENDINGS = new Set(
+  "png jpg jpeg gif webp svg avif heic mp4 mov webm mkv mp3 wav m4a aac pdf doc docx ppt pptx key xls xlsx csv txt md json zip ttf otf woff woff2 js ts tsx jsx css html psd ai".split(
+    " ",
+  ),
+);
+
+/**
+ * The web addresses a message names, written out in full. Claude's page
+ * reader (web_fetch) only opens addresses already in the conversation, and a
+ * person writing "aurixasystems.com.au" means https://aurixasystems.com.au.
+ */
+export function addressesIn(text: string): string[] {
+  const found: string[] = [];
+  const pattern =
+    /(?<![@\w./-])((?:https?:\/\/)?(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24})(\/[^\s<>"'`)\]]*)?/gi;
+  for (const match of text.matchAll(pattern)) {
+    const written = match[1]!;
+    const host = written.replace(/^https?:\/\//i, "").toLowerCase();
+    if (FILE_ENDINGS.has(host.split(".").pop()!)) continue;
+    const scheme = /^http:\/\//i.test(written) ? "http://" : "https://";
+    const path = (match[2] ?? "").replace(/[.,;:!?]+$/, "");
+    const url = `${scheme}${host}${path}`;
+    if (!found.includes(url)) found.push(url);
+    if (found.length >= 8) break;
+  }
+  return found;
 }
 
 /** A person's message as the API takes it: its context, words, then the pictures attached. */

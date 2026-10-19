@@ -6,11 +6,11 @@
  * active member, in their own conversation (or any, for an admin).
  */
 import { z } from "zod";
-import { createClient } from "@supabase/supabase-js";
 import type Anthropic from "@anthropic-ai/sdk";
 import { supabaseAdmin as db } from "@/integrations/supabase/client.server";
-import type { Database } from "@/integrations/supabase/types";
 import { AppError } from "../higgsfield/errors";
+import { signedInUser } from "../request-user.server";
+import { KEEP_ALIVE } from "../event-stream";
 import { encodeEvent, displayText, type AgentEvent } from "./agent-events";
 import {
   abandonPending,
@@ -20,6 +20,7 @@ import {
   type TurnState,
 } from "./agent-loop.server";
 import {
+  addressesIn,
   contextText,
   historyOf,
   resolveAssets,
@@ -81,25 +82,6 @@ const isMissingColumn = (error: { code?: string; message?: string } | null) =>
   (error.code === "42703" ||
     error.code === "PGRST204" ||
     /column .* does not exist|could not find the .* column/i.test(error.message ?? ""));
-
-/** The person a request comes from, by the session token it carries. */
-async function signedInUser(request: Request): Promise<string> {
-  const header = request.headers.get("authorization") ?? "";
-  const token = header.startsWith("Bearer ") ? header.slice(7) : "";
-  if (!token || token.split(".").length !== 3)
-    throw new AppError("NOT_AUTHORIZED", "Sign in again to talk to the Supercomputer");
-  const url = process.env["SUPABASE_URL"];
-  const key = process.env["SUPABASE_PUBLISHABLE_KEY"];
-  if (!url || !key) throw new AppError("PROVIDER_NOT_CONFIGURED", "The studio isn't set up");
-  const supabase = createClient<Database>(url, key, {
-    auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
-  });
-  const { data, error } = await supabase.auth.getClaims(token);
-  const userId = data?.claims?.sub;
-  if (error || !userId)
-    throw new AppError("NOT_AUTHORIZED", "Sign in again to talk to the Supercomputer");
-  return userId;
-}
 
 async function member(userId: string): Promise<{ role: string; name: string | null }> {
   const { data } = await db
@@ -313,6 +295,7 @@ async function writeUserMessage(input: {
       type: item.type,
       title: item.title,
     })),
+    addresses: addressesIn(input.text),
     changed: {
       first,
       brand: (before?.brandKitId ?? null) !== key.brandKitId,
@@ -613,7 +596,7 @@ export async function handleAgentRequest(request: Request): Promise<Response> {
   let userId: string;
   let input: AgentRequest;
   try {
-    userId = await signedInUser(request);
+    userId = await signedInUser(request, "talk to the Supercomputer");
     input = requestSchema.parse(await request.json());
   } catch (error) {
     const message =
@@ -646,7 +629,7 @@ export async function handleAgentRequest(request: Request): Promise<Response> {
       const beat = setInterval(() => {
         if (!open) return;
         try {
-          controller.enqueue(encoder.encode(": keep-alive\n\n"));
+          controller.enqueue(encoder.encode(KEEP_ALIVE));
         } catch {
           open = false;
         }

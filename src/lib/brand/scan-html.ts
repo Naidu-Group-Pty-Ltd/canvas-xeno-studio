@@ -100,6 +100,21 @@ const ENTITIES: Record<string, string> = {
 };
 
 /** Named (the common ones) and numeric character references. */
+/** File names that are a logo's by convention (a lockup, a wordmark, a brand symbol). */
+const LOGO_FILE =
+  /(?:^|[-_.@\s])(?:lockup|wordmark|logotype|emblem|monogram|symbol)(?=[-_.@\s]|$)/i;
+
+/** The last part of an address's path (its file's name), decoded. */
+function fileName(url: string | null): string {
+  if (!url) return "";
+  try {
+    const name = new URL(url).pathname.split("/").filter(Boolean).pop() ?? "";
+    return decodeURIComponent(name);
+  } catch {
+    return "";
+  }
+}
+
 export function decodeEntities(text: string): string {
   if (!text.includes("&")) return text;
   return text.replace(
@@ -646,8 +661,8 @@ function scan(html: string, pageUrl: string): HtmlSignals {
     known.strong ||= candidate.strong;
     known.alt ??= candidate.alt;
   };
-  const logoScore = (own: string) => {
-    const mention = /logo|brand/i.test(own) || count.logo > 0;
+  const logoScore = (own: string, named = false) => {
+    const mention = /logo|brand/i.test(own) || named || count.logo > 0;
     let score = (mention ? 5 : 0) + (count.header || count.nav ? 3 : 0) + (count.home ? 3 : 0);
     const qualifies = score > 0;
     if (pictures === 0) score += 2;
@@ -755,8 +770,11 @@ function scan(html: string, pageUrl: string): HtmlSignals {
     const alt = collapse(attrs.get("alt") ?? "") || null;
     const width = dimension(attrs.get("width"));
     const height = dimension(attrs.get("height"));
-    const own = [url, alt, attrs.get("class"), attrs.get("id"), attrs.get("aria-label")].join(" ");
-    const { score, qualifies, strong } = logoScore(own);
+    // What the picture says about itself: its file's name and its labels (a
+    // folder called "brand" says nothing about any one picture in it).
+    const file = fileName(url);
+    const own = [file, alt, attrs.get("class"), attrs.get("id"), attrs.get("aria-label")].join(" ");
+    const { score, qualifies, strong } = logoScore(own, LOGO_FILE.test(file));
     pictures += 1;
     const tiny = (width !== null && width < 16) || (height !== null && height < 16);
     if (qualifies && !(tiny && !/logo|brand/i.test(own)))
