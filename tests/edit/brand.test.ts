@@ -7,6 +7,7 @@ import {
   clearBrand,
   contrastOn,
   endCardLayout,
+  fontChoices,
   kitForProject,
   safeInsets,
   type BrandKit,
@@ -131,6 +132,12 @@ describe("a brand kit", () => {
         fonts: [{ family: "X", bucket: "generated-assets", path: "brand-fonts/x.ttf" }],
       }),
     ).toBeNull();
+  });
+
+  test("offers each typeface once, Inter first, even when the brand installs Inter too", () => {
+    const inter = { family: "Inter", bucket: "generation-inputs", path: "brand-fonts/inter.ttf" };
+    expect(fontChoices([FONT, inter])).toEqual(["Inter", "Aurixa Sans"]);
+    expect(fontChoices([])).toEqual(["Inter"]);
   });
 });
 

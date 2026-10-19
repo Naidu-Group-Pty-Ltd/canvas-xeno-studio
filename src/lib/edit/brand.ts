@@ -46,6 +46,11 @@ export interface BrandFont {
   path: string;
 }
 
+/** The families a kit's text can be set in: Inter, then its own, each once. */
+export function fontChoices(fonts: readonly { family: string }[]): string[] {
+  return [...new Set([DEFAULT_FONT, ...fonts.map((font) => font.family)])];
+}
+
 export interface BrandKit {
   id: string;
   name: string;

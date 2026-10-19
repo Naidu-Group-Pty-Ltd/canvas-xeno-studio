@@ -32,7 +32,7 @@ import { kitColoursOf, type BrandDesign, type PaletteColour } from "@/lib/brand/
 import type { BrandProposal, StagedImage } from "@/lib/brand/proposal";
 import { rasterizeSvg } from "@/lib/brand/rasterize";
 import { BRIEF_ACCEPT } from "@/lib/briefs/parse-document";
-import { DEFAULT_FONT, type BrandFont, type BrandKit } from "@/lib/edit/brand";
+import { DEFAULT_FONT, fontChoices, type BrandFont, type BrandKit } from "@/lib/edit/brand";
 import { OVERLAY_BACKING_LABELS, OVERLAY_BACKINGS, type OverlayBacking } from "@/lib/edit/timeline";
 import { signedUrl, storageScope, uploadAssetBlob } from "@/lib/storage";
 import { DesignSystemEditor } from "@/components/brand/DesignSystemEditor";
@@ -270,7 +270,7 @@ function Review({
   useBrandFontFaces(draft.fonts);
   const set = (patch: Partial<ReviewDraft>) => setDraft((current) => ({ ...current, ...patch }));
   const target = kits.find((entry) => entry.id === draft.target) ?? null;
-  const families = [DEFAULT_FONT, ...new Set(draft.fonts.map((font) => font.family))];
+  const families = fontChoices(draft.fonts);
   const stagedLogo = proposal.logos.find((logo) => logo.key === draft.logo) ?? null;
   const pictures = proposal.imagery;
 
