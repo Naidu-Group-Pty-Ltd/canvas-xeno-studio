@@ -14,8 +14,8 @@ import {
   MARKETS,
   positioningLine,
   type Archetype,
+  DNA_LIMITS,
   type BrandDna,
-  type BrandPillar,
   type BrandType,
 } from "@/lib/brand/dna";
 import { Button } from "@/components/ui/button";
@@ -76,54 +76,81 @@ function Chips<T extends string>({
   );
 }
 
-function PillarRows({
-  pillars,
+/** Named rows ({name, …}): pillars, audiences or offers, each with its own parts. */
+function NamedRows<K extends string>({
+  rows,
   onChange,
+  parts,
+  max,
+  noun,
+  namePlaceholder,
 }: {
-  pillars: BrandPillar[];
-  onChange: (pillars: BrandPillar[]) => void;
+  rows: ({ name: string } & Record<K, string | null>)[];
+  onChange: (rows: ({ name: string } & Record<K, string | null>)[]) => void;
+  parts: { key: K; placeholder: string; max: number }[];
+  max: number;
+  /** What one row is ("pillar"). */
+  noun: string;
+  namePlaceholder: string;
 }) {
-  const set = (index: number, patch: Partial<BrandPillar>) =>
-    onChange(pillars.map((pillar, at) => (at === index ? { ...pillar, ...patch } : pillar)));
+  type Row = { name: string } & Record<K, string | null>;
+  const set = (index: number, patch: Partial<Row>) =>
+    onChange(rows.map((row, at) => (at === index ? { ...row, ...patch } : row)));
+  const blank = () =>
+    ({
+      name: "",
+      ...Object.fromEntries(parts.map((part) => [part.key, null])),
+    }) as Row;
   return (
     <div className="space-y-1.5">
-      {pillars.map((pillar, index) => (
-        <div key={index} className="grid grid-cols-[minmax(0,10rem)_minmax(0,1fr)_auto] gap-1.5">
+      {rows.map((row, index) => (
+        <div
+          key={index}
+          className="grid gap-1.5"
+          style={{
+            gridTemplateColumns: `minmax(0,9rem) repeat(${parts.length}, minmax(0,1fr)) auto`,
+          }}
+        >
           <Input
-            value={pillar.name}
+            value={row.name}
             maxLength={60}
-            placeholder="Pillar"
+            placeholder={namePlaceholder}
             className="h-8 text-xs"
-            onChange={(event) => set(index, { name: event.target.value })}
+            onChange={(event) => set(index, { name: event.target.value } as Partial<Row>)}
           />
-          <Input
-            value={pillar.about ?? ""}
-            maxLength={160}
-            placeholder="What content under it covers"
-            className="h-8 text-xs"
-            onChange={(event) => set(index, { about: event.target.value || null })}
-          />
+          {parts.map((part) => (
+            <Input
+              key={part.key}
+              value={row[part.key] ?? ""}
+              maxLength={part.max}
+              placeholder={part.placeholder}
+              className="h-8 text-xs"
+              onChange={(event) =>
+                set(index, { [part.key]: event.target.value || null } as Partial<Row>)
+              }
+            />
+          ))}
           <Button
             type="button"
             variant="ghost"
             size="icon"
             className="size-8"
-            aria-label={`Remove ${pillar.name || "this pillar"}`}
-            onClick={() => onChange(pillars.filter((_, at) => at !== index))}
+            aria-label={`Remove ${row.name || `this ${noun}`}`}
+            onClick={() => onChange(rows.filter((_, at) => at !== index))}
           >
             <X className="size-3.5" />
           </Button>
         </div>
       ))}
-      {pillars.length < 6 && (
+      {rows.length < max && (
         <Button
           type="button"
           variant="outline"
           size="sm"
           className="h-7 text-xs"
-          onClick={() => onChange([...pillars, { name: "", about: null }])}
+          onClick={() => onChange([...rows, blank()])}
         >
-          <Plus className="mr-1 size-3.5" /> Add a pillar
+          <Plus className="mr-1 size-3.5" /> Add {/^[aeiou]/i.test(noun) ? "an" : "a"} {noun}
         </Button>
       )}
     </div>
@@ -199,7 +226,11 @@ export function DnaEditor({
                 set({ type, alsoTypes: dna.alsoTypes.filter((entry) => entry !== type) });
               }}
             >
-              <SelectTrigger className="h-8 text-xs" data-testid="dna-type">
+              <SelectTrigger
+                aria-label="It is mainly"
+                className="h-8 text-xs"
+                data-testid="dna-type"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -219,7 +250,7 @@ export function DnaEditor({
                 set({ market: value === NONE ? null : (value as BrandDna["market"]) })
               }
             >
-              <SelectTrigger className="h-8 text-xs">
+              <SelectTrigger aria-label="Selling to" className="h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -257,7 +288,7 @@ export function DnaEditor({
                 });
               }}
             >
-              <SelectTrigger className="h-8 text-xs">
+              <SelectTrigger aria-label="Archetype" className="h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -278,7 +309,7 @@ export function DnaEditor({
               }
               disabled={!dna.archetype}
             >
-              <SelectTrigger className="h-8 text-xs">
+              <SelectTrigger aria-label="With a touch of" className="h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -294,7 +325,7 @@ export function DnaEditor({
         </div>
         {archetype && (
           <p className="rounded-md bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
-            {archetype.label}: driven by {archetype.desire}. It reads as {archetype.tells}.
+            {archetype.label}. Core desire: {archetype.desire}. It reads as {archetype.tells}.
           </p>
         )}
       </Section>
@@ -333,9 +364,56 @@ export function DnaEditor({
         )}
       </Section>
 
+      <Section title="Who it serves and what it sells">
+        <Field
+          label="Who it serves"
+          hint="Each kind of buyer: what they hire it to do, and what gets in their way today"
+        >
+          <NamedRows
+            rows={dna.audiences}
+            onChange={(audiences) => set({ audiences })}
+            parts={[
+              { key: "job", placeholder: "They hire it to…", max: 160 },
+              { key: "pain", placeholder: "What gets in their way", max: 200 },
+            ]}
+            max={DNA_LIMITS.audiences}
+            noun="audience"
+            namePlaceholder="e.g. Buyers agents"
+          />
+        </Field>
+        <Field label="What it sells" hint="Its products, modules or services, as it names them">
+          <NamedRows
+            rows={dna.offers}
+            onChange={(offers) => set({ offers })}
+            parts={[{ key: "what", placeholder: "What it does", max: 160 }]}
+            max={DNA_LIMITS.offers}
+            noun="offer"
+            namePlaceholder="e.g. Compliance Passport"
+          />
+        </Field>
+        <Field
+          label="What buyers use instead"
+          hint="The status quo or the kinds of competitor (one a line): compared fairly, never run down"
+        >
+          <ListField
+            lines
+            value={dna.alternatives}
+            onChange={(alternatives) => set({ alternatives })}
+            placeholder="Spreadsheets and a separate CRM"
+          />
+        </Field>
+      </Section>
+
       <Section title="What its content is about">
         <Field label="Content pillars" hint="Three to five themes its content keeps coming back to">
-          <PillarRows pillars={dna.pillars} onChange={(pillars) => set({ pillars })} />
+          <NamedRows
+            rows={dna.pillars}
+            onChange={(pillars) => set({ pillars })}
+            parts={[{ key: "about", placeholder: "What content under it covers", max: 160 }]}
+            max={DNA_LIMITS.pillars}
+            noun="pillar"
+            namePlaceholder="Pillar"
+          />
         </Field>
         <Field
           label="Buying moments"
@@ -365,6 +443,17 @@ export function DnaEditor({
             placeholder="The gold triangular emblem"
           />
         </Field>
+        <Field
+          label="Its guardrails"
+          hint="Rules every piece of its content keeps (one a line): how claims are worded, what it discloses"
+        >
+          <ListField
+            lines
+            value={dna.guardrails}
+            onChange={(guardrails) => set({ guardrails })}
+            placeholder="Label every figure as an illustrative example"
+          />
+        </Field>
       </Section>
 
       <Section title="Publishing">
@@ -391,7 +480,7 @@ export function DnaEditor({
               set({ goal: value === NONE ? null : (value as BrandDna["goal"]) })
             }
           >
-            <SelectTrigger className="h-8 text-xs sm:w-64">
+            <SelectTrigger aria-label="Most content is for" className="h-8 text-xs sm:w-64">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

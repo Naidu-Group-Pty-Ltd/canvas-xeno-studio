@@ -9,6 +9,7 @@ import { AppError } from "../higgsfield/errors";
 import { FONT_FAMILY_PATTERN, fontFamily, isBrandFontFile } from "../edit/font-family";
 import { designOf, isEmptyDesign, paletteOf } from "./design";
 import { dnaOf, isEmptyDna } from "./dna";
+import { ownFormulasOf } from "./own-formulas";
 import type { KitInput } from "./kit-input";
 
 /** The largest font file read. */
@@ -177,15 +178,52 @@ export async function writeBrandKit(userId: string, data: KitInput): Promise<{ i
           .select("id")
           .maybeSingle();
   const dna = data.dna ? dnaOf(data.dna) : null;
-  let saved = await write({ ...row, ...design, ...(dna ? { dna } : {}) });
-  if (dna && isMissingColumn(saved.error) && /\bdna\b/i.test(saved.error?.message ?? "")) {
-    // Before migration 0023 a kit saves without its DNA, unless that would lose some.
-    if (!isEmptyDna(dna))
+  const formulas = data.formulas ? ownFormulasOf(data.formulas) : null;
+  // Newer parts go in only when sent. Before its migration a kit saves
+  // without one, unless that would lose something.
+  const later = [
+    ...(dna
+      ? [
+          {
+            column: "dna",
+            value: dna,
+            empty: isEmptyDna(dna),
+            needs: "Brand DNA needs",
+            migration: "0023_brand_dna",
+          },
+        ]
+      : []),
+    ...(formulas
+      ? [
+          {
+            column: "formulas",
+            value: formulas,
+            empty: !formulas.length,
+            needs: "A brand's own formulas need",
+            migration: "0024_brand_formulas",
+          },
+        ]
+      : []),
+  ];
+  const values: Record<string, unknown> = {
+    ...row,
+    ...design,
+    ...Object.fromEntries(later.map((entry) => [entry.column, entry.value])),
+  };
+  let saved = await write(values);
+  for (let tries = 0; tries < later.length && isMissingColumn(saved.error); tries += 1) {
+    const message = saved.error?.message ?? "";
+    const missing = later.find(
+      (entry) => entry.column in values && new RegExp(`\\b${entry.column}\\b`, "i").test(message),
+    );
+    if (!missing) break;
+    if (!missing.empty)
       throw new AppError(
         "INVALID_PARAMETERS",
-        "Brand DNA needs a database update (migration 0023_brand_dna). Ask an admin to apply it.",
+        `${missing.needs} a database update (migration ${missing.migration}). Ask an admin to apply it.`,
       );
-    saved = await write({ ...row, ...design });
+    delete values[missing.column];
+    saved = await write(values);
   }
   if (isMissingColumn(saved.error) && Object.keys(design).length) {
     // Before migration 0021 a kit saves without its design system, unless that would lose some.

@@ -4,12 +4,13 @@ import { AlertTriangle, Check, ListOrdered, X } from "lucide-react";
 import type { BrandDna } from "@/lib/brand/dna";
 import {
   formulaById,
+  formulasFor,
   rankFormulas,
   timedBeats,
   type BrandFormula,
   type FormulaAsk,
 } from "@/lib/brand/formulas";
-import { FIT_LABELS, FIT_STYLES, GradeBadge } from "@/components/brand/FormulaBrowser";
+import { FIT_LABELS, FIT_STYLES, GradeBadge, OwnBadge } from "@/components/brand/FormulaBrowser";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -20,12 +21,15 @@ import { cn } from "@/lib/utils";
  */
 export function FormulaPicker({
   dna,
+  own = [],
   brandName,
   value,
   onChange,
   ask = {},
 }: {
   dna: BrandDna;
+  /** The formulas written for the brand: they come first. */
+  own?: BrandFormula[] | undefined;
   /** The brand it's ranked for, if any. */
   brandName: string | null;
   value: string | null;
@@ -33,8 +37,8 @@ export function FormulaPicker({
   ask?: FormulaAsk;
 }) {
   const [open, setOpen] = useState(false);
-  const formula = formulaById(value);
-  const ranked = rankFormulas(dna, ask);
+  const formula = formulaById(value, own);
+  const ranked = rankFormulas(dna, ask, formulasFor(own));
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -103,6 +107,7 @@ export function FormulaPicker({
                       </span>
                     )}
                     <GradeBadge grade={entry.formula.grade} />
+                    <OwnBadge formula={entry.formula} />
                   </span>
                   <span className="line-clamp-2 block text-[11px] text-muted-foreground">
                     {entry.formula.summary}

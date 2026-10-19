@@ -174,3 +174,91 @@ describe("a suggested DNA, merged", () => {
     expect(mergeSuggestion(EMPTY_DNA, aurixa()).archetypeAlso).toBe("ruler");
   });
 });
+
+describe("who it serves, what it sells and what buyers use instead", () => {
+  test("are read as named rows and lines, each once and cut to size", () => {
+    const dna = dnaOf({
+      audiences: [
+        { name: "Buyers agents", job: "prove value fast", pain: "slow due diligence" },
+        "Wealth advisers",
+        { name: "buyers agents", job: "a duplicate" },
+        { job: "no name" },
+      ],
+      offers: [{ name: "Compliance Passport", what: "a guided AML/CTF journey" }, { name: "" }],
+      alternatives: ["Spreadsheets", "spreadsheets", "", 4, "A separate CRM"],
+    });
+    expect(dna.audiences).toEqual([
+      { name: "Buyers agents", job: "prove value fast", pain: "slow due diligence" },
+      { name: "Wealth advisers", job: null, pain: null },
+    ]);
+    expect(dna.offers).toEqual([{ name: "Compliance Passport", what: "a guided AML/CTF journey" }]);
+    expect(dna.alternatives).toEqual(["Spreadsheets", "A separate CRM"]);
+    expect(
+      dnaOf({ audiences: Array.from({ length: 20 }, (_, n) => `A${n}`) }).audiences,
+    ).toHaveLength(8);
+  });
+
+  test("go to the AI with who it is, and what buyers use instead with its proof", () => {
+    const lines = dnaLines(
+      aurixa({
+        audiences: [
+          { name: "Buyers agents", job: "Prove a property's value", pain: "Slow due diligence" },
+          { name: "Developers", job: null, pain: null },
+        ],
+        offers: [{ name: "Compliance Passport", what: "A guided AML/CTF journey." }],
+        alternatives: ["Spreadsheets"],
+      }),
+      { name: "Aurixa", audience: "small businesses" },
+    );
+    expect(lines).toContain(
+      "Who it serves: Buyers agents (to prove a property's value); Developers",
+    );
+    expect(lines).toContain("What holds them back: Buyers agents: slow due diligence");
+    expect(lines).toContain("What it sells: Compliance Passport (A guided AML/CTF journey)");
+    expect(lines).toContain(
+      "What buyers use instead (compare fairly, never disparage): Spreadsheets",
+    );
+    const at = (start: string) => lines.findIndex((line) => line.startsWith(start));
+    expect(at("Who it serves")).toBeGreaterThan(at("Positioning"));
+    // What holds them back is where hooks come from: with the buying moments.
+    expect(at("What holds them back")).toBeGreaterThan(at("Buying moments"));
+    expect(at("What buyers use instead")).toBeGreaterThan(at("Proof it stands behind"));
+    // Its audiences say who it is for, so the positioning names them.
+    expect(lines.find((line) => line.startsWith("Positioning"))).toContain(
+      "For buyers agents and developers who need to",
+    );
+  });
+
+  test("its own guardrails come straight after who it is", () => {
+    const lines = dnaLines(
+      aurixa({ guardrails: ["Never say 'SOC 2 certified'.", "Label every figure illustrative"] }),
+      { name: "Aurixa", audience: "small businesses" },
+    );
+    expect(lines[3]).toBe(
+      "Its guardrails (every piece keeps these): Never say 'SOC 2 certified'; Label every figure illustrative",
+    );
+    expect(lines[2]!.startsWith("Positioning")).toBe(true);
+  });
+
+  test("who fronts it reads as one of them for each piece", () => {
+    const fronted = (faces: string[]) =>
+      dnaLines(dnaOf({ faces }), { name: "Aurixa" }).find((line) => line.startsWith("Fronted by"));
+    expect(fronted(["product"])).toBe("Fronted by: the product alone, no faces");
+    expect(fronted(["product", "founder", "presenter"])).toBe(
+      "Fronted by: the product itself, the founder or a presenter (person or avatar)",
+    );
+  });
+
+  test("a suggestion fills them only when they're empty", () => {
+    const mine = { ...EMPTY_DNA, audiences: [{ name: "Mine", job: null, pain: null }] };
+    const merged = mergeSuggestion(mine, {
+      ...EMPTY_DNA,
+      audiences: [{ name: "Theirs", job: null, pain: null }],
+      offers: [{ name: "Offer", what: null }],
+      alternatives: ["Spreadsheets"],
+    });
+    expect(merged.audiences.map((audience) => audience.name)).toEqual(["Mine"]);
+    expect(merged.offers.map((offer) => offer.name)).toEqual(["Offer"]);
+    expect(merged.alternatives).toEqual(["Spreadsheets"]);
+  });
+});

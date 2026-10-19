@@ -220,6 +220,19 @@ export interface BrandPillar {
   about: string | null;
 }
 
+/** Who it serves: one kind of buyer, what they hire it for and what gets in their way. */
+export interface BrandAudience {
+  name: string;
+  job: string | null;
+  pain: string | null;
+}
+
+/** What it sells: a product, module or service as it names it, and what that does. */
+export interface BrandOffer {
+  name: string;
+  what: string | null;
+}
+
 export interface BrandDna {
   /** The kind of brand it mainly is. */
   type: BrandType | null;
@@ -235,6 +248,12 @@ export interface BrandDna {
   job: string | null;
   /** Why it rather than the alternative buyers would otherwise choose. */
   difference: string | null;
+  /** Who it serves, one kind of buyer at a time (for content aimed at one of them). */
+  audiences: BrandAudience[];
+  /** What it sells, as it names it (for content that shows one of them). */
+  offers: BrandOffer[];
+  /** What buyers use instead: the status quo or the kinds of competitor. */
+  alternatives: string[];
   /** The themes its content keeps coming back to (three to five). */
   pillars: BrandPillar[];
   /** Buying moments: the situations in which buyers think of the category (category entry points). */
@@ -243,6 +262,12 @@ export interface BrandDna {
   proof: string[];
   /** Its distinctive assets: what makes it recognisable at a glance or a listen. */
   assets: string[];
+  /**
+   * Its own guardrails: rules every piece of its content keeps, beyond any
+   * formula's (how its claims are worded, what it discloses, what its
+   * regulated field forbids).
+   */
+  guardrails: string[];
   faces: Face[];
   channels: Channel[];
   /** What most of its content is for now. */
@@ -254,6 +279,10 @@ export interface BrandDna {
 export const DNA_LIMITS = {
   alsoTypes: 2,
   pillars: 6,
+  audiences: 8,
+  offers: 10,
+  alternatives: 6,
+  guardrails: 12,
   lines: 8,
   short: 200,
   pillarAbout: 160,
@@ -269,10 +298,14 @@ export const EMPTY_DNA: BrandDna = {
   category: null,
   job: null,
   difference: null,
+  audiences: [],
+  offers: [],
+  alternatives: [],
   pillars: [],
   moments: [],
   proof: [],
   assets: [],
+  guardrails: [],
   faces: [],
   channels: [],
   goal: null,
@@ -298,15 +331,23 @@ function someOf<T extends string>(values: readonly T[], value: unknown, max: num
   return out;
 }
 
-function pillarsOf(value: unknown): BrandPillar[] {
+/** Named rows ({name, …}), each name once, at most `max`, every part cut to its length. */
+function rowsOf<K extends string>(
+  value: unknown,
+  max: number,
+  parts: Record<K, number>,
+): ({ name: string } & Record<K, string | null>)[] {
   if (!Array.isArray(value)) return [];
-  const out: BrandPillar[] = [];
+  const out: ({ name: string } & Record<K, string | null>)[] = [];
   for (const entry of value) {
     const item = typeof entry === "string" ? { name: entry } : record(entry);
     const name = clip(item["name"], 60);
-    if (!name || out.some((pillar) => pillar.name.toLowerCase() === name.toLowerCase())) continue;
-    out.push({ name, about: clip(item["about"], DNA_LIMITS.pillarAbout) });
-    if (out.length >= DNA_LIMITS.pillars) break;
+    if (!name || out.some((row) => row.name.toLowerCase() === name.toLowerCase())) continue;
+    const row = { name } as { name: string } & Record<K, string | null>;
+    for (const [key, chars] of Object.entries(parts) as [K, number][])
+      (row as Record<K, string | null>)[key] = clip(item[key], chars);
+    out.push(row);
+    if (out.length >= max) break;
   }
   return out;
 }
@@ -329,10 +370,14 @@ export function dnaOf(value: unknown): BrandDna {
     category: clip(item["category"], short),
     job: clip(item["job"], short),
     difference: clip(item["difference"], short),
-    pillars: pillarsOf(item["pillars"]),
+    audiences: rowsOf(item["audiences"], DNA_LIMITS.audiences, { job: 160, pain: 200 }),
+    offers: rowsOf(item["offers"], DNA_LIMITS.offers, { what: 160 }),
+    alternatives: wordsOf(item["alternatives"], DNA_LIMITS.alternatives, 120),
+    pillars: rowsOf(item["pillars"], DNA_LIMITS.pillars, { about: DNA_LIMITS.pillarAbout }),
     moments: wordsOf(item["moments"], lines, 160),
     proof: wordsOf(item["proof"], lines, 200),
     assets: wordsOf(item["assets"], lines, 120),
+    guardrails: wordsOf(item["guardrails"], DNA_LIMITS.guardrails, 240),
     faces: someOf(FACES, item["faces"], FACES.length),
     channels: someOf(CHANNELS, item["channels"], CHANNELS.length),
     goal: oneOf(GOALS, item["goal"]),
@@ -357,10 +402,14 @@ export function mergeSuggestion(current: BrandDna, suggested: BrandDna): BrandDn
     category: pick(current.category, suggested.category),
     job: pick(current.job, suggested.job),
     difference: pick(current.difference, suggested.difference),
+    audiences: pick(current.audiences, suggested.audiences),
+    offers: pick(current.offers, suggested.offers),
+    alternatives: pick(current.alternatives, suggested.alternatives),
     pillars: pick(current.pillars, suggested.pillars),
     moments: pick(current.moments, suggested.moments),
     proof: pick(current.proof, suggested.proof),
     assets: pick(current.assets, suggested.assets),
+    guardrails: pick(current.guardrails, suggested.guardrails),
     faces: pick(current.faces, suggested.faces),
     channels: pick(current.channels, suggested.channels),
     goal: pick(current.goal, suggested.goal),
@@ -414,7 +463,16 @@ export function positioningLine(
 ): string | null {
   if (!dna.category) return null;
   const category = midSentence(sentence(dna.category));
-  const who = brand.audience ? `For ${midSentence(sentence(brand.audience))}` : null;
+  // Who it's for: its audiences by name when it has them (a long audience sentence reads badly here).
+  const named = dna.audiences.slice(0, 4).map((audience) => midSentence(audience.name));
+  const audience = named.length
+    ? named.length > 1
+      ? `${named.slice(0, -1).join(", ")} and ${named.at(-1)}`
+      : named[0]!
+    : brand.audience
+      ? midSentence(sentence(brand.audience))
+      : null;
+  const who = audience ? `For ${audience}` : null;
   const job = dna.job
     ? `who need to ${midSentence(sentence(dna.job).replace(/^to\s+/i, ""))}`
     : null;
@@ -422,6 +480,15 @@ export function positioningLine(
   const what = `${brand.name} is ${/^(a|an|the)\s/i.test(category) ? "" : `${articleFor(category)} `}${category}`;
   const first = lead ? `${lead}, ${what}.` : `${what}.`;
   return dna.difference ? `${first} ${sentence(dna.difference)}.` : first;
+}
+
+/** Who fronts its content, in words: one of them for each piece. */
+function frontedBy(faces: Face[]): string {
+  const words = faces.map((face) =>
+    // "No faces" is said only when the product is all there is.
+    face === "product" && faces.length > 1 ? "the product itself" : FACE_LABELS[face].toLowerCase(),
+  );
+  return words.length > 1 ? `${words.slice(0, -1).join(", ")} or ${words.at(-1)}` : words[0]!;
 }
 
 /**
@@ -442,23 +509,46 @@ export function dnaLines(
     : null;
   const positioning = positioningLine(dna, brand);
   // The positioning only says the job when it says who it's for.
-  const jobSaid = !!positioning && !!brand.audience;
+  const jobSaid = !!positioning && (!!brand.audience || dna.audiences.length > 0);
+  const pains = dna.audiences.filter((audience) => audience.pain);
   return [
     type ? `Brand type: ${type}${market ? `, selling to ${market}` : ""}` : null,
     archetype ? `Archetype: ${archetype}` : null,
     positioning ? `Positioning: ${positioning}` : null,
     dna.job && !jobSaid ? `The job buyers hire it for: ${dna.job}` : null,
+    // Its own guardrails come early, so a brief cut short still keeps them.
+    dna.guardrails.length
+      ? `Its guardrails (every piece keeps these): ${dna.guardrails.map(sentence).join("; ")}`
+      : null,
+    dna.audiences.length
+      ? `Who it serves: ${dna.audiences
+          .map((audience) =>
+            audience.job
+              ? `${audience.name} (to ${sentence(midSentence(audience.job)).replace(/^to\s+/i, "")})`
+              : audience.name,
+          )
+          .join("; ")}`
+      : null,
+    dna.offers.length
+      ? `What it sells: ${dna.offers
+          .map((offer) => (offer.what ? `${offer.name} (${sentence(offer.what)})` : offer.name))
+          .join("; ")}`
+      : null,
     dna.pillars.length
       ? `Content pillars: ${dna.pillars.map((pillar) => (pillar.about ? `${pillar.name} (${pillar.about})` : pillar.name)).join("; ")}`
       : null,
     dna.moments.length ? `Buying moments (hooks start here): ${dna.moments.join("; ")}` : null,
+    pains.length
+      ? `What holds them back: ${pains.map((audience) => `${audience.name}: ${sentence(midSentence(audience.pain!))}`).join("; ")}`
+      : null,
     dna.proof.length ? `Proof it stands behind (use only these): ${dna.proof.join("; ")}` : null,
+    dna.alternatives.length
+      ? `What buyers use instead (compare fairly, never disparage): ${dna.alternatives.join("; ")}`
+      : null,
     dna.assets.length
       ? `Distinctive assets (show early and often): ${dna.assets.join("; ")}`
       : null,
-    dna.faces.length
-      ? `Fronted by: ${dna.faces.map((face) => FACE_LABELS[face].toLowerCase()).join(", ")}`
-      : null,
+    dna.faces.length ? `Fronted by: ${frontedBy(dna.faces)}` : null,
     dna.channels.length
       ? `Publishes on: ${dna.channels.map((channel) => CHANNEL_LABELS[channel]).join(", ")}`
       : null,

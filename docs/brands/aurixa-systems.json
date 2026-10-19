@@ -1,0 +1,1531 @@
+{
+  "kit": "Aurixa Systems",
+  "dna": {
+    "type": "saas",
+    "alsoTypes": [
+      "service"
+    ],
+    "market": "b2b",
+    "archetype": "ruler",
+    "archetypeAlso": "sage",
+    "category": "a governed AI operating system for Australian property, finance and advisory firms",
+    "job": "run client work, modelling, reporting and AML/CTF steps in one governed platform instead of a dozen disconnected tools",
+    "difference": "Built for Australian property and finance work: serviceability, 10-year cash flow, white-label reports, AI voice and AML/CTF steps under one set of permissions and records",
+    "audiences": [
+      {
+        "name": "Buyers agents",
+        "job": "show clients a property's numbers quickly, in the agency's own brand",
+        "pain": "manual searches, slow due diligence, reports built by hand, and AML/CTF steps since 1 July 2026"
+      },
+      {
+        "name": "Wealth advisers",
+        "job": "bring property into wider wealth strategies with governed modelling",
+        "pain": "standardising property advice, manual compliance checks, and AI use running ahead of policy"
+      },
+      {
+        "name": "Mortgage brokers",
+        "job": "connect borrowing capacity to the client's property strategy and stay useful after settlement",
+        "pain": "the loan sits apart from the strategy, and clients drift after settlement"
+      },
+      {
+        "name": "Property advisory firms",
+        "job": "combine market data, client financials and research in one place",
+        "pain": "separate systems for macro data, client financials and property research"
+      },
+      {
+        "name": "Enterprise firms and networks",
+        "job": "keep output, branding and permissions consistent across offices and brokers",
+        "pain": "growth means more headcount and inconsistent client delivery"
+      },
+      {
+        "name": "Builders and developers",
+        "job": "publish stock once to the advisory firms placing clients into it",
+        "pain": "the same PDF emailed to forty agents and out of date by Thursday"
+      },
+      {
+        "name": "Real estate agencies",
+        "job": "give investor clients ongoing strategic value",
+        "pain": "commoditised positioning and no reason for investors to stay in touch"
+      }
+    ],
+    "offers": [
+      {
+        "name": "Command Centre",
+        "what": "the team's workspace: clients, pipeline, reports, agreements and portals"
+      },
+      {
+        "name": "Serviceability & Lending Matrix",
+        "what": "borrowing-capacity scenarios across lender policies, with assessment buffers applied"
+      },
+      {
+        "name": "10-Year Cashflow & Reporting",
+        "what": "10-year cash-flow and scenario modelling in white-label client briefs"
+      },
+      {
+        "name": "Suburb Snapshots",
+        "what": "property and suburb analysis for client conversations"
+      },
+      {
+        "name": "White-Label Reports and Client Portal",
+        "what": "reports, portals and documents in the firm's own brand"
+      },
+      {
+        "name": "Aurixa Voice",
+        "what": "AI voice agents for inbound and outbound calls, configured to the firm's processes"
+      },
+      {
+        "name": "AML/CTF Compliance Passport",
+        "what": "a guided AML/CTF journey for property transactions, recorded in one record"
+      },
+      {
+        "name": "Builders Network",
+        "what": "builders and developers publish stock once to connected advisory firms"
+      },
+      {
+        "name": "Integrations",
+        "what": "connects to HubSpot and Salesforce, with CoreLogic data"
+      },
+      {
+        "name": "Enterprise Governance",
+        "what": "roles, permissions, audit trails and oversight across offices"
+      }
+    ],
+    "alternatives": [
+      "Spreadsheets and client reports built by hand",
+      "A CRM such as HubSpot or Salesforce, with separate tools around it",
+      "Lender calculators and serviceability tools such as Quickli",
+      "Advice software such as XPLAN",
+      "Property data platforms such as Cotality (CoreLogic) and Pricefinder",
+      "Separate identity-verification and AML/CTF tools, or AUSTRAC's starter kit"
+    ],
+    "pillars": [
+      {
+        "name": "Governed AI",
+        "about": "AI that is permissioned, logged and reviewed by a person, and the governance gap ASIC has flagged"
+      },
+      {
+        "name": "One connected platform",
+        "about": "what fragmented systems cost a firm, and what one governed platform changes"
+      },
+      {
+        "name": "Compliance as a clear journey",
+        "about": "AML/CTF tranche 2 and the Compliance Passport, in plain words"
+      },
+      {
+        "name": "Advice-grade modelling",
+        "about": "serviceability, 10-year cash flow and scenarios, always on illustrative figures"
+      },
+      {
+        "name": "Built from inside the industry",
+        "about": "the people and decisions behind the platform"
+      }
+    ],
+    "moments": [
+      "When a buyer's agent signs a client engagement, an AUSTRAC designated service since 1 July 2026",
+      "When a firm must show AUSTRAC an implementation plan and progress during FY26/27",
+      "When an advice practice or brokerage writes its first AI policy",
+      "When a client report still takes hours of spreadsheets and copy-paste",
+      "When a broker must show why a loan fits the client's property strategy",
+      "When enquiries go unanswered after hours or follow-ups slip",
+      "When a developer's price list is out of date the day it is emailed",
+      "When a growing firm adds offices and its output stops looking the same"
+    ],
+    "proof": [
+      "10-year cash-flow modelling, pre- and post-tax, in white-label client briefs",
+      "Borrowing-capacity scenarios across lender policies, with assessment buffers applied",
+      "AI voice agents for inbound and outbound calls that update the CRM",
+      "Connects to HubSpot and Salesforce, with CoreLogic data",
+      "Runs on infrastructure with independently assessed SOC 2 Type II controls and ISO 27001:2022 certification",
+      "Customer data encrypted with AES-256 at rest and TLS in transit, in isolated tenant databases",
+      "Does not scrape, aggregate or repurpose customer data for its own machine-learning models",
+      "A guided six-step AML/CTF journey recorded in one Compliance Passport"
+    ],
+    "assets": [
+      "The gold triangular A emblem around a blue orb, and the wide AURIXA SYSTEMS lockup",
+      "Deep navy and blue-black with metallic gold and selective cyan",
+      "Playfair Display headings over Inter body text",
+      "Layer labels LYR-01 to LYR-05 with SPEC // captions",
+      "The Compliance Passport seal: Issued · Current",
+      "The line 'Scale smarter through unified intelligence.'",
+      "Night-time high-rise offices lit by screens and warm gold edges",
+      "The call to action 'Book Your Free Demo'"
+    ],
+    "guardrails": [
+      "Word security exactly: Aurixa runs on infrastructure with independently assessed SOC 2 Type II controls and ISO 27001:2022 certification; never 'SOC 2 certified', 'SOC 2 compliant' or 'SOC 2 Enterprise Security'",
+      "Label every on-screen figure 'Illustrative example only: hypothetical client, figures and assumptions. Not a credit assessment or financial advice', with its key assumptions",
+      "Never say Aurixa makes a firm compliant or is endorsed by AUSTRAC, ASIC or APRA: it helps a firm run and record its own process, and the firm stays responsible",
+      "Never say a shared Compliance Passport lets another business skip its own checks: reliance follows AUSTRAC's rules and each firm's own program",
+      "No absolutes or performance numbers until substantiated: not 'zero bottlenecks', '100% conversion lift', '10x output', 'eliminates human error', 'absolute compliance' or 'patented'",
+      "Speak to the professional, never the borrower or investor: never say how much someone can borrow, that they'll be approved, or what to buy",
+      "Describe the AI exactly (drafts, extracts, flags, calls) and that a person reviews it; the voice agent says it is an AI assistant",
+      "Product shots are the real Command Centre on synthetic data; mock-ups are labelled 'Concept'; never real client data on screen",
+      "Waitlist and demos as they are: 'Apply for priority access'; joining the waitlist doesn't guarantee immediate access; label pre-release features",
+      "Label AI presenters and realistic AI scenes, and never present an AI person as a client, adviser, broker or expert",
+      "Regulatory facts dated and calm (AML/CTF tranche 2 has applied since 1 July 2026): no fear tactics or penalty figures",
+      "Use the calm, exact voice of the Compliance Passport and Builders pages, not the 'dominance' register ('weaponizing data', 'apex players'), with Australian spelling"
+    ],
+    "faces": [
+      "product",
+      "founder",
+      "team",
+      "presenter"
+    ],
+    "channels": [
+      "linkedin",
+      "youtube",
+      "web"
+    ],
+    "goal": "awareness",
+    "formulas": []
+  },
+  "formulas": [
+    {
+      "id": "aurixa-under-the-hood",
+      "name": "Under the Hood",
+      "origin": "Written for Aurixa Systems, after Pain → product proof: one module per episode",
+      "summary": "One task in the real Command Centre, from start to finish on synthetic data, in under 30 seconds, then one call to action",
+      "purpose": "activation",
+      "goals": [
+        "consideration",
+        "conversion"
+      ],
+      "fit": {
+        "saas": 3
+      },
+      "markets": [
+        "b2b"
+      ],
+      "channels": [
+        "linkedin",
+        "youtube",
+        "web"
+      ],
+      "faces": [
+        "product"
+      ],
+      "seconds": {
+        "min": 15,
+        "ideal": 25,
+        "max": 30
+      },
+      "shapes": [
+        "4:5",
+        "1:1",
+        "16:9"
+      ],
+      "beats": [
+        {
+          "key": "the-task",
+          "label": "The task",
+          "share": 2,
+          "job": "Name the task, with the brand",
+          "show": "The Aurixa emblem and the task as a title in Playfair Display, e.g. 'Borrowing capacity, three lender policies, one view'",
+          "say": "On screen: the task in plain words; no voice needed",
+          "edge": true
+        },
+        {
+          "key": "where-they-start",
+          "label": "Where they start",
+          "share": 4,
+          "job": "Show where the professional starts",
+          "show": "The real Command Centre on synthetic data: the client record before the task",
+          "say": "Caption: what they have, e.g. a client's income and expenses"
+        },
+        {
+          "key": "the-task-end-to-end",
+          "label": "The task, end to end",
+          "share": 14,
+          "job": "Do the one task from start to finish",
+          "show": "The real interface, zooming to each step until the result appears; every figure carries the illustrative-example label",
+          "say": "Captions name each step in a few words"
+        },
+        {
+          "key": "the-result",
+          "label": "The result",
+          "share": 3,
+          "job": "Land the result without a performance claim",
+          "show": "The finished output: a white-label brief, a scenario, a Passport milestone",
+          "say": "Caption: what is now ready"
+        },
+        {
+          "key": "call-to-action",
+          "label": "Call to action",
+          "share": 2,
+          "job": "One next step",
+          "show": "The lockup and one button: 'Book Your Free Demo' or 'Apply for priority access'",
+          "say": "Book Your Free Demo",
+          "edge": true
+        }
+      ],
+      "rules": [
+        "One module per episode: Serviceability & Lending Matrix, 10-Year Cashflow & Reporting, Suburb Snapshots, Aurixa Voice, Compliance Passport, Builders Network",
+        "A screen recording of the current build on synthetic data; label anything pre-release",
+        "Captions carry it: it must work with the sound off",
+        "The brand in the first two seconds"
+      ],
+      "avoid": [
+        "A tour of every feature",
+        "Speed or accuracy claims ('in seconds', 'error-free') without evidence"
+      ],
+      "guardrails": [
+        "real-demo",
+        "real-proof",
+        "real-testimony",
+        "illustrative-figures",
+        "pre-release",
+        "no-compliance-promises",
+        "substantiated-claims"
+      ],
+      "why": "Short product videos hold viewers (Vidyard: 65% watch under-a-minute videos to the end) and LinkedIn advises short, captioned clips; the real product doing one job is the proof a pre-launch brand can offer before it has customer stories.",
+      "grade": "B",
+      "sources": [
+        "linkedin-great-video-ads",
+        "linkedin-video-ads",
+        "vidyard-benchmarks",
+        "wistia-state-of-video"
+      ],
+      "own": {
+        "basedOn": [
+          "saas-demo-ad"
+        ],
+        "audience": null,
+        "cadence": "Fortnightly, one module per episode"
+      }
+    },
+    {
+      "id": "aurixa-when",
+      "name": "When… (buying moments)",
+      "origin": "Written for Aurixa Systems, after the Six-second bumper and ABCD formulas, on category entry points",
+      "summary": "One buying moment, its consequence in one image, the Aurixa layer that handles it, and the brand: short films that tie Aurixa to the moments buyers think of the category",
+      "purpose": "brand",
+      "goals": [
+        "awareness"
+      ],
+      "fit": {
+        "saas": 3
+      },
+      "markets": [
+        "b2b"
+      ],
+      "channels": [
+        "linkedin",
+        "youtube",
+        "web"
+      ],
+      "faces": [],
+      "seconds": {
+        "min": 6,
+        "ideal": 12,
+        "max": 15
+      },
+      "shapes": [
+        "1:1",
+        "4:5",
+        "16:9"
+      ],
+      "beats": [
+        {
+          "key": "when",
+          "label": "When…",
+          "share": 2,
+          "job": "Name the buying moment, with the brand",
+          "show": "The Aurixa emblem small in a corner and the title 'When [buying moment]' in Playfair Display on deep navy",
+          "say": "On screen: the moment, e.g. 'When a new client signs, AML/CTF starts.'",
+          "edge": true
+        },
+        {
+          "key": "the-consequence",
+          "label": "The consequence",
+          "share": 6,
+          "job": "Make the moment felt in one image",
+          "show": "One cinematic night-office image of the consequence: files at 9 pm, a phone ringing out, a price list going stale",
+          "say": "One short line, no claims, e.g. 'Six steps. Four inboxes. One client waiting.'"
+        },
+        {
+          "key": "the-layer",
+          "label": "The layer",
+          "share": 3,
+          "job": "Show the Aurixa layer that handles it",
+          "show": "The real Command Centre screen for that layer, on synthetic data, with its LYR label",
+          "say": "The layer and what it does, e.g. 'Compliance Passport: one guided journey, recorded.'"
+        },
+        {
+          "key": "brand",
+          "label": "Brand",
+          "share": 1,
+          "job": "Leave the brand in memory",
+          "show": "The Aurixa lockup and 'Scale smarter through unified intelligence.'",
+          "say": "Aurixa Systems",
+          "edge": true
+        }
+      ],
+      "rules": [
+        "Rotate a fixed set of buying moments per audience (from the DNA) and keep the look identical every time",
+        "The brand in the first two seconds and at the end",
+        "On-screen text carries it: it must work with the sound off",
+        "One moment per film, never a list of features"
+      ],
+      "avoid": [
+        "Claims or numbers",
+        "Fear about penalties"
+      ],
+      "guardrails": [
+        "real-demo",
+        "label-ai",
+        "pre-release",
+        "no-compliance-promises",
+        "substantiated-claims"
+      ],
+      "why": "Most business buyers aren't in the market at any time, so brands grow by being tied to the situations in which buyers think of the category (Ehrenberg-Bass) and remembered when they are; short, captioned films with the brand up front suit the LinkedIn feed.",
+      "grade": "B",
+      "sources": [
+        "google-video-formats",
+        "google-bumper",
+        "google-bumper-2021",
+        "google-abcd",
+        "google-abcd-summary",
+        "google-abcd-effect",
+        "kantar-abcd",
+        "google-creative-guidance",
+        "abcd-detector",
+        "ehrenberg-ceps",
+        "ehrenberg-95-5",
+        "linkedin-great-video-ads"
+      ],
+      "own": {
+        "basedOn": [
+          "bumper",
+          "abcd-ad"
+        ],
+        "audience": null,
+        "cadence": "Always on in paid placements, rotating 6 to 10 moments per audience"
+      }
+    },
+    {
+      "id": "aurixa-governance-brief",
+      "name": "The Governance Brief",
+      "origin": "Written for Aurixa Systems, after the Explainer: an episodic regulatory explainer",
+      "summary": "One dated rule or regulator question, what it says, what it means for a practice, what good looks like, and one thing to check this week, with the source on screen",
+      "purpose": "brand",
+      "goals": [
+        "awareness",
+        "consideration"
+      ],
+      "fit": {
+        "saas": 3,
+        "service": 2
+      },
+      "markets": [
+        "b2b"
+      ],
+      "channels": [
+        "linkedin",
+        "youtube"
+      ],
+      "faces": [
+        "founder",
+        "team",
+        "presenter"
+      ],
+      "seconds": {
+        "min": 45,
+        "ideal": 75,
+        "max": 90
+      },
+      "shapes": [
+        "4:5",
+        "16:9"
+      ],
+      "beats": [
+        {
+          "key": "the-rule",
+          "label": "The rule",
+          "share": 5,
+          "job": "Name the rule or question, with its source and date",
+          "show": "A title card in Playfair Display: the rule, its document and date, e.g. 'AML/CTF tranche 2, in force since 1 July 2026 (AUSTRAC)'",
+          "say": "The rule in one plain sentence",
+          "edge": true
+        },
+        {
+          "key": "what-it-says",
+          "label": "What it says",
+          "share": 20,
+          "job": "Say exactly what the rule says",
+          "show": "The presenter or founder at a night-office desk; key words on screen; the document's title",
+          "say": "What the regulator says, quoted or closely paraphrased, with the date"
+        },
+        {
+          "key": "what-it-means",
+          "label": "What it means",
+          "share": 20,
+          "job": "What it means for a buyer's agency, advice practice or brokerage",
+          "show": "A simple diagram of where it lands in the practice's day",
+          "say": "Who it applies to and when, in plain words"
+        },
+        {
+          "key": "what-good-looks-like",
+          "label": "What good looks like",
+          "share": 20,
+          "job": "Show good practice, then where a governed platform helps",
+          "show": "The real Command Centre on synthetic data, e.g. the Compliance Passport's six steps",
+          "say": "What a well-run process looks like, and how Aurixa helps run and record it"
+        },
+        {
+          "key": "check-this-week",
+          "label": "Check this week",
+          "share": 10,
+          "job": "One action, and the source",
+          "show": "A source card with the document's link and 'General information, not legal advice'",
+          "say": "One thing to check this week, then 'The Governance Brief, episode [n]'",
+          "edge": true
+        }
+      ],
+      "rules": [
+        "Number the episodes and keep the opening identical",
+        "Cite the document and its date on screen, and link it in the post",
+        "General information only, and say so on the source card",
+        "Pair every episode with a 5 to 8 page document post of the same points",
+        "Compliance review before publishing"
+      ],
+      "avoid": [
+        "Penalty figures or fear tactics",
+        "Saying Aurixa makes a firm compliant or is endorsed by a regulator",
+        "Advice to individual borrowers or investors"
+      ],
+      "guardrails": [
+        "real-proof",
+        "no-compliance-promises",
+        "substantiated-claims",
+        "label-ai"
+      ],
+      "why": "Buyers trust thought leadership more than marketing collateral, and the compliance and finance 'hidden buyers' in a deal read it (Edelman–LinkedIn); dated rules are what the audience is already working through: AML/CTF tranche 2 has applied since 1 July 2026, and ASIC has warned the AI governance gap is likely to widen.",
+      "grade": "B",
+      "sources": [
+        "wistia-state-of-video",
+        "linkedin-great-video-ads",
+        "edelman-linkedin-tl-2025",
+        "edelman-linkedin-tl-2024",
+        "austrac-tranche-2",
+        "austrac-expectations-2026",
+        "asic-rep-798",
+        "vidyard-benchmarks"
+      ],
+      "own": {
+        "basedOn": [
+          "explainer"
+        ],
+        "audience": null,
+        "cadence": "Fortnightly on LinkedIn, numbered episodes"
+      }
+    },
+    {
+      "id": "aurixa-passport-journey",
+      "name": "One Client. One Clear Journey.",
+      "origin": "Written for Aurixa Systems, after Problem → agitate → solve, kept calm",
+      "summary": "The AML/CTF journey as it is (forms, emails, follow-ups), then the same journey with the Compliance Passport in the real product, and what stays the firm's responsibility",
+      "purpose": "both",
+      "goals": [
+        "consideration",
+        "conversion"
+      ],
+      "fit": {
+        "saas": 3
+      },
+      "markets": [
+        "b2b"
+      ],
+      "channels": [
+        "linkedin",
+        "youtube",
+        "web"
+      ],
+      "faces": [
+        "product"
+      ],
+      "seconds": {
+        "min": 30,
+        "ideal": 45,
+        "max": 60
+      },
+      "shapes": [
+        "4:5",
+        "16:9"
+      ],
+      "beats": [
+        {
+          "key": "as-it-is",
+          "label": "As it is",
+          "share": 4,
+          "job": "Show the journey as it is today",
+          "show": "A desk of forms, emails, follow-ups and documents, as the Passport page lists them",
+          "say": "'Forms. Emails. Follow-ups. More emails.'",
+          "edge": true
+        },
+        {
+          "key": "what-it-costs",
+          "label": "What it costs",
+          "share": 8,
+          "job": "Show what that costs the client and the team, calmly",
+          "show": "The client unsure what to do next; the team piecing answers together across systems",
+          "say": "Where the client is up to, and who acts next, gets lost"
+        },
+        {
+          "key": "with-the-passport",
+          "label": "With the Passport",
+          "share": 20,
+          "job": "The same journey in the real product",
+          "show": "The real Client Portal and Command Centre on synthetic data: identity, documents, screening, ownership, source of funds, review",
+          "say": "'Invite. Verify. Review. Approve. Passport.' with each step captioned"
+        },
+        {
+          "key": "the-record",
+          "label": "The record",
+          "share": 8,
+          "job": "Show what is recorded and how it is shared",
+          "show": "The Passport record, 'Issued · Current', its milestones and controlled sharing",
+          "say": "One record of verified steps, shared only where authorised"
+        },
+        {
+          "key": "responsibility-then-the-next-step",
+          "label": "Responsibility, then the next step",
+          "share": 5,
+          "job": "Be clear about responsibility, then one next step",
+          "show": "A card: 'Your business remains responsible for its AML/CTF obligations.' Then the lockup and 'Book Your Free Demo'",
+          "say": "Run and record your process in one place. Book a demo.",
+          "edge": true
+        }
+      ],
+      "rules": [
+        "Calm and plain, like the Compliance Passport page: no fear and no penalty figures",
+        "Tranche 2 is in force (since 1 July 2026): never 'coming soon'",
+        "The Passport is Aurixa's record of completed steps, not an official certificate or an AUSTRAC document",
+        "Never say sharing a Passport lets another firm skip its own checks"
+      ],
+      "avoid": [
+        "'Become compliant', 'AUSTRAC-ready' or 'audit-proof'",
+        "Real identity documents or client data"
+      ],
+      "guardrails": [
+        "real-demo",
+        "real-proof",
+        "fair-comparison",
+        "no-compliance-promises",
+        "pre-release"
+      ],
+      "why": "Since 1 July 2026 a buyer's agent's AML/CTF obligations start when a client signs, and AUSTRAC expects effort and progress through FY26/27; the same journey shown before and in the real product makes the change concrete without promising compliance.",
+      "grade": "B",
+      "sources": [
+        "google-video-conversions",
+        "austrac-tranche-2",
+        "austrac-real-estate",
+        "austrac-expectations-2026",
+        "austrac-reliance"
+      ],
+      "own": {
+        "basedOn": [
+          "pas"
+        ],
+        "audience": "Buyers agents",
+        "cadence": "Monthly through FY26/27, then quarterly"
+      }
+    },
+    {
+      "id": "aurixa-signal",
+      "name": "Signal",
+      "origin": "Written for Aurixa Systems, after Expert point of view: data-led commentary",
+      "summary": "One public number with its source and date, why it moved, what it changes in one professional's work, and one action",
+      "purpose": "brand",
+      "goals": [
+        "awareness"
+      ],
+      "fit": {
+        "saas": 3,
+        "service": 2
+      },
+      "markets": [
+        "b2b"
+      ],
+      "channels": [
+        "linkedin",
+        "youtube"
+      ],
+      "faces": [
+        "founder",
+        "team",
+        "presenter"
+      ],
+      "seconds": {
+        "min": 45,
+        "ideal": 60,
+        "max": 75
+      },
+      "shapes": [
+        "4:5",
+        "1:1"
+      ],
+      "beats": [
+        {
+          "key": "the-number",
+          "label": "The number",
+          "share": 5,
+          "job": "Stop the scroll with one public number",
+          "show": "The number large in Playfair Display, its source and date beneath, on deep navy",
+          "say": "The number and what it measures",
+          "edge": true
+        },
+        {
+          "key": "why-it-moved",
+          "label": "Why it moved",
+          "share": 15,
+          "job": "Explain it in one attributed line",
+          "show": "A clean chart in the brand palette, with the data credit",
+          "say": "Why it moved, attributed to the source"
+        },
+        {
+          "key": "what-it-changes",
+          "label": "What it changes",
+          "share": 25,
+          "job": "What it changes for one audience: a buyer's agent, adviser, broker or developer",
+          "show": "The presenter at a desk, then the matching Command Centre view on synthetic data",
+          "say": "What to watch for in their own client work"
+        },
+        {
+          "key": "one-action",
+          "label": "One action",
+          "share": 10,
+          "job": "One practical action",
+          "show": "The action as on-screen text",
+          "say": "The action, then 'Signal, from Aurixa Systems'"
+        },
+        {
+          "key": "credit",
+          "label": "Credit",
+          "share": 5,
+          "job": "Credit the data and the brand",
+          "show": "A data credit card and the lockup",
+          "say": "The source and its date",
+          "edge": true
+        }
+      ],
+      "rules": [
+        "Only public data, credited with source and date: MFAA, Cotality public releases, ASIC, APRA, RBA, ABS",
+        "One number per episode",
+        "Talk about the professional's workflow, never a forecast for the viewer's money"
+      ],
+      "avoid": [
+        "Forecasts or investment views that read as advice",
+        "Republishing licensed data"
+      ],
+      "guardrails": [
+        "substantiated-claims",
+        "no-synthetic-customers",
+        "label-ai",
+        "illustrative-figures"
+      ],
+      "why": "Buyers trust thought leadership over collateral and say most content is too generic or too salesy (Edelman–LinkedIn); a sourced number gives a brand with no customer stories yet something worth saying every fortnight.",
+      "grade": "B",
+      "sources": [
+        "edelman-linkedin-tl-2024",
+        "edelman-beyond-ready",
+        "linkedin-thought-leader-ads",
+        "ehrenberg-95-5",
+        "linkedin-great-video-ads",
+        "edelman-linkedin-tl-2025"
+      ],
+      "own": {
+        "basedOn": [
+          "expert-pov"
+        ],
+        "audience": null,
+        "cadence": "Fortnightly, alternating with The Governance Brief"
+      }
+    },
+    {
+      "id": "aurixa-myth-vs-mechanism",
+      "name": "Myth vs Mechanism",
+      "origin": "Written for Aurixa Systems, after the Myth buster",
+      "summary": "A belief the industry holds, why people believe it, what the evidence says, and how governed AI actually handles it, with the source on screen",
+      "purpose": "brand",
+      "goals": [
+        "awareness",
+        "consideration"
+      ],
+      "fit": {
+        "saas": 3,
+        "service": 2
+      },
+      "markets": [
+        "b2b"
+      ],
+      "channels": [
+        "linkedin",
+        "youtube"
+      ],
+      "faces": [
+        "founder",
+        "team",
+        "presenter"
+      ],
+      "seconds": {
+        "min": 30,
+        "ideal": 50,
+        "max": 60
+      },
+      "shapes": [
+        "4:5",
+        "9:16"
+      ],
+      "beats": [
+        {
+          "key": "myth",
+          "label": "Myth",
+          "share": 4,
+          "job": "State the belief plainly",
+          "show": "'Myth:' in gold, then the belief, e.g. 'AI can't be used in regulated advice'",
+          "say": "The myth, in the industry's own words",
+          "edge": true
+        },
+        {
+          "key": "why-people-believe-it",
+          "label": "Why people believe it",
+          "share": 10,
+          "job": "Be fair to it",
+          "show": "The presenter at a night-office desk",
+          "say": "Why the belief makes sense"
+        },
+        {
+          "key": "the-evidence",
+          "label": "The evidence",
+          "share": 14,
+          "job": "Show what the evidence says",
+          "show": "The source's words and date on screen",
+          "say": "What the source says, attributed"
+        },
+        {
+          "key": "the-mechanism",
+          "label": "The mechanism",
+          "share": 16,
+          "job": "Show how governed AI handles it in practice",
+          "show": "The real Command Centre on synthetic data: permissions, a review step, an audit trail",
+          "say": "What the AI does, who reviews it, what is recorded"
+        },
+        {
+          "key": "takeaway",
+          "label": "Takeaway",
+          "share": 6,
+          "job": "Leave one line and the source",
+          "show": "A one-line takeaway and the source card",
+          "say": "The takeaway in one sentence",
+          "edge": true
+        }
+      ],
+      "rules": [
+        "Challenge ideas, never named competitors",
+        "Every claim cited on screen",
+        "Say what the AI does and that a person reviews it"
+      ],
+      "avoid": [
+        "Straw-man myths no professional holds",
+        "Saying the AI decides, or is always accurate"
+      ],
+      "guardrails": [
+        "substantiated-claims",
+        "no-synthetic-customers",
+        "disclose-paid",
+        "label-ai",
+        "real-demo",
+        "no-compliance-promises"
+      ],
+      "why": "Content that challenges buyers' perspectives helps less familiar vendors and reaches the hidden buyers in a deal (Edelman–LinkedIn), and the audience is adopting AI faster than it is governing it (ASIC REP 798).",
+      "grade": "B",
+      "sources": [
+        "tiktok-aunz-proserve",
+        "edelman-beyond-ready",
+        "edelman-linkedin-tl-2025",
+        "asic-rep-798"
+      ],
+      "own": {
+        "basedOn": [
+          "myth-buster"
+        ],
+        "audience": null,
+        "cadence": "Monthly"
+      }
+    },
+    {
+      "id": "aurixa-founders-desk",
+      "name": "Founder's Desk",
+      "origin": "Written for Aurixa Systems, after Story → lesson: a founder's build log",
+      "summary": "A decision made building Aurixa, the trade-off, why as a governance principle, and what's next, from a named founder on their own profile",
+      "purpose": "brand",
+      "goals": [
+        "awareness"
+      ],
+      "fit": {
+        "saas": 3,
+        "personal": 3
+      },
+      "markets": [
+        "b2b"
+      ],
+      "channels": [
+        "linkedin"
+      ],
+      "faces": [
+        "founder"
+      ],
+      "seconds": {
+        "min": 45,
+        "ideal": 70,
+        "max": 90
+      },
+      "shapes": [
+        "4:5",
+        "9:16"
+      ],
+      "beats": [
+        {
+          "key": "the-decision",
+          "label": "The decision",
+          "share": 5,
+          "job": "Open on a real decision",
+          "show": "The founder at their desk, the decision as a title",
+          "say": "'This week we decided…'",
+          "edge": true
+        },
+        {
+          "key": "the-trade-off",
+          "label": "The trade-off",
+          "share": 20,
+          "job": "Say what it cost or what was given up",
+          "show": "The founder; the screen or whiteboard behind the decision",
+          "say": "What they weighed"
+        },
+        {
+          "key": "why",
+          "label": "Why",
+          "share": 25,
+          "job": "Give the reason as a principle",
+          "show": "The founder, with the principle on screen",
+          "say": "The principle, e.g. 'We don't train models on client data'"
+        },
+        {
+          "key": "what-s-next",
+          "label": "What's next",
+          "share": 15,
+          "job": "Say what comes next",
+          "show": "A roadmap card labelled 'In development'",
+          "say": "What's next, with no date unless one is set"
+        },
+        {
+          "key": "sign-off",
+          "label": "Sign-off",
+          "share": 5,
+          "job": "Put a name to it",
+          "show": "Name, role and the lockup",
+          "say": "The founder's name, then 'Aurixa Systems'",
+          "edge": true
+        }
+      ],
+      "rules": [
+        "A real, named founder on their own profile; never an AI presenter in their place",
+        "True decisions only",
+        "Promote the strongest as Thought Leader Ads, judged on demos booked rather than clicks"
+      ],
+      "avoid": [
+        "Invented stories",
+        "Promises the roadmap doesn't hold"
+      ],
+      "guardrails": [
+        "real-stories",
+        "disclose-paid",
+        "pre-release",
+        "no-synthetic-customers"
+      ],
+      "why": "People are trusted over logos, and LinkedIn's Thought Leader Ads put a person's own post in front of a chosen audience (1.7x click-through in LinkedIn's pilot, which it calls directional); the site's only quote today comes from an unnamed 'Founding Partner'.",
+      "grade": "B",
+      "sources": [
+        "edelman-brand-trust-2019",
+        "linkedin-great-video-ads",
+        "instagram-how-it-works",
+        "tiktok-creator-academy",
+        "linkedin-thought-leader-ads",
+        "edelman-linkedin-tl-2024"
+      ],
+      "own": {
+        "basedOn": [
+          "story-lesson"
+        ],
+        "audience": null,
+        "cadence": "Weekly, on the founder's own LinkedIn profile"
+      }
+    },
+    {
+      "id": "aurixa-workflow-teardown",
+      "name": "Workflow Teardown",
+      "origin": "Written for Aurixa Systems, after Day in the life: an illustrative composite",
+      "summary": "An illustrative composite day of one professional, each task tagged with the kind of tool used today, the friction between them, and where an Aurixa layer fits and what stays",
+      "purpose": "both",
+      "goals": [
+        "consideration"
+      ],
+      "fit": {
+        "saas": 3
+      },
+      "markets": [
+        "b2b"
+      ],
+      "channels": [
+        "linkedin",
+        "youtube",
+        "web"
+      ],
+      "faces": [
+        "presenter",
+        "product"
+      ],
+      "seconds": {
+        "min": 60,
+        "ideal": 90,
+        "max": 120
+      },
+      "shapes": [
+        "16:9",
+        "4:5"
+      ],
+      "beats": [
+        {
+          "key": "the-composite",
+          "label": "The composite",
+          "share": 5,
+          "job": "Say what this is",
+          "show": "'Illustrative composite: a buyer's agent's Tuesday' as a title",
+          "say": "The same, said",
+          "edge": true
+        },
+        {
+          "key": "morning",
+          "label": "Morning",
+          "share": 20,
+          "job": "The first tasks and the tools they need",
+          "show": "Each task tagged with its tool category: CRM, property data, spreadsheet, serviceability calculator",
+          "say": "What they do, and in which kind of tool"
+        },
+        {
+          "key": "the-friction",
+          "label": "The friction",
+          "share": 25,
+          "job": "Show where the tools don't connect",
+          "show": "Re-keying between tools; a client report built by hand at night",
+          "say": "The handovers that cost time"
+        },
+        {
+          "key": "where-aurixa-fits",
+          "label": "Where Aurixa fits",
+          "share": 30,
+          "job": "Which layer takes which handover, and what stays",
+          "show": "The real Command Centre on synthetic data taking those handovers; the CRM still there through the integration",
+          "say": "What moves into Aurixa and what doesn't"
+        },
+        {
+          "key": "next-step",
+          "label": "Next step",
+          "share": 10,
+          "job": "One next step",
+          "show": "The lockup and 'Book Your Free Demo'",
+          "say": "See it on your own workflow: book a demo",
+          "edge": true
+        }
+      ],
+      "rules": [
+        "Label it 'Illustrative composite' on screen; better still, make it with a consenting professional",
+        "Name kinds of tool, never competitors' weaknesses",
+        "Say what stays the same: integration, not replacement"
+      ],
+      "avoid": [
+        "Implying the composite is a customer",
+        "Time-saving figures without evidence"
+      ],
+      "guardrails": [
+        "real-stories",
+        "disclose-paid",
+        "no-synthetic-customers",
+        "label-ai",
+        "fair-comparison",
+        "real-demo",
+        "substantiated-claims"
+      ],
+      "why": "There is no measured evidence for day-in-the-life content in B2B, so this is a convention; it earns its place because integration is what this market worries about: the Property Council finds AI ambition running ahead of firms' systems integration.",
+      "grade": "C",
+      "sources": [
+        "tiktok-creator-academy",
+        "tiktok-aunz-proserve",
+        "tiktok-aunz-fashion",
+        "property-council-ai-2026"
+      ],
+      "own": {
+        "basedOn": [
+          "day-in-the-life"
+        ],
+        "audience": null,
+        "cadence": "Monthly, one audience at a time"
+      }
+    },
+    {
+      "id": "aurixa-what-you-use-today",
+      "name": "What You Use Today",
+      "origin": "Written for Aurixa Systems, after the Honest comparison",
+      "summary": "For each kind of tool a firm runs today: what it does well, where a governed Aurixa layer adds to it, when not to switch, and the effort to connect",
+      "purpose": "activation",
+      "goals": [
+        "consideration"
+      ],
+      "fit": {
+        "saas": 2
+      },
+      "markets": [
+        "b2b"
+      ],
+      "channels": [
+        "linkedin",
+        "web",
+        "youtube"
+      ],
+      "faces": [
+        "presenter",
+        "product"
+      ],
+      "seconds": {
+        "min": 60,
+        "ideal": 120,
+        "max": 180
+      },
+      "shapes": [
+        "16:9",
+        "4:5"
+      ],
+      "beats": [
+        {
+          "key": "the-stack",
+          "label": "The stack",
+          "share": 8,
+          "job": "Name the choice fairly",
+          "show": "The categories as cards: CRM, serviceability calculator, property data, spreadsheets, AML/CTF tools",
+          "say": "What most firms run today",
+          "edge": true
+        },
+        {
+          "key": "what-it-does-well",
+          "label": "What it does well",
+          "share": 30,
+          "job": "Credit each kind of tool",
+          "show": "Each card in turn, with a sourced and dated strength",
+          "say": "What each does well"
+        },
+        {
+          "key": "where-aurixa-adds",
+          "label": "Where Aurixa adds",
+          "share": 40,
+          "job": "Show where a governed layer adds to it",
+          "show": "The real Command Centre on synthetic data, connected to the CRM",
+          "say": "What Aurixa adds and how it connects"
+        },
+        {
+          "key": "when-not-to-switch",
+          "label": "When not to switch",
+          "share": 25,
+          "job": "Be fair",
+          "show": "A card: 'When not to switch'",
+          "say": "When a firm is better off staying as it is"
+        },
+        {
+          "key": "effort-then-the-next-step",
+          "label": "Effort, then the next step",
+          "share": 17,
+          "job": "The effort to connect, then one next step",
+          "show": "The steps to integrate, then the lockup and 'Book Your Free Demo'",
+          "say": "What onboarding involves; book a demo",
+          "edge": true
+        }
+      ],
+      "rules": [
+        "Compare kinds of tool and jobs, never named weaknesses; date and source every claim",
+        "Credit what sources say established tools do well",
+        "Always say when not to switch"
+      ],
+      "avoid": [
+        "Competitors' satisfaction scores or market shares without checking them",
+        "Claims about a competitor the brand can't prove"
+      ],
+      "guardrails": [
+        "fair-comparison",
+        "real-proof",
+        "substantiated-claims",
+        "real-demo",
+        "pre-release"
+      ],
+      "why": "Buyers research and shortlist before talking to sales (G2) and prefer to self-serve general information (Gartner); a comparison that says when not to switch earns the credibility a new brand lacks.",
+      "grade": "C",
+      "sources": [
+        "g2-buyer-2026",
+        "forrester-buying-2026",
+        "gartner-rep-free-2025"
+      ],
+      "own": {
+        "basedOn": [
+          "honest-comparison"
+        ],
+        "audience": null,
+        "cadence": "Quarterly, one audience at a time"
+      }
+    },
+    {
+      "id": "aurixa-walkthrough",
+      "name": "The Walkthrough",
+      "origin": "Written for Aurixa Systems, after the Demo walkthrough: one per audience",
+      "summary": "One professional's whole workflow in the real Command Centre, in chapters: the problem today, setup, the daily work, governance and the audit trail, integrations, and what onboarding takes",
+      "purpose": "activation",
+      "goals": [
+        "consideration",
+        "conversion"
+      ],
+      "fit": {
+        "saas": 3
+      },
+      "markets": [
+        "b2b"
+      ],
+      "channels": [
+        "web",
+        "youtube"
+      ],
+      "faces": [
+        "product",
+        "team"
+      ],
+      "seconds": {
+        "min": 180,
+        "ideal": 300,
+        "max": 600
+      },
+      "shapes": [
+        "16:9"
+      ],
+      "beats": [
+        {
+          "key": "outcome-and-chapters",
+          "label": "Outcome and chapters",
+          "share": 20,
+          "job": "Promise what they'll see",
+          "show": "The end result, then the chapters as a list",
+          "say": "'In five minutes: how a [buyer's agency] runs a client from first call to settlement in Aurixa'",
+          "edge": true
+        },
+        {
+          "key": "the-problem-today",
+          "label": "The problem today",
+          "share": 35,
+          "job": "Show where the work breaks between tools",
+          "show": "The stack as kinds of tool",
+          "say": "Where the work breaks between them"
+        },
+        {
+          "key": "setup-and-onboarding",
+          "label": "Setup and onboarding",
+          "share": 40,
+          "job": "Show what setting up involves",
+          "show": "The real setup: branding, users and permissions, data import",
+          "say": "What setting up involves"
+        },
+        {
+          "key": "the-daily-workflow",
+          "label": "The daily workflow",
+          "share": 90,
+          "job": "Walk the daily work",
+          "show": "The real interface on synthetic data: client, borrowing capacity, 10-year cash flow, white-label brief",
+          "say": "Each step and why it matters"
+        },
+        {
+          "key": "governance-and-the-audit-trail",
+          "label": "Governance and the audit trail",
+          "share": 45,
+          "job": "Show who can see and do what, and what is recorded",
+          "show": "Roles, permissions, activity logs, the Compliance Passport",
+          "say": "Who can see and do what, and what is recorded"
+        },
+        {
+          "key": "integrations",
+          "label": "Integrations",
+          "share": 35,
+          "job": "Show what connects and what stays where it is",
+          "show": "HubSpot or Salesforce sync, CoreLogic data",
+          "say": "What connects and what stays where it is"
+        },
+        {
+          "key": "onboarding-then-the-next-step",
+          "label": "Onboarding, then the next step",
+          "share": 35,
+          "job": "Say what happens next",
+          "show": "What onboarding takes, then the lockup and 'Book Your Free Demo'",
+          "say": "What happens after a demo",
+          "edge": true
+        }
+      ],
+      "rules": [
+        "Chapter it, and make each chapter work as a clip on its own",
+        "A screen recording of the current build on synthetic data, with illustrative labels on figures",
+        "One walkthrough per audience"
+      ],
+      "avoid": [
+        "Unreleased features shown as live",
+        "Implying onboarding is instant"
+      ],
+      "guardrails": [
+        "real-demo",
+        "real-proof",
+        "illustrative-figures",
+        "pre-release",
+        "no-compliance-promises"
+      ],
+      "why": "Buyers prefer to research without a rep but want help on fit (Gartner) and research before talking to sales (G2), and Vidyard recommends a series of short videos over one long demo, which is why each chapter also stands alone.",
+      "grade": "B",
+      "sources": [
+        "gartner-rep-free-2025",
+        "gartner-rep-free-2026",
+        "g2-buyer-2026",
+        "vidyard-benchmarks",
+        "wistia-state-of-video"
+      ],
+      "own": {
+        "basedOn": [
+          "demo-walkthrough"
+        ],
+        "audience": null,
+        "cadence": "One per audience, refreshed with each release"
+      }
+    },
+    {
+      "id": "aurixa-every-call",
+      "name": "Every Call, Into Action",
+      "origin": "Written for Aurixa Systems, after Pain → product proof: Aurixa Voice",
+      "summary": "An after-hours call, the voice agent introducing itself as an AI assistant, answering, qualifying and booking, and the CRM and next task updating themselves",
+      "purpose": "activation",
+      "goals": [
+        "consideration",
+        "conversion"
+      ],
+      "fit": {
+        "saas": 3
+      },
+      "markets": [
+        "b2b"
+      ],
+      "channels": [
+        "linkedin",
+        "youtube",
+        "web"
+      ],
+      "faces": [
+        "product"
+      ],
+      "seconds": {
+        "min": 20,
+        "ideal": 30,
+        "max": 45
+      },
+      "shapes": [
+        "4:5",
+        "16:9"
+      ],
+      "beats": [
+        {
+          "key": "after-hours",
+          "label": "After hours",
+          "share": 3,
+          "job": "Open on the moment",
+          "show": "A phone lighting up on an empty desk at 7:40 pm",
+          "say": "'An enquiry at 7:40 pm.'",
+          "edge": true
+        },
+        {
+          "key": "the-ai-answers",
+          "label": "The AI answers",
+          "share": 8,
+          "job": "Show the agent answering, as an AI",
+          "show": "Aurixa Voice's live transcription of a synthetic call; the agent introduces itself as an AI assistant",
+          "say": "'Hi, I'm the AI assistant for [the firm]…'"
+        },
+        {
+          "key": "the-actions",
+          "label": "The actions",
+          "share": 12,
+          "job": "Show what happens because of the call",
+          "show": "The actions panel ticking through: enquiry answered, caller qualified, appointment scheduled, CRM record updated, internal task activated",
+          "say": "Captions name each action"
+        },
+        {
+          "key": "next-morning",
+          "label": "Next morning",
+          "share": 4,
+          "job": "Show what the team finds",
+          "show": "The principal at 8 am seeing the booking and the call notes",
+          "say": "'In the morning: the booking, the notes, the next step.'"
+        },
+        {
+          "key": "call-to-action",
+          "label": "Call to action",
+          "share": 3,
+          "job": "One next step",
+          "show": "The lockup and 'Book Your Free Demo'",
+          "say": "Book Your Free Demo",
+          "edge": true
+        }
+      ],
+      "rules": [
+        "The agent introduces itself as an AI assistant on every call shown",
+        "A synthetic caller and synthetic details only",
+        "Configured to the firm's processes: never show it giving financial or credit advice",
+        "Inbound calls only, until the rules for outbound calls (the Do Not Call Register, telemarketing standards, consent to record) are checked"
+      ],
+      "avoid": [
+        "Response-time or conversion figures without evidence",
+        "Outbound calls, until those rules are checked"
+      ],
+      "guardrails": [
+        "real-demo",
+        "real-proof",
+        "real-testimony",
+        "label-ai",
+        "pre-release",
+        "substantiated-claims"
+      ],
+      "why": "A short demo of one workflow in the real product, the structure LinkedIn's video guidance and the short-demo evidence support; the call flow is the platform's own: answer, qualify, book, update, act.",
+      "grade": "B",
+      "sources": [
+        "linkedin-great-video-ads",
+        "linkedin-video-ads",
+        "vidyard-benchmarks",
+        "wistia-state-of-video"
+      ],
+      "own": {
+        "basedOn": [
+          "saas-demo-ad"
+        ],
+        "audience": null,
+        "cadence": "Every other month"
+      }
+    },
+    {
+      "id": "aurixa-publish-once",
+      "name": "Publish Your Stock Once",
+      "origin": "Written for Aurixa Systems, after Problem → solution demo: the Builders Network",
+      "summary": "The same price list emailed to forty agents and out of date by Thursday, then one list published once to every connected advisory firm, live as it changes",
+      "purpose": "activation",
+      "goals": [
+        "conversion",
+        "consideration"
+      ],
+      "fit": {
+        "saas": 3
+      },
+      "markets": [
+        "b2b"
+      ],
+      "channels": [
+        "linkedin",
+        "facebook",
+        "web"
+      ],
+      "faces": [
+        "product"
+      ],
+      "seconds": {
+        "min": 15,
+        "ideal": 30,
+        "max": 40
+      },
+      "shapes": [
+        "4:5",
+        "1:1",
+        "9:16"
+      ],
+      "beats": [
+        {
+          "key": "forty-emails",
+          "label": "Forty emails",
+          "share": 3,
+          "job": "Name the builder's problem",
+          "show": "One price-list PDF multiplying into forty email attachments",
+          "say": "'The same PDF, emailed to forty agents.'",
+          "edge": true
+        },
+        {
+          "key": "out-of-date",
+          "label": "Out of date",
+          "share": 5,
+          "job": "Show the cost",
+          "show": "A lot sold on site still 'available' in every inbox",
+          "say": "'Out of date by Thursday.'"
+        },
+        {
+          "key": "publish-once",
+          "label": "Publish once",
+          "share": 14,
+          "job": "Show the fix in the real product",
+          "show": "The real Builders Network on synthetic stock: upload the price list, lots and prices pulled out, blanks left blank, publish",
+          "say": "Upload the list you already have. Correct what the file didn't say. Publish."
+        },
+        {
+          "key": "everywhere-at-once",
+          "label": "Everywhere at once",
+          "share": 5,
+          "job": "Show it reaching every connected firm",
+          "show": "A price change appearing in each connected firm's workspace; a lot taken off the market disappearing",
+          "say": "'A price you move moves everywhere at once.'"
+        },
+        {
+          "key": "call-to-action",
+          "label": "Call to action",
+          "share": 3,
+          "job": "One next step",
+          "show": "The lockup and 'Register your business'",
+          "say": "Register your business",
+          "edge": true
+        }
+      ],
+      "rules": [
+        "Use the Builders page's own words: 'Publish your stock once.'",
+        "Show that connections are granted one firm at a time, with no open directory of pricing",
+        "Synthetic stock, addresses and prices only"
+      ],
+      "avoid": [
+        "Claims about sales results",
+        "Implying a shared Compliance Passport removes the builder's own checks"
+      ],
+      "guardrails": [
+        "real-demo",
+        "real-proof",
+        "no-compliance-promises",
+        "pre-release"
+      ],
+      "why": "A problem-solution demo shows the product doing one job, the structure the platforms recommend, and this problem is the builder's own, in the Builders Network page's words.",
+      "grade": "B",
+      "sources": [
+        "tiktok-9-tips",
+        "tiktok-smb-guide",
+        "meta-tailored",
+        "meta-mobile-video",
+        "google-video-conversions",
+        "spiegel-reviews",
+        "linkedin-great-video-ads"
+      ],
+      "own": {
+        "basedOn": [
+          "problem-solution-demo"
+        ],
+        "audience": "Builders and developers",
+        "cadence": "Monthly, and with each new project"
+      }
+    }
+  ]
+}

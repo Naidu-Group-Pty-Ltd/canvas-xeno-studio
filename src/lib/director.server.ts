@@ -81,10 +81,12 @@ interface PlanContext {
 
 /** The brand and formula blocks for the AI (empty when there are none). */
 async function contextBlocks(context: PlanContext): Promise<string> {
-  const { brandBlock } = await import("./brand/use.server");
+  const { brandBlockOf, loadBrandKit } = await import("./brand/use.server");
   const { formulaBlock, formulaById } = await import("./brand/formulas");
-  const brand = context.brandKitId ? await brandBlock(context.brandKitId, 2600) : "";
-  const formula = formulaById(context.formula?.id);
+  const kit = await loadBrandKit(context.brandKitId);
+  const brand = kit ? brandBlockOf(kit) : "";
+  // The brand's own formulas resolve too.
+  const formula = formulaById(context.formula?.id, kit?.ownFormulas ?? []);
   const recipe = formula
     ? formulaBlock(formula, {
         seconds: context.formula?.seconds ?? null,
@@ -103,9 +105,14 @@ export async function buildDirectorPlan(
   const supabaseAdmin = await admin();
   const reasoning = await directorReasoning();
   const { formulaById } = await import("./brand/formulas");
-  const formula = formulaById(data.formula?.id);
+  const { loadBrandKit } = await import("./brand/use.server");
+  const kit = data.formula ? await loadBrandKit(data.brandKitId) : null;
+  const formula = formulaById(data.formula?.id, kit?.ownFormulas ?? []);
   if (data.formula && !formula)
-    throw new AppError("INVALID_PARAMETERS", "That content formula isn't in the library");
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      "That content formula isn't in the library or the brand's own formulas",
+    );
 
   let sessionId = data.sessionId ?? null;
   if (!sessionId) {

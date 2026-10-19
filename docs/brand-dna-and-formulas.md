@@ -8,7 +8,8 @@ Two layers sit on top of a brand kit's design system (its look, voice and rules)
   and what makes it recognisable.
 - **Content formulas** are proven structures for videos and posts. Each is a run of timed beats
   (what every moment must do, show and say), with the rules it keeps, the guardrails that keep it
-  honest, and the research it rests on. A brand's DNA ranks them.
+  honest, and the research it rests on. A brand's DNA ranks them, and a brand can keep formulas
+  written for it: a library formula rewritten in its words, for one of its audiences.
 
 Both are on the Brand page. The Director, long videos, the Supercomputer agent and the studio API
 use them, and the brand brief that goes with every generation carries the DNA.
@@ -24,6 +25,10 @@ Kept on the brand kit (`brand_kits.dna`, migration `0023_brand_dna`; the code is
 | Who it sells to              | Businesses (B2B), consumers (B2C) or both. Sets the content mix.                                                                    | Binet & Field (IPA; LinkedIn B2B Institute)                                  |
 | Archetype                    | One of the twelve, and a second that colours it, so its stories, casting and voice stay one character.                              | Margaret Mark and Carol S. Pearson, _The Hero and the Outlaw_                |
 | Category, job and difference | What it is in its buyers' words, the job they hire it for, and why it rather than the alternative. Written as one positioning line. | Geoffrey Moore's positioning template; Clayton Christensen's Jobs to Be Done |
+| Who it serves                | Up to eight audiences, each with the job they hire it for and what holds them back. The positioning line names them.                | Jobs to Be Done                                                              |
+| What it sells                | Up to ten products or services, each with what it is.                                                                               |                                                                              |
+| What buyers use instead      | The alternatives buyers weigh it against: compared fairly, never disparaged.                                                        | Moore's positioning template (the alternative)                               |
+| Its guardrails               | Up to twelve rules every piece for the brand keeps (how it words security, what it never promises). They go to the AI first.        | The brand's own rules and its regulators'                                    |
 | Content pillars              | The three to five themes its content keeps coming back to.                                                                          |                                                                              |
 | Buying moments               | The situations in which buyers think of the category. Hooks start here.                                                             | Category entry points (Ehrenberg-Bass Institute)                             |
 | Proof                        | Results, numbers, reviews, awards and clients it stands behind. The AI claims only these.                                           |                                                                              |
@@ -38,9 +43,18 @@ empty, so nothing a person wrote is replaced. People look it over and save it; t
 formulas.
 
 **In the brief.** The brand brief that goes with generations, the Director, long-video beats, the
-prompt assistant and the Supercomputer puts who the brand is first (its kind, archetype and
-positioning), and what its content is about and made with after its voice (pillars, buying
-moments, proof, assets, who fronts it, channels, goal, its formulas and its content mix).
+prompt assistant and the Supercomputer puts who the brand is first (its kind, archetype,
+positioning, its guardrails, who it serves and what it sells), and what its content is about and
+made with after its voice (pillars, buying moments, what holds its audiences back, proof, what
+buyers use instead, assets, who fronts it, channels, goal, its formulas and its content mix).
+
+A brief has room for 12,000 characters (6,000 for the prompt assistant, 4,500 in a long video's
+snapshot). When a brand says more than fits, the lines it needs most are kept, still in reading
+order: who it is, its guardrails, its proof, its call to action and the words to spell exactly;
+then its voice, what it never shows, its audiences, buying moments and formulas; then what holds
+them back, its look and the rest of its content; the look in detail (lighting, grading,
+composition) last, as every picture and clip carries the brand's style line anyway. For the prompt
+assistant, which writes pictures and clips, the look is kept first instead.
 
 **The content mix.** Over time, about 60% brand-building to 40% activation for consumer brands,
 close to 50:50 for business brands, and about 55:45 for both (Binet & Field). A default to lean on,
@@ -66,9 +80,9 @@ A formula has:
 
 **Ranking.** For a brand and a piece, the library is ranked by how well each formula suits the
 brand's kind (and its other kinds), its market, the goal, the channel, the length, who can front
-it, and the strength of its evidence. The brand's pinned formulas come first unless the piece's
-channel or length rules them out. Each formula says why it fits and what to watch for ("Needs real
-customers", "Runs 15–45 s").
+it, and the strength of its evidence. The brand's pinned formulas come first, then those written
+for it, unless the piece's channel or length rules them out. Each formula says why it fits and
+what to watch for ("Needs real customers", "Runs 15–45 s").
 
 | Formula                       | Id                      | Made for                                                       | Length   | Evidence |
 | ----------------------------- | ----------------------- | -------------------------------------------------------------- | -------- | -------- |
@@ -113,6 +127,30 @@ customers", "Runs 15–45 s").
 | Feature → advantage → benefit | `fab`                   | Product & e-commerce, SaaS & software                          | 15–60 s  | C        |
 | Jobs to be done               | `job-story`             | SaaS & software, Services & B2B                                | 15–60 s  | C        |
 
+### A brand's own formulas
+
+Kept on the brand kit (`brand_kits.formulas`, migration `0024_brand_formulas`; the code is in
+`src/lib/brand/own-formulas.ts`). A brand keeps up to 16.
+
+- **Written after the library.** Each names the library formula (or formulas) it was written
+  after, the audience it is for and how often it runs. It never drops their guardrails or
+  sources, and never claims stronger evidence than they have; one written after none is a
+  convention (C).
+- **Written two ways.** On the Brand page, under Content formulas: **Write it with AI** rewrites a
+  library formula for the brand (its DNA, voice, proof and guardrails), for one of its audiences, a
+  channel and a length, for a person to look over and keep; or **Copy it to rewrite by hand**. Both
+  open the editor: its name, who it is for, what it does, purpose, goals, channels, who fronts it,
+  its lengths, its beats (each with its seconds, whether it is a hook or call to action, and the
+  shortest piece it appears in), its rules, what to avoid, its guardrails (those of the formula it
+  was written after can't be unticked), how often and why it works.
+- **Used like the library's.** They are listed first for their brand, can be pinned, and resolve
+  by id wherever the brand's formulas do: the Director, long videos, the agent and the studio API.
+  The brief names them among the formulas the brand works with, and a formula written out says who
+  it is for, what it was written after and how often it runs.
+
+[Aurixa Systems](brands/aurixa-systems.md) is a worked example: its DNA, field by field, and the
+twelve formulas written for it, with the research behind them.
+
 ### House rules
 
 Every formula keeps these:
@@ -154,6 +192,16 @@ presenter carry **no synthetic customers**; those fronted by creators carry **di
 - The studio's own policy: **real demos** (generated footage never stands in as proof of how a
   product performs), **real stories** (founder and personal stories are never invented) and **fair
   comparisons** (factual, sourced, dated).
+- **Illustrative figures**: financial figures on screen (borrowing capacity, cash flow, returns,
+  projections) are labelled as an illustrative example on hypothetical figures, with their key
+  assumptions, never a forecast or a promised outcome (ASIC RG 234, ACCC).
+- **No compliance promises**: never say or imply that a product makes a business compliant, takes
+  over its obligations or is endorsed by a regulator (AUSTRAC, ACCC).
+- **Label AI**: AI-generated presenters, and AI-generated scenes that could pass as real footage,
+  are labelled as AI-generated (the Australian Government's guidance on AI-generated content,
+  ACCC). Presenter-led formulas carry it.
+- **Pre-release**: features that aren't generally available are labelled as in development or
+  early access; waitlists and demos are described as they are (ACCC). Feature launches carry it.
 
 ### Channels
 
@@ -162,29 +210,35 @@ Reels and YouTube Shorts 9:16; LinkedIn and Facebook feeds 4:5; YouTube, X and t
 
 ## Where they are used
 
-- **Brand page**: each kit's DNA (with Suggest from the brand) and its formulas to pin; the
-  formula library, ranked for any kit, with each formula's beats at a length, its rules,
-  guardrails, sources and evidence grade, the brand's content mix, and the house rules.
+- **Brand page**: each kit's DNA (with Suggest from the brand), the formulas written for it (to
+  edit, take away or write another, with AI or by hand) and its formulas to pin; the formula
+  library, ranked for any kit, with each formula's beats at a length, its rules, guardrails,
+  sources and evidence grade, the brand's content mix, and the house rules.
 - **Director**: a brand (the project's, else the studio default) and a formula, with a channel and
   length. The plan's scenes follow the formula's beats and timing, and its creative summary says
   which formula it follows. Revisions keep to the same brand and formula.
 - **Long videos**: a formula for the AI's beats, its stages spread over the clips. What a beat says
   goes in the voiceover or the edit's captions, not the picture.
 - **Supercomputer agent**: content for a brand follows a formula that fits its DNA, goal and
-  channel (`list_brand_formulas`, then `get_brand_formula`), and the agent says which it used.
-- **Studio API and MCP**: `list_brand_formulas` and `get_brand_formula` (docs/studio-api.md);
-  `get_brand_kit` returns the kit's DNA and its formulas.
+  channel, preferring those written for it (`list_brand_formulas`, then `get_brand_formula`), and
+  the agent says which it used.
+- **Studio API and MCP**: `list_brand_formulas` and `get_brand_formula`, each with the brand's
+  `brandKitId` for the formulas written for it (docs/studio-api.md); `get_brand_kit` returns the
+  kit's DNA, its formulas and those written for it.
 
 ## The research, and how far it was checked
 
-The library rests on 96 sources:
+The library rests on 109 sources:
 
 - **Official platform guidance**: Google and YouTube, TikTok, Meta and Instagram, LinkedIn, Google
   Business Profile.
 - **Effectiveness research**: the IPA (Binet & Field), the LinkedIn B2B Institute,
   Ehrenberg-Bass, System1, Kantar, Nielsen, Gartner, Forrester, Edelman, the Spiegel Research
   Center and BrightLocal.
-- **Regulators**: the ACCC and the US Federal Trade Commission.
+- **Regulators and government**: the ACCC, ASIC, AUSTRAC, the OAIC, the Department of Industry,
+  Science and Resources, and the US Federal Trade Commission.
+- **Industry research** for business brands in regulated work: Investment Trends, the Property
+  Council of Australia and ON24.
 - **The originators** of the copywriting and story frameworks, and work on their history.
 
 Every source is linked in the app and says how far it was checked:
@@ -198,17 +252,18 @@ Figures are the publishers' own, attributed to them. Platform figures (TikTok's,
 LinkedIn's) come from the platform's own data, and the Google/Kantar ABCD lift is a correlation
 with Kantar's model predictions, not measured sales.
 
-**Opening the sources.** The sources read via search are on these 44 hosts: about.instagram.com,
+**Opening the sources.** The sources read via search are on these 51 hosts: about.instagram.com,
 ads.tiktok.com, blog.google, blog.youtube, business.google.com, business.linkedin.com,
-contentmarketinginstitute.com, creators.instagram.com, help.instagram.com, ipa.co.uk,
-marketingscience.info, newsroom.tiktok.com, podcasts.apple.com, sell.g2.com, seller-us.tiktok.com,
-services.google.com, spiegel.medill.northwestern.edu, storybrand.com, support.google.com,
-system1group.com, transparency.meta.com, wistia.com, www.accc.gov.au, www.aerogrammestudio.com,
-www.awai.com, www.brightlocal.com, www.christenseninstitute.org, www.edelman.com,
-www.entrepreneur.com, www.facebook.com, www.forrester.com, www.ftc.gov, www.gartner.com,
-www.hbs.edu, www.huthwaiteinternational.com, www.jstage.jst.go.jp, www.kantar.com, www.linkedin.com,
-www.nielsen.com, www.npr.org, www.tandfonline.com, www.thinkwithgoogle.com, www.tiktok.com and
-www.vidyard.com. With them allowed in the environment's network access settings, a later session can
+contentmarketinginstitute.com, creators.instagram.com, help.instagram.com, investmenttrends.com,
+ipa.co.uk, marketingscience.info, newsroom.tiktok.com, podcasts.apple.com, sell.g2.com,
+seller-us.tiktok.com, services.google.com, spiegel.medill.northwestern.edu, storybrand.com,
+support.google.com, system1group.com, transparency.meta.com, wistia.com, www.accc.gov.au,
+www.aerogrammestudio.com, www.asic.gov.au, www.austrac.gov.au, www.awai.com, www.brightlocal.com,
+www.christenseninstitute.org, www.edelman.com, www.entrepreneur.com, www.facebook.com,
+www.forrester.com, www.ftc.gov, www.gartner.com, www.hbs.edu, www.huthwaiteinternational.com,
+www.industry.gov.au, www.jstage.jst.go.jp, www.kantar.com, www.linkedin.com, www.nielsen.com,
+www.npr.org, www.oaic.gov.au, www.on24.com, www.propertycouncil.com.au, www.tandfonline.com,
+www.thinkwithgoogle.com, www.tiktok.com and www.vidyard.com. With them allowed in the environment's network access settings, a later session can
 open each page, check what the library says against it, and mark it read in full.
 
 **Not covered yet.** Pinterest and Snapchat guidance; Australia's TGA and Ahpra rules on

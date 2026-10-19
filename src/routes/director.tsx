@@ -76,7 +76,7 @@ function DirectorPage() {
     brandChoice === undefined
       ? kitForProject(kits, projectId)
       : (kits.find((kit) => kit.id === brandChoice) ?? null);
-  const formula = formulaById(formulaId);
+  const formula = formulaById(formulaId, brandKit?.ownFormulas ?? []);
   const length = seconds ?? formula?.seconds.ideal ?? 30;
 
   const activePlan = plans?.find((p) => p.id === activePlanId) ?? plans?.[0] ?? null;
@@ -192,6 +192,7 @@ function DirectorPage() {
             />
             <FormulaPicker
               dna={brandKit?.dna ?? EMPTY_DNA}
+              own={brandKit?.ownFormulas ?? []}
               brandName={brandKit?.name ?? null}
               value={formulaId}
               onChange={(id) => {

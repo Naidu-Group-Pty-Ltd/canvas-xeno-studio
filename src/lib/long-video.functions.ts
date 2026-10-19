@@ -328,9 +328,15 @@ export const planLongVideo = createServerFn({ method: "POST" })
     let formula = "";
     if (data.formulaId) {
       const { formulaBlock, formulaById } = await import("./brand/formulas");
-      const chosen = formulaById(data.formulaId);
+      const { loadBrandKit } = await import("./brand/use.server");
+      const kit = await loadBrandKit(data.brandKitId);
+      // The brand's own formulas resolve too.
+      const chosen = formulaById(data.formulaId, kit?.ownFormulas ?? []);
       if (!chosen)
-        throw new AppError("INVALID_PARAMETERS", "That content formula isn't in the library");
+        throw new AppError(
+          "INVALID_PARAMETERS",
+          "That content formula isn't in the library or the brand's own formulas",
+        );
       const total = data.durations.reduce((sum, seconds) => sum + seconds, 0);
       formula = formulaBlock(chosen, { seconds: Math.max(1, Math.round(total)) });
     }

@@ -22,6 +22,8 @@ import {
   type PaletteColour,
 } from "../brand/design";
 import { dnaOf, type BrandDna } from "../brand/dna";
+import type { BrandFormula } from "../brand/formulas";
+import { ownFormulasOf } from "../brand/own-formulas";
 import {
   aspectQuotient,
   layoutTimeline,
@@ -83,6 +85,8 @@ export interface BrandKit {
   referenceAssetIds: string[];
   /** What kind of brand it is and what it stands for, and the formulas it works with (see ../brand/dna). */
   dna: BrandDna;
+  /** The formulas written for this brand (see ../brand/own-formulas), first wherever it plans content. */
+  ownFormulas: BrandFormula[];
 }
 
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -146,6 +150,8 @@ export function brandKitOf(row: Json): BrandKit {
       : [],
     // Kits from before brand DNA (migration 0023) have none yet.
     dna: dnaOf(row["dna"]),
+    // And from before its own formulas (migration 0024), none.
+    ownFormulas: ownFormulasOf(row["formulas"]),
   };
 }
 
