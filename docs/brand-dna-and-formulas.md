@@ -70,6 +70,10 @@ A formula has:
 - **Beats**: each with a job, what is shown and what is said, timed to the length asked for. Hooks
   and calls to action keep about their length (at most a fifth of the piece each) while the beats
   between share the rest; some beats appear only in longer pieces.
+- **What it is for**: building the brand, asking for action, or both. Written out for the AI, a
+  brand-building formula ends on the brand, its one call to action the brand itself (or following
+  it), never a demo, offer or sign-up unless the brief asks for one; the others end on the brand's
+  own call to action. (A live check found planners putting the brand's demo ask on everything.)
 - **Rules** of its own, the **channel's** rules when one is chosen, and the **house rules** every
   formula keeps (below).
 - **Guardrails** that are never broken (below).
@@ -194,7 +198,8 @@ presenter carry **no synthetic customers**; those fronted by creators carry **di
   comparisons** (factual, sourced, dated).
 - **Illustrative figures**: financial figures on screen (borrowing capacity, cash flow, returns,
   projections) are labelled as an illustrative example on hypothetical figures, with their key
-  assumptions, never a forecast or a promised outcome (ASIC RG 234, ACCC).
+  assumptions, never a forecast or a promised outcome; a published statistic isn't one of these, and
+  carries its source and date instead (ASIC RG 234, ACCC).
 - **No compliance promises**: never say or imply that a product makes a business compliant, takes
   over its obligations or is endorsed by a regulator (AUSTRAC, ACCC).
 - **Label AI**: AI-generated presenters, and AI-generated scenes that could pass as real footage,
@@ -214,6 +219,8 @@ Reels and YouTube Shorts 9:16; LinkedIn and Facebook feeds 4:5; YouTube, X and t
   edit, take away or write another, with AI or by hand) and its formulas to pin; the formula
   library, ranked for any kit, with each formula's beats at a length, its rules, guardrails,
   sources and evidence grade, the brand's content mix, and the house rules.
+- **Create**: the brand chosen in this browser, else the project's, else the studio default (as in
+  the Director), so suggestions and pictures are made in it from the first visit.
 - **Director**: a brand (the project's, else the studio default) and a formula, with a channel and
   length. The plan's scenes follow the formula's beats and timing, and its creative summary says
   which formula it follows. Revisions keep to the same brand and formula.

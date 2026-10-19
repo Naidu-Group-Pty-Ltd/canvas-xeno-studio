@@ -239,6 +239,10 @@ describe("a formula written out for the AI", () => {
     const lines = block.split("\n");
     expect(lines[0]).toMatch(/^FORMULA: .+ \(saas-demo-ad\): /);
     expect(lines[1]).toBe("Length: 30 s (it works from 15 to 45 s). Shape: 4:5. For LinkedIn.");
+    // What it is for: an ad asks for action, with the brand's own call to action.
+    expect(lines[2]).toBe(
+      "It asks for action now: it ends on one call to action, the brand's own unless the brief gives another.",
+    );
     expect(block).toContain("1. Hook (0–3 s): ");
     expect(block).toMatch(/\n4\. Call to action \([\d.]+–30 s\): /);
     expect(block).toContain("\nOn LinkedIn: ");
@@ -252,5 +256,7 @@ describe("a formula written out for the AI", () => {
     const plain = formulaBlock(formulaById("bumper")!);
     expect(plain).toContain("Length: 6 s");
     expect(plain).not.toContain("\nOn ");
+    // A piece that builds the brand ends on the brand, not a sales ask.
+    expect(plain.split("\n")[2]).toMatch(/^It builds the brand.+ends on the brand.+never a demo/);
   });
 });

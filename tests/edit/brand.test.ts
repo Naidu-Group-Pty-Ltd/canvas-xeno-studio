@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import {
   addEndCard,
   applyBrandKit,
+  brandKitIn,
   brandKitOf,
   clearBrand,
   contrastOn,
@@ -73,6 +74,19 @@ describe("a brand kit", () => {
     expect(kitForProject([kit, own], "proj")?.id).toBe("p");
     expect(kitForProject([kit, own], "other")?.id).toBe(kit.id);
     expect(kitForProject([], null)).toBeNull();
+  });
+
+  test("a page works in the kit chosen, else the project's or the default, or in none", () => {
+    const other = { ...kit, id: "o", isDefault: false };
+    const own = { ...kit, id: "p", isDefault: false, projectId: "proj" };
+    // Nothing chosen yet: the project's, else the default.
+    expect(brandKitIn([kit, other, own], "proj", undefined)?.id).toBe("p");
+    expect(brandKitIn([kit, other, own], null, undefined)?.id).toBe(kit.id);
+    // Chosen: that one; no brand chosen: none.
+    expect(brandKitIn([kit, other, own], "proj", "o")?.id).toBe("o");
+    expect(brandKitIn([kit, other, own], null, null)).toBeNull();
+    // Chosen once and since archived: the default again.
+    expect(brandKitIn([kit, own], null, "gone")?.id).toBe(kit.id);
   });
 
   test("applied, sets titles, calls to action and captions in its fonts and colours", () => {

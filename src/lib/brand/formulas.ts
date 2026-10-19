@@ -423,9 +423,22 @@ const ended = (text: string) =>
   /[.!?…]['"’”)]?$/.test(text.trim()) ? text.trim() : `${sentence(text)}.`;
 
 /**
+ * What a formula is for, as the AI that plans to it reads it. A piece that
+ * builds the brand ends on the brand: left to itself, a planner given the
+ * brand's call to action puts a demo or sign-up on everything.
+ */
+const PURPOSE_LINES: Record<BrandFormula["purpose"], string> = {
+  brand:
+    "It builds the brand, so it is remembered when buyers come to the category: it ends on the brand, and its one call to action is the brand itself (or following it), never a demo, offer or sign-up unless the brief asks for one.",
+  activation:
+    "It asks for action now: it ends on one call to action, the brand's own unless the brief gives another.",
+  both: "It builds the brand and asks for action: it ends on one call to action, the brand's own unless the brief gives another.",
+};
+
+/**
  * A formula written out for the AI that plans, scripts and prompts: its
- * beats timed to the length, what the channel asks, its rules, its
- * guardrails and why it works.
+ * beats timed to the length, what it is for, what the channel asks, its
+ * rules, its guardrails and why it works.
  */
 export function formulaBlock(
   formula: BrandFormula,
@@ -446,6 +459,7 @@ export function formulaBlock(
         ]
       : []),
     `Length: ${seconds} s (it works from ${formula.seconds.min} to ${formula.seconds.max} s). Shape: ${guide?.shape ?? formula.shapes[0] ?? "9:16"}.${channel ? ` For ${CHANNEL_LABELS[channel]}.` : ""}`,
+    PURPOSE_LINES[formula.purpose],
     "Beats, in order (keep their jobs and timing; adapt the words to the brand and brief):",
     ...timedBeats(formula, seconds).map(
       (beat, index) =>

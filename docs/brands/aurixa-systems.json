@@ -55,15 +55,15 @@
       },
       {
         "name": "Serviceability & Lending Matrix",
-        "what": "borrowing-capacity scenarios across lender policies, with assessment buffers applied"
+        "what": "LYR-03 Financial Modelling: borrowing-capacity scenarios across lender policies, with assessment buffers applied"
       },
       {
         "name": "10-Year Cashflow & Reporting",
-        "what": "10-year cash-flow and scenario modelling in white-label client briefs"
+        "what": "LYR-03 Financial Modelling: 10-year cash-flow and scenario modelling in white-label client briefs"
       },
       {
         "name": "Suburb Snapshots",
-        "what": "property and suburb analysis for client conversations"
+        "what": "LYR-02 Strategic Intelligence: property and suburb analysis for client conversations"
       },
       {
         "name": "White-Label Reports and Client Portal",
@@ -87,7 +87,7 @@
       },
       {
         "name": "Enterprise Governance",
-        "what": "roles, permissions, audit trails and oversight across offices"
+        "what": "LYR-05: roles, permissions, audit trails and oversight across offices"
       }
     ],
     "alternatives": [
@@ -144,7 +144,7 @@
       "The gold triangular A emblem around a blue orb, and the wide AURIXA SYSTEMS lockup",
       "Deep navy and blue-black with metallic gold and selective cyan",
       "Playfair Display headings over Inter body text",
-      "Layer labels LYR-01 to LYR-05 with SPEC // captions",
+      "Layer labels LYR-01 to LYR-05 with SPEC // captions, each on its own layer (its offers name theirs)",
       "The Compliance Passport seal: Issued · Current",
       "The line 'Scale smarter through unified intelligence.'",
       "Night-time high-rise offices lit by screens and warm gold edges",
@@ -152,7 +152,7 @@
     ],
     "guardrails": [
       "Word security exactly: Aurixa runs on infrastructure with independently assessed SOC 2 Type II controls and ISO 27001:2022 certification; never 'SOC 2 certified', 'SOC 2 compliant' or 'SOC 2 Enterprise Security'",
-      "Label every on-screen figure 'Illustrative example only: hypothetical client, figures and assumptions. Not a credit assessment or financial advice', with its key assumptions",
+      "Modelled figures (borrowing capacity, cash flow) show 'Illustrative example only: hypothetical client, figures and assumptions. Not a credit assessment or financial advice' and key assumptions; public statistics show source and date",
       "Never say Aurixa makes a firm compliant or is endorsed by AUSTRAC, ASIC or APRA: it helps a firm run and record its own process, and the firm stays responsible",
       "Never say a shared Compliance Passport lets another business skip its own checks: reliance follows AUSTRAC's rules and each firm's own program",
       "No absolutes or performance numbers until substantiated: not 'zero bottlenecks', '100% conversion lift', '10x output', 'eliminates human error', 'absolute compliance' or 'patented'",
