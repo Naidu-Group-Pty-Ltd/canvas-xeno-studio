@@ -23,8 +23,13 @@ saying what is missing (it can be hidden).
 
 - **Models.** Claude Opus 5.5 (the default), Sonnet 5.5 or Haiku 5.5, chosen per conversation,
   with how hard it thinks (Quick to Maximum, Thorough by default). A new conversation starts with
-  the last model and effort chosen in that browser. On Opus and Sonnet, server-side fallback is on:
-  if the model is overloaded, another Claude model answers, and the answer shows which one did.
+  the last model and effort chosen in that browser.
+- **Fallback.** On Opus and Sonnet, server-side fallback is on (`fallbacks: "default"`): if
+  Claude's safety checks decline a request, it is run again on the model Anthropic recommends for
+  that kind of decline, and the answer says which model took over. If that happens part-way, what
+  the first model had started (its thinking and tool calls) isn't run or sent on; its words stay.
+  Fallback doesn't cover an overloaded or rate-limited model: the answer says so, and Try again
+  redoes it.
 - **What it shows.** Its thinking (folded, summarised), its words in markdown, every tool call with
   what it was asked and what came back, web searches with their sources, and what it made: pictures
   and videos as they finish, documents, brand imports, characters, edits and memories.

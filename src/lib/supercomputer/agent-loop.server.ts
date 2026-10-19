@@ -17,7 +17,7 @@ import {
   type ApprovalRequest,
   type DisplayBlock,
 } from "./agent-events";
-import { takesFallbacks, type AgentThreadSettings } from "./agent-settings";
+import { agentModelLabel, takesFallbacks, type AgentThreadSettings } from "./agent-settings";
 import {
   agentTool,
   apiTools,
@@ -105,7 +105,11 @@ function anthropic(): Anthropic {
   return client;
 }
 
-/** The request's beta features: dropping thinking that no longer fits (never a 400), and server-side fallback. */
+/**
+ * The request's beta features: dropping thinking that no longer fits (never a
+ * 400), and server-side fallback (a request Claude's safety checks decline is
+ * run again on another Claude model; overloads and rate limits are not).
+ */
 function betaFeatures(settings: AgentThreadSettings) {
   return {
     betas: [
@@ -118,6 +122,41 @@ function betaFeatures(settings: AgentThreadSettings) {
       block_binding: { prefix_mismatch_behavior: "drop_block" },
     },
     ...(takesFallbacks(settings.model) ? { fallbacks: "default" } : {}),
+  };
+}
+
+/**
+ * What of a returned message is kept, sent back and run. After a fallback
+ * part-way through (another model took over from one that declined), the
+ * declined model's thinking and tool calls before the last switch are neither
+ * run nor sent back, nor are its unanswered searches; its words and its
+ * answered searches are. The switch markers themselves are left out.
+ */
+export function afterFallback(content: ApiBlock[]): { content: ApiBlock[]; skipped: string[] } {
+  const types = content.map((block) => String((block as unknown as Json)["type"]));
+  const boundary = types.lastIndexOf("fallback");
+  if (boundary < 0) return { content, skipped: [] };
+  const before = content.slice(0, boundary).map((block) => block as unknown as Json);
+  const searched = new Set(
+    before.filter((block) => block["type"] === "server_tool_use").map((block) => block["id"]),
+  );
+  const answered = new Set(
+    before
+      .filter((block) => String(block["type"]).endsWith("_tool_result"))
+      .map((block) => block["tool_use_id"]),
+  );
+  const skipped: string[] = [];
+  const kept = before.filter((block) => {
+    const type = String(block["type"]);
+    if (type === "text") return true;
+    if (type === "server_tool_use") return answered.has(block["id"]);
+    if (type.endsWith("_tool_result")) return searched.has(block["tool_use_id"]);
+    if (type === "tool_use") skipped.push(String(block["id"]));
+    return false;
+  });
+  return {
+    content: [...(kept as unknown as ApiBlock[]), ...content.slice(boundary + 1)],
+    skipped,
   };
 }
 
@@ -204,6 +243,8 @@ export async function runTurn(
     void save("streaming").catch(() => undefined);
   };
   emit({ type: "status", status: "streaming" });
+  // The fullest request this turn's model takes, once a step has found it.
+  const floor = { level: 0 };
 
   try {
     if (current.pending) {
@@ -221,7 +262,7 @@ export async function runTurn(
       const step = current.steps;
       let message: Anthropic.Beta.Messages.BetaMessage;
       try {
-        message = await streamStep(io, current, step, emit, saveSoon);
+        message = await streamStep(io, current, step, emit, saveSoon, floor);
         jsonRetries = 0;
       } catch (error) {
         // A tool input that couldn't be parsed at all: the step goes again (twice at most).
@@ -250,7 +291,19 @@ export async function runTurn(
       if (message.model && message.model !== display.model)
         emit({ type: "model", model: message.model });
 
-      const calls = message.content.filter(
+      // Another model took over part-way: what the first one started isn't run.
+      const { content, skipped } = afterFallback(message.content);
+      for (const id of skipped) {
+        const index = message.content.findIndex(
+          (block) => block.type === "tool_use" && block.id === id,
+        );
+        emit({
+          type: "update",
+          key: `${step}:${index}`,
+          patch: { status: "denied", summary: "Not run: another Claude model took over" },
+        });
+      }
+      const calls = content.filter(
         (block): block is Anthropic.Beta.Messages.BetaToolUseBlock => block.type === "tool_use",
       );
       // A refusal can cut a call off part-way: none of this step's work is kept.
@@ -281,7 +334,7 @@ export async function runTurn(
       }
       const assistant: ApiMessage = {
         role: "assistant",
-        content: message.content as unknown as Anthropic.Beta.Messages.BetaContentBlockParam[],
+        content: content as unknown as Anthropic.Beta.Messages.BetaContentBlockParam[],
       };
       if (message.stop_reason === "pause_turn") {
         current = { ...current, transcript: [...current.transcript, assistant] };
@@ -360,6 +413,7 @@ async function streamStep(
   step: number,
   emit: (event: AgentEvent) => void,
   saveSoon: () => void,
+  floor: { level: number },
 ): Promise<Anthropic.Beta.Messages.BetaMessage> {
   const { settings } = io.context;
   const messages = await io.resolve([...io.history, ...state.transcript]);
@@ -447,6 +501,18 @@ async function streamStep(
               status: "running",
             },
           });
+        } else if (kind === "fallback") {
+          const from = ((block["from"] ?? {}) as Json)["model"];
+          const to = ((block["to"] ?? {}) as Json)["model"];
+          emit({
+            type: "block",
+            key,
+            block: {
+              kind: "notice",
+              tone: "info",
+              text: `${typeof from === "string" ? agentModelLabel(from) : "Claude"} declined this, so ${typeof to === "string" ? agentModelLabel(to) : "another Claude model"} took over.`,
+            },
+          });
         } else if (kind === "web_search_tool_result" || kind === "web_fetch_tool_result") {
           const target = webKeys.get(String(block["tool_use_id"]));
           if (target) emit({ type: "update", key: target, patch: webResultPatch(block) });
@@ -489,10 +555,13 @@ async function streamStep(
     return stream.finalMessage();
   };
 
-  // An account or model that doesn't take an optional part: the same step without it.
-  for (let level = 0; ; level += 1) {
+  // An account or model that doesn't take an optional part: the same step
+  // without it, and the rest of the turn's steps start there.
+  for (let level = floor.level; ; level += 1) {
     try {
-      return await consume(open(level));
+      const message = await consume(open(level));
+      floor.level = level;
+      return message;
     } catch (error) {
       if (level < levels.length - 1 && rejectedOptional(error)) continue;
       throw error;

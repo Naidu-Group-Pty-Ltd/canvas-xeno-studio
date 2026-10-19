@@ -1147,7 +1147,7 @@ function SupercomputerPage() {
                     ? `goes ahead with actions up to $${settings.autoApproveUsd} and asks before anything more`
                     : "asks before it spends Higgsfield credits"}
                   {takesFallbacks(settings.model)
-                    ? " · another Claude model steps in if this one is overloaded"
+                    ? " · if Claude declines a request, another Claude model can answer it"
                     : ""}
                   .
                 </>

@@ -33,8 +33,10 @@ import {
   requestKeyFor,
   resultText,
 } from "../../src/lib/supercomputer/agent-tools.server";
+import Anthropic from "@anthropic-ai/sdk";
 import {
   abandonPending,
+  afterFallback,
   freshState,
   mergePayload,
   runTurn,
@@ -546,6 +548,8 @@ function scripted(content: Block[], stopReason: string, model = "claude-opus-5-5
         index,
         delta: { type: "thinking_delta", thinking: block["thinking"] },
       });
+    } else if (block["type"] === "fallback") {
+      events.push({ type: "content_block_start", index, content_block: block });
     } else if (block["type"] === "tool_use") {
       events.push({
         type: "content_block_start",
@@ -864,6 +868,123 @@ describe("a turn", () => {
     });
     // A plan without a second call keeps its shots as they are.
     expect(mergePayload(first, { ideas: [] }).editPlan).toEqual(first.editPlan);
+  });
+
+  test("after a switch part-way, the declined model's thinking and calls are neither run nor sent back", () => {
+    const content = [
+      { type: "thinking", thinking: "x", signature: "s" },
+      { type: "text", text: "Let me" },
+      { type: "server_tool_use", id: "srv_1", name: "web_search", input: { query: "a" } },
+      { type: "web_search_tool_result", tool_use_id: "srv_1", content: [] },
+      { type: "server_tool_use", id: "srv_2", name: "web_search", input: { query: "b" } },
+      { type: "tool_use", id: "toolu_old", name: "write_document", input: {} },
+      { type: "fallback", from: { model: "claude-opus-5-5" }, to: { model: "claude-opus-4-8" } },
+      { type: "thinking", thinking: "y", signature: "t" },
+      { type: "tool_use", id: "toolu_new", name: "write_document", input: {} },
+    ];
+    const { content: kept, skipped } = afterFallback(content as never);
+    expect((kept as unknown as Block[]).map((block) => block["type"])).toEqual([
+      "text",
+      "server_tool_use",
+      "web_search_tool_result",
+      "thinking",
+      "tool_use",
+    ]);
+    expect(skipped).toEqual(["toolu_old"]);
+    // Without a switch, nothing changes.
+    const plain = [{ type: "text", text: "Hi" }];
+    expect(afterFallback(plain as never)).toEqual({ content: plain as never, skipped: [] });
+  });
+
+  test("a switch part-way: only the new model's call runs, and the switch is shown", async () => {
+    const { io, requests } = harness([
+      () =>
+        scripted(
+          [
+            { type: "thinking", thinking: "Declined part-way.", signature: "s" },
+            { type: "text", text: "Let me write" },
+            {
+              type: "tool_use",
+              id: "toolu_old",
+              name: "write_document",
+              input: { title: "Old", markdown: "x" },
+            },
+            {
+              type: "fallback",
+              from: { model: "claude-opus-5-5" },
+              to: { model: "claude-opus-4-8" },
+            },
+            { type: "text", text: "Writing it now." },
+            {
+              type: "tool_use",
+              id: "toolu_new",
+              name: "write_document",
+              input: { title: "New", markdown: "y" },
+            },
+          ],
+          "tool_use",
+          "claude-opus-4-8",
+        ),
+      () => scripted([{ type: "text", text: "Done." }], "end_turn", "claude-opus-4-8"),
+    ]);
+    const state = await runTurn(io, freshState("claude-opus-5-5"));
+    expect(state.display.status).toBe("complete");
+    expect(state.display.model).toBe("claude-opus-4-8");
+    const sent = state.transcript[0]!.content as Block[];
+    expect(sent.map((block) => block["type"])).toEqual(["text", "text", "tool_use"]);
+    const results = state.transcript[1]!.content as Block[];
+    expect(results.map((block) => block["tool_use_id"])).toEqual(["toolu_new"]);
+    const tools = state.display.blocks.flatMap(({ block }) =>
+      block.kind === "tool" ? [block] : [],
+    );
+    expect(tools.map((tool) => [tool.id, tool.status])).toEqual([
+      ["toolu_old", "denied"],
+      ["toolu_new", "done"],
+    ]);
+    expect(
+      state.display.blocks.some(
+        ({ block }) =>
+          block.kind === "notice" &&
+          block.text === "Claude Opus 5.5 declined this, so Claude Opus 4.8 took over.",
+      ),
+    ).toBe(true);
+    expect((requests[1]!["messages"] as unknown[]).length).toBe(3);
+  });
+
+  test("an optional part the API rejects is left out for the rest of the turn", async () => {
+    const rejected = () => {
+      throw new Anthropic.BadRequestError(
+        400,
+        { type: "error", error: { type: "invalid_request_error", message: "fallbacks: unknown" } },
+        "fallbacks: Extra inputs are not permitted",
+        new Headers(),
+      );
+    };
+    const { io, requests } = harness([
+      rejected,
+      () =>
+        scripted(
+          [
+            {
+              type: "tool_use",
+              id: "toolu_1",
+              name: "write_document",
+              input: { title: "A", markdown: "b" },
+            },
+          ],
+          "tool_use",
+        ),
+      () => scripted([{ type: "text", text: "Done." }], "end_turn"),
+    ]);
+    const state = await runTurn(io, freshState("claude-opus-5-5"));
+    expect(state.display.status).toBe("complete");
+    expect(requests).toHaveLength(3);
+    expect(requests[0]!["fallbacks"]).toBe("default");
+    // The step went again without the betas, and the next step started there.
+    expect(requests[1]!["fallbacks"]).toBeUndefined();
+    expect(requests[1]!["betas"]).toBeUndefined();
+    expect(requests[2]!["betas"]).toBeUndefined();
+    expect(requests[2]!["output_config"]).toEqual({ effort: "high" });
   });
 
   test("a fallback model that answers is shown", async () => {
