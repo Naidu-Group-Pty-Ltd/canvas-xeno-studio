@@ -585,6 +585,17 @@ These are open, and each one changes what content may say:
   guardrails, its proof, its call to action and spellings first; then its voice, audiences, buying
   moments and formulas; its look in detail last (every picture and clip carries the brand's style line
   anyway). Aurixa's full brief is about 12,000 characters and goes in whole.
+- **Product footage is recorded, not generated.** Under the Hood, The Walkthrough, One Client. One
+  Clear Journey., Every Call, Into Action and Publish Your Stock Once show the real product, and their
+  real-demo guardrail rules out generated stand-ins. In the live check the Director planned Under the
+  Hood's product shots as screen recordings of the current build on synthetic data, to be supplied,
+  rather than routing them to a generation model. Keep a set of such recordings ready.
+
+**In the live kit.** Loaded into the studio's Aurixa Systems kit on 19 October 2026, exactly as in
+`aurixa-systems.json`. It replaced an earlier DNA read from the site, whose proof repeated "Zero
+Operational Bottlenecks", "100% White-Labeled Delivery" and "SOC 2 Enterprise Security". It was then
+checked signed in on the live app: the Brand page, the DNA editor, the AI writing a formula for mortgage
+brokers, a Director plan on Under the Hood, and the agent listing all twelve formulas.
 
 **Loading the data again.** The kit's `dna` and `formulas` columns take the two values in
 `aurixa-systems.json` as they are (`formulas` needs migration `0024_brand_formulas`). Anything changed on
