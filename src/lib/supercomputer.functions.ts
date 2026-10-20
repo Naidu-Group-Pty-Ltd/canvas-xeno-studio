@@ -653,7 +653,9 @@ export const analyseBrief = createServerFn({ method: "POST" })
             .join("\n")
         : "(none)",
       "TEXT:",
-      brief.extracted_text.slice(0, 60_000) || "(no extractable text — rely on the images)",
+      // All of what was read (parse-document keeps up to 200,000 characters): a 47-page
+      // prompt pack runs past 100,000, and a summary of its first half reports the rest missing.
+      brief.extracted_text.slice(0, 200_000) || "(no extractable text — rely on the images)",
     ].join("\n\n");
 
     const result = await route.provider.generateStructured<BriefAnalysis>({

@@ -56,3 +56,12 @@
 - [ ] Before Aurixa publishes: the open items in docs/brands/aurixa-systems.md (whose security certifications, a named founder, how a shared Compliance Passport is described, Centre or Center, what is live, outbound calls, licensed data, which ad rules apply, the external sources opened)
 - [ ] Open the sources read via search and mark them read in full: needs their 51 hosts allowed in the environment's network access settings (listed in the doc)
 - [ ] Pinterest and Snapchat guidance, and Australia's TGA and Ahpra rules for health brands' testimonials and before-and-after content
+
+## Aurixa Reel 1 (the 47-page prompt pack)
+- [x] The agent reads a brief's own text, a few pages at a time (`read_brief`), and is told to whenever a brief says more than its summary; it was only ever shown the summary, cut at 8,000 characters, so it never saw a prompt pack's shots
+- [x] Briefs are analysed in full: only the first 60,000 characters were read, so the pack's summary reported pages 27–47 missing
+- [x] Drafts take `modelId` and a prompt written among the settings, and one with no model says so: before, both were dropped as "a model that is not active", and the agent fell back from GPT Image to Soul Cinema
+- [x] A model's description (get_model) says when a required setting only applies in a mode (Marketing Studio's preset only in preset mode)
+- [x] Marketing Studio 2.5 Flare and Sunburst say they render with GPT Image 2.5, the ChatGPT image model (migration 0025_gpt_image_models)
+- [ ] Apply migration 0025_gpt_image_models
+- [ ] Re-analyse the Reel 1 brief (Brief panel → Re-analyse) once this is live, then start the reel's conversation again

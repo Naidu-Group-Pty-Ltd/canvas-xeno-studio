@@ -140,6 +140,9 @@ export function modelSummary(model: ModelRegistryEntry) {
       key: field.key,
       type: field.type,
       ...(field.required ? { required: true } : {}),
+      // A setting that only applies alongside another (a preset only in preset mode) says
+      // so, so its "required" isn't read as always.
+      ...(field.showIf ? { onlyWhen: field.showIf } : {}),
       ...(field.default !== undefined ? { default: field.default } : {}),
       ...(field.min !== undefined ? { min: field.min } : {}),
       ...(field.max !== undefined ? { max: field.max } : {}),

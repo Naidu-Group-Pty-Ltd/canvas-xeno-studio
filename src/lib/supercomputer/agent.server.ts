@@ -561,12 +561,22 @@ export function normalizeDrafts(
   for (const raw of (Array.isArray(value) ? value : []).slice(0, 10)) {
     const proposal = (raw ?? {}) as Record<string, unknown>;
     const title = text(proposal["title"], 120) || "Untitled draft";
-    const wanted = text(proposal["model_id"], 200);
-    const model =
-      models.find((entry) => entry.id === wanted) ??
-      models.find((entry) => entry.display_name.toLowerCase() === wanted.toLowerCase());
+    // model_id, as the tool asks; modelId and model as the studio's other tools spell it.
+    const wanted =
+      text(proposal["model_id"], 200) ||
+      text(proposal["modelId"], 200) ||
+      text(proposal["model"], 200);
+    const model = wanted
+      ? (models.find((entry) => entry.id === wanted) ??
+        models.find((entry) => entry.display_name.toLowerCase() === wanted.toLowerCase()))
+      : undefined;
     if (!model) {
-      dropped.push(`"${title}" named a model that is not active in the studio.`);
+      // Saying which, so a draft that only misspelled the field isn't taken for an inactive model.
+      dropped.push(
+        wanted
+          ? `"${title}" named a model ("${wanted.slice(0, 80)}") that is not active in the studio.`
+          : `"${title}" named no model: give the id from list_models as model_id.`,
+      );
       indexMap.push(null);
       continue;
     }
@@ -581,6 +591,11 @@ export function normalizeDrafts(
     } else if (params && typeof params === "object") {
       Object.assign(rawParams, params);
     }
+    // The prompt is its own field; one written among the settings is taken from there.
+    const promptGiven =
+      typeof proposal["prompt"] === "string" && proposal["prompt"].trim()
+        ? proposal["prompt"]
+        : rawParams["prompt"];
     delete rawParams["prompt"];
 
     // The team's characters it shows. One named where a Soul ID goes (by its
@@ -692,7 +707,7 @@ export function normalizeDrafts(
       (field) => field.key === "prompt",
     );
     let prompt = text(
-      proposal["prompt"],
+      promptGiven,
       promptField?.maxLength ?? (isLong ? LONG_VIDEO_LIMITS.storyChars : 4000),
     );
 

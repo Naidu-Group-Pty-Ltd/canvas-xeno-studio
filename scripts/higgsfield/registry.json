@@ -934,7 +934,7 @@
     }
    ]
   },
-  "recommended_for": "Premium product and campaign creative",
+  "recommended_for": "GPT Image 2.5 Flare (OpenAI, the ChatGPT image model): fast, premium stills of people, places and products",
   "sort_order": 22,
   "capability_tags": [
    "brand_creative"
@@ -1123,7 +1123,7 @@
     }
    ]
   },
-  "recommended_for": "Premium product and campaign editing",
+  "recommended_for": "GPT Image 2.5 Flare (OpenAI, the ChatGPT image model): edits and new stills from up to 16 references",
   "sort_order": 23,
   "capability_tags": [
    "brand_creative"
@@ -1311,7 +1311,7 @@
     }
    ]
   },
-  "recommended_for": "Bright, high-energy campaign creative",
+  "recommended_for": "GPT Image 2.5 Sunburst (OpenAI, the ChatGPT image model): its highest quality, for people, character sheets and campaign stills",
   "sort_order": 24,
   "capability_tags": [
    "brand_creative"
@@ -1500,7 +1500,7 @@
     }
    ]
   },
-  "recommended_for": "Bright, high-energy campaign editing",
+  "recommended_for": "GPT Image 2.5 Sunburst (OpenAI, the ChatGPT image model): precise edits and new stills from up to 16 references, keeping people the same",
   "sort_order": 25,
   "capability_tags": [
    "brand_creative"

@@ -46,7 +46,8 @@ saying what is missing (it can be hidden).
   another page or tab: the server notices within a few seconds. Closing the page stops the answer
   too.
 - **Context.** A conversation's project, campaign, brief and brand go with every message: in full
-  when they are new to the conversation, and the memories with its first message.
+  when they are new to the conversation, and the memories with its first message. A brief goes as
+  its summary; the agent reads the document itself, page by page, with `read_brief`.
 - **Made here.** The documents a conversation wrote (to read, copy, or download as markdown) and
   everything it generated, in one panel.
 - **Memory.** What it keeps between conversations: a person's own preferences, or the team's. It
@@ -69,6 +70,7 @@ admin, can continue it. Chats can be pinned to the top.
 | `view_media`                               | Looks at library files (videos by their poster frame), up to six at once.                                                                                                                                             |
 | `propose_drafts`                           | Ready-to-run drafts, ideas and an edit plan for the person to look over and run themselves.                                                                                                                           |
 | `write_document`                           | A script, shot list, plan or report shown beside the conversation.                                                                                                                                                    |
+| `read_brief`                               | The conversation's brief in its own words, a few pages at a time: the context carries only its summary, so a long prompt pack's shots, cast and timings are read from here.                                           |
 | `import_brand`                             | Reads a brand's design system from its website, for review on the Brand page.                                                                                                                                         |
 | `remember`, `forget`                       | Memories kept between conversations.                                                                                                                                                                                  |
 | `web_search`, `web_fetch`                  | Searches the web and reads pages.                                                                                                                                                                                     |

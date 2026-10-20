@@ -257,17 +257,23 @@ async function writeUserMessage(input: {
       if (!thread.brief_id) return null;
       const { data } = await db
         .from("creative_briefs")
-        .select("id,title,analysis,extracted_text")
+        .select("id,title,analysis,extracted_text,page_count")
         .eq("id", thread.brief_id)
         .maybeSingle();
       if (!data) return null;
       const analysis = { ...((data.analysis ?? {}) as Json) };
       delete analysis["analysed_at"];
       delete analysis["model"];
-      const block = Object.keys(analysis).length
-        ? JSON.stringify(analysis).slice(0, 8000)
-        : (data.extracted_text ?? "").slice(0, 12000);
-      return { id: data.id, title: data.title, block };
+      const full = data.extracted_text ?? "";
+      const summarised = Object.keys(analysis).length > 0;
+      const shown = summarised ? JSON.stringify(analysis).slice(0, 8000) : full.slice(0, 12000);
+      // Its own text says far more than the summary (a prompt pack's shots, cast and
+      // timings), so the agent is told it can read the rest.
+      const more =
+        full.trim() && (summarised || full.length > shown.length)
+          ? `\n(${summarised ? "This is the brief's summary" : "This is the start of the brief's text"}. Its full text${data.page_count ? `, ${data.page_count} pages,` : ""} is read with read_brief: read the pages a job needs before planning from them.)`
+          : "";
+      return { id: data.id, title: data.title, block: shown + more };
     })(),
     first
       ? db

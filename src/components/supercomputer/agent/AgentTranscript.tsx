@@ -57,7 +57,7 @@ function toolIcon(name: string) {
   if (name === "wait_for_generation") return Clock;
   if (name === "estimate_generation") return Coins;
   if (name === "propose_drafts") return Layers;
-  if (name === "write_document") return FileText;
+  if (name === "write_document" || name === "read_brief") return FileText;
   if (name === "remember" || name === "forget") return Brain;
   if (name.includes("brand")) return Palette;
   if (name.includes("character") || name === "train_soul_id") return UsersRound;
