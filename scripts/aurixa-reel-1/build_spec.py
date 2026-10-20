@@ -455,6 +455,25 @@ SHOTS = [
          handoff="End on the complete stable closing frame through the final word and audio tail."),
 ]
 
+# The pack's 15 edit blocks: title and purpose, as written there.
+BLOCKS = {
+    "01": ("The opportunity and the client", "Give the viewer one recognisable property and one client question. The facade becomes the screen image, then the inquiry becomes the next scene's task."),
+    "02": ("The scattered workflow", "Show the practical cost of fragmented tools through repeated attention shifts while the client's answer remains unfinished."),
+    "03": ("The pressure while the client waits", "Tie the pressure passage to relevant incoming property information, a real interruption and a waiting person. Each brief insert advances the same unresolved question."),
+    "04": ("Aurixa arrives and the viewer enters the console", "Bring the client inquiry into an occupied Aurixa Systems environment, then show a clear human-operated starting point in the Command Center."),
+    "05": ("Research to financial analysis to a report", "Connect the prepared research, illustrative finance comparison and client report through the exact same property image. Prioritise one useful result per insert."),
+    "06": ("Communication and the supporting agent", "Make the client's professional team visible, then show Aurixa Agent supporting the professional within the same record context."),
+    "07": ("Professional judgement remains visible", "Give the professional's considered edit centre stage. The system acknowledges saved work while the person retains judgement."),
+    "08": ("Professional work and the client decision", "Show an accountant contributing a concrete review, then reveal how prepared information supports a useful client conversation."),
+    "09": ("The manual gap and the connected matter", "Contrast duplicate checking with one selection of an organised matter and its next review task."),
+    "10": ("The system is here", "Expand from an active matter to the occupied professional relationship, then guide the eye into the workspace the viewer is invited to explore."),
+    "11": ("The fourteen day invitation", "Present the exact 14-day trial invitation as a clear human action, leading by editorial cut into a prepared demonstration workspace."),
+    "12": ("Explore the working partner portals", "Give the builder/developer and solicitor one useful action each, connected by the same floor-plan document."),
+    "13": ("The viewer can assess the experience", "Show a finance professional using a relevant comparison and considering its usefulness without claiming an investment outcome."),
+    "14": ("Four short statements and a personal decision", "Let the four decision phrases land over one uninterrupted professional moment, linking the trial to the viewer's own business and judgement."),
+    "15": ("The final brand and trial invitation", "Resolve the tangible work into a stable, memorable Aurixa Systems identity and a clearly readable trial action."),
+}
+
 shots_out = []
 frames = []
 clips = []
@@ -605,7 +624,8 @@ spec = {
         "The colleague in 04A is unnamed and seen from behind, so no seventh face needs locking.",
     ],
     "timing": {"method": "Each cut sits in the pause before the cue's first word (0.15 s ahead of its speech onset), or 0.1 s ahead of a word mid-phrase, snapped to 30 fps.",
-               "cues": timing["cues"], "blocks": timing["blocks"]},
+               "cues": timing["cues"],
+               "blocks": [{**b, "title": BLOCKS[b["block"]][0], "purpose": BLOCKS[b["block"]][1]} for b in timing["blocks"]]},
     "stages": [
         {"stage": 1, "name": "Lock the look", "gate": "Pick one P, one sheet per person and one D.", "items": stage1},
         {"stage": 2, "name": "Sets", "gate": "Approve each set.", "items": stage2},
