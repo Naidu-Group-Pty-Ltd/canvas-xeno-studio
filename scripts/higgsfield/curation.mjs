@@ -247,7 +247,8 @@ export const MODELS = [
     family: "Marketing Studio",
     operation: t2i,
     sort: 22,
-    recommended: "Premium product and campaign creative",
+    recommended:
+      "GPT Image 2.5 Flare (OpenAI, the ChatGPT image model): fast, premium stills of people, places and products",
     tags: ["brand_creative"],
     media: { image_urls: { label: "Product & reference images" } },
     fields: marketingFields(),
@@ -257,7 +258,8 @@ export const MODELS = [
         name: "Marketing Studio 2.5 Flare (Image edit)",
         operation: "image-to-image",
         sort: 23,
-        recommended: "Premium product and campaign editing",
+        recommended:
+          "GPT Image 2.5 Flare (OpenAI, the ChatGPT image model): edits and new stills from up to 16 references",
         media: { image_urls: { label: "Product & reference images", required: true } },
       },
     ],
@@ -268,7 +270,8 @@ export const MODELS = [
     family: "Marketing Studio",
     operation: t2i,
     sort: 24,
-    recommended: "Bright, high-energy campaign creative",
+    recommended:
+      "GPT Image 2.5 Sunburst (OpenAI, the ChatGPT image model): its highest quality, for people, character sheets and campaign stills",
     tags: ["brand_creative"],
     media: { image_urls: { label: "Product & reference images" } },
     fields: marketingFields(),
@@ -278,7 +281,8 @@ export const MODELS = [
         name: "Marketing Studio 2.5 Sunburst (Image edit)",
         operation: "image-to-image",
         sort: 25,
-        recommended: "Bright, high-energy campaign editing",
+        recommended:
+          "GPT Image 2.5 Sunburst (OpenAI, the ChatGPT image model): precise edits and new stills from up to 16 references, keeping people the same",
         media: { image_urls: { label: "Product & reference images", required: true } },
       },
     ],

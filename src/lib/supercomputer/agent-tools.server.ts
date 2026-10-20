@@ -119,7 +119,8 @@ async function characterNames(ids: unknown): Promise<string[]> {
 /* ------------------------------------------------------------------ */
 
 /** Studio tools the agent doesn't use (its own versions, or nothing it needs). */
-const LEFT_OUT = new Set(["whoami", "list_models"]);
+// The agent has its own list_models and estimate_generation; pictures come to it as attachments.
+const LEFT_OUT = new Set(["whoami", "list_models", "estimate_generation", "import_image"]);
 
 /** Which calls of a studio tool spend credits. */
 const SPENDS: Record<string, (input: Json) => boolean> = {
@@ -157,6 +158,7 @@ const LABELS: Record<string, (input: Json) => string> = {
   queue_generation: () => "Generating",
   make_soul_still: () => "Painting a still from a Soul ID",
   train_soul_id: () => "Training a Soul ID",
+  save_character: (input) => (input["characterId"] ? "Updating a character" : "Saving a character"),
   start_presenter_video: () => "Starting a presenter video",
   steer_long_video: (input) => `Long video: ${text(input["action"], 20) || "steering"}`,
   steer_clip: (input) => `Clip: ${text(input["action"], 20) || "steering"}`,
@@ -649,7 +651,7 @@ const waitForGeneration = ownTool({
 const proposeDrafts = ownTool({
   name: "propose_drafts",
   description:
-    "Proposes ready-to-run drafts the person can look over, tweak, price and run themselves: one per asset to make, each with a model, prompt, settings, references and characters; a long video as one draft with long_video; optionally ideas (distinct concepts) and an edit plan that cuts several drafts into one video. Use it for deliverables, variations to choose from, and long videos.",
+    "Proposes ready-to-run drafts the person can look over, tweak, price and run themselves: one per asset to make, each with a model, prompt, settings, references and characters; a long video as one draft with long_video; optionally ideas (distinct concepts) and an edit plan that cuts several drafts into one video. Use it for deliverables, variations to choose from, and long videos. A draft's fields: title, model_id (an id from list_models), prompt, parameters (the model's other settings by key), references ([{asset_id, role}], library files), character_ids, notes, and long_video. At most 8 drafts a call; a later call's drafts are shown after the earlier ones.",
   input: z.object({
     ideas: z.array(z.record(z.string(), z.unknown())).max(8).optional(),
     drafts: z.array(z.record(z.string(), z.unknown())).max(12).optional(),
@@ -789,6 +791,54 @@ const writeDocument = ownTool({
   }),
 });
 
+/** The most of a brief one read_brief call shows (under RESULT_MAX_CHARS: never cut twice). */
+const BRIEF_READ_CHARS = 28_000;
+
+const readBrief = ownTool({
+  name: "read_brief",
+  description:
+    "Reads a creative brief's own text, a few pages at a time. The context carries only the brief's summary, so before planning or writing prompts from a long brief (a prompt pack's shot prompts, cast, timings, transitions and rules), read the pages that hold them. It says how many pages there are and where to carry on.",
+  input: z.object({
+    brief_id: uuid(),
+    from_page: z.number().int().min(1).max(5000).optional(),
+    to_page: z.number().int().min(1).max(5000).optional(),
+    /** For text without pages (a Word or PowerPoint brief): where to start, in characters. */
+    offset: z.number().int().min(0).optional(),
+  }),
+  label: (input) =>
+    input.from_page
+      ? `Reading the brief, page ${input.from_page}${input.to_page && input.to_page > input.from_page ? `–${input.to_page}` : ""}`
+      : "Reading the brief",
+  run: async (input) => {
+    const { data } = await db
+      .from("creative_briefs")
+      .select("id,title,extracted_text")
+      .eq("id", input.brief_id)
+      .maybeSingle();
+    if (!data) throw new AppError("INVALID_PARAMETERS", "That brief doesn't exist");
+    const { briefExcerpt } = await import("../briefs/pages");
+    const excerpt = briefExcerpt(
+      data.extracted_text ?? "",
+      { fromPage: input.from_page, toPage: input.to_page, offset: input.offset },
+      BRIEF_READ_CHARS,
+    );
+    const where = excerpt.pages
+      ? excerpt.text
+        ? `Pages ${excerpt.pages.from}–${excerpt.pages.to} of ${excerpt.pages.total}${excerpt.cut ? " (the page is cut to fit)" : ""}.`
+        : `The brief has ${excerpt.pages.total} pages.`
+      : `Characters from ${input.offset ?? 0} of ${(data.extracted_text ?? "").length}.`;
+    const next = !excerpt.next
+      ? "That is the end of what was asked for."
+      : "page" in excerpt.next
+        ? `Carry on with from_page ${excerpt.next.page}.`
+        : `Carry on with offset ${excerpt.next.offset}.`;
+    return {
+      content: `${where} ${next}\n\n${excerpt.text || "(no text here)"}`,
+      summary: `${data.title}: ${where}`,
+    };
+  },
+});
+
 const importBrand = ownTool({
   name: "import_brand",
   description:
@@ -886,6 +936,7 @@ export function agentTools(): AgentTool[] {
       estimate,
       proposeDrafts,
       writeDocument,
+      readBrief,
       importBrand,
       remember,
       forget,

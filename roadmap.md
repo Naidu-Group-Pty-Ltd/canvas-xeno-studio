@@ -56,3 +56,20 @@
 - [ ] Before Aurixa publishes: the open items in docs/brands/aurixa-systems.md (whose security certifications, a named founder, how a shared Compliance Passport is described, Centre or Center, what is live, outbound calls, licensed data, which ad rules apply, the external sources opened)
 - [ ] Open the sources read via search and mark them read in full: needs their 51 hosts allowed in the environment's network access settings (listed in the doc)
 - [ ] Pinterest and Snapchat guidance, and Australia's TGA and Ahpra rules for health brands' testimonials and before-and-after content
+
+## Aurixa Reel 1 (the 47-page prompt pack)
+- [x] The agent reads a brief's own text, a few pages at a time (`read_brief`), and is told to whenever a brief says more than its summary; it was only ever shown the summary, cut at 8,000 characters, so it never saw a prompt pack's shots
+- [x] Briefs are analysed in full: only the first 60,000 characters were read, so the pack's summary reported pages 27–47 missing
+- [x] Drafts take `modelId` and a prompt written among the settings, and one with no model says so: before, both were dropped as "a model that is not active", and the agent fell back from GPT Image to Soul Cinema
+- [x] A model's description (get_model) says when a required setting only applies in a mode (Marketing Studio's preset only in preset mode)
+- [x] Marketing Studio 2.5 Flare and Sunburst say they render with GPT Image 2.5, the ChatGPT image model (migration 0025_gpt_image_models)
+- [x] Apply migration 0025_gpt_image_models
+- [x] Studio API: `estimate_generation` (a price without a generation), `import_image` (a picture into the library from base64 or an https address), `save_character` (a character from library images)
+- [x] Reel 1 generation spec (docs/brands/aurixa-reel-1): cuts timed from the voiceover's measured words (the pack's estimates drift by up to 2.6 s); every still, set, frame and clip with its model, settings, inputs in order and prompt; the ledger of approved assets
+- [x] Reel 1 screen plates v1, typeset (scripts/aurixa-reel-1/plates.cjs): 36 plates, Block 14 phrases and the closing card
+- [x] Reel 1 loaded into Storyboards (storyboard e6f6907f-ea31-4a35-840b-a20278f11085): 15 blocks as scenes, 26 shots with their timing, frames, clip and motion prompt
+- [x] Reel 1 decisions: START YOUR FREE TRIAL on the closing card (not the kit's Book Your Free Demo), and Demo workspace on recreated screens (not Concept)
+- [ ] Uploads for Reel 1: image(9) and image(10), the six portal screenshots, the emblem and wordmark at full size; then the plates again with the real structure, P, D and emblem
+- [ ] Allow opukzrutzdcqrlmlpigs.supabase.co in the environment's network access, so a session can look at library files (references and results)
+- [ ] Re-analyse the Reel 1 brief (Brief panel → Re-analyse) once this is live
+- [ ] Reel 1 stage 1 (the property image, six character sheets, the floor plan): priced with estimate_generation, run on approval
