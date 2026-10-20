@@ -9,6 +9,7 @@ These scripts build Aurixa's Reel 1 generation spec and typeset its screen plate
 | `build_spec.py`     | Writes `spec.json` (every still, set, plate, frame and clip, with models, parameters, inputs and prompts) and adds any new keys to `assets.json`, the ledger of approved library asset ids. |
 | `render_readme.py`  | Writes the spec's README from `spec.json`.                                                                                                                                                  |
 | `plates.cjs`        | Typesets the 36 screen plates, Block 14 phrases and the closing card, and renders them to PNG with Playwright. Playfair Display is fetched from Google Fonts; Inter is a system font.       |
+| `studio.py`         | Runs the spec against the studio API: imports the plates (`import_image`, ids into `assets.json`) and prices a stage (`estimate_generation`). It never queues a generation.                 |
 | `contact-sheet.cjs` | One picture of every rendered plate, for review.                                                                                                                                            |
 
 ```sh

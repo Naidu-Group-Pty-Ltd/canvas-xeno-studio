@@ -70,6 +70,8 @@
 - [x] Reel 1 loaded into Storyboards (storyboard e6f6907f-ea31-4a35-840b-a20278f11085): 15 blocks as scenes, 26 shots with their timing, frames, clip and motion prompt
 - [x] Reel 1 decisions: START YOUR FREE TRIAL on the closing card (not the kit's Book Your Free Demo), and Demo workspace on recreated screens (not Concept)
 - [ ] Uploads for Reel 1: image(9) and image(10), the six portal screenshots, the emblem and wordmark at full size; then the plates again with the real structure, P, D and emblem
-- [ ] Allow opukzrutzdcqrlmlpigs.supabase.co in the environment's network access, so a session can look at library files (references and results)
-- [ ] Re-analyse the Reel 1 brief (Brief panel → Re-analyse) once this is live
-- [ ] Reel 1 stage 1 (the property image, six character sheets, the floor plan): priced with estimate_generation, run on approval
+- [x] Allow opukzrutzdcqrlmlpigs.supabase.co in the environment's network access, so a session can look at library files (references and results)
+- [x] #44 merged and published; the three API operations answer on the live app (31 operations)
+- [x] Reel 1's 36 plates (v1) imported into the library with import_image; their ids are in docs/brands/aurixa-reel-1/assets.json
+- [ ] Re-analyse the Reel 1 brief (Brief panel → Re-analyse)
+- [ ] Reel 1 stage 1 (the property image, six character sheets, the floor plan): GPT Image is metered by tokens, so estimate_generation gives rates, not a price (the studio's last 2K high GPT Image quote was US$0.24 a still); run on approval. If provider moderation blocks a still with people in its references (the one earlier Sunburst run, a photo edit, was), try it again with moderation "low"
