@@ -26,9 +26,9 @@ It is served two ways:
 
 | Scope      | Allows                                                                                           |
 | ---------- | ------------------------------------------------------------------------------------------------ |
-| `read`     | Reading models, library files, generations, long videos, edits, renders and brand kits.          |
+| `read`     | Reading models, library files, generations, long videos, edits, renders and brand kits; pricing. |
 | `generate` | Queuing generations, starting and steering long videos, and the text check. These spend credits. |
-| `edit`     | Making and changing edits, applying brand kits, and rendering.                                   |
+| `edit`     | Edits, brand kits on them and renders; importing pictures; saving characters.                    |
 
 Claude Code (`.mcp.json` in a project):
 
@@ -72,6 +72,7 @@ curl -X POST https://<your studio>/api/public/studio/list_models \
 | `get_brand_formula`   | One formula written out for a length and channel: its beats timed (what each must do, show and say), its rules with the channel's own, its guardrails, why it works and its sources, plus a `brief` to plan or script from. A formula written for a brand needs its `brandKitId`, and says what it was written after (`basedOn`), who it is for and how often it runs.                                                                                                             |
 | `list_characters`     | The team's characters: their look, how many reference images they have, and their Soul IDs (one per Soul model) with each likeness score and approval.                                                                                                                                                                                                                                                                                                                             |
 | `get_character`       | One character: their reference sheet and training photos (with links), Soul IDs and the state of their latest Soul ID training.                                                                                                                                                                                                                                                                                                                                                    |
+| `estimate_generation` | The provider's price for a generation without making it: the same `modelId`, `parameters`, `inputs`, `characterIds` and `brandKitId` as `queue_generation`, priced as they would be sent. Nothing is billed.                                                                                                                                                                                                                                                                       |
 
 **Generate** (`generate` scope; spends credits):
 
@@ -91,6 +92,8 @@ curl -X POST https://<your studio>/api/public/studio/list_models \
 
 | Operation                     | What it does                                                                                                                        |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `save_character`              | Makes a character from library images, or changes one (`characterId`): name, look, sheet images by view, training photos.           |
+| `import_image`                | Puts a PNG, JPEG, WebP or GIF (up to 15 MB) into the library, from base64 `data` or an https `url`.                                 |
 | `open_in_editor`              | Lays a long video out as an edit. Takes captions from the script, titles on the voiceover's clock, music, and the brand kit's look. |
 | `create_edit` / `update_edit` | Makes an edit from a timeline, or changes one. An update is accepted only at the version you read.                                  |
 | `apply_brand_kit`             | Applies a kit's fonts and colours to the edit's text, and can add its end card inside a platform's safe area.                       |

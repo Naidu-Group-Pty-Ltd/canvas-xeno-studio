@@ -22,6 +22,7 @@ import { addEndCard, applyBrandKit, brandKitOf, SAFE_AREAS } from "../edit/brand
 import { CHANNELS, EMPTY_DNA, GOALS } from "../brand/dna";
 import { parseTimeline, timelineSchema } from "../edit/timeline";
 import { textCheckOf } from "../media/text-check";
+import { CHARACTER_VIEWS } from "../characters/model";
 import type { ModelRegistryEntry } from "../model-schema";
 import type { ApiScope } from "./tokens";
 import type { ApiCaller } from "./tokens.server";
@@ -585,6 +586,43 @@ const getBrandFormula = tool({
 /* Generate                                                            */
 /* ------------------------------------------------------------------ */
 
+/** What a generation is: the same for queuing it and for pricing it. */
+const generationSpec = z.object({
+  modelId: id(),
+  parameters: z
+    .record(z.string(), z.unknown())
+    .describe("The model's parameters by key, e.g. {prompt, resolution, duration}"),
+  inputs: z
+    .array(
+      z.object({
+        assetId: id(),
+        role: z.string().max(40).describe("One of the model's input roles"),
+      }),
+    )
+    .max(20)
+    .default([]),
+  characterIds: z
+    .array(id())
+    .max(4)
+    .default([])
+    .describe("Characters (see list_characters) who must look like themselves"),
+  brandKitId: id()
+    .nullable()
+    .optional()
+    .describe(
+      "A brand kit (see list_brand_kits): its look goes into the prompt and what it never shows into the negative prompt",
+    ),
+});
+
+/** A generation's parameters and inputs as they will be sent: its characters and brand in them. */
+async function asSent(model: ModelRegistryEntry, args: z.output<typeof generationSpec>) {
+  const cast = args.characterIds.length
+    ? await withCharacters(model, args.parameters, args.inputs, args.characterIds)
+    : { parameters: args.parameters, inputs: args.inputs };
+  if (args.brandKitId) cast.parameters = await withBrand(model, cast.parameters, args.brandKitId);
+  return cast;
+}
+
 const queueGeneration = tool({
   name: "queue_generation",
   title: "Queue a generation",
@@ -592,31 +630,7 @@ const queueGeneration = tool({
     "Makes an image or video with a model (see list_models), from library files in the model's input roles. With characterIds the characters keep their likeness: on a Soul model their Soul ID is used (custom_reference_id), on other models their reference sheet goes in as reference images and their look into the prompt. It passes the same spending checks as the app (project, campaign and your monthly cap) and is billed by the provider. Poll get_generation for its files.",
   scope: "generate",
   readOnly: false,
-  input: z.object({
-    modelId: id(),
-    parameters: z
-      .record(z.string(), z.unknown())
-      .describe("The model's parameters by key, e.g. {prompt, resolution, duration}"),
-    inputs: z
-      .array(
-        z.object({
-          assetId: id(),
-          role: z.string().max(40).describe("One of the model's input roles"),
-        }),
-      )
-      .max(20)
-      .default([]),
-    characterIds: z
-      .array(id())
-      .max(4)
-      .default([])
-      .describe("Characters (see list_characters) who must look like themselves"),
-    brandKitId: id()
-      .nullable()
-      .optional()
-      .describe(
-        "A brand kit (see list_brand_kits): its look goes into the prompt and what it never shows into the negative prompt",
-      ),
+  input: generationSpec.extend({
     projectId: id().nullable().optional(),
     campaignId: id().nullable().optional(),
     estimatedCostUsd: z.number().min(0).max(10_000).nullable().optional(),
@@ -627,10 +641,7 @@ const queueGeneration = tool({
     const { assertGenerationAllowed, createAndSubmitGeneration } =
       await import("../generation-create.server");
     await assertGenerationAllowed(caller.userId);
-    const cast = args.characterIds.length
-      ? await withCharacters(model, args.parameters, args.inputs, args.characterIds)
-      : { parameters: args.parameters, inputs: args.inputs };
-    if (args.brandKitId) cast.parameters = await withBrand(model, cast.parameters, args.brandKitId);
+    const cast = await asSent(model, args);
     return createAndSubmitGeneration({
       userId: caller.userId,
       model,
@@ -640,6 +651,27 @@ const queueGeneration = tool({
       campaignId: args.campaignId ?? null,
       estimatedCostUsd: args.estimatedCostUsd ?? null,
       clientRequestId: args.clientRequestId,
+    });
+  },
+});
+
+const estimateGeneration = tool({
+  name: "estimate_generation",
+  title: "Price a generation",
+  description:
+    "The provider's price for a generation, without making it: the same model, parameters, inputs, characters and brand kit queue_generation would take, priced as they would be sent. Nothing is billed. Pass the price back to queue_generation as estimatedCostUsd.",
+  scope: "read",
+  input: generationSpec,
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const model = await activeModel(args.modelId);
+    const cast = await asSent(model, args);
+    const { estimateGenerationCost } = await import("../generation-estimate.server");
+    return estimateGenerationCost({
+      userId: caller.userId,
+      modelId: model.id,
+      parameters: cast.parameters,
+      inputs: cast.inputs.map((input, position) => ({ ...input, position })),
     });
   },
 });
@@ -845,9 +877,72 @@ async function assertCanEditCharacter(userId: string, characterId: string): Prom
   if (data.created_by !== userId && role !== "admin")
     throw new AppError(
       "NOT_AUTHORIZED",
-      "Only the person who made this character, or an admin, can train its Soul ID",
+      "Only the person who made this character, or an admin, can change it or train its Soul ID",
     );
 }
+
+const saveCharacter = tool({
+  name: "save_character",
+  title: "Save a character",
+  description:
+    "Makes a character from library images (or, with characterId, changes one) so they look the same everywhere: a name, their look (written into every prompt they are in) and reference sheet images by view (face, front, three_quarter, side, back, outfit, expression, other), plus training photos for a Soul ID. Images are added to those the character has (at most 12 sheet images, 40 photos). Then queue_generation with characterIds sends their sheet; train_soul_id trains a Soul ID.",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({
+    characterId: id().optional(),
+    name: z.string().min(1).max(80).optional(),
+    description: z.string().max(600).optional(),
+    sheet: z
+      .array(z.object({ assetId: id(), view: z.enum(CHARACTER_VIEWS) }))
+      .max(12)
+      .default([]),
+    photos: z.array(id()).max(40).default([]),
+  }),
+  run: async (args, caller) => {
+    const service = await import("../characters/service.server");
+    let characterId = args.characterId;
+    if (characterId) {
+      await assertCanEditCharacter(caller.userId, characterId);
+      await service.updateCharacter({
+        id: characterId,
+        name: args.name,
+        description: args.description,
+      });
+    } else {
+      await roleOf(caller.userId);
+      if (!args.name) throw new AppError("INVALID_PARAMETERS", "A new character needs a name");
+      characterId = (
+        await service.createCharacter({
+          userId: caller.userId,
+          name: args.name,
+          description: args.description ?? "",
+        })
+      ).id;
+    }
+    const images = [
+      ...args.sheet.map((image) => ({
+        assetId: image.assetId,
+        role: "sheet" as const,
+        view: image.view,
+      })),
+      ...args.photos.map((assetId) => ({ assetId, role: "photo" as const, view: "other" as const })),
+    ];
+    let added = 0;
+    try {
+      if (images.length)
+        ({ added } = await service.addCharacterImages({
+          characterId,
+          userId: caller.userId,
+          images,
+        }));
+    } catch (error) {
+      // A new character whose images were refused isn't left behind empty.
+      if (!args.characterId) await service.archiveCharacter(characterId).catch(() => {});
+      throw error;
+    }
+    return { characterId, created: !args.characterId, added };
+  },
+});
 
 const trainSoul = tool({
   name: "train_soul_id",
@@ -1229,6 +1324,136 @@ const checkText = tool({
 /* Edit                                                                */
 /* ------------------------------------------------------------------ */
 
+/** The most an imported picture may weigh, and the kinds the models and the Editor take. */
+const IMPORT_MAX_BYTES = 15 * 1024 * 1024;
+const IMPORT_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+
+const importImage = tool({
+  name: "import_image",
+  title: "Import a picture",
+  description:
+    "Puts a picture into the studio's library, from its bytes (data, base64) or a public https address (url): a typeset screen plate, a logo, a reference someone supplied. PNG, JPEG, WebP or GIF, up to 15 MB. It can then be a generation's input, a character's image or an edit's overlay. The same clientRequestId returns the first import instead of a second copy.",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({
+    title: z.string().min(1).max(200),
+    data: z
+      .string()
+      .max(21_000_000)
+      .optional()
+      .describe("The picture's bytes in base64 (a data: prefix is fine)"),
+    url: z.string().max(2000).optional().describe("A public https address to read it from"),
+    projectId: id().nullable().optional(),
+    clientRequestId: requestId(),
+  }),
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    if (!args.data === !args.url)
+      throw new AppError("INVALID_PARAMETERS", "Give the picture as data or as a url, not both");
+    const { data: before } = await db
+      .from("assets")
+      .select("id,width,height,mime_type")
+      .eq("uploaded_by", caller.userId)
+      .contains("metadata", { client_request_id: args.clientRequestId })
+      .is("deleted_at", null)
+      .limit(1)
+      .maybeSingle();
+    if (before)
+      return {
+        assetId: before.id,
+        imported: false,
+        width: before.width,
+        height: before.height,
+        mimeType: before.mime_type,
+      };
+    if (args.projectId) {
+      const { data: project } = await db
+        .from("projects")
+        .select("id")
+        .eq("id", args.projectId)
+        .maybeSingle();
+      if (!project) throw new AppError("INVALID_PARAMETERS", "That project doesn't exist");
+    }
+
+    const { fetchCapped, imageKind, imageSize } = await import("../brand/fetch.server");
+    let bytes: Uint8Array;
+    if (args.data) {
+      const { base64ToBytes } = await import("../voice/audio");
+      try {
+        bytes = base64ToBytes(args.data.replace(/^data:[^,]*,/, "").replace(/\s+/g, ""));
+      } catch {
+        throw new AppError("INVALID_PARAMETERS", "The data isn't base64");
+      }
+    } else {
+      if (!/^https:\/\//i.test(args.url!))
+        throw new AppError("INVALID_PARAMETERS", "The url must be an https address");
+      const fetched = await fetchCapped(args.url!, {
+        maxBytes: IMPORT_MAX_BYTES,
+        timeoutMs: 20_000,
+        headers: { accept: "image/png,image/jpeg,image/webp,image/gif;q=0.9,image/*;q=0.5" },
+      });
+      if (!fetched.ok)
+        throw new AppError("INVALID_PARAMETERS", `The picture couldn't be read: ${fetched.reason}`);
+      bytes = fetched.bytes;
+    }
+    if (bytes.byteLength > IMPORT_MAX_BYTES)
+      throw new AppError("INVALID_PARAMETERS", "The picture is larger than 15 MB");
+    const kind = imageKind(bytes);
+    if (!kind || !IMPORT_TYPES.has(kind.mime))
+      throw new AppError("INVALID_PARAMETERS", "That isn't a PNG, JPEG, WebP or GIF picture");
+    const size = imageSize(bytes);
+
+    // Where uploads from the app go (see storageScope in ../storage).
+    const bucket = "generation-inputs";
+    const scope = args.projectId ? `projects/${args.projectId}` : `unassigned/${caller.userId}`;
+    const name =
+      args.title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "")
+        .slice(0, 60) || "picture";
+    const path = `${scope}/inputs/${crypto.randomUUID()}-${name}.${kind.extension}`;
+    const { error: uploadError } = await db.storage
+      .from(bucket)
+      .upload(path, bytes, { contentType: kind.mime, upsert: false });
+    if (uploadError) throw new AppError("STORAGE_FAILED", "The picture couldn't be stored");
+    const { data: row, error } = await db
+      .from("assets")
+      .insert({
+        project_id: args.projectId ?? null,
+        uploaded_by: caller.userId,
+        asset_type: "image",
+        source_type: "uploaded",
+        title: args.title.slice(0, 200),
+        storage_bucket: bucket,
+        storage_path: path,
+        mime_type: kind.mime,
+        file_size: bytes.byteLength,
+        width: size?.width ?? null,
+        height: size?.height ?? null,
+        metadata: {
+          source: "studio_api",
+          token_id: caller.tokenId,
+          client_request_id: args.clientRequestId,
+          ...(args.url ? { origin: args.url } : {}),
+        } as never,
+      })
+      .select("id")
+      .single();
+    if (error || !row) {
+      await db.storage.from(bucket).remove([path]);
+      throw new AppError("STORAGE_FAILED", "The picture couldn't be added to the library");
+    }
+    return {
+      assetId: row.id,
+      imported: true,
+      width: size?.width ?? null,
+      height: size?.height ?? null,
+      mimeType: kind.mime,
+    };
+  },
+});
+
 const openInEditor = tool({
   name: "open_in_editor",
   title: "Open a long video as an edit",
@@ -1519,6 +1744,7 @@ export const STUDIO_TOOLS: StudioTool[] = [
   getBrandFormula,
   listCharacters,
   getCharacter,
+  estimateGeneration,
   queueGeneration,
   makeSoulStill,
   trainSoul,
@@ -1528,6 +1754,8 @@ export const STUDIO_TOOLS: StudioTool[] = [
   chooseTake,
   setCutawayFill,
   checkText,
+  saveCharacter,
+  importImage,
   openInEditor,
   createEdit,
   updateEdit,

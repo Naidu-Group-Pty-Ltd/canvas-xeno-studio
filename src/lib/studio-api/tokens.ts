@@ -14,9 +14,9 @@ const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789
 export const API_SCOPES = ["read", "generate", "edit"] as const;
 export type ApiScope = (typeof API_SCOPES)[number];
 export const API_SCOPE_LABELS: Record<ApiScope, string> = {
-  read: "Read: models, files, generations, long videos, edits and renders",
+  read: "Read: models, files, generations, long videos, edits and renders, and prices",
   generate: "Generate: queue generations, start and steer long videos (spends credits)",
-  edit: "Edit: make and change edits, apply brand kits and render",
+  edit: "Edit: make and change edits, apply brand kits and render; import pictures and save characters",
 };
 
 /** A new token, from a cryptographic random source. */

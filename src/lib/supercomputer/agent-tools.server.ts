@@ -119,7 +119,8 @@ async function characterNames(ids: unknown): Promise<string[]> {
 /* ------------------------------------------------------------------ */
 
 /** Studio tools the agent doesn't use (its own versions, or nothing it needs). */
-const LEFT_OUT = new Set(["whoami", "list_models"]);
+// The agent has its own list_models and estimate_generation; pictures come to it as attachments.
+const LEFT_OUT = new Set(["whoami", "list_models", "estimate_generation", "import_image"]);
 
 /** Which calls of a studio tool spend credits. */
 const SPENDS: Record<string, (input: Json) => boolean> = {
@@ -157,6 +158,7 @@ const LABELS: Record<string, (input: Json) => string> = {
   queue_generation: () => "Generating",
   make_soul_still: () => "Painting a still from a Soul ID",
   train_soul_id: () => "Training a Soul ID",
+  save_character: (input) => (input["characterId"] ? "Updating a character" : "Saving a character"),
   start_presenter_video: () => "Starting a presenter video",
   steer_long_video: (input) => `Long video: ${text(input["action"], 20) || "steering"}`,
   steer_clip: (input) => `Clip: ${text(input["action"], 20) || "steering"}`,
