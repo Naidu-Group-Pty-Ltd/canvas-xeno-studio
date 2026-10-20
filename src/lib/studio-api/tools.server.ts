@@ -925,7 +925,11 @@ const saveCharacter = tool({
         role: "sheet" as const,
         view: image.view,
       })),
-      ...args.photos.map((assetId) => ({ assetId, role: "photo" as const, view: "other" as const })),
+      ...args.photos.map((assetId) => ({
+        assetId,
+        role: "photo" as const,
+        view: "other" as const,
+      })),
     ];
     let added = 0;
     try {
