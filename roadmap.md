@@ -68,6 +68,7 @@
 - [x] Reel 1 generation spec (docs/brands/aurixa-reel-1): cuts timed from the voiceover's measured words (the pack's estimates drift by up to 2.6 s); every still, set, frame and clip with its model, settings, inputs in order and prompt; the ledger of approved assets
 - [x] Reel 1 screen plates v1, typeset (scripts/aurixa-reel-1/plates.cjs): 36 plates, Block 14 phrases and the closing card
 - [x] Reel 1 loaded into Storyboards (storyboard e6f6907f-ea31-4a35-840b-a20278f11085): 15 blocks as scenes, 26 shots with their timing, frames, clip and motion prompt
+- [x] Reel 1 decisions: START YOUR FREE TRIAL on the closing card (not the kit's Book Your Free Demo), and Demo workspace on recreated screens (not Concept)
 - [ ] Uploads for Reel 1: image(9) and image(10), the six portal screenshots, the emblem and wordmark at full size; then the plates again with the real structure, P, D and emblem
 - [ ] Allow opukzrutzdcqrlmlpigs.supabase.co in the environment's network access, so a session can look at library files (references and results)
 - [ ] Re-analyse the Reel 1 brief (Brief panel → Re-analyse) once this is live

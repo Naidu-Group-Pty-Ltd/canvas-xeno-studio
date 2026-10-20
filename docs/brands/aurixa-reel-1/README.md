@@ -363,8 +363,8 @@ Handoffs (the pack's transition ledger, by shot):
 - **UP-PORTALS**: the six portal screenshots (CC, SOL, ACC, FIN, CLI, BLD) as structure references for the plates
 - **UP-EMBLEM**: the approved emblem and AURIXA SYSTEMS wordmark at full size (SVG or a PNG at least 2000 px wide); the library's logo is 720 px
 
-Decisions taken here, to confirm:
+Decisions:
 
-- The closing CTA is the pack's START YOUR FREE TRIAL, not the brand kit's Book Your Free Demo (the kit's automatic end card is not used).
-- The small label on recreated screens is the pack's Demo workspace (the brand rules say Concept for mock-ups): confirm.
+- Confirmed 20 October 2026: the closing CTA is the pack's START YOUR FREE TRIAL, not the brand kit's Book Your Free Demo (the kit's automatic end card is not used).
+- Confirmed 20 October 2026: the small label on recreated screens is the pack's Demo workspace, not the brand rules' Concept.
 - The colleague in 04A is unnamed and seen from behind, so no seventh face needs locking.

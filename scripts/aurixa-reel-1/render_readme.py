@@ -125,7 +125,7 @@ w("")
 for u in spec["uploads_needed"]:
     w(f"- **{u['key']}**: {u['what']}")
 w("")
-w("Decisions taken here, to confirm:")
+w("Decisions:")
 w("")
 for d in spec["decisions"]:
     w(f"- {d}")
