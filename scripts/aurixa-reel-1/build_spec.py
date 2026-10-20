@@ -341,13 +341,13 @@ SHOTS = [
          motion="Alex makes one deliberate click with her mouse hand and keeps her hand, cursor area and gaze on the screen. The camera eases forward only until the screen is clear, "
                 "then settles and holds nearly still for the result.",
          handoff="04B to 05A, selected-property match: the property image settles at the same upper-middle position."),
-    dict(shot="05A", block="05", cast=["ALEX"], look="aurixa", set="S-ALEX", plates=["PL-05A"],
+    dict(shot="05A", block="05", cast=["ALEX"], look="aurixa", set="S-ALEX", plates=["PL-05A-a", "PL-05A-b"],
          first=(["C-ALEX", "F-04B-out"], "A tight over-the-shoulder insert of " + CAST["ALEX"] + " (image 1) at the same monitor as image 2: the screen fills most of the frame, " + SCREEN_NAVY + "; "
                                          "her mouse hand and a trace of her profile at the lower left."),
          last=None,
          motion="Nearly still. Alex makes one deliberate click; her hand stays visible; hold. No typing, no scrolling, no second action.",
          handoff="05A to 05B, direct property-image match into Jamie's Finance view."),
-    dict(shot="05B", block="05", cast=["JAMIE"], look="aurixa", set="S-JAMIE", plates=["PL-05B"],
+    dict(shot="05B", block="05", cast=["JAMIE"], look="aurixa", set="S-JAMIE", plates=["PL-05B-a", "PL-05B-b"],
          first=(["C-JAMIE", "S-JAMIE"], CAST["JAMIE"] + " (image 1) at her finance workstation (image 2), seen over her shoulder in partial profile, her hand on the real mouse; the monitor fills the "
                                         "upper-middle at the same position as the previous insert's screen, " + SCREEN_NAVY + "."),
          last=None,
@@ -358,14 +358,14 @@ SHOTS = [
          last=None,
          motion="Nearly still. Alex makes one click and her hand stays visible; hold on the bright screen. No scrolling.",
          handoff="05C to 06A, report-card match into Jordan's Client Portal."),
-    dict(shot="06A", block="06", cast=["JORDAN"], look="aurixa", set="S-CLIENT", plates=["PL-06A"],
+    dict(shot="06A", block="06", cast=["JORDAN"], look="aurixa", set="S-CLIENT", plates=["PL-06A-a", "PL-06A-b"],
          first=(["C-JORDAN", "S-CLIENT"], "A tight view of the laptop in the client glass workspace (image 2): the laptop screen fills the upper-middle, " + SCREEN_NAVY + "; "
                                           "the edge of Jordan Ellis's hand near the touchpad (image 1 is his character sheet: keep his skin tone and light blue shirt cuff)."),
          last=(["C-JORDAN", "S-CLIENT", "F-06A-in"], "Wider than image 3: " + CAST["JORDAN"] + " (image 1) at the laptop in the glass workspace (image 2), face warmly lit, hand on the touchpad; "
                                                      "the adjacent framed glass presentation panel with its opaque navy backing at the right; the laptop screen, " + SCREEN_NAVY + "."),
          motion="Begin on the laptop screen, then widen slightly to reveal Jordan's hand and face. He clicks once with the touchpad, then watches the result. Settle and hold. Natural, warm.",
          handoff="06A to 06B, record-and-panel-edge match into Alex's Command Center."),
-    dict(shot="06B", block="06", cast=["ALEX"], look="aurixa", set="S-ALEX", plates=["PL-06B", "PL-07A-a", "PL-07A-b"],
+    dict(shot="06B", block="06", cast=["ALEX"], look="aurixa", set="S-ALEX", plates=["PL-06B-a", "PL-06B-b", "PL-07A-a", "PL-07A-b"],
          first=(["C-ALEX", "S-ALEX", "F-04B-out"], "The same over-the-shoulder axis as image 3: " + CAST["ALEX"] + " (image 1) at her monitor in the workspace (image 2), her real mouse hand and considered "
                                                    "profile visible; the monitor in the upper-middle, " + SCREEN_NAVY + "; a pale paper document lies on the desk to her right."),
          last=(["C-ALEX", "S-ALEX", "F-06B-in"], "The same scene as image 3 after a very small rightward drift: Alex's hand has come to rest flat on the desk beside the pale paper document, "
@@ -400,7 +400,7 @@ SHOTS = [
          motion="Priya checks the physical folder, selects with her mouse, then pauses with visible concentration while reconciling. A short lateral move that settles with the "
                 "monitor bezel and the folder's photograph clearly placed. Restrained.",
          handoff="09A to 09B, same-monitor comparison cut."),
-    dict(shot="09B", block="09", cast=["PRIYA"], look="aurixa", set="S-PRIYA", plates=["PL-09B"],
+    dict(shot="09B", block="09", cast=["PRIYA"], look="aurixa", set="S-PRIYA", plates=["PL-09B-a", "PL-09B-b"],
          first=(["C-PRIYA", "F-09A-out"], "The same monitor, folder, lens and exposure as image 2, with " + CAST["PRIYA"] + " (image 1) and her mouse hand; the screen, " + SCREEN_NAVY + "."),
          last=None,
          motion="Nearly still. Priya clicks once; her hand and face stay visible while the result settles. Hold, finishing with the monitor's edge aligned to the gold console frame.",
@@ -534,20 +534,25 @@ PLATES = [
     ("PL-04B-a", "04B", "aurixa", "Command Center · Reports, before the selection", ["Sidebar: AURIXA SYSTEMS (grouped navigation)", "Banner eyebrow: AURIXA REPORTING COMMAND CENTER", "Page: Reports",
         "Tabs: Manual (active) · URL Extraction · PDF Upload", "Cards: Existing Property · New Build · Land Only", "Demo workspace"]),
     ("PL-04B-b", "04B", "aurixa", "Command Center · Reports, New Build selected", ["New Build card in saturated blue (#1238E8)", "Context: Project Banksia / Residence 014 · BK-014 (thumbnail P)", "Demo workspace"]),
-    ("PL-05A", "05A", "aurixa", "Research brief", ["Research brief (control under the cursor)", "Location overview", "Property characteristics", "Questions for review", "thumbnail P", "Demo workspace"]),
-    ("PL-05B", "05B", "aurixa", "Finance · purchase file · Scenario comparison", ["Scenario comparison (active tab)", "Base case · Alternative case", "Illustrative scenario", "thumbnail P", "Demo workspace"]),
+    ("PL-05A-a", "05A", "aurixa", "Research brief, before the click", ["Prepared context: Project Banksia / Residence 014 (P)", "Research brief (under the cursor)", "Next: Financial analysis", "Demo workspace"]),
+    ("PL-05A-b", "05A", "aurixa", "Location overview, the result", ["Research brief", "Location overview (large, selected)", "Property characteristics", "Questions for review"]),
+    ("PL-05B-a", "05B", "aurixa", "Finance · purchase file, before the click", ["Welcome back, Jamie", "Active purchase file: Project Banksia / Residence 014 (P)", "Tabs: Overview (active) · Scenario comparison (under the cursor) · Documents", "Demo workspace"]),
+    ("PL-05B-b", "05B", "aurixa", "Finance · Scenario comparison", ["Scenario comparison (active tab)", "Base case · Alternative case", "Illustrative scenario", "Questions for discussion"]),
     ("PL-05C-a", "05C", "aurixa", "Client summary preview control", ["Client summary", "Open preview (under the cursor)", "thumbnail P", "Demo workspace"]),
     ("PL-05C-b", "05C", "aurixa", "The prepared report (white reading surface)", ["Project Banksia / Residence 014 (image P)", "Client summary (navy heading)", "Key considerations", "Questions for discussion", "fine gold dividers"]),
-    ("PL-06A", "06A", "aurixa", "Client Portal · Your property team", ["My Property Team (selected)", "Your property team: Property · Finance · Legal · Builder / Developer · Accounting", "Project Banksia / Residence 014",
-        "Next discussion", "Demo workspace", "Optional: one framed-glass enlargement of the team strip"]),
-    ("PL-06B", "06B", "aurixa", "Aurixa Agent panel opens", ["Aurixa Agent", "Draft client summary", "Review required", "Question to verify", "Demo workspace"]),
+    ("PL-06A-a", "06A", "aurixa", "Client Portal dashboard, before the click", ["Welcome back, Jordan Ellis", "Your property team · 5 professionals working on Residence 014", "My Property Team (under the cursor)", "Demo workspace"]),
+    ("PL-06A-b", "06A", "aurixa", "Client Portal · Your property team", ["My Property Team (selected)", "Your property team: Property · Finance · Legal · Builder / Developer · Accounting", "Residence 014",
+        "Next discussion: Client summary", "Optional: one framed-glass enlargement of the team strip"]),
+    ("PL-06B-a", "06B", "aurixa", "Command Center record with the Aurixa Agent launcher", ["Prepared context: Residence 014", "Questions for review", "Aurixa Agent (launcher, under the cursor)", "Demo workspace"]),
+    ("PL-06B-b", "06B", "aurixa", "Aurixa Agent panel open", ["Aurixa Agent", "Draft client summary: Discuss the next step", "Review required", "Question to verify"]),
     ("PL-07A-a", "07A", "aurixa", "Draft before Alex's edit", ["Questions for review", "Draft: Discuss the next step"]),
     ("PL-07A-b", "07A", "aurixa", "Draft after the edit, saved", ["Draft: Review the remaining questions together", "Save draft → Draft saved (restrained teal)"]),
     ("PL-08A-a", "08A", "aurixa", "Accountant Portal · Needs you next", ["Needs you next", "Supporting information · Jordan Ellis · Residence 014", "Mark reviewed", "Demo workspace"]),
     ("PL-08A-b", "08A", "aurixa", "Reviewed", ["Supporting information · Reviewed (teal)"]),
     ("PL-08B", "08B", "aurixa", "Client summary on the mounted display", ["Client summary · Residence 014", "Key considerations", "Questions for discussion"]),
     ("PL-09A", "09A", "generic", "Two generic document lists with duplicate references", ["Residence 014 — documents (list A)", "Residence 014 — documents (list B, duplicates)", "No Aurixa branding"]),
-    ("PL-09B", "09B", "aurixa", "Solicitor Portal · Open matters", ["Open matters (active)", "Project Banksia / Residence 014 (selected, blue)", "Document review", "Next discussion", "Demo workspace"]),
+    ("PL-09B-a", "09B", "aurixa", "Solicitor Portal · Open matters, before the click", ["Open matters (active)", "Project Banksia / Residence 014 (under the cursor)", "Demo workspace"]),
+    ("PL-09B-b", "09B", "aurixa", "Solicitor Portal · the matter opened", ["Project Banksia / Residence 014 (selected, blue)", "Document review: Contract of sale (draft) · Floor plan · Building specification", "Next discussion"]),
     ("PL-11A-a", "10B, 11A", "aurixa", "Campaign trial invitation", ["Approved emblem", "AURIXA SYSTEMS", "14-DAY FREE TRIAL", "Start your free trial (saturated blue CTA)"]),
     ("PL-11A-b", "11A", "aurixa", "CTA selected state", ["Start your free trial (pressed state)"]),
     ("PL-11A-c", "11A", "aurixa", "Demo workspace", ["Demo workspace", "Explore your workspace", "Project tile: Residence 014 (image P)"]),
@@ -615,7 +620,7 @@ spec = {
     "uploads_needed": [
         {"key": "UP-CONSOLE-9", "what": "image(9).png, the principal physical-world reference"},
         {"key": "UP-CONSOLE-10", "what": "image(10).png, the principal physical-world reference"},
-        {"key": "UP-PORTALS", "what": "the six portal screenshots (CC, SOL, ACC, FIN, CLI, BLD) as structure references for the plates"},
+        {"key": "UP-PORTALS", "what": "the Command Center screenshot (CC), the last of the six portals; the CC plates follow the other five portals' shell until then"},
         {"key": "UP-EMBLEM", "what": "the approved emblem and AURIXA SYSTEMS wordmark at full size (SVG or a PNG at least 2000 px wide); the library's logo is 720 px"},
     ],
     "decisions": [
@@ -649,6 +654,8 @@ keys = [i["key"] for i in stage1] + [i["key"] for i in stage2] + [u["key"] for u
     + [i["key"] for i in stage3] + [f["key"] for f in frames] + [c["key"] for c in clips]
 for key in keys:
     ledger.setdefault(key, None)
+# Keys the spec no longer has (a plate split into its states) are dropped.
+ledger = {key: ledger[key] for key in keys}
 ledger_file.write_text(json.dumps(ledger, indent=1) + "\n")
 print("stills: stage1", sum(i["takes"] for i in stage1), "stage2", sum(i["takes"] for i in stage2), "frames", len(frames), "x2 =", 2 * len(frames))
 print("clips", len(clips), "source seconds", sum(c["seconds"] for c in clips))

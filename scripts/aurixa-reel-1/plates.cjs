@@ -1,7 +1,8 @@
 // Typesets Reel 1's screen plates, overlays and end card (docs/brands/aurixa-reel-1, stage 3) and
-// renders them to PNG. v1: the portal structure follows the pack's reference map, because the six
-// screenshots aren't in the library yet; P, D and the emblem are placeholders until their files
-// are given. Run: node scripts/aurixa-reel-1/plates.cjs <outDir> [assetsDir with P.png, D.png, emblem.png]
+// renders them to PNG. v2: the portals are built on the supplied portal screenshots (./portals.cjs);
+// the Command Center follows the same family until its screenshot is supplied. P, D and the emblem
+// are placeholders until their files are given.
+// Run: node scripts/aurixa-reel-1/plates.cjs <outDir> [assetsDir with P.png, D.png, emblem.png]
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
@@ -29,25 +30,40 @@ const P = asset("P.png");
 const D = asset("D.png");
 const EMBLEM = asset("emblem.png");
 
-/** Playfair Display from Google Fonts, kept in the temp folder (Inter is a system font). */
-async function playfair(weight) {
-  const file = path.join(os.tmpdir(), `playfair-${weight}.ttf`);
+/** A Google font as a data URL, kept in the temp folder (Inter is a system font). */
+async function googleFont(family, weight) {
+  const file = path.join(os.tmpdir(), `${family.replace(/ /g, "-").toLowerCase()}-${weight}.ttf`);
   if (!fs.existsSync(file)) {
     const sheet = await (
-      await fetch(`https://fonts.googleapis.com/css2?family=Playfair+Display:wght@${weight}`, {
-        headers: { "user-agent": "Mozilla/5.0 Chrome/120" },
-      })
+      await fetch(
+        `https://fonts.googleapis.com/css2?family=${family.replace(/ /g, "+")}:wght@${weight}`,
+        { headers: { "user-agent": "Mozilla/5.0 Chrome/120" } },
+      )
     ).text();
     const url = /url\((https:[^)]+)\)/.exec(sheet)?.[1];
-    if (!url) throw new Error("Playfair Display couldn't be found on Google Fonts");
+    if (!url) throw new Error(`${family} couldn't be found on Google Fonts`);
     fs.writeFileSync(file, Buffer.from(await (await fetch(url)).arrayBuffer()));
   }
   return dataUrl(file, "font/ttf");
 }
 
-const css = (FONT600, FONT700) => `
-@font-face { font-family: "Playfair Display"; font-weight: 600; src: url("${FONT600}") format("truetype"); }
-@font-face { font-family: "Playfair Display"; font-weight: 700; src: url("${FONT700}") format("truetype"); }
+const FONTS = [
+  ["Playfair Display", [600, 700]],
+  ["Plus Jakarta Sans", [400, 500, 600, 700, 800]],
+  ["JetBrains Mono", [700]],
+];
+async function fontFaces() {
+  const faces = [];
+  for (const [family, weights] of FONTS)
+    for (const weight of weights)
+      faces.push(
+        `@font-face { font-family: "${family}"; font-weight: ${weight}; src: url("${await googleFont(family, weight)}") format("truetype"); }`,
+      );
+  return faces.join("\n");
+}
+
+const css = (faces) => `
+${faces}
 :root { --navy:#0A192F; --deep:#040B16; --panel:#10233D; --panel2:#15304f; --gold:#C89B3C; --gold2:#D7B35F; --teal:#00A8B5;
   --blue:#1238E8; --white:#FFFFFF; --muted:#B7C1D0; --line:rgba(183,193,208,.16); }
 * { box-sizing:border-box; margin:0; padding:0; }
@@ -597,14 +613,27 @@ const PLATES = {
   },
 };
 
+// v2 portals: the plates they replace (one state became two) go, the rest are overwritten.
+const portals = require("./portals.cjs")({ P, D, EMBLEM });
+for (const key of ["PL-05A", "PL-05B", "PL-06A", "PL-06B", "PL-09B"]) delete PLATES[key];
+Object.assign(PLATES, portals.plates);
+
 (async () => {
-  const CSS = css(await playfair(600), await playfair(700));
+  const CSS = css(await fontFaces()) + portals.css;
   const { chromium } = playwright();
   const browser = await chromium.launch(CHROMIUM ? { executablePath: CHROMIUM } : {});
-  const page = await browser.newPage();
+  // A plate drawn at a smaller CSS size and rendered at its scale, so its type is phone-sized.
+  const pages = new Map();
   for (const [key, plate] of Object.entries(PLATES)) {
+    const scale = plate.scale ?? 1;
+    if (!pages.has(scale))
+      pages.set(scale, await (await browser.newContext({ deviceScaleFactor: scale })).newPage());
+    const page = pages.get(scale);
     const [width, height] = plate.size;
-    await page.setViewportSize({ width, height });
+    await page.setViewportSize({
+      width: Math.round(width / scale),
+      height: Math.round(height / scale),
+    });
     await page.setContent(
       `<!doctype html><html><head><meta charset="utf-8"><style>${CSS}</style></head><body>${plate.html}</body></html>`,
       { waitUntil: "load" },

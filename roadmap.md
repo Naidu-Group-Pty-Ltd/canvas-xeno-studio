@@ -69,7 +69,8 @@
 - [x] Reel 1 screen plates v1, typeset (scripts/aurixa-reel-1/plates.cjs): 36 plates, Block 14 phrases and the closing card
 - [x] Reel 1 loaded into Storyboards (storyboard e6f6907f-ea31-4a35-840b-a20278f11085): 15 blocks as scenes, 26 shots with their timing, frames, clip and motion prompt
 - [x] Reel 1 decisions: START YOUR FREE TRIAL on the closing card (not the kit's Book Your Free Demo), and Demo workspace on recreated screens (not Concept)
-- [ ] Uploads for Reel 1: image(9) and image(10), the six portal screenshots, the emblem and wordmark at full size; then the plates again with the real structure, P, D and emblem
+- [x] Reel 1 plates v2 (scripts/aurixa-reel-1/portals.cjs): 41 plates, the portal ones built on the Solicitor, Accountant, Finance, Client and Builder / Developer screenshots; five plates split into before and after, and the storyboard's shots list them
+- [ ] Uploads for Reel 1: image(9) and image(10), the Command Center screenshot, the emblem and wordmark at full size; then the plates again with P, D and the emblem, imported as v2 (the 31 v1 imports, and the five whose plates were split, can then be deleted from the library)
 - [x] Allow opukzrutzdcqrlmlpigs.supabase.co in the environment's network access, so a session can look at library files (references and results)
 - [x] #44 merged and published; the three API operations answer on the live app (31 operations)
 - [x] Reel 1's 36 plates (v1) imported into the library with import_image; their ids are in docs/brands/aurixa-reel-1/assets.json

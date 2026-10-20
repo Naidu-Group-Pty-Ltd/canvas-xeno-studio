@@ -82,7 +82,7 @@
     },
     {
       "key": "UP-PORTALS",
-      "what": "the six portal screenshots (CC, SOL, ACC, FIN, CLI, BLD) as structure references for the plates"
+      "what": "the Command Center screenshot (CC), the last of the six portals; the CC plates follow the other five portals' shell until then"
     },
     {
       "key": "UP-EMBLEM",
@@ -843,30 +843,51 @@
           ]
         },
         {
-          "key": "PL-05A",
+          "key": "PL-05A-a",
           "shots": "05A",
           "kind": "aurixa",
-          "title": "Research brief",
+          "title": "Research brief, before the click",
           "text": [
-            "Research brief (control under the cursor)",
-            "Location overview",
-            "Property characteristics",
-            "Questions for review",
-            "thumbnail P",
+            "Prepared context: Project Banksia / Residence 014 (P)",
+            "Research brief (under the cursor)",
+            "Next: Financial analysis",
             "Demo workspace"
           ]
         },
         {
-          "key": "PL-05B",
+          "key": "PL-05A-b",
+          "shots": "05A",
+          "kind": "aurixa",
+          "title": "Location overview, the result",
+          "text": [
+            "Research brief",
+            "Location overview (large, selected)",
+            "Property characteristics",
+            "Questions for review"
+          ]
+        },
+        {
+          "key": "PL-05B-a",
           "shots": "05B",
           "kind": "aurixa",
-          "title": "Finance · purchase file · Scenario comparison",
+          "title": "Finance · purchase file, before the click",
+          "text": [
+            "Welcome back, Jamie",
+            "Active purchase file: Project Banksia / Residence 014 (P)",
+            "Tabs: Overview (active) · Scenario comparison (under the cursor) · Documents",
+            "Demo workspace"
+          ]
+        },
+        {
+          "key": "PL-05B-b",
+          "shots": "05B",
+          "kind": "aurixa",
+          "title": "Finance · Scenario comparison",
           "text": [
             "Scenario comparison (active tab)",
             "Base case · Alternative case",
             "Illustrative scenario",
-            "thumbnail P",
-            "Demo workspace"
+            "Questions for discussion"
           ]
         },
         {
@@ -895,30 +916,52 @@
           ]
         },
         {
-          "key": "PL-06A",
+          "key": "PL-06A-a",
+          "shots": "06A",
+          "kind": "aurixa",
+          "title": "Client Portal dashboard, before the click",
+          "text": [
+            "Welcome back, Jordan Ellis",
+            "Your property team · 5 professionals working on Residence 014",
+            "My Property Team (under the cursor)",
+            "Demo workspace"
+          ]
+        },
+        {
+          "key": "PL-06A-b",
           "shots": "06A",
           "kind": "aurixa",
           "title": "Client Portal · Your property team",
           "text": [
             "My Property Team (selected)",
             "Your property team: Property · Finance · Legal · Builder / Developer · Accounting",
-            "Project Banksia / Residence 014",
-            "Next discussion",
-            "Demo workspace",
+            "Residence 014",
+            "Next discussion: Client summary",
             "Optional: one framed-glass enlargement of the team strip"
           ]
         },
         {
-          "key": "PL-06B",
+          "key": "PL-06B-a",
           "shots": "06B",
           "kind": "aurixa",
-          "title": "Aurixa Agent panel opens",
+          "title": "Command Center record with the Aurixa Agent launcher",
+          "text": [
+            "Prepared context: Residence 014",
+            "Questions for review",
+            "Aurixa Agent (launcher, under the cursor)",
+            "Demo workspace"
+          ]
+        },
+        {
+          "key": "PL-06B-b",
+          "shots": "06B",
+          "kind": "aurixa",
+          "title": "Aurixa Agent panel open",
           "text": [
             "Aurixa Agent",
-            "Draft client summary",
+            "Draft client summary: Discuss the next step",
             "Review required",
-            "Question to verify",
-            "Demo workspace"
+            "Question to verify"
           ]
         },
         {
@@ -980,16 +1023,25 @@
           ]
         },
         {
-          "key": "PL-09B",
+          "key": "PL-09B-a",
           "shots": "09B",
           "kind": "aurixa",
-          "title": "Solicitor Portal · Open matters",
+          "title": "Solicitor Portal · Open matters, before the click",
           "text": [
             "Open matters (active)",
-            "Project Banksia / Residence 014 (selected, blue)",
-            "Document review",
-            "Next discussion",
+            "Project Banksia / Residence 014 (under the cursor)",
             "Demo workspace"
+          ]
+        },
+        {
+          "key": "PL-09B-b",
+          "shots": "09B",
+          "kind": "aurixa",
+          "title": "Solicitor Portal · the matter opened",
+          "text": [
+            "Project Banksia / Residence 014 (selected, blue)",
+            "Document review: Contract of sale (draft) · Floor plan · Building specification",
+            "Next discussion"
           ]
         },
         {
@@ -2019,7 +2071,7 @@
       "block": "05",
       "cast": ["ALEX"],
       "set": "S-ALEX",
-      "plates": ["PL-05A"],
+      "plates": ["PL-05A-a", "PL-05A-b"],
       "handoff": "05A to 05B, direct property-image match into Jamie's Finance view.",
       "edit": {
         "in": 37.4,
@@ -2033,7 +2085,7 @@
       "block": "05",
       "cast": ["JAMIE"],
       "set": "S-JAMIE",
-      "plates": ["PL-05B"],
+      "plates": ["PL-05B-a", "PL-05B-b"],
       "handoff": "05B to 05C, direct property-image match back to Alex's report context.",
       "edit": {
         "in": 39.9,
@@ -2061,7 +2113,7 @@
       "block": "06",
       "cast": ["JORDAN"],
       "set": "S-CLIENT",
-      "plates": ["PL-06A"],
+      "plates": ["PL-06A-a", "PL-06A-b"],
       "handoff": "06A to 06B, record-and-panel-edge match into Alex's Command Center.",
       "edit": {
         "in": 45.233,
@@ -2075,7 +2127,7 @@
       "block": "06",
       "cast": ["ALEX"],
       "set": "S-ALEX",
-      "plates": ["PL-06B", "PL-07A-a", "PL-07A-b"],
+      "plates": ["PL-06B-a", "PL-06B-b", "PL-07A-a", "PL-07A-b"],
       "handoff": "06B to 07A, continuous-camera passage (one source take); 07A to 08A, hand-and-paper action match.",
       "edit": {
         "in": 50.7,
@@ -2145,7 +2197,7 @@
       "block": "09",
       "cast": ["PRIYA"],
       "set": "S-PRIYA",
-      "plates": ["PL-09B"],
+      "plates": ["PL-09B-a", "PL-09B-b"],
       "handoff": "09B to 10A, monitor-edge to console-edge match.",
       "edit": {
         "in": 71.5,

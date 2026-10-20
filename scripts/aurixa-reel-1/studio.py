@@ -13,6 +13,8 @@ ROOT = Path(__file__).resolve().parents[2]
 SPEC_DIR = ROOT / "docs" / "brands" / "aurixa-reel-1"
 BASE = os.environ.get("XENO_STUDIO_URL", "https://canvas-xeno-studio.lovable.app").rstrip("/")
 TOKEN = os.environ.get("XENO_STUDIO_TOKEN")
+# The plates' version: a new one imports new assets; the same one returns the earlier import.
+PLATES_VERSION = "v2"
 
 
 def call(operation, args, timeout=180):
@@ -54,13 +56,15 @@ def import_plates(folder):
             print(f"{key}: no {file.name}, skipped")
             continue
         result = call("import_image", {
-            "title": f"Aurixa Reel 1 · plate {key} · {plate['title']} (v1)"[:200],
+            "title": f"Aurixa Reel 1 · plate {key} · {plate['title']} ({PLATES_VERSION})"[:200],
             "data": base64.b64encode(file.read_bytes()).decode(),
             # One id per plate and version: importing again returns the first import.
-            "clientRequestId": f"aurixa-reel1-{key}-v1",
+            "clientRequestId": f"aurixa-reel1-{key}-{PLATES_VERSION}",
         })
+        replaced = ledger.get(key) if ledger.get(key) != result["assetId"] else None
         ledger[key] = result["assetId"]
-        print(f"{key}: {result['assetId']} ({'imported' if result['imported'] else 'already imported'}, {result['width']}x{result['height']})")
+        print(f"{key}: {result['assetId']} ({'imported' if result['imported'] else 'already imported'}, {result['width']}x{result['height']})"
+              + (f"; replaces {replaced}" if replaced else ""))
         save_ledger(ledger)
 
 
