@@ -268,8 +268,13 @@
       }
     },
     "proof": "b20ee867-81b7-4093-8029-696238c4db85",
-    "proofAsset": "85dea30d-48df-4f1b-a6b9-3289a3093086",
+    "proofAsset": "efb5fea5-ece8-4716-a257-47ded5150986",
     "souls": [
+      {
+        "version": "v2",
+        "referenceId": "c6d47eaa-a999-4661-b2f8-7783750fc794",
+        "approved": true
+      },
       {
         "version": "v2",
         "referenceId": "91d68eff-1680-4864-b5be-654603d0dad3",
@@ -277,9 +282,9 @@
       }
     ],
     "training_state": {
-      "status": "failed",
+      "status": "ready",
       "version": "v2",
-      "error": "Not enough credits"
+      "error": null
     },
     "pack": {
       "1": {
@@ -369,17 +374,22 @@
     "souls": [
       {
         "version": "v2",
+        "referenceId": "02335d7f-4d1f-457b-a07d-fa0c6f68f9f4",
+        "approved": true
+      },
+      {
+        "version": "v2",
         "referenceId": "ff33959e-78e4-4443-a530-419661be985b",
         "approved": true
       }
     ],
     "training_state": {
-      "status": "failed",
+      "status": "ready",
       "version": "v2",
-      "error": "Not enough credits"
+      "error": null
     },
     "proof": "7e9164da-3a5c-4eda-9d06-e83af148ec2a",
-    "proofAsset": "0c79b51c-da85-4571-8f9e-59bcad8b6dbd",
+    "proofAsset": "dcccc105-8899-4fc0-9d4a-f97305e1b6b8",
     "pack": {
       "1": {
         "generationId": "fc4249ea-fa5c-4d80-bdb8-f8b0db03c789",

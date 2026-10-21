@@ -95,6 +95,7 @@
 - [x] Reel 1's cast saved as studio characters (Alex, Jordan, Jamie, Priya, Daniel, Mia) with Soul IDs on Soul 2, trained on the approved assets alone: each sheet cut into its panels and each person's clear faces cut from the approved frames (scripts/aurixa-reel-1/cast.py; ids in characters.json); a likeness still each
 - [x] Reel 1: training packs for Jamie, Daniel and Mia (the studio's own: 8 photos each from the sheet), the good ones added to their training photos (7, 5 and 7)
 - [x] Reel 1: Jamie's Soul ID trained again on 12 images (sheet, frames and her pack), closer to her sheet than the first; all six Soul IDs in use approved in the studio (likeness sheet: docs/brands/aurixa-reel-1/soul-ids.jpg)
-- [ ] Reel 1: train Daniel's and Mia's Soul IDs again on their packs (refused for Higgsfield credits on 21 Oct; nothing billed), then approve the new ones
-- [ ] Reel 1 stage 5, clips: test 01A and 04B on both clip models, choose one, then block by block (needs approval and spend)
+- [x] Reel 1: Daniel's and Mia's Soul IDs trained again on their packs (10 and 12 images) once Higgsfield was topped up, closer to their sheets, and approved
+- [x] Reel 1 stage 5, clips: one take on Cinema Studio 4.0 (the client's choice) of 15 of the 24, checked frame by frame (QC.md), and the reel laid out in the Editor as a draft (scripts/aurixa-reel-1/edit.py; its id in edit.json), the 9 not made held by their frames
+- [ ] Reel 1: the 9 clips Higgsfield refused for its balance (09A, 09B, 10A, 10B, 11A, 12A, 12B, 13A, 15A; about US$27): `studio.py run 5 --model clip_cinema --takes 1 --retry-refused --confirm`, then `edit.py save` to put them into the same draft
 - [ ] The studio records no price for metered GPT Image runs: Higgsfield's result carries none, so a run's cost and the balance countdown miss them (the Console's balance is the only record)

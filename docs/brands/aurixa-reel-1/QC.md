@@ -129,3 +129,35 @@ proposal is a screen swap: the approved frame and the new plate in, everything b
 The generic screens (01B, 02A, 03A to 03C, 09A) are unbranded on purpose and were left as they are;
 some show placeholder lines and wide empty windows, which could be filled with real text if wanted
 (that would redo their frames too).
+
+## Clips, first pass (Cinema Studio 4.0, cinema-take1)
+
+One take of each clip, made on Cinema Studio 4.0 in the studio (21 October 2026). Each was sent as the studio's own long
+videos send that model: the approved first frame as reference image 1 with the line that says the clip starts on it,
+the cast's sheet views named in the characters line, and the approved last frame last with the line that says the
+clip ends on it; 9:16, 720p, no sound, single-shot pacing. Every take comes back 720 x 1280 at 24 fps, silent, and
+0.04 s longer than asked.
+
+15 of the 24 are made. The other 9 (09A, 09B, 10A, 10B, 11A, 12A, 12B, 13A, 15A) were refused by Higgsfield for its
+balance (`not_enough_credits`), so nothing of them was made or billed (US$26.87 at the studio's estimate); the draft
+edit holds their places with their approved frames, labelled STAND-IN, until they are made.
+
+Each made take was checked frame by frame: none has a cut in it (no frame-to-frame change in any take is above 17 on a 0 to 255 scale, where a cut is several times that), the larger jumps in the nearly still takes are their screens changing, and each starts on its first frame and ends on its last, where it has one.
+
+| Clip | What the take does                                                                                     | In the draft edit                                                          |
+| ---- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| 01A  | Moves out from behind the gum, then dissolves (3.1 to 3.9 s) into P rather than moving to it: a morph  | Middle of the take; the dissolve shows. To review                          |
+| 01B  | From the laptop close-up out to Jordan at his desk, the enquiry sent                                   | Middle of the take                                                         |
+| 02A  | Alex at the four windows, nearly still                                                                 | Middle of the take                                                         |
+| 03A  | The incoming card turns from Floor plan received to Floor plan confirmed at 3.0 s, which no frame asks | From 0 s at 0.88x speed, so the shot ends before it (2.93 s of the take)   |
+| 03B  | The message becomes a document at 3.83 s, which no frame asks for                                      | From 1.0 s, ending at 3.6 s                                                |
+| 03C  | Jordan rests his hands; the mullion drifts across                                                      | Middle of the take                                                         |
+| 04A  | Tracks past the gold doorway to Alex and the colleague with the plan                                   | Middle of the take                                                         |
+| 04B  | One continuous push-in to the screen and the New Build selection                                       | Middle of the take                                                         |
+| 05A  | Nearly still; the click                                                                                | Middle of the take                                                         |
+| 05B  | Jamie clicks at 0.54 s, early                                                                          | From 0.27 s, so the click is in the shot                                   |
+| 05C  | Generated Reports to the report's page at 1.9 s                                                        | Middle of the take                                                         |
+| 06A  | From the laptop out to Jordan; My property team opens                                                  | Middle of the take                                                         |
+| 06B  | The Aurixa Agent opens at 6.6 s rather than on the first click                                         | 06B from 2.1 s, so 07A (cut from the same take) carries 2.4 s of the agent |
+| 08A  | Mia marks the request fulfilled; the camera finds the notepad                                          | Middle of the take                                                         |
+| 08B  | Alex's gesture to the display is larger than the open gesture asked for; the display holds             | Middle of the take                                                         |

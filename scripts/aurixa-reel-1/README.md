@@ -14,7 +14,7 @@ These scripts build Aurixa's Reel 1 generation spec and typeset its screen plate
 | `portals.cjs`       | The portal plates (used by `plates.cjs`), built on the shells of the portal screenshots and, where none was supplied, on the portals' own code; with the browser window and PDF viewer the file scenes need.                                                                                                                                                                                         |
 | `studio.py`         | Runs the spec against the studio API: imports the plates (`import_image`, ids into `assets.json`), prices a stage (`estimate_generation`) and runs one (`queue_generation`, only with `--confirm`; takes into `takes.json`); Stage 5's clips take `--model` (`clip_cinema`: Cinema Studio 4.0, its frames sent as reference images the way the studio's long videos send them).                      |
 | `cast.py`           | The cast as studio characters with Soul IDs (Soul 2), from the approved assets alone: each sheet cut into its panels (one face per image) and each person's clear faces cut from the approved frames; saves them, trains, reads their state and makes a likeness still each. Paints the studio's own training pack where those give too few faces, and adds the good ones. Ids in `characters.json`. |
-| `edit.py`           | Lays the reel out in the studio's Editor as a draft edit (`create_edit`): the 26 shots cut from one take of every clip on the voiceover's clock, the Demo workspace cut, the Block 14 phrases and the closing card as full-frame pictures, the voiceover and the captions in the brand kit's look. Its id in `edit.json`.                                                                            |
+| `edit.py`           | Lays the reel out in the studio's Editor as a draft edit (`create_edit`, then `update_edit` on the same one): the 26 shots cut from one take of every clip on the voiceover's clock, the Demo workspace cut, the Block 14 phrases and the closing card as full-frame pictures, the voiceover and the captions in the brand kit's look. Its id in `edit.json`.                                        |
 | `contact-sheet.cjs` | One picture of every rendered plate, for review.                                                                                                                                                                                                                                                                                                                                                     |
 
 ```sh
@@ -32,7 +32,8 @@ node scripts/aurixa-reel-1/contact-sheet.cjs /tmp/reel-1-plates /tmp/reel-1-plat
 python3 scripts/aurixa-reel-1/cast.py save /tmp/reel-1-cast && python3 scripts/aurixa-reel-1/cast.py train   # then: status, proof
 python3 scripts/aurixa-reel-1/cast.py pack --only JAMIE && python3 scripts/aurixa-reel-1/cast.py fetch-pack /tmp/reel-1-pack   # then: keep JAMIE=2,3, train --only JAMIE
 python3 scripts/aurixa-reel-1/studio.py price 5 --model clip_cinema && python3 scripts/aurixa-reel-1/studio.py run 5 --model clip_cinema --takes 1 --confirm
-python3 scripts/aurixa-reel-1/edit.py plan && python3 scripts/aurixa-reel-1/edit.py create   # --trim V-11A=0.4 moves a clip's window
+python3 scripts/aurixa-reel-1/studio.py run 5 --model clip_cinema --takes 1 --retry-refused --confirm   # takes refused for the balance
+python3 scripts/aurixa-reel-1/edit.py plan --stand-ins && python3 scripts/aurixa-reel-1/edit.py save --stand-ins   # the same draft each time
 ```
 
 The plates are v2:

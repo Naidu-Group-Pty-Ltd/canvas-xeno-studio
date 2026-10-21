@@ -11,7 +11,7 @@ run prints what it would queue; only with --confirm does it queue (billed by the
 waits and records every take in takes.json. A take's request id is its key and number (and the
 item's revision, once its prompt is revised: r2-take1), so running again returns the takes already
 made instead of paying twice; --takes 4 adds a fourth. A failed or blocked take is never tried again
-by itself. An input written KEY@take is that named take of a frame (a screen swap starts from the approved one).
+by itself; one refused for the provider's balance (nothing made or billed) is asked for again with --retry-refused. An input written KEY@take is that named take of a frame (a screen swap starts from the approved one).
 
 Stage 5's clips take --model (clip_cinema, the client's choice; clip_seedance or clip_kling) there: a clip goes
 from its first frame to its last (when it has one) for its source seconds, and its takes carry the model's short
@@ -211,7 +211,8 @@ def settle(record, timeout=45 * 60):
         waiting = 0
         for key, takes in record.items():
             for name, take in takes.items():
-                if settled(take):
+                # A take that settled as it was queued (refused at once) is read once for its cost and error.
+                if settled(take) and "costUsd" in take:
                     continue
                 g = call("get_generation", {"generationId": take["generationId"]})
                 take.update(status=g["status"], assets=[o["id"] for o in g["outputs"]],
@@ -227,8 +228,8 @@ def settle(record, timeout=45 * 60):
         time.sleep(15)
     takes = [t for ts in record.values() for t in ts.values()]
     done = [t for t in takes if t["status"] == "completed"]
-    cost = sum(float(t["costUsd"] or 0) for t in takes)
-    print(f"{len(done)} of {len(takes)} takes made; US${cost:.2f} charged or held" + (f"; {waiting} still running (run takes later)" if waiting else ""))
+    cost = sum(float(t.get("costUsd") or 0) for t in takes if t["status"] not in ("failed", "nsfw", "canceled"))
+    print(f"{len(done)} of {len(takes)} takes made; US${cost:.2f} charged or held (refused and failed takes left out)" + (f"; {waiting} still running (run takes later)" if waiting else ""))
 
 
 def pick(choices):
@@ -265,7 +266,12 @@ def import_files(choices):
         save_ledger(ledger)
 
 
-def run(stage_number, only=None, takes=None, confirm=False, model_key=None):
+def refused(take):
+    """A take the provider turned away for its balance: nothing was made or billed, so it can be asked for again."""
+    return take.get("status") == "failed" and str(take.get("error") or "").startswith("INSUFFICIENT_PROVIDER_BALANCE")
+
+
+def run(stage_number, only=None, takes=None, confirm=False, model_key=None, retry_refused=False):
     spec = load("spec.json")
     ledger = load("assets.json")
     stage = next(s for s in spec["stages"] if s["stage"] == stage_number)
@@ -287,11 +293,22 @@ def run(stage_number, only=None, takes=None, confirm=False, model_key=None):
             if not confirm:
                 print(f"{item['key']} {name}: {model['name']} ({settings}); inputs {', '.join(f'{k} as {r}' for k, r in pairs)}; prompt {len(parameters['prompt'])} characters")
                 continue
-            started = call("queue_generation", {"modelId": model["id"], "parameters": parameters, "inputs": inputs,
-                                                "clientRequestId": f"aurixa-reel1-{item['key']}-{name}"})
             known = record.get(item["key"], {}).get(name)
+            request = f"aurixa-reel1-{item['key']}-{name}"
+            if known and refused(known):
+                if not retry_refused:
+                    print(f"{item['key']} {name}: refused before it was made ({known['error']}); --retry-refused queues it again")
+                    continue
+                # Refused for the balance, so nothing was made or billed: asked again under a key of its own.
+                earlier = known.get("refused", []) + [known["generationId"]]
+                request = f"{request}-after-refusal-{len(earlier)}"
+            else:
+                earlier = None
+            started = call("queue_generation", {"modelId": model["id"], "parameters": parameters, "inputs": inputs,
+                                                "clientRequestId": request})
             if not known or known["generationId"] != started["generationId"]:
-                record.setdefault(item["key"], {})[name] = {"generationId": started["generationId"], "status": started["status"]}
+                record.setdefault(item["key"], {})[name] = {"generationId": started["generationId"], "status": started["status"],
+                                                            **({"refused": earlier} if earlier else {})}
             queued += 1
             print(f"{item['key']} {name}: {started['generationId']} {started['status']}" + (f" ({started['budgetWarning']})" if started.get("budgetWarning") else ""))
             save_takes(record)
@@ -310,13 +327,15 @@ if __name__ == "__main__":
     parser.add_argument("--takes", type=int, help="takes per item (numbered from 1)")
     parser.add_argument("--model", help="Stage 5: the clip model (clip_cinema, clip_seedance or clip_kling)")
     parser.add_argument("--confirm", action="store_true", help="queue for real (billed)")
+    parser.add_argument("--retry-refused", action="store_true", help="queue again a take the provider refused for its balance")
     args = parser.parse_args()
     if args.command == "import-plates":
         import_plates(args.target[0], set(args.only.split(",")) if args.only else None)
     elif args.command == "price":
         price(int(args.target[0]), set(args.only.split(",")) if args.only else None, args.model)
     elif args.command == "run":
-        run(int(args.target[0]), set(args.only.split(",")) if args.only else None, args.takes, args.confirm, args.model)
+        run(int(args.target[0]), set(args.only.split(",")) if args.only else None, args.takes, args.confirm, args.model,
+            args.retry_refused)
     elif args.command == "pick":
         pick(args.target)
     elif args.command == "import":

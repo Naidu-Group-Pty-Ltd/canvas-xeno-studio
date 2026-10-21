@@ -2207,25 +2207,239 @@
  "V-01A": {
   "cinema-take1": {
    "generationId": "a0231260-03fa-460b-a018-c6f076456955",
-   "status": "queued"
+   "status": "completed",
+   "assets": [
+    "4054481b-7f2c-4237-a7bf-d0f691c562c7"
+   ],
+   "costUsd": 2.78,
+   "error": null
   }
  },
  "V-01B": {
   "cinema-take1": {
    "generationId": "e5af29ba-f540-4a70-908e-cc4f74959b35",
-   "status": "queued"
+   "status": "completed",
+   "assets": [
+    "c95260c6-b151-4e57-ab0a-a3739255599e"
+   ],
+   "costUsd": 2.78,
+   "error": null
   }
  },
  "V-02A": {
   "cinema-take1": {
    "generationId": "066df871-8de8-40b1-b10a-0b4bc11a6a17",
-   "status": "queued"
+   "status": "completed",
+   "assets": [
+    "cc187a6f-98ea-41ff-adea-32d7e027d99e"
+   ],
+   "costUsd": 5.09,
+   "error": null
   }
  },
  "V-03A": {
   "cinema-take1": {
    "generationId": "38d8fb10-9048-450c-bd97-26ce040bb0b4",
-   "status": "queued"
+   "status": "completed",
+   "assets": [
+    "06895a7a-7574-4c62-a502-b959378ab9e8"
+   ],
+   "costUsd": 2.32,
+   "error": null
+  }
+ },
+ "V-03B": {
+  "cinema-take1": {
+   "generationId": "2623af89-6963-4696-84bb-72ad2653a40c",
+   "status": "completed",
+   "assets": [
+    "dd29de55-43ac-4b41-a7ee-39f8aca6009d"
+   ],
+   "costUsd": 2.32,
+   "error": null
+  }
+ },
+ "V-03C": {
+  "cinema-take1": {
+   "generationId": "c3354c56-3f3a-4953-b099-0692d805eb50",
+   "status": "completed",
+   "assets": [
+    "6d37c04c-2c7e-4a0d-8e2e-e050ce4777e8"
+   ],
+   "costUsd": 1.85,
+   "error": null
+  }
+ },
+ "V-04A": {
+  "cinema-take1": {
+   "generationId": "dbf9185c-dbc0-49ea-adf7-c8c0c4f01118",
+   "status": "completed",
+   "assets": [
+    "ff022939-b75e-49dc-9189-42cc6e47e07c"
+   ],
+   "costUsd": 3.24,
+   "error": null
+  }
+ },
+ "V-05A": {
+  "cinema-take1": {
+   "generationId": "43b7f766-6d88-489f-82c0-83411405da92",
+   "status": "completed",
+   "assets": [
+    "5317c52a-4e34-4ce3-99f8-6a1d7a25830c"
+   ],
+   "costUsd": 1.85,
+   "error": null
+  }
+ },
+ "V-05B": {
+  "cinema-take1": {
+   "generationId": "6e89f473-0863-49f2-b963-d5066d38bdf0",
+   "status": "completed",
+   "assets": [
+    "1e8dea9f-9a5f-4718-9344-2277141205ba"
+   ],
+   "costUsd": 1.85,
+   "error": null
+  }
+ },
+ "V-05C": {
+  "cinema-take1": {
+   "generationId": "373b63c3-b554-4865-a10f-6fbedbc7948b",
+   "status": "completed",
+   "assets": [
+    "ea056a07-4358-46f1-a0f1-4fda3ae4f03b"
+   ],
+   "costUsd": 2.32,
+   "error": null
+  }
+ },
+ "V-06A": {
+  "cinema-take1": {
+   "generationId": "31c9e94c-10c8-4ce8-a543-dae9d57fc84b",
+   "status": "completed",
+   "assets": [
+    "2dde2e3d-2d48-4e5c-9eda-7204b32db0b1"
+   ],
+   "costUsd": 3.24,
+   "error": null
+  }
+ },
+ "V-06B": {
+  "cinema-take1": {
+   "generationId": "552acedd-431b-485e-93ca-0b871459d6d0",
+   "status": "completed",
+   "assets": [
+    "60da7807-a03f-4cc7-ab77-a4c293102904"
+   ],
+   "costUsd": 4.17,
+   "error": null
+  }
+ },
+ "V-08A": {
+  "cinema-take1": {
+   "generationId": "5cd95d30-657b-4d5f-8d14-1b246a17ebeb",
+   "status": "completed",
+   "assets": [
+    "93db1205-f47f-48ab-a36c-8e752ad83fc9"
+   ],
+   "costUsd": 2.78,
+   "error": null
+  }
+ },
+ "V-08B": {
+  "cinema-take1": {
+   "generationId": "d13493b3-75e1-4f50-bee9-ae3c708cf94b",
+   "status": "completed",
+   "assets": [
+    "4b37204a-9ad6-4aa1-b7bd-cb4be4de9d0d"
+   ],
+   "costUsd": 3.24,
+   "error": null
+  }
+ },
+ "V-09A": {
+  "cinema-take1": {
+   "generationId": "f7e80043-0295-475f-b2c7-c8b3617e33b7",
+   "status": "failed",
+   "refused": [
+    "0eaacef6-ebee-42e1-bd54-756c9c8195cb"
+   ],
+   "assets": [],
+   "costUsd": 2.78,
+   "error": "INSUFFICIENT_PROVIDER_BALANCE not_enough_credits"
+  }
+ },
+ "V-09B": {
+  "cinema-take1": {
+   "generationId": "adf4c9d7-1b37-4e27-b9db-7b8cd21370be",
+   "status": "failed",
+   "assets": [],
+   "costUsd": 1.85,
+   "error": "INSUFFICIENT_PROVIDER_BALANCE not_enough_credits"
+  }
+ },
+ "V-10A": {
+  "cinema-take1": {
+   "generationId": "15c1482a-a673-40c6-8eaf-8cb904354730",
+   "status": "failed",
+   "assets": [],
+   "costUsd": 2.32,
+   "error": "INSUFFICIENT_PROVIDER_BALANCE not_enough_credits"
+  }
+ },
+ "V-10B": {
+  "cinema-take1": {
+   "generationId": "b00e1714-aee4-4d20-aba6-3a63af577c21",
+   "status": "failed",
+   "assets": [],
+   "costUsd": 2.32,
+   "error": "INSUFFICIENT_PROVIDER_BALANCE not_enough_credits"
+  }
+ },
+ "V-11A": {
+  "cinema-take1": {
+   "generationId": "3679f030-00c9-4078-be1c-e1148953049a",
+   "status": "failed",
+   "assets": [],
+   "costUsd": 2.78,
+   "error": "INSUFFICIENT_PROVIDER_BALANCE not_enough_credits"
+  }
+ },
+ "V-12A": {
+  "cinema-take1": {
+   "generationId": "e8537368-ef5d-451c-8d07-509420ed6669",
+   "status": "failed",
+   "assets": [],
+   "costUsd": 2.78,
+   "error": "INSUFFICIENT_PROVIDER_BALANCE not_enough_credits"
+  }
+ },
+ "V-12B": {
+  "cinema-take1": {
+   "generationId": "33c9e39a-f360-4d79-b372-f9864cfe308b",
+   "status": "failed",
+   "assets": [],
+   "costUsd": 2.78,
+   "error": "INSUFFICIENT_PROVIDER_BALANCE not_enough_credits"
+  }
+ },
+ "V-13A": {
+  "cinema-take1": {
+   "generationId": "88496ffc-6510-4c03-8745-8d16f0405e54",
+   "status": "failed",
+   "assets": [],
+   "costUsd": 5.09,
+   "error": "INSUFFICIENT_PROVIDER_BALANCE not_enough_credits"
+  }
+ },
+ "V-15A": {
+  "cinema-take1": {
+   "generationId": "7e393fb4-d8d3-4a8c-b8fa-74657a7b201b",
+   "status": "failed",
+   "assets": [],
+   "costUsd": 4.17,
+   "error": "INSUFFICIENT_PROVIDER_BALANCE not_enough_credits"
   }
  }
 }

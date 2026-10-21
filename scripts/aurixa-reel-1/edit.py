@@ -1,8 +1,9 @@
 """Lays Reel 1 out in the studio's Editor as a draft edit (create_edit), from one take of every clip.
 
-  python3 scripts/aurixa-reel-1/edit.py plan [--take cinema-take1]          # prints the timeline; nothing is saved
-  python3 scripts/aurixa-reel-1/edit.py create [--take cinema-take1]        # saves it as a new draft edit, then styles its captions
-  python3 scripts/aurixa-reel-1/edit.py create --trim V-11A=0.4             # a clip's window moved (seconds later; negative earlier)
+  python3 scripts/aurixa-reel-1/edit.py plan [--take cinema-take1] [--stand-ins]   # prints the timeline; nothing is saved
+  python3 scripts/aurixa-reel-1/edit.py save [--take cinema-take1] [--stand-ins]   # saves it as a draft edit (the same one again
+                                                                                    # once edit.json names it), captions styled
+  python3 scripts/aurixa-reel-1/edit.py save --trim V-11A=0.4                       # a clip's window moved (seconds later)
 
 The picture track is the spec's 26 shots on the voiceover's clock (spec.json shots[].edit), cut from 24 clips: 07A
 is cut from the 06B take and 14A from the 13A take, each straight after the shot before, as one passage. A clip is
@@ -10,7 +11,9 @@ made a little longer than its shots (about 0.75 s each end), so its shots sit in
 them. 11A cuts to the Demo workspace page (PL-11A-c) for its last moment, as the spec says that cut is made in the
 edit. The Block 14 phrases and the closing card are laid over the picture as full-frame pictures (their plates are
 transparent 1080 x 1920), the voiceover is the only sound, and the captions are the spec's, set in the brand kit's
-fonts and colours (the kit's own end card isn't used). The edit is saved with its id in edit.json.
+fonts and colours (the kit's own end card isn't used). The edit is saved with its id in edit.json. ADJUST records
+where a take's shots sit when the middle of it is wrong, and why; --stand-ins holds a clip not made yet in its place
+with its approved frame (a slow push-in, labelled STAND-IN), so the draft can be watched end to end meanwhile.
 """
 import json, sys
 from pathlib import Path
@@ -23,6 +26,20 @@ FPS = 30
 # holds into 12A's match on the Residence 014 tile.
 DEMO_CUT = 81.6
 RECORD = studio.SPEC_DIR / "edit.json"
+# Where a take's shots sit when the middle of it is wrong, read off that take (cinema-take1): the second into the
+# clip its first shot starts at, and a speed where the shot must end sooner in the source. Measured, not guessed:
+# the times are where the take's screen changes, found frame by frame.
+ADJUST = {
+    "cinema-take1": {
+        "V-03A": {"start": 0.0, "speed": 0.88,
+                  "why": "the screen's card turns from Floor plan received to Floor plan confirmed at 3.0 s, which no frame asks for; "
+                         "the shot plays its first 2.93 s a little slower, which a nearly still shot doesn't show"},
+        "V-03B": {"start": 1.0, "why": "the message becomes a document at 3.83 s, which no frame asks for; the shot ends at 3.6 s"},
+        "V-05B": {"start": 0.25, "why": "Jamie clicks at 0.54 s, before the middle of the take; the shot starts just before the click"},
+        "V-06B": {"start": 2.1, "why": "the Aurixa Agent opens at 6.6 s rather than on the first click, so 06B and 07A sit as late in "
+                                     "the take as it allows and 07A carries 2.4 s of the agent"},
+    },
+}
 
 
 def frames(seconds):
@@ -35,7 +52,7 @@ def source_clip(shot):
     return source if source.startswith("V-") else f"V-{source.removeprefix('cut from the ').removesuffix(' take')}"
 
 
-def layout(take_name, nudges):
+def layout(take_name, nudges, stand_ins=False):
     spec = studio.load("spec.json")
     ledger = studio.load("assets.json")
     takes = studio.load_takes()
@@ -52,28 +69,40 @@ def layout(take_name, nudges):
         asset = studio.call("get_asset", {"assetId": take["assets"][0]})
         files[key] = {"assetId": asset["id"], "seconds": float(asset["duration_seconds"] or clips[key]["seconds"]),
                       "fps": asset.get("fps")}
-    if missing:
-        sys.exit(f"No completed {take_name} for {', '.join(missing)}")
+    if missing and not stand_ins:
+        sys.exit(f"No completed {take_name} for {', '.join(missing)} (--stand-ins holds their places with their frames)")
 
-    # Where each shot starts inside its clip: the clip's shots in the middle of it, then any nudge.
-    starts = {}
-    for key in clips:
+    # Where each shot starts inside its clip: the clip's shots in the middle of it, or where ADJUST puts them, then
+    # any nudge; a speed below 1 uses less of the source.
+    starts, speeds = {}, {}
+    adjust = ADJUST.get(take_name, {})
+    for key in files:
         group = [shot for shot in shots if source_clip(shot) == key]
-        used = sum(shot["edit"]["seconds"] for shot in group)
-        at = max(0.0, (files[key]["seconds"] - used) / 2 + nudges.get(key, 0.0))
-        at = min(at, max(0.0, files[key]["seconds"] - used))
+        speed = adjust.get(key, {}).get("speed", 1.0)
+        used = sum(shot["edit"]["seconds"] for shot in group) * speed
+        at = adjust[key]["start"] if "start" in adjust.get(key, {}) else (files[key]["seconds"] - used) / 2
+        at = min(max(0.0, at + nudges.get(key, 0.0)), max(0.0, files[key]["seconds"] - used))
         for shot in group:
-            starts[shot["shot"]] = frames(at)
-            at += shot["edit"]["seconds"]
+            starts[shot["shot"]], speeds[shot["shot"]] = frames(at), speed
+            at += shot["edit"]["seconds"] * speed
 
     picture = []
     for shot in shots:
         key = source_clip(shot)
         start, end = shot["edit"]["in"], shot["edit"]["out"]
         label = f"{shot['shot']} · {key}" + ("" if shot["source"] == key else f" ({shot['source']})")
-        piece = {"id": f"shot-{shot['shot']}", "assetId": files[key]["assetId"], "kind": "video",
-                 "trimStart": starts[shot["shot"]], "duration": frames(end - start), "volume": 0,
-                 "sourceDuration": files[key]["seconds"], "label": label}
+        if key in files:
+            piece = {"id": f"shot-{shot['shot']}", "assetId": files[key]["assetId"], "kind": "video",
+                     "trimStart": starts[shot["shot"]], "duration": frames(end - start), "speed": speeds[shot["shot"]],
+                     "volume": 0, "sourceDuration": files[key]["seconds"], "label": label}
+        else:
+            # No clip yet: its approved frame holds the place (the last frame for a shot cut later from the take).
+            item = clips[key]
+            later = shot["source"] != key and item.get("last_frame")
+            frame = item["last_frame"] if later else item["first_frame"]
+            piece = {"id": f"shot-{shot['shot']}", "assetId": ledger[frame], "kind": "image", "trimStart": 0,
+                     "duration": frames(end - start), "motion": "zoom_in",
+                     "label": f"STAND-IN {shot['shot']} · {key} not made yet: its frame {frame}"}
         if shot["shot"] == "11A":
             piece["duration"] = frames(DEMO_CUT - start)
             picture.append(piece)
@@ -109,32 +138,42 @@ def layout(take_name, nudges):
         "safeArea": "reels",
     }
     total = sum(piece["duration"] for piece in picture)
-    return timeline, files, total, spec
+    return timeline, files, total, spec, missing
 
 
-def show(timeline, files, total, spec):
+def show(timeline, files, total, spec, missing=()):
     print(f"{len(timeline['clips'])} pieces, {total:.3f} s of picture against the voiceover's {spec['voiceover']['seconds']} s")
     at = 0.0
     for piece in timeline["clips"]:
         source = next((f for f in files.values() if f["assetId"] == piece["assetId"]), None)
         tail = f" of {source['seconds']:.2f} s ({source['fps']} fps)" if source else ""
-        print(f"  {at:7.3f}  {piece['label']:<44} from {piece['trimStart']:5.2f} for {piece['duration']:.3f}{tail}")
+        speed = f" at {piece['speed']}x" if piece.get("speed", 1) != 1 else ""
+        print(f"  {at:7.3f}  {piece['label']:<44} from {piece['trimStart']:5.2f} for {piece['duration']:.3f}{speed}{tail}")
         at += piece["duration"]
     print(f"  {len(timeline['captions']['segments'])} captions; {len(timeline['images'])} pictures over the edit; voiceover from 0")
 
 
-def create(take_name, nudges):
-    timeline, files, total, spec = layout(take_name, nudges)
-    show(timeline, files, total, spec)
+def save(take_name, nudges, stand_ins):
+    """A new draft edit, or (once edit.json names one) the same edit at its next version, so its link stays the same."""
+    timeline, files, total, spec, missing = layout(take_name, nudges, stand_ins)
+    show(timeline, files, total, spec, missing)
     if abs(total - spec["voiceover"]["seconds"]) > 0.05:
         sys.exit(f"The picture runs {total:.3f} s, not the voiceover's {spec['voiceover']['seconds']} s")
-    title = f"Aurixa Systems · Reel 1 · draft ({take_name}, Cinema Studio 4.0)"
-    made = studio.call("create_edit", {"title": title, "timeline": timeline})
+    title = f"Aurixa Systems · Reel 1 · draft ({take_name}, Cinema Studio 4.0)" + (f" · {len(missing)} clips to come" if missing else "")
+    known = json.loads(RECORD.read_text()) if RECORD.exists() else None
+    if known:
+        current = studio.call("get_edit", {"sequenceId": known["sequenceId"]})
+        made = studio.call("update_edit", {"sequenceId": known["sequenceId"], "expectedVersion": current["version"],
+                                           "title": title, "timeline": timeline})
+    else:
+        made = studio.call("create_edit", {"title": title, "timeline": timeline})
     styled = studio.call("apply_brand_kit", {"sequenceId": made["sequenceId"], "expectedVersion": made["version"],
                                              "brandKitId": spec["brand_kit"]["id"], "endCard": None})
     RECORD.write_text(json.dumps({"sequenceId": made["sequenceId"], "version": styled["version"], "title": title,
-                                  "take": take_name, "nudges": nudges}, indent=2) + "\n")
-    print(f"Saved as a draft edit: {made['sequenceId']} (version {styled['version']}), captions in the brand kit's look")
+                                  "take": take_name, "stand_ins": missing, "adjust": ADJUST.get(take_name, {}),
+                                  "nudges": nudges}, indent=2) + "\n")
+    print(f"Saved as a draft edit: {made['sequenceId']} (version {styled['version']}), captions in the brand kit's look"
+          + (f"; stand-ins for {', '.join(missing)}" if missing else ""))
 
 
 if __name__ == "__main__":
@@ -145,7 +184,8 @@ if __name__ == "__main__":
         if arg == "--trim":
             key, _, value = sys.argv[i + 1].partition("=")
             nudges[key] = float(value)
+    stand_ins = "--stand-ins" in sys.argv
     if command == "plan":
-        show(*layout(take_name, nudges))
-    elif command == "create":
-        create(take_name, nudges)
+        show(*layout(take_name, nudges, stand_ins))
+    elif command == "save":
+        save(take_name, nudges, stand_ins)
