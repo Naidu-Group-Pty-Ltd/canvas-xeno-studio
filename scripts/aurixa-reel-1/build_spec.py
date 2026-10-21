@@ -360,9 +360,11 @@ SHOTS = [
                 "with the facade in the upper-middle of the frame, then hold. Leaves move gently; a trace of warm interior light. No people, no cars.",
          handoff="01A to 01B, direct property-image match: the last frame is the P image itself."),
     dict(shot="01B", block="01", cast=["JORDAN"], look="home", set="S-HOME", plates=["PL-01B-a", "PL-01B-b"],
-         first=(["P", "S-HOME"], "An extreme close view of Jordan's open laptop on his home desk, the camera so close that the screen fills the frame: it shows {screen} "
-                                  "exactly (the enquiry being written), framed so that the property photograph on it sits large in the upper-middle of the frame at the same "
-                                  "position, crop and brightness as image 1. Only the laptop's top edge and a hint of the warm room at the frame's edges."),
+         first=(["P", "S-HOME"], "A macro close-up of Jordan's open laptop screen at his home desk, with no person anywhere in the frame (Jordan is revealed later in the shot): "
+                                  "the camera is a hand's width from the screen, looking very slightly down, so the screen fills the whole frame edge to edge. It shows {screen} "
+                                  "exactly (the enquiry being written), framed so that the property photograph on it is large in the upper-middle of the frame, at the same position, "
+                                  "crop and brightness as image 1, with the message beside and below it partly in frame. Only a sliver of the laptop's top bezel and a hint of "
+                                  "the warm room at the very top edge."),
          last=(["C-JORDAN", "S-HOME"], "Seated eye height, slightly right of the laptop: " + CAST["JORDAN"] + " (image 1) sits at the home desk in image 2 in a thoughtful three-quarter profile, "
                                         "his right hand resting on the laptop's touchpad. The laptop sits in the upper-middle of the frame; " + SCREEN_LIGHT + ". Warm timber, a subtle gold lamp reflection."),
          motion="Begin tight on the laptop screen; ease slightly back and to the right to reveal Jordan's light blue shirt, thoughtful profile and his hand on the touchpad. "
@@ -383,8 +385,10 @@ SHOTS = [
          motion="A tiny rightward camera drift, then settle and hold on the screen and the phone at the desk edge. Alex's hand rests on the mouse. Nearly still.",
          handoff="03A to 03B, same-desk match on the phone and document edge before the vibration."),
     dict(shot="03B", block="03", cast=["ALEX"], look="office", set="S-OFFICE", plates=["PL-03B"],
-         first=(["C-ALEX", "S-OFFICE", "F-03A-in"], "Medium close of " + CAST["ALEX"] + " (image 1) at the same workstation (images 2 and 3): the phone lies face up beside the printed document in the "
-                                                    "foreground; her hand on the mouse; the monitor behind her hand, " + SCREEN_LIGHT + "."),
+         first=(["C-ALEX", "S-OFFICE", "F-03A-in"], "Medium close from beside the desk, in front of and to the right of her: " + CAST["ALEX"] + " (image 1) at the same workstation "
+                                                    "(images 2 and 3) in three-quarter profile, her eyes on her monitor; she never looks toward the camera (observed, not "
+                                                    "posing). The phone lies face up beside the printed document in the foreground, its screen dark; her hand on the mouse; "
+                                                    "the monitor behind her hand, " + SCREEN_LIGHT + "."),
          last=None,
          motion="The phone vibrates once beside the printed document. Alex pauses her mouse movement, glances toward the phone, then back toward the monitor. "
                 "A restrained focus shift from the phone to her eyes, then settle with the monitor readable behind her resting hand. One clear interruption only.",
@@ -573,6 +577,10 @@ SWAP_BODY = ("The same frame as image 1, unchanged in every detail: the same peo
              "Only what the screen shows has changed.")
 
 
+# A frame whose prompt changed after takes were made: studio.py names its new takes r2-take1 and so on.
+FRAME_REVISION = {"F-01B-in": 2, "F-03B-in": 2}
+
+
 def frame(key, shot, refs, body, look):
     """A frame's inputs and prompt: its references, then any pin, sign and screen plate, numbered in that order."""
     refs = list(refs)
@@ -598,6 +606,7 @@ def frame(key, shot, refs, body, look):
             body += " " + screen_shows(n, "The screen") + "."
     return {"key": key, "shot": shot, "model": "still_edit", "inputs": refs,
             **({"screen": SCREEN[key]} if key in SCREEN else {}), **({"pin": PIN[key]} if key in PIN else {}),
+            **({"revision": FRAME_REVISION[key]} if key in FRAME_REVISION else {}),
             "parameters": {**STILL, "aspect_ratio": "9:16", "prompt": compose(refs, body, look, labels, plates)}, "takes": 2}
 
 

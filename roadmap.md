@@ -85,5 +85,7 @@
 - [x] Reel 1: Jordan and Daniel look professional (their sheets' revision 2, six takes); Jordan r2-take3 and Daniel r2-take3 are picked
 - [x] Reel 1 plates re-rendered with the approved P and D (the emblem a marked placeholder until its file comes)
 - [x] Reel 1 F-01A-in (the only frame with no screen): two takes, take1 picked
-- [ ] Reel 1 stage 4, the other 35 frames: decide how the plates reach the screens first. The studio's editor lays only flat, still pictures over video (position, width, opacity, fade), so it can't put a plate on an angled screen or follow one through a camera move; either the frames carry the plate content, or the plates are tracked on in another editor, or they cut in as full-frame inserts
+- [x] Reel 1: option 1 chosen (the frames carry their screen plates); the supplied logo gives the emblem and wordmark; 16 final plates imported, the 31 stale v1 plate ids cleared
+- [x] Reel 1 stage 4, the 19 frames that don't depend on the Command Center: made and picked (blocks 01, 02, 03, 05B, 06A, 12, 13), screens reproduced exactly; F-01B-in and F-03B-in re-prompted once (no person in the opening close-up; Alex not looking at the camera)
+- [ ] Reel 1 stage 4, the other 23 frames: Alex's Command Center screens (04A to 07A, 10B, 11A) and everything continued from them (08A to 10A) wait on the Command Center's Reports screenshot
 - [ ] The studio records no price for metered GPT Image runs: Higgsfield's result carries none, so a run's cost and the balance countdown miss them (the Console's balance is the only record)
