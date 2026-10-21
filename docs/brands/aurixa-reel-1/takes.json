@@ -2192,5 +2192,40 @@
    "costUsd": null,
    "error": null
   }
+ },
+ "V-04B": {
+  "cinema-take1": {
+   "generationId": "884b30d7-f8f6-403e-a440-ebebbe10e996",
+   "status": "completed",
+   "assets": [
+    "3b47149e-4cc7-4be4-9a1d-b984cc406cde"
+   ],
+   "costUsd": 4.17,
+   "error": null
+  }
+ },
+ "V-01A": {
+  "cinema-take1": {
+   "generationId": "a0231260-03fa-460b-a018-c6f076456955",
+   "status": "queued"
+  }
+ },
+ "V-01B": {
+  "cinema-take1": {
+   "generationId": "e5af29ba-f540-4a70-908e-cc4f74959b35",
+   "status": "queued"
+  }
+ },
+ "V-02A": {
+  "cinema-take1": {
+   "generationId": "066df871-8de8-40b1-b10a-0b4bc11a6a17",
+   "status": "queued"
+  }
+ },
+ "V-03A": {
+  "cinema-take1": {
+   "generationId": "38d8fb10-9048-450c-bd97-26ce040bb0b4",
+   "status": "queued"
+  }
  }
 }

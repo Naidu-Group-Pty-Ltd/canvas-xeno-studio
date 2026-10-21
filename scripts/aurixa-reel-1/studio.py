@@ -13,9 +13,9 @@ item's revision, once its prompt is revised: r2-take1), so running again returns
 made instead of paying twice; --takes 4 adds a fourth. A failed or blocked take is never tried again
 by itself. An input written KEY@take is that named take of a frame (a screen swap starts from the approved one).
 
-Stage 5's clips name no model until the test picks one, so price and run take --model (clip_seedance or
-clip_kling) there: a clip goes from its first frame to its last (when it has one) for its source seconds,
-and its takes carry the model's short name (kling-take1), so both models can be tried on one shot.
+Stage 5's clips take --model (clip_cinema, the client's choice; clip_seedance or clip_kling) there: a clip goes
+from its first frame to its last (when it has one) for its source seconds, and its takes carry the model's short
+name (cinema-take1). Cinema Studio takes its frames as reference images, sent as the studio's long videos send them.
 
 The API is the published studio's (XENO_STUDIO_URL, default https://canvas-xeno-studio.lovable.app),
 with a personal token in XENO_STUDIO_TOKEN (or one the network adds).
@@ -88,7 +88,10 @@ def import_plates(folder, only=None):
 
 
 def asset_of(key, ledger, record):
-    """An input's library asset: a ledger key, or KEY@take for one named take of a frame (a screen swap's approved take)."""
+    """An input's library asset: a ledger key, KEY@take for one named take of a frame (a screen swap's approved take),
+    or asset:<id> for a library file named directly (a character's sheet view)."""
+    if key.startswith("asset:"):
+        return key[len("asset:"):]
     if "@" in key:
         name, take = key.split("@", 1)
         made = record.get(name, {}).get(take, {})
@@ -101,18 +104,59 @@ def request_for(item, spec, model_key=None):
     a clip (Stage 5) on the model given, from its first frame to its last, for its source seconds."""
     if "first_frame" in item:
         if not model_key:
-            sys.exit("Stage 5's clips need --model (clip_seedance or clip_kling)")
+            sys.exit("Stage 5's clips need --model (clip_cinema, clip_seedance or clip_kling)")
         model = spec["models"][model_key]
         low, high = model["seconds"]
         if not low <= item["seconds"] <= high:
             sys.exit(f"{item['key']}: {item['seconds']} s is outside {model['name']}'s {low} to {high} s")
-        pairs = [(item["first_frame"], model["roles"]["first"])]
-        if item.get("last_frame"):
-            pairs.append((item["last_frame"], model["roles"]["last"]))
-        parameters = {**model["parameters"], "prompt": item["prompt"], "duration": item["seconds"]}
+        if model.get("reference_frames"):
+            pairs, prompt = reference_frames(item, spec, model)
+        else:
+            pairs = [(item["first_frame"], model["roles"]["first"])]
+            if item.get("last_frame"):
+                pairs.append((item["last_frame"], model["roles"]["last"]))
+            prompt = item["prompt"]
+        parameters = {**model["parameters"], "prompt": prompt, "duration": item["seconds"]}
         return model, parameters, pairs, model_key.removeprefix("clip_") + "-"
     model = spec["models"][item["model"]]
     return model, item["parameters"], [(key, model["role"]) for key in item.get("inputs", [])], ""
+
+
+_characters = {}
+
+
+def reference_frames(item, spec, model):
+    """A clip for a model that takes its frames as reference images (Cinema Studio), sent as the studio's long videos
+    send it: the first frame as image 1 with the opening that says the clip starts on it, the clip's cast's sheet
+    views (everyone's best view first) named in the characters line right after the action, and the last frame as
+    the last image with the ending that says the clip ends on it."""
+    way = model["reference_frames"]
+    role = model["roles"]["first"]
+    cast = []
+    for shot in spec["shots"]:
+        # A clip carries its shot and any shot cut from it (07A from the 06B take, 14A from 13A).
+        if shot["source"] == item["key"] or shot["source"] == f"cut from the {item['key'][2:]} take":
+            cast += [who for who in shot["cast"] if who not in cast]
+    record = json.loads((SPEC_DIR / "characters.json").read_text())
+    views = [[(who, record[who]["sheet"][view]) for view in way["cast_views"] if view in record[who]["sheet"]] for who in cast]
+    sheets = [entry for round_ in zip(*views) for entry in round_] if views else []  # interleaved, as interleaveSheets
+    pairs = [(item["first_frame"], role)] + [(f"asset:{asset}", role) for _, asset in sheets]
+    people = []
+    for who in cast:
+        if who not in _characters:
+            _characters[who] = call("get_character", {"characterId": record[who]["characterId"]})
+        character = _characters[who]
+        where = ", ".join(f"<<<image_{2 + i}>>>" for i, (owner, _) in enumerate(sheets) if owner == who)
+        people.append(f"{character['name']} (shown in {where}): {character['description'].strip().rstrip('.')}")
+    paragraphs = [way["opening"], item["prompt"]]
+    if people:
+        keep = "each character" if len(people) > 1 else "them"
+        paragraphs.append(f"{'Characters' if len(people) > 1 else 'Character'}: {'. '.join(people)}. Keep {keep} exactly as in "
+                          f"their reference images: the same face, hair, build and clothes in every frame.")
+    if item.get("last_frame"):
+        pairs.append((item["last_frame"], model["roles"]["last"]))
+        paragraphs.append(way["ending"].format(n=len(pairs)))
+    return pairs, "\n\n".join(paragraphs)
 
 
 def price(stage_number, only=None, model_key=None):
@@ -264,7 +308,7 @@ if __name__ == "__main__":
     parser.add_argument("target", nargs="*")
     parser.add_argument("--only", help="item keys, comma separated")
     parser.add_argument("--takes", type=int, help="takes per item (numbered from 1)")
-    parser.add_argument("--model", help="Stage 5: the clip model (clip_seedance or clip_kling)")
+    parser.add_argument("--model", help="Stage 5: the clip model (clip_cinema, clip_seedance or clip_kling)")
     parser.add_argument("--confirm", action="store_true", help="queue for real (billed)")
     args = parser.parse_args()
     if args.command == "import-plates":

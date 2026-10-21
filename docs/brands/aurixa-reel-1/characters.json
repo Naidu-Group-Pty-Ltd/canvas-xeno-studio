@@ -262,11 +262,12 @@
     ],
     "soul": {
       "v2": {
-        "status": "failed",
-        "error": "Not enough credits (Higgsfield), 21 Oct 2026: nothing billed; the Soul ID trained on 5 images stays in use"
+        "status": "ready",
+        "images": 10,
+        "retrained": "2026-10-21, on the sheet, the frames and 5 pack photos"
       }
     },
-    "proof": "7b219f21-a057-4822-99ae-c39a842d8781",
+    "proof": "b20ee867-81b7-4093-8029-696238c4db85",
     "proofAsset": "85dea30d-48df-4f1b-a6b9-3289a3093086",
     "souls": [
       {
@@ -360,8 +361,9 @@
     ],
     "soul": {
       "v2": {
-        "status": "failed",
-        "error": "Not enough credits (Higgsfield), 21 Oct 2026: nothing billed; the Soul ID trained on 5 images stays in use"
+        "status": "ready",
+        "images": 12,
+        "retrained": "2026-10-21, on the sheet, the frames and 7 pack photos"
       }
     },
     "souls": [
@@ -376,7 +378,7 @@
       "version": "v2",
       "error": "Not enough credits"
     },
-    "proof": "4c1793a2-0bef-4c25-99b0-a4eb05c722cf",
+    "proof": "7e9164da-3a5c-4eda-9d06-e83af148ec2a",
     "proofAsset": "0c79b51c-da85-4571-8f9e-59bcad8b6dbd",
     "pack": {
       "1": {

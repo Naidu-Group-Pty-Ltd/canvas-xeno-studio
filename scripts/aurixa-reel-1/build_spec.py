@@ -40,6 +40,22 @@ MODELS = {
         "roles": {"first": "source", "last": "last_frame"},
         "seconds": [3, 15],
     },
+    # The client's choice (21 October 2026). It has no start- or end-frame input: as the studio's long videos send
+    # it (src/lib/long-video/plan.ts), the first frame is reference image 1 and the prompt says the clip starts on it,
+    # the cast's sheet views follow (named in the characters line), and the last frame is the last image, which the
+    # clip is told it ends on. The sheet's composite (four poses in one picture) is left out of a video's references.
+    "clip_cinema": {
+        "id": "67632306-fe17-46cb-8374-2e2bed1f5c04",
+        "name": "Cinema Studio 4.0",
+        "parameters": {"aspect_ratio": "9:16", "resolution": "720p", "generate_audio": False, "pacing": "single-shot"},
+        "roles": {"first": "reference", "last": "reference"},
+        "reference_frames": {
+            "opening": "<<<image_1>>> is this clip's first frame. Start exactly on it and carry the action on from there.",
+            "ending": "It ends exactly on <<<image_{n}>>>: the clip's final frame, with everyone in it looking just as they do there.",
+            "cast_views": ["front", "three_quarter", "side"],
+        },
+        "seconds": [4, 30],
+    },
 }
 STILL = {"resolution": "2k", "quality": "high", "enhance_prompt": False, "moderation": "auto"}
 
@@ -832,7 +848,7 @@ end_card = {"from": SHOT_TIME["15A"]["in"], "to": timing["end"], "plate": "PL-15
 spec = {
     "title": "Aurixa Systems · Reel 1 working master",
     "source": "Aurixa_Systems_Reel_1_Video_Prompt_Pack - Final.pdf (Final Cinematic Edition, Revision 2), brief 848af668-b28b-4ddb-8ab2-f8916ce314f0",
-    "status": "plan only: nothing generated",
+    "status": "Stages 1 to 4 made and approved; Stage 5 clips on Cinema Studio 4.0",
     "delivery": {"aspect_ratio": "9:16", "size": "1080x1920", "fps": 30, "seconds": timing["end"]},
     "voiceover": {"asset_id": "84c0abf7-60d1-4439-84fd-e7038feffc01", "seconds": 106.031, "speech_end": 105.88,
                   "timed_from": "audio_preparations c47a30e0-edcd-4389-b98f-6c3fa11887d7 (265 measured words and speech segments)"},
@@ -903,6 +919,9 @@ spec = {
         "its PDF, at the cover Aurixa Systems would issue (no grade or score on it), so 08B's motion no longer brings a consideration into view. "
         "The Builders Network keeps its own look (navy, teal, Playfair, mono labels) and is drawn at the Command Centre's scale, as its stock "
         "plate is 34rem wide; 08B's frames are reframed so the display sits wholly inside them.",
+        "Confirmed 21 October 2026: the clips are made on Cinema Studio 4.0 in the studio (not Seedance or Kling, so no two-model test), one take "
+        "each to start, laid out in the Editor as a draft to review. It takes its frames as reference images rather than locked start and end "
+        "frames, at 720p at most; the edit is 1080p with the clips sharpened up.",
     ],
     "timing": {"method": "Each cut sits in the pause before the cue's first word (0.15 s ahead of its speech onset), or 0.1 s ahead of a word mid-phrase, snapped to 30 fps.",
                "cues": timing["cues"],
@@ -912,8 +931,8 @@ spec = {
         {"stage": 2, "name": "Sets", "gate": "Approve each set.", "items": stage2},
         {"stage": 3, "name": "Screen plates (typeset, no credits)", "gate": "Approve the plates: brand, source content, readability.", "items": stage3},
         {"stage": 4, "name": "Shot frames", "gate": "Block by block, each first frame built from the approved frame before it.", "items": frames},
-        {"stage": 5, "name": "Clips", "gate": "Test 01A and 04B on both clip models, choose one, then block by block.",
-         "test": {"shots": ["01A", "04B"], "models": ["clip_seedance", "clip_kling"]}, "items": clips},
+        {"stage": 5, "name": "Clips", "gate": "Cinema Studio 4.0 (the client's choice), one take of every clip first, reviewed as a draft edit in the Editor.",
+         "model": "clip_cinema", "items": clips},
     ],
     "shots": shots_out,
     "edit": {"captions": captions, "overlays": overlays, "end_card": end_card,
