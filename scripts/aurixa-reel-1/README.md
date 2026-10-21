@@ -11,7 +11,7 @@ These scripts build Aurixa's Reel 1 generation spec and typeset its screen plate
 | `plates.cjs`        | Typesets the 41 screen plates, Block 14 phrases and the closing card, and renders them to PNG with Playwright. Playfair Display and Inconsolata come from Google Fonts; Selawik from the assets folder.                                                      |
 | `selawik.py`        | Builds Selawik, the open stand-in for Segoe UI (the portals' font on Windows), from Microsoft's UFO sources, with the standard library alone.                                                                                                                |
 | `mascot.cjs`        | Renders the Aurixa Agent's presence (the mascot on her button and in her header) from the portals' own markup, stylesheet and art, to `mascot.png`.                                                                                                          |
-| `portals.cjs`       | The portal plates (used by `plates.cjs`), built on the shells of the portal screenshots.                                                                                                                                                                     |
+| `portals.cjs`       | The portal plates (used by `plates.cjs`), built on the shells of the portal screenshots and, where none was supplied, on the portals' own code; with the browser window and PDF viewer the file scenes need.                                                 |
 | `studio.py`         | Runs the spec against the studio API: imports the plates (`import_image`, ids into `assets.json`), prices a stage (`estimate_generation`) and runs one (`queue_generation`, only with `--confirm`; takes into `takes.json`); Stage 5's clips take `--model`. |
 | `contact-sheet.cjs` | One picture of every rendered plate, for review.                                                                                                                                                                                                             |
 
@@ -24,7 +24,8 @@ npx prettier --write docs/brands/aurixa-reel-1
 git clone --depth 1 https://github.com/microsoft/Selawik /tmp/selawik
 python3 scripts/aurixa-reel-1/selawik.py "/tmp/selawik/Source files/UFO" assets
 node scripts/aurixa-reel-1/mascot.cjs <npc-client-dashboard checkout> assets/mascot.png 240
-node scripts/aurixa-reel-1/plates.cjs /tmp/reel-1-plates assets   # assets: P.png, D.png, emblem.png, wordmark.png, logo-art.png, mascot.png, Selawik-*.ttf
+node scripts/aurixa-reel-1/plates.cjs /tmp/reel-1-plates assets   # assets: P.png, D.png, emblem.png, wordmark.png, logo-art.png, mascot.png, bn-mark.png, Selawik-*.ttf
+PLATES_ONLY=PL-09B-a,PL-12A-a node scripts/aurixa-reel-1/plates.cjs /tmp/reel-1-plates assets   # just those, to look at a change
 node scripts/aurixa-reel-1/contact-sheet.cjs /tmp/reel-1-plates /tmp/reel-1-plates.png
 ```
 
@@ -36,6 +37,12 @@ The plates are v2:
   pages past Reports are made from that page's components.
 - The portal plates are set in the portals' own fonts, read from their code: Segoe UI (drawn in Selawik), the brand
   serif Playfair Display Medium, and Consolas for code labels (drawn in Inconsolata). See `docs/brands/aurixa-reel-1/QC.md`.
+- The pages no screenshot covers are built from the portals' own code (`npc-client-dashboard`, and `aurixa-builders`
+  for the Builder / Developer portal, both read only): Jamie's purchase file and its Finance Decisions, Jordan's My
+  property team, Mia's client file and its Requests, Priya's matter (Overview, Docs, Notes) and Daniel's Stock List
+  in the Builders Network's own look, with its mark (`bn-mark.png`, its `public/brand/aurixa-symbol-192.webp`).
+  A file opens in the browser's own tab in these portals, so the floor plan (12A, 12B) and the client's report (08B,
+  its exported PDF's cover, after `investmentPdfCover.ts`) are drawn in a browser window and its PDF viewer.
 - The trial card and the closing card carry the supplied logo whole (`logo-art.png`).
 - The property image (P), the floor plan (D), the emblem and the wordmark come from the assets folder
   (P and D the approved Stage 1 picks; the emblem and wordmark keyed from the supplied logo, REF-LOGO), and

@@ -595,7 +595,7 @@ SCREEN_SWAP = {
 # A frame whose framing changes with its screen (QC.md: 08B's display ran off the frame's edge): its approved take and
 # the revision its new takes are named for, and the change.
 REFRAME = {"F-08B-in": ("take1", 2), "F-08B-out": ("take2", 2)}
-REFRAME_NOTE = ("The view widens slightly from the same camera position, as if through a slightly wider lens, so the whole mounted display, "
+REFRAME_NOTE = ("the view widens slightly from the same camera position, as if through a slightly wider lens, so the whole mounted display, "
                 "all four edges of its bezel with a margin of wall around them, sits inside the frame; Alex and Jordan stay large and readable, "
                 "their faces in the same light.")
 
@@ -612,7 +612,7 @@ def reframe_prompt(base, plate_n):
     return ("Image 1 is " + base + " (the picture to reproduce), and image " + str(plate_n) + " is the new screen plate (every word, number and "
             "shape to reproduce exactly). Reproduce image 1 in every detail: the same people, faces, expressions, hair, clothes, pose and hands; "
             "the same lens character, focus and depth of field; the same light, colours, room, furniture and reflections. Change only two things. "
-            "The framing: " + REFRAME_NOTE + " The screen: " + screen_shows(plate_n) + ", replacing the screen's earlier content completely. "
+            "The framing: " + REFRAME_NOTE + " The display: " + screen_shows(plate_n) + ", replacing the screen's earlier content completely. "
             "Photorealistic cinematic film still, vertical 9:16. Apart from image " + str(plate_n) + " on the screen, no other text, letters, "
             "numbers, logos, watermarks or interface anywhere in the image.")
 

@@ -13,12 +13,53 @@ supplied screenshots and against the portals' own code (`npc-client-dashboard`, 
 | Wrong code face                          | Builder labels and chips                 | Consolas (the portals' mono stack on Windows), drawn in Inconsolata; it was JetBrains Mono.                                                                                                                                                                                               |
 | The trial card's logo wasn't good enough | PL-11A-a, PL-11A-b                       | The supplied logo, whole: its emblem, light rings, skyline and lettering, screened onto the card. The CTA reads START YOUR FREE TRIAL in the closing card's capitals.                                                                                                                     |
 | The same keyed logo on the closing card  | PL-15A                                   | The same: the supplied logo, whole.                                                                                                                                                                                                                                                       |
-| The floor plan overflowed its panel      | PL-12A-b                                 | Sized to the panel.                                                                                                                                                                                                                                                                       |
+| The floor plan overflowed its panel      | PL-12A-b                                 | Sized to the panel; later replaced by the plan's own PDF tab (below).                                                                                                                                                                                                                     |
 
 Measured against the screenshots' own words (mean difference of the inked shapes, lower is closer):
 Selawik 0.208, Hind 0.213, Open Sans 0.220, Plus Jakarta Sans (the old face) 0.264.
 
-## Screens that need the product's real pages
+## Built from the products' code
+
+Update, 21 October 2026, at the client's direction: no more screenshots are needed. The pages below are built from
+the products' own code (`npc-client-dashboard`, and `aurixa-builders` for the Builders Network, both read only):
+their layout, components, labels and states, in the supplied screenshots' Aurixa Systems tenant styling (blue
+actions, Segoe UI). The Builders Network keeps its own look: obsidian navy, teal actions, Playfair Display headings,
+Inter, mono labels and square corners on a 24 px setout grid.
+
+| Plates     | Shows                                                                                                                                   | From the code                                                                      |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| PL-05B-a/b | Jamie's purchase file: Overview, then Finance Decisions at her click (the current position and its history)                             | `FinancePortalPurchaseFileDetail`, `DealTrackerTabs`                               |
+| PL-13A-a/b | Record finance decision: Subject to valuation, then Decision recorded                                                                   | `DealTrackerTabs` (the decision dialog and its toast)                              |
+| PL-06A-b   | Jordan's My property team: the five roles, and what his accountant needs from him                                                       | `PortalPropertyTeam`, `PropertyTeamPanel`                                          |
+| PL-08A-a/b | Mia's client file, Requests: FY2026 income statement, Mark fulfilled, then Fulfilled                                                    | `AccountantClientDetail`                                                           |
+| PL-09B-a/b | Priya's matter: Overview, then Docs (its document register) at her click                                                                | `SolicitorPortalLayout`, `SolicitorMatterDetail`, `MatterDocumentsPanel`           |
+| PL-12B-a/b | Priya's two windows: the floor plan's PDF, and the matter's Notes; Save notes, then the toast Matter updated                            | `SolicitorMatterDetail` (Notes tab; Open opens a file in a new tab)                |
+| PL-12A-a/b | Daniel's Stock List (the Residence 014 plate: elevation and schedule, selected for a client), then his floor plan's PDF in the next tab | `BuilderPortalLayout`, `BuilderStockList`, `builder-drafting.css`                  |
+| PL-05C-b   | The report's page, which a click in Generated Reports opens                                                                             | `GeneratedReports` → `InvestmentReportView` (the supplied investment report page)  |
+| PL-08B     | The client's report as delivered: its PDF, at the cover Aurixa Systems issues, in the browser's PDF viewer                              | `investmentPdfCover.ts` (the issuer cover), `investmentPdfDocument.ts` (its title) |
+
+What the code changed:
+
+- **Scenario comparison** (05B, 13A) isn't in the purchase file, so Jamie opens Finance Decisions and records
+  Subject to valuation: a neutral call, so the reel makes no finance promise.
+- **Mark reviewed** (08A) doesn't exist; Mia marks the client's reply fulfilled.
+- **My property team** (06A) shows five roles: the product's four (buyer's agent, finance broker, solicitor,
+  accountant) and the demo project's builder beside them, as the approved dashboard counts five.
+- **The floor plan is never drawn inside a portal.** The Builders Network shows only a stock item's elevation (its
+  plate opens nothing), and a solicitor's document opens in the browser's own tab. So Daniel moves to his plan's PDF
+  in the next tab (12A), and Priya has the PDF and the matter's Notes side by side in two windows (12B), Notes being a
+  separate tab from Docs. Both show the same file, `floorplan-R014.pdf`, for the 12A to 12B match.
+- **09B opens the matter's Docs** rather than the matters list: the document register is the answer to 09A's two
+  duplicated document lists.
+- **The client summary** (05C-b, 08B) was a white page with placeholder bars. 05C's click opens the report's page;
+  the meeting display shows the report's PDF cover (the Aurixa emblem, AURIXA SYSTEMS, INVESTMENT COMPASS, the
+  address and the photograph; no grade or score on it), so 08B's motion now has Alex point to it rather than bring
+  a consideration into view.
+- The Builder portal is drawn at the Command Centre's 125% (its stock plate's elevation is 34rem wide in the code).
+- Figures: Residence 014 at $1,150,000 (the finance file's purchase price), four bedrooms and one bathroom as its
+  floor plan (D) draws them.
+
+## Screens that needed the product's real pages (resolved)
 
 Update, 21 October 2026: the Command Centre's Generated Reports, an investment report, the agent open over it and
 Overview were supplied, and 05A, 05C-a, 06B, 07A and 11A-c are rebuilt on them (the agent's mascot rendered from the
