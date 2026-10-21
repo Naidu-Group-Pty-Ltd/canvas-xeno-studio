@@ -27,7 +27,8 @@ The plates are v2:
 
 - The Solicitor, Accountant, Finance, Client and Builder / Developer plates are built on those
   portals' screenshots: their shell and layout, with the reel's fictional people and records.
-- The Command Center plates follow the same family until its screenshot is supplied.
+- The Command Centre plates are built on its Reports page screenshot (REF-CC-REPORTS), drawn at 125% zoom; the
+  pages past Reports are made from that page's components.
 - The property image (P), the floor plan (D), the emblem and the wordmark come from the assets folder
   (P and D the approved Stage 1 picks; the emblem and wordmark keyed from the supplied logo, REF-LOGO), and
   are marked placeholders without it.

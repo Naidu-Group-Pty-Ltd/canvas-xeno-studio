@@ -660,20 +660,25 @@ PLATES = [
     ("PL-03B", "03B", "generic", "The original enquiry card behind Alex's hand", ["Can we review whether this suits my plans?", "Jordan Ellis · Residence 014"]),
     ("PL-03C", "03C", "generic", "Jordan's conversation, still unanswered", ["Can we review whether this suits my plans?", "(no reply yet)", "Optional emphasis caption: WHAT HAPPENS THEN"]),
     ("PL-SIGN", "04A", "aurixa", "Architectural sign on the glass", ["Approved triangular emblem", "AURIXA SYSTEMS"]),
-    ("PL-04B-a", "04B", "aurixa", "Command Center · Reports, before the selection", ["Sidebar: AURIXA SYSTEMS (grouped navigation)", "Banner eyebrow: AURIXA REPORTING COMMAND CENTER", "Page: Reports",
-        "Tabs: Manual (active) · URL Extraction · PDF Upload", "Cards: Existing Property · New Build · Land Only", "Demo workspace"]),
-    ("PL-04B-b", "04B", "aurixa", "Command Center · Reports, New Build selected", ["New Build card in saturated blue (#1238E8)", "Context: Project Banksia / Residence 014 · BK-014 (thumbnail P)", "Demo workspace"]),
-    ("PL-05A-a", "05A", "aurixa", "Research brief, before the click", ["Prepared context: Project Banksia / Residence 014 (P)", "Research brief (under the cursor)", "Next: Financial analysis", "Demo workspace"]),
+    ("PL-04B-a", "04B", "aurixa", "Command Centre · Reports, before the selection (the supplied Reports page)", ["Sidebar: AURIXA SYSTEMS · COMMAND CENTRE, its grouped navigation, Reports active",
+        "Banner eyebrow: AURIXA REPORTING COMMAND CENTRE", "Page: Reports", "Investment Report Workspace, preparing for Jordan Ellis: Project Banksia / Residence 014 · BK-014 (thumbnail P)",
+        "Tabs: Manual (active) · URL Extraction · PDF Upload", "Build type: Existing Property (selected, as the product opens) · New Build (under the cursor) · Land Only", "Demo workspace"]),
+    ("PL-04B-b", "04B", "aurixa", "Command Centre · Reports, New Build selected", ["New Build card selected in saturated blue (#1238E8)", "Context: Project Banksia / Residence 014 · BK-014 (thumbnail P), unchanged", "Demo workspace"]),
+    ("PL-05A-a", "05A", "aurixa", "Command Centre · the analysis, before the click", ["Prepared context: Project Banksia / Residence 014 (P), where 04B left it", "Investment Analysis · New Build (Compass)",
+        "Research brief (under the cursor)", "Next: Financial analysis", "Demo workspace"]),
     ("PL-05A-b", "05A", "aurixa", "Location overview, the result", ["Research brief", "Location overview (large, selected)", "Property characteristics", "Questions for review"]),
     ("PL-05B-a", "05B", "aurixa", "Finance · purchase file, before the click", ["Welcome back, Jamie", "Active purchase file: Project Banksia / Residence 014 (P)", "Tabs: Overview (active) · Scenario comparison (under the cursor) · Documents", "Demo workspace"]),
     ("PL-05B-b", "05B", "aurixa", "Finance · Scenario comparison", ["Scenario comparison (active tab)", "Base case · Alternative case", "Illustrative scenario", "Questions for discussion"]),
-    ("PL-05C-a", "05C", "aurixa", "Client summary preview control", ["Client summary", "Open preview (under the cursor)", "thumbnail P", "Demo workspace"]),
-    ("PL-05C-b", "05C", "aurixa", "The prepared report (white reading surface)", ["Project Banksia / Residence 014 (image P)", "Client summary (navy heading)", "Key considerations", "Questions for discussion", "fine gold dividers"]),
+    ("PL-05C-a", "05C", "aurixa", "Command Centre · Generated Reports, the client summary", ["Prepared for Jordan Ellis: Project Banksia / Residence 014 (thumbnail P)", "Client summary",
+        "Open preview (under the cursor)", "Investment Analysis · Compass · Ready", "Demo workspace"]),
+    ("PL-05C-b", "05C", "aurixa", "The prepared report, opened over the Command Centre (white reading surface)", ["Project Banksia / Residence 014 (image P)", "Client summary (navy heading)",
+        "Key considerations", "Questions for discussion", "fine gold dividers"]),
     ("PL-06A-a", "06A", "aurixa", "Client Portal dashboard, before the click", ["Welcome back, Jordan Ellis", "Your property team · 5 professionals working on Residence 014", "My Property Team (under the cursor)", "Demo workspace"]),
     ("PL-06A-b", "06A", "aurixa", "Client Portal · Your property team", ["My Property Team (selected)", "Your property team: Property · Finance · Legal · Builder / Developer · Accounting", "Residence 014",
         "Next discussion: Client summary", "Optional: one framed-glass enlargement of the team strip"]),
-    ("PL-06B-a", "06B", "aurixa", "Command Center record with the Aurixa Agent launcher", ["Prepared context: Residence 014", "Questions for review", "Aurixa Agent (launcher, under the cursor)", "Demo workspace"]),
-    ("PL-06B-b", "06B", "aurixa", "Aurixa Agent panel open", ["Aurixa Agent", "Draft client summary: Discuss the next step", "Review required", "Question to verify"]),
+    ("PL-06B-a", "06B", "aurixa", "Command Centre record with the Aurixa Agent launcher", ["Prepared context: Residence 014", "Questions for review",
+        "Aurixa Agent: the product's floating emblem, under the cursor, with its label", "Demo workspace"]),
+    ("PL-06B-b", "06B", "aurixa", "Aurixa Agent panel open", ["Aurixa Agent", "Residence 014 · Investment Analysis · Questions for review", "Draft client summary: Discuss the next step", "Review required", "Question to verify"]),
     ("PL-07A-a", "07A", "aurixa", "Draft before Alex's edit", ["Questions for review", "Draft: Discuss the next step"]),
     ("PL-07A-b", "07A", "aurixa", "Draft after the edit, saved", ["Draft: Review the remaining questions together", "Save draft → Draft saved (restrained teal)"]),
     ("PL-08A-a", "08A", "aurixa", "Accountant Portal · Needs you next", ["Needs you next", "Supporting information · Jordan Ellis · Residence 014", "Mark reviewed", "Demo workspace"]),
@@ -684,7 +689,8 @@ PLATES = [
     ("PL-09B-b", "09B", "aurixa", "Solicitor Portal · the matter opened", ["Project Banksia / Residence 014 (selected, blue)", "Document review: Contract of sale (draft) · Floor plan · Building specification", "Next discussion"]),
     ("PL-11A-a", "10B, 11A", "aurixa", "Campaign trial invitation", ["Approved emblem", "AURIXA SYSTEMS", "14-DAY FREE TRIAL", "Start your free trial (saturated blue CTA)"]),
     ("PL-11A-b", "11A", "aurixa", "CTA selected state", ["Start your free trial (pressed state)"]),
-    ("PL-11A-c", "11A", "aurixa", "Demo workspace", ["Demo workspace", "Explore your workspace", "Project tile: Residence 014 (image P)"]),
+    ("PL-11A-c", "11A", "aurixa", "Command Centre · Demo workspace", ["Demo workspace", "Explore your workspace", "Project tile: Residence 014 (image P)", "Portals: Client · Finance · Legal · Builder / Developer · Accounting",
+        "Get started: Run a report · Open a portal · Ask Aurixa"]),
     ("PL-12A-a", "12A", "aurixa", "Builder / Developer Portal · Stock List", ["AURIXA SYSTEMS · BUILDER / DEVELOPER PORTAL", "Projects · Stock List", "Project Banksia", "Residence 014 (row, under the cursor)", "Demo workspace"]),
     ("PL-12A-b", "12A", "aurixa", "Floor plan preview", ["Floor plan (image D)", "Residence 014"]),
     ("PL-12B-a", "12B", "aurixa", "Solicitor matter view with the plan and a prepared note", ["Floor plan (image D)", "Note: Discuss the remaining document questions.", "Save note"]),
@@ -761,12 +767,10 @@ spec = {
         {"key": "REF-LOOK-OPS", "what": "Aurixa Systems · brand look (library 1eb5397d-6155-43ce-9997-3aefcda75252), the operations room, "
                                         "cropped to its gold-edged glass partition and city window (x 0-248, y 0-480 of 1024 x 683) and doubled: no screen, emblem or text"},
         {"key": "REF-LOGO", "what": "the supplied Aurixa Systems logo (2000 x 1333, 21 October 2026); the plates' emblem.png and wordmark.png are keyed from it"},
+        {"key": "REF-CC-REPORTS", "what": "the supplied Command Centre Reports page (five 1920 x 1020 browser screenshots, top to Pre-Generation Overrides, 21 October 2026): "
+                                          "the structure Alex's plates (04B, 05A, 05C, 06B, 07A, 11A-c) are drawn on"},
     ],
-    "uploads_needed": [
-        {"key": "UP-PORTALS", "what": "the Command Center's Reports page (the pack's image(20261020-083651).png): grouped left navigation, the top property search, "
-                                      "the Reports banner, the Manual / URL Extraction / PDF Upload tabs and the Existing Property / New Build / Land Only cards. "
-                                      "Alex's plates (04B, 05A, 05C, 06B, 07A, 11A-c) follow the other portals' shell until then, and the frames that show them wait"},
-    ],
+    "uploads_needed": [],
     "decisions": [
         "Confirmed 20 October 2026: the closing CTA is the pack's START YOUR FREE TRIAL, not the brand kit's Book Your Free Demo (the kit's automatic end card is not used).",
         "Confirmed 20 October 2026: the small label on recreated screens is the pack's Demo workspace, not the brand rules' Concept.",
@@ -789,6 +793,13 @@ spec = {
         "the earlier one's place (02A, 05A, 05C, 06B, 12B, 13A). Flat, full-frame plates (the Block 14 phrases, the Demo workspace cut, the closing card) are still laid on in the edit.",
         "Confirmed 21 October 2026: Mia is more glamorous and striking, still dressed for the office: polished make-up and glossy curls, a confident look, "
         "a fitted silk version of her slate-blue blouse with tailored trousers and heels (her sheet's revision 3).",
+        "21 October 2026, awaiting approval: Alex's Command Centre plates follow the supplied Reports page (its menu groups and items, top bar, banner, "
+        "Manual / URL Extraction / PDF Upload tabs, build-type cards and floating Aurixa emblem, drawn at 125% zoom). The tenant reads Aurixa Systems and the "
+        "signed-in user Alex Morgan; the screen spells Centre as the product does (the pack writes Center); Existing Property starts selected, as the product "
+        "opens, so 04B's click moves the selection to New Build; the property being prepared (P) sits in the workspace section through 04B and 05A; the Aurixa "
+        "Agent is the product's floating emblem with a hover label; the pages past Reports (the analysis, Generated Reports, the record and its agent panel, "
+        "the demo workspace) are built from the Reports page's components, as only that page was supplied; and the client summary preview (05C-b) opens over "
+        "the Command Centre rather than as a separate page.",
     ],
     "timing": {"method": "Each cut sits in the pause before the cue's first word (0.15 s ahead of its speech onset), or 0.1 s ahead of a word mid-phrase, snapped to 30 fps.",
                "cues": timing["cues"],

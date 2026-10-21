@@ -87,5 +87,6 @@
 - [x] Reel 1 F-01A-in (the only frame with no screen): two takes, take1 picked
 - [x] Reel 1: option 1 chosen (the frames carry their screen plates); the supplied logo gives the emblem and wordmark; 16 final plates imported, the 31 stale v1 plate ids cleared
 - [x] Reel 1 stage 4, the 19 frames that don't depend on the Command Center: made and picked (blocks 01, 02, 03, 05B, 06A, 12, 13), screens reproduced exactly; F-01B-in and F-03B-in re-prompted once (no person in the opening close-up; Alex not looking at the camera)
-- [ ] Reel 1 stage 4, the other 23 frames: Alex's Command Center screens (04A to 07A, 10B, 11A) and everything continued from them (08A to 10A) wait on the Command Center's Reports screenshot
+- [x] Reel 1: the Command Centre's Reports page supplied; Alex's 11 Command Centre plates (04B, 05A, 05C, 06B, 07A, 11A-c) rebuilt on it, the other 30 unchanged
+- [ ] Reel 1 stage 4, the other 23 frames: Alex's Command Centre screens (04A to 07A, 10B, 11A) and everything continued from them (08A to 10A) wait on the rebuilt plates' approval
 - [ ] The studio records no price for metered GPT Image runs: Higgsfield's result carries none, so a run's cost and the balance countdown miss them (the Console's balance is the only record)

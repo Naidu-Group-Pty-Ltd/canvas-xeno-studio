@@ -128,6 +128,8 @@ w("## Still needed")
 w("")
 for u in spec["uploads_needed"]:
     w(f"- **{u['key']}**: {u['what']}")
+if not spec["uploads_needed"]:
+    w("- Nothing from the client: every input the pack calls for has been supplied or made.")
 w("")
 w("Decisions:")
 w("")

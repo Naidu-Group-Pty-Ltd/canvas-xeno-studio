@@ -1,12 +1,14 @@
 // The Aurixa portal plates (v2), built on the shells of the supplied portal screenshots: the
-// Solicitor, Accountant, Finance, Client and Builder / Developer portals (the Command Center
-// follows the same family until its screenshot is supplied). Structure only: every name, value,
-// address and account detail is the reel's fictional material, and the brand is AURIXA SYSTEMS.
+// Solicitor, Accountant, Finance, Client and Builder / Developer portals, and the Command Centre's
+// Reports page. Structure only: every name, value, address and account detail is the reel's
+// fictional material, and the brand is AURIXA SYSTEMS.
 //
 // Drawn at 1280 x 720 (or 800) CSS pixels and rendered at 1.5x, so a plate is 1920 wide and its
-// type reads at phone size once it is on a monitor in a 9:16 frame.
+// type reads at phone size once it is on a monitor in a 9:16 frame. The Command Centre is drawn
+// at 1536 x 864 and rendered at 1.25x: its screenshot's own measurements, at 125% zoom.
 
 const SCALE = 1.5;
+const CC_SCALE = 1.25;
 
 const CSS = `
 .pt { position:absolute; inset:0; display:flex; color:#fff; font-family:"Plus Jakarta Sans", Inter, sans-serif; overflow:hidden;
@@ -139,8 +141,113 @@ const CSS = `
 .pt .draft .lab { font-size:8.5px; letter-spacing:.18em; color:#5a6b85; font-weight:800; margin-bottom:6px; text-transform:uppercase; }
 .pt .draft.editing { outline:2px solid #1238E8; }
 .pt .draft.editing::after { content:""; display:inline-block; width:2px; height:18px; background:#1238E8; margin-left:2px; vertical-align:-3px; }
-.pt .launcher { position:absolute; right:24px; bottom:22px; display:flex; align-items:center; gap:8px; border-radius:999px; padding:10px 16px; background:#0b1a33; border:1.5px solid #00A8B5;
-  font-size:13px; font-weight:800; box-shadow:0 0 0 4px rgba(0,168,181,.10); }
+/* Command Centre, after its Reports page: a warm-black sidebar of gold-headed groups, a grey top
+   bar, and a centred column of near-black sections on a faint navy glow */
+.ccr { position:absolute; inset:0; display:flex; color:#fff; font-family:"Plus Jakarta Sans", Inter, sans-serif; overflow:hidden; background:#0b0c15; }
+.ccr .cside { width:238px; flex:none; background:linear-gradient(180deg,#1a1c22 0%,#121214 30%,#111113 100%); border-right:1px solid rgba(255,255,255,.05);
+  padding:15px 10px 0 12px; display:flex; flex-direction:column; overflow:hidden; }
+.ccr .tenant { height:80px; flex:none; border-radius:12px; background:linear-gradient(160deg,#181d31,#12141d); border-bottom:1px solid rgba(255,255,255,.07);
+  display:flex; align-items:center; gap:14px; padding:0 16px 0 24px; }
+.ccr .tenant .t { font-size:14px; font-weight:800; letter-spacing:.06em; line-height:1.25; }
+.ccr .tenant .s { font-size:8.5px; font-weight:700; letter-spacing:.22em; color:#8d95a8; margin-top:4px; }
+.ccr .filter { height:30px; flex:none; margin:32px 4px 20px 15px; border-radius:8px; border:1px solid rgba(255,255,255,.14); background:#101012;
+  display:flex; align-items:center; gap:8px; padding:0 10px; font-size:11px; color:#8a8a8f; }
+.ccr .filter svg, .ccr .csearch svg { width:13px; height:13px; flex:none; }
+.ccr .grp { flex:none; border-radius:12px; border:1px solid rgba(150,112,40,.30); background:linear-gradient(180deg,#17151a,#141317); padding:0 8px 8px; margin-bottom:10px; }
+.ccr .grp h6 { display:flex; align-items:center; justify-content:space-between; font-size:9.5px; letter-spacing:.2em; font-weight:800; color:#B48D3C; padding:16px 10px 8px; }
+.ccr .grp h6 svg { width:13px; height:13px; }
+.ccr .grp a { height:34px; display:flex; align-items:center; gap:9px; padding:0 12px; font-size:12.5px; font-weight:700; color:#ececef; border-radius:8px; position:relative; }
+.ccr .grp a svg { width:14px; height:14px; flex:none; }
+.ccr .grp a.on { height:30px; margin:2px 0; background:#0832DE; border:1px solid rgba(120,150,255,.55); }
+.ccr .grp a.on::before { content:""; position:absolute; left:5px; top:6px; bottom:6px; width:2.5px; border-radius:2px; background:#e4eeff; }
+.ccr .cmain { flex:1; min-width:0; display:flex; flex-direction:column; }
+.ccr .ctop { height:70px; flex:none; display:flex; align-items:center; gap:14px; padding:0 22px; background:#131417; border-bottom:1px solid rgba(255,255,255,.05); }
+.ccr .ibtn { width:38px; height:38px; flex:none; border-radius:9px; border:1px solid rgba(255,255,255,.12); background:#17171a; display:grid; place-items:center; }
+.ccr .ibtn svg { width:16px; height:16px; }
+.ccr .csearch { width:420px; height:36px; border-radius:9px; background:#18181a; border:1px solid rgba(255,255,255,.05); display:flex; align-items:center; gap:10px; padding:0 14px;
+  font-size:12px; color:#96969c; }
+.ccr .right { margin-left:auto; display:flex; align-items:center; gap:9px; }
+.ccr .chip { height:38px; display:flex; align-items:center; gap:9px; padding:0 13px; border-radius:9px; border:1px solid rgba(255,255,255,.12); background:#17161d; font-size:12.5px; font-weight:800; }
+.ccr .chip svg { width:15px; height:15px; }
+.ccr .ini { color:#2f55ff; font-size:11px; font-weight:800; }
+.ccr .cdemo { font-size:9px; letter-spacing:.16em; font-weight:800; color:#D7B35F; border:1px solid rgba(215,179,95,.5); border-radius:999px; padding:5px 10px; margin-right:4px; }
+.ccr .stage { flex:1; min-height:0; position:relative; background:radial-gradient(800px 380px at 30% 8%, rgba(24,36,100,.30), transparent 70%), #0b0c15; }
+.ccr .col { position:absolute; left:16px; right:16px; top:20px; bottom:0; padding:25px 22px 0; background:linear-gradient(180deg,#0b1024,#0a0d1c 60%,#0a0c16);
+  border:1px solid rgba(70,90,190,.10); border-bottom:none; border-radius:4px 4px 0 0; display:flex; flex-direction:column; gap:26px; }
+.ccr .cbanner { height:127px; flex:none; border-radius:12px; border:1px solid rgba(255,255,255,.10); display:flex; align-items:flex-start; gap:16px; padding:22px; position:relative;
+  background:radial-gradient(240px 150px at 4% 25%, rgba(40,70,230,.38), transparent 72%), linear-gradient(90deg,#191d30 0%,#121318 38%,#0f0f10 62%,#0f1527 100%); }
+.ccr .itile { width:45px; height:45px; flex:none; border-radius:11px; background:#18245a; border:1px solid rgba(80,110,255,.30); display:grid; place-items:center; }
+.ccr .itile svg { width:20px; height:20px; }
+.ccr .eb { font-size:8.5px; letter-spacing:.36em; font-weight:800; color:#2449e0; margin-top:6px; }
+.ccr .h1 { font-size:32px; font-weight:800; letter-spacing:-.015em; line-height:1; margin-top:8px; }
+.ccr .sub { font-size:14px; color:#8f9097; margin-top:14px; }
+.ccr .cgbtn { display:inline-flex; align-items:center; gap:9px; height:41px; padding:0 16px; border-radius:10px; border:1px solid rgba(255,255,255,.14); background:#151517;
+  font-size:12.5px; font-weight:800; white-space:nowrap; position:relative; }
+.ccr .cgbtn svg { width:14px; height:14px; }
+.ccr .bbtn { display:inline-flex; align-items:center; gap:9px; height:41px; padding:0 18px; border-radius:10px; background:#1238E8; font-size:13.5px; font-weight:800; white-space:nowrap; position:relative; }
+.ccr .sec { flex:none; border-radius:12px; background:#111112; border:1px solid rgba(255,255,255,.05); padding:26px 22px; display:flex; align-items:center; gap:20px; }
+.ccr .kick { font-size:11px; letter-spacing:.3em; font-weight:700; color:#a7a7ad; }
+.ccr .h2 { font-size:22px; font-weight:800; margin-top:14px; letter-spacing:-.005em; }
+.ccr .desc { font-size:10.5px; color:#c6c6cb; margin-top:12px; }
+.ccr .cctx { margin-left:auto; display:flex; align-items:center; gap:14px; padding:10px 18px 10px 10px; border-radius:12px; border:1px solid rgba(255,255,255,.10); background:#0c0d12; }
+.ccr .cctx .n { font-size:15px; font-weight:800; }
+.ccr .cctx .m { font-size:10.5px; color:#a7a7ad; margin-top:5px; }
+.ccr .ana { flex:none; border-radius:12px; background:#0f0f11; border:1px solid rgba(255,255,255,.05); overflow:hidden; display:flex; flex-direction:column; }
+.ccr .ana .hd { padding:26px 22px 20px; background:linear-gradient(90deg,#0f1324,#0e0f14 50%); }
+.ccr .ana .hd .t { display:flex; gap:10px; align-items:center; font-size:16px; font-weight:800; }
+.ccr .ana .hd .t svg { width:17px; height:17px; }
+.ccr .ana .hd .d { font-size:12.5px; color:#b2b2b8; margin-top:12px; }
+.ccr .tabsbox { margin:2px 22px 0; height:67px; border-radius:14px; border:1px solid rgba(255,255,255,.08); background:#0c0c0d; display:flex; align-items:center; justify-content:center; }
+.ccr .seg { display:flex; gap:4px; padding:4px; border-radius:12px; border:1px solid rgba(255,255,255,.10); background:#0e0f12; }
+.ccr .seg div { display:flex; align-items:center; gap:7px; padding:0 12px; height:41px; font-size:14px; font-weight:800; color:#9a9aa1; border-radius:9px; border:1px solid transparent; }
+.ccr .seg div svg { width:15px; height:15px; }
+.ccr .seg div.on { color:#fff; background:#141519; border-color:rgba(70,95,200,.45); }
+.ccr .box { margin:24px 22px 22px; border-radius:14px; border:1px solid rgba(255,255,255,.07); background:#0d0d0e; padding:26px 16px 17px; }
+.ccr .lab { font-size:11px; letter-spacing:.18em; font-weight:800; color:#d6d6db; padding-left:1px; }
+.ccr .types { display:flex; gap:17px; margin-top:14px; }
+.ccr .type { flex:1; min-width:0; height:103px; border-radius:10px; border:1px solid rgba(255,255,255,.14); background:#0b0b0c; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:9px; position:relative; text-align:center; }
+.ccr .type svg { width:22px; height:22px; }
+.ccr .type .t { font-size:12px; letter-spacing:.2em; font-weight:800; }
+.ccr .type .s { font-size:8.5px; letter-spacing:.22em; font-weight:700; color:#b5b5ba; }
+.ccr .type.on { border:1.5px solid #1238E8; background:linear-gradient(180deg,#0f1426,#0c1019); box-shadow:0 0 0 3px rgba(18,56,232,.12); }
+.ccr .type.on .t { color:#2a4cf0; }
+.ccr .bar { height:32px; flex:none; margin:0 22px; border-radius:16px; border:1px solid rgba(255,255,255,.07); background:#0e0e0f; }
+.ccr .rowx { display:flex; gap:17px; }
+.ccr .citem { display:flex; align-items:center; gap:16px; padding:14px 16px; border-radius:12px; border:1px solid rgba(255,255,255,.10); background:#0b0b0c; position:relative; }
+.ccr .citem > svg, .ccr .cagent .src svg { width:22px; height:22px; flex:none; }
+.ccr .citem .a { font-size:16px; font-weight:800; }
+.ccr .citem .b { font-size:11px; color:#a7a7ad; margin-top:5px; }
+.ccr .citem.on { border:1.5px solid #1238E8; background:linear-gradient(90deg,#0f1630,#0c1019); }
+.ccr .tag { font-size:9.5px; letter-spacing:.14em; font-weight:800; border-radius:999px; padding:5px 10px; border:1px solid rgba(255,255,255,.16); color:#cfd2da; white-space:nowrap; }
+.ccr .tag.gold { color:#D7B35F; border-color:rgba(215,179,95,.5); background:rgba(200,155,60,.07); }
+.ccr .tag.blue { color:#7d97ff; border-color:rgba(18,56,232,.6); background:rgba(18,56,232,.10); }
+.ccr .tag.teal { color:#4fd2da; border-color:rgba(0,168,181,.5); background:rgba(0,168,181,.08); }
+.ccr .skel div { height:8px; border-radius:4px; background:#1c1d22; margin:9px 0; }
+.ccr .fab { position:absolute; right:22px; bottom:18px; width:68px; height:68px; border-radius:50%; display:grid; place-items:center;
+  background:radial-gradient(circle at 50% 60%, rgba(30,40,80,.9), rgba(10,12,22,.9) 70%); box-shadow:0 6px 22px rgba(0,0,0,.6), 0 0 0 1px rgba(215,179,95,.25); }
+.ccr .tip { position:absolute; right:100px; bottom:38px; padding:8px 12px; border-radius:8px; background:#1b1e2b; border:1px solid rgba(255,255,255,.14); font-size:12.5px; font-weight:800; white-space:nowrap; }
+.ccr .cagent { position:absolute; right:16px; top:16px; bottom:16px; width:410px; border-radius:14px; background:linear-gradient(180deg,#121732,#0d1022); border:1px solid rgba(80,110,255,.35);
+  box-shadow:-18px 0 40px rgba(0,0,0,.55); padding:20px; display:flex; flex-direction:column; gap:14px; }
+.ccr .cagent .src { display:flex; align-items:center; gap:12px; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,.10); background:#0b0e1c; }
+.ccr .cagent .hd { display:flex; align-items:center; gap:11px; font-size:17px; font-weight:800; padding-bottom:14px; border-bottom:1px solid rgba(255,255,255,.08); }
+.ccr .cagent .hd .x { margin-left:auto; color:#8f9097; font-size:18px; font-weight:400; }
+.ccr .cdraft { background:#fff; color:#0A192F; border-radius:10px; padding:16px 18px; font-size:19px; font-weight:700; line-height:1.35; position:relative; }
+.ccr .cdraft .lab2 { font-size:9px; letter-spacing:.2em; color:#5a6b85; font-weight:800; margin-bottom:8px; }
+.ccr .cdraft.editing { outline:2.5px solid #1238E8; }
+.ccr .cdraft.editing .caret { display:inline-block; width:2px; height:20px; background:#1238E8; margin-left:2px; vertical-align:-3px; }
+.ccr .ask { margin-top:auto; height:42px; border-radius:10px; border:1px solid rgba(255,255,255,.12); background:#0b0d18; display:flex; align-items:center; padding:0 14px; font-size:12px; color:#8f9097; }
+.ccr .saved { color:#33c6cf; font-size:15px; font-weight:800; }
+.ccr .emb.real { flex:none; background-size:contain; background-position:center; background-repeat:no-repeat; }
+.ccr svg.cur { position:absolute; width:24px; height:24px; z-index:9; filter:drop-shadow(0 1px 2px rgba(0,0,0,.7)); }
+.ccr .pimg { border-radius:9px; background-color:#22324a; background-position:center; background-size:cover; background-repeat:no-repeat; flex:none; }
+.ccr .scrim { position:absolute; inset:0; background:rgba(4,6,12,.72); }
+.ccr .creport { position:absolute; left:50%; top:50%; width:820px; transform:translate(-50%,-50%); background:#fff; color:#0A192F; border-radius:12px;
+  box-shadow:0 24px 60px rgba(0,0,0,.6); padding:30px 38px; display:flex; flex-direction:column; gap:16px; }
+.ccr .creport h2 { font-family:"Playfair Display", serif; font-size:40px; font-weight:700; }
+.ccr .creport h4 { font-size:12px; letter-spacing:.18em; font-weight:800; }
+.ccr .creport .rule { height:1.5px; background:linear-gradient(90deg,#C89B3C,rgba(200,155,60,.12)); }
+.ccr .creport .skel div { background:#e6ebf2; height:9px; }
 `;
 
 // Line icons (Lucide-style), 24 x 24.
@@ -176,6 +283,20 @@ const I = {
   plan: '<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 12h9v9M12 3v6h9"/>',
   spark:
     '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6"/>',
+  // the Command Centre's
+  news: '<path d="M4 4h13v16H6a2 2 0 0 1-2-2z"/><path d="M17 8h3v10a2 2 0 0 1-2 2M8 8h5M8 12h5M8 16h5"/>',
+  shieldok: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+  bars: '<path d="M3 3v18h18"/><path d="M8 17v-5M12 17V8M16 17v-3"/>',
+  pulse: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+  msg: '<path d="M4 4h16v12H8l-4 4z"/><path d="M8 8h8M8 12h5"/>',
+  send: '<path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/>',
+  chevron: '<path d="M6 9l6 6 6-6"/>',
+  panel: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
+  pin: '<path d="M12 22s7-6.5 7-12a7 7 0 0 0-14 0c0 5.5 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/>',
+  upload: '<path d="M4 17v3h16v-3M12 3v12M7 8l5-5 5 5"/>',
+  eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
 };
 const icon = (name, color = "currentColor", w = 1.8) =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${I[name]}</svg>`;
@@ -238,63 +359,143 @@ module.exports = function portals({ P, D, EMBLEM }) {
     </div>`;
   }
 
-  // ---------------------------------------------------------------- Command Center (Alex)
-  const ccItems = (on) => [
-    "#OVERVIEW",
-    ["grid", "Dashboard", on === "dash"],
-    "#INTELLIGENCE",
-    ["file", "Reports", on === "reports"],
-    ["search", "Research", on === "research"],
-    ["chart", "Financial Modelling", false],
-    "#CLIENTS",
-    ["users", "Clients", false],
-    ["chat", "Message Hub", false],
-    "#GOVERNANCE",
-    ["shield", "Compliance", false],
-  ];
-  const cc = (on, body, extra) =>
-    shell({
-      label: "COMMAND CENTER",
-      who: "Alex Morgan",
-      org: "Property adviser",
-      initials: "AM",
-      items: ccItems(on),
-      top: `<div class="search">${'<span style="width:13px;height:13px;display:inline-flex">' + icon("search", "#8d95a8") + "</span>"}Search properties, clients and reports</div>`,
-      body,
-      extra,
-    });
-  const ccBanner = `<div class="banner"><div style="flex:1"><div class="eb">${'<span style="width:11px;height:11px;display:inline-flex">' + icon("file", "#3556f0") + "</span>"}AURIXA REPORTING COMMAND CENTER</div>
-      <div class="h1">Reports</div><div class="sub">Investment report workspace</div></div></div>`;
-  const ccTypes = (
-    selected,
-  ) => `<div class="tabs"><div class="tab on">Manual</div><div class="tab">URL Extraction</div><div class="tab">PDF Upload</div></div>
-    <div class="row">
-      <div class="card"><div class="k">PROPERTY TYPE</div><div class="t">Existing Property</div><div class="d">An established home</div></div>
-      <div class="card ${selected ? "sel" : ""}"><div class="k">PROPERTY TYPE</div><div class="t">New Build</div><div class="d">A new-build opportunity</div>${selected ? "" : cur("left:58%;top:56%")}</div>
-      <div class="card"><div class="k">PROPERTY TYPE</div><div class="t">Land Only</div><div class="d">A vacant lot</div></div>
-    </div>`;
-  const ccContext = (
-    big = false,
-  ) => `<div class="card" style="flex:none;flex-direction:row;gap:18px;align-items:center">${pimg(big ? 230 : 170, big ? 144 : 106)}
-    <div><div class="k">PREPARED CONTEXT</div><div class="t" style="font-size:${big ? 26 : 20}px">Project Banksia / Residence 014</div><div class="d">BK-014 · Opportunity under consideration</div></div></div>`;
-  const research = (open) => `${ccContext(true)}<div class="row">
-    <div class="card ${open ? "sel hero" : ""}" style="flex:1.4">${
+  // ---------------------------------------------------------------- Command Centre (Alex)
+  // After the supplied Reports page: its menu groups and items, top bar, banner, Manual / URL
+  // Extraction / PDF Upload tabs, build-type cards and the floating Aurixa emblem. The tenant is
+  // Aurixa Systems and the signed-in user is Alex; the pages past Reports follow its components.
+  const svg = (name, color = "currentColor", w = 1.8) => icon(name, color, w);
+  const ccGroups = (on) =>
+    [
+      [
+        "MAIN DASHBOARD",
+        [
+          ["home", "Overview"],
+          ["news", "Market News Feed"],
+          ["building", "Property Marketplace"],
+          ["building", "Commercial / Industrial"],
+          ["calendar", "Calendar"],
+        ],
+      ],
+      ["AML/CTF COMPLIANCE", [["shieldok", "AML/CTF Compliance"]]],
+      [
+        "REPORTS & ANALYSIS",
+        [
+          ["bars", "Reports"],
+          ["bars", "Quantitative Reports"],
+          ["file", "Generated Reports"],
+          ["pulse", "Cash Flow Analysis"],
+          ["msg", "Aurixa Intelligence Hub"],
+          ["file", "Portfolio Reports"],
+          ["send", "Report Requests"],
+          ["bars", "Charts"],
+        ],
+      ],
+      ["CLIENT &amp; CRM", [["users", "Clients"]]],
+    ]
+      .map(
+        ([head, items]) =>
+          `<div class="grp"><h6>${head}${svg("chevron", "#B48D3C", 2)}</h6>${items
+            .map(([ic, label]) => `<a class="${label === on ? "on" : ""}">${svg(ic)}${label}</a>`)
+            .join("")}</div>`,
+      )
+      .join("");
+  const cc = (on, col, extra = "") => `<div class="ccr">
+    <aside class="cside">
+      <div class="tenant">${emb(40)}<div><div class="t">AURIXA SYSTEMS</div><div class="s">COMMAND CENTRE</div></div></div>
+      <div class="filter">${svg("search", "#8a8a8f")}Filter navigation...</div>
+      ${ccGroups(on)}
+    </aside>
+    <section class="cmain">
+      <div class="ctop"><div class="ibtn">${svg("panel", "#d5d5da")}</div><div class="csearch">${svg("search", "#5d5d63")}Search properties...</div>
+        <div class="right"><span class="cdemo">DEMO WORKSPACE</span><div class="ibtn">${svg("sun", "#3d63ff")}</div><div class="chip">${svg("link", "#e8e8ec")}260k</div>
+          <div class="ibtn">${svg("bell", "#e8e8ec")}</div><div class="chip"><span class="ini">AM</span>Alex Morgan</div></div></div>
+      <div class="stage"><div class="col">${col}</div>${extra}</div>
+    </section>
+  </div>`;
+  const banner = (
+    title,
+    sub,
+    right,
+    eyebrow = "AURIXA REPORTING COMMAND CENTRE",
+  ) => `<div class="cbanner"><div class="itile">${svg("trend", "#3d63ff", 2)}</div>
+    <div style="flex:1"><div class="eb">${eyebrow}</div><div class="h1">${title}</div><div class="sub">${sub}</div></div>
+    <div style="align-self:flex-end;margin-bottom:-2px">${right}</div></div>`;
+  const reportsBanner = banner(
+    "Reports",
+    "Generate property investment reports and analysis.",
+    `<div class="cgbtn">${svg("file", "#fff")}Recent Reports</div>`,
+  );
+  const generatedBanner = banner(
+    "Generated Reports",
+    "Reports prepared for your clients and their property teams.",
+    `<div class="cgbtn">${svg("file", "#fff")}All Reports</div>`,
+  );
+  // The property Alex is preparing, on the right of the workspace section: P keeps this place
+  // from 04B into 05A (the selected-property match).
+  const ctx = `<div class="cctx">${pimg(118, 74)}<div><div class="kick" style="font-size:8.5px;letter-spacing:.24em">PREPARING FOR JORDAN ELLIS</div>
+    <div class="n" style="margin-top:7px">Project Banksia / Residence 014</div><div class="m">BK-014 · Demo workspace</div></div></div>`;
+  const workspace = `<div class="sec"><div><div class="kick">INVESTMENT REPORT WORKSPACE</div><div class="h2">Investment Report Generator</div>
+    <div class="desc">Generate comprehensive property investment analysis for addresses, postcodes, or states across Australia.</div></div>${ctx}</div>`;
+  const types = (selected) => {
+    const card = (ic, t, s, on, pointer) =>
+      `<div class="type ${on ? "on" : ""}">${svg(ic, on ? "#2a4cf0" : "#e6e6ea", 1.6)}<div class="t">${t}</div><div class="s">${s}</div>${pointer ? cur("left:74%;top:46%") : ""}</div>`;
+    return `<div class="ana"><div class="hd"><div class="t">${svg("trend", "#fff", 2)}Generate Investment Analysis</div>
+        <div class="d">Choose your input method - enter details manually, extract from a URL, or upload a PDF.</div></div>
+      <div class="tabsbox"><div class="seg"><div class="on">${svg("pin", "#fff")}Manual</div><div>${svg("link", "#9a9aa1")}URL Extraction</div><div>${svg("upload", "#9a9aa1")}PDF Upload</div></div></div>
+      <div class="box"><div class="lab">BUILD TYPE</div><div class="types">
+        ${card("home", "EXISTING PROPERTY", "ESTABLISHED HOME", !selected)}
+        ${card("building", "NEW BUILD", "HOUSE &amp; LAND PACKAGE", selected, !selected)}
+        ${card("pin", "LAND ONLY", "VACANT LAND", false)}</div></div></div>`;
+  };
+  const fab = (hover) =>
+    `<div class="fab">${emb(46)}${hover ? cur("left:36px;top:38px") : ""}</div>${hover ? `<div class="tip">Aurixa Agent</div>` : ""}`;
+  // The analysis the build-type choice starts, in the same components (05A).
+  const research = (
+    open,
+  ) => `<div class="ana"><div class="hd"><div class="t">${svg("trend", "#fff", 2)}Investment Analysis · New Build</div>
+      <div class="d">Prepared by the Compass engine for Project Banksia / Residence 014.</div></div>
+    <div class="box" style="margin-top:22px">${
       open
-        ? `<div class="k" style="color:#b9c6ff">RESEARCH BRIEF</div><div class="t">Location overview</div><div class="d" style="font-size:13px">Property characteristics</div><div class="d" style="font-size:13px">Questions for review</div>`
-        : `<div class="k">RESEARCH BRIEF</div><div class="t">Research brief</div><div class="d">Location overview · Property characteristics · Questions for review</div>${cur("left:44%;top:58%")}`
-    }</div>
-    <div class="card"><div class="k">NEXT</div><div class="t">Financial analysis</div><div class="d">Prepared for review</div></div></div>`;
-  const agentRecord = `${ccContext(false)}<div class="card"><div class="k">QUESTIONS FOR REVIEW</div><div class="t">Residence 014</div><div class="d">Prepared with the client's enquiry</div><div class="bars"><div style="width:86%"></div><div style="width:64%"></div></div></div>`;
-  const agentPanel = (
+        ? `<div class="lab">RESEARCH BRIEF</div><div class="rowx" style="margin-top:14px">
+          <div class="citem on" style="flex:1.5;flex-direction:column;align-items:flex-start;gap:6px;padding:20px 22px"><div class="kick" style="color:#7d97ff;font-size:9.5px">SELECTED</div>
+            <div style="font-size:30px;font-weight:800;letter-spacing:-.01em">Location overview</div><div class="skel" style="width:100%"><div style="width:92%"></div><div style="width:76%"></div></div></div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:12px">
+            <div class="citem">${svg("home", "#e6e6ea", 1.6)}<div><div class="a">Property characteristics</div><div class="b">New build · house &amp; land</div></div></div>
+            <div class="citem">${svg("msg", "#e6e6ea", 1.6)}<div><div class="a">Questions for review</div><div class="b">Prepared with the client's enquiry</div></div></div></div></div>`
+        : `<div class="lab">COMPASS · INVESTMENT ANALYSIS</div><div class="types">
+          <div class="type" style="height:118px">${svg("file", "#e6e6ea", 1.6)}<div class="t" style="font-size:15px">RESEARCH BRIEF</div><div class="s">LOCATION · PROPERTY · QUESTIONS</div>${cur("left:76%;top:44%")}</div>
+          <div class="type" style="height:118px;opacity:.7">${svg("pulse", "#e6e6ea", 1.6)}<div class="t" style="font-size:15px">FINANCIAL ANALYSIS</div><div class="s">NEXT</div></div></div>`
+    }</div></div>`;
+  // A generated report's record, with what the property team still has to look at (05C, 06B, 07A).
+  const record = (
+    summary,
+  ) => `<div class="sec" style="padding:20px 22px">${pimg(190, 118)}<div><div class="kick">PREPARED FOR JORDAN ELLIS</div>
+      <div class="h2" style="font-size:26px;margin-top:10px">Project Banksia / Residence 014</div><div class="desc" style="font-size:12px">New Build · BK-014 · Demo workspace</div></div>
+      <div style="margin-left:auto;display:flex;gap:8px"><span class="tag gold">UNDER CONSIDERATION</span></div></div>
+    ${
+      summary
+        ? `<div class="citem on" style="padding:20px 22px">${svg("file", "#7d97ff", 1.6)}<div style="flex:1"><div class="a" style="font-size:24px">Client summary</div><div class="b" style="font-size:12px">Prepared for Jordan Ellis · ready to share</div></div>
+          <div class="bbtn">${svg("eye", "#fff")}Open preview${onIt()}</div></div>
+          <div class="citem"><div style="flex:1"><div class="a">Investment Analysis · Compass</div><div class="b">Research brief · location overview</div></div><span class="tag teal">READY</span></div>`
+        : `<div class="ana" style="padding:22px"><div class="lab">QUESTIONS FOR REVIEW</div><div style="font-size:22px;font-weight:800;margin-top:12px">Residence 014</div>
+          <div class="desc" style="font-size:12px">Prepared with the client's enquiry</div><div class="skel" style="width:70%;margin-top:6px"><div style="width:90%"></div><div style="width:70%"></div><div style="width:80%"></div></div></div>`
+    }`;
+  const agent = (
     state,
-  ) => `<div class="agent"><div class="hd"><span class="dot"></span>Aurixa Agent</div>
-    <div class="draft ${state === "editing" ? "editing" : ""}"><div class="lab">Draft client summary</div>${state === "saved" ? "Review the remaining questions together" : "Discuss the next step"}</div>
+  ) => `<div class="cagent"><div class="hd">${emb(30)}Aurixa Agent<span class="x">×</span></div>
+    <div class="src">${pimg(64, 40)}<div><div style="font-size:13px;font-weight:800">Residence 014</div><div style="font-size:10.5px;color:#a7a7ad;margin-top:3px">Investment Analysis · Questions for review</div></div></div>
+    <div class="cdraft ${state === "editing" ? "editing" : ""}"><div class="lab2">DRAFT CLIENT SUMMARY</div>${
+      state === "saved"
+        ? "Review the remaining questions together"
+        : `Discuss the next step${state === "editing" ? '<span class="caret"></span>' : ""}`
+    }</div>
     ${
       state === "saved"
-        ? `<div class="ok" style="font-size:14px">✓ Draft saved</div>`
-        : `<div style="display:flex;gap:8px"><span class="pill gold" style="margin-left:0">Review required</span><span class="pill teal" style="margin-left:0">Question to verify</span></div>
-         ${state === "editing" ? `<div class="btn" style="align-self:flex-start">Save draft</div>` : ""}`
-    }</div>`;
+        ? `<div class="saved">✓ Draft saved</div>`
+        : `<div style="display:flex;gap:8px"><span class="tag gold">REVIEW REQUIRED</span><span class="tag teal">QUESTION TO VERIFY</span></div>
+          ${state === "editing" ? `<div class="bbtn" style="align-self:flex-start">Save draft</div>` : ""}`
+    }
+    <div class="ask">Ask Aurixa about this record...</div></div>`;
 
   // ---------------------------------------------------------------- Finance (Jamie)
   const finItems = (on) => [
@@ -452,75 +653,89 @@ module.exports = function portals({ P, D, EMBLEM }) {
   const W = [1920, 1080];
   const L = [1920, 1200];
   const plates = {
-    // Command Center
-    "PL-04B-a": { size: W, scale: SCALE, html: cc("reports", `${ccBanner}${ccTypes(false)}`) },
+    // Command Centre
+    "PL-04B-a": {
+      size: W,
+      scale: CC_SCALE,
+      html: cc(
+        "Reports",
+        `${reportsBanner}${workspace}${types(false)}<div class="bar"></div>`,
+        fab(false),
+      ),
+    },
     "PL-04B-b": {
       size: W,
-      scale: SCALE,
-      html: cc("reports", `${ccBanner}${ccTypes(true)}${ccContext(false)}`),
+      scale: CC_SCALE,
+      html: cc(
+        "Reports",
+        `${reportsBanner}${workspace}${types(true)}<div class="bar"></div>`,
+        fab(false),
+      ),
     },
-    "PL-05A-a": { size: W, scale: SCALE, html: cc("research", research(false)) },
-    "PL-05A-b": { size: W, scale: SCALE, html: cc("research", research(true)) },
+    "PL-05A-a": {
+      size: W,
+      scale: CC_SCALE,
+      html: cc("Reports", `${reportsBanner}${workspace}${research(false)}`, fab(false)),
+    },
+    "PL-05A-b": {
+      size: W,
+      scale: CC_SCALE,
+      html: cc("Reports", `${reportsBanner}${workspace}${research(true)}`, fab(false)),
+    },
     "PL-05C-a": {
       size: W,
-      scale: SCALE,
+      scale: CC_SCALE,
+      html: cc("Generated Reports", `${generatedBanner}${record(true)}`, fab(false)),
+    },
+    // The preview opens over the Command Centre (the white reading surface).
+    "PL-05C-b": {
+      size: W,
+      scale: CC_SCALE,
       html: cc(
-        "reports",
-        `${ccContext(true)}<div class="card" style="flex:none;flex-direction:row;align-items:center;gap:20px">
-        <div style="flex:1"><div class="k">REPORT</div><div class="t" style="font-size:26px">Client summary</div><div class="d">Prepared for Jordan Ellis</div></div><div class="btn" style="font-size:15px;padding:12px 18px">Open preview${onIt()}</div></div>`,
+        "Generated Reports",
+        `${generatedBanner}${record(true)}`,
+        `<div class="scrim"></div><div class="creport">
+          <div style="display:flex;gap:26px;align-items:center">${pimg(300, 186)}<div><div style="font-size:11px;letter-spacing:.2em;font-weight:800;color:#9a7424">PROJECT BANKSIA / RESIDENCE 014</div><h2>Client summary</h2></div></div>
+          <div class="rule"></div><h4>KEY CONSIDERATIONS</h4><div class="skel"><div style="width:92%"></div><div style="width:84%"></div><div style="width:66%"></div></div>
+          <div class="rule"></div><h4>QUESTIONS FOR DISCUSSION</h4><div class="skel"><div style="width:88%"></div><div style="width:70%"></div><div style="width:78%"></div></div>
+          <div style="font-size:11px;color:#5a6b85;margin-top:6px">Prepared by Alex Morgan · Aurixa Systems · Demo workspace</div></div>`,
       ),
     },
     "PL-06B-a": {
       size: W,
-      scale: SCALE,
-      html: cc(
-        "reports",
-        agentRecord,
-        `<div class="launcher"><span class="dot" style="width:9px;height:9px;border-radius:50%;background:#00A8B5;box-shadow:0 0 8px #00A8B5"></span>Aurixa Agent${onIt()}</div>`,
-      ),
+      scale: CC_SCALE,
+      html: cc("Generated Reports", `${generatedBanner}${record(false)}`, fab(true)),
     },
     "PL-06B-b": {
       size: W,
-      scale: SCALE,
-      html: cc(
-        "reports",
-        `<div class="row" style="align-items:flex-start"><div style="flex:1;display:flex;flex-direction:column;gap:12px">${agentRecord}</div>${agentPanel("open")}</div>`,
-      ),
+      scale: CC_SCALE,
+      html: cc("Generated Reports", `${generatedBanner}${record(false)}`, agent("open")),
     },
     "PL-07A-a": {
       size: W,
-      scale: SCALE,
-      html: cc(
-        "reports",
-        `<div class="row" style="align-items:flex-start"><div style="flex:1;display:flex;flex-direction:column;gap:12px">${agentRecord}</div>${agentPanel("editing")}</div>`,
-      ),
+      scale: CC_SCALE,
+      html: cc("Generated Reports", `${generatedBanner}${record(false)}`, agent("editing")),
     },
     "PL-07A-b": {
       size: W,
-      scale: SCALE,
-      html: cc(
-        "reports",
-        `<div class="row" style="align-items:flex-start"><div style="flex:1;display:flex;flex-direction:column;gap:12px">${agentRecord}</div>${agentPanel("saved")}</div>`,
-      ),
+      scale: CC_SCALE,
+      html: cc("Generated Reports", `${generatedBanner}${record(false)}`, agent("saved")),
     },
     "PL-11A-c": {
       size: W,
-      scale: SCALE,
-      html: shell({
-        label: "DEMO WORKSPACE",
-        who: "Alex Morgan",
-        org: "Property adviser",
-        initials: "AM",
-        items: [
-          ["grid", "Demo workspace", true],
-          ["building", "Projects", false],
-          ["file", "Reports", false],
-          ["chat", "Message Hub", false],
-        ],
-        body: `<div class="banner"><div style="flex:1"><div class="eb">DEMO WORKSPACE</div><div class="h1">Explore your workspace</div><div class="sub">A prepared project to try every portal with.</div></div></div>
-          <div class="row"><div class="card sel" style="flex:none;width:520px;flex-direction:row;gap:16px;align-items:center">${pimg(200, 125)}<div><div class="k" style="color:#b9c6ff">PROJECT</div><div class="t" style="font-size:26px">Residence 014</div><div class="d">Project Banksia</div></div></div>
-          <div class="card"><div class="k">PORTALS</div><div class="t" style="font-size:16px">Client · Finance · Legal · Builder / Developer · Accounting</div></div></div>`,
-      }),
+      scale: CC_SCALE,
+      html: cc(
+        "Overview",
+        `${banner("Explore your workspace", "A prepared project to try every portal with.", "", "DEMO WORKSPACE")}
+        <div class="rowx"><div class="citem on" style="flex:none;width:600px;padding:18px">${pimg(230, 144)}<div><div class="kick" style="color:#7d97ff;font-size:9.5px">PROJECT</div>
+          <div style="font-size:30px;font-weight:800;margin-top:8px">Residence 014</div><div class="b" style="font-size:13px">Project Banksia · New Build</div></div></div>
+          <div class="ana" style="flex:1;padding:22px;justify-content:center"><div class="lab">PORTALS</div><div style="font-size:17px;font-weight:800;line-height:1.5;margin-top:10px">Client · Finance · Legal · Builder / Developer · Accounting</div></div></div>
+        <div class="ana"><div class="box" style="margin:22px"><div class="lab">GET STARTED</div><div class="types">
+          <div class="type">${svg("bars", "#e6e6ea", 1.6)}<div class="t">RUN A REPORT</div><div class="s">RESIDENCE 014</div></div>
+          <div class="type">${svg("users", "#e6e6ea", 1.6)}<div class="t">OPEN A PORTAL</div><div class="s">SEE EACH ROLE</div></div>
+          <div class="type">${svg("msg", "#e6e6ea", 1.6)}<div class="t">ASK AURIXA</div><div class="s">THE AGENT</div></div></div></div></div>`,
+        fab(false),
+      ),
     },
     // Finance
     "PL-05B-a": {
