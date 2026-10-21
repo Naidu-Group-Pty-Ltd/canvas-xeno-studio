@@ -38,7 +38,7 @@
       {
         "version": "v2",
         "referenceId": "62b73f8e-23f6-410b-ae54-f69668c1ec58",
-        "approved": false
+        "approved": true
       }
     ],
     "training_state": {
@@ -80,7 +80,7 @@
       {
         "version": "v2",
         "referenceId": "c2edaa58-ec45-435f-bc5d-a761e706db67",
-        "approved": false
+        "approved": true
       }
     ],
     "training_state": {
@@ -118,12 +118,19 @@
     ],
     "soul": {
       "v2": {
-        "status": "training"
+        "status": "ready",
+        "images": 12,
+        "retrained": "2026-10-21, on the sheet, the frames and 7 pack photos"
       }
     },
-    "proof": "d9bd7246-5948-470c-ad79-9461302c165c",
-    "proofAsset": "3ee3632b-cf00-4df8-8305-c16f02dc18f1",
+    "proof": "798bd1c6-7186-42ed-8065-251ab70fefb0",
+    "proofAsset": "20d5ad6e-4705-46eb-baab-6a90811738f1",
     "souls": [
+      {
+        "version": "v2",
+        "referenceId": "65de8e6e-c66c-4c5f-89c8-7443cc28a17b",
+        "approved": true
+      },
       {
         "version": "v2",
         "referenceId": "2435923e-7d7f-4841-83fc-5eb6bae37213",
@@ -219,7 +226,7 @@
       {
         "version": "v2",
         "referenceId": "c8d0ac92-644b-496e-934f-21f63bfa61a2",
-        "approved": false
+        "approved": true
       }
     ],
     "training_state": {
@@ -265,13 +272,13 @@
       {
         "version": "v2",
         "referenceId": "91d68eff-1680-4864-b5be-654603d0dad3",
-        "approved": false
+        "approved": true
       }
     ],
     "training_state": {
-      "status": "ready",
+      "status": "failed",
       "version": "v2",
-      "error": null
+      "error": "Not enough credits"
     },
     "pack": {
       "1": {
@@ -361,13 +368,13 @@
       {
         "version": "v2",
         "referenceId": "ff33959e-78e4-4443-a530-419661be985b",
-        "approved": false
+        "approved": true
       }
     ],
     "training_state": {
-      "status": "ready",
+      "status": "failed",
       "version": "v2",
-      "error": null
+      "error": "Not enough credits"
     },
     "proof": "4c1793a2-0bef-4c25-99b0-a4eb05c722cf",
     "proofAsset": "0c79b51c-da85-4571-8f9e-59bcad8b6dbd",
