@@ -1053,6 +1053,24 @@
    ],
    "costUsd": null,
    "error": null
+  },
+  "r3-take1": {
+   "generationId": "68dc96db-d81b-4c06-b098-db40fd1f78c6",
+   "status": "completed",
+   "assets": [
+    "7abf42a2-ca89-47b7-ab7f-f662d7e95bbb"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r3-take2": {
+   "generationId": "1d7eb749-915e-411d-a79f-6131f8afaa1e",
+   "status": "completed",
+   "assets": [
+    "2b447b99-bd25-413e-8a06-ba1c8bd2a4e8"
+   ],
+   "costUsd": null,
+   "error": null
   }
  },
  "F-03B-in": {
@@ -1166,6 +1184,24 @@
    "status": "completed",
    "assets": [
     "8debdc1e-0a56-4ada-bda6-3d4bc3bf0c42"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take1": {
+   "generationId": "5a642cde-727a-4254-9730-865650beecac",
+   "status": "completed",
+   "assets": [
+    "7549dbd9-27fd-4895-9ae3-1ec1278d9cd0"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take2": {
+   "generationId": "8e509487-d5c1-4b75-8fe0-05a2e2223324",
+   "status": "completed",
+   "assets": [
+    "22dbfed8-8e35-4418-9c47-c9c684c68fbf"
    ],
    "costUsd": null,
    "error": null
@@ -1887,6 +1923,24 @@
    ],
    "costUsd": null,
    "error": null
+  },
+  "r3-take1": {
+   "generationId": "2fe9a120-7471-4cad-86d2-14246ee4cc14",
+   "status": "completed",
+   "assets": [
+    "9e86f1a5-7e75-44b3-a862-7ab7ce5294fa"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r3-take2": {
+   "generationId": "3dce250b-fd63-4fc4-9249-0a06ec0e2b77",
+   "status": "completed",
+   "assets": [
+    "61211a51-43e6-4db1-a96d-6c0df6d5df92"
+   ],
+   "costUsd": null,
+   "error": null
   }
  },
  "F-08B-out": {
@@ -1922,6 +1976,24 @@
    "status": "completed",
    "assets": [
     "54c36ce0-5af6-4904-9d46-3b0a2973a441"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r3-take1": {
+   "generationId": "c89f1c67-7857-4930-8da8-5b9090ebea99",
+   "status": "completed",
+   "assets": [
+    "cbcb936e-b622-4459-b35b-3e5b7690f79c"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r3-take2": {
+   "generationId": "a600f38c-ef46-483b-b6aa-b4e0d9c7ec90",
+   "status": "completed",
+   "assets": [
+    "8ac1576d-9b9c-415f-8018-753bf6c91efc"
    ],
    "costUsd": null,
    "error": null
@@ -2020,6 +2092,24 @@
    "status": "completed",
    "assets": [
     "211cc9c6-ce47-4e93-a7c0-5d330be7cfcb"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take1": {
+   "generationId": "888e6e4b-e8b5-4cd5-90a1-e23d578d402d",
+   "status": "completed",
+   "assets": [
+    "9ed78774-b8b5-49e7-94f1-aacd40531754"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take2": {
+   "generationId": "06340df1-b3b7-4cb4-88dd-2520dd1ac007",
+   "status": "completed",
+   "assets": [
+    "ae03e6f4-906b-4747-938c-f6d764484f07"
    ],
    "costUsd": null,
    "error": null

@@ -93,21 +93,28 @@ Not in the product:
 
 ## Frame defects
 
-| Frame                   | Defect                                                                                                                    | Severity | Fix                                                      |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------- | -------------------------------------------------------- |
-| F-05C-out               | The camera moved: the monitor shrinks and slides left (difference 16.1; the other five after-click frames are 1.9 to 3.4) | High     | Redo from F-05C-in with only the screen changed          |
-| F-04A-in → F-04A-out    | The AURIXA sign jumps from left of the door frame to above the desk on the right in a 5 s move                            | High     | Redo F-04A-out with the sign where F-04A-in has it       |
-| F-08B-in, F-08B-out     | The client summary display runs off the right edge; its content is placeholder bars                                       | Medium   | With the real report page, keep the display inside frame |
-| F-02A-out → F-03A-in    | The pack's matched cut (screen layout, perspective and desk fixed) is a much closer angle                                 | Medium   | Redo F-03A-in at F-02A-out's framing, or accept as a cut |
-| F-10B-in                | Alex smiles into the lens: the pack's "subtle welcome", but against the 03B direction                                     | Decision | Your call                                                |
-| F-13A-out               | The pen lies between Jamie's fingers                                                                                      | Low      | Optional                                                 |
-| F-04B-out, F-05A-in/out | Nearly the same framing (05A was meant to be a tight insert); plays as one continuous move                                | Low      | Accept                                                   |
-| F-10A-in                | Priya's monitor, at the edge, is blank blue where 09B showed the Solicitor portal                                         | Low      | Accept                                                   |
+| Frame                   | Defect                                                                                                                    | Severity | Fix                                                      | Outcome                                                                                                                |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| F-05C-out               | The camera moved: the monitor shrinks and slides left (difference 16.1; the other five after-click frames are 1.9 to 3.4) | High     | Redo from F-05C-in with only the screen changed          | Fixed: made again from F-05C-in with only the screen changed (r2-take2, drift 2.3)                                     |
+| F-04A-in → F-04A-out    | The AURIXA sign jumps from left of the door frame to above the desk on the right in a 5 s move                            | High     | Redo F-04A-out with the sign where F-04A-in has it       | Fixed: no sign in F-04A-out, the foreground door frame hides it (r3-take2)                                             |
+| F-08B-in, F-08B-out     | The client summary display runs off the right edge; its content is placeholder bars                                       | Medium   | With the real report page, keep the display inside frame | Fixed: reframed from the approved takes so the whole display fits, with the report's PDF in its viewer (r3-take1 each) |
+| F-02A-out → F-03A-in    | The pack's matched cut (screen layout, perspective and desk fixed) is a much closer angle                                 | Medium   | Redo F-03A-in at F-02A-out's framing, or accept as a cut | Accepted as a cut                                                                                                      |
+| F-10B-in                | Alex smiles into the lens: the pack's "subtle welcome", but against the 03B direction                                     | Decision | Your call                                                | Kept, awaiting your call                                                                                               |
+| F-13A-out               | The pen lies between Jamie's fingers                                                                                      | Low      | Optional                                                 | Left as it is                                                                                                          |
+| F-04B-out, F-05A-in/out | Nearly the same framing (05A was meant to be a tight insert); plays as one continuous move                                | Low      | Accept                                                   | Accepted                                                                                                               |
+| F-10A-in                | Priya's monitor, at the edge, is blank blue where 09B showed the Solicitor portal                                         | Low      | Accept                                                   | Accepted                                                                                                               |
 
 Hands, faces, likeness and screen text were checked at full resolution; nothing else was found.
 Stage 1 (P, D, the six cast sheets) and Stage 2 (CW-9, CW-10, the ten sets) have no defects.
 
 ## What the plate changes mean for the frames
+
+Update, 21 October 2026: done. All 29 frames whose plates changed have their screens redone, and every one of the
+42 frames' picks is of its current revision. 26 are screen swaps or after-click frames made from their swapped first
+frames; F-04A-out was made again without the sign; F-08B-in and F-08B-out were reframed. Where a take dropped what a
+plate shows (06B-in's agent button behind the lamp; 12A-out's and 08B's PDF viewer, the page stretched to fill the
+screen), its prompt now names what to keep and it was made again. Outside the screens, the swaps drift 2 to 4 on a
+255 scale from the approved frames.
 
 The frames carry their screens, so a frame whose plate changed needs its screen redone. The
 proposal is a screen swap: the approved frame and the new plate in, everything but the screen kept.
