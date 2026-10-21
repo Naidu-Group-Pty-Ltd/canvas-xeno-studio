@@ -29,7 +29,7 @@ BASE = os.environ.get("XENO_STUDIO_URL", "https://canvas-xeno-studio.lovable.app
 TOKEN = os.environ.get("XENO_STUDIO_TOKEN")
 # The plates' version, for their titles. An import's request id is the plate and its file's content, so a
 # re-rendered plate imports anew and an unchanged one returns its earlier import.
-PLATES_VERSION = "v3"
+PLATES_VERSION = "v4"
 # get_generation's last states; submission_uncertain waits on a person, so it ends the wait too.
 SETTLED = {"completed", "failed", "nsfw", "canceled", "submission_uncertain"}
 

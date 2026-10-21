@@ -146,28 +146,6 @@ const CSS = `
 .cli .mini { flex:1; border-radius:10px; background:#0f1015; border:1px solid rgba(255,255,255,.07); padding:12px; }
 .cli .mini .k { font-size:7.5px; letter-spacing:.14em; color:#8d95a8; font-weight:700; }
 .cli .mini .v { font-size:14px; font-weight:800; margin-top:4px; }
-/* Builder / Developer: navy-teal on a fine grid, serif headings, monospaced labels */
-.bld { background:linear-gradient(rgba(0,168,181,.05) 1px, transparent 1px) 0 0/34px 34px, linear-gradient(90deg, rgba(0,168,181,.05) 1px, transparent 1px) 0 0/34px 34px,
-  radial-gradient(900px 500px at 70% 0%, rgba(0,120,140,.30), transparent 60%), #08151d; }
-.bld .side { background:linear-gradient(180deg,#0d2230,#0a1720); border-right-color:rgba(0,168,181,.12); }
-.bld .brand, .bld .top { border-color:rgba(0,168,181,.12); }
-.bld .top { background:linear-gradient(90deg,#0b1d28,#0c1a24); }
-.bld .mono { font-family:Inconsolata, Consolas, monospace; letter-spacing:.2em; font-size:8.5px; font-weight:700; color:#7f97a3; }
-.bld .chips { display:flex; gap:6px; margin-top:8px; }
-.bld .chips span { font-family:Inconsolata, Consolas, monospace; font-size:7px; letter-spacing:.08em; font-weight:700; border:1px solid rgba(255,255,255,.18); border-radius:5px; padding:3px 6px; }
-.bld .who { flex-direction:column; align-items:flex-start; background:linear-gradient(135deg,#112b3a,#0d2230); border-color:rgba(0,168,181,.15); }
-.bld .av { background:#0d3a44; color:#33c6cf; }
-.bld nav a.on { background:rgba(0,168,181,.14); color:#fff; font-weight:700; }
-.bld nav a.on::before { content:""; position:absolute; left:0; top:8px; bottom:8px; width:3px; border-radius:2px; background:#00A8B5; }
-.bld .banner { border-color:rgba(0,168,181,.35); background:linear-gradient(120deg,#0e2f3c,#0b2230 70%); }
-.bld .eb { color:#20b8c2; font-family:Inconsolata, Consolas, monospace; }
-.bld .h1 { font-family:"Aurixa Display", Georgia, serif; font-weight:700; font-size:30px; }
-.bld .panel, .bld .stat, .bld .line, .bld .card { background:rgba(12,30,40,.85); border-color:rgba(0,168,181,.14); }
-.bld .line.sel, .bld .card.tsel { border:2px solid #00A8B5; background:linear-gradient(90deg, rgba(0,168,181,.24), rgba(0,168,181,.06)); }
-.bld .ph { font-family:"Aurixa Display", Georgia, serif; font-weight:700; font-size:15px; }
-.bld .info { display:grid; grid-template-columns:1fr 1fr; border:1px solid rgba(0,168,181,.18); border-radius:10px; overflow:hidden; min-width:330px; }
-.bld .info div { padding:9px 12px; border-right:1px solid rgba(0,168,181,.12); border-bottom:1px solid rgba(0,168,181,.12); }
-.bld .info b { display:block; font-size:11.5px; margin-top:3px; }
 /* the white report page inside a portal */
 .pt .page { background:#fff; color:#0A192F; border-radius:10px; padding:22px 26px; display:flex; flex-direction:column; gap:12px; box-shadow:0 14px 40px rgba(0,0,0,.45); }
 .pt .page h2 { font-family:"Aurixa Display", Georgia, serif; font-size:30px; }
@@ -182,6 +160,154 @@ const CSS = `
 .pt .draft .lab { font-size:8.5px; letter-spacing:.18em; color:#5a6b85; font-weight:800; margin-bottom:6px; text-transform:uppercase; }
 .pt .draft.editing { outline:2px solid #1238E8; }
 .pt .draft.editing::after { content:""; display:inline-block; width:2px; height:18px; background:#1238E8; margin-left:2px; vertical-align:-3px; }
+/* Solicitor: the matter's page (after SolicitorMatterDetail and MatterDocumentsPanel) */
+.pt .sfoot { margin-top:auto; padding:12px 14px 16px; border-top:1px solid rgba(255,255,255,.06); display:flex; flex-direction:column; gap:8px; }
+.pt .sfoot > span { display:flex; align-items:center; gap:10px; font-size:12px; color:#c3c8d4; padding:6px 8px; }
+.pt .sfoot small { display:flex; align-items:center; gap:5px; font-size:8.5px; color:#6f778a; padding:0 8px; }
+.pt .atabs.wrap { flex-wrap:wrap; row-gap:3px; }
+.pt .atabs.wrap > span { position:relative; padding:6px 12px; }
+.pt .atabs.wrap > span > span { padding:0; border:0; background:none; }
+.pt .pill.blue { color:#9db0ff; border-color:rgba(64,96,255,.45); background:rgba(18,56,232,.14); }
+.pt .sgrid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px; align-items:start; }
+.pt .s2 { display:grid; grid-template-columns:1fr 1fr; gap:11px 18px; }
+.pt .slab { font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:#8d95a8; font-weight:600; }
+.pt .sval { font-size:12.5px; font-weight:600; margin-top:3px; }
+.pt .hr { height:1px; background:rgba(255,255,255,.08); }
+.pt .shist { border-left:2px solid rgba(64,96,255,.55); padding:2px 0 2px 10px; }
+.pt .shist .a { font-size:12.5px; font-weight:600; }
+.pt .shist .b { font-size:10.5px; color:#8d95a8; margin-top:2px; }
+.pt .sdoc { display:flex; align-items:center; gap:7px; padding:9px 12px; border-radius:9px; border:1px solid rgba(255,255,255,.08); background:#121318; }
+.pt .sdoc .a { display:flex; align-items:center; gap:7px; font-size:12.5px; font-weight:600; }
+.pt .sdoc .b { font-size:10px; color:#8d95a8; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pt .sdoc .pill { font-size:9.5px; padding:2px 8px; }
+.pt .sbtn { display:inline-flex; align-items:center; gap:5px; height:26px; padding:0 9px; border-radius:7px; border:1px solid rgba(255,255,255,.14); background:#14161c; font-size:10.5px; font-weight:600; white-space:nowrap; }
+.pt .sico { width:24px; height:26px; display:grid; place-items:center; }
+.pt .stog { display:inline-flex; align-items:center; gap:6px; height:26px; padding:0 8px; border-radius:7px; border:1px solid rgba(255,255,255,.10); font-size:10px; color:#c3c8d4; white-space:nowrap; }
+.pt .stog i { width:22px; height:12px; border-radius:6px; background:#1238E8; position:relative; flex:none; }
+.pt .stog i::after { content:""; position:absolute; right:2px; top:2px; width:8px; height:8px; border-radius:50%; background:#fff; }
+.pt .fta { padding:9px 11px; border-radius:8px; border:1px solid rgba(255,255,255,.10); background:#0b0c10; font-size:12px; line-height:1.55; color:#e6e8ee; box-shadow:inset 0 1px 3px rgba(0,0,0,.5); }
+.sol.narrow .top { padding:0 14px; gap:10px; }
+.sol.narrow .body { padding:16px 18px; overflow:hidden; display:block; }
+.sol.narrow .scrolled { display:flex; flex-direction:column; gap:14px; }
+.sol.narrow .h1 { font-size:22px; }
+/* Sonner's toast: bottom right, 32px in, 356px wide */
+.sol.narrow .ftoast { right:32px; bottom:32px; width:356px; }
+/* A browser window (generic, dark) */
+.brw { position:absolute; display:flex; flex-direction:column; background:#35363a; overflow:hidden; color:#e8eaed; font-family:Selawik, "Segoe UI", sans-serif; }
+.brw .btabs { height:34px; flex:none; display:flex; align-items:flex-end; gap:2px; padding:0 8px; background:#1f2023; }
+.brw .btab { position:relative; height:28px; width:230px; min-width:0; display:flex; align-items:center; gap:8px; padding:0 10px 0 12px; border-radius:8px 8px 0 0; font-size:11.5px; color:#bdc1c6; }
+.brw .btab.on { background:#35363a; color:#f1f3f4; }
+.brw .btab .tt { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.brw .btab .x { color:#9aa0a6; font-size:13px; }
+.brw .bplus { color:#9aa0a6; font-size:17px; padding:0 8px 6px; }
+.brw .fav { width:15px; height:15px; flex:none; background:center/contain no-repeat; }
+.brw .pdfic { width:16px; height:13px; flex:none; border-radius:2px; background:#e5484d; color:#fff; font-size:6px; font-weight:800; display:grid; place-items:center; }
+.brw .bbar { height:38px; flex:none; display:flex; align-items:center; gap:12px; padding:0 12px; background:#35363a; border-bottom:1px solid #1f2023; }
+.brw .bnav { display:flex; gap:14px; align-items:center; }
+.brw .baddr { flex:1; min-width:0; height:28px; border-radius:14px; background:#202124; display:flex; align-items:center; gap:8px; padding:0 14px; font-size:12px; color:#e8eaed; white-space:nowrap; overflow:hidden; }
+.brw .bview { flex:1; min-height:0; position:relative; overflow:hidden; }
+.brw .btab > .cur { position:absolute; width:24px; height:24px; z-index:9; filter:drop-shadow(0 1px 2px rgba(0,0,0,.7)); }
+/* The browser's PDF viewer */
+.pdfv { position:absolute; inset:0; display:flex; flex-direction:column; background:#525659; font-family:Selawik, "Segoe UI", sans-serif; color:#f1f3f4; }
+.pdfv .ptb { height:48px; flex:none; display:flex; align-items:center; gap:16px; padding:0 18px; background:#323639; box-shadow:0 1px 4px rgba(0,0,0,.4); position:relative; z-index:1; font-size:13px; }
+.pdfv .pname { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:30%; }
+.pdfv .pmid { position:absolute; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:12px; }
+.pdfv .ppg { display:inline-flex; align-items:center; gap:5px; white-space:nowrap; }
+.pdfv .ppg b { font-weight:400; background:#191b1c; padding:2px 7px; }
+.pdfv .psep { width:1px; height:20px; background:#5f6368; }
+.pdfv .ptb > span:last-child { margin-left:auto; }
+.pdfv .pmain { flex:1; min-height:0; display:flex; }
+.pdfv .pthumbs { width:160px; flex:none; background:#323639; display:flex; flex-direction:column; align-items:center; gap:14px; padding:16px 0; overflow:hidden; }
+.pdfv .pt1 { display:flex; flex-direction:column; align-items:center; gap:6px; font-size:10.5px; color:#bdc1c6; }
+.pdfv .pt1 > :first-child { outline:3px solid transparent; outline-offset:2px; }
+.pdfv .pt1.on > :first-child { outline-color:#8ab4f8; }
+.pdfv .pstage { flex:1; min-width:0; display:flex; justify-content:center; align-items:flex-start; padding:14px; overflow:hidden; }
+.pdfv .ppage { position:relative; flex:none; box-shadow:0 2px 10px rgba(0,0,0,.45); overflow:hidden; }
+.pdfv .mini { position:relative; width:95px; height:134px; background:#fff; padding:14px 10px; display:flex; flex-direction:column; gap:4px; overflow:hidden; }
+.pdfv .mini .sh { position:absolute; width:22px; height:22px; background:linear-gradient(135deg,#111 0 45%,#C9A14A 45% 55%,transparent 55%); }
+.pdfv .mini .sh.tl { left:0; top:0; }
+.pdfv .mini .sh.br { right:0; bottom:0; transform:rotate(180deg); }
+.pdfv .mini u { display:block; height:2px; background:#d6d9de; }
+.pdfv .mini em { display:block; height:1px; width:40%; background:#C9A14A; }
+.pdfv .mini .kpi { display:flex; gap:3px; }
+.pdfv .mini .kpi i { flex:1; height:12px; border:1px solid #BF9B50; background:#FAF7F0; }
+/* Builders Network: the Builder / Developer portal (after BuilderPortalLayout and BuilderStockList) */
+.bn { position:absolute; inset:0; display:flex; color:#fff; font-family:Inter, sans-serif; overflow:hidden;
+  background: radial-gradient(circle at top left, rgba(0,168,181,.10), transparent 28%), radial-gradient(circle at top right, rgba(0,168,181,.06), transparent 24%),
+    linear-gradient(rgba(255,255,255,.075) 1px, transparent 1px) 0 0/24px 24px, linear-gradient(90deg, rgba(255,255,255,.075) 1px, transparent 1px) 0 0/24px 24px, #040B16; }
+.bn .ann, .bn .bchips span, .bn .bdemo, .bn .bchip, .bn .brev, .bn .beb, .bn .blk .s { font-family:Inconsolata, Consolas, monospace; }
+.bn .bside { width:240px; flex:none; display:flex; flex-direction:column; background:rgba(7,18,34,.94); border-right:1px solid #1C2B41; }
+.bn .blk { display:flex; align-items:center; gap:10px; padding:18px 16px 12px; }
+.bn .bmark { width:34px; height:34px; flex:none; background:center/contain no-repeat; }
+.bn .blk .t { font-size:12.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.bn .blk .s { font-size:8.5px; letter-spacing:.14em; color:#9CA3AF; margin-top:3px; }
+.bn .blk > span:last-child { margin-left:auto; }
+.bn .bsep { height:1px; background:#1C2B41; margin:0 14px; }
+.bn .bcard { margin:12px; padding:12px; border-radius:14px; border:1px solid rgba(0,168,181,.15); background:linear-gradient(135deg, rgba(0,168,181,.10), rgba(11,22,44,.9)); }
+.bn .bav { width:34px; height:34px; flex:none; border-radius:50%; display:grid; place-items:center; background:rgba(0,168,181,.12); color:#22C3CE; font-size:11px; font-weight:700; }
+.bn .bcard .n { font-size:12.5px; font-weight:600; }
+.bn .bcard .o { font-size:10.5px; color:#9CA3AF; margin-top:2px; }
+.bn .bchips { display:flex; gap:5px; margin-top:9px; }
+.bn .bchips span { font-size:7.5px; letter-spacing:.12em; font-weight:700; color:#cfd5df; border:1px solid #2a3b55; border-radius:3px; padding:2px 5px; }
+.bn nav { padding:4px 10px; display:flex; flex-direction:column; gap:2px; }
+.bn nav a { position:relative; height:36px; display:flex; align-items:center; gap:11px; padding:0 12px; border-radius:6px; font-size:12.5px; font-weight:500; color:#9CA3AF; }
+.bn nav a.on { color:#fff; font-weight:600; background:linear-gradient(90deg, rgba(0,168,181,.22), rgba(0,168,181,0)); }
+.bn nav a.on::before { content:""; position:absolute; left:0; top:6px; bottom:6px; width:2px; background:#00A8B5; }
+.bn .bfoot { margin-top:auto; padding:12px 16px 16px; border-top:1px solid #1C2B41; display:flex; flex-direction:column; gap:8px; }
+.bn .bfoot > span { display:flex; align-items:center; gap:10px; font-size:12px; color:#cfd5df; }
+.bn .bfoot small { display:flex; align-items:center; gap:5px; font-size:8.5px; color:#6b7686; }
+.bn .bmain { flex:1; min-width:0; display:flex; flex-direction:column; }
+.bn .btop { height:50px; flex:none; display:flex; align-items:center; gap:12px; padding:0 22px; border-bottom:1px solid #1C2B41; background:rgba(7,18,34,.88); font-size:13px; position:relative; z-index:1; }
+.bn .bback { display:inline-flex; align-items:center; gap:6px; font-size:11.5px; color:#cfd5df; padding:5px 10px; border-radius:999px; }
+.bn .btop .me { margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; font-weight:600; }
+.bn .bdemo { font-size:9px; letter-spacing:.16em; font-weight:700; color:#C89B3C; border:1px solid rgba(200,155,60,.5); border-radius:3px; padding:3px 7px; }
+.bn .bbody { flex:1; min-height:0; overflow:hidden; padding:22px 32px; }
+.bn .bhero { position:relative; min-height:178px; padding:26px 30px; border:1px solid rgba(0,168,181,.5); border-left:2px solid #00A8B5; border-radius:6px; overflow:hidden;
+  background: radial-gradient(420px 220px at 78% 35%, rgba(0,168,181,.16), transparent 70%), linear-gradient(115deg, #122036, #040B16); }
+.bn .bhero::after { content:""; position:absolute; left:0; right:0; bottom:0; height:1px; background:rgba(0,168,181,.72); }
+.bn .beb { display:flex; align-items:center; gap:7px; font-size:10px; letter-spacing:.2em; color:#22C3CE; font-weight:700; }
+.bn .bh1 { font-family:"Playfair Display", Georgia, serif; font-weight:700; font-size:42px; line-height:1; letter-spacing:-.045em; margin-top:12px; }
+.bn .bdesc { font-size:14px; color:rgba(255,255,255,.84); margin-top:10px; max-width:520px; line-height:1.5; }
+.bn .btray { position:absolute; right:26px; bottom:22px; display:flex; gap:6px; padding:5px; border-radius:12px; border:1px solid rgba(0,168,181,.14); background:rgba(4,11,22,.34); }
+.bn .bbtn { display:inline-flex; align-items:center; gap:7px; height:40px; padding:0 16px; border-radius:6px; border:1px solid rgba(0,168,181,.45); font-size:12.5px; font-weight:600; color:#e6f7f8; box-shadow:0 0 18px rgba(0,168,181,.18); white-space:nowrap; }
+.bn .bbtn.teal { background:#00A8B5; color:#040B16; border-color:#00A8B5; }
+.bn .bsched { display:grid; grid-template-columns:repeat(3,1fr); border:1px solid #1C2B41; border-radius:6px; background:rgba(11,22,44,.6); }
+.bn .bsched > div { padding:14px 18px; }
+.bn .bsched > div + div { border-left:1px solid #1C2B41; }
+.bn .ann { font-size:9.5px; letter-spacing:.16em; text-transform:uppercase; color:#9CA3AF; font-weight:700; }
+.bn .fig { font-size:32px; font-weight:600; letter-spacing:-.055em; margin-top:6px; font-variant-numeric:tabular-nums; }
+.bn .bl { font-size:11px; color:#9CA3AF; }
+.bn .bpanel { border:1px solid #1C2B41; border-radius:6px; background:rgba(11,22,44,.75); padding:18px 22px; display:flex; flex-direction:column; gap:8px; }
+.bn .bstock { border-color:rgba(0,168,181,.25); background:radial-gradient(400px 200px at 100% 0%, rgba(0,168,181,.10), transparent 70%), rgba(18,32,54,.88); }
+.bn .bct { font-family:"Playfair Display", Georgia, serif; font-weight:600; font-size:18px; }
+.bn .bcd { font-size:12px; color:#9CA3AF; }
+.bn .bsel { display:flex; align-items:center; gap:14px; padding:12px 14px; border:1px solid #1C2B41; border-radius:6px; margin-top:4px; }
+.bn .brail { display:flex; margin-top:8px; border:1px solid #1C2B41; border-radius:6px; background:rgba(4,11,22,.4); }
+.bn .bsearch { flex:1; display:flex; align-items:center; gap:9px; height:42px; padding:0 14px; font-size:12px; color:#9CA3AF; }
+.bn .bselect { display:flex; align-items:center; justify-content:space-between; height:42px; padding:0 14px; border-left:1px solid #1C2B41; font-size:12px; }
+.bn .bselect::after { content:"⌄"; color:#9CA3AF; }
+.bn dd .bselect { height:28px; border:1px solid #1C2B41; border-radius:6px; }
+.bn .bplates { list-style:none; margin:6px -22px 0; padding:0; }
+.bn .bplate { display:grid; grid-template-columns:544px minmax(0, 1fr); gap:32px; padding:24px; border-top:1px solid #1C2B41; }
+.bn .bframe { position:relative; width:544px; height:306px; border:1px solid #1C2B41; border-radius:6px; overflow:hidden; box-shadow:0 28px 56px -26px rgba(0,0,0,.95); background:#122036; }
+.bn .bframe i { position:absolute; inset:-24px; background:center/cover no-repeat; filter:blur(16px) saturate(1.4); }
+.bn .bframe i::after { content:""; position:absolute; inset:0; background:rgba(4,11,22,.30); }
+.bn .bframe b { position:absolute; inset:0; background:center/contain no-repeat; }
+.bn .bcap { display:flex; align-items:center; gap:6px; margin-top:10px; flex-wrap:wrap; }
+.bn .bchip { display:inline-flex; align-items:center; gap:5px; font-size:9px; letter-spacing:.12em; font-weight:700; padding:3px 7px; border-radius:3px; border:1px solid; white-space:nowrap; }
+.bn .bchip.ok { color:#4ADE80; border-color:rgba(74,222,128,.4); background:rgba(34,197,94,.08); }
+.bn .bchip.gold { color:#E2B85A; border-color:rgba(200,155,60,.55); background:rgba(200,155,60,.10); }
+.bn .bghost { display:inline-flex; align-items:center; gap:5px; font-size:11px; color:#9CA3AF; padding:3px 6px; }
+.bn .bstage { display:inline-flex; align-items:center; gap:4px; font-size:9.5px; color:#9CA3AF; opacity:.68; padding:2px 6px; border:1px solid #2a3b55; border-radius:3px; }
+.bn .bstage.dash { border-style:dashed; }
+.bn .bsheet { display:flex; flex-direction:column; gap:12px; min-width:0; }
+.bn .btitle { font-size:22px; font-weight:600; letter-spacing:-.032em; line-height:1.2; margin:5px 0 3px; }
+.bn .bspec { display:grid; grid-template-columns:110px minmax(0, 1fr); margin:0; border-top:1px solid #2a3b55; border-bottom:1px solid #2a3b55; }
+.bn .bspec dt, .bn .bspec dd { padding:5px 0; border-top:1px solid rgba(28,43,65,.9); margin:0; display:flex; flex-direction:column; justify-content:center; }
+.bn .bspec dt:first-of-type, .bn .bspec dd:first-of-type { border-top:none; }
+.bn .bspec dd { font-size:13px; font-weight:500; }
+.bn .bprice { font-size:22px; font-weight:600; font-variant-numeric:tabular-nums; }
+.bn .brev { display:inline-flex; align-items:center; gap:6px; font-size:10px; letter-spacing:.14em; font-weight:700; padding:6px 10px; border-radius:3px; border:1px solid #00A8B5; background:rgba(0,168,181,.20); color:#fff; white-space:nowrap; }
 /* Command Centre, after its Reports page: a warm-black sidebar of gold-headed groups, a grey top
    bar, and a centred column of near-black sections on a faint navy glow */
 .ccr { position:absolute; inset:0; display:flex; color:#fff; font-family:Selawik, "Segoe UI", sans-serif; overflow:hidden; background:#0b0c15; }
@@ -447,6 +573,37 @@ const I = {
   pin: '<path d="M12 22s7-6.5 7-12a7 7 0 0 0-14 0c0 5.5 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/>',
   upload: '<path d="M4 17v3h16v-3M12 3v12M7 8l5-5 5 5"/>',
   eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  // the Solicitor's, the Builders Network's and the browser's
+  scale:
+    '<path d="M12 3v18M7 21h10M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/><path d="M2 16l3-8 3 8c-.9.7-1.9 1-3 1s-2.1-.3-3-1zM16 16l3-8 3 8c-.9.7-1.9 1-3 1s-2.1-.3-3-1z"/>',
+  landmark: '<path d="M3 22h18M6 18v-7M10 18v-7M14 18v-7M18 18v-7M12 2l8 5H4z"/>',
+  hardhat:
+    '<path d="M2 18a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1z"/><path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5M4 15v-3a6 6 0 0 1 6-6M14 6a6 6 0 0 1 6 6v3"/>',
+  menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  minus: '<path d="M5 12h14"/>',
+  download: '<path d="M12 3v12M7 10l5 5 5-5M4 21h16"/>',
+  printer:
+    '<path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/>',
+  dots: '<circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>',
+  rotate: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"/>',
+  fit: '<path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/>',
+  image:
+    '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/>',
+  trash: '<path d="M3 6h18M8 6V4h8v2M6 6l1 15h10l1-15"/>',
+  pencil: '<path d="M17 3l4 4L8 20H4v-4z"/>',
+  save: '<path d="M5 3h11l5 5v13H3V3z"/><path d="M7 3v5h8M7 21v-7h10v7"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  globe:
+    '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+  map: '<path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/>',
+  ruler: '<path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/>',
+  logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
+  history: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l4 2"/>',
+  contact:
+    '<rect x="3" y="4" width="18" height="17" rx="2"/><circle cx="12" cy="11" r="3"/><path d="M7 21c0-3 2.2-5 5-5s5 2 5 5M8 2v3M16 2v3"/>',
+  route:
+    '<circle cx="6" cy="19" r="3"/><circle cx="18" cy="5" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/>',
 };
 const icon = (name, color = "currentColor", w = 1.8) =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${I[name]}</svg>`;
@@ -459,7 +616,7 @@ const cur = (style) =>
 // A pointer resting at a control's lower right, clear of its label.
 const onIt = () => cur("right:-12px;bottom:-16px");
 
-module.exports = function portals({ P, D, EMBLEM, MASCOT }) {
+module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
   const pimg = (w, h, label = "P · Residence 014") =>
     P
       ? `<div class="pimg" style="width:${w}px;height:${h}px;background-image:url('${P}')"></div>`
@@ -494,13 +651,14 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT }) {
     body,
     extra = "",
     chips = "",
+    foot = "",
   }) {
     return `<div class="pt ${kind}">
       <aside class="side">
         <div class="brand">${emb(kind === "cli" ? 24 : 30)}<div><div class="t">AURIXA SYSTEMS</div><div class="s ${kind === "bld" ? "mono" : ""}">${label}</div></div>
           <span class="bell" style="width:14px;height:14px;display:inline-flex">${icon("bell", "#aab")}</span></div>
         <div class="who"><div style="display:flex;gap:10px;align-items:center"><div class="av">${initials}</div><div><div class="n">${who}</div><div class="o">${org}</div></div></div>${chips}</div>
-        <nav>${nav(items)}</nav>
+        <nav>${nav(items)}</nav>${foot}
       </aside>
       <section class="main">
         <div class="top">${top || ""}<div class="me"><span class="demo">Demo workspace</span><span style="width:15px;height:15px;display:inline-flex">${icon("bell", "#aab")}</span><div class="av">${initials}</div>${who}</div></div>
@@ -1050,56 +1208,306 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT }) {
             <span class="btn" style="justify-content:center;font-size:12.5px">${ic("file", "#fff", 12)}Send to client</span></div></div>`,
     });
 
+  // ---------------------------------------------------------------- Browser windows and PDFs
+  // A file opens in the browser's own tab (the portals have no in-page preview), so the scenes with a
+  // floor plan or the report on screen draw the browser around the page: a dark tab strip, an address
+  // bar and the browser's PDF viewer. Generic, with no browser maker's marks.
+  const pdfIcon = `<span class="pdfic">PDF</span>`;
+  const favicon = (mark) =>
+    mark ? `<span class="fav" style="background-image:url('${mark}')"></span>` : pdfIcon;
+  const browser = ({
+    tabs,
+    url,
+    body,
+    style = "",
+    pointerTab,
+  }) => `<div class="brw" style="${style}">
+      <div class="btabs">${tabs.map(([mark, title, on], i) => `<div class="btab${on ? " on" : ""}">${favicon(mark)}<span class="tt">${title}</span><span class="x">×</span>${i === pointerTab ? cur("left:46%;top:14px") : ""}</div>`).join("")}<span class="bplus">+</span></div>
+      <div class="bbar"><span class="bnav">${ic("arrowl", "#9aa0a6", 15)}${ic("arrow", "#5f6368", 15)}${ic("refresh", "#9aa0a6", 14)}</span>
+        <div class="baddr">${url}</div><span class="bnav">${ic("dots", "#9aa0a6", 15)}</span></div>
+      <div class="bview">${body}</div></div>`;
+  /** The browser's PDF viewer: its toolbar, an optional page rail, and the page (HTML) on the grey stage. */
+  const pdfViewer = ({
+    title,
+    page,
+    pageOf,
+    zoom,
+    thumbs = "",
+    stageStyle = "",
+  }) => `<div class="pdfv">
+      <div class="ptb"><span>${ic("menu", "#f1f3f4", 17)}</span><span class="pname">${title}</span>
+        <div class="pmid"><span class="ppg"><b>${pageOf[0]}</b> / ${pageOf[1]}</span><span class="psep"></span>${ic("minus", "#f1f3f4", 16)}<span class="ppg"><b>${zoom}</b></span>${ic("plus", "#f1f3f4", 16)}<span class="psep"></span>${ic("fit", "#f1f3f4", 16)}${ic("rotate", "#f1f3f4", 16)}</div>
+        <span style="display:flex;gap:18px">${ic("download", "#f1f3f4", 17)}${ic("printer", "#f1f3f4", 17)}${ic("dots", "#f1f3f4", 17)}</span></div>
+      <div class="pmain">${thumbs}<div class="pstage" style="${stageStyle}">${page}</div></div></div>`;
+  const planPage = (side) =>
+    D
+      ? `<div class="ppage" style="width:${side}px;height:${side}px;background:#fff url('${D}') center/contain no-repeat"></div>`
+      : `<div class="ppage pimg pph" data-label="D · Residence 014 floor plan" style="width:${side}px;height:${side}px"></div>`;
+  const PLAN_FILE = "floorplan-R014.pdf";
+  // How far Daniel has scrolled his Stock List: to the Residence 014 plate.
+  const STOCK_SCROLL = 316;
+
+  // The client's report as the exported PDF delivers it (investmentPdfCover.ts): the issuer's cover, on
+  // an A4 sheet of 595.5 × 842.25 pt, drawn at k px per pt. The issuer is Aurixa Systems, in its navy
+  // and gold; the grade and score are not on the cover.
+  const reportCover = (k) => {
+    const pt = (v) => `${(v * k).toFixed(2)}px`;
+    const W = 595.5;
+    const H = 842.25;
+    const markH = 62; // the issuer mark's box is 220 × 62 pt
+    const markW = markH * (679 / 628);
+    const nameSize = 30; // "AURIXA SYSTEMS" fits one line at the first size tried
+    const groupTop = 301 - (markH + 26 + nameSize * 0.662 + 16 + 18 + 9 * 0.718) / 2;
+    const baseline = groupTop + markH + 26 + nameSize * 0.662;
+    const rule = baseline + 16;
+    const titleBase = rule + 18 + 9 * 0.718;
+    const photoH = 230.25;
+    const photoW = photoH * 1.5;
+    const text = (top, size, family, color, tracking, body, weight = 400) =>
+      `<div style="position:absolute;left:0;right:0;top:${pt(top - size * 0.84)};text-align:center;font:${weight} ${pt(size)}/1 ${family};letter-spacing:${pt(tracking)};color:${color};white-space:nowrap">${body}</div>`;
+    return `<div class="ppage" style="width:${pt(W)};height:${pt(H)};background:#0C1526">
+      <div style="position:absolute;left:${pt(22)};right:${pt(22)};top:${pt(590)};height:${pt(photoH)};display:flex;justify-content:center">
+        ${P ? `<div style="width:${pt(photoW)};height:100%;background:url('${P}') center 38%/cover no-repeat"></div>` : `<div class="pimg pph" data-label="P" style="width:${pt(photoW)};height:100%"></div>`}</div>
+      <div style="position:absolute;left:${pt(22)};right:${pt(22)};top:${pt(590)};border-top:${pt(0.75)} solid #C9A14A"></div>
+      <div style="position:absolute;inset:${pt(22)};border:${pt(0.6)} solid #C9A14A"></div>
+      <div style="position:absolute;left:${pt((W - markW) / 2)};top:${pt(groupTop)};width:${pt(markW)};height:${pt(markH)};${EMBLEM ? `background:url('${EMBLEM}') center/contain no-repeat` : "border:1px dashed #C9A14A"}"></div>
+      ${text(baseline, nameSize, "'Liberation Serif', 'Times New Roman', serif", "#C9A14A", nameSize * 0.12, "AURIXA SYSTEMS")}
+      <div style="position:absolute;left:${pt(W / 2 - 20)};width:${pt(40)};top:${pt(rule)};border-top:${pt(0.75)} solid #C9A14A"></div>
+      ${text(titleBase, 9, "'Liberation Sans', Helvetica, Arial, sans-serif", "#FAF7F1", 2.2, "INVESTMENT COMPASS")}
+      <div style="position:absolute;left:${pt(70)};right:${pt(70)};top:${pt(560.5)};border-top:${pt(0.5)} solid #C9A14A"></div>
+      ${text(575.25 + 9 * 0.718 * 0.5, 9, "'Liberation Sans', Helvetica, Arial, sans-serif", "#FAF7F1", 1.2, "RESIDENCE 014, PROJECT BANKSIA, BANKSIA RISE NSW 2155")}
+    </div>`;
+  };
+  // A content page in miniature for the page rail: white, with the black-and-gold corner shards.
+  const miniPage = (inner) =>
+    `<div class="mini"><i class="sh tl"></i><i class="sh br"></i>${inner}</div>`;
+  const reportThumbs = `<div class="pthumbs">
+      <div class="pt1 on">${reportCover(0.16)}<span>1</span></div>
+      <div class="pt1">${miniPage(`<b style="font-size:5.5px;letter-spacing:.12em;color:#0D264D">TABLE OF CONTENTS</b>${"<u></u>".repeat(9)}`)}<span>2</span></div>
+      <div class="pt1">${miniPage(`<b style="font-size:6px;color:#0D264D">Floor plan</b><em></em>${D ? `<div style="height:58px;background:url('${D}') center/contain no-repeat"></div>` : ""}`)}<span>3</span></div>
+      <div class="pt1">${miniPage(`<b style="font-size:5.5px;color:#0D264D">Investment Compass</b><em></em><div class="kpi"><i></i><i></i></div>${"<u></u>".repeat(6)}`)}<span>4</span></div></div>`;
+
   // ---------------------------------------------------------------- Solicitor (Priya)
-  const solItems = (on) => [
+  // After SolicitorPortalLayout, SolicitorMatterDetail and MatterDocumentsPanel: the matter's page, its
+  // Overview and Docs tabs, and its Notes tab with "Save notes" (toast "Matter updated").
+  const solItems = [
     ["grid", "Dashboard", false],
     ["shield", "AML/CTF Compliance", false],
-    ["case", "Matters", on === "matters"],
+    ["case", "Matters", true],
     ["board", "Pipeline", false],
     ["chat", "Message Hub", false],
-    ["tasks", "Tasks", false],
-    ["bell", "Notifications", false],
     ["gear", "Settings", false],
   ];
+  const solFoot = `<div class="sfoot"><span>${ic("logout", "#c3c8d4", 14)}Sign Out</span><small>${ic("shield", "#6f778a", 10)}Secured Portal • Privileged &amp; encrypted</small></div>`;
   const sol = (body) =>
     shell({
+      kind: "sol",
       label: "SOLICITOR PORTAL",
       who: "Priya Shah",
-      org: "Legal partner",
+      org: "Shah Legal",
       initials: "PS",
-      items: solItems("matters"),
+      items: solItems,
+      top: `<div class="fback">${ic("arrowl", "#c3c8d4")}Back to dashboard</div>`,
       body,
+      foot: solFoot,
     });
-  const solBanner = `<div class="banner"><div style="flex:1"><div class="eb">${'<span style="width:11px;height:11px;display:inline-flex">' + icon("case", "#3556f0") + "</span>"}MATTERS</div>
-      <div class="h1">Open matters</div><div class="sub">Matters shared with your practice by the property team.</div></div><div class="btn">Open matters ${arrow()}</div></div>`;
+  // Below the md breakpoint (a window half the screen wide) the sidebar folds into a menu button.
+  const solNarrow = (body, extra = "") => `<div class="pt sol narrow"><section class="main">
+      <div class="top"><span>${ic("menu", "#dfe3ec", 18)}</span><span style="display:flex;align-items:center;gap:8px">${emb(24)}<b style="font-size:12.5px">Solicitor Portal</b></span>
+        <div class="fback">${ic("arrowl", "#c3c8d4")}Back to dashboard</div>
+        <div class="me"><span class="demo">Demo workspace</span><div class="av">PS</div>Priya Shah</div></div>
+      <div class="body">${body}</div></section>${extra}</div>`;
+  const matterHead = `<div class="banner" style="align-items:flex-end;flex-wrap:wrap;row-gap:12px"><div style="flex:1;min-width:300px"><div class="eb">${ic("scale", "#3556f0", 11)}MATTER</div>
+      <div class="h1">Ellis: Purchase, Residence 014</div><div class="sub">Residence 014, Project Banksia, Banksia Rise NSW 2155</div></div>
+      <div style="display:flex;gap:8px;align-items:center"><span class="fghost">${ic("arrowl", "#c3c8d4", 12)}All matters</span><span class="pill blue" style="margin:0;font-size:12px;padding:5px 12px">Contract review</span>
+        <span class="btn" style="font-size:12px;padding:7px 12px">${ic("pencil", "#fff", 12)}Change status</span></div></div>`;
+  const MATTER_TABS = [
+    ["file", "Overview"],
+    ["users", "Parties"],
+    ["users", "Property team"],
+    ["calendar", "Dates"],
+    ["route", "Settlement"],
+    ["file", "Docs"],
+    ["file", "Searches"],
+    ["file", "Costs"],
+    ["chat", "Messages"],
+    ["spark", "Intelligence"],
+    ["shield", "Compliance"],
+    ["contact", "Notes"],
+  ];
+  const matterTabs = (on, pointerOn) =>
+    `<div class="atabs wrap">${MATTER_TABS.map(([i, t]) => `<span class="${t === on ? "on" : ""}">${ic(i, t === on ? "#fff" : "#9aa3b5", 12)}${t}${t === pointerOn ? onIt() : ""}</span>`).join("")}</div>`;
+  const field = (l, v) => `<div><div class="slab">${l}</div><div class="sval">${v}</div></div>`;
+  const input = (l, v) => `<div><div class="flab">${l}</div><div class="fin">${v}</div></div>`;
+  const matterOverview = `<div class="sgrid">
+      <div class="panel" style="grid-column:span 2"><div class="ph">Matter details</div><div class="ps">Core file information for this conveyance.</div>
+        <div class="s2">${[
+          ["Client", "Jordan Ellis"],
+          ["Matter type", "House &amp; land"],
+          ["Reference", "MAT-2026-0142"],
+          ["Purchase price", "$1,150,000"],
+          ["Deposit", "$115,000"],
+          ["Opened", "06 Oct 2026"],
+        ]
+          .map(([l, v]) => field(l, v))
+          .join("")}</div>
+        <div class="hr"></div>
+        <div class="s2">${[
+          ["Title reference", "Lot 14 DP 1290144"],
+          ["Lot / plan", "Lot 14"],
+          ["PEXA workspace", ""],
+          ["Other side's firm", "Harbour Conveyancing"],
+        ]
+          .map(([l, v]) => input(l, v))
+          .join("")}</div>
+        <div style="display:flex;justify-content:flex-end"><span class="btn" style="font-size:12px;padding:7px 13px">${ic("save", "#fff", 12)}Save details</span></div></div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="panel"><div class="ph">${ic("landmark", "#4767ff", 15)}Finance status</div><div class="ps">Finance clause visibility only — no client financials.</div>
+          ${[
+            ["Finance file", "Residence 014, Project Banksia"],
+            ["Status", "More information required"],
+            ["Finance clause", "Subject to finance"],
+            ["Lender", "Shortlist in progress"],
+          ]
+            .map(([l, v]) => field(l, v))
+            .join("")}</div>
+        <div class="panel"><div class="ph">${ic("building", "#4767ff", 15)}Status history</div>
+          <div class="shist"><div class="a">Instructed → Contract review</div><div class="b">08 Oct 2026 · solicitor</div></div></div></div></div>`;
+  const DOC_STATUS = {
+    "Under review": "blue",
+    Accepted: "ok",
+    Requested: "gold",
+  };
+  const DOCS = [
+    [
+      "Contract of sale (draft)",
+      "Under review",
+      "Contract of sale · Other side · due 24 Oct 2026 · contract-R014-draft.pdf (1.1 MB)",
+    ],
+    [
+      "Floor plan — Residence 014",
+      "Under review",
+      `Plan / survey · Builder · ${PLAN_FILE} (2.4 MB)`,
+    ],
+    ["Building specification", "Accepted", "Other · Builder · specification-R014.pdf (860 KB)"],
+    ["Planning certificate", "Requested", "Disclosure statement · Other side · due 28 Oct 2026"],
+  ];
+  const docsTab = `<div class="qsm" style="font-size:12px;margin:-2px 0 -4px">3 outstanding</div>
+    <div class="panel"><div class="ph">Document register<span class="btn" style="margin-left:auto;font-size:11.5px;padding:6px 11px">${ic("plus", "#fff", 12)}Request document</span></div>
+      <div class="ps">Matter-scoped documents. 3 outstanding of 4.</div>
+      ${DOCS.map(
+        ([
+          label,
+          status,
+          meta,
+        ]) => `<div class="sdoc"><div style="flex:1;min-width:0"><div class="a">${ic("file", "#8d95a8", 14)}${label}<span class="pill ${DOC_STATUS[status]}" style="margin-left:4px">${status}</span></div>
+          <div class="b">${meta}</div></div>
+          <span class="stog"><i></i>AI processing</span>${status === "Accepted" ? "" : `<span class="sbtn">Review and accept</span>`}
+          <span class="sbtn">${ic("upload", "#dfe3ec", 11)}${status === "Requested" ? "Upload" : "Upload new version"}</span>${status === "Requested" ? "" : `<span class="sbtn">${ic("download", "#dfe3ec", 11)}Open</span>`}
+          <span class="sico">${ic("pencil", "#9aa3b5", 12)}</span><span class="sico">${ic("trash", "#e5484d", 12)}</span></div>`,
+      ).join("")}</div>`;
+  const notesCard = (pointer) => `<div class="panel"><div class="ph">Notes</div>
+      <div class="ps">The client summary is shared with the Command Centre and the client. Practice notes never leave this portal.</div>
+      <div><div class="flab">Client-facing summary</div><div class="fta" style="height:70px">Your contract and the Residence 014 floor plan are with us for review. We will go through the remaining document questions with you before exchange.</div></div>
+      <div><div class="flab">Practice-only notes</div><div class="fta" style="height:104px">Floor plan (${PLAN_FILE}) checked against the contract plan: four bedrooms, layout as drawn. Remaining questions: planning certificate still to come; confirm the specification's inclusions with the builder.</div></div>
+      <div style="display:flex;justify-content:flex-end"><span class="btn" style="font-size:12.5px;padding:8px 14px">${ic("save", "#fff", 12)}Save notes${pointer ? onIt() : ""}</span></div></div>`;
+  // Priya's screen in 12B: the floor plan's PDF tab and the matter's Notes, as two windows side by side.
+  const tiled = (saved) => `<div style="position:absolute;inset:0;background:#05070c">
+      ${browser({
+        style: "left:0;top:0;bottom:0;width:calc(44% - 2px)",
+        tabs: [[null, PLAN_FILE, true]],
+        url: `${ic("lock", "#9aa0a6", 12)}<span>aurixasystems.com.au<span style="color:#80868b">/files/matter-documents/${PLAN_FILE}</span></span>`,
+        body: pdfViewer({ title: PLAN_FILE, page: planPage(520), pageOf: [1, 1], zoom: "64%" }),
+      })}
+      ${browser({
+        style: "right:0;top:0;bottom:0;width:calc(56% - 2px)",
+        tabs: [[EMBLEM, "Solicitor Portal · Aurixa Systems", true]],
+        url: `${ic("lock", "#9aa0a6", 12)}<span>aurixasystems.com.au<span style="color:#80868b">/solicitor/matters/mat-2026-0142?tab=notes</span></span>`,
+        body: solNarrow(
+          `<div class="scrolled" style="margin-top:-44px">${matterHead}${matterTabs("Notes")}${notesCard(true)}</div>`,
+          saved ? toast("Matter updated") : "",
+        ),
+      })}</div>`;
 
   // ---------------------------------------------------------------- Builder / Developer (Daniel)
-  const bldItems = [
-    ["grid", "Dashboard", false],
-    ["shield", "AML/CTF Compliance", false],
-    ["building", "Projects", false],
+  // After the Builders Network's BuilderPortalLayout and BuilderStockList: its own drawing-set look (obsidian
+  // navy, teal actions, Playfair headings, Inter, mono annotation labels, square corners on a setout grid).
+  // A stock item is a "plate" (elevation and schedule) that opens nothing, so Daniel's floor plan is his own
+  // PDF, in the browser's next tab.
+  const bnItems = [
+    ["grid", "Dashboard"],
+    ["shield", "AML/CTF Compliance"],
+    ["building", "Projects"],
     ["clip", "Stock List", true],
-    ["chat", "Messages", false],
-    ["tasks", "Tasks", false],
-    ["bell", "Notifications", false],
+    ["chat", "Messages"],
+    ["tasks", "Tasks"],
+    ["bell", "Notifications"],
+    ["history", "Activity"],
+    ["gear", "Settings"],
   ];
-  const bld = (body) =>
-    shell({
-      kind: "bld",
-      label: "BUILDER / DEVELOPER PORTAL",
-      who: "Daniel Reed",
-      org: "Builder / developer",
-      initials: "DR",
-      items: bldItems,
-      chips: `<div class="chips"><span>PROJECT MEMBER</span><span>DEMO</span></div>`,
-      top: `<div style="font-size:13px;font-weight:700">Stock List</div>`,
-      body,
+  const bn = (page, body, scroll = 0) => `<div class="bn">
+      <aside class="bside"><div class="blk"><span class="bmark" style="background-image:url('${BN_MARK}')"></span><div style="min-width:0"><div class="t">Aurixa Builders Network</div><div class="s">BUILDER / DEVELOPER PORTAL</div></div>${ic("bell", "#9CA3AF", 15)}</div>
+        <div class="bsep"></div>
+        <div class="bcard"><div style="display:flex;gap:10px;align-items:center"><div class="bav">DR</div><div><div class="n">Daniel Reed</div><div class="o">Reed Constructions</div></div></div>
+          <div class="bchips"><span>ORGANISATION OWNER</span><span>PRIMARY</span></div></div>
+        <nav>${bnItems.map(([i, t, on]) => `<a class="${on ? "on" : ""}">${ic(i, on ? "#fff" : "#9CA3AF", 16)}${t}</a>`).join("")}</nav>
+        <div class="bfoot"><span>${ic("logout", "#cfd5df", 14)}Sign Out</span><small>${ic("shield", "#6b7686", 10)}Secured Portal • Access resolved per request</small></div></aside>
+      <section class="bmain"><div class="btop"><span class="bback">${ic("arrowl", "#cfd5df", 13)}Back to dashboard</span><b>${page}</b>
+          <div class="me"><span class="bdemo">DEMO WORKSPACE</span><div class="bav" style="width:28px;height:28px;font-size:10px">DR</div>Daniel Reed</div></div>
+        <div class="bbody"><div style="margin-top:${-scroll}px;display:flex;flex-direction:column;gap:18px">${body}</div></div></section></div>`;
+  const stockHero = `<div class="bhero"><div class="beb">${ic("hardhat", "#22C3CE", 13)}BUILDER / DEVELOPER PORTAL</div>
+      <div class="bh1">Stock List</div><div class="bdesc">Upload your available stock in whatever format you keep it, and see which properties have been selected for a buyer.</div>
+      <div class="btray"><span class="bbtn">${ic("refresh", "#e6f7f8", 14)}Refresh</span><span class="bbtn teal">${ic("plus", "#040B16", 14)}Add stock list</span></div></div>
+    <div class="bsched">${[
+      ["PROPERTIES LISTED", "3", "No imagery outstanding"],
+      ["STOCK LISTS UPLOADED", "1", "All have been read"],
+      ["AWAITING YOUR ACKNOWLEDGEMENT", "1", "Selected by an adviser"],
+    ]
+      .map(
+        ([l, v, d]) =>
+          `<div><div class="ann">${l}</div><div class="fig">${v}</div><div class="bl">${d}</div></div>`,
+      )
+      .join("")}</div>
+    <div class="bpanel"><div class="bct">Selected for a buyer</div><div class="bcd">A connected workspace has selected these properties from your stock list. Acknowledge each one to confirm you have seen it.</div>
+      <div class="bsel"><div style="flex:1"><div style="font-size:13.5px;font-weight:600">Lot 14, Project Banksia · Residence 014</div><div class="bl" style="margin-top:3px">Selected 21/10/2026, 9:14:03 am · by Aurixa Systems · A. Morgan</div></div>
+        <span class="bbtn" style="height:34px">${ic("check", "#e6f7f8", 14)}Acknowledge</span></div></div>`;
+  const schedule = [
+    ["PRICE", `<b class="bprice">$1,150,000</b><div class="bl">fixed price, house and land</div>`],
+    ["BEDROOMS", "4"],
+    ["BATHROOMS", "1"],
+    ["CAR SPACES", "1"],
+    ["HOME", "168 m²"],
+    ["LAND", "290 m²"],
+    ["AVAILABILITY", `<span class="bselect" style="width:170px">Available</span>`],
+  ];
+  const stockPlate = `<li class="bplate"><div><div class="bframe">${P ? `<i style="background-image:url('${P}')"></i><b style="background-image:url('${P}')"></b>` : ""}</div>
+        <div class="bcap"><span class="bchip ok">${ic("image", "#4ADE80", 11)}BUILDER SUPPLIED</span><span class="bghost">${ic("image", "#9CA3AF", 11)}Replace</span>
+          <span class="bstage">${ic("file", "#9CA3AF", 10)}Stock list 1</span><span class="bstage dash">${ic("map", "#9CA3AF", 10)}Street View —</span><span class="bstage dash">${ic("globe", "#9CA3AF", 10)}Online —</span></div></div>
+      <div class="bsheet"><div style="display:flex;align-items:flex-start;gap:12px"><div style="flex:1;min-width:0"><div class="ann">PROJECT BANKSIA · HOUSE AND LAND</div>
+          <div class="btitle">Lot 14, Project Banksia · Residence 014</div><div class="bl" style="font-size:12.5px">Banksia Rise NSW 2155 · Ref R014</div></div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><span class="bchip gold">SELECTED FOR A CLIENT</span><span class="bghost">${ic("trash", "#9CA3AF", 11)}Remove</span></div></div>
+        <dl class="bspec">${schedule.map(([l, v]) => `<dt class="ann">${l}</dt><dd>${v}</dd>`).join("")}</dl>
+        <div style="display:flex;align-items:center;gap:10px"><span class="bl" style="flex:1">Supplied by you: every figure.</span><span class="brev">${ic("ruler", "#fff", 12)}UPDATE THE SCHEDULE</span></div></div></li>`;
+  const stockWorkspace = `<div class="bpanel bstock"><div class="ann" style="color:#22C3CE">YOUR STOCK</div><div class="bct" style="margin-top:4px">3 properties on the marketplace</div>
+      <div class="bcd">Properties imported from your stock lists. These are what the Command Centre sees.</div>
+      <div class="brail"><span class="bsearch">${ic("search", "#9CA3AF", 14)}Search address, suburb, development or reference</span><span class="bselect" style="width:180px">All availability</span><span class="bselect" style="width:220px">All stock lists</span></div>
+      <ul class="bplates">${stockPlate}<li class="bplate" style="opacity:.75"><div><div class="bframe" style="background:#122036"></div></div><div class="bsheet"><div class="ann">PROJECT BANKSIA · HOUSE AND LAND</div><div class="btitle">Lot 15, Project Banksia · Residence 015</div></div></li></ul></div>`;
+  const stockList = (scroll) => bn("Stock List", `${stockHero}${stockWorkspace}`, scroll);
+  const bnUrl = `${ic("lock", "#9aa0a6", 12)}<span>aurixasystems.com.au<span style="color:#80868b">/builder/stock</span></span>`;
+  const fileUrl = `<span style="color:#9aa0a6">File</span><span style="color:#5f6368">|</span><span>C:/Users/Daniel/Documents/Residence 014/${PLAN_FILE}</span>`;
+  const daniel = (onPlan) =>
+    browser({
+      style: "inset:0",
+      tabs: [
+        [BN_MARK, "Stock List · Aurixa Builders Network", !onPlan],
+        [null, PLAN_FILE, onPlan],
+      ],
+      url: onPlan ? fileUrl : bnUrl,
+      pointerTab: 1,
+      body: onPlan
+        ? pdfViewer({ title: PLAN_FILE, page: planPage(700), pageOf: [1, 1], zoom: "84%" })
+        : stockList(STOCK_SCROLL),
     });
-  const bldBanner = `<div class="banner" style="align-items:stretch"><div style="flex:1"><div class="eb">${'<span style="width:11px;height:11px;display:inline-flex">' + icon("building", "#20b8c2") + "</span>"}PROJECTS · STOCK LIST</div>
-      <div class="h1">Project Banksia</div><div class="sub">Stock and documents for the project shared with your account.</div>
-      <div style="display:flex;gap:8px;margin-top:12px"><div class="btn ghost">${'<span style="width:13px;height:13px;display:inline-flex">' + icon("refresh", "#fff") + "</span>"}Refresh</div><div class="btn teal">Open projects ${arrow()}</div></div></div>
-      <div class="info"><div><span class="mono">PROJECT</span><b>Project Banksia</b></div><div><span class="mono">ACCESS</span><b>Project member</b></div>
-        <div><span class="mono">STAGE</span><b>Under consideration</b></div><div><span class="mono">RECORD</span><b>BK-014</b></div></div></div>`;
 
   const W = [1920, 1080];
   const L = [1920, 1200];
@@ -1134,7 +1542,7 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT }) {
       scale: CC_SCALE,
       html: cc("Generated Reports", investmentReport("financial-preparing"), fab(false), true),
     },
-    // 05C: the library, Residence 014's report under the pointer; then its client-facing document (pending its page).
+    // 05C: the library, Residence 014's report under the pointer; the click opens the report's page.
     "PL-05C-a": {
       size: W,
       scale: CC_SCALE,
@@ -1143,16 +1551,7 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT }) {
     "PL-05C-b": {
       size: W,
       scale: CC_SCALE,
-      html: cc(
-        "Generated Reports",
-        generatedReports(false),
-        `<div class="scrim"></div><div class="creport">
-          <div style="display:flex;gap:26px;align-items:center">${pimg(300, 186)}<div><div style="font-size:11px;letter-spacing:.2em;font-weight:800;color:#9a7424">PROJECT BANKSIA / RESIDENCE 014</div><h2>Client summary</h2></div></div>
-          <div class="rule"></div><h4>KEY CONSIDERATIONS</h4><div class="skel"><div style="width:92%"></div><div style="width:84%"></div><div style="width:66%"></div></div>
-          <div class="rule"></div><h4>QUESTIONS FOR DISCUSSION</h4><div class="skel"><div style="width:88%"></div><div style="width:70%"></div><div style="width:78%"></div></div>
-          <div style="font-size:11px;color:#5a6b85;margin-top:6px">Prepared by Alex Morgan · Aurixa Systems · Demo workspace</div></div>`,
-        true,
-      ),
+      html: cc("Generated Reports", investmentReport("financial"), fab(false), true),
     },
     // 06B and 07A: the report with Financial prepared; the agent opened from her button, her draft, Alex's edit, approved.
     "PL-06B-a": {
@@ -1219,50 +1618,36 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT }) {
     // Accountant: a client file's Requests; Mia marks the income statement fulfilled.
     "PL-08A-a": { size: W, scale: SCALE, html: accFile(false) },
     "PL-08A-b": { size: W, scale: SCALE, html: accFile(true) },
-    // Solicitor
+    // 08B: the client's report as delivered, the exported PDF, on the meeting room's display.
+    "PL-08B": {
+      size: W,
+      scale: SCALE,
+      html: pdfViewer({
+        title: "Investment Compass — Banksia Rise, NSW",
+        page: reportCover(0.76),
+        pageOf: [1, 22],
+        zoom: "57%",
+        thumbs: reportThumbs,
+      }),
+    },
+    // Solicitor: 09B, the matter's Overview, then its Docs (the document register) at Priya's click.
     "PL-09B-a": {
       size: W,
       scale: SCALE,
-      html: sol(`${solBanner}<div class="panel"><div class="ph">Open matters</div><div class="ps">Shared with your practice.</div>
-        <div class="line" style="padding:14px">${pimg(96, 60)}<div><div class="a" style="font-size:17px">Project Banksia / Residence 014</div><div class="b" style="font-size:12px">Jordan Ellis · Under consideration</div></div><span class="pill">Document review</span>${cur("left:46%;top:56%")}</div></div>`),
+      html: sol(`${matterHead}${matterTabs("Overview", "Docs")}${matterOverview}`),
     },
     "PL-09B-b": {
       size: W,
       scale: SCALE,
-      html: sol(`<div class="row" style="align-items:flex-start">
-        <div class="panel" style="flex:1"><div class="ph">Open matters</div><div class="line sel" style="padding:14px">${pimg(96, 60)}<div><div class="a" style="font-size:16px">Project Banksia / Residence 014</div><div class="b">Jordan Ellis</div></div></div></div>
-        <div class="panel" style="flex:1.2"><div class="ph">${'<span style="width:15px;height:15px;display:inline-flex">' + icon("file", "#3556f0") + "</span>"}Document review</div>
-          ${["Contract of sale (draft)", "Floor plan", "Building specification"].map((t) => `<div class="line"><div class="a">${t}</div><span class="pill">To review</span></div>`).join("")}
-          <div class="line" style="border-color:rgba(64,96,255,.4)"><div><div class="a">Next discussion</div><div class="b">Questions for the client and adviser</div></div></div></div></div>`),
+      html: sol(`${matterHead}${matterTabs("Docs", "Docs")}${docsTab}`),
     },
-    "PL-12B-a": {
-      size: W,
-      scale: SCALE,
-      html: sol(`<div class="row" style="flex:1"><div class="panel" style="flex:1.25;align-items:center;justify-content:center">${dimg(520, 340)}</div>
-        <div class="panel" style="flex:1"><div class="ph">Residence 014 · document review</div><div class="draft"><div class="lab">Note</div>Discuss the remaining document questions.</div>
-          <div class="btn" style="align-self:flex-start;font-size:15px;padding:11px 18px">Save note${onIt()}</div></div></div>`),
-    },
-    "PL-12B-b": {
-      size: W,
-      scale: SCALE,
-      html: sol(`<div class="row" style="flex:1"><div class="panel" style="flex:1.25;align-items:center;justify-content:center">${dimg(520, 340)}</div>
-        <div class="panel" style="flex:1"><div class="ph">Residence 014 · document review</div><div class="draft"><div class="lab">Note</div>Discuss the remaining document questions.</div>
-          <div class="ok" style="font-size:16px">✓ Note saved</div><span class="pill" style="margin-left:0;align-self:flex-start">Matter remains under review</span></div></div>`),
-    },
-    // Builder / Developer
-    "PL-12A-a": {
-      size: W,
-      scale: SCALE,
-      html: bld(`${bldBanner}<div class="panel"><div class="ph">Stock list</div>
-        <div class="line sel" style="padding:13px">${pimg(96, 60)}<div><div class="a" style="font-size:17px">Residence 014</div><div class="b">Floor plan · Specification</div></div><span class="pill teal">Plan updated</span>${cur("left:40%;top:56%")}</div>
-        <div class="line" style="opacity:.55"><div class="a">Residence 015</div></div><div class="line" style="opacity:.55"><div class="a">Residence 016</div></div></div>`),
-    },
-    "PL-12A-b": {
-      size: W,
-      scale: SCALE,
-      html: bld(`<div class="row" style="flex:1"><div class="panel" style="flex:1.6;align-items:center;justify-content:center;border:2px solid #00A8B5">${dimg(540, 372)}</div>
-        <div class="panel" style="flex:1"><div class="mono">FLOOR PLAN</div><div class="h1" style="font-size:24px;margin:0;font-family:'Aurixa Display',Georgia,serif">Residence 014</div><div class="ps" style="margin:0">Project Banksia</div></div></div>`),
-    },
+    // 12B: the floor plan's PDF beside the matter's Notes; "Save notes", then its toast.
+    "PL-12B-a": { size: W, scale: SCALE, html: tiled(false) },
+    "PL-12B-b": { size: W, scale: SCALE, html: tiled(true) },
+    // Builder / Developer: 12A, the Residence 014 plate on the Stock List, then the plan's own tab. At the
+    // Command Centre's scale: the plate's elevation is 34rem wide in the code, too wide for a 1280 px page.
+    "PL-12A-a": { size: W, scale: CC_SCALE, html: daniel(false) },
+    "PL-12A-b": { size: W, scale: CC_SCALE, html: daniel(true) },
   };
   return { css: CSS, plates };
 };

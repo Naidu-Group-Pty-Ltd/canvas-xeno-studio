@@ -646,7 +646,14 @@ const PLATES = {
 };
 
 // v2 portals: the plates they replace (one state became two) go, the rest are overwritten.
-const portals = require("./portals.cjs")({ P, D, EMBLEM, MASCOT: asset("mascot.png") });
+// The Builders Network's own mark (its public/brand/aurixa-symbol-192.webp, as PNG).
+const portals = require("./portals.cjs")({
+  P,
+  D,
+  EMBLEM,
+  MASCOT: asset("mascot.png"),
+  BN_MARK: asset("bn-mark.png"),
+});
 for (const key of ["PL-05A", "PL-05B", "PL-06A", "PL-06B", "PL-09B"]) delete PLATES[key];
 Object.assign(PLATES, portals.plates);
 
@@ -656,7 +663,10 @@ Object.assign(PLATES, portals.plates);
   const browser = await chromium.launch(CHROMIUM ? { executablePath: CHROMIUM } : {});
   // A plate drawn at a smaller CSS size and rendered at its scale, so its type is phone-sized.
   const pages = new Map();
+  // PLATES_ONLY=PL-09B-a,PL-12A-a renders just those, to look at a change.
+  const only = process.env.PLATES_ONLY?.split(",");
   for (const [key, plate] of Object.entries(PLATES)) {
+    if (only && !only.includes(key)) continue;
     const scale = plate.scale ?? 1;
     if (!pages.has(scale))
       pages.set(scale, await (await browser.newContext({ deviceScaleFactor: scale })).newPage());
@@ -677,5 +687,5 @@ Object.assign(PLATES, portals.plates);
     });
   }
   await browser.close();
-  console.log(Object.keys(PLATES).length, "plates →", OUT);
+  console.log(only ? only.length : Object.keys(PLATES).length, "plates →", OUT);
 })();

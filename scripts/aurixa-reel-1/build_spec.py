@@ -471,7 +471,7 @@ SHOTS = [
                                                                   "a printed report page (blank apart from fine grey lines and a navy heading bar) in the foreground whose corner and diagonal match image 4; the mounted display at the table's end, " + SCREEN_LIGHT + ". Both faces readable."),
          last=(["C-ALEX", "C-JORDAN", "S-MEETING", "F-08B-in"], "The same scene as image 4 after a short lateral move: Alex's hand rests beside the physical report folder, whose page edge fills the "
                                                                 "lower part of the outgoing frame; Jordan attentive; the display still bright."),
-         motion="Alex brings one consideration into view with a small touchpad movement and points to the display; Jordan follows and offers a natural, silent question with a look. "
+         motion="Alex points to the report on the display with a small, open gesture; the display itself stays exactly as it is. Jordan follows and offers a natural, silent question with a look. "
                 "A restrained short lateral move discovers their shared attention, then holds as Alex rests her hand beside the report folder.",
          handoff="08B to 09A, property-dossier match on the folder edge."),
     dict(shot="09A", block="09", cast=["PRIYA"], look="aurixa", set="S-PRIYA", plates=["PL-09A"],
@@ -590,7 +590,14 @@ SCREEN_SWAP = {
     # the portal pages built from the product's code (QC.md)
     "F-05B-in": ("take2", 2), "F-06A-out": ("take2", 2), "F-08A-in": ("take2", 2), "F-08A-out": ("take2", 2),
     "F-13A-in": ("take1", 2), "F-13A-out": ("take2", 2),
+    "F-09B-in": ("take1", 2), "F-12A-in": ("take1", 2), "F-12A-out": ("take2", 2), "F-12B-in": ("take1", 2),
 }
+# A frame whose framing changes with its screen (QC.md: 08B's display ran off the frame's edge): its approved take and
+# the revision its new takes are named for, and the change.
+REFRAME = {"F-08B-in": ("take1", 2), "F-08B-out": ("take2", 2)}
+REFRAME_NOTE = ("The view widens slightly from the same camera position, as if through a slightly wider lens, so the whole mounted display, "
+                "all four edges of its bezel with a margin of wall around them, sits inside the frame; Alex and Jordan stay large and readable, "
+                "their faces in the same light.")
 
 # What a swap must keep in view, where the first takes lost it.
 SWAP_NOTE = {
@@ -598,6 +605,16 @@ SWAP_NOTE = {
                 "triangle with the little character's face) with its small Aurixa label and the pointer on it sits clearly in view at the "
                 "screen's lower right, in front of the desk lamp, never hidden by it.",
 }
+
+
+def reframe_prompt(base, plate_n):
+    """Image 1 reproduced in every detail but its framing (REFRAME_NOTE) and its screen."""
+    return ("Image 1 is " + base + " (the picture to reproduce), and image " + str(plate_n) + " is the new screen plate (every word, number and "
+            "shape to reproduce exactly). Reproduce image 1 in every detail: the same people, faces, expressions, hair, clothes, pose and hands; "
+            "the same lens character, focus and depth of field; the same light, colours, room, furniture and reflections. Change only two things. "
+            "The framing: " + REFRAME_NOTE + " The screen: " + screen_shows(plate_n) + ", replacing the screen's earlier content completely. "
+            "Photorealistic cinematic film still, vertical 9:16. Apart from image " + str(plate_n) + " on the screen, no other text, letters, "
+            "numbers, logos, watermarks or interface anywhere in the image.")
 
 
 def swap_prompt(base, plate_n, sign=False, note=""):
@@ -614,7 +631,7 @@ def swap_prompt(base, plate_n, sign=False, note=""):
 # A frame whose prompt changed after takes were made: studio.py names its new takes r2-take1 and so on.
 FRAME_REVISION = {"F-01B-in": 2, "F-03B-in": 2, "F-04A-in": 2, "F-04A-out": 3, "F-06B-in": 2,
                   # a click's after-state made again from its swapped first frame
-                  "F-05A-out": 2, "F-11A-out": 2, "F-05B-out": 2}
+                  "F-05A-out": 2, "F-11A-out": 2, "F-05B-out": 2, "F-05C-out": 2, "F-09B-out": 2, "F-12B-out": 2}
 # An earlier frame given for one thing only: what to take from it, and that nothing else comes with it.
 FRAME_LABEL = {
     "F-04A-in": {"F-03C-out": "the approved frame 03C-out, for the vertical edge only: put the gold door frame where its warm window mullion is "
@@ -626,6 +643,11 @@ def frame(key, shot, refs, body, look, after=False):
     """A frame's inputs and prompt: its references, then any pin, sign and screen plate, numbered in that order.
     A screen swap (SCREEN_SWAP) is the approved take and the new plate; a click's after-state (after) is the first frame
     and the plate after the click."""
+    if key in REFRAME:
+        base_take, rev = REFRAME[key]
+        return {"key": key, "shot": shot, "model": "still_edit", "inputs": [f"{key}@{base_take}", SCREEN[key]], "screen": SCREEN[key],
+                "reframe": True, "revision": rev,
+                "parameters": {**STILL, "aspect_ratio": "9:16", "prompt": reframe_prompt(f"the approved frame {key[2:]}", 2)}, "takes": 2}
     if key in SCREEN_SWAP or after:
         base_take, rev = SCREEN_SWAP.get(key, (None, FRAME_REVISION.get(key, 1)))
         base = f"{key}@{base_take}" if base_take else refs[0]
@@ -721,34 +743,32 @@ PLATES = [
     ("PL-04B-b", "04B", "aurixa", "Command Centre · Reports, New Build selected", ["New Build card selected in saturated blue (#1238E8)", "Context: Project Banksia / Residence 014 · BK-014 (thumbnail P), unchanged", "Demo workspace"]),
     ("PL-05A-a", "05A", "aurixa", "Command Centre · the investment report (Compass), before the click", ["Generated Reports · Back · Compass · Project Banksia / Residence 014", "Tiers: Compass (on view) · + Financial (under the cursor) · + Strategic · + Briefing · + Snapshot", "Investment Grade B+ · Score 74/100 · Report tier Compass · 4 adjusted fields · Completed", "Not prepared from this Compass yet: Financial, Strategic, Briefing, Snapshot", "Demo workspace"]),
     ("PL-05A-b", "05A", "aurixa", "Financial being prepared from the Compass", ["Financial (preparing)", "Preparing Financial from this Compass"]),
-    ("PL-05B-a", "05B", "aurixa", "Finance · purchase file, before the click", ["Welcome back, Jamie", "Active purchase file: Project Banksia / Residence 014 (P)", "Tabs: Overview (active) · Scenario comparison (under the cursor) · Documents", "Demo workspace"]),
-    ("PL-05B-b", "05B", "aurixa", "Finance · Scenario comparison", ["Scenario comparison (active tab)", "Base case · Alternative case", "Illustrative scenario", "Questions for discussion"]),
+    ("PL-05B-a", "05B", "aurixa", "Finance Portal · the purchase file's Overview, before the click", ["Back to dashboard · Residence 014, Project Banksia (Active) · Dates · Docs · Decisions · Message · Watching", "All purchase files · Residence 014, Project Banksia (thumbnail P) · Jordan Ellis", "Tabs: Overview (active) · Critical Dates · Documents · Finance Decisions (under the cursor) · Action Items · Conditions · Valuation · Risks · Settlement Runway", "Intelligent File Summary · Next best action: record the finance position for Residence 014", "Demo workspace"]),
+    ("PL-05B-b", "05B", "aurixa", "Finance Decisions", ["Current finance position: More information required · Waiting on the latest two payslips before the lender shortlist is final", "+ New decision", "Decision history: More information required · Subject to deposit"]),
     ("PL-05C-a", "05C", "aurixa", "Command Centre · Generated Reports, Residence 014 under the pointer", ["Report Intelligence Library · Generated Reports", "Investment (selected) · Comparisons · Commercial & Industrial", "Project Banksia / Residence 014: Compass · Financial · Strategic · Snapshot · Briefing · grade B+ · 74/100", "Residence 015 · Residence 016", "Demo workspace"]),
-    ("PL-05C-b", "05C", "aurixa", "The prepared report, opened over the Command Centre (white reading surface)", ["Project Banksia / Residence 014 (image P)", "Client summary (navy heading)",
-        "Key considerations", "Questions for discussion", "fine gold dividers"]),
+    ("PL-05C-b", "05C", "aurixa", "The report's page, opened from Generated Reports", ["Generated Reports · Back · Compass · Project Banksia / Residence 014", "Tiers: Compass · Financial (made)", "Investment Grade B+ · Score 74/100 · Report tier Compass · Completed", "Prepared from this Compass: Financial", "Analysis Report: client-facing document view · Publishing & Export", "Demo workspace"]),
     ("PL-06A-a", "06A", "aurixa", "Client Portal dashboard, before the click", ["Welcome back, Jordan Ellis", "Your property team · 5 professionals working on Residence 014", "My Property Team (under the cursor)", "Demo workspace"]),
-    ("PL-06A-b", "06A", "aurixa", "Client Portal · Your property team", ["My Property Team (selected)", "Your property team: Property · Finance · Legal · Builder / Developer · Accounting", "Residence 014",
-        "Next discussion: Client summary", "Optional: one framed-glass enlargement of the team strip"]),
+    ("PL-06A-b", "06A", "aurixa", "Client Portal · My property team", ["My Property Team (active)", "YOUR TEAM · My property team", "Who is working on your purchase · 5 of 5 roles engaged: Alex Morgan (buyer's agent), Jamie Chen (finance broker), Priya Shah (solicitor / conveyancer), Mia Patel (accountant), Daniel Reed (builder / developer)", "What your accountant needs from you: FY2026 income statement · You replied"]),
     ("PL-06B-a", "06B", "aurixa", "The investment report with Financial prepared; the pointer on the Aurixa Agent", ["Tiers: Compass · Financial (made)", "Prepared from this Compass: Financial", "The agent's own presence (the floating button), under the cursor, with its label", "Demo workspace"]),
     ("PL-06B-b", "06B", "aurixa", "The Aurixa Agent open over the report", ["Aurixa · Ready when you are", "Draft a short note to Jordan Ellis about his Residence 014 client summary.", "Needs your go-ahead · Email Preview: To Jordan Ellis · Residence 014: your client summary · Next step: discuss the next step", "Approve · Cancel"]),
     ("PL-07A-a", "07A", "aurixa", "Alex types her change", ["Make the next step: review the remaining questions together (typing)"]),
     ("PL-07A-b", "07A", "aurixa", "The changed note, approved", ["Approved · Next step: review the remaining questions together"]),
-    ("PL-08A-a", "08A", "aurixa", "Accountant Portal · Needs you next", ["Needs you next", "Supporting information · Jordan Ellis · Residence 014", "Mark reviewed", "Demo workspace"]),
-    ("PL-08A-b", "08A", "aurixa", "Reviewed", ["Supporting information · Reviewed (teal)"]),
-    ("PL-08B", "08B", "aurixa", "Client summary on the mounted display", ["Client summary · Residence 014", "Key considerations", "Questions for discussion"]),
+    ("PL-08A-a", "08A", "aurixa", "Accountant Portal · Jordan Ellis's client file, Requests", ["CLIENT FILE · Jordan Ellis", "Tabs: Brief · Portfolio · Purchases · Requests (active) · Message Hub · Property team", "FY2026 income statement · Client responded · Client replied 2 hours ago", "Mark fulfilled (under the cursor) · Reopen · Cancel", "New request", "Demo workspace"]),
+    ("PL-08A-b", "08A", "aurixa", "Fulfilled", ["FY2026 income statement · Fulfilled (green) · Reopen"]),
+    ("PL-08B", "08B", "aurixa", "The client's report as delivered: its PDF on the meeting room's display", ["The browser's PDF viewer: Investment Compass — Banksia Rise, NSW · 1 / 22 · its page rail", "The cover: the Aurixa emblem, AURIXA SYSTEMS (gold serif capitals), INVESTMENT COMPASS, RESIDENCE 014, PROJECT BANKSIA, BANKSIA RISE NSW 2155, the photograph (P) in the lower band, a thin gold frame", "No grade or score on the cover"]),
     ("PL-09A", "09A", "generic", "Two generic document lists with duplicate references", ["Residence 014 — documents (list A)", "Residence 014 — documents (list B, duplicates)", "No Aurixa branding"]),
-    ("PL-09B-a", "09B", "aurixa", "Solicitor Portal · Open matters, before the click", ["Open matters (active)", "Project Banksia / Residence 014 (under the cursor)", "Demo workspace"]),
-    ("PL-09B-b", "09B", "aurixa", "Solicitor Portal · the matter opened", ["Project Banksia / Residence 014 (selected, blue)", "Document review: Contract of sale (draft) · Floor plan · Building specification", "Next discussion"]),
+    ("PL-09B-a", "09B", "aurixa", "Solicitor Portal · the matter's Overview, before the click", ["Matters (active)", "MATTER · Ellis: Purchase, Residence 014 · Residence 014, Project Banksia, Banksia Rise NSW 2155 · All matters · Contract review · Change status", "Tabs: Overview (active) · … · Docs (under the cursor) · … · Notes", "Matter details · Finance status · Status history", "Demo workspace"]),
+    ("PL-09B-b", "09B", "aurixa", "Solicitor Portal · the matter's Docs", ["Docs (active) · 3 outstanding", "Document register: Contract of sale (draft) · Floor plan — Residence 014 (Under review) · Building specification (Accepted) · Planning certificate (Requested)", "Review and accept · Upload new version · Open"]),
     ("PL-11A-a", "10B, 11A", "aurixa", "Campaign trial invitation", ["The supplied logo, whole (REF-LOGO: emblem, rings, skyline and lettering)", "14-DAY FREE TRIAL",
         "START YOUR FREE TRIAL (saturated blue CTA, the pointer on it)"]),
     ("PL-11A-b", "11A", "aurixa", "CTA selected state", ["START YOUR FREE TRIAL (pressed: sunk, with a gold edge)"]),
     ("PL-11A-c", "11A", "aurixa", "Command Centre · Overview in the demo workspace", ["Command Centre · Overview · Property intake dashboard overview and key metrics", "Operations · Today's position (shortcuts, tasks, reports this month)", "Demo project: Residence 014 (image P) · Project Banksia · New Build", "Demo workspace"]),
-    ("PL-12A-a", "12A", "aurixa", "Builder / Developer Portal · Stock List", ["AURIXA SYSTEMS · BUILDER / DEVELOPER PORTAL", "Projects · Stock List", "Project Banksia", "Residence 014 (row, under the cursor)", "Demo workspace"]),
-    ("PL-12A-b", "12A", "aurixa", "Floor plan preview", ["Floor plan (image D)", "Residence 014"]),
-    ("PL-12B-a", "12B", "aurixa", "Solicitor matter view with the plan and a prepared note", ["Floor plan (image D)", "Note: Discuss the remaining document questions.", "Save note"]),
-    ("PL-12B-b", "12B", "aurixa", "Note saved", ["Note saved (small teal confirmation)", "Matter remains under review"]),
-    ("PL-13A-a", "13A", "aurixa", "Finance scenario view", ["Active Purchase Files", "Project Banksia / Residence 014", "Scenario comparison", "Base case · Alternative case", "Illustrative scenario", "Questions for discussion", "Demo workspace"]),
-    ("PL-13A-b", "13A", "aurixa", "Alternative case selected", ["Alternative case (selected, blue)", "Illustrative scenario"]),
+    ("PL-12A-a", "12A", "aurixa", "Builders Network · Builder / Developer Portal · Stock List, before the click", ["Browser tabs: Stock List · Aurixa Builders Network (on view) · floorplan-R014.pdf (under the cursor)", "Aurixa Builders Network · BUILDER / DEVELOPER PORTAL · Daniel Reed, Reed Constructions · Stock List (active)", "Selected for a buyer: Lot 14, Project Banksia · Residence 014 · by Aurixa Systems · A. Morgan · Acknowledge", "YOUR STOCK · 3 properties on the marketplace · the Residence 014 plate: elevation (P), SELECTED FOR A CLIENT, $1,150,000 · 4 bedrooms · 1 bathroom · 1 car space · 168 m² · 290 m²", "Demo workspace"]),
+    ("PL-12A-b", "12A", "aurixa", "The floor plan's own tab", ["Browser tabs: Stock List · Aurixa Builders Network · floorplan-R014.pdf (on view)", "The browser's PDF viewer: floorplan-R014.pdf · 1 / 1 · the floor plan (image D) whole"]),
+    ("PL-12B-a", "12B", "aurixa", "Priya's two windows: the floor plan's PDF beside the matter's Notes", ["Left: floorplan-R014.pdf in the browser's PDF viewer (image D)", "Right: Solicitor Portal · Ellis: Purchase, Residence 014 · Notes (active)", "Client-facing summary · Practice-only notes (filled in)", "Save notes (under the cursor)", "Demo workspace"]),
+    ("PL-12B-b", "12B", "aurixa", "Notes saved", ["Matter updated (the toast, bottom right, with its check)"]),
+    ("PL-13A-a", "13A", "aurixa", "Finance Portal · Record finance decision", ["Record finance decision · Broker's call on whether this purchase can proceed", "Decision: Subject to valuation", "Max comfortable purchase price 1,150,000 · Proposed loan amount 920,000 · Preferred lender pathway: Shortlist in progress · LVR 80", "Broker notes: Valuation ordered with the lender; revisit once it returns.", "Cancel · Record decision (under the cursor)", "Demo workspace"]),
+    ("PL-13A-b", "13A", "aurixa", "Decision recorded", ["Current finance position: Subject to valuation", "Decision history: Subject to valuation · More information required · Subject to deposit", "Decision recorded (the toast)"]),
     *[(f"PL-14A-{n}", "14A", "overlay", "Editorial phrase, one at a time in one clear area", [text])
       for n, text in enumerate(["Fourteen days.", "Your business.", "Your experience.", "Your decision."], 1)],
     ("PL-15A", "15A", "endcard", "Closing card (from the start of Block 15)", ["The supplied logo, whole (REF-LOGO)", "The operating system for modern property professionals.", "14-DAY FREE TRIAL",
@@ -858,12 +878,23 @@ spec = {
         "the system stack, so Segoe UI on Windows as the screenshots show, drawn in Selawik (Microsoft's open stand-in, built by selawik.py); "
         "the brand serif Playfair Display Medium; and Consolas for code labels, drawn in Inconsolata. The trial card and the closing card "
         "carry the supplied logo whole rather than its keyed emblem and wordmark, at the client's direction.",
-        "21 October 2026, awaiting approval: Alex's Command Centre plates past Reports follow the supplied pages (REF-CC-PAGES: Generated Reports, an "
+        "Confirmed 21 October 2026: Alex's Command Centre plates past Reports follow the supplied pages (REF-CC-PAGES: Generated Reports, an "
         "investment report, the Aurixa Agent open over it, Overview). 05A is the research moving into financial analysis: Compass on view, the click "
         "prepares Financial; 05C opens Residence 014 from Generated Reports; in 06B and 07A the agent drafts Jordan's note as a go-ahead card, Alex "
         "types her change and it is approved (the product's approval card, in place of the pack's Save draft); 11A-c is Overview with the demo project. "
         "Grades read Under review rather than the product's BUY or HOLD, so the reel makes no investment call. The agent is drawn from the "
         "portals' own presence (mascot.cjs) without its notification counts.",
+        "21 October 2026, at the client's direction (no further screenshots): the other portals' pages are built from the products' code "
+        "(npc-client-dashboard, aurixa-builders; QC.md): Jamie's purchase file opens its Finance Decisions (05B) and records Subject to valuation "
+        "with the toast Decision recorded (13A), a neutral call, so the reel makes no finance promise; Mia marks Jordan's income statement "
+        "fulfilled (08A; the product has no Mark reviewed); Jordan's My property team shows five roles, the demo project's builder beside the "
+        "product's four; Priya opens the matter's Docs, its document register (09B), and saves her notes on its Notes tab beside the floor "
+        "plan's PDF in a second window (12B), as a file opens in the browser's own tab and Docs and Notes are never on screen together; "
+        "Daniel's Stock List plate (elevation and schedule) opens nothing, so he moves to his floor plan's PDF in the next browser tab (12A); "
+        "05C's click opens the report's page, which the click truly opens; and the meeting display shows the report as the client receives it, "
+        "its PDF, at the cover Aurixa Systems would issue (no grade or score on it), so 08B's motion no longer brings a consideration into view. "
+        "The Builders Network keeps its own look (navy, teal, Playfair, mono labels) and is drawn at the Command Centre's scale, as its stock "
+        "plate is 34rem wide; 08B's frames are reframed so the display sits wholly inside them.",
     ],
     "timing": {"method": "Each cut sits in the pause before the cue's first word (0.15 s ahead of its speech onset), or 0.1 s ahead of a word mid-phrase, snapped to 30 fps.",
                "cues": timing["cues"],

@@ -108,7 +108,8 @@
     "Confirmed 21 October 2026: Mia is more glamorous and striking, still dressed for the office: polished make-up and glossy curls, a confident look, a fitted silk version of her slate-blue blouse with tailored trousers and heels (her sheet's revision 3).",
     "Confirmed 21 October 2026: Alex's Command Centre plates follow the supplied Reports page (its menu groups and items, top bar, banner, Manual / URL Extraction / PDF Upload tabs, build-type cards and floating Aurixa emblem, drawn at 125% zoom). The tenant reads Aurixa Systems and the signed-in user Alex Morgan; the screen spells Centre as the product does (the pack writes Center); Existing Property starts selected, as the product opens, so 04B's click moves the selection to New Build; the property being prepared (P) sits in the workspace section through 04B and 05A; the Aurixa Agent is the product's floating emblem with a hover label; the pages past Reports (the analysis, Generated Reports, the record and its agent panel, the demo workspace) are built from the Reports page's components, as only that page was supplied; and the client summary preview (05C-b) opens over the Command Centre rather than as a separate page.",
     "21 October 2026, quality check (QC.md): the portal plates are set in the portals' own fonts, read from their code (npc-client-dashboard): the system stack, so Segoe UI on Windows as the screenshots show, drawn in Selawik (Microsoft's open stand-in, built by selawik.py); the brand serif Playfair Display Medium; and Consolas for code labels, drawn in Inconsolata. The trial card and the closing card carry the supplied logo whole rather than its keyed emblem and wordmark, at the client's direction.",
-    "21 October 2026, awaiting approval: Alex's Command Centre plates past Reports follow the supplied pages (REF-CC-PAGES: Generated Reports, an investment report, the Aurixa Agent open over it, Overview). 05A is the research moving into financial analysis: Compass on view, the click prepares Financial; 05C opens Residence 014 from Generated Reports; in 06B and 07A the agent drafts Jordan's note as a go-ahead card, Alex types her change and it is approved (the product's approval card, in place of the pack's Save draft); 11A-c is Overview with the demo project. Grades read Under review rather than the product's BUY or HOLD, so the reel makes no investment call. The agent is drawn from the portals' own presence (mascot.cjs) without its notification counts."
+    "Confirmed 21 October 2026: Alex's Command Centre plates past Reports follow the supplied pages (REF-CC-PAGES: Generated Reports, an investment report, the Aurixa Agent open over it, Overview). 05A is the research moving into financial analysis: Compass on view, the click prepares Financial; 05C opens Residence 014 from Generated Reports; in 06B and 07A the agent drafts Jordan's note as a go-ahead card, Alex types her change and it is approved (the product's approval card, in place of the pack's Save draft); 11A-c is Overview with the demo project. Grades read Under review rather than the product's BUY or HOLD, so the reel makes no investment call. The agent is drawn from the portals' own presence (mascot.cjs) without its notification counts.",
+    "21 October 2026, at the client's direction (no further screenshots): the other portals' pages are built from the products' code (npc-client-dashboard, aurixa-builders; QC.md): Jamie's purchase file opens its Finance Decisions (05B) and records Subject to valuation with the toast Decision recorded (13A), a neutral call, so the reel makes no finance promise; Mia marks Jordan's income statement fulfilled (08A; the product has no Mark reviewed); Jordan's My property team shows five roles, the demo project's builder beside the product's four; Priya opens the matter's Docs, its document register (09B), and saves her notes on its Notes tab beside the floor plan's PDF in a second window (12B), as a file opens in the browser's own tab and Docs and Notes are never on screen together; Daniel's Stock List plate (elevation and schedule) opens nothing, so he moves to his floor plan's PDF in the next browser tab (12A); 05C's click opens the report's page, which the click truly opens; and the meeting display shows the report as the client receives it, its PDF, at the cover Aurixa Systems would issue (no grade or score on it), so 08B's motion no longer brings a consideration into view. The Builders Network keeps its own look (navy, teal, Playfair, mono labels) and is drawn at the Command Centre's scale, as its stock plate is 34rem wide; 08B's frames are reframed so the display sits wholly inside them."
   ],
   "timing": {
     "method": "Each cut sits in the pause before the cue's first word (0.15 s ahead of its speech onset), or 0.1 s ahead of a word mid-phrase, snapped to 30 fps.",
@@ -923,11 +924,12 @@
           "key": "PL-05B-a",
           "shots": "05B",
           "kind": "aurixa",
-          "title": "Finance · purchase file, before the click",
+          "title": "Finance Portal · the purchase file's Overview, before the click",
           "text": [
-            "Welcome back, Jamie",
-            "Active purchase file: Project Banksia / Residence 014 (P)",
-            "Tabs: Overview (active) · Scenario comparison (under the cursor) · Documents",
+            "Back to dashboard · Residence 014, Project Banksia (Active) · Dates · Docs · Decisions · Message · Watching",
+            "All purchase files · Residence 014, Project Banksia (thumbnail P) · Jordan Ellis",
+            "Tabs: Overview (active) · Critical Dates · Documents · Finance Decisions (under the cursor) · Action Items · Conditions · Valuation · Risks · Settlement Runway",
+            "Intelligent File Summary · Next best action: record the finance position for Residence 014",
             "Demo workspace"
           ]
         },
@@ -935,12 +937,11 @@
           "key": "PL-05B-b",
           "shots": "05B",
           "kind": "aurixa",
-          "title": "Finance · Scenario comparison",
+          "title": "Finance Decisions",
           "text": [
-            "Scenario comparison (active tab)",
-            "Base case · Alternative case",
-            "Illustrative scenario",
-            "Questions for discussion"
+            "Current finance position: More information required · Waiting on the latest two payslips before the lender shortlist is final",
+            "+ New decision",
+            "Decision history: More information required · Subject to deposit"
           ]
         },
         {
@@ -960,13 +961,14 @@
           "key": "PL-05C-b",
           "shots": "05C",
           "kind": "aurixa",
-          "title": "The prepared report, opened over the Command Centre (white reading surface)",
+          "title": "The report's page, opened from Generated Reports",
           "text": [
-            "Project Banksia / Residence 014 (image P)",
-            "Client summary (navy heading)",
-            "Key considerations",
-            "Questions for discussion",
-            "fine gold dividers"
+            "Generated Reports · Back · Compass · Project Banksia / Residence 014",
+            "Tiers: Compass · Financial (made)",
+            "Investment Grade B+ · Score 74/100 · Report tier Compass · Completed",
+            "Prepared from this Compass: Financial",
+            "Analysis Report: client-facing document view · Publishing & Export",
+            "Demo workspace"
           ]
         },
         {
@@ -985,13 +987,12 @@
           "key": "PL-06A-b",
           "shots": "06A",
           "kind": "aurixa",
-          "title": "Client Portal · Your property team",
+          "title": "Client Portal · My property team",
           "text": [
-            "My Property Team (selected)",
-            "Your property team: Property · Finance · Legal · Builder / Developer · Accounting",
-            "Residence 014",
-            "Next discussion: Client summary",
-            "Optional: one framed-glass enlargement of the team strip"
+            "My Property Team (active)",
+            "YOUR TEAM · My property team",
+            "Who is working on your purchase · 5 of 5 roles engaged: Alex Morgan (buyer's agent), Jamie Chen (finance broker), Priya Shah (solicitor / conveyancer), Mia Patel (accountant), Daniel Reed (builder / developer)",
+            "What your accountant needs from you: FY2026 income statement · You replied"
           ]
         },
         {
@@ -1036,11 +1037,13 @@
           "key": "PL-08A-a",
           "shots": "08A",
           "kind": "aurixa",
-          "title": "Accountant Portal · Needs you next",
+          "title": "Accountant Portal · Jordan Ellis's client file, Requests",
           "text": [
-            "Needs you next",
-            "Supporting information · Jordan Ellis · Residence 014",
-            "Mark reviewed",
+            "CLIENT FILE · Jordan Ellis",
+            "Tabs: Brief · Portfolio · Purchases · Requests (active) · Message Hub · Property team",
+            "FY2026 income statement · Client responded · Client replied 2 hours ago",
+            "Mark fulfilled (under the cursor) · Reopen · Cancel",
+            "New request",
             "Demo workspace"
           ]
         },
@@ -1048,18 +1051,18 @@
           "key": "PL-08A-b",
           "shots": "08A",
           "kind": "aurixa",
-          "title": "Reviewed",
-          "text": ["Supporting information · Reviewed (teal)"]
+          "title": "Fulfilled",
+          "text": ["FY2026 income statement · Fulfilled (green) · Reopen"]
         },
         {
           "key": "PL-08B",
           "shots": "08B",
           "kind": "aurixa",
-          "title": "Client summary on the mounted display",
+          "title": "The client's report as delivered: its PDF on the meeting room's display",
           "text": [
-            "Client summary · Residence 014",
-            "Key considerations",
-            "Questions for discussion"
+            "The browser's PDF viewer: Investment Compass — Banksia Rise, NSW · 1 / 22 · its page rail",
+            "The cover: the Aurixa emblem, AURIXA SYSTEMS (gold serif capitals), INVESTMENT COMPASS, RESIDENCE 014, PROJECT BANKSIA, BANKSIA RISE NSW 2155, the photograph (P) in the lower band, a thin gold frame",
+            "No grade or score on the cover"
           ]
         },
         {
@@ -1077,10 +1080,12 @@
           "key": "PL-09B-a",
           "shots": "09B",
           "kind": "aurixa",
-          "title": "Solicitor Portal · Open matters, before the click",
+          "title": "Solicitor Portal · the matter's Overview, before the click",
           "text": [
-            "Open matters (active)",
-            "Project Banksia / Residence 014 (under the cursor)",
+            "Matters (active)",
+            "MATTER · Ellis: Purchase, Residence 014 · Residence 014, Project Banksia, Banksia Rise NSW 2155 · All matters · Contract review · Change status",
+            "Tabs: Overview (active) · … · Docs (under the cursor) · … · Notes",
+            "Matter details · Finance status · Status history",
             "Demo workspace"
           ]
         },
@@ -1088,11 +1093,11 @@
           "key": "PL-09B-b",
           "shots": "09B",
           "kind": "aurixa",
-          "title": "Solicitor Portal · the matter opened",
+          "title": "Solicitor Portal · the matter's Docs",
           "text": [
-            "Project Banksia / Residence 014 (selected, blue)",
-            "Document review: Contract of sale (draft) · Floor plan · Building specification",
-            "Next discussion"
+            "Docs (active) · 3 outstanding",
+            "Document register: Contract of sale (draft) · Floor plan — Residence 014 (Under review) · Building specification (Accepted) · Planning certificate (Requested)",
+            "Review and accept · Upload new version · Open"
           ]
         },
         {
@@ -1129,12 +1134,12 @@
           "key": "PL-12A-a",
           "shots": "12A",
           "kind": "aurixa",
-          "title": "Builder / Developer Portal · Stock List",
+          "title": "Builders Network · Builder / Developer Portal · Stock List, before the click",
           "text": [
-            "AURIXA SYSTEMS · BUILDER / DEVELOPER PORTAL",
-            "Projects · Stock List",
-            "Project Banksia",
-            "Residence 014 (row, under the cursor)",
+            "Browser tabs: Stock List · Aurixa Builders Network (on view) · floorplan-R014.pdf (under the cursor)",
+            "Aurixa Builders Network · BUILDER / DEVELOPER PORTAL · Daniel Reed, Reed Constructions · Stock List (active)",
+            "Selected for a buyer: Lot 14, Project Banksia · Residence 014 · by Aurixa Systems · A. Morgan · Acknowledge",
+            "YOUR STOCK · 3 properties on the marketplace · the Residence 014 plate: elevation (P), SELECTED FOR A CLIENT, $1,150,000 · 4 bedrooms · 1 bathroom · 1 car space · 168 m² · 290 m²",
             "Demo workspace"
           ]
         },
@@ -1142,39 +1147,43 @@
           "key": "PL-12A-b",
           "shots": "12A",
           "kind": "aurixa",
-          "title": "Floor plan preview",
-          "text": ["Floor plan (image D)", "Residence 014"]
+          "title": "The floor plan's own tab",
+          "text": [
+            "Browser tabs: Stock List · Aurixa Builders Network · floorplan-R014.pdf (on view)",
+            "The browser's PDF viewer: floorplan-R014.pdf · 1 / 1 · the floor plan (image D) whole"
+          ]
         },
         {
           "key": "PL-12B-a",
           "shots": "12B",
           "kind": "aurixa",
-          "title": "Solicitor matter view with the plan and a prepared note",
+          "title": "Priya's two windows: the floor plan's PDF beside the matter's Notes",
           "text": [
-            "Floor plan (image D)",
-            "Note: Discuss the remaining document questions.",
-            "Save note"
+            "Left: floorplan-R014.pdf in the browser's PDF viewer (image D)",
+            "Right: Solicitor Portal · Ellis: Purchase, Residence 014 · Notes (active)",
+            "Client-facing summary · Practice-only notes (filled in)",
+            "Save notes (under the cursor)",
+            "Demo workspace"
           ]
         },
         {
           "key": "PL-12B-b",
           "shots": "12B",
           "kind": "aurixa",
-          "title": "Note saved",
-          "text": ["Note saved (small teal confirmation)", "Matter remains under review"]
+          "title": "Notes saved",
+          "text": ["Matter updated (the toast, bottom right, with its check)"]
         },
         {
           "key": "PL-13A-a",
           "shots": "13A",
           "kind": "aurixa",
-          "title": "Finance scenario view",
+          "title": "Finance Portal · Record finance decision",
           "text": [
-            "Active Purchase Files",
-            "Project Banksia / Residence 014",
-            "Scenario comparison",
-            "Base case · Alternative case",
-            "Illustrative scenario",
-            "Questions for discussion",
+            "Record finance decision · Broker's call on whether this purchase can proceed",
+            "Decision: Subject to valuation",
+            "Max comfortable purchase price 1,150,000 · Proposed loan amount 920,000 · Preferred lender pathway: Shortlist in progress · LVR 80",
+            "Broker notes: Valuation ordered with the lender; revisit once it returns.",
+            "Cancel · Record decision (under the cursor)",
             "Demo workspace"
           ]
         },
@@ -1182,8 +1191,12 @@
           "key": "PL-13A-b",
           "shots": "13A",
           "kind": "aurixa",
-          "title": "Alternative case selected",
-          "text": ["Alternative case (selected, blue)", "Illustrative scenario"]
+          "title": "Decision recorded",
+          "text": [
+            "Current finance position: Subject to valuation",
+            "Decision history: Subject to valuation · More information required · Subject to deposit",
+            "Decision recorded (the toast)"
+          ]
         },
         {
           "key": "PL-14A-1",
@@ -1547,6 +1560,7 @@
           "inputs": ["F-05C-in", "PL-05C-b"],
           "screen": "PL-05C-b",
           "swap": true,
+          "revision": 2,
           "parameters": {
             "resolution": "2k",
             "quality": "high",
@@ -1669,15 +1683,17 @@
           "key": "F-08B-in",
           "shot": "08B",
           "model": "still_edit",
-          "inputs": ["C-ALEX", "C-JORDAN", "S-MEETING", "F-08A-out", "PL-08B"],
+          "inputs": ["F-08B-in@take1", "PL-08B"],
           "screen": "PL-08B",
+          "reframe": true,
+          "revision": 2,
           "parameters": {
             "resolution": "2k",
             "quality": "high",
             "enhance_prompt": false,
             "moderation": "auto",
             "aspect_ratio": "9:16",
-            "prompt": "Reference images, in order: image 1 is Alex Morgan's character sheet; image 2 is Jordan Ellis's character sheet; image 3 is the set: Meeting table in the Aurixa world (keep its room, furniture, light direction and materials); image 4 is the approved frame 08A-out (match it exactly where this shot continues it); image 5 is a typeset screen plate (reproduce it exactly where described: every word, number and shape). Alex Morgan, a fair-skinned, lightly freckled woman of Anglo-Australian heritage in her mid-to-late 20s with grey-blue eyes and shoulder-length, softly wavy dark brown hair, a navy tailored jacket over an ivory blouse and a calm manner, exactly as in her character sheet (image 1) and Jordan Ellis, a well-groomed, clean-shaven man in his mid-to-late 20s with neatly trimmed short curly dark hair and a crisp, well-fitted light blue open-collar shirt, exactly as in his character sheet (image 2) seated side by side at the meeting table (image 3), a printed report page (blank apart from fine grey lines and a navy heading bar) in the foreground whose corner and diagonal match image 4; the mounted display at the table's end, its screen shows image 5 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged. Both faces readable. The Aurixa world: deep navy architecture (#0A192F, shadows #040B16), full-sized glass workplaces with fine gold-edged frames and mullions, panel-navy console surfaces (#10233D), blue-hour city glow beyond the glass. A soft neutral-to-warm key light on faces and hands with a restrained teal or blue edge light; the active screen is the brightest, most colourful area, about one stop above its surround; glow stays off skin and away from the screen's centre. Restrained 35 mm (environment) or 50 mm (people at work) lens look. Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). Apart from image 5, reproduced exactly where described, no other text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
+            "prompt": "Image 1 is the approved frame 08B-in (the picture to reproduce), and image 2 is the new screen plate (every word, number and shape to reproduce exactly). Reproduce image 1 in every detail: the same people, faces, expressions, hair, clothes, pose and hands; the same lens character, focus and depth of field; the same light, colours, room, furniture and reflections. Change only two things. The framing: The view widens slightly from the same camera position, as if through a slightly wider lens, so the whole mounted display, all four edges of its bezel with a margin of wall around them, sits inside the frame; Alex and Jordan stay large and readable, their faces in the same light. The screen: its screen shows image 2 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged, replacing the screen's earlier content completely. Photorealistic cinematic film still, vertical 9:16. Apart from image 2 on the screen, no other text, letters, numbers, logos, watermarks or interface anywhere in the image."
           },
           "takes": 2
         },
@@ -1685,15 +1701,17 @@
           "key": "F-08B-out",
           "shot": "08B",
           "model": "still_edit",
-          "inputs": ["C-ALEX", "C-JORDAN", "S-MEETING", "F-08B-in", "PL-08B"],
+          "inputs": ["F-08B-out@take2", "PL-08B"],
           "screen": "PL-08B",
+          "reframe": true,
+          "revision": 2,
           "parameters": {
             "resolution": "2k",
             "quality": "high",
             "enhance_prompt": false,
             "moderation": "auto",
             "aspect_ratio": "9:16",
-            "prompt": "Reference images, in order: image 1 is Alex Morgan's character sheet; image 2 is Jordan Ellis's character sheet; image 3 is the set: Meeting table in the Aurixa world (keep its room, furniture, light direction and materials); image 4 is the approved frame 08B-in (match it exactly where this shot continues it); image 5 is a typeset screen plate (reproduce it exactly where described: every word, number and shape). The same scene as image 4 after a short lateral move: Alex's hand rests beside the physical report folder, whose page edge fills the lower part of the outgoing frame; Jordan attentive; the display still bright. The screen shows image 5 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged. The Aurixa world: deep navy architecture (#0A192F, shadows #040B16), full-sized glass workplaces with fine gold-edged frames and mullions, panel-navy console surfaces (#10233D), blue-hour city glow beyond the glass. A soft neutral-to-warm key light on faces and hands with a restrained teal or blue edge light; the active screen is the brightest, most colourful area, about one stop above its surround; glow stays off skin and away from the screen's centre. Restrained 35 mm (environment) or 50 mm (people at work) lens look. Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). Apart from image 5, reproduced exactly where described, no other text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
+            "prompt": "Image 1 is the approved frame 08B-out (the picture to reproduce), and image 2 is the new screen plate (every word, number and shape to reproduce exactly). Reproduce image 1 in every detail: the same people, faces, expressions, hair, clothes, pose and hands; the same lens character, focus and depth of field; the same light, colours, room, furniture and reflections. Change only two things. The framing: The view widens slightly from the same camera position, as if through a slightly wider lens, so the whole mounted display, all four edges of its bezel with a margin of wall around them, sits inside the frame; Alex and Jordan stay large and readable, their faces in the same light. The screen: its screen shows image 2 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged, replacing the screen's earlier content completely. Photorealistic cinematic film still, vertical 9:16. Apart from image 2 on the screen, no other text, letters, numbers, logos, watermarks or interface anywhere in the image."
           },
           "takes": 2
         },
@@ -1733,15 +1751,17 @@
           "key": "F-09B-in",
           "shot": "09B",
           "model": "still_edit",
-          "inputs": ["C-PRIYA", "F-09A-out", "PL-09B-a"],
+          "inputs": ["F-09B-in@take1", "PL-09B-a"],
           "screen": "PL-09B-a",
+          "swap": true,
+          "revision": 2,
           "parameters": {
             "resolution": "2k",
             "quality": "high",
             "enhance_prompt": false,
             "moderation": "auto",
             "aspect_ratio": "9:16",
-            "prompt": "Reference images, in order: image 1 is Priya Shah's character sheet; image 2 is the approved frame 09A-out (match it exactly where this shot continues it); image 3 is a typeset screen plate (reproduce it exactly where described: every word, number and shape). The same monitor, folder, lens and exposure as image 2, with Priya Shah, a tall woman of Indian heritage in her mid-to-late 20s with warm medium-brown skin and long black hair tied back in a sleek low bun, a charcoal jacket and a pale blouse, exactly as in her character sheet (image 1) and her mouse hand; the screen, its screen shows image 3 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged. The Aurixa world: deep navy architecture (#0A192F, shadows #040B16), full-sized glass workplaces with fine gold-edged frames and mullions, panel-navy console surfaces (#10233D), blue-hour city glow beyond the glass. A soft neutral-to-warm key light on faces and hands with a restrained teal or blue edge light; the active screen is the brightest, most colourful area, about one stop above its surround; glow stays off skin and away from the screen's centre. Restrained 35 mm (environment) or 50 mm (people at work) lens look. Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). Apart from image 3, reproduced exactly where described, no other text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
+            "prompt": "Image 1 is the approved frame 09B-in (the picture to reproduce), and image 2 is the new screen plate (every word, number and shape to reproduce exactly). Reproduce image 1 exactly, unchanged in every detail: the same people, faces, expressions, hair, clothes, pose and hands; the same camera position, framing, lens, focus and depth of field; the same light, colours, room, furniture and reflections. Change only what the screen shows: its screen shows image 2 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged, replacing the screen's earlier content completely, inside the same bezel at the same position, size and angle. Photorealistic cinematic film still, vertical 9:16, at image 1's exact framing. Apart from image 2 on the screen, no other text, letters, numbers, logos, watermarks or interface anywhere in the image."
           },
           "takes": 2
         },
@@ -1752,6 +1772,7 @@
           "inputs": ["F-09B-in", "PL-09B-b"],
           "screen": "PL-09B-b",
           "swap": true,
+          "revision": 2,
           "parameters": {
             "resolution": "2k",
             "quality": "high",
@@ -1850,15 +1871,17 @@
           "key": "F-12A-in",
           "shot": "12A",
           "model": "still_edit",
-          "inputs": ["C-DANIEL", "S-SITE", "D", "PL-12A-a"],
+          "inputs": ["F-12A-in@take1", "PL-12A-a"],
           "screen": "PL-12A-a",
+          "swap": true,
+          "revision": 2,
           "parameters": {
             "resolution": "2k",
             "quality": "high",
             "enhance_prompt": false,
             "moderation": "auto",
             "aspect_ratio": "9:16",
-            "prompt": "Reference images, in order: image 1 is Daniel Reed's character sheet; image 2 is the set: Daniel's site office (keep its room, furniture, light direction and materials); image 3 is the Residence 014 floor plan (keep it identical); image 4 is a typeset screen plate (reproduce it exactly where described: every word, number and shape). Daniel Reed, a well-groomed man in his mid-to-late 20s with neatly cut short dark hair, a closely trimmed short beard and a crisp, well-fitted navy polo shirt, exactly as in his character sheet (image 1) at the site-office desk (image 2), the printed floor plan (image 3) on the desk beside his mouse, the safety vest on its hook behind; the monitor in the upper-middle, its screen shows image 4 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged. The Aurixa world: deep navy architecture (#0A192F, shadows #040B16), full-sized glass workplaces with fine gold-edged frames and mullions, panel-navy console surfaces (#10233D), blue-hour city glow beyond the glass. A soft neutral-to-warm key light on faces and hands with a restrained teal or blue edge light; the active screen is the brightest, most colourful area, about one stop above its surround; glow stays off skin and away from the screen's centre. Restrained 35 mm (environment) or 50 mm (people at work) lens look. Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). Apart from image 4, reproduced exactly where described, no other text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
+            "prompt": "Image 1 is the approved frame 12A-in (the picture to reproduce), and image 2 is the new screen plate (every word, number and shape to reproduce exactly). Reproduce image 1 exactly, unchanged in every detail: the same people, faces, expressions, hair, clothes, pose and hands; the same camera position, framing, lens, focus and depth of field; the same light, colours, room, furniture and reflections. Change only what the screen shows: its screen shows image 2 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged, replacing the screen's earlier content completely, inside the same bezel at the same position, size and angle. Photorealistic cinematic film still, vertical 9:16, at image 1's exact framing. Apart from image 2 on the screen, no other text, letters, numbers, logos, watermarks or interface anywhere in the image."
           },
           "takes": 2
         },
@@ -1866,15 +1889,17 @@
           "key": "F-12A-out",
           "shot": "12A",
           "model": "still_edit",
-          "inputs": ["C-DANIEL", "S-SITE", "D", "F-12A-in", "PL-12A-b"],
+          "inputs": ["F-12A-out@take2", "PL-12A-b"],
           "screen": "PL-12A-b",
+          "swap": true,
+          "revision": 2,
           "parameters": {
             "resolution": "2k",
             "quality": "high",
             "enhance_prompt": false,
             "moderation": "auto",
             "aspect_ratio": "9:16",
-            "prompt": "Reference images, in order: image 1 is Daniel Reed's character sheet; image 2 is the set: Daniel's site office (keep its room, furniture, light direction and materials); image 3 is the Residence 014 floor plan (keep it identical); image 4 is the approved frame 12A-in (match it exactly where this shot continues it); image 5 is a typeset screen plate (reproduce it exactly where described: every word, number and shape). The same scene as image 4 after a small rightward move: Daniel studies the monitor and rests a finger beside the matching printed plan (image 3); the monitor screen held flat and square-on in the upper part of the frame. The screen shows image 5 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged. The Aurixa world: deep navy architecture (#0A192F, shadows #040B16), full-sized glass workplaces with fine gold-edged frames and mullions, panel-navy console surfaces (#10233D), blue-hour city glow beyond the glass. A soft neutral-to-warm key light on faces and hands with a restrained teal or blue edge light; the active screen is the brightest, most colourful area, about one stop above its surround; glow stays off skin and away from the screen's centre. Restrained 35 mm (environment) or 50 mm (people at work) lens look. Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). Apart from image 5, reproduced exactly where described, no other text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
+            "prompt": "Image 1 is the approved frame 12A-out (the picture to reproduce), and image 2 is the new screen plate (every word, number and shape to reproduce exactly). Reproduce image 1 exactly, unchanged in every detail: the same people, faces, expressions, hair, clothes, pose and hands; the same camera position, framing, lens, focus and depth of field; the same light, colours, room, furniture and reflections. Change only what the screen shows: its screen shows image 2 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged, replacing the screen's earlier content completely, inside the same bezel at the same position, size and angle. Photorealistic cinematic film still, vertical 9:16, at image 1's exact framing. Apart from image 2 on the screen, no other text, letters, numbers, logos, watermarks or interface anywhere in the image."
           },
           "takes": 2
         },
@@ -1882,16 +1907,17 @@
           "key": "F-12B-in",
           "shot": "12B",
           "model": "still_edit",
-          "inputs": ["C-PRIYA", "S-PRIYA", "F-12A-out", "PL-12B-a"],
+          "inputs": ["F-12B-in@take1", "PL-12B-a"],
           "screen": "PL-12B-a",
-          "pin": "F-12A-out",
+          "swap": true,
+          "revision": 2,
           "parameters": {
             "resolution": "2k",
             "quality": "high",
             "enhance_prompt": false,
             "moderation": "auto",
             "aspect_ratio": "9:16",
-            "prompt": "Reference images, in order: image 1 is Priya Shah's character sheet; image 2 is the set: Priya's solicitor desk (gold-framed glass module) (keep its room, furniture, light direction and materials); image 3 is the frame across the matched cut, for the screen only: put the screen at the same position, size and angle in the frame as in this image, and take nothing else from it (not its room, people or light); image 4 is a typeset screen plate (reproduce it exactly where described: every word, number and shape). Over the shoulder of Priya Shah, a tall woman of Indian heritage in her mid-to-late 20s with warm medium-brown skin and long black hair tied back in a sleek low bun, a charcoal jacket and a pale blouse, exactly as in her character sheet (image 1) at her solicitor desk (image 2): her mouse hand, cursor area and part of her face visible; the stable monitor square-on in the upper-middle, its screen shows image 4 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged. The Aurixa world: deep navy architecture (#0A192F, shadows #040B16), full-sized glass workplaces with fine gold-edged frames and mullions, panel-navy console surfaces (#10233D), blue-hour city glow beyond the glass. A soft neutral-to-warm key light on faces and hands with a restrained teal or blue edge light; the active screen is the brightest, most colourful area, about one stop above its surround; glow stays off skin and away from the screen's centre. Restrained 35 mm (environment) or 50 mm (people at work) lens look. Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). Apart from image 4, reproduced exactly where described, no other text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
+            "prompt": "Image 1 is the approved frame 12B-in (the picture to reproduce), and image 2 is the new screen plate (every word, number and shape to reproduce exactly). Reproduce image 1 exactly, unchanged in every detail: the same people, faces, expressions, hair, clothes, pose and hands; the same camera position, framing, lens, focus and depth of field; the same light, colours, room, furniture and reflections. Change only what the screen shows: its screen shows image 2 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged, replacing the screen's earlier content completely, inside the same bezel at the same position, size and angle. Photorealistic cinematic film still, vertical 9:16, at image 1's exact framing. Apart from image 2 on the screen, no other text, letters, numbers, logos, watermarks or interface anywhere in the image."
           },
           "takes": 2
         },
@@ -1902,6 +1928,7 @@
           "inputs": ["F-12B-in", "PL-12B-b"],
           "screen": "PL-12B-b",
           "swap": true,
+          "revision": 2,
           "parameters": {
             "resolution": "2k",
             "quality": "high",
@@ -2092,7 +2119,7 @@
           "last_frame": "F-08B-out",
           "seconds": 7,
           "edit_seconds": 5.3,
-          "prompt": "Alex brings one consideration into view with a small touchpad movement and points to the display; Jordan follows and offers a natural, silent question with a look. A restrained short lateral move discovers their shared attention, then holds as Alex rests her hand beside the report folder. Silent footage: nobody talks or mouths words, no lip movement toward the camera, no music cues. Each screen shows exactly what the first and last frames show: its text stays sharp, steady and legible and changes only once, cleanly, at the click; no other text appears. No morphing of people or rooms, no flashes, no exposure pulses, no speed ramps; believable hands with five fingers."
+          "prompt": "Alex points to the report on the display with a small, open gesture; the display itself stays exactly as it is. Jordan follows and offers a natural, silent question with a look. A restrained short lateral move discovers their shared attention, then holds as Alex rests her hand beside the report folder. Silent footage: nobody talks or mouths words, no lip movement toward the camera, no music cues. Each screen shows exactly what the first and last frames show: its text stays sharp, steady and legible and changes only once, cleanly, at the click; no other text appears. No morphing of people or rooms, no flashes, no exposure pulses, no speed ramps; believable hands with five fingers."
         },
         {
           "key": "V-09A",
