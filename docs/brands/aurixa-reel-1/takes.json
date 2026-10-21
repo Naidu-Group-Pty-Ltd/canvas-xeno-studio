@@ -823,6 +823,14 @@
    ],
    "costUsd": null,
    "error": null
+  },
+  "r2-take1": {
+   "generationId": "89cb8d00-b0a6-4ca6-82d5-dd62192e6b23",
+   "status": "queued"
+  },
+  "r2-take2": {
+   "generationId": "8145e1ac-f7f7-412d-8ce2-40960f2bc93c",
+   "status": "queued"
   }
  },
  "F-06A-out": {
