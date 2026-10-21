@@ -6,11 +6,20 @@ character sheet (C-*), cut into its panels, and their face in the approved frame
   python3 scripts/aurixa-reel-1/cast.py status                # get_character: each Soul ID's state
   python3 scripts/aurixa-reel-1/cast.py proof [--only ALEX] [--attempt 2]   # make_soul_still: one likeness still each, billed
   python3 scripts/aurixa-reel-1/cast.py fetch-proofs <dir>    # waits for them and downloads them
+  python3 scripts/aurixa-reel-1/cast.py pack --only JAMIE [--price]          # a training pack: 8 photos each, billed
+  python3 scripts/aurixa-reel-1/cast.py fetch-pack <dir> [--only JAMIE]      # waits for them and downloads them
+  python3 scripts/aurixa-reel-1/cast.py keep JAMIE=1,2,4                       # adds those pack photos to the training photos
 
 The sheet is four panels in one picture (full length, three-quarter, profile, hands), so it is cut into
 its panels: a Soul ID learns from one face per image. The frames give the person in the reel's own light
 and angles; only those with the face clear are used, and a frame and its screen-swapped twin count once.
 Ids go into docs/brands/aurixa-reel-1/characters.json; a character is saved once and found there after.
+
+A training pack is the studio's own (Characters → Training pack, soul-training.server.ts): its painter
+(the first of keyframePainters that paints 3:4, Grok Imagine Image 2.0), with painterValues' settings, the
+sheet as reference images in sheetOrder, and packPrompt over PACK_SHOTS in order. Where the sheet and the
+frames give a Soul ID too few faces (Jamie, Daniel and Mia had five each), the good ones are added to the
+character's training photos and the Soul ID is trained again.
 """
 import ast, base64, hashlib, io, json, sys, urllib.request
 from pathlib import Path
@@ -46,6 +55,21 @@ FRAMES = {
     "MIA": {"F-08A-in": (0, 380, 640, 1260), "F-08A-out": (0, 260, 600, 1100)},
 }
 SOUL_VERSION = "v2"  # Soul 2, the studio's default Soul model
+# The studio's training pack (src/lib/characters/soul.ts PACK_SHOTS and packPrompt; keyframes.ts painterValues).
+PACK_PAINTER = "59826145-422a-4247-b630-bb59cf6f4090"  # Grok Imagine Image 2.0, keyframePainters' first at 3:4
+PACK_VALUES = {"aspect_ratio": "3:4", "resolution": "2k", "quality": "medium"}
+PACK_SIZE = 8  # the studio's smallest pack (PACK_SIZES)
+PACK_SHOTS = [
+    "A head-and-shoulders portrait facing the camera, neutral relaxed expression, soft even studio light, plain light-grey background.",
+    "A head-and-shoulders portrait turned three-quarters to the left, a gentle smile, soft window light.",
+    "A head-and-shoulders portrait turned three-quarters to the right, serious expression, soft daylight.",
+    "A close side profile facing left, calm expression, even light, plain background.",
+    "A close-up of the face, laughing naturally, warm indoor light.",
+    "A waist-up photo facing the camera, arms relaxed, bright overcast daylight outdoors.",
+    "A head-and-shoulders portrait looking slightly down, thoughtful expression, warm lamp light, indoors.",
+    "A head-and-shoulders portrait looking slightly up, confident expression, cool blue evening light.",
+]
+SHEET_ORDER = ["face", "front", "three_quarter", "side", "back", "outfit", "expression", "other"]
 PROOF_SCENE = ("A head-and-shoulders portrait facing the camera, a calm, natural expression, soft even light, a plain "
                "light-grey background; a sharp, true-to-life photograph.")
 
@@ -172,6 +196,84 @@ def fetch_proofs(folder, only=None):
         print(f"{who}: likeness still {path}")
 
 
+def pack_prompt(shot, description):
+    """packPrompt: the description is short enough here that trimDescription(…, 300) leaves it whole."""
+    look = description.strip().rstrip(".")
+    return " ".join([
+        f"The reference images show one person. Make a new, natural photo of exactly the same person: the same face, "
+        f"age, skin tone, hair and build{f' ({look})' if look else ''}.",
+        shot,
+        "They may wear different everyday clothes. Photorealistic, natural skin texture, sharp focus on the face, one "
+        "person only, no text, logos or watermarks.",
+    ])
+
+
+def pack_request(who, entry, index):
+    character = studio.call("get_character", {"characterId": entry["characterId"]})
+    sheet = sorted(character["sheet"], key=lambda image: SHEET_ORDER.index(image["view"]))[:10]  # the painter's slot max
+    return {"modelId": PACK_PAINTER,
+            "parameters": {**PACK_VALUES, "prompt": pack_prompt(PACK_SHOTS[index], character["description"])},
+            "inputs": [{"assetId": image["assetId"], "role": "reference"} for image in sheet]}
+
+
+def pack(only, price=False):
+    record = load_record()
+    for who in only:
+        entry = record[who]
+        if price:
+            print(who, json.dumps(studio.call("estimate_generation", pack_request(who, entry, 0)))[:300], f"x {PACK_SIZE}")
+            continue
+        generations = entry.setdefault("pack", {})
+        for index in range(PACK_SIZE):
+            request = pack_request(who, entry, index)
+            result = studio.call("queue_generation", {**request, "clientRequestId": f"aurixa-cast-pack-{who.lower()}-{index + 1}"})
+            generations[str(index + 1)] = {"generationId": result.get("generationId") or result.get("id")}
+            save_record(record)
+            print(f"{who} pack {index + 1}: {generations[str(index + 1)]['generationId']}")
+
+
+def fetch_pack(folder, only=None):
+    import time
+    record = load_record()
+    for who, entry in record.items():
+        if (only and who not in only) or not entry.get("pack"):
+            continue
+        for number, item in entry["pack"].items():
+            for _ in range(90):
+                generation = studio.call("get_generation", {"generationId": item["generationId"]})
+                if generation.get("status") in studio.SETTLED and (generation["status"] != "completed" or generation.get("outputs")):
+                    break
+                time.sleep(10)
+            files = generation.get("outputs") or []
+            item["status"] = generation.get("status")
+            if item["status"] != "completed" or not files:
+                print(f"{who} pack {number}: {item['status']}")
+                save_record(record)
+                continue
+            item["assetId"] = files[0]["id"] if isinstance(files[0], dict) else files[0]
+            path = Path(folder) / f"pack-{who}-{number}.png"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if not path.exists():
+                urllib.request.urlretrieve(studio.call("get_asset", {"assetId": item["assetId"]})["url"], path)
+            save_record(record)
+            print(f"{who} pack {number}: {path}")
+
+
+def keep(choices):
+    """JAMIE=1,2,4: those pack photos become training photos too, and the next train uses them."""
+    record = load_record()
+    for choice in choices:
+        who, numbers = choice.split("=")
+        entry = record[who]
+        kept = [entry["pack"][n]["assetId"] for n in numbers.split(",")]
+        for n in entry["pack"]:
+            entry["pack"][n]["kept"] = n in numbers.split(",")
+        result = studio.call("save_character", {"characterId": entry["characterId"], "photos": kept})
+        entry["training"] = [a for a in entry["training"] if a not in kept] + kept
+        save_record(record)
+        print(f"{who}: {len(kept)} pack photos added ({result.get('added')}); {len(entry['training'])} to train on")
+
+
 if __name__ == "__main__":
     command = sys.argv[1]
     only = sys.argv[sys.argv.index("--only") + 1].split(",") if "--only" in sys.argv else None
@@ -185,3 +287,9 @@ if __name__ == "__main__":
         proof(only, int(sys.argv[sys.argv.index("--attempt") + 1]) if "--attempt" in sys.argv else 1)
     elif command == "fetch-proofs":
         fetch_proofs(sys.argv[2], only)
+    elif command == "pack":
+        pack(only, "--price" in sys.argv)
+    elif command == "fetch-pack":
+        fetch_pack(sys.argv[2], only)
+    elif command == "keep":
+        keep(sys.argv[2:])

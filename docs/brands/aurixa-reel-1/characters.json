@@ -107,7 +107,14 @@
       "33fefaf8-1ece-4415-a31d-d8981ee6a9d8",
       "5bb0d7f2-97ab-4811-8c32-a9e247b03d5d",
       "b768acee-4bab-4259-8ce4-cb5acae8c7bf",
-      "55e91433-a179-4af9-9a91-6fb81544d40c"
+      "55e91433-a179-4af9-9a91-6fb81544d40c",
+      "ce3fdafe-4b6c-4bbe-a141-7b1ced795ee4",
+      "61e90d2b-d4bb-49fd-9234-0c83dd47aa48",
+      "7ea0c464-caf2-4aee-bff2-5ea9aa0fa6e6",
+      "c591cad6-915b-485c-9e0a-743a57815f64",
+      "cb05d76a-d322-4fd9-9877-4150a98ad9c5",
+      "dfc1c614-cba7-48f5-98d5-9783e777b6d8",
+      "bf116a01-2024-40ee-a66c-46998289f1ef"
     ],
     "soul": {
       "v2": {
@@ -127,6 +134,56 @@
       "status": "ready",
       "version": "v2",
       "error": null
+    },
+    "pack": {
+      "1": {
+        "generationId": "4a0b218e-e005-45fb-8f96-8ddec807a8ea",
+        "status": "completed",
+        "assetId": "0dda3313-306e-4eec-b60d-a741ee097c25",
+        "kept": false
+      },
+      "2": {
+        "generationId": "51593563-7f86-4b77-ae18-fd92b61ba1a7",
+        "status": "completed",
+        "assetId": "ce3fdafe-4b6c-4bbe-a141-7b1ced795ee4",
+        "kept": true
+      },
+      "3": {
+        "generationId": "0ba5fc80-7569-460c-93e1-a8f8cabe4d75",
+        "status": "completed",
+        "assetId": "61e90d2b-d4bb-49fd-9234-0c83dd47aa48",
+        "kept": true
+      },
+      "4": {
+        "generationId": "7014483d-9990-4b67-a449-ebad8ae27f8f",
+        "status": "completed",
+        "assetId": "7ea0c464-caf2-4aee-bff2-5ea9aa0fa6e6",
+        "kept": true
+      },
+      "5": {
+        "generationId": "6a6afff6-743f-4380-9e87-a69292bb8d1b",
+        "status": "completed",
+        "assetId": "c591cad6-915b-485c-9e0a-743a57815f64",
+        "kept": true
+      },
+      "6": {
+        "generationId": "ed56a22b-4ea4-4e50-a7db-efc9572836be",
+        "status": "completed",
+        "assetId": "cb05d76a-d322-4fd9-9877-4150a98ad9c5",
+        "kept": true
+      },
+      "7": {
+        "generationId": "59bafa21-7568-4e1e-a58f-bf23510cabbf",
+        "status": "completed",
+        "assetId": "dfc1c614-cba7-48f5-98d5-9783e777b6d8",
+        "kept": true
+      },
+      "8": {
+        "generationId": "9d12bccf-5427-439f-9860-889d0e0ff402",
+        "status": "completed",
+        "assetId": "bf116a01-2024-40ee-a66c-46998289f1ef",
+        "kept": true
+      }
     }
   },
   "PRIYA": {
@@ -189,11 +246,17 @@
       "17be30aa-99a4-402e-befe-faf0c379038c",
       "b94e2d83-bc0b-46b0-9279-eab604273e1a",
       "ecf3b17d-a2a1-4c2d-9702-13deab81d469",
-      "ed4aa9ba-a2bb-48e5-b559-83fba0c6220a"
+      "ed4aa9ba-a2bb-48e5-b559-83fba0c6220a",
+      "53f146fc-ac90-4360-99a4-390a036186ef",
+      "e298cecf-5ec8-4cb2-ba7a-e2ff7a6bc118",
+      "f31c27c3-c67c-433b-8eec-13b1fc38740d",
+      "08f777ad-ea2b-4068-bc1b-e3b2f7ecd898",
+      "f4e04fba-0992-4510-925a-1e300464af04"
     ],
     "soul": {
       "v2": {
-        "status": "training"
+        "status": "failed",
+        "error": "Not enough credits (Higgsfield), 21 Oct 2026: nothing billed; the Soul ID trained on 5 images stays in use"
       }
     },
     "proof": "7b219f21-a057-4822-99ae-c39a842d8781",
@@ -209,6 +272,56 @@
       "status": "ready",
       "version": "v2",
       "error": null
+    },
+    "pack": {
+      "1": {
+        "generationId": "034cd3b3-6f3c-4fe0-9062-ceff2360ffb7",
+        "status": "completed",
+        "assetId": "53f146fc-ac90-4360-99a4-390a036186ef",
+        "kept": true
+      },
+      "2": {
+        "generationId": "0140da27-2760-40bb-9d63-9ffbd338d63e",
+        "status": "completed",
+        "assetId": "97132b3a-4896-4bfb-97fe-f92f70f0abea",
+        "kept": false
+      },
+      "3": {
+        "generationId": "7c801a3c-8c9e-40e0-8b88-1ccb0b559cec",
+        "status": "completed",
+        "assetId": "e298cecf-5ec8-4cb2-ba7a-e2ff7a6bc118",
+        "kept": true
+      },
+      "4": {
+        "generationId": "8bc924a7-c63b-44b7-81fe-7e3ef4b43923",
+        "status": "completed",
+        "assetId": "5f5908c7-f1d9-4052-a8ff-7ccac821b4f2",
+        "kept": false
+      },
+      "5": {
+        "generationId": "d3b58803-545c-468d-b403-06c6e8e822b3",
+        "status": "completed",
+        "assetId": "f31c27c3-c67c-433b-8eec-13b1fc38740d",
+        "kept": true
+      },
+      "6": {
+        "generationId": "e12a27d4-a033-4154-a9b2-71bb0829e130",
+        "status": "completed",
+        "assetId": "08f777ad-ea2b-4068-bc1b-e3b2f7ecd898",
+        "kept": true
+      },
+      "7": {
+        "generationId": "b68a6ecd-aba5-466a-9768-fa98c3384048",
+        "status": "completed",
+        "assetId": "f4e04fba-0992-4510-925a-1e300464af04",
+        "kept": true
+      },
+      "8": {
+        "generationId": "5fec8a4e-eba1-46b6-826a-e060bd37304a",
+        "status": "completed",
+        "assetId": "b8aa6362-e36b-45d5-ad7a-837ed595a164",
+        "kept": false
+      }
     }
   },
   "MIA": {
@@ -229,11 +342,19 @@
       "d37ea63a-8865-404e-b3fb-159e055d06fa",
       "cb6c02db-fb19-4eab-84db-bc62261fe7a2",
       "da8557a7-3906-4b47-ae00-d95b84094d36",
-      "161d8798-ec3c-4f3e-80e8-97c98700fb49"
+      "161d8798-ec3c-4f3e-80e8-97c98700fb49",
+      "be883a27-38cc-49f4-ae31-3796ed823c10",
+      "e4f62558-5e4e-48bb-8dd7-2b691fd9a891",
+      "6d9dbcdc-47aa-4f18-8428-e3e7873dfba4",
+      "ea3b30eb-18c2-4c48-9714-0f6543669c2c",
+      "2a5a085e-6e36-4553-a677-f2a2cbea93d8",
+      "8d1432b1-cbdd-4013-8577-efd35105a4c5",
+      "b1d4272d-6e70-4445-aa5e-1cba8b85f392"
     ],
     "soul": {
       "v2": {
-        "status": "training"
+        "status": "failed",
+        "error": "Not enough credits (Higgsfield), 21 Oct 2026: nothing billed; the Soul ID trained on 5 images stays in use"
       }
     },
     "souls": [
@@ -249,6 +370,56 @@
       "error": null
     },
     "proof": "4c1793a2-0bef-4c25-99b0-a4eb05c722cf",
-    "proofAsset": "0c79b51c-da85-4571-8f9e-59bcad8b6dbd"
+    "proofAsset": "0c79b51c-da85-4571-8f9e-59bcad8b6dbd",
+    "pack": {
+      "1": {
+        "generationId": "fc4249ea-fa5c-4d80-bdb8-f8b0db03c789",
+        "status": "completed",
+        "assetId": "be883a27-38cc-49f4-ae31-3796ed823c10",
+        "kept": true
+      },
+      "2": {
+        "generationId": "9718be17-d863-4a5a-82ff-85ebb29111a9",
+        "status": "completed",
+        "assetId": "e4f62558-5e4e-48bb-8dd7-2b691fd9a891",
+        "kept": true
+      },
+      "3": {
+        "generationId": "9e807162-cadf-4671-96a0-3979ad7f318f",
+        "status": "completed",
+        "assetId": "6d9dbcdc-47aa-4f18-8428-e3e7873dfba4",
+        "kept": true
+      },
+      "4": {
+        "generationId": "0f8b71cd-1882-40a6-a10c-7359f1469b5e",
+        "status": "completed",
+        "assetId": "ea3b30eb-18c2-4c48-9714-0f6543669c2c",
+        "kept": true
+      },
+      "5": {
+        "generationId": "76a316d2-82c2-4302-b466-178a5894698f",
+        "status": "completed",
+        "assetId": "2a5a085e-6e36-4553-a677-f2a2cbea93d8",
+        "kept": true
+      },
+      "6": {
+        "generationId": "b76bc8b2-7bd5-4b9b-b580-81d54e7bf2c4",
+        "status": "completed",
+        "assetId": "8d1432b1-cbdd-4013-8577-efd35105a4c5",
+        "kept": true
+      },
+      "7": {
+        "generationId": "62f0a0d1-4f44-43ba-9d51-c2301942942c",
+        "status": "completed",
+        "assetId": "b1d4272d-6e70-4445-aa5e-1cba8b85f392",
+        "kept": true
+      },
+      "8": {
+        "generationId": "3a988d1f-b0aa-4302-aee6-154897a6f02f",
+        "status": "completed",
+        "assetId": "8fee2bc8-52b8-4156-a24c-36a53a3daf44",
+        "kept": false
+      }
+    }
   }
 }

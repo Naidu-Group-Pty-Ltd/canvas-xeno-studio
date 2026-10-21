@@ -93,5 +93,7 @@
 - [x] Reel 1: the four further Command Centre pages supplied (Generated Reports, an investment report, the agent, Overview) and its plates rebuilt on them; the 13 frames they and the fonts changed screen-swapped and picked
 - [x] Reel 1: the other portals' pages built from the products' code at the client's direction (Finance Decisions, My property team, the accountant's Requests, the solicitor's matter, the Builders Network's Stock List, the report's PDF); their 16 frames screen-swapped, made again after the click, or (08B) reframed so the display fits
 - [x] Reel 1's cast saved as studio characters (Alex, Jordan, Jamie, Priya, Daniel, Mia) with Soul IDs on Soul 2, trained on the approved assets alone: each sheet cut into its panels and each person's clear faces cut from the approved frames (scripts/aurixa-reel-1/cast.py; ids in characters.json); a likeness still each
+- [x] Reel 1: training packs for Jamie, Daniel and Mia (the studio's own: 8 photos each from the sheet), the good ones added to their training photos (7, 5 and 7)
+- [ ] Reel 1: train Daniel's and Mia's Soul IDs again on their packs (refused for Higgsfield credits on 21 Oct; nothing billed), then approve the new ones
 - [ ] Reel 1 stage 5, clips: test 01A and 04B on both clip models, choose one, then block by block (needs approval and spend)
 - [ ] The studio records no price for metered GPT Image runs: Higgsfield's result carries none, so a run's cost and the balance countdown miss them (the Console's balance is the only record)

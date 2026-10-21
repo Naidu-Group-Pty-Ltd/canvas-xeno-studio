@@ -13,7 +13,7 @@ These scripts build Aurixa's Reel 1 generation spec and typeset its screen plate
 | `mascot.cjs`        | Renders the Aurixa Agent's presence (the mascot on her button and in her header) from the portals' own markup, stylesheet and art, to `mascot.png`.                                                                                                                                                    |
 | `portals.cjs`       | The portal plates (used by `plates.cjs`), built on the shells of the portal screenshots and, where none was supplied, on the portals' own code; with the browser window and PDF viewer the file scenes need.                                                                                           |
 | `studio.py`         | Runs the spec against the studio API: imports the plates (`import_image`, ids into `assets.json`), prices a stage (`estimate_generation`) and runs one (`queue_generation`, only with `--confirm`; takes into `takes.json`); Stage 5's clips take `--model`.                                           |
-| `cast.py`           | The cast as studio characters with Soul IDs (Soul 2), from the approved assets alone: each sheet cut into its panels (one face per image) and each person's clear faces cut from the approved frames; saves them, trains, reads their state and makes a likeness still each. Ids in `characters.json`. |
+| `cast.py`           | The cast as studio characters with Soul IDs (Soul 2), from the approved assets alone: each sheet cut into its panels (one face per image) and each person's clear faces cut from the approved frames; saves them, trains, reads their state and makes a likeness still each. Paints the studio's own training pack where those give too few faces, and adds the good ones. Ids in `characters.json`. |
 | `contact-sheet.cjs` | One picture of every rendered plate, for review.                                                                                                                                                                                                                                                       |
 
 ```sh
@@ -29,6 +29,7 @@ node scripts/aurixa-reel-1/plates.cjs /tmp/reel-1-plates assets   # assets: P.pn
 PLATES_ONLY=PL-09B-a,PL-12A-a node scripts/aurixa-reel-1/plates.cjs /tmp/reel-1-plates assets   # just those, to look at a change
 node scripts/aurixa-reel-1/contact-sheet.cjs /tmp/reel-1-plates /tmp/reel-1-plates.png
 python3 scripts/aurixa-reel-1/cast.py save /tmp/reel-1-cast && python3 scripts/aurixa-reel-1/cast.py train   # then: status, proof
+python3 scripts/aurixa-reel-1/cast.py pack --only JAMIE && python3 scripts/aurixa-reel-1/cast.py fetch-pack /tmp/reel-1-pack   # then: keep JAMIE=2,3, train --only JAMIE
 ```
 
 The plates are v2:
