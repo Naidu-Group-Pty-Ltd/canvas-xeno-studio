@@ -118,6 +118,11 @@ def save_takes(record):
     (SPEC_DIR / "takes.json").write_text(json.dumps(record, indent=1) + "\n")
 
 
+def settled(take):
+    # A generation reads completed a moment before its file is in the library, so a completed take waits for its file.
+    return take["status"] in SETTLED and (take["status"] != "completed" or bool(take.get("assets")))
+
+
 def settle(record, timeout=45 * 60):
     """Polls every unsettled take until it settles or the time is up, saving as it goes."""
     deadline = time.monotonic() + timeout
@@ -125,13 +130,13 @@ def settle(record, timeout=45 * 60):
         waiting = 0
         for key, takes in record.items():
             for name, take in takes.items():
-                if take["status"] in SETTLED:
+                if settled(take):
                     continue
                 g = call("get_generation", {"generationId": take["generationId"]})
                 take.update(status=g["status"], assets=[o["id"] for o in g["outputs"]],
                             costUsd=g["actual_cost_usd"] or g["estimated_cost_usd"],
                             error=" ".join(filter(None, [g["error_code"], g["error_message"]])) or None)
-                if g["status"] in SETTLED:
+                if settled(take):
                     print(f"{key} {name}: {g['status']}" + (f" ({take['error']})" if take["error"] else f", {', '.join(take['assets'])}"))
                 else:
                     waiting += 1

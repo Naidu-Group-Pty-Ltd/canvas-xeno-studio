@@ -79,5 +79,7 @@
 - [x] Reel 1 stage 1 approved (`studio.py pick`, into assets.json): P take1, D take1, Alex r2-take2, Jordan take3, Jamie r2-take1, Priya r2-take3, Daniel take1, Mia r3-take1 (her sheet's revision 3 makes her more glamorous)
 - [x] Reel 1 stage 2, the three sets that need no uploads: S-HOME, S-OFFICE and S-SITE, two takes each, all completed (recommended: S-HOME take1, S-OFFICE take2, S-SITE take2)
 - [x] Reel 1 console world, made in place of the pack's image(9) and image(10), which can't be found: CW-9 (wide view) and CW-10 (doorway view), three takes each on Sunburst's image edit from two Aurixa brand images cropped to their rooms and Daniel's site office (S-SITE take2, approved)
-- [ ] Reel 1 picks: CW-9 and CW-10 (recommended: take1 of each), S-HOME and S-OFFICE (recommended: take1, take2), and whether to keep the Sydney views; then the seven Aurixa-world sets (14 takes)
+- [x] Reel 1 picks: CW-9 take1, CW-10 take1, S-HOME take1, S-OFFICE take2, S-SITE take2; the Sydney views stay
+- [x] Reel 1 stage 2, the seven Aurixa-world sets from the console world: two takes each, all completed (recommended: take1 of each)
+- [ ] Reel 1 picks for the seven sets; then stage 4, the 36 shot frames (two takes each), in 19 waves because most frames are built from an approved earlier frame
 - [ ] The studio records no price for metered GPT Image runs: Higgsfield's result carries none, so a run's cost and the balance countdown miss them (the Console's balance is the only record)

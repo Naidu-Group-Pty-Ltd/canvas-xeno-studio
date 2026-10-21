@@ -374,5 +374,117 @@
       "costUsd": null,
       "error": null
     }
+  },
+  "S-ALEX": {
+    "take1": {
+      "generationId": "151bfe24-4f25-4969-99a4-017c96189413",
+      "status": "completed",
+      "assets": ["1b879f58-faec-4446-974d-46669d1d7e73"],
+      "costUsd": null,
+      "error": null
+    },
+    "take2": {
+      "generationId": "9e898b55-24fc-4cc9-88e4-c402d63d895d",
+      "status": "completed",
+      "assets": ["671d3e21-bfb8-42f9-8de5-479fb6d3a556"],
+      "costUsd": null,
+      "error": null
+    }
+  },
+  "S-MEETING": {
+    "take1": {
+      "generationId": "b1459099-c249-46a9-a339-d62a6cfc61c6",
+      "status": "completed",
+      "assets": ["646f54bb-2d24-48bc-ad44-be423f6bcdc8"],
+      "costUsd": null,
+      "error": null
+    },
+    "take2": {
+      "generationId": "f7820f45-e9d2-46ba-bb95-5ebcf4c5da1a",
+      "status": "completed",
+      "assets": ["c83bb783-9dd3-47cb-8640-eec54cc0f667"],
+      "costUsd": null,
+      "error": null
+    }
+  },
+  "S-JAMIE": {
+    "take1": {
+      "generationId": "b4d972e5-bc3e-4cc0-a931-398295f340d9",
+      "status": "completed",
+      "assets": ["f45a3b27-5f2b-4462-9f16-64c9690abb30"],
+      "costUsd": null,
+      "error": null
+    },
+    "take2": {
+      "generationId": "c1a632c5-b5fa-408c-afb1-916d35d27301",
+      "status": "completed",
+      "assets": ["da8582c0-84dd-4922-87fe-1f9a35da7548"],
+      "costUsd": null,
+      "error": null
+    }
+  },
+  "S-CLIENT": {
+    "take1": {
+      "generationId": "85c79ecb-d7dc-40c7-8194-be1eaca9c77a",
+      "status": "completed",
+      "assets": ["1e83f814-e5f6-4a24-b3ec-8fa3b0ea36dc"],
+      "costUsd": null,
+      "error": null
+    },
+    "take2": {
+      "generationId": "b59f6b66-9f56-447e-a679-bd1a7729bcb0",
+      "status": "completed",
+      "assets": ["fd3aeaea-801e-4ddc-9f0c-28d2f3f1870f"],
+      "costUsd": null,
+      "error": null
+    }
+  },
+  "S-MIA": {
+    "take1": {
+      "generationId": "4e9e0f2b-6980-433d-b3cd-8aae8e73aa5a",
+      "status": "completed",
+      "assets": ["ce9e724b-8aef-4602-893e-004c3e2ea4a5"],
+      "costUsd": null,
+      "error": null
+    },
+    "take2": {
+      "generationId": "b019dd2e-d5fa-4ad4-a8f0-3fd5d15532df",
+      "status": "completed",
+      "assets": ["c0bb3479-306f-4db7-8afb-02f982eb1b5c"],
+      "costUsd": null,
+      "error": null
+    }
+  },
+  "S-PRIYA": {
+    "take1": {
+      "generationId": "cc071555-1b3b-4c80-bcaf-5f0becda9318",
+      "status": "completed",
+      "assets": ["534c1afe-aa32-4440-9867-c0998defa22c"],
+      "costUsd": null,
+      "error": null
+    },
+    "take2": {
+      "generationId": "8a5ea02f-bb6a-4f24-952f-35eb76d642ab",
+      "status": "completed",
+      "assets": ["4d654f61-a96c-4ae4-968e-bcb779abc4d8"],
+      "costUsd": null,
+      "error": null
+    }
+  },
+  "S-REVEAL": {
+    "take1": {
+      "generationId": "9defe808-1eee-4667-85e8-f9b99fe8a8e0",
+      "status": "completed",
+      "assets": ["c94afb5a-ffdd-4dd3-ad7c-6e14e5f89d8a"],
+      "costUsd": null,
+      "error": null
+    },
+    "take2": {
+      "generationId": "487422a6-bd48-4448-b348-0a1ff31d79d2",
+      "status": "completed",
+      "assets": ["ffde0e0c-e1ec-413e-99fc-6353de54f951"],
+      "costUsd": null,
+      "error": null
+    }
   }
 }
