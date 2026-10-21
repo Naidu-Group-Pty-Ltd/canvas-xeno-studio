@@ -2,11 +2,18 @@
 
   python3 scripts/aurixa-reel-1/studio.py import-plates <dir of PL-*.png>   # import_image, ids into assets.json
   python3 scripts/aurixa-reel-1/studio.py price <stage>                     # estimate_generation: nothing is made or billed
+  python3 scripts/aurixa-reel-1/studio.py run <stage> [--only P,C-ALEX] [--takes N] [--confirm]
+  python3 scripts/aurixa-reel-1/studio.py takes                             # the takes' state again, into takes.json
+
+run prints what it would queue; only with --confirm does it queue (billed by the provider), then it
+waits and records every take in takes.json. A take's request id is its key and number, so running
+again returns the takes already made instead of paying twice; --takes 4 adds a fourth. A failed or
+blocked take is never tried again by itself.
 
 The API is the published studio's (XENO_STUDIO_URL, default https://canvas-xeno-studio.lovable.app),
-with a personal token in XENO_STUDIO_TOKEN (or one the network adds). Nothing here queues a generation.
+with a personal token in XENO_STUDIO_TOKEN (or one the network adds).
 """
-import base64, json, os, sys, urllib.error, urllib.request
+import base64, json, os, sys, time, urllib.error, urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -15,6 +22,8 @@ BASE = os.environ.get("XENO_STUDIO_URL", "https://canvas-xeno-studio.lovable.app
 TOKEN = os.environ.get("XENO_STUDIO_TOKEN")
 # The plates' version: a new one imports new assets; the same one returns the earlier import.
 PLATES_VERSION = "v2"
+# get_generation's last states; submission_uncertain waits on a person, so it ends the wait too.
+SETTLED = {"completed", "failed", "nsfw", "canceled", "submission_uncertain"}
 
 
 def call(operation, args, timeout=180):
@@ -97,11 +106,92 @@ def price(stage_number):
     print(f"Stage {stage_number}: US${total:.2f} for what was priced" + (f"; not priced: {', '.join(unpriced)}" if unpriced else ""))
 
 
+def load_takes():
+    file = SPEC_DIR / "takes.json"
+    return json.loads(file.read_text()) if file.exists() else {}
+
+
+def save_takes(record):
+    (SPEC_DIR / "takes.json").write_text(json.dumps(record, indent=1) + "\n")
+
+
+def settle(record, timeout=45 * 60):
+    """Polls every unsettled take until it settles or the time is up, saving as it goes."""
+    deadline = time.monotonic() + timeout
+    while True:
+        waiting = 0
+        for key, takes in record.items():
+            for name, take in takes.items():
+                if take["status"] in SETTLED:
+                    continue
+                g = call("get_generation", {"generationId": take["generationId"]})
+                take.update(status=g["status"], assets=[o["id"] for o in g["outputs"]],
+                            costUsd=g["actual_cost_usd"] or g["estimated_cost_usd"],
+                            error=" ".join(filter(None, [g["error_code"], g["error_message"]])) or None)
+                if g["status"] in SETTLED:
+                    print(f"{key} {name}: {g['status']}" + (f" ({take['error']})" if take["error"] else f", {', '.join(take['assets'])}"))
+                else:
+                    waiting += 1
+        save_takes(record)
+        if not waiting or time.monotonic() > deadline:
+            break
+        time.sleep(15)
+    takes = [t for ts in record.values() for t in ts.values()]
+    done = [t for t in takes if t["status"] == "completed"]
+    cost = sum(float(t["costUsd"] or 0) for t in takes)
+    print(f"{len(done)} of {len(takes)} takes made; US${cost:.2f} charged or held" + (f"; {waiting} still running (run takes later)" if waiting else ""))
+
+
+def run(stage_number, only=None, takes=None, confirm=False):
+    spec = load("spec.json")
+    ledger = load("assets.json")
+    stage = next(s for s in spec["stages"] if s["stage"] == stage_number)
+    models = spec["models"]
+    record = load_takes()
+    queued = 0
+    for item in stage["items"]:
+        if only and item["key"] not in only:
+            continue
+        model = models[item["model"]]
+        missing = [key for key in item.get("inputs", []) if not ledger.get(key)]
+        if missing:
+            print(f"{item['key']}: waits on {', '.join(missing)}")
+            continue
+        inputs = [{"assetId": ledger[key], "role": model["role"]} for key in item.get("inputs", [])]
+        settings = ", ".join(f"{k} {v}" for k, v in item["parameters"].items() if k != "prompt")
+        for take in range(1, (takes or item.get("takes", 1)) + 1):
+            name = f"take{take}"
+            if not confirm:
+                print(f"{item['key']} {name}: {model['name']} ({settings}); {len(inputs)} inputs; prompt {len(item['parameters']['prompt'])} characters")
+                continue
+            started = call("queue_generation", {"modelId": model["id"], "parameters": item["parameters"], "inputs": inputs,
+                                                "clientRequestId": f"aurixa-reel1-{item['key']}-{name}"})
+            known = record.get(item["key"], {}).get(name)
+            if not known or known["generationId"] != started["generationId"]:
+                record.setdefault(item["key"], {})[name] = {"generationId": started["generationId"], "status": started["status"]}
+            queued += 1
+            print(f"{item['key']} {name}: {started['generationId']} {started['status']}" + (f" ({started['budgetWarning']})" if started.get("budgetWarning") else ""))
+            save_takes(record)
+    if not confirm:
+        print("Nothing was queued: add --confirm to queue these (billed by the provider).")
+    elif queued:
+        settle(record)
+
+
 if __name__ == "__main__":
-    command = sys.argv[1] if len(sys.argv) > 1 else ""
-    if command == "import-plates":
-        import_plates(sys.argv[2])
-    elif command == "price":
-        price(int(sys.argv[2]))
+    import argparse
+    parser = argparse.ArgumentParser(usage=__doc__)
+    parser.add_argument("command", choices=["import-plates", "price", "run", "takes"])
+    parser.add_argument("target", nargs="?")
+    parser.add_argument("--only", help="item keys, comma separated")
+    parser.add_argument("--takes", type=int, help="takes per item (numbered from 1)")
+    parser.add_argument("--confirm", action="store_true", help="queue for real (billed)")
+    args = parser.parse_args()
+    if args.command == "import-plates":
+        import_plates(args.target)
+    elif args.command == "price":
+        price(int(args.target))
+    elif args.command == "run":
+        run(int(args.target), set(args.only.split(",")) if args.only else None, args.takes, args.confirm)
     else:
-        sys.exit(__doc__)
+        settle(load_takes(), timeout=0)

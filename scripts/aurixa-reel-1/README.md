@@ -3,15 +3,15 @@
 These scripts build Aurixa's Reel 1 generation spec and typeset its screen plates. The spec is
 [docs/brands/aurixa-reel-1](../../docs/brands/aurixa-reel-1).
 
-| File                | What it does                                                                                                                                                                                  |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `timing.py`         | Cut points from the voiceover's measured words and speech segments (the studio's lip-sync preparation of the master recording), snapped to 30 fps. Writes a timing JSON.                      |
-| `build_spec.py`     | Writes `spec.json` (every still, set, plate, frame and clip, with models, parameters, inputs and prompts) and adds any new keys to `assets.json`, the ledger of approved library asset ids.   |
-| `render_readme.py`  | Writes the spec's README from `spec.json`.                                                                                                                                                    |
-| `plates.cjs`        | Typesets the 41 screen plates, Block 14 phrases and the closing card, and renders them to PNG with Playwright. Playfair Display, Plus Jakarta Sans and JetBrains Mono come from Google Fonts. |
-| `portals.cjs`       | The portal plates (used by `plates.cjs`), built on the shells of the portal screenshots.                                                                                                      |
-| `studio.py`         | Runs the spec against the studio API: imports the plates (`import_image`, ids into `assets.json`) and prices a stage (`estimate_generation`). It never queues a generation.                   |
-| `contact-sheet.cjs` | One picture of every rendered plate, for review.                                                                                                                                              |
+| File                | What it does                                                                                                                                                                                                                 |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `timing.py`         | Cut points from the voiceover's measured words and speech segments (the studio's lip-sync preparation of the master recording), snapped to 30 fps. Writes a timing JSON.                                                     |
+| `build_spec.py`     | Writes `spec.json` (every still, set, plate, frame and clip, with models, parameters, inputs and prompts) and adds any new keys to `assets.json`, the ledger of approved library asset ids.                                  |
+| `render_readme.py`  | Writes the spec's README from `spec.json`.                                                                                                                                                                                   |
+| `plates.cjs`        | Typesets the 41 screen plates, Block 14 phrases and the closing card, and renders them to PNG with Playwright. Playfair Display, Plus Jakarta Sans and JetBrains Mono come from Google Fonts.                                |
+| `portals.cjs`       | The portal plates (used by `plates.cjs`), built on the shells of the portal screenshots.                                                                                                                                     |
+| `studio.py`         | Runs the spec against the studio API: imports the plates (`import_image`, ids into `assets.json`), prices a stage (`estimate_generation`) and runs one (`queue_generation`, only with `--confirm`; takes into `takes.json`). |
+| `contact-sheet.cjs` | One picture of every rendered plate, for review.                                                                                                                                                                             |
 
 ```sh
 python3 scripts/aurixa-reel-1/timing.py /tmp/reel-1-timing.json
