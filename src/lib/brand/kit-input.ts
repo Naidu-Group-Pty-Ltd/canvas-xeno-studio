@@ -64,7 +64,7 @@ export const kitInput = z.object({
   referenceAssetIds: z.array(z.string().uuid()).max(12).optional(),
   source: z
     .object({
-      kind: z.enum(["url", "document"]),
+      kind: z.enum(["url", "document", "repos"]),
       url: z.string().max(2000).nullable(),
       title: z.string().max(300).nullable(),
       importId: z.string().uuid().nullable(),

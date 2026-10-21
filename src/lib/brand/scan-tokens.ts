@@ -32,6 +32,8 @@ export interface PackageSignals {
   /** The package's own name and description, as written. */
   name: string | null;
   description: string | null;
+  /** The site it says it is for (`homepage`), an https address. */
+  homepage: string | null;
   /** Families installed as packages (@fontsource/playfair-display → Playfair Display; Geist). */
   fonts: { family: string; package: string; variable: boolean }[];
   /** The Tailwind major version it depends on, when it does. */
@@ -217,9 +219,11 @@ export function scanPackageJson(text: string): PackageSignals | null {
   const major = tailwindVersion ? Number(/(\d+)/.exec(tailwindVersion)?.[1]) : NaN;
   const str = (value: unknown) =>
     typeof value === "string" && value.trim() ? value.trim().slice(0, 300) : null;
+  const homepage = str(root["homepage"]);
   return {
     name: str(root["name"]),
     description: str(root["description"]),
+    homepage: homepage && /^https:\/\/[^\s/]+\.[^\s/]+/i.test(homepage) ? homepage : null,
     fonts,
     tailwind: Number.isFinite(major) ? major : null,
     ui: UI_PACKAGES.filter((name) => name in deps),

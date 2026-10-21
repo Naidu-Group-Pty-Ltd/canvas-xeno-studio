@@ -53,6 +53,7 @@ const TEXT_KINDS = new Set<CodeFileKind>(["css", "scss", "less"]);
 /** The files whose imports are followed: stylesheets, and an app's entry module. */
 const IMPORTING_KINDS = new Set<CodeFileKind>(["css", "scss", "less", "entry"]);
 const BATCH = 6;
+const REPO_BATCH = 3;
 
 /** Words in repository names that say what a repository is, not whose: never the brand's name. */
 const GENERIC_WORDS = new Set(
@@ -219,16 +220,20 @@ export async function scanRepos(
   const failed: ReposScanned["failed"] = [];
   const chosen = refs.slice(0, CODE_SCAN_LIMITS.repos);
   const brand = brandWords(chosen);
-  for (const ref of chosen) {
-    try {
-      scans.push(await scanRepo(ref, source, { ...options, brand }));
-    } catch (error) {
-      failed.push({
+  // Three at a time, kept in the order given (the first is the primary whichever finishes first).
+  const results = await inBatches(chosen, REPO_BATCH, (ref) =>
+    scanRepo(ref, source, { ...options, brand }).then(
+      (scan) => ({ ok: true as const, scan }),
+      (error: unknown) => ({
+        ok: false as const,
         repo: repoLabel(ref),
         why: error instanceof Error ? error.message : "it couldn't be read",
-      });
-    }
-  }
+      }),
+    ),
+  );
+  for (const result of results)
+    if (result.ok) scans.push(result.scan);
+    else failed.push({ repo: result.repo, why: result.why });
   if (!scans.length)
     throw new RepoScanError(failed[0]?.repo ?? "", failed[0]?.why ?? "No repository could be read");
   options.onStage?.("Merging their design systems");

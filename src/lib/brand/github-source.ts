@@ -7,8 +7,9 @@
  * addresses built from a checked owner, repository and path, and redirects
  * are never followed, so a token can't be carried anywhere else. Public
  * repositories need no token; private ones need one that can read them (a
- * fine-grained token with Contents: read). Without a token GitHub allows 60
- * API reads an hour from one address; file contents come from
+ * fine-grained token with Contents: read). With a token, files are read
+ * through the contents API (5,000 reads an hour); without one, GitHub allows
+ * 60 API reads an hour from one address, so files come from
  * raw.githubusercontent.com, which that limit doesn't count.
  *
  * Takes its fetch and token from its caller (the server reads the token from
@@ -119,8 +120,14 @@ export function githubSource(options: GithubSourceOptions = {}): GithubSource {
 
   const read = async (ref: RepoRef, sha: string | null, path: string, maxBytes: number) => {
     const at = sha && SHA.test(sha) ? sha : (ref.ref ?? "HEAD");
-    const url = `${RAW}/${encodeURIComponent(ref.owner)}/${encodeURIComponent(ref.repo)}/${segments(at)}/${segments(path)}`;
-    const response = await get(url, "*/*");
+    const repo = `${encodeURIComponent(ref.owner)}/${encodeURIComponent(ref.repo)}`;
+    // A private repository's files are read with the token through the API; a public one's from raw.
+    const response = token
+      ? await get(
+          `${API}/repos/${repo}/contents/${segments(path)}?ref=${encodeURIComponent(at)}`,
+          "application/vnd.github.raw",
+        )
+      : await get(`${RAW}/${repo}/${segments(at)}/${segments(path)}`, "*/*");
     if (response.status === 404) return null;
     if (!response.ok) throw new Error(refusal(response.status, response.headers, path, !!token));
     const length = Number(response.headers.get("content-length"));

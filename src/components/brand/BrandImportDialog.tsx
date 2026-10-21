@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   Check,
   CheckCircle2,
+  Code2,
   FileText,
   Globe,
   ImagePlus,
@@ -23,18 +24,21 @@ import {
   startBrandDocumentImport,
 } from "@/lib/brand-import.functions";
 import { streamBrandImport } from "@/lib/brand/import-client";
+import { MAX_IMPORT_REPOS } from "@/lib/brand/import-request";
+import { parseRepoRef } from "@/lib/brand/scan-code";
 import {
   picturesToSend,
   readGuidelines,
   uploadGuidelinePictures,
 } from "@/lib/brand/document-import";
 import { kitColoursOf, type BrandDesign, type PaletteColour } from "@/lib/brand/design";
-import type { BrandProposal, StagedImage } from "@/lib/brand/proposal";
+import { designFromCode, type BrandProposal, type StagedImage } from "@/lib/brand/proposal";
 import { rasterizeSvg } from "@/lib/brand/rasterize";
 import { BRIEF_ACCEPT } from "@/lib/briefs/parse-document";
 import { DEFAULT_FONT, fontChoices, type BrandFont, type BrandKit } from "@/lib/edit/brand";
 import { OVERLAY_BACKING_LABELS, OVERLAY_BACKINGS, type OverlayBacking } from "@/lib/edit/timeline";
 import { signedUrl, storageScope, uploadAssetBlob } from "@/lib/storage";
+import { CodeSystemPanel } from "@/components/brand/CodeSystemPanel";
 import { DesignSystemEditor } from "@/components/brand/DesignSystemEditor";
 import { DnaEditor } from "@/components/brand/DnaEditor";
 import { FormulaBrowser } from "@/components/brand/FormulaBrowser";
@@ -76,6 +80,29 @@ const DOCUMENT_STAGES = [
   "Reading the brand",
   "Installing its fonts",
 ];
+/** The first is followed by which repository and file it is on ("Reading the repositories: …"). */
+const CODE_STAGES = [
+  "Reading the repositories",
+  "Collecting the logos",
+  "Reading the brand",
+  "Installing its fonts",
+];
+
+/** The repositories someone listed, one a line (or split by commas), as the server takes them. */
+function reposOf(text: string): { repos: string[]; unreadable: string[] } {
+  const listed = [
+    ...new Set(
+      text
+        .split(/[\n,]+/)
+        .map((line) => line.trim())
+        .filter(Boolean),
+    ),
+  ];
+  return {
+    repos: listed.filter((line) => parseRepoRef(line)),
+    unreadable: listed.filter((line) => !parseRepoRef(line)),
+  };
+}
 
 /** Where a scan is, step by step. */
 function Progress({
@@ -87,7 +114,11 @@ function Progress({
   current: string | null;
   local?: string;
 }) {
-  const at = current ? stages.indexOf(current) : -1;
+  // A step can say more after it ("Reading the repositories: acme/site's styling code").
+  const at = current
+    ? stages.findIndex((stage) => current === stage || current.startsWith(`${stage}: `))
+    : -1;
+  const detail = at >= 0 && current ? current.slice(stages[at]!.length + 2) : "";
   return (
     <div className="space-y-4 py-6" data-testid="brand-import-progress">
       <ol className="mx-auto max-w-sm space-y-2.5">
@@ -114,7 +145,9 @@ function Progress({
           );
         })}
       </ol>
-      {local && <p className="text-center text-xs text-muted-foreground">{local}</p>}
+      {(local || detail) && (
+        <p className="text-center text-xs text-muted-foreground">{local || detail}</p>
+      )}
       <p className="text-center text-[11px] text-muted-foreground">
         Reading a brand takes a minute or so. Keep this window open.
       </p>
@@ -145,7 +178,13 @@ interface ReviewDraft {
   dna: BrandDna;
 }
 
-function draftOf(proposal: BrandProposal, kit: BrandKit | null): ReviewDraft {
+function draftOf(
+  proposal: BrandProposal,
+  kit: BrandKit | null,
+  kind: BrandImport["kind"] = "url",
+): ReviewDraft {
+  // Code updates a kit's colours and type; its look, voice and rules stay as the kit has them.
+  const fromCode = kind === "repos" && !!kit;
   const fonts: BrandFont[] = [];
   for (const font of proposal.fonts)
     if (font.installed && !fonts.some((entry) => entry.path === font.installed!.path))
@@ -159,12 +198,13 @@ function draftOf(proposal: BrandProposal, kit: BrandKit | null): ReviewDraft {
     callToAction: proposal.callToAction ?? kit?.callToAction ?? "",
     terms: [...new Set([...proposal.terms, ...(kit?.terms ?? [])])].join("\n"),
     palette: proposal.palette,
-    design: proposal.design,
+    design: fromCode ? designFromCode(kit.design, proposal.design) : proposal.design,
     colours: proposal.colours,
     fonts,
     headingFont: familyFor("heading"),
     bodyFont: familyFor("body"),
-    logo: proposal.logo,
+    // The kit's own logo stays unless one found in the code is picked.
+    logo: fromCode && kit.logoAssetId ? null : proposal.logo,
     libraryLogo: null,
     references: proposal.references,
     titleBacking: proposal.titleBacking,
@@ -270,7 +310,7 @@ function Review({
   const proposal = record.proposal!;
   const { user } = useAuth();
   const { data: projects = [] } = useProjects();
-  const [draft, setDraft] = useState<ReviewDraft>(() => draftOf(proposal, kit));
+  const [draft, setDraft] = useState<ReviewDraft>(() => draftOf(proposal, kit, record.kind));
   const [saving, setSaving] = useState(false);
   const [picking, setPicking] = useState(false);
   useBrandFontFaces(draft.fonts);
@@ -366,9 +406,10 @@ function Review({
         </div>
       )}
       <Tabs defaultValue="identity">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className={cn("grid w-full", record.code ? "grid-cols-5" : "grid-cols-4")}>
           <TabsTrigger value="identity">Identity</TabsTrigger>
           <TabsTrigger value="system">Design system</TabsTrigger>
+          {record.code && <TabsTrigger value="code">Code</TabsTrigger>}
           <TabsTrigger value="dna">DNA</TabsTrigger>
           <TabsTrigger value="imagery">Imagery ({draft.references.length})</TabsTrigger>
         </TabsList>
@@ -616,6 +657,12 @@ function Review({
           />
         </TabsContent>
 
+        {record.code && (
+          <TabsContent value="code" className="pt-3">
+            <CodeSystemPanel system={record.code} name={draft.name || proposal.name} />
+          </TabsContent>
+        )}
+
         <TabsContent value="dna" className="space-y-4 pt-3">
           <DnaEditor
             dna={draft.dna}
@@ -682,7 +729,11 @@ function Review({
             </div>
           ) : (
             <p className="rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-              No pictures were found.
+              {record.kind === "repos"
+                ? target
+                  ? `Code holds no pictures of the brand's look: “${target.name}” keeps its own style references.`
+                  : "Code holds no pictures of the brand's look: add style references in the kit, or import its website."
+                : "No pictures were found."}
             </p>
           )}
         </TabsContent>
@@ -738,7 +789,8 @@ function Review({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-[11px] text-muted-foreground">
           {proposal.model ? `Read by ${proposal.model}.` : "Read from the scan alone."}{" "}
-          {record.signals.colours.length} colours and {record.signals.fonts.length} typefaces found.
+          {record.signals.colours.length} colours and {record.signals.fonts.length} typefaces found
+          {record.code ? ` in ${record.code.repos.length} repositories` : ""}.
         </p>
         <div className="flex gap-2">
           <Button variant="ghost" onClick={() => onDone(null)} disabled={saving}>
@@ -793,8 +845,10 @@ export function BrandImportDialog({
 }) {
   const queryClient = useQueryClient();
   const { data: kitData } = useBrandKits();
-  const [tab, setTab] = useState<"url" | "document">("url");
+  const [tab, setTab] = useState<BrandImport["kind"]>("url");
   const [url, setUrl] = useState(initialUrl ?? "");
+  const [repos, setRepos] = useState("");
+  const [token, setToken] = useState("");
   const [importId, setImportId] = useState<string | null>(existing);
   const [working, setWorking] = useState(false);
   const [local, setLocal] = useState("");
@@ -806,7 +860,16 @@ export function BrandImportDialog({
   useEffect(() => {
     if (!open) return;
     setImportId(existing);
-    setUrl(initialUrl ?? kit?.source?.url ?? (kit?.website ? `https://${kit.website}` : ""));
+    // Re-reading a kit read from code reads the same repositories again.
+    const fromCode = kit?.source?.kind === "repos";
+    setTab(fromCode ? "repos" : "url");
+    setRepos(fromCode ? (kit?.source?.title ?? "").split(/,\s*/).join("\n") : "");
+    setToken("");
+    setUrl(
+      initialUrl ??
+        (fromCode ? null : kit?.source?.url) ??
+        (kit?.website ? `https://${kit.website}` : ""),
+    );
     setError(null);
     setLocal("");
     setWorking(false);
@@ -814,7 +877,9 @@ export function BrandImportDialog({
   }, [open, existing]);
 
   const kind = record?.kind ?? tab;
-  const stages = kind === "document" ? DOCUMENT_STAGES : WEBSITE_STAGES;
+  const stages =
+    kind === "document" ? DOCUMENT_STAGES : kind === "repos" ? CODE_STAGES : WEBSITE_STAGES;
+  const listed = reposOf(repos);
   const failed = error ?? (record?.status === "failed" ? record.error : null);
   const ready = record && record.status === "ready" && record.proposal;
   const kept = record?.status === "applied";
@@ -836,6 +901,30 @@ export function BrandImportDialog({
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The website couldn't be scanned");
     } finally {
+      setWorking(false);
+    }
+  }
+
+  async function scanCode() {
+    if (!listed.repos.length || working) return;
+    setWorking(true);
+    setError(null);
+    try {
+      const result = await streamBrandImport(
+        {
+          action: "repos",
+          repos: listed.repos.slice(0, MAX_IMPORT_REPOS),
+          token: token.trim() || null,
+        },
+        setImportId,
+      );
+      if (!result.ok) setError(result.error);
+      await queryClient.invalidateQueries({ queryKey: ["brand_import", result.importId] });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "The repositories couldn't be read");
+    } finally {
+      // The token was for this one scan.
+      setToken("");
       setWorking(false);
     }
   }
@@ -907,7 +996,7 @@ export function BrandImportDialog({
           <DialogDescription>
             {ready
               ? "What the studio read from the brand. Change anything, then keep it as a brand kit: its look then goes into every image and video made in it."
-              : "From the brand's website or its guidelines (PDF, Word or PowerPoint): its colours, typefaces, logo, the look of its imagery and its voice."}
+              : "From the brand's website, its guidelines (PDF, Word or PowerPoint) or its code on GitHub: its colours, typefaces, logo, the look of its imagery and its voice."}
           </DialogDescription>
         </DialogHeader>
 
@@ -949,13 +1038,16 @@ export function BrandImportDialog({
                 </div>
               </div>
             )}
-            <Tabs value={tab} onValueChange={(value) => setTab(value as "url" | "document")}>
-              <TabsList className="grid w-full grid-cols-2">
+            <Tabs value={tab} onValueChange={(value) => setTab(value as BrandImport["kind"])}>
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="url">
                   <Globe className="mr-1.5 size-4" /> Website
                 </TabsTrigger>
                 <TabsTrigger value="document">
                   <FileText className="mr-1.5 size-4" /> Guidelines
+                </TabsTrigger>
+                <TabsTrigger value="repos">
+                  <Code2 className="mr-1.5 size-4" /> Code
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="url" className="space-y-3 pt-3">
@@ -1030,6 +1122,75 @@ export function BrandImportDialog({
                   It's read in your browser: its text for colour codes (HEX, RGB, CMYK, Pantone),
                   typefaces, voice and rules, and pictures of its colour, type and logo pages for
                   the AI to look at.
+                </p>
+              </TabsContent>
+              <TabsContent value="repos" className="space-y-3 pt-3">
+                <form
+                  className="space-y-3"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void scanCode();
+                  }}
+                >
+                  <div className="space-y-1">
+                    <Label htmlFor="brand-import-repos">GitHub repositories</Label>
+                    <Textarea
+                      id="brand-import-repos"
+                      value={repos}
+                      onChange={(event) => setRepos(event.target.value)}
+                      placeholder={
+                        "acme/website\nacme/app\ngithub.com/acme/monorepo/tree/main/apps/web"
+                      }
+                      rows={4}
+                      spellCheck={false}
+                      className="font-mono text-xs"
+                      data-testid="brand-import-repos"
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      One a line, up to {MAX_IMPORT_REPOS}. The first is the brand's own: where they
+                      disagree, its names and values lead. A branch or folder can be named in the
+                      address.
+                    </p>
+                    {listed.unreadable.length > 0 && (
+                      <p className="text-[11px] text-destructive">
+                        Not a repository: {listed.unreadable.slice(0, 3).join(", ")}
+                      </p>
+                    )}
+                    {listed.repos.length > MAX_IMPORT_REPOS && (
+                      <p className="text-[11px] text-warning">
+                        Only the first {MAX_IMPORT_REPOS} are read.
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="brand-import-token">
+                      GitHub token (for private repositories)
+                    </Label>
+                    <Input
+                      id="brand-import-token"
+                      type="password"
+                      value={token}
+                      onChange={(event) => setToken(event.target.value)}
+                      placeholder="github_pat_…"
+                      autoComplete="off"
+                      spellCheck={false}
+                      data-testid="brand-import-token"
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      A fine-grained token that can read their contents. It is used for this scan
+                      and never kept; without one, the studio's own token is used if it has one.
+                    </p>
+                  </div>
+                  <Button type="submit" disabled={!listed.repos.length || working}>
+                    <ScanSearch className="mr-1.5 size-4" /> Read the code
+                  </Button>
+                </form>
+                <p className="text-xs text-muted-foreground">
+                  The studio reads each repository's styling code at its latest commit, as text and
+                  never run: its stylesheets and the files they import, its Tailwind and shadcn
+                  configs, design tokens, theme modules and the fonts its app loads. It keeps every
+                  colour with the token that names it and the file and line it is on, the type and
+                  its scales (radius, shadow, motion), and offers them as a tokens.css.
                 </p>
               </TabsContent>
             </Tabs>

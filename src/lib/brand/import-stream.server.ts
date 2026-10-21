@@ -1,6 +1,8 @@
 /**
  * A brand import's long part, streamed (POST /api/public/brand-import): the
- * import's id at once, a keep-alive every ten seconds, then how it ended.
+ * import's id at once, a keep-alive every ten seconds, then how it ended. A
+ * website is scanned, a document read, or a brand's GitHub repositories read
+ * for their styling code.
  * The gateway in front of the studio gives up on a request that has sent
  * nothing for thirty seconds, and reading a brand takes about a minute; the
  * page follows the import's row for its stages, so a dropped stream loses
@@ -68,6 +70,34 @@ export async function handleBrandImportRequest(request: Request): Promise<Respon
             send({ type: "done", importId, ok: true, error: null });
           } catch (error) {
             // The import records why; the review shows it.
+            send({ type: "done", importId, ok: false, error: message(error) });
+          }
+        } else if (input.action === "repos") {
+          const { parseRepoRef, repoLabel, repoUrl } = await import("./scan-code");
+          const refs = input.repos.map((repo) => {
+            const ref = parseRepoRef(repo);
+            if (!ref)
+              throw new AppError(
+                "INVALID_PARAMETERS",
+                `“${repo.slice(0, 80)}” isn't a GitHub repository (owner/name, or its address)`,
+              );
+            return ref;
+          });
+          const labels = [...new Set(refs.map(repoLabel))];
+          if (labels.length !== refs.length)
+            throw new AppError("INVALID_PARAMETERS", "A repository is listed twice");
+          const importId = await imports.createImport({
+            userId,
+            kind: "repos",
+            sourceUrl: repoUrl(refs[0]!),
+            sourceTitle: labels.join(", "),
+          });
+          send({ type: "import", importId });
+          try {
+            // The token reads these repositories once and is never kept.
+            await imports.scanRepositories(importId, refs, { token: input.token });
+            send({ type: "done", importId, ok: true, error: null });
+          } catch (error) {
             send({ type: "done", importId, ok: false, error: message(error) });
           }
         } else {

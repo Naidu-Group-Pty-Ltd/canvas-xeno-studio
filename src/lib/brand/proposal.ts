@@ -379,6 +379,51 @@ export function proposalFromScan(input: {
   };
 }
 
+/**
+ * A design read from code, laid over the kit it updates. Code says what the
+ * brand's type is, so that comes from the reading; what code can't show (the
+ * look of its imagery, its voice, its rules, the line generations carry)
+ * stays as the kit has it, and is filled from the reading only where the kit
+ * says nothing.
+ */
+export function designFromCode(kit: BrandDesign, read: BrandDesign): BrandDesign {
+  const text = (own: string | null, other: string | null) => own ?? other;
+  const words = (own: string[], other: string[]) => (own.length ? own : other);
+  return {
+    summary: text(kit.summary, read.summary),
+    audience: text(kit.audience, read.audience),
+    personality: words(kit.personality, read.personality),
+    typography: read.typography.length ? read.typography : kit.typography,
+    visual: {
+      mood: words(kit.visual.mood, read.visual.mood),
+      photography: text(kit.visual.photography, read.visual.photography),
+      illustration: text(kit.visual.illustration, read.visual.illustration),
+      composition: text(kit.visual.composition, read.visual.composition),
+      lighting: text(kit.visual.lighting, read.visual.lighting),
+      colourGrading: text(kit.visual.colourGrading, read.visual.colourGrading),
+      texture: text(kit.visual.texture, read.visual.texture),
+      motion: text(kit.visual.motion, read.visual.motion),
+      // Its tokens do say what its graphics are made of: corners, glass, gradients, shadows.
+      graphics: text(read.visual.graphics, kit.visual.graphics),
+    },
+    voice: {
+      tone: words(kit.voice.tone, read.voice.tone),
+      description: text(kit.voice.description, read.voice.description),
+      sampleLines: words(kit.voice.sampleLines, read.voice.sampleLines),
+      vocabulary: words(kit.voice.vocabulary, read.voice.vocabulary),
+      avoid: words(kit.voice.avoid, read.voice.avoid),
+    },
+    logo: {
+      description: text(kit.logo.description, read.logo.description),
+      usage: text(kit.logo.usage, read.logo.usage),
+    },
+    dos: words(kit.dos, read.dos),
+    donts: words(kit.donts, read.donts),
+    promptStyle: text(kit.promptStyle, read.promptStyle),
+    avoid: text(kit.avoid, read.avoid),
+  };
+}
+
 /** The site's own address, as a kit shows it: "aurixasystems.com.au". */
 export function websiteOf(url: string | null): string | null {
   if (!url) return null;

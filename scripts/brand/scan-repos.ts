@@ -23,7 +23,9 @@ import { scanRepos, type RepoSource } from "../../src/lib/brand/scan-repos";
 const args = process.argv.slice(2);
 const outAt = args.indexOf("--out");
 const out = outAt >= 0 ? args[outAt + 1]! : null;
-const specs = args.filter((arg, index) => !arg.startsWith("--") && index !== outAt + 1);
+const specs = args.filter(
+  (arg, index) => !arg.startsWith("--") && (outAt < 0 || index !== outAt + 1),
+);
 if (!specs.length) {
   console.error("Usage: bun scripts/brand/scan-repos.ts owner/repo[=checkout] ... [--out dir]");
   process.exit(1);

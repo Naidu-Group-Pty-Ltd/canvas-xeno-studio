@@ -20,7 +20,7 @@ import { dnaOf } from "./dna";
 import { DNA_FIELDS, DNA_SCHEMA } from "./dna-read";
 import { finishPalette, type BrandProposal, type FoundColour, type StagedImage } from "./proposal";
 
-const SYSTEM = `You read a brand's design system from evidence, for a video studio that will make images and videos in the brand's look. The evidence is either a scan of the brand's website (the colours its stylesheets use, with each colour's share of all colour use and where it appears; its fonts and which elements use them; its title, headings, buttons and text; its logo and pictures) or the text, colour codes and page pictures of its brand guidelines.
+const SYSTEM = `You read a brand's design system from evidence, for a video studio that will make images and videos in the brand's look. The evidence is a scan of the brand's website (the colours its stylesheets use, with each colour's share of all colour use and where it appears; its fonts and which elements use them; its title, headings, buttons and text; its logo and pictures), the text, colour codes and page pictures of its brand guidelines, or the design tokens read from the source code of its repositories (each colour with the tokens that name it and the file and line it is declared on, heaviest first; the typefaces and how each is loaded; its corner radius, shadow and motion scales; where its repositories disagree). In code, the first repository is the brand's own: where repositories disagree, its names and values lead, and a colour named for its job (primary, brand, accent) outweighs one named for a warning, a chart or a border.
 
 Answer with:
 - name: the brand's name as it writes it.
@@ -30,7 +30,7 @@ Answer with:
 - typography: the heading and body typefaces (and an accent one if distinct), by family name as the brand names it; category (sans, serif, slab, display, mono, script, handwritten); the weight headings are set in (e.g. 700); source: "google" for a Google Fonts family, "adobe" for an Adobe Fonts one, "custom" for the brand's own files, "system" for system fonts, else "unknown"; alternative: the closest Google Fonts family when the source isn't google (else null).
 - design.summary: what the brand is and does, one or two sentences. design.audience: who it speaks to.
 - design.personality: 3 to 6 adjectives.
-- design.visual: mood (3 to 6 words); photography (subjects, casting, setting, framing, candid or posed); illustration (if any); composition; lighting; colourGrading; texture; motion (how its video should move: pace, camera); graphics (shapes, patterns, corner radius). Describe what the pictures and design actually show; null where there is no evidence.
+- design.visual: mood (3 to 6 words); photography (subjects, casting, setting, framing, candid or posed); illustration (if any); composition; lighting; colourGrading; texture; motion (how its video should move: pace, camera); graphics (shapes, patterns, corner radius). Describe what the pictures and design actually show; null where there is no evidence. From code, graphics and motion can come from its tokens (its radii, shadows, glass and gradients, its durations and easing curves); photography and lighting can't.
 - design.voice: tone (3 to 6 words), description, up to 4 sampleLines quoted or closely paraphrased from its copy, vocabulary it uses, words it avoids.
 - design.logo: what the logo looks like (mark, wordmark, colours) and any usage rule stated.
 - design.dos and design.donts: rules for making content in the brand, from the guidelines when given, else carefully inferred (at most 8 each).
@@ -169,7 +169,7 @@ export interface ReadTypeface {
 export type ReadDesign = Omit<BrandProposal, "fonts"> & { typefaces: ReadTypeface[] };
 
 export interface DesignEvidence {
-  kind: "url" | "document";
+  kind: "url" | "document" | "repos";
   /** The brand's name as the scan guessed it. */
   name: string;
   url: string | null;
@@ -182,7 +182,7 @@ export interface DesignEvidence {
   adobeFonts: boolean;
   headings: string[];
   ctas: string[];
-  /** Body copy (a site's visible text, or the guideline's text). */
+  /** Body copy (a site's visible text, the guideline's text, or what was read from the code). */
   copy: string;
   /** Its profiles elsewhere (social platforms, directories): where it publishes. */
   profiles: string[];
@@ -196,6 +196,24 @@ export interface DesignEvidence {
 /** The evidence as the AI reads it: compact, most telling first. */
 export function evidenceText(evidence: DesignEvidence, maxCopy = 9000): string {
   const percent = (share: number) => `${Math.round(share * 1000) / 10}%`;
+  if (evidence.kind === "repos") {
+    // The code's own reading already lists its colours, type and scales, with where each is declared.
+    const lines = [
+      `Source code: ${evidence.url ?? "unknown"}`,
+      `Brand name (guessed): ${evidence.name}`,
+    ];
+    if (evidence.website) lines.push(`Website: ${evidence.website}`);
+    if (evidence.pictures.length) {
+      lines.push("", "Pictures (numbered in the order attached):");
+      evidence.pictures.forEach(({ image }, index) =>
+        lines.push(
+          `${index + 1}. logo candidate${image.origin ? ` (${image.origin.slice(0, 160)})` : ""}${image.width && image.height ? ` ${image.width}×${image.height}` : ""}`,
+        ),
+      );
+    }
+    lines.push("", evidence.copy.trim().slice(0, Math.max(maxCopy, 24_000)));
+    return lines.join("\n");
+  }
   const lines: string[] = [
     evidence.kind === "url"
       ? `Website: ${evidence.url ?? "unknown"}`

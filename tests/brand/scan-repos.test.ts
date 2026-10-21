@@ -156,7 +156,7 @@ describe("githubSource", () => {
             { type: "tree", path: "src" },
           ],
         });
-      if (url === `https://raw.githubusercontent.com/acme/site/${SHA}/src/index.css`)
+      if (url === `https://api.github.com/repos/acme/site/contents/src/index.css?ref=${SHA}`)
         return new Response(":root { --a: #fff; }");
       return new Response("missing", { status: 404 });
     });
@@ -171,6 +171,8 @@ describe("githubSource", () => {
       ":root { --a: #fff; }",
     );
     expect(await github.text(ref("acme/site"), SHA, "src/gone.css", 1000)).toBeNull();
+    // A file is read with the token through the API, as its raw bytes.
+    expect(calls.at(-1)!.init.headers).toMatchObject({ accept: "application/vnd.github.raw" });
     for (const call of calls) {
       expect(new URL(call.url).hostname).toMatch(
         /^(?:api\.github\.com|raw\.githubusercontent\.com)$/,

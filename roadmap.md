@@ -43,6 +43,14 @@
 - [x] The ANTHROPIC_API_KEY backend secret that turns the agent on (already set for Katana)
 - [x] Signed-in test of the agent against Claude and Higgsfield on the live app: five of five checks passed after the fixes it found (#36, #37)
 
+## Brand design systems from code
+
+- [x] A design system read from the brand's code (docs/brand-code-import.md): up to six GitHub repositories read together, the first the brand's own, as text and never run. It yields every colour with the tokens that name it and the file and line each is declared on, the typefaces and how each is loaded, the radius, shadow, motion, blur and gradient scales, and where the repositories disagree. It powers the Brand page's Code import (with a Code tab in the review, tokens.css and JSON downloads, and Re-read), the agent's `import_brand_code`, the studio API's `read_brand_code` and `scripts/brand/scan-repos.ts`
+- [x] Updating a kit from code takes its colours and type and keeps the kit's look, voice, rules and style references
+- [x] Apply migration 0026_brand_code_imports
+- [ ] The studio's `GITHUB_TOKEN` backend secret (a fine-grained token with Contents: read on the brand's repositories), so private repositories are read without typing a token on each import
+- [ ] Deploy: the import is on branch claude/sharp-cannon-y04iey until it is merged to main
+
 ## Brand DNA and content formulas
 
 - [x] Aurixa Systems is the studio's default brand kit, saved from its website (logo, palette, typefaces, imagery, voice and rules)

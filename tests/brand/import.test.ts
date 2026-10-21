@@ -6,10 +6,12 @@ import {
   inBatches,
   sanitizeSvg,
 } from "../../src/lib/brand/fetch.server";
+import { EMPTY_DESIGN } from "../../src/lib/brand/design";
 import { EMPTY_DNA } from "../../src/lib/brand/dna";
 import { googleFamiliesOf, siteUrlOf } from "../../src/lib/brand/imports.server";
 import {
   brandNameOf,
+  designFromCode,
   finishPalette,
   paletteFromFound,
   proposalFromScan,
@@ -147,6 +149,31 @@ describe("the AI's reading", () => {
     logos: [logo],
     imagery: [hero, team],
   };
+
+  test("code evidence is the code's own reading, with its logo files by number", () => {
+    const text = evidenceText({
+      ...evidence,
+      kind: "repos",
+      url: "https://github.com/acme/site",
+      website: "acme.example",
+      copy: "Read from the source code of 2 repositories …\n- #c89b3c yellow: --brand in site src/index.css:4",
+      pictures: [
+        {
+          image: { ...logo, origin: "acme/site public/brand/acme-mark.png" },
+          url: "https://signed/logo",
+        },
+      ],
+    });
+    expect(text.split("\n").slice(0, 3)).toEqual([
+      "Source code: https://github.com/acme/site",
+      "Brand name (guessed): Aurixa",
+      "Website: acme.example",
+    ]);
+    expect(text).toContain("1. logo candidate (acme/site public/brand/acme-mark.png)");
+    expect(text).toContain("- #c89b3c yellow: --brand in site src/index.css:4");
+    // Its colours aren't listed twice: the code's reading has them with where each is declared.
+    expect(text).not.toContain("Colours found");
+  });
 
   test("the evidence lists colours with their share, and pictures by number", () => {
     const text = evidenceText(evidence);
@@ -353,5 +380,79 @@ describe("reading what the site sends", () => {
     });
     expect(results).toEqual([0, 10, 20, 30]);
     expect(order).not.toEqual([0, 1, 2, 3]);
+  });
+});
+
+describe("a design read from code, over the kit it updates", () => {
+  const kit = {
+    ...EMPTY_DESIGN,
+    summary: "A platform for property professionals.",
+    personality: ["calm", "precise"],
+    typography: [
+      {
+        role: "heading" as const,
+        family: "Georgia",
+        category: "serif" as const,
+        weight: 700,
+        source: "system" as const,
+        rendered: null,
+        notes: null,
+      },
+    ],
+    visual: {
+      ...EMPTY_DESIGN.visual,
+      photography: "Candid offices at dusk",
+      motion: "Slow pushes",
+      graphics: "Rounded cards",
+    },
+    voice: { ...EMPTY_DESIGN.voice, tone: ["plain"], sampleLines: ["One record."] },
+    promptStyle: "Navy and gold, quiet light",
+  };
+  const read = {
+    ...EMPTY_DESIGN,
+    summary: "Read from code",
+    audience: "Property firms",
+    typography: [
+      {
+        role: "heading" as const,
+        family: "Playfair Display",
+        category: "serif" as const,
+        weight: 600,
+        source: "google" as const,
+        rendered: "Playfair Display",
+        notes: null,
+      },
+    ],
+    visual: {
+      ...EMPTY_DESIGN.visual,
+      mood: ["premium"],
+      photography: "Guessed from tokens",
+      graphics: "Glass panels, 1.25rem corners, a gold hairline",
+    },
+    voice: { ...EMPTY_DESIGN.voice, tone: ["confident"] },
+    dos: ["Use the gold sparingly"],
+  };
+  const merged = designFromCode(kit, read);
+
+  test("its type and graphics come from the code", () => {
+    expect(merged.typography.map((face) => face.family)).toEqual(["Playfair Display"]);
+    expect(merged.visual.graphics).toBe("Glass panels, 1.25rem corners, a gold hairline");
+  });
+
+  test("what code can't show stays as the kit has it, and fills only what the kit leaves empty", () => {
+    expect(merged.summary).toBe("A platform for property professionals.");
+    expect(merged.personality).toEqual(["calm", "precise"]);
+    expect(merged.visual.photography).toBe("Candid offices at dusk");
+    expect(merged.visual.motion).toBe("Slow pushes");
+    expect(merged.voice.tone).toEqual(["plain"]);
+    expect(merged.voice.sampleLines).toEqual(["One record."]);
+    expect(merged.promptStyle).toBe("Navy and gold, quiet light");
+    expect(merged.audience).toBe("Property firms");
+    expect(merged.visual.mood).toEqual(["premium"]);
+    expect(merged.dos).toEqual(["Use the gold sparingly"]);
+  });
+
+  test("a kit with no type keeps its own when the code found none", () => {
+    expect(designFromCode(kit, { ...read, typography: [] }).typography).toEqual(kit.typography);
   });
 });

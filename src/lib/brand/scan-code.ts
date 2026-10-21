@@ -198,6 +198,9 @@ const NOT_TOKEN_JSON =
 /** A module whose own name says it holds the theme (`theme.ts`, `aurixa-brand.ts`, `brand-defaults.ts`), not code that merely mentions one. */
 const MODULE_BASE =
   /^(?:themes?|tokens?|design[-_]?tokens|palette|colou?rs|brand(?:ing)?|typography|fonts)$|^[\w-]+[-_](?:theme|palette|brand|tokens|colou?rs)$|^(?:brand|theme)[-_](?:defaults|config|palette|colou?rs|tokens|fonts|theme)$/i;
+/** A folder that holds styling: where a module called `tokens.ts` is design tokens. */
+const STYLING_DIR =
+  /(?:^|\/)(?:styles?|themes?|theming|design(?:[-_]?system)?|brand(?:ing)?|tokens?|ui|foundations?)\//i;
 /** An app's entry module (`src/main.tsx`): where it imports its fonts and stylesheets. */
 const ENTRY_MODULE = /^(?:src\/)?(?:main|index|app)\.(?:tsx|jsx|ts|js)$/i;
 /**
@@ -255,7 +258,9 @@ export function codeFileKind(path: string): CodeFileKind | null {
   if (ENTRY_MODULE.test(path) || ROOT_MODULE.test(path)) return "entry";
   if (/\.(?:ts|js|mjs|cjs)$/i.test(lower) && !lower.endsWith(".d.ts")) {
     const stem = name.replace(/\.(?:ts|js|mjs|cjs)$/i, "");
-    if (MODULE_BASE.test(stem)) return "module";
+    // `tokens.ts` is a design system's only where styling lives (an API's tokens are not).
+    if (MODULE_BASE.test(stem) && (!/^tokens?$/i.test(stem) || STYLING_DIR.test(path)))
+      return "module";
   }
   return null;
 }
@@ -1335,6 +1340,8 @@ export interface ScaleToken extends Provenance {
   value: string;
   resolved: string;
   scheme: TokenScheme;
+  /** Other repositories that declare it with the same value. */
+  alsoIn?: string[];
 }
 
 export interface CodeConflict {
@@ -1374,6 +1381,8 @@ export interface CodeDesignSystem {
   adobeFonts: boolean;
   /** What the sites built from them call themselves. */
   title: string | null;
+  /** The site the brand's own package says it is for (its `homepage`), else another repository's. */
+  homepage: string | null;
   description: string | null;
   themeColours: string[];
   /** Every token read, for the stylesheet (capped). */
@@ -1458,6 +1467,7 @@ export function mergeCodeScans(scans: RepoScan[]): CodeDesignSystem {
   const keyframes = new Map<string, Set<string>>();
   let title: string | null = null;
   let description: string | null = null;
+  let homepage: string | null = null;
   const themeColours: string[] = [];
 
   /** A colour seen in a repository (declared as `token`, or only written out); its weight is added per repository below. */
@@ -1476,7 +1486,11 @@ export function mergeCodeScans(scans: RepoScan[]): CodeDesignSystem {
         entry.tokens.length < CODE_RESULT_LIMITS.tokenSources &&
         !entry.tokens.some(
           (other) =>
-            other.name === token.name && other.repo === token.repo && other.scheme === token.scheme,
+            other.name === token.name &&
+            other.repo === token.repo &&
+            // One declaration for both schemes (`:root, .dark { … }`) is one source, not two.
+            (other.scheme === token.scheme ||
+              (other.path === token.path && other.line === token.line)),
         )
       )
         entry.tokens.push(token);
@@ -1548,7 +1562,10 @@ export function mergeCodeScans(scans: RepoScan[]): CodeDesignSystem {
         for (const hex of reading.html?.themeColours ?? [])
           if (!themeColours.includes(hex)) themeColours.push(hex);
       }
-      if (reading.packages) description ??= reading.packages.description;
+      if (reading.packages) {
+        description ??= reading.packages.description;
+        homepage ??= reading.packages.homepage;
+      }
       for (const name of reading.keyframes) {
         const set = keyframes.get(name) ?? new Set<string>();
         set.add(repo);
@@ -1710,13 +1727,13 @@ export function mergeCodeScans(scans: RepoScan[]): CodeDesignSystem {
   for (const token of all) {
     const list = scales[token.kind as keyof typeof scales];
     if (!list || token.scheme === "scoped") continue;
-    if (
-      list.some(
-        (other) =>
-          other.repo === token.repo && other.name === token.name && other.scheme === token.scheme,
-      )
-    )
+    const same = list.find((other) => other.name === token.name && other.scheme === token.scheme);
+    if (same && same.repo === token.repo) continue;
+    // Shared as it is (a scale copied between repositories): one row, saying who else has it.
+    if (same && normal(same.resolved) === normal(token.resolved)) {
+      if (!same.alsoIn?.includes(token.repo)) same.alsoIn = [...(same.alsoIn ?? []), token.repo];
       continue;
+    }
     list.push({
       repo: token.repo,
       path: token.path,
@@ -1791,10 +1808,55 @@ export function mergeCodeScans(scans: RepoScan[]): CodeDesignSystem {
     conflicts: conflicts.slice(0, CODE_RESULT_LIMITS.conflicts),
     adobeFonts,
     title,
+    homepage,
     description,
     themeColours: themeColours.slice(0, 6),
     tokens: all,
     notes: notes.slice(0, 8),
+  };
+}
+
+/**
+ * A stored design system read from code (an import's `code`), or null when it
+ * isn't one. Its lists are made safe to show: arrays where arrays are
+ * expected, and nothing it can't read.
+ */
+export function codeSystemOf(value: unknown): CodeDesignSystem | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const item = value as Record<string, unknown>;
+  if (item["version"] !== 1) return null;
+  const list = <T>(key: string): T[] => (Array.isArray(item[key]) ? (item[key] as T[]) : []);
+  const text = (key: string) => (typeof item[key] === "string" ? (item[key] as string) : null);
+  const scales = (item["scales"] ?? {}) as Record<string, unknown>;
+  const scale = (key: keyof CodeDesignSystem["scales"]) =>
+    Array.isArray(scales[key]) ? (scales[key] as ScaleToken[]) : [];
+  return {
+    version: 1,
+    primary: text("primary"),
+    repos: list<RepoSummary>("repos").filter((repo) => typeof repo?.label === "string"),
+    colours: list<CodeColour>("colours").filter(
+      (colour) => typeof colour?.hex === "string" && /^#[0-9a-f]{6}$/.test(colour.hex),
+    ),
+    fonts: list<CodeFont>("fonts").filter((font) => typeof font?.family === "string"),
+    scales: {
+      radius: scale("radius"),
+      shadow: scale("shadow"),
+      motion: scale("motion"),
+      blur: scale("blur"),
+      gradient: scale("gradient"),
+      spacing: scale("spacing"),
+    },
+    keyframes: list<CodeDesignSystem["keyframes"][number]>("keyframes"),
+    conflicts: list<CodeConflict>("conflicts"),
+    adobeFonts: item["adobeFonts"] === true,
+    title: text("title"),
+    homepage: text("homepage"),
+    description: text("description"),
+    themeColours: list<string>("themeColours").filter((hex) => typeof hex === "string"),
+    tokens: list<CodeToken & { repo: string }>("tokens").filter(
+      (token) => typeof token?.name === "string" && typeof token?.value === "string",
+    ),
+    notes: list<string>("notes").filter((note) => typeof note === "string"),
   };
 }
 
@@ -1883,6 +1945,7 @@ export function codeEvidenceText(system: CodeDesignSystem): string {
       `- ${repo.label}${repo.sha ? ` @ ${repo.sha.slice(0, 7)}` : ""}: ${repo.files} files, ${repo.tokens} tokens; ${repo.stack.join(", ") || "plain CSS"}${repo.defaultScheme ? `; ${repo.defaultScheme} by default` : ""}`,
     );
   if (system.title) lines.push(`Its site's title: ${system.title}`);
+  if (system.homepage) lines.push(`Its homepage: ${system.homepage}`);
   if (system.description) lines.push(`Described as: ${system.description}`);
   lines.push(
     "",
@@ -1912,7 +1975,7 @@ export function codeEvidenceText(system: CodeDesignSystem): string {
     lines.push("", `${label}:`);
     for (const token of list.slice(0, 8))
       lines.push(
-        `- ${token.name}${schemeNote(token.scheme)}: ${token.resolved} (${shortName(token.repo)})`,
+        `- ${token.name}${schemeNote(token.scheme)}: ${token.resolved} (${[token.repo, ...(token.alsoIn ?? [])].map(shortName).join(", ")})`,
       );
   };
   scale("Corner radius", system.scales.radius);

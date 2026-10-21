@@ -4,6 +4,7 @@ import {
   codeEvidenceText,
   codeFileKind,
   codeScanSignals,
+  codeSystemOf,
   codeTokensCss,
   colourUses,
   fontRoleOf,
@@ -471,6 +472,8 @@ describe("planCodeFiles", () => {
     expect(codeFileKind("src/lib/brand/aurixa-brand.ts")).toBe("module");
     expect(codeFileKind("src/branding/BrandLogo.tsx")).toBeNull();
     expect(codeFileKind("src/lib/billing/token-usage.ts")).toBeNull();
+    expect(codeFileKind("src/lib/studio-api/tokens.ts")).toBeNull();
+    expect(codeFileKind("src/styles/tokens.ts")).toBe("module");
     // Entry modules at the top of the app, root routes and layouts one level down.
     expect(codeFileKind("src/main.tsx")).toBe("entry");
     expect(codeFileKind("src/routes/__root.tsx")).toBe("entry");
@@ -1017,6 +1020,47 @@ describe("mergeCodeScans", () => {
       "- --primary (dark): #00a7b3 in aurixa-builders; #00d4df in aurixa-mission-control",
     );
     expect(evidence).toContain("--background (light) in aurixa-mission-control src/styles.css:13");
+  });
+
+  test("a scale shared as it is is one row; a declaration for both schemes is one source", () => {
+    const shared = mergeCodeScans([
+      scanOf("acme/site", [
+        { path: "src/a.css", kind: "css", text: ":root { --motion-fast: 120ms; --radius: 8px; }" },
+      ]),
+      scanOf("acme/app", [
+        { path: "src/b.css", kind: "css", text: ":root { --motion-fast: 120ms; --radius: 12px; }" },
+      ]),
+    ]);
+    expect(shared.scales.motion).toMatchObject([
+      { name: "--motion-fast", repo: "acme/site", alsoIn: ["acme/app"] },
+    ]);
+    expect(shared.scales.radius.map((token) => [token.repo, token.resolved])).toEqual([
+      ["acme/site", "8px"],
+      ["acme/app", "12px"],
+    ]);
+    // Mission Control sets its theme as `:root, .dark { … }`: one line, not a default and a dark.
+    const primary = system.colours.flatMap((colour) =>
+      colour.tokens.filter(
+        (token) => token.name === "--primary" && token.repo.endsWith("aurixa-mission-control"),
+      ),
+    );
+    expect(primary.map((token) => token.line)).toEqual([
+      ...new Set(primary.map((token) => token.line)),
+    ]);
+  });
+
+  test("kept as JSON and read back unchanged; anything else isn't one", () => {
+    expect(codeSystemOf(JSON.parse(JSON.stringify(system)))).toEqual(system);
+    for (const value of [null, "x", [], {}, { version: 2 }]) expect(codeSystemOf(value)).toBeNull();
+    const damaged = codeSystemOf({
+      version: 1,
+      colours: [{ hex: "red" }, system.colours[0]],
+      repos: "acme/site",
+      scales: { radius: "1rem" },
+    })!;
+    expect(damaged.colours).toEqual([system.colours[0]!]);
+    expect(damaged.repos).toEqual([]);
+    expect(damaged.scales.radius).toEqual([]);
   });
 
   test("an empty scan is an empty design system", () => {

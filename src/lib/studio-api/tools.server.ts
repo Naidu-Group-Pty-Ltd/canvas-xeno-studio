@@ -20,6 +20,7 @@ import { planVoiceoverClips } from "../long-video/voiceover";
 import { clipPrompt, LONG_VIDEO_LIMITS } from "../long-video/plan";
 import { addEndCard, applyBrandKit, brandKitOf, SAFE_AREAS } from "../edit/brand";
 import { CHANNELS, EMPTY_DNA, GOALS } from "../brand/dna";
+import { GITHUB_TOKEN_PATTERN } from "../brand/import-request";
 import { parseTimeline, timelineSchema } from "../edit/timeline";
 import { textCheckOf } from "../media/text-check";
 import { CHARACTER_VIEWS } from "../characters/model";
@@ -468,6 +469,103 @@ const getBrandKit = tool({
         summary: formula.summary,
         audience: formula.own?.audience ?? null,
       })),
+    };
+  },
+});
+
+const readBrandCode = tool({
+  name: "read_brand_code",
+  title: "Read a brand's design system from its code",
+  description:
+    "Reads the styling code of up to six GitHub repositories together (the first is the brand's own; a branch or folder can be named in the address), as text and never run, and answers with its design system: each colour, heaviest first, with the tokens that name it and the repository, file and line each is declared on; the typefaces and how each is loaded; the corner radius, shadow, motion, blur and gradient scales; and where the repositories disagree. With `includeCss` it also answers `tokensCss`: every custom property as one stylesheet, each with where it is declared. Nothing is kept (to keep it as a brand kit, import it from code on the Brand page). Private repositories need the studio's GitHub token, or a `githubToken` used for this read only.",
+  scope: "read",
+  input: z.object({
+    repos: z.array(z.string().min(3).max(500)).min(1).max(6),
+    includeCss: z.boolean().default(false),
+    githubToken: z.string().regex(GITHUB_TOKEN_PATTERN).optional(),
+  }),
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const { codeTokensCss, parseRepoRef } = await import("../brand/scan-code");
+    const { scanRepos } = await import("../brand/scan-repos");
+    const { githubSource } = await import("../brand/github-source");
+    const refs = args.repos.map((repo) => {
+      const ref = parseRepoRef(repo);
+      if (!ref)
+        throw new AppError(
+          "INVALID_PARAMETERS",
+          `“${repo}” isn't a GitHub repository (owner/name)`,
+        );
+      return ref;
+    });
+    const source = githubSource({
+      token: args.githubToken ?? (process.env["GITHUB_TOKEN"]?.trim() || null),
+    });
+    let read: Awaited<ReturnType<typeof scanRepos>>;
+    try {
+      read = await scanRepos(refs, source);
+    } catch (error) {
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        error instanceof Error ? error.message : "The repositories couldn't be read",
+      );
+    }
+    const { system, failed } = read;
+    const at = (token: { repo: string; path: string; line: number | null }) => ({
+      repo: token.repo,
+      path: token.path,
+      line: token.line,
+    });
+    const scale = (list: typeof system.scales.radius) =>
+      list.slice(0, 12).map((token) => ({
+        name: token.name,
+        value: token.resolved,
+        scheme: token.scheme,
+        ...at(token),
+      }));
+    return {
+      repos: system.repos,
+      failed,
+      title: system.title,
+      description: system.description,
+      homepage: system.homepage,
+      colours: system.colours.slice(0, 24).map((colour) => ({
+        hex: colour.hex,
+        name: colour.name,
+        neutral: colour.neutral,
+        writtenOut: colour.uses,
+        repos: colour.repos,
+        tokens: colour.tokens.slice(0, 4).map((token) => ({
+          name: token.name,
+          scheme: token.scheme,
+          ...at(token),
+        })),
+      })),
+      fonts: system.fonts.map((font) => ({
+        family: font.family,
+        roles: font.roles,
+        loaded: font.loaded,
+        weights: font.weights,
+        repos: font.repos,
+        where: font.sources.slice(0, 2),
+      })),
+      scales: {
+        radius: scale(system.scales.radius),
+        shadow: scale(system.scales.shadow),
+        motion: scale(system.scales.motion),
+        blur: scale(system.scales.blur),
+        gradient: scale(system.scales.gradient),
+      },
+      conflicts: system.conflicts.slice(0, 12),
+      keyframes: system.keyframes.map((frame) => frame.name).slice(0, 40),
+      notes: system.notes,
+      ...(args.includeCss
+        ? {
+            tokensCss: codeTokensCss(system, {
+              generatedAt: new Date().toISOString().slice(0, 10),
+            }),
+          }
+        : {}),
     };
   },
 });
@@ -1744,6 +1842,7 @@ export const STUDIO_TOOLS: StudioTool[] = [
   getRender,
   listBrandKits,
   getBrandKit,
+  readBrandCode,
   listBrandFormulas,
   getBrandFormula,
   listCharacters,
