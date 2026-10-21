@@ -241,6 +241,114 @@ const CSS = `
 .ccr .emb.real { flex:none; background-size:contain; background-position:center; background-repeat:no-repeat; }
 .ccr svg.cur { position:absolute; width:24px; height:24px; z-index:9; filter:drop-shadow(0 1px 2px rgba(0,0,0,.7)); }
 .ccr .pimg { border-radius:9px; background-color:#22324a; background-position:center; background-size:cover; background-repeat:no-repeat; flex:none; }
+/* the supplied Command Centre pages past Reports */
+.ccr .col.plain { background:none; border:none; padding:0 6px; top:18px; gap:0; }
+.ccr .qpage { display:flex; flex-direction:column; gap:16px; }
+.ccr .qpill { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; padding:5px 11px; border-radius:999px; border:1px solid rgba(255,255,255,.14); background:#121217; color:#e4e4e7; white-space:nowrap; }
+.ccr .qpill.eyebrow { font-size:9.5px; letter-spacing:.24em; color:#a78bfa; border-color:rgba(139,92,246,.45); background:rgba(76,29,149,.12); }
+.ccr .qpill.eyebrow.gold { color:#d6c08a; border-color:rgba(214,192,138,.35); background:rgba(120,90,30,.10); }
+.ccr .qpill.violet { background:#5b3df5; border-color:#6d4cff; color:#fff; }
+.ccr .qpill.dashed { border-style:dashed; color:#a1a1aa; background:none; }
+.ccr .qbtn { display:inline-flex; align-items:center; gap:8px; height:34px; padding:0 14px; border-radius:9px; border:1px solid rgba(255,255,255,.13); background:#121216; font-size:12.5px; font-weight:700; color:#f4f4f5; position:relative; white-space:nowrap; }
+.ccr .qbtn svg, .ccr .qlink svg, .ccr .qmeta svg, .ccr .qcard b svg, .ccr .qsearch svg, .ccr .qver svg { width:14px; height:14px; flex:none; }
+.ccr .qbtn.blue { background:#1d4ed8; border-color:#2b5cff; }
+.ccr .qbtn.ghost { background:none; border:none; }
+.ccr .qbtn.on { background:#1c1c22; }
+.ccr .qbtn.wide { flex:1; justify-content:center; height:32px; }
+.ccr .qlink { display:inline-flex; align-items:center; gap:8px; font-size:12.5px; font-weight:700; padding:0 8px; }
+.ccr .qbanner { border-radius:26px; border:1px solid rgba(110,100,200,.18); padding:26px 26px 22px; background:radial-gradient(600px 300px at 100% 90%, rgba(70,40,140,.22), transparent 70%), linear-gradient(180deg,#121216,#0e0e12); }
+.ccr .qh1 { font-size:42px; font-weight:700; letter-spacing:-.02em; line-height:1.05; margin-top:14px; color:#f1f1f3; }
+.ccr .qsub { font-size:14px; color:#a8a8b0; margin-top:12px; }
+.ccr .qstats5 { display:flex; gap:12px; }
+.ccr .qstat { flex:1; min-width:0; border-radius:12px; border:1px solid rgba(255,255,255,.09); background:#0f0f13; padding:14px 14px 16px; }
+.ccr .qstat .l { font-size:9.5px; letter-spacing:.2em; color:#a1a1aa; font-weight:700; text-transform:uppercase; }
+.ccr .qstat .l svg { width:13px; height:13px; }
+.ccr .qstat .v { font-size:18px; font-weight:700; margin-top:12px; color:#f4f4f5; }
+.ccr .qstat .d, .ccr .qsmall { font-size:11px; color:#a1a1aa; line-height:1.45; margin-top:5px; }
+.ccr .qcats { display:flex; gap:16px; padding:14px; border-radius:20px; border:1px solid rgba(255,255,255,.07); background:#0d0d11; }
+.ccr .qcat { flex:1; display:flex; align-items:center; gap:14px; padding:16px; border-radius:14px; border:1px solid rgba(255,255,255,.10); background:#111115; }
+.ccr .qcat b { font-size:14.5px; }
+.ccr .qcat.on { border:1.5px solid #2b4cf0; background:linear-gradient(180deg,#101830,#0d1222); }
+.ccr .qicon { width:40px; height:40px; flex:none; border-radius:11px; border:1px solid rgba(255,255,255,.12); display:grid; place-items:center; background:#16161b; }
+.ccr .qicon svg { width:18px; height:18px; }
+.ccr .qicon.gold { background:rgba(120,90,30,.25); border-color:rgba(214,170,60,.45); color:#e2b648; font-size:16px; }
+.ccr .qicon.sq { width:36px; height:36px; background:rgba(40,70,200,.18); border-color:rgba(70,100,255,.35); }
+.ccr .qicon.sq.green { background:rgba(34,197,94,.14); border-color:rgba(34,197,94,.4); }
+.ccr .qcount { font-size:11px; font-weight:700; padding:4px 8px; border-radius:999px; border:1px solid rgba(255,255,255,.16); }
+.ccr .qtools { display:flex; gap:10px; align-items:center; padding:12px; border-radius:16px; border:1px solid rgba(255,255,255,.07); background:#0d0d11; }
+.ccr .qsearch { flex:1; height:36px; border-radius:9px; border:1px solid rgba(255,255,255,.10); background:#0b0b0e; display:flex; align-items:center; gap:10px; padding:0 12px; font-size:12.5px; color:#8b8b93; }
+.ccr .qseg { display:flex; border:1px solid rgba(255,255,255,.10); border-radius:10px; padding:2px; }
+.ccr .qseg .qbtn { border:none; height:30px; }
+.ccr .qcountbox { font-size:10.5px; color:#a1a1aa; border:1px solid rgba(255,255,255,.10); border-radius:9px; padding:5px 10px; } .ccr .qcountbox b { color:#f4f4f5; }
+.ccr .qcards { display:flex; gap:20px; }
+.ccr .qrcard { flex:1; min-width:0; position:relative; border-radius:16px; border:1px solid rgba(255,255,255,.09); background:#0e0e12; padding:16px; }
+.ccr .qpin { width:26px; flex:none; border-radius:8px; background:linear-gradient(180deg,#141b3a,#0e0e12); display:flex; justify-content:center; padding-top:4px; }
+.ccr .qpin svg { width:16px; height:16px; }
+.ccr .qrtitle { font-size:16px; font-weight:700; line-height:1.3; }
+.ccr .qtags { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; } .ccr .qtags span { font-size:10.5px; font-weight:700; padding:4px 9px; border-radius:999px; border:1px solid rgba(255,255,255,.18); }
+.ccr .qver { display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; border:1px solid rgba(255,255,255,.14); border-radius:9px; padding:4px 8px; }
+.ccr .qrcard > div > div > svg { width:15px; height:15px; }
+.ccr .qgtile { display:flex; gap:12px; align-items:center; margin-top:14px; padding:12px; border-radius:14px; border:1px solid rgba(255,255,255,.09); background:#0b0b0e; max-width:270px; }
+.ccr .qgtile .l { font-size:9px; letter-spacing:.2em; color:#a1a1aa; font-weight:700; }
+.ccr .qgrade { width:42px; height:42px; flex:none; border-radius:10px; display:grid; place-items:center; font-size:15px; font-weight:800; color:#2a1a00; }
+.ccr .qgrade.gold { background:#e5b93a; } .ccr .qgrade.green { background:#22c55e; color:#fff; }
+.ccr .qrep { background:#0c0c10; border-radius:4px; }
+.ccr .qbar { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:12px 26px; border-bottom:1px solid rgba(255,255,255,.07); background:#0a0a0d; }
+.ccr .qtiers { border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:7px; display:flex; flex-direction:column; align-items:center; gap:5px; background:#0b0b0f; }
+.ccr .qtrow { display:flex; gap:5px; }
+.ccr .qtier { position:relative; display:inline-flex; align-items:center; gap:7px; height:31px; padding:0 13px; border-radius:8px; font-size:12px; font-weight:700; border:1px solid rgba(255,255,255,.08); }
+.ccr .qtier b { font-weight:400; font-size:15px; color:#d4d4d8; } .ccr .qtier svg { width:14px; height:14px; }
+.ccr .qtier.blue { background:#101225; } .ccr .qtier.red { background:#22101a; border-color:rgba(220,60,90,.3); } .ccr .qtier.indigo { background:#0f1530; border-color:rgba(70,100,255,.3); }
+.ccr .qtier.teal { background:#0b1b22; border-color:rgba(0,168,181,.3); } .ccr .qtier.green { background:#101c0e; border-color:rgba(80,190,90,.3); }
+.ccr .qtier.on { border:1.5px solid #6d5dfc; box-shadow:0 0 0 2px rgba(109,93,252,.25); }
+.ccr .qtier.red.on { border-color:#f05a7e; box-shadow:0 0 0 2px rgba(240,90,126,.25); }
+.ccr .qspin { width:12px; height:12px; border-radius:50%; border:2px solid rgba(240,90,126,.3); border-top-color:#f05a7e; }
+.ccr .qcol { padding:20px 120px 0; display:flex; flex-direction:column; gap:18px; }
+.ccr .qhero { display:flex; gap:24px; padding:20px 22px 18px; border-radius:14px; background:#101014; border:1px solid rgba(255,255,255,.05); }
+.ccr .qtitle { font-size:32px; font-weight:700; line-height:1.15; letter-spacing:-.015em; margin-top:14px; }
+.ccr .qmeta { display:flex; align-items:center; gap:7px; font-size:12px; color:#a1a1aa; margin-top:10px; }
+.ccr .qgradebox { flex:1.3; align-self:flex-start; display:flex; gap:14px; align-items:center; padding:16px; border-radius:14px; border:1px solid rgba(255,255,255,.10); background:#0d0d11; }
+.ccr .qgradebox .qgrade { width:58px; height:58px; font-size:21px; }
+.ccr .qnote { display:flex; align-items:center; gap:16px; padding:12px 16px; border-radius:12px; border:1px solid rgba(255,255,255,.09); background:#0e0e12; font-size:12px; color:#b4b4bc; }
+.ccr .qnote .qbtn { margin-left:auto; }
+.ccr .qcard { border-radius:14px; border:1px solid rgba(255,255,255,.09); background:#0f0f13; padding:18px 18px 22px; }
+.ccr .qops { border-radius:24px; border:1px solid rgba(70,90,200,.22); background:linear-gradient(180deg,#0f1428,#0d0f1c); padding:20px 24px 24px; }
+.ccr .qeb { font-size:9.5px; letter-spacing:.24em; font-weight:700; color:#a1a1aa; }
+.ccr .qchips { display:flex; flex-wrap:wrap; gap:8px; margin-top:18px; } .ccr .qchips span { font-size:12px; font-weight:700; padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,.12); background:#121219; }
+.ccr .qtiles { display:flex; gap:16px; margin-top:20px; }
+.ccr .qtile { flex:1; border-radius:14px; border:1px solid rgba(255,255,255,.10); background:#0e0f18; padding:18px; }
+.ccr .qtile.green { border-color:rgba(34,197,94,.35); background:linear-gradient(180deg,#0e1a16,#0c1210); }
+.ccr .qtile .l { font-size:9.5px; letter-spacing:.2em; color:#a1a1aa; font-weight:700; }
+.ccr .qtile .v { font-size:30px; font-weight:700; margin-top:14px; }
+.ccr .qproj { display:flex; gap:14px; align-items:center; padding:12px; border-radius:14px; border:1.5px solid #2b4cf0; background:linear-gradient(90deg,#101830,#0d1222); }
+.ccr .qfab { position:absolute; right:14px; bottom:6px; width:96px; height:96px; }
+.ccr .qtip { position:absolute; right:118px; bottom:40px; padding:7px 12px; border-radius:8px; background:#17171d; border:1px solid rgba(255,255,255,.14); font-size:12.5px; font-weight:700; }
+.ccr .qagent { position:absolute; right:30px; top:52px; width:470px; bottom:10px; border-radius:16px; border:1px solid rgba(255,255,255,.12);
+  background:linear-gradient(180deg,#101326,#0b0d18 40%); box-shadow:-20px 10px 60px rgba(0,0,0,.6); display:flex; flex-direction:column; overflow:hidden; }
+.ccr .qagh { display:flex; align-items:center; gap:12px; padding:10px 18px; border-bottom:1px solid rgba(255,255,255,.07); }
+.ccr .qagh svg { width:17px; height:17px; }
+.ccr .qagb { flex:1; min-height:0; overflow:hidden; padding:14px 20px; display:flex; flex-direction:column; justify-content:flex-end; gap:10px; }
+.ccr .qagb > * { flex:none; }
+.ccr .qappr.old { opacity:.55; }
+.ccr .qubub { align-self:flex-end; max-width:82%; background:#1d4ed8; color:#fff; font-size:13px; font-weight:600; line-height:1.45; padding:10px 14px; border-radius:16px; }
+.ccr .qtrace { display:flex; align-items:center; gap:10px; font-size:12px; color:#a1a1aa; }
+.ccr .qorb { width:18px; height:18px; border-radius:50%; background:radial-gradient(circle at 40% 35%, #ffe08a, #d4a017 60%, #6b4a00); box-shadow:0 0 10px rgba(240,190,60,.6); }
+.ccr .qappr { border-radius:12px; border:1px solid rgba(229,185,58,.35); background:#0f0f13; padding:12px; }
+.ccr .qapprh { display:flex; align-items:center; font-size:12px; font-weight:700; }
+.ccr .qapprh .wait { color:#e5b93a; } .ccr .qapprh .ok { color:#33c6cf; }
+.ccr .qmail { border-radius:9px; border:1px solid rgba(61,99,255,.25); overflow:hidden; font-size:11.5px; }
+.ccr .qmailh { font-weight:700; color:#8fa6ff; background:rgba(61,99,255,.10); padding:7px 12px; }
+.ccr .qmail .m { color:#9c9ca5; }
+.ccr .qchip { font-size:9.5px; font-weight:700; padding:2px 7px; border-radius:999px; border:1px solid rgba(255,255,255,.12); color:#a1a1aa; } .ccr .qchip.on { color:#8fa6ff; border-color:rgba(61,99,255,.35); background:rgba(61,99,255,.12); }
+.ccr .qbody { margin-top:4px; padding:8px 10px; border-radius:6px; border:1px solid rgba(255,255,255,.07); background:#0b0b0e; font-size:12px; line-height:1.5; color:#e4e4e7; }
+.ccr .qagf { padding:12px 16px 10px; border-top:1px solid rgba(255,255,255,.06); background:#08080b; display:flex; flex-direction:column; gap:10px; }
+.ccr .qinput { display:flex; align-items:center; gap:12px; min-height:56px; padding:10px 12px; border-radius:14px; border:1px solid rgba(214,170,60,.35); background:#0a0a0e; font-size:13px; }
+.ccr .qinput svg { width:16px; height:16px; }
+.ccr .qmic { width:30px; height:30px; border-radius:50%; border:1px solid rgba(255,255,255,.14); display:grid; place-items:center; }
+.ccr .qtalk { display:inline-flex; align-items:center; gap:6px; padding:8px 14px; border-radius:11px; background:linear-gradient(90deg,#123a3f,#2a1f55); font-size:12.5px; font-weight:700; color:#fff; }
+.ccr .qcaret { display:inline-block; width:2px; height:15px; background:#f4f4f5; margin-left:2px; vertical-align:-2px; }
+.ccr .qhint { display:flex; justify-content:space-between; font-size:8.5px; letter-spacing:.16em; color:#6b6b73; font-family:Inconsolata, Consolas, monospace; }
+.ccr .qhint span:last-child { letter-spacing:0; font-family:Selawik, "Segoe UI", sans-serif; font-size:9.5px; }
 .ccr .scrim { position:absolute; inset:0; background:rgba(4,6,12,.72); }
 .ccr .creport { position:absolute; left:50%; top:50%; width:820px; transform:translate(-50%,-50%); background:#fff; color:#0A192F; border-radius:12px;
   box-shadow:0 24px 60px rgba(0,0,0,.6); padding:30px 38px; display:flex; flex-direction:column; gap:16px; }
@@ -279,6 +387,7 @@ const I = {
   swap: '<path d="M4 8h14l-3-3M20 16H6l3 3"/>',
   refresh: '<path d="M20 11a8 8 0 1 0-2 6M20 5v6h-6"/>',
   arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  arrowl: '<path d="M19 12H5M11 6l-6 6 6 6"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
   plan: '<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 12h9v9M12 3v6h9"/>',
   spark:
@@ -309,7 +418,7 @@ const cur = (style) =>
 // A pointer resting at a control's lower right, clear of its label.
 const onIt = () => cur("right:-12px;bottom:-16px");
 
-module.exports = function portals({ P, D, EMBLEM }) {
+module.exports = function portals({ P, D, EMBLEM, MASCOT }) {
   const pimg = (w, h, label = "P · Residence 014") =>
     P
       ? `<div class="pimg" style="width:${w}px;height:${h}px;background-image:url('${P}')"></div>`
@@ -399,7 +508,7 @@ module.exports = function portals({ P, D, EMBLEM }) {
             .join("")}</div>`,
       )
       .join("");
-  const cc = (on, col, extra = "") => `<div class="ccr">
+  const cc = (on, col, extra = "", plain = false) => `<div class="ccr">
     <aside class="cside">
       <div class="tenant">${emb(40)}<div><div class="t">AURIXA SYSTEMS</div><div class="s">COMMAND CENTRE</div></div></div>
       <div class="filter">${svg("search", "#8a8a8f")}Filter navigation...</div>
@@ -409,7 +518,7 @@ module.exports = function portals({ P, D, EMBLEM }) {
       <div class="ctop"><div class="ibtn">${svg("panel", "#d5d5da")}</div><div class="csearch">${svg("search", "#5d5d63")}Search properties...</div>
         <div class="right"><span class="cdemo">DEMO WORKSPACE</span><div class="ibtn">${svg("sun", "#3d63ff")}</div><div class="chip">${svg("link", "#e8e8ec")}260k</div>
           <div class="ibtn">${svg("bell", "#e8e8ec")}</div><div class="chip"><span class="ini">AM</span>Alex Morgan</div></div></div>
-      <div class="stage"><div class="col">${col}</div>${extra}</div>
+      <div class="stage"><div class="col${plain ? " plain" : ""}">${col}</div>${extra}</div>
     </section>
   </div>`;
   const banner = (
@@ -447,56 +556,184 @@ module.exports = function portals({ P, D, EMBLEM }) {
         ${card("building", "NEW BUILD", "HOUSE &amp; LAND PACKAGE", selected, !selected)}
         ${card("pin", "LAND ONLY", "VACANT LAND", false)}</div></div></div>`;
   };
+  // The agent's presence, rendered from the portals' own sources (mascot.cjs), at rest and without her counts.
+  const mascot = (size) =>
+    MASCOT
+      ? `<img src="${MASCOT}" alt="Aurixa" style="width:${size}px;height:${size}px;display:block;object-fit:contain">`
+      : emb(size);
   const fab = (hover) =>
-    `<div class="fab">${emb(46)}${hover ? cur("left:36px;top:38px") : ""}</div>${hover ? `<div class="tip">Aurixa Agent</div>` : ""}`;
-  // The analysis the build-type choice starts, in the same components (05A).
-  const research = (
-    open,
-  ) => `<div class="ana"><div class="hd"><div class="t">${svg("trend", "#fff", 2)}Investment Analysis · New Build</div>
-      <div class="d">Prepared by the Compass engine for Project Banksia / Residence 014.</div></div>
-    <div class="box" style="margin-top:22px">${
-      open
-        ? `<div class="lab">RESEARCH BRIEF</div><div class="rowx" style="margin-top:14px">
-          <div class="citem on" style="flex:1.5;flex-direction:column;align-items:flex-start;gap:6px;padding:20px 22px"><div class="kick" style="color:#7d97ff;font-size:9.5px">SELECTED</div>
-            <div style="font-size:30px;font-weight:800;letter-spacing:-.01em">Location overview</div><div class="skel" style="width:100%"><div style="width:92%"></div><div style="width:76%"></div></div></div>
-          <div style="flex:1;display:flex;flex-direction:column;gap:12px">
-            <div class="citem">${svg("home", "#e6e6ea", 1.6)}<div><div class="a">Property characteristics</div><div class="b">New build · house &amp; land</div></div></div>
-            <div class="citem">${svg("msg", "#e6e6ea", 1.6)}<div><div class="a">Questions for review</div><div class="b">Prepared with the client's enquiry</div></div></div></div></div>`
-        : `<div class="lab">COMPASS · INVESTMENT ANALYSIS</div><div class="types">
-          <div class="type" style="height:118px">${svg("file", "#e6e6ea", 1.6)}<div class="t" style="font-size:15px">RESEARCH BRIEF</div><div class="s">LOCATION · PROPERTY · QUESTIONS</div>${cur("left:76%;top:44%")}</div>
-          <div class="type" style="height:118px;opacity:.7">${svg("pulse", "#e6e6ea", 1.6)}<div class="t" style="font-size:15px">FINANCIAL ANALYSIS</div><div class="s">NEXT</div></div></div>`
-    }</div></div>`;
-  // A generated report's record, with what the property team still has to look at (05C, 06B, 07A).
-  const record = (
-    summary,
-  ) => `<div class="sec" style="padding:20px 22px">${pimg(190, 118)}<div><div class="kick">PREPARED FOR JORDAN ELLIS</div>
-      <div class="h2" style="font-size:26px;margin-top:10px">Project Banksia / Residence 014</div><div class="desc" style="font-size:12px">New Build · BK-014 · Demo workspace</div></div>
-      <div style="margin-left:auto;display:flex;gap:8px"><span class="tag gold">UNDER CONSIDERATION</span></div></div>
-    ${
-      summary
-        ? `<div class="citem on" style="padding:20px 22px">${svg("file", "#7d97ff", 1.6)}<div style="flex:1"><div class="a" style="font-size:24px">Client summary</div><div class="b" style="font-size:12px">Prepared for Jordan Ellis · ready to share</div></div>
-          <div class="bbtn">${svg("eye", "#fff")}Open preview${onIt()}</div></div>
-          <div class="citem"><div style="flex:1"><div class="a">Investment Analysis · Compass</div><div class="b">Research brief · location overview</div></div><span class="tag teal">READY</span></div>`
-        : `<div class="ana" style="padding:22px"><div class="lab">QUESTIONS FOR REVIEW</div><div style="font-size:22px;font-weight:800;margin-top:12px">Residence 014</div>
-          <div class="desc" style="font-size:12px">Prepared with the client's enquiry</div><div class="skel" style="width:70%;margin-top:6px"><div style="width:90%"></div><div style="width:70%"></div><div style="width:80%"></div></div></div>`
-    }`;
-  const agent = (
-    state,
-  ) => `<div class="cagent"><div class="hd">${emb(30)}Aurixa Agent<span class="x">×</span></div>
-    <div class="src">${pimg(64, 40)}<div><div style="font-size:13px;font-weight:800">Residence 014</div><div style="font-size:10.5px;color:#a7a7ad;margin-top:3px">Investment Analysis · Questions for review</div></div></div>
-    <div class="cdraft ${state === "editing" ? "editing" : ""}"><div class="lab2">DRAFT CLIENT SUMMARY</div>${
-      state === "saved"
-        ? "Review the remaining questions together"
-        : `Discuss the next step${state === "editing" ? '<span class="caret"></span>' : ""}`
-    }</div>
-    ${
-      state === "saved"
-        ? `<div class="saved">✓ Draft saved</div>`
-        : `<div style="display:flex;gap:8px"><span class="tag gold">REVIEW REQUIRED</span><span class="tag teal">QUESTION TO VERIFY</span></div>
-          ${state === "editing" ? `<div class="bbtn" style="align-self:flex-start">Save draft</div>` : ""}`
-    }
-    <div class="ask">Ask Aurixa about this record...</div></div>`;
+    `<div class="qfab">${mascot(96)}${hover ? cur("left:52px;top:56px") : ""}</div>${hover ? `<div class="qtip">Aurixa</div>` : ""}`;
 
+  // ---- After the supplied Command Centre pages (Generated Reports, an investment report, the agent
+  // open over it, and Overview): their structure and wording, with the demo's Residence 014.
+  const pill = (t, cls = "") => `<span class="qpill ${cls}">${t}</span>`;
+  const qbtn = (ic, t, cls = "", extra = "") =>
+    `<div class="qbtn ${cls}">${ic ? svg(ic, "currentColor", 1.9) : ""}${t}${extra}</div>`;
+  const grade = (g, tone = "gold") => `<div class="qgrade ${tone}">${g}</div>`;
+
+  // The investment report's tier switcher: Compass made; the others prepared from it.
+  const tiers = (state) => {
+    const b = (name, tone, { made = false, on = false, busy = false, pointer = false } = {}) =>
+      `<div class="qtier ${tone}${on ? " on" : ""}">${made ? svg(name === "Compass" ? "spark" : "pulse", "currentColor", 1.9) : busy ? '<span class="qspin"></span>' : "<b>+</b>"}${name}${pointer ? onIt() : ""}</div>`;
+    return `<div class="qtiers"><div class="qtrow">${b("Compass", "blue", { made: true, on: true })}${b(
+      "Financial",
+      "red",
+      {
+        pointer: state === "compass",
+        busy: state === "financial-preparing",
+        made: state === "financial",
+      },
+    )}</div>
+      <div class="qtrow">${b("Strategic", "indigo")}${b("Briefing", "teal")}</div><div class="qtrow">${b("Snapshot", "green")}</div></div>`;
+  };
+  const investmentReport = (
+    state,
+    scroll = 0,
+  ) => `<div class="qrep" style="margin-top:${-scroll}px">
+    <div class="qbar">
+      <div><div style="display:flex;gap:10px;align-items:center">${qbtn("file", "Generated Reports")}<div class="qlink">${svg("arrowl", "#e5e5ea", 2)}Back</div></div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:14px">${pill("Compass", "dark")}<b style="font-size:13px">Project Banksia / Residence 014</b></div></div>
+      ${tiers(state)}
+      <div style="display:flex;gap:8px;align-items:center">${qbtn("layers", "Choose template")}${qbtn("upload", "Export PDF", "blue")}${qbtn("send", "Send to Client")}${qbtn("", "··· More")}</div>
+    </div>
+    <div class="qcol">
+      <div class="qhero"><div style="flex:1">
+          <div style="display:flex;gap:8px">${pill("✧ Investment Report", "dark")}${pill("Compass", "dark")}${pill("ⓘ 4 Adjustments", "violet")}</div>
+          <div class="qtitle">Project Banksia /<br>Residence 014</div>
+          <div class="qmeta">${svg("calendar", "#a1a1aa", 1.8)}Generated Oct 21, 2026, 9:41 AM <span style="margin-left:14px"></span>${svg("file", "#a1a1aa", 1.8)}Internal report</div>
+          <div class="qmeta">${svg("check", "#a1a1aa", 1.8)}Completed</div></div>
+        <div class="qgradebox">${grade("B+", "gold")}<div><b style="font-size:14px">Investment Grade</b><div class="qsmall">Assessed on 3 of 5 dimensions: capital growth, location and rental yield.</div></div></div>
+      </div>
+      <div class="qstats5">
+        <div class="qstat"><div class="l">Investment grade</div><div class="v">B+</div><div class="d">Measured across capital growth, location and rental yield</div></div>
+        <div class="qstat"><div class="l">Score /100</div><div class="v"><span style="color:#f5c542">★</span> <span style="color:#e5b93a">74</span> <span class="d" style="font-size:13px">/100</span></div><div class="d">Qualified score — based on 3 of 5 assessed dimensions</div></div>
+        <div class="qstat"><div class="l">Report tier</div><div class="v">Compass</div></div>
+        <div class="qstat"><div class="l">Manual overrides</div><div class="v">4</div><div class="d">Adjusted fields</div></div>
+        <div class="qstat"><div class="l">Report status</div><div class="v">Completed</div><div class="d">Internal report</div></div>
+      </div>
+      <div class="qnote"><span>${
+        state === "compass"
+          ? "Not prepared from this Compass yet: Financial, Strategic, Briefing, Snapshot. One click prepares all 4 at the same time — 2 are model runs."
+          : state === "financial-preparing"
+            ? "Preparing Financial from this Compass. Not prepared yet: Strategic, Briefing, Snapshot."
+            : "Prepared from this Compass: Financial. Not prepared yet: Strategic, Briefing, Snapshot."
+      }</span>${qbtn("layers", state === "compass" ? "Prepare all 4 reports" : "Prepare the other 3")}</div>
+      <div style="display:flex;gap:22px;align-items:flex-start">
+        <div class="qcard" style="flex:1.75"><div style="display:flex;align-items:center"><b style="font-size:15px">${svg("trend", "#fff", 2)} Analysis Report</b><span style="margin-left:auto">${qbtn("upload", "Raw text", "ghost")}</span></div>
+          <div class="qsmall">Client-facing document view for Project Banksia / Residence 014</div></div>
+        <div class="qcard" style="flex:1"><b style="font-size:15px">${svg("upload", "#fff", 2)} Publishing &amp; Export</b><div class="qsmall">Configure report content, generate PDFs, and manage premium styling.</div></div>
+      </div>
+    </div></div>`;
+
+  // Generated Reports: the library, Residence 014's card first.
+  const reportCard = (title, tags, g, score, pointer) => `<div class="qrcard">
+      <div style="display:flex;gap:10px"><span class="qpin">${svg("pin", "#3d63ff", 1.9)}</span><div style="flex:1"><div class="qrtitle">${title}</div>
+        <div class="qsmall" style="margin-top:4px">Latest Oct 21, 2026, 9:41 AM · completed</div>
+        <div class="qtags">${tags.map((t) => `<span>${t}</span>`).join("")}</div>
+        <div class="qgtile">${grade(g, "gold")}<div style="flex:1"><div class="l">INVESTMENT GRADE</div><b style="font-size:12.5px">Under review</b><div class="qsmall" style="font-size:9.5px">Qualified score</div></div>
+          <div style="text-align:right"><div style="color:#e5b93a;font-size:21px;font-weight:700">${score}</div><div class="qsmall" style="font-size:10px">/100 score</div></div></div></div>
+        <div style="display:flex;gap:8px;align-items:flex-start">${svg("inbox", "#d4d4d8", 1.8)}<span class="qver">${svg("layers", "#e5e5ea", 1.9)}${tags.length} ⌄</span></div></div>${pointer ? cur("left:46%;top:16%") : ""}</div>`;
+  const generatedReports = (pointer) => `<div class="qpage">
+    <div class="qbanner"><div style="display:flex;align-items:flex-start"><div>${pill("REPORT INTELLIGENCE LIBRARY", "eyebrow")}<div class="qh1">Generated Reports</div>
+        <div class="qsub">Search, review, compare, archive, and export every generated property report from one governed workspace.</div></div>
+        <div style="margin-left:auto;display:flex;gap:8px">${pill("Archived hidden", "dark")}${pill("0 active filters", "dark")}</div></div>
+      <div class="qstats5" style="margin-top:22px">${[
+        ["TOTAL REPORTS", "6", "layers"],
+        ["INVESTMENT REPORTS", "3", "trend"],
+        ["COMPARISON ANALYSES", "3", "file"],
+        ["CURRENTLY VISIBLE", "6", "inbox"],
+        ["ACTIVE FILTERS", "0", "search"],
+      ]
+        .map(
+          ([l, v, ic]) =>
+            `<div class="qstat"><div class="l" style="display:flex">${l}<span style="margin-left:auto">${svg(ic, "#8b7cf6", 1.8)}</span></div><div class="v" style="font-size:22px">${v}</div></div>`,
+        )
+        .join("")}</div></div>
+    <div class="qcats">${[
+      ["trend", "Investment", "Property, suburb, postcode, and state intelligence", 3, true],
+      ["pin", "Comparisons", "Multi-property decision analysis", 3, false],
+      [
+        "building",
+        "Commercial &amp; Industrial",
+        "Capacity reports from your assessments",
+        0,
+        false,
+      ],
+    ]
+      .map(
+        ([ic, t, d, n, on]) =>
+          `<div class="qcat${on ? " on" : ""}"><span class="qicon">${svg(ic, on ? "#3d63ff" : "#a1a1aa", 1.8)}</span><div style="flex:1"><b>${t}</b><div class="qsmall">${d}</div></div><span class="qcount">${n}</span></div>`,
+      )
+      .join("")}</div>
+    <div class="qtools"><div class="qsearch">${svg("search", "#a1a1aa", 1.9)}Search by property address...</div>
+      <div class="qseg">${qbtn("grid", "Cards", "on")}${qbtn("file", "Table")}</div>${qbtn("search", "Filters ⌄")}${qbtn("inbox", "Show Archived")}
+      <div class="qcountbox"><b>3 of 3 reports</b><div>Showing last 30 days</div></div></div>
+    <div class="qcards">${reportCard("Project Banksia / Residence 014", ["Compass", "Financial", "Strategic", "Snapshot", "Briefing"], "B+", 74, pointer)}
+      ${reportCard("Project Banksia / Residence 015", ["Compass", "Financial"], "B", 68)}${reportCard("Project Banksia / Residence 016", ["Compass"], "B+", 71)}</div>
+  </div>`;
+
+  // The agent, open over the page: Alex's ask, Aurixa's draft for Jordan as a go-ahead card, and her edit.
+  const agentPanel = (state) => {
+    const bodyOf = (approved) =>
+      approved
+        ? "Hi Jordan, your client summary for Residence 014 is ready. Next step: review the remaining questions together."
+        : "Hi Jordan, your client summary for Residence 014 is ready. Next step: discuss the next step.";
+    const approval = (
+      approved,
+      superseded = false,
+    ) => `<div class="qappr${superseded ? " old" : ""}"><div class="qapprh"><span class="${approved ? "ok" : "wait"}">${approved ? "✓ Approved" : "Needs your go-ahead"}</span><span class="qsmall" style="margin-left:auto">Proposed action</span></div>
+      <div style="font-size:12.5px;font-weight:600;margin:8px 0">This action needs your approval</div>
+      <div class="qmail"><div class="qmailh">📧 Email Preview</div><div style="padding:10px 12px;display:flex;flex-direction:column;gap:6px">
+        <div><span class="m">From:</span> <span class="qchip on">🏢 Admin</span> <span class="qchip">👤 Personal</span></div>
+        <div><span class="m">To:</span> <b>Jordan Ellis</b></div><div><span class="m">Subject:</span> <b>Residence 014: your client summary</b></div>
+        <div class="qbody"><div class="m" style="font-size:9.5px;letter-spacing:.12em;margin-bottom:4px">BODY</div>${bodyOf(approved)}</div></div></div>
+      ${approved || superseded ? "" : `<div style="display:flex;gap:8px;margin-top:10px">${qbtn("check", "Approve", "blue wide")}${qbtn("", "⊗ Cancel", "wide")}</div>`}</div>`;
+    return `<div class="qagent">
+      <div class="qagh">${mascot(50)}<div><b style="font-size:15px">Aurixa</b><div class="qsmall" style="font-size:12px">Ready when you are</div></div>
+        <div style="margin-left:auto;display:flex;gap:14px;align-items:center">${["msg", "refresh", "users", "bell"].map((i) => svg(i, "#c4c4cc", 1.7)).join("")}<span style="color:#c4c4cc">···</span><span style="color:#c4c4cc;font-size:18px">×</span></div></div>
+      <div class="qagb">
+        <div class="qubub">Draft a short note to Jordan Ellis about his Residence 014 client summary.</div>
+        <div class="qtrace"><span class="qorb"></span>Worked for 4s · 1 step<span style="margin-left:auto">⌄</span></div>
+        <div style="font-size:13px;line-height:1.55">Here is a draft for <b>Jordan Ellis</b>. Nothing is sent until you give it the go-ahead.</div>
+        ${approval(false, state === "approved")}
+        ${
+          state === "approved"
+            ? `<div class="qubub">Make the next step: review the remaining questions together.</div>
+          <div class="qtrace"><span class="qorb"></span>Worked for 3s · 1 step<span style="margin-left:auto">⌄</span></div>${approval(true)}`
+            : ""
+        }
+      </div>
+      <div class="qagf"><div style="display:flex">${pill("ⓘ General assistant · pick a skill", "dark")}<span style="margin-left:auto">${pill("⌖ Share this page", "dashed")}</span></div>
+        <div class="qinput"><span style="color:#8b8b93">${svg("clip", "#8b8b93", 1.7)}</span>${
+          state === "editing"
+            ? `<span style="color:#f4f4f5">Make the next step: review the remaining questions together<span class="qcaret"></span></span>`
+            : `<span style="color:#77777f">Plan tomorrow's briefing...</span>`
+        }<span style="margin-left:auto" class="qmic">${svg("msg", "#c4c4cc", 1.7)}</span><span class="qtalk">${svg("pulse", "#fff", 2)}Talk</span></div>
+        <div class="qhint"><span>↵ SEND · ⇧↵ NEWLINE · CTRL+J CLOSE</span><span>Aurixa may make mistakes</span></div></div></div>`;
+  };
+
+  // Overview, in the demo workspace, with the demo's project for the cut to Daniel's stock list.
+  const overview = `<div class="qpage">
+    <div class="qbanner" style="background:radial-gradient(420px 220px at 30% 10%, rgba(120,90,30,.25), transparent 70%), radial-gradient(600px 260px at 70% 60%, rgba(30,70,140,.25), transparent 70%), #0d0f17">
+      <div style="display:flex;align-items:flex-start"><div>${pill("⦿ COMMAND CENTRE", "eyebrow gold")}<div class="qh1" style="font-size:44px">Overview</div><div class="qsub">Property intake dashboard overview and key metrics</div></div>
+        <div style="margin-left:auto;display:flex;gap:8px">${qbtn("upload", "Export Snapshot")}${qbtn("refresh", "")}${qbtn("search", "Filters")}</div></div></div>
+    <div class="qops"><div class="qeb">● OPERATIONS</div><div style="display:flex;gap:12px;align-items:center;margin-top:10px"><span class="qicon gold">⚡</span><div><b style="font-size:18px">Today's position</b><div class="qsmall" style="font-size:12.5px">Actionable operational metrics and shortcuts, available on every plan.</div></div></div>
+      <div class="qchips">${["Add Client", "Create Report", "Add Reminder", "Open Calendar", "Cash-Flow Analysis", "Market News Feed", "Commercial Assessment", "Compare Reports", "Deal Pipeline", "Property Marketplace"].map((t) => `<span>${t}</span>`).join("")}</div>
+      <div class="qtiles">${[
+        ["TASKS DUE TODAY", "0", "Reminders and follow-ups due today", "bell", ""],
+        ["OVERDUE TASKS", "0", "Past-due reminders needing attention", "alert", ""],
+        ["DUE THIS WEEK", "2", "Upcoming tasks and milestones (7 days)", "calendar", ""],
+        ["REPORTS THIS MONTH", "3", "Investment reports generated this month", "file", "green"],
+      ]
+        .map(
+          ([l, v, d, ic, tone]) =>
+            `<div class="qtile ${tone}"><div style="display:flex"><span class="l">${l}</span><span class="qicon sq ${tone}" style="margin-left:auto">${svg(ic, tone ? "#22c55e" : "#3d63ff", 1.8)}</span></div><div class="v">${v}</div><div class="qsmall">${d}</div></div>`,
+        )
+        .join("")}</div></div>
+    <div class="qops" style="padding-bottom:18px"><div class="qeb">● EXECUTIVE SNAPSHOT</div>
+      <div style="display:flex;gap:16px;align-items:center;margin-top:12px"><div class="qproj">${pimg(150, 94)}<div><div class="qeb" style="color:#7d97ff">DEMO PROJECT</div><b style="font-size:20px">Residence 014</b><div class="qsmall">Project Banksia · New Build</div></div></div>
+        <div><b style="font-size:18px">Intake performance</b><div class="qsmall" style="font-size:12.5px">Headline operating metrics for the filtered property pipeline.</div></div></div></div>
+  </div>`;
   // ---------------------------------------------------------------- Finance (Jamie)
   const finItems = (on) => [
     ["grid", "Dashboard", false],
@@ -672,71 +909,60 @@ module.exports = function portals({ P, D, EMBLEM }) {
         fab(false),
       ),
     },
+    // 05A: the research (the Compass report) moves into financial analysis at Alex's click.
     "PL-05A-a": {
       size: W,
       scale: CC_SCALE,
-      html: cc("Reports", `${reportsBanner}${workspace}${research(false)}`, fab(false)),
+      html: cc("Generated Reports", investmentReport("compass"), fab(false), true),
     },
     "PL-05A-b": {
       size: W,
       scale: CC_SCALE,
-      html: cc("Reports", `${reportsBanner}${workspace}${research(true)}`, fab(false)),
+      html: cc("Generated Reports", investmentReport("financial-preparing"), fab(false), true),
     },
+    // 05C: the library, Residence 014's report under the pointer; then its client-facing document (pending its page).
     "PL-05C-a": {
       size: W,
       scale: CC_SCALE,
-      html: cc("Generated Reports", `${generatedBanner}${record(true)}`, fab(false)),
+      html: cc("Generated Reports", generatedReports(true), fab(false), true),
     },
-    // The preview opens over the Command Centre (the white reading surface).
     "PL-05C-b": {
       size: W,
       scale: CC_SCALE,
       html: cc(
         "Generated Reports",
-        `${generatedBanner}${record(true)}`,
+        generatedReports(false),
         `<div class="scrim"></div><div class="creport">
           <div style="display:flex;gap:26px;align-items:center">${pimg(300, 186)}<div><div style="font-size:11px;letter-spacing:.2em;font-weight:800;color:#9a7424">PROJECT BANKSIA / RESIDENCE 014</div><h2>Client summary</h2></div></div>
           <div class="rule"></div><h4>KEY CONSIDERATIONS</h4><div class="skel"><div style="width:92%"></div><div style="width:84%"></div><div style="width:66%"></div></div>
           <div class="rule"></div><h4>QUESTIONS FOR DISCUSSION</h4><div class="skel"><div style="width:88%"></div><div style="width:70%"></div><div style="width:78%"></div></div>
           <div style="font-size:11px;color:#5a6b85;margin-top:6px">Prepared by Alex Morgan · Aurixa Systems · Demo workspace</div></div>`,
+        true,
       ),
     },
+    // 06B and 07A: the report with Financial prepared; the agent opened from her button, her draft, Alex's edit, approved.
     "PL-06B-a": {
       size: W,
       scale: CC_SCALE,
-      html: cc("Generated Reports", `${generatedBanner}${record(false)}`, fab(true)),
+      html: cc("Generated Reports", investmentReport("financial"), fab(true), true),
     },
     "PL-06B-b": {
       size: W,
       scale: CC_SCALE,
-      html: cc("Generated Reports", `${generatedBanner}${record(false)}`, agent("open")),
+      html: cc("Generated Reports", investmentReport("financial"), agentPanel("open"), true),
     },
     "PL-07A-a": {
       size: W,
       scale: CC_SCALE,
-      html: cc("Generated Reports", `${generatedBanner}${record(false)}`, agent("editing")),
+      html: cc("Generated Reports", investmentReport("financial"), agentPanel("editing"), true),
     },
     "PL-07A-b": {
       size: W,
       scale: CC_SCALE,
-      html: cc("Generated Reports", `${generatedBanner}${record(false)}`, agent("saved")),
+      html: cc("Generated Reports", investmentReport("financial"), agentPanel("approved"), true),
     },
-    "PL-11A-c": {
-      size: W,
-      scale: CC_SCALE,
-      html: cc(
-        "Overview",
-        `${banner("Explore your workspace", "A prepared project to try every portal with.", "", "DEMO WORKSPACE")}
-        <div class="rowx"><div class="citem on" style="flex:none;width:600px;padding:18px">${pimg(230, 144)}<div><div class="kick" style="color:#7d97ff;font-size:9.5px">PROJECT</div>
-          <div style="font-size:30px;font-weight:800;margin-top:8px">Residence 014</div><div class="b" style="font-size:13px">Project Banksia · New Build</div></div></div>
-          <div class="ana" style="flex:1;padding:22px;justify-content:center"><div class="lab">PORTALS</div><div style="font-size:17px;font-weight:800;line-height:1.5;margin-top:10px">Client · Finance · Legal · Builder / Developer · Accounting</div></div></div>
-        <div class="ana"><div class="box" style="margin:22px"><div class="lab">GET STARTED</div><div class="types">
-          <div class="type">${svg("bars", "#e6e6ea", 1.6)}<div class="t">RUN A REPORT</div><div class="s">RESIDENCE 014</div></div>
-          <div class="type">${svg("users", "#e6e6ea", 1.6)}<div class="t">OPEN A PORTAL</div><div class="s">SEE EACH ROLE</div></div>
-          <div class="type">${svg("msg", "#e6e6ea", 1.6)}<div class="t">ASK AURIXA</div><div class="s">THE AGENT</div></div></div></div></div>`,
-        fab(false),
-      ),
-    },
+    // 11A: the Demo workspace cut, Overview with the demo's project.
+    "PL-11A-c": { size: W, scale: CC_SCALE, html: cc("Overview", overview, fab(false), true) },
     // Finance
     "PL-05B-a": {
       size: W,

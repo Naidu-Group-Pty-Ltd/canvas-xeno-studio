@@ -85,6 +85,10 @@
       "what": "the supplied Aurixa Systems logo (2000 x 1333, 21 October 2026); the plates' emblem.png and wordmark.png are keyed from it"
     },
     {
+      "key": "REF-CC-PAGES",
+      "what": "the supplied Command Centre pages (four 1920 x 1020 browser screenshots, 21 October 2026): Generated Reports, an investment report, the Aurixa Agent open over it, and Overview: the structure of Alex's plates 05A, 05C-a, 06B, 07A and 11A-c"
+    },
+    {
       "key": "REF-CC-REPORTS",
       "what": "the supplied Command Centre Reports page (five 1920 x 1020 browser screenshots, top to Pre-Generation Overrides, 21 October 2026): the structure Alex's plates (04B, 05A, 05C, 06B, 07A, 11A-c) are drawn on"
     }
@@ -103,7 +107,8 @@
     "Confirmed 21 October 2026 (option 1): the studio's editor lays only flat, still pictures over video, so the plates can't be put on angled or moving screens there. Each screen frame carries its plate instead, and a clip moves between frames that already show it; a click with no last frame gets one, the same frame with the screen after the click (05A, 05B, 05C, 09B, 11A, 12B); and a cut that matches screens across rooms pins the later screen to the earlier one's place (02A, 05A, 05C, 06B, 12B, 13A). Flat, full-frame plates (the Block 14 phrases, the Demo workspace cut, the closing card) are still laid on in the edit.",
     "Confirmed 21 October 2026: Mia is more glamorous and striking, still dressed for the office: polished make-up and glossy curls, a confident look, a fitted silk version of her slate-blue blouse with tailored trousers and heels (her sheet's revision 3).",
     "Confirmed 21 October 2026: Alex's Command Centre plates follow the supplied Reports page (its menu groups and items, top bar, banner, Manual / URL Extraction / PDF Upload tabs, build-type cards and floating Aurixa emblem, drawn at 125% zoom). The tenant reads Aurixa Systems and the signed-in user Alex Morgan; the screen spells Centre as the product does (the pack writes Center); Existing Property starts selected, as the product opens, so 04B's click moves the selection to New Build; the property being prepared (P) sits in the workspace section through 04B and 05A; the Aurixa Agent is the product's floating emblem with a hover label; the pages past Reports (the analysis, Generated Reports, the record and its agent panel, the demo workspace) are built from the Reports page's components, as only that page was supplied; and the client summary preview (05C-b) opens over the Command Centre rather than as a separate page.",
-    "21 October 2026, quality check (QC.md): the portal plates are set in the portals' own fonts, read from their code (npc-client-dashboard): the system stack, so Segoe UI on Windows as the screenshots show, drawn in Selawik (Microsoft's open stand-in, built by selawik.py); the brand serif Playfair Display Medium; and Consolas for code labels, drawn in Inconsolata. The trial card and the closing card carry the supplied logo whole rather than its keyed emblem and wordmark, at the client's direction."
+    "21 October 2026, quality check (QC.md): the portal plates are set in the portals' own fonts, read from their code (npc-client-dashboard): the system stack, so Segoe UI on Windows as the screenshots show, drawn in Selawik (Microsoft's open stand-in, built by selawik.py); the brand serif Playfair Display Medium; and Consolas for code labels, drawn in Inconsolata. The trial card and the closing card carry the supplied logo whole rather than its keyed emblem and wordmark, at the client's direction.",
+    "21 October 2026, awaiting approval: Alex's Command Centre plates past Reports follow the supplied pages (REF-CC-PAGES: Generated Reports, an investment report, the Aurixa Agent open over it, Overview). 05A is the research moving into financial analysis: Compass on view, the click prepares Financial; 05C opens Residence 014 from Generated Reports; in 06B and 07A the agent drafts Jordan's note as a go-ahead card, Alex types her change and it is approved (the product's approval card, in place of the pack's Save draft); 11A-c is Overview with the demo project. Grades read Under review rather than the product's BUY or HOLD, so the reel makes no investment call. The agent is drawn from the portals' own presence (mascot.cjs) without its notification counts."
   ],
   "timing": {
     "method": "Each cut sits in the pause before the cue's first word (0.15 s ahead of its speech onset), or 0.1 s ahead of a word mid-phrase, snapped to 30 fps.",
@@ -898,12 +903,12 @@
           "key": "PL-05A-a",
           "shots": "05A",
           "kind": "aurixa",
-          "title": "Command Centre · the analysis, before the click",
+          "title": "Command Centre · the investment report (Compass), before the click",
           "text": [
-            "Prepared context: Project Banksia / Residence 014 (P), where 04B left it",
-            "Investment Analysis · New Build (Compass)",
-            "Research brief (under the cursor)",
-            "Next: Financial analysis",
+            "Generated Reports · Back · Compass · Project Banksia / Residence 014",
+            "Tiers: Compass (on view) · + Financial (under the cursor) · + Strategic · + Briefing · + Snapshot",
+            "Investment Grade B+ · Score 74/100 · Report tier Compass · 4 adjusted fields · Completed",
+            "Not prepared from this Compass yet: Financial, Strategic, Briefing, Snapshot",
             "Demo workspace"
           ]
         },
@@ -911,13 +916,8 @@
           "key": "PL-05A-b",
           "shots": "05A",
           "kind": "aurixa",
-          "title": "Location overview, the result",
-          "text": [
-            "Research brief",
-            "Location overview (large, selected)",
-            "Property characteristics",
-            "Questions for review"
-          ]
+          "title": "Financial being prepared from the Compass",
+          "text": ["Financial (preparing)", "Preparing Financial from this Compass"]
         },
         {
           "key": "PL-05B-a",
@@ -947,12 +947,12 @@
           "key": "PL-05C-a",
           "shots": "05C",
           "kind": "aurixa",
-          "title": "Command Centre · Generated Reports, the client summary",
+          "title": "Command Centre · Generated Reports, Residence 014 under the pointer",
           "text": [
-            "Prepared for Jordan Ellis: Project Banksia / Residence 014 (thumbnail P)",
-            "Client summary",
-            "Open preview (under the cursor)",
-            "Investment Analysis · Compass · Ready",
+            "Report Intelligence Library · Generated Reports",
+            "Investment (selected) · Comparisons · Commercial & Industrial",
+            "Project Banksia / Residence 014: Compass · Financial · Strategic · Snapshot · Briefing · grade B+ · 74/100",
+            "Residence 015 · Residence 016",
             "Demo workspace"
           ]
         },
@@ -998,11 +998,11 @@
           "key": "PL-06B-a",
           "shots": "06B",
           "kind": "aurixa",
-          "title": "Command Centre record with the Aurixa Agent launcher",
+          "title": "The investment report with Financial prepared; the pointer on the Aurixa Agent",
           "text": [
-            "Prepared context: Residence 014",
-            "Questions for review",
-            "Aurixa Agent: the product's floating emblem, under the cursor, with its label",
+            "Tiers: Compass · Financial (made)",
+            "Prepared from this Compass: Financial",
+            "The agent's own presence (the floating button), under the cursor, with its label",
             "Demo workspace"
           ]
         },
@@ -1010,31 +1010,27 @@
           "key": "PL-06B-b",
           "shots": "06B",
           "kind": "aurixa",
-          "title": "Aurixa Agent panel open",
+          "title": "The Aurixa Agent open over the report",
           "text": [
-            "Aurixa Agent",
-            "Residence 014 · Investment Analysis · Questions for review",
-            "Draft client summary: Discuss the next step",
-            "Review required",
-            "Question to verify"
+            "Aurixa · Ready when you are",
+            "Draft a short note to Jordan Ellis about his Residence 014 client summary.",
+            "Needs your go-ahead · Email Preview: To Jordan Ellis · Residence 014: your client summary · Next step: discuss the next step",
+            "Approve · Cancel"
           ]
         },
         {
           "key": "PL-07A-a",
           "shots": "07A",
           "kind": "aurixa",
-          "title": "Draft before Alex's edit",
-          "text": ["Questions for review", "Draft: Discuss the next step"]
+          "title": "Alex types her change",
+          "text": ["Make the next step: review the remaining questions together (typing)"]
         },
         {
           "key": "PL-07A-b",
           "shots": "07A",
           "kind": "aurixa",
-          "title": "Draft after the edit, saved",
-          "text": [
-            "Draft: Review the remaining questions together",
-            "Save draft → Draft saved (restrained teal)"
-          ]
+          "title": "The changed note, approved",
+          "text": ["Approved · Next step: review the remaining questions together"]
         },
         {
           "key": "PL-08A-a",
@@ -1121,13 +1117,12 @@
           "key": "PL-11A-c",
           "shots": "11A",
           "kind": "aurixa",
-          "title": "Command Centre · Demo workspace",
+          "title": "Command Centre · Overview in the demo workspace",
           "text": [
-            "Demo workspace",
-            "Explore your workspace",
-            "Project tile: Residence 014 (image P)",
-            "Portals: Client · Finance · Legal · Builder / Developer · Accounting",
-            "Get started: Run a report · Open a portal · Ask Aurixa"
+            "Command Centre · Overview · Property intake dashboard overview and key metrics",
+            "Operations · Today's position (shortcuts, tasks, reports this month)",
+            "Demo project: Residence 014 (image P) · Project Banksia · New Build",
+            "Demo workspace"
           ]
         },
         {

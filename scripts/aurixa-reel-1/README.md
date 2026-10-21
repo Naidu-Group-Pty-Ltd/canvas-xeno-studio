@@ -10,6 +10,7 @@ These scripts build Aurixa's Reel 1 generation spec and typeset its screen plate
 | `render_readme.py`  | Writes the spec's README from `spec.json`.                                                                                                                                                                                                                   |
 | `plates.cjs`        | Typesets the 41 screen plates, Block 14 phrases and the closing card, and renders them to PNG with Playwright. Playfair Display and Inconsolata come from Google Fonts; Selawik from the assets folder.                                                      |
 | `selawik.py`        | Builds Selawik, the open stand-in for Segoe UI (the portals' font on Windows), from Microsoft's UFO sources, with the standard library alone.                                                                                                                |
+| `mascot.cjs`        | Renders the Aurixa Agent's presence (the mascot on her button and in her header) from the portals' own markup, stylesheet and art, to `mascot.png`.                                                                                                          |
 | `portals.cjs`       | The portal plates (used by `plates.cjs`), built on the shells of the portal screenshots.                                                                                                                                                                     |
 | `studio.py`         | Runs the spec against the studio API: imports the plates (`import_image`, ids into `assets.json`), prices a stage (`estimate_generation`) and runs one (`queue_generation`, only with `--confirm`; takes into `takes.json`); Stage 5's clips take `--model`. |
 | `contact-sheet.cjs` | One picture of every rendered plate, for review.                                                                                                                                                                                                             |
@@ -22,7 +23,8 @@ npx prettier --write docs/brands/aurixa-reel-1
 
 git clone --depth 1 https://github.com/microsoft/Selawik /tmp/selawik
 python3 scripts/aurixa-reel-1/selawik.py "/tmp/selawik/Source files/UFO" assets
-node scripts/aurixa-reel-1/plates.cjs /tmp/reel-1-plates assets   # assets: P.png, D.png, emblem.png, wordmark.png, logo-art.png, Selawik-*.ttf
+node scripts/aurixa-reel-1/mascot.cjs <npc-client-dashboard checkout> assets/mascot.png 240
+node scripts/aurixa-reel-1/plates.cjs /tmp/reel-1-plates assets   # assets: P.png, D.png, emblem.png, wordmark.png, logo-art.png, mascot.png, Selawik-*.ttf
 node scripts/aurixa-reel-1/contact-sheet.cjs /tmp/reel-1-plates /tmp/reel-1-plates.png
 ```
 

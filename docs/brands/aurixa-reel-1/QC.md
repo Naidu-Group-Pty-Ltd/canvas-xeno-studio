@@ -20,6 +20,12 @@ Selawik 0.208, Hind 0.213, Open Sans 0.220, Plus Jakarta Sans (the old face) 0.2
 
 ## Screens that need the product's real pages
 
+Update, 21 October 2026: the Command Centre's Generated Reports, an investment report, the agent open over it and
+Overview were supplied, and 05A, 05C-a, 06B, 07A and 11A-c are rebuilt on them (the agent's mascot rendered from the
+portals' own sources). Still needed: the client-facing document (05C-b, 08B) and the other portals' pages below.
+With them, 13 frames can have their screens redone now (F-04A-in/out, F-04B-in/out, F-05A-in/out, F-05C-in, F-06A-in,
+F-06B-in/out, F-10B-in/out, F-11A-out); 16 still wait on pages.
+
 These plates show pages the screenshots don't cover, so their content was invented: placeholder
 bars, and in two places features the product doesn't have.
 

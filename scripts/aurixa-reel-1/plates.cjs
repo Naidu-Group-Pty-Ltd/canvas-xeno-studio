@@ -646,7 +646,7 @@ const PLATES = {
 };
 
 // v2 portals: the plates they replace (one state became two) go, the rest are overwritten.
-const portals = require("./portals.cjs")({ P, D, EMBLEM });
+const portals = require("./portals.cjs")({ P, D, EMBLEM, MASCOT: asset("mascot.png") });
 for (const key of ["PL-05A", "PL-05B", "PL-06A", "PL-06B", "PL-09B"]) delete PLATES[key];
 Object.assign(PLATES, portals.plates);
 
