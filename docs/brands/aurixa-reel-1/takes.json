@@ -242,6 +242,27 @@
       "assets": ["40f5ce54-04ec-45f5-8e11-36f989fa26bd"],
       "costUsd": null,
       "error": null
+    },
+    "r3-take1": {
+      "generationId": "8d457c5e-6269-41d3-9f0d-0c34ca398fc0",
+      "status": "completed",
+      "assets": ["ebd7b138-00be-4d84-ae20-593f9b220b96"],
+      "costUsd": null,
+      "error": null
+    },
+    "r3-take2": {
+      "generationId": "db78b14c-19c5-43d6-bd94-6db9d759b1d2",
+      "status": "completed",
+      "assets": ["35abec9a-5987-4818-b7fb-d0aa85e502c3"],
+      "costUsd": null,
+      "error": null
+    },
+    "r3-take3": {
+      "generationId": "ac1943fc-00e8-4bec-a514-0eb3a5b4f571",
+      "status": "completed",
+      "assets": ["e4c3bc0a-29e0-428e-a5c0-980cd8818ed2"],
+      "costUsd": null,
+      "error": null
     }
   },
   "D": {

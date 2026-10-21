@@ -4,6 +4,7 @@
   python3 scripts/aurixa-reel-1/studio.py price <stage>                     # estimate_generation: nothing is made or billed
   python3 scripts/aurixa-reel-1/studio.py run <stage> [--only P,C-ALEX] [--takes N] [--confirm]
   python3 scripts/aurixa-reel-1/studio.py takes                             # the takes' state again, into takes.json
+  python3 scripts/aurixa-reel-1/studio.py pick P=take1 C-MIA=r3-take1       # approved takes' files into assets.json
 
 run prints what it would queue; only with --confirm does it queue (billed by the provider), then it
 waits and records every take in takes.json. A take's request id is its key and number (and the
@@ -143,6 +144,22 @@ def settle(record, timeout=45 * 60):
     print(f"{len(done)} of {len(takes)} takes made; US${cost:.2f} charged or held" + (f"; {waiting} still running (run takes later)" if waiting else ""))
 
 
+def pick(choices):
+    """Puts each approved take's library file into the ledger, where later stages take their inputs from."""
+    record = load_takes()
+    ledger = load("assets.json")
+    for choice in choices:
+        key, _, name = choice.partition("=")
+        take = record.get(key, {}).get(name)
+        if not take or take["status"] != "completed" or not take.get("assets"):
+            sys.exit(f"{choice}: no completed take by that name in takes.json")
+        if key not in ledger:
+            sys.exit(f"{choice}: {key} isn't in the spec's ledger")
+        ledger[key] = take["assets"][0]
+        print(f"{key}: {name}, {ledger[key]}")
+    save_ledger(ledger)
+
+
 def run(stage_number, only=None, takes=None, confirm=False):
     spec = load("spec.json")
     ledger = load("assets.json")
@@ -183,17 +200,19 @@ def run(stage_number, only=None, takes=None, confirm=False):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(usage=__doc__)
-    parser.add_argument("command", choices=["import-plates", "price", "run", "takes"])
-    parser.add_argument("target", nargs="?")
+    parser.add_argument("command", choices=["import-plates", "price", "run", "takes", "pick"])
+    parser.add_argument("target", nargs="*")
     parser.add_argument("--only", help="item keys, comma separated")
     parser.add_argument("--takes", type=int, help="takes per item (numbered from 1)")
     parser.add_argument("--confirm", action="store_true", help="queue for real (billed)")
     args = parser.parse_args()
     if args.command == "import-plates":
-        import_plates(args.target)
+        import_plates(args.target[0])
     elif args.command == "price":
-        price(int(args.target))
+        price(int(args.target[0]))
     elif args.command == "run":
-        run(int(args.target), set(args.only.split(",")) if args.only else None, args.takes, args.confirm)
+        run(int(args.target[0]), set(args.only.split(",")) if args.only else None, args.takes, args.confirm)
+    elif args.command == "pick":
+        pick(args.target)
     else:
         settle(load_takes(), timeout=0)
