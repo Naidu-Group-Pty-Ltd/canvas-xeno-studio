@@ -1,0 +1,49 @@
+{
+ "P": {
+  "take1": {
+   "generationId": "5006501d-7e49-400a-a504-489b391ac7f7",
+   "status": "completed",
+   "assets": [
+    "5594da16-9f3b-42f1-bcfe-8269c3f5a01a"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "203fd263-e381-41de-a6f7-873b8e238775",
+   "status": "queued"
+  },
+  "take3": {
+   "generationId": "7c3e587f-09b1-4118-8cc6-987bd49f0dfb",
+   "status": "queued"
+  }
+ },
+ "C-ALEX": {
+  "take1": {
+   "generationId": "6e86c01e-2eaa-4213-a097-1e1769c93174",
+   "status": "queued"
+  },
+  "take2": {
+   "generationId": "73805366-4faf-4753-859b-edd116815e9e",
+   "status": "queued"
+  },
+  "take3": {
+   "generationId": "1a64b2fe-369b-4e7f-b801-e616f3a0a366",
+   "status": "queued"
+  }
+ },
+ "C-JORDAN": {
+  "take1": {
+   "generationId": "28c3006f-26bf-4b7a-a493-3b3c8afc793f",
+   "status": "queued"
+  },
+  "take2": {
+   "generationId": "a4f06340-3f5e-4d86-8bc4-25898d464ec9",
+   "status": "queued"
+  },
+  "take3": {
+   "generationId": "0620145d-03ae-489d-bd4a-f57c67dc2b02",
+   "status": "queued"
+  }
+ }
+}
