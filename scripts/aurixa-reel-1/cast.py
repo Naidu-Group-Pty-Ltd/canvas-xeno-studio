@@ -155,7 +155,8 @@ def fetch_proofs(folder, only=None):
             continue
         for _ in range(90):
             generation = studio.call("get_generation", {"generationId": entry["proof"]})
-            if generation.get("status") in studio.SETTLED:
+            # A completed generation's file can be attached a moment after its status turns.
+            if generation.get("status") in studio.SETTLED and (generation["status"] != "completed" or generation.get("outputs")):
                 break
             time.sleep(10)
         files = generation.get("outputs") or []

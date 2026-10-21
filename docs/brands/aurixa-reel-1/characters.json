@@ -236,11 +236,19 @@
         "status": "training"
       }
     },
-    "souls": [],
+    "souls": [
+      {
+        "version": "v2",
+        "referenceId": "ff33959e-78e4-4443-a530-419661be985b",
+        "approved": false
+      }
+    ],
     "training_state": {
-      "status": "training",
+      "status": "ready",
       "version": "v2",
       "error": null
-    }
+    },
+    "proof": "4c1793a2-0bef-4c25-99b0-a4eb05c722cf",
+    "proofAsset": "0c79b51c-da85-4571-8f9e-59bcad8b6dbd"
   }
 }
