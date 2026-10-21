@@ -62,10 +62,10 @@ LOOK = {
 
 CAST = {
     "ALEX": "Alex Morgan, a fair-skinned, lightly freckled woman of Anglo-Australian heritage in her mid-to-late 20s with grey-blue eyes and shoulder-length, softly wavy dark brown hair, a navy tailored jacket over an ivory blouse and a calm manner, exactly as in her character sheet",
-    "JORDAN": "Jordan Ellis, a man in his mid-to-late 20s with short curly dark hair and a light blue open-collar shirt, exactly as in his character sheet",
+    "JORDAN": "Jordan Ellis, a well-groomed, clean-shaven man in his mid-to-late 20s with neatly trimmed short curly dark hair and a crisp, well-fitted light blue open-collar shirt, exactly as in his character sheet",
     "JAMIE": "Jamie Chen, a petite woman of Chinese heritage in her mid-to-late 20s with a sleek, straight, jaw-length black bob and a blunt fringe, a teal blouse and a navy jacket, exactly as in her character sheet",
     "PRIYA": "Priya Shah, a tall woman of Indian heritage in her mid-to-late 20s with warm medium-brown skin and long black hair tied back in a sleek low bun, a charcoal jacket and a pale blouse, exactly as in her character sheet",
-    "DANIEL": "Daniel Reed, a man in his mid-to-late 20s with short dark hair and a navy polo shirt, exactly as in his character sheet",
+    "DANIEL": "Daniel Reed, a well-groomed man in his mid-to-late 20s with neatly cut short dark hair, a closely trimmed short beard and a crisp, well-fitted navy polo shirt, exactly as in his character sheet",
     "MIA": "Mia Patel, a striking, confident woman of Indian heritage in her mid-to-late 20s with glowing deep brown skin, glossy shoulder-length black curls worn loose and subtle thin-framed round glasses, a fitted slate-blue silk blouse, exactly as in her character sheet",
 }
 
@@ -115,16 +115,24 @@ SHEET = (
 )
 PEOPLE = [
     ("C-ALEX", "Alex Morgan", "Property professional and main guide", "a woman in her mid-to-late 20s of Anglo-Australian heritage: fair skin with light freckles across the nose, grey-blue eyes, an oval face, and shoulder-length, softly wavy dark brown hair with a side part; wearing a navy tailored jacket over an ivory blouse, with slim charcoal trousers and dark low-heeled shoes."),
-    ("C-JORDAN", "Jordan Ellis", "Prospective client", "a man in his mid-to-late 20s with short curly dark hair, wearing a light blue open-collar shirt, with dark chinos and brown leather shoes."),
+    ("C-JORDAN", "Jordan Ellis", "Prospective client", "a man in his mid-to-late 20s with neatly trimmed, short curly dark hair, clean-shaven, a polished, professional appearance and an upright, "
+                                                  "confident posture; wearing a crisp, well-fitted light blue dress shirt open at the collar (the top button only), sleeves down and "
+                                                  "buttoned at the cuffs, neatly tucked into tailored navy trousers with a brown leather belt, and polished brown leather shoes."),
     ("C-JAMIE", "Jamie Chen", "Finance professional", "a woman in her mid-to-late 20s of Chinese heritage: light, warm-toned skin, dark brown eyes, a heart-shaped face, petite and slim, and a sleek, straight, jaw-length black bob with a blunt fringe; wearing a teal blouse and a navy jacket, with navy trousers."),
     ("C-PRIYA", "Priya Shah", "Solicitor", "a woman in her mid-to-late 20s of Indian heritage: warm medium-brown skin, dark brown eyes, defined dark brows, a long oval face, tall and poised, and long black hair centre-parted and tied back in a sleek low bun; wearing a charcoal jacket and a pale blouse, with charcoal trousers."),
-    ("C-DANIEL", "Daniel Reed", "Builder and developer representative", "a man in his mid-to-late 20s with short dark hair, wearing a navy polo shirt, with grey work trousers and work boots."),
+    ("C-DANIEL", "Daniel Reed", "Builder and developer representative", "a man in his mid-to-late 20s with neatly cut short dark hair and a closely trimmed short beard, a polished, "
+                                                                     "professional appearance and an upright, confident posture; wearing a crisp, well-fitted navy polo shirt with a structured "
+                                                                     "collar, neatly tucked into tailored charcoal trousers with a dark leather belt, and clean dark brown leather boots."),
     ("C-MIA", "Mia Patel", "Accountant", "a woman in her mid-to-late 20s of Indian heritage: glowing deep brown skin, dark brown eyes with defined lashes, groomed brows, high cheekbones, full lips with a warm natural lip colour, a striking, confident, polished look, slim and of average height, and glossy, defined shoulder-length black curls worn loose; subtle thin-framed round glasses; wearing a fitted slate-blue silk blouse with the top button open, tucked into high-waisted dark tailored trousers, and dark pointed heels."),
 ]
 # A sheet whose prompt changed after it was made: studio.py names its new takes r2-take1 and so on,
-# and the earlier takes stay in takes.json. Revision 2 tells the four women apart; Mia's revision 3 makes her
-# more glamorous.
-REVISION = {"C-ALEX": 2, "C-JAMIE": 2, "C-PRIYA": 2, "C-MIA": 3}
+# and the earlier takes stay in takes.json. Revision 2 tells the four women apart and makes the two men look
+# professional; Mia's revision 3 makes her more glamorous.
+REVISION = {"C-ALEX": 2, "C-JAMIE": 2, "C-PRIYA": 2, "C-MIA": 3, "C-JORDAN": 2, "C-DANIEL": 2}
+REVISION_NOTE = {
+    **dict.fromkeys(["C-ALEX", "C-JAMIE", "C-PRIYA", "C-MIA"], "Heritage, complexion, face and hair texture tell the four women apart, at the client's direction; the pack gives none."),
+    **dict.fromkeys(["C-JORDAN", "C-DANIEL"], "Groomed and tailored so he looks professional, at the client's direction; the pack's hair and top are kept."),
+}
 stage1 = [
     {
         "key": "P",
@@ -151,7 +159,7 @@ stage1 = [
             "takes": 3,
             "used_by": role,
             "note": "Trousers and shoes are additions so the full-length view agrees; the pack locks the upper half."
-                    + (" Heritage, complexion, face and hair texture tell the four women apart, at the client's direction; the pack gives none." if key in REVISION else ""),
+                    + (" " + REVISION_NOTE[key] if key in REVISION_NOTE else ""),
             **({"revision": REVISION[key]} if key in REVISION else {}),
         }
         for key, name, role, line in PEOPLE
@@ -684,6 +692,9 @@ spec = {
         "Confirmed 21 October 2026: the pack's image(9) and image(10) can't be found, so the console world is generated in their place (CW-9, the wide view; "
         "CW-10, the doorway view) from two Aurixa brand images cropped to their rooms and Daniel's approved site office, and approved before the seven sets use it.",
         "Confirmed 21 October 2026: Jordan's home and Alex's ordinary office keep the Sydney views the model gave them (the Harbour Bridge, Sydney Tower).",
+        "Confirmed 21 October 2026: Jordan and Daniel look professional (their sheets' revision 2): groomed hair, Jordan clean-shaven and Daniel with a closely "
+        "trimmed beard, and crisp, tailored versions of their pack wardrobe (Jordan's shirt tucked with the sleeves down and tailored trousers; Daniel's polo "
+        "with tailored trousers and clean leather boots in place of work trousers and work boots).",
         "Confirmed 21 October 2026: Mia is more glamorous and striking, still dressed for the office: polished make-up and glossy curls, a confident look, "
         "a fitted silk version of her slate-blue blouse with tailored trousers and heels (her sheet's revision 3).",
     ],
