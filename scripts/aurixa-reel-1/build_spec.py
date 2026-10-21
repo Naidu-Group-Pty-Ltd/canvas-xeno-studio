@@ -585,17 +585,25 @@ SWAP_BODY = ("The same frame as image 1, unchanged in every detail: the same peo
 # screen changes. The take (by name) and the revision its new takes are named for.
 SCREEN_SWAP = {
     "F-04A-in": ("r2-take1", 3), "F-04B-in": ("take2", 2), "F-04B-out": ("take2", 2), "F-05A-in": ("take2", 2),
-    "F-05C-in": ("take2", 2), "F-06A-in": ("take2", 2), "F-06B-in": ("r2-take2", 3), "F-06B-out": ("take1", 2),
+    "F-05C-in": ("take2", 2), "F-06A-in": ("take2", 2), "F-06B-in": ("r2-take2", 4), "F-06B-out": ("take1", 2),
     "F-10B-in": ("take2", 2), "F-10B-out": ("take1", 2),
 }
 
+# What a swap must keep in view, where the first takes lost it.
+SWAP_NOTE = {
+    "F-06B-in": "The whole screen plate fits inside the bezel, its bottom-right corner included: the round Aurixa agent button (the gold "
+                "triangle with the little character's face) with its small Aurixa label and the pointer on it sits clearly in view at the "
+                "screen's lower right, in front of the desk lamp, never hidden by it.",
+}
 
-def swap_prompt(base, plate_n, sign=False):
+
+def swap_prompt(base, plate_n, sign=False, note=""):
     """Image 1 reproduced exactly with only its screen changed (a screen swap, or a click's after-state)."""
     return ("Image 1 is " + base + "; reproduce it exactly, unchanged in every detail: the same people, faces, expressions, hair, clothes, "
             "pose and hands; the same camera position, framing, lens, focus and depth of field; the same light, colours, room, furniture "
             "and reflections. Change only what the screen shows: " + screen_shows(plate_n) + ", replacing the screen's earlier content "
-            "completely, inside the same bezel at the same position, size and angle." + (" The sign on the glass stays exactly as it is in image 1." if sign else "")
+            "completely, inside the same bezel at the same position, size and angle." + (" " + note if note else "")
+            + (" The sign on the glass stays exactly as it is in image 1." if sign else "")
             + " Photorealistic cinematic film still, vertical 9:16, at image 1's exact framing. Apart from image " + str(plate_n)
             + " on the screen" + (" and the sign" if sign else "") + ", no other text, letters, numbers, logos, watermarks or interface anywhere in the image.")
 
@@ -621,7 +629,7 @@ def frame(key, shot, refs, body, look, after=False):
         label = f"the approved frame {key[2:]}" if base_take else f"the approved frame {refs[0][2:]}, the moment before the click"
         sign = key in SIGN and base_take is not None
         inputs = [base, SCREEN[key]]
-        prompt = swap_prompt(label, 2, sign).replace("; reproduce it exactly,", " (the picture to reproduce), and image 2 is the new screen plate "
+        prompt = swap_prompt(label, 2, sign, SWAP_NOTE.get(key, "")).replace("; reproduce it exactly,", " (the picture to reproduce), and image 2 is the new screen plate "
                                                      "(every word, number and shape to reproduce exactly). Reproduce image 1 exactly,", 1)
         return {"key": key, "shot": shot, "model": "still_edit", "inputs": inputs, "screen": SCREEN[key], "swap": True,
                 **({"revision": rev} if rev > 1 else {}),

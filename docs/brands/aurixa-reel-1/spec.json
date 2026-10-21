@@ -1595,14 +1595,14 @@
           "inputs": ["F-06B-in@r2-take2", "PL-06B-a"],
           "screen": "PL-06B-a",
           "swap": true,
-          "revision": 3,
+          "revision": 4,
           "parameters": {
             "resolution": "2k",
             "quality": "high",
             "enhance_prompt": false,
             "moderation": "auto",
             "aspect_ratio": "9:16",
-            "prompt": "Image 1 is the approved frame 06B-in (the picture to reproduce), and image 2 is the new screen plate (every word, number and shape to reproduce exactly). Reproduce image 1 exactly, unchanged in every detail: the same people, faces, expressions, hair, clothes, pose and hands; the same camera position, framing, lens, focus and depth of field; the same light, colours, room, furniture and reflections. Change only what the screen shows: its screen shows image 2 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged, replacing the screen's earlier content completely, inside the same bezel at the same position, size and angle. Photorealistic cinematic film still, vertical 9:16, at image 1's exact framing. Apart from image 2 on the screen, no other text, letters, numbers, logos, watermarks or interface anywhere in the image."
+            "prompt": "Image 1 is the approved frame 06B-in (the picture to reproduce), and image 2 is the new screen plate (every word, number and shape to reproduce exactly). Reproduce image 1 exactly, unchanged in every detail: the same people, faces, expressions, hair, clothes, pose and hands; the same camera position, framing, lens, focus and depth of field; the same light, colours, room, furniture and reflections. Change only what the screen shows: its screen shows image 2 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged, replacing the screen's earlier content completely, inside the same bezel at the same position, size and angle. The whole screen plate fits inside the bezel, its bottom-right corner included: the round Aurixa agent button (the gold triangle with the little character's face) with its small Aurixa label and the pointer on it sits clearly in view at the screen's lower right, in front of the desk lamp, never hidden by it. Photorealistic cinematic film still, vertical 9:16, at image 1's exact framing. Apart from image 2 on the screen, no other text, letters, numbers, logos, watermarks or interface anywhere in the image."
           },
           "takes": 2
         },
