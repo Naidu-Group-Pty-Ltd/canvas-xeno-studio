@@ -1,6 +1,7 @@
 # Roadmap
 
 ## Avatar Studio V1
+
 - [x] Database, private storage, server logic, recovery hookup, 9 pages, Creative/Avatar switcher
 - [x] Security check: provider secrets unreachable by members; recovery/webhook endpoints reject unauthorised callers
 - [ ] Signed-in end-to-end test — blocked: no user account exists yet (user must sign up in preview)
@@ -9,6 +10,7 @@
 - [ ] Custom-brain live personas — needs a separate realtime orchestrator service (not deployed)
 
 ## Presenter videos (from the Aurixa "Janice presents" findings)
+
 - [x] Voiceover placement: a clip measured on the frame is no longer pushed a frame late; a confident SyncNet lip lead is taken out when the clip is laid
 - [x] Every clip from one still (anchor mode, the default for voiced runs), up to three clips made at once
 - [x] B-roll cutaways: lines ticked in Create get no presenter clip and a placeholder in the Editor, each with a 0.5 s lead-in
@@ -30,6 +32,7 @@
 - [ ] Lip-sync post-process: blocked. Higgsfield's catalog has no video-to-video lip-sync model (its video-edit models take audio only as a loose reference, and Seedance replaced the voice in the bake-off), and HeyGen belongs to Avatar Studio, which Creative Studio must not share provider code with. Revisit when a model that re-syncs an existing video's mouth to given audio is offered
 
 ## Soul IDs, brand design systems and the Supercomputer agent
+
 - [x] Soul ID studio: a Soul ID per Soul model, trained on a checked set (the AI checks each image and the set as a whole), training packs for characters who exist only as AI images, likeness proofs scored and approved by a person, and Soul IDs trained elsewhere taken in
 - [x] Soul IDs in every workflow: long-video openings painted from the character's Soul ID, Create start frames from a Soul ID, the Supercomputer, and the studio API (list_characters, get_character, train_soul_id, make_soul_still)
 - [x] Brand design systems: a brand read from its website or its guidelines (PDF, Word, PowerPoint) into a palette with roles, typefaces (Google fonts installed for titles), imagery, voice and rules, reviewed and kept as a brand kit on the Brand page
@@ -41,6 +44,7 @@
 - [x] Signed-in test of the agent against Claude and Higgsfield on the live app: five of five checks passed after the fixes it found (#36, #37)
 
 ## Brand DNA and content formulas
+
 - [x] Aurixa Systems is the studio's default brand kit, saved from its website (logo, palette, typefaces, imagery, voice and rules)
 - [x] Brand DNA (docs/brand-dna-and-formulas.md): the kind of brand (SaaS, product, personal brand or creator, UGC-led, services, local, coaching and education), who it sells to, its archetype, positioning, content pillars, buying moments, proof, distinctive assets, who fronts it, channels and goal; read by the AI on import or suggested for a kit, reviewed by a person, and carried in the brand brief
 - [x] Content formulas: 40 proven structures with timed beats, rules, guardrails, why they work and an evidence grade, built on 96 sources (platform guidance, effectiveness research, regulators and the frameworks' originators), ranked for a brand's DNA, with the content mix after Binet & Field
@@ -58,6 +62,7 @@
 - [ ] Pinterest and Snapchat guidance, and Australia's TGA and Ahpra rules for health brands' testimonials and before-and-after content
 
 ## Aurixa Reel 1 (the 47-page prompt pack)
+
 - [x] The agent reads a brief's own text, a few pages at a time (`read_brief`), and is told to whenever a brief says more than its summary; it was only ever shown the summary, cut at 8,000 characters, so it never saw a prompt pack's shots
 - [x] Briefs are analysed in full: only the first 60,000 characters were read, so the pack's summary reported pages 27–47 missing
 - [x] Drafts take `modelId` and a prompt written among the settings, and one with no model says so: before, both were dropped as "a model that is not active", and the agent fell back from GPT Image to Soul Cinema
@@ -97,5 +102,14 @@
 - [x] Reel 1: Jamie's Soul ID trained again on 12 images (sheet, frames and her pack), closer to her sheet than the first; all six Soul IDs in use approved in the studio (likeness sheet: docs/brands/aurixa-reel-1/soul-ids.jpg)
 - [x] Reel 1: Daniel's and Mia's Soul IDs trained again on their packs (10 and 12 images) once Higgsfield was topped up, closer to their sheets, and approved
 - [x] Reel 1 stage 5, clips: one take on Cinema Studio 4.0 (the client's choice) of 15 of the 24, checked frame by frame (QC.md), and the reel laid out in the Editor as a draft (scripts/aurixa-reel-1/edit.py; its id in edit.json), the 9 not made held by their frames
-- [ ] Reel 1: the 9 clips Higgsfield refused for its balance (09A, 09B, 10A, 10B, 11A, 12A, 12B, 13A, 15A; about US$27): `studio.py run 5 --model clip_cinema --takes 1 --retry-refused --confirm`, then `edit.py save` to put them into the same draft
+- [x] ~~Reel 1: the 9 clips Higgsfield refused for its balance~~ Not needed: the client rejected the generated clips (21 October 2026) and asked for a reel about the system itself; the live-action edition stops here
+
+## Aurixa Reel 1, system edition (screens, workflows, deliverables and brand graphics)
+
+- [x] The content brief, extending brief 848af668 (docs/brands/aurixa-reel-1/system-edition: BRIEF.md and brief.json, written by scripts/aurixa-reel-1/system_edition.py): 29 continuous compositions on the master voiceover's clock, every beat computed from the measured speech and checked; no people and no generated video; the design system read from the four Aurixa repositories' code, every value with the file it is declared in; the supplied screenshots used as layouts only
+- [x] The brief in Xeno Studio, beside 848af668: creative brief 1ebd06fc-9e5f-5d7b-b7b6-be9a9a86bef0 (27 pages, its summary in the studio's brief shape, `analysis.extends` naming the pack), written with `system_edition.py --studio-sql`
+- [ ] The client's three decisions in the brief: the sound under the voiceover, real product footage, the opening palette
+- [ ] The graphics kit's stylesheet (`aurixa-reel.css`), written by the studio's code scanner from the four repositories
+- [ ] The six pages still to build (NEW-INBOX, NEW-NOTIFICATIONS, NEW-MESSAGE-HUB, NEW-CLIENT-REPORTS, NEW-DASHBOARDS, NEW-REPORT-PAGES)
+- [ ] Style frames (one per block), then the animatic, then the renders and the edit
 - [ ] The studio records no price for metered GPT Image runs: Higgsfield's result carries none, so a run's cost and the balance countdown miss them (the Console's balance is the only record)
