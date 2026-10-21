@@ -1195,6 +1195,24 @@
    ],
    "costUsd": null,
    "error": null
+  },
+  "r3-take1": {
+   "generationId": "b7d646ec-01f3-4fad-aed4-0f5f248825df",
+   "status": "completed",
+   "assets": [
+    "2d027e79-0cad-4d44-85cf-ce813ce95da7"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r3-take2": {
+   "generationId": "d6361229-de0f-4ad0-9b2e-a07dd4ba28ff",
+   "status": "completed",
+   "assets": [
+    "561231c9-4380-4196-aa88-a426d526790f"
+   ],
+   "costUsd": null,
+   "error": null
   }
  },
  "F-04B-in": {
@@ -1365,6 +1383,24 @@
    ],
    "costUsd": null,
    "error": null
+  },
+  "r4-take1": {
+   "generationId": "147a847e-7015-461a-8cc6-736f0d4382dd",
+   "status": "completed",
+   "assets": [
+    "e2aa82f1-5ffe-4eb1-8364-06d2a7b3849a"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r4-take2": {
+   "generationId": "624c45ad-8163-4477-9963-ef96ce46e6ab",
+   "status": "completed",
+   "assets": [
+    "feb71c44-8399-4c1d-a242-b91036a1adbd"
+   ],
+   "costUsd": null,
+   "error": null
   }
  },
  "F-10B-out": {
@@ -1423,6 +1459,24 @@
    ],
    "costUsd": null,
    "error": null
+  },
+  "r2-take1": {
+   "generationId": "af785126-41e9-4dab-bf6b-121b7f16dc47",
+   "status": "completed",
+   "assets": [
+    "1fbf1d27-c27e-4fde-a4e2-df7fa1cf6e83"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take2": {
+   "generationId": "6490e623-f5e2-4bbb-8ce2-fb44f5ed9d3b",
+   "status": "completed",
+   "assets": [
+    "dd9a56e5-c92a-4390-be02-f3360d7fe4d9"
+   ],
+   "costUsd": null,
+   "error": null
   }
  },
  "F-05C-in": {
@@ -1478,6 +1532,24 @@
    "status": "completed",
    "assets": [
     "a26709bc-aa30-4a27-8056-23019942b9d5"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take1": {
+   "generationId": "41af54ef-c4de-4b17-957f-aeb423f3c992",
+   "status": "completed",
+   "assets": [
+    "f57de0ad-4c8c-4029-b36a-5f6232e4d2c4"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take2": {
+   "generationId": "3878f6a5-fc51-466d-a160-379d3714c1a5",
+   "status": "completed",
+   "assets": [
+    "23623e5c-167b-49dd-919f-06c4f982d049"
    ],
    "costUsd": null,
    "error": null
