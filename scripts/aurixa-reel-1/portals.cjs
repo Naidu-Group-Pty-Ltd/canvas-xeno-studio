@@ -86,6 +86,47 @@ const CSS = `
 .fin .welcome span { color:#3556f0; }
 .fin .sec { font-size:10.5px; letter-spacing:.14em; font-weight:700; color:#aab2c3; }
 .serif { font-family:"Aurixa Display", Georgia, serif !important; font-weight:700 !important; letter-spacing:0 !important; }
+/* Finance purchase file (after its code) */
+.pt .fback { display:inline-flex; align-items:center; gap:7px; font-size:11.5px; font-weight:600; color:#c3c8d4; padding:5px 10px; border-radius:999px; }
+.fin .body { gap:12px; padding:16px 30px; }
+.pt .fbar { display:flex; align-items:center; margin:-16px -30px 0; padding:7px 30px; border-bottom:1px solid rgba(255,255,255,.07); background:rgba(14,15,20,.8); font-size:12px; }
+.pt .fghost { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:600; color:#c3c8d4; padding:5px 9px; border-radius:8px; }
+.pt .fghost.on { color:#9db0ff; background:rgba(18,56,232,.15); border:1px solid rgba(18,56,232,.35); }
+.pt .fsel { display:flex; align-items:center; justify-content:space-between; height:30px; padding:0 10px; border-radius:8px; border:1px solid rgba(255,255,255,.12); background:#101116; font-size:11.5px; }
+.pt .fsel::after { content:"⌄"; color:#8d95a8; }
+.pt .ftabs { display:flex; align-items:center; gap:6px; overflow:hidden; }
+.pt .ftab { position:relative; display:inline-flex; align-items:center; gap:6px; white-space:nowrap; font-size:11.5px; font-weight:600; color:#9aa3b5; padding:8px 12px; border-radius:11px; background:#101116; border:1px solid rgba(255,255,255,.08); }
+.pt .ftab.on { background:#1238E8; color:#fff; border-color:#1238E8; box-shadow:0 4px 14px rgba(18,56,232,.3); }
+.pt .fchev { width:28px; height:28px; flex:none; border-radius:8px; border:1px solid rgba(255,255,255,.12); display:grid; place-items:center; color:#8d95a8; font-size:16px; }
+.pt .fsum { border-color:rgba(64,96,255,.32); background:linear-gradient(135deg, rgba(18,56,232,.10), #0f1015 60%); gap:10px; }
+.pt .qsm { font-size:10.5px; color:#8d95a8; font-weight:500; }
+.pt .fli { margin:4px 0 0 16px; font-size:11.5px; color:#c3c8d4; line-height:1.6; }
+.pt .fnext { display:flex; gap:8px; align-items:center; padding:9px 12px; border-radius:10px; border:1px solid rgba(64,96,255,.25); background:rgba(18,56,232,.07); font-size:11.5px; color:#dfe3ec; }
+.pt .flab { font-size:10.5px; color:#8d95a8; font-weight:600; margin-bottom:4px; }
+.pt .fin { display:flex; align-items:center; height:32px; padding:0 11px; border-radius:8px; border:1px solid rgba(255,255,255,.10); background:#0b0c10; font-size:12.5px; box-shadow:inset 0 1px 3px rgba(0,0,0,.5); }
+.pt .fin.sel { border-color:rgba(18,56,232,.6); }
+.pt .fpos { display:flex; gap:16px; align-items:flex-start; padding:20px 22px; border-radius:14px; border:2px solid; background:#0f1015; }
+.pt .fposi { width:50px; height:50px; flex:none; border-radius:50%; display:grid; place-items:center; }
+.pt .fposi.sm { width:30px; height:30px; }
+.pt .fscrim { position:absolute; inset:0; background:rgba(3,4,8,.66); }
+.pt .fdlg { position:absolute; left:50%; top:52%; transform:translate(-50%,-50%); width:560px; padding:22px 24px; border-radius:16px; border:1px solid rgba(255,255,255,.14);
+  background:#121319; box-shadow:0 30px 80px rgba(0,0,0,.7); display:flex; flex-direction:column; gap:12px; }
+.pt .ftoast { position:absolute; right:84px; bottom:24px; display:flex; align-items:center; gap:10px; padding:12px 16px; border-radius:12px; border:1px solid rgba(255,255,255,.14); background:#16171d; font-size:13px; font-weight:600; box-shadow:0 14px 40px rgba(0,0,0,.6); }
+/* Client: My property team */
+.cli .tgrid { display:grid; grid-template-columns:repeat(3, 1fr); gap:7px; }
+.cli .ttile { display:flex; gap:8px; padding:8px; border-radius:10px; border:1px solid rgba(255,255,255,.08); background:#0d0f16; }
+.cli .tic { width:26px; height:26px; flex:none; border-radius:7px; display:grid; place-items:center; background:rgba(18,56,232,.14); }
+.cli .tr { font-size:7px; letter-spacing:.12em; color:#8d95a8; font-weight:700; }
+.cli .tn { font-size:11.5px; font-weight:700; margin-top:2px; }
+.cli .to { font-size:8.5px; color:#9aa3b5; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cli .tl { display:flex; align-items:center; gap:4px; font-size:8.5px; color:#7d97ff; font-weight:700; margin-top:4px; }
+/* Accountant: a client file */
+.pt .atabs { display:flex; justify-content:center; gap:4px; padding:4px; border-radius:10px; border:1px solid rgba(255,255,255,.08); background:#0f1015; }
+.pt .atabs span { display:inline-flex; align-items:center; gap:6px; padding:7px 14px; border-radius:8px; font-size:12px; font-weight:600; color:#9aa3b5; }
+.pt .atabs span.on { color:#fff; background:#17191f; border:1px solid rgba(18,56,232,.5); }
+.pt .areply { font-size:12px; line-height:1.5; padding:9px 12px; border-radius:9px; background:rgba(18,56,232,.08); border:1px solid rgba(64,96,255,.22); color:#dfe3ec; }
+.pt .areply b { color:#9db0ff; }
+.pt .line.areq.sel { border:2px solid rgba(215,179,95,.55); background:rgba(200,155,60,.06); }
 /* Client: a narrow menu and a centred column */
 .cli .side { width:170px; }
 .cli .brand { height:50px; padding:0 10px; }
@@ -735,6 +776,8 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT }) {
         <div><b style="font-size:18px">Intake performance</b><div class="qsmall" style="font-size:12.5px">Headline operating metrics for the filtered property pipeline.</div></div></div></div>
   </div>`;
   // ---------------------------------------------------------------- Finance (Jamie)
+  // After the Finance portal's code (FinancePortalLayout, FinancePortalPurchaseFileDetail, DealTrackerTabs) in
+  // the supplied screenshot's colours: a purchase file, its tab strip and the Finance Decisions tab.
   const finItems = (on) => [
     ["grid", "Dashboard", false],
     ["shield", "AML/CTF Compliance", false],
@@ -743,30 +786,150 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT }) {
     ["users", "My Clients", false],
     ["chat", "Message Hub", false],
     ["inbox", "Client Inbox", false],
+    ["swap", "Referrals", false],
+    ["file", "Lender Intelligence", false],
+    ["trend", "Pipeline Insights", false],
+    ["chart", "Reports &amp; KPIs", false],
+    ["case", "Earnings", false],
   ];
-  const fin = (body) =>
+  const ic = (name, color = "currentColor", size = 13, w = 1.9) =>
+    `<span style="width:${size}px;height:${size}px;display:inline-flex;flex:none">${icon(name, color, w)}</span>`;
+  const fin = (body, extra = "") =>
     shell({
       kind: "fin",
       label: "FINANCE PORTAL",
       who: "Jamie Chen",
-      org: "Finance partner",
+      org: "Harbour Finance Group",
       initials: "JC",
       items: finItems("files"),
-      top: `<div class="search">${'<span style="width:13px;height:13px;display:inline-flex">' + icon("search", "#8d95a8") + "</span>"}Search…<span class="kbd">⌘K</span></div>`,
+      top: `<div class="fback">${ic("arrowl", "#c3c8d4")}Back to dashboard</div><div class="search" style="margin-left:auto;min-width:220px">${ic("search", "#8d95a8")}Search…<span class="kbd">⌘K</span></div>`,
       body,
-      extra: `<div class="fab">+</div>`,
+      extra: `<div class="fab">+</div>${extra}`,
     });
-  const finHead = `<div><div class="welcome">Welcome back, <span>Jamie</span></div><div class="sub" style="margin-top:4px">Finance partner · Demo workspace</div></div>`;
-  const purchaseFile = (tab, body) => `${finHead}<div class="panel" style="flex:1">
-      <div style="display:flex;align-items:center;gap:14px">${pimg(150, 94)}<div><div class="sec">ACTIVE PURCHASE FILE</div>
-        <div class="serif" style="font-size:22px;margin-top:4px">Project Banksia / Residence 014</div><div class="sub" style="margin-top:2px">Jordan Ellis · Opportunity under consideration</div></div></div>
-      <div class="tabs">${["Overview", "Scenario comparison", "Documents"].map((t) => `<div class="tab ${t === tab ? "on" : ""}">${t}${tab === "Overview" && t === "Scenario comparison" ? onIt() : ""}</div>`).join("")}</div>
-      ${body}</div>`;
-  const scenarios = (selected, pointer) => `<div class="row">
-      <div class="card"><div class="k">SCENARIO</div><div class="t serif" style="font-size:22px">Base case</div><div class="bars"><div style="width:80%"></div><div style="width:58%"></div></div></div>
-      <div class="card ${selected ? "sel" : ""}"><div class="k" style="${selected ? "color:#b9c6ff" : ""}">SCENARIO${selected ? " · SELECTED" : ""}</div><div class="t serif" style="font-size:22px">Alternative case</div>
-        <div class="bars"><div style="width:72%;${selected ? "background:linear-gradient(90deg,#00A8B5,#1b1d25)" : ""}"></div><div style="width:50%"></div></div>${pointer ? cur("left:62%;top:52%") : ""}</div>
-    </div><div style="display:flex;gap:8px"><span class="pill gold" style="margin-left:0">Illustrative scenario</span><span class="pill" style="margin-left:0">Questions for discussion</span></div>`;
+  const TABS = [
+    "Overview",
+    "Critical Dates",
+    "Documents",
+    "Finance Decisions",
+    "Action Items",
+    "Conditions",
+    "Valuation",
+    "Risks",
+    "Settlement Runway",
+  ];
+  const TAB_ICON = {
+    Overview: "case",
+    "Critical Dates": "calendar",
+    Documents: "file",
+    "Finance Decisions": "spark",
+    "Action Items": "tasks",
+    Conditions: "shield",
+    Valuation: "case",
+    Risks: "alert",
+    "Settlement Runway": "trend",
+  };
+  const purchaseFile = (tab, body, pointerOn) => `
+    <div class="fbar"><b>Residence 014, Project Banksia</b><span class="pill" style="margin-left:8px">Active</span>
+      <div style="margin-left:auto;display:flex;gap:4px">${[
+        ["calendar", "Dates"],
+        ["file", "Docs"],
+        ["spark", "Decisions"],
+        ["chat", "Message"],
+      ]
+        .map(([i, t]) => `<span class="fghost">${ic(i, "#c3c8d4", 12)}${t}</span>`)
+        .join("")}
+        <span class="fghost on">${ic("eye", "#7d97ff", 12)}Watching</span></div></div>
+    <div class="fghost" style="align-self:flex-start;margin:-4px 0 -6px -8px">${ic("arrowl", "#c3c8d4", 12)}All purchase files</div>
+    <div style="display:flex;align-items:flex-start;gap:14px">${pimg(118, 74)}
+      <div style="flex:1"><div style="display:flex;align-items:center;gap:9px">${ic("case", "#4767ff", 20)}<span style="font-size:23px;font-weight:700;letter-spacing:-.01em">Residence 014, Project Banksia</span></div>
+        <div class="sub" style="margin-top:6px">Jordan Ellis · Residence 014, Project Banksia NSW</div></div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:7px"><span class="fsel" style="width:150px">Active</span><span class="fsel" style="width:200px">In Assessment</span>
+        <span class="btn ghost" style="font-size:11.5px;padding:7px 12px">${ic("trend", "#fff", 12)}Record outcome</span></div></div>
+    <div class="ftabs"><span class="fchev">‹</span>${TABS.map((t) => `<span class="ftab ${t === tab ? "on" : ""}">${ic(TAB_ICON[t], t === tab ? "#fff" : "#9aa3b5", 12)}${t}${t === pointerOn ? onIt() : ""}</span>`).join("")}<span class="fchev" style="margin-left:auto">›</span></div>
+    ${body}`;
+  const fileSummary = `<div class="panel fsum"><div class="ph">${ic("spark", "#4767ff", 15)}Intelligent File Summary<span class="qsm" style="margin-left:auto">2 hours ago</span></div>
+      <div style="font-size:13px;font-weight:700">Residence 014 is in assessment for Jordan Ellis</div><div class="ps" style="margin-top:-8px">Docs received · lender shortlist in progress</div>
+      <div style="display:flex;gap:28px"><div style="flex:1"><div class="qsm" style="font-weight:700;color:#cfd5e2">${ic("file", "#cfd5e2", 11)} Outstanding documents</div><ul class="fli"><li>Latest two payslips</li><li>Signed privacy consent</li></ul></div>
+        <div style="flex:1"><div class="qsm" style="font-weight:700;color:#D7B35F">${ic("alert", "#D7B35F", 11)} Watch-outs</div><ul class="fli"><li>Valuation not yet ordered</li></ul></div></div>
+      <div class="fnext">${ic("search", "#4767ff", 12)}<span><b>Next best action:</b> record the finance position for Residence 014 before the client summary goes out.</span></div></div>`;
+  const overviewTab = `${fileSummary}<div class="row">
+      <div class="panel" style="flex:1"><div class="ph">Property</div>${[["Address", "Residence 014, Project Banksia"]].map(([l, v]) => `<div><div class="flab">${l}</div><div class="fin">${v}</div></div>`).join("")}
+        <div class="row" style="gap:8px">${[
+          ["Suburb", "Banksia Rise"],
+          ["State", "NSW"],
+          ["Postcode", "2155"],
+        ]
+          .map(
+            ([l, v]) =>
+              `<div style="flex:1"><div class="flab">${l}</div><div class="fin">${v}</div></div>`,
+          )
+          .join("")}</div></div>
+      <div class="panel" style="flex:1"><div class="ph">Finance</div>${[
+        ["Lender", "Shortlist in progress"],
+        ["Risk Level", "Low"],
+      ]
+        .map(([l, v]) => `<div><div class="flab">${l}</div><div class="fin">${v}</div></div>`)
+        .join("")}</div></div>`;
+  const OUTCOME = {
+    info: ["More information required", "#30B9FD", "search"],
+    valuation: ["Subject to valuation", "#a7adb9", "case"],
+    deposit: ["Subject to deposit", "#a7adb9", "case"],
+  };
+  const position = (key, notes, when) => {
+    const [label, color, icn] = OUTCOME[key];
+    return `<div class="fpos" style="border-color:${color}55"><span class="fposi" style="background:${color}26">${ic(icn, color, 22)}</span>
+      <div style="flex:1"><div class="flab" style="letter-spacing:.12em">CURRENT FINANCE POSITION</div><div style="font-size:21px;font-weight:700;color:${color};margin-top:4px">${label}</div>
+        <div class="ps" style="margin-top:6px;font-size:12px">${notes}</div><div class="qsm" style="margin-top:6px">Pathway to be confirmed · ${when}</div></div>
+      <span class="btn" style="align-self:flex-start;font-size:12px;padding:8px 13px">+ New decision</span></div>`;
+  };
+  const history = (rows) =>
+    `<div class="panel"><div class="ph">Decision history</div>${rows
+      .map(([key, notes, when]) => {
+        const [label, color, icn] = OUTCOME[key];
+        return `<div class="line" style="padding:10px 12px"><span class="fposi sm" style="background:${color}26">${ic(icn, color, 13)}</span><div style="flex:1"><div class="a" style="font-size:12.5px">${label}</div><div class="b">${notes}</div></div><span class="qsm">${when}</span></div>`;
+      })
+      .join("")}</div>`;
+  const INFO = [
+    "info",
+    "Waiting on the latest two payslips before the lender shortlist is final.",
+    "21/10/2026, 9:12 am",
+  ];
+  const DEPOSIT = ["deposit", "Deposit source confirmed with the client.", "14/10/2026, 4:30 pm"];
+  const VALUATION = [
+    "valuation",
+    "Valuation ordered with the lender; revisit once it returns.",
+    "21/10/2026, 10:42 am",
+  ];
+  const decisionsTab = (state) =>
+    state === "recorded"
+      ? `${position(...VALUATION)}${history([VALUATION, INFO, DEPOSIT])}`
+      : `${position(...INFO)}${history([INFO, DEPOSIT])}`;
+  // Jamie's call, about to be recorded (13A-a), and the toast after it (13A-b).
+  const decisionDialog = `<div class="fscrim"></div><div class="fdlg"><div style="font-size:17px;font-weight:700">Record finance decision</div>
+      <div class="ps" style="margin-top:2px">Broker's call on whether this purchase can proceed. Caution / Not suitable will auto-raise a finance risk.</div>
+      <div><div class="flab">Decision</div><div class="fin sel">Subject to valuation<span style="margin-left:auto">⌄</span></div></div>
+      <div class="row" style="gap:10px">${[
+        ["Max comfortable purchase price ($)", "1,150,000"],
+        ["Proposed loan amount ($)", "920,000"],
+      ]
+        .map(
+          ([l, v]) =>
+            `<div style="flex:1"><div class="flab">${l}</div><div class="fin">${v}</div></div>`,
+        )
+        .join("")}</div>
+      <div class="row" style="gap:10px">${[
+        ["Preferred lender pathway", "Shortlist in progress"],
+        ["LVR (%)", "80"],
+      ]
+        .map(
+          ([l, v]) =>
+            `<div style="flex:1"><div class="flab">${l}</div><div class="fin">${v}</div></div>`,
+        )
+        .join("")}</div>
+      <div><div class="flab">Broker notes</div><div class="fin" style="height:52px;align-items:flex-start;padding-top:8px">Valuation ordered with the lender; revisit once it returns.</div></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px"><span class="btn ghost" style="font-size:12px;padding:8px 14px">Cancel</span><span class="btn" style="font-size:12px;padding:8px 14px">Record decision${onIt()}</span></div></div>`;
+  const toast = (text) =>
+    `<div class="ftoast">${ic("check", "#45d58a", 15)}${text}<span style="margin-left:14px;color:#8d95a8">×</span></div>`;
 
   // ---------------------------------------------------------------- Client (Jordan)
   const cliItems = (on) => [
@@ -801,39 +964,90 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT }) {
     ["Builder / Developer", "Daniel Reed"],
     ["Accounting", "Mia Patel"],
   ];
+  // After PortalPropertyTeam and PropertyTeamPanel: the product's four roles, and the demo project's builder beside them.
+  const TEAM = [
+    ["case", "BUYER'S AGENT", "Alex Morgan", "Aurixa Systems · Property"],
+    ["building", "FINANCE BROKER", "Jamie Chen", "Harbour Finance Group"],
+    ["shield", "SOLICITOR / CONVEYANCER", "Priya Shah", "Shah Legal"],
+    ["chart", "ACCOUNTANT", "Mia Patel", "Patel &amp; Co Accountants"],
+    ["building", "BUILDER / DEVELOPER", "Daniel Reed", "Reed Constructions · Project Banksia"],
+  ];
   const cliWelcome = `<div class="banner" style="padding:16px 18px"><div class="av" style="width:40px;height:40px;font-size:13px">JE</div><div><div class="eb">WELCOME BACK</div>
     <div class="h1" style="font-size:22px">Jordan Ellis</div><div class="sub" style="font-size:11px">Here's the opportunity you're considering and the team around it.</div></div></div>`;
+  const propertyTeam = `<div class="banner" style="padding:14px 18px;display:block"><div class="eb">${ic("users", "#3556f0", 10)}YOUR TEAM</div>
+      <div class="h1" style="font-size:22px">My property team</div><div class="sub" style="font-size:10.5px">Your buyer's agent, finance broker, solicitor, accountant and builder work on your purchase together. Here is who they are, how to reach them, and anything they need from you.</div></div>
+    <div class="panel" style="padding:12px 14px;gap:8px"><div class="ph" style="font-size:12.5px">${ic("users", "#3556f0", 13)}Who is working on your purchase<span class="pill" style="font-size:8.5px">5 of 5 roles engaged</span></div>
+      <div class="ps" style="font-size:9.5px">The professionals working together on your purchase, and how to reach them.</div>
+      <div class="tgrid">${TEAM.map(([i, r, n, o]) => `<div class="ttile"><span class="tic">${ic(i, "#4767ff", 14)}</span><div style="min-width:0"><div class="tr">${r}</div><div class="tn">${n}</div><div class="to">${o}</div><div class="tl">${ic("chat", "#4767ff", 9)}Message</div></div></div>`).join("")}</div></div>
+    <div class="panel" style="padding:11px 14px;gap:6px"><div class="ph" style="font-size:12.5px">${ic("file", "#3556f0", 13)}What your accountant needs from you<span class="pill gold" style="font-size:8.5px">1 open</span></div>
+      <div class="line" style="padding:9px 11px"><div style="flex:1"><div class="a" style="font-size:11.5px">FY2026 income statement</div><div class="b" style="font-size:9px">Income statement (PAYG) · from Patel &amp; Co · asked 3 days ago · please reply by 24 Oct 2026</div></div><span class="pill gold" style="font-size:8.5px">You replied</span></div></div>`;
 
   // ---------------------------------------------------------------- Accountant (Mia)
-  const accItems = [
-    ["grid", "Dashboard", true],
+  // After AccountantPortalLayout and AccountantClientDetail: a client file's Requests tab; "Mark fulfilled" is her one click.
+  const accItems = (on) => [
+    ["grid", "Dashboard", on === "dash"],
     ["shield", "AML/CTF Compliance", false],
-    ["users", "My Clients", false],
+    ["users", "My Clients", on === "clients"],
     ["chat", "Message Hub", false],
     ["bell", "Notifications", false],
     ["gear", "Settings", false],
   ];
-  const acc = (reviewed) =>
+  const accFile = (fulfilled) =>
     shell({
       label: "ACCOUNTANT PORTAL",
       who: "Mia Patel",
-      org: "Accounting partner",
+      org: "Patel &amp; Co Accountants",
       initials: "MP",
-      items: accItems,
-      body: `<div class="banner"><div style="flex:1"><div class="eb">${'<span style="width:11px;height:11px;display:inline-flex">' + icon("clip", "#3556f0") + "</span>"}ACCOUNTANT PORTAL</div>
-        <div class="h1">Good to see you, Mia</div><div class="sub">Your allocated clients and what the property team needs from you.</div></div><div class="btn ghost">All clients ${arrow()}</div></div>
-      <div class="row">
-        <div class="stat">${tile("users")}<div><div class="v">Jordan Ellis</div><div class="l">Allocated client · active</div></div></div>
-        <div class="stat">${tile("file")}<div><div class="v">${reviewed ? "Reviewed" : "1 to review"}</div><div class="l">Supporting information</div></div></div>
-        <div class="stat">${tile("chat")}<div><div class="v">Residence 014</div><div class="l">Shared opportunity</div></div></div>
-      </div>
-      <div class="row" style="align-items:flex-start">
-        <div class="panel" style="flex:1.5"><div class="ph">Needs you next</div><div class="ps">Ordered by what the rest of the property team is waiting on.</div>
-          <div class="line ${reviewed ? "" : "sel"}" style="${reviewed ? "border:2px solid #00A8B5;background:rgba(0,168,181,.10)" : ""}">${tile("file")}<div><div class="a" style="font-size:17px">Supporting information</div><div class="b" style="font-size:12px">Jordan Ellis · Residence 014</div></div>
-            ${reviewed ? `<span class="ok" style="margin-left:auto;font-size:15px">✓ Reviewed</span>` : `<div class="btn" style="margin-left:auto">Mark reviewed${onIt()}</div>`}</div></div>
-        <div class="panel"><div class="ph">${'<span style="width:15px;height:15px;display:inline-flex">' + icon("chat", "#3556f0") + "</span>"}Recently allocated</div><div class="ps">Clients the advisory team has handed to your practice.</div>
-          <div class="line"><div class="a">Jordan Ellis</div><span class="pill ok">Allocated</span></div></div>
-      </div>`,
+      items: accItems("clients"),
+      top: `<div class="fback">${ic("arrowl", "#c3c8d4")}Back to dashboard</div>`,
+      body: `<div class="banner" style="align-items:flex-end"><div style="flex:1"><div class="eb">${ic("chart", "#3556f0", 11)}CLIENT FILE</div>
+          <div class="h1">Jordan Ellis</div><div class="sub">Allocated 3 weeks ago · engaged for purchasing entity &amp; structuring, income evidence for finance, tax position on the purchase</div></div>
+          <div style="display:flex;gap:8px"><span class="pill gold">${ic("clock", "#D7B35F", 10)} Entity: Recommended</span><span class="pill gold">${ic("clock", "#D7B35F", 10)} Income: Collecting</span></div></div>
+        <div class="panel" style="flex-direction:row;padding:12px 18px">${[
+          ["Email", "jordan.ellis@example.com"],
+          ["Mobile", "0400 000 014"],
+          ["Household", "Single · no dependants"],
+          ["State", "NSW"],
+        ]
+          .map(
+            ([l, v]) =>
+              `<div style="flex:1"><div class="flab">${l}</div><div style="font-size:12.5px;font-weight:600;margin-top:3px">${v}</div></div>`,
+          )
+          .join("")}</div>
+        <div class="atabs">${[
+          ["check", "Brief"],
+          ["home", "Portfolio"],
+          ["building", "Purchases"],
+          ["file", "Requests"],
+          ["chat", "Message Hub"],
+          ["users", "Property team"],
+        ]
+          .map(
+            ([i, t]) =>
+              `<span class="${t === "Requests" ? "on" : ""}">${ic(i, t === "Requests" ? "#fff" : "#9aa3b5", 12)}${t}</span>`,
+          )
+          .join("")}</div>
+        <div class="row" style="align-items:flex-start">
+          <div class="panel" style="flex:3"><div class="ph">Requests to the client</div><div class="ps">The client sees each one in their portal and can reply. Documents are still exchanged through your usual secure channel.</div>
+            <div class="line areq ${fulfilled ? "" : "sel"}" style="flex-direction:column;align-items:stretch;gap:8px;padding:14px 16px">
+              <div style="display:flex;align-items:flex-start"><div><div class="a" style="font-size:16px">FY2026 income statement</div><div class="b">Income statement (PAYG) · asked 3 days ago · due 24 Oct 2026</div></div>
+                <span class="pill ${fulfilled ? "ok" : "gold"}" style="font-size:11px">${ic(fulfilled ? "check" : "clock", fulfilled ? "#45d58a" : "#D7B35F", 11)} ${fulfilled ? "Fulfilled" : "Client responded"}</span></div>
+              <div class="b" style="font-size:12px;color:#c3c8d4">Your income statement from myGov, for the broker's income evidence.</div>
+              <div class="areply"><b>Client replied 2 hours ago:</b> uploaded it to Documents and posted a printed copy to your office.</div>
+              <div style="display:flex;gap:8px">${fulfilled ? `<span class="btn ghost" style="font-size:12px;padding:7px 13px">Reopen</span>` : `<span class="btn" style="font-size:12.5px;padding:8px 15px">Mark fulfilled${onIt()}</span><span class="btn ghost" style="font-size:12px;padding:7px 13px">Reopen</span><span class="btn ghost" style="font-size:12px;padding:7px 13px">Cancel</span>`}</div></div>
+            <div class="line" style="padding:12px 16px"><div style="flex:1"><div class="a" style="font-size:13.5px">Photo ID</div><div class="b">Other · asked 2 weeks ago</div></div><span class="pill ok">${ic("check", "#45d58a", 11)} Fulfilled</span></div></div>
+          <div class="panel" style="flex:2"><div class="ph">New request</div>${[
+            ["What you need", "Choose a category"],
+            ["Title", "e.g. FY2025 individual tax return"],
+            ["Detail (optional)", ""],
+            ["Due (optional)", "dd/mm/yyyy"],
+          ]
+            .map(
+              ([l, v]) =>
+                `<div><div class="flab">${l}</div><div class="fin" style="color:#6f778a">${v}</div></div>`,
+            )
+            .join("")}
+            <span class="btn" style="justify-content:center;font-size:12.5px">${ic("file", "#fff", 12)}Send to client</span></div></div>`,
     });
 
   // ---------------------------------------------------------------- Solicitor (Priya)
@@ -963,32 +1177,29 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT }) {
     },
     // 11A: the Demo workspace cut, Overview with the demo's project.
     "PL-11A-c": { size: W, scale: CC_SCALE, html: cc("Overview", overview, fab(false), true) },
-    // Finance
+    // Finance: 05B opens the file's Finance Decisions; 13A records Jamie's call.
     "PL-05B-a": {
       size: W,
       scale: SCALE,
-      html: fin(
-        purchaseFile(
-          "Overview",
-          `<div class="row"><div class="card"><div class="k">STAGE</div><div class="t">Under consideration</div></div>
-        <div class="card"><div class="k">CLIENT</div><div class="t">Jordan Ellis</div></div><div class="card"><div class="k">NEXT</div><div class="t">Scenario comparison</div></div></div>`,
-        ),
-      ),
+      html: fin(purchaseFile("Overview", overviewTab, "Finance Decisions")),
     },
     "PL-05B-b": {
       size: W,
       scale: SCALE,
-      html: fin(purchaseFile("Scenario comparison", scenarios(false, false))),
+      html: fin(purchaseFile("Finance Decisions", decisionsTab("current"))),
     },
     "PL-13A-a": {
       size: W,
       scale: SCALE,
-      html: fin(purchaseFile("Scenario comparison", scenarios(false, true))),
+      html: fin(purchaseFile("Finance Decisions", decisionsTab("current")), decisionDialog),
     },
     "PL-13A-b": {
       size: W,
       scale: SCALE,
-      html: fin(purchaseFile("Scenario comparison", scenarios(true, false))),
+      html: fin(
+        purchaseFile("Finance Decisions", decisionsTab("recorded")),
+        toast("Decision recorded"),
+      ),
     },
     // Client
     "PL-06A-a": {
@@ -1004,22 +1215,10 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT }) {
         <div class="panel"><div class="ph" style="font-size:12.5px">Active opportunity</div><div class="line">${pimg(90, 56)}<div><div class="a" style="font-size:12px">Project Banksia / Residence 014</div><div class="b">New build</div></div><span class="pill">Under consideration</span></div></div>`,
       ),
     },
-    "PL-06A-b": {
-      size: L,
-      scale: 2,
-      html: cli(
-        "team",
-        `<div class="banner" style="padding:16px 18px"><div><div class="eb">MY PROPERTY TEAM</div><div class="h1" style="font-size:24px">Your property team</div>
-          <div class="sub" style="font-size:11px">Project Banksia / Residence 014</div></div></div>
-        <div class="card sel" style="flex:none;padding:14px"><div class="k" style="color:#b9c6ff">YOUR PROPERTY TEAM · RESIDENCE 014</div>
-          <div class="row" style="gap:8px">${roles.map(([r, n]) => `<div class="card" style="padding:11px;background:#0b1430"><div class="k" style="color:#5fe0e8;font-size:7.5px">${r.toUpperCase()}</div><div class="t" style="font-size:14px">${n}</div></div>`).join("")}</div></div>
-        <div class="row"><div class="card" style="flex-direction:row;gap:12px;align-items:center">${pimg(110, 70)}<div><div class="k">YOUR PROPERTY</div><div class="t" style="font-size:14px">Residence 014</div></div></div>
-          <div class="card"><div class="k">NEXT DISCUSSION</div><div class="t" style="font-size:16px">Client summary</div><div class="d">Questions for discussion</div></div></div>`,
-      ),
-    },
-    // Accountant
-    "PL-08A-a": { size: W, scale: SCALE, html: acc(false) },
-    "PL-08A-b": { size: W, scale: SCALE, html: acc(true) },
+    "PL-06A-b": { size: L, scale: 2, html: cli("team", propertyTeam) },
+    // Accountant: a client file's Requests; Mia marks the income statement fulfilled.
+    "PL-08A-a": { size: W, scale: SCALE, html: accFile(false) },
+    "PL-08A-b": { size: W, scale: SCALE, html: accFile(true) },
     // Solicitor
     "PL-09B-a": {
       size: W,

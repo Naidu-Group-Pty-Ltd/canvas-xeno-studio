@@ -1490,15 +1490,17 @@
           "key": "F-05B-in",
           "shot": "05B",
           "model": "still_edit",
-          "inputs": ["C-JAMIE", "S-JAMIE", "PL-05B-a"],
+          "inputs": ["F-05B-in@take2", "PL-05B-a"],
           "screen": "PL-05B-a",
+          "swap": true,
+          "revision": 2,
           "parameters": {
             "resolution": "2k",
             "quality": "high",
             "enhance_prompt": false,
             "moderation": "auto",
             "aspect_ratio": "9:16",
-            "prompt": "Reference images, in order: image 1 is Jamie Chen's character sheet; image 2 is the set: Jamie's finance workplace (keep its room, furniture, light direction and materials); image 3 is a typeset screen plate (reproduce it exactly where described: every word, number and shape). Jamie Chen, a petite woman of Chinese heritage in her mid-to-late 20s with a sleek, straight, jaw-length black bob and a blunt fringe, a teal blouse and a navy jacket, exactly as in her character sheet (image 1) at her finance workstation (image 2), seen over her shoulder in partial profile, her hand on the real mouse; the monitor fills the upper-middle at the same position as the previous insert's screen, its screen shows image 3 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged. The Aurixa world: deep navy architecture (#0A192F, shadows #040B16), full-sized glass workplaces with fine gold-edged frames and mullions, panel-navy console surfaces (#10233D), blue-hour city glow beyond the glass. A soft neutral-to-warm key light on faces and hands with a restrained teal or blue edge light; the active screen is the brightest, most colourful area, about one stop above its surround; glow stays off skin and away from the screen's centre. Restrained 35 mm (environment) or 50 mm (people at work) lens look. Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). Apart from image 3, reproduced exactly where described, no other text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
+            "prompt": "Image 1 is the approved frame 05B-in (the picture to reproduce), and image 2 is the new screen plate (every word, number and shape to reproduce exactly). Reproduce image 1 exactly, unchanged in every detail: the same people, faces, expressions, hair, clothes, pose and hands; the same camera position, framing, lens, focus and depth of field; the same light, colours, room, furniture and reflections. Change only what the screen shows: its screen shows image 2 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged, replacing the screen's earlier content completely, inside the same bezel at the same position, size and angle. Photorealistic cinematic film still, vertical 9:16, at image 1's exact framing. Apart from image 2 on the screen, no other text, letters, numbers, logos, watermarks or interface anywhere in the image."
           },
           "takes": 2
         },
@@ -1509,6 +1511,7 @@
           "inputs": ["F-05B-in", "PL-05B-b"],
           "screen": "PL-05B-b",
           "swap": true,
+          "revision": 2,
           "parameters": {
             "resolution": "2k",
             "quality": "high",
@@ -1576,15 +1579,17 @@
           "key": "F-06A-out",
           "shot": "06A",
           "model": "still_edit",
-          "inputs": ["C-JORDAN", "S-CLIENT", "F-06A-in", "PL-06A-b"],
+          "inputs": ["F-06A-out@take2", "PL-06A-b"],
           "screen": "PL-06A-b",
+          "swap": true,
+          "revision": 2,
           "parameters": {
             "resolution": "2k",
             "quality": "high",
             "enhance_prompt": false,
             "moderation": "auto",
             "aspect_ratio": "9:16",
-            "prompt": "Reference images, in order: image 1 is Jordan Ellis's character sheet; image 2 is the set: Jordan's client workspace (glass module) (keep its room, furniture, light direction and materials); image 3 is the approved frame 06A-in (match it exactly where this shot continues it); image 4 is a typeset screen plate (reproduce it exactly where described: every word, number and shape). Wider than image 3: Jordan Ellis, a well-groomed, clean-shaven man in his mid-to-late 20s with neatly trimmed short curly dark hair and a crisp, well-fitted light blue open-collar shirt, exactly as in his character sheet (image 1) at the laptop in the glass workspace (image 2), face warmly lit, hand on the touchpad; the adjacent framed glass presentation panel with its opaque navy backing at the right; the laptop screen, its screen shows image 4 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged. The Aurixa world: deep navy architecture (#0A192F, shadows #040B16), full-sized glass workplaces with fine gold-edged frames and mullions, panel-navy console surfaces (#10233D), blue-hour city glow beyond the glass. A soft neutral-to-warm key light on faces and hands with a restrained teal or blue edge light; the active screen is the brightest, most colourful area, about one stop above its surround; glow stays off skin and away from the screen's centre. Restrained 35 mm (environment) or 50 mm (people at work) lens look. Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). Apart from image 4, reproduced exactly where described, no other text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
+            "prompt": "Image 1 is the approved frame 06A-out (the picture to reproduce), and image 2 is the new screen plate (every word, number and shape to reproduce exactly). Reproduce image 1 exactly, unchanged in every detail: the same people, faces, expressions, hair, clothes, pose and hands; the same camera position, framing, lens, focus and depth of field; the same light, colours, room, furniture and reflections. Change only what the screen shows: its screen shows image 2 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged, replacing the screen's earlier content completely, inside the same bezel at the same position, size and angle. Photorealistic cinematic film still, vertical 9:16, at image 1's exact framing. Apart from image 2 on the screen, no other text, letters, numbers, logos, watermarks or interface anywhere in the image."
           },
           "takes": 2
         },
@@ -1628,15 +1633,17 @@
           "key": "F-08A-in",
           "shot": "08A",
           "model": "still_edit",
-          "inputs": ["C-MIA", "S-MIA", "F-06B-out", "PL-08A-a"],
+          "inputs": ["F-08A-in@take2", "PL-08A-a"],
           "screen": "PL-08A-a",
+          "swap": true,
+          "revision": 2,
           "parameters": {
             "resolution": "2k",
             "quality": "high",
             "enhance_prompt": false,
             "moderation": "auto",
             "aspect_ratio": "9:16",
-            "prompt": "Reference images, in order: image 1 is Mia Patel's character sheet; image 2 is the set: Mia's quiet accountant office (keep its room, furniture, light direction and materials); image 3 is the approved frame 06B-out (match it exactly where this shot continues it); image 4 is a typeset screen plate (reproduce it exactly where described: every word, number and shape). Mia Patel, a striking, confident woman of Indian heritage in her mid-to-late 20s with glowing deep brown skin, glossy shoulder-length black curls worn loose and subtle thin-framed round glasses, a fitted slate-blue silk blouse, exactly as in her character sheet (image 1) at her desk (image 2): her hand rests beside a pale supporting document at the same position, angle and paper orientation as Alex's hand and document in image 3; the monitor behind, its screen shows image 4 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged. The Aurixa world: deep navy architecture (#0A192F, shadows #040B16), full-sized glass workplaces with fine gold-edged frames and mullions, panel-navy console surfaces (#10233D), blue-hour city glow beyond the glass. A soft neutral-to-warm key light on faces and hands with a restrained teal or blue edge light; the active screen is the brightest, most colourful area, about one stop above its surround; glow stays off skin and away from the screen's centre. Restrained 35 mm (environment) or 50 mm (people at work) lens look. Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). Apart from image 4, reproduced exactly where described, no other text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
+            "prompt": "Image 1 is the approved frame 08A-in (the picture to reproduce), and image 2 is the new screen plate (every word, number and shape to reproduce exactly). Reproduce image 1 exactly, unchanged in every detail: the same people, faces, expressions, hair, clothes, pose and hands; the same camera position, framing, lens, focus and depth of field; the same light, colours, room, furniture and reflections. Change only what the screen shows: its screen shows image 2 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged, replacing the screen's earlier content completely, inside the same bezel at the same position, size and angle. Photorealistic cinematic film still, vertical 9:16, at image 1's exact framing. Apart from image 2 on the screen, no other text, letters, numbers, logos, watermarks or interface anywhere in the image."
           },
           "takes": 2
         },
@@ -1644,15 +1651,17 @@
           "key": "F-08A-out",
           "shot": "08A",
           "model": "still_edit",
-          "inputs": ["C-MIA", "S-MIA", "F-08A-in", "PL-08A-b"],
+          "inputs": ["F-08A-out@take2", "PL-08A-b"],
           "screen": "PL-08A-b",
+          "swap": true,
+          "revision": 2,
           "parameters": {
             "resolution": "2k",
             "quality": "high",
             "enhance_prompt": false,
             "moderation": "auto",
             "aspect_ratio": "9:16",
-            "prompt": "Reference images, in order: image 1 is Mia Patel's character sheet; image 2 is the set: Mia's quiet accountant office (keep its room, furniture, light direction and materials); image 3 is the approved frame 08A-in (match it exactly where this shot continues it); image 4 is a typeset screen plate (reproduce it exactly where described: every word, number and shape). The same desk as image 3 after a slight lateral move: the upper-right corner of the pale supporting document in sharp focus in the lower half of the frame, its diagonal edge running toward the frame's lower right; Mia and the glowing monitor softer behind. The screen shows image 4 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged. The Aurixa world: deep navy architecture (#0A192F, shadows #040B16), full-sized glass workplaces with fine gold-edged frames and mullions, panel-navy console surfaces (#10233D), blue-hour city glow beyond the glass. A soft neutral-to-warm key light on faces and hands with a restrained teal or blue edge light; the active screen is the brightest, most colourful area, about one stop above its surround; glow stays off skin and away from the screen's centre. Restrained 35 mm (environment) or 50 mm (people at work) lens look. Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). Apart from image 4, reproduced exactly where described, no other text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
+            "prompt": "Image 1 is the approved frame 08A-out (the picture to reproduce), and image 2 is the new screen plate (every word, number and shape to reproduce exactly). Reproduce image 1 exactly, unchanged in every detail: the same people, faces, expressions, hair, clothes, pose and hands; the same camera position, framing, lens, focus and depth of field; the same light, colours, room, furniture and reflections. Change only what the screen shows: its screen shows image 2 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged, replacing the screen's earlier content completely, inside the same bezel at the same position, size and angle. Photorealistic cinematic film still, vertical 9:16, at image 1's exact framing. Apart from image 2 on the screen, no other text, letters, numbers, logos, watermarks or interface anywhere in the image."
           },
           "takes": 2
         },
@@ -1907,16 +1916,17 @@
           "key": "F-13A-in",
           "shot": "13A",
           "model": "still_edit",
-          "inputs": ["C-JAMIE", "S-JAMIE", "F-12B-out", "PL-13A-a"],
+          "inputs": ["F-13A-in@take1", "PL-13A-a"],
           "screen": "PL-13A-a",
-          "pin": "F-12B-out",
+          "swap": true,
+          "revision": 2,
           "parameters": {
             "resolution": "2k",
             "quality": "high",
             "enhance_prompt": false,
             "moderation": "auto",
             "aspect_ratio": "9:16",
-            "prompt": "Reference images, in order: image 1 is Jamie Chen's character sheet; image 2 is the set: Jamie's finance workplace (keep its room, furniture, light direction and materials); image 3 is the frame across the matched cut, for the screen only: put the screen at the same position, size and angle in the frame as in this image, and take nothing else from it (not its room, people or light); image 4 is a typeset screen plate (reproduce it exactly where described: every word, number and shape). Jamie Chen, a petite woman of Chinese heritage in her mid-to-late 20s with a sleek, straight, jaw-length black bob and a blunt fringe, a teal blouse and a navy jacket, exactly as in her character sheet (image 1) at her finance workstation (image 2), seen at a slight angle with her profile and mouse hand; the monitor in the upper-middle, its screen shows image 4 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged; a notepad and pen beside the keyboard. The Aurixa world: deep navy architecture (#0A192F, shadows #040B16), full-sized glass workplaces with fine gold-edged frames and mullions, panel-navy console surfaces (#10233D), blue-hour city glow beyond the glass. A soft neutral-to-warm key light on faces and hands with a restrained teal or blue edge light; the active screen is the brightest, most colourful area, about one stop above its surround; glow stays off skin and away from the screen's centre. Restrained 35 mm (environment) or 50 mm (people at work) lens look. Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). Apart from image 4, reproduced exactly where described, no other text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
+            "prompt": "Image 1 is the approved frame 13A-in (the picture to reproduce), and image 2 is the new screen plate (every word, number and shape to reproduce exactly). Reproduce image 1 exactly, unchanged in every detail: the same people, faces, expressions, hair, clothes, pose and hands; the same camera position, framing, lens, focus and depth of field; the same light, colours, room, furniture and reflections. Change only what the screen shows: its screen shows image 2 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged, replacing the screen's earlier content completely, inside the same bezel at the same position, size and angle. Photorealistic cinematic film still, vertical 9:16, at image 1's exact framing. Apart from image 2 on the screen, no other text, letters, numbers, logos, watermarks or interface anywhere in the image."
           },
           "takes": 2
         },
@@ -1924,15 +1934,17 @@
           "key": "F-13A-out",
           "shot": "13A",
           "model": "still_edit",
-          "inputs": ["C-JAMIE", "S-JAMIE", "F-13A-in", "PL-13A-b"],
+          "inputs": ["F-13A-out@take2", "PL-13A-b"],
           "screen": "PL-13A-b",
+          "swap": true,
+          "revision": 2,
           "parameters": {
             "resolution": "2k",
             "quality": "high",
             "enhance_prompt": false,
             "moderation": "auto",
             "aspect_ratio": "9:16",
-            "prompt": "Reference images, in order: image 1 is Jamie Chen's character sheet; image 2 is the set: Jamie's finance workplace (keep its room, furniture, light direction and materials); image 3 is the approved frame 13A-in (match it exactly where this shot continues it); image 4 is a typeset screen plate (reproduce it exactly where described: every word, number and shape). The same scene as image 3 after a slow, minimal rightward track: Jamie has written a short note and rests her hand, looking back at the screen; a fine gold console edge now runs vertically at the right of the frame, the workspace softly occupied beyond. The screen shows image 4 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged. The Aurixa world: deep navy architecture (#0A192F, shadows #040B16), full-sized glass workplaces with fine gold-edged frames and mullions, panel-navy console surfaces (#10233D), blue-hour city glow beyond the glass. A soft neutral-to-warm key light on faces and hands with a restrained teal or blue edge light; the active screen is the brightest, most colourful area, about one stop above its surround; glow stays off skin and away from the screen's centre. Restrained 35 mm (environment) or 50 mm (people at work) lens look. Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). Apart from image 4, reproduced exactly where described, no other text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
+            "prompt": "Image 1 is the approved frame 13A-out (the picture to reproduce), and image 2 is the new screen plate (every word, number and shape to reproduce exactly). Reproduce image 1 exactly, unchanged in every detail: the same people, faces, expressions, hair, clothes, pose and hands; the same camera position, framing, lens, focus and depth of field; the same light, colours, room, furniture and reflections. Change only what the screen shows: its screen shows image 2 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged, replacing the screen's earlier content completely, inside the same bezel at the same position, size and angle. Photorealistic cinematic film still, vertical 9:16, at image 1's exact framing. Apart from image 2 on the screen, no other text, letters, numbers, logos, watermarks or interface anywhere in the image."
           },
           "takes": 2
         }

@@ -587,6 +587,9 @@ SCREEN_SWAP = {
     "F-04A-in": ("r2-take1", 3), "F-04B-in": ("take2", 2), "F-04B-out": ("take2", 2), "F-05A-in": ("take2", 2),
     "F-05C-in": ("take2", 2), "F-06A-in": ("take2", 2), "F-06B-in": ("r2-take2", 4), "F-06B-out": ("take1", 2),
     "F-10B-in": ("take2", 2), "F-10B-out": ("take1", 2),
+    # the portal pages built from the product's code (QC.md)
+    "F-05B-in": ("take2", 2), "F-06A-out": ("take2", 2), "F-08A-in": ("take2", 2), "F-08A-out": ("take2", 2),
+    "F-13A-in": ("take1", 2), "F-13A-out": ("take2", 2),
 }
 
 # What a swap must keep in view, where the first takes lost it.
@@ -611,7 +614,7 @@ def swap_prompt(base, plate_n, sign=False, note=""):
 # A frame whose prompt changed after takes were made: studio.py names its new takes r2-take1 and so on.
 FRAME_REVISION = {"F-01B-in": 2, "F-03B-in": 2, "F-04A-in": 2, "F-04A-out": 3, "F-06B-in": 2,
                   # a click's after-state made again from its swapped first frame
-                  "F-05A-out": 2, "F-11A-out": 2}
+                  "F-05A-out": 2, "F-11A-out": 2, "F-05B-out": 2}
 # An earlier frame given for one thing only: what to take from it, and that nothing else comes with it.
 FRAME_LABEL = {
     "F-04A-in": {"F-03C-out": "the approved frame 03C-out, for the vertical edge only: put the gold door frame where its warm window mullion is "
