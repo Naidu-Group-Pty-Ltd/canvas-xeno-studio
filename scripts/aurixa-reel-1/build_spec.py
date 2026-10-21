@@ -793,7 +793,7 @@ spec = {
         "the earlier one's place (02A, 05A, 05C, 06B, 12B, 13A). Flat, full-frame plates (the Block 14 phrases, the Demo workspace cut, the closing card) are still laid on in the edit.",
         "Confirmed 21 October 2026: Mia is more glamorous and striking, still dressed for the office: polished make-up and glossy curls, a confident look, "
         "a fitted silk version of her slate-blue blouse with tailored trousers and heels (her sheet's revision 3).",
-        "21 October 2026, awaiting approval: Alex's Command Centre plates follow the supplied Reports page (its menu groups and items, top bar, banner, "
+        "Confirmed 21 October 2026: Alex's Command Centre plates follow the supplied Reports page (its menu groups and items, top bar, banner, "
         "Manual / URL Extraction / PDF Upload tabs, build-type cards and floating Aurixa emblem, drawn at 125% zoom). The tenant reads Aurixa Systems and the "
         "signed-in user Alex Morgan; the screen spells Centre as the product does (the pack writes Center); Existing Property starts selected, as the product "
         "opens, so 04B's click moves the selection to New Build; the property being prepared (P) sits in the workspace section through 04B and 05A; the Aurixa "
