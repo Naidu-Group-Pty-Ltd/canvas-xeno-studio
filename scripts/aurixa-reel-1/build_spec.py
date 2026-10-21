@@ -66,7 +66,7 @@ CAST = {
     "JAMIE": "Jamie Chen, a petite woman of Chinese heritage in her mid-to-late 20s with a sleek, straight, jaw-length black bob and a blunt fringe, a teal blouse and a navy jacket, exactly as in her character sheet",
     "PRIYA": "Priya Shah, a tall woman of Indian heritage in her mid-to-late 20s with warm medium-brown skin and long black hair tied back in a sleek low bun, a charcoal jacket and a pale blouse, exactly as in her character sheet",
     "DANIEL": "Daniel Reed, a man in his mid-to-late 20s with short dark hair and a navy polo shirt, exactly as in his character sheet",
-    "MIA": "Mia Patel, a woman of Indian heritage in her mid-to-late 20s with deep brown skin, shoulder-length curly black hair worn loose and subtle thin-framed round glasses, a slate-blue blouse, exactly as in her character sheet",
+    "MIA": "Mia Patel, a striking, confident woman of Indian heritage in her mid-to-late 20s with glowing deep brown skin, glossy shoulder-length black curls worn loose and subtle thin-framed round glasses, a fitted slate-blue silk blouse, exactly as in her character sheet",
 }
 
 # What each input key is, for the "image N is …" line.
@@ -117,11 +117,12 @@ PEOPLE = [
     ("C-JAMIE", "Jamie Chen", "Finance professional", "a woman in her mid-to-late 20s of Chinese heritage: light, warm-toned skin, dark brown eyes, a heart-shaped face, petite and slim, and a sleek, straight, jaw-length black bob with a blunt fringe; wearing a teal blouse and a navy jacket, with navy trousers."),
     ("C-PRIYA", "Priya Shah", "Solicitor", "a woman in her mid-to-late 20s of Indian heritage: warm medium-brown skin, dark brown eyes, defined dark brows, a long oval face, tall and poised, and long black hair centre-parted and tied back in a sleek low bun; wearing a charcoal jacket and a pale blouse, with charcoal trousers."),
     ("C-DANIEL", "Daniel Reed", "Builder and developer representative", "a man in his mid-to-late 20s with short dark hair, wearing a navy polo shirt, with grey work trousers and work boots."),
-    ("C-MIA", "Mia Patel", "Accountant", "a woman in her mid-to-late 20s of Indian heritage: deep brown skin, dark brown eyes, a round face with soft features, of average height, and shoulder-length curly black hair worn loose; subtle thin-framed round glasses; wearing a slate-blue blouse, with dark trousers."),
+    ("C-MIA", "Mia Patel", "Accountant", "a woman in her mid-to-late 20s of Indian heritage: glowing deep brown skin, dark brown eyes with defined lashes, groomed brows, high cheekbones, full lips with a warm natural lip colour, a striking, confident, polished look, slim and of average height, and glossy, defined shoulder-length black curls worn loose; subtle thin-framed round glasses; wearing a fitted slate-blue silk blouse with the top button open, tucked into high-waisted dark tailored trousers, and dark pointed heels."),
 ]
 # A sheet whose prompt changed after it was made: studio.py names its new takes r2-take1 and so on,
-# and the earlier takes stay in takes.json. Revision 2 tells the four women apart.
-REVISION = {"C-ALEX": 2, "C-JAMIE": 2, "C-PRIYA": 2, "C-MIA": 2}
+# and the earlier takes stay in takes.json. Revision 2 tells the four women apart; Mia's revision 3 makes her
+# more glamorous.
+REVISION = {"C-ALEX": 2, "C-JAMIE": 2, "C-PRIYA": 2, "C-MIA": 3}
 stage1 = [
     {
         "key": "P",
@@ -636,6 +637,8 @@ spec = {
         "Confirmed 21 October 2026: the four women are told apart by heritage, complexion, face, build and hair texture, read from their names at the client's direction "
         "(the pack gives no ethnicity): Alex Anglo-Australian, Jamie Chinese, Priya and Mia Indian, with Priya and Mia set apart by complexion, face, height and hair. "
         "Their sheets are revision 2; the pack's hair, glasses and wardrobe are kept.",
+        "Confirmed 21 October 2026: Mia is more glamorous and striking, still dressed for the office: polished make-up and glossy curls, a confident look, "
+        "a fitted silk version of her slate-blue blouse with tailored trousers and heels (her sheet's revision 3).",
     ],
     "timing": {"method": "Each cut sits in the pause before the cue's first word (0.15 s ahead of its speech onset), or 0.1 s ahead of a word mid-phrase, snapped to 30 fps.",
                "cues": timing["cues"],
