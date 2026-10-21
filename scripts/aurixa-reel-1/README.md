@@ -40,7 +40,7 @@ python3 scripts/aurixa-reel-1/edit.py plan --stand-ins && python3 scripts/aurixa
 python3 scripts/aurixa-reel-1/system_edition.py docs/brands/aurixa-reel-1/system-edition && npx prettier --write docs/brands/aurixa-reel-1/system-edition
 python3 scripts/aurixa-reel-1/system_edition.py --check   # every shot and beat on the clock
 python3 scripts/aurixa-reel-1/system_edition.py --studio-sql /tmp/system-edition.sql   # the brief as the studio's creative brief
-bun scripts/aurixa-reel-1/reel_css.ts Naidu-Group-Pty-Ltd/aurixa-systems=<checkout> Naidu-Group-Pty-Ltd/aurixa-builders=<checkout> Naidu-Group-Pty-Ltd/npc-client-dashboard=<checkout> Naidu-Group-Pty-Ltd/aurixa-mission-control=<checkout>   # or no arguments: from GitHub
+bun scripts/aurixa-reel-1/reel_css.ts Naidu-Group-Pty-Ltd/aurixa-systems=<checkout> Naidu-Group-Pty-Ltd/aurixa-builders=<checkout> Naidu-Group-Pty-Ltd/npc-client-dashboard=<checkout> Naidu-Group-Pty-Ltd/aurixa-mission-control-12b89885=<checkout>   # or no arguments: from GitHub
 bun scripts/aurixa-reel-1/reel_css.ts <the same> --check   # every role still holds the brief's value, and the files are fresh
 node scripts/aurixa-reel-1/reel_preview.cjs   # docs/brands/aurixa-reel-1/system-edition/aurixa-reel-tokens.png
 ```

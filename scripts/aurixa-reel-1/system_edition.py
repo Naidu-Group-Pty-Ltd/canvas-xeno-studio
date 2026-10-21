@@ -501,7 +501,7 @@ DESIGN = {
              [SITE, "The public website, aurixasystems.com.au", "`src/index.css`: Tailwind 4 `@theme` in hex, dark only; Inter and Playfair Display from Google Fonts (`index.html`)", "The palette, the type and the brand's own motifs (eyebrow, corners, rail line, traveller, dot field). The canonical source."],
              [BUILDERS, "The Builders Network", "`src/styles/tokens.css` and `glass.css`: HSL channels (Tailwind 3.4), light and `.dark`; Inter and Playfair Display as `@fontsource` packages; the `.bd-*` drawing set in `builder-drafting.css`", "The site's palette in HSL (its comments name the site as the source), and the radius, elevation, glass and motion scales"],
              [NPC, "The Command Centre and the Client, Finance, Accountant and Solicitor portals", "`src/styles/tokens.css` and `glass.css`: HSL channels (Tailwind 3), light and `.dark`; the workspace's brand colour written at run time by `src/branding/token-resolver.ts`", "The screens (through the plates), the same scales as the Builders Network, and the ivory of its documents"],
-             ["aurixa-mission-control", "The operators' console", "`src/styles.css`: Tailwind 4 `@theme inline` in oklch; Archivo and JetBrains Mono; 0 px radius", "Nothing: it is not in the film, and its electric cyan and lime are its own, not the brand's"],
+             ["aurixa-mission-control-12b89885", "The operators' console", "`src/styles.css`: Tailwind 4 `@theme inline` in oklch; Archivo and JetBrains Mono; 0 px radius", "Nothing: it is not in the film, and its electric cyan and lime are its own, not the brand's"],
          ]},
         {"title": "The palette",
          "header": ["Colour", "Token", "Value", "Declared in", "In the reel"],
