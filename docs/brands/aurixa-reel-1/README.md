@@ -92,9 +92,9 @@ Used by: 01A's last frame and every later thumbnail, report, dossier and project
 
 ### C-ALEX · Alex Morgan: character sheet (3:2)
 
-Used by: Property professional and main guide. Trousers and shoes are additions so the full-length view agrees; the pack locks the upper half.
+Used by: Property professional and main guide. Trousers and shoes are additions so the full-length view agrees; the pack locks the upper half. Heritage, complexion, face and hair texture tell the four women apart, at the client's direction; the pack gives none.
 
-> Photographic character reference sheet of one fictional person for a premium Australian property-services film. Seamless warm mid-grey studio backdrop, soft even key light with gentle fill, natural skin texture and true-to-life colour. Four views side by side, left to right: full-length standing front view; waist-up three-quarter view; head-and-shoulders profile; a close-up of both hands resting on a desk. The same face, hair, build and wardrobe in every view. Calm, competent, relaxed expression, not posing; visible eyes; believable fingers. No jewellery or watch. No text, labels, logos or watermarks. The person: a woman in her mid-to-late 20s with shoulder-length dark brown hair, wearing a navy tailored jacket over an ivory blouse, with slim charcoal trousers and dark low-heeled shoes.
+> Photographic character reference sheet of one fictional person for a premium Australian property-services film. Seamless warm mid-grey studio backdrop, soft even key light with gentle fill, natural skin texture and true-to-life colour. Four views side by side, left to right: full-length standing front view; waist-up three-quarter view; head-and-shoulders profile; a close-up of both hands resting on a desk. The same face, hair, build and wardrobe in every view. Calm, competent, relaxed expression, not posing; visible eyes; believable fingers. No jewellery or watch. No text, labels, logos or watermarks. The person: a woman in her mid-to-late 20s of Anglo-Australian heritage: fair skin with light freckles across the nose, grey-blue eyes, an oval face, and shoulder-length, softly wavy dark brown hair with a side part; wearing a navy tailored jacket over an ivory blouse, with slim charcoal trousers and dark low-heeled shoes.
 
 ### C-JORDAN · Jordan Ellis: character sheet (3:2)
 
@@ -104,15 +104,15 @@ Used by: Prospective client. Trousers and shoes are additions so the full-length
 
 ### C-JAMIE · Jamie Chen: character sheet (3:2)
 
-Used by: Finance professional. Trousers and shoes are additions so the full-length view agrees; the pack locks the upper half.
+Used by: Finance professional. Trousers and shoes are additions so the full-length view agrees; the pack locks the upper half. Heritage, complexion, face and hair texture tell the four women apart, at the client's direction; the pack gives none.
 
-> Photographic character reference sheet of one fictional person for a premium Australian property-services film. Seamless warm mid-grey studio backdrop, soft even key light with gentle fill, natural skin texture and true-to-life colour. Four views side by side, left to right: full-length standing front view; waist-up three-quarter view; head-and-shoulders profile; a close-up of both hands resting on a desk. The same face, hair, build and wardrobe in every view. Calm, competent, relaxed expression, not posing; visible eyes; believable fingers. No jewellery or watch. No text, labels, logos or watermarks. The person: a woman in her mid-to-late 20s with a straight dark bob, wearing a teal blouse and a navy jacket, with navy trousers.
+> Photographic character reference sheet of one fictional person for a premium Australian property-services film. Seamless warm mid-grey studio backdrop, soft even key light with gentle fill, natural skin texture and true-to-life colour. Four views side by side, left to right: full-length standing front view; waist-up three-quarter view; head-and-shoulders profile; a close-up of both hands resting on a desk. The same face, hair, build and wardrobe in every view. Calm, competent, relaxed expression, not posing; visible eyes; believable fingers. No jewellery or watch. No text, labels, logos or watermarks. The person: a woman in her mid-to-late 20s of Chinese heritage: light, warm-toned skin, dark brown eyes, a heart-shaped face, petite and slim, and a sleek, straight, jaw-length black bob with a blunt fringe; wearing a teal blouse and a navy jacket, with navy trousers.
 
 ### C-PRIYA · Priya Shah: character sheet (3:2)
 
-Used by: Solicitor. Trousers and shoes are additions so the full-length view agrees; the pack locks the upper half.
+Used by: Solicitor. Trousers and shoes are additions so the full-length view agrees; the pack locks the upper half. Heritage, complexion, face and hair texture tell the four women apart, at the client's direction; the pack gives none.
 
-> Photographic character reference sheet of one fictional person for a premium Australian property-services film. Seamless warm mid-grey studio backdrop, soft even key light with gentle fill, natural skin texture and true-to-life colour. Four views side by side, left to right: full-length standing front view; waist-up three-quarter view; head-and-shoulders profile; a close-up of both hands resting on a desk. The same face, hair, build and wardrobe in every view. Calm, competent, relaxed expression, not posing; visible eyes; believable fingers. No jewellery or watch. No text, labels, logos or watermarks. The person: a woman in her mid-to-late 20s with tied-back dark hair, wearing a charcoal jacket and a pale blouse, with charcoal trousers.
+> Photographic character reference sheet of one fictional person for a premium Australian property-services film. Seamless warm mid-grey studio backdrop, soft even key light with gentle fill, natural skin texture and true-to-life colour. Four views side by side, left to right: full-length standing front view; waist-up three-quarter view; head-and-shoulders profile; a close-up of both hands resting on a desk. The same face, hair, build and wardrobe in every view. Calm, competent, relaxed expression, not posing; visible eyes; believable fingers. No jewellery or watch. No text, labels, logos or watermarks. The person: a woman in her mid-to-late 20s of Indian heritage: warm medium-brown skin, dark brown eyes, defined dark brows, a long oval face, tall and poised, and long black hair centre-parted and tied back in a sleek low bun; wearing a charcoal jacket and a pale blouse, with charcoal trousers.
 
 ### C-DANIEL · Daniel Reed: character sheet (3:2)
 
@@ -122,9 +122,9 @@ Used by: Builder and developer representative. Trousers and shoes are additions 
 
 ### C-MIA · Mia Patel: character sheet (3:2)
 
-Used by: Accountant. Trousers and shoes are additions so the full-length view agrees; the pack locks the upper half.
+Used by: Accountant. Trousers and shoes are additions so the full-length view agrees; the pack locks the upper half. Heritage, complexion, face and hair texture tell the four women apart, at the client's direction; the pack gives none.
 
-> Photographic character reference sheet of one fictional person for a premium Australian property-services film. Seamless warm mid-grey studio backdrop, soft even key light with gentle fill, natural skin texture and true-to-life colour. Four views side by side, left to right: full-length standing front view; waist-up three-quarter view; head-and-shoulders profile; a close-up of both hands resting on a desk. The same face, hair, build and wardrobe in every view. Calm, competent, relaxed expression, not posing; visible eyes; believable fingers. No jewellery or watch. No text, labels, logos or watermarks. The person: a woman in her mid-to-late 20s with dark hair and subtle thin-framed glasses, wearing a slate-blue blouse, with dark trousers.
+> Photographic character reference sheet of one fictional person for a premium Australian property-services film. Seamless warm mid-grey studio backdrop, soft even key light with gentle fill, natural skin texture and true-to-life colour. Four views side by side, left to right: full-length standing front view; waist-up three-quarter view; head-and-shoulders profile; a close-up of both hands resting on a desk. The same face, hair, build and wardrobe in every view. Calm, competent, relaxed expression, not posing; visible eyes; believable fingers. No jewellery or watch. No text, labels, logos or watermarks. The person: a woman in her mid-to-late 20s of Indian heritage: deep brown skin, dark brown eyes, a round face with soft features, of average height, and shoulder-length curly black hair worn loose; subtle thin-framed round glasses; wearing a slate-blue blouse, with dark trousers.
 
 ### D · Residence 014: the floor plan (1:1)
 
@@ -373,3 +373,5 @@ Decisions:
 - Confirmed 20 October 2026: the closing CTA is the pack's START YOUR FREE TRIAL, not the brand kit's Book Your Free Demo (the kit's automatic end card is not used).
 - Confirmed 20 October 2026: the small label on recreated screens is the pack's Demo workspace, not the brand rules' Concept.
 - The colleague in 04A is unnamed and seen from behind, so no seventh face needs locking.
+- Confirmed 21 October 2026: the cast is in their mid-to-late 20s (the pack has them in their late 30s to late 40s), and Daniel has short dark hair, not greying.
+- Confirmed 21 October 2026: the four women are told apart by heritage, complexion, face, build and hair texture, read from their names at the client's direction (the pack gives no ethnicity): Alex Anglo-Australian, Jamie Chinese, Priya and Mia Indian, with Priya and Mia set apart by complexion, face, height and hair. Their sheets are revision 2; the pack's hair, glasses and wardrobe are kept.

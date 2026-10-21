@@ -6,9 +6,10 @@
   python3 scripts/aurixa-reel-1/studio.py takes                             # the takes' state again, into takes.json
 
 run prints what it would queue; only with --confirm does it queue (billed by the provider), then it
-waits and records every take in takes.json. A take's request id is its key and number, so running
-again returns the takes already made instead of paying twice; --takes 4 adds a fourth. A failed or
-blocked take is never tried again by itself.
+waits and records every take in takes.json. A take's request id is its key and number (and the
+item's revision, once its prompt is revised: r2-take1), so running again returns the takes already
+made instead of paying twice; --takes 4 adds a fourth. A failed or blocked take is never tried again
+by itself.
 
 The API is the published studio's (XENO_STUDIO_URL, default https://canvas-xeno-studio.lovable.app),
 with a personal token in XENO_STUDIO_TOKEN (or one the network adds).
@@ -159,8 +160,9 @@ def run(stage_number, only=None, takes=None, confirm=False):
             continue
         inputs = [{"assetId": ledger[key], "role": model["role"]} for key in item.get("inputs", [])]
         settings = ", ".join(f"{k} {v}" for k, v in item["parameters"].items() if k != "prompt")
+        revision = item.get("revision", 1)
         for take in range(1, (takes or item.get("takes", 1)) + 1):
-            name = f"take{take}"
+            name = f"take{take}" if revision == 1 else f"r{revision}-take{take}"
             if not confirm:
                 print(f"{item['key']} {name}: {model['name']} ({settings}); {len(inputs)} inputs; prompt {len(item['parameters']['prompt'])} characters")
                 continue

@@ -61,12 +61,12 @@ LOOK = {
 }
 
 CAST = {
-    "ALEX": "Alex Morgan, a woman in her mid-to-late 20s with shoulder-length dark brown hair, a navy tailored jacket over an ivory blouse and a calm manner, exactly as in her character sheet",
+    "ALEX": "Alex Morgan, a fair-skinned, lightly freckled woman of Anglo-Australian heritage in her mid-to-late 20s with grey-blue eyes and shoulder-length, softly wavy dark brown hair, a navy tailored jacket over an ivory blouse and a calm manner, exactly as in her character sheet",
     "JORDAN": "Jordan Ellis, a man in his mid-to-late 20s with short curly dark hair and a light blue open-collar shirt, exactly as in his character sheet",
-    "JAMIE": "Jamie Chen, a woman in her mid-to-late 20s with a straight dark bob, a teal blouse and a navy jacket, exactly as in her character sheet",
-    "PRIYA": "Priya Shah, a woman in her mid-to-late 20s with tied-back dark hair, a charcoal jacket and a pale blouse, exactly as in her character sheet",
+    "JAMIE": "Jamie Chen, a petite woman of Chinese heritage in her mid-to-late 20s with a sleek, straight, jaw-length black bob and a blunt fringe, a teal blouse and a navy jacket, exactly as in her character sheet",
+    "PRIYA": "Priya Shah, a tall woman of Indian heritage in her mid-to-late 20s with warm medium-brown skin and long black hair tied back in a sleek low bun, a charcoal jacket and a pale blouse, exactly as in her character sheet",
     "DANIEL": "Daniel Reed, a man in his mid-to-late 20s with short dark hair and a navy polo shirt, exactly as in his character sheet",
-    "MIA": "Mia Patel, a woman in her mid-to-late 20s with dark hair, subtle thin-framed glasses and a slate-blue blouse, exactly as in her character sheet",
+    "MIA": "Mia Patel, a woman of Indian heritage in her mid-to-late 20s with deep brown skin, shoulder-length curly black hair worn loose and subtle thin-framed round glasses, a slate-blue blouse, exactly as in her character sheet",
 }
 
 # What each input key is, for the "image N is …" line.
@@ -112,13 +112,16 @@ SHEET = (
     "No text, labels, logos or watermarks. The person: "
 )
 PEOPLE = [
-    ("C-ALEX", "Alex Morgan", "Property professional and main guide", "a woman in her mid-to-late 20s with shoulder-length dark brown hair, wearing a navy tailored jacket over an ivory blouse, with slim charcoal trousers and dark low-heeled shoes."),
+    ("C-ALEX", "Alex Morgan", "Property professional and main guide", "a woman in her mid-to-late 20s of Anglo-Australian heritage: fair skin with light freckles across the nose, grey-blue eyes, an oval face, and shoulder-length, softly wavy dark brown hair with a side part; wearing a navy tailored jacket over an ivory blouse, with slim charcoal trousers and dark low-heeled shoes."),
     ("C-JORDAN", "Jordan Ellis", "Prospective client", "a man in his mid-to-late 20s with short curly dark hair, wearing a light blue open-collar shirt, with dark chinos and brown leather shoes."),
-    ("C-JAMIE", "Jamie Chen", "Finance professional", "a woman in her mid-to-late 20s with a straight dark bob, wearing a teal blouse and a navy jacket, with navy trousers."),
-    ("C-PRIYA", "Priya Shah", "Solicitor", "a woman in her mid-to-late 20s with tied-back dark hair, wearing a charcoal jacket and a pale blouse, with charcoal trousers."),
+    ("C-JAMIE", "Jamie Chen", "Finance professional", "a woman in her mid-to-late 20s of Chinese heritage: light, warm-toned skin, dark brown eyes, a heart-shaped face, petite and slim, and a sleek, straight, jaw-length black bob with a blunt fringe; wearing a teal blouse and a navy jacket, with navy trousers."),
+    ("C-PRIYA", "Priya Shah", "Solicitor", "a woman in her mid-to-late 20s of Indian heritage: warm medium-brown skin, dark brown eyes, defined dark brows, a long oval face, tall and poised, and long black hair centre-parted and tied back in a sleek low bun; wearing a charcoal jacket and a pale blouse, with charcoal trousers."),
     ("C-DANIEL", "Daniel Reed", "Builder and developer representative", "a man in his mid-to-late 20s with short dark hair, wearing a navy polo shirt, with grey work trousers and work boots."),
-    ("C-MIA", "Mia Patel", "Accountant", "a woman in her mid-to-late 20s with dark hair and subtle thin-framed glasses, wearing a slate-blue blouse, with dark trousers."),
+    ("C-MIA", "Mia Patel", "Accountant", "a woman in her mid-to-late 20s of Indian heritage: deep brown skin, dark brown eyes, a round face with soft features, of average height, and shoulder-length curly black hair worn loose; subtle thin-framed round glasses; wearing a slate-blue blouse, with dark trousers."),
 ]
+# A sheet whose prompt changed after it was made: studio.py names its new takes r2-take1 and so on,
+# and the earlier takes stay in takes.json. Revision 2 tells the four women apart.
+REVISION = {"C-ALEX": 2, "C-JAMIE": 2, "C-PRIYA": 2, "C-MIA": 2}
 stage1 = [
     {
         "key": "P",
@@ -144,7 +147,9 @@ stage1 = [
             "inputs": [],
             "takes": 3,
             "used_by": role,
-            "note": "Trousers and shoes are additions so the full-length view agrees; the pack locks the upper half.",
+            "note": "Trousers and shoes are additions so the full-length view agrees; the pack locks the upper half."
+                    + (" Heritage, complexion, face and hair texture tell the four women apart, at the client's direction; the pack gives none." if key in REVISION else ""),
+            **({"revision": REVISION[key]} if key in REVISION else {}),
         }
         for key, name, role, line in PEOPLE
     ],
@@ -627,6 +632,10 @@ spec = {
         "Confirmed 20 October 2026: the closing CTA is the pack's START YOUR FREE TRIAL, not the brand kit's Book Your Free Demo (the kit's automatic end card is not used).",
         "Confirmed 20 October 2026: the small label on recreated screens is the pack's Demo workspace, not the brand rules' Concept.",
         "The colleague in 04A is unnamed and seen from behind, so no seventh face needs locking.",
+        "Confirmed 21 October 2026: the cast is in their mid-to-late 20s (the pack has them in their late 30s to late 40s), and Daniel has short dark hair, not greying.",
+        "Confirmed 21 October 2026: the four women are told apart by heritage, complexion, face, build and hair texture, read from their names at the client's direction "
+        "(the pack gives no ethnicity): Alex Anglo-Australian, Jamie Chinese, Priya and Mia Indian, with Priya and Mia set apart by complexion, face, height and hair. "
+        "Their sheets are revision 2; the pack's hair, glasses and wardrobe are kept.",
     ],
     "timing": {"method": "Each cut sits in the pause before the cue's first word (0.15 s ahead of its speech onset), or 0.1 s ahead of a word mid-phrase, snapped to 30 fps.",
                "cues": timing["cues"],
