@@ -26,7 +26,12 @@
       "b397fed7-1579-47ce-9e19-2b5f6e397fdf",
       "c8d0cc86-fc56-4789-a60b-dffb2cb4861b",
       "f72f89ef-faa8-424f-afb6-519791650269"
-    ]
+    ],
+    "soul": {
+      "v2": {
+        "status": "training"
+      }
+    }
   },
   "JORDAN": {
     "characterId": "4cc5f81a-df5f-4cee-9f02-f283594c0ceb",
@@ -49,7 +54,12 @@
       "a8746f50-be39-45f7-a6f4-d82a6ca2987f",
       "67bee796-525c-4563-91df-801c3a654702",
       "e2e8ab91-26e0-4002-aa04-6f65bade14c1"
-    ]
+    ],
+    "soul": {
+      "v2": {
+        "status": "training"
+      }
+    }
   },
   "JAMIE": {
     "characterId": "a2b02ef5-4115-42b1-8a90-69164e41bb26",
@@ -70,7 +80,12 @@
       "5bb0d7f2-97ab-4811-8c32-a9e247b03d5d",
       "b768acee-4bab-4259-8ce4-cb5acae8c7bf",
       "55e91433-a179-4af9-9a91-6fb81544d40c"
-    ]
+    ],
+    "soul": {
+      "v2": {
+        "status": "training"
+      }
+    }
   },
   "PRIYA": {
     "characterId": "d94528af-7313-404f-9d9b-9b43af5ff63d",
@@ -93,7 +108,12 @@
       "6dd21450-92b4-4607-ba22-5d3de9377400",
       "87280574-7f28-42d6-8f05-e8039105442f",
       "56f75493-c9ca-45b4-aaf1-ab9e322cb379"
-    ]
+    ],
+    "soul": {
+      "v2": {
+        "status": "training"
+      }
+    }
   },
   "DANIEL": {
     "characterId": "482f84bf-e57f-43f7-bfd3-cc2c56f6388a",
@@ -114,7 +134,12 @@
       "b94e2d83-bc0b-46b0-9279-eab604273e1a",
       "ecf3b17d-a2a1-4c2d-9702-13deab81d469",
       "ed4aa9ba-a2bb-48e5-b559-83fba0c6220a"
-    ]
+    ],
+    "soul": {
+      "v2": {
+        "status": "training"
+      }
+    }
   },
   "MIA": {
     "characterId": "8777a5d9-26d5-4473-971a-74ab4133157b",
@@ -135,6 +160,11 @@
       "cb6c02db-fb19-4eab-84db-bc62261fe7a2",
       "da8557a7-3906-4b47-ae00-d95b84094d36",
       "161d8798-ec3c-4f3e-80e8-97c98700fb49"
-    ]
+    ],
+    "soul": {
+      "v2": {
+        "status": "training"
+      }
+    }
   }
 }
