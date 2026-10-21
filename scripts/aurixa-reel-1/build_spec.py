@@ -590,17 +590,23 @@ SCREEN_SWAP = {
     # the portal pages built from the product's code (QC.md)
     "F-05B-in": ("take2", 2), "F-06A-out": ("take2", 2), "F-08A-in": ("take2", 2), "F-08A-out": ("take2", 2),
     "F-13A-in": ("take1", 2), "F-13A-out": ("take2", 2),
-    "F-09B-in": ("take1", 2), "F-12A-in": ("take1", 2), "F-12A-out": ("take2", 2), "F-12B-in": ("take1", 2),
+    "F-09B-in": ("take1", 2), "F-12A-in": ("take1", 2), "F-12A-out": ("take2", 3), "F-12B-in": ("take1", 2),
 }
 # A frame whose framing changes with its screen (QC.md: 08B's display ran off the frame's edge): its approved take and
 # the revision its new takes are named for, and the change.
-REFRAME = {"F-08B-in": ("take1", 2), "F-08B-out": ("take2", 2)}
+REFRAME = {"F-08B-in": ("take1", 3), "F-08B-out": ("take2", 3)}
 REFRAME_NOTE = ("the view widens slightly from the same camera position, as if through a slightly wider lens, so the whole mounted display, "
                 "all four edges of its bezel with a margin of wall around them, sits inside the frame; Alex and Jordan stay large and readable, "
                 "their faces in the same light.")
+# The PDF viewer around a page, which the first takes dropped, filling the screen with the page alone (stretched, on 08B).
+PDF_KEPT = ("The screen shows the whole browser window of image {n}, not the page alone: {chrome}, and the mid-grey surround with the page "
+            "standing in its middle, grey showing on both sides of it. The page keeps its own shape and size within the window; it is never "
+            "enlarged, widened or stretched to fill the screen.")
 
 # What a swap must keep in view, where the first takes lost it.
 SWAP_NOTE = {
+    "F-12A-out": PDF_KEPT.format(n=2, chrome="the dark browser tab strip along the top (two tabs, floorplan-R014.pdf in front) "
+                                          "with its address bar, the PDF viewer's dark toolbar under it"),
     "F-06B-in": "The whole screen plate fits inside the bezel, its bottom-right corner included: the round Aurixa agent button (the gold "
                 "triangle with the little character's face) with its small Aurixa label and the pointer on it sits clearly in view at the "
                 "screen's lower right, in front of the desk lamp, never hidden by it.",
@@ -613,6 +619,8 @@ def reframe_prompt(base, plate_n):
             "shape to reproduce exactly). Reproduce image 1 in every detail: the same people, faces, expressions, hair, clothes, pose and hands; "
             "the same lens character, focus and depth of field; the same light, colours, room, furniture and reflections. Change only two things. "
             "The framing: " + REFRAME_NOTE + " The display: " + screen_shows(plate_n) + ", replacing the screen's earlier content completely. "
+            + PDF_KEPT.format(n=plate_n, chrome="the PDF viewer's dark toolbar along the top and its column of four small page "
+                                                "thumbnails down the left side") + " "
             "Photorealistic cinematic film still, vertical 9:16. Apart from image " + str(plate_n) + " on the screen, no other text, letters, "
             "numbers, logos, watermarks or interface anywhere in the image.")
 

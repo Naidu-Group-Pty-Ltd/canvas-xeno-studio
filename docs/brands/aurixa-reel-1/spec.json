@@ -1686,14 +1686,14 @@
           "inputs": ["F-08B-in@take1", "PL-08B"],
           "screen": "PL-08B",
           "reframe": true,
-          "revision": 2,
+          "revision": 3,
           "parameters": {
             "resolution": "2k",
             "quality": "high",
             "enhance_prompt": false,
             "moderation": "auto",
             "aspect_ratio": "9:16",
-            "prompt": "Image 1 is the approved frame 08B-in (the picture to reproduce), and image 2 is the new screen plate (every word, number and shape to reproduce exactly). Reproduce image 1 in every detail: the same people, faces, expressions, hair, clothes, pose and hands; the same lens character, focus and depth of field; the same light, colours, room, furniture and reflections. Change only two things. The framing: the view widens slightly from the same camera position, as if through a slightly wider lens, so the whole mounted display, all four edges of its bezel with a margin of wall around them, sits inside the frame; Alex and Jordan stay large and readable, their faces in the same light. The display: its screen shows image 2 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged, replacing the screen's earlier content completely. Photorealistic cinematic film still, vertical 9:16. Apart from image 2 on the screen, no other text, letters, numbers, logos, watermarks or interface anywhere in the image."
+            "prompt": "Image 1 is the approved frame 08B-in (the picture to reproduce), and image 2 is the new screen plate (every word, number and shape to reproduce exactly). Reproduce image 1 in every detail: the same people, faces, expressions, hair, clothes, pose and hands; the same lens character, focus and depth of field; the same light, colours, room, furniture and reflections. Change only two things. The framing: the view widens slightly from the same camera position, as if through a slightly wider lens, so the whole mounted display, all four edges of its bezel with a margin of wall around them, sits inside the frame; Alex and Jordan stay large and readable, their faces in the same light. The display: its screen shows image 2 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged, replacing the screen's earlier content completely. The screen shows the whole browser window of image 2, not the page alone: the PDF viewer's dark toolbar along the top and its column of four small page thumbnails down the left side, and the mid-grey surround with the page standing in its middle, grey showing on both sides of it. The page keeps its own shape and size within the window; it is never enlarged, widened or stretched to fill the screen. Photorealistic cinematic film still, vertical 9:16. Apart from image 2 on the screen, no other text, letters, numbers, logos, watermarks or interface anywhere in the image."
           },
           "takes": 2
         },
@@ -1704,14 +1704,14 @@
           "inputs": ["F-08B-out@take2", "PL-08B"],
           "screen": "PL-08B",
           "reframe": true,
-          "revision": 2,
+          "revision": 3,
           "parameters": {
             "resolution": "2k",
             "quality": "high",
             "enhance_prompt": false,
             "moderation": "auto",
             "aspect_ratio": "9:16",
-            "prompt": "Image 1 is the approved frame 08B-out (the picture to reproduce), and image 2 is the new screen plate (every word, number and shape to reproduce exactly). Reproduce image 1 in every detail: the same people, faces, expressions, hair, clothes, pose and hands; the same lens character, focus and depth of field; the same light, colours, room, furniture and reflections. Change only two things. The framing: the view widens slightly from the same camera position, as if through a slightly wider lens, so the whole mounted display, all four edges of its bezel with a margin of wall around them, sits inside the frame; Alex and Jordan stay large and readable, their faces in the same light. The display: its screen shows image 2 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged, replacing the screen's earlier content completely. Photorealistic cinematic film still, vertical 9:16. Apart from image 2 on the screen, no other text, letters, numbers, logos, watermarks or interface anywhere in the image."
+            "prompt": "Image 1 is the approved frame 08B-out (the picture to reproduce), and image 2 is the new screen plate (every word, number and shape to reproduce exactly). Reproduce image 1 in every detail: the same people, faces, expressions, hair, clothes, pose and hands; the same lens character, focus and depth of field; the same light, colours, room, furniture and reflections. Change only two things. The framing: the view widens slightly from the same camera position, as if through a slightly wider lens, so the whole mounted display, all four edges of its bezel with a margin of wall around them, sits inside the frame; Alex and Jordan stay large and readable, their faces in the same light. The display: its screen shows image 2 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged, replacing the screen's earlier content completely. The screen shows the whole browser window of image 2, not the page alone: the PDF viewer's dark toolbar along the top and its column of four small page thumbnails down the left side, and the mid-grey surround with the page standing in its middle, grey showing on both sides of it. The page keeps its own shape and size within the window; it is never enlarged, widened or stretched to fill the screen. Photorealistic cinematic film still, vertical 9:16. Apart from image 2 on the screen, no other text, letters, numbers, logos, watermarks or interface anywhere in the image."
           },
           "takes": 2
         },
@@ -1892,14 +1892,14 @@
           "inputs": ["F-12A-out@take2", "PL-12A-b"],
           "screen": "PL-12A-b",
           "swap": true,
-          "revision": 2,
+          "revision": 3,
           "parameters": {
             "resolution": "2k",
             "quality": "high",
             "enhance_prompt": false,
             "moderation": "auto",
             "aspect_ratio": "9:16",
-            "prompt": "Image 1 is the approved frame 12A-out (the picture to reproduce), and image 2 is the new screen plate (every word, number and shape to reproduce exactly). Reproduce image 1 exactly, unchanged in every detail: the same people, faces, expressions, hair, clothes, pose and hands; the same camera position, framing, lens, focus and depth of field; the same light, colours, room, furniture and reflections. Change only what the screen shows: its screen shows image 2 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged, replacing the screen's earlier content completely, inside the same bezel at the same position, size and angle. Photorealistic cinematic film still, vertical 9:16, at image 1's exact framing. Apart from image 2 on the screen, no other text, letters, numbers, logos, watermarks or interface anywhere in the image."
+            "prompt": "Image 1 is the approved frame 12A-out (the picture to reproduce), and image 2 is the new screen plate (every word, number and shape to reproduce exactly). Reproduce image 1 exactly, unchanged in every detail: the same people, faces, expressions, hair, clothes, pose and hands; the same camera position, framing, lens, focus and depth of field; the same light, colours, room, furniture and reflections. Change only what the screen shows: its screen shows image 2 exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged, replacing the screen's earlier content completely, inside the same bezel at the same position, size and angle. The screen shows the whole browser window of image 2, not the page alone: the dark browser tab strip along the top (two tabs, floorplan-R014.pdf in front) with its address bar, the PDF viewer's dark toolbar under it, and the mid-grey surround with the page standing in its middle, grey showing on both sides of it. The page keeps its own shape and size within the window; it is never enlarged, widened or stretched to fill the screen. Photorealistic cinematic film still, vertical 9:16, at image 1's exact framing. Apart from image 2 on the screen, no other text, letters, numbers, logos, watermarks or interface anywhere in the image."
           },
           "takes": 2
         },

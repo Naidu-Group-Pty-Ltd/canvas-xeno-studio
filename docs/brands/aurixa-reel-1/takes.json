@@ -902,11 +902,21 @@
   },
   "r2-take1": {
    "generationId": "fe783951-6e66-4e18-a592-d6de7910960f",
-   "status": "queued"
+   "status": "completed",
+   "assets": [
+    "88e7470e-1321-4d3a-9811-9fdf086ff7e4"
+   ],
+   "costUsd": null,
+   "error": null
   },
   "r2-take2": {
    "generationId": "0f85ed88-36db-4b54-8dea-9c85ee1ca176",
-   "status": "queued"
+   "status": "completed",
+   "assets": [
+    "c8bfdd73-6bc3-45fc-bd22-ca489ff82472"
+   ],
+   "costUsd": null,
+   "error": null
   }
  },
  "F-02A-in": {
@@ -1028,11 +1038,21 @@
   },
   "r2-take1": {
    "generationId": "2a168eb3-c394-4b11-aeeb-3cfb0994fda7",
-   "status": "queued"
+   "status": "completed",
+   "assets": [
+    "49083bca-40b3-4b9e-96f6-e4c3c9b41247"
+   ],
+   "costUsd": null,
+   "error": null
   },
   "r2-take2": {
    "generationId": "8d43db52-c47c-4346-9e20-bb9f5138fb04",
-   "status": "queued"
+   "status": "completed",
+   "assets": [
+    "2c2234d6-462f-40fa-978f-3c2a93f848d2"
+   ],
+   "costUsd": null,
+   "error": null
   }
  },
  "F-03B-in": {
@@ -1108,6 +1128,24 @@
    "status": "completed",
    "assets": [
     "237f1f50-50f0-4215-b29d-c9fd203518d0"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take1": {
+   "generationId": "3da76546-46dd-4590-8e2f-dc37340f1b33",
+   "status": "completed",
+   "assets": [
+    "8ccc1aa1-751d-4a32-92b5-d85ff8451129"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take2": {
+   "generationId": "219a21bb-7edb-4bd4-a7b7-f4f92dc72262",
+   "status": "completed",
+   "assets": [
+    "ca133d2d-e648-4b96-a28f-c35ccee90d10"
    ],
    "costUsd": null,
    "error": null
@@ -1682,11 +1720,21 @@
   },
   "r2-take1": {
    "generationId": "044dca4e-c4dd-44b3-ab41-10c8a1dc1408",
-   "status": "queued"
+   "status": "completed",
+   "assets": [
+    "462ca56a-142d-4e48-a9c9-07960467427f"
+   ],
+   "costUsd": null,
+   "error": null
   },
   "r2-take2": {
    "generationId": "e1cdfd53-a873-42c3-a296-0b7c5b6b748f",
-   "status": "queued"
+   "status": "completed",
+   "assets": [
+    "edd42b11-8d83-41bf-a0fc-ad9363ebf203"
+   ],
+   "costUsd": null,
+   "error": null
   }
  },
  "F-06B-out": {
@@ -1824,11 +1872,21 @@
   },
   "r2-take1": {
    "generationId": "e830a12a-0993-480a-acf5-e8ae2226367f",
-   "status": "queued"
+   "status": "completed",
+   "assets": [
+    "786dece1-45dc-4fe6-9734-d0275bc81131"
+   ],
+   "costUsd": null,
+   "error": null
   },
   "r2-take2": {
    "generationId": "67c14b16-acb2-4b3b-8b1d-f337cefd51a8",
-   "status": "queued"
+   "status": "completed",
+   "assets": [
+    "52551318-fb24-468a-805f-444ca8671b9e"
+   ],
+   "costUsd": null,
+   "error": null
   }
  },
  "F-08B-out": {
@@ -1852,11 +1910,21 @@
   },
   "r2-take1": {
    "generationId": "5a0b0150-9e0e-44bf-9bc7-759b17d75d32",
-   "status": "queued"
+   "status": "completed",
+   "assets": [
+    "4d7c83f7-ca6f-4823-91a5-f43a63a8d02c"
+   ],
+   "costUsd": null,
+   "error": null
   },
   "r2-take2": {
    "generationId": "b99b6f75-bec2-48a0-8279-0943660a2805",
-   "status": "queued"
+   "status": "completed",
+   "assets": [
+    "54c36ce0-5af6-4904-9d46-3b0a2973a441"
+   ],
+   "costUsd": null,
+   "error": null
   }
  },
  "F-09A-in": {
@@ -1920,11 +1988,21 @@
   },
   "r2-take1": {
    "generationId": "358d13db-66d9-4b3b-bb64-f85057aa8dbf",
-   "status": "queued"
+   "status": "completed",
+   "assets": [
+    "84461dbe-0362-4476-b182-06ae264374e8"
+   ],
+   "costUsd": null,
+   "error": null
   },
   "r2-take2": {
    "generationId": "19343f1c-1797-4103-a4ce-e063f5c69444",
-   "status": "queued"
+   "status": "completed",
+   "assets": [
+    "c68d62bb-163e-42ef-8c3e-79f7d1634e25"
+   ],
+   "costUsd": null,
+   "error": null
   }
  },
  "F-09B-out": {
