@@ -194,8 +194,10 @@
   },
   "take3": {
    "generationId": "775b4c86-c8ed-4742-99c3-13a65be07f8b",
-   "status": "queued",
-   "assets": [],
+   "status": "completed",
+   "assets": [
+    "c20e623f-bd04-45b7-80e8-f242ac1d532d"
+   ],
    "costUsd": null,
    "error": null
   }
@@ -203,15 +205,19 @@
  "D": {
   "take1": {
    "generationId": "f5833243-dd56-42db-ac14-24d177fc0deb",
-   "status": "queued",
-   "assets": [],
+   "status": "completed",
+   "assets": [
+    "60d6126e-37e1-4297-91f0-aaff7b32db8c"
+   ],
    "costUsd": null,
    "error": null
   },
   "take2": {
    "generationId": "2d245047-a5ab-49cf-bbc3-89e638a41ee1",
-   "status": "queued",
-   "assets": [],
+   "status": "completed",
+   "assets": [
+    "de85c4d4-5cd5-4bed-b284-c7754ef45ef6"
+   ],
    "costUsd": null,
    "error": null
   }
