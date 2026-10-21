@@ -1,8 +1,8 @@
 """Runs Reel 1's spec against the studio API (docs/studio-api.md), one stage at a time.
 
   python3 scripts/aurixa-reel-1/studio.py import-plates <dir of PL-*.png> [--only PL-02A,...]   # import_image, ids into assets.json
-  python3 scripts/aurixa-reel-1/studio.py price <stage>                     # estimate_generation: nothing is made or billed
-  python3 scripts/aurixa-reel-1/studio.py run <stage> [--only P,C-ALEX] [--takes N] [--confirm]
+  python3 scripts/aurixa-reel-1/studio.py price <stage> [--only ...] [--model clip_kling]   # estimate_generation: nothing is made or billed
+  python3 scripts/aurixa-reel-1/studio.py run <stage> [--only P,C-ALEX] [--takes N] [--model clip_kling] [--confirm]
   python3 scripts/aurixa-reel-1/studio.py takes                             # the takes' state again, into takes.json
   python3 scripts/aurixa-reel-1/studio.py pick P=take1 C-MIA=r3-take1       # approved takes' files into assets.json
   python3 scripts/aurixa-reel-1/studio.py import REF-LOOK-OPS=ops.png       # a picture into the library, its id into assets.json
@@ -12,6 +12,10 @@ waits and records every take in takes.json. A take's request id is its key and n
 item's revision, once its prompt is revised: r2-take1), so running again returns the takes already
 made instead of paying twice; --takes 4 adds a fourth. A failed or blocked take is never tried again
 by itself.
+
+Stage 5's clips name no model until the test picks one, so price and run take --model (clip_seedance or
+clip_kling) there: a clip goes from its first frame to its last (when it has one) for its source seconds,
+and its takes carry the model's short name (kling-take1), so both models can be tried on one shot.
 
 The API is the published studio's (XENO_STUDIO_URL, default https://canvas-xeno-studio.lovable.app),
 with a personal token in XENO_STUDIO_TOKEN (or one the network adds).
@@ -83,21 +87,41 @@ def import_plates(folder, only=None):
         save_ledger(ledger)
 
 
-def price(stage_number):
+def request_for(item, spec, model_key=None):
+    """An item's model, parameters, (input key, role) pairs and take-name prefix: a still as the spec writes it,
+    a clip (Stage 5) on the model given, from its first frame to its last, for its source seconds."""
+    if "first_frame" in item:
+        if not model_key:
+            sys.exit("Stage 5's clips need --model (clip_seedance or clip_kling)")
+        model = spec["models"][model_key]
+        low, high = model["seconds"]
+        if not low <= item["seconds"] <= high:
+            sys.exit(f"{item['key']}: {item['seconds']} s is outside {model['name']}'s {low} to {high} s")
+        pairs = [(item["first_frame"], model["roles"]["first"])]
+        if item.get("last_frame"):
+            pairs.append((item["last_frame"], model["roles"]["last"]))
+        parameters = {**model["parameters"], "prompt": item["prompt"], "duration": item["seconds"]}
+        return model, parameters, pairs, model_key.removeprefix("clip_") + "-"
+    model = spec["models"][item["model"]]
+    return model, item["parameters"], [(key, model["role"]) for key in item.get("inputs", [])], ""
+
+
+def price(stage_number, only=None, model_key=None):
     spec = load("spec.json")
     ledger = load("assets.json")
     stage = next(s for s in spec["stages"] if s["stage"] == stage_number)
-    models = spec["models"]
     total, unpriced = 0.0, []
     for item in stage["items"]:
-        model = models[item["model"]]
-        inputs = [{"assetId": ledger[key], "role": model["role"]} for key in item.get("inputs", []) if ledger.get(key)]
-        missing = [key for key in item.get("inputs", []) if not ledger.get(key)]
+        if only and item["key"] not in only:
+            continue
+        model, parameters, pairs, _ = request_for(item, spec, model_key)
+        inputs = [{"assetId": ledger[key], "role": role} for key, role in pairs if ledger.get(key)]
+        missing = [key for key, _ in pairs if not ledger.get(key)]
         if missing:
             print(f"{item['key']}: waits on {', '.join(missing)}")
             unpriced.append(item["key"])
             continue
-        quote = call("estimate_generation", {"modelId": model["id"], "parameters": item["parameters"], "inputs": inputs})
+        quote = call("estimate_generation", {"modelId": model["id"], "parameters": parameters, "inputs": inputs})
         takes = item.get("takes", 1)
         if quote.get("ok") and quote.get("costUsd") is not None:
             total += quote["costUsd"] * takes
@@ -187,30 +211,29 @@ def import_files(choices):
         save_ledger(ledger)
 
 
-def run(stage_number, only=None, takes=None, confirm=False):
+def run(stage_number, only=None, takes=None, confirm=False, model_key=None):
     spec = load("spec.json")
     ledger = load("assets.json")
     stage = next(s for s in spec["stages"] if s["stage"] == stage_number)
-    models = spec["models"]
     record = load_takes()
     queued = 0
     for item in stage["items"]:
         if only and item["key"] not in only:
             continue
-        model = models[item["model"]]
-        missing = [key for key in item.get("inputs", []) if not ledger.get(key)]
+        model, parameters, pairs, prefix = request_for(item, spec, model_key)
+        missing = [key for key, _ in pairs if not ledger.get(key)]
         if missing:
             print(f"{item['key']}: waits on {', '.join(missing)}")
             continue
-        inputs = [{"assetId": ledger[key], "role": model["role"]} for key in item.get("inputs", [])]
-        settings = ", ".join(f"{k} {v}" for k, v in item["parameters"].items() if k != "prompt")
+        inputs = [{"assetId": ledger[key], "role": role} for key, role in pairs]
+        settings = ", ".join(f"{k} {v}" for k, v in parameters.items() if k != "prompt")
         revision = item.get("revision", 1)
         for take in range(1, (takes or item.get("takes", 1)) + 1):
-            name = f"take{take}" if revision == 1 else f"r{revision}-take{take}"
+            name = prefix + (f"take{take}" if revision == 1 else f"r{revision}-take{take}")
             if not confirm:
-                print(f"{item['key']} {name}: {model['name']} ({settings}); {len(inputs)} inputs; prompt {len(item['parameters']['prompt'])} characters")
+                print(f"{item['key']} {name}: {model['name']} ({settings}); inputs {', '.join(f'{k} as {r}' for k, r in pairs)}; prompt {len(parameters['prompt'])} characters")
                 continue
-            started = call("queue_generation", {"modelId": model["id"], "parameters": item["parameters"], "inputs": inputs,
+            started = call("queue_generation", {"modelId": model["id"], "parameters": parameters, "inputs": inputs,
                                                 "clientRequestId": f"aurixa-reel1-{item['key']}-{name}"})
             known = record.get(item["key"], {}).get(name)
             if not known or known["generationId"] != started["generationId"]:
@@ -231,14 +254,15 @@ if __name__ == "__main__":
     parser.add_argument("target", nargs="*")
     parser.add_argument("--only", help="item keys, comma separated")
     parser.add_argument("--takes", type=int, help="takes per item (numbered from 1)")
+    parser.add_argument("--model", help="Stage 5: the clip model (clip_seedance or clip_kling)")
     parser.add_argument("--confirm", action="store_true", help="queue for real (billed)")
     args = parser.parse_args()
     if args.command == "import-plates":
         import_plates(args.target[0], set(args.only.split(",")) if args.only else None)
     elif args.command == "price":
-        price(int(args.target[0]))
+        price(int(args.target[0]), set(args.only.split(",")) if args.only else None, args.model)
     elif args.command == "run":
-        run(int(args.target[0]), set(args.only.split(",")) if args.only else None, args.takes, args.confirm)
+        run(int(args.target[0]), set(args.only.split(",")) if args.only else None, args.takes, args.confirm, args.model)
     elif args.command == "pick":
         pick(args.target)
     elif args.command == "import":
