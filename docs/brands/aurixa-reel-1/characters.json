@@ -31,6 +31,20 @@
       "v2": {
         "status": "training"
       }
+    },
+    "proof": "7989f7b9-097e-4c4e-89b6-4568e20c2cb4",
+    "proofAsset": "5da1986b-c582-4f50-bf02-b810e9f8ed3b",
+    "souls": [
+      {
+        "version": "v2",
+        "referenceId": "62b73f8e-23f6-410b-ae54-f69668c1ec58",
+        "approved": false
+      }
+    ],
+    "training_state": {
+      "status": "ready",
+      "version": "v2",
+      "error": null
     }
   },
   "JORDAN": {
@@ -59,6 +73,20 @@
       "v2": {
         "status": "training"
       }
+    },
+    "proof": "ec0c9368-49e9-4cac-8d93-df260c1ec68d",
+    "proofAsset": "04b1f2b6-9276-4d38-b0e3-346d20790a1b",
+    "souls": [
+      {
+        "version": "v2",
+        "referenceId": "c2edaa58-ec45-435f-bc5d-a761e706db67",
+        "approved": false
+      }
+    ],
+    "training_state": {
+      "status": "ready",
+      "version": "v2",
+      "error": null
     }
   },
   "JAMIE": {
@@ -85,6 +113,20 @@
       "v2": {
         "status": "training"
       }
+    },
+    "proof": "d9bd7246-5948-470c-ad79-9461302c165c",
+    "proofAsset": "3ee3632b-cf00-4df8-8305-c16f02dc18f1",
+    "souls": [
+      {
+        "version": "v2",
+        "referenceId": "2435923e-7d7f-4841-83fc-5eb6bae37213",
+        "approved": false
+      }
+    ],
+    "training_state": {
+      "status": "ready",
+      "version": "v2",
+      "error": null
     }
   },
   "PRIYA": {
@@ -113,6 +155,20 @@
       "v2": {
         "status": "training"
       }
+    },
+    "proof": "73c3d4bd-3795-4106-a752-369b4ad9c4ac",
+    "proofAsset": "b2677e7d-d703-4f8c-9ae7-0c680d4ca72d",
+    "souls": [
+      {
+        "version": "v2",
+        "referenceId": "c8d0ac92-644b-496e-934f-21f63bfa61a2",
+        "approved": false
+      }
+    ],
+    "training_state": {
+      "status": "ready",
+      "version": "v2",
+      "error": null
     }
   },
   "DANIEL": {
@@ -139,6 +195,20 @@
       "v2": {
         "status": "training"
       }
+    },
+    "proof": "7b219f21-a057-4822-99ae-c39a842d8781",
+    "proofAsset": "85dea30d-48df-4f1b-a6b9-3289a3093086",
+    "souls": [
+      {
+        "version": "v2",
+        "referenceId": "91d68eff-1680-4864-b5be-654603d0dad3",
+        "approved": false
+      }
+    ],
+    "training_state": {
+      "status": "ready",
+      "version": "v2",
+      "error": null
     }
   },
   "MIA": {
@@ -165,6 +235,12 @@
       "v2": {
         "status": "training"
       }
+    },
+    "souls": [],
+    "training_state": {
+      "status": "training",
+      "version": "v2",
+      "error": null
     }
   }
 }

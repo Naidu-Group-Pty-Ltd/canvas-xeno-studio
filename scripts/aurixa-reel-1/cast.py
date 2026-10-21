@@ -4,7 +4,8 @@ character sheet (C-*), cut into its panels, and their face in the approved frame
   python3 scripts/aurixa-reel-1/cast.py save <cache dir>      # crop, import_image, save_character
   python3 scripts/aurixa-reel-1/cast.py train [--only ALEX]   # train_soul_id (Soul 2), billed by Higgsfield
   python3 scripts/aurixa-reel-1/cast.py status                # get_character: each Soul ID's state
-  python3 scripts/aurixa-reel-1/cast.py proof [--only ALEX]   # make_soul_still: one likeness still each, billed
+  python3 scripts/aurixa-reel-1/cast.py proof [--only ALEX] [--attempt 2]   # make_soul_still: one likeness still each, billed
+  python3 scripts/aurixa-reel-1/cast.py fetch-proofs <dir>    # waits for them and downloads them
 
 The sheet is four panels in one picture (full length, three-quarter, profile, hands), so it is cut into
 its panels: a Soul ID learns from one face per image. The frames give the person in the reel's own light
@@ -131,17 +132,43 @@ def status():
     save_record(record)
 
 
-def proof(only=None):
+def proof(only=None, attempt=1):
+    """One likeness still each; a failed one is made again with --attempt 2 (its own request key)."""
     record = load_record()
     for who, entry in record.items():
         if only and who not in only:
             continue
         result = studio.call("make_soul_still", {"characterId": entry["characterId"], "scene": PROOF_SCENE,
                                                  "aspectRatio": "3:4", "version": SOUL_VERSION,
-                                                 "clientRequestId": f"aurixa-cast-proof-{who.lower()}-1"})
+                                                 "clientRequestId": f"aurixa-cast-proof-{who.lower()}-{attempt}"})
         entry["proof"] = result.get("generationId") or result.get("id")
         save_record(record)
         print(f"{who}: likeness still {entry['proof']}")
+
+
+def fetch_proofs(folder, only=None):
+    """Waits for each likeness still and downloads it to <folder>/proof-<WHO>.png."""
+    import time
+    record = load_record()
+    for who, entry in record.items():
+        if (only and who not in only) or not entry.get("proof"):
+            continue
+        for _ in range(90):
+            generation = studio.call("get_generation", {"generationId": entry["proof"]})
+            if generation.get("status") in studio.SETTLED:
+                break
+            time.sleep(10)
+        files = generation.get("outputs") or []
+        if generation.get("status") != "completed" or not files:
+            print(f"{who}: likeness still {generation.get('status')}")
+            continue
+        asset_id = files[0]["id"] if isinstance(files[0], dict) else files[0]
+        path = Path(folder) / f"proof-{who}.png"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        urllib.request.urlretrieve(studio.call("get_asset", {"assetId": asset_id})["url"], path)
+        entry["proofAsset"] = asset_id
+        save_record(record)
+        print(f"{who}: likeness still {path}")
 
 
 if __name__ == "__main__":
@@ -154,4 +181,6 @@ if __name__ == "__main__":
     elif command == "status":
         status()
     elif command == "proof":
-        proof(only)
+        proof(only, int(sys.argv[sys.argv.index("--attempt") + 1]) if "--attempt" in sys.argv else 1)
+    elif command == "fetch-proofs":
+        fetch_proofs(sys.argv[2], only)
