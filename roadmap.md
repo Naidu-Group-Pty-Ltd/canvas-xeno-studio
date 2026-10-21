@@ -1,6 +1,7 @@
 # Roadmap
 
 ## Avatar Studio V1
+
 - [x] Database, private storage, server logic, recovery hookup, 9 pages, Creative/Avatar switcher
 - [x] Security check: provider secrets unreachable by members; recovery/webhook endpoints reject unauthorised callers
 - [ ] Signed-in end-to-end test — blocked: no user account exists yet (user must sign up in preview)
@@ -9,6 +10,7 @@
 - [ ] Custom-brain live personas — needs a separate realtime orchestrator service (not deployed)
 
 ## Presenter videos (from the Aurixa "Janice presents" findings)
+
 - [x] Voiceover placement: a clip measured on the frame is no longer pushed a frame late; a confident SyncNet lip lead is taken out when the clip is laid
 - [x] Every clip from one still (anchor mode, the default for voiced runs), up to three clips made at once
 - [x] B-roll cutaways: lines ticked in Create get no presenter clip and a placeholder in the Editor, each with a 0.5 s lead-in
@@ -30,6 +32,7 @@
 - [ ] Lip-sync post-process: blocked. Higgsfield's catalog has no video-to-video lip-sync model (its video-edit models take audio only as a loose reference, and Seedance replaced the voice in the bake-off), and HeyGen belongs to Avatar Studio, which Creative Studio must not share provider code with. Revisit when a model that re-syncs an existing video's mouth to given audio is offered
 
 ## Soul IDs, brand design systems and the Supercomputer agent
+
 - [x] Soul ID studio: a Soul ID per Soul model, trained on a checked set (the AI checks each image and the set as a whole), training packs for characters who exist only as AI images, likeness proofs scored and approved by a person, and Soul IDs trained elsewhere taken in
 - [x] Soul IDs in every workflow: long-video openings painted from the character's Soul ID, Create start frames from a Soul ID, the Supercomputer, and the studio API (list_characters, get_character, train_soul_id, make_soul_still)
 - [x] Brand design systems: a brand read from its website or its guidelines (PDF, Word, PowerPoint) into a palette with roles, typefaces (Google fonts installed for titles), imagery, voice and rules, reviewed and kept as a brand kit on the Brand page
@@ -40,7 +43,16 @@
 - [x] The ANTHROPIC_API_KEY backend secret that turns the agent on (already set for Katana)
 - [x] Signed-in test of the agent against Claude and Higgsfield on the live app: five of five checks passed after the fixes it found (#36, #37)
 
+## Brand design systems from code
+
+- [x] A design system read from the brand's code (docs/brand-code-import.md): up to six GitHub repositories read together, the first the brand's own, as text and never run. It yields every colour with the tokens that name it and the file and line each is declared on, the typefaces and how each is loaded, the radius, shadow, motion, blur and gradient scales, and where the repositories disagree. It powers the Brand page's Code import (with a Code tab in the review, tokens.css and JSON downloads, and Re-read), the agent's `import_brand_code`, the studio API's `read_brand_code` and `scripts/brand/scan-repos.ts`
+- [x] Updating a kit from code takes its colours and type and keeps the kit's look, voice, rules and style references
+- [x] Apply migration 0026_brand_code_imports
+- [ ] The studio's `GITHUB_TOKEN` backend secret (a fine-grained token with Contents: read on the brand's repositories), so private repositories are read without typing a token on each import
+- [ ] Deploy: the import is on branch claude/sharp-cannon-y04iey until it is merged to main
+
 ## Brand DNA and content formulas
+
 - [x] Aurixa Systems is the studio's default brand kit, saved from its website (logo, palette, typefaces, imagery, voice and rules)
 - [x] Brand DNA (docs/brand-dna-and-formulas.md): the kind of brand (SaaS, product, personal brand or creator, UGC-led, services, local, coaching and education), who it sells to, its archetype, positioning, content pillars, buying moments, proof, distinctive assets, who fronts it, channels and goal; read by the AI on import or suggested for a kit, reviewed by a person, and carried in the brand brief
 - [x] Content formulas: 40 proven structures with timed beats, rules, guardrails, why they work and an evidence grade, built on 96 sources (platform guidance, effectiveness research, regulators and the frameworks' originators), ranked for a brand's DNA, with the content mix after Binet & Field
@@ -58,6 +70,7 @@
 - [ ] Pinterest and Snapchat guidance, and Australia's TGA and Ahpra rules for health brands' testimonials and before-and-after content
 
 ## Aurixa Reel 1 (the 47-page prompt pack)
+
 - [x] The agent reads a brief's own text, a few pages at a time (`read_brief`), and is told to whenever a brief says more than its summary; it was only ever shown the summary, cut at 8,000 characters, so it never saw a prompt pack's shots
 - [x] Briefs are analysed in full: only the first 60,000 characters were read, so the pack's summary reported pages 27–47 missing
 - [x] Drafts take `modelId` and a prompt written among the settings, and one with no model says so: before, both were dropped as "a model that is not active", and the agent fell back from GPT Image to Soul Cinema
@@ -69,7 +82,42 @@
 - [x] Reel 1 screen plates v1, typeset (scripts/aurixa-reel-1/plates.cjs): 36 plates, Block 14 phrases and the closing card
 - [x] Reel 1 loaded into Storyboards (storyboard e6f6907f-ea31-4a35-840b-a20278f11085): 15 blocks as scenes, 26 shots with their timing, frames, clip and motion prompt
 - [x] Reel 1 decisions: START YOUR FREE TRIAL on the closing card (not the kit's Book Your Free Demo), and Demo workspace on recreated screens (not Concept)
-- [ ] Uploads for Reel 1: image(9) and image(10), the six portal screenshots, the emblem and wordmark at full size; then the plates again with the real structure, P, D and emblem
-- [ ] Allow opukzrutzdcqrlmlpigs.supabase.co in the environment's network access, so a session can look at library files (references and results)
-- [ ] Re-analyse the Reel 1 brief (Brief panel → Re-analyse) once this is live
-- [ ] Reel 1 stage 1 (the property image, six character sheets, the floor plan): priced with estimate_generation, run on approval
+- [x] Reel 1 plates v2 (scripts/aurixa-reel-1/portals.cjs): 41 plates, the portal ones built on the Solicitor, Accountant, Finance, Client and Builder / Developer screenshots; five plates split into before and after, and the storyboard's shots list them
+- [ ] Uploads for Reel 1: image(9) and image(10), the Command Center screenshot, the emblem and wordmark at full size; then the plates again with P, D and the emblem, imported as v2 (the 31 v1 imports, and the five whose plates were split, can then be deleted from the library)
+- [x] Allow opukzrutzdcqrlmlpigs.supabase.co in the environment's network access, so a session can look at library files (references and results)
+- [x] #44 merged and published; the three API operations answer on the live app (31 operations)
+- [x] Reel 1's 36 plates (v1) imported into the library with import_image; their ids are in docs/brands/aurixa-reel-1/assets.json
+- [ ] Re-analyse the Reel 1 brief (Brief panel → Re-analyse)
+- [x] Reel 1 stage 1 made (Marketing Studio 2.5 Sunburst, `studio.py run 1 --confirm`): three property images, three sheets per person, two floor plans, all completed and none blocked; the cast in their mid-to-late 20s, and the four women told apart by heritage, complexion, face and hair (their sheets revision 2, 12 more takes). Every take is in docs/brands/aurixa-reel-1/takes.json
+- [x] Reel 1 stage 1 approved (`studio.py pick`, into assets.json): P take1, D take1, Alex r2-take2, Jordan take3, Jamie r2-take1, Priya r2-take3, Daniel take1, Mia r3-take1 (her sheet's revision 3 makes her more glamorous)
+- [x] Reel 1 stage 2, the three sets that need no uploads: S-HOME, S-OFFICE and S-SITE, two takes each, all completed (recommended: S-HOME take1, S-OFFICE take2, S-SITE take2)
+- [x] Reel 1 console world, made in place of the pack's image(9) and image(10), which can't be found: CW-9 (wide view) and CW-10 (doorway view), three takes each on Sunburst's image edit from two Aurixa brand images cropped to their rooms and Daniel's site office (S-SITE take2, approved)
+- [x] Reel 1 picks: CW-9 take1, CW-10 take1, S-HOME take1, S-OFFICE take2, S-SITE take2; the Sydney views stay
+- [x] Reel 1 stage 2, the seven Aurixa-world sets from the console world: two takes each, all completed (recommended: take1 of each)
+- [x] Reel 1 set picks: S-ALEX, S-MEETING, S-JAMIE, S-CLIENT, S-MIA, S-PRIYA and S-REVEAL, take1 of each
+- [x] Reel 1: Jordan and Daniel look professional (their sheets' revision 2, six takes); Jordan r2-take3 and Daniel r2-take3 are picked
+- [x] Reel 1 plates re-rendered with the approved P and D (the emblem a marked placeholder until its file comes)
+- [x] Reel 1 F-01A-in (the only frame with no screen): two takes, take1 picked
+- [x] Reel 1: option 1 chosen (the frames carry their screen plates); the supplied logo gives the emblem and wordmark; 16 final plates imported, the 31 stale v1 plate ids cleared
+- [x] Reel 1 stage 4, the 19 frames that don't depend on the Command Center: made and picked (blocks 01, 02, 03, 05B, 06A, 12, 13), screens reproduced exactly; F-01B-in and F-03B-in re-prompted once (no person in the opening close-up; Alex not looking at the camera)
+- [x] Reel 1: the Command Centre's Reports page supplied; Alex's 11 Command Centre plates (04B, 05A, 05C, 06B, 07A, 11A-c) rebuilt on it, the other 30 unchanged
+- [x] Reel 1 stage 4, the other 23 frames: made and picked in dependency order (04A to 11A); F-04A-in, F-04A-out and F-06B-in re-prompted once (the doorway frame at the mullion's place and a colleague unlike Jordan; the door frame close in the foreground for the concealed cut; the Aurixa Agent button kept on screen). All 42 frames are in the ledger
+- [x] Reel 1 quality check (docs/brands/aurixa-reel-1/QC.md): the portal plates set in the portals' own fonts (Selawik for Segoe UI, Playfair Display Medium, Inconsolata for Consolas), the trial and closing cards rebuilt on the supplied logo, the 12A-b plan fitted; frame defects listed
+- [x] Reel 1: the four further Command Centre pages supplied (Generated Reports, an investment report, the agent, Overview) and its plates rebuilt on them; the 13 frames they and the fonts changed screen-swapped and picked
+- [x] Reel 1: the other portals' pages built from the products' code at the client's direction (Finance Decisions, My property team, the accountant's Requests, the solicitor's matter, the Builders Network's Stock List, the report's PDF); their 16 frames screen-swapped, made again after the click, or (08B) reframed so the display fits
+- [x] Reel 1's cast saved as studio characters (Alex, Jordan, Jamie, Priya, Daniel, Mia) with Soul IDs on Soul 2, trained on the approved assets alone: each sheet cut into its panels and each person's clear faces cut from the approved frames (scripts/aurixa-reel-1/cast.py; ids in characters.json); a likeness still each
+- [x] Reel 1: training packs for Jamie, Daniel and Mia (the studio's own: 8 photos each from the sheet), the good ones added to their training photos (7, 5 and 7)
+- [x] Reel 1: Jamie's Soul ID trained again on 12 images (sheet, frames and her pack), closer to her sheet than the first; all six Soul IDs in use approved in the studio (likeness sheet: docs/brands/aurixa-reel-1/soul-ids.jpg)
+- [x] Reel 1: Daniel's and Mia's Soul IDs trained again on their packs (10 and 12 images) once Higgsfield was topped up, closer to their sheets, and approved
+- [x] Reel 1 stage 5, clips: one take on Cinema Studio 4.0 (the client's choice) of 15 of the 24, checked frame by frame (QC.md), and the reel laid out in the Editor as a draft (scripts/aurixa-reel-1/edit.py; its id in edit.json), the 9 not made held by their frames
+- [x] ~~Reel 1: the 9 clips Higgsfield refused for its balance~~ Not needed: the client rejected the generated clips (21 October 2026) and asked for a reel about the system itself; the live-action edition stops here
+
+## Aurixa Reel 1, system edition (screens, workflows, deliverables and brand graphics)
+
+- [x] The content brief, extending brief 848af668 (docs/brands/aurixa-reel-1/system-edition: BRIEF.md and brief.json, written by scripts/aurixa-reel-1/system_edition.py): 29 continuous compositions on the master voiceover's clock, every beat computed from the measured speech and checked; no people and no generated video; the design system read from the four Aurixa repositories' code, every value with the file it is declared in; the supplied screenshots used as layouts only
+- [x] The brief in Xeno Studio, beside 848af668: creative brief 1ebd06fc-9e5f-5d7b-b7b6-be9a9a86bef0 (27 pages, its summary in the studio's brief shape, `analysis.extends` naming the pack), written with `system_edition.py --studio-sql`
+- [ ] The client's three decisions in the brief: the sound under the voiceover, real product footage, the opening palette
+- [x] The graphics kit's stylesheet (docs/brands/aurixa-reel-1/system-edition/aurixa-reel.css), written by the studio's code scanner from the four repositories (`scripts/aurixa-reel-1/reel_css.ts`): 58 custom properties, each with the repository, file and line it is declared on. The 35 roles that name code all hold the brief's value, and the token sheet (`aurixa-reel-tokens.png`) draws every one
+- [ ] The six pages still to build (NEW-INBOX, NEW-NOTIFICATIONS, NEW-MESSAGE-HUB, NEW-CLIENT-REPORTS, NEW-DASHBOARDS, NEW-REPORT-PAGES)
+- [ ] Style frames (one per block), then the animatic, then the renders and the edit
+- [ ] The studio records no price for metered GPT Image runs: Higgsfield's result carries none, so a run's cost and the balance countdown miss them (the Console's balance is the only record)

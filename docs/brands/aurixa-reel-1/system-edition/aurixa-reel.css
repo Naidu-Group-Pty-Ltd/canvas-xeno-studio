@@ -1,0 +1,111 @@
+/*
+ * Aurixa Reel 1 · system edition · the graphics kit's tokens
+ *
+ * Written by scripts/aurixa-reel-1/reel_css.ts with Xeno Studio's code scanner
+ * (src/lib/brand/scan-code.ts) from the code of:
+ *   Naidu-Group-Pty-Ltd/aurixa-systems @ fb9ecba1eb20
+ *   Naidu-Group-Pty-Ltd/aurixa-builders @ 16d237026d3f
+ *   Naidu-Group-Pty-Ltd/npc-client-dashboard @ 73bde4cdb1b1
+ *   Naidu-Group-Pty-Ltd/aurixa-mission-control @ df7f45f745a6
+ * Each value is the code's own, with the repository, file and line it is declared on.
+ * 35 of 37 roles hold the brief's value; 2 name no code.
+ * Never edited by hand: scan again when the brand's code changes.
+ */
+
+:root {
+  /* ground */
+  --reel-ground: #040B16; /* --color-base-950 · aurixa-systems src/index.css:7 */
+  /* surface */
+  --reel-surface: #10233D; /* --color-marketing-panel · aurixa-systems src/index.css:28 */
+  /* surface-raised */
+  --reel-surface-raised: #0B162C; /* --color-base-900 · aurixa-systems src/index.css:8 */
+  /* glass */
+  --reel-glass: hsl(220 60% 11% / 0.55); /* --glass-fill (dark) · aurixa-builders src/styles/tokens.css:463; written hsl(var(--card) / 0.55) */
+  --reel-glass-blur: 16px; /* --glass-blur (dark) · aurixa-builders src/styles/tokens.css:385 */
+  /* sheen */
+  --reel-sheen: linear-gradient(160deg, hsl(0 0% 100% / 0.08) 0%, hsl(0 0% 100% / 0) 46%, hsl(184 100% 35% / 0.06) 100%); /* --glass-sheen (dark) · aurixa-builders src/styles/tokens.css:476; written linear-gradient( 160deg, var(--glass-specular) 0%, hsl(0 0% 100% / 0) 46%, hsl(var(--primary) / 0.06) 100% ) */
+  /* border */
+  --reel-border: hsl(0 0% 100% / 0.10); /* --glass-stroke (dark) · aurixa-builders src/styles/tokens.css:470 */
+  /* radius-window */
+  --reel-radius-window: 1.25rem; /* --radius-xl · npc-client-dashboard src/styles/tokens.css:305; the same in aurixa-builders */
+  /* radius-card */
+  --reel-radius-card: 0.75rem; /* --radius-lg · npc-client-dashboard src/styles/tokens.css:304; the same in aurixa-builders */
+  /* shadow-window */
+  --reel-shadow-window: 0 28px 70px -24px hsl(0 0% 0% / 0.78), 0 8px 22px -12px hsl(0 0% 0% / 0.50); /* --glass-shadow-lg (dark) · aurixa-builders src/styles/tokens.css:486 */
+  /* shadow-document */
+  --reel-shadow-document: 0 24px 48px -12px hsl(0 0% 0% / 0.65), 0 8px 16px -8px hsl(0 0% 0% / 0.45); /* --elevation-4 (dark) · npc-client-dashboard src/styles/tokens.css:373; the same in aurixa-builders */
+  /* blur */
+  --reel-blur: 28px; /* --glass-blur-lg · aurixa-builders src/styles/tokens.css:386 */
+  /* pointer */
+  --reel-pointer: #FFFFFF; /* --color-text-primary · aurixa-systems src/index.css:22 */
+  --reel-pointer-edge: #040B16; /* --color-base-950 · aurixa-systems src/index.css:7 */
+  /* ease-move */
+  --reel-ease-move: cubic-bezier(0.2, 0, 0, 1); /* --motion-ease-emphasized · npc-client-dashboard src/styles/tokens.css:299; the same in aurixa-builders */
+  /* ease-settle */
+  --reel-ease-settle: cubic-bezier(0.22, 1, 0.36, 1); /* --motion-ease-out · npc-client-dashboard src/styles/tokens.css:298; the same in aurixa-builders */
+  /* press-ring */
+  --reel-press-ring: #5edde8; /* :where(a, button, input, textarea, select, summary, [tabindex]:not([tabindex="-1"])):focus-visible · aurixa-systems src/index.css:107 */
+  --reel-press-ring-outline: 2px solid #5edde8; /* aurixa-systems src/index.css:107 */
+  --reel-press-ring-outline-offset: 2px; /* aurixa-systems src/index.css:108 */
+  /* motion-press */
+  --reel-motion-press: 320ms; /* --motion-slow · npc-client-dashboard src/styles/tokens.css:297; the same in aurixa-builders */
+  /* gold */
+  --reel-gold: #C89B3C; /* --color-prism-magenta · aurixa-systems src/index.css:18 */
+  /* gold-ink */
+  --reel-gold-ink: #d7b35f; /* written out 102× in aurixa-systems src/index.css, never a token; first in .skip-link:focus-visible (line 216) */
+  /* hairline */
+  --reel-hairline: #c89b3c; /* .compliance-eyebrow>span · aurixa-systems src/index.css:295 */
+  --reel-hairline-width: 2.8rem; /* aurixa-systems src/index.css:295 */
+  --reel-hairline-height: 1px; /* aurixa-systems src/index.css:295 */
+  /* glow-gold */
+  --reel-glow-gold: 0 0 14px #d7b35f; /* .compliance-traveller · aurixa-systems src/index.css:319 */
+  /* traveller */
+  --reel-traveller: #f5d17a; /* .compliance-traveller · aurixa-systems src/index.css:319 */
+  --reel-traveller-width: 6px; /* aurixa-systems src/index.css:319 */
+  --reel-traveller-height: 6px; /* aurixa-systems src/index.css:319 */
+  --reel-traveller-border-radius: 50%; /* aurixa-systems src/index.css:319 */
+  --reel-traveller-box-shadow: 0 0 14px #d7b35f; /* aurixa-systems src/index.css:319 */
+  /* link-line */
+  --reel-link-line: linear-gradient(transparent,#5edde8 20%,#c89b3c 80%,transparent); /* .framework-rail · aurixa-systems src/index.css:323 */
+  --reel-link-line-width: 1px; /* aurixa-systems src/index.css:323 */
+  /* dot-field */
+  --reel-dot-field: radial-gradient(rgba(94,221,232,.2) .7px,transparent .7px); /* .framework-visual::before · aurixa-systems src/index.css:322 */
+  --reel-dot-field-background-size: 22px 22px; /* aurixa-systems src/index.css:322 */
+  --reel-dot-field-opacity: .25; /* aurixa-systems src/index.css:322 */
+  /* corners */
+  --reel-corners: 1px solid #5edde8; /* .compliance-corners::before · aurixa-systems src/index.css:317 */
+  --reel-corners-width: 1rem; /* aurixa-systems src/index.css:316 */
+  --reel-corners-height: 1rem; /* aurixa-systems src/index.css:316 */
+  --reel-corners-border-left: 1px solid #5edde8; /* aurixa-systems src/index.css:317 */
+  --reel-corners-border-right: 1px solid #d7b35f; /* aurixa-systems src/index.css:318 */
+  --reel-corners-border-bottom: 1px solid #d7b35f; /* aurixa-systems src/index.css:318 */
+  /* mono */
+  --reel-mono: 700 .625rem/1.5 ui-monospace,monospace; /* .compliance-eyebrow · aurixa-systems src/index.css:294 */
+  --reel-mono-letter-spacing: .28em; /* aurixa-systems src/index.css:294 */
+  --reel-mono-text-transform: uppercase; /* aurixa-systems src/index.css:294 */
+  --reel-mono-color: #d7b35f; /* aurixa-systems src/index.css:294 */
+  /* sans */
+  --reel-sans: "Inter", system-ui, sans-serif; /* --font-sans · aurixa-systems src/index.css:35 */
+  /* display */
+  --reel-display: "Playfair Display", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif; /* --font-display · aurixa-systems src/index.css:36 */
+  /* ink */
+  --reel-ink: #FFFFFF; /* --color-text-primary · aurixa-systems src/index.css:22 */
+  /* ink-muted */
+  --reel-ink-muted: #B7C1D0; /* --color-marketing-muted · aurixa-systems src/index.css:31 */
+  /* teal-builders */
+  --reel-teal-builders: hsl(184 100% 35%); /* --primary (dark) · aurixa-builders src/styles/tokens.css:177; written 184 100% 35% */
+  /* paper */
+  --reel-paper: hsl(44 70% 95%); /* --aurixa-ivory · npc-client-dashboard src/styles/tokens.css:150; written 44 70% 95% */
+  /* before-paper */
+  --reel-before-paper: #F3F4F6; /* --color-chrome-100 · aurixa-systems src/index.css:11 */
+  /* before-surface */
+  --reel-before-surface: #FFFFFF; /* plain white: today's tools, in no brand's colour */
+  /* before-border */
+  --reel-before-border: #D1D5DB; /* --color-chrome-300 · aurixa-systems src/index.css:12 */
+  /* before-ink */
+  --reel-before-ink: #374151; /* --color-chrome-700 · aurixa-systems src/index.css:14 */
+  /* before-ink-muted */
+  --reel-before-ink-muted: #6B7280; /* --color-chrome-500 · aurixa-systems src/index.css:13 */
+  /* before-type */
+  --reel-before-type: "Selawik", system-ui, sans-serif; /* the system face, set as the plates set it (Selawik, the open Segoe UI) */
+}

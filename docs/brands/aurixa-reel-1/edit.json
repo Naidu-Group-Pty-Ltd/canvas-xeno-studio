@@ -1,0 +1,27 @@
+{
+  "sequenceId": "cf59b57a-5d33-44df-90dc-c7ad66152a0b",
+  "version": 2,
+  "title": "Aurixa Systems \u00b7 Reel 1 \u00b7 draft (cinema-take1, Cinema Studio 4.0) \u00b7 9 clips to come",
+  "take": "cinema-take1",
+  "stand_ins": ["V-09A", "V-09B", "V-10A", "V-10B", "V-11A", "V-12A", "V-12B", "V-13A", "V-15A"],
+  "adjust": {
+    "V-03A": {
+      "start": 0.0,
+      "speed": 0.88,
+      "why": "the screen's card turns from Floor plan received to Floor plan confirmed at 3.0 s, which no frame asks for; the shot plays its first 2.93 s a little slower, which a nearly still shot doesn't show"
+    },
+    "V-03B": {
+      "start": 1.0,
+      "why": "the message becomes a document at 3.83 s, which no frame asks for; the shot ends at 3.6 s"
+    },
+    "V-05B": {
+      "start": 0.25,
+      "why": "Jamie clicks at 0.54 s, before the middle of the take; the shot starts just before the click"
+    },
+    "V-06B": {
+      "start": 2.1,
+      "why": "the Aurixa Agent opens at 6.6 s rather than on the first click, so 06B and 07A sit as late in the take as it allows and 07A carries 2.4 s of the agent"
+    }
+  },
+  "nudges": {}
+}

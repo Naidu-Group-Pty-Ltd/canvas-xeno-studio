@@ -122,10 +122,12 @@ export interface BrandDesign {
   avoid: string | null;
 }
 
-/** Where a design system was imported from. */
+/** Where a design system was imported from: a website, a guidelines document, or the brand's code. */
 export interface BrandSource {
-  kind: "url" | "document";
+  kind: "url" | "document" | "repos";
+  /** The page read, or the brand's own repository (for code). */
   url: string | null;
+  /** The document's name, or the repositories read (for code). */
   title: string | null;
   importId: string | null;
   importedAt: string | null;
@@ -272,7 +274,7 @@ export function isEmptyDesign(design: BrandDesign): boolean {
 
 export function sourceOf(value: unknown): BrandSource | null {
   const item = record(value);
-  const kind = oneOf(["url", "document"] as const, item["kind"]);
+  const kind = oneOf(["url", "document", "repos"] as const, item["kind"]);
   if (!kind) return null;
   return {
     kind,

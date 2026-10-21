@@ -1,7 +1,8 @@
 // Typesets Reel 1's screen plates, overlays and end card (docs/brands/aurixa-reel-1, stage 3) and
-// renders them to PNG. v1: the portal structure follows the pack's reference map, because the six
-// screenshots aren't in the library yet; P, D and the emblem are placeholders until their files
-// are given. Run: node scripts/aurixa-reel-1/plates.cjs <outDir> [assetsDir with P.png, D.png, emblem.png]
+// renders them to PNG. v2: the portals are built on the supplied portal screenshots (./portals.cjs);
+// the Command Center follows the same family until its screenshot is supplied. P, D and the emblem
+// are placeholders until their files are given.
+// Run: node scripts/aurixa-reel-1/plates.cjs <outDir> [assetsDir with P.png, D.png, emblem.png]
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
@@ -28,26 +29,61 @@ const asset = (name) => {
 const P = asset("P.png");
 const D = asset("D.png");
 const EMBLEM = asset("emblem.png");
+const WORDMARK = asset("wordmark.png");
+// The supplied logo itself (its glow, rings, skyline and lettering), for the trial and closing cards.
+const LOGO = asset("logo-art.png");
 
-/** Playfair Display from Google Fonts, kept in the temp folder (Inter is a system font). */
-async function playfair(weight) {
-  const file = path.join(os.tmpdir(), `playfair-${weight}.ttf`);
+/** A Google font as a data URL, kept in the temp folder (Inter is a system font). */
+async function googleFont(family, weight) {
+  const file = path.join(os.tmpdir(), `${family.replace(/ /g, "-").toLowerCase()}-${weight}.ttf`);
   if (!fs.existsSync(file)) {
     const sheet = await (
-      await fetch(`https://fonts.googleapis.com/css2?family=Playfair+Display:wght@${weight}`, {
-        headers: { "user-agent": "Mozilla/5.0 Chrome/120" },
-      })
+      await fetch(
+        `https://fonts.googleapis.com/css2?family=${family.replace(/ /g, "+")}:wght@${weight}`,
+        { headers: { "user-agent": "Mozilla/5.0 Chrome/120" } },
+      )
     ).text();
     const url = /url\((https:[^)]+)\)/.exec(sheet)?.[1];
-    if (!url) throw new Error("Playfair Display couldn't be found on Google Fonts");
+    if (!url) throw new Error(`${family} couldn't be found on Google Fonts`);
     fs.writeFileSync(file, Buffer.from(await (await fetch(url)).arrayBuffer()));
   }
   return dataUrl(file, "font/ttf");
 }
 
-const css = (FONT600, FONT700) => `
-@font-face { font-family: "Playfair Display"; font-weight: 600; src: url("${FONT600}") format("truetype"); }
-@font-face { font-family: "Playfair Display"; font-weight: 700; src: url("${FONT700}") format("truetype"); }
+// The portals' own fonts: they set the system stack, so the supplied (Windows) screenshots show Segoe UI,
+// drawn here in Selawik (its open stand-in, built by ./selawik.py into the assets folder); their code face
+// falls to Consolas, drawn in Inconsolata; and their brand serif is Playfair Display Medium alone (its
+// bold is the browser's, as in the product), named Aurixa Display so the editorial plates keep their
+// own Playfair weights. The website, the trial card and the end card set Inter (a system font here).
+const FONTS = [
+  ["Playfair Display", [600, 700]],
+  ["Playfair Display", [500], "Aurixa Display"],
+  ["Inconsolata", [400, 700]],
+];
+const LOCAL_FONTS = [["Selawik", [400, 600, 700]]];
+async function fontFaces() {
+  const faces = [];
+  for (const [family, weights, as = family] of FONTS)
+    for (const weight of weights)
+      faces.push(
+        `@font-face { font-family: "${as}"; font-weight: ${weight}; src: url("${await googleFont(family, weight)}") format("truetype"); }`,
+      );
+  for (const [family, weights] of LOCAL_FONTS)
+    for (const weight of weights) {
+      const file = ASSETS && path.join(ASSETS, `${family}-${weight}.ttf`);
+      if (!file || !fs.existsSync(file))
+        throw new Error(
+          `${family}-${weight}.ttf isn't in the assets folder: build it with selawik.py`,
+        );
+      faces.push(
+        `@font-face { font-family: "${family}"; font-weight: ${weight}; src: url("${dataUrl(file, "font/ttf")}") format("truetype"); }`,
+      );
+    }
+  return faces.join("\n");
+}
+
+const css = (faces) => `
+${faces}
 :root { --navy:#0A192F; --deep:#040B16; --panel:#10233D; --panel2:#15304f; --gold:#C89B3C; --gold2:#D7B35F; --teal:#00A8B5;
   --blue:#1238E8; --white:#FFFFFF; --muted:#B7C1D0; --line:rgba(183,193,208,.16); }
 * { box-sizing:border-box; margin:0; padding:0; }
@@ -59,7 +95,7 @@ html, body { width:100%; height:100%; background:transparent; font-family:Inter,
 .brand { display:flex; align-items:center; gap:16px; }
 .emblem { width:58px; height:58px; flex:none; border:2px dashed var(--gold2); border-radius:8px; display:grid; place-items:center;
   color:var(--gold2); font-weight:700; letter-spacing:.02em; background-size:contain; background-repeat:no-repeat; background-position:center; }
-.emblem.real { border:none; }
+.emblem.real { border:none; background-size:contain; background-position:center; background-repeat:no-repeat; }
 .wm { color:var(--gold2); font-weight:700; letter-spacing:.32em; font-size:22px; line-height:1.15; }
 .wm small { display:block; font-size:12px; letter-spacing:.62em; color:var(--muted); font-weight:600; }
 .sublabel { color:var(--teal); font-size:13px; letter-spacing:.24em; font-weight:700; margin-top:-18px; }
@@ -156,6 +192,11 @@ const emblem = (size = 58) =>
   EMBLEM
     ? `<div class="emblem real" style="width:${size}px;height:${size}px;background-image:url('${EMBLEM}')"></div>`
     : `<div class="emblem" style="width:${size}px;height:${size}px;font-size:${Math.max(8, Math.round(size / 7))}px">EMBLEM</div>`;
+/** The logo's own AURIXA SYSTEMS wordmark at a width, or the typeset one (its sizes in px) until the file is given. */
+const wordmark = (width, [big, small, track = ".3em", smallTrack = ".62em", gap = 0]) =>
+  WORDMARK
+    ? `<img src="${WORDMARK}" style="width:${width}px;height:auto;display:block" alt="AURIXA SYSTEMS">`
+    : `<div class="wm" style="font-size:${big}px;letter-spacing:${track};text-align:center">AURIXA<small style="font-size:${small}px;letter-spacing:${smallTrack};margin-top:${gap}px">SYSTEMS</small></div>`;
 
 function shell({ secondary = "", groups, top = "", body, teal = false, grid = false }) {
   const nav = groups
@@ -248,6 +289,26 @@ const ccReports = (selected) =>
     <div class="card"><div class="kicker">Property type</div><h3>Land Only</h3><p>A vacant lot</p></div>
   </div>${selected ? ctxCard(false) : ""}`,
   );
+
+/** The supplied logo, whole: screened onto the card so its black ground becomes the card's own. */
+const logoArt = (width, style = "") =>
+  LOGO
+    ? `<img src="${LOGO}" alt="AURIXA SYSTEMS" style="width:${width}px;height:auto;display:block;mix-blend-mode:screen;
+        -webkit-mask-image:radial-gradient(ellipse 50% 50% at 50% 50%, #000 62%, transparent 100%);${style}">`
+    : `${emblem(Math.round(width / 5))}${wordmark(Math.round(width / 2), [64, 24])}`;
+
+// The campaign's trial card (10B, 11A): the logo as supplied, the offer, and the saturated-blue CTA,
+// set in the website's Inter and in the closing card's capitals. Pressed, the button sinks and takes a gold edge.
+const trialCard = (
+  pressed,
+) => `<div class="screen" style="background:radial-gradient(ellipse 60% 70% at 50% 42%, #0b1a33, #050b16 62%, #000 100%);
+    display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:40px;font-family:Inter, sans-serif">
+    ${logoArt(1010)}
+    <div style="margin-top:-6px;font-size:30px;font-weight:700;letter-spacing:.34em;color:var(--teal);padding-left:.34em">14-DAY FREE TRIAL</div>
+    <div style="position:relative;margin-top:34px;font-size:32px;font-weight:800;letter-spacing:.14em;padding:24px 52px 24px calc(52px + .14em);border-radius:14px;color:#fff;
+      background:${pressed ? "#0d2bb5" : "var(--blue)"};box-shadow:${pressed ? "inset 0 4px 12px rgba(0,0,0,.5), 0 0 0 4px rgba(215,179,95,.7)" : "0 0 0 2px rgba(0,168,181,.55), 0 10px 40px rgba(18,56,232,.45)"}">
+      START YOUR FREE TRIAL${onButton()}</div>
+  </div>`;
 
 const generic = (wins) => `<div class="screen generic">${wins}</div>`;
 const win = (x, y, w, h, title, inner) =>
@@ -371,7 +432,7 @@ const PLATES = {
     size: [1600, 520],
     transparent: true,
     html: `<div class="screen" style="display:flex;align-items:center;justify-content:center;gap:48px">${emblem(260)}
-      <div class="wm" style="font-size:96px;letter-spacing:.3em">AURIXA<small style="font-size:40px;letter-spacing:.66em;margin-top:10px">SYSTEMS</small></div></div>`,
+      ${wordmark(760, [96, 40, ".3em", ".66em", 10])}</div>`,
   },
 
   // ---- Command Center
@@ -437,20 +498,8 @@ const PLATES = {
         <div class="done" style="font-size:24px">✓ Draft saved</div></div></div>`,
     ),
   },
-  "PL-11A-a": {
-    size: [1920, 1080],
-    html: `<div class="screen aurixa" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:34px;background:radial-gradient(ellipse at 50% 40%, #13305a, #0A192F 60%, #040B16)">
-      ${emblem(170)}<div class="wm" style="font-size:64px;text-align:center">AURIXA<small style="font-size:24px">SYSTEMS</small></div>
-      <div class="eyebrow" style="font-size:30px;letter-spacing:.3em;color:var(--teal)">14-DAY FREE TRIAL</div>
-      <div class="btn blue" style="position:relative;font-size:38px;padding:24px 54px;border-radius:16px">Start your free trial${onButton()}</div></div>`,
-  },
-  "PL-11A-b": {
-    size: [1920, 1080],
-    html: `<div class="screen aurixa" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:34px;background:radial-gradient(ellipse at 50% 40%, #13305a, #0A192F 60%, #040B16)">
-      ${emblem(170)}<div class="wm" style="font-size:64px;text-align:center">AURIXA<small style="font-size:24px">SYSTEMS</small></div>
-      <div class="eyebrow" style="font-size:30px;letter-spacing:.3em;color:var(--teal)">14-DAY FREE TRIAL</div>
-      <div class="btn blue" style="position:relative;font-size:38px;padding:24px 54px;border-radius:16px;background:#0d2bb5;box-shadow:inset 0 3px 10px rgba(0,0,0,.45), 0 0 0 4px rgba(215,179,95,.6)">Start your free trial${onButton()}</div></div>`,
-  },
+  "PL-11A-a": { size: [1920, 1080], html: trialCard(false) },
+  "PL-11A-b": { size: [1920, 1080], html: trialCard(true) },
   "PL-11A-c": {
     size: [1920, 1080],
     html: shell({
@@ -584,11 +633,10 @@ const PLATES = {
   "PL-15A": {
     size: [1080, 1920],
     transparent: true,
-    html: `<div class="screen"><div class="close"></div>
-      <div style="position:absolute;left:100px;right:100px;top:560px;display:flex;flex-direction:column;align-items:center;gap:40px;text-align:center">
-        ${emblem(220)}
-        <div class="wm" style="font-size:66px;letter-spacing:.3em">AURIXA<small style="font-size:24px;letter-spacing:.7em;margin-top:8px">SYSTEMS</small></div>
-        <div style="font-family:'Playfair Display',serif;font-weight:600;font-size:46px;line-height:1.25;color:#fff">The operating system for modern property professionals.</div>
+    html: `<div class="screen" style="font-family:Inter, sans-serif"><div class="close"></div>
+      <div style="position:absolute;left:0;right:0;top:600px;display:flex;flex-direction:column;align-items:center;gap:36px;text-align:center">
+        ${logoArt(1000, "margin:-40px 0 -70px")}
+        <div style="font-family:'Playfair Display',serif;font-weight:600;font-size:46px;line-height:1.25;color:#fff;padding:0 100px">The operating system for modern property professionals.</div>
         <div style="height:2px;width:260px;background:linear-gradient(90deg,transparent,var(--gold2),transparent)"></div>
         <div style="font-size:34px;font-weight:800;letter-spacing:.28em;color:var(--teal)">14-DAY FREE TRIAL</div>
         <div class="btn blue" style="font-size:36px;font-weight:800;letter-spacing:.12em;padding:26px 46px;border-radius:16px;box-shadow:0 0 0 2px rgba(0,168,181,.6)">START YOUR FREE TRIAL</div>
@@ -597,14 +645,37 @@ const PLATES = {
   },
 };
 
+// v2 portals: the plates they replace (one state became two) go, the rest are overwritten.
+// The Builders Network's own mark (its public/brand/aurixa-symbol-192.webp, as PNG).
+const portals = require("./portals.cjs")({
+  P,
+  D,
+  EMBLEM,
+  MASCOT: asset("mascot.png"),
+  BN_MARK: asset("bn-mark.png"),
+});
+for (const key of ["PL-05A", "PL-05B", "PL-06A", "PL-06B", "PL-09B"]) delete PLATES[key];
+Object.assign(PLATES, portals.plates);
+
 (async () => {
-  const CSS = css(await playfair(600), await playfair(700));
+  const CSS = css(await fontFaces()) + portals.css;
   const { chromium } = playwright();
   const browser = await chromium.launch(CHROMIUM ? { executablePath: CHROMIUM } : {});
-  const page = await browser.newPage();
+  // A plate drawn at a smaller CSS size and rendered at its scale, so its type is phone-sized.
+  const pages = new Map();
+  // PLATES_ONLY=PL-09B-a,PL-12A-a renders just those, to look at a change.
+  const only = process.env.PLATES_ONLY?.split(",");
   for (const [key, plate] of Object.entries(PLATES)) {
+    if (only && !only.includes(key)) continue;
+    const scale = plate.scale ?? 1;
+    if (!pages.has(scale))
+      pages.set(scale, await (await browser.newContext({ deviceScaleFactor: scale })).newPage());
+    const page = pages.get(scale);
     const [width, height] = plate.size;
-    await page.setViewportSize({ width, height });
+    await page.setViewportSize({
+      width: Math.round(width / scale),
+      height: Math.round(height / scale),
+    });
     await page.setContent(
       `<!doctype html><html><head><meta charset="utf-8"><style>${CSS}</style></head><body>${plate.html}</body></html>`,
       { waitUntil: "load" },
@@ -616,5 +687,5 @@ const PLATES = {
     });
   }
   await browser.close();
-  console.log(Object.keys(PLATES).length, "plates →", OUT);
+  console.log(only ? only.length : Object.keys(PLATES).length, "plates →", OUT);
 })();

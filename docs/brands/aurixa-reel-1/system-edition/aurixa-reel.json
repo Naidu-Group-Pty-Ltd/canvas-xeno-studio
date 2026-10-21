@@ -1,0 +1,1247 @@
+{
+  "read": [
+    {
+      "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+      "sha": "fb9ecba1eb20a225e413a1b6a026fb7d2e026b10"
+    },
+    {
+      "repo": "Naidu-Group-Pty-Ltd/aurixa-builders",
+      "sha": "16d237026d3f6dc800eca8ff6c0b28ab6a048312"
+    },
+    {
+      "repo": "Naidu-Group-Pty-Ltd/npc-client-dashboard",
+      "sha": "73bde4cdb1b1145aaa8183866a0fdd4376022c69"
+    },
+    {
+      "repo": "Naidu-Group-Pty-Ltd/aurixa-mission-control",
+      "sha": "df7f45f745a6c2612cef894c101c24e77159b796"
+    }
+  ],
+  "roles": {
+    "ground": {
+      "brief": {
+        "token": "--color-base-950",
+        "value": "#040B16",
+        "from": "aurixa-systems `@theme`, under the body's three radials"
+      },
+      "css": [
+        {
+          "name": "--reel-ground",
+          "value": "#040B16"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 7,
+          "by": "--color-base-950",
+          "value": "#040B16",
+          "written": "#040B16"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "surface": {
+      "brief": {
+        "token": "--color-marketing-panel",
+        "value": "#10233D",
+        "from": "aurixa-systems `@theme`"
+      },
+      "css": [
+        {
+          "name": "--reel-surface",
+          "value": "#10233D"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 28,
+          "by": "--color-marketing-panel",
+          "value": "#10233D",
+          "written": "#10233D"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "surface-raised": {
+      "brief": {
+        "token": "--color-base-900",
+        "value": "#0B162C",
+        "from": "aurixa-systems `@theme`"
+      },
+      "css": [
+        {
+          "name": "--reel-surface-raised",
+          "value": "#0B162C"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 8,
+          "by": "--color-base-900",
+          "value": "#0B162C",
+          "written": "#0B162C"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "glass": {
+      "brief": {
+        "token": "--glass-fill · --glass-blur",
+        "value": "hsl(220 60% 11% / 0.55) · 16px",
+        "from": "aurixa-builders `tokens.css` (`.dark`)"
+      },
+      "css": [
+        {
+          "name": "--reel-glass",
+          "value": "hsl(220 60% 11% / 0.55)"
+        },
+        {
+          "name": "--reel-glass-blur",
+          "value": "16px"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-builders",
+          "path": "src/styles/tokens.css",
+          "line": 463,
+          "by": "--glass-fill",
+          "value": "hsl(220 60% 11% / 0.55)",
+          "written": "hsl(var(--card) / 0.55)"
+        },
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-builders",
+          "path": "src/styles/tokens.css",
+          "line": 385,
+          "by": "--glass-blur",
+          "value": "16px",
+          "written": "16px"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "sheen": {
+      "brief": {
+        "token": "--glass-sheen",
+        "value": "linear-gradient(160deg, var(--glass-specular) 0%, hsl(0 0% 100% / 0) 46%, hsl(var(--primary) / 0.06) 100%)",
+        "from": "aurixa-builders `tokens.css` (`.dark`)"
+      },
+      "css": [
+        {
+          "name": "--reel-sheen",
+          "value": "linear-gradient(160deg, hsl(0 0% 100% / 0.08) 0%, hsl(0 0% 100% / 0) 46%, hsl(184 100% 35% / 0.06) 100%)"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-builders",
+          "path": "src/styles/tokens.css",
+          "line": 476,
+          "by": "--glass-sheen",
+          "value": "linear-gradient( 160deg, hsl(0 0% 100% / 0.08) 0%, hsl(0 0% 100% / 0) 46%, hsl(184 100% 35% / 0.06) 100% )",
+          "written": "linear-gradient( 160deg, var(--glass-specular) 0%, hsl(0 0% 100% / 0) 46%, hsl(var(--primary) / 0.06) 100% )"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "border": {
+      "brief": {
+        "token": "--glass-stroke",
+        "value": "hsl(0 0% 100% / 0.10)",
+        "from": "aurixa-builders `tokens.css` (`.dark`)"
+      },
+      "css": [
+        {
+          "name": "--reel-border",
+          "value": "hsl(0 0% 100% / 0.10)"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-builders",
+          "path": "src/styles/tokens.css",
+          "line": 470,
+          "by": "--glass-stroke",
+          "value": "hsl(0 0% 100% / 0.10)",
+          "written": "hsl(0 0% 100% / 0.10)"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "radius-window": {
+      "brief": {
+        "token": "--radius-xl",
+        "value": "1.25rem",
+        "from": "npc-client-dashboard and aurixa-builders `src/styles/tokens.css`"
+      },
+      "css": [
+        {
+          "name": "--reel-radius-window",
+          "value": "1.25rem"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/npc-client-dashboard",
+          "path": "src/styles/tokens.css",
+          "line": 305,
+          "by": "--radius-xl",
+          "value": "1.25rem",
+          "written": "1.25rem"
+        },
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-builders",
+          "path": "src/styles/tokens.css",
+          "line": 297,
+          "by": "--radius-xl",
+          "value": "1.25rem",
+          "written": "1.25rem"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "radius-card": {
+      "brief": {
+        "token": "--radius-lg",
+        "value": "0.75rem",
+        "from": "npc-client-dashboard and aurixa-builders `src/styles/tokens.css`"
+      },
+      "css": [
+        {
+          "name": "--reel-radius-card",
+          "value": "0.75rem"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/npc-client-dashboard",
+          "path": "src/styles/tokens.css",
+          "line": 304,
+          "by": "--radius-lg",
+          "value": "0.75rem",
+          "written": "0.75rem"
+        },
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-builders",
+          "path": "src/styles/tokens.css",
+          "line": 296,
+          "by": "--radius-lg",
+          "value": "0.75rem",
+          "written": "0.75rem"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "shadow-window": {
+      "brief": {
+        "token": "--glass-shadow-lg",
+        "value": "0 28px 70px -24px hsl(0 0% 0% / 0.78), 0 8px 22px -12px hsl(0 0% 0% / 0.50)",
+        "from": "aurixa-builders `tokens.css` (`.dark`)"
+      },
+      "css": [
+        {
+          "name": "--reel-shadow-window",
+          "value": "0 28px 70px -24px hsl(0 0% 0% / 0.78), 0 8px 22px -12px hsl(0 0% 0% / 0.50)"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-builders",
+          "path": "src/styles/tokens.css",
+          "line": 486,
+          "by": "--glass-shadow-lg",
+          "value": "0 28px 70px -24px hsl(0 0% 0% / 0.78), 0 8px 22px -12px hsl(0 0% 0% / 0.50)",
+          "written": "0 28px 70px -24px hsl(0 0% 0% / 0.78), 0 8px 22px -12px hsl(0 0% 0% / 0.50)"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "shadow-document": {
+      "brief": {
+        "token": "--elevation-4",
+        "value": "0 24px 48px -12px hsl(0 0% 0% / 0.65), 0 8px 16px -8px hsl(0 0% 0% / 0.45)",
+        "from": "npc-client-dashboard and aurixa-builders `src/styles/tokens.css` (`.dark`)"
+      },
+      "css": [
+        {
+          "name": "--reel-shadow-document",
+          "value": "0 24px 48px -12px hsl(0 0% 0% / 0.65), 0 8px 16px -8px hsl(0 0% 0% / 0.45)"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/npc-client-dashboard",
+          "path": "src/styles/tokens.css",
+          "line": 373,
+          "by": "--elevation-4",
+          "value": "0 24px 48px -12px hsl(0 0% 0% / 0.65), 0 8px 16px -8px hsl(0 0% 0% / 0.45)",
+          "written": "0 24px 48px -12px hsl(0 0% 0% / 0.65), 0 8px 16px -8px hsl(0 0% 0% / 0.45)"
+        },
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-builders",
+          "path": "src/styles/tokens.css",
+          "line": 350,
+          "by": "--elevation-4",
+          "value": "0 24px 48px -12px hsl(0 0% 0% / 0.65), 0 8px 16px -8px hsl(0 0% 0% / 0.45)",
+          "written": "0 24px 48px -12px hsl(0 0% 0% / 0.65), 0 8px 16px -8px hsl(0 0% 0% / 0.45)"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "blur": {
+      "brief": {
+        "token": "--glass-blur-lg",
+        "value": "28px",
+        "from": "aurixa-builders `tokens.css`"
+      },
+      "css": [
+        {
+          "name": "--reel-blur",
+          "value": "28px"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-builders",
+          "path": "src/styles/tokens.css",
+          "line": 386,
+          "by": "--glass-blur-lg",
+          "value": "28px",
+          "written": "28px"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "pointer": {
+      "brief": {
+        "token": "--color-text-primary, edged in --color-base-950",
+        "value": "#FFFFFF / #040B16",
+        "from": "aurixa-systems `@theme`"
+      },
+      "css": [
+        {
+          "name": "--reel-pointer",
+          "value": "#FFFFFF"
+        },
+        {
+          "name": "--reel-pointer-edge",
+          "value": "#040B16"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 22,
+          "by": "--color-text-primary",
+          "value": "#FFFFFF",
+          "written": "#FFFFFF"
+        },
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 7,
+          "by": "--color-base-950",
+          "value": "#040B16",
+          "written": "#040B16"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "ease-move": {
+      "brief": {
+        "token": "--motion-ease-emphasized",
+        "value": "cubic-bezier(0.2, 0, 0, 1)",
+        "from": "npc-client-dashboard and aurixa-builders `src/styles/tokens.css`"
+      },
+      "css": [
+        {
+          "name": "--reel-ease-move",
+          "value": "cubic-bezier(0.2, 0, 0, 1)"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/npc-client-dashboard",
+          "path": "src/styles/tokens.css",
+          "line": 299,
+          "by": "--motion-ease-emphasized",
+          "value": "cubic-bezier(0.2, 0, 0, 1)",
+          "written": "cubic-bezier(0.2, 0, 0, 1)"
+        },
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-builders",
+          "path": "src/styles/tokens.css",
+          "line": 291,
+          "by": "--motion-ease-emphasized",
+          "value": "cubic-bezier(0.2, 0, 0, 1)",
+          "written": "cubic-bezier(0.2, 0, 0, 1)"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "ease-settle": {
+      "brief": {
+        "token": "--motion-ease-out",
+        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "from": "npc-client-dashboard and aurixa-builders `src/styles/tokens.css`"
+      },
+      "css": [
+        {
+          "name": "--reel-ease-settle",
+          "value": "cubic-bezier(0.22, 1, 0.36, 1)"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/npc-client-dashboard",
+          "path": "src/styles/tokens.css",
+          "line": 298,
+          "by": "--motion-ease-out",
+          "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+          "written": "cubic-bezier(0.22, 1, 0.36, 1)"
+        },
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-builders",
+          "path": "src/styles/tokens.css",
+          "line": 290,
+          "by": "--motion-ease-out",
+          "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+          "written": "cubic-bezier(0.22, 1, 0.36, 1)"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "press-ring": {
+      "brief": {
+        "token": ":focus-visible outline",
+        "value": "#5EDDE8",
+        "from": "aurixa-systems `src/index.css`; the Builders Network's dark `--ring`"
+      },
+      "css": [
+        {
+          "name": "--reel-press-ring",
+          "value": "#5edde8"
+        },
+        {
+          "name": "--reel-press-ring-outline",
+          "value": "2px solid #5edde8"
+        },
+        {
+          "name": "--reel-press-ring-outline-offset",
+          "value": "2px"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 107,
+          "by": ":where(a, button, input, textarea, select, summary, [tabindex]:not([tabindex=\"-1\"])):focus-visible { outline }",
+          "value": "2px solid #5edde8",
+          "written": "2px solid #5edde8",
+          "property": "outline"
+        },
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 108,
+          "by": ":where(a, button, input, textarea, select, summary, [tabindex]:not([tabindex=\"-1\"])):focus-visible { outline-offset }",
+          "value": "2px",
+          "written": "2px",
+          "property": "outline-offset"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "motion-press": {
+      "brief": {
+        "token": "--motion-slow",
+        "value": "320ms",
+        "from": "npc-client-dashboard and aurixa-builders `src/styles/tokens.css`"
+      },
+      "css": [
+        {
+          "name": "--reel-motion-press",
+          "value": "320ms"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/npc-client-dashboard",
+          "path": "src/styles/tokens.css",
+          "line": 297,
+          "by": "--motion-slow",
+          "value": "320ms",
+          "written": "320ms"
+        },
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-builders",
+          "path": "src/styles/tokens.css",
+          "line": 289,
+          "by": "--motion-slow",
+          "value": "320ms",
+          "written": "320ms"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "gold": {
+      "brief": {
+        "token": "--color-prism-magenta",
+        "value": "#C89B3C",
+        "from": "aurixa-systems `@theme`"
+      },
+      "css": [
+        {
+          "name": "--reel-gold",
+          "value": "#C89B3C"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 18,
+          "by": "--color-prism-magenta",
+          "value": "#C89B3C",
+          "written": "#C89B3C"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "gold-ink": {
+      "brief": {
+        "token": "none",
+        "value": "#D7B35F",
+        "from": "aurixa-systems `src/index.css` (`.compliance-eyebrow` and 101 other uses)"
+      },
+      "css": [
+        {
+          "name": "--reel-gold-ink",
+          "value": "#d7b35f"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 216,
+          "by": ".skip-link:focus-visible { outline }",
+          "value": "#d7b35f",
+          "written": "2px solid #d7b35f"
+        }
+      ],
+      "agrees": true,
+      "note": "102 uses"
+    },
+    "hairline": {
+      "brief": {
+        "token": ".compliance-eyebrow > span",
+        "value": "1px · #c89b3c",
+        "from": "aurixa-systems `src/index.css`"
+      },
+      "css": [
+        {
+          "name": "--reel-hairline",
+          "value": "#c89b3c"
+        },
+        {
+          "name": "--reel-hairline-width",
+          "value": "2.8rem"
+        },
+        {
+          "name": "--reel-hairline-height",
+          "value": "1px"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 295,
+          "by": ".compliance-eyebrow>span { background }",
+          "value": "#c89b3c",
+          "written": "#c89b3c",
+          "property": "background"
+        },
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 295,
+          "by": ".compliance-eyebrow>span { width }",
+          "value": "2.8rem",
+          "written": "2.8rem",
+          "property": "width"
+        },
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 295,
+          "by": ".compliance-eyebrow>span { height }",
+          "value": "1px",
+          "written": "1px",
+          "property": "height"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "glow-gold": {
+      "brief": {
+        "token": ".compliance-traveller box-shadow",
+        "value": "0 0 14px #d7b35f",
+        "from": "aurixa-systems `src/index.css`"
+      },
+      "css": [
+        {
+          "name": "--reel-glow-gold",
+          "value": "0 0 14px #d7b35f"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 319,
+          "by": ".compliance-traveller { box-shadow }",
+          "value": "0 0 14px #d7b35f",
+          "written": "0 0 14px #d7b35f",
+          "property": "box-shadow"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "traveller": {
+      "brief": {
+        "token": ".compliance-traveller",
+        "value": "6px · #f5d17a · 0 0 14px #d7b35f",
+        "from": "aurixa-systems `src/index.css`"
+      },
+      "css": [
+        {
+          "name": "--reel-traveller",
+          "value": "#f5d17a"
+        },
+        {
+          "name": "--reel-traveller-width",
+          "value": "6px"
+        },
+        {
+          "name": "--reel-traveller-height",
+          "value": "6px"
+        },
+        {
+          "name": "--reel-traveller-border-radius",
+          "value": "50%"
+        },
+        {
+          "name": "--reel-traveller-box-shadow",
+          "value": "0 0 14px #d7b35f"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 319,
+          "by": ".compliance-traveller { background }",
+          "value": "#f5d17a",
+          "written": "#f5d17a",
+          "property": "background"
+        },
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 319,
+          "by": ".compliance-traveller { width }",
+          "value": "6px",
+          "written": "6px",
+          "property": "width"
+        },
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 319,
+          "by": ".compliance-traveller { height }",
+          "value": "6px",
+          "written": "6px",
+          "property": "height"
+        },
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 319,
+          "by": ".compliance-traveller { border-radius }",
+          "value": "50%",
+          "written": "50%",
+          "property": "border-radius"
+        },
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 319,
+          "by": ".compliance-traveller { box-shadow }",
+          "value": "0 0 14px #d7b35f",
+          "written": "0 0 14px #d7b35f",
+          "property": "box-shadow"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "link-line": {
+      "brief": {
+        "token": ".framework-rail",
+        "value": "1px · linear-gradient(transparent, #5edde8 20%, #c89b3c 80%, transparent)",
+        "from": "aurixa-systems `src/index.css`"
+      },
+      "css": [
+        {
+          "name": "--reel-link-line",
+          "value": "linear-gradient(transparent,#5edde8 20%,#c89b3c 80%,transparent)"
+        },
+        {
+          "name": "--reel-link-line-width",
+          "value": "1px"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 323,
+          "by": ".framework-rail { background }",
+          "value": "linear-gradient(transparent,#5edde8 20%,#c89b3c 80%,transparent)",
+          "written": "linear-gradient(transparent,#5edde8 20%,#c89b3c 80%,transparent)",
+          "property": "background"
+        },
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 323,
+          "by": ".framework-rail { width }",
+          "value": "1px",
+          "written": "1px",
+          "property": "width"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "dot-field": {
+      "brief": {
+        "token": ".framework-visual::before",
+        "value": "radial-gradient(rgba(94,221,232,.2) .7px, transparent .7px) · 22px",
+        "from": "aurixa-systems `src/index.css`"
+      },
+      "css": [
+        {
+          "name": "--reel-dot-field",
+          "value": "radial-gradient(rgba(94,221,232,.2) .7px,transparent .7px)"
+        },
+        {
+          "name": "--reel-dot-field-background-size",
+          "value": "22px 22px"
+        },
+        {
+          "name": "--reel-dot-field-opacity",
+          "value": ".25"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 322,
+          "by": ".framework-visual::before { background-image }",
+          "value": "radial-gradient(rgba(94,221,232,.2) .7px,transparent .7px)",
+          "written": "radial-gradient(rgba(94,221,232,.2) .7px,transparent .7px)",
+          "property": "background-image"
+        },
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 322,
+          "by": ".framework-visual::before { background-size }",
+          "value": "22px 22px",
+          "written": "22px 22px",
+          "property": "background-size"
+        },
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 322,
+          "by": ".framework-visual::before { opacity }",
+          "value": ".25",
+          "written": ".25",
+          "property": "opacity"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "corners": {
+      "brief": {
+        "token": ".compliance-corners",
+        "value": "1rem · 1px · #5edde8 top left · #d7b35f bottom right",
+        "from": "aurixa-systems `src/index.css`"
+      },
+      "css": [
+        {
+          "name": "--reel-corners",
+          "value": "1px solid #5edde8"
+        },
+        {
+          "name": "--reel-corners-width",
+          "value": "1rem"
+        },
+        {
+          "name": "--reel-corners-height",
+          "value": "1rem"
+        },
+        {
+          "name": "--reel-corners-border-left",
+          "value": "1px solid #5edde8"
+        },
+        {
+          "name": "--reel-corners-border-right",
+          "value": "1px solid #d7b35f"
+        },
+        {
+          "name": "--reel-corners-border-bottom",
+          "value": "1px solid #d7b35f"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 317,
+          "by": ".compliance-corners::before { border-top }",
+          "value": "1px solid #5edde8",
+          "written": "1px solid #5edde8",
+          "property": "border-top"
+        },
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 316,
+          "by": ".compliance-corners::before,.compliance-corners::after { width }",
+          "value": "1rem",
+          "written": "1rem",
+          "property": "width"
+        },
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 316,
+          "by": ".compliance-corners::before,.compliance-corners::after { height }",
+          "value": "1rem",
+          "written": "1rem",
+          "property": "height"
+        },
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 317,
+          "by": ".compliance-corners::before { border-left }",
+          "value": "1px solid #5edde8",
+          "written": "1px solid #5edde8",
+          "property": "border-left"
+        },
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 318,
+          "by": ".compliance-corners::after { border-right }",
+          "value": "1px solid #d7b35f",
+          "written": "1px solid #d7b35f",
+          "property": "border-right"
+        },
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 318,
+          "by": ".compliance-corners::after { border-bottom }",
+          "value": "1px solid #d7b35f",
+          "written": "1px solid #d7b35f",
+          "property": "border-bottom"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "mono": {
+      "brief": {
+        "token": ".compliance-eyebrow",
+        "value": "700 .625rem/1.5 ui-monospace · .28em · uppercase",
+        "from": "aurixa-systems `src/index.css`, set in Inconsolata"
+      },
+      "css": [
+        {
+          "name": "--reel-mono",
+          "value": "700 .625rem/1.5 ui-monospace,monospace"
+        },
+        {
+          "name": "--reel-mono-letter-spacing",
+          "value": ".28em"
+        },
+        {
+          "name": "--reel-mono-text-transform",
+          "value": "uppercase"
+        },
+        {
+          "name": "--reel-mono-color",
+          "value": "#d7b35f"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 294,
+          "by": ".compliance-eyebrow { font }",
+          "value": "700 .625rem/1.5 ui-monospace,monospace",
+          "written": "700 .625rem/1.5 ui-monospace,monospace",
+          "property": "font"
+        },
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 294,
+          "by": ".compliance-eyebrow { letter-spacing }",
+          "value": ".28em",
+          "written": ".28em",
+          "property": "letter-spacing"
+        },
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 294,
+          "by": ".compliance-eyebrow { text-transform }",
+          "value": "uppercase",
+          "written": "uppercase",
+          "property": "text-transform"
+        },
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 294,
+          "by": ".compliance-eyebrow { color }",
+          "value": "#d7b35f",
+          "written": "#d7b35f",
+          "property": "color"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "sans": {
+      "brief": {
+        "token": "--font-sans",
+        "value": "\"Inter\", system-ui, sans-serif",
+        "from": "aurixa-systems `@theme`"
+      },
+      "css": [
+        {
+          "name": "--reel-sans",
+          "value": "\"Inter\", system-ui, sans-serif"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 35,
+          "by": "--font-sans",
+          "value": "\"Inter\", system-ui, sans-serif",
+          "written": "\"Inter\", system-ui, sans-serif"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "display": {
+      "brief": {
+        "token": "--font-display",
+        "value": "\"Playfair Display\", ui-serif, Georgia, …",
+        "from": "aurixa-systems `@theme`"
+      },
+      "css": [
+        {
+          "name": "--reel-display",
+          "value": "\"Playfair Display\", ui-serif, Georgia, Cambria, \"Times New Roman\", Times, serif"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 36,
+          "by": "--font-display",
+          "value": "\"Playfair Display\", ui-serif, Georgia, Cambria, \"Times New Roman\", Times, serif",
+          "written": "\"Playfair Display\", ui-serif, Georgia, Cambria, \"Times New Roman\", Times, serif"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "ink": {
+      "brief": {
+        "token": "--color-text-primary",
+        "value": "#FFFFFF",
+        "from": "aurixa-systems `@theme`"
+      },
+      "css": [
+        {
+          "name": "--reel-ink",
+          "value": "#FFFFFF"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 22,
+          "by": "--color-text-primary",
+          "value": "#FFFFFF",
+          "written": "#FFFFFF"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "ink-muted": {
+      "brief": {
+        "token": "--color-marketing-muted",
+        "value": "#B7C1D0",
+        "from": "aurixa-systems `@theme`"
+      },
+      "css": [
+        {
+          "name": "--reel-ink-muted",
+          "value": "#B7C1D0"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 31,
+          "by": "--color-marketing-muted",
+          "value": "#B7C1D0",
+          "written": "#B7C1D0"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "teal-builders": {
+      "brief": {
+        "token": "--primary (.dark)",
+        "value": "184 100% 35%",
+        "from": "aurixa-builders `tokens.css`"
+      },
+      "css": [
+        {
+          "name": "--reel-teal-builders",
+          "value": "hsl(184 100% 35%)"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-builders",
+          "path": "src/styles/tokens.css",
+          "line": 177,
+          "by": "--primary",
+          "value": "184 100% 35%",
+          "written": "184 100% 35%"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "paper": {
+      "brief": {
+        "token": "--aurixa-ivory",
+        "value": "44 70% 95%",
+        "from": "npc-client-dashboard `tokens.css`"
+      },
+      "css": [
+        {
+          "name": "--reel-paper",
+          "value": "hsl(44 70% 95%)"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/npc-client-dashboard",
+          "path": "src/styles/tokens.css",
+          "line": 150,
+          "by": "--aurixa-ivory",
+          "value": "44 70% 95%",
+          "written": "44 70% 95%"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "before-paper": {
+      "brief": {
+        "token": "--color-chrome-100",
+        "value": "#F3F4F6",
+        "from": "aurixa-systems `@theme`"
+      },
+      "css": [
+        {
+          "name": "--reel-before-paper",
+          "value": "#F3F4F6"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 11,
+          "by": "--color-chrome-100",
+          "value": "#F3F4F6",
+          "written": "#F3F4F6"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "before-surface": {
+      "brief": {
+        "token": "none",
+        "value": "#FFFFFF",
+        "from": "white"
+      },
+      "css": [
+        {
+          "name": "--reel-before-surface",
+          "value": "#FFFFFF"
+        }
+      ],
+      "declared": [],
+      "agrees": null,
+      "note": "plain white: today's tools, in no brand's colour"
+    },
+    "before-border": {
+      "brief": {
+        "token": "--color-chrome-300",
+        "value": "#D1D5DB",
+        "from": "aurixa-systems `@theme`"
+      },
+      "css": [
+        {
+          "name": "--reel-before-border",
+          "value": "#D1D5DB"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 12,
+          "by": "--color-chrome-300",
+          "value": "#D1D5DB",
+          "written": "#D1D5DB"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "before-ink": {
+      "brief": {
+        "token": "--color-chrome-700",
+        "value": "#374151",
+        "from": "aurixa-systems `@theme`"
+      },
+      "css": [
+        {
+          "name": "--reel-before-ink",
+          "value": "#374151"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 14,
+          "by": "--color-chrome-700",
+          "value": "#374151",
+          "written": "#374151"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "before-ink-muted": {
+      "brief": {
+        "token": "--color-chrome-500",
+        "value": "#6B7280",
+        "from": "aurixa-systems `@theme`"
+      },
+      "css": [
+        {
+          "name": "--reel-before-ink-muted",
+          "value": "#6B7280"
+        }
+      ],
+      "declared": [
+        {
+          "repo": "Naidu-Group-Pty-Ltd/aurixa-systems",
+          "path": "src/index.css",
+          "line": 13,
+          "by": "--color-chrome-500",
+          "value": "#6B7280",
+          "written": "#6B7280"
+        }
+      ],
+      "agrees": true,
+      "note": null
+    },
+    "before-type": {
+      "brief": {
+        "token": "system-ui",
+        "value": "Selawik",
+        "from": "the system face, as the plates set it"
+      },
+      "css": [
+        {
+          "name": "--reel-before-type",
+          "value": "\"Selawik\", system-ui, sans-serif"
+        }
+      ],
+      "declared": [],
+      "agrees": null,
+      "note": "the system face, set as the plates set it (Selawik, the open Segoe UI)"
+    }
+  }
+}

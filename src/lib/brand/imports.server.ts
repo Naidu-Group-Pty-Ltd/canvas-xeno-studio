@@ -1,6 +1,7 @@
 /**
- * Brand imports: a brand's design system read from its website or its
- * guidelines into a proposal a person reviews, then kept as a brand kit.
+ * Brand imports: a brand's design system read from its website, its
+ * guidelines or its code into a proposal a person reviews, then kept as a
+ * brand kit.
  *
  * A website is scanned here: its page (title, words, logo, pictures, fonts
  * loaded), its stylesheets (every colour and how much it is used, the
@@ -8,8 +9,12 @@
  * pictures are staged under generation-inputs/brand-imports/<import id>/ so
  * the review can show them and the AI can look at them. A document is read
  * in the browser (its text and page pictures, uploaded there first) and its
- * colour codes are found here. Then the AI reads it all (./synthesis.server)
- * and the brand's Google fonts are installed (./fonts.server).
+ * colour codes are found here. A brand's code is read from its GitHub
+ * repositories (./scan-repos, ./github-source): its tokens, typefaces and
+ * scales, each with the file and line it is declared on, kept with the
+ * import as its `code`, and its logo files staged like a website's. Then the
+ * AI reads it all (./synthesis.server) and the brand's Google fonts are
+ * installed (./fonts.server).
  *
  * Each step is recorded on the import (its stage), so the review can follow.
  */
@@ -27,6 +32,7 @@ import {
   sanitizeSvg,
 } from "./fetch.server";
 import { installGoogleFont, isSystemFamily } from "./fonts.server";
+import { githubSource } from "./github-source";
 import { writeBrandKit } from "./kits.server";
 import type { KitInput } from "./kit-input";
 import {
@@ -41,8 +47,19 @@ import {
   type ScanSignals,
   type StagedImage,
 } from "./proposal";
+import {
+  CODE_SCAN_LIMITS,
+  codeBrandName,
+  codeEvidenceText,
+  codeScanSignals,
+  repoLabel,
+  repoUrl,
+  type CodeDesignSystem,
+  type RepoRef,
+} from "./scan-code";
 import { scanCss } from "./scan-css";
 import { scanHtml } from "./scan-html";
+import { scanRepos } from "./scan-repos";
 import { readDesignSystem, type DesignEvidence, type ReadTypeface } from "./synthesis.server";
 
 export const IMPORT_BUCKET = "generation-inputs";
@@ -59,14 +76,26 @@ const isMissingTable = (error: { code?: string; message?: string } | null) =>
 
 const NEEDS_MIGRATION =
   "Importing a design system needs a database update (migration 0021_brand_design_systems). Ask an admin to apply it.";
+const NEEDS_CODE_MIGRATION =
+  "Importing a design system from code needs a database update (migration 0026_brand_code_imports). Ask an admin to apply it.";
+
+/** A check the table refuses (an import kind it doesn't know yet), or a column it doesn't have. */
+const isRefusedKind = (error: { code?: string; message?: string } | null) =>
+  !!error && error.code === "23514" && /kind/i.test(error.message ?? "");
+const isMissingColumn = (error: { code?: string; message?: string } | null, column: string) =>
+  !!error &&
+  (error.code === "42703" || error.code === "PGRST204") &&
+  (error.message ?? "").includes(column);
 
 /* ------------------------------------------------------------------ */
 /* The import's record                                                 */
 /* ------------------------------------------------------------------ */
 
+export type ImportKind = "url" | "document" | "repos";
+
 export async function createImport(input: {
   userId: string;
-  kind: "url" | "document";
+  kind: ImportKind;
   sourceUrl: string | null;
   sourceTitle: string | null;
 }): Promise<string> {
@@ -77,12 +106,14 @@ export async function createImport(input: {
       source_url: input.sourceUrl,
       source_title: input.sourceTitle?.slice(0, 300) ?? null,
       status: "scanning",
-      stage: input.kind === "url" ? "Starting" : "Uploading the pages",
+      stage: input.kind === "document" ? "Uploading the pages" : "Starting",
       created_by: input.userId,
     })
     .select("id")
     .single();
   if (isMissingTable(error)) throw new AppError("INVALID_PARAMETERS", NEEDS_MIGRATION);
+  if (input.kind === "repos" && isRefusedKind(error))
+    throw new AppError("INVALID_PARAMETERS", NEEDS_CODE_MIGRATION);
   if (error || !data) throw new AppError("UNKNOWN", error?.message ?? "The import couldn't start");
   return data.id;
 }
@@ -142,16 +173,31 @@ async function stageFromUrl(
     headers: { accept: "image/avif,image/webp,image/png,image/svg+xml,image/*;q=0.8" },
   });
   if (!fetched.ok) return null;
-  const detected = imageKind(fetched.bytes);
+  return stageBytes(importId, fetched.bytes, key, kind, url, options);
+}
+
+/**
+ * Stages a picture's bytes (a site's, or a file from a repository); null when
+ * they aren't a picture, are too small to use, or are an SVG where none is wanted.
+ */
+async function stageBytes(
+  importId: string,
+  bytes: Uint8Array,
+  key: string,
+  kind: StagedImage["kind"],
+  origin: string,
+  options: { minSide: number; svg: boolean },
+): Promise<StagedImage | null> {
+  const detected = imageKind(bytes);
   if (!detected) return null;
   if (detected.mime === "image/svg+xml") {
     if (!options.svg) return null;
-    return stageSvg(importId, decodeText(fetched.bytes), key, url);
+    return stageSvg(importId, decodeText(bytes), key, origin);
   }
   if (!RASTER.has(detected.mime)) return null;
-  const size = imageSize(fetched.bytes);
+  const size = imageSize(bytes);
   if (size && Math.min(size.width, size.height) < options.minSide) return null;
-  const path = await stage(importId, `${key}.${detected.extension}`, fetched.bytes, detected.mime);
+  const path = await stage(importId, `${key}.${detected.extension}`, bytes, detected.mime);
   return path
     ? {
         key,
@@ -161,8 +207,8 @@ async function stageFromUrl(
         mime: detected.mime,
         width: size?.width ?? null,
         height: size?.height ?? null,
-        origin: url,
-        bytes: fetched.bytes.byteLength,
+        origin,
+        bytes: bytes.byteLength,
       }
     : null;
 }
@@ -313,6 +359,8 @@ async function finish(
   signals: ScanSignals,
   notes: string[],
   staged: StagedImage[],
+  /** What a code import read, kept with it (needs migration 0026). */
+  code: CodeDesignSystem | null = null,
 ): Promise<void> {
   await setStage(importId, "Reading the brand");
   const read = await readDesignSystem(evidence);
@@ -346,17 +394,29 @@ async function finish(
       notes: notes.slice(0, PROPOSAL_LIMITS.notes),
     });
   }
-  const { error } = await db
+  const values = {
+    status: "ready",
+    stage: null,
+    error: null,
+    signals: signals as never,
+    proposal: proposal as never,
+    staged: staged.map((image) => ({ key: image.key, path: image.path })) as never,
+  };
+  let { error } = await db
     .from("brand_imports")
-    .update({
-      status: "ready",
-      stage: null,
-      error: null,
-      signals: signals as never,
-      proposal: proposal as never,
-      staged: staged.map((image) => ({ key: image.key, path: image.path })) as never,
-    })
+    .update(code ? { ...values, code: code as never } : values)
     .eq("id", importId);
+  // Without migration 0026 the import is still ready to keep; only its tokens aren't.
+  if (code && isMissingColumn(error, "code")) {
+    proposal.notes = [
+      ...proposal.notes,
+      "The tokens read from the code weren't kept (migration 0026_brand_code_imports isn't applied).",
+    ].slice(0, PROPOSAL_LIMITS.notes);
+    ({ error } = await db
+      .from("brand_imports")
+      .update({ ...values, proposal: proposal as never })
+      .eq("id", importId));
+  }
   if (error) throw new AppError("UNKNOWN", error.message);
 }
 
@@ -587,6 +647,123 @@ async function scanWebsiteSteps(importId: string, rawUrl: string): Promise<void>
     imagery,
   };
   await finish(importId, evidence, signals, notes, staged);
+}
+
+/* ------------------------------------------------------------------ */
+/* Its code                                                            */
+/* ------------------------------------------------------------------ */
+
+/** The step the review shows while repositories are read; the repository and file follow it. */
+export const CODE_STAGE = "Reading the repositories";
+
+/**
+ * Reads a brand's design system from its GitHub repositories (the first is
+ * its own source) into a proposal. `token` reads private ones for this scan
+ * and is never kept; without one the studio's own GITHUB_TOKEN is used, if it
+ * has one. Throws (and records why) when none of them can be read.
+ */
+export async function scanRepositories(
+  importId: string,
+  refs: RepoRef[],
+  options: { token?: string | null } = {},
+): Promise<void> {
+  try {
+    await scanRepositoriesSteps(importId, refs, options.token ?? null);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "The repositories couldn't be read";
+    await failImport(importId, message);
+    throw error instanceof AppError ? error : new AppError("UNKNOWN", message);
+  }
+}
+
+async function scanRepositoriesSteps(
+  importId: string,
+  refs: RepoRef[],
+  token: string | null,
+): Promise<void> {
+  if (!refs.length) throw new AppError("INVALID_PARAMETERS", "Name at least one repository");
+  const github = githubSource({ token: token || process.env["GITHUB_TOKEN"]?.trim() || null });
+
+  // Each step as the review shows it, written in order (a row update per step).
+  let staging: Promise<void> = Promise.resolve();
+  const onStage = (detail: string) => {
+    staging = staging
+      .then(() => setStage(importId, `${CODE_STAGE}: ${detail}`.slice(0, 200)))
+      .catch(() => undefined);
+  };
+  let scanned: Awaited<ReturnType<typeof scanRepos>>;
+  try {
+    scanned = await scanRepos(refs, github, { onStage });
+  } catch (error) {
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      error instanceof Error ? error.message : "The repositories couldn't be read",
+    );
+  } finally {
+    await staging;
+  }
+  const { system, scans } = scanned;
+  const notes = [...system.notes];
+
+  await setStage(importId, "Collecting the logos");
+  // The brand's own repository's logo files first, then the others', drawn ones before pictures.
+  const logos: StagedImage[] = [];
+  // The same file kept in several repositories (a shared favicon) is offered once.
+  const seen = new Set<string>();
+  for (const scan of scans) {
+    for (const path of scan.logos) {
+      if (logos.length >= PROPOSAL_LIMITS.logos) break;
+      const bytes = await github
+        .bytes(scan.ref, scan.sha, path, CODE_SCAN_LIMITS.logoBytes)
+        .catch(() => null);
+      if (!bytes) continue;
+      const digest = Array.from(
+        new Uint8Array(await crypto.subtle.digest("SHA-256", new Uint8Array(bytes))),
+        (byte) => byte.toString(16).padStart(2, "0"),
+      ).join("");
+      if (seen.has(digest)) continue;
+      seen.add(digest);
+      const image = await stageBytes(
+        importId,
+        bytes,
+        `logo-${logos.length + 1}`,
+        "logo",
+        `${repoLabel(scan.ref)} ${path}`,
+        { minSide: 16, svg: true },
+      );
+      if (image) logos.push(image);
+    }
+  }
+  if (!logos.length)
+    notes.push("No logo file was found in the repositories: choose one from the library.");
+  // Code says what the colours and type are; the look of the brand's pictures and its voice aren't in it.
+  notes.push(
+    "Code shows the brand's colours, type and scales, not its imagery or voice: to keep those, update the kit read from its website or guidelines.",
+  );
+
+  const signals = codeScanSignals(system);
+  const primary = refs[0]!;
+  const evidence: DesignEvidence = {
+    kind: "repos",
+    name: codeBrandName(system),
+    url: repoUrl(primary),
+    title: system.title,
+    description: system.description,
+    website: websiteOf(system.homepage),
+    colours: signals.colours,
+    fonts: signals.fonts,
+    googleFonts: signals.googleFonts,
+    adobeFonts: signals.adobeFonts,
+    headings: [],
+    ctas: [],
+    copy: codeEvidenceText(system),
+    profiles: [],
+    // The AI can look at pictures, not SVG: the raster logos.
+    pictures: await signedLinks(logos.filter((logo) => RASTER.has(logo.mime)).slice(0, 2)),
+    logos,
+    imagery: [],
+  };
+  await finish(importId, evidence, signals, notes, logos, system);
 }
 
 /* ------------------------------------------------------------------ */
@@ -830,7 +1007,7 @@ export async function applyImport(
     referenceAssetIds,
     design: design as unknown as Record<string, unknown>,
     source: {
-      kind: row.kind === "document" ? "document" : "url",
+      kind: row.kind === "document" ? "document" : row.kind === "repos" ? "repos" : "url",
       url: row.source_url,
       title: row.source_title,
       importId: choices.importId,

@@ -886,6 +886,77 @@ const importBrand = ownTool({
   },
 });
 
+const importBrandCode = ownTool({
+  name: "import_brand_code",
+  description:
+    "Reads a brand's design system from the code of its GitHub repositories, read together (the first is the brand's own; up to six): every colour with the tokens that name it and the file and line each is declared on, its typefaces and how they are loaded, its corner radius, shadow and motion scales, and where the repositories disagree. Code holds no pictures or voice. Private repositories need the studio's GitHub token. Takes a minute or so; the result waits on the Brand page for the person to review and keep as a brand kit.",
+  input: z.object({ repos: z.array(z.string().min(3).max(500)).min(1).max(6) }),
+  label: (input) => `Reading the code of ${text(input.repos.join(", "), 60)}`,
+  run: async (input, context) => {
+    const { createImport, scanRepositories, loadImport } = await import("../brand/imports.server");
+    const { codeSystemOf, parseRepoRef, repoLabel, repoUrl } = await import("../brand/scan-code");
+    const refs = input.repos.map((repo) => {
+      const ref = parseRepoRef(repo);
+      if (!ref)
+        throw new AppError(
+          "INVALID_PARAMETERS",
+          `“${repo}” isn't a GitHub repository (owner/name)`,
+        );
+      return ref;
+    });
+    const labels = [...new Set(refs.map(repoLabel))];
+    const importId = await createImport({
+      userId: context.userId,
+      kind: "repos",
+      sourceUrl: repoUrl(refs[0]!),
+      sourceTitle: labels.join(", "),
+    });
+    await scanRepositories(importId, refs);
+    const row = await loadImport(importId);
+    const { proposalOf } = await import("../brand/proposal");
+    const proposal = proposalOf(row?.proposal);
+    if (!proposal) throw new AppError("UNKNOWN", "The brand couldn't be read from its code");
+    const code = codeSystemOf(row?.code);
+    const where = (token: { repo: string; path: string; line: number | null }) =>
+      `${token.repo.split("/")[1]} ${token.path}${token.line ? `:${token.line}` : ""}`;
+    return {
+      content: resultText({
+        importId,
+        name: proposal.name,
+        repositories: code?.repos.map(
+          (repo) =>
+            `${repo.label}${repo.sha ? ` @ ${repo.sha.slice(0, 7)}` : ""}: ${repo.tokens} tokens`,
+        ),
+        palette: proposal.palette.map((colour) => `${colour.name} ${colour.hex} (${colour.role})`),
+        typefaces: proposal.fonts.map(
+          (font) => `${font.role}: ${font.family}${font.installed ? "" : " (not installed)"}`,
+        ),
+        colours: code?.colours.slice(0, 12).map(
+          (colour) =>
+            `${colour.hex} ${colour.name}: ${
+              colour.tokens
+                .slice(0, 2)
+                .map((token) => `${token.name} (${where(token)})`)
+                .join("; ") || "written out, not a token"
+            }`,
+        ),
+        radius: code?.scales.radius.slice(0, 6).map((token) => `${token.name}: ${token.resolved}`),
+        motion: code?.scales.motion.slice(0, 6).map((token) => `${token.name}: ${token.resolved}`),
+        notes: proposal.notes,
+        review:
+          "The person reviews it on the Brand page (its Code tab lists every token with where it is declared, and downloads them as tokens.css) and keeps it as a kit, or updates a kit's colours and type with it.",
+      }),
+      summary: `${proposal.name}: ${proposal.palette.length} colours from ${labels.length} repositor${labels.length === 1 ? "y" : "ies"}, ready to review`,
+      ui: {
+        type: "brand_import",
+        importId,
+        name: proposal.name,
+        palette: proposal.palette.map((colour) => colour.hex),
+      },
+    };
+  },
+});
+
 const estimate = ownTool({
   name: "estimate_generation",
   description:
@@ -938,6 +1009,7 @@ export function agentTools(): AgentTool[] {
       writeDocument,
       readBrief,
       importBrand,
+      importBrandCode,
       remember,
       forget,
     ];

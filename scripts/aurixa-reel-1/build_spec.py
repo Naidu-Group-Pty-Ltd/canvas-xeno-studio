@@ -40,16 +40,45 @@ MODELS = {
         "roles": {"first": "source", "last": "last_frame"},
         "seconds": [3, 15],
     },
+    # The client's choice (21 October 2026). It has no start- or end-frame input: as the studio's long videos send
+    # it (src/lib/long-video/plan.ts), the first frame is reference image 1 and the prompt says the clip starts on it,
+    # the cast's sheet views follow (named in the characters line), and the last frame is the last image, which the
+    # clip is told it ends on. The sheet's composite (four poses in one picture) is left out of a video's references.
+    "clip_cinema": {
+        "id": "67632306-fe17-46cb-8374-2e2bed1f5c04",
+        "name": "Cinema Studio 4.0",
+        "parameters": {"aspect_ratio": "9:16", "resolution": "720p", "generate_audio": False, "pacing": "single-shot"},
+        "roles": {"first": "reference", "last": "reference"},
+        "reference_frames": {
+            "opening": "<<<image_1>>> is this clip's first frame. Start exactly on it and carry the action on from there.",
+            "ending": "It ends exactly on <<<image_{n}>>>: the clip's final frame, with everyone in it looking just as they do there.",
+            "cast_views": ["front", "three_quarter", "side"],
+        },
+        "seconds": [4, 30],
+    },
 }
 STILL = {"resolution": "2k", "quality": "high", "enhance_prompt": False, "moderation": "auto"}
 
 # ------------------------------------------------------------------ shared wording
-COMMON = (
+COMMON_BASE = (
     "Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. "
     "Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. "
     "Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). "
-    "No text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
 )
+NO_TEXT = "No text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
+COMMON = COMMON_BASE + NO_TEXT
+
+
+def no_text_but(plates):
+    """The no-text line for a frame that carries plates: their images, numbered, are the only lettering."""
+    shown = " and ".join(f"image {n}" for n in plates)
+    return (f"Apart from {shown}, reproduced exactly where described, no other text, letters, numbers, logos, watermarks, "
+            "signage or interface anywhere in the image.")
+
+
+def screen_shows(n, lead="its screen"):
+    return (f"{lead} shows image {n} exactly: the whole screen plate, edge to edge inside the bezel, lying flat on the screen "
+            "at the screen's own angle and perspective, evenly lit and softly glowing, every word, number and shape sharp, legible and unchanged")
 SCREEN_NAVY = "its screen is a flat, evenly lit, softly glowing deep-navy blank panel with clean bezel edges and no content at all"
 SCREEN_LIGHT = "its screen is a flat, evenly lit, softly glowing pale grey-white blank panel with clean bezel edges and no content at all"
 
@@ -61,12 +90,12 @@ LOOK = {
 }
 
 CAST = {
-    "ALEX": "Alex Morgan, a woman in her late 30s with shoulder-length dark brown hair, a navy tailored jacket over an ivory blouse and a calm manner, exactly as in her character sheet",
-    "JORDAN": "Jordan Ellis, a man in his late 30s with short curly dark hair and a light blue open-collar shirt, exactly as in his character sheet",
-    "JAMIE": "Jamie Chen, a woman in her early 40s with a straight dark bob, a teal blouse and a navy jacket, exactly as in her character sheet",
-    "PRIYA": "Priya Shah, a woman in her 40s with tied-back dark hair, a charcoal jacket and a pale blouse, exactly as in her character sheet",
-    "DANIEL": "Daniel Reed, a man in his late 40s with short greying hair and a navy polo shirt, exactly as in his character sheet",
-    "MIA": "Mia Patel, a woman in her early 40s with dark hair, subtle thin-framed glasses and a slate-blue blouse, exactly as in her character sheet",
+    "ALEX": "Alex Morgan, a fair-skinned, lightly freckled woman of Anglo-Australian heritage in her mid-to-late 20s with grey-blue eyes and shoulder-length, softly wavy dark brown hair, a navy tailored jacket over an ivory blouse and a calm manner, exactly as in her character sheet",
+    "JORDAN": "Jordan Ellis, a well-groomed, clean-shaven man in his mid-to-late 20s with neatly trimmed short curly dark hair and a crisp, well-fitted light blue open-collar shirt, exactly as in his character sheet",
+    "JAMIE": "Jamie Chen, a petite woman of Chinese heritage in her mid-to-late 20s with a sleek, straight, jaw-length black bob and a blunt fringe, a teal blouse and a navy jacket, exactly as in her character sheet",
+    "PRIYA": "Priya Shah, a tall woman of Indian heritage in her mid-to-late 20s with warm medium-brown skin and long black hair tied back in a sleek low bun, a charcoal jacket and a pale blouse, exactly as in her character sheet",
+    "DANIEL": "Daniel Reed, a well-groomed man in his mid-to-late 20s with neatly cut short dark hair, a closely trimmed short beard and a crisp, well-fitted navy polo shirt, exactly as in his character sheet",
+    "MIA": "Mia Patel, a striking, confident woman of Indian heritage in her mid-to-late 20s with glowing deep brown skin, glossy shoulder-length black curls worn loose and subtle thin-framed round glasses, a fitted slate-blue silk blouse, exactly as in her character sheet",
 }
 
 # What each input key is, for the "image N is …" line.
@@ -79,15 +108,21 @@ REF_LABEL = {
     "C-PRIYA": "Priya Shah's character sheet",
     "C-DANIEL": "Daniel Reed's character sheet",
     "C-MIA": "Mia Patel's character sheet",
-    "UP-CONSOLE-9": "the Aurixa glass-console world reference (supplied image 9)",
-    "UP-CONSOLE-10": "the Aurixa glass-console world reference (supplied image 10)",
+    "CW-9": "the Aurixa console world, the wide view (the approved reference in place of the pack's image 9)",
+    "CW-10": "the Aurixa console world, the doorway view (the approved reference in place of the pack's image 10)",
+    "REF-LOOK-ROOM": "an Aurixa brand photograph of a navy office at night above the city (take its palette, light and mood only)",
+    "REF-LOOK-OPS": "an Aurixa brand photograph of clear glass partitions with fine gold edges and gold ceiling light lines (take its architectural detailing, materials and light)",
 }
 
 
-def refs_line(refs):
+def refs_line(refs, labels=None):
     parts = []
     for n, key in enumerate(refs, 1):
-        label = REF_LABEL.get(key)
+        label = (labels or {}).get(key) or REF_LABEL.get(key)
+        if not label and key == "PL-SIGN":
+            label = "the Aurixa sign: the approved emblem and AURIXA SYSTEMS wordmark (reproduce it exactly where described)"
+        if not label and key.startswith("PL-"):
+            label = "a typeset screen plate (reproduce it exactly where described: every word, number and shape)"
         if not label and key.startswith("S-"):
             label = f"the set: {SETS[key]['title']} (keep its room, furniture, light direction and materials)"
         if not label and key.startswith("F-"):
@@ -96,8 +131,9 @@ def refs_line(refs):
     return ("Reference images, in order: " + "; ".join(parts) + ".") if parts else ""
 
 
-def compose(refs, body, look):
-    text = " ".join(filter(None, [refs_line(refs), body, LOOK[look], COMMON]))
+def compose(refs, body, look, labels=None, plates=None):
+    common = COMMON_BASE + no_text_but(plates) if plates else COMMON
+    text = " ".join(filter(None, [refs_line(refs, labels), body, LOOK[look], common]))
     assert len(text) <= 5000, (body[:60], len(text))
     return text
 
@@ -112,13 +148,25 @@ SHEET = (
     "No text, labels, logos or watermarks. The person: "
 )
 PEOPLE = [
-    ("C-ALEX", "Alex Morgan", "Property professional and main guide", "a woman in her late 30s with shoulder-length dark brown hair, wearing a navy tailored jacket over an ivory blouse, with slim charcoal trousers and dark low-heeled shoes."),
-    ("C-JORDAN", "Jordan Ellis", "Prospective client", "a man in his late 30s with short curly dark hair, wearing a light blue open-collar shirt, with dark chinos and brown leather shoes."),
-    ("C-JAMIE", "Jamie Chen", "Finance professional", "a woman in her early 40s with a straight dark bob, wearing a teal blouse and a navy jacket, with navy trousers."),
-    ("C-PRIYA", "Priya Shah", "Solicitor", "a woman in her 40s with tied-back dark hair, wearing a charcoal jacket and a pale blouse, with charcoal trousers."),
-    ("C-DANIEL", "Daniel Reed", "Builder and developer representative", "a man in his late 40s with short greying hair, wearing a navy polo shirt, with grey work trousers and work boots."),
-    ("C-MIA", "Mia Patel", "Accountant", "a woman in her early 40s with dark hair and subtle thin-framed glasses, wearing a slate-blue blouse, with dark trousers."),
+    ("C-ALEX", "Alex Morgan", "Property professional and main guide", "a woman in her mid-to-late 20s of Anglo-Australian heritage: fair skin with light freckles across the nose, grey-blue eyes, an oval face, and shoulder-length, softly wavy dark brown hair with a side part; wearing a navy tailored jacket over an ivory blouse, with slim charcoal trousers and dark low-heeled shoes."),
+    ("C-JORDAN", "Jordan Ellis", "Prospective client", "a man in his mid-to-late 20s with neatly trimmed, short curly dark hair, clean-shaven, a polished, professional appearance and an upright, "
+                                                  "confident posture; wearing a crisp, well-fitted light blue dress shirt open at the collar (the top button only), sleeves down and "
+                                                  "buttoned at the cuffs, neatly tucked into tailored navy trousers with a brown leather belt, and polished brown leather shoes."),
+    ("C-JAMIE", "Jamie Chen", "Finance professional", "a woman in her mid-to-late 20s of Chinese heritage: light, warm-toned skin, dark brown eyes, a heart-shaped face, petite and slim, and a sleek, straight, jaw-length black bob with a blunt fringe; wearing a teal blouse and a navy jacket, with navy trousers."),
+    ("C-PRIYA", "Priya Shah", "Solicitor", "a woman in her mid-to-late 20s of Indian heritage: warm medium-brown skin, dark brown eyes, defined dark brows, a long oval face, tall and poised, and long black hair centre-parted and tied back in a sleek low bun; wearing a charcoal jacket and a pale blouse, with charcoal trousers."),
+    ("C-DANIEL", "Daniel Reed", "Builder and developer representative", "a man in his mid-to-late 20s with neatly cut short dark hair and a closely trimmed short beard, a polished, "
+                                                                     "professional appearance and an upright, confident posture; wearing a crisp, well-fitted navy polo shirt with a structured "
+                                                                     "collar, neatly tucked into tailored charcoal trousers with a dark leather belt, and clean dark brown leather boots."),
+    ("C-MIA", "Mia Patel", "Accountant", "a woman in her mid-to-late 20s of Indian heritage: glowing deep brown skin, dark brown eyes with defined lashes, groomed brows, high cheekbones, full lips with a warm natural lip colour, a striking, confident, polished look, slim and of average height, and glossy, defined shoulder-length black curls worn loose; subtle thin-framed round glasses; wearing a fitted slate-blue silk blouse with the top button open, tucked into high-waisted dark tailored trousers, and dark pointed heels."),
 ]
+# A sheet whose prompt changed after it was made: studio.py names its new takes r2-take1 and so on,
+# and the earlier takes stay in takes.json. Revision 2 tells the four women apart and makes the two men look
+# professional; Mia's revision 3 makes her more glamorous.
+REVISION = {"C-ALEX": 2, "C-JAMIE": 2, "C-PRIYA": 2, "C-MIA": 3, "C-JORDAN": 2, "C-DANIEL": 2}
+REVISION_NOTE = {
+    **dict.fromkeys(["C-ALEX", "C-JAMIE", "C-PRIYA", "C-MIA"], "Heritage, complexion, face and hair texture tell the four women apart, at the client's direction; the pack gives none."),
+    **dict.fromkeys(["C-JORDAN", "C-DANIEL"], "Groomed and tailored so he looks professional, at the client's direction; the pack's hair and top are kept."),
+}
 stage1 = [
     {
         "key": "P",
@@ -144,7 +192,9 @@ stage1 = [
             "inputs": [],
             "takes": 3,
             "used_by": role,
-            "note": "Trousers and shoes are additions so the full-length view agrees; the pack locks the upper half.",
+            "note": "Trousers and shoes are additions so the full-length view agrees; the pack locks the upper half."
+                    + (" " + REVISION_NOTE[key] if key in REVISION_NOTE else ""),
+            **({"revision": REVISION[key]} if key in REVISION else {}),
         }
         for key, name, role, line in PEOPLE
     ],
@@ -185,7 +235,7 @@ SETS = {
     "S-ALEX": {
         "title": "Alex's Aurixa glass workspace",
         "look": "aurixa",
-        "inputs": ["UP-CONSOLE-9", "UP-CONSOLE-10"],
+        "inputs": ["CW-9", "CW-10"],
         "body": "Using the architecture, materials and light of the console-world references: an empty but lived-in, full-sized professional glass workplace. "
                 "A gold-edged open doorway on the left of frame leads in; inside, a real console desk with one large monitor, keyboard, mouse and a pale paper document, "
                 "a chair turned slightly toward the monitor. Other glass workplaces softly visible beyond, warm-lit. The monitor's screen is a flat, evenly lit, "
@@ -195,7 +245,7 @@ SETS = {
     "S-MEETING": {
         "title": "Meeting table in the Aurixa world",
         "look": "aurixa",
-        "inputs": ["UP-CONSOLE-9", "UP-CONSOLE-10"],
+        "inputs": ["CW-9", "CW-10"],
         "body": "Using the architecture of the console-world references: a warm, tactile meeting corner inside a glass workplace, a timber table with two chairs side by side, "
                 "an open laptop and a physically mounted presentation display at the table's end, a closed paper report folder on the table. Blue-hour glass behind. "
                 "The display and laptop screens are flat, evenly lit, pale blank panels. No people.",
@@ -204,7 +254,7 @@ SETS = {
     "S-JAMIE": {
         "title": "Jamie's finance workplace",
         "look": "aurixa",
-        "inputs": ["UP-CONSOLE-9", "UP-CONSOLE-10"],
+        "inputs": ["CW-9", "CW-10"],
         "body": "Using the architecture of the console-world references: a believable finance workstation inside a glass workplace: a monitor, keyboard, real mouse, "
                 "a small notepad and pen beside the keyboard. Gold console edge running vertically at the right of frame. The monitor's screen is a flat, evenly lit, "
                 "softly glowing deep-navy blank panel. No people.",
@@ -213,7 +263,7 @@ SETS = {
     "S-CLIENT": {
         "title": "Jordan's client workspace (glass module)",
         "look": "aurixa",
-        "inputs": ["UP-CONSOLE-9", "UP-CONSOLE-10"],
+        "inputs": ["CW-9", "CW-10"],
         "body": "Using the architecture of the console-world references: a full-sized glass workspace furnished for a client: a desk with an open laptop and touchpad, "
                 "an adjacent framed glass presentation panel backed by opaque navy, warm lamp light. The laptop's screen is a flat, evenly lit, softly glowing "
                 "deep-navy blank panel. No people.",
@@ -222,7 +272,7 @@ SETS = {
     "S-MIA": {
         "title": "Mia's quiet accountant office",
         "look": "aurixa",
-        "inputs": ["UP-CONSOLE-9", "UP-CONSOLE-10"],
+        "inputs": ["CW-9", "CW-10"],
         "body": "Using the architecture of the console-world references: a quiet accountant's office within a glass workplace: a monitor, mouse and keyboard, "
                 "a few pale supporting documents laid beside the screen at a slight angle. The monitor's screen is a flat, evenly lit, softly glowing deep-navy blank panel. No people.",
         "used_by": ["08A"],
@@ -230,7 +280,7 @@ SETS = {
     "S-PRIYA": {
         "title": "Priya's solicitor desk (gold-framed glass module)",
         "look": "aurixa",
-        "inputs": ["UP-CONSOLE-9", "UP-CONSOLE-10"],
+        "inputs": ["CW-9", "CW-10"],
         "body": "Using the architecture of the console-world references: a professional solicitor's desk inside a gold-framed glass module, charcoal and navy depth, "
                 "a monitor with a clean bezel, a real mouse, a closed physical property folder on the desk. No courtroom props. The monitor's screen is a flat, "
                 "evenly lit, softly glowing pale blank panel. No people.",
@@ -248,14 +298,52 @@ SETS = {
     "S-REVEAL": {
         "title": "The occupied consoles (ecosystem reveal)",
         "look": "aurixa",
-        "inputs": ["UP-CONSOLE-9", "UP-CONSOLE-10"],
+        "inputs": ["CW-9", "CW-10"],
         "body": "Using the architecture of the console-world references: an open circulation area at blue hour looking across a small, believable group of two or three "
                 "occupied professional glass workplaces associated with one property, each with a warm-lit person at a softly glowing screen; distant rooms softly suggested. "
                 "A gold-framed console edge in the left foreground. Human scale; no skyline, no aerial view. All screens are flat, evenly lit blank panels.",
         "used_by": ["10A"],
     },
 }
-stage2 = []
+# The pack's image(9) and image(10) can't be found, so the console world they showed is made first, from two
+# Aurixa brand images cropped to their rooms (no screens, emblem or text) and the approved site office.
+CONSOLE_REFS = ["REF-LOOK-ROOM", "REF-LOOK-OPS", "S-SITE"]
+CONSOLE_LABELS = {"S-SITE": "Daniel's site office, an approved set in the same film (match its navy-and-teal palette, warm desk light "
+                            "and photographic finish, not its room)"}
+CONSOLE_BORROW = ("From the reference images take only palette, light, materials and detailing, not their people, furniture layout, "
+                  "screens or text.")
+CONSOLE = {
+    "CW-9": ("The Aurixa console world: the wide view",
+             "The Aurixa console world, photographed as an architectural reference: a deep-navy, double-height interior at blue hour in which "
+             "several full-sized glass workplace modules stand side by side along an open walkway, connected and visible through one another. "
+             "Each module is a real, furnished professional office enclosed in clear glass with fine gold-edged frames, slim gold mullions and an "
+             "open glass doorway: a panel-navy console desk with a monitor, a chair, a lamp and a few papers. Two or three people work quietly "
+             "inside, seen small and at a distance. Floor-to-ceiling windows beyond show a soft blue-hour city glow. Seen from human height in the "
+             "walkway, a three-quarter view down the row of modules, the nearest module's gold-edged door mullion tall at the right edge of frame. "
+             "Polished dark floor with soft reflections, fine warm gold light lines along the ceiling. " + CONSOLE_BORROW +
+             " Every monitor is a flat, evenly lit, softly glowing deep-navy blank panel."),
+    "CW-10": ("The Aurixa console world: the doorway view",
+              "One glass workplace module of the Aurixa console world, photographed as an architectural reference from the walkway, looking in "
+              "through its open glass doorway at human height. A tall, fine gold-edged door mullion stands in the left third of the foreground; "
+              "inside is a full-sized professional office: a panel-navy console desk with a wide monitor, keyboard, real mouse and a closed paper "
+              "folder, an empty chair turned toward the monitor and a warm desk lamp. Through the module's far glass wall, the next occupied module "
+              "with one person working, seen small and softly, and beyond it floor-to-ceiling windows with a blue-hour city glow. Clear glass, fine "
+              "gold edges, navy surfaces, warm light on the desk. " + CONSOLE_BORROW +
+              " The monitor is a flat, evenly lit, softly glowing deep-navy blank panel."),
+}
+stage2 = [
+    {
+        "key": key,
+        "title": title,
+        "model": "still_edit",
+        "parameters": {**STILL, "aspect_ratio": "9:16", "prompt": compose(CONSOLE_REFS, body, "aurixa", CONSOLE_LABELS)},
+        "inputs": CONSOLE_REFS,
+        "takes": 3,
+        "used_by": [k for k, v in SETS.items() if key in v["inputs"]],
+        "note": "Made in place of the pack's image(9) and image(10), which can't be found; approve one before the sets that use it.",
+    }
+    for key, (title, body) in CONSOLE.items()
+]
 for key, s in SETS.items():
     edit = bool(s["inputs"])
     stage2.append({
@@ -266,7 +354,7 @@ for key, s in SETS.items():
         "inputs": s["inputs"],
         "takes": 2,
         "used_by": s["used_by"],
-        **({"needs": "image(9) and image(10) uploaded"} if edit else {}),
+        **({"needs": "CW-9 and CW-10 approved"} if edit else {}),
     })
 
 # ------------------------------------------------------------------ stage 4 + 5: shots
@@ -274,7 +362,8 @@ def source_seconds(edit, low=4, high=15):
     return max(low, min(high, math.ceil(edit + 1.5)))
 
 QUIET = ("Silent footage: nobody talks or mouths words, no lip movement toward the camera, no music cues. "
-         "Screens stay flat blank glowing panels; no text or interface appears. No morphing of people or rooms, no flashes, "
+         "Each screen shows exactly what the first and last frames show: its text stays sharp, steady and legible and changes only once, "
+         "cleanly, at the click; no other text appears. No morphing of people or rooms, no flashes, "
          "no exposure pulses, no speed ramps; believable hands with five fingers.")
 
 SHOTS = [
@@ -287,12 +376,13 @@ SHOTS = [
                 "with the facade in the upper-middle of the frame, then hold. Leaves move gently; a trace of warm interior light. No people, no cars.",
          handoff="01A to 01B, direct property-image match: the last frame is the P image itself."),
     dict(shot="01B", block="01", cast=["JORDAN"], look="home", set="S-HOME", plates=["PL-01B-a", "PL-01B-b"],
-         first=(["P", "S-HOME"], "A tight view of Jordan's open laptop on his home desk: the laptop screen fills most of the frame and shows the property photograph (image 1) "
-                                  "in the upper-middle of the screen at the same position, crop and brightness as in image 1, with a plain pale panel beside it. "
-                                  "Only the laptop's top edge and a hint of the warm room are visible."),
-         last=(["C-JORDAN", "S-HOME", "P"], "Seated eye height, slightly right of the laptop: " + CAST["JORDAN"] + " (image 1) sits at the home desk in image 2 in a thoughtful three-quarter profile, "
-                                             "his right hand resting on the laptop's touchpad. The laptop sits in the upper-middle of the frame; its screen shows the property photograph (image 3) small at the top "
-                                             "with a plain pale card panel below it. Warm timber, a subtle gold lamp reflection."),
+         first=(["P", "S-HOME"], "A macro close-up of Jordan's open laptop screen at his home desk, with no person anywhere in the frame (Jordan is revealed later in the shot): "
+                                  "the camera is a hand's width from the screen, looking very slightly down, so the screen fills the whole frame edge to edge. It shows {screen} "
+                                  "exactly (the enquiry being written), framed so that the property photograph on it is large in the upper-middle of the frame, at the same position, "
+                                  "crop and brightness as image 1, with the message beside and below it partly in frame. Only a sliver of the laptop's top bezel and a hint of "
+                                  "the warm room at the very top edge."),
+         last=(["C-JORDAN", "S-HOME"], "Seated eye height, slightly right of the laptop: " + CAST["JORDAN"] + " (image 1) sits at the home desk in image 2 in a thoughtful three-quarter profile, "
+                                        "his right hand resting on the laptop's touchpad. The laptop sits in the upper-middle of the frame; " + SCREEN_LIGHT + ". Warm timber, a subtle gold lamp reflection."),
          motion="Begin tight on the laptop screen; ease slightly back and to the right to reveal Jordan's light blue shirt, thoughtful profile and his hand on the touchpad. "
                 "He reads once, then makes one deliberate click on the touchpad and rests. The laptop plane stays stable; the camera settles and holds.",
          handoff="01B to 02A, inquiry-card graphic match: the sent card and its property thumbnail stay in the same screen position."),
@@ -311,8 +401,10 @@ SHOTS = [
          motion="A tiny rightward camera drift, then settle and hold on the screen and the phone at the desk edge. Alex's hand rests on the mouse. Nearly still.",
          handoff="03A to 03B, same-desk match on the phone and document edge before the vibration."),
     dict(shot="03B", block="03", cast=["ALEX"], look="office", set="S-OFFICE", plates=["PL-03B"],
-         first=(["C-ALEX", "S-OFFICE", "F-03A-in"], "Medium close of " + CAST["ALEX"] + " (image 1) at the same workstation (images 2 and 3): the phone lies face up beside the printed document in the "
-                                                    "foreground; her hand on the mouse; the monitor behind her hand, " + SCREEN_LIGHT + "."),
+         first=(["C-ALEX", "S-OFFICE", "F-03A-in"], "Medium close from beside the desk, in front of and to the right of her: " + CAST["ALEX"] + " (image 1) at the same workstation "
+                                                    "(images 2 and 3) in three-quarter profile, her eyes on her monitor; she never looks toward the camera (observed, not "
+                                                    "posing). The phone lies face up beside the printed document in the foreground, its screen dark; her hand on the mouse; "
+                                                    "the monitor behind her hand, " + SCREEN_LIGHT + "."),
          last=None,
          motion="The phone vibrates once beside the printed document. Alex pauses her mouse movement, glances toward the phone, then back toward the monitor. "
                 "A restrained focus shift from the phone to her eyes, then settle with the monitor readable behind her resting hand. One clear interruption only.",
@@ -326,11 +418,16 @@ SHOTS = [
                 "moves across the frame and settles at its centre-left. His eyes stay visible.",
          handoff="03C to 04A, matched architectural edge: the mullion's position, width and motion match the gold doorway frame that opens 04A."),
     dict(shot="04A", block="04", cast=["ALEX"], look="aurixa", set="S-ALEX", plates=["PL-SIGN"],
-         first=(["S-ALEX", "C-ALEX", "F-03C-out"], "The Aurixa glass workspace (image 1) seen through its open gold-edged doorway: the gold vertical door frame runs top to bottom at about 45% of the width, "
-                                                    "matching the mullion position in image 3. Beyond it, " + CAST["ALEX"] + " (image 2) is already seated at her console desk; a nearby colleague, seen from behind, "
-                                                    "points to a printed floor plan on the desk; the monitor, " + SCREEN_NAVY + "."),
-         last=(["S-ALEX", "C-ALEX", "F-04A-in"], "Closer to the open doorway than image 3: a foreground gold doorway mullion briefly fills the left third of the frame as the camera approaches "
-                                                 "Alex's already-occupied desk; Alex, monitor and plan beyond, exactly as in image 3."),
+         first=(["S-ALEX", "C-ALEX", "F-03C-out", "D"], "The Aurixa glass workspace (image 1) seen from the corridor through its open gold-edged doorway: one gold vertical door frame runs "
+                                                         "from the top to the bottom of the frame at 40 to 45% of the width, at the same position and width as the window mullion in image 3; "
+                                                         "to its left, the corridor's dark navy glass wall; beyond it, in the right half of the frame, " + CAST["ALEX"] + " (image 2) is already "
+                                                         "seated at her console desk; beside her a colleague, a man with short, straight, light-brown hair in a charcoal suit jacket, seen from "
+                                                         "behind and turned away from the camera, points to the printed floor plan (image 4) on the desk; the monitor, " + SCREEN_NAVY + "."),
+         last=(["S-ALEX", "C-ALEX", "F-04A-in"], "The camera has moved forward and slightly right, right up to the open doorway of image 3: the gold door frame is now very close to the lens "
+                                                 "and softly out of focus, a broad gold-edged band filling the left third of the frame from top to bottom; beyond it, in the right two-thirds "
+                                                 "and larger than in image 3, Alex's already-occupied desk: Alex, the colleague, the monitor and the plan exactly as in image 3, in sharp focus. "
+                                                 "The AURIXA sign of image 3 hangs on the glass left of the door frame, so from here it is hidden behind the foreground door frame: "
+                                                 "no sign, panel or lettering anywhere on the glass in this frame."),
          motion="Continue a rightward movement past the gold doorway frame into the occupied glass workspace. Alex is seated; her colleague indicates a detail on the plan; their gestures "
                 "are small and natural. Move a short distance toward the open doorway until the foreground mullion covers part of the frame. No boardroom performance.",
          handoff="04A to 04B, concealed doorway cut behind the foreground mullion."),
@@ -341,13 +438,13 @@ SHOTS = [
          motion="Alex makes one deliberate click with her mouse hand and keeps her hand, cursor area and gaze on the screen. The camera eases forward only until the screen is clear, "
                 "then settles and holds nearly still for the result.",
          handoff="04B to 05A, selected-property match: the property image settles at the same upper-middle position."),
-    dict(shot="05A", block="05", cast=["ALEX"], look="aurixa", set="S-ALEX", plates=["PL-05A"],
+    dict(shot="05A", block="05", cast=["ALEX"], look="aurixa", set="S-ALEX", plates=["PL-05A-a", "PL-05A-b"],
          first=(["C-ALEX", "F-04B-out"], "A tight over-the-shoulder insert of " + CAST["ALEX"] + " (image 1) at the same monitor as image 2: the screen fills most of the frame, " + SCREEN_NAVY + "; "
                                          "her mouse hand and a trace of her profile at the lower left."),
          last=None,
          motion="Nearly still. Alex makes one deliberate click; her hand stays visible; hold. No typing, no scrolling, no second action.",
          handoff="05A to 05B, direct property-image match into Jamie's Finance view."),
-    dict(shot="05B", block="05", cast=["JAMIE"], look="aurixa", set="S-JAMIE", plates=["PL-05B"],
+    dict(shot="05B", block="05", cast=["JAMIE"], look="aurixa", set="S-JAMIE", plates=["PL-05B-a", "PL-05B-b"],
          first=(["C-JAMIE", "S-JAMIE"], CAST["JAMIE"] + " (image 1) at her finance workstation (image 2), seen over her shoulder in partial profile, her hand on the real mouse; the monitor fills the "
                                         "upper-middle at the same position as the previous insert's screen, " + SCREEN_NAVY + "."),
          last=None,
@@ -358,20 +455,21 @@ SHOTS = [
          last=None,
          motion="Nearly still. Alex makes one click and her hand stays visible; hold on the bright screen. No scrolling.",
          handoff="05C to 06A, report-card match into Jordan's Client Portal."),
-    dict(shot="06A", block="06", cast=["JORDAN"], look="aurixa", set="S-CLIENT", plates=["PL-06A"],
+    dict(shot="06A", block="06", cast=["JORDAN"], look="aurixa", set="S-CLIENT", plates=["PL-06A-a", "PL-06A-b"],
          first=(["C-JORDAN", "S-CLIENT"], "A tight view of the laptop in the client glass workspace (image 2): the laptop screen fills the upper-middle, " + SCREEN_NAVY + "; "
                                           "the edge of Jordan Ellis's hand near the touchpad (image 1 is his character sheet: keep his skin tone and light blue shirt cuff)."),
          last=(["C-JORDAN", "S-CLIENT", "F-06A-in"], "Wider than image 3: " + CAST["JORDAN"] + " (image 1) at the laptop in the glass workspace (image 2), face warmly lit, hand on the touchpad; "
                                                      "the adjacent framed glass presentation panel with its opaque navy backing at the right; the laptop screen, " + SCREEN_NAVY + "."),
          motion="Begin on the laptop screen, then widen slightly to reveal Jordan's hand and face. He clicks once with the touchpad, then watches the result. Settle and hold. Natural, warm.",
          handoff="06A to 06B, record-and-panel-edge match into Alex's Command Center."),
-    dict(shot="06B", block="06", cast=["ALEX"], look="aurixa", set="S-ALEX", plates=["PL-06B", "PL-07A-a", "PL-07A-b"],
+    dict(shot="06B", block="06", cast=["ALEX"], look="aurixa", set="S-ALEX", plates=["PL-06B-a", "PL-06B-b", "PL-07A-a", "PL-07A-b"],
          first=(["C-ALEX", "S-ALEX", "F-04B-out"], "The same over-the-shoulder axis as image 3: " + CAST["ALEX"] + " (image 1) at her monitor in the workspace (image 2), her real mouse hand and considered "
-                                                   "profile visible; the monitor in the upper-middle, " + SCREEN_NAVY + "; a pale paper document lies on the desk to her right."),
+                                                   "profile visible; the monitor in the upper-middle, " + SCREEN_NAVY + ", including, at the screen's lower right, the round Aurixa emblem button "
+                                                   "with its small Aurixa Agent label and the pointer resting on it; a pale paper document lies on the desk to her right."),
          last=(["C-ALEX", "S-ALEX", "F-06B-in"], "The same scene as image 3 after a very small rightward drift: Alex's hand has come to rest flat on the desk beside the pale paper document, "
                                                  "the monitor still glowing in the upper part of the frame."),
          motion="One continuous, unhurried take on one camera axis with a slow, very small rightward drift. Alex clicks once, reads, makes one short deliberate keyboard gesture, "
-                "pauses thoughtfully, clicks once more to save, then lets her hand come to rest beside the pale document. Settle on the hand and paper.",
+                "pauses thoughtfully, clicks once more to approve, then lets her hand come to rest beside the pale document. Settle on the hand and paper.",
          continuous_with="07A",
          handoff="06B to 07A, continuous-camera passage (one source take); 07A to 08A, hand-and-paper action match."),
     dict(shot="07A", block="07", cast=["ALEX"], look="aurixa", set="S-ALEX", plates=[], first=None, last=None, motion=None,
@@ -389,7 +487,7 @@ SHOTS = [
                                                                   "a printed report page (blank apart from fine grey lines and a navy heading bar) in the foreground whose corner and diagonal match image 4; the mounted display at the table's end, " + SCREEN_LIGHT + ". Both faces readable."),
          last=(["C-ALEX", "C-JORDAN", "S-MEETING", "F-08B-in"], "The same scene as image 4 after a short lateral move: Alex's hand rests beside the physical report folder, whose page edge fills the "
                                                                 "lower part of the outgoing frame; Jordan attentive; the display still bright."),
-         motion="Alex brings one consideration into view with a small touchpad movement and points to the display; Jordan follows and offers a natural, silent question with a look. "
+         motion="Alex points to the report on the display with a small, open gesture; the display itself stays exactly as it is. Jordan follows and offers a natural, silent question with a look. "
                 "A restrained short lateral move discovers their shared attention, then holds as Alex rests her hand beside the report folder.",
          handoff="08B to 09A, property-dossier match on the folder edge."),
     dict(shot="09A", block="09", cast=["PRIYA"], look="aurixa", set="S-PRIYA", plates=["PL-09A"],
@@ -400,7 +498,7 @@ SHOTS = [
          motion="Priya checks the physical folder, selects with her mouse, then pauses with visible concentration while reconciling. A short lateral move that settles with the "
                 "monitor bezel and the folder's photograph clearly placed. Restrained.",
          handoff="09A to 09B, same-monitor comparison cut."),
-    dict(shot="09B", block="09", cast=["PRIYA"], look="aurixa", set="S-PRIYA", plates=["PL-09B"],
+    dict(shot="09B", block="09", cast=["PRIYA"], look="aurixa", set="S-PRIYA", plates=["PL-09B-a", "PL-09B-b"],
          first=(["C-PRIYA", "F-09A-out"], "The same monitor, folder, lens and exposure as image 2, with " + CAST["PRIYA"] + " (image 1) and her mouse hand; the screen, " + SCREEN_NAVY + "."),
          last=None,
          motion="Nearly still. Priya clicks once; her hand and face stay visible while the result settles. Hold, finishing with the monitor's edge aligned to the gold console frame.",
@@ -474,6 +572,144 @@ BLOCKS = {
     "15": ("The final brand and trial invitation", "Resolve the tangible work into a stable, memorable Aurixa Systems identity and a clearly readable trial action."),
 }
 
+# Confirmed 21 October 2026 (option 1): the studio's editor lays only flat, still pictures over video, so a screen frame
+# carries its plate and the clip moves between frames that already show it. The plate each screen shows at that moment:
+SCREEN = {
+    "F-01B-in": "PL-01B-a", "F-01B-out": "PL-01B-b", "F-02A-in": "PL-02A", "F-02A-out": "PL-02A",
+    "F-03A-in": "PL-03A", "F-03B-in": "PL-03B", "F-03C-in": "PL-03C", "F-03C-out": "PL-03C",
+    "F-04A-in": "PL-04B-a", "F-04A-out": "PL-04B-a", "F-04B-in": "PL-04B-a", "F-04B-out": "PL-04B-b",
+    "F-05A-in": "PL-05A-a", "F-05A-out": "PL-05A-b", "F-05B-in": "PL-05B-a", "F-05B-out": "PL-05B-b",
+    "F-05C-in": "PL-05C-a", "F-05C-out": "PL-05C-b", "F-06A-in": "PL-06A-a", "F-06A-out": "PL-06A-b",
+    "F-06B-in": "PL-06B-a", "F-06B-out": "PL-07A-b", "F-08A-in": "PL-08A-a", "F-08A-out": "PL-08A-b",
+    "F-08B-in": "PL-08B", "F-08B-out": "PL-08B", "F-09A-in": "PL-09A", "F-09A-out": "PL-09A",
+    "F-09B-in": "PL-09B-a", "F-09B-out": "PL-09B-b", "F-10B-in": "PL-11A-a", "F-10B-out": "PL-11A-a",
+    "F-11A-out": "PL-11A-b", "F-12A-in": "PL-12A-a", "F-12A-out": "PL-12A-b", "F-12B-in": "PL-12B-a",
+    "F-12B-out": "PL-12B-b", "F-13A-in": "PL-13A-a", "F-13A-out": "PL-13A-b",
+}
+# The sign on the glass, where it is in view.
+SIGN = {"F-04A-in": "PL-SIGN"}
+# A cut that matches one screen to another across rooms: the later frame puts its screen where the earlier one's is.
+PIN = {"F-02A-in": "F-01B-out", "F-05A-in": "F-05B-in", "F-05C-in": "F-06A-in", "F-06B-in": "F-06A-out",
+       "F-12B-in": "F-12A-out", "F-13A-in": "F-12B-out"}
+PIN_LABEL = ("the frame across the matched cut, for the screen only: put the screen at the same position, size and angle in the frame "
+             "as in this image, and take nothing else from it (not its room, people or light)")
+# A click with no last frame gets one: the same frame with the screen after the click.
+SWAP_OUT = {"05A", "05B", "05C", "09B", "11A", "12B"}
+SWAP_BODY = ("The same frame as image 1, unchanged in every detail: the same people, pose, hands, camera position, framing, focus, light and room. "
+             "Only what the screen shows has changed.")
+# A frame whose screen plate changed after the frame was approved: its approved take goes in as image 1 and only the
+# screen changes. The take (by name) and the revision its new takes are named for.
+SCREEN_SWAP = {
+    "F-04A-in": ("r2-take1", 3), "F-04B-in": ("take2", 2), "F-04B-out": ("take2", 2), "F-05A-in": ("take2", 2),
+    "F-05C-in": ("take2", 2), "F-06A-in": ("take2", 2), "F-06B-in": ("r2-take2", 4), "F-06B-out": ("take1", 2),
+    "F-10B-in": ("take2", 2), "F-10B-out": ("take1", 2),
+    # the portal pages built from the product's code (QC.md)
+    "F-05B-in": ("take2", 2), "F-06A-out": ("take2", 2), "F-08A-in": ("take2", 2), "F-08A-out": ("take2", 2),
+    "F-13A-in": ("take1", 2), "F-13A-out": ("take2", 2),
+    "F-09B-in": ("take1", 2), "F-12A-in": ("take1", 2), "F-12A-out": ("take2", 3), "F-12B-in": ("take1", 2),
+}
+# A frame whose framing changes with its screen (QC.md: 08B's display ran off the frame's edge): its approved take and
+# the revision its new takes are named for, and the change.
+REFRAME = {"F-08B-in": ("take1", 3), "F-08B-out": ("take2", 3)}
+REFRAME_NOTE = ("the view widens slightly from the same camera position, as if through a slightly wider lens, so the whole mounted display, "
+                "all four edges of its bezel with a margin of wall around them, sits inside the frame; Alex and Jordan stay large and readable, "
+                "their faces in the same light.")
+# The PDF viewer around a page, which the first takes dropped, filling the screen with the page alone (stretched, on 08B).
+PDF_KEPT = ("The screen shows the whole browser window of image {n}, not the page alone: {chrome}, and the mid-grey surround with the page "
+            "standing in its middle, grey showing on both sides of it. The page keeps its own shape and size within the window; it is never "
+            "enlarged, widened or stretched to fill the screen.")
+
+# What a swap must keep in view, where the first takes lost it.
+SWAP_NOTE = {
+    "F-12A-out": PDF_KEPT.format(n=2, chrome="the dark browser tab strip along the top (two tabs, floorplan-R014.pdf in front) "
+                                          "with its address bar, the PDF viewer's dark toolbar under it"),
+    "F-06B-in": "The whole screen plate fits inside the bezel, its bottom-right corner included: the round Aurixa agent button (the gold "
+                "triangle with the little character's face) with its small Aurixa label and the pointer on it sits clearly in view at the "
+                "screen's lower right, in front of the desk lamp, never hidden by it.",
+}
+
+
+def reframe_prompt(base, plate_n):
+    """Image 1 reproduced in every detail but its framing (REFRAME_NOTE) and its screen."""
+    return ("Image 1 is " + base + " (the picture to reproduce), and image " + str(plate_n) + " is the new screen plate (every word, number and "
+            "shape to reproduce exactly). Reproduce image 1 in every detail: the same people, faces, expressions, hair, clothes, pose and hands; "
+            "the same lens character, focus and depth of field; the same light, colours, room, furniture and reflections. Change only two things. "
+            "The framing: " + REFRAME_NOTE + " The display: " + screen_shows(plate_n) + ", replacing the screen's earlier content completely. "
+            + PDF_KEPT.format(n=plate_n, chrome="the PDF viewer's dark toolbar along the top and its column of four small page "
+                                                "thumbnails down the left side") + " "
+            "Photorealistic cinematic film still, vertical 9:16. Apart from image " + str(plate_n) + " on the screen, no other text, letters, "
+            "numbers, logos, watermarks or interface anywhere in the image.")
+
+
+def swap_prompt(base, plate_n, sign=False, note=""):
+    """Image 1 reproduced exactly with only its screen changed (a screen swap, or a click's after-state)."""
+    return ("Image 1 is " + base + "; reproduce it exactly, unchanged in every detail: the same people, faces, expressions, hair, clothes, "
+            "pose and hands; the same camera position, framing, lens, focus and depth of field; the same light, colours, room, furniture "
+            "and reflections. Change only what the screen shows: " + screen_shows(plate_n) + ", replacing the screen's earlier content "
+            "completely, inside the same bezel at the same position, size and angle." + (" " + note if note else "")
+            + (" The sign on the glass stays exactly as it is in image 1." if sign else "")
+            + " Photorealistic cinematic film still, vertical 9:16, at image 1's exact framing. Apart from image " + str(plate_n)
+            + " on the screen" + (" and the sign" if sign else "") + ", no other text, letters, numbers, logos, watermarks or interface anywhere in the image.")
+
+
+# A frame whose prompt changed after takes were made: studio.py names its new takes r2-take1 and so on.
+FRAME_REVISION = {"F-01B-in": 2, "F-03B-in": 2, "F-04A-in": 2, "F-04A-out": 3, "F-06B-in": 2,
+                  # a click's after-state made again from its swapped first frame
+                  "F-05A-out": 2, "F-11A-out": 2, "F-05B-out": 2, "F-05C-out": 2, "F-09B-out": 2, "F-12B-out": 2}
+# An earlier frame given for one thing only: what to take from it, and that nothing else comes with it.
+FRAME_LABEL = {
+    "F-04A-in": {"F-03C-out": "the approved frame 03C-out, for the vertical edge only: put the gold door frame where its warm window mullion is "
+                              "(the same position and width in the frame), and take nothing else from it (not its room, the man in it or its light)"},
+}
+
+
+def frame(key, shot, refs, body, look, after=False):
+    """A frame's inputs and prompt: its references, then any pin, sign and screen plate, numbered in that order.
+    A screen swap (SCREEN_SWAP) is the approved take and the new plate; a click's after-state (after) is the first frame
+    and the plate after the click."""
+    if key in REFRAME:
+        base_take, rev = REFRAME[key]
+        return {"key": key, "shot": shot, "model": "still_edit", "inputs": [f"{key}@{base_take}", SCREEN[key]], "screen": SCREEN[key],
+                "reframe": True, "revision": rev,
+                "parameters": {**STILL, "aspect_ratio": "9:16", "prompt": reframe_prompt(f"the approved frame {key[2:]}", 2)}, "takes": 2}
+    if key in SCREEN_SWAP or after:
+        base_take, rev = SCREEN_SWAP.get(key, (None, FRAME_REVISION.get(key, 1)))
+        base = f"{key}@{base_take}" if base_take else refs[0]
+        label = f"the approved frame {key[2:]}" if base_take else f"the approved frame {refs[0][2:]}, the moment before the click"
+        sign = key in SIGN and base_take is not None
+        inputs = [base, SCREEN[key]]
+        prompt = swap_prompt(label, 2, sign, SWAP_NOTE.get(key, "")).replace("; reproduce it exactly,", " (the picture to reproduce), and image 2 is the new screen plate "
+                                                     "(every word, number and shape to reproduce exactly). Reproduce image 1 exactly,", 1)
+        return {"key": key, "shot": shot, "model": "still_edit", "inputs": inputs, "screen": SCREEN[key], "swap": True,
+                **({"revision": rev} if rev > 1 else {}),
+                "parameters": {**STILL, "aspect_ratio": "9:16", "prompt": prompt}, "takes": 2}
+    refs = list(refs)
+    labels = dict(FRAME_LABEL.get(key, {}))
+    if key in PIN:
+        refs.append(PIN[key])
+        labels[PIN[key]] = PIN_LABEL
+    plates = []
+    if key in SIGN:
+        refs.append(SIGN[key])
+        plates.append(len(refs))
+        body += (f" Where the architectural sign panel on the glass wall is in view, it carries image {len(refs)} (the Aurixa sign) exactly, "
+                 "flat on the glass at its angle.")
+    if key in SCREEN:
+        refs.append(SCREEN[key])
+        n = len(refs)
+        plates.append(n)
+        if "{screen}" in body:
+            body = body.replace("{screen}", f"image {n}")
+        elif SCREEN_NAVY in body or SCREEN_LIGHT in body:
+            body = body.replace(SCREEN_NAVY, screen_shows(n)).replace(SCREEN_LIGHT, screen_shows(n))
+        else:
+            body += " " + screen_shows(n, "The screen") + "."
+    return {"key": key, "shot": shot, "model": "still_edit", "inputs": refs,
+            **({"screen": SCREEN[key]} if key in SCREEN else {}), **({"pin": PIN[key]} if key in PIN else {}),
+            **({"revision": FRAME_REVISION[key]} if key in FRAME_REVISION else {}),
+            "parameters": {**STILL, "aspect_ratio": "9:16", "prompt": compose(refs, body, look, labels, plates)}, "takes": 2}
+
+
 shots_out = []
 frames = []
 clips = []
@@ -492,17 +728,19 @@ for s in SHOTS:
     if isinstance(s["first"], tuple):
         refs, body = s["first"]
         first_key = f"F-{s['shot']}-in"
-        frames.append({"key": first_key, "shot": s["shot"], "model": "still_edit", "inputs": refs,
-                       "parameters": {**STILL, "aspect_ratio": "9:16", "prompt": compose(refs, body, s["look"])}, "takes": 2})
+        frames.append(frame(first_key, s["shot"], refs, body, s["look"]))
     elif isinstance(s["first"], str):
         first_key = s["first"]
-    if isinstance(s["last"], tuple):
-        refs, body = s["last"]
+    last = s["last"]
+    after = last is None and s["shot"] in SWAP_OUT
+    if after:
+        last = ([first_key], SWAP_BODY)
+    if isinstance(last, tuple):
+        refs, body = last
         last_key = f"F-{s['shot']}-out"
-        frames.append({"key": last_key, "shot": s["shot"], "model": "still_edit", "inputs": refs,
-                       "parameters": {**STILL, "aspect_ratio": "9:16", "prompt": compose(refs, body, s["look"])}, "takes": 2})
-    elif isinstance(s["last"], str):
-        last_key = s["last"]
+        frames.append(frame(last_key, s["shot"], refs, body, s["look"], after=after))
+    elif isinstance(last, str):
+        last_key = last
     seconds = source_seconds(edit_seconds)
     clip = {"key": f"V-{s['shot']}", "shot": s["shot"] + (f"+{s['continuous_with']}" if s.get("continuous_with") else ""),
             "first_frame": first_key, "last_frame": last_key, "seconds": seconds,
@@ -512,14 +750,6 @@ for s in SHOTS:
     row["source"] = clip["key"]
     shots_out.append(row)
 
-# Frames named as inputs must exist (or be anchors/uploads/sets).
-known = {f["key"] for f in frames} | {i["key"] for i in stage1} | set(SETS) | {"UP-CONSOLE-9", "UP-CONSOLE-10"}
-for f in frames:
-    for key in f["inputs"]:
-        assert key in known, (f["key"], key)
-for c in clips:
-    for key in (c["first_frame"], c["last_frame"]):
-        assert key is None or key in known, (c["key"], key)
 
 # ------------------------------------------------------------------ stage 3: plates (typeset, never generated)
 PLATES = [
@@ -531,38 +761,53 @@ PLATES = [
     ("PL-03B", "03B", "generic", "The original enquiry card behind Alex's hand", ["Can we review whether this suits my plans?", "Jordan Ellis · Residence 014"]),
     ("PL-03C", "03C", "generic", "Jordan's conversation, still unanswered", ["Can we review whether this suits my plans?", "(no reply yet)", "Optional emphasis caption: WHAT HAPPENS THEN"]),
     ("PL-SIGN", "04A", "aurixa", "Architectural sign on the glass", ["Approved triangular emblem", "AURIXA SYSTEMS"]),
-    ("PL-04B-a", "04B", "aurixa", "Command Center · Reports, before the selection", ["Sidebar: AURIXA SYSTEMS (grouped navigation)", "Banner eyebrow: AURIXA REPORTING COMMAND CENTER", "Page: Reports",
-        "Tabs: Manual (active) · URL Extraction · PDF Upload", "Cards: Existing Property · New Build · Land Only", "Demo workspace"]),
-    ("PL-04B-b", "04B", "aurixa", "Command Center · Reports, New Build selected", ["New Build card in saturated blue (#1238E8)", "Context: Project Banksia / Residence 014 · BK-014 (thumbnail P)", "Demo workspace"]),
-    ("PL-05A", "05A", "aurixa", "Research brief", ["Research brief (control under the cursor)", "Location overview", "Property characteristics", "Questions for review", "thumbnail P", "Demo workspace"]),
-    ("PL-05B", "05B", "aurixa", "Finance · purchase file · Scenario comparison", ["Scenario comparison (active tab)", "Base case · Alternative case", "Illustrative scenario", "thumbnail P", "Demo workspace"]),
-    ("PL-05C-a", "05C", "aurixa", "Client summary preview control", ["Client summary", "Open preview (under the cursor)", "thumbnail P", "Demo workspace"]),
-    ("PL-05C-b", "05C", "aurixa", "The prepared report (white reading surface)", ["Project Banksia / Residence 014 (image P)", "Client summary (navy heading)", "Key considerations", "Questions for discussion", "fine gold dividers"]),
-    ("PL-06A", "06A", "aurixa", "Client Portal · Your property team", ["My Property Team (selected)", "Your property team: Property · Finance · Legal · Builder / Developer · Accounting", "Project Banksia / Residence 014",
-        "Next discussion", "Demo workspace", "Optional: one framed-glass enlargement of the team strip"]),
-    ("PL-06B", "06B", "aurixa", "Aurixa Agent panel opens", ["Aurixa Agent", "Draft client summary", "Review required", "Question to verify", "Demo workspace"]),
-    ("PL-07A-a", "07A", "aurixa", "Draft before Alex's edit", ["Questions for review", "Draft: Discuss the next step"]),
-    ("PL-07A-b", "07A", "aurixa", "Draft after the edit, saved", ["Draft: Review the remaining questions together", "Save draft → Draft saved (restrained teal)"]),
-    ("PL-08A-a", "08A", "aurixa", "Accountant Portal · Needs you next", ["Needs you next", "Supporting information · Jordan Ellis · Residence 014", "Mark reviewed", "Demo workspace"]),
-    ("PL-08A-b", "08A", "aurixa", "Reviewed", ["Supporting information · Reviewed (teal)"]),
-    ("PL-08B", "08B", "aurixa", "Client summary on the mounted display", ["Client summary · Residence 014", "Key considerations", "Questions for discussion"]),
+    ("PL-04B-a", "04B", "aurixa", "Command Centre · Reports, before the selection (the supplied Reports page)", ["Sidebar: AURIXA SYSTEMS · COMMAND CENTRE, its grouped navigation, Reports active",
+        "Banner eyebrow: AURIXA REPORTING COMMAND CENTRE", "Page: Reports", "Investment Report Workspace, preparing for Jordan Ellis: Project Banksia / Residence 014 · BK-014 (thumbnail P)",
+        "Tabs: Manual (active) · URL Extraction · PDF Upload", "Build type: Existing Property (selected, as the product opens) · New Build (under the cursor) · Land Only", "Demo workspace"]),
+    ("PL-04B-b", "04B", "aurixa", "Command Centre · Reports, New Build selected", ["New Build card selected in saturated blue (#1238E8)", "Context: Project Banksia / Residence 014 · BK-014 (thumbnail P), unchanged", "Demo workspace"]),
+    ("PL-05A-a", "05A", "aurixa", "Command Centre · the investment report (Compass), before the click", ["Generated Reports · Back · Compass · Project Banksia / Residence 014", "Tiers: Compass (on view) · + Financial (under the cursor) · + Strategic · + Briefing · + Snapshot", "Investment Grade B+ · Score 74/100 · Report tier Compass · 4 adjusted fields · Completed", "Not prepared from this Compass yet: Financial, Strategic, Briefing, Snapshot", "Demo workspace"]),
+    ("PL-05A-b", "05A", "aurixa", "Financial being prepared from the Compass", ["Financial (preparing)", "Preparing Financial from this Compass"]),
+    ("PL-05B-a", "05B", "aurixa", "Finance Portal · the purchase file's Overview, before the click", ["Back to dashboard · Residence 014, Project Banksia (Active) · Dates · Docs · Decisions · Message · Watching", "All purchase files · Residence 014, Project Banksia (thumbnail P) · Jordan Ellis", "Tabs: Overview (active) · Critical Dates · Documents · Finance Decisions (under the cursor) · Action Items · Conditions · Valuation · Risks · Settlement Runway", "Intelligent File Summary · Next best action: record the finance position for Residence 014", "Demo workspace"]),
+    ("PL-05B-b", "05B", "aurixa", "Finance Decisions", ["Current finance position: More information required · Waiting on the latest two payslips before the lender shortlist is final", "+ New decision", "Decision history: More information required · Subject to deposit"]),
+    ("PL-05C-a", "05C", "aurixa", "Command Centre · Generated Reports, Residence 014 under the pointer", ["Report Intelligence Library · Generated Reports", "Investment (selected) · Comparisons · Commercial & Industrial", "Project Banksia / Residence 014: Compass · Financial · Strategic · Snapshot · Briefing · grade B+ · 74/100", "Residence 015 · Residence 016", "Demo workspace"]),
+    ("PL-05C-b", "05C", "aurixa", "The report's page, opened from Generated Reports", ["Generated Reports · Back · Compass · Project Banksia / Residence 014", "Tiers: Compass · Financial (made)", "Investment Grade B+ · Score 74/100 · Report tier Compass · Completed", "Prepared from this Compass: Financial", "Analysis Report: client-facing document view · Publishing & Export", "Demo workspace"]),
+    ("PL-06A-a", "06A", "aurixa", "Client Portal dashboard, before the click", ["Welcome back, Jordan Ellis", "Your property team · 5 professionals working on Residence 014", "My Property Team (under the cursor)", "Demo workspace"]),
+    ("PL-06A-b", "06A", "aurixa", "Client Portal · My property team", ["My Property Team (active)", "YOUR TEAM · My property team", "Who is working on your purchase · 5 of 5 roles engaged: Alex Morgan (buyer's agent), Jamie Chen (finance broker), Priya Shah (solicitor / conveyancer), Mia Patel (accountant), Daniel Reed (builder / developer)", "What your accountant needs from you: FY2026 income statement · You replied"]),
+    ("PL-06B-a", "06B", "aurixa", "The investment report with Financial prepared; the pointer on the Aurixa Agent", ["Tiers: Compass · Financial (made)", "Prepared from this Compass: Financial", "The agent's own presence (the floating button), under the cursor, with its label", "Demo workspace"]),
+    ("PL-06B-b", "06B", "aurixa", "The Aurixa Agent open over the report", ["Aurixa · Ready when you are", "Draft a short note to Jordan Ellis about his Residence 014 client summary.", "Needs your go-ahead · Email Preview: To Jordan Ellis · Residence 014: your client summary · Next step: discuss the next step", "Approve · Cancel"]),
+    ("PL-07A-a", "07A", "aurixa", "Alex types her change", ["Make the next step: review the remaining questions together (typing)"]),
+    ("PL-07A-b", "07A", "aurixa", "The changed note, approved", ["Approved · Next step: review the remaining questions together"]),
+    ("PL-08A-a", "08A", "aurixa", "Accountant Portal · Jordan Ellis's client file, Requests", ["CLIENT FILE · Jordan Ellis", "Tabs: Brief · Portfolio · Purchases · Requests (active) · Message Hub · Property team", "FY2026 income statement · Client responded · Client replied 2 hours ago", "Mark fulfilled (under the cursor) · Reopen · Cancel", "New request", "Demo workspace"]),
+    ("PL-08A-b", "08A", "aurixa", "Fulfilled", ["FY2026 income statement · Fulfilled (green) · Reopen"]),
+    ("PL-08B", "08B", "aurixa", "The client's report as delivered: its PDF on the meeting room's display", ["The browser's PDF viewer: Investment Compass — Banksia Rise, NSW · 1 / 22 · its page rail", "The cover: the Aurixa emblem, AURIXA SYSTEMS (gold serif capitals), INVESTMENT COMPASS, RESIDENCE 014, PROJECT BANKSIA, BANKSIA RISE NSW 2155, the photograph (P) in the lower band, a thin gold frame", "No grade or score on the cover"]),
     ("PL-09A", "09A", "generic", "Two generic document lists with duplicate references", ["Residence 014 — documents (list A)", "Residence 014 — documents (list B, duplicates)", "No Aurixa branding"]),
-    ("PL-09B", "09B", "aurixa", "Solicitor Portal · Open matters", ["Open matters (active)", "Project Banksia / Residence 014 (selected, blue)", "Document review", "Next discussion", "Demo workspace"]),
-    ("PL-11A-a", "10B, 11A", "aurixa", "Campaign trial invitation", ["Approved emblem", "AURIXA SYSTEMS", "14-DAY FREE TRIAL", "Start your free trial (saturated blue CTA)"]),
-    ("PL-11A-b", "11A", "aurixa", "CTA selected state", ["Start your free trial (pressed state)"]),
-    ("PL-11A-c", "11A", "aurixa", "Demo workspace", ["Demo workspace", "Explore your workspace", "Project tile: Residence 014 (image P)"]),
-    ("PL-12A-a", "12A", "aurixa", "Builder / Developer Portal · Stock List", ["AURIXA SYSTEMS · BUILDER / DEVELOPER PORTAL", "Projects · Stock List", "Project Banksia", "Residence 014 (row, under the cursor)", "Demo workspace"]),
-    ("PL-12A-b", "12A", "aurixa", "Floor plan preview", ["Floor plan (image D)", "Residence 014"]),
-    ("PL-12B-a", "12B", "aurixa", "Solicitor matter view with the plan and a prepared note", ["Floor plan (image D)", "Note: Discuss the remaining document questions.", "Save note"]),
-    ("PL-12B-b", "12B", "aurixa", "Note saved", ["Note saved (small teal confirmation)", "Matter remains under review"]),
-    ("PL-13A-a", "13A", "aurixa", "Finance scenario view", ["Active Purchase Files", "Project Banksia / Residence 014", "Scenario comparison", "Base case · Alternative case", "Illustrative scenario", "Questions for discussion", "Demo workspace"]),
-    ("PL-13A-b", "13A", "aurixa", "Alternative case selected", ["Alternative case (selected, blue)", "Illustrative scenario"]),
+    ("PL-09B-a", "09B", "aurixa", "Solicitor Portal · the matter's Overview, before the click", ["Matters (active)", "MATTER · Ellis: Purchase, Residence 014 · Residence 014, Project Banksia, Banksia Rise NSW 2155 · All matters · Contract review · Change status", "Tabs: Overview (active) · … · Docs (under the cursor) · … · Notes", "Matter details · Finance status · Status history", "Demo workspace"]),
+    ("PL-09B-b", "09B", "aurixa", "Solicitor Portal · the matter's Docs", ["Docs (active) · 3 outstanding", "Document register: Contract of sale (draft) · Floor plan — Residence 014 (Under review) · Building specification (Accepted) · Planning certificate (Requested)", "Review and accept · Upload new version · Open"]),
+    ("PL-11A-a", "10B, 11A", "aurixa", "Campaign trial invitation", ["The supplied logo, whole (REF-LOGO: emblem, rings, skyline and lettering)", "14-DAY FREE TRIAL",
+        "START YOUR FREE TRIAL (saturated blue CTA, the pointer on it)"]),
+    ("PL-11A-b", "11A", "aurixa", "CTA selected state", ["START YOUR FREE TRIAL (pressed: sunk, with a gold edge)"]),
+    ("PL-11A-c", "11A", "aurixa", "Command Centre · Overview in the demo workspace", ["Command Centre · Overview · Property intake dashboard overview and key metrics", "Operations · Today's position (shortcuts, tasks, reports this month)", "Demo project: Residence 014 (image P) · Project Banksia · New Build", "Demo workspace"]),
+    ("PL-12A-a", "12A", "aurixa", "Builders Network · Builder / Developer Portal · Stock List, before the click", ["Browser tabs: Stock List · Aurixa Builders Network (on view) · floorplan-R014.pdf (under the cursor)", "Aurixa Builders Network · BUILDER / DEVELOPER PORTAL · Daniel Reed, Reed Constructions · Stock List (active)", "Selected for a buyer: Lot 14, Project Banksia · Residence 014 · by Aurixa Systems · A. Morgan · Acknowledge", "YOUR STOCK · 3 properties on the marketplace · the Residence 014 plate: elevation (P), SELECTED FOR A CLIENT, $1,150,000 · 4 bedrooms · 1 bathroom · 1 car space · 168 m² · 290 m²", "Demo workspace"]),
+    ("PL-12A-b", "12A", "aurixa", "The floor plan's own tab", ["Browser tabs: Stock List · Aurixa Builders Network · floorplan-R014.pdf (on view)", "The browser's PDF viewer: floorplan-R014.pdf · 1 / 1 · the floor plan (image D) whole"]),
+    ("PL-12B-a", "12B", "aurixa", "Priya's two windows: the floor plan's PDF beside the matter's Notes", ["Left: floorplan-R014.pdf in the browser's PDF viewer (image D)", "Right: Solicitor Portal · Ellis: Purchase, Residence 014 · Notes (active)", "Client-facing summary · Practice-only notes (filled in)", "Save notes (under the cursor)", "Demo workspace"]),
+    ("PL-12B-b", "12B", "aurixa", "Notes saved", ["Matter updated (the toast, bottom right, with its check)"]),
+    ("PL-13A-a", "13A", "aurixa", "Finance Portal · Record finance decision", ["Record finance decision · Broker's call on whether this purchase can proceed", "Decision: Subject to valuation", "Max comfortable purchase price 1,150,000 · Proposed loan amount 920,000 · Preferred lender pathway: Shortlist in progress · LVR 80", "Broker notes: Valuation ordered with the lender; revisit once it returns.", "Cancel · Record decision (under the cursor)", "Demo workspace"]),
+    ("PL-13A-b", "13A", "aurixa", "Decision recorded", ["Current finance position: Subject to valuation", "Decision history: Subject to valuation · More information required · Subject to deposit", "Decision recorded (the toast)"]),
     *[(f"PL-14A-{n}", "14A", "overlay", "Editorial phrase, one at a time in one clear area", [text])
       for n, text in enumerate(["Fourteen days.", "Your business.", "Your experience.", "Your decision."], 1)],
-    ("PL-15A", "15A", "endcard", "Closing card (from the start of Block 15)", ["Approved emblem", "AURIXA SYSTEMS", "The operating system for modern property professionals.", "14-DAY FREE TRIAL",
+    ("PL-15A", "15A", "endcard", "Closing card (from the start of Block 15)", ["The supplied logo, whole (REF-LOGO)", "The operating system for modern property professionals.", "14-DAY FREE TRIAL",
         "START YOUR FREE TRIAL", "aurixasystems.com.au"]),
 ]
 stage3 = [{"key": k, "shots": s, "kind": kind, "title": title, "text": text} for k, s, kind, title, text in PLATES]
+
+# Frames named as inputs must exist (or be anchors, sets or plates).
+known = {f["key"] for f in frames} | {i["key"] for i in stage1} | set(SETS) | set(CONSOLE) | {p["key"] for p in stage3}
+for f in frames:
+    for key in f["inputs"]:
+        assert key.split("@")[0] in known, (f["key"], key)
+for c in clips:
+    for key in (c["first_frame"], c["last_frame"]):
+        assert key is None or key in known, (c["key"], key)
 for row in shots_out:
     for p in row.get("plates", []):
         assert any(x["key"] == p for x in stage3), (row["shot"], p)
@@ -603,7 +848,7 @@ end_card = {"from": SHOT_TIME["15A"]["in"], "to": timing["end"], "plate": "PL-15
 spec = {
     "title": "Aurixa Systems · Reel 1 working master",
     "source": "Aurixa_Systems_Reel_1_Video_Prompt_Pack - Final.pdf (Final Cinematic Edition, Revision 2), brief 848af668-b28b-4ddb-8ab2-f8916ce314f0",
-    "status": "plan only: nothing generated",
+    "status": "Stages 1 to 4 made and approved; Stage 5 clips on Cinema Studio 4.0",
     "delivery": {"aspect_ratio": "9:16", "size": "1080x1920", "fps": 30, "seconds": timing["end"]},
     "voiceover": {"asset_id": "84c0abf7-60d1-4439-84fd-e7038feffc01", "seconds": 106.031, "speech_end": 105.88,
                   "timed_from": "audio_preparations c47a30e0-edcd-4389-b98f-6c3fa11887d7 (265 measured words and speech segments)"},
@@ -612,16 +857,71 @@ spec = {
     "models": MODELS,
     "still_defaults": STILL,
     "clip_defaults": {"aspect_ratio": "from the first frame (9:16)", "audio": "off", "handles": "about 0.75 s each end; seconds = ceil(edit + 1.5), min 4"},
-    "uploads_needed": [
-        {"key": "UP-CONSOLE-9", "what": "image(9).png, the principal physical-world reference"},
-        {"key": "UP-CONSOLE-10", "what": "image(10).png, the principal physical-world reference"},
-        {"key": "UP-PORTALS", "what": "the six portal screenshots (CC, SOL, ACC, FIN, CLI, BLD) as structure references for the plates"},
-        {"key": "UP-EMBLEM", "what": "the approved emblem and AURIXA SYSTEMS wordmark at full size (SVG or a PNG at least 2000 px wide); the library's logo is 720 px"},
+    "references": [
+        {"key": "REF-LOOK-ROOM", "what": "Aurixa Systems · brand look (library c2043421-711b-407d-918a-49ff08b27885), the night boardroom, "
+                                         "cropped to its window, city and presenter (x 560-1024, y 0-480 of 1024 x 683) and doubled: no screen, emblem or text"},
+        {"key": "REF-LOOK-OPS", "what": "Aurixa Systems · brand look (library 1eb5397d-6155-43ce-9997-3aefcda75252), the operations room, "
+                                        "cropped to its gold-edged glass partition and city window (x 0-248, y 0-480 of 1024 x 683) and doubled: no screen, emblem or text"},
+        {"key": "REF-LOGO", "what": "the supplied Aurixa Systems logo (2000 x 1333, 21 October 2026); the plates' emblem.png and wordmark.png are keyed from it"},
+        {"key": "REF-CC-PAGES", "what": "the supplied Command Centre pages (four 1920 x 1020 browser screenshots, 21 October 2026): Generated Reports, an investment "
+                                        "report, the Aurixa Agent open over it, and Overview: the structure of Alex's plates 05A, 05C-a, 06B, 07A and 11A-c"},
+        {"key": "REF-CC-REPORTS", "what": "the supplied Command Centre Reports page (five 1920 x 1020 browser screenshots, top to Pre-Generation Overrides, 21 October 2026): "
+                                          "the structure Alex's plates (04B, 05A, 05C, 06B, 07A, 11A-c) are drawn on"},
     ],
+    "uploads_needed": [],
     "decisions": [
         "Confirmed 20 October 2026: the closing CTA is the pack's START YOUR FREE TRIAL, not the brand kit's Book Your Free Demo (the kit's automatic end card is not used).",
         "Confirmed 20 October 2026: the small label on recreated screens is the pack's Demo workspace, not the brand rules' Concept.",
         "The colleague in 04A is unnamed and seen from behind, so no seventh face needs locking.",
+        "Confirmed 21 October 2026: the cast is in their mid-to-late 20s (the pack has them in their late 30s to late 40s), and Daniel has short dark hair, not greying.",
+        "Confirmed 21 October 2026: the four women are told apart by heritage, complexion, face, build and hair texture, read from their names at the client's direction "
+        "(the pack gives no ethnicity): Alex Anglo-Australian, Jamie Chinese, Priya and Mia Indian, with Priya and Mia set apart by complexion, face, height and hair. "
+        "Their sheets are revision 2; the pack's hair, glasses and wardrobe are kept.",
+        "Confirmed 21 October 2026: the pack's image(9) and image(10) can't be found, so the console world is generated in their place (CW-9, the wide view; "
+        "CW-10, the doorway view) from two Aurixa brand images cropped to their rooms and Daniel's approved site office, and approved before the seven sets use it.",
+        "Confirmed 21 October 2026: Jordan's home and Alex's ordinary office keep the Sydney views the model gave them (the Harbour Bridge, Sydney Tower).",
+        "Confirmed 21 October 2026: Jordan and Daniel look professional (their sheets' revision 2): groomed hair, Jordan clean-shaven and Daniel with a closely "
+        "trimmed beard, and crisp, tailored versions of their pack wardrobe (Jordan's shirt tucked with the sleeves down and tailored trousers; Daniel's polo "
+        "with tailored trousers and clean leather boots in place of work trousers and work boots).",
+        "Confirmed 21 October 2026: the emblem and the AURIXA SYSTEMS wordmark come from the supplied logo (2000 x 1333), keyed off its background; "
+        "the glass sign, the trial cards and the closing card use the logo's wordmark, the portal sidebars a typeset one as the portals do.",
+        "Confirmed 21 October 2026 (option 1): the studio's editor lays only flat, still pictures over video, so the plates can't be put on angled or moving "
+        "screens there. Each screen frame carries its plate instead, and a clip moves between frames that already show it; a click with no last frame gets one, "
+        "the same frame with the screen after the click (05A, 05B, 05C, 09B, 11A, 12B); and a cut that matches screens across rooms pins the later screen to "
+        "the earlier one's place (02A, 05A, 05C, 06B, 12B, 13A). Flat, full-frame plates (the Block 14 phrases, the Demo workspace cut, the closing card) are still laid on in the edit.",
+        "Confirmed 21 October 2026: Mia is more glamorous and striking, still dressed for the office: polished make-up and glossy curls, a confident look, "
+        "a fitted silk version of her slate-blue blouse with tailored trousers and heels (her sheet's revision 3).",
+        "Confirmed 21 October 2026: Alex's Command Centre plates follow the supplied Reports page (its menu groups and items, top bar, banner, "
+        "Manual / URL Extraction / PDF Upload tabs, build-type cards and floating Aurixa emblem, drawn at 125% zoom). The tenant reads Aurixa Systems and the "
+        "signed-in user Alex Morgan; the screen spells Centre as the product does (the pack writes Center); Existing Property starts selected, as the product "
+        "opens, so 04B's click moves the selection to New Build; the property being prepared (P) sits in the workspace section through 04B and 05A; the Aurixa "
+        "Agent is the product's floating emblem with a hover label; the pages past Reports (the analysis, Generated Reports, the record and its agent panel, "
+        "the demo workspace) are built from the Reports page's components, as only that page was supplied; and the client summary preview (05C-b) opens over "
+        "the Command Centre rather than as a separate page.",
+        "21 October 2026, quality check (QC.md): the portal plates are set in the portals' own fonts, read from their code (npc-client-dashboard): "
+        "the system stack, so Segoe UI on Windows as the screenshots show, drawn in Selawik (Microsoft's open stand-in, built by selawik.py); "
+        "the brand serif Playfair Display Medium; and Consolas for code labels, drawn in Inconsolata. The trial card and the closing card "
+        "carry the supplied logo whole rather than its keyed emblem and wordmark, at the client's direction.",
+        "Confirmed 21 October 2026: Alex's Command Centre plates past Reports follow the supplied pages (REF-CC-PAGES: Generated Reports, an "
+        "investment report, the Aurixa Agent open over it, Overview). 05A is the research moving into financial analysis: Compass on view, the click "
+        "prepares Financial; 05C opens Residence 014 from Generated Reports; in 06B and 07A the agent drafts Jordan's note as a go-ahead card, Alex "
+        "types her change and it is approved (the product's approval card, in place of the pack's Save draft); 11A-c is Overview with the demo project. "
+        "Grades read Under review rather than the product's BUY or HOLD, so the reel makes no investment call. The agent is drawn from the "
+        "portals' own presence (mascot.cjs) without its notification counts.",
+        "21 October 2026, at the client's direction (no further screenshots): the other portals' pages are built from the products' code "
+        "(npc-client-dashboard, aurixa-builders; QC.md): Jamie's purchase file opens its Finance Decisions (05B) and records Subject to valuation "
+        "with the toast Decision recorded (13A), a neutral call, so the reel makes no finance promise; Mia marks Jordan's income statement "
+        "fulfilled (08A; the product has no Mark reviewed); Jordan's My property team shows five roles, the demo project's builder beside the "
+        "product's four; Priya opens the matter's Docs, its document register (09B), and saves her notes on its Notes tab beside the floor "
+        "plan's PDF in a second window (12B), as a file opens in the browser's own tab and Docs and Notes are never on screen together; "
+        "Daniel's Stock List plate (elevation and schedule) opens nothing, so he moves to his floor plan's PDF in the next browser tab (12A); "
+        "05C's click opens the report's page, which the click truly opens; and the meeting display shows the report as the client receives it, "
+        "its PDF, at the cover Aurixa Systems would issue (no grade or score on it), so 08B's motion no longer brings a consideration into view. "
+        "The Builders Network keeps its own look (navy, teal, Playfair, mono labels) and is drawn at the Command Centre's scale, as its stock "
+        "plate is 34rem wide; 08B's frames are reframed so the display sits wholly inside them.",
+        "Confirmed 21 October 2026: the clips are made on Cinema Studio 4.0 in the studio (not Seedance or Kling, so no two-model test), one take "
+        "each to start, laid out in the Editor as a draft to review. It takes its frames as reference images rather than locked start and end "
+        "frames, at 720p at most; the edit is 1080p with the clips sharpened up.",
     ],
     "timing": {"method": "Each cut sits in the pause before the cue's first word (0.15 s ahead of its speech onset), or 0.1 s ahead of a word mid-phrase, snapped to 30 fps.",
                "cues": timing["cues"],
@@ -631,8 +931,8 @@ spec = {
         {"stage": 2, "name": "Sets", "gate": "Approve each set.", "items": stage2},
         {"stage": 3, "name": "Screen plates (typeset, no credits)", "gate": "Approve the plates: brand, source content, readability.", "items": stage3},
         {"stage": 4, "name": "Shot frames", "gate": "Block by block, each first frame built from the approved frame before it.", "items": frames},
-        {"stage": 5, "name": "Clips", "gate": "Test 01A and 04B on both clip models, choose one, then block by block.",
-         "test": {"shots": ["01A", "04B"], "models": ["clip_seedance", "clip_kling"]}, "items": clips},
+        {"stage": 5, "name": "Clips", "gate": "Cinema Studio 4.0 (the client's choice), one take of every clip first, reviewed as a draft edit in the Editor.",
+         "model": "clip_cinema", "items": clips},
     ],
     "shots": shots_out,
     "edit": {"captions": captions, "overlays": overlays, "end_card": end_card,
@@ -645,10 +945,12 @@ OUT.mkdir(parents=True, exist_ok=True)
 # The ledger of approved assets: every key, its library asset id once approved (else null).
 ledger_file = OUT / "assets.json"
 ledger = json.loads(ledger_file.read_text()) if ledger_file.exists() else {}
-keys = [i["key"] for i in stage1] + [i["key"] for i in stage2] + [u["key"] for u in spec["uploads_needed"]] \
+keys = [i["key"] for i in stage1] + [i["key"] for i in stage2] + [r["key"] for r in spec["references"]] + [u["key"] for u in spec["uploads_needed"]] \
     + [i["key"] for i in stage3] + [f["key"] for f in frames] + [c["key"] for c in clips]
 for key in keys:
     ledger.setdefault(key, None)
+# Keys the spec no longer has (a plate split into its states) are dropped.
+ledger = {key: ledger[key] for key in keys}
 ledger_file.write_text(json.dumps(ledger, indent=1) + "\n")
 print("stills: stage1", sum(i["takes"] for i in stage1), "stage2", sum(i["takes"] for i in stage2), "frames", len(frames), "x2 =", 2 * len(frames))
 print("clips", len(clips), "source seconds", sum(c["seconds"] for c in clips))

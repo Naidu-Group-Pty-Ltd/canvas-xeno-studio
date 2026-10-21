@@ -2111,6 +2111,7 @@ export type Database = {
       brand_imports: {
         Row: {
           brand_kit_id: string | null
+          code: Json | null
           created_at: string
           created_by: string | null
           error: string | null
@@ -2127,6 +2128,7 @@ export type Database = {
         }
         Insert: {
           brand_kit_id?: string | null
+          code?: Json | null
           created_at?: string
           created_by?: string | null
           error?: string | null
@@ -2143,6 +2145,7 @@ export type Database = {
         }
         Update: {
           brand_kit_id?: string | null
+          code?: Json | null
           created_at?: string
           created_by?: string | null
           error?: string | null

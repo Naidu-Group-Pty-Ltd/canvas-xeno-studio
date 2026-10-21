@@ -6,3 +6,6 @@ pnpm-lock.yaml
 package-lock.json
 bun.lock
 routeTree.gen.ts
+# Written by scripts/aurixa-reel-1/reel_css.ts, checked byte for byte by its --check
+docs/brands/aurixa-reel-1/system-edition/aurixa-reel.css
+docs/brands/aurixa-reel-1/system-edition/aurixa-reel.json

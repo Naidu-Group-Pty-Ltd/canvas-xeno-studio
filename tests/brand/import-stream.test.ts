@@ -32,6 +32,32 @@ describe("the brand import endpoint", () => {
     expect(brandImportRequest.safeParse({ action: "delete", importId: "x" }).success).toBe(false);
   });
 
+  test("takes up to six repositories, and a GitHub token only shaped like one", () => {
+    const repos = brandImportRequest.parse({
+      action: "repos",
+      repos: ["Naidu-Group-Pty-Ltd/aurixa-systems", "github.com/acme/app/tree/main/apps/web"],
+    });
+    expect(repos).toMatchObject({ action: "repos", token: null });
+    expect(
+      brandImportRequest.safeParse({
+        action: "repos",
+        repos: ["acme/site"],
+        token: `github_pat_${"A1b2".repeat(20)}`,
+      }).success,
+    ).toBe(true);
+    expect(
+      brandImportRequest.safeParse({ action: "repos", repos: ["acme/site"], token: "hunter2" })
+        .success,
+    ).toBe(false);
+    expect(brandImportRequest.safeParse({ action: "repos", repos: [] }).success).toBe(false);
+    expect(
+      brandImportRequest.safeParse({
+        action: "repos",
+        repos: Array.from({ length: 7 }, (_, index) => `acme/site-${index}`),
+      }).success,
+    ).toBe(false);
+  });
+
   test("its events survive the wire, keep-alives and splits included", () => {
     const wire =
       encodeStreamEvent({ type: "import", importId: "i" }) +

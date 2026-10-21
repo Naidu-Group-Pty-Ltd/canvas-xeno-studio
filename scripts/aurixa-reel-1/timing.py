@@ -64,48 +64,53 @@ def cut_before(word_start):
         t = max(prev_end + 0.04, on - 0.15)
     return round(math.floor(t * FPS) / FPS, 3)
 
-# Shot boundaries: (shot, starts at a cue or a word time, note)
-# A shot starts on a cue (cut_before the cue's first word) or on a word inside a cue.
-words_inside = {
- "05B": 40.080,  # "financial analysis"
- "05C": 42.500,  # "professional report"
- "06B": 50.980,  # "with Aurixa Agent supporting"
- "08B": 61.900,  # "identify opportunities" (08A runs briefly into the second sentence)
- "12B": 86.800,  # "and discover what a more connected business"
-}
-starts = [
- ("01A", "cue", 1), ("01B", "cue", 2), ("02A", "cue", 3), ("03A", "cue", 4), ("03B", "cue", 5),
- ("03C", "cue", 6), ("04A", "cue", 7), ("04B", "cue", 8), ("05A", "cue", 9), ("05B", "word", None),
- ("05C", "word", None), ("06A", "cue", 10), ("06B", "word", None), ("07A", "cue", 11), ("08A", "cue", 12),
- ("08B", "word", None), ("09A", "cue", 14), ("09B", "cue", 15), ("10A", "cue", 16), ("10B", "cue", 17),
- ("11A", "cue", 18), ("12A", "cue", 19), ("12B", "word", None), ("13A", "cue", 20), ("14A", "cue", 22),
- ("15A", "cue", 26),
-]
-cue_at = {n: (t, est, text) for n, t, est, text in cues}
-rows = []
-for shot, kind, n in starts:
-    if shot == "01A":
-        t = 0.0
-    elif kind == "cue":
-        t = cut_before(cue_at[n][0])
-    else:
-        t = cut_before(words_inside[shot])
-    rows.append([shot, t])
-for i, row in enumerate(rows):
-    end = rows[i + 1][1] if i + 1 < len(rows) else END
-    row.append(round(end, 3))
-    row.append(round(end - row[1], 3))
+def main(out_path):
+    # Shot boundaries: (shot, starts at a cue or a word time, note)
+    # A shot starts on a cue (cut_before the cue's first word) or on a word inside a cue.
+    words_inside = {
+     "05B": 40.080,  # "financial analysis"
+     "05C": 42.500,  # "professional report"
+     "06B": 50.980,  # "with Aurixa Agent supporting"
+     "08B": 61.900,  # "identify opportunities" (08A runs briefly into the second sentence)
+     "12B": 86.800,  # "and discover what a more connected business"
+    }
+    starts = [
+     ("01A", "cue", 1), ("01B", "cue", 2), ("02A", "cue", 3), ("03A", "cue", 4), ("03B", "cue", 5),
+     ("03C", "cue", 6), ("04A", "cue", 7), ("04B", "cue", 8), ("05A", "cue", 9), ("05B", "word", None),
+     ("05C", "word", None), ("06A", "cue", 10), ("06B", "word", None), ("07A", "cue", 11), ("08A", "cue", 12),
+     ("08B", "word", None), ("09A", "cue", 14), ("09B", "cue", 15), ("10A", "cue", 16), ("10B", "cue", 17),
+     ("11A", "cue", 18), ("12A", "cue", 19), ("12B", "word", None), ("13A", "cue", 20), ("14A", "cue", 22),
+     ("15A", "cue", 26),
+    ]
+    cue_at = {n: (t, est, text) for n, t, est, text in cues}
+    rows = []
+    for shot, kind, n in starts:
+        if shot == "01A":
+            t = 0.0
+        elif kind == "cue":
+            t = cut_before(cue_at[n][0])
+        else:
+            t = cut_before(words_inside[shot])
+        rows.append([shot, t])
+    for i, row in enumerate(rows):
+        end = rows[i + 1][1] if i + 1 < len(rows) else END
+        row.append(round(end, 3))
+        row.append(round(end - row[1], 3))
 
-blocks = {"01": ["01A","01B"], "02": ["02A"], "03": ["03A","03B","03C"], "04": ["04A","04B"], "05": ["05A","05B","05C"],
-          "06": ["06A","06B"], "07": ["07A"], "08": ["08A","08B"], "09": ["09A","09B"], "10": ["10A","10B"], "11": ["11A"],
-          "12": ["12A","12B"], "13": ["13A"], "14": ["14A"], "15": ["15A"]}
-by = {r[0]: r for r in rows}
-out = {"fps": FPS, "end": END, "speech_end": 105.88,
-       "cues": [{"n": n, "start": t, "pack_estimate": est, "drift": round(t - est, 3), "text": text} for n, t, est, text in cues],
-       "shots": [{"shot": s, "in": a, "out": b, "seconds": d} for s, a, b, d in rows],
-       "blocks": [{"block": k, "in": by[v[0]][1], "out": by[v[-1]][2], "seconds": round(by[v[-1]][2] - by[v[0]][1], 3), "shots": v} for k, v in blocks.items()]}
-json.dump(out, open(sys.argv[1], "w"), indent=1)
-for r in rows: print(f"{r[0]}  {r[1]:7.3f} → {r[2]:7.3f}  {r[3]:5.2f}s")
-print()
-for b in out["blocks"]: print(b["block"], b["in"], b["out"], b["seconds"])
-print("sum", round(sum(r[3] for r in rows), 3))
+    blocks = {"01": ["01A","01B"], "02": ["02A"], "03": ["03A","03B","03C"], "04": ["04A","04B"], "05": ["05A","05B","05C"],
+              "06": ["06A","06B"], "07": ["07A"], "08": ["08A","08B"], "09": ["09A","09B"], "10": ["10A","10B"], "11": ["11A"],
+              "12": ["12A","12B"], "13": ["13A"], "14": ["14A"], "15": ["15A"]}
+    by = {r[0]: r for r in rows}
+    out = {"fps": FPS, "end": END, "speech_end": 105.88,
+           "cues": [{"n": n, "start": t, "pack_estimate": est, "drift": round(t - est, 3), "text": text} for n, t, est, text in cues],
+           "shots": [{"shot": s, "in": a, "out": b, "seconds": d} for s, a, b, d in rows],
+           "blocks": [{"block": k, "in": by[v[0]][1], "out": by[v[-1]][2], "seconds": round(by[v[-1]][2] - by[v[0]][1], 3), "shots": v} for k, v in blocks.items()]}
+    json.dump(out, open(out_path, "w"), indent=1)
+    for r in rows: print(f"{r[0]}  {r[1]:7.3f} → {r[2]:7.3f}  {r[3]:5.2f}s")
+    print()
+    for b in out["blocks"]: print(b["block"], b["in"], b["out"], b["seconds"])
+    print("sum", round(sum(r[3] for r in rows), 3))
+
+
+if __name__ == "__main__":
+    main(sys.argv[1])

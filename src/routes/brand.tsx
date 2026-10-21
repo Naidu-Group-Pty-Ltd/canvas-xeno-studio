@@ -5,6 +5,7 @@ import { formatDistanceToNow } from "date-fns";
 import {
   AlertTriangle,
   BookOpen,
+  Code2,
   Dna,
   FileText,
   Globe,
@@ -190,21 +191,25 @@ function BrandCard({
           </p>
         ) : (
           <p className="text-xs text-muted-foreground">
-            No design system yet: re-read it from the brand's website or guidelines, or describe its
-            look in the kit.
+            No design system yet: re-read it from the brand's website, guidelines or code, or
+            describe its look in the kit.
           </p>
         )}
         {kit.source && (
           <p className="flex items-center gap-1 truncate text-[11px] text-muted-foreground">
             {kit.source.kind === "url" ? (
               <Globe className="size-3 shrink-0" />
+            ) : kit.source.kind === "repos" ? (
+              <Code2 className="size-3 shrink-0" />
             ) : (
               <FileText className="size-3 shrink-0" />
             )}
             Read from{" "}
             {kit.source.kind === "url"
               ? (kit.source.url ?? "its website")
-              : (kit.source.title ?? "its guidelines")}
+              : kit.source.kind === "repos"
+                ? `the code of ${kit.source.title ?? "its repositories"}`
+                : (kit.source.title ?? "its guidelines")}
           </p>
         )}
         <div className="mt-auto flex gap-1.5 pt-1">
@@ -243,7 +248,9 @@ function ImportRow({
   const label =
     record.kind === "url"
       ? (record.sourceUrl?.replace(/^https:\/\//, "").replace(/\/$/, "") ?? "A website")
-      : (record.sourceTitle ?? "Brand guidelines");
+      : record.kind === "repos"
+        ? `the code of ${record.sourceTitle ?? "its repositories"}`
+        : (record.sourceTitle ?? "Brand guidelines");
   return (
     <li className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2 text-sm">
       {record.status === "scanning" ? (
@@ -429,7 +436,10 @@ function BrandPage() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {kits.map((kit) => {
                 const logo = kit.logoAssetId ? assets?.get(kit.logoAssetId) : undefined;
-                const reread = kit.source?.kind === "url" ? kit.source.url : kit.website;
+                const reread =
+                  kit.source?.kind === "url" || kit.source?.kind === "repos"
+                    ? kit.source.url
+                    : kit.website;
                 return (
                   <BrandCard
                     key={kit.id}
@@ -448,8 +458,9 @@ function BrandPage() {
               <ScanSearch className="size-8 text-primary" />
               <p className="text-base font-medium">Bring in your first brand</p>
               <p className="max-w-md text-sm text-muted-foreground">
-                Paste the brand's website or drop its guidelines PDF. The studio reads its colours,
-                typefaces, logo, imagery and voice, and you review it before it's kept.
+                Paste the brand's website, drop its guidelines PDF, or name its GitHub repositories.
+                The studio reads its colours, typefaces, logo, imagery and voice (from code, every
+                token with where it is declared), and you review it before it's kept.
               </p>
               <Button onClick={() => setImporting({ kit: null, importId: null })}>
                 <ScanSearch className="mr-1.5 size-4" /> Import a design system

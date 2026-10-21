@@ -70,6 +70,13 @@ interface Declaration {
   keyframes: boolean;
   /** The rule it was declared in, for custom properties set alongside their use. */
   rule: number;
+  /** Where the declaration starts in the sheet (comments taken out, lines kept). */
+  at: number;
+  /**
+   * The condition it holds under (`@supports not (backdrop-filter: …)`, `@media (max-width: 640px)`),
+   * or null: a fallback or a small screen's value, not the theme's own.
+   */
+  condition: string | null;
 }
 
 interface RawFace {
@@ -86,6 +93,7 @@ interface Block {
   keyframes: boolean;
   rule: number;
   face: RawFace | null;
+  condition: string | null;
 }
 
 /** At-rules whose blocks hold ordinary rules (or, nested in a rule, its declarations). */
@@ -99,7 +107,12 @@ const WRAPPERS = new Set([
   "scope",
   "starting-style",
 ]);
+/** Tailwind 4's theme block (`@theme`, `@theme inline`): custom properties on the root, written in source. */
+const THEME_BLOCK = "@theme";
 const DARK_MEDIA = /prefers-color-scheme\s*:\s*dark/i;
+/** A media query that only picks a colour scheme (or a medium): the theme itself, not a variant of it. */
+const SCHEME_MEDIA =
+  /^@media\s+(?:(?:only\s+)?(?:screen|all)(?:\s+and\s+)?)?(?:\(\s*prefers-color-scheme\s*:\s*(?:dark|light)\s*\))?\s*$/i;
 const DARK_SELECTOR =
   /\.(?:dark|dark-mode|dark-theme|theme-dark)(?![\w-])|\[data-[\w-]*(?:theme|mode|scheme)[\w-]*\s*[~|^$*]?=\s*["']?dark(?![\w-])/i;
 
@@ -116,6 +129,7 @@ function stringEnd(text: string, index: number): number {
   return text.length;
 }
 
+/** The sheet with its comments taken out; a comment's line breaks stay, so lines keep their numbers. */
 function stripComments(css: string): string {
   const parts: string[] = [];
   let start = 0;
@@ -124,9 +138,10 @@ function stripComments(css: string): string {
     if (code === 34 || code === 39) at = stringEnd(css, at);
     else if (code === 47 && css.charCodeAt(at + 1) === 42) {
       const end = css.indexOf("*/", at + 2);
-      parts.push(css.slice(start, at), " ");
-      at = end < 0 ? css.length : end + 1;
-      start = at + 1;
+      const close = end < 0 ? css.length : end + 2;
+      parts.push(css.slice(start, at), " ", css.slice(at, close).replace(/[^\n]+/g, ""));
+      at = close - 1;
+      start = close;
     }
   }
   parts.push(css.slice(start));
@@ -161,16 +176,19 @@ function readBlocks(css: string): {
   declarations: Declaration[];
   faces: RawFace[];
   imports: string[];
+  keyframes: string[];
 } {
   const declarations: Declaration[] = [];
   const faces: RawFace[] = [];
   const imports: string[] = [];
+  const keyframes: string[] = [];
   const stack: Block[] = [];
   let rules = 0;
 
-  const statement = (text: string) => {
+  const statement = (text: string, offset: number) => {
     const trimmed = text.trim();
     if (!trimmed) return;
+    const at = offset + (text.length - text.trimStart().length);
     if (trimmed[0] === "@") {
       if (/^@import\b/i.test(trimmed) && imports.length < 50) imports.push(trimmed);
       return;
@@ -202,6 +220,8 @@ function readBlocks(css: string): {
         dark: block.dark,
         keyframes: block.keyframes,
         rule: block.rule,
+        at,
+        condition: block.condition,
       });
   };
 
@@ -215,6 +235,7 @@ function readBlocks(css: string): {
       keyframes: false,
       rule: -1,
       face: null,
+      condition: null,
     };
     if (stack.length >= MAX_DEPTH || parent?.kind === "ignored" || parent?.kind === "font-face") {
       stack.push(ignored);
@@ -224,6 +245,7 @@ function readBlocks(css: string): {
       dark: parent?.dark ?? false,
       keyframes: parent?.keyframes ?? false,
       face: null,
+      condition: parent?.condition ?? null,
     };
     if (text.startsWith("@")) {
       const name = /^@([\w-]+)/.exec(text)?.[1]?.toLowerCase() ?? "";
@@ -231,8 +253,15 @@ function readBlocks(css: string): {
         const face: RawFace = { family: "", weight: null, style: null, src: null };
         faces.push(face);
         stack.push({ ...ignored, kind: "font-face", face });
-      } else if (name.endsWith("keyframes"))
+      } else if (name.endsWith("keyframes")) {
+        const named = text
+          .slice(name.length + 1)
+          .trim()
+          .replace(/^["']|["']$/g, "");
+        if (named && keyframes.length < 200 && !keyframes.includes(named)) keyframes.push(named);
         stack.push({ ...inherited, kind: "keyframes", selector: "", keyframes: true, rule: -1 });
+      } else if (name === "theme" && !parent)
+        stack.push({ ...inherited, kind: "rule", selector: THEME_BLOCK, rule: rules++ });
       else if (WRAPPERS.has(name))
         stack.push({
           ...inherited,
@@ -240,6 +269,14 @@ function readBlocks(css: string): {
           selector: parent?.selector ?? "",
           dark: inherited.dark || (name === "media" && DARK_MEDIA.test(text)),
           rule: parent?.rule ?? -1,
+          // A feature query, a container query or a media query beyond the scheme is a variant.
+          condition:
+            inherited.condition ??
+            (name === "supports" ||
+            name === "container" ||
+            (name === "media" && !SCHEME_MEDIA.test(text))
+              ? text.slice(0, 120)
+              : null),
         });
       else stack.push(ignored);
     } else if (parent?.kind === "keyframes")
@@ -264,7 +301,7 @@ function readBlocks(css: string): {
     else if (code === 40) paren += 1;
     else if (code === 41) paren = Math.max(0, paren - 1);
     else if (code === 59 && paren === 0) {
-      statement(css.slice(start, at));
+      statement(css.slice(start, at), start);
       start = at + 1;
     } else if (code === 123 && paren === 0) {
       open(css.slice(start, at));
@@ -272,13 +309,13 @@ function readBlocks(css: string): {
     } else if (code === 125) {
       // A stray "(" never swallows the rest of the sheet: a block's end ends it too.
       paren = 0;
-      statement(css.slice(start, at));
+      statement(css.slice(start, at), start);
       stack.pop();
       start = at + 1;
     }
   }
-  statement(css.slice(start));
-  return { declarations, faces, imports };
+  statement(css.slice(start), start);
+  return { declarations, faces, imports, keyframes };
 }
 
 /* ------------------------------------------------------------------ */
@@ -287,6 +324,7 @@ function readBlocks(css: string): {
 
 const ROOT_PART = /^(?::root|html|body|:host)(?:\[[^\]]*\]|\.[\w-]+|:[\w-]+)*$/i;
 const isRootSelector = (selector: string) =>
+  selector === THEME_BLOCK ||
   splitTop(selector, ",").some((part) => part.trim() === "*" || ROOT_PART.test(part.trim()));
 
 const BRAND_NAME = /primary|brand|accent|secondary|highlight|main|theme|cta|action/i;
@@ -616,6 +654,11 @@ function primaryFamily(stack: string): string | null {
   return null;
 }
 
+/** The typeface a font stack names (`"Inter", system-ui, sans-serif` is Inter), or null for a system stack. */
+export function fontStackFamily(stack: string): string | null {
+  return typeof stack === "string" && stack.length < 2000 ? primaryFamily(stack) : null;
+}
+
 /** The family list of the `font` shorthand: what follows the size (and any /line-height). */
 function shorthandStack(value: string): string | null {
   const match =
@@ -857,5 +900,206 @@ export function scanCss(css: string, options: { baseUrl?: string } = {}): CssSig
     return scan(css.slice(0, MAX_INPUT), options.baseUrl);
   } catch {
     return { colours: [], variables: [], fonts: [], fontFaces: [], imports: [] };
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Tokens, as source code declares them                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Which theme a value belongs to: the one a page gets with no theme chosen
+ * (`:root`, `@theme`), a dark or light one (`.dark`, `[data-theme=light]`,
+ * a prefers-color-scheme block), or only inside some part of a page
+ * (`.marketing-page`, `.builder-portal-theme`).
+ */
+export type TokenScheme = "default" | "dark" | "light" | "scoped";
+
+export interface CssToken {
+  /** The custom property, as written (its case kept). */
+  name: string;
+  value: string;
+  /** With its var() references read through, in this token's scheme, as far as the sheet defines them. */
+  resolved: string;
+  /** The one colour it holds, if it holds one (bare channels read in the colour function they're used in). */
+  hex: string | null;
+  alpha: number | null;
+  /** The rule it is set in: ":root", ".dark", "@theme" (Tailwind 4's theme block)… */
+  selector: string;
+  scheme: TokenScheme;
+  /** Its line in the sheet, from 1. */
+  line: number;
+}
+
+export interface CssTokens {
+  /** Every custom property declaration, in the order written: once per scheme its rule sets it for. */
+  tokens: CssToken[];
+  /** The @keyframes the sheet names. */
+  keyframes: string[];
+}
+
+const MAX_TOKENS = 4000;
+const DARK_PART = new RegExp(
+  `${DARK_SELECTOR.source}|\\[data-[\\w-]+\\s*[~|^$*]?=\\s*["']?dark(?![\\w-])`,
+  "i",
+);
+const LIGHT_PART =
+  /\.(?:light|light-mode|light-theme|theme-light)(?![\w-])|\[data-[\w-]+\s*[~|^$*]?=\s*["']?light(?![\w-])/i;
+
+/** The schemes a rule sets its custom properties for, one per part of its selector list. */
+function schemesOf(decl: Declaration): TokenScheme[] {
+  // A fallback (`@supports not …`) or a small screen's value is a variant, not the theme's own.
+  if (decl.condition) return ["scoped"];
+  // A prefers-color-scheme: dark block makes everything in it dark.
+  if (decl.dark && !DARK_PART.test(decl.selector)) return ["dark"];
+  const out = new Set<TokenScheme>();
+  for (const raw of splitTop(decl.selector, ",")) {
+    const part = raw.trim();
+    // `:root:not(.dark)` is the light theme, not the dark one.
+    const negated = /:not\([^)]*dark[^)]*\)/i.test(part);
+    const bare = part.replace(/:not\((?:[^()]|\([^()]*\))*\)/gi, "");
+    if (DARK_PART.test(bare)) out.add("dark");
+    else if (LIGHT_PART.test(bare) || negated) out.add("light");
+    else if (part === THEME_BLOCK || isRootSelector(part) || /^:where\(\s*:root/i.test(part))
+      out.add("default");
+    else out.add("scoped");
+  }
+  return [...out];
+}
+
+/** How var(--name) reads for a scheme: the same rule's own definition, then that scheme's, then the default's. */
+function schemeDefinitions(declarations: Declaration[], schemes: Map<Declaration, TokenScheme[]>) {
+  const global = new Map<string, Partial<Record<TokenScheme, string>>>();
+  const local = new Map<number, Map<string, string>>();
+  for (const decl of declarations) {
+    if (!decl.property.startsWith("--")) continue;
+    let own = local.get(decl.rule);
+    if (!own) local.set(decl.rule, (own = new Map()));
+    own.set(decl.property, decl.value);
+    const entry = global.get(decl.property) ?? {};
+    for (const scheme of schemes.get(decl) ?? []) {
+      // The first definition, until a root one (where later ones win, as in the cascade).
+      if (entry[scheme] === undefined || isRootSelector(decl.selector)) entry[scheme] = decl.value;
+    }
+    global.set(decl.property, entry);
+  }
+  return (name: string, rule: number, scheme: TokenScheme): string | undefined => {
+    const own = local.get(rule)?.get(name);
+    if (own !== undefined) return own;
+    const entry = global.get(name);
+    if (!entry) return undefined;
+    return entry[scheme] ?? entry.default ?? entry.light ?? entry.dark ?? entry.scoped;
+  };
+}
+
+/** Where each line starts, for turning an offset into a line number. */
+function lineStarts(text: string): number[] {
+  const starts = [0];
+  for (let at = text.indexOf("\n"); at >= 0; at = text.indexOf("\n", at + 1)) starts.push(at + 1);
+  return starts;
+}
+
+function lineOf(starts: number[], offset: number): number {
+  let low = 0;
+  let high = starts.length - 1;
+  while (low < high) {
+    const middle = (low + high + 1) >> 1;
+    if (starts[middle]! <= offset) low = middle;
+    else high = middle - 1;
+  }
+  return low + 1;
+}
+
+/** One rule of a stylesheet: its selector (a nested rule's joined to its parent's), where it is, and what it declares. */
+export interface CssRule {
+  selector: string;
+  /** Its first declaration's line. */
+  line: number;
+  declarations: { property: string; value: string; line: number }[];
+  /** The `@media`, `@supports` or `@container` condition it holds under, or null. */
+  condition: string | null;
+}
+
+/**
+ * Every ordinary rule a stylesheet declares, in order (not @font-face or
+ * keyframes): for finding where a brand's graphic devices are drawn
+ * (`.compliance-traveller { … }`) by line. Reads at most the first 2 MB;
+ * never throws.
+ */
+export function cssRules(css: string): CssRule[] {
+  if (typeof css !== "string" || !css) return [];
+  try {
+    const text = stripComments(css.slice(0, MAX_INPUT));
+    const { declarations } = readBlocks(text);
+    const starts = lineStarts(text);
+    const rules = new Map<number, CssRule>();
+    for (const decl of declarations) {
+      if (decl.keyframes || decl.selector === THEME_BLOCK) continue;
+      const line = lineOf(starts, decl.at);
+      const rule = rules.get(decl.rule) ?? {
+        selector: decl.selector.replace(/\s+/g, " ").trim(),
+        line,
+        declarations: [],
+        condition: decl.condition,
+      };
+      rule.declarations.push({
+        property: decl.property,
+        value: decl.value.replace(/\s+/g, " ").trim(),
+        line,
+      });
+      rules.set(decl.rule, rule);
+    }
+    return [...rules.values()];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Every custom property a stylesheet declares, where it declares it (its
+ * rule, scheme and line) and what it comes to there: for reading a design
+ * system from its source code, where a token's name and place matter as
+ * much as its value. Tailwind 4's `@theme` blocks count as the root. Reads
+ * at most the first 2 MB; never throws.
+ */
+export function scanCssTokens(css: string): CssTokens {
+  if (typeof css !== "string" || !css) return { tokens: [], keyframes: [] };
+  try {
+    const text = stripComments(css.slice(0, MAX_INPUT));
+    const { declarations, keyframes } = readBlocks(text);
+    const custom = declarations.filter((decl) => decl.property.startsWith("--") && !decl.keyframes);
+    const schemes = new Map(custom.map((decl) => [decl, schemesOf(decl)] as const));
+    const lookupIn = schemeDefinitions(custom, schemes);
+    const spaces = channelSpaces(declarations);
+    const starts = lineStarts(text);
+    const tokens: CssToken[] = [];
+    let lookups = 0;
+    for (const decl of custom) {
+      for (const scheme of schemes.get(decl) ?? []) {
+        if (tokens.length >= MAX_TOKENS) break;
+        const budget = { steps: 0 };
+        const resolved =
+          lookups > 100_000
+            ? decl.value
+            : substitute(decl.value, (name) => lookupIn(name, decl.rule, scheme), 0, [], budget);
+        lookups += budget.steps;
+        const colour = heldColour(decl.property, resolved, spaces);
+        tokens.push({
+          name: decl.property,
+          value: decl.value.replace(/\s+/g, " ").slice(0, 400),
+          resolved: resolved.replace(/\s+/g, " ").slice(0, 400),
+          hex: colour?.hex ?? null,
+          alpha: colour ? round2(colour.alpha) : null,
+          selector: `${decl.condition ? `${decl.condition} ` : ""}${decl.selector}`
+            .replace(/\s+/g, " ")
+            .slice(0, 200),
+          scheme,
+          line: lineOf(starts, decl.at),
+        });
+      }
+    }
+    return { tokens, keyframes };
+  } catch {
+    return { tokens: [], keyframes: [] };
   }
 }

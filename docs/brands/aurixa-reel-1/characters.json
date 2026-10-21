@@ -1,0 +1,444 @@
+{
+  "ALEX": {
+    "characterId": "61a0d860-6712-4203-82b9-6302afd8e964",
+    "name": "Alex Morgan",
+    "sheet": {
+      "front": "a0699832-f432-46ed-8118-50ed582b2070",
+      "three_quarter": "5f09c674-e8b3-42ce-ac19-eec12f1e7cf5",
+      "side": "36cd0be5-0e02-4e9e-be07-c8f821e0613f",
+      "other": "bd4a2261-cbd0-4d7a-ab7c-1975679b96a8"
+    },
+    "photos": {
+      "F-02A-in": "3e6c3e50-078f-4c52-9563-e9f73466d9fe",
+      "F-03A-in": "733029a9-bd85-4002-837c-abaf9e5b2929",
+      "F-03B-in": "5daaa62d-b3b1-4fd9-9c87-18745ec7a19a",
+      "F-04A-out": "b397fed7-1579-47ce-9e19-2b5f6e397fdf",
+      "F-08B-in": "c8d0cc86-fc56-4789-a60b-dffb2cb4861b",
+      "F-10B-in": "f72f89ef-faa8-424f-afb6-519791650269"
+    },
+    "training": [
+      "a0699832-f432-46ed-8118-50ed582b2070",
+      "5f09c674-e8b3-42ce-ac19-eec12f1e7cf5",
+      "36cd0be5-0e02-4e9e-be07-c8f821e0613f",
+      "3e6c3e50-078f-4c52-9563-e9f73466d9fe",
+      "733029a9-bd85-4002-837c-abaf9e5b2929",
+      "5daaa62d-b3b1-4fd9-9c87-18745ec7a19a",
+      "b397fed7-1579-47ce-9e19-2b5f6e397fdf",
+      "c8d0cc86-fc56-4789-a60b-dffb2cb4861b",
+      "f72f89ef-faa8-424f-afb6-519791650269"
+    ],
+    "soul": {
+      "v2": {
+        "status": "training"
+      }
+    },
+    "proof": "7989f7b9-097e-4c4e-89b6-4568e20c2cb4",
+    "proofAsset": "5da1986b-c582-4f50-bf02-b810e9f8ed3b",
+    "souls": [
+      {
+        "version": "v2",
+        "referenceId": "62b73f8e-23f6-410b-ae54-f69668c1ec58",
+        "approved": true
+      }
+    ],
+    "training_state": {
+      "status": "ready",
+      "version": "v2",
+      "error": null
+    }
+  },
+  "JORDAN": {
+    "characterId": "4cc5f81a-df5f-4cee-9f02-f283594c0ceb",
+    "name": "Jordan Ellis",
+    "sheet": {
+      "front": "f2cd0f5f-4c73-4117-87d8-f0543c6737a7",
+      "three_quarter": "da08a2ef-3a26-4ff1-935c-82ea2669c9c4",
+      "side": "4961d8e1-8997-4069-aeed-aa894f81f0ce",
+      "other": "3b25b11e-717c-4f12-86d7-d0ed747a7da3"
+    },
+    "photos": {
+      "F-03C-in": "a8746f50-be39-45f7-a6f4-d82a6ca2987f",
+      "F-06A-out": "67bee796-525c-4563-91df-801c3a654702",
+      "F-08B-in": "e2e8ab91-26e0-4002-aa04-6f65bade14c1"
+    },
+    "training": [
+      "f2cd0f5f-4c73-4117-87d8-f0543c6737a7",
+      "da08a2ef-3a26-4ff1-935c-82ea2669c9c4",
+      "4961d8e1-8997-4069-aeed-aa894f81f0ce",
+      "a8746f50-be39-45f7-a6f4-d82a6ca2987f",
+      "67bee796-525c-4563-91df-801c3a654702",
+      "e2e8ab91-26e0-4002-aa04-6f65bade14c1"
+    ],
+    "soul": {
+      "v2": {
+        "status": "training"
+      }
+    },
+    "proof": "ec0c9368-49e9-4cac-8d93-df260c1ec68d",
+    "proofAsset": "04b1f2b6-9276-4d38-b0e3-346d20790a1b",
+    "souls": [
+      {
+        "version": "v2",
+        "referenceId": "c2edaa58-ec45-435f-bc5d-a761e706db67",
+        "approved": true
+      }
+    ],
+    "training_state": {
+      "status": "ready",
+      "version": "v2",
+      "error": null
+    }
+  },
+  "JAMIE": {
+    "characterId": "a2b02ef5-4115-42b1-8a90-69164e41bb26",
+    "name": "Jamie Chen",
+    "sheet": {
+      "front": "7c3522fe-47aa-4cac-90e7-3a94c314988d",
+      "three_quarter": "33fefaf8-1ece-4415-a31d-d8981ee6a9d8",
+      "side": "5bb0d7f2-97ab-4811-8c32-a9e247b03d5d",
+      "other": "93fe4dde-aca2-4c88-a7c5-cf4d9e17850a"
+    },
+    "photos": {
+      "F-05B-in": "b768acee-4bab-4259-8ce4-cb5acae8c7bf",
+      "F-13A-in": "55e91433-a179-4af9-9a91-6fb81544d40c"
+    },
+    "training": [
+      "7c3522fe-47aa-4cac-90e7-3a94c314988d",
+      "33fefaf8-1ece-4415-a31d-d8981ee6a9d8",
+      "5bb0d7f2-97ab-4811-8c32-a9e247b03d5d",
+      "b768acee-4bab-4259-8ce4-cb5acae8c7bf",
+      "55e91433-a179-4af9-9a91-6fb81544d40c",
+      "ce3fdafe-4b6c-4bbe-a141-7b1ced795ee4",
+      "61e90d2b-d4bb-49fd-9234-0c83dd47aa48",
+      "7ea0c464-caf2-4aee-bff2-5ea9aa0fa6e6",
+      "c591cad6-915b-485c-9e0a-743a57815f64",
+      "cb05d76a-d322-4fd9-9877-4150a98ad9c5",
+      "dfc1c614-cba7-48f5-98d5-9783e777b6d8",
+      "bf116a01-2024-40ee-a66c-46998289f1ef"
+    ],
+    "soul": {
+      "v2": {
+        "status": "ready",
+        "images": 12,
+        "retrained": "2026-10-21, on the sheet, the frames and 7 pack photos"
+      }
+    },
+    "proof": "798bd1c6-7186-42ed-8065-251ab70fefb0",
+    "proofAsset": "20d5ad6e-4705-46eb-baab-6a90811738f1",
+    "souls": [
+      {
+        "version": "v2",
+        "referenceId": "65de8e6e-c66c-4c5f-89c8-7443cc28a17b",
+        "approved": true
+      },
+      {
+        "version": "v2",
+        "referenceId": "2435923e-7d7f-4841-83fc-5eb6bae37213",
+        "approved": false
+      }
+    ],
+    "training_state": {
+      "status": "ready",
+      "version": "v2",
+      "error": null
+    },
+    "pack": {
+      "1": {
+        "generationId": "4a0b218e-e005-45fb-8f96-8ddec807a8ea",
+        "status": "completed",
+        "assetId": "0dda3313-306e-4eec-b60d-a741ee097c25",
+        "kept": false
+      },
+      "2": {
+        "generationId": "51593563-7f86-4b77-ae18-fd92b61ba1a7",
+        "status": "completed",
+        "assetId": "ce3fdafe-4b6c-4bbe-a141-7b1ced795ee4",
+        "kept": true
+      },
+      "3": {
+        "generationId": "0ba5fc80-7569-460c-93e1-a8f8cabe4d75",
+        "status": "completed",
+        "assetId": "61e90d2b-d4bb-49fd-9234-0c83dd47aa48",
+        "kept": true
+      },
+      "4": {
+        "generationId": "7014483d-9990-4b67-a449-ebad8ae27f8f",
+        "status": "completed",
+        "assetId": "7ea0c464-caf2-4aee-bff2-5ea9aa0fa6e6",
+        "kept": true
+      },
+      "5": {
+        "generationId": "6a6afff6-743f-4380-9e87-a69292bb8d1b",
+        "status": "completed",
+        "assetId": "c591cad6-915b-485c-9e0a-743a57815f64",
+        "kept": true
+      },
+      "6": {
+        "generationId": "ed56a22b-4ea4-4e50-a7db-efc9572836be",
+        "status": "completed",
+        "assetId": "cb05d76a-d322-4fd9-9877-4150a98ad9c5",
+        "kept": true
+      },
+      "7": {
+        "generationId": "59bafa21-7568-4e1e-a58f-bf23510cabbf",
+        "status": "completed",
+        "assetId": "dfc1c614-cba7-48f5-98d5-9783e777b6d8",
+        "kept": true
+      },
+      "8": {
+        "generationId": "9d12bccf-5427-439f-9860-889d0e0ff402",
+        "status": "completed",
+        "assetId": "bf116a01-2024-40ee-a66c-46998289f1ef",
+        "kept": true
+      }
+    }
+  },
+  "PRIYA": {
+    "characterId": "d94528af-7313-404f-9d9b-9b43af5ff63d",
+    "name": "Priya Shah",
+    "sheet": {
+      "front": "4467b92b-2d4c-40cc-bc77-7da93f9616cb",
+      "three_quarter": "b399effe-8041-4dfb-8995-828b8238e4d2",
+      "side": "5612aea4-99f5-4449-bc7d-58ca5b095844",
+      "other": "c263783d-d171-4e08-af39-32c41360825c"
+    },
+    "photos": {
+      "F-09A-in": "6dd21450-92b4-4607-ba22-5d3de9377400",
+      "F-09A-out": "87280574-7f28-42d6-8f05-e8039105442f",
+      "F-10A-in": "56f75493-c9ca-45b4-aaf1-ab9e322cb379"
+    },
+    "training": [
+      "4467b92b-2d4c-40cc-bc77-7da93f9616cb",
+      "b399effe-8041-4dfb-8995-828b8238e4d2",
+      "5612aea4-99f5-4449-bc7d-58ca5b095844",
+      "6dd21450-92b4-4607-ba22-5d3de9377400",
+      "87280574-7f28-42d6-8f05-e8039105442f",
+      "56f75493-c9ca-45b4-aaf1-ab9e322cb379"
+    ],
+    "soul": {
+      "v2": {
+        "status": "training"
+      }
+    },
+    "proof": "73c3d4bd-3795-4106-a752-369b4ad9c4ac",
+    "proofAsset": "b2677e7d-d703-4f8c-9ae7-0c680d4ca72d",
+    "souls": [
+      {
+        "version": "v2",
+        "referenceId": "c8d0ac92-644b-496e-934f-21f63bfa61a2",
+        "approved": true
+      }
+    ],
+    "training_state": {
+      "status": "ready",
+      "version": "v2",
+      "error": null
+    }
+  },
+  "DANIEL": {
+    "characterId": "482f84bf-e57f-43f7-bfd3-cc2c56f6388a",
+    "name": "Daniel Reed",
+    "sheet": {
+      "front": "8f89278e-c6d1-4d70-8a3b-8a69a5a8b883",
+      "three_quarter": "17be30aa-99a4-402e-befe-faf0c379038c",
+      "side": "b94e2d83-bc0b-46b0-9279-eab604273e1a",
+      "other": "bec9929b-ad5f-4d40-863d-91314b46c2c0"
+    },
+    "photos": {
+      "F-12A-in": "ecf3b17d-a2a1-4c2d-9702-13deab81d469",
+      "F-12A-out": "ed4aa9ba-a2bb-48e5-b559-83fba0c6220a"
+    },
+    "training": [
+      "8f89278e-c6d1-4d70-8a3b-8a69a5a8b883",
+      "17be30aa-99a4-402e-befe-faf0c379038c",
+      "b94e2d83-bc0b-46b0-9279-eab604273e1a",
+      "ecf3b17d-a2a1-4c2d-9702-13deab81d469",
+      "ed4aa9ba-a2bb-48e5-b559-83fba0c6220a",
+      "53f146fc-ac90-4360-99a4-390a036186ef",
+      "e298cecf-5ec8-4cb2-ba7a-e2ff7a6bc118",
+      "f31c27c3-c67c-433b-8eec-13b1fc38740d",
+      "08f777ad-ea2b-4068-bc1b-e3b2f7ecd898",
+      "f4e04fba-0992-4510-925a-1e300464af04"
+    ],
+    "soul": {
+      "v2": {
+        "status": "ready",
+        "images": 10,
+        "retrained": "2026-10-21, on the sheet, the frames and 5 pack photos"
+      }
+    },
+    "proof": "b20ee867-81b7-4093-8029-696238c4db85",
+    "proofAsset": "efb5fea5-ece8-4716-a257-47ded5150986",
+    "souls": [
+      {
+        "version": "v2",
+        "referenceId": "c6d47eaa-a999-4661-b2f8-7783750fc794",
+        "approved": true
+      },
+      {
+        "version": "v2",
+        "referenceId": "91d68eff-1680-4864-b5be-654603d0dad3",
+        "approved": true
+      }
+    ],
+    "training_state": {
+      "status": "ready",
+      "version": "v2",
+      "error": null
+    },
+    "pack": {
+      "1": {
+        "generationId": "034cd3b3-6f3c-4fe0-9062-ceff2360ffb7",
+        "status": "completed",
+        "assetId": "53f146fc-ac90-4360-99a4-390a036186ef",
+        "kept": true
+      },
+      "2": {
+        "generationId": "0140da27-2760-40bb-9d63-9ffbd338d63e",
+        "status": "completed",
+        "assetId": "97132b3a-4896-4bfb-97fe-f92f70f0abea",
+        "kept": false
+      },
+      "3": {
+        "generationId": "7c801a3c-8c9e-40e0-8b88-1ccb0b559cec",
+        "status": "completed",
+        "assetId": "e298cecf-5ec8-4cb2-ba7a-e2ff7a6bc118",
+        "kept": true
+      },
+      "4": {
+        "generationId": "8bc924a7-c63b-44b7-81fe-7e3ef4b43923",
+        "status": "completed",
+        "assetId": "5f5908c7-f1d9-4052-a8ff-7ccac821b4f2",
+        "kept": false
+      },
+      "5": {
+        "generationId": "d3b58803-545c-468d-b403-06c6e8e822b3",
+        "status": "completed",
+        "assetId": "f31c27c3-c67c-433b-8eec-13b1fc38740d",
+        "kept": true
+      },
+      "6": {
+        "generationId": "e12a27d4-a033-4154-a9b2-71bb0829e130",
+        "status": "completed",
+        "assetId": "08f777ad-ea2b-4068-bc1b-e3b2f7ecd898",
+        "kept": true
+      },
+      "7": {
+        "generationId": "b68a6ecd-aba5-466a-9768-fa98c3384048",
+        "status": "completed",
+        "assetId": "f4e04fba-0992-4510-925a-1e300464af04",
+        "kept": true
+      },
+      "8": {
+        "generationId": "5fec8a4e-eba1-46b6-826a-e060bd37304a",
+        "status": "completed",
+        "assetId": "b8aa6362-e36b-45d5-ad7a-837ed595a164",
+        "kept": false
+      }
+    }
+  },
+  "MIA": {
+    "characterId": "8777a5d9-26d5-4473-971a-74ab4133157b",
+    "name": "Mia Patel",
+    "sheet": {
+      "front": "e67b9c6c-8741-411d-878d-084b6b431e73",
+      "three_quarter": "d37ea63a-8865-404e-b3fb-159e055d06fa",
+      "side": "cb6c02db-fb19-4eab-84db-bc62261fe7a2",
+      "other": "ebd7b138-00be-4d84-ae20-593f9b220b96"
+    },
+    "photos": {
+      "F-08A-in": "da8557a7-3906-4b47-ae00-d95b84094d36",
+      "F-08A-out": "161d8798-ec3c-4f3e-80e8-97c98700fb49"
+    },
+    "training": [
+      "e67b9c6c-8741-411d-878d-084b6b431e73",
+      "d37ea63a-8865-404e-b3fb-159e055d06fa",
+      "cb6c02db-fb19-4eab-84db-bc62261fe7a2",
+      "da8557a7-3906-4b47-ae00-d95b84094d36",
+      "161d8798-ec3c-4f3e-80e8-97c98700fb49",
+      "be883a27-38cc-49f4-ae31-3796ed823c10",
+      "e4f62558-5e4e-48bb-8dd7-2b691fd9a891",
+      "6d9dbcdc-47aa-4f18-8428-e3e7873dfba4",
+      "ea3b30eb-18c2-4c48-9714-0f6543669c2c",
+      "2a5a085e-6e36-4553-a677-f2a2cbea93d8",
+      "8d1432b1-cbdd-4013-8577-efd35105a4c5",
+      "b1d4272d-6e70-4445-aa5e-1cba8b85f392"
+    ],
+    "soul": {
+      "v2": {
+        "status": "ready",
+        "images": 12,
+        "retrained": "2026-10-21, on the sheet, the frames and 7 pack photos"
+      }
+    },
+    "souls": [
+      {
+        "version": "v2",
+        "referenceId": "02335d7f-4d1f-457b-a07d-fa0c6f68f9f4",
+        "approved": true
+      },
+      {
+        "version": "v2",
+        "referenceId": "ff33959e-78e4-4443-a530-419661be985b",
+        "approved": true
+      }
+    ],
+    "training_state": {
+      "status": "ready",
+      "version": "v2",
+      "error": null
+    },
+    "proof": "7e9164da-3a5c-4eda-9d06-e83af148ec2a",
+    "proofAsset": "dcccc105-8899-4fc0-9d4a-f97305e1b6b8",
+    "pack": {
+      "1": {
+        "generationId": "fc4249ea-fa5c-4d80-bdb8-f8b0db03c789",
+        "status": "completed",
+        "assetId": "be883a27-38cc-49f4-ae31-3796ed823c10",
+        "kept": true
+      },
+      "2": {
+        "generationId": "9718be17-d863-4a5a-82ff-85ebb29111a9",
+        "status": "completed",
+        "assetId": "e4f62558-5e4e-48bb-8dd7-2b691fd9a891",
+        "kept": true
+      },
+      "3": {
+        "generationId": "9e807162-cadf-4671-96a0-3979ad7f318f",
+        "status": "completed",
+        "assetId": "6d9dbcdc-47aa-4f18-8428-e3e7873dfba4",
+        "kept": true
+      },
+      "4": {
+        "generationId": "0f8b71cd-1882-40a6-a10c-7359f1469b5e",
+        "status": "completed",
+        "assetId": "ea3b30eb-18c2-4c48-9714-0f6543669c2c",
+        "kept": true
+      },
+      "5": {
+        "generationId": "76a316d2-82c2-4302-b466-178a5894698f",
+        "status": "completed",
+        "assetId": "2a5a085e-6e36-4553-a677-f2a2cbea93d8",
+        "kept": true
+      },
+      "6": {
+        "generationId": "b76bc8b2-7bd5-4b9b-b580-81d54e7bf2c4",
+        "status": "completed",
+        "assetId": "8d1432b1-cbdd-4013-8577-efd35105a4c5",
+        "kept": true
+      },
+      "7": {
+        "generationId": "62f0a0d1-4f44-43ba-9d51-c2301942942c",
+        "status": "completed",
+        "assetId": "b1d4272d-6e70-4445-aa5e-1cba8b85f392",
+        "kept": true
+      },
+      "8": {
+        "generationId": "3a988d1f-b0aa-4302-aee6-154897a6f02f",
+        "status": "completed",
+        "assetId": "8fee2bc8-52b8-4156-a24c-36a53a3daf44",
+        "kept": false
+      }
+    }
+  }
+}
