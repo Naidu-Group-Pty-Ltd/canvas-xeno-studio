@@ -696,8 +696,9 @@ PLATES = [
     ("PL-09A", "09A", "generic", "Two generic document lists with duplicate references", ["Residence 014 — documents (list A)", "Residence 014 — documents (list B, duplicates)", "No Aurixa branding"]),
     ("PL-09B-a", "09B", "aurixa", "Solicitor Portal · Open matters, before the click", ["Open matters (active)", "Project Banksia / Residence 014 (under the cursor)", "Demo workspace"]),
     ("PL-09B-b", "09B", "aurixa", "Solicitor Portal · the matter opened", ["Project Banksia / Residence 014 (selected, blue)", "Document review: Contract of sale (draft) · Floor plan · Building specification", "Next discussion"]),
-    ("PL-11A-a", "10B, 11A", "aurixa", "Campaign trial invitation", ["Approved emblem", "AURIXA SYSTEMS", "14-DAY FREE TRIAL", "Start your free trial (saturated blue CTA)"]),
-    ("PL-11A-b", "11A", "aurixa", "CTA selected state", ["Start your free trial (pressed state)"]),
+    ("PL-11A-a", "10B, 11A", "aurixa", "Campaign trial invitation", ["The supplied logo, whole (REF-LOGO: emblem, rings, skyline and lettering)", "14-DAY FREE TRIAL",
+        "START YOUR FREE TRIAL (saturated blue CTA, the pointer on it)"]),
+    ("PL-11A-b", "11A", "aurixa", "CTA selected state", ["START YOUR FREE TRIAL (pressed: sunk, with a gold edge)"]),
     ("PL-11A-c", "11A", "aurixa", "Command Centre · Demo workspace", ["Demo workspace", "Explore your workspace", "Project tile: Residence 014 (image P)", "Portals: Client · Finance · Legal · Builder / Developer · Accounting",
         "Get started: Run a report · Open a portal · Ask Aurixa"]),
     ("PL-12A-a", "12A", "aurixa", "Builder / Developer Portal · Stock List", ["AURIXA SYSTEMS · BUILDER / DEVELOPER PORTAL", "Projects · Stock List", "Project Banksia", "Residence 014 (row, under the cursor)", "Demo workspace"]),
@@ -708,7 +709,7 @@ PLATES = [
     ("PL-13A-b", "13A", "aurixa", "Alternative case selected", ["Alternative case (selected, blue)", "Illustrative scenario"]),
     *[(f"PL-14A-{n}", "14A", "overlay", "Editorial phrase, one at a time in one clear area", [text])
       for n, text in enumerate(["Fourteen days.", "Your business.", "Your experience.", "Your decision."], 1)],
-    ("PL-15A", "15A", "endcard", "Closing card (from the start of Block 15)", ["Approved emblem", "AURIXA SYSTEMS", "The operating system for modern property professionals.", "14-DAY FREE TRIAL",
+    ("PL-15A", "15A", "endcard", "Closing card (from the start of Block 15)", ["The supplied logo, whole (REF-LOGO)", "The operating system for modern property professionals.", "14-DAY FREE TRIAL",
         "START YOUR FREE TRIAL", "aurixasystems.com.au"]),
 ]
 stage3 = [{"key": k, "shots": s, "kind": kind, "title": title, "text": text} for k, s, kind, title, text in PLATES]
@@ -809,6 +810,10 @@ spec = {
         "Agent is the product's floating emblem with a hover label; the pages past Reports (the analysis, Generated Reports, the record and its agent panel, "
         "the demo workspace) are built from the Reports page's components, as only that page was supplied; and the client summary preview (05C-b) opens over "
         "the Command Centre rather than as a separate page.",
+        "21 October 2026, quality check (QC.md): the portal plates are set in the portals' own fonts, read from their code (npc-client-dashboard): "
+        "the system stack, so Segoe UI on Windows as the screenshots show, drawn in Selawik (Microsoft's open stand-in, built by selawik.py); "
+        "the brand serif Playfair Display Medium; and Consolas for code labels, drawn in Inconsolata. The trial card and the closing card "
+        "carry the supplied logo whole rather than its keyed emblem and wordmark, at the client's direction.",
     ],
     "timing": {"method": "Each cut sits in the pause before the cue's first word (0.15 s ahead of its speech onset), or 0.1 s ahead of a word mid-phrase, snapped to 30 fps.",
                "cues": timing["cues"],

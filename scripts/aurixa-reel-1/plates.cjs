@@ -30,6 +30,8 @@ const P = asset("P.png");
 const D = asset("D.png");
 const EMBLEM = asset("emblem.png");
 const WORDMARK = asset("wordmark.png");
+// The supplied logo itself (its glow, rings, skyline and lettering), for the trial and closing cards.
+const LOGO = asset("logo-art.png");
 
 /** A Google font as a data URL, kept in the temp folder (Inter is a system font). */
 async function googleFont(family, weight) {
@@ -48,18 +50,35 @@ async function googleFont(family, weight) {
   return dataUrl(file, "font/ttf");
 }
 
+// The portals' own fonts: they set the system stack, so the supplied (Windows) screenshots show Segoe UI,
+// drawn here in Selawik (its open stand-in, built by ./selawik.py into the assets folder); their code face
+// falls to Consolas, drawn in Inconsolata; and their brand serif is Playfair Display Medium alone (its
+// bold is the browser's, as in the product), named Aurixa Display so the editorial plates keep their
+// own Playfair weights. The website, the trial card and the end card set Inter (a system font here).
 const FONTS = [
   ["Playfair Display", [600, 700]],
-  ["Plus Jakarta Sans", [400, 500, 600, 700, 800]],
-  ["JetBrains Mono", [700]],
+  ["Playfair Display", [500], "Aurixa Display"],
+  ["Inconsolata", [400, 700]],
 ];
+const LOCAL_FONTS = [["Selawik", [400, 600, 700]]];
 async function fontFaces() {
   const faces = [];
-  for (const [family, weights] of FONTS)
+  for (const [family, weights, as = family] of FONTS)
     for (const weight of weights)
       faces.push(
-        `@font-face { font-family: "${family}"; font-weight: ${weight}; src: url("${await googleFont(family, weight)}") format("truetype"); }`,
+        `@font-face { font-family: "${as}"; font-weight: ${weight}; src: url("${await googleFont(family, weight)}") format("truetype"); }`,
       );
+  for (const [family, weights] of LOCAL_FONTS)
+    for (const weight of weights) {
+      const file = ASSETS && path.join(ASSETS, `${family}-${weight}.ttf`);
+      if (!file || !fs.existsSync(file))
+        throw new Error(
+          `${family}-${weight}.ttf isn't in the assets folder: build it with selawik.py`,
+        );
+      faces.push(
+        `@font-face { font-family: "${family}"; font-weight: ${weight}; src: url("${dataUrl(file, "font/ttf")}") format("truetype"); }`,
+      );
+    }
   return faces.join("\n");
 }
 
@@ -271,6 +290,26 @@ const ccReports = (selected) =>
   </div>${selected ? ctxCard(false) : ""}`,
   );
 
+/** The supplied logo, whole: screened onto the card so its black ground becomes the card's own. */
+const logoArt = (width, style = "") =>
+  LOGO
+    ? `<img src="${LOGO}" alt="AURIXA SYSTEMS" style="width:${width}px;height:auto;display:block;mix-blend-mode:screen;
+        -webkit-mask-image:radial-gradient(ellipse 50% 50% at 50% 50%, #000 62%, transparent 100%);${style}">`
+    : `${emblem(Math.round(width / 5))}${wordmark(Math.round(width / 2), [64, 24])}`;
+
+// The campaign's trial card (10B, 11A): the logo as supplied, the offer, and the saturated-blue CTA,
+// set in the website's Inter and in the closing card's capitals. Pressed, the button sinks and takes a gold edge.
+const trialCard = (
+  pressed,
+) => `<div class="screen" style="background:radial-gradient(ellipse 60% 70% at 50% 42%, #0b1a33, #050b16 62%, #000 100%);
+    display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:40px;font-family:Inter, sans-serif">
+    ${logoArt(1010)}
+    <div style="margin-top:-6px;font-size:30px;font-weight:700;letter-spacing:.34em;color:var(--teal);padding-left:.34em">14-DAY FREE TRIAL</div>
+    <div style="position:relative;margin-top:34px;font-size:32px;font-weight:800;letter-spacing:.14em;padding:24px 52px 24px calc(52px + .14em);border-radius:14px;color:#fff;
+      background:${pressed ? "#0d2bb5" : "var(--blue)"};box-shadow:${pressed ? "inset 0 4px 12px rgba(0,0,0,.5), 0 0 0 4px rgba(215,179,95,.7)" : "0 0 0 2px rgba(0,168,181,.55), 0 10px 40px rgba(18,56,232,.45)"}">
+      START YOUR FREE TRIAL${onButton()}</div>
+  </div>`;
+
 const generic = (wins) => `<div class="screen generic">${wins}</div>`;
 const win = (x, y, w, h, title, inner) =>
   `<div class="win" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px"><div class="bar"><i></i><i></i><i></i><span style="margin-left:10px">${title}</span></div><div class="in">${inner}</div></div>`;
@@ -459,20 +498,8 @@ const PLATES = {
         <div class="done" style="font-size:24px">✓ Draft saved</div></div></div>`,
     ),
   },
-  "PL-11A-a": {
-    size: [1920, 1080],
-    html: `<div class="screen aurixa" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:34px;background:radial-gradient(ellipse at 50% 40%, #13305a, #0A192F 60%, #040B16)">
-      ${emblem(170)}${wordmark(520, [64, 24])}
-      <div class="eyebrow" style="font-size:30px;letter-spacing:.3em;color:var(--teal)">14-DAY FREE TRIAL</div>
-      <div class="btn blue" style="position:relative;font-size:38px;padding:24px 54px;border-radius:16px">Start your free trial${onButton()}</div></div>`,
-  },
-  "PL-11A-b": {
-    size: [1920, 1080],
-    html: `<div class="screen aurixa" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:34px;background:radial-gradient(ellipse at 50% 40%, #13305a, #0A192F 60%, #040B16)">
-      ${emblem(170)}${wordmark(520, [64, 24])}
-      <div class="eyebrow" style="font-size:30px;letter-spacing:.3em;color:var(--teal)">14-DAY FREE TRIAL</div>
-      <div class="btn blue" style="position:relative;font-size:38px;padding:24px 54px;border-radius:16px;background:#0d2bb5;box-shadow:inset 0 3px 10px rgba(0,0,0,.45), 0 0 0 4px rgba(215,179,95,.6)">Start your free trial${onButton()}</div></div>`,
-  },
+  "PL-11A-a": { size: [1920, 1080], html: trialCard(false) },
+  "PL-11A-b": { size: [1920, 1080], html: trialCard(true) },
   "PL-11A-c": {
     size: [1920, 1080],
     html: shell({
@@ -606,11 +633,10 @@ const PLATES = {
   "PL-15A": {
     size: [1080, 1920],
     transparent: true,
-    html: `<div class="screen"><div class="close"></div>
-      <div style="position:absolute;left:100px;right:100px;top:560px;display:flex;flex-direction:column;align-items:center;gap:40px;text-align:center">
-        ${emblem(220)}
-        ${wordmark(560, [66, 24, ".3em", ".7em", 8])}
-        <div style="font-family:'Playfair Display',serif;font-weight:600;font-size:46px;line-height:1.25;color:#fff">The operating system for modern property professionals.</div>
+    html: `<div class="screen" style="font-family:Inter, sans-serif"><div class="close"></div>
+      <div style="position:absolute;left:0;right:0;top:600px;display:flex;flex-direction:column;align-items:center;gap:36px;text-align:center">
+        ${logoArt(1000, "margin:-40px 0 -70px")}
+        <div style="font-family:'Playfair Display',serif;font-weight:600;font-size:46px;line-height:1.25;color:#fff;padding:0 100px">The operating system for modern property professionals.</div>
         <div style="height:2px;width:260px;background:linear-gradient(90deg,transparent,var(--gold2),transparent)"></div>
         <div style="font-size:34px;font-weight:800;letter-spacing:.28em;color:var(--teal)">14-DAY FREE TRIAL</div>
         <div class="btn blue" style="font-size:36px;font-weight:800;letter-spacing:.12em;padding:26px 46px;border-radius:16px;box-shadow:0 0 0 2px rgba(0,168,181,.6)">START YOUR FREE TRIAL</div>

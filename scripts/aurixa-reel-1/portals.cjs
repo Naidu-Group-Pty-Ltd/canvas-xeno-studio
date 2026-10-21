@@ -11,7 +11,7 @@ const SCALE = 1.5;
 const CC_SCALE = 1.25;
 
 const CSS = `
-.pt { position:absolute; inset:0; display:flex; color:#fff; font-family:"Plus Jakarta Sans", Inter, sans-serif; overflow:hidden;
+.pt { position:absolute; inset:0; display:flex; color:#fff; font-family:Selawik, "Segoe UI", sans-serif; overflow:hidden;
   background: radial-gradient(1100px 520px at 88% -8%, rgba(32,52,150,.42), transparent 62%), #08090c; }
 .pt .side { width:226px; flex:none; background:#0c0d11; border-right:1px solid rgba(255,255,255,.06); padding:0; display:flex; flex-direction:column; gap:0; }
 .pt .brand { height:66px; display:flex; align-items:center; gap:10px; padding:0 16px; border-bottom:1px solid rgba(255,255,255,.06); }
@@ -85,7 +85,7 @@ const CSS = `
 .fin .welcome { font-size:26px; font-weight:800; letter-spacing:-.01em; }
 .fin .welcome span { color:#3556f0; }
 .fin .sec { font-size:10.5px; letter-spacing:.14em; font-weight:700; color:#aab2c3; }
-.serif { font-family:"Playfair Display", serif !important; font-weight:700 !important; letter-spacing:0 !important; }
+.serif { font-family:"Aurixa Display", Georgia, serif !important; font-weight:700 !important; letter-spacing:0 !important; }
 /* Client: a narrow menu and a centred column */
 .cli .side { width:170px; }
 .cli .brand { height:50px; padding:0 10px; }
@@ -111,25 +111,25 @@ const CSS = `
 .bld .side { background:linear-gradient(180deg,#0d2230,#0a1720); border-right-color:rgba(0,168,181,.12); }
 .bld .brand, .bld .top { border-color:rgba(0,168,181,.12); }
 .bld .top { background:linear-gradient(90deg,#0b1d28,#0c1a24); }
-.bld .mono { font-family:"JetBrains Mono", monospace; letter-spacing:.2em; font-size:8.5px; font-weight:700; color:#7f97a3; }
+.bld .mono { font-family:Inconsolata, Consolas, monospace; letter-spacing:.2em; font-size:8.5px; font-weight:700; color:#7f97a3; }
 .bld .chips { display:flex; gap:6px; margin-top:8px; }
-.bld .chips span { font-family:"JetBrains Mono", monospace; font-size:7px; letter-spacing:.08em; font-weight:700; border:1px solid rgba(255,255,255,.18); border-radius:5px; padding:3px 6px; }
+.bld .chips span { font-family:Inconsolata, Consolas, monospace; font-size:7px; letter-spacing:.08em; font-weight:700; border:1px solid rgba(255,255,255,.18); border-radius:5px; padding:3px 6px; }
 .bld .who { flex-direction:column; align-items:flex-start; background:linear-gradient(135deg,#112b3a,#0d2230); border-color:rgba(0,168,181,.15); }
 .bld .av { background:#0d3a44; color:#33c6cf; }
 .bld nav a.on { background:rgba(0,168,181,.14); color:#fff; font-weight:700; }
 .bld nav a.on::before { content:""; position:absolute; left:0; top:8px; bottom:8px; width:3px; border-radius:2px; background:#00A8B5; }
 .bld .banner { border-color:rgba(0,168,181,.35); background:linear-gradient(120deg,#0e2f3c,#0b2230 70%); }
-.bld .eb { color:#20b8c2; font-family:"JetBrains Mono", monospace; }
-.bld .h1 { font-family:"Playfair Display", serif; font-weight:700; font-size:30px; }
+.bld .eb { color:#20b8c2; font-family:Inconsolata, Consolas, monospace; }
+.bld .h1 { font-family:"Aurixa Display", Georgia, serif; font-weight:700; font-size:30px; }
 .bld .panel, .bld .stat, .bld .line, .bld .card { background:rgba(12,30,40,.85); border-color:rgba(0,168,181,.14); }
 .bld .line.sel, .bld .card.tsel { border:2px solid #00A8B5; background:linear-gradient(90deg, rgba(0,168,181,.24), rgba(0,168,181,.06)); }
-.bld .ph { font-family:"Playfair Display", serif; font-weight:700; font-size:15px; }
+.bld .ph { font-family:"Aurixa Display", Georgia, serif; font-weight:700; font-size:15px; }
 .bld .info { display:grid; grid-template-columns:1fr 1fr; border:1px solid rgba(0,168,181,.18); border-radius:10px; overflow:hidden; min-width:330px; }
 .bld .info div { padding:9px 12px; border-right:1px solid rgba(0,168,181,.12); border-bottom:1px solid rgba(0,168,181,.12); }
 .bld .info b { display:block; font-size:11.5px; margin-top:3px; }
 /* the white report page inside a portal */
 .pt .page { background:#fff; color:#0A192F; border-radius:10px; padding:22px 26px; display:flex; flex-direction:column; gap:12px; box-shadow:0 14px 40px rgba(0,0,0,.45); }
-.pt .page h2 { font-family:"Playfair Display", serif; font-size:30px; }
+.pt .page h2 { font-family:"Aurixa Display", Georgia, serif; font-size:30px; }
 .pt .page h4 { font-size:11px; letter-spacing:.16em; font-weight:800; text-transform:uppercase; }
 .pt .page .rule { height:1.5px; background:linear-gradient(90deg,#C89B3C,rgba(200,155,60,.15)); }
 .pt .page .bars div { background:#e6ebf2; height:8px; }
@@ -143,7 +143,7 @@ const CSS = `
 .pt .draft.editing::after { content:""; display:inline-block; width:2px; height:18px; background:#1238E8; margin-left:2px; vertical-align:-3px; }
 /* Command Centre, after its Reports page: a warm-black sidebar of gold-headed groups, a grey top
    bar, and a centred column of near-black sections on a faint navy glow */
-.ccr { position:absolute; inset:0; display:flex; color:#fff; font-family:"Plus Jakarta Sans", Inter, sans-serif; overflow:hidden; background:#0b0c15; }
+.ccr { position:absolute; inset:0; display:flex; color:#fff; font-family:Selawik, "Segoe UI", sans-serif; overflow:hidden; background:#0b0c15; }
 .ccr .cside { width:238px; flex:none; background:linear-gradient(180deg,#1a1c22 0%,#121214 30%,#111113 100%); border-right:1px solid rgba(255,255,255,.05);
   padding:15px 10px 0 12px; display:flex; flex-direction:column; overflow:hidden; }
 .ccr .tenant { height:80px; flex:none; border-radius:12px; background:linear-gradient(160deg,#181d31,#12141d); border-bottom:1px solid rgba(255,255,255,.07);
@@ -244,7 +244,7 @@ const CSS = `
 .ccr .scrim { position:absolute; inset:0; background:rgba(4,6,12,.72); }
 .ccr .creport { position:absolute; left:50%; top:50%; width:820px; transform:translate(-50%,-50%); background:#fff; color:#0A192F; border-radius:12px;
   box-shadow:0 24px 60px rgba(0,0,0,.6); padding:30px 38px; display:flex; flex-direction:column; gap:16px; }
-.ccr .creport h2 { font-family:"Playfair Display", serif; font-size:40px; font-weight:700; }
+.ccr .creport h2 { font-family:"Aurixa Display", Georgia, serif; font-size:40px; font-weight:700; }
 .ccr .creport h4 { font-size:12px; letter-spacing:.18em; font-weight:800; }
 .ccr .creport .rule { height:1.5px; background:linear-gradient(90deg,#C89B3C,rgba(200,155,60,.12)); }
 .ccr .creport .skel div { background:#e6ebf2; height:9px; }
@@ -835,8 +835,8 @@ module.exports = function portals({ P, D, EMBLEM }) {
     "PL-12A-b": {
       size: W,
       scale: SCALE,
-      html: bld(`<div class="row" style="flex:1"><div class="panel" style="flex:1.6;align-items:center;justify-content:center;border:2px solid #00A8B5">${dimg(620, 400)}</div>
-        <div class="panel" style="flex:1"><div class="mono">FLOOR PLAN</div><div class="h1" style="font-size:24px;margin:0;font-family:'Playfair Display',serif">Residence 014</div><div class="ps" style="margin:0">Project Banksia</div></div></div>`),
+      html: bld(`<div class="row" style="flex:1"><div class="panel" style="flex:1.6;align-items:center;justify-content:center;border:2px solid #00A8B5">${dimg(540, 372)}</div>
+        <div class="panel" style="flex:1"><div class="mono">FLOOR PLAN</div><div class="h1" style="font-size:24px;margin:0;font-family:'Aurixa Display',Georgia,serif">Residence 014</div><div class="ps" style="margin:0">Project Banksia</div></div></div>`),
     },
   };
   return { css: CSS, plates };

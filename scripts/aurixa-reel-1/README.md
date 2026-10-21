@@ -8,7 +8,8 @@ These scripts build Aurixa's Reel 1 generation spec and typeset its screen plate
 | `timing.py`         | Cut points from the voiceover's measured words and speech segments (the studio's lip-sync preparation of the master recording), snapped to 30 fps. Writes a timing JSON.                                                                                     |
 | `build_spec.py`     | Writes `spec.json` (every still, set, plate, frame and clip, with models, parameters, inputs and prompts) and adds any new keys to `assets.json`, the ledger of approved library asset ids.                                                                  |
 | `render_readme.py`  | Writes the spec's README from `spec.json`.                                                                                                                                                                                                                   |
-| `plates.cjs`        | Typesets the 41 screen plates, Block 14 phrases and the closing card, and renders them to PNG with Playwright. Playfair Display, Plus Jakarta Sans and JetBrains Mono come from Google Fonts.                                                                |
+| `plates.cjs`        | Typesets the 41 screen plates, Block 14 phrases and the closing card, and renders them to PNG with Playwright. Playfair Display and Inconsolata come from Google Fonts; Selawik from the assets folder.                                                      |
+| `selawik.py`        | Builds Selawik, the open stand-in for Segoe UI (the portals' font on Windows), from Microsoft's UFO sources, with the standard library alone.                                                                                                                |
 | `portals.cjs`       | The portal plates (used by `plates.cjs`), built on the shells of the portal screenshots.                                                                                                                                                                     |
 | `studio.py`         | Runs the spec against the studio API: imports the plates (`import_image`, ids into `assets.json`), prices a stage (`estimate_generation`) and runs one (`queue_generation`, only with `--confirm`; takes into `takes.json`); Stage 5's clips take `--model`. |
 | `contact-sheet.cjs` | One picture of every rendered plate, for review.                                                                                                                                                                                                             |
@@ -19,7 +20,9 @@ python3 scripts/aurixa-reel-1/build_spec.py docs/brands/aurixa-reel-1 /tmp/reel-
 python3 scripts/aurixa-reel-1/render_readme.py docs/brands/aurixa-reel-1/spec.json docs/brands/aurixa-reel-1/README.md
 npx prettier --write docs/brands/aurixa-reel-1
 
-node scripts/aurixa-reel-1/plates.cjs /tmp/reel-1-plates [assets]   # assets: a folder with P.png, D.png, emblem.png, wordmark.png
+git clone --depth 1 https://github.com/microsoft/Selawik /tmp/selawik
+python3 scripts/aurixa-reel-1/selawik.py "/tmp/selawik/Source files/UFO" assets
+node scripts/aurixa-reel-1/plates.cjs /tmp/reel-1-plates assets   # assets: P.png, D.png, emblem.png, wordmark.png, logo-art.png, Selawik-*.ttf
 node scripts/aurixa-reel-1/contact-sheet.cjs /tmp/reel-1-plates /tmp/reel-1-plates.png
 ```
 
@@ -29,6 +32,9 @@ The plates are v2:
   portals' screenshots: their shell and layout, with the reel's fictional people and records.
 - The Command Centre plates are built on its Reports page screenshot (REF-CC-REPORTS), drawn at 125% zoom; the
   pages past Reports are made from that page's components.
+- The portal plates are set in the portals' own fonts, read from their code: Segoe UI (drawn in Selawik), the brand
+  serif Playfair Display Medium, and Consolas for code labels (drawn in Inconsolata). See `docs/brands/aurixa-reel-1/QC.md`.
+- The trial card and the closing card carry the supplied logo whole (`logo-art.png`).
 - The property image (P), the floor plan (D), the emblem and the wordmark come from the assets folder
   (P and D the approved Stage 1 picks; the emblem and wordmark keyed from the supplied logo, REF-LOGO), and
   are marked placeholders without it.
