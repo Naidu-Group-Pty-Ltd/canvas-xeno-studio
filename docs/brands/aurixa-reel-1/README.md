@@ -3,7 +3,7 @@
 A plan only: nothing in it has been generated. It was built from the 47-page prompt pack (Final Cinematic Edition, Revision 2).
 Every still and clip in [`spec.json`](spec.json) is ready to queue: its model, parameters, prompt, and inputs in order.
 
-**How the keys work.** An input is named by a key: `P` and `D` are the property image and floor plan; `C-…` is a cast sheet; `S-…` is a set; `UP-…` is an upload; `F-…-in` and `F-…-out` are a shot's first and last frames; `V-…` is a clip.
+**How the keys work.** An input is named by a key: `P` and `D` are the property image and floor plan; `C-…` is a cast sheet; `CW-…` is the console world; `S-…` is a set; `REF-…` is a reference image; `UP-…` is an upload; `F-…-in` and `F-…-out` are a shot's first and last frames; `V-…` is a clip.
 A key becomes a library asset id once its stage is approved. The ids are recorded in [`assets.json`](assets.json), which a rebuild only adds keys to.
 Each prompt names its inputs as "image 1", "image 2" and so on, in the order sent. That's why cast sheets go in as explicit inputs, never as `characterIds`, which would add images in an order of their own.
 
@@ -134,20 +134,25 @@ Used by: 12A, 12B and the printed plans in 04A and 12A (the D anchor).
 
 ## Stage 2: sets
 
-Empty rooms with every screen a blank glowing panel. Each Aurixa-world set is drawn from `image(9)` and `image(10)` once they're uploaded.
+Empty rooms with every screen a blank glowing panel. The pack's `image(9)` and `image(10)` can't be found, so the console world comes first: CW-9 and CW-10 are made from the references below, and each Aurixa-world set is drawn from the approved pair.
 
-| Set                                                         | Model                                      | Inputs                      | Used by                                |
-| ----------------------------------------------------------- | ------------------------------------------ | --------------------------- | -------------------------------------- |
-| S-HOME · Jordan's home desk                                 | Marketing Studio 2.5 Sunburst              | –                           | 01B, 03C                               |
-| S-OFFICE · Alex's ordinary office (before Aurixa)           | Marketing Studio 2.5 Sunburst              | –                           | 02A, 03A, 03B                          |
-| S-ALEX · Alex's Aurixa glass workspace                      | Marketing Studio 2.5 Sunburst (Image edit) | UP-CONSOLE-9, UP-CONSOLE-10 | 04A, 04B, 05A, 05C, 06B, 07A, 10B, 11A |
-| S-MEETING · Meeting table in the Aurixa world               | Marketing Studio 2.5 Sunburst (Image edit) | UP-CONSOLE-9, UP-CONSOLE-10 | 08B                                    |
-| S-JAMIE · Jamie's finance workplace                         | Marketing Studio 2.5 Sunburst (Image edit) | UP-CONSOLE-9, UP-CONSOLE-10 | 05B, 13A, 14A                          |
-| S-CLIENT · Jordan's client workspace (glass module)         | Marketing Studio 2.5 Sunburst (Image edit) | UP-CONSOLE-9, UP-CONSOLE-10 | 06A                                    |
-| S-MIA · Mia's quiet accountant office                       | Marketing Studio 2.5 Sunburst (Image edit) | UP-CONSOLE-9, UP-CONSOLE-10 | 08A                                    |
-| S-PRIYA · Priya's solicitor desk (gold-framed glass module) | Marketing Studio 2.5 Sunburst (Image edit) | UP-CONSOLE-9, UP-CONSOLE-10 | 09A, 09B, 12B, 10A                     |
-| S-SITE · Daniel's site office                               | Marketing Studio 2.5 Sunburst              | –                           | 12A                                    |
-| S-REVEAL · The occupied consoles (ecosystem reveal)         | Marketing Studio 2.5 Sunburst (Image edit) | UP-CONSOLE-9, UP-CONSOLE-10 | 10A                                    |
+- **REF-LOOK-ROOM**: Aurixa Systems · brand look (library c2043421-711b-407d-918a-49ff08b27885), the night boardroom, cropped to its window, city and presenter (x 560-1024, y 0-480 of 1024 x 683) and doubled: no screen, emblem or text
+- **REF-LOOK-OPS**: Aurixa Systems · brand look (library 1eb5397d-6155-43ce-9997-3aefcda75252), the operations room, cropped to its gold-edged glass partition and city window (x 0-248, y 0-480 of 1024 x 683) and doubled: no screen, emblem or text
+
+| Set                                                         | Model                                      | Inputs                              | Used by                                                        |
+| ----------------------------------------------------------- | ------------------------------------------ | ----------------------------------- | -------------------------------------------------------------- |
+| CW-9 · The Aurixa console world: the wide view              | Marketing Studio 2.5 Sunburst (Image edit) | REF-LOOK-ROOM, REF-LOOK-OPS, S-SITE | S-ALEX, S-MEETING, S-JAMIE, S-CLIENT, S-MIA, S-PRIYA, S-REVEAL |
+| CW-10 · The Aurixa console world: the doorway view          | Marketing Studio 2.5 Sunburst (Image edit) | REF-LOOK-ROOM, REF-LOOK-OPS, S-SITE | S-ALEX, S-MEETING, S-JAMIE, S-CLIENT, S-MIA, S-PRIYA, S-REVEAL |
+| S-HOME · Jordan's home desk                                 | Marketing Studio 2.5 Sunburst              | –                                   | 01B, 03C                                                       |
+| S-OFFICE · Alex's ordinary office (before Aurixa)           | Marketing Studio 2.5 Sunburst              | –                                   | 02A, 03A, 03B                                                  |
+| S-ALEX · Alex's Aurixa glass workspace                      | Marketing Studio 2.5 Sunburst (Image edit) | CW-9, CW-10                         | 04A, 04B, 05A, 05C, 06B, 07A, 10B, 11A                         |
+| S-MEETING · Meeting table in the Aurixa world               | Marketing Studio 2.5 Sunburst (Image edit) | CW-9, CW-10                         | 08B                                                            |
+| S-JAMIE · Jamie's finance workplace                         | Marketing Studio 2.5 Sunburst (Image edit) | CW-9, CW-10                         | 05B, 13A, 14A                                                  |
+| S-CLIENT · Jordan's client workspace (glass module)         | Marketing Studio 2.5 Sunburst (Image edit) | CW-9, CW-10                         | 06A                                                            |
+| S-MIA · Mia's quiet accountant office                       | Marketing Studio 2.5 Sunburst (Image edit) | CW-9, CW-10                         | 08A                                                            |
+| S-PRIYA · Priya's solicitor desk (gold-framed glass module) | Marketing Studio 2.5 Sunburst (Image edit) | CW-9, CW-10                         | 09A, 09B, 12B, 10A                                             |
+| S-SITE · Daniel's site office                               | Marketing Studio 2.5 Sunburst              | –                                   | 12A                                                            |
+| S-REVEAL · The occupied consoles (ecosystem reveal)         | Marketing Studio 2.5 Sunburst (Image edit) | CW-9, CW-10                         | 10A                                                            |
 
 ## Stage 3: screen plates (typeset, never generated)
 
@@ -363,8 +368,6 @@ Handoffs (the pack's transition ledger, by shot):
 
 ## Still needed
 
-- **UP-CONSOLE-9**: image(9).png, the principal physical-world reference
-- **UP-CONSOLE-10**: image(10).png, the principal physical-world reference
 - **UP-PORTALS**: the Command Center screenshot (CC), the last of the six portals; the CC plates follow the other five portals' shell until then
 - **UP-EMBLEM**: the approved emblem and AURIXA SYSTEMS wordmark at full size (SVG or a PNG at least 2000 px wide); the library's logo is 720 px
 
@@ -375,4 +378,5 @@ Decisions:
 - The colleague in 04A is unnamed and seen from behind, so no seventh face needs locking.
 - Confirmed 21 October 2026: the cast is in their mid-to-late 20s (the pack has them in their late 30s to late 40s), and Daniel has short dark hair, not greying.
 - Confirmed 21 October 2026: the four women are told apart by heritage, complexion, face, build and hair texture, read from their names at the client's direction (the pack gives no ethnicity): Alex Anglo-Australian, Jamie Chinese, Priya and Mia Indian, with Priya and Mia set apart by complexion, face, height and hair. Their sheets are revision 2; the pack's hair, glasses and wardrobe are kept.
+- Confirmed 21 October 2026: the pack's image(9) and image(10) can't be found, so the console world is generated in their place (CW-9, the wide view; CW-10, the doorway view) from two Aurixa brand images cropped to their rooms and Daniel's approved site office, and approved before the seven sets use it.
 - Confirmed 21 October 2026: Mia is more glamorous and striking, still dressed for the office: polished make-up and glossy curls, a confident look, a fitted silk version of her slate-blue blouse with tailored trousers and heels (her sheet's revision 3).

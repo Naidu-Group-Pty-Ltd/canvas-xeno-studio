@@ -79,15 +79,17 @@ REF_LABEL = {
     "C-PRIYA": "Priya Shah's character sheet",
     "C-DANIEL": "Daniel Reed's character sheet",
     "C-MIA": "Mia Patel's character sheet",
-    "UP-CONSOLE-9": "the Aurixa glass-console world reference (supplied image 9)",
-    "UP-CONSOLE-10": "the Aurixa glass-console world reference (supplied image 10)",
+    "CW-9": "the Aurixa console world, the wide view (the approved reference in place of the pack's image 9)",
+    "CW-10": "the Aurixa console world, the doorway view (the approved reference in place of the pack's image 10)",
+    "REF-LOOK-ROOM": "an Aurixa brand photograph of a navy office at night above the city (take its palette, light and mood only)",
+    "REF-LOOK-OPS": "an Aurixa brand photograph of clear glass partitions with fine gold edges and gold ceiling light lines (take its architectural detailing, materials and light)",
 }
 
 
-def refs_line(refs):
+def refs_line(refs, labels=None):
     parts = []
     for n, key in enumerate(refs, 1):
-        label = REF_LABEL.get(key)
+        label = (labels or {}).get(key) or REF_LABEL.get(key)
         if not label and key.startswith("S-"):
             label = f"the set: {SETS[key]['title']} (keep its room, furniture, light direction and materials)"
         if not label and key.startswith("F-"):
@@ -96,8 +98,8 @@ def refs_line(refs):
     return ("Reference images, in order: " + "; ".join(parts) + ".") if parts else ""
 
 
-def compose(refs, body, look):
-    text = " ".join(filter(None, [refs_line(refs), body, LOOK[look], COMMON]))
+def compose(refs, body, look, labels=None):
+    text = " ".join(filter(None, [refs_line(refs, labels), body, LOOK[look], COMMON]))
     assert len(text) <= 5000, (body[:60], len(text))
     return text
 
@@ -191,7 +193,7 @@ SETS = {
     "S-ALEX": {
         "title": "Alex's Aurixa glass workspace",
         "look": "aurixa",
-        "inputs": ["UP-CONSOLE-9", "UP-CONSOLE-10"],
+        "inputs": ["CW-9", "CW-10"],
         "body": "Using the architecture, materials and light of the console-world references: an empty but lived-in, full-sized professional glass workplace. "
                 "A gold-edged open doorway on the left of frame leads in; inside, a real console desk with one large monitor, keyboard, mouse and a pale paper document, "
                 "a chair turned slightly toward the monitor. Other glass workplaces softly visible beyond, warm-lit. The monitor's screen is a flat, evenly lit, "
@@ -201,7 +203,7 @@ SETS = {
     "S-MEETING": {
         "title": "Meeting table in the Aurixa world",
         "look": "aurixa",
-        "inputs": ["UP-CONSOLE-9", "UP-CONSOLE-10"],
+        "inputs": ["CW-9", "CW-10"],
         "body": "Using the architecture of the console-world references: a warm, tactile meeting corner inside a glass workplace, a timber table with two chairs side by side, "
                 "an open laptop and a physically mounted presentation display at the table's end, a closed paper report folder on the table. Blue-hour glass behind. "
                 "The display and laptop screens are flat, evenly lit, pale blank panels. No people.",
@@ -210,7 +212,7 @@ SETS = {
     "S-JAMIE": {
         "title": "Jamie's finance workplace",
         "look": "aurixa",
-        "inputs": ["UP-CONSOLE-9", "UP-CONSOLE-10"],
+        "inputs": ["CW-9", "CW-10"],
         "body": "Using the architecture of the console-world references: a believable finance workstation inside a glass workplace: a monitor, keyboard, real mouse, "
                 "a small notepad and pen beside the keyboard. Gold console edge running vertically at the right of frame. The monitor's screen is a flat, evenly lit, "
                 "softly glowing deep-navy blank panel. No people.",
@@ -219,7 +221,7 @@ SETS = {
     "S-CLIENT": {
         "title": "Jordan's client workspace (glass module)",
         "look": "aurixa",
-        "inputs": ["UP-CONSOLE-9", "UP-CONSOLE-10"],
+        "inputs": ["CW-9", "CW-10"],
         "body": "Using the architecture of the console-world references: a full-sized glass workspace furnished for a client: a desk with an open laptop and touchpad, "
                 "an adjacent framed glass presentation panel backed by opaque navy, warm lamp light. The laptop's screen is a flat, evenly lit, softly glowing "
                 "deep-navy blank panel. No people.",
@@ -228,7 +230,7 @@ SETS = {
     "S-MIA": {
         "title": "Mia's quiet accountant office",
         "look": "aurixa",
-        "inputs": ["UP-CONSOLE-9", "UP-CONSOLE-10"],
+        "inputs": ["CW-9", "CW-10"],
         "body": "Using the architecture of the console-world references: a quiet accountant's office within a glass workplace: a monitor, mouse and keyboard, "
                 "a few pale supporting documents laid beside the screen at a slight angle. The monitor's screen is a flat, evenly lit, softly glowing deep-navy blank panel. No people.",
         "used_by": ["08A"],
@@ -236,7 +238,7 @@ SETS = {
     "S-PRIYA": {
         "title": "Priya's solicitor desk (gold-framed glass module)",
         "look": "aurixa",
-        "inputs": ["UP-CONSOLE-9", "UP-CONSOLE-10"],
+        "inputs": ["CW-9", "CW-10"],
         "body": "Using the architecture of the console-world references: a professional solicitor's desk inside a gold-framed glass module, charcoal and navy depth, "
                 "a monitor with a clean bezel, a real mouse, a closed physical property folder on the desk. No courtroom props. The monitor's screen is a flat, "
                 "evenly lit, softly glowing pale blank panel. No people.",
@@ -254,14 +256,52 @@ SETS = {
     "S-REVEAL": {
         "title": "The occupied consoles (ecosystem reveal)",
         "look": "aurixa",
-        "inputs": ["UP-CONSOLE-9", "UP-CONSOLE-10"],
+        "inputs": ["CW-9", "CW-10"],
         "body": "Using the architecture of the console-world references: an open circulation area at blue hour looking across a small, believable group of two or three "
                 "occupied professional glass workplaces associated with one property, each with a warm-lit person at a softly glowing screen; distant rooms softly suggested. "
                 "A gold-framed console edge in the left foreground. Human scale; no skyline, no aerial view. All screens are flat, evenly lit blank panels.",
         "used_by": ["10A"],
     },
 }
-stage2 = []
+# The pack's image(9) and image(10) can't be found, so the console world they showed is made first, from two
+# Aurixa brand images cropped to their rooms (no screens, emblem or text) and the approved site office.
+CONSOLE_REFS = ["REF-LOOK-ROOM", "REF-LOOK-OPS", "S-SITE"]
+CONSOLE_LABELS = {"S-SITE": "Daniel's site office, an approved set in the same film (match its navy-and-teal palette, warm desk light "
+                            "and photographic finish, not its room)"}
+CONSOLE_BORROW = ("From the reference images take only palette, light, materials and detailing, not their people, furniture layout, "
+                  "screens or text.")
+CONSOLE = {
+    "CW-9": ("The Aurixa console world: the wide view",
+             "The Aurixa console world, photographed as an architectural reference: a deep-navy, double-height interior at blue hour in which "
+             "several full-sized glass workplace modules stand side by side along an open walkway, connected and visible through one another. "
+             "Each module is a real, furnished professional office enclosed in clear glass with fine gold-edged frames, slim gold mullions and an "
+             "open glass doorway: a panel-navy console desk with a monitor, a chair, a lamp and a few papers. Two or three people work quietly "
+             "inside, seen small and at a distance. Floor-to-ceiling windows beyond show a soft blue-hour city glow. Seen from human height in the "
+             "walkway, a three-quarter view down the row of modules, the nearest module's gold-edged door mullion tall at the right edge of frame. "
+             "Polished dark floor with soft reflections, fine warm gold light lines along the ceiling. " + CONSOLE_BORROW +
+             " Every monitor is a flat, evenly lit, softly glowing deep-navy blank panel."),
+    "CW-10": ("The Aurixa console world: the doorway view",
+              "One glass workplace module of the Aurixa console world, photographed as an architectural reference from the walkway, looking in "
+              "through its open glass doorway at human height. A tall, fine gold-edged door mullion stands in the left third of the foreground; "
+              "inside is a full-sized professional office: a panel-navy console desk with a wide monitor, keyboard, real mouse and a closed paper "
+              "folder, an empty chair turned toward the monitor and a warm desk lamp. Through the module's far glass wall, the next occupied module "
+              "with one person working, seen small and softly, and beyond it floor-to-ceiling windows with a blue-hour city glow. Clear glass, fine "
+              "gold edges, navy surfaces, warm light on the desk. " + CONSOLE_BORROW +
+              " The monitor is a flat, evenly lit, softly glowing deep-navy blank panel."),
+}
+stage2 = [
+    {
+        "key": key,
+        "title": title,
+        "model": "still_edit",
+        "parameters": {**STILL, "aspect_ratio": "9:16", "prompt": compose(CONSOLE_REFS, body, "aurixa", CONSOLE_LABELS)},
+        "inputs": CONSOLE_REFS,
+        "takes": 3,
+        "used_by": [k for k, v in SETS.items() if key in v["inputs"]],
+        "note": "Made in place of the pack's image(9) and image(10), which can't be found; approve one before the sets that use it.",
+    }
+    for key, (title, body) in CONSOLE.items()
+]
 for key, s in SETS.items():
     edit = bool(s["inputs"])
     stage2.append({
@@ -272,7 +312,7 @@ for key, s in SETS.items():
         "inputs": s["inputs"],
         "takes": 2,
         "used_by": s["used_by"],
-        **({"needs": "image(9) and image(10) uploaded"} if edit else {}),
+        **({"needs": "CW-9 and CW-10 approved"} if edit else {}),
     })
 
 # ------------------------------------------------------------------ stage 4 + 5: shots
@@ -519,7 +559,7 @@ for s in SHOTS:
     shots_out.append(row)
 
 # Frames named as inputs must exist (or be anchors/uploads/sets).
-known = {f["key"] for f in frames} | {i["key"] for i in stage1} | set(SETS) | {"UP-CONSOLE-9", "UP-CONSOLE-10"}
+known = {f["key"] for f in frames} | {i["key"] for i in stage1} | set(SETS) | set(CONSOLE)
 for f in frames:
     for key in f["inputs"]:
         assert key in known, (f["key"], key)
@@ -623,9 +663,13 @@ spec = {
     "models": MODELS,
     "still_defaults": STILL,
     "clip_defaults": {"aspect_ratio": "from the first frame (9:16)", "audio": "off", "handles": "about 0.75 s each end; seconds = ceil(edit + 1.5), min 4"},
+    "references": [
+        {"key": "REF-LOOK-ROOM", "what": "Aurixa Systems · brand look (library c2043421-711b-407d-918a-49ff08b27885), the night boardroom, "
+                                         "cropped to its window, city and presenter (x 560-1024, y 0-480 of 1024 x 683) and doubled: no screen, emblem or text"},
+        {"key": "REF-LOOK-OPS", "what": "Aurixa Systems · brand look (library 1eb5397d-6155-43ce-9997-3aefcda75252), the operations room, "
+                                        "cropped to its gold-edged glass partition and city window (x 0-248, y 0-480 of 1024 x 683) and doubled: no screen, emblem or text"},
+    ],
     "uploads_needed": [
-        {"key": "UP-CONSOLE-9", "what": "image(9).png, the principal physical-world reference"},
-        {"key": "UP-CONSOLE-10", "what": "image(10).png, the principal physical-world reference"},
         {"key": "UP-PORTALS", "what": "the Command Center screenshot (CC), the last of the six portals; the CC plates follow the other five portals' shell until then"},
         {"key": "UP-EMBLEM", "what": "the approved emblem and AURIXA SYSTEMS wordmark at full size (SVG or a PNG at least 2000 px wide); the library's logo is 720 px"},
     ],
@@ -637,6 +681,8 @@ spec = {
         "Confirmed 21 October 2026: the four women are told apart by heritage, complexion, face, build and hair texture, read from their names at the client's direction "
         "(the pack gives no ethnicity): Alex Anglo-Australian, Jamie Chinese, Priya and Mia Indian, with Priya and Mia set apart by complexion, face, height and hair. "
         "Their sheets are revision 2; the pack's hair, glasses and wardrobe are kept.",
+        "Confirmed 21 October 2026: the pack's image(9) and image(10) can't be found, so the console world is generated in their place (CW-9, the wide view; "
+        "CW-10, the doorway view) from two Aurixa brand images cropped to their rooms and Daniel's approved site office, and approved before the seven sets use it.",
         "Confirmed 21 October 2026: Mia is more glamorous and striking, still dressed for the office: polished make-up and glossy curls, a confident look, "
         "a fitted silk version of her slate-blue blouse with tailored trousers and heels (her sheet's revision 3).",
     ],
@@ -662,7 +708,7 @@ OUT.mkdir(parents=True, exist_ok=True)
 # The ledger of approved assets: every key, its library asset id once approved (else null).
 ledger_file = OUT / "assets.json"
 ledger = json.loads(ledger_file.read_text()) if ledger_file.exists() else {}
-keys = [i["key"] for i in stage1] + [i["key"] for i in stage2] + [u["key"] for u in spec["uploads_needed"]] \
+keys = [i["key"] for i in stage1] + [i["key"] for i in stage2] + [r["key"] for r in spec["references"]] + [u["key"] for u in spec["uploads_needed"]] \
     + [i["key"] for i in stage3] + [f["key"] for f in frames] + [c["key"] for c in clips]
 for key in keys:
     ledger.setdefault(key, None)

@@ -71,15 +71,17 @@
     "audio": "off",
     "handles": "about 0.75 s each end; seconds = ceil(edit + 1.5), min 4"
   },
+  "references": [
+    {
+      "key": "REF-LOOK-ROOM",
+      "what": "Aurixa Systems · brand look (library c2043421-711b-407d-918a-49ff08b27885), the night boardroom, cropped to its window, city and presenter (x 560-1024, y 0-480 of 1024 x 683) and doubled: no screen, emblem or text"
+    },
+    {
+      "key": "REF-LOOK-OPS",
+      "what": "Aurixa Systems · brand look (library 1eb5397d-6155-43ce-9997-3aefcda75252), the operations room, cropped to its gold-edged glass partition and city window (x 0-248, y 0-480 of 1024 x 683) and doubled: no screen, emblem or text"
+    }
+  ],
   "uploads_needed": [
-    {
-      "key": "UP-CONSOLE-9",
-      "what": "image(9).png, the principal physical-world reference"
-    },
-    {
-      "key": "UP-CONSOLE-10",
-      "what": "image(10).png, the principal physical-world reference"
-    },
     {
       "key": "UP-PORTALS",
       "what": "the Command Center screenshot (CC), the last of the six portals; the CC plates follow the other five portals' shell until then"
@@ -95,6 +97,7 @@
     "The colleague in 04A is unnamed and seen from behind, so no seventh face needs locking.",
     "Confirmed 21 October 2026: the cast is in their mid-to-late 20s (the pack has them in their late 30s to late 40s), and Daniel has short dark hair, not greying.",
     "Confirmed 21 October 2026: the four women are told apart by heritage, complexion, face, build and hair texture, read from their names at the client's direction (the pack gives no ethnicity): Alex Anglo-Australian, Jamie Chinese, Priya and Mia Indian, with Priya and Mia set apart by complexion, face, height and hair. Their sheets are revision 2; the pack's hair, glasses and wardrobe are kept.",
+    "Confirmed 21 October 2026: the pack's image(9) and image(10) can't be found, so the console world is generated in their place (CW-9, the wide view; CW-10, the doorway view) from two Aurixa brand images cropped to their rooms and Daniel's approved site office, and approved before the seven sets use it.",
     "Confirmed 21 October 2026: Mia is more glamorous and striking, still dressed for the office: polished make-up and glossy curls, a confident look, a fitted silk version of her slate-blue blouse with tailored trousers and heels (her sheet's revision 3)."
   ],
   "timing": {
@@ -587,6 +590,40 @@
       "gate": "Approve each set.",
       "items": [
         {
+          "key": "CW-9",
+          "title": "The Aurixa console world: the wide view",
+          "model": "still_edit",
+          "parameters": {
+            "resolution": "2k",
+            "quality": "high",
+            "enhance_prompt": false,
+            "moderation": "auto",
+            "aspect_ratio": "9:16",
+            "prompt": "Reference images, in order: image 1 is an Aurixa brand photograph of a navy office at night above the city (take its palette, light and mood only); image 2 is an Aurixa brand photograph of clear glass partitions with fine gold edges and gold ceiling light lines (take its architectural detailing, materials and light); image 3 is Daniel's site office, an approved set in the same film (match its navy-and-teal palette, warm desk light and photographic finish, not its room). The Aurixa console world, photographed as an architectural reference: a deep-navy, double-height interior at blue hour in which several full-sized glass workplace modules stand side by side along an open walkway, connected and visible through one another. Each module is a real, furnished professional office enclosed in clear glass with fine gold-edged frames, slim gold mullions and an open glass doorway: a panel-navy console desk with a monitor, a chair, a lamp and a few papers. Two or three people work quietly inside, seen small and at a distance. Floor-to-ceiling windows beyond show a soft blue-hour city glow. Seen from human height in the walkway, a three-quarter view down the row of modules, the nearest module's gold-edged door mullion tall at the right edge of frame. Polished dark floor with soft reflections, fine warm gold light lines along the ceiling. From the reference images take only palette, light, materials and detailing, not their people, furniture layout, screens or text. Every monitor is a flat, evenly lit, softly glowing deep-navy blank panel. The Aurixa world: deep navy architecture (#0A192F, shadows #040B16), full-sized glass workplaces with fine gold-edged frames and mullions, panel-navy console surfaces (#10233D), blue-hour city glow beyond the glass. A soft neutral-to-warm key light on faces and hands with a restrained teal or blue edge light; the active screen is the brightest, most colourful area, about one stop above its surround; glow stays off skin and away from the screen's centre. Restrained 35 mm (environment) or 50 mm (people at work) lens look. Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). No text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
+          },
+          "inputs": ["REF-LOOK-ROOM", "REF-LOOK-OPS", "S-SITE"],
+          "takes": 3,
+          "used_by": ["S-ALEX", "S-MEETING", "S-JAMIE", "S-CLIENT", "S-MIA", "S-PRIYA", "S-REVEAL"],
+          "note": "Made in place of the pack's image(9) and image(10), which can't be found; approve one before the sets that use it."
+        },
+        {
+          "key": "CW-10",
+          "title": "The Aurixa console world: the doorway view",
+          "model": "still_edit",
+          "parameters": {
+            "resolution": "2k",
+            "quality": "high",
+            "enhance_prompt": false,
+            "moderation": "auto",
+            "aspect_ratio": "9:16",
+            "prompt": "Reference images, in order: image 1 is an Aurixa brand photograph of a navy office at night above the city (take its palette, light and mood only); image 2 is an Aurixa brand photograph of clear glass partitions with fine gold edges and gold ceiling light lines (take its architectural detailing, materials and light); image 3 is Daniel's site office, an approved set in the same film (match its navy-and-teal palette, warm desk light and photographic finish, not its room). One glass workplace module of the Aurixa console world, photographed as an architectural reference from the walkway, looking in through its open glass doorway at human height. A tall, fine gold-edged door mullion stands in the left third of the foreground; inside is a full-sized professional office: a panel-navy console desk with a wide monitor, keyboard, real mouse and a closed paper folder, an empty chair turned toward the monitor and a warm desk lamp. Through the module's far glass wall, the next occupied module with one person working, seen small and softly, and beyond it floor-to-ceiling windows with a blue-hour city glow. Clear glass, fine gold edges, navy surfaces, warm light on the desk. From the reference images take only palette, light, materials and detailing, not their people, furniture layout, screens or text. The monitor is a flat, evenly lit, softly glowing deep-navy blank panel. The Aurixa world: deep navy architecture (#0A192F, shadows #040B16), full-sized glass workplaces with fine gold-edged frames and mullions, panel-navy console surfaces (#10233D), blue-hour city glow beyond the glass. A soft neutral-to-warm key light on faces and hands with a restrained teal or blue edge light; the active screen is the brightest, most colourful area, about one stop above its surround; glow stays off skin and away from the screen's centre. Restrained 35 mm (environment) or 50 mm (people at work) lens look. Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). No text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
+          },
+          "inputs": ["REF-LOOK-ROOM", "REF-LOOK-OPS", "S-SITE"],
+          "takes": 3,
+          "used_by": ["S-ALEX", "S-MEETING", "S-JAMIE", "S-CLIENT", "S-MIA", "S-PRIYA", "S-REVEAL"],
+          "note": "Made in place of the pack's image(9) and image(10), which can't be found; approve one before the sets that use it."
+        },
+        {
           "key": "S-HOME",
           "title": "Jordan's home desk",
           "model": "still",
@@ -628,12 +665,12 @@
             "enhance_prompt": false,
             "moderation": "auto",
             "aspect_ratio": "9:16",
-            "prompt": "Reference images, in order: image 1 is the Aurixa glass-console world reference (supplied image 9); image 2 is the Aurixa glass-console world reference (supplied image 10). Using the architecture, materials and light of the console-world references: an empty but lived-in, full-sized professional glass workplace. A gold-edged open doorway on the left of frame leads in; inside, a real console desk with one large monitor, keyboard, mouse and a pale paper document, a chair turned slightly toward the monitor. Other glass workplaces softly visible beyond, warm-lit. The monitor's screen is a flat, evenly lit, softly glowing deep-navy blank panel. A blank architectural sign panel on the glass wall where a brand mark will be placed later. No people. The Aurixa world: deep navy architecture (#0A192F, shadows #040B16), full-sized glass workplaces with fine gold-edged frames and mullions, panel-navy console surfaces (#10233D), blue-hour city glow beyond the glass. A soft neutral-to-warm key light on faces and hands with a restrained teal or blue edge light; the active screen is the brightest, most colourful area, about one stop above its surround; glow stays off skin and away from the screen's centre. Restrained 35 mm (environment) or 50 mm (people at work) lens look. Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). No text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
+            "prompt": "Reference images, in order: image 1 is the Aurixa console world, the wide view (the approved reference in place of the pack's image 9); image 2 is the Aurixa console world, the doorway view (the approved reference in place of the pack's image 10). Using the architecture, materials and light of the console-world references: an empty but lived-in, full-sized professional glass workplace. A gold-edged open doorway on the left of frame leads in; inside, a real console desk with one large monitor, keyboard, mouse and a pale paper document, a chair turned slightly toward the monitor. Other glass workplaces softly visible beyond, warm-lit. The monitor's screen is a flat, evenly lit, softly glowing deep-navy blank panel. A blank architectural sign panel on the glass wall where a brand mark will be placed later. No people. The Aurixa world: deep navy architecture (#0A192F, shadows #040B16), full-sized glass workplaces with fine gold-edged frames and mullions, panel-navy console surfaces (#10233D), blue-hour city glow beyond the glass. A soft neutral-to-warm key light on faces and hands with a restrained teal or blue edge light; the active screen is the brightest, most colourful area, about one stop above its surround; glow stays off skin and away from the screen's centre. Restrained 35 mm (environment) or 50 mm (people at work) lens look. Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). No text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
           },
-          "inputs": ["UP-CONSOLE-9", "UP-CONSOLE-10"],
+          "inputs": ["CW-9", "CW-10"],
           "takes": 2,
           "used_by": ["04A", "04B", "05A", "05C", "06B", "07A", "10B", "11A"],
-          "needs": "image(9) and image(10) uploaded"
+          "needs": "CW-9 and CW-10 approved"
         },
         {
           "key": "S-MEETING",
@@ -645,12 +682,12 @@
             "enhance_prompt": false,
             "moderation": "auto",
             "aspect_ratio": "9:16",
-            "prompt": "Reference images, in order: image 1 is the Aurixa glass-console world reference (supplied image 9); image 2 is the Aurixa glass-console world reference (supplied image 10). Using the architecture of the console-world references: a warm, tactile meeting corner inside a glass workplace, a timber table with two chairs side by side, an open laptop and a physically mounted presentation display at the table's end, a closed paper report folder on the table. Blue-hour glass behind. The display and laptop screens are flat, evenly lit, pale blank panels. No people. The Aurixa world: deep navy architecture (#0A192F, shadows #040B16), full-sized glass workplaces with fine gold-edged frames and mullions, panel-navy console surfaces (#10233D), blue-hour city glow beyond the glass. A soft neutral-to-warm key light on faces and hands with a restrained teal or blue edge light; the active screen is the brightest, most colourful area, about one stop above its surround; glow stays off skin and away from the screen's centre. Restrained 35 mm (environment) or 50 mm (people at work) lens look. Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). No text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
+            "prompt": "Reference images, in order: image 1 is the Aurixa console world, the wide view (the approved reference in place of the pack's image 9); image 2 is the Aurixa console world, the doorway view (the approved reference in place of the pack's image 10). Using the architecture of the console-world references: a warm, tactile meeting corner inside a glass workplace, a timber table with two chairs side by side, an open laptop and a physically mounted presentation display at the table's end, a closed paper report folder on the table. Blue-hour glass behind. The display and laptop screens are flat, evenly lit, pale blank panels. No people. The Aurixa world: deep navy architecture (#0A192F, shadows #040B16), full-sized glass workplaces with fine gold-edged frames and mullions, panel-navy console surfaces (#10233D), blue-hour city glow beyond the glass. A soft neutral-to-warm key light on faces and hands with a restrained teal or blue edge light; the active screen is the brightest, most colourful area, about one stop above its surround; glow stays off skin and away from the screen's centre. Restrained 35 mm (environment) or 50 mm (people at work) lens look. Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). No text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
           },
-          "inputs": ["UP-CONSOLE-9", "UP-CONSOLE-10"],
+          "inputs": ["CW-9", "CW-10"],
           "takes": 2,
           "used_by": ["08B"],
-          "needs": "image(9) and image(10) uploaded"
+          "needs": "CW-9 and CW-10 approved"
         },
         {
           "key": "S-JAMIE",
@@ -662,12 +699,12 @@
             "enhance_prompt": false,
             "moderation": "auto",
             "aspect_ratio": "9:16",
-            "prompt": "Reference images, in order: image 1 is the Aurixa glass-console world reference (supplied image 9); image 2 is the Aurixa glass-console world reference (supplied image 10). Using the architecture of the console-world references: a believable finance workstation inside a glass workplace: a monitor, keyboard, real mouse, a small notepad and pen beside the keyboard. Gold console edge running vertically at the right of frame. The monitor's screen is a flat, evenly lit, softly glowing deep-navy blank panel. No people. The Aurixa world: deep navy architecture (#0A192F, shadows #040B16), full-sized glass workplaces with fine gold-edged frames and mullions, panel-navy console surfaces (#10233D), blue-hour city glow beyond the glass. A soft neutral-to-warm key light on faces and hands with a restrained teal or blue edge light; the active screen is the brightest, most colourful area, about one stop above its surround; glow stays off skin and away from the screen's centre. Restrained 35 mm (environment) or 50 mm (people at work) lens look. Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). No text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
+            "prompt": "Reference images, in order: image 1 is the Aurixa console world, the wide view (the approved reference in place of the pack's image 9); image 2 is the Aurixa console world, the doorway view (the approved reference in place of the pack's image 10). Using the architecture of the console-world references: a believable finance workstation inside a glass workplace: a monitor, keyboard, real mouse, a small notepad and pen beside the keyboard. Gold console edge running vertically at the right of frame. The monitor's screen is a flat, evenly lit, softly glowing deep-navy blank panel. No people. The Aurixa world: deep navy architecture (#0A192F, shadows #040B16), full-sized glass workplaces with fine gold-edged frames and mullions, panel-navy console surfaces (#10233D), blue-hour city glow beyond the glass. A soft neutral-to-warm key light on faces and hands with a restrained teal or blue edge light; the active screen is the brightest, most colourful area, about one stop above its surround; glow stays off skin and away from the screen's centre. Restrained 35 mm (environment) or 50 mm (people at work) lens look. Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). No text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
           },
-          "inputs": ["UP-CONSOLE-9", "UP-CONSOLE-10"],
+          "inputs": ["CW-9", "CW-10"],
           "takes": 2,
           "used_by": ["05B", "13A", "14A"],
-          "needs": "image(9) and image(10) uploaded"
+          "needs": "CW-9 and CW-10 approved"
         },
         {
           "key": "S-CLIENT",
@@ -679,12 +716,12 @@
             "enhance_prompt": false,
             "moderation": "auto",
             "aspect_ratio": "9:16",
-            "prompt": "Reference images, in order: image 1 is the Aurixa glass-console world reference (supplied image 9); image 2 is the Aurixa glass-console world reference (supplied image 10). Using the architecture of the console-world references: a full-sized glass workspace furnished for a client: a desk with an open laptop and touchpad, an adjacent framed glass presentation panel backed by opaque navy, warm lamp light. The laptop's screen is a flat, evenly lit, softly glowing deep-navy blank panel. No people. The Aurixa world: deep navy architecture (#0A192F, shadows #040B16), full-sized glass workplaces with fine gold-edged frames and mullions, panel-navy console surfaces (#10233D), blue-hour city glow beyond the glass. A soft neutral-to-warm key light on faces and hands with a restrained teal or blue edge light; the active screen is the brightest, most colourful area, about one stop above its surround; glow stays off skin and away from the screen's centre. Restrained 35 mm (environment) or 50 mm (people at work) lens look. Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). No text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
+            "prompt": "Reference images, in order: image 1 is the Aurixa console world, the wide view (the approved reference in place of the pack's image 9); image 2 is the Aurixa console world, the doorway view (the approved reference in place of the pack's image 10). Using the architecture of the console-world references: a full-sized glass workspace furnished for a client: a desk with an open laptop and touchpad, an adjacent framed glass presentation panel backed by opaque navy, warm lamp light. The laptop's screen is a flat, evenly lit, softly glowing deep-navy blank panel. No people. The Aurixa world: deep navy architecture (#0A192F, shadows #040B16), full-sized glass workplaces with fine gold-edged frames and mullions, panel-navy console surfaces (#10233D), blue-hour city glow beyond the glass. A soft neutral-to-warm key light on faces and hands with a restrained teal or blue edge light; the active screen is the brightest, most colourful area, about one stop above its surround; glow stays off skin and away from the screen's centre. Restrained 35 mm (environment) or 50 mm (people at work) lens look. Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). No text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
           },
-          "inputs": ["UP-CONSOLE-9", "UP-CONSOLE-10"],
+          "inputs": ["CW-9", "CW-10"],
           "takes": 2,
           "used_by": ["06A"],
-          "needs": "image(9) and image(10) uploaded"
+          "needs": "CW-9 and CW-10 approved"
         },
         {
           "key": "S-MIA",
@@ -696,12 +733,12 @@
             "enhance_prompt": false,
             "moderation": "auto",
             "aspect_ratio": "9:16",
-            "prompt": "Reference images, in order: image 1 is the Aurixa glass-console world reference (supplied image 9); image 2 is the Aurixa glass-console world reference (supplied image 10). Using the architecture of the console-world references: a quiet accountant's office within a glass workplace: a monitor, mouse and keyboard, a few pale supporting documents laid beside the screen at a slight angle. The monitor's screen is a flat, evenly lit, softly glowing deep-navy blank panel. No people. The Aurixa world: deep navy architecture (#0A192F, shadows #040B16), full-sized glass workplaces with fine gold-edged frames and mullions, panel-navy console surfaces (#10233D), blue-hour city glow beyond the glass. A soft neutral-to-warm key light on faces and hands with a restrained teal or blue edge light; the active screen is the brightest, most colourful area, about one stop above its surround; glow stays off skin and away from the screen's centre. Restrained 35 mm (environment) or 50 mm (people at work) lens look. Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). No text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
+            "prompt": "Reference images, in order: image 1 is the Aurixa console world, the wide view (the approved reference in place of the pack's image 9); image 2 is the Aurixa console world, the doorway view (the approved reference in place of the pack's image 10). Using the architecture of the console-world references: a quiet accountant's office within a glass workplace: a monitor, mouse and keyboard, a few pale supporting documents laid beside the screen at a slight angle. The monitor's screen is a flat, evenly lit, softly glowing deep-navy blank panel. No people. The Aurixa world: deep navy architecture (#0A192F, shadows #040B16), full-sized glass workplaces with fine gold-edged frames and mullions, panel-navy console surfaces (#10233D), blue-hour city glow beyond the glass. A soft neutral-to-warm key light on faces and hands with a restrained teal or blue edge light; the active screen is the brightest, most colourful area, about one stop above its surround; glow stays off skin and away from the screen's centre. Restrained 35 mm (environment) or 50 mm (people at work) lens look. Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). No text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
           },
-          "inputs": ["UP-CONSOLE-9", "UP-CONSOLE-10"],
+          "inputs": ["CW-9", "CW-10"],
           "takes": 2,
           "used_by": ["08A"],
-          "needs": "image(9) and image(10) uploaded"
+          "needs": "CW-9 and CW-10 approved"
         },
         {
           "key": "S-PRIYA",
@@ -713,12 +750,12 @@
             "enhance_prompt": false,
             "moderation": "auto",
             "aspect_ratio": "9:16",
-            "prompt": "Reference images, in order: image 1 is the Aurixa glass-console world reference (supplied image 9); image 2 is the Aurixa glass-console world reference (supplied image 10). Using the architecture of the console-world references: a professional solicitor's desk inside a gold-framed glass module, charcoal and navy depth, a monitor with a clean bezel, a real mouse, a closed physical property folder on the desk. No courtroom props. The monitor's screen is a flat, evenly lit, softly glowing pale blank panel. No people. The Aurixa world: deep navy architecture (#0A192F, shadows #040B16), full-sized glass workplaces with fine gold-edged frames and mullions, panel-navy console surfaces (#10233D), blue-hour city glow beyond the glass. A soft neutral-to-warm key light on faces and hands with a restrained teal or blue edge light; the active screen is the brightest, most colourful area, about one stop above its surround; glow stays off skin and away from the screen's centre. Restrained 35 mm (environment) or 50 mm (people at work) lens look. Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). No text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
+            "prompt": "Reference images, in order: image 1 is the Aurixa console world, the wide view (the approved reference in place of the pack's image 9); image 2 is the Aurixa console world, the doorway view (the approved reference in place of the pack's image 10). Using the architecture of the console-world references: a professional solicitor's desk inside a gold-framed glass module, charcoal and navy depth, a monitor with a clean bezel, a real mouse, a closed physical property folder on the desk. No courtroom props. The monitor's screen is a flat, evenly lit, softly glowing pale blank panel. No people. The Aurixa world: deep navy architecture (#0A192F, shadows #040B16), full-sized glass workplaces with fine gold-edged frames and mullions, panel-navy console surfaces (#10233D), blue-hour city glow beyond the glass. A soft neutral-to-warm key light on faces and hands with a restrained teal or blue edge light; the active screen is the brightest, most colourful area, about one stop above its surround; glow stays off skin and away from the screen's centre. Restrained 35 mm (environment) or 50 mm (people at work) lens look. Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). No text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
           },
-          "inputs": ["UP-CONSOLE-9", "UP-CONSOLE-10"],
+          "inputs": ["CW-9", "CW-10"],
           "takes": 2,
           "used_by": ["09A", "09B", "12B", "10A"],
-          "needs": "image(9) and image(10) uploaded"
+          "needs": "CW-9 and CW-10 approved"
         },
         {
           "key": "S-SITE",
@@ -746,12 +783,12 @@
             "enhance_prompt": false,
             "moderation": "auto",
             "aspect_ratio": "9:16",
-            "prompt": "Reference images, in order: image 1 is the Aurixa glass-console world reference (supplied image 9); image 2 is the Aurixa glass-console world reference (supplied image 10). Using the architecture of the console-world references: an open circulation area at blue hour looking across a small, believable group of two or three occupied professional glass workplaces associated with one property, each with a warm-lit person at a softly glowing screen; distant rooms softly suggested. A gold-framed console edge in the left foreground. Human scale; no skyline, no aerial view. All screens are flat, evenly lit blank panels. The Aurixa world: deep navy architecture (#0A192F, shadows #040B16), full-sized glass workplaces with fine gold-edged frames and mullions, panel-navy console surfaces (#10233D), blue-hour city glow beyond the glass. A soft neutral-to-warm key light on faces and hands with a restrained teal or blue edge light; the active screen is the brightest, most colourful area, about one stop above its surround; glow stays off skin and away from the screen's centre. Restrained 35 mm (environment) or 50 mm (people at work) lens look. Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). No text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
+            "prompt": "Reference images, in order: image 1 is the Aurixa console world, the wide view (the approved reference in place of the pack's image 9); image 2 is the Aurixa console world, the doorway view (the approved reference in place of the pack's image 10). Using the architecture of the console-world references: an open circulation area at blue hour looking across a small, believable group of two or three occupied professional glass workplaces associated with one property, each with a warm-lit person at a softly glowing screen; distant rooms softly suggested. A gold-framed console edge in the left foreground. Human scale; no skyline, no aerial view. All screens are flat, evenly lit blank panels. The Aurixa world: deep navy architecture (#0A192F, shadows #040B16), full-sized glass workplaces with fine gold-edged frames and mullions, panel-navy console surfaces (#10233D), blue-hour city glow beyond the glass. A soft neutral-to-warm key light on faces and hands with a restrained teal or blue edge light; the active screen is the brightest, most colourful area, about one stop above its surround; glow stays off skin and away from the screen's centre. Restrained 35 mm (environment) or 50 mm (people at work) lens look. Photorealistic cinematic film still from a premium Australian commercial, vertical 9:16. Natural skin texture, visible eyes, believable hands with five fingers, stable furniture, glass and screen geometry. Keep the important subject inside the central safe area (the middle 80% of the width, between 10% and 80% of the height). No text, letters, numbers, logos, watermarks, signage or interface anywhere in the image."
           },
-          "inputs": ["UP-CONSOLE-9", "UP-CONSOLE-10"],
+          "inputs": ["CW-9", "CW-10"],
           "takes": 2,
           "used_by": ["10A"],
-          "needs": "image(9) and image(10) uploaded"
+          "needs": "CW-9 and CW-10 approved"
         }
       ]
     },

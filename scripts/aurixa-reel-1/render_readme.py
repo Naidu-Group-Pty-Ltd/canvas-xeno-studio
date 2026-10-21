@@ -17,7 +17,7 @@ w("")
 w("A plan only: nothing in it has been generated. It was built from the 47-page prompt pack (Final Cinematic Edition, Revision 2).")
 w("Every still and clip in [`spec.json`](spec.json) is ready to queue: its model, parameters, prompt, and inputs in order.")
 w("")
-w("**How the keys work.** An input is named by a key: `P` and `D` are the property image and floor plan; `C-…` is a cast sheet; `S-…` is a set; `UP-…` is an upload; `F-…-in` and `F-…-out` are a shot's first and last frames; `V-…` is a clip.")
+w("**How the keys work.** An input is named by a key: `P` and `D` are the property image and floor plan; `C-…` is a cast sheet; `CW-…` is the console world; `S-…` is a set; `REF-…` is a reference image; `UP-…` is an upload; `F-…-in` and `F-…-out` are a shot's first and last frames; `V-…` is a clip.")
 w("A key becomes a library asset id once its stage is approved. The ids are recorded in [`assets.json`](assets.json), which a rebuild only adds keys to.")
 w("Each prompt names its inputs as \"image 1\", \"image 2\" and so on, in the order sent. That's why cast sheets go in as explicit inputs, never as `characterIds`, which would add images in an order of their own.")
 w("")
@@ -62,7 +62,11 @@ for item in st[1]["items"]:
 
 w("## Stage 2: sets")
 w("")
-w("Empty rooms with every screen a blank glowing panel. Each Aurixa-world set is drawn from `image(9)` and `image(10)` once they're uploaded.")
+w("Empty rooms with every screen a blank glowing panel. The pack's `image(9)` and `image(10)` can't be found, so the console world comes first: "
+  "CW-9 and CW-10 are made from the references below, and each Aurixa-world set is drawn from the approved pair.")
+w("")
+for ref in spec["references"]:
+    w(f"- **{ref['key']}**: {ref['what']}")
 w("")
 w("| Set | Model | Inputs | Used by |")
 w("|---|---|---|---|")

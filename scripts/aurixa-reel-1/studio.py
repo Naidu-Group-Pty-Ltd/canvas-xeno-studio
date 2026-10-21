@@ -5,6 +5,7 @@
   python3 scripts/aurixa-reel-1/studio.py run <stage> [--only P,C-ALEX] [--takes N] [--confirm]
   python3 scripts/aurixa-reel-1/studio.py takes                             # the takes' state again, into takes.json
   python3 scripts/aurixa-reel-1/studio.py pick P=take1 C-MIA=r3-take1       # approved takes' files into assets.json
+  python3 scripts/aurixa-reel-1/studio.py import REF-LOOK-OPS=ops.png       # a picture into the library, its id into assets.json
 
 run prints what it would queue; only with --confirm does it queue (billed by the provider), then it
 waits and records every take in takes.json. A take's request id is its key and number (and the
@@ -15,7 +16,7 @@ by itself.
 The API is the published studio's (XENO_STUDIO_URL, default https://canvas-xeno-studio.lovable.app),
 with a personal token in XENO_STUDIO_TOKEN (or one the network adds).
 """
-import base64, json, os, sys, time, urllib.error, urllib.request
+import base64, hashlib, json, os, sys, time, urllib.error, urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -160,6 +161,24 @@ def pick(choices):
     save_ledger(ledger)
 
 
+def import_files(choices):
+    """Imports pictures for ledger keys (references, uploads); the same file imported again returns the first import."""
+    ledger = load("assets.json")
+    for choice in choices:
+        key, _, path = choice.partition("=")
+        if key not in ledger:
+            sys.exit(f"{choice}: {key} isn't in the spec's ledger")
+        data = Path(path).read_bytes()
+        result = call("import_image", {
+            "title": f"Aurixa Reel 1 · reference {key}",
+            "data": base64.b64encode(data).decode(),
+            "clientRequestId": f"aurixa-reel1-{key}-{hashlib.sha256(data).hexdigest()[:12]}",
+        })
+        ledger[key] = result["assetId"]
+        print(f"{key}: {result['assetId']} ({'imported' if result['imported'] else 'already imported'}, {result['width']}x{result['height']})")
+        save_ledger(ledger)
+
+
 def run(stage_number, only=None, takes=None, confirm=False):
     spec = load("spec.json")
     ledger = load("assets.json")
@@ -200,7 +219,7 @@ def run(stage_number, only=None, takes=None, confirm=False):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(usage=__doc__)
-    parser.add_argument("command", choices=["import-plates", "price", "run", "takes", "pick"])
+    parser.add_argument("command", choices=["import-plates", "import", "price", "run", "takes", "pick"])
     parser.add_argument("target", nargs="*")
     parser.add_argument("--only", help="item keys, comma separated")
     parser.add_argument("--takes", type=int, help="takes per item (numbered from 1)")
@@ -214,5 +233,7 @@ if __name__ == "__main__":
         run(int(args.target[0]), set(args.only.split(",")) if args.only else None, args.takes, args.confirm)
     elif args.command == "pick":
         pick(args.target)
+    elif args.command == "import":
+        import_files(args.target)
     else:
         settle(load_takes(), timeout=0)
