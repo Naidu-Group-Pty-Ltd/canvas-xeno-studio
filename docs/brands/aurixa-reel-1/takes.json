@@ -280,5 +280,53 @@
       "costUsd": null,
       "error": null
     }
+  },
+  "S-HOME": {
+    "take1": {
+      "generationId": "26372dcf-f290-49ac-ba50-eac12df8808c",
+      "status": "completed",
+      "assets": ["e856d0ce-5ab0-4653-b8f6-ea546fe8016c"],
+      "costUsd": null,
+      "error": null
+    },
+    "take2": {
+      "generationId": "f897e24c-f8d2-4975-b45c-1497f389b303",
+      "status": "completed",
+      "assets": ["6b30ee50-2f02-4261-bd0c-5bcc51d852ec"],
+      "costUsd": null,
+      "error": null
+    }
+  },
+  "S-OFFICE": {
+    "take1": {
+      "generationId": "1d47d5ad-9c5d-4d42-95bf-c27f454af187",
+      "status": "completed",
+      "assets": ["c6242096-0562-49c0-bb37-c3c21eb7283e"],
+      "costUsd": null,
+      "error": null
+    },
+    "take2": {
+      "generationId": "aa09da3a-1fa8-4c85-ba7d-0e3ce1ed2a41",
+      "status": "completed",
+      "assets": ["81d36061-0478-4228-99b0-b266c75c2c49"],
+      "costUsd": null,
+      "error": null
+    }
+  },
+  "S-SITE": {
+    "take1": {
+      "generationId": "14a9b33a-2c35-48c0-8527-f7406206327b",
+      "status": "completed",
+      "assets": ["c3bb9c90-2bb8-46ca-a7fd-870f318ae023"],
+      "costUsd": null,
+      "error": null
+    },
+    "take2": {
+      "generationId": "b6d5de00-f635-4163-b02a-92a8aa161b28",
+      "status": "completed",
+      "assets": ["caa48452-7838-4cdd-9f35-be02e17fcf86"],
+      "costUsd": null,
+      "error": null
+    }
   }
 }

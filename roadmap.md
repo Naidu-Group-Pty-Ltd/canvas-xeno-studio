@@ -77,5 +77,6 @@
 - [ ] Re-analyse the Reel 1 brief (Brief panel → Re-analyse)
 - [x] Reel 1 stage 1 made (Marketing Studio 2.5 Sunburst, `studio.py run 1 --confirm`): three property images, three sheets per person, two floor plans, all completed and none blocked; the cast in their mid-to-late 20s, and the four women told apart by heritage, complexion, face and hair (their sheets revision 2, 12 more takes). Every take is in docs/brands/aurixa-reel-1/takes.json
 - [x] Reel 1 stage 1 approved (`studio.py pick`, into assets.json): P take1, D take1, Alex r2-take2, Jordan take3, Jamie r2-take1, Priya r2-take3, Daniel take1, Mia r3-take1 (her sheet's revision 3 makes her more glamorous)
-- [ ] Reel 1 stage 2, the sets: S-HOME, S-OFFICE and S-SITE can run now (6 takes); the other seven wait on image(9) and image(10)
+- [x] Reel 1 stage 2, the three sets that need no uploads: S-HOME, S-OFFICE and S-SITE, two takes each, all completed (recommended: S-HOME take1, S-OFFICE take2, S-SITE take2)
+- [ ] Reel 1 stage 2 picks for those three; the other seven sets wait on image(9) and image(10)
 - [ ] The studio records no price for metered GPT Image runs: Higgsfield's result carries none, so a run's cost and the balance countdown miss them (the Console's balance is the only record)
