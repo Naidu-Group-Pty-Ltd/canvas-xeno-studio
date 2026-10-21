@@ -523,6 +523,172 @@ const CSS = `
 .ccr .creport h4 { font-size:12px; letter-spacing:.18em; font-weight:800; }
 .ccr .creport .rule { height:1.5px; background:linear-gradient(90deg,#C89B3C,rgba(200,155,60,.12)); }
 .ccr .creport .skel div { background:#e6ebf2; height:9px; }
+/* ---- system edition: the pages still to build (see the block before the plates) ---- */
+/* Solicitor and Accountant dashboards */
+.pt .nd-count { position:relative; overflow:hidden; }
+.pt .nd-count::before { content:""; position:absolute; left:0; right:0; top:0; height:2px; background:linear-gradient(90deg, transparent, rgba(53,86,240,.32), transparent); }
+.pt .nd-count .tile { width:42px; height:42px; border-radius:11px; border:1px solid rgba(53,86,240,.25); background:rgba(53,86,240,.10); }
+.pt .nd-count .v { font-size:22px; font-weight:600; }
+.pt .nd-kpi { flex-direction:column; align-items:flex-start; gap:3px; }
+.pt .nd-kpi .k { display:flex; align-items:center; gap:6px; font-size:11px; color:#c3c8d4; }
+.pt .nd-kpi .v { font-size:22px; font-weight:600; margin-top:3px; }
+.pt .nd-empty { border:1px dashed rgba(255,255,255,.14); border-radius:10px; padding:16px; text-align:center; font-size:12px; color:#9aa3b5; }
+.pt .nd-bar { display:flex; flex-direction:column; gap:7px; font-size:11.5px; }
+.pt .nd-bar > div { display:flex; justify-content:space-between; }
+.pt .nd-bar i { display:block; height:6px; border-radius:999px; background:#1b1d25; overflow:hidden; }
+.pt .nd-bar b { display:block; height:100%; border-radius:999px; background:#1238E8; }
+.pt .pill.muted { color:#aab2c3; border-color:rgba(255,255,255,.14); background:rgba(255,255,255,.04); }
+.pt .pill.amber { color:#f2b544; border-color:rgba(242,181,68,.32); background:rgba(242,181,68,.10); display:inline-flex; align-items:center; gap:5px; }
+/* Finance home: the agreement templates and the streak */
+.fin .tpl { border-radius:14px; border:1px solid rgba(255,255,255,.08); background:#0f1015; padding:16px 18px; display:flex; flex-direction:column; gap:11px; }
+.fin .tintro { font-size:11.5px; color:#aab2c3; line-height:1.55; max-width:720px; }
+.fin .tnote { display:flex; gap:10px; border-radius:11px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.025); padding:11px 14px; font-size:10px; color:#aab2c3; line-height:1.85; }
+.fin .tcard { flex:1; border-radius:11px; border:1px solid rgba(255,255,255,.08); background:#111218; padding:13px 15px; display:flex; flex-direction:column; gap:9px; min-width:0; }
+.fin .tcard .tt { font-size:15px; display:flex; align-items:center; gap:10px; }
+.fin .tcard .td { font-size:10.5px; color:#9aa3b5; line-height:1.5; }
+.fin .tins { display:flex; justify-content:space-between; align-items:center; height:29px; padding:0 12px; border-radius:8px; border:1px solid rgba(255,255,255,.10); font-size:10.5px; font-weight:600; }
+.fin .tdl { display:flex; align-items:center; gap:12px; font-size:10.5px; color:#8d95a8; }
+.fin .tdl b { display:inline-flex; align-items:center; gap:7px; font-size:11px; font-weight:600; color:#fff; border:1px solid rgba(255,255,255,.14); border-radius:8px; padding:7px 12px; }
+.fin .tfile { width:26px; height:26px; flex:none; border-radius:7px; display:grid; place-items:center; background:rgba(18,56,232,.14); }
+.fin .chips { display:flex; gap:8px; }
+.fin .chips > span { display:inline-flex; align-items:center; gap:6px; font-size:10.5px; font-weight:600; color:#aab2c3; border:1px solid rgba(255,255,255,.12); border-radius:999px; padding:5px 11px; }
+/* Builders Network home: the welcome, its title block, the schedule of counts */
+.bn .bdash { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:24px; align-items:center; }
+.bn .btb { display:grid; grid-template-columns:1fr 1fr; margin:0; border:1px solid rgba(28,43,65,.9); border-radius:6px; background:rgba(11,22,44,.35); }
+.bn .btb > div { padding:9px 13px; border-right:1px solid rgba(28,43,65,.45); border-bottom:1px solid rgba(28,43,65,.45); }
+.bn .btb > div:nth-child(2n) { border-right:none; }
+.bn .btb > div:nth-child(n+3) { border-bottom:none; }
+.bn .btb dd { margin:3px 0 0; font-size:13px; font-weight:600; letter-spacing:-.01em; font-variant-numeric:tabular-nums; }
+.bn .bsched.four { grid-template-columns:repeat(4,1fr); }
+.bn .figu { font-family:Inconsolata, Consolas, monospace; font-size:10px; letter-spacing:.08em; color:#9CA3AF; margin-left:6px; font-weight:600; }
+.bn .bempty { border:1px dashed #1C2B41; border-radius:6px; padding:24px 16px; text-align:center; font-size:12.5px; color:#9CA3AF; }
+.bn .bhead { display:flex; align-items:center; gap:8px; }
+/* Command Centre · Message Hub */
+.ccr .mh { display:flex; flex-direction:column; gap:12px; height:100%; padding-bottom:16px; }
+.ccr .mh-head { display:flex; align-items:center; gap:12px; flex:none; }
+.ccr .mh-ic { width:40px; height:40px; flex:none; border-radius:12px; display:grid; place-items:center; background:rgba(18,56,232,.15); border:1px solid rgba(18,56,232,.28); }
+.ccr .mh-ic svg { width:20px; height:20px; }
+.ccr .mh-t { font-size:20px; font-weight:700; letter-spacing:-.01em; display:flex; align-items:center; gap:10px; }
+.ccr .mh-live { display:inline-flex; align-items:center; gap:6px; font-size:10.5px; font-weight:700; color:#45d58a; border:1px solid rgba(69,213,138,.35); background:rgba(69,213,138,.08); border-radius:999px; padding:2px 9px; }
+.ccr .mh-live i { width:6px; height:6px; border-radius:50%; background:#45d58a; box-shadow:0 0 0 3px rgba(69,213,138,.18); }
+.ccr .mh-s { font-size:12.5px; color:#8f9097; margin-top:3px; }
+.ccr .mh-acts { margin-left:auto; display:flex; align-items:center; gap:4px; }
+.ccr .mh-g { display:inline-flex; align-items:center; gap:7px; height:34px; padding:0 11px; border-radius:9px; font-size:12px; font-weight:600; color:#d5d5da; }
+.ccr .mh-g svg { width:15px; height:15px; flex:none; }
+.ccr .mh-g.new { background:#1238E8; color:#fff; }
+.ccr .mh-panes { flex:1; min-height:0; display:flex; gap:12px; }
+.ccr .mh-pane { border-radius:16px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.025); display:flex; flex-direction:column; overflow:hidden; min-width:0; }
+.ccr .mh-list { width:320px; flex:none; padding:12px 10px; gap:10px; }
+.ccr .mh-find { height:36px; flex:none; display:flex; align-items:center; gap:9px; padding:0 12px; border-radius:12px; border:1px solid rgba(255,255,255,.10); background:#101012; font-size:12.5px; color:#7d7d84; }
+.ccr .mh-find svg { width:14px; height:14px; }
+.ccr .mh-pills { display:flex; gap:6px; flex:none; }
+.ccr .mh-pills span { font-size:11.5px; font-weight:600; padding:4px 10px; border-radius:999px; color:#aab; background:rgba(255,255,255,.04); }
+.ccr .mh-pills span.on { background:#1238E8; color:#fff; }
+.ccr .mh-sec { font-size:10.5px; letter-spacing:.06em; font-weight:700; color:#8f9097; padding:6px 6px 2px; display:flex; gap:6px; }
+.ccr .mh-row { position:relative; display:flex; align-items:center; gap:11px; padding:9px 12px; border-radius:12px; }
+.ccr .mh-row.on { background:rgba(18,56,232,.10); box-shadow:inset 0 0 0 1px rgba(18,56,232,.28); }
+.ccr .mh-row.on::before { content:""; position:absolute; left:0; top:8px; bottom:8px; width:4px; border-radius:999px; background:#1238E8; }
+.ccr .mh-av { position:relative; width:36px; height:36px; flex:none; border-radius:12px; display:grid; place-items:center; font-size:12px; font-weight:800; color:#fff; }
+.ccr .mh-row.on .mh-av { box-shadow:0 0 0 2px #0b1024, 0 0 0 3.5px rgba(215,179,95,.75), 0 0 14px rgba(215,179,95,.35); }
+.ccr .mh-av em { position:absolute; right:-3px; bottom:-3px; width:15px; height:15px; border-radius:50%; background:#0b1024; display:grid; place-items:center; }
+.ccr .mh-av em svg { width:10px; height:10px; }
+.ccr .mh-rt { flex:1; min-width:0; }
+.ccr .mh-r1 { display:flex; align-items:baseline; gap:8px; font-size:13.5px; }
+.ccr .mh-r1 b { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ccr .mh-r1 small { margin-left:auto; font-size:11px; color:#8f9097; font-variant-numeric:tabular-nums; }
+.ccr .mh-r2 { font-size:12px; color:#8f9097; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ccr .mh-r2 i { font-style:normal; font-weight:600; color:rgba(236,236,239,.75); }
+.ccr .mh-r2.mh-dr { color:#f2b544; display:flex; align-items:center; gap:5px; }
+.ccr .mh-r2.mh-dr svg { width:12px; height:12px; flex:none; }
+.ccr .mh-thread { flex:1; }
+.ccr .mh-th { display:flex; align-items:center; gap:11px; padding:10px 12px; border-bottom:1px solid rgba(255,255,255,.07); flex:none; }
+.ccr .mh-th h3 { font-size:15px; font-weight:700; display:flex; align-items:center; gap:8px; }
+.ccr .mh-kind { font-size:10.5px; font-weight:600; padding:2px 8px; border-radius:999px; background:rgba(0,168,181,.14); color:#5fe0e8; }
+.ccr .mh-sub2 { display:flex; align-items:center; gap:8px; font-size:11.5px; color:#8f9097; margin-top:3px; }
+.ccr .mh-stack { display:flex; }
+.ccr .mh-stack i { width:18px; height:18px; border-radius:50%; display:grid; place-items:center; font-size:7.5px; font-weight:800; font-style:normal; color:#fff; box-shadow:0 0 0 2px #10121a; }
+.ccr .mh-stack i + i { margin-left:-5px; }
+.ccr .mh-sec2 { display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:600; padding:1px 7px; border-radius:999px; background:rgba(255,255,255,.06); color:#aab; }
+.ccr .mh-sec2 svg { width:11px; height:11px; }
+.ccr .mh-tools { margin-left:auto; display:flex; gap:2px; }
+.ccr .mh-tools span { width:36px; height:36px; border-radius:9px; display:grid; place-items:center; }
+.ccr .mh-tools span.on { background:rgba(255,255,255,.06); }
+.ccr .mh-tools svg { width:16px; height:16px; }
+.ccr .mh-body { flex:1; min-height:0; padding:14px 16px; display:flex; flex-direction:column; gap:12px; justify-content:flex-end; }
+.ccr .mh-date { display:flex; align-items:center; gap:10px; font-size:11px; font-weight:600; color:#8f9097; }
+.ccr .mh-date::before, .ccr .mh-date::after { content:""; flex:1; height:1px; background:rgba(255,255,255,.08); }
+.ccr .mh-date span { border:1px solid rgba(255,255,255,.12); border-radius:999px; padding:2px 10px; }
+.ccr .mh-msg { display:flex; gap:10px; align-items:flex-end; max-width:72%; }
+.ccr .mh-msg.me { align-self:flex-end; flex-direction:row-reverse; }
+.ccr .mh-mav { width:36px; height:36px; flex:none; border-radius:50%; display:grid; place-items:center; font-size:12px; font-weight:800; color:#fff; margin-bottom:20px; }
+.ccr .mh-who { font-size:12px; font-weight:700; margin-bottom:4px; display:flex; gap:7px; align-items:baseline; color:#5fe0e8; }
+.ccr .mh-who span { font-size:10px; letter-spacing:.08em; color:#8f9097; font-weight:600; }
+.ccr .mh-bub { font-size:14px; line-height:1.6; padding:8px 12px; border-radius:16px 16px 16px 4px; background:#141418; box-shadow:inset 0 0 0 1px rgba(255,255,255,.10); color:#ececef; }
+.ccr .mh-msg.me .mh-bub { border-radius:16px 16px 4px 16px; background:#1238E8; color:#fff; box-shadow:0 2px 10px rgba(18,56,232,.25); }
+.ccr .mh-time { display:flex; align-items:center; gap:5px; font-size:11px; color:#8f9097; margin-top:5px; font-variant-numeric:tabular-nums; }
+.ccr .mh-msg.me .mh-time { justify-content:flex-end; }
+.ccr .mh-time svg { width:14px; height:14px; }
+.ccr .mh-foot { flex:none; padding:0 12px 10px; }
+.ccr .mh-comp { display:flex; align-items:flex-end; gap:4px; padding:6px; border-radius:16px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.04); }
+.ccr .mh-comp.typing { box-shadow:0 0 0 2px rgba(18,56,232,.55); }
+.ccr .mh-comp > span { width:36px; height:36px; flex:none; border-radius:9px; display:grid; place-items:center; }
+.ccr .mh-comp > span svg { width:16px; height:16px; }
+.ccr .mh-comp .mh-send { border-radius:50%; background:#1238E8; }
+.ccr .mh-ta { flex:1; min-width:0; padding:8px 6px; font-size:14px; line-height:1.5; color:#ececef; }
+.ccr .mh-ta.ph { color:#6f6f76; }
+.ccr .mh-help { font-size:11px; color:#77777e; padding:6px 4px 0; }
+.ccr .mh-det { width:320px; flex:none; }
+.ccr .mh-dh { display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-bottom:1px solid rgba(255,255,255,.07); font-size:13px; font-weight:700; }
+.ccr .mh-dh svg { width:15px; height:15px; }
+.ccr .mh-dp { padding:18px 14px; display:flex; flex-direction:column; align-items:center; gap:6px; border-bottom:1px solid rgba(255,255,255,.07); }
+.ccr .mh-big { width:64px; height:64px; border-radius:20px; display:grid; place-items:center; font-size:20px; font-weight:800; color:#fff; }
+.ccr .mh-dn { font-size:15px; font-weight:700; margin-top:4px; }
+.ccr .mh-dl { display:flex; align-items:center; gap:5px; font-size:11.5px; color:#8f9097; }
+.ccr .mh-dl svg { width:12px; height:12px; }
+.ccr .mh-badges { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin-top:4px; }
+.ccr .mh-badges span { font-size:10.5px; font-weight:600; padding:2px 8px; border-radius:999px; background:rgba(255,255,255,.06); color:#c9c9cf; }
+.ccr .mh-ds { padding:12px 14px 4px; display:flex; align-items:center; gap:7px; font-size:12px; font-weight:700; color:#c9c9cf; }
+.ccr .mh-ds svg { width:14px; height:14px; }
+.ccr .mh-ds small { color:#8f9097; font-weight:600; }
+.ccr .mh-ds .chev { margin-left:auto; }
+.ccr .mh-pp { display:flex; align-items:center; gap:10px; padding:7px 14px; }
+.ccr .mh-pp .mh-mav { width:32px; height:32px; margin:0; font-size:11px; }
+.ccr .mh-pp b { display:block; font-size:12.5px; font-weight:600; }
+.ccr .mh-pp b small { font-size:11px; color:#8f9097; font-weight:400; margin-left:5px; }
+.ccr .mh-pp div > span { font-size:11px; color:#8f9097; }
+.ccr .mh-role { margin-left:auto; font-size:10px; font-weight:600; padding:2px 8px; border-radius:999px; background:rgba(255,255,255,.06); color:#aab; }
+.ccr .mh-role.owner { background:rgba(18,56,232,.14); color:#8fa6ff; }
+/* Client Portal · Reports and My Appointments */
+.cli .cr-head { position:relative; overflow:hidden; display:flex; align-items:center; gap:12px; padding:16px 18px; border-radius:14px; border:1px solid rgba(255,255,255,.08);
+  background:radial-gradient(220px 120px at 100% 0%, rgba(18,56,232,.22), transparent 70%), #0d0f16; }
+.cli .cr-h1 { font-size:17px; font-weight:800; letter-spacing:-.01em; }
+.cli .cr-sub { font-size:9.5px; color:#9aa3b5; margin-top:4px; }
+.cli .cr-btn { margin-left:auto; display:inline-flex; align-items:center; gap:6px; font-size:9.5px; font-weight:700; padding:7px 11px; border-radius:9px; background:#1238E8; color:#fff; white-space:nowrap; }
+.cli .cr-btn.ghost { margin-left:0; background:transparent; border:1px solid rgba(255,255,255,.16); }
+.cli .cr-tabs { display:flex; gap:4px; padding:3px; border-radius:10px; border:1px solid rgba(255,255,255,.08); background:#0d0f16; align-self:flex-start; }
+.cli .cr-tabs span { display:inline-flex; align-items:center; gap:5px; font-size:9.5px; font-weight:600; color:#9aa3b5; padding:5px 11px; border-radius:7px; }
+.cli .cr-tabs span.on { background:#17191f; color:#fff; box-shadow:inset 0 0 0 1px rgba(255,255,255,.08); }
+.cli .cr-bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.cli .cr-find { flex:1; min-width:160px; height:26px; display:flex; align-items:center; gap:6px; padding:0 9px; border-radius:8px; border:1px solid rgba(255,255,255,.10); background:#0b0c10; font-size:9.5px; color:#7d8496; }
+.cli .cr-chip { font-size:8.5px; font-weight:600; padding:4px 9px; border-radius:999px; border:1px solid rgba(255,255,255,.12); color:#aab2c3; }
+.cli .cr-chip.on { background:#1238E8; border-color:#1238E8; color:#fff; }
+.cli .cr-card { display:flex; gap:11px; align-items:flex-start; padding:13px 14px; border-radius:14px; border:1px solid rgba(255,255,255,.09); background:#0f1118; }
+.cli .cr-ic { width:32px; height:32px; flex:none; border-radius:10px; display:grid; place-items:center; border:1px solid rgba(18,56,232,.25); background:rgba(18,56,232,.12); }
+.cli .cr-t { font-size:11px; font-weight:700; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.cli .cr-new { font-size:7px; font-weight:700; padding:1px 5px; border-radius:999px; background:rgba(18,56,232,.18); color:#8fa6ff; }
+.cli .cr-tags { display:flex; gap:5px; margin-top:6px; }
+.cli .cr-tags span { font-size:7.5px; font-weight:700; padding:2px 7px; border-radius:999px; border:1px solid rgba(255,255,255,.16); color:#cfd5e2; }
+.cli .cr-tags span.sec { border-color:transparent; background:rgba(255,255,255,.08); }
+.cli .cr-note { font-size:8.5px; color:#9aa3b5; margin-top:6px; }
+.cli .cr-meta { display:flex; align-items:center; gap:10px; font-size:8.5px; color:#9aa3b5; margin-top:2px; }
+.cli .cr-meta span { display:inline-flex; align-items:center; gap:4px; }
+.cli .cr-when { margin-left:auto; text-align:right; flex:none; }
+.cli .cr-when div { font-size:8.5px; color:#9aa3b5; }
+.cli .cr-when small { display:block; font-size:7px; color:#6f778a; margin-top:2px; }
+.cli .cr-dl { display:inline-flex; align-items:center; gap:5px; margin-top:9px; font-size:8.5px; font-weight:600; padding:5px 10px; border-radius:8px; border:1px solid rgba(255,255,255,.16); }
+.cli .cr-up { font-size:7.5px; font-weight:700; padding:1px 7px; border-radius:999px; border:1px solid rgba(18,56,232,.25); background:rgba(18,56,232,.12); color:#8fa6ff; }
+.cli .cr-sect { display:flex; align-items:center; gap:7px; font-size:12px; font-weight:700; }
+.cli .cr-foot { font-size:8.5px; color:#6f778a; text-align:center; }
 `;
 
 // Line icons (Lucide-style), 24 x 24.
@@ -605,6 +771,53 @@ const I = {
   route:
     '<circle cx="6" cy="19" r="3"/><circle cx="18" cy="5" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/>',
 };
+// The system edition's pages: Lucide's own glyphs (the products' icon set) that the plates before
+// it never drew.
+Object.assign(I, {
+  calculator:
+    '<rect width="16" height="20" x="4" y="2" rx="2"/><path d="M8 6h8M16 14v4M16 10h.01M12 10h.01M8 10h.01M12 14h.01M8 14h.01M12 18h.01M8 18h.01"/>',
+  calclock:
+    '<path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5M16 2v4M8 2v4M3 10h5M17.5 17.5 16 16.3V14"/><circle cx="16" cy="16" r="6"/>',
+  circlecheck: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  filequestion:
+    '<path d="M12 17h.01M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7zM9.1 9a3 3 0 0 1 5.82 1c0 2-3 3-3 3"/>',
+  megaphone: '<path d="m3 11 18-5v12L3 14v-3zM11.6 16.8a3 3 0 1 1-5.8-1.6"/>',
+  keyboard:
+    '<path d="M10 8h.01M12 12h.01M14 8h.01M16 12h.01M18 8h.01M6 8h.01M7 16h10M8 12h.01"/><rect width="20" height="16" x="2" y="4" rx="2"/>',
+  msgplus:
+    '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2zM12 7v6M9 10h6"/>',
+  msgs: '<path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2zM18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"/>',
+  userplus:
+    '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M19 8v6M22 11h-6"/><circle cx="9" cy="7" r="4"/>',
+  info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
+  paperclip:
+    '<path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>',
+  smile: '<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/>',
+  mic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3ZM19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/>',
+  checkcheck: '<path d="M18 6 7 17l-5-5M22 10l-7.5 7.5L13 16"/>',
+  x: '<path d="M18 6 6 18M6 6l12 12"/>',
+  filebar:
+    '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7ZM14 2v4a2 2 0 0 0 2 2h4M8 18v-2M12 18v-4M16 18v-6"/>',
+  calcheck:
+    '<path d="M8 2v4M16 2v4M3 10h18M9 16l2 2 4-4"/><rect width="18" height="18" x="3" y="4" rx="2"/>',
+  target:
+    '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  flame:
+    '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+  userround: '<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>',
+  sparkles:
+    '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3ZM5 3v4M19 17v4M3 5h4M17 19h4"/>',
+  lockkey:
+    '<circle cx="12" cy="16" r="1"/><rect x="3" y="10" width="18" height="12" rx="2"/><path d="M7 10V7a5 5 0 0 1 10 0v3"/>',
+  activity:
+    '<path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>',
+  gavel: '<path d="m14.5 12.5-8 8a2.12 2.12 0 1 1-3-3l8-8M16 16l6-6M8 8l6-6M9 7l8 8M21 11l-8-8"/>',
+  shieldalert:
+    '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1zM12 8v4M12 16h.01"/>',
+  phone:
+    '<path d="M13.83 16.57a1 1 0 0 0 1.21-.3l.36-.47A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.47.35a1 1 0 0 0-.29 1.23 14 14 0 0 0 6.39 6.39"/>',
+  bulb: '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5M9 18h6M10 22h4"/>',
+});
 const icon = (name, color = "currentColor", w = 1.8) =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${I[name]}</svg>`;
 const tile = (name, bg = "#121a40", color = "#4767ff") =>
@@ -698,7 +911,19 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
           ["bars", "Charts"],
         ],
       ],
-      ["CLIENT &amp; CRM", [["users", "Clients"]]],
+      // The registry's Client & CRM group (src/lib/navigation/registry.ts): below the fold on every
+      // page but the Message Hub, whose menu is scrolled to it.
+      [
+        "CLIENT &amp; CRM",
+        [
+          ["users", "Clients"],
+          ["target", "Client Tracker"],
+          ["chat", "CRM Conversations"],
+          ["inbox", "Message Hub"],
+          ["sparkles", "Email Copilot"],
+          ["phone", "Call Logs"],
+        ],
+      ],
     ]
       .map(
         ([head, items]) =>
@@ -707,11 +932,12 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
             .join("")}</div>`,
       )
       .join("");
-  const cc = (on, col, extra = "", plain = false) => `<div class="ccr">
+  // `sideScroll`: the menu scrolled down by that much, as it is when its lower groups were reached.
+  const cc = (on, col, extra = "", plain = false, sideScroll = 0) => `<div class="ccr">
     <aside class="cside">
       <div class="tenant">${emb(40)}<div><div class="t">AURIXA SYSTEMS</div><div class="s">COMMAND CENTRE</div></div></div>
       <div class="filter">${svg("search", "#8a8a8f")}Filter navigation...</div>
-      ${ccGroups(on)}
+      ${sideScroll ? `<div style="flex:1;min-height:0;overflow:hidden"><div style="transform:translateY(-${sideScroll}px)">${ccGroups(on)}</div></div>` : ccGroups(on)}
     </aside>
     <section class="cmain">
       <div class="ctop"><div class="ibtn">${svg("panel", "#d5d5da")}</div><div class="csearch">${svg("search", "#5d5d63")}Search properties...</div>
@@ -937,7 +1163,7 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
   // After the Finance portal's code (FinancePortalLayout, FinancePortalPurchaseFileDetail, DealTrackerTabs) in
   // the supplied screenshot's colours: a purchase file, its tab strip and the Finance Decisions tab.
   const finItems = (on) => [
-    ["grid", "Dashboard", false],
+    ["grid", "Dashboard", on === "dash"],
     ["shield", "AML/CTF Compliance", false],
     ["case", "Active Purchase Files", on === "files"],
     ["layers", "Pipeline Kanban", false],
@@ -952,15 +1178,17 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
   ];
   const ic = (name, color = "currentColor", size = 13, w = 1.9) =>
     `<span style="width:${size}px;height:${size}px;display:inline-flex;flex:none">${icon(name, color, w)}</span>`;
-  const fin = (body, extra = "") =>
+  const finSearch = `<div class="search" style="margin-left:auto;min-width:220px">${ic("search", "#8d95a8")}Search…<span class="kbd">⌘K</span></div>`;
+  // `on: "dash"` is the portal's home page, which has no way back to itself.
+  const fin = (body, extra = "", { on = "files" } = {}) =>
     shell({
       kind: "fin",
       label: "FINANCE PORTAL",
       who: "Jamie Chen",
       org: "Harbour Finance Group",
       initials: "JC",
-      items: finItems("files"),
-      top: `<div class="fback">${ic("arrowl", "#c3c8d4")}Back to dashboard</div><div class="search" style="margin-left:auto;min-width:220px">${ic("search", "#8d95a8")}Search…<span class="kbd">⌘K</span></div>`,
+      items: finItems(on),
+      top: `${on === "dash" ? "" : `<div class="fback">${ic("arrowl", "#c3c8d4")}Back to dashboard</div>`}${finSearch}`,
       body,
       extra: `<div class="fab">+</div>${extra}`,
     });
@@ -1100,10 +1328,10 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
     ["case", "Finance Hub", false],
     ["building", "Properties", false],
     ["file", "Documents", false],
-    ["file", "Reports", false],
+    ["file", "Reports", on === "reports"],
     ["chat", "Message Hub", false],
     ["bell", "Notifications", false],
-    ["calendar", "My Appointments", false],
+    ["calendar", "My Appointments", on === "appointments"],
   ];
   const cli = (on, body) =>
     shell({
@@ -1299,15 +1527,19 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
     ["gear", "Settings", false],
   ];
   const solFoot = `<div class="sfoot"><span>${ic("logout", "#c3c8d4", 14)}Sign Out</span><small>${ic("shield", "#6f778a", 10)}Secured Portal • Privileged &amp; encrypted</small></div>`;
-  const sol = (body) =>
+  // `on` names the page the menu marks (the matter pages are under Matters); the Dashboard is home.
+  const sol = (body, { on = "Matters" } = {}) =>
     shell({
       kind: "sol",
       label: "SOLICITOR PORTAL",
       who: "Priya Shah",
       org: "Shah Legal",
       initials: "PS",
-      items: solItems,
-      top: `<div class="fback">${ic("arrowl", "#c3c8d4")}Back to dashboard</div>`,
+      items: solItems.map(([i, t]) => [i, t, t === on]),
+      top:
+        on === "Dashboard"
+          ? ""
+          : `<div class="fback">${ic("arrowl", "#c3c8d4")}Back to dashboard</div>`,
       body,
       foot: solFoot,
     });
@@ -1445,14 +1677,15 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
     ["history", "Activity"],
     ["gear", "Settings"],
   ];
-  const bn = (page, body, scroll = 0) => `<div class="bn">
+  // `on` is the menu's page (the Stock List unless named); the Dashboard is home, with no way back.
+  const bn = (page, body, scroll = 0, on = "Stock List") => `<div class="bn">
       <aside class="bside"><div class="blk"><span class="bmark" style="background-image:url('${BN_MARK}')"></span><div style="min-width:0"><div class="t">Aurixa Builders Network</div><div class="s">BUILDER / DEVELOPER PORTAL</div></div>${ic("bell", "#9CA3AF", 15)}</div>
         <div class="bsep"></div>
         <div class="bcard"><div style="display:flex;gap:10px;align-items:center"><div class="bav">DR</div><div><div class="n">Daniel Reed</div><div class="o">Reed Constructions</div></div></div>
           <div class="bchips"><span>ORGANISATION OWNER</span><span>PRIMARY</span></div></div>
-        <nav>${bnItems.map(([i, t, on]) => `<a class="${on ? "on" : ""}">${ic(i, on ? "#fff" : "#9CA3AF", 16)}${t}</a>`).join("")}</nav>
+        <nav>${bnItems.map(([i, t]) => `<a class="${t === on ? "on" : ""}">${ic(i, t === on ? "#fff" : "#9CA3AF", 16)}${t}</a>`).join("")}</nav>
         <div class="bfoot"><span>${ic("logout", "#cfd5df", 14)}Sign Out</span><small>${ic("shield", "#6b7686", 10)}Secured Portal • Access resolved per request</small></div></aside>
-      <section class="bmain"><div class="btop"><span class="bback">${ic("arrowl", "#cfd5df", 13)}Back to dashboard</span><b>${page}</b>
+      <section class="bmain"><div class="btop">${on === "Dashboard" ? "" : `<span class="bback">${ic("arrowl", "#cfd5df", 13)}Back to dashboard</span>`}<b>${page}</b>
           <div class="me"><span class="bdemo">DEMO WORKSPACE</span><div class="bav" style="width:28px;height:28px;font-size:10px">DR</div>Daniel Reed</div></div>
         <div class="bbody"><div style="margin-top:${-scroll}px;display:flex;flex-direction:column;gap:18px">${body}</div></div></section></div>`;
   const stockHero = `<div class="bhero"><div class="beb">${ic("hardhat", "#22C3CE", 13)}BUILDER / DEVELOPER PORTAL</div>
@@ -1508,6 +1741,309 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
         ? pdfViewer({ title: PLAN_FILE, page: planPage(700), pageOf: [1, 1], zoom: "84%" })
         : stockList(STOCK_SCROLL),
     });
+
+  // ================================================================== System edition
+  // BRIEF.md "Pages still to build", each rebuilt from its portal's code with the demo record
+  // (npc-client-dashboard @ 398235c, aurixa-builders @ 16d2370) and drawn as the product draws it.
+  // Where the brief's words and the product's differ, the product's stand.
+  const ndPanel = (head, sub, body, style = "") =>
+    `<div class="panel" style="${style}"><div class="ph">${head}</div><div class="ps">${sub}</div>${body}</div>`;
+
+  // Solicitor home (SolicitorDashboard.tsx, PortfolioInsightsPanel.tsx). The matter moved to
+  // Contract review on 08 Oct; on 21 Oct that is 13 days against the stage's 10
+  // (STAGE_STALL_DAYS), which the product grades medium: Watch, and 1 stalled.
+  const solDash = sol(
+    `<div class="banner"><div style="flex:1"><div class="eb">${ic("scale", "#3556f0", 11)}WELCOME BACK</div>
+        <div class="h1">Priya Shah</div><div class="sub">Your conveyancing workload across every client shared with your practice.</div></div>
+      <span class="btn">Open matters${arrow()}</span></div>
+    <div class="row">${[
+      ["case", "1", "Active matters"],
+      ["calclock", "0", "Settling in 30 days"],
+      ["alert", "0", "Flagged at risk"],
+    ]
+      .map(
+        ([i, v, l]) =>
+          `<div class="stat nd-count">${tile(i, "rgba(53,86,240,.10)", "#4767ff")}<div><div class="v">${v}</div><div class="l">${l}</div></div></div>`,
+      )
+      .join("")}</div>
+    <div class="row">${[
+      ["trend", "Pipeline value", "$1.2M", "1 active matter"],
+      ["calclock", "Settling this week", "0", "0 within 30 days"],
+      ["circlecheck", "Avg days to settle", "—", "0 settled in 90 days"],
+      ["clock", "Avg days in stage", "13", "1 stalled"],
+      ["alert", "Needs attention", "0", "0 critical · 0 overdue"],
+    ]
+      .map(
+        ([i, k, v, h]) =>
+          `<div class="stat nd-kpi"><div class="k">${ic(i, "#4767ff", 12)}${k}</div><div class="v">${v}</div><div class="l">${h}</div></div>`,
+      )
+      .join("")}</div>
+    <div class="row">
+      ${ndPanel(
+        `${ic("alert", "#f26464", 15)}At risk &amp; stuck matters`,
+        "Ranked by severity from dates, stage dwell time and recent activity.",
+        `<div class="line" style="display:block"><div style="display:flex;align-items:center;gap:10px"><div class="a">Ellis: Purchase, Residence 014</div><span class="pill muted">Watch</span></div>
+          <div class="b">Contract review · 13 days in stage</div>
+          <div class="b" style="color:#c3c8d4;margin-top:6px"><b style="color:#fff;font-weight:600">Stuck in stage:</b> 13 days in contract review (expected under 10).</div></div>`,
+        "flex:2",
+      )}
+      ${ndPanel(
+        `${ic("activity", "#4767ff", 15)}Stage mix`,
+        "Where the book is sitting right now.",
+        `<div class="nd-bar"><div><span>Contract review</span><span>1</span></div><i><b style="width:100%"></b></i></div>`,
+        "flex:1",
+      )}
+    </div>
+    <div class="row">
+      ${ndPanel("Settlement runway", "Matters settling in the next 45 days, soonest first.", `<div class="nd-empty">Nothing settling in the next 45 days.</div>`, "flex:2")}
+      ${ndPanel(`${ic("alert", "#f26464", 15)}Needs attention`, "Matters the Command Centre has flagged as at risk.", `<div class="nd-empty">No matters are flagged right now.</div>`, "flex:1")}
+    </div>`,
+    { on: "Dashboard" },
+  );
+
+  // Accountant home (AccountantDashboard.tsx). Jordan's entity is recommended but not confirmed,
+  // which the product reads as Entity open, and puts first in Needs you next.
+  const accDash = shell({
+    label: "ACCOUNTANT PORTAL",
+    who: "Mia Patel",
+    org: "Patel &amp; Co Accountants",
+    initials: "MP",
+    items: accItems("dash"),
+    body: `<div class="banner"><div style="flex:1"><div class="eb">${ic("calculator", "#3556f0", 11)}ACCOUNTANT PORTAL</div>
+        <div class="h1">Good to see you, Mia</div><div class="sub">Last visit 3 days ago.</div></div>
+      <span class="btn ghost">All clients${arrow()}</span></div>
+    <div class="row">${[
+      ["users", "1", "Allocated clients · active and paused"],
+      ["scale", "1", "Entities to confirm · the contract name"],
+      ["landmark", "1", "Income evidence outstanding · for the broker"],
+      ["filequestion", "1", "Open client requests · awaiting the client or you"],
+    ]
+      .map(
+        ([i, v, l]) =>
+          `<div class="stat">${tile(i, "rgba(53,86,240,.10)", "#4767ff")}<div><div class="v">${v}</div><div class="l">${l}</div></div></div>`,
+      )
+      .join("")}</div>
+    <div class="row">
+      ${ndPanel(
+        "Needs you next",
+        "Ordered by what the rest of the property team is blocked on.",
+        `<div class="line"><div style="flex:1;min-width:0"><div class="a">Jordan Ellis</div><div class="b">Purchasing entity not yet confirmed — the broker and solicitor are waiting on it</div></div>${ic("arrow", "#9aa3b5", 14)}</div>`,
+        "flex:3",
+      )}
+      ${ndPanel(
+        `${ic("chat", "#4767ff", 15)}Recently allocated`,
+        "Clients the advisory team has handed to your practice.",
+        `<div style="display:flex;align-items:center;font-size:13px;font-weight:700">Jordan Ellis<span class="pill amber">${ic("clock", "#f2b544", 10)}Entity open</span></div>`,
+        "flex:2",
+      )}
+    </div>`,
+  });
+
+  // Finance home (FinancePortalDashboard.tsx, AgreementTemplateResources.tsx and the agreement
+  // template modules): the greeting, the two templates (download only), the streak and Today.
+  const TEMPLATE_NOTICE = [
+    "These templates are provided as a convenience only. They are not legal advice, and they are not tailored to your circumstances.",
+    "Any agreement you enter into is solely between you and the other party. Aurixa is not a party to it, does not facilitate it, and keeps no record of it.",
+    "You are responsible for having the document reviewed, for your own licensing, credit representative, privacy, aggregator and AML/CTF obligations, and for how the agreement is signed and stored.",
+    "Whether to use a template at all is entirely your choice.",
+  ];
+  const template = (title, about, sections, size) =>
+    `<div class="tcard"><div class="tt serif"><span class="tfile">${ic("file", "#4767ff", 13)}</span>${title}</div><div class="td">${about}</div>
+      <div class="tins">What's inside · ${sections} sections${ic("chevron", "#9aa3b5", 12)}</div>
+      <div class="tdl"><b>${ic("download", "#fff", 13)}Word (.docx)</b>Version 2.0 · ${size}</div></div>`;
+  const finDash = fin(
+    `<div><div class="welcome">Welcome back, <span>Jamie</span></div><div class="sub">Harbour Finance Group · jamie.chen@example.com</div></div>
+    <div class="tpl"><div class="sec">AGREEMENT TEMPLATES</div>
+      <div class="tintro">Optional templates you are free to download, adapt and use — or not. Any agreement is made directly between you and the other party.</div>
+      <div class="tnote">${ic("info", "#9aa3b5", 13)}<div>${TEMPLATE_NOTICE.join("<br>")}</div></div>
+      <div class="row">${template("Strategic Property Referral Agreement", "The finance partner refers clients to the buyer's agency / real estate agency for property services.", 10, "190 KB")}${template("Finance Referral &amp; Commission Agreement", "The buyer's agency / real estate agency refers clients to the finance partner for credit services.", 15, "277 KB")}</div></div>
+    <div class="chips"><span>${ic("flame", "#aab2c3", 12)}Start your streak</span></div>
+    <div class="row">
+      ${ndPanel(`${ic("sun", "#f2b544", 15)}Today<span class="pill">0 items</span>`, "Files waiting on you, ordered by urgency", `<div class="nd-empty">You're clear for today</div>`, "flex:2")}
+      ${ndPanel(`${ic("target", "#4767ff", 15)}My monthly goals`, "October 2026 progress", `<div class="nd-empty">Set personal targets to track your month at a glance.</div>`, "flex:1")}
+    </div>`,
+    "",
+    { on: "dash" },
+  );
+
+  // Builder / Developer home (BuilderDashboard.tsx, BuilderPortalShell, TitleBlock, BuilderSchedule).
+  // The agency's selection and Daniel's acknowledgement write nothing its activity feed shows, so
+  // Recent activity is empty, as is Project delivery attention.
+  const bnDash = bn(
+    "Dashboard",
+    `<div class="bhero bdash"><div><div class="beb">${ic("hardhat", "#22C3CE", 13)}WELCOME BACK</div><div class="bh1">Daniel Reed</div>
+        <div class="bdesc">Your project-delivery workspace across every organisation and project shared with your account.</div>
+        <div style="display:flex;gap:8px;margin-top:16px"><span class="bbtn">${ic("refresh", "#e6f7f8", 13)}Refresh</span><span class="bbtn teal">Open projects${ic("arrow", "#040B16", 13)}</span></div></div>
+      <dl class="btb">${[
+        ["ORGANISATION", "Reed Constructions"],
+        ["ACCESS", "Organisation Owner"],
+        ["MEMBERSHIP", "Primary"],
+        ["FIGURES AS AT", "21/10/2026, 09:41 am"],
+      ]
+        .map(([k, v]) => `<div><dt class="ann">${k}</dt><dd>${v}</dd></div>`)
+        .join("")}</dl></div>
+    <div class="bsched four">${[
+      ["ACTIVE PROJECTS", "1", "PROJECT", "Shared with your account"],
+      ["OPEN CONVERSATIONS", "0", "", "Nothing unread"],
+      ["OPEN TASKS", "0", "", "Nothing waiting on you"],
+      ["UNREAD NOTIFICATIONS", "0", "", "You are up to date"],
+    ]
+      .map(
+        ([k, v, u, s]) =>
+          `<div><div class="ann">${k}</div><div class="fig">${v}${u ? `<span class="figu">${u}</span>` : ""}</div><div class="bl">${s}</div></div>`,
+      )
+      .join("")}</div>
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:18px">
+      <div class="bpanel"><div class="bhead">${ic("history", "#22C3CE", 15)}<span class="bct" style="font-size:16px">Recent activity</span><span class="bbtn" style="margin-left:auto;height:30px;padding:0 12px">View all</span></div>
+        <div class="bcd">Changes to records you can reach. Administrative events are not shown here.</div>
+        <div class="bempty">Nothing has happened yet. Changes to your projects, builds and tasks will appear here.</div></div>
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="bpanel"><div class="bhead">${ic("alert", "#f26464", 15)}<span class="bct" style="font-size:16px">Project delivery attention</span></div>
+          <div class="bcd">What is waiting on you across this workspace.</div>
+          <div class="bempty">Nothing needs your attention right now.</div></div>
+        <div class="bpanel"><div class="bhead">${ic("building", "#22C3CE", 15)}<span class="bct" style="font-size:16px">Organisation context</span></div>
+          <div style="font-size:13px;font-weight:600">Reed Constructions</div>
+          <div class="bcap" style="margin-top:2px"><span class="bchip" style="border-color:#2a3b55;color:#cfd5df">ORGANISATION OWNER</span><span class="bchip" style="border-color:#2a3b55;color:#cfd5df">PRIMARY ORGANISATION</span></div></div>
+        <div class="bpanel"><div class="bhead">${ic("shieldok", "#22C3CE", 15)}<span class="bct" style="font-size:16px">Access and security</span></div>
+          <div class="fig" style="font-size:24px;margin-top:0">20</div><div style="font-size:13px">permission areas granted</div>
+          <div class="bcd">Permissions are resolved by the server on every request. Anything not explicitly granted is denied.</div>
+          <div class="bcd" style="display:flex;align-items:center;gap:6px;margin-top:4px">${ic("userround", "#9CA3AF", 13)}daniel.reed@example.com</div>
+          <div class="bcd">Last signed in: 20/10/2026, 4:12:07 pm</div></div>
+      </div>
+    </div>`,
+    0,
+    "Dashboard",
+  );
+
+  // Command Centre · Message Hub (MessagingHub.tsx and its components), Jordan's thread: (a) the
+  // reply typed and not yet sent, (b) sent, with its Delivered ticks. The list moves the thread to
+  // Today once it has moved (conversationModel.pure.ts). Its avatar colours are a hash of each
+  // account in the product, so these are the demo's own.
+  const TONE = {
+    JE: "linear-gradient(135deg,#00A8B5,#1238E8)",
+    PS: "linear-gradient(135deg,#7c5cff,#3b2bd6)",
+    JC: "linear-gradient(135deg,#C89B3C,#8a5d12)",
+    MP: "linear-gradient(135deg,#2bb673,#11734a)",
+    DR: "linear-gradient(135deg,#22C3CE,#0b6f78)",
+    AM: "#2a2d3a",
+  };
+  const REPLY =
+    "Your Residence 014 report is ready in your portal. Let's go through it together on Thursday.";
+  const mhRow = (ini, name, time, line, { on = false, draft = false, client = false } = {}) =>
+    `<div class="mh-row${on ? " on" : ""}"><div class="mh-av" style="background:${TONE[ini]}">${ini}${client ? `<em>${icon("userround", "#5fe0e8", 2.2)}</em>` : ""}</div>
+      <div class="mh-rt"><div class="mh-r1"><b>${name}</b><small>${time}</small></div>
+        <div class="mh-r2${draft ? " mh-dr" : ""}">${draft ? `${icon("pencil", "#f2b544", 2)}Draft: ${line}` : line}</div></div></div>`;
+  const PARTNER_ROWS = {
+    week: [
+      [
+        "PS",
+        "Priya Shah",
+        "Tue",
+        "<i>Priya Shah:</i> Contract review is under way for Residence 014.",
+      ],
+      ["JC", "Jamie Chen", "Tue", "<i>Jamie Chen:</i> Valuation ordered with the lender."],
+    ],
+    monday: [
+      [
+        "MP",
+        "Mia Patel",
+        "Mon",
+        "<i>Mia Patel:</i> I've asked Jordan for his FY2026 income statement.",
+      ],
+    ],
+    earlier: [
+      ["DR", "Daniel Reed", "14 Oct", "<i>Daniel Reed:</i> Residence 014 is on our stock list."],
+    ],
+  };
+  const mhList = (sent) => {
+    const rows = (list) => list.map((row) => mhRow(...row)).join("");
+    const jordan = sent
+      ? mhRow("JE", "Jordan Ellis", "now", `<i>Alex Morgan:</i> ${REPLY}`, {
+          on: true,
+          client: true,
+        })
+      : mhRow("JE", "Jordan Ellis", "Mon", REPLY, { on: true, draft: true, client: true });
+    const week = sent
+      ? rows([...PARTNER_ROWS.week, ...PARTNER_ROWS.monday])
+      : rows(PARTNER_ROWS.week) + jordan + rows(PARTNER_ROWS.monday);
+    return `<div class="mh-pane mh-list"><div class="mh-find">${svg("search", "#7d7d84")}Search conversations</div>
+      <div class="mh-pills"><span class="on">All</span><span>Unread</span><span>Pinned</span></div>
+      ${sent ? `<div class="mh-sec">TODAY<span>1</span></div>${jordan}` : ""}
+      <div class="mh-sec">THIS WEEK<span>${sent ? 3 : 4}</span></div>${week}
+      <div class="mh-sec">EARLIER<span>1</span></div>${rows(PARTNER_ROWS.earlier)}</div>`;
+  };
+  const mhThread = (sent) => `<div class="mh-pane mh-thread">
+      <div class="mh-th"><div class="mh-av" style="background:${TONE.JE}">JE</div><div style="flex:1;min-width:0"><h3>Jordan Ellis<span class="mh-kind">Client</span></h3>
+        <div class="mh-sub2"><span class="mh-stack"><i style="background:${TONE.JE}">JE</i><i style="background:${TONE.AM}">AM</i></span>Client<span class="mh-sec2">${svg("lock", "#aab", 2)}Encrypted</span></div></div>
+        <div class="mh-tools"><span>${svg("userplus", "#c9c9cf")}</span><span>${svg("search", "#c9c9cf")}</span><span class="on">${svg("info", "#c9c9cf")}</span></div></div>
+      <div class="mh-body">
+        <div class="mh-date"><span>Monday 19 October</span></div>
+        <div class="mh-msg"><div class="mh-mav" style="background:${TONE.JE}">JE</div><div><div class="mh-who">Jordan Ellis<span>CLIENT</span></div>
+          <div class="mh-bub">Can we review whether this suits my plans?</div><div class="mh-time">9:14 am</div></div></div>
+        ${
+          sent
+            ? `<div class="mh-date"><span>Today</span></div>
+        <div class="mh-msg me"><div><div class="mh-bub">${REPLY}</div><div class="mh-time">10:12 am${svg("checkcheck", "#8f9097", 2)}</div></div></div>`
+            : ""
+        }
+      </div>
+      <div class="mh-foot"><div class="mh-comp${sent ? "" : " typing"}"><span>${svg("paperclip", "#c9c9cf")}</span><span>${svg("smile", "#c9c9cf")}</span>
+        <div class="mh-ta${sent ? " ph" : ""}">${sent ? "Message Jordan Ellis" : REPLY}</div>
+        ${sent ? `<span>${svg("mic", "#c9c9cf")}</span>` : `<span class="mh-send">${svg("send", "#fff", 2)}</span>`}</div>
+        <div class="mh-help">Enter to send · Shift+Enter for a new line · / for commands</div></div></div>`;
+  const mhDetails = (
+    sent,
+  ) => `<div class="mh-pane mh-det"><div class="mh-dh">Details${svg("x", "#aab")}</div>
+      <div class="mh-dp"><div class="mh-big" style="background:${TONE.JE}">JE</div><div class="mh-dn">Jordan Ellis</div>
+        <div class="mh-dl">${svg("clock", "#8f9097")}Last message ${sent ? "now" : "Mon"}</div>
+        <div class="mh-badges"><span>Client</span><span>Encrypted in transit and at rest</span></div></div>
+      <div class="mh-ds">${svg("users", "#c9c9cf")}People<small>2</small></div>
+      <div class="mh-pp"><div class="mh-mav" style="background:${TONE.JE}">JE</div><div><b>Jordan Ellis</b><span>Client</span></div><span class="mh-role">Member</span></div>
+      <div class="mh-pp"><div class="mh-mav" style="background:${TONE.AM}">AM</div><div><b>Alex Morgan<small>(you)</small></b><span>Command Center</span></div><span class="mh-role owner">Owner</span></div>
+      <div class="mh-ds">${svg("msgs", "#c9c9cf")}Side conversations<span class="chev">${svg("chevron", "#8f9097")}</span></div>
+      <div class="mh-ds">${svg("paperclip", "#c9c9cf")}Files<small>0</small></div></div>`;
+  const messageHub = (sent) => `<div class="mh">
+      <div class="mh-head"><div class="mh-ic">${svg("msgs", "#8fa6ff", 2)}</div><div><div class="mh-t">Message Hub<span class="mh-live"><i></i>Live</span></div>
+        <div class="mh-s">Every conversation with clients, partners and your team, in one place.</div></div>
+        <div class="mh-acts"><span class="mh-g">${svg("search", "#d5d5da")}Search</span><span class="mh-g">${svg("megaphone", "#d5d5da")}</span><span class="mh-g">${svg("bell", "#d5d5da")}Notifications</span><span class="mh-g">${svg("keyboard", "#d5d5da")}</span><span class="mh-g new">${svg("msgplus", "#fff")}New</span></div></div>
+      <div class="mh-panes">${mhList(sent)}${mhThread(sent)}${mhDetails(sent)}</div></div>`;
+  // The menu scrolled to its Client & CRM group, where Message Hub is.
+  const MH_SCROLL = 220;
+
+  // Client Portal · Reports (PortalReports.tsx) and My Appointments (PortalAppointments.tsx). The
+  // portal names a published report by its address, with the badges Investment Report and Compass,
+  // and New until it is downloaded; an appointment shows its title, day and time.
+  const clientReports = cli(
+    "reports",
+    `<div class="cr-head"><div><div class="cr-h1">Reports</div><div class="cr-sub">View reports and request new analyses</div></div><span class="cr-btn">${ic("plus", "#fff", 10)}Request Report</span></div>
+    <div class="cr-tabs"><span class="on">${ic("file", "#fff", 10)}My Reports</span><span>${ic("send", "#9aa3b5", 10)}Requests</span></div>
+    <div class="cr-bar"><div class="cr-find">${ic("search", "#7d8496", 10)}Search reports...</div>${[
+      "All Reports",
+      "Investment",
+      "Portfolio",
+      "Borrowing Capacity",
+      "Cash Flow",
+    ]
+      .map((c, i) => `<span class="cr-chip${i ? "" : " on"}">${c}</span>`)
+      .join("")}</div>
+    <div class="cr-card"><div class="cr-ic">${ic("filebar", "#4767ff", 15)}</div><div style="flex:1;min-width:0">
+        <div class="cr-t">Project Banksia / Residence 014<span class="cr-new">New</span></div>
+        <div class="cr-tags"><span>Investment Report</span><span class="sec">Compass</span></div>
+        <div class="cr-note">Prepared for our discussion on Thursday.</div>
+        <span class="cr-dl">${ic("download", "#fff", 10)}Download Report</span></div>
+      <div class="cr-when"><div>21 Oct 2026</div><small>about 1 hour ago</small></div></div>
+    <div class="cr-foot">Showing 1 report</div>`,
+  );
+  const clientAppointments = cli(
+    "appointments",
+    `<div class="cr-head"><div><div class="cr-h1">My Appointments</div><div class="cr-sub">View your scheduled and past appointments</div></div><span class="cr-btn ghost" style="margin-left:auto">${ic("refresh", "#fff", 10)}Refresh</span><span class="cr-btn" style="margin-left:0">${ic("calcheck", "#fff", 10)}Book New</span></div>
+    <div class="cr-sect">${ic("calcheck", "#4767ff", 13)}Upcoming (1)</div>
+    <div class="cr-card"><div class="cr-ic">${ic("calendar", "#4767ff", 14)}</div><div style="flex:1;min-width:0">
+        <div class="cr-t">Report walkthrough with Alex Morgan<span class="cr-up">Upcoming</span></div>
+        <div class="cr-meta"><span>${ic("calendar", "#9aa3b5", 9)}Thu, 22 Oct 2026</span><span>${ic("clock", "#9aa3b5", 9)}10:00 AM – 10:30 AM</span></div>
+        <div class="cr-note">Residence 014 · your Investment Compass</div></div>
+      <div class="cr-when"><small style="margin-top:0">in about 23 hours</small></div></div>`,
+  );
 
   const W = [1920, 1080];
   const L = [1920, 1200];
@@ -1648,6 +2184,26 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
     // Command Centre's scale: the plate's elevation is 34rem wide in the code, too wide for a 1280 px page.
     "PL-12A-a": { size: W, scale: CC_SCALE, html: daniel(false) },
     "PL-12A-b": { size: W, scale: CC_SCALE, html: daniel(true) },
+    // ---- System edition: the pages still to build (BRIEF.md)
+    // 04.2: four portals' home pages around the hub (the Client Portal's is PL-06A-a).
+    "NEW-DASHBOARDS-solicitor": { size: W, scale: SCALE, html: solDash },
+    "NEW-DASHBOARDS-accountant": { size: W, scale: SCALE, html: accDash },
+    "NEW-DASHBOARDS-finance": { size: W, scale: SCALE, html: finDash },
+    "NEW-DASHBOARDS-builders": { size: W, scale: CC_SCALE, html: bnDash },
+    // 06.1: Jordan's thread, the reply typed; then sent.
+    "NEW-MESSAGE-HUB-a": {
+      size: W,
+      scale: CC_SCALE,
+      html: cc("Message Hub", messageHub(false), "", true, MH_SCROLL),
+    },
+    "NEW-MESSAGE-HUB-b": {
+      size: W,
+      scale: CC_SCALE,
+      html: cc("Message Hub", messageHub(true), "", true, MH_SCROLL),
+    },
+    // 08.3: the report on the client's Reports page, and the next discussion on My Appointments.
+    "NEW-CLIENT-REPORTS-a": { size: L, scale: 2, html: clientReports },
+    "NEW-CLIENT-REPORTS-b": { size: L, scale: 2, html: clientAppointments },
   };
   return { css: CSS, plates };
 };
