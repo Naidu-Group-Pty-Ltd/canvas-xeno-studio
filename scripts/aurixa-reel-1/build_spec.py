@@ -402,11 +402,14 @@ SHOTS = [
                 "moves across the frame and settles at its centre-left. His eyes stay visible.",
          handoff="03C to 04A, matched architectural edge: the mullion's position, width and motion match the gold doorway frame that opens 04A."),
     dict(shot="04A", block="04", cast=["ALEX"], look="aurixa", set="S-ALEX", plates=["PL-SIGN"],
-         first=(["S-ALEX", "C-ALEX", "F-03C-out", "D"], "The Aurixa glass workspace (image 1) seen through its open gold-edged doorway: the gold vertical door frame runs top to bottom at about 45% of the width, "
-                                                         "matching the mullion position in image 3. Beyond it, " + CAST["ALEX"] + " (image 2) is already seated at her console desk; a nearby colleague, seen from behind, "
-                                                         "points to the printed floor plan (image 4) on the desk; the monitor, " + SCREEN_NAVY + "."),
-         last=(["S-ALEX", "C-ALEX", "F-04A-in"], "Closer to the open doorway than image 3: a foreground gold doorway mullion briefly fills the left third of the frame as the camera approaches "
-                                                 "Alex's already-occupied desk; Alex, monitor and plan beyond, exactly as in image 3."),
+         first=(["S-ALEX", "C-ALEX", "F-03C-out", "D"], "The Aurixa glass workspace (image 1) seen from the corridor through its open gold-edged doorway: one gold vertical door frame runs "
+                                                         "from the top to the bottom of the frame at 40 to 45% of the width, at the same position and width as the window mullion in image 3; "
+                                                         "to its left, the corridor's dark navy glass wall; beyond it, in the right half of the frame, " + CAST["ALEX"] + " (image 2) is already "
+                                                         "seated at her console desk; beside her a colleague, a man with short, straight, light-brown hair in a charcoal suit jacket, seen from "
+                                                         "behind and turned away from the camera, points to the printed floor plan (image 4) on the desk; the monitor, " + SCREEN_NAVY + "."),
+         last=(["S-ALEX", "C-ALEX", "F-04A-in"], "The camera has moved forward and slightly right, right up to the open doorway of image 3: the gold door frame is now very close to the lens "
+                                                 "and softly out of focus, a broad gold-edged band filling the left third of the frame from top to bottom; beyond it, in the right two-thirds "
+                                                 "and larger than in image 3, Alex's already-occupied desk: Alex, the colleague, the monitor and the plan exactly as in image 3, in sharp focus."),
          motion="Continue a rightward movement past the gold doorway frame into the occupied glass workspace. Alex is seated; her colleague indicates a detail on the plan; their gestures "
                 "are small and natural. Move a short distance toward the open doorway until the foreground mullion covers part of the frame. No boardroom performance.",
          handoff="04A to 04B, concealed doorway cut behind the foreground mullion."),
@@ -443,7 +446,8 @@ SHOTS = [
          handoff="06A to 06B, record-and-panel-edge match into Alex's Command Center."),
     dict(shot="06B", block="06", cast=["ALEX"], look="aurixa", set="S-ALEX", plates=["PL-06B-a", "PL-06B-b", "PL-07A-a", "PL-07A-b"],
          first=(["C-ALEX", "S-ALEX", "F-04B-out"], "The same over-the-shoulder axis as image 3: " + CAST["ALEX"] + " (image 1) at her monitor in the workspace (image 2), her real mouse hand and considered "
-                                                   "profile visible; the monitor in the upper-middle, " + SCREEN_NAVY + "; a pale paper document lies on the desk to her right."),
+                                                   "profile visible; the monitor in the upper-middle, " + SCREEN_NAVY + ", including, at the screen's lower right, the round Aurixa emblem button "
+                                                   "with its small Aurixa Agent label and the pointer resting on it; a pale paper document lies on the desk to her right."),
          last=(["C-ALEX", "S-ALEX", "F-06B-in"], "The same scene as image 3 after a very small rightward drift: Alex's hand has come to rest flat on the desk beside the pale paper document, "
                                                  "the monitor still glowing in the upper part of the frame."),
          motion="One continuous, unhurried take on one camera axis with a slow, very small rightward drift. Alex clicks once, reads, makes one short deliberate keyboard gesture, "
@@ -578,13 +582,18 @@ SWAP_BODY = ("The same frame as image 1, unchanged in every detail: the same peo
 
 
 # A frame whose prompt changed after takes were made: studio.py names its new takes r2-take1 and so on.
-FRAME_REVISION = {"F-01B-in": 2, "F-03B-in": 2}
+FRAME_REVISION = {"F-01B-in": 2, "F-03B-in": 2, "F-04A-in": 2, "F-04A-out": 2, "F-06B-in": 2}
+# An earlier frame given for one thing only: what to take from it, and that nothing else comes with it.
+FRAME_LABEL = {
+    "F-04A-in": {"F-03C-out": "the approved frame 03C-out, for the vertical edge only: put the gold door frame where its warm window mullion is "
+                              "(the same position and width in the frame), and take nothing else from it (not its room, the man in it or its light)"},
+}
 
 
 def frame(key, shot, refs, body, look):
     """A frame's inputs and prompt: its references, then any pin, sign and screen plate, numbered in that order."""
     refs = list(refs)
-    labels = {}
+    labels = dict(FRAME_LABEL.get(key, {}))
     if key in PIN:
         refs.append(PIN[key])
         labels[PIN[key]] = PIN_LABEL
