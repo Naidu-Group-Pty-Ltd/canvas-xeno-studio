@@ -75,4 +75,6 @@
 - [x] #44 merged and published; the three API operations answer on the live app (31 operations)
 - [x] Reel 1's 36 plates (v1) imported into the library with import_image; their ids are in docs/brands/aurixa-reel-1/assets.json
 - [ ] Re-analyse the Reel 1 brief (Brief panel → Re-analyse)
-- [ ] Reel 1 stage 1 (the property image, six character sheets, the floor plan): GPT Image is metered by tokens, so estimate_generation gives rates, not a price, and Sunburst has never completed a run here (the one 2K high Marketing Studio still that has, on 2.0 Alpha, cost US$0.24); run on approval with `studio.py run 1 --confirm`, one take of P first to learn the real price. If provider moderation blocks a still with people in its references (the one earlier Sunburst run, a photo edit, was), try it again with moderation "low"
+- [x] Reel 1 stage 1 made (Marketing Studio 2.5 Sunburst, `studio.py run 1 --confirm`): three property images, three sheets per person, two floor plans, all completed and none blocked; the cast in their mid-to-late 20s, and the four women told apart by heritage, complexion, face and hair (their sheets revision 2, 12 more takes). Every take is in docs/brands/aurixa-reel-1/takes.json
+- [ ] Reel 1 stage 1 picks into assets.json (recommended: P take1, D take1, Alex r2-take2, Jordan take3, Jamie r2-take1, Priya r2-take3, Daniel take1, Mia r2-take2)
+- [ ] The studio records no price for metered GPT Image runs: Higgsfield's result carries none, so a run's cost and the balance countdown miss them (the Console's balance is the only record)
