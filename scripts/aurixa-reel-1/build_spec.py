@@ -683,6 +683,7 @@ spec = {
         "Their sheets are revision 2; the pack's hair, glasses and wardrobe are kept.",
         "Confirmed 21 October 2026: the pack's image(9) and image(10) can't be found, so the console world is generated in their place (CW-9, the wide view; "
         "CW-10, the doorway view) from two Aurixa brand images cropped to their rooms and Daniel's approved site office, and approved before the seven sets use it.",
+        "Confirmed 21 October 2026: Jordan's home and Alex's ordinary office keep the Sydney views the model gave them (the Harbour Bridge, Sydney Tower).",
         "Confirmed 21 October 2026: Mia is more glamorous and striking, still dressed for the office: polished make-up and glossy curls, a confident look, "
         "a fitted silk version of her slate-blue blouse with tailored trousers and heels (her sheet's revision 3).",
     ],
