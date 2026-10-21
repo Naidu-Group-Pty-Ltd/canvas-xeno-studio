@@ -19,7 +19,7 @@ python3 scripts/aurixa-reel-1/build_spec.py docs/brands/aurixa-reel-1 /tmp/reel-
 python3 scripts/aurixa-reel-1/render_readme.py docs/brands/aurixa-reel-1/spec.json docs/brands/aurixa-reel-1/README.md
 npx prettier --write docs/brands/aurixa-reel-1
 
-node scripts/aurixa-reel-1/plates.cjs /tmp/reel-1-plates [assets]   # assets: a folder with P.png, D.png, emblem.png
+node scripts/aurixa-reel-1/plates.cjs /tmp/reel-1-plates [assets]   # assets: a folder with P.png, D.png, emblem.png, wordmark.png
 node scripts/aurixa-reel-1/contact-sheet.cjs /tmp/reel-1-plates /tmp/reel-1-plates.png
 ```
 
@@ -28,10 +28,13 @@ The plates are v2:
 - The Solicitor, Accountant, Finance, Client and Builder / Developer plates are built on those
   portals' screenshots: their shell and layout, with the reel's fictional people and records.
 - The Command Center plates follow the same family until its screenshot is supplied.
-- The property image (P), the floor plan (D) and the emblem are placeholders until their files
-  are passed in.
+- The property image (P), the floor plan (D), the emblem and the wordmark come from the assets folder
+  (P and D the approved Stage 1 picks; the emblem and wordmark keyed from the supplied logo, REF-LOGO), and
+  are marked placeholders without it.
+- The plates go on the screens inside the frames, not in the edit: the studio's editor lays only flat, still
+  pictures over video. The Block 14 phrases, the Demo workspace cut and the closing card are flat and full
+  frame, so those are laid on in the edit.
 
 Rendered plates go into the library with the studio API's `import_image`, and their ids into
-`assets.json`. The plate ids there are still the v1 imports, which are superseded. `studio.py`
-imports under `PLATES_VERSION`, so the next import makes new assets and prints the id each one
-replaces.
+`assets.json`. An import is keyed on the plate and its file's content, so a re-rendered plate imports
+anew and an unchanged one returns its earlier import; `--only` imports the plates that are final.

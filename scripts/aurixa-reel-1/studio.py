@@ -1,6 +1,6 @@
 """Runs Reel 1's spec against the studio API (docs/studio-api.md), one stage at a time.
 
-  python3 scripts/aurixa-reel-1/studio.py import-plates <dir of PL-*.png>   # import_image, ids into assets.json
+  python3 scripts/aurixa-reel-1/studio.py import-plates <dir of PL-*.png> [--only PL-02A,...]   # import_image, ids into assets.json
   python3 scripts/aurixa-reel-1/studio.py price <stage>                     # estimate_generation: nothing is made or billed
   python3 scripts/aurixa-reel-1/studio.py run <stage> [--only P,C-ALEX] [--takes N] [--confirm]
   python3 scripts/aurixa-reel-1/studio.py takes                             # the takes' state again, into takes.json
@@ -23,7 +23,8 @@ ROOT = Path(__file__).resolve().parents[2]
 SPEC_DIR = ROOT / "docs" / "brands" / "aurixa-reel-1"
 BASE = os.environ.get("XENO_STUDIO_URL", "https://canvas-xeno-studio.lovable.app").rstrip("/")
 TOKEN = os.environ.get("XENO_STUDIO_TOKEN")
-# The plates' version: a new one imports new assets; the same one returns the earlier import.
+# The plates' version, for their titles. An import's request id is the plate and its file's content, so a
+# re-rendered plate imports anew and an unchanged one returns its earlier import.
 PLATES_VERSION = "v2"
 # get_generation's last states; submission_uncertain waits on a person, so it ends the wait too.
 SETTLED = {"completed", "failed", "nsfw", "canceled", "submission_uncertain"}
@@ -58,20 +59,22 @@ def save_ledger(ledger):
     (SPEC_DIR / "assets.json").write_text(json.dumps(ledger, indent=2) + "\n")
 
 
-def import_plates(folder):
+def import_plates(folder, only=None):
     ledger = load("assets.json")
     spec = load("spec.json")
     plates = {p["key"]: p for p in next(s for s in spec["stages"] if s["stage"] == 3)["items"]}
     for key, plate in plates.items():
+        if only and key not in only:
+            continue
         file = Path(folder) / f"{key}.png"
         if not file.exists():
             print(f"{key}: no {file.name}, skipped")
             continue
+        data = file.read_bytes()
         result = call("import_image", {
             "title": f"Aurixa Reel 1 · plate {key} · {plate['title']} ({PLATES_VERSION})"[:200],
-            "data": base64.b64encode(file.read_bytes()).decode(),
-            # One id per plate and version: importing again returns the first import.
-            "clientRequestId": f"aurixa-reel1-{key}-{PLATES_VERSION}",
+            "data": base64.b64encode(data).decode(),
+            "clientRequestId": f"aurixa-reel1-{key}-{hashlib.sha256(data).hexdigest()[:12]}",
         })
         replaced = ledger.get(key) if ledger.get(key) != result["assetId"] else None
         ledger[key] = result["assetId"]
@@ -231,7 +234,7 @@ if __name__ == "__main__":
     parser.add_argument("--confirm", action="store_true", help="queue for real (billed)")
     args = parser.parse_args()
     if args.command == "import-plates":
-        import_plates(args.target[0])
+        import_plates(args.target[0], set(args.only.split(",")) if args.only else None)
     elif args.command == "price":
         price(int(args.target[0]))
     elif args.command == "run":

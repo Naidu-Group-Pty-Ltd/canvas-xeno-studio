@@ -29,6 +29,7 @@ const asset = (name) => {
 const P = asset("P.png");
 const D = asset("D.png");
 const EMBLEM = asset("emblem.png");
+const WORDMARK = asset("wordmark.png");
 
 /** A Google font as a data URL, kept in the temp folder (Inter is a system font). */
 async function googleFont(family, weight) {
@@ -75,7 +76,7 @@ html, body { width:100%; height:100%; background:transparent; font-family:Inter,
 .brand { display:flex; align-items:center; gap:16px; }
 .emblem { width:58px; height:58px; flex:none; border:2px dashed var(--gold2); border-radius:8px; display:grid; place-items:center;
   color:var(--gold2); font-weight:700; letter-spacing:.02em; background-size:contain; background-repeat:no-repeat; background-position:center; }
-.emblem.real { border:none; }
+.emblem.real { border:none; background-size:contain; background-position:center; background-repeat:no-repeat; }
 .wm { color:var(--gold2); font-weight:700; letter-spacing:.32em; font-size:22px; line-height:1.15; }
 .wm small { display:block; font-size:12px; letter-spacing:.62em; color:var(--muted); font-weight:600; }
 .sublabel { color:var(--teal); font-size:13px; letter-spacing:.24em; font-weight:700; margin-top:-18px; }
@@ -172,6 +173,11 @@ const emblem = (size = 58) =>
   EMBLEM
     ? `<div class="emblem real" style="width:${size}px;height:${size}px;background-image:url('${EMBLEM}')"></div>`
     : `<div class="emblem" style="width:${size}px;height:${size}px;font-size:${Math.max(8, Math.round(size / 7))}px">EMBLEM</div>`;
+/** The logo's own AURIXA SYSTEMS wordmark at a width, or the typeset one (its sizes in px) until the file is given. */
+const wordmark = (width, [big, small, track = ".3em", smallTrack = ".62em", gap = 0]) =>
+  WORDMARK
+    ? `<img src="${WORDMARK}" style="width:${width}px;height:auto;display:block" alt="AURIXA SYSTEMS">`
+    : `<div class="wm" style="font-size:${big}px;letter-spacing:${track};text-align:center">AURIXA<small style="font-size:${small}px;letter-spacing:${smallTrack};margin-top:${gap}px">SYSTEMS</small></div>`;
 
 function shell({ secondary = "", groups, top = "", body, teal = false, grid = false }) {
   const nav = groups
@@ -387,7 +393,7 @@ const PLATES = {
     size: [1600, 520],
     transparent: true,
     html: `<div class="screen" style="display:flex;align-items:center;justify-content:center;gap:48px">${emblem(260)}
-      <div class="wm" style="font-size:96px;letter-spacing:.3em">AURIXA<small style="font-size:40px;letter-spacing:.66em;margin-top:10px">SYSTEMS</small></div></div>`,
+      ${wordmark(760, [96, 40, ".3em", ".66em", 10])}</div>`,
   },
 
   // ---- Command Center
@@ -456,14 +462,14 @@ const PLATES = {
   "PL-11A-a": {
     size: [1920, 1080],
     html: `<div class="screen aurixa" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:34px;background:radial-gradient(ellipse at 50% 40%, #13305a, #0A192F 60%, #040B16)">
-      ${emblem(170)}<div class="wm" style="font-size:64px;text-align:center">AURIXA<small style="font-size:24px">SYSTEMS</small></div>
+      ${emblem(170)}${wordmark(520, [64, 24])}
       <div class="eyebrow" style="font-size:30px;letter-spacing:.3em;color:var(--teal)">14-DAY FREE TRIAL</div>
       <div class="btn blue" style="position:relative;font-size:38px;padding:24px 54px;border-radius:16px">Start your free trial${onButton()}</div></div>`,
   },
   "PL-11A-b": {
     size: [1920, 1080],
     html: `<div class="screen aurixa" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:34px;background:radial-gradient(ellipse at 50% 40%, #13305a, #0A192F 60%, #040B16)">
-      ${emblem(170)}<div class="wm" style="font-size:64px;text-align:center">AURIXA<small style="font-size:24px">SYSTEMS</small></div>
+      ${emblem(170)}${wordmark(520, [64, 24])}
       <div class="eyebrow" style="font-size:30px;letter-spacing:.3em;color:var(--teal)">14-DAY FREE TRIAL</div>
       <div class="btn blue" style="position:relative;font-size:38px;padding:24px 54px;border-radius:16px;background:#0d2bb5;box-shadow:inset 0 3px 10px rgba(0,0,0,.45), 0 0 0 4px rgba(215,179,95,.6)">Start your free trial${onButton()}</div></div>`,
   },
@@ -603,7 +609,7 @@ const PLATES = {
     html: `<div class="screen"><div class="close"></div>
       <div style="position:absolute;left:100px;right:100px;top:560px;display:flex;flex-direction:column;align-items:center;gap:40px;text-align:center">
         ${emblem(220)}
-        <div class="wm" style="font-size:66px;letter-spacing:.3em">AURIXA<small style="font-size:24px;letter-spacing:.7em;margin-top:8px">SYSTEMS</small></div>
+        ${wordmark(560, [66, 24, ".3em", ".7em", 8])}
         <div style="font-family:'Playfair Display',serif;font-weight:600;font-size:46px;line-height:1.25;color:#fff">The operating system for modern property professionals.</div>
         <div style="height:2px;width:260px;background:linear-gradient(90deg,transparent,var(--gold2),transparent)"></div>
         <div style="font-size:34px;font-weight:800;letter-spacing:.28em;color:var(--teal)">14-DAY FREE TRIAL</div>

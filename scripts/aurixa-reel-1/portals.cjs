@@ -76,7 +76,7 @@ const CSS = `
   letter-spacing:.06em; color:#d6deea; background:repeating-linear-gradient(135deg,#22324a 0 9px,#2a3c57 9px 18px); }
 .pt .emb { flex:none; border:1.5px dashed #D7B35F; border-radius:6px; display:grid; place-items:center; color:#D7B35F; font-weight:800; font-size:6.5px; letter-spacing:.04em;
   background-size:contain; background-repeat:no-repeat; background-position:center; }
-.pt .emb.real { border:none; }
+.pt .emb.real { border:none; background-size:contain; background-position:center; background-repeat:no-repeat; }
 .pt .cur { position:absolute; width:24px; height:24px; z-index:9; filter:drop-shadow(0 1px 2px rgba(0,0,0,.7)); }
 .pt .fab { position:absolute; right:26px; bottom:22px; width:44px; height:44px; border-radius:50%; background:#1238E8; display:grid; place-items:center; font-size:22px; font-weight:400; }
 /* Finance: a page heading rather than a banner, and serif card titles */

@@ -138,6 +138,7 @@ Empty rooms with every screen a blank glowing panel. The pack's `image(9)` and `
 
 - **REF-LOOK-ROOM**: Aurixa Systems · brand look (library c2043421-711b-407d-918a-49ff08b27885), the night boardroom, cropped to its window, city and presenter (x 560-1024, y 0-480 of 1024 x 683) and doubled: no screen, emblem or text
 - **REF-LOOK-OPS**: Aurixa Systems · brand look (library 1eb5397d-6155-43ce-9997-3aefcda75252), the operations room, cropped to its gold-edged glass partition and city window (x 0-248, y 0-480 of 1024 x 683) and doubled: no screen, emblem or text
+- **REF-LOGO**: the supplied Aurixa Systems logo (2000 x 1333, 21 October 2026); the plates' emblem.png and wordmark.png are keyed from it
 
 | Set                                                         | Model                                      | Inputs                              | Used by                                                        |
 | ----------------------------------------------------------- | ------------------------------------------ | ----------------------------------- | -------------------------------------------------------------- |
@@ -207,44 +208,50 @@ The type is Playfair Display for headings and Plus Jakarta Sans for interface te
 
 Block by block, each first frame built from the approved frame before it. Two takes of each.
 
-| Frame     | Inputs, in order                       |
-| --------- | -------------------------------------- |
-| F-01A-in  | P                                      |
-| F-01B-in  | P, S-HOME                              |
-| F-01B-out | C-JORDAN, S-HOME, P                    |
-| F-02A-in  | C-ALEX, S-OFFICE                       |
-| F-02A-out | C-ALEX, S-OFFICE                       |
-| F-03A-in  | F-02A-out, C-ALEX                      |
-| F-03B-in  | C-ALEX, S-OFFICE, F-03A-in             |
-| F-03C-in  | C-JORDAN, S-HOME, F-01B-out            |
-| F-03C-out | C-JORDAN, S-HOME, F-03C-in             |
-| F-04A-in  | S-ALEX, C-ALEX, F-03C-out              |
-| F-04A-out | S-ALEX, C-ALEX, F-04A-in               |
-| F-04B-in  | C-ALEX, S-ALEX, F-04A-out              |
-| F-04B-out | C-ALEX, S-ALEX, F-04B-in               |
-| F-05A-in  | C-ALEX, F-04B-out                      |
-| F-05B-in  | C-JAMIE, S-JAMIE                       |
-| F-05C-in  | C-ALEX, F-05A-in                       |
-| F-06A-in  | C-JORDAN, S-CLIENT                     |
-| F-06A-out | C-JORDAN, S-CLIENT, F-06A-in           |
-| F-06B-in  | C-ALEX, S-ALEX, F-04B-out              |
-| F-06B-out | C-ALEX, S-ALEX, F-06B-in               |
-| F-08A-in  | C-MIA, S-MIA, F-06B-out                |
-| F-08A-out | C-MIA, S-MIA, F-08A-in                 |
-| F-08B-in  | C-ALEX, C-JORDAN, S-MEETING, F-08A-out |
-| F-08B-out | C-ALEX, C-JORDAN, S-MEETING, F-08B-in  |
-| F-09A-in  | C-PRIYA, S-PRIYA, P, F-08B-out         |
-| F-09A-out | C-PRIYA, S-PRIYA, F-09A-in             |
-| F-09B-in  | C-PRIYA, F-09A-out                     |
-| F-10A-in  | S-REVEAL, C-PRIYA, F-09B-in            |
-| F-10A-out | S-REVEAL, C-ALEX, F-10A-in             |
-| F-10B-in  | C-ALEX, S-ALEX, F-10A-out              |
-| F-10B-out | C-ALEX, S-ALEX, F-04B-out              |
-| F-12A-in  | C-DANIEL, S-SITE, D                    |
-| F-12A-out | C-DANIEL, S-SITE, D, F-12A-in          |
-| F-12B-in  | C-PRIYA, S-PRIYA                       |
-| F-13A-in  | C-JAMIE, S-JAMIE                       |
-| F-13A-out | C-JAMIE, S-JAMIE, F-13A-in             |
+| Frame     | Inputs, in order                                |
+| --------- | ----------------------------------------------- |
+| F-01A-in  | P                                               |
+| F-01B-in  | P, S-HOME, PL-01B-a                             |
+| F-01B-out | C-JORDAN, S-HOME, PL-01B-b                      |
+| F-02A-in  | C-ALEX, S-OFFICE, F-01B-out, PL-02A             |
+| F-02A-out | C-ALEX, S-OFFICE, PL-02A                        |
+| F-03A-in  | F-02A-out, C-ALEX, PL-03A                       |
+| F-03B-in  | C-ALEX, S-OFFICE, F-03A-in, PL-03B              |
+| F-03C-in  | C-JORDAN, S-HOME, F-01B-out, PL-03C             |
+| F-03C-out | C-JORDAN, S-HOME, F-03C-in, PL-03C              |
+| F-04A-in  | S-ALEX, C-ALEX, F-03C-out, D, PL-SIGN, PL-04B-a |
+| F-04A-out | S-ALEX, C-ALEX, F-04A-in, PL-SIGN, PL-04B-a     |
+| F-04B-in  | C-ALEX, S-ALEX, F-04A-out, PL-04B-a             |
+| F-04B-out | C-ALEX, S-ALEX, F-04B-in, PL-04B-b              |
+| F-05A-in  | C-ALEX, F-04B-out, F-05B-in, PL-05A-a           |
+| F-05A-out | F-05A-in, PL-05A-b                              |
+| F-05B-in  | C-JAMIE, S-JAMIE, PL-05B-a                      |
+| F-05B-out | F-05B-in, PL-05B-b                              |
+| F-05C-in  | C-ALEX, F-05A-in, F-06A-in, PL-05C-a            |
+| F-05C-out | F-05C-in, PL-05C-b                              |
+| F-06A-in  | C-JORDAN, S-CLIENT, PL-06A-a                    |
+| F-06A-out | C-JORDAN, S-CLIENT, F-06A-in, PL-06A-b          |
+| F-06B-in  | C-ALEX, S-ALEX, F-04B-out, F-06A-out, PL-06B-a  |
+| F-06B-out | C-ALEX, S-ALEX, F-06B-in, PL-07A-b              |
+| F-08A-in  | C-MIA, S-MIA, F-06B-out, PL-08A-a               |
+| F-08A-out | C-MIA, S-MIA, F-08A-in, PL-08A-b                |
+| F-08B-in  | C-ALEX, C-JORDAN, S-MEETING, F-08A-out, PL-08B  |
+| F-08B-out | C-ALEX, C-JORDAN, S-MEETING, F-08B-in, PL-08B   |
+| F-09A-in  | C-PRIYA, S-PRIYA, P, F-08B-out, PL-09A          |
+| F-09A-out | C-PRIYA, S-PRIYA, F-09A-in, PL-09A              |
+| F-09B-in  | C-PRIYA, F-09A-out, PL-09B-a                    |
+| F-09B-out | F-09B-in, PL-09B-b                              |
+| F-10A-in  | S-REVEAL, C-PRIYA, F-09B-in                     |
+| F-10A-out | S-REVEAL, C-ALEX, F-10A-in                      |
+| F-10B-in  | C-ALEX, S-ALEX, F-10A-out, PL-11A-a             |
+| F-10B-out | C-ALEX, S-ALEX, F-04B-out, PL-11A-a             |
+| F-11A-out | F-10B-out, PL-11A-b                             |
+| F-12A-in  | C-DANIEL, S-SITE, D, PL-12A-a                   |
+| F-12A-out | C-DANIEL, S-SITE, D, F-12A-in, PL-12A-b         |
+| F-12B-in  | C-PRIYA, S-PRIYA, F-12A-out, PL-12B-a           |
+| F-12B-out | F-12B-in, PL-12B-b                              |
+| F-13A-in  | C-JAMIE, S-JAMIE, F-12B-out, PL-13A-a           |
+| F-13A-out | C-JAMIE, S-JAMIE, F-13A-in, PL-13A-b            |
 
 ## Stage 5: clips
 
@@ -260,20 +267,20 @@ Test 01A and 04B on both clip models, choose one, then block by block.
 | V-03C | 03C     | F-03C-in    | F-03C-out  | 2.33   | 4      |
 | V-04A | 04A     | F-04A-in    | F-04A-out  | 5.00   | 7      |
 | V-04B | 04B     | F-04B-in    | F-04B-out  | 6.53   | 9      |
-| V-05A | 05A     | F-05A-in    | –          | 2.50   | 4      |
-| V-05B | 05B     | F-05B-in    | –          | 2.43   | 4      |
-| V-05C | 05C     | F-05C-in    | –          | 2.90   | 5      |
+| V-05A | 05A     | F-05A-in    | F-05A-out  | 2.50   | 4      |
+| V-05B | 05B     | F-05B-in    | F-05B-out  | 2.43   | 4      |
+| V-05C | 05C     | F-05C-in    | F-05C-out  | 2.90   | 5      |
 | V-06A | 06A     | F-06A-in    | F-06A-out  | 5.47   | 7      |
 | V-06B | 06B+07A | F-06B-in    | F-06B-out  | 6.93   | 9      |
 | V-08A | 08A     | F-08A-in    | F-08A-out  | 4.10   | 6      |
 | V-08B | 08B     | F-08B-in    | F-08B-out  | 5.30   | 7      |
 | V-09A | 09A     | F-09A-in    | F-09A-out  | 4.47   | 6      |
-| V-09B | 09B     | F-09B-in    | –          | 1.87   | 4      |
+| V-09B | 09B     | F-09B-in    | F-09B-out  | 1.87   | 4      |
 | V-10A | 10A     | F-10A-in    | F-10A-out  | 2.63   | 5      |
 | V-10B | 10B     | F-10B-in    | F-10B-out  | 3.27   | 5      |
-| V-11A | 11A     | F-10B-out   | –          | 3.67   | 6      |
+| V-11A | 11A     | F-10B-out   | F-11A-out  | 3.67   | 6      |
 | V-12A | 12A     | F-12A-in    | F-12A-out  | 3.60   | 6      |
-| V-12B | 12B     | F-12B-in    | –          | 3.60   | 6      |
+| V-12B | 12B     | F-12B-in    | F-12B-out  | 3.60   | 6      |
 | V-13A | 13A+14A | F-13A-in    | F-13A-out  | 9.33   | 11     |
 | V-15A | 15A     | F-13A-out   | –          | 6.56   | 9      |
 
@@ -368,8 +375,7 @@ Handoffs (the pack's transition ledger, by shot):
 
 ## Still needed
 
-- **UP-PORTALS**: the Command Center screenshot (CC), the last of the six portals; the CC plates follow the other five portals' shell until then
-- **UP-EMBLEM**: the approved emblem and AURIXA SYSTEMS wordmark at full size (SVG or a PNG at least 2000 px wide); the library's logo is 720 px
+- **UP-PORTALS**: the Command Center's Reports page (the pack's image(20261020-083651).png): grouped left navigation, the top property search, the Reports banner, the Manual / URL Extraction / PDF Upload tabs and the Existing Property / New Build / Land Only cards. Alex's plates (04B, 05A, 05C, 06B, 07A, 11A-c) follow the other portals' shell until then, and the frames that show them wait
 
 Decisions:
 
@@ -381,4 +387,6 @@ Decisions:
 - Confirmed 21 October 2026: the pack's image(9) and image(10) can't be found, so the console world is generated in their place (CW-9, the wide view; CW-10, the doorway view) from two Aurixa brand images cropped to their rooms and Daniel's approved site office, and approved before the seven sets use it.
 - Confirmed 21 October 2026: Jordan's home and Alex's ordinary office keep the Sydney views the model gave them (the Harbour Bridge, Sydney Tower).
 - Confirmed 21 October 2026: Jordan and Daniel look professional (their sheets' revision 2): groomed hair, Jordan clean-shaven and Daniel with a closely trimmed beard, and crisp, tailored versions of their pack wardrobe (Jordan's shirt tucked with the sleeves down and tailored trousers; Daniel's polo with tailored trousers and clean leather boots in place of work trousers and work boots).
+- Confirmed 21 October 2026: the emblem and the AURIXA SYSTEMS wordmark come from the supplied logo (2000 x 1333), keyed off its background; the glass sign, the trial cards and the closing card use the logo's wordmark, the portal sidebars a typeset one as the portals do.
+- Confirmed 21 October 2026 (option 1): the studio's editor lays only flat, still pictures over video, so the plates can't be put on angled or moving screens there. Each screen frame carries its plate instead, and a clip moves between frames that already show it; a click with no last frame gets one, the same frame with the screen after the click (05A, 05B, 05C, 09B, 11A, 12B); and a cut that matches screens across rooms pins the later screen to the earlier one's place (02A, 05A, 05C, 06B, 12B, 13A). Flat, full-frame plates (the Block 14 phrases, the Demo workspace cut, the closing card) are still laid on in the edit.
 - Confirmed 21 October 2026: Mia is more glamorous and striking, still dressed for the office: polished make-up and glossy curls, a confident look, a fitted silk version of her slate-blue blouse with tailored trousers and heels (her sheet's revision 3).
