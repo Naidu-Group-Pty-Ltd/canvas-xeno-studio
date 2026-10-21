@@ -11,7 +11,7 @@ run prints what it would queue; only with --confirm does it queue (billed by the
 waits and records every take in takes.json. A take's request id is its key and number (and the
 item's revision, once its prompt is revised: r2-take1), so running again returns the takes already
 made instead of paying twice; --takes 4 adds a fourth. A failed or blocked take is never tried again
-by itself.
+by itself. An input written KEY@take is that named take of a frame (a screen swap starts from the approved one).
 
 Stage 5's clips name no model until the test picks one, so price and run take --model (clip_seedance or
 clip_kling) there: a clip goes from its first frame to its last (when it has one) for its source seconds,
@@ -29,7 +29,7 @@ BASE = os.environ.get("XENO_STUDIO_URL", "https://canvas-xeno-studio.lovable.app
 TOKEN = os.environ.get("XENO_STUDIO_TOKEN")
 # The plates' version, for their titles. An import's request id is the plate and its file's content, so a
 # re-rendered plate imports anew and an unchanged one returns its earlier import.
-PLATES_VERSION = "v2"
+PLATES_VERSION = "v3"
 # get_generation's last states; submission_uncertain waits on a person, so it ends the wait too.
 SETTLED = {"completed", "failed", "nsfw", "canceled", "submission_uncertain"}
 
@@ -87,6 +87,15 @@ def import_plates(folder, only=None):
         save_ledger(ledger)
 
 
+def asset_of(key, ledger, record):
+    """An input's library asset: a ledger key, or KEY@take for one named take of a frame (a screen swap's approved take)."""
+    if "@" in key:
+        name, take = key.split("@", 1)
+        made = record.get(name, {}).get(take, {})
+        return made["assets"][0] if made.get("status") == "completed" and made.get("assets") else None
+    return ledger.get(key)
+
+
 def request_for(item, spec, model_key=None):
     """An item's model, parameters, (input key, role) pairs and take-name prefix: a still as the spec writes it,
     a clip (Stage 5) on the model given, from its first frame to its last, for its source seconds."""
@@ -115,8 +124,9 @@ def price(stage_number, only=None, model_key=None):
         if only and item["key"] not in only:
             continue
         model, parameters, pairs, _ = request_for(item, spec, model_key)
-        inputs = [{"assetId": ledger[key], "role": role} for key, role in pairs if ledger.get(key)]
-        missing = [key for key, _ in pairs if not ledger.get(key)]
+        record = load_takes()
+        inputs = [{"assetId": asset_of(key, ledger, record), "role": role} for key, role in pairs if asset_of(key, ledger, record)]
+        missing = [key for key, _ in pairs if not asset_of(key, ledger, record)]
         if missing:
             print(f"{item['key']}: waits on {', '.join(missing)}")
             unpriced.append(item["key"])
@@ -221,11 +231,11 @@ def run(stage_number, only=None, takes=None, confirm=False, model_key=None):
         if only and item["key"] not in only:
             continue
         model, parameters, pairs, prefix = request_for(item, spec, model_key)
-        missing = [key for key, _ in pairs if not ledger.get(key)]
+        missing = [key for key, _ in pairs if not asset_of(key, ledger, record)]
         if missing:
             print(f"{item['key']}: waits on {', '.join(missing)}")
             continue
-        inputs = [{"assetId": ledger[key], "role": role} for key, role in pairs]
+        inputs = [{"assetId": asset_of(key, ledger, record), "role": role} for key, role in pairs]
         settings = ", ".join(f"{k} {v}" for k, v in parameters.items() if k != "prompt")
         revision = item.get("revision", 1)
         for take in range(1, (takes or item.get("takes", 1)) + 1):

@@ -1,1274 +1,1674 @@
 {
-  "P": {
-    "take1": {
-      "generationId": "5006501d-7e49-400a-a504-489b391ac7f7",
-      "status": "completed",
-      "assets": ["5594da16-9f3b-42f1-bcfe-8269c3f5a01a"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "203fd263-e381-41de-a6f7-873b8e238775",
-      "status": "completed",
-      "assets": ["c13c54f9-091d-4ce5-b833-cf08bca50cb2"],
-      "costUsd": null,
-      "error": null
-    },
-    "take3": {
-      "generationId": "7c3e587f-09b1-4118-8cc6-987bd49f0dfb",
-      "status": "completed",
-      "assets": ["8b519e3f-a051-4dad-b5d3-e13ca4784582"],
-      "costUsd": null,
-      "error": null
-    }
+ "P": {
+  "take1": {
+   "generationId": "5006501d-7e49-400a-a504-489b391ac7f7",
+   "status": "completed",
+   "assets": [
+    "5594da16-9f3b-42f1-bcfe-8269c3f5a01a"
+   ],
+   "costUsd": null,
+   "error": null
   },
-  "C-ALEX": {
-    "take1": {
-      "generationId": "6e86c01e-2eaa-4213-a097-1e1769c93174",
-      "status": "completed",
-      "assets": ["41d67961-5f50-4a83-831a-51db998dd529"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "73805366-4faf-4753-859b-edd116815e9e",
-      "status": "completed",
-      "assets": ["ec456afb-5fdb-40f0-af0e-8ad18cc101ed"],
-      "costUsd": null,
-      "error": null
-    },
-    "take3": {
-      "generationId": "1a64b2fe-369b-4e7f-b801-e616f3a0a366",
-      "status": "completed",
-      "assets": ["568448b0-a69b-4df9-aa5e-78b31b3af092"],
-      "costUsd": null,
-      "error": null
-    },
-    "r2-take1": {
-      "generationId": "5df34028-238b-4139-94b0-d530d5758436",
-      "status": "completed",
-      "assets": ["4cee4a62-be1a-414f-bb3e-9bc1626f0b04"],
-      "costUsd": null,
-      "error": null
-    },
-    "r2-take2": {
-      "generationId": "6aa771c4-aaa7-4e52-bb12-e500aeea4f91",
-      "status": "completed",
-      "assets": ["bd4a2261-cbd0-4d7a-ab7c-1975679b96a8"],
-      "costUsd": null,
-      "error": null
-    },
-    "r2-take3": {
-      "generationId": "ebf53e93-35cb-41e9-8058-53cb37be5367",
-      "status": "completed",
-      "assets": ["797abc57-a460-45d2-9308-ffa60c7d69b5"],
-      "costUsd": null,
-      "error": null
-    }
+  "take2": {
+   "generationId": "203fd263-e381-41de-a6f7-873b8e238775",
+   "status": "completed",
+   "assets": [
+    "c13c54f9-091d-4ce5-b833-cf08bca50cb2"
+   ],
+   "costUsd": null,
+   "error": null
   },
-  "C-JORDAN": {
-    "take1": {
-      "generationId": "28c3006f-26bf-4b7a-a493-3b3c8afc793f",
-      "status": "completed",
-      "assets": ["67023022-de85-4f92-9e17-15c935f3c808"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "a4f06340-3f5e-4d86-8bc4-25898d464ec9",
-      "status": "completed",
-      "assets": ["7af3c159-1c7a-4baa-b05f-d38f126c661a"],
-      "costUsd": null,
-      "error": null
-    },
-    "take3": {
-      "generationId": "0620145d-03ae-489d-bd4a-f57c67dc2b02",
-      "status": "completed",
-      "assets": ["44e0b819-b963-425d-9379-2fecde915fa7"],
-      "costUsd": null,
-      "error": null
-    },
-    "r2-take1": {
-      "generationId": "8a307633-5fbe-4e98-a8b6-56b83a723302",
-      "status": "completed",
-      "assets": ["04e98967-0d3a-471d-af19-924a8932cbbf"],
-      "costUsd": null,
-      "error": null
-    },
-    "r2-take2": {
-      "generationId": "cde66b89-f48a-4c6f-a067-049335da4d75",
-      "status": "completed",
-      "assets": ["92ab797a-a921-4e81-be9f-fc2c4110e81b"],
-      "costUsd": null,
-      "error": null
-    },
-    "r2-take3": {
-      "generationId": "d60e1929-84a4-4c1f-95d9-aa71755002a7",
-      "status": "completed",
-      "assets": ["3b25b11e-717c-4f12-86d7-d0ed747a7da3"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "C-JAMIE": {
-    "take1": {
-      "generationId": "124a6611-8116-4ec5-ba2c-e7feb2e4e6f1",
-      "status": "completed",
-      "assets": ["7ba56eb5-c351-43c9-b3a2-6f19f13416ab"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "d4a1395b-fd10-47e1-b811-ee3345f11b9e",
-      "status": "completed",
-      "assets": ["7f461022-2245-4817-ac22-4217c52fcb13"],
-      "costUsd": null,
-      "error": null
-    },
-    "take3": {
-      "generationId": "5b18010f-9783-44d4-af52-64c184d2e3b7",
-      "status": "completed",
-      "assets": ["66eb2d68-3fae-415e-aec0-a6dda116bb7f"],
-      "costUsd": null,
-      "error": null
-    },
-    "r2-take1": {
-      "generationId": "052ac304-fb91-4f62-b6c1-926e7f613ef8",
-      "status": "completed",
-      "assets": ["93fe4dde-aca2-4c88-a7c5-cf4d9e17850a"],
-      "costUsd": null,
-      "error": null
-    },
-    "r2-take2": {
-      "generationId": "2b06e034-617a-4c71-993d-085747311814",
-      "status": "completed",
-      "assets": ["ce47b730-11cc-4272-b0c4-34e5cf902ecf"],
-      "costUsd": null,
-      "error": null
-    },
-    "r2-take3": {
-      "generationId": "5e0bccc0-582e-4552-998d-140105360617",
-      "status": "completed",
-      "assets": ["1c00e983-b1dc-41f9-ab72-f3d4953ff30e"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "C-PRIYA": {
-    "take1": {
-      "generationId": "67e5881a-0f3d-46f5-b913-66d4e027b9ab",
-      "status": "completed",
-      "assets": ["fe8c2520-a4fe-4aa5-b50b-a2e943384013"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "73135243-83b3-4d60-8ed6-e9fafe96e20c",
-      "status": "completed",
-      "assets": ["35aec10e-4c1e-487f-b6d2-2509ac0e523b"],
-      "costUsd": null,
-      "error": null
-    },
-    "take3": {
-      "generationId": "5ca72c80-b44b-4cf8-9f47-df30520f1299",
-      "status": "completed",
-      "assets": ["db09242d-9701-48b3-af0e-8a2d962ae816"],
-      "costUsd": null,
-      "error": null
-    },
-    "r2-take1": {
-      "generationId": "1790171e-52f0-4f44-9bae-9bdf8f966853",
-      "status": "completed",
-      "assets": ["bc354064-d69e-4b35-886d-e9d499bc5abc"],
-      "costUsd": null,
-      "error": null
-    },
-    "r2-take2": {
-      "generationId": "b90875db-8770-40ec-ab25-8d63166346c5",
-      "status": "completed",
-      "assets": ["3c11367e-f9f6-45c8-ae6a-e36337c930ed"],
-      "costUsd": null,
-      "error": null
-    },
-    "r2-take3": {
-      "generationId": "291de13f-f375-45b8-b3c3-8889f3b2e56f",
-      "status": "completed",
-      "assets": ["c263783d-d171-4e08-af39-32c41360825c"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "C-DANIEL": {
-    "take1": {
-      "generationId": "d52e6c08-f172-4359-88d7-09a17f2a27d2",
-      "status": "completed",
-      "assets": ["c2edef92-262c-4721-800e-6e520d25a684"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "47ce3446-3163-412e-8831-445935a283a6",
-      "status": "completed",
-      "assets": ["29e11c2b-f4eb-4e7c-9fad-897aff64a077"],
-      "costUsd": null,
-      "error": null
-    },
-    "take3": {
-      "generationId": "32a215bf-8446-458b-bf0b-3564d76e0eb8",
-      "status": "completed",
-      "assets": ["3b7e1636-4509-432c-982f-7451b5b0804a"],
-      "costUsd": null,
-      "error": null
-    },
-    "r2-take1": {
-      "generationId": "bffa7ae7-dff7-41b2-a46d-aef679d87b52",
-      "status": "completed",
-      "assets": ["267baf0c-f8e8-48d3-adaf-9a8f2eaf4447"],
-      "costUsd": null,
-      "error": null
-    },
-    "r2-take2": {
-      "generationId": "98d9c4d8-b8a4-47af-8c42-0072fffe48bc",
-      "status": "completed",
-      "assets": ["bd0e1895-f2e4-49ff-90a2-761895b3fed5"],
-      "costUsd": null,
-      "error": null
-    },
-    "r2-take3": {
-      "generationId": "e43b9723-de2d-4f09-99d0-763dfe616c88",
-      "status": "completed",
-      "assets": ["bec9929b-ad5f-4d40-863d-91314b46c2c0"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "C-MIA": {
-    "take1": {
-      "generationId": "830822c1-6373-45b2-948b-b2ff2c712a8a",
-      "status": "completed",
-      "assets": ["30fbc37a-e873-4d88-bc66-7553632076ad"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "34bc5755-540b-4ffc-b539-68adaebf9216",
-      "status": "completed",
-      "assets": ["f53051f5-ace1-4575-aa84-c59b0ade56e6"],
-      "costUsd": null,
-      "error": null
-    },
-    "take3": {
-      "generationId": "775b4c86-c8ed-4742-99c3-13a65be07f8b",
-      "status": "completed",
-      "assets": ["c20e623f-bd04-45b7-80e8-f242ac1d532d"],
-      "costUsd": null,
-      "error": null
-    },
-    "r2-take1": {
-      "generationId": "46a3d321-72d3-4dc4-9525-a8fcbdf774d5",
-      "status": "completed",
-      "assets": ["14ce8d96-2a4c-4780-be8e-fa34e0eac1ef"],
-      "costUsd": null,
-      "error": null
-    },
-    "r2-take2": {
-      "generationId": "270b85d6-19af-48ef-b29d-6b6b55ca253b",
-      "status": "completed",
-      "assets": ["12a1c7fa-d1cd-4d6f-8016-e79796cca7f1"],
-      "costUsd": null,
-      "error": null
-    },
-    "r2-take3": {
-      "generationId": "a49c2adf-46b6-4bff-a990-599b0d62ba7d",
-      "status": "completed",
-      "assets": ["40f5ce54-04ec-45f5-8e11-36f989fa26bd"],
-      "costUsd": null,
-      "error": null
-    },
-    "r3-take1": {
-      "generationId": "8d457c5e-6269-41d3-9f0d-0c34ca398fc0",
-      "status": "completed",
-      "assets": ["ebd7b138-00be-4d84-ae20-593f9b220b96"],
-      "costUsd": null,
-      "error": null
-    },
-    "r3-take2": {
-      "generationId": "db78b14c-19c5-43d6-bd94-6db9d759b1d2",
-      "status": "completed",
-      "assets": ["35abec9a-5987-4818-b7fb-d0aa85e502c3"],
-      "costUsd": null,
-      "error": null
-    },
-    "r3-take3": {
-      "generationId": "ac1943fc-00e8-4bec-a514-0eb3a5b4f571",
-      "status": "completed",
-      "assets": ["e4c3bc0a-29e0-428e-a5c0-980cd8818ed2"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "D": {
-    "take1": {
-      "generationId": "f5833243-dd56-42db-ac14-24d177fc0deb",
-      "status": "completed",
-      "assets": ["60d6126e-37e1-4297-91f0-aaff7b32db8c"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "2d245047-a5ab-49cf-bbc3-89e638a41ee1",
-      "status": "completed",
-      "assets": ["de85c4d4-5cd5-4bed-b284-c7754ef45ef6"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "S-HOME": {
-    "take1": {
-      "generationId": "26372dcf-f290-49ac-ba50-eac12df8808c",
-      "status": "completed",
-      "assets": ["e856d0ce-5ab0-4653-b8f6-ea546fe8016c"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "f897e24c-f8d2-4975-b45c-1497f389b303",
-      "status": "completed",
-      "assets": ["6b30ee50-2f02-4261-bd0c-5bcc51d852ec"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "S-OFFICE": {
-    "take1": {
-      "generationId": "1d47d5ad-9c5d-4d42-95bf-c27f454af187",
-      "status": "completed",
-      "assets": ["c6242096-0562-49c0-bb37-c3c21eb7283e"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "aa09da3a-1fa8-4c85-ba7d-0e3ce1ed2a41",
-      "status": "completed",
-      "assets": ["81d36061-0478-4228-99b0-b266c75c2c49"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "S-SITE": {
-    "take1": {
-      "generationId": "14a9b33a-2c35-48c0-8527-f7406206327b",
-      "status": "completed",
-      "assets": ["c3bb9c90-2bb8-46ca-a7fd-870f318ae023"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "b6d5de00-f635-4163-b02a-92a8aa161b28",
-      "status": "completed",
-      "assets": ["caa48452-7838-4cdd-9f35-be02e17fcf86"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "CW-9": {
-    "take1": {
-      "generationId": "d271d44c-293a-468c-863c-9eda4be230a4",
-      "status": "completed",
-      "assets": ["50c69254-56ca-4aff-b803-c95142fa13df"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "814f8581-f842-4d79-b5f1-4b935042f348",
-      "status": "completed",
-      "assets": ["d8104e50-c18f-4e6b-b688-52c92d48df77"],
-      "costUsd": null,
-      "error": null
-    },
-    "take3": {
-      "generationId": "5496296a-9988-408d-9572-2fd13d504cd5",
-      "status": "completed",
-      "assets": ["28d0827c-3d94-4a7c-a284-46eb5692d42d"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "CW-10": {
-    "take1": {
-      "generationId": "e1a23d7d-c347-4e83-8e6d-27edefd5c103",
-      "status": "completed",
-      "assets": ["2b41f211-fe92-4618-a3d7-7ea7bf714d02"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "3db0dd34-398e-4077-a450-1307c5e30a65",
-      "status": "completed",
-      "assets": ["31dba9af-ea24-41e5-930a-57dddbaa6c86"],
-      "costUsd": null,
-      "error": null
-    },
-    "take3": {
-      "generationId": "15bcf4d4-2be3-4898-889d-556826d15e76",
-      "status": "completed",
-      "assets": ["beb020bf-d6bf-4520-9412-8ac26955b2cc"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "S-ALEX": {
-    "take1": {
-      "generationId": "151bfe24-4f25-4969-99a4-017c96189413",
-      "status": "completed",
-      "assets": ["1b879f58-faec-4446-974d-46669d1d7e73"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "9e898b55-24fc-4cc9-88e4-c402d63d895d",
-      "status": "completed",
-      "assets": ["671d3e21-bfb8-42f9-8de5-479fb6d3a556"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "S-MEETING": {
-    "take1": {
-      "generationId": "b1459099-c249-46a9-a339-d62a6cfc61c6",
-      "status": "completed",
-      "assets": ["646f54bb-2d24-48bc-ad44-be423f6bcdc8"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "f7820f45-e9d2-46ba-bb95-5ebcf4c5da1a",
-      "status": "completed",
-      "assets": ["c83bb783-9dd3-47cb-8640-eec54cc0f667"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "S-JAMIE": {
-    "take1": {
-      "generationId": "b4d972e5-bc3e-4cc0-a931-398295f340d9",
-      "status": "completed",
-      "assets": ["f45a3b27-5f2b-4462-9f16-64c9690abb30"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "c1a632c5-b5fa-408c-afb1-916d35d27301",
-      "status": "completed",
-      "assets": ["da8582c0-84dd-4922-87fe-1f9a35da7548"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "S-CLIENT": {
-    "take1": {
-      "generationId": "85c79ecb-d7dc-40c7-8194-be1eaca9c77a",
-      "status": "completed",
-      "assets": ["1e83f814-e5f6-4a24-b3ec-8fa3b0ea36dc"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "b59f6b66-9f56-447e-a679-bd1a7729bcb0",
-      "status": "completed",
-      "assets": ["fd3aeaea-801e-4ddc-9f0c-28d2f3f1870f"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "S-MIA": {
-    "take1": {
-      "generationId": "4e9e0f2b-6980-433d-b3cd-8aae8e73aa5a",
-      "status": "completed",
-      "assets": ["ce9e724b-8aef-4602-893e-004c3e2ea4a5"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "b019dd2e-d5fa-4ad4-a8f0-3fd5d15532df",
-      "status": "completed",
-      "assets": ["c0bb3479-306f-4db7-8afb-02f982eb1b5c"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "S-PRIYA": {
-    "take1": {
-      "generationId": "cc071555-1b3b-4c80-bcaf-5f0becda9318",
-      "status": "completed",
-      "assets": ["534c1afe-aa32-4440-9867-c0998defa22c"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "8a5ea02f-bb6a-4f24-952f-35eb76d642ab",
-      "status": "completed",
-      "assets": ["4d654f61-a96c-4ae4-968e-bcb779abc4d8"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "S-REVEAL": {
-    "take1": {
-      "generationId": "9defe808-1eee-4667-85e8-f9b99fe8a8e0",
-      "status": "completed",
-      "assets": ["c94afb5a-ffdd-4dd3-ad7c-6e14e5f89d8a"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "487422a6-bd48-4448-b348-0a1ff31d79d2",
-      "status": "completed",
-      "assets": ["ffde0e0c-e1ec-413e-99fc-6353de54f951"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-01A-in": {
-    "take1": {
-      "generationId": "1ad07c39-b7d3-4796-9cd7-2fb09d3c09b8",
-      "status": "completed",
-      "assets": ["464a4a20-aa13-42bb-9660-55fbe8aab678"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "778c55e7-02f3-449e-97aa-1392b66416ed",
-      "status": "completed",
-      "assets": ["a342d847-a6ec-4c65-acd5-6f7db1993e75"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-06A-in": {
-    "take1": {
-      "generationId": "f8fe79b4-257e-492c-939a-68ef4dc3a51a",
-      "status": "completed",
-      "assets": ["a5b0b280-d615-403d-913d-b3a5763bb40e"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "43981c5d-d579-40db-bd8f-57ecff8e4a1c",
-      "status": "completed",
-      "assets": ["5a1138be-45c3-4724-8093-e61c29b62398"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-01B-in": {
-    "take1": {
-      "generationId": "45a4fe27-545c-49ec-a3c6-9437ba088875",
-      "status": "completed",
-      "assets": ["d33cfc16-b90a-40dd-9f85-4acd340685b9"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "1bc420d9-8796-4976-89bf-b7203b3ba9ee",
-      "status": "completed",
-      "assets": ["39e27396-1625-4ec7-99d5-5b027b5883a9"],
-      "costUsd": null,
-      "error": null
-    },
-    "r2-take1": {
-      "generationId": "6d604676-a625-41d4-94bc-7a4c1d7150b5",
-      "status": "completed",
-      "assets": ["d5607004-7466-4d0b-b872-f2b954a6d6bb"],
-      "costUsd": null,
-      "error": null
-    },
-    "r2-take2": {
-      "generationId": "dff7aa55-21d9-428c-87d2-3a6b8638a1fd",
-      "status": "completed",
-      "assets": ["1193eb99-7fa8-4195-a1f5-3b81d4f5c411"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-01B-out": {
-    "take1": {
-      "generationId": "1a9805e0-08e0-4303-a534-d1babbc46a19",
-      "status": "completed",
-      "assets": ["9d8fa770-72bd-46dd-9b29-0ec0fe87e898"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "a1ea10cd-5865-4d7e-b721-a1bb3f23c47f",
-      "status": "completed",
-      "assets": ["9e6b1da2-edaf-444a-aa17-60ac23cf964b"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-02A-out": {
-    "take1": {
-      "generationId": "6b6d41ae-a8b3-405e-b6dd-c9b78f0c1420",
-      "status": "completed",
-      "assets": ["b848a918-83ec-4de9-840a-2dfaac307c8d"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "a85b6c03-0563-47ab-9624-b99636b9a7eb",
-      "status": "completed",
-      "assets": ["81cb5409-446a-42a0-91ef-70eda7eb839d"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-05B-in": {
-    "take1": {
-      "generationId": "5ca70677-e5b2-428f-a3c3-0b774c7bcfd9",
-      "status": "completed",
-      "assets": ["4c84cb0a-a1a1-465a-a909-9acd190e4a0f"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "1f59b8ab-c906-4900-8fe0-35c2522c5f96",
-      "status": "completed",
-      "assets": ["6e581185-0173-422a-9f71-590f46d44088"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-06A-out": {
-    "take1": {
-      "generationId": "8ec1333b-3f66-479f-90c1-2386c76ba9f6",
-      "status": "completed",
-      "assets": ["b258a9f3-0846-4e51-bd71-071466539512"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "8f8d2fad-1125-4029-965a-023897edef53",
-      "status": "completed",
-      "assets": ["80f42364-783f-4180-a8ce-54ab0ee50ac6"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-12A-in": {
-    "take1": {
-      "generationId": "d568ddd2-9208-44b3-9cb4-a19f598af445",
-      "status": "completed",
-      "assets": ["60d561b7-c894-42e4-a384-b5ee772ad9d2"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "3038d6e9-68a5-4862-8458-327e66268dd0",
-      "status": "completed",
-      "assets": ["870906c9-1745-451a-a759-52c5d3b2ed64"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-02A-in": {
-    "take1": {
-      "generationId": "c4082a95-625f-4e44-bb75-ae1b1dc9ebc0",
-      "status": "completed",
-      "assets": ["591d5a4d-d22b-456d-9a64-700a94330000"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "7796a965-8c23-4032-840d-bfb97ff59b72",
-      "status": "completed",
-      "assets": ["5a5d20cb-dcd5-46bf-84f5-90f378e3edd7"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-03A-in": {
-    "take1": {
-      "generationId": "82752f4f-b85b-4ea6-a50d-f668bebeb4f1",
-      "status": "completed",
-      "assets": ["fe2e0194-6ac2-4caa-bf60-a6b5d092ca1b"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "451ccdeb-b51b-415f-9af8-d6f6bf97511c",
-      "status": "completed",
-      "assets": ["033da993-297f-47e8-bfc6-7092a2e366e1"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-03C-in": {
-    "take1": {
-      "generationId": "f6b69a2f-6567-4503-9410-d7765bcf371a",
-      "status": "completed",
-      "assets": ["5c3127c2-b3f7-4f5f-8260-31d9aa3b254e"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "ac435df4-ab25-4068-aa0b-ea52cc41a7a2",
-      "status": "completed",
-      "assets": ["04720894-deda-4609-84bc-d41a88de3dcf"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-05B-out": {
-    "take1": {
-      "generationId": "7a246367-e3ce-4bfe-aad4-d5bc79078b8d",
-      "status": "completed",
-      "assets": ["6b9131c2-7a11-4499-bbc9-7491a458ee74"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "4223b67e-ae4b-49be-bfe0-8ff8736045e2",
-      "status": "completed",
-      "assets": ["dbab00e9-c99b-44be-b2ff-d3cc7fa29756"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-12A-out": {
-    "take1": {
-      "generationId": "a0c146d7-d26c-4727-aca6-be0105dc066e",
-      "status": "completed",
-      "assets": ["6e82c8e9-28df-4b2d-9595-e593c45901cc"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "f1322e7d-6bf7-442a-ba34-e69a4fcf0bb9",
-      "status": "completed",
-      "assets": ["08da79f4-090e-4456-8529-b9f3ba77ccfa"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-03B-in": {
-    "take1": {
-      "generationId": "c22db4dd-4d15-47be-8a34-51e8662aea77",
-      "status": "completed",
-      "assets": ["e9b47e71-c271-4e9a-acc3-12d3dbc105fd"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "5dd84460-539f-48b0-9f79-cc4686e671d1",
-      "status": "completed",
-      "assets": ["9a2f45be-de30-46a2-9707-3b8f098b6da6"],
-      "costUsd": null,
-      "error": null
-    },
-    "r2-take1": {
-      "generationId": "04b2bc2a-c696-4b32-8c64-28f826d56242",
-      "status": "completed",
-      "assets": ["7a2a125a-ef66-41b1-8d9b-3d1184890772"],
-      "costUsd": null,
-      "error": null
-    },
-    "r2-take2": {
-      "generationId": "77183fdb-d405-44c4-bdf9-1e7916dc0581",
-      "status": "completed",
-      "assets": ["d5bd549a-8852-4ac4-a4d4-bf9c3c879bd1"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-03C-out": {
-    "take1": {
-      "generationId": "98843a44-091d-4470-a3a6-155e76509c71",
-      "status": "completed",
-      "assets": ["93774903-3fd2-4417-bffc-522632551cad"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "6e18b0e5-fdb8-48cf-b198-3ca402e97db2",
-      "status": "completed",
-      "assets": ["e0edde13-808f-4391-93b1-50a4c7ee608d"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-12B-in": {
-    "take1": {
-      "generationId": "c7509ac4-0cc8-44df-a06c-064462502d10",
-      "status": "completed",
-      "assets": ["e0450274-41dc-4434-806a-2cafc6c6f249"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "45f8bf6c-4726-4ac7-a2dd-e9e3351e179d",
-      "status": "completed",
-      "assets": ["237f1f50-50f0-4215-b29d-c9fd203518d0"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-12B-out": {
-    "take1": {
-      "generationId": "eaff1f88-68ec-4e06-9ff2-e791b37e5c59",
-      "status": "completed",
-      "assets": ["17dc6b74-3966-4fd7-85f1-37259e0a9ed9"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "8177e164-4905-49bc-8dd1-11c6c591221d",
-      "status": "completed",
-      "assets": ["8debdc1e-0a56-4ada-bda6-3d4bc3bf0c42"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-13A-in": {
-    "take1": {
-      "generationId": "cb8ff7ac-5ed3-4484-b6a1-6f2ee0f92aba",
-      "status": "completed",
-      "assets": ["02095c8c-4b08-45e5-afda-04f611bd5bae"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "fd850093-561a-4ff1-8031-c0335e5d6593",
-      "status": "completed",
-      "assets": ["0f6ffd58-44f3-4bae-ac7c-b5494459e94e"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-13A-out": {
-    "take1": {
-      "generationId": "1c544d01-dd6b-47fe-a58d-f62b59d1f755",
-      "status": "completed",
-      "assets": ["a809aacf-b837-45a9-a677-0942eddc5da6"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "fb4aa484-370c-4e34-b2fb-dba60e4e5443",
-      "status": "completed",
-      "assets": ["a33252bc-33fe-4fd3-8e9f-c69b878eb63f"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-04A-in": {
-    "take1": {
-      "generationId": "59f6f384-a664-441f-90cb-bcb111d3f287",
-      "status": "completed",
-      "assets": ["ec5f13ac-d881-4054-b448-879965856709"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "2a1bdc59-8df6-47ae-b2c1-f6c77d644f83",
-      "status": "completed",
-      "assets": ["90fb222d-7baa-4e87-b246-647b61b6ea81"],
-      "costUsd": null,
-      "error": null
-    },
-    "r2-take1": {
-      "generationId": "6a6f15a8-dcc4-4de8-9e8e-d2c8d997a421",
-      "status": "completed",
-      "assets": ["a530aad2-853f-4715-a922-8ebd4510ee38"],
-      "costUsd": null,
-      "error": null
-    },
-    "r2-take2": {
-      "generationId": "7f2a3115-a6ab-440a-8693-c43270a7e57f",
-      "status": "completed",
-      "assets": ["6bd420f3-e921-4d89-b523-69bf4c27058f"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-04A-out": {
-    "take1": {
-      "generationId": "c14229f3-f4f3-497b-b2ba-664709984734",
-      "status": "completed",
-      "assets": ["23a663e8-603c-418c-81c6-6b2e85d1fe32"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "001d7d26-cdda-430e-9d01-10334a3cdada",
-      "status": "completed",
-      "assets": ["30eac45f-849f-46c7-a464-8b8891a70d1d"],
-      "costUsd": null,
-      "error": null
-    },
-    "r2-take1": {
-      "generationId": "28447fce-fe83-4004-8cb4-a0f2c10691ff",
-      "status": "completed",
-      "assets": ["58e3d2a3-503f-4623-9fbd-e4fa08a872b9"],
-      "costUsd": null,
-      "error": null
-    },
-    "r2-take2": {
-      "generationId": "c7443bc6-36bc-4114-9cc6-7bb6f8aaee5d",
-      "status": "completed",
-      "assets": ["8add6be4-ef39-42b9-b48c-2932145b00cb"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-04B-in": {
-    "take1": {
-      "generationId": "88572e3a-bd02-4bef-9479-b0c6a12805d1",
-      "status": "completed",
-      "assets": ["a34ffd65-5c9d-4deb-9b7f-f370bb8e1fd1"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "d5bf91fc-73c3-4edd-ac8f-f7e00f629ff1",
-      "status": "completed",
-      "assets": ["44175d8a-800e-4f3d-b74e-4efae4b79512"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-04B-out": {
-    "take1": {
-      "generationId": "ed87a3d3-009f-489e-8bf0-f080a7250f21",
-      "status": "completed",
-      "assets": ["010fd974-23bd-408b-8bf5-600e18a9e6e6"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "7c1d76db-9927-4b8c-b1f4-edbe4d59bc05",
-      "status": "completed",
-      "assets": ["864cee83-74a8-4bff-bd3c-65151a727c1a"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-05A-in": {
-    "take1": {
-      "generationId": "e8b15194-21fa-4bf8-b1c1-9cd96f168034",
-      "status": "completed",
-      "assets": ["977366dc-a884-47fb-b938-3f43aab50856"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "a2799d94-f30d-4454-85df-337c298562ca",
-      "status": "completed",
-      "assets": ["365c12f9-3def-4b2d-a994-ba6d52807fa2"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-06B-in": {
-    "take1": {
-      "generationId": "4a2d2c22-49e8-4835-bcc9-52726672115c",
-      "status": "completed",
-      "assets": ["e333ba8f-a13d-4dc7-959c-6abb59318ff8"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "c0963724-dd08-428b-b2bd-c2ab4530bb43",
-      "status": "completed",
-      "assets": ["862c6d9f-8c2b-49d9-b4b1-5f5491885b19"],
-      "costUsd": null,
-      "error": null
-    },
-    "r2-take1": {
-      "generationId": "87bece5d-79fe-4508-89c7-acd676b5c9ba",
-      "status": "completed",
-      "assets": ["d4e6214a-727c-4ebf-86d5-d5f79379b329"],
-      "costUsd": null,
-      "error": null
-    },
-    "r2-take2": {
-      "generationId": "2a6624d7-d144-4663-8428-003db86434c6",
-      "status": "completed",
-      "assets": ["21d7e42e-b82c-465a-8879-9f6b51165e82"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-10B-out": {
-    "take1": {
-      "generationId": "ceb91851-8e6f-4114-9fa3-56af1b13e272",
-      "status": "completed",
-      "assets": ["b6e9ce3c-2f30-452d-b1be-0018ab972099"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "3d15d269-de23-4976-bac3-0ebfb7c74f67",
-      "status": "completed",
-      "assets": ["a44f7c42-3d6e-4c7d-b5c2-187dea7a78bc"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-05A-out": {
-    "take1": {
-      "generationId": "a943d19e-436d-4a98-ad2a-0017591ade7b",
-      "status": "completed",
-      "assets": ["cdaf2d71-913a-4175-b070-0461b882aaa6"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "4defb50c-e5e5-4345-b913-ee253e1bed98",
-      "status": "completed",
-      "assets": ["e106caf7-73f6-49f6-b2fa-88721c885d78"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-05C-in": {
-    "take1": {
-      "generationId": "64dca688-6d4a-4069-b476-fdf7bf35d7aa",
-      "status": "completed",
-      "assets": ["966f2961-ca78-4454-a402-8c9f11f43662"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "e216abe0-78a4-487e-bb9f-78dec2d6d21d",
-      "status": "completed",
-      "assets": ["50169b77-0291-4a35-b2a5-5ec75ad0ef4e"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-11A-out": {
-    "take1": {
-      "generationId": "db553a77-5a09-4560-b993-c9f100c37233",
-      "status": "completed",
-      "assets": ["79ce1a71-8dd9-4882-acae-6a4d6e4c27fb"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "9403944a-e8a1-4c89-87f3-6d14191863f4",
-      "status": "completed",
-      "assets": ["a26709bc-aa30-4a27-8056-23019942b9d5"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-05C-out": {
-    "take1": {
-      "generationId": "abac1c83-5ea8-4acb-95be-5862f7b415f6",
-      "status": "completed",
-      "assets": ["176188b0-1538-4bd8-b758-9822cc9e160a"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "b2e31f39-4f42-4ca5-84d1-71b3268b6841",
-      "status": "completed",
-      "assets": ["ab900084-2c34-4585-b92e-d5270d4076d4"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-06B-out": {
-    "take1": {
-      "generationId": "913c4275-89ae-43ba-a1a4-704f04c46e99",
-      "status": "completed",
-      "assets": ["53dc8682-f7ae-4389-bc3b-3c8e41b3ca44"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "35fb96c3-2df6-4df4-ac5c-44c7242ad4e1",
-      "status": "completed",
-      "assets": ["a93dc27e-6141-494a-bf66-6506de880100"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-08A-in": {
-    "take1": {
-      "generationId": "7ad94d78-6eb4-4b2d-a1ad-cdb73cb43c91",
-      "status": "completed",
-      "assets": ["030e3a12-4288-483d-8663-9370c028b4d5"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "baba359f-dfb1-412d-bade-0ed60115ec2c",
-      "status": "completed",
-      "assets": ["8275408d-4c46-48d7-9035-f478bf2d744d"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-08A-out": {
-    "take1": {
-      "generationId": "3e9a370e-2b0e-43f3-ace7-14b254e936ca",
-      "status": "completed",
-      "assets": ["f8c6a7a7-87de-4194-9326-92d0c4a5b4d7"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "0fc92f5b-e3fe-41e2-ba73-928923c9f786",
-      "status": "completed",
-      "assets": ["0e09f574-c840-48ea-85e6-fb2a35ca7ffa"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-08B-in": {
-    "take1": {
-      "generationId": "3dd0b0cc-6243-40df-8f30-a012da078a75",
-      "status": "completed",
-      "assets": ["f0ec8a13-9e6f-46ca-8e40-209fc926a524"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "c62de51e-ee03-414f-afb5-e2736217b0a9",
-      "status": "completed",
-      "assets": ["8053957a-b4d7-47fb-9c86-74be3c174393"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-08B-out": {
-    "take1": {
-      "generationId": "02dc48fa-a663-4ddc-981b-ad215bcc65a2",
-      "status": "completed",
-      "assets": ["cbcdc038-6632-4b06-a6a6-487519efcd7e"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "f6d50e85-4b75-492a-b3ef-5d4f1c98d4d8",
-      "status": "completed",
-      "assets": ["22db5704-f3b8-4fbf-a719-22145c90ffb5"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-09A-in": {
-    "take1": {
-      "generationId": "6ee2fae8-72d1-4d6e-8f48-070d9842d037",
-      "status": "completed",
-      "assets": ["9087d8cc-691b-43e3-b22c-78df91fac223"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "50ed2890-0d0a-4a67-ae3d-d5889149be59",
-      "status": "completed",
-      "assets": ["1b44d89e-f45e-4e0f-aab3-3ab4d70a2f9a"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-09A-out": {
-    "take1": {
-      "generationId": "4eddbe6e-6e27-44f6-a83f-513628a46324",
-      "status": "completed",
-      "assets": ["32d5233f-67be-42cd-b515-5ce77a829262"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "09da460f-7ca6-43a6-a058-674da65405c4",
-      "status": "completed",
-      "assets": ["6e0a5a2d-99c1-4b72-adfe-89dd9ff650f9"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-09B-in": {
-    "take1": {
-      "generationId": "f71de2ad-40b3-49e9-9aff-8b8a0524f1bf",
-      "status": "completed",
-      "assets": ["b3f36462-1d3b-4a94-904a-cdba04e54114"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "e246146a-b796-4c7a-bbb8-a679d62ceb3a",
-      "status": "completed",
-      "assets": ["812b8875-26cf-4a45-a96b-e90822e4b07e"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-09B-out": {
-    "take1": {
-      "generationId": "43c01b35-2168-4fa2-bf00-e8a5add1eb5f",
-      "status": "completed",
-      "assets": ["12d07c17-e008-44e4-8723-a63a0caa8d1d"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "20979f10-e148-40c7-bb29-ea8e3665ceb1",
-      "status": "completed",
-      "assets": ["211cc9c6-ce47-4e93-a7c0-5d330be7cfcb"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-10A-in": {
-    "take1": {
-      "generationId": "781e5976-6436-4498-8aab-cbd56a992e0a",
-      "status": "completed",
-      "assets": ["d8d800a2-7abc-43db-9c1b-13e58b2fc3e5"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "580612b9-8979-4e56-8add-a6bf0288b6f8",
-      "status": "completed",
-      "assets": ["6cd82d7f-618f-462d-bfa1-b070c3b54cb3"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-10A-out": {
-    "take1": {
-      "generationId": "bf035a6d-4f39-4595-b1a2-98ec4f1bb26b",
-      "status": "completed",
-      "assets": ["754863c5-4998-494f-8136-39c3eb0303f6"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "c7a58d0c-d1e6-4c72-a264-82649ef6e986",
-      "status": "completed",
-      "assets": ["dc8295ab-30eb-4c05-9d5f-382d480cd6bd"],
-      "costUsd": null,
-      "error": null
-    }
-  },
-  "F-10B-in": {
-    "take1": {
-      "generationId": "4bf39f38-2baa-4903-bf4e-27060e4bb4c6",
-      "status": "completed",
-      "assets": ["6363e3ca-fb0b-4e72-960a-1716b35686cf"],
-      "costUsd": null,
-      "error": null
-    },
-    "take2": {
-      "generationId": "91f7b87b-49fc-4644-882b-ea1519d99f4c",
-      "status": "completed",
-      "assets": ["ed0bf208-3364-4971-9df8-931c1a7eadb5"],
-      "costUsd": null,
-      "error": null
-    }
+  "take3": {
+   "generationId": "7c3e587f-09b1-4118-8cc6-987bd49f0dfb",
+   "status": "completed",
+   "assets": [
+    "8b519e3f-a051-4dad-b5d3-e13ca4784582"
+   ],
+   "costUsd": null,
+   "error": null
   }
+ },
+ "C-ALEX": {
+  "take1": {
+   "generationId": "6e86c01e-2eaa-4213-a097-1e1769c93174",
+   "status": "completed",
+   "assets": [
+    "41d67961-5f50-4a83-831a-51db998dd529"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "73805366-4faf-4753-859b-edd116815e9e",
+   "status": "completed",
+   "assets": [
+    "ec456afb-5fdb-40f0-af0e-8ad18cc101ed"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take3": {
+   "generationId": "1a64b2fe-369b-4e7f-b801-e616f3a0a366",
+   "status": "completed",
+   "assets": [
+    "568448b0-a69b-4df9-aa5e-78b31b3af092"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take1": {
+   "generationId": "5df34028-238b-4139-94b0-d530d5758436",
+   "status": "completed",
+   "assets": [
+    "4cee4a62-be1a-414f-bb3e-9bc1626f0b04"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take2": {
+   "generationId": "6aa771c4-aaa7-4e52-bb12-e500aeea4f91",
+   "status": "completed",
+   "assets": [
+    "bd4a2261-cbd0-4d7a-ab7c-1975679b96a8"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take3": {
+   "generationId": "ebf53e93-35cb-41e9-8058-53cb37be5367",
+   "status": "completed",
+   "assets": [
+    "797abc57-a460-45d2-9308-ffa60c7d69b5"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "C-JORDAN": {
+  "take1": {
+   "generationId": "28c3006f-26bf-4b7a-a493-3b3c8afc793f",
+   "status": "completed",
+   "assets": [
+    "67023022-de85-4f92-9e17-15c935f3c808"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "a4f06340-3f5e-4d86-8bc4-25898d464ec9",
+   "status": "completed",
+   "assets": [
+    "7af3c159-1c7a-4baa-b05f-d38f126c661a"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take3": {
+   "generationId": "0620145d-03ae-489d-bd4a-f57c67dc2b02",
+   "status": "completed",
+   "assets": [
+    "44e0b819-b963-425d-9379-2fecde915fa7"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take1": {
+   "generationId": "8a307633-5fbe-4e98-a8b6-56b83a723302",
+   "status": "completed",
+   "assets": [
+    "04e98967-0d3a-471d-af19-924a8932cbbf"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take2": {
+   "generationId": "cde66b89-f48a-4c6f-a067-049335da4d75",
+   "status": "completed",
+   "assets": [
+    "92ab797a-a921-4e81-be9f-fc2c4110e81b"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take3": {
+   "generationId": "d60e1929-84a4-4c1f-95d9-aa71755002a7",
+   "status": "completed",
+   "assets": [
+    "3b25b11e-717c-4f12-86d7-d0ed747a7da3"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "C-JAMIE": {
+  "take1": {
+   "generationId": "124a6611-8116-4ec5-ba2c-e7feb2e4e6f1",
+   "status": "completed",
+   "assets": [
+    "7ba56eb5-c351-43c9-b3a2-6f19f13416ab"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "d4a1395b-fd10-47e1-b811-ee3345f11b9e",
+   "status": "completed",
+   "assets": [
+    "7f461022-2245-4817-ac22-4217c52fcb13"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take3": {
+   "generationId": "5b18010f-9783-44d4-af52-64c184d2e3b7",
+   "status": "completed",
+   "assets": [
+    "66eb2d68-3fae-415e-aec0-a6dda116bb7f"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take1": {
+   "generationId": "052ac304-fb91-4f62-b6c1-926e7f613ef8",
+   "status": "completed",
+   "assets": [
+    "93fe4dde-aca2-4c88-a7c5-cf4d9e17850a"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take2": {
+   "generationId": "2b06e034-617a-4c71-993d-085747311814",
+   "status": "completed",
+   "assets": [
+    "ce47b730-11cc-4272-b0c4-34e5cf902ecf"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take3": {
+   "generationId": "5e0bccc0-582e-4552-998d-140105360617",
+   "status": "completed",
+   "assets": [
+    "1c00e983-b1dc-41f9-ab72-f3d4953ff30e"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "C-PRIYA": {
+  "take1": {
+   "generationId": "67e5881a-0f3d-46f5-b913-66d4e027b9ab",
+   "status": "completed",
+   "assets": [
+    "fe8c2520-a4fe-4aa5-b50b-a2e943384013"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "73135243-83b3-4d60-8ed6-e9fafe96e20c",
+   "status": "completed",
+   "assets": [
+    "35aec10e-4c1e-487f-b6d2-2509ac0e523b"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take3": {
+   "generationId": "5ca72c80-b44b-4cf8-9f47-df30520f1299",
+   "status": "completed",
+   "assets": [
+    "db09242d-9701-48b3-af0e-8a2d962ae816"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take1": {
+   "generationId": "1790171e-52f0-4f44-9bae-9bdf8f966853",
+   "status": "completed",
+   "assets": [
+    "bc354064-d69e-4b35-886d-e9d499bc5abc"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take2": {
+   "generationId": "b90875db-8770-40ec-ab25-8d63166346c5",
+   "status": "completed",
+   "assets": [
+    "3c11367e-f9f6-45c8-ae6a-e36337c930ed"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take3": {
+   "generationId": "291de13f-f375-45b8-b3c3-8889f3b2e56f",
+   "status": "completed",
+   "assets": [
+    "c263783d-d171-4e08-af39-32c41360825c"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "C-DANIEL": {
+  "take1": {
+   "generationId": "d52e6c08-f172-4359-88d7-09a17f2a27d2",
+   "status": "completed",
+   "assets": [
+    "c2edef92-262c-4721-800e-6e520d25a684"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "47ce3446-3163-412e-8831-445935a283a6",
+   "status": "completed",
+   "assets": [
+    "29e11c2b-f4eb-4e7c-9fad-897aff64a077"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take3": {
+   "generationId": "32a215bf-8446-458b-bf0b-3564d76e0eb8",
+   "status": "completed",
+   "assets": [
+    "3b7e1636-4509-432c-982f-7451b5b0804a"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take1": {
+   "generationId": "bffa7ae7-dff7-41b2-a46d-aef679d87b52",
+   "status": "completed",
+   "assets": [
+    "267baf0c-f8e8-48d3-adaf-9a8f2eaf4447"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take2": {
+   "generationId": "98d9c4d8-b8a4-47af-8c42-0072fffe48bc",
+   "status": "completed",
+   "assets": [
+    "bd0e1895-f2e4-49ff-90a2-761895b3fed5"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take3": {
+   "generationId": "e43b9723-de2d-4f09-99d0-763dfe616c88",
+   "status": "completed",
+   "assets": [
+    "bec9929b-ad5f-4d40-863d-91314b46c2c0"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "C-MIA": {
+  "take1": {
+   "generationId": "830822c1-6373-45b2-948b-b2ff2c712a8a",
+   "status": "completed",
+   "assets": [
+    "30fbc37a-e873-4d88-bc66-7553632076ad"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "34bc5755-540b-4ffc-b539-68adaebf9216",
+   "status": "completed",
+   "assets": [
+    "f53051f5-ace1-4575-aa84-c59b0ade56e6"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take3": {
+   "generationId": "775b4c86-c8ed-4742-99c3-13a65be07f8b",
+   "status": "completed",
+   "assets": [
+    "c20e623f-bd04-45b7-80e8-f242ac1d532d"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take1": {
+   "generationId": "46a3d321-72d3-4dc4-9525-a8fcbdf774d5",
+   "status": "completed",
+   "assets": [
+    "14ce8d96-2a4c-4780-be8e-fa34e0eac1ef"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take2": {
+   "generationId": "270b85d6-19af-48ef-b29d-6b6b55ca253b",
+   "status": "completed",
+   "assets": [
+    "12a1c7fa-d1cd-4d6f-8016-e79796cca7f1"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take3": {
+   "generationId": "a49c2adf-46b6-4bff-a990-599b0d62ba7d",
+   "status": "completed",
+   "assets": [
+    "40f5ce54-04ec-45f5-8e11-36f989fa26bd"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r3-take1": {
+   "generationId": "8d457c5e-6269-41d3-9f0d-0c34ca398fc0",
+   "status": "completed",
+   "assets": [
+    "ebd7b138-00be-4d84-ae20-593f9b220b96"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r3-take2": {
+   "generationId": "db78b14c-19c5-43d6-bd94-6db9d759b1d2",
+   "status": "completed",
+   "assets": [
+    "35abec9a-5987-4818-b7fb-d0aa85e502c3"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r3-take3": {
+   "generationId": "ac1943fc-00e8-4bec-a514-0eb3a5b4f571",
+   "status": "completed",
+   "assets": [
+    "e4c3bc0a-29e0-428e-a5c0-980cd8818ed2"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "D": {
+  "take1": {
+   "generationId": "f5833243-dd56-42db-ac14-24d177fc0deb",
+   "status": "completed",
+   "assets": [
+    "60d6126e-37e1-4297-91f0-aaff7b32db8c"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "2d245047-a5ab-49cf-bbc3-89e638a41ee1",
+   "status": "completed",
+   "assets": [
+    "de85c4d4-5cd5-4bed-b284-c7754ef45ef6"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "S-HOME": {
+  "take1": {
+   "generationId": "26372dcf-f290-49ac-ba50-eac12df8808c",
+   "status": "completed",
+   "assets": [
+    "e856d0ce-5ab0-4653-b8f6-ea546fe8016c"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "f897e24c-f8d2-4975-b45c-1497f389b303",
+   "status": "completed",
+   "assets": [
+    "6b30ee50-2f02-4261-bd0c-5bcc51d852ec"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "S-OFFICE": {
+  "take1": {
+   "generationId": "1d47d5ad-9c5d-4d42-95bf-c27f454af187",
+   "status": "completed",
+   "assets": [
+    "c6242096-0562-49c0-bb37-c3c21eb7283e"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "aa09da3a-1fa8-4c85-ba7d-0e3ce1ed2a41",
+   "status": "completed",
+   "assets": [
+    "81d36061-0478-4228-99b0-b266c75c2c49"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "S-SITE": {
+  "take1": {
+   "generationId": "14a9b33a-2c35-48c0-8527-f7406206327b",
+   "status": "completed",
+   "assets": [
+    "c3bb9c90-2bb8-46ca-a7fd-870f318ae023"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "b6d5de00-f635-4163-b02a-92a8aa161b28",
+   "status": "completed",
+   "assets": [
+    "caa48452-7838-4cdd-9f35-be02e17fcf86"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "CW-9": {
+  "take1": {
+   "generationId": "d271d44c-293a-468c-863c-9eda4be230a4",
+   "status": "completed",
+   "assets": [
+    "50c69254-56ca-4aff-b803-c95142fa13df"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "814f8581-f842-4d79-b5f1-4b935042f348",
+   "status": "completed",
+   "assets": [
+    "d8104e50-c18f-4e6b-b688-52c92d48df77"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take3": {
+   "generationId": "5496296a-9988-408d-9572-2fd13d504cd5",
+   "status": "completed",
+   "assets": [
+    "28d0827c-3d94-4a7c-a284-46eb5692d42d"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "CW-10": {
+  "take1": {
+   "generationId": "e1a23d7d-c347-4e83-8e6d-27edefd5c103",
+   "status": "completed",
+   "assets": [
+    "2b41f211-fe92-4618-a3d7-7ea7bf714d02"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "3db0dd34-398e-4077-a450-1307c5e30a65",
+   "status": "completed",
+   "assets": [
+    "31dba9af-ea24-41e5-930a-57dddbaa6c86"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take3": {
+   "generationId": "15bcf4d4-2be3-4898-889d-556826d15e76",
+   "status": "completed",
+   "assets": [
+    "beb020bf-d6bf-4520-9412-8ac26955b2cc"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "S-ALEX": {
+  "take1": {
+   "generationId": "151bfe24-4f25-4969-99a4-017c96189413",
+   "status": "completed",
+   "assets": [
+    "1b879f58-faec-4446-974d-46669d1d7e73"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "9e898b55-24fc-4cc9-88e4-c402d63d895d",
+   "status": "completed",
+   "assets": [
+    "671d3e21-bfb8-42f9-8de5-479fb6d3a556"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "S-MEETING": {
+  "take1": {
+   "generationId": "b1459099-c249-46a9-a339-d62a6cfc61c6",
+   "status": "completed",
+   "assets": [
+    "646f54bb-2d24-48bc-ad44-be423f6bcdc8"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "f7820f45-e9d2-46ba-bb95-5ebcf4c5da1a",
+   "status": "completed",
+   "assets": [
+    "c83bb783-9dd3-47cb-8640-eec54cc0f667"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "S-JAMIE": {
+  "take1": {
+   "generationId": "b4d972e5-bc3e-4cc0-a931-398295f340d9",
+   "status": "completed",
+   "assets": [
+    "f45a3b27-5f2b-4462-9f16-64c9690abb30"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "c1a632c5-b5fa-408c-afb1-916d35d27301",
+   "status": "completed",
+   "assets": [
+    "da8582c0-84dd-4922-87fe-1f9a35da7548"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "S-CLIENT": {
+  "take1": {
+   "generationId": "85c79ecb-d7dc-40c7-8194-be1eaca9c77a",
+   "status": "completed",
+   "assets": [
+    "1e83f814-e5f6-4a24-b3ec-8fa3b0ea36dc"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "b59f6b66-9f56-447e-a679-bd1a7729bcb0",
+   "status": "completed",
+   "assets": [
+    "fd3aeaea-801e-4ddc-9f0c-28d2f3f1870f"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "S-MIA": {
+  "take1": {
+   "generationId": "4e9e0f2b-6980-433d-b3cd-8aae8e73aa5a",
+   "status": "completed",
+   "assets": [
+    "ce9e724b-8aef-4602-893e-004c3e2ea4a5"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "b019dd2e-d5fa-4ad4-a8f0-3fd5d15532df",
+   "status": "completed",
+   "assets": [
+    "c0bb3479-306f-4db7-8afb-02f982eb1b5c"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "S-PRIYA": {
+  "take1": {
+   "generationId": "cc071555-1b3b-4c80-bcaf-5f0becda9318",
+   "status": "completed",
+   "assets": [
+    "534c1afe-aa32-4440-9867-c0998defa22c"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "8a5ea02f-bb6a-4f24-952f-35eb76d642ab",
+   "status": "completed",
+   "assets": [
+    "4d654f61-a96c-4ae4-968e-bcb779abc4d8"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "S-REVEAL": {
+  "take1": {
+   "generationId": "9defe808-1eee-4667-85e8-f9b99fe8a8e0",
+   "status": "completed",
+   "assets": [
+    "c94afb5a-ffdd-4dd3-ad7c-6e14e5f89d8a"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "487422a6-bd48-4448-b348-0a1ff31d79d2",
+   "status": "completed",
+   "assets": [
+    "ffde0e0c-e1ec-413e-99fc-6353de54f951"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-01A-in": {
+  "take1": {
+   "generationId": "1ad07c39-b7d3-4796-9cd7-2fb09d3c09b8",
+   "status": "completed",
+   "assets": [
+    "464a4a20-aa13-42bb-9660-55fbe8aab678"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "778c55e7-02f3-449e-97aa-1392b66416ed",
+   "status": "completed",
+   "assets": [
+    "a342d847-a6ec-4c65-acd5-6f7db1993e75"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-06A-in": {
+  "take1": {
+   "generationId": "f8fe79b4-257e-492c-939a-68ef4dc3a51a",
+   "status": "completed",
+   "assets": [
+    "a5b0b280-d615-403d-913d-b3a5763bb40e"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "43981c5d-d579-40db-bd8f-57ecff8e4a1c",
+   "status": "completed",
+   "assets": [
+    "5a1138be-45c3-4724-8093-e61c29b62398"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take1": {
+   "generationId": "2c448b03-96dc-4f6c-a217-62af3a756767",
+   "status": "queued"
+  },
+  "r2-take2": {
+   "generationId": "9ece5c63-4c76-42a2-b411-7c4e0de8bb25",
+   "status": "queued"
+  }
+ },
+ "F-01B-in": {
+  "take1": {
+   "generationId": "45a4fe27-545c-49ec-a3c6-9437ba088875",
+   "status": "completed",
+   "assets": [
+    "d33cfc16-b90a-40dd-9f85-4acd340685b9"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "1bc420d9-8796-4976-89bf-b7203b3ba9ee",
+   "status": "completed",
+   "assets": [
+    "39e27396-1625-4ec7-99d5-5b027b5883a9"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take1": {
+   "generationId": "6d604676-a625-41d4-94bc-7a4c1d7150b5",
+   "status": "completed",
+   "assets": [
+    "d5607004-7466-4d0b-b872-f2b954a6d6bb"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take2": {
+   "generationId": "dff7aa55-21d9-428c-87d2-3a6b8638a1fd",
+   "status": "completed",
+   "assets": [
+    "1193eb99-7fa8-4195-a1f5-3b81d4f5c411"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-01B-out": {
+  "take1": {
+   "generationId": "1a9805e0-08e0-4303-a534-d1babbc46a19",
+   "status": "completed",
+   "assets": [
+    "9d8fa770-72bd-46dd-9b29-0ec0fe87e898"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "a1ea10cd-5865-4d7e-b721-a1bb3f23c47f",
+   "status": "completed",
+   "assets": [
+    "9e6b1da2-edaf-444a-aa17-60ac23cf964b"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-02A-out": {
+  "take1": {
+   "generationId": "6b6d41ae-a8b3-405e-b6dd-c9b78f0c1420",
+   "status": "completed",
+   "assets": [
+    "b848a918-83ec-4de9-840a-2dfaac307c8d"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "a85b6c03-0563-47ab-9624-b99636b9a7eb",
+   "status": "completed",
+   "assets": [
+    "81cb5409-446a-42a0-91ef-70eda7eb839d"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-05B-in": {
+  "take1": {
+   "generationId": "5ca70677-e5b2-428f-a3c3-0b774c7bcfd9",
+   "status": "completed",
+   "assets": [
+    "4c84cb0a-a1a1-465a-a909-9acd190e4a0f"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "1f59b8ab-c906-4900-8fe0-35c2522c5f96",
+   "status": "completed",
+   "assets": [
+    "6e581185-0173-422a-9f71-590f46d44088"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-06A-out": {
+  "take1": {
+   "generationId": "8ec1333b-3f66-479f-90c1-2386c76ba9f6",
+   "status": "completed",
+   "assets": [
+    "b258a9f3-0846-4e51-bd71-071466539512"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "8f8d2fad-1125-4029-965a-023897edef53",
+   "status": "completed",
+   "assets": [
+    "80f42364-783f-4180-a8ce-54ab0ee50ac6"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-12A-in": {
+  "take1": {
+   "generationId": "d568ddd2-9208-44b3-9cb4-a19f598af445",
+   "status": "completed",
+   "assets": [
+    "60d561b7-c894-42e4-a384-b5ee772ad9d2"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "3038d6e9-68a5-4862-8458-327e66268dd0",
+   "status": "completed",
+   "assets": [
+    "870906c9-1745-451a-a759-52c5d3b2ed64"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-02A-in": {
+  "take1": {
+   "generationId": "c4082a95-625f-4e44-bb75-ae1b1dc9ebc0",
+   "status": "completed",
+   "assets": [
+    "591d5a4d-d22b-456d-9a64-700a94330000"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "7796a965-8c23-4032-840d-bfb97ff59b72",
+   "status": "completed",
+   "assets": [
+    "5a5d20cb-dcd5-46bf-84f5-90f378e3edd7"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-03A-in": {
+  "take1": {
+   "generationId": "82752f4f-b85b-4ea6-a50d-f668bebeb4f1",
+   "status": "completed",
+   "assets": [
+    "fe2e0194-6ac2-4caa-bf60-a6b5d092ca1b"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "451ccdeb-b51b-415f-9af8-d6f6bf97511c",
+   "status": "completed",
+   "assets": [
+    "033da993-297f-47e8-bfc6-7092a2e366e1"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-03C-in": {
+  "take1": {
+   "generationId": "f6b69a2f-6567-4503-9410-d7765bcf371a",
+   "status": "completed",
+   "assets": [
+    "5c3127c2-b3f7-4f5f-8260-31d9aa3b254e"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "ac435df4-ab25-4068-aa0b-ea52cc41a7a2",
+   "status": "completed",
+   "assets": [
+    "04720894-deda-4609-84bc-d41a88de3dcf"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-05B-out": {
+  "take1": {
+   "generationId": "7a246367-e3ce-4bfe-aad4-d5bc79078b8d",
+   "status": "completed",
+   "assets": [
+    "6b9131c2-7a11-4499-bbc9-7491a458ee74"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "4223b67e-ae4b-49be-bfe0-8ff8736045e2",
+   "status": "completed",
+   "assets": [
+    "dbab00e9-c99b-44be-b2ff-d3cc7fa29756"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-12A-out": {
+  "take1": {
+   "generationId": "a0c146d7-d26c-4727-aca6-be0105dc066e",
+   "status": "completed",
+   "assets": [
+    "6e82c8e9-28df-4b2d-9595-e593c45901cc"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "f1322e7d-6bf7-442a-ba34-e69a4fcf0bb9",
+   "status": "completed",
+   "assets": [
+    "08da79f4-090e-4456-8529-b9f3ba77ccfa"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-03B-in": {
+  "take1": {
+   "generationId": "c22db4dd-4d15-47be-8a34-51e8662aea77",
+   "status": "completed",
+   "assets": [
+    "e9b47e71-c271-4e9a-acc3-12d3dbc105fd"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "5dd84460-539f-48b0-9f79-cc4686e671d1",
+   "status": "completed",
+   "assets": [
+    "9a2f45be-de30-46a2-9707-3b8f098b6da6"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take1": {
+   "generationId": "04b2bc2a-c696-4b32-8c64-28f826d56242",
+   "status": "completed",
+   "assets": [
+    "7a2a125a-ef66-41b1-8d9b-3d1184890772"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take2": {
+   "generationId": "77183fdb-d405-44c4-bdf9-1e7916dc0581",
+   "status": "completed",
+   "assets": [
+    "d5bd549a-8852-4ac4-a4d4-bf9c3c879bd1"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-03C-out": {
+  "take1": {
+   "generationId": "98843a44-091d-4470-a3a6-155e76509c71",
+   "status": "completed",
+   "assets": [
+    "93774903-3fd2-4417-bffc-522632551cad"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "6e18b0e5-fdb8-48cf-b198-3ca402e97db2",
+   "status": "completed",
+   "assets": [
+    "e0edde13-808f-4391-93b1-50a4c7ee608d"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-12B-in": {
+  "take1": {
+   "generationId": "c7509ac4-0cc8-44df-a06c-064462502d10",
+   "status": "completed",
+   "assets": [
+    "e0450274-41dc-4434-806a-2cafc6c6f249"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "45f8bf6c-4726-4ac7-a2dd-e9e3351e179d",
+   "status": "completed",
+   "assets": [
+    "237f1f50-50f0-4215-b29d-c9fd203518d0"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-12B-out": {
+  "take1": {
+   "generationId": "eaff1f88-68ec-4e06-9ff2-e791b37e5c59",
+   "status": "completed",
+   "assets": [
+    "17dc6b74-3966-4fd7-85f1-37259e0a9ed9"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "8177e164-4905-49bc-8dd1-11c6c591221d",
+   "status": "completed",
+   "assets": [
+    "8debdc1e-0a56-4ada-bda6-3d4bc3bf0c42"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-13A-in": {
+  "take1": {
+   "generationId": "cb8ff7ac-5ed3-4484-b6a1-6f2ee0f92aba",
+   "status": "completed",
+   "assets": [
+    "02095c8c-4b08-45e5-afda-04f611bd5bae"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "fd850093-561a-4ff1-8031-c0335e5d6593",
+   "status": "completed",
+   "assets": [
+    "0f6ffd58-44f3-4bae-ac7c-b5494459e94e"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-13A-out": {
+  "take1": {
+   "generationId": "1c544d01-dd6b-47fe-a58d-f62b59d1f755",
+   "status": "completed",
+   "assets": [
+    "a809aacf-b837-45a9-a677-0942eddc5da6"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "fb4aa484-370c-4e34-b2fb-dba60e4e5443",
+   "status": "completed",
+   "assets": [
+    "a33252bc-33fe-4fd3-8e9f-c69b878eb63f"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-04A-in": {
+  "take1": {
+   "generationId": "59f6f384-a664-441f-90cb-bcb111d3f287",
+   "status": "completed",
+   "assets": [
+    "ec5f13ac-d881-4054-b448-879965856709"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "2a1bdc59-8df6-47ae-b2c1-f6c77d644f83",
+   "status": "completed",
+   "assets": [
+    "90fb222d-7baa-4e87-b246-647b61b6ea81"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take1": {
+   "generationId": "6a6f15a8-dcc4-4de8-9e8e-d2c8d997a421",
+   "status": "completed",
+   "assets": [
+    "a530aad2-853f-4715-a922-8ebd4510ee38"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take2": {
+   "generationId": "7f2a3115-a6ab-440a-8693-c43270a7e57f",
+   "status": "completed",
+   "assets": [
+    "6bd420f3-e921-4d89-b523-69bf4c27058f"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r3-take1": {
+   "generationId": "2b2fa819-da4b-46c9-befd-ffe43ffe0a54",
+   "status": "queued"
+  },
+  "r3-take2": {
+   "generationId": "7310b38c-ec6a-4954-b715-bc4935b35eda",
+   "status": "queued"
+  }
+ },
+ "F-04A-out": {
+  "take1": {
+   "generationId": "c14229f3-f4f3-497b-b2ba-664709984734",
+   "status": "completed",
+   "assets": [
+    "23a663e8-603c-418c-81c6-6b2e85d1fe32"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "001d7d26-cdda-430e-9d01-10334a3cdada",
+   "status": "completed",
+   "assets": [
+    "30eac45f-849f-46c7-a464-8b8891a70d1d"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take1": {
+   "generationId": "28447fce-fe83-4004-8cb4-a0f2c10691ff",
+   "status": "completed",
+   "assets": [
+    "58e3d2a3-503f-4623-9fbd-e4fa08a872b9"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take2": {
+   "generationId": "c7443bc6-36bc-4114-9cc6-7bb6f8aaee5d",
+   "status": "completed",
+   "assets": [
+    "8add6be4-ef39-42b9-b48c-2932145b00cb"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-04B-in": {
+  "take1": {
+   "generationId": "88572e3a-bd02-4bef-9479-b0c6a12805d1",
+   "status": "completed",
+   "assets": [
+    "a34ffd65-5c9d-4deb-9b7f-f370bb8e1fd1"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "d5bf91fc-73c3-4edd-ac8f-f7e00f629ff1",
+   "status": "completed",
+   "assets": [
+    "44175d8a-800e-4f3d-b74e-4efae4b79512"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take1": {
+   "generationId": "ff365df1-aaf4-4e11-b962-65ef9742244e",
+   "status": "queued"
+  },
+  "r2-take2": {
+   "generationId": "65eb53e5-9f46-407d-9f92-fcc9e09a4364",
+   "status": "queued"
+  }
+ },
+ "F-04B-out": {
+  "take1": {
+   "generationId": "ed87a3d3-009f-489e-8bf0-f080a7250f21",
+   "status": "completed",
+   "assets": [
+    "010fd974-23bd-408b-8bf5-600e18a9e6e6"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "7c1d76db-9927-4b8c-b1f4-edbe4d59bc05",
+   "status": "completed",
+   "assets": [
+    "864cee83-74a8-4bff-bd3c-65151a727c1a"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take1": {
+   "generationId": "4b6bcf8f-470b-4fb2-87a0-0eca012c0c36",
+   "status": "queued"
+  },
+  "r2-take2": {
+   "generationId": "ee749b78-120e-4ef8-9f99-8a11702b5815",
+   "status": "queued"
+  }
+ },
+ "F-05A-in": {
+  "take1": {
+   "generationId": "e8b15194-21fa-4bf8-b1c1-9cd96f168034",
+   "status": "completed",
+   "assets": [
+    "977366dc-a884-47fb-b938-3f43aab50856"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "a2799d94-f30d-4454-85df-337c298562ca",
+   "status": "completed",
+   "assets": [
+    "365c12f9-3def-4b2d-a994-ba6d52807fa2"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take1": {
+   "generationId": "b9979058-c660-4991-a256-97b080c9b4ba",
+   "status": "queued"
+  },
+  "r2-take2": {
+   "generationId": "1974d93e-3ff8-42e7-bf96-89add5d08cd2",
+   "status": "queued"
+  }
+ },
+ "F-06B-in": {
+  "take1": {
+   "generationId": "4a2d2c22-49e8-4835-bcc9-52726672115c",
+   "status": "completed",
+   "assets": [
+    "e333ba8f-a13d-4dc7-959c-6abb59318ff8"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "c0963724-dd08-428b-b2bd-c2ab4530bb43",
+   "status": "completed",
+   "assets": [
+    "862c6d9f-8c2b-49d9-b4b1-5f5491885b19"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take1": {
+   "generationId": "87bece5d-79fe-4508-89c7-acd676b5c9ba",
+   "status": "completed",
+   "assets": [
+    "d4e6214a-727c-4ebf-86d5-d5f79379b329"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take2": {
+   "generationId": "2a6624d7-d144-4663-8428-003db86434c6",
+   "status": "completed",
+   "assets": [
+    "21d7e42e-b82c-465a-8879-9f6b51165e82"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r3-take1": {
+   "generationId": "4b459cc2-d757-43cf-a7ad-e422f2fa489d",
+   "status": "queued"
+  },
+  "r3-take2": {
+   "generationId": "302b156e-8713-4b35-a11b-eda9ea00743d",
+   "status": "queued"
+  }
+ },
+ "F-10B-out": {
+  "take1": {
+   "generationId": "ceb91851-8e6f-4114-9fa3-56af1b13e272",
+   "status": "completed",
+   "assets": [
+    "b6e9ce3c-2f30-452d-b1be-0018ab972099"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "3d15d269-de23-4976-bac3-0ebfb7c74f67",
+   "status": "completed",
+   "assets": [
+    "a44f7c42-3d6e-4c7d-b5c2-187dea7a78bc"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-05A-out": {
+  "take1": {
+   "generationId": "a943d19e-436d-4a98-ad2a-0017591ade7b",
+   "status": "completed",
+   "assets": [
+    "cdaf2d71-913a-4175-b070-0461b882aaa6"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "4defb50c-e5e5-4345-b913-ee253e1bed98",
+   "status": "completed",
+   "assets": [
+    "e106caf7-73f6-49f6-b2fa-88721c885d78"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-05C-in": {
+  "take1": {
+   "generationId": "64dca688-6d4a-4069-b476-fdf7bf35d7aa",
+   "status": "completed",
+   "assets": [
+    "966f2961-ca78-4454-a402-8c9f11f43662"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "e216abe0-78a4-487e-bb9f-78dec2d6d21d",
+   "status": "completed",
+   "assets": [
+    "50169b77-0291-4a35-b2a5-5ec75ad0ef4e"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take1": {
+   "generationId": "7523f53c-c8cb-474c-b034-7fdbc64f03e3",
+   "status": "queued"
+  },
+  "r2-take2": {
+   "generationId": "8f34898f-f79c-4752-a954-b89361dd430b",
+   "status": "queued"
+  }
+ },
+ "F-11A-out": {
+  "take1": {
+   "generationId": "db553a77-5a09-4560-b993-c9f100c37233",
+   "status": "completed",
+   "assets": [
+    "79ce1a71-8dd9-4882-acae-6a4d6e4c27fb"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "9403944a-e8a1-4c89-87f3-6d14191863f4",
+   "status": "completed",
+   "assets": [
+    "a26709bc-aa30-4a27-8056-23019942b9d5"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-05C-out": {
+  "take1": {
+   "generationId": "abac1c83-5ea8-4acb-95be-5862f7b415f6",
+   "status": "completed",
+   "assets": [
+    "176188b0-1538-4bd8-b758-9822cc9e160a"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "b2e31f39-4f42-4ca5-84d1-71b3268b6841",
+   "status": "completed",
+   "assets": [
+    "ab900084-2c34-4585-b92e-d5270d4076d4"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-06B-out": {
+  "take1": {
+   "generationId": "913c4275-89ae-43ba-a1a4-704f04c46e99",
+   "status": "completed",
+   "assets": [
+    "53dc8682-f7ae-4389-bc3b-3c8e41b3ca44"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "35fb96c3-2df6-4df4-ac5c-44c7242ad4e1",
+   "status": "completed",
+   "assets": [
+    "a93dc27e-6141-494a-bf66-6506de880100"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take1": {
+   "generationId": "9edeb1c1-2674-438e-9de9-055cda47154a",
+   "status": "queued"
+  },
+  "r2-take2": {
+   "generationId": "43cf5055-eaff-4632-be45-1135739634dd",
+   "status": "queued"
+  }
+ },
+ "F-08A-in": {
+  "take1": {
+   "generationId": "7ad94d78-6eb4-4b2d-a1ad-cdb73cb43c91",
+   "status": "completed",
+   "assets": [
+    "030e3a12-4288-483d-8663-9370c028b4d5"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "baba359f-dfb1-412d-bade-0ed60115ec2c",
+   "status": "completed",
+   "assets": [
+    "8275408d-4c46-48d7-9035-f478bf2d744d"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-08A-out": {
+  "take1": {
+   "generationId": "3e9a370e-2b0e-43f3-ace7-14b254e936ca",
+   "status": "completed",
+   "assets": [
+    "f8c6a7a7-87de-4194-9326-92d0c4a5b4d7"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "0fc92f5b-e3fe-41e2-ba73-928923c9f786",
+   "status": "completed",
+   "assets": [
+    "0e09f574-c840-48ea-85e6-fb2a35ca7ffa"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-08B-in": {
+  "take1": {
+   "generationId": "3dd0b0cc-6243-40df-8f30-a012da078a75",
+   "status": "completed",
+   "assets": [
+    "f0ec8a13-9e6f-46ca-8e40-209fc926a524"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "c62de51e-ee03-414f-afb5-e2736217b0a9",
+   "status": "completed",
+   "assets": [
+    "8053957a-b4d7-47fb-9c86-74be3c174393"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-08B-out": {
+  "take1": {
+   "generationId": "02dc48fa-a663-4ddc-981b-ad215bcc65a2",
+   "status": "completed",
+   "assets": [
+    "cbcdc038-6632-4b06-a6a6-487519efcd7e"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "f6d50e85-4b75-492a-b3ef-5d4f1c98d4d8",
+   "status": "completed",
+   "assets": [
+    "22db5704-f3b8-4fbf-a719-22145c90ffb5"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-09A-in": {
+  "take1": {
+   "generationId": "6ee2fae8-72d1-4d6e-8f48-070d9842d037",
+   "status": "completed",
+   "assets": [
+    "9087d8cc-691b-43e3-b22c-78df91fac223"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "50ed2890-0d0a-4a67-ae3d-d5889149be59",
+   "status": "completed",
+   "assets": [
+    "1b44d89e-f45e-4e0f-aab3-3ab4d70a2f9a"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-09A-out": {
+  "take1": {
+   "generationId": "4eddbe6e-6e27-44f6-a83f-513628a46324",
+   "status": "completed",
+   "assets": [
+    "32d5233f-67be-42cd-b515-5ce77a829262"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "09da460f-7ca6-43a6-a058-674da65405c4",
+   "status": "completed",
+   "assets": [
+    "6e0a5a2d-99c1-4b72-adfe-89dd9ff650f9"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-09B-in": {
+  "take1": {
+   "generationId": "f71de2ad-40b3-49e9-9aff-8b8a0524f1bf",
+   "status": "completed",
+   "assets": [
+    "b3f36462-1d3b-4a94-904a-cdba04e54114"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "e246146a-b796-4c7a-bbb8-a679d62ceb3a",
+   "status": "completed",
+   "assets": [
+    "812b8875-26cf-4a45-a96b-e90822e4b07e"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-09B-out": {
+  "take1": {
+   "generationId": "43c01b35-2168-4fa2-bf00-e8a5add1eb5f",
+   "status": "completed",
+   "assets": [
+    "12d07c17-e008-44e4-8723-a63a0caa8d1d"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "20979f10-e148-40c7-bb29-ea8e3665ceb1",
+   "status": "completed",
+   "assets": [
+    "211cc9c6-ce47-4e93-a7c0-5d330be7cfcb"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-10A-in": {
+  "take1": {
+   "generationId": "781e5976-6436-4498-8aab-cbd56a992e0a",
+   "status": "completed",
+   "assets": [
+    "d8d800a2-7abc-43db-9c1b-13e58b2fc3e5"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "580612b9-8979-4e56-8add-a6bf0288b6f8",
+   "status": "completed",
+   "assets": [
+    "6cd82d7f-618f-462d-bfa1-b070c3b54cb3"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-10A-out": {
+  "take1": {
+   "generationId": "bf035a6d-4f39-4595-b1a2-98ec4f1bb26b",
+   "status": "completed",
+   "assets": [
+    "754863c5-4998-494f-8136-39c3eb0303f6"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "c7a58d0c-d1e6-4c72-a264-82649ef6e986",
+   "status": "completed",
+   "assets": [
+    "dc8295ab-30eb-4c05-9d5f-382d480cd6bd"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "F-10B-in": {
+  "take1": {
+   "generationId": "4bf39f38-2baa-4903-bf4e-27060e4bb4c6",
+   "status": "completed",
+   "assets": [
+    "6363e3ca-fb0b-4e72-960a-1716b35686cf"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "take2": {
+   "generationId": "91f7b87b-49fc-4644-882b-ea1519d99f4c",
+   "status": "completed",
+   "assets": [
+    "ed0bf208-3364-4971-9df8-931c1a7eadb5"
+   ],
+   "costUsd": null,
+   "error": null
+  },
+  "r2-take1": {
+   "generationId": "633cc5e8-5598-4a16-9b14-ac84db3a037e",
+   "status": "queued"
+  },
+  "r2-take2": {
+   "generationId": "5badb487-8062-41b0-a212-ddcff87ae7b9",
+   "status": "queued"
+  }
+ }
 }

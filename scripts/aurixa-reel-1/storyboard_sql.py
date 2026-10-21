@@ -6,13 +6,29 @@ python3 scripts/aurixa-reel-1/storyboard_sql.py docs/brands/aurixa-reel-1/spec.j
 python3 scripts/aurixa-reel-1/storyboard_sql.py docs/brands/aurixa-reel-1/spec.json --update <storyboard id> > update.sql
 
 --update rewrites each shot's description, prompt and spec in a storyboard already loaded, from the spec as it is now.
+With --live <file>, a JSON of the live rows' md5s ({shot: {"d": description, "p": prompt, "s": spec::text}}), it writes
+only the fields that differ.
 """
-import json, sys
+import hashlib, json, sys
 
 spec = json.load(open(sys.argv[1]))
 update = sys.argv[2] == "--update"
 user = None if update else sys.argv[2]
 board_id = sys.argv[3] if update else None
+live = json.load(open(sys.argv[sys.argv.index("--live") + 1])) if "--live" in sys.argv else None
+
+
+def jsonb_text(value):
+    """A value as Postgres prints a jsonb: object keys by length then bytes, ", " and ": " between items."""
+    if isinstance(value, dict):
+        items = sorted(value.items(), key=lambda kv: (len(kv[0].encode()), kv[0].encode()))
+        return "{" + ", ".join(f"{json.dumps(k, ensure_ascii=False)}: {jsonb_text(v)}" for k, v in items) + "}"
+    if isinstance(value, list):
+        return "[" + ", ".join(jsonb_text(v) for v in value) + "]"
+    return json.dumps(value, ensure_ascii=False)
+
+
+md5 = lambda text: hashlib.md5(text.encode()).hexdigest()
 st = {s["stage"]: s for s in spec["stages"]}
 frames = {f["key"]: f for f in st[4]["items"]}
 clips = {c["key"]: c for c in st[5]["items"]}
@@ -74,10 +90,16 @@ for i, shot in enumerate(spec["shots"], 1):
         prompt = f"Cut from the {shot['source'].split()[-2]} clip at the narration boundary."
         record = {k: v for k, v in shot.items() if k != "handoff"}
     if update:
-        shot_rows.append(
-            f"UPDATE public.shots s SET description = {q(about)}, prompt = {q(prompt)}, spec = {q(json.dumps(record, ensure_ascii=False))}::jsonb, updated_at = now() "
-            f"FROM public.scenes sc WHERE s.scene_id = sc.id AND sc.storyboard_id = '{board_id}' AND s.spec->>'shot' = '{shot['shot']}';"
-        )
+        was = (live or {}).get(shot["shot"], {})
+        sets = [f"{col} = {value}" for col, value, digest, key in (
+            ("description", q(about), md5(about), "d"), ("prompt", q(prompt), md5(prompt), "p"),
+            ("spec", f"{q(json.dumps(record, ensure_ascii=False))}::jsonb", md5(jsonb_text(record)), "s"),
+        ) if live is None or was.get(key) != digest]
+        if sets:
+            shot_rows.append(
+                f"UPDATE public.shots s SET {', '.join(sets)}, updated_at = now() "
+                f"FROM public.scenes sc WHERE s.scene_id = sc.id AND sc.storyboard_id = '{board_id}' AND s.spec->>'shot' = '{shot['shot']}';"
+            )
         continue
     cast = ", ".join(c.title() for c in shot["cast"]) or "no cast"
     name = f"{shot['shot']} · {cast}" + (f" · {shot['set']}" if shot.get("set") else "")

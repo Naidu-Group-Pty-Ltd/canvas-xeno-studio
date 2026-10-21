@@ -409,7 +409,9 @@ SHOTS = [
                                                          "behind and turned away from the camera, points to the printed floor plan (image 4) on the desk; the monitor, " + SCREEN_NAVY + "."),
          last=(["S-ALEX", "C-ALEX", "F-04A-in"], "The camera has moved forward and slightly right, right up to the open doorway of image 3: the gold door frame is now very close to the lens "
                                                  "and softly out of focus, a broad gold-edged band filling the left third of the frame from top to bottom; beyond it, in the right two-thirds "
-                                                 "and larger than in image 3, Alex's already-occupied desk: Alex, the colleague, the monitor and the plan exactly as in image 3, in sharp focus."),
+                                                 "and larger than in image 3, Alex's already-occupied desk: Alex, the colleague, the monitor and the plan exactly as in image 3, in sharp focus. "
+                                                 "The AURIXA sign of image 3 hangs on the glass left of the door frame, so from here it is hidden behind the foreground door frame: "
+                                                 "no sign, panel or lettering anywhere on the glass in this frame."),
          motion="Continue a rightward movement past the gold doorway frame into the occupied glass workspace. Alex is seated; her colleague indicates a detail on the plan; their gestures "
                 "are small and natural. Move a short distance toward the open doorway until the foreground mullion covers part of the frame. No boardroom performance.",
          handoff="04A to 04B, concealed doorway cut behind the foreground mullion."),
@@ -451,7 +453,7 @@ SHOTS = [
          last=(["C-ALEX", "S-ALEX", "F-06B-in"], "The same scene as image 3 after a very small rightward drift: Alex's hand has come to rest flat on the desk beside the pale paper document, "
                                                  "the monitor still glowing in the upper part of the frame."),
          motion="One continuous, unhurried take on one camera axis with a slow, very small rightward drift. Alex clicks once, reads, makes one short deliberate keyboard gesture, "
-                "pauses thoughtfully, clicks once more to save, then lets her hand come to rest beside the pale document. Settle on the hand and paper.",
+                "pauses thoughtfully, clicks once more to approve, then lets her hand come to rest beside the pale document. Settle on the hand and paper.",
          continuous_with="07A",
          handoff="06B to 07A, continuous-camera passage (one source take); 07A to 08A, hand-and-paper action match."),
     dict(shot="07A", block="07", cast=["ALEX"], look="aurixa", set="S-ALEX", plates=[], first=None, last=None, motion=None,
@@ -569,7 +571,7 @@ SCREEN = {
     "F-12B-out": "PL-12B-b", "F-13A-in": "PL-13A-a", "F-13A-out": "PL-13A-b",
 }
 # The sign on the glass, where it is in view.
-SIGN = {"F-04A-in": "PL-SIGN", "F-04A-out": "PL-SIGN"}
+SIGN = {"F-04A-in": "PL-SIGN"}
 # A cut that matches one screen to another across rooms: the later frame puts its screen where the earlier one's is.
 PIN = {"F-02A-in": "F-01B-out", "F-05A-in": "F-05B-in", "F-05C-in": "F-06A-in", "F-06B-in": "F-06A-out",
        "F-12B-in": "F-12A-out", "F-13A-in": "F-12B-out"}
@@ -579,10 +581,29 @@ PIN_LABEL = ("the frame across the matched cut, for the screen only: put the scr
 SWAP_OUT = {"05A", "05B", "05C", "09B", "11A", "12B"}
 SWAP_BODY = ("The same frame as image 1, unchanged in every detail: the same people, pose, hands, camera position, framing, focus, light and room. "
              "Only what the screen shows has changed.")
+# A frame whose screen plate changed after the frame was approved: its approved take goes in as image 1 and only the
+# screen changes. The take (by name) and the revision its new takes are named for.
+SCREEN_SWAP = {
+    "F-04A-in": ("r2-take1", 3), "F-04B-in": ("take2", 2), "F-04B-out": ("take2", 2), "F-05A-in": ("take2", 2),
+    "F-05C-in": ("take2", 2), "F-06A-in": ("take2", 2), "F-06B-in": ("r2-take2", 3), "F-06B-out": ("take1", 2),
+    "F-10B-in": ("take2", 2), "F-10B-out": ("take1", 2),
+}
+
+
+def swap_prompt(base, plate_n, sign=False):
+    """Image 1 reproduced exactly with only its screen changed (a screen swap, or a click's after-state)."""
+    return ("Image 1 is " + base + "; reproduce it exactly, unchanged in every detail: the same people, faces, expressions, hair, clothes, "
+            "pose and hands; the same camera position, framing, lens, focus and depth of field; the same light, colours, room, furniture "
+            "and reflections. Change only what the screen shows: " + screen_shows(plate_n) + ", replacing the screen's earlier content "
+            "completely, inside the same bezel at the same position, size and angle." + (" The sign on the glass stays exactly as it is in image 1." if sign else "")
+            + " Photorealistic cinematic film still, vertical 9:16, at image 1's exact framing. Apart from image " + str(plate_n)
+            + " on the screen" + (" and the sign" if sign else "") + ", no other text, letters, numbers, logos, watermarks or interface anywhere in the image.")
 
 
 # A frame whose prompt changed after takes were made: studio.py names its new takes r2-take1 and so on.
-FRAME_REVISION = {"F-01B-in": 2, "F-03B-in": 2, "F-04A-in": 2, "F-04A-out": 2, "F-06B-in": 2}
+FRAME_REVISION = {"F-01B-in": 2, "F-03B-in": 2, "F-04A-in": 2, "F-04A-out": 3, "F-06B-in": 2,
+                  # a click's after-state made again from its swapped first frame
+                  "F-05A-out": 2, "F-11A-out": 2}
 # An earlier frame given for one thing only: what to take from it, and that nothing else comes with it.
 FRAME_LABEL = {
     "F-04A-in": {"F-03C-out": "the approved frame 03C-out, for the vertical edge only: put the gold door frame where its warm window mullion is "
@@ -590,8 +611,21 @@ FRAME_LABEL = {
 }
 
 
-def frame(key, shot, refs, body, look):
-    """A frame's inputs and prompt: its references, then any pin, sign and screen plate, numbered in that order."""
+def frame(key, shot, refs, body, look, after=False):
+    """A frame's inputs and prompt: its references, then any pin, sign and screen plate, numbered in that order.
+    A screen swap (SCREEN_SWAP) is the approved take and the new plate; a click's after-state (after) is the first frame
+    and the plate after the click."""
+    if key in SCREEN_SWAP or after:
+        base_take, rev = SCREEN_SWAP.get(key, (None, FRAME_REVISION.get(key, 1)))
+        base = f"{key}@{base_take}" if base_take else refs[0]
+        label = f"the approved frame {key[2:]}" if base_take else f"the approved frame {refs[0][2:]}, the moment before the click"
+        sign = key in SIGN and base_take is not None
+        inputs = [base, SCREEN[key]]
+        prompt = swap_prompt(label, 2, sign).replace("; reproduce it exactly,", " (the picture to reproduce), and image 2 is the new screen plate "
+                                                     "(every word, number and shape to reproduce exactly). Reproduce image 1 exactly,", 1)
+        return {"key": key, "shot": shot, "model": "still_edit", "inputs": inputs, "screen": SCREEN[key], "swap": True,
+                **({"revision": rev} if rev > 1 else {}),
+                "parameters": {**STILL, "aspect_ratio": "9:16", "prompt": prompt}, "takes": 2}
     refs = list(refs)
     labels = dict(FRAME_LABEL.get(key, {}))
     if key in PIN:
@@ -641,12 +675,13 @@ for s in SHOTS:
     elif isinstance(s["first"], str):
         first_key = s["first"]
     last = s["last"]
-    if last is None and s["shot"] in SWAP_OUT:
+    after = last is None and s["shot"] in SWAP_OUT
+    if after:
         last = ([first_key], SWAP_BODY)
     if isinstance(last, tuple):
         refs, body = last
         last_key = f"F-{s['shot']}-out"
-        frames.append(frame(last_key, s["shot"], refs, body, s["look"]))
+        frames.append(frame(last_key, s["shot"], refs, body, s["look"], after=after))
     elif isinstance(last, str):
         last_key = last
     seconds = source_seconds(edit_seconds)
@@ -714,7 +749,7 @@ stage3 = [{"key": k, "shots": s, "kind": kind, "title": title, "text": text} for
 known = {f["key"] for f in frames} | {i["key"] for i in stage1} | set(SETS) | set(CONSOLE) | {p["key"] for p in stage3}
 for f in frames:
     for key in f["inputs"]:
-        assert key in known, (f["key"], key)
+        assert key.split("@")[0] in known, (f["key"], key)
 for c in clips:
     for key in (c["first_frame"], c["last_frame"]):
         assert key is None or key in known, (c["key"], key)

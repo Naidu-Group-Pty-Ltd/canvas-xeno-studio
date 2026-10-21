@@ -210,50 +210,50 @@ The type is Playfair Display for headings and Plus Jakarta Sans for interface te
 
 Block by block, each first frame built from the approved frame before it. Two takes of each.
 
-| Frame     | Inputs, in order                                |
-| --------- | ----------------------------------------------- |
-| F-01A-in  | P                                               |
-| F-01B-in  | P, S-HOME, PL-01B-a                             |
-| F-01B-out | C-JORDAN, S-HOME, PL-01B-b                      |
-| F-02A-in  | C-ALEX, S-OFFICE, F-01B-out, PL-02A             |
-| F-02A-out | C-ALEX, S-OFFICE, PL-02A                        |
-| F-03A-in  | F-02A-out, C-ALEX, PL-03A                       |
-| F-03B-in  | C-ALEX, S-OFFICE, F-03A-in, PL-03B              |
-| F-03C-in  | C-JORDAN, S-HOME, F-01B-out, PL-03C             |
-| F-03C-out | C-JORDAN, S-HOME, F-03C-in, PL-03C              |
-| F-04A-in  | S-ALEX, C-ALEX, F-03C-out, D, PL-SIGN, PL-04B-a |
-| F-04A-out | S-ALEX, C-ALEX, F-04A-in, PL-SIGN, PL-04B-a     |
-| F-04B-in  | C-ALEX, S-ALEX, F-04A-out, PL-04B-a             |
-| F-04B-out | C-ALEX, S-ALEX, F-04B-in, PL-04B-b              |
-| F-05A-in  | C-ALEX, F-04B-out, F-05B-in, PL-05A-a           |
-| F-05A-out | F-05A-in, PL-05A-b                              |
-| F-05B-in  | C-JAMIE, S-JAMIE, PL-05B-a                      |
-| F-05B-out | F-05B-in, PL-05B-b                              |
-| F-05C-in  | C-ALEX, F-05A-in, F-06A-in, PL-05C-a            |
-| F-05C-out | F-05C-in, PL-05C-b                              |
-| F-06A-in  | C-JORDAN, S-CLIENT, PL-06A-a                    |
-| F-06A-out | C-JORDAN, S-CLIENT, F-06A-in, PL-06A-b          |
-| F-06B-in  | C-ALEX, S-ALEX, F-04B-out, F-06A-out, PL-06B-a  |
-| F-06B-out | C-ALEX, S-ALEX, F-06B-in, PL-07A-b              |
-| F-08A-in  | C-MIA, S-MIA, F-06B-out, PL-08A-a               |
-| F-08A-out | C-MIA, S-MIA, F-08A-in, PL-08A-b                |
-| F-08B-in  | C-ALEX, C-JORDAN, S-MEETING, F-08A-out, PL-08B  |
-| F-08B-out | C-ALEX, C-JORDAN, S-MEETING, F-08B-in, PL-08B   |
-| F-09A-in  | C-PRIYA, S-PRIYA, P, F-08B-out, PL-09A          |
-| F-09A-out | C-PRIYA, S-PRIYA, F-09A-in, PL-09A              |
-| F-09B-in  | C-PRIYA, F-09A-out, PL-09B-a                    |
-| F-09B-out | F-09B-in, PL-09B-b                              |
-| F-10A-in  | S-REVEAL, C-PRIYA, F-09B-in                     |
-| F-10A-out | S-REVEAL, C-ALEX, F-10A-in                      |
-| F-10B-in  | C-ALEX, S-ALEX, F-10A-out, PL-11A-a             |
-| F-10B-out | C-ALEX, S-ALEX, F-04B-out, PL-11A-a             |
-| F-11A-out | F-10B-out, PL-11A-b                             |
-| F-12A-in  | C-DANIEL, S-SITE, D, PL-12A-a                   |
-| F-12A-out | C-DANIEL, S-SITE, D, F-12A-in, PL-12A-b         |
-| F-12B-in  | C-PRIYA, S-PRIYA, F-12A-out, PL-12B-a           |
-| F-12B-out | F-12B-in, PL-12B-b                              |
-| F-13A-in  | C-JAMIE, S-JAMIE, F-12B-out, PL-13A-a           |
-| F-13A-out | C-JAMIE, S-JAMIE, F-13A-in, PL-13A-b            |
+| Frame     | Inputs, in order                               |
+| --------- | ---------------------------------------------- |
+| F-01A-in  | P                                              |
+| F-01B-in  | P, S-HOME, PL-01B-a                            |
+| F-01B-out | C-JORDAN, S-HOME, PL-01B-b                     |
+| F-02A-in  | C-ALEX, S-OFFICE, F-01B-out, PL-02A            |
+| F-02A-out | C-ALEX, S-OFFICE, PL-02A                       |
+| F-03A-in  | F-02A-out, C-ALEX, PL-03A                      |
+| F-03B-in  | C-ALEX, S-OFFICE, F-03A-in, PL-03B             |
+| F-03C-in  | C-JORDAN, S-HOME, F-01B-out, PL-03C            |
+| F-03C-out | C-JORDAN, S-HOME, F-03C-in, PL-03C             |
+| F-04A-in  | F-04A-in@r2-take1, PL-04B-a                    |
+| F-04A-out | S-ALEX, C-ALEX, F-04A-in, PL-04B-a             |
+| F-04B-in  | F-04B-in@take2, PL-04B-a                       |
+| F-04B-out | F-04B-out@take2, PL-04B-b                      |
+| F-05A-in  | F-05A-in@take2, PL-05A-a                       |
+| F-05A-out | F-05A-in, PL-05A-b                             |
+| F-05B-in  | C-JAMIE, S-JAMIE, PL-05B-a                     |
+| F-05B-out | F-05B-in, PL-05B-b                             |
+| F-05C-in  | F-05C-in@take2, PL-05C-a                       |
+| F-05C-out | F-05C-in, PL-05C-b                             |
+| F-06A-in  | F-06A-in@take2, PL-06A-a                       |
+| F-06A-out | C-JORDAN, S-CLIENT, F-06A-in, PL-06A-b         |
+| F-06B-in  | F-06B-in@r2-take2, PL-06B-a                    |
+| F-06B-out | F-06B-out@take1, PL-07A-b                      |
+| F-08A-in  | C-MIA, S-MIA, F-06B-out, PL-08A-a              |
+| F-08A-out | C-MIA, S-MIA, F-08A-in, PL-08A-b               |
+| F-08B-in  | C-ALEX, C-JORDAN, S-MEETING, F-08A-out, PL-08B |
+| F-08B-out | C-ALEX, C-JORDAN, S-MEETING, F-08B-in, PL-08B  |
+| F-09A-in  | C-PRIYA, S-PRIYA, P, F-08B-out, PL-09A         |
+| F-09A-out | C-PRIYA, S-PRIYA, F-09A-in, PL-09A             |
+| F-09B-in  | C-PRIYA, F-09A-out, PL-09B-a                   |
+| F-09B-out | F-09B-in, PL-09B-b                             |
+| F-10A-in  | S-REVEAL, C-PRIYA, F-09B-in                    |
+| F-10A-out | S-REVEAL, C-ALEX, F-10A-in                     |
+| F-10B-in  | F-10B-in@take2, PL-11A-a                       |
+| F-10B-out | F-10B-out@take1, PL-11A-a                      |
+| F-11A-out | F-10B-out, PL-11A-b                            |
+| F-12A-in  | C-DANIEL, S-SITE, D, PL-12A-a                  |
+| F-12A-out | C-DANIEL, S-SITE, D, F-12A-in, PL-12A-b        |
+| F-12B-in  | C-PRIYA, S-PRIYA, F-12A-out, PL-12B-a          |
+| F-12B-out | F-12B-in, PL-12B-b                             |
+| F-13A-in  | C-JAMIE, S-JAMIE, F-12B-out, PL-13A-a          |
+| F-13A-out | C-JAMIE, S-JAMIE, F-13A-in, PL-13A-b           |
 
 ## Stage 5: clips
 
