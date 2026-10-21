@@ -118,7 +118,7 @@ Used by: Solicitor. Trousers and shoes are additions so the full-length view agr
 
 Used by: Builder and developer representative. Trousers and shoes are additions so the full-length view agrees; the pack locks the upper half.
 
-> Photographic character reference sheet of one fictional person for a premium Australian property-services film. Seamless warm mid-grey studio backdrop, soft even key light with gentle fill, natural skin texture and true-to-life colour. Four views side by side, left to right: full-length standing front view; waist-up three-quarter view; head-and-shoulders profile; a close-up of both hands resting on a desk. The same face, hair, build and wardrobe in every view. Calm, competent, relaxed expression, not posing; visible eyes; believable fingers. No jewellery or watch. No text, labels, logos or watermarks. The person: a man in his mid-to-late 20s with short greying hair, wearing a navy polo shirt, with grey work trousers and work boots.
+> Photographic character reference sheet of one fictional person for a premium Australian property-services film. Seamless warm mid-grey studio backdrop, soft even key light with gentle fill, natural skin texture and true-to-life colour. Four views side by side, left to right: full-length standing front view; waist-up three-quarter view; head-and-shoulders profile; a close-up of both hands resting on a desk. The same face, hair, build and wardrobe in every view. Calm, competent, relaxed expression, not posing; visible eyes; believable fingers. No jewellery or watch. No text, labels, logos or watermarks. The person: a man in his mid-to-late 20s with short dark hair, wearing a navy polo shirt, with grey work trousers and work boots.
 
 ### C-MIA · Mia Patel: character sheet (3:2)
 

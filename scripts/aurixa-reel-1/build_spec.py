@@ -65,7 +65,7 @@ CAST = {
     "JORDAN": "Jordan Ellis, a man in his mid-to-late 20s with short curly dark hair and a light blue open-collar shirt, exactly as in his character sheet",
     "JAMIE": "Jamie Chen, a woman in her mid-to-late 20s with a straight dark bob, a teal blouse and a navy jacket, exactly as in her character sheet",
     "PRIYA": "Priya Shah, a woman in her mid-to-late 20s with tied-back dark hair, a charcoal jacket and a pale blouse, exactly as in her character sheet",
-    "DANIEL": "Daniel Reed, a man in his mid-to-late 20s with short greying hair and a navy polo shirt, exactly as in his character sheet",
+    "DANIEL": "Daniel Reed, a man in his mid-to-late 20s with short dark hair and a navy polo shirt, exactly as in his character sheet",
     "MIA": "Mia Patel, a woman in her mid-to-late 20s with dark hair, subtle thin-framed glasses and a slate-blue blouse, exactly as in her character sheet",
 }
 
@@ -116,7 +116,7 @@ PEOPLE = [
     ("C-JORDAN", "Jordan Ellis", "Prospective client", "a man in his mid-to-late 20s with short curly dark hair, wearing a light blue open-collar shirt, with dark chinos and brown leather shoes."),
     ("C-JAMIE", "Jamie Chen", "Finance professional", "a woman in her mid-to-late 20s with a straight dark bob, wearing a teal blouse and a navy jacket, with navy trousers."),
     ("C-PRIYA", "Priya Shah", "Solicitor", "a woman in her mid-to-late 20s with tied-back dark hair, wearing a charcoal jacket and a pale blouse, with charcoal trousers."),
-    ("C-DANIEL", "Daniel Reed", "Builder and developer representative", "a man in his mid-to-late 20s with short greying hair, wearing a navy polo shirt, with grey work trousers and work boots."),
+    ("C-DANIEL", "Daniel Reed", "Builder and developer representative", "a man in his mid-to-late 20s with short dark hair, wearing a navy polo shirt, with grey work trousers and work boots."),
     ("C-MIA", "Mia Patel", "Accountant", "a woman in her mid-to-late 20s with dark hair and subtle thin-framed glasses, wearing a slate-blue blouse, with dark trousers."),
 ]
 stage1 = [
