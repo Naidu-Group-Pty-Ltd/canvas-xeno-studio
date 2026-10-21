@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { scanCss, type CssSignals } from "../../src/lib/brand/scan-css";
+import { cssRules, scanCss, scanCssTokens, type CssSignals } from "../../src/lib/brand/scan-css";
 
 /** A shadcn/ui theme on Tailwind v3: bare hsl channels in custom properties. */
 const SHADCN = `
@@ -325,5 +325,84 @@ describe("whatever it's given", () => {
     const signals = scanCss(css);
     expect(Date.now() - started).toBeLessThan(5000);
     expect(signals.colours.length).toBeLessThanOrEqual(40);
+  });
+});
+
+describe("cssRules", () => {
+  test("every rule with its selector, line and declarations, nested ones joined", () => {
+    const rules = cssRules(`/* the site's devices */
+@layer components {
+  .compliance-eyebrow { color:#d7b35f; font:700 .625rem/1.5 ui-monospace,monospace; }
+  .compliance-eyebrow>span { width:2.8rem; height:1px; background:#c89b3c; }
+}
+@theme { --color-base-950: #040B16; }
+@keyframes travel { to { left: 100%; } }
+.card { &:hover { box-shadow: 0 0 14px #d7b35f; } }
+@media (max-width:389px){.compliance-eyebrow{letter-spacing:.2em}}
+`);
+    expect(rules).toEqual([
+      {
+        selector: ".compliance-eyebrow",
+        line: 3,
+        declarations: [
+          { property: "color", value: "#d7b35f", line: 3 },
+          { property: "font", value: "700 .625rem/1.5 ui-monospace,monospace", line: 3 },
+        ],
+        condition: null,
+      },
+      {
+        selector: ".compliance-eyebrow>span",
+        line: 4,
+        declarations: [
+          { property: "width", value: "2.8rem", line: 4 },
+          { property: "height", value: "1px", line: 4 },
+          { property: "background", value: "#c89b3c", line: 4 },
+        ],
+        condition: null,
+      },
+      {
+        selector: ".card:hover",
+        line: 8,
+        declarations: [{ property: "box-shadow", value: "0 0 14px #d7b35f", line: 8 }],
+        condition: null,
+      },
+      {
+        selector: ".compliance-eyebrow",
+        line: 9,
+        declarations: [{ property: "letter-spacing", value: ".2em", line: 9 }],
+        condition: "@media (max-width:389px)",
+      },
+    ]);
+    expect(cssRules("")).toEqual([]);
+  });
+});
+
+describe("scanCssTokens and conditions", () => {
+  const tokens = scanCssTokens(`:root { --glass-blur: 16px; }
+.dark { --glass-fill: hsl(220 60% 11% / 0.55); }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root, .dark { --glass-blur: 0px; --glass-fill: hsl(var(--card)); }
+}
+@media (prefers-color-scheme: dark) { :root { --ink: #fff; } }
+@media screen and (min-width: 768px) { :root { --gutter: 2rem; } }
+@layer base { :root { --gutter: 1rem; } }
+`).tokens;
+  const of = (name: string) => tokens.filter((token) => token.name === name);
+
+  test("a fallback is a variant: the theme keeps its own value, the fallback says when it holds", () => {
+    expect(of("--glass-blur").map((token) => [token.scheme, token.value])).toEqual([
+      ["default", "16px"],
+      ["scoped", "0px"],
+    ]);
+    expect(of("--glass-blur")[1]!.selector).toMatch(/^@supports not \(\(backdrop-filter/);
+    expect(of("--glass-fill").map((token) => token.scheme)).toEqual(["dark", "scoped"]);
+  });
+
+  test("a colour-scheme query is the scheme; a size query is a variant; a layer is neither", () => {
+    expect(of("--ink").map((token) => token.scheme)).toEqual(["dark"]);
+    expect(of("--gutter").map((token) => [token.scheme, token.value])).toEqual([
+      ["scoped", "2rem"],
+      ["default", "1rem"],
+    ]);
   });
 });

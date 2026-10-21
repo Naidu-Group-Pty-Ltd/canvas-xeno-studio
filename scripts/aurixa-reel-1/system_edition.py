@@ -571,10 +571,12 @@ DESIGN = {
              ["Values used and never declared", "`#D7B35F` (102 uses) and `#5EDDE8` (104 uses) in the site's CSS", "Both, as values with their source", "They are the brand as the site actually renders it"],
          ]},
         {"title": "The stylesheet the renders read",
-         "text": ("The graphics kit reads one stylesheet, `aurixa-reel.css`: a custom property for every role below, each with a "
-                  "comment naming the repository, file and token it came from. Xeno Studio's code scanner (being added now) "
-                  "writes it from the four repositories, so a change to the brand's code reaches the reel by scanning again, "
-                  "never by retyping a value. Until it runs, the stylesheet is written from this table.")},
+         "text": ("The graphics kit reads one stylesheet, `aurixa-reel.css` (beside this brief): a custom property for every "
+                  "role below, each with a comment naming the repository, file and line it is declared on. Xeno Studio's code "
+                  "scanner writes it from the four repositories (`scripts/aurixa-reel-1/reel_css.ts`), so a change to the "
+                  "brand's code reaches the reel by scanning again, never by retyping a value. Each role is read from the code "
+                  "and checked against this table: the 35 that name code all hold the value below, and the other 2 (plain "
+                  "white and the system face) name none. `aurixa-reel-tokens.png` draws every token as the code declares it.")},
     ],
     "roles": {
         "ground": ("--color-base-950", "#040B16", f"{SITE} `@theme`, under the body's three radials"),

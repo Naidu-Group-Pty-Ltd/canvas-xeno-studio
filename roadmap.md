@@ -117,7 +117,7 @@
 - [x] The content brief, extending brief 848af668 (docs/brands/aurixa-reel-1/system-edition: BRIEF.md and brief.json, written by scripts/aurixa-reel-1/system_edition.py): 29 continuous compositions on the master voiceover's clock, every beat computed from the measured speech and checked; no people and no generated video; the design system read from the four Aurixa repositories' code, every value with the file it is declared in; the supplied screenshots used as layouts only
 - [x] The brief in Xeno Studio, beside 848af668: creative brief 1ebd06fc-9e5f-5d7b-b7b6-be9a9a86bef0 (27 pages, its summary in the studio's brief shape, `analysis.extends` naming the pack), written with `system_edition.py --studio-sql`
 - [ ] The client's three decisions in the brief: the sound under the voiceover, real product footage, the opening palette
-- [ ] The graphics kit's stylesheet (`aurixa-reel.css`), written by the studio's code scanner from the four repositories
+- [x] The graphics kit's stylesheet (docs/brands/aurixa-reel-1/system-edition/aurixa-reel.css), written by the studio's code scanner from the four repositories (`scripts/aurixa-reel-1/reel_css.ts`): 58 custom properties, each with the repository, file and line it is declared on. The 35 roles that name code all hold the brief's value, and the token sheet (`aurixa-reel-tokens.png`) draws every one
 - [ ] The six pages still to build (NEW-INBOX, NEW-NOTIFICATIONS, NEW-MESSAGE-HUB, NEW-CLIENT-REPORTS, NEW-DASHBOARDS, NEW-REPORT-PAGES)
 - [ ] Style frames (one per block), then the animatic, then the renders and the edit
 - [ ] The studio records no price for metered GPT Image runs: Higgsfield's result carries none, so a run's cost and the balance countdown miss them (the Console's balance is the only record)

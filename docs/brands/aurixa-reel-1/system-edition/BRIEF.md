@@ -725,7 +725,7 @@ The site declares none of these (its panels are square, 2 px), so they come from
 
 ### The stylesheet the renders read
 
-The graphics kit reads one stylesheet, `aurixa-reel.css`: a custom property for every role below, each with a comment naming the repository, file and token it came from. Xeno Studio's code scanner (being added now) writes it from the four repositories, so a change to the brand's code reaches the reel by scanning again, never by retyping a value. Until it runs, the stylesheet is written from this table.
+The graphics kit reads one stylesheet, `aurixa-reel.css` (beside this brief): a custom property for every role below, each with a comment naming the repository, file and line it is declared on. Xeno Studio's code scanner writes it from the four repositories (`scripts/aurixa-reel-1/reel_css.ts`), so a change to the brand's code reaches the reel by scanning again, never by retyping a value. Each role is read from the code and checked against this table: the 35 that name code all hold the value below, and the other 2 (plain white and the system face) name none. `aurixa-reel-tokens.png` draws every token as the code declares it.
 
 ### Token roles the graphics are drawn in
 
