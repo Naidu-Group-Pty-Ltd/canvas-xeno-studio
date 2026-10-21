@@ -528,5 +528,21 @@
       "costUsd": null,
       "error": null
     }
+  },
+  "F-01A-in": {
+    "take1": {
+      "generationId": "1ad07c39-b7d3-4796-9cd7-2fb09d3c09b8",
+      "status": "completed",
+      "assets": ["464a4a20-aa13-42bb-9660-55fbe8aab678"],
+      "costUsd": null,
+      "error": null
+    },
+    "take2": {
+      "generationId": "778c55e7-02f3-449e-97aa-1392b66416ed",
+      "status": "completed",
+      "assets": ["a342d847-a6ec-4c65-acd5-6f7db1993e75"],
+      "costUsd": null,
+      "error": null
+    }
   }
 }

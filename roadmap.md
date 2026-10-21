@@ -83,5 +83,7 @@
 - [x] Reel 1 stage 2, the seven Aurixa-world sets from the console world: two takes each, all completed (recommended: take1 of each)
 - [x] Reel 1 set picks: S-ALEX, S-MEETING, S-JAMIE, S-CLIENT, S-MIA, S-PRIYA and S-REVEAL, take1 of each
 - [x] Reel 1: Jordan and Daniel look professional (their sheets' revision 2, six takes); Jordan r2-take3 and Daniel r2-take3 are picked
-- [ ] Reel 1 stage 4, the 36 shot frames (two takes each), in 19 waves because most frames are built from an approved earlier frame
+- [x] Reel 1 plates re-rendered with the approved P and D (the emblem a marked placeholder until its file comes)
+- [x] Reel 1 F-01A-in (the only frame with no screen): two takes, take1 picked
+- [ ] Reel 1 stage 4, the other 35 frames: decide how the plates reach the screens first. The studio's editor lays only flat, still pictures over video (position, width, opacity, fade), so it can't put a plate on an angled screen or follow one through a camera move; either the frames carry the plate content, or the plates are tracked on in another editor, or they cut in as full-frame inserts
 - [ ] The studio records no price for metered GPT Image runs: Higgsfield's result carries none, so a run's cost and the balance countdown miss them (the Console's balance is the only record)
