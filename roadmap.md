@@ -81,5 +81,7 @@
 - [x] Reel 1 console world, made in place of the pack's image(9) and image(10), which can't be found: CW-9 (wide view) and CW-10 (doorway view), three takes each on Sunburst's image edit from two Aurixa brand images cropped to their rooms and Daniel's site office (S-SITE take2, approved)
 - [x] Reel 1 picks: CW-9 take1, CW-10 take1, S-HOME take1, S-OFFICE take2, S-SITE take2; the Sydney views stay
 - [x] Reel 1 stage 2, the seven Aurixa-world sets from the console world: two takes each, all completed (recommended: take1 of each)
-- [ ] Reel 1 picks for the seven sets; then stage 4, the 36 shot frames (two takes each), in 19 waves because most frames are built from an approved earlier frame
+- [x] Reel 1 set picks: S-ALEX, S-MEETING, S-JAMIE, S-CLIENT, S-MIA, S-PRIYA and S-REVEAL, take1 of each
+- [x] Reel 1: Jordan and Daniel look professional (their sheets' revision 2, six takes); Jordan r2-take3 and Daniel r2-take3 are picked
+- [ ] Reel 1 stage 4, the 36 shot frames (two takes each), in 19 waves because most frames are built from an approved earlier frame
 - [ ] The studio records no price for metered GPT Image runs: Higgsfield's result carries none, so a run's cost and the balance countdown miss them (the Console's balance is the only record)
