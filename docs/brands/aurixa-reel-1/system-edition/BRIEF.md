@@ -34,7 +34,7 @@ Watch one property move through one connected system. 14 Wattle Grove arrives as
 
 ## The shots
 
-27 shots, each one continuous composition, in 15 blocks. Times are on the voiceover's clock.
+27 shots, each one continuous composition, in 15 blocks. Times are on the film's clock: the voiceover's, held open in its own silences (pacing.py).
 
 | Shot | In        | Out       | Seconds | Kind        | Palette | What happens                                                  | Voiceover                                                                                                                                                |
 | ---- | --------- | --------- | ------- | ----------- | ------- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -66,7 +66,7 @@ Watch one property move through one connected system. 14 Wattle Grove arrives as
 | 14.1 | 01:55.067 | 02:02.700 | 7.633   | graphic     | aurixa  | Fourteen days. Your business. Your experience. Your decision. | Fourteen days. Your business. Your experience. Your decision.                                                                                            |
 | 15.1 | 02:02.700 | 02:11.200 | 8.500   | graphic     | aurixa  | Aurixa Systems, and the trial: the last word                  | Aurixa Systems. The operating system for modern property professionals. Start your free trial today.                                                     |
 
-### Block 01 · The opportunity and the client (00:00.000 to 00:08.267)
+### Block 01 · The opportunity and the client (00:00.000 to 00:09.633)
 
 _The pack's purpose:_ Give the viewer one recognisable property and one client question. The facade becomes the screen image, then the inquiry becomes the next scene's task.
 
@@ -108,7 +108,7 @@ _The pack's purpose:_ Give the viewer one recognisable property and one client q
 - **On screen, exactly:** "From: Jordan Ellis · To: Alex Morgan" · "Can we review whether this suits my plans?" · "Send → Sent" · "Expressions of interest close Friday"
 - **Made from:** `PL-01B-a`, `PL-01B-b`, `G-WINDOW-PLAIN`, `G-POINTER`, `G-STAGE`
 
-### Block 02 · The scattered workflow (00:08.267 to 00:17.600)
+### Block 02 · The scattered workflow (00:09.633 to 00:19.900)
 
 _The pack's purpose:_ Show the practical cost of fragmented tools through repeated attention shifts while the client's answer remains unfinished.
 
@@ -133,7 +133,7 @@ _The pack's purpose:_ Show the practical cost of fragmented tools through repeat
 - **Made from:** `NEW-INBOX`, `G-WINDOW-PLAIN`, `G-POINTER`, `G-STAGE`
 - **Note:** Each window is a different tool, so each has its own look: none carries a product's brand.
 
-### Block 03 · The pressure while the client waits (00:17.600 to 00:25.867)
+### Block 03 · The pressure while the client waits (00:19.900 to 00:28.933)
 
 _The pack's purpose:_ Tie the pressure passage to relevant incoming property information, a real interruption and a waiting person. Each brief insert advances the same unresolved question.
 
@@ -157,7 +157,7 @@ _The pack's purpose:_ Tie the pressure passage to relevant incoming property inf
 - **Made from:** `NEW-NOTIFICATIONS`, `G-TICKER`, `G-PHONE`, `G-CLOCK`, `G-STAGE`
 - **Note:** The ticker's listings and figures are the listing site's own kind (new listings, guides, results), never a claim about Aurixa.
 
-### Block 04 · Aurixa arrives and the viewer enters the console (00:25.867 to 00:37.400)
+### Block 04 · Aurixa arrives and the viewer enters the console (00:28.933 to 00:44.533)
 
 _The pack's purpose:_ Bring the client inquiry into an occupied Aurixa Systems environment, then show a clear human-operated starting point in the Command Center.
 
@@ -201,7 +201,7 @@ _The pack's purpose:_ Bring the client inquiry into an occupied Aurixa Systems e
 - **Made from:** `G-PORTAL-SPOTLIGHT`, `G-SYSTEM-MAP`, `NEW-DASHBOARDS`, `PL-06A-a`, `G-STAGE`
 - **Note:** The client asked for each portal to be seen on its own and clearly (22 October 2026): the orbit is the payoff after all five, never the way they are introduced.
 
-### Block 05 · Research to financial analysis to a report (00:37.400 to 00:45.233)
+### Block 05 · Research to financial analysis to a report (00:44.533 to 00:54.300)
 
 _The pack's purpose:_ Connect the prepared research, illustrative finance comparison and client report through the exact same property image. Prioritise one useful result per insert.
 
@@ -240,7 +240,7 @@ _The pack's purpose:_ Connect the prepared research, illustrative finance compar
 - **Made from:** `PL-05C-a`, `NEW-REPORT-CHARTS`, `G-PAGE-SCROLL`, `G-RAIL`, `G-POINTER`
 - **Note:** The pages are the Financial Analysis that 05.1 prepares from the Compass (the product keeps the purchase's modelling out of the Compass and in this report), in the product's own unbranded colours (obsidian #251F18, gold #D9A520); the client asked for figures, charts and infographics rather than pages of prose (22 October 2026). Every modelled page carries the illustrative-example label.
 
-### Block 06 · Communication and the supporting agent (00:45.233 to 00:53.567)
+### Block 06 · Communication and the supporting agent (00:54.300 to 01:03.633)
 
 _The pack's purpose:_ Make the client's professional team visible, then show Aurixa Agent supporting the professional within the same record context.
 
@@ -296,7 +296,7 @@ _The pack's purpose:_ Make the client's professional team visible, then show Aur
 - **Made from:** `PL-06B-a`, `PL-06B-b`, `G-POINTER`
 - **Note:** Guardrail 7: the agent drafts and a person reviews; the card says so on screen.
 
-### Block 07 · Professional judgement remains visible (00:53.567 to 00:57.633)
+### Block 07 · Professional judgement remains visible (01:03.633 to 01:08.300)
 
 _The pack's purpose:_ Give the professional's considered edit centre stage. The system acknowledges saved work while the person retains judgement.
 
@@ -317,7 +317,7 @@ _The pack's purpose:_ Give the professional's considered edit centre stage. The 
 - **On screen, exactly:** "Make the next step: review the remaining questions together" · "Approved"
 - **Made from:** `PL-07A-a`, `PL-07A-b`, `G-POINTER`
 
-### Block 08 · Professional work and the client decision (00:57.633 to 01:07.033)
+### Block 08 · Professional work and the client decision (01:08.300 to 01:19.467)
 
 _The pack's purpose:_ Show an accountant contributing a concrete review, then reveal how prepared information supports a useful client conversation.
 
@@ -372,7 +372,7 @@ _The pack's purpose:_ Show an accountant contributing a concrete review, then re
 - **Made from:** `NEW-CLIENT-REPORTS`, `G-POINTER`
 - **Note:** Guides the decision: nothing on screen makes it.
 
-### Block 09 · The manual gap and the connected matter (01:07.033 to 01:13.367)
+### Block 09 · The manual gap and the connected matter (01:19.467 to 01:27.367)
 
 _The pack's purpose:_ Contrast duplicate checking with one selection of an organised matter and its next review task.
 
@@ -412,7 +412,7 @@ _The pack's purpose:_ Contrast duplicate checking with one selection of an organ
 - **Made from:** `G-LIGHT-SWEEP`, `PL-09B-a`, `PL-09B-b`, `G-POINTER`
 - **Note:** The client asked for a clear distinction between the generic system and Aurixa's own (22 October 2026): the sweep is it.
 
-### Block 10 · The system is here (01:13.367 to 01:19.267)
+### Block 10 · The system is here (01:27.367 to 01:36.167)
 
 _The pack's purpose:_ Expand from an active matter to the occupied professional relationship, then guide the eye into the workspace the viewer is invited to explore.
 
@@ -451,7 +451,7 @@ _The pack's purpose:_ Expand from an active matter to the occupied professional 
 - **Made from:** `G-LOGO-JUMP`, `PL-11A-a`, `G-CTA`, `G-POINTER`
 - **Note:** One shot from the logo to the press: the close-up of the button that repeated it (the second cut's 11.1) is gone, at the client's direction (22 October 2026).
 
-### Block 11 · The fourteen day invitation (01:19.267 to 01:22.933)
+### Block 11 · The fourteen day invitation (01:36.167 to 01:38.967)
 
 _The pack's purpose:_ Present the exact 14-day trial invitation as a clear human action, leading by editorial cut into a prepared demonstration workspace.
 
@@ -472,7 +472,7 @@ _The pack's purpose:_ Present the exact 14-day trial invitation as a clear human
 - **Made from:** `NEW-TRIAL-SETUP`, `G-WINDOW`
 - **Note:** Replaces the Overview the second cut showed here, which the brand's arrival (04.1) already shows (22 October 2026).
 
-### Block 12 · Explore the working partner portals (01:22.933 to 01:30.133)
+### Block 12 · Explore the working partner portals (01:38.967 to 01:49.200)
 
 _The pack's purpose:_ Give the builder/developer and solicitor one useful action each, connected by the same floor-plan document.
 
@@ -544,7 +544,7 @@ _The pack's purpose:_ Give the builder/developer and solicitor one useful action
 - **Made from:** `G-DEVICES`
 - **Note:** Replaces the system map the second cut showed here (22 October 2026).
 
-### Block 13 · The viewer can assess the experience (01:30.133 to 01:34.400)
+### Block 13 · The viewer can assess the experience (01:49.200 to 01:55.067)
 
 _The pack's purpose:_ Show a finance professional using a relevant comparison and considering its usefulness without claiming an investment outcome.
 
@@ -567,7 +567,7 @@ _The pack's purpose:_ Show a finance professional using a relevant comparison an
 - **Made from:** `PL-13A-a`, `PL-13A-b`, `G-RAIL`, `G-POINTER`
 - **Note:** The decision recorded is the broker's call, Subject to valuation: no approval or outcome is shown.
 
-### Block 14 · Four short statements and a personal decision (01:34.400 to 01:39.467)
+### Block 14 · Four short statements and a personal decision (01:55.067 to 02:02.700)
 
 _The pack's purpose:_ Let the four decision phrases land over one uninterrupted professional moment, linking the trial to the viewer's own business and judgement.
 
@@ -591,7 +591,7 @@ _The pack's purpose:_ Let the four decision phrases land over one uninterrupted 
 - **Made from:** `PL-14A-1`, `PL-14A-2`, `PL-14A-3`, `PL-14A-4`, `G-WALL`
 - **Note:** The phrases are set as the captions are, at display size: Playfair Display in the site's silver headline gradient, the key word in its gold italic (Fourteen, business, experience, decision) with the gold rule drawing under it; each key word lands on a downbeat of the breakdown (pacing.py); no captions over them.
 
-### Block 15 · The final brand and trial invitation (01:39.467 to 01:46.031)
+### Block 15 · The final brand and trial invitation (02:02.700 to 02:11.200)
 
 _The pack's purpose:_ Resolve the tangible work into a stable, memorable Aurixa Systems identity and a clearly readable trial action.
 
@@ -876,17 +876,17 @@ Not used in this edition: `PL-02A`, `PL-03A`, `PL-03B`, `PL-03C`, `PL-04B-a`, `P
 ## How it is made
 
 - **Compositions.** Each shot is one HTML composition at 1080 x 1920: the plate builders' own pages (scripts/aurixa-reel-1/portals.cjs, built from the products' code) placed in the graphics kit's window, with a timeline that sets every element's state at time t from the shot's beats in brief.json.
-- **Rendering.** Frame by frame in Chromium (Playwright): set t = frame / 30, let the page lay out, capture, and encode at 30 fps with ffmpeg (H.264, yuv420p, high quality; an overlay with transparency as ProRes 4444). Deterministic: the same brief renders the same film, and a change to one shot re-renders only that shot.
+- **Rendering.** Frame by frame in Chromium (Playwright), by scripts/aurixa-reel-1/render.cjs: each frame drawn at twice its size, eight times over a 180-degree shutter (a drawing whose state has not changed is reused), each drawing scaled with Lanczos and the eight averaged; kept as a lossless reference (FFV1) and encoded as the master (H.264 High, BT.709 4:2:0, CRF 12). Deterministic: the same brief renders the same film, and a change to one shot re-renders only that shot.
 - **Design tokens.** The kit's colours, type, radii, shadows, glass and motion come from one stylesheet written from the four Aurixa repositories' own code (see The design system, from the code), not from values picked by eye.
 - **Assembly.** scripts/aurixa-reel-1/render.cjs draws the whole reel, shot by shot from scenes/, and encodes it as one master with its soundtrack: the method the client approved on 22 October 2026 after the proof of 04.1 to 05.2. The studio's Editor is not in the picture's path.
-- **Soundtrack.** National Treasures under the whole film and the voiceover held open in its silences (pacing.py), laid out as a studio edit's audio items on the Editor's mixer channels (the voiceover on its own channel, the music and its four pieces on Music & FX, each with its gain, fades and ducking under speech) and mixed by the studio's own media worker code, with two-pass loudness normalisation (soundtrack.py).
+- **Soundtrack.** National Treasures under the whole film and the voiceover held open in its silences (pacing.py), laid out as a studio edit's audio items on the Editor's mixer channels (the voiceover on its own channel, the music's four pieces as seven items on Music & FX, each with its gain, fades and ducking under speech) and mixed by the studio's own media worker code, with two-pass loudness normalisation (soundtrack.ts).
 - **Cost.** Nothing billed by a provider but the logo's moments: one image edit for its clean plate and the video model's takes (logo-takes.json); the rest is building the kit, the pages and the compositions, then rendering.
 
 ## Review gates
 
 1. Style frames: one still per block, at its key beat, in the final look. Approve before anything moves.
 2. Animatic: the shots as timed stills on the voiceover, with the captions. Approve the timing before the final renders.
-3. First render: the full reel in the Editor as a draft, then shot by shot changes.
+3. First render: one stretch at full quality (the proof), measured against its lossless reference; then the full film, a change drawing only the frames it touches.
 
 ## Decisions for the client
 

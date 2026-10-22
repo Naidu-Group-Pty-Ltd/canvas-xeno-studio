@@ -1,7 +1,8 @@
 # Aurixa Reel 1: spec and plates
 
 These scripts build Aurixa's Reel 1 generation spec and typeset its screen plates. The spec is
-[docs/brands/aurixa-reel-1](../../docs/brands/aurixa-reel-1).
+[docs/brands/aurixa-reel-1](../../docs/brands/aurixa-reel-1). How the reel was made, step by step, and what Xeno Studio
+should take from it, is its [handover brief](../../docs/brands/aurixa-reel-1/HANDOVER.md).
 
 | File                | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

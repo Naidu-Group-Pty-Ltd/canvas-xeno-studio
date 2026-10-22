@@ -478,17 +478,17 @@ FRAME_ZONES = [
 
 PRODUCTION = [
     ("Compositions", "Each shot is one HTML composition at 1080 x 1920: the plate builders' own pages (scripts/aurixa-reel-1/portals.cjs, built from the products' code) placed in the graphics kit's window, with a timeline that sets every element's state at time t from the shot's beats in brief.json."),
-    ("Rendering", "Frame by frame in Chromium (Playwright): set t = frame / 30, let the page lay out, capture, and encode at 30 fps with ffmpeg (H.264, yuv420p, high quality; an overlay with transparency as ProRes 4444). Deterministic: the same brief renders the same film, and a change to one shot re-renders only that shot."),
+    ("Rendering", "Frame by frame in Chromium (Playwright), by scripts/aurixa-reel-1/render.cjs: each frame drawn at twice its size, eight times over a 180-degree shutter (a drawing whose state has not changed is reused), each drawing scaled with Lanczos and the eight averaged; kept as a lossless reference (FFV1) and encoded as the master (H.264 High, BT.709 4:2:0, CRF 12). Deterministic: the same brief renders the same film, and a change to one shot re-renders only that shot."),
     ("Design tokens", "The kit's colours, type, radii, shadows, glass and motion come from one stylesheet written from the four Aurixa repositories' own code (see The design system, from the code), not from values picked by eye."),
     ("Assembly", "scripts/aurixa-reel-1/render.cjs draws the whole reel, shot by shot from scenes/, and encodes it as one master with its soundtrack: the method the client approved on 22 October 2026 after the proof of 04.1 to 05.2. The studio's Editor is not in the picture's path."),
-    ("Soundtrack", "National Treasures under the whole film and the voiceover held open in its silences (pacing.py), laid out as a studio edit's audio items on the Editor's mixer channels (the voiceover on its own channel, the music and its four pieces on Music & FX, each with its gain, fades and ducking under speech) and mixed by the studio's own media worker code, with two-pass loudness normalisation (soundtrack.py)."),
+    ("Soundtrack", "National Treasures under the whole film and the voiceover held open in its silences (pacing.py), laid out as a studio edit's audio items on the Editor's mixer channels (the voiceover on its own channel, the music's four pieces as seven items on Music & FX, each with its gain, fades and ducking under speech) and mixed by the studio's own media worker code, with two-pass loudness normalisation (soundtrack.ts)."),
     ("Cost", "Nothing billed by a provider but the logo's moments: one image edit for its clean plate and the video model's takes (logo-takes.json); the rest is building the kit, the pages and the compositions, then rendering."),
 ]
 
 REVIEW_GATES = [
     "Style frames: one still per block, at its key beat, in the final look. Approve before anything moves.",
     "Animatic: the shots as timed stills on the voiceover, with the captions. Approve the timing before the final renders.",
-    "First render: the full reel in the Editor as a draft, then shot by shot changes.",
+    "First render: one stretch at full quality (the proof), measured against its lossless reference; then the full film, a change drawing only the frames it touches.",
 ]
 
 DECISIONS = [
@@ -787,7 +787,7 @@ def markdown(shots, design):
     w("")
     w("## The shots")
     w("")
-    w(f"{len(shots)} shots, each one continuous composition, in {len(BLOCKS)} blocks. Times are on the voiceover's clock.")
+    w(f"{len(shots)} shots, each one continuous composition, in {len(BLOCKS)} blocks. Times are on the film's clock: the voiceover's, held open in its own silences (pacing.py).")
     w("")
     w("| Shot | In | Out | Seconds | Kind | Palette | What happens | Voiceover |")
     w("|---|---|---|---|---|---|---|---|")
@@ -800,7 +800,8 @@ def markdown(shots, design):
         if s["block"] != current:
             current = s["block"]
             b = BLOCKS[current]
-            w(f"### Block {current} · {b['title']} ({ts(b['in'])} to {ts(b['out'])})")
+            mine = [x for x in shots if x["block"] == current]
+            w(f"### Block {current} · {b['title']} ({ts(mine[0]['in'])} to {ts(mine[-1]['out'])})")
             w("")
             w(f"*The pack's purpose:* {b['purpose']}")
             w("")
