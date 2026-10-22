@@ -5,6 +5,7 @@ import { renderSequence, SEQUENCE_LIMITS } from "./sequence.js";
 import { cameraMotion, decodeThumbnails, extractFrameByIndex, pickHandoffFrame } from "./frames.js";
 import { measureSync, prepareAudio } from "./voice.js";
 import { lipCheck, lipCheckAvailable } from "./lipcheck.js";
+import { reviewSheet } from "./review.js";
 
 /**
  * Task catalogue.
@@ -60,7 +61,8 @@ function pick(value, allowed, fallback, name) {
  * scored from its picture ("lip_check"). A render can also be a master, with
  * lossless clips and one fine encode, or a finished master passed through
  * as it is ("mastering"; see master.js), and measured against its own
- * lossless reference ("render_quality"; see quality.js).
+ * lossless reference ("render_quality"; see quality.js); and a video's frames
+ * laid out as one labelled picture ("review_sheet"; see review.js).
  */
 export const FEATURES = [
   "frame_focus",
@@ -78,6 +80,7 @@ export const FEATURES = [
   "image_overlays",
   "mastering",
   "render_quality",
+  "review_sheet",
   ...(lipCheckAvailable ? ["lip_check"] : []),
 ];
 
@@ -423,6 +426,16 @@ export const TASKS = {
     sources: { min: 1, max: 1 },
     outputs: () => 2,
     run: prepareAudio,
+  },
+
+  /**
+   * A video's frames at the times given, each labelled, as one JPEG: a
+   * render's review sheet, shot by shot (see review.js).
+   */
+  review_sheet: {
+    sources: { min: 1, max: 1 },
+    outputs: () => 1,
+    run: reviewSheet,
   },
 
   /**

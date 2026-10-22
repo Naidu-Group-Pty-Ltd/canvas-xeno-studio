@@ -264,6 +264,22 @@ unless given); `blur_pad` shows it whole on a blurred copy of itself.
 `/health` lists `features` (`frame_focus`, `frame_background`) so the app only
 offers what the deployed worker can do.
 
+## Review sheets
+
+`review_sheet` (one `video` source, one JPEG output; feature `review_sheet`)
+lays a video's frames out as one picture, to review a render shot by shot.
+`tiles` lists the frames (at most 120), each `{"time": 1.5, "label": "…",
+"note": "…"}`: the frame shown at that time (a time past the end takes the last
+frame), scaled to `tile_width` (120–640 pixels, default 270) in the video's
+shape, over a band holding its label (one line, at most 80 characters) and its
+note (up to three lines, at most 200 characters, cut at a word). `columns`
+(1–8, default 4) sets how many go across, and `title` (at most 120 characters)
+heads the sheet; one that would be taller than 30,000 pixels takes more
+columns. The text is written into a subtitle file the worker makes and draws,
+never into an FFmpeg argument, without braces or backslashes (which could act
+as markup). `metadata` has `tiles`, `columns`, `rows`, `width`, `height`,
+`tile_width` and `tile_height`.
+
 ## Voiceovers that drive lip sync
 
 A clip generated from a voiceover (Wan's "driving audio") moves its lips to

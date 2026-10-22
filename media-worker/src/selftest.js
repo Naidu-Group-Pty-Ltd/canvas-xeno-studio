@@ -563,6 +563,48 @@ await check("a caption the render dropped is flagged, and a cut a frame late is 
   if (cuts.missed !== 1 || cuts.cuts[0].found_at !== 61) throw new Error(`the cut: ${JSON.stringify(cuts)}`);
 });
 
+await check("review_sheet lays a video's frames out as one labelled picture, its text drawn from a file", async () => {
+  const work = await mkdtemp(join(dir, "sheet-"));
+  const video = join(work, "shots.mp4");
+  await ffmpeg([
+    "-f", "lavfi", "-i", "color=c=red:s=360x640:r=25:d=1", "-f", "lavfi", "-i", "color=c=blue:s=360x640:r=25:d=1",
+    "-filter_complex", "[0:v][1:v]concat=n=2:v=1[v]", "-map", "[v]", "-c:v", "libx264", "-pix_fmt", "yuv420p", video,
+  ]);
+  const result = await TASKS.review_sheet.run({
+    sources: [{ path: video, role: "video" }],
+    params: {
+      title: "Self-test · version 1",
+      columns: 3,
+      tile_width: 120,
+      tiles: [
+        { time: 0.5, label: "1 · Red {\\b1}shot{\\b0}", note: "0:00.5 · The first shot" },
+        { time: 0.96, label: "1 · last frame", note: "0:00.9" },
+        { time: 1.5, label: "2 · Blue shot", note: "0:01.5" },
+        // Past the end: the last frame.
+        { time: 9, label: "2 · last frame", note: "0:01.9" },
+      ],
+    },
+    dir: work,
+  });
+  // Tiles 120 x 214 over 72-pixel label bands, three across with 16-pixel margins and 8 between, under a
+  // 34-pixel heading; the fourth starts a second row, the rest of which is left empty.
+  const { metadata } = result;
+  if (metadata.width !== 408 || metadata.height !== 646 || metadata.columns !== 3 || metadata.rows !== 2) throw new Error(`laid out as ${JSON.stringify(metadata)}`);
+  const sheet = result.outputs[0].path;
+  const size = streamsOf(sheet)[0];
+  if (size.width !== 408 || size.height !== 646) throw new Error(`the sheet is ${size.width}x${size.height}`);
+  const sheetColour = [15, 17, 21];
+  const expected = [[255, 0, 0], [255, 0, 0], [0, 0, 255], [0, 0, 255], sheetColour, sheetColour];
+  for (const [index, colour] of expected.entries()) {
+    const at = `10:10:${16 + (index % 3) * 128 + 55}:${34 + 16 + Math.floor(index / 3) * 294 + 100}`;
+    const got = await colourAt(sheet, at);
+    if (!near(got, colour)) throw new Error(`tile ${index + 1} shows ${got}, not ${colour}`);
+  }
+  const script = await readFile(join(work, "sheet.ass"), "utf8");
+  if (!script.includes("1 · Red b1shotb0") || script.includes("{\\b1}")) throw new Error("a label's markup wasn't stripped");
+  if (!script.includes("Self-test · version 1") || !script.includes("0:00.5 · The first shot")) throw new Error("the sheet's text is missing");
+});
+
 await check("reframe_video crops around its focus point", async () => {
   const left = await TASKS.reframe_video.run({ sources: [{ path: halves }], params: { width: 180, height: 320, mode: "cover", focus_x: 0 }, dir });
   const leftColour = await colourAt(left.outputs[0].path, "40:40:70:140");
