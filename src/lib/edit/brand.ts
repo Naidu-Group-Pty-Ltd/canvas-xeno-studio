@@ -24,6 +24,7 @@ import {
 import { dnaOf, type BrandDna } from "../brand/dna";
 import type { BrandFormula } from "../brand/formulas";
 import { ownFormulasOf } from "../brand/own-formulas";
+import { productionOf, type BrandProduction } from "../brand/production";
 import {
   aspectQuotient,
   layoutTimeline,
@@ -87,6 +88,8 @@ export interface BrandKit {
   dna: BrandDna;
   /** The formulas written for this brand (see ../brand/own-formulas), first wherever it plans content. */
   ownFormulas: BrandFormula[];
+  /** The roles its graphics are drawn in and how they move, read from its code (see ../brand/production). */
+  production: BrandProduction;
 }
 
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -152,6 +155,8 @@ export function brandKitOf(row: Json): BrandKit {
     dna: dnaOf(row["dna"]),
     // And from before its own formulas (migration 0024), none.
     ownFormulas: ownFormulasOf(row["formulas"]),
+    // And from before production roles (migration 0029), none.
+    production: productionOf(row["production"]),
   };
 }
 

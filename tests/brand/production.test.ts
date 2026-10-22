@@ -42,6 +42,7 @@ import {
   type RepoScan,
 } from "../../src/lib/brand/scan-code";
 import { fontStackFamily } from "../../src/lib/brand/scan-css";
+import { brandKitOf } from "../../src/lib/edit/brand";
 
 /* ------------------------------------------------------------------ */
 /* Reel 1's own record, read back through the studio's scanner          */
@@ -607,6 +608,12 @@ describe("a stored production", () => {
     expect(isEmptyProduction(productionOf(undefined))).toBe(true);
     expect(isEmptyProduction(productionOf({}))).toBe(true);
     expect(isEmptyProduction(production)).toBe(false);
+    // A kit's row before migration 0029 has no production column; after it, its roles read back.
+    expect(isEmptyProduction(brandKitOf({ id: "k1", name: "Aurixa" }).production)).toBe(true);
+    const stored = JSON.parse(JSON.stringify(production)) as unknown;
+    expect(brandKitOf({ id: "k1", name: "Aurixa", production: stored }).production).toEqual(
+      production,
+    );
   });
 
   test("anything malformed or unsafe is dropped, the rest kept", () => {
