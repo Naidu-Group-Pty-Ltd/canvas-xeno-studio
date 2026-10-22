@@ -27,6 +27,7 @@
  * voiceover starting at 0 with no trim, its own clock); frames are of the
  * paced edit. Pure.
  */
+import { pieceOffsets, type MusicPiece } from "@/lib/edit/pieces";
 
 /** A music grid on the edit's clock: its beats, and which of them are bar lines. */
 export interface PacingGrid {
@@ -343,7 +344,9 @@ export function gridFromStructure(structure: {
 /**
  * A music item's grid on the edit's clock, the way it plays: from its trim
  * point to the end of its track, then (looping) the whole track again, each
- * pass with its own bar lines; within what the item plays of the edit.
+ * pass with its own bar lines; or, edited on its bars, piece by piece (see
+ * src/lib/edit/pieces), a beat in two pieces heard twice. Within what the
+ * item plays of the edit.
  */
 export function gridOnTimeline(
   item: {
@@ -352,6 +355,7 @@ export function gridOnTimeline(
     duration: number | null;
     sourceDuration?: number | null | undefined;
     loop: boolean;
+    pieces?: readonly MusicPiece[] | undefined;
   },
   grid: PacingGrid,
   total: number,
@@ -362,6 +366,18 @@ export function gridOnTimeline(
   const add = (offset: number, bar: boolean) => {
     if (offset >= 0 && offset <= plays + 1e-6) placed.push({ time: item.start + offset, bar });
   };
+  if (item.pieces?.length) {
+    // Pieces play in order from the item's start; its trim point and loop don't apply.
+    const offsets = pieceOffsets(item.pieces);
+    item.pieces.forEach((piece, at) => {
+      grid.beats.forEach((beat, index) => {
+        if (beat >= piece.from - 1e-9 && beat < piece.to - 1e-9)
+          add(offsets[at]! + beat - piece.from, grid.bars[index] === true);
+      });
+    });
+    placed.sort((a, b) => a.time - b.time);
+    return { beats: placed.map((entry) => entry.time), bars: placed.map((entry) => entry.bar) };
+  }
   grid.beats.forEach((beat, index) => {
     if (beat >= item.trimStart && (length === null || beat < length))
       add(beat - item.trimStart, grid.bars[index] === true);

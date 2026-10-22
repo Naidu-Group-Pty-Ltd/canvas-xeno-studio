@@ -20,6 +20,7 @@ import {
   type MusicLicense,
 } from "./catalog";
 import { PROBED_MIME, probeAudio, probeDuration, type ProbedAudio, type ReadRange } from "./probe";
+import type { BarFeatures, MusicStructure } from "./structure";
 import {
   audioExtension,
   composeMusic,
@@ -1677,14 +1678,30 @@ export async function registerUploadedTrack(input: {
   return track;
 }
 
-/** Caches the tempo and beats measured in the browser, so they're worked out once per track. */
+/** What a database without migration 0033 says when asked for a track's structure columns. */
+function isMissingColumnError(error: unknown): boolean {
+  const code = (error as { code?: unknown } | null)?.code;
+  return code === "42703" || code === "PGRST204" || isMissingTableError(error);
+}
+
+export const STRUCTURE_NEEDS_MIGRATION =
+  "Keeping a track's bars and sections needs a database update (migration 0033_music_structure). Ask an admin to apply it. Until then they are found again each time.";
+
+/**
+ * Caches the tempo and beats measured in the browser, so they're worked out
+ * once per track, and its bars and sections with them when they were found.
+ * Those go in columns of their own: before migration 0033 they aren't kept,
+ * and the beats still are.
+ */
 export async function saveTrackAnalysis(input: {
   userId: string;
   trackId: string;
   bpm: number;
   beats: number[];
   durationSeconds: number | null;
-}): Promise<void> {
+  structure?: MusicStructure | null;
+  features?: BarFeatures | null;
+}): Promise<{ structureKept: boolean; message: string | null }> {
   await requireActiveMember(input.userId);
   const beats = input.beats
     .filter((beat) => Number.isFinite(beat) && beat >= 0)
@@ -1703,6 +1720,20 @@ export async function saveTrackAnalysis(input: {
       .update({ duration_seconds: Number(input.durationSeconds.toFixed(3)) } as never)
       .eq("id", input.trackId)
       .is("duration_seconds", null);
+  if (!input.structure || !input.features) return { structureKept: false, message: null };
+  const { error: structureError } = await supabaseAdmin
+    .from("music_tracks")
+    .update({ structure: input.structure, bar_features: input.features } as never)
+    .eq("id", input.trackId);
+  if (structureError) {
+    if (isMissingColumnError(structureError))
+      return { structureKept: false, message: STRUCTURE_NEEDS_MIGRATION };
+    throw new AppError(
+      "UNKNOWN",
+      "The beats were saved, but the bars and sections couldn't be. They'll be found again next time.",
+    );
+  }
+  return { structureKept: true, message: null };
 }
 
 export async function setTrackArchived(input: {

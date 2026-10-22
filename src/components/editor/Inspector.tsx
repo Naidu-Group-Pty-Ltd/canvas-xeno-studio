@@ -90,6 +90,7 @@ import { cn } from "@/lib/utils";
 import type { PlaybackClock, Selection } from "./state";
 import { VoiceoverPanel, type VoiceoverContext } from "./VoiceoverPanel";
 import { MusicPanel, type MusicContext } from "./MusicPanel";
+import { MusicPiecesNote } from "./MusicStructureSection";
 import { VoicePauses } from "./VoicePauses";
 import { Mixer } from "./Mixer";
 import { SendToKatana } from "@/components/katana/SendToKatana";
@@ -789,6 +790,7 @@ function AudioInspector({
           Plays {formatTime(item.start)} – {formatTime(item.start + plays)}
           {item.sourceDuration ? ` · track ${item.sourceDuration.toFixed(1)}s` : ""}
         </p>
+        <MusicPiecesNote item={item} onPlayWhole={() => set({ pieces: undefined })} />
         <div className="grid grid-cols-2 gap-1.5">
           <Button
             variant="outline"

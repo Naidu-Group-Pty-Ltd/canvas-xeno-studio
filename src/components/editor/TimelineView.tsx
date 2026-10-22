@@ -41,6 +41,7 @@ import {
   type TimelineLayout,
 } from "@/lib/edit/timeline";
 import { cn } from "@/lib/utils";
+import { MusicGrid } from "./MusicGrid";
 import { useClockTime, type PlaybackClock, type Selection } from "./state";
 
 const LABEL_WIDTH = 108;
@@ -354,6 +355,13 @@ export function TimelineView(props: TimelineViewProps) {
             {...props}
             onPointerDown={startAudioDrag}
             onBackground={startScrub}
+          />
+          <MusicGrid
+            timeline={timeline}
+            layout={layout}
+            pixelsPerSecond={pps}
+            top={ROW.ruler + ROW.picture + ROW.audio}
+            height={ROW.audio}
           />
 
           <div

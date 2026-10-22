@@ -11,11 +11,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { audioUrlFor } from "@/hooks/useMusicData";
+import { useMusicStructure } from "@/hooks/useMusicStructure";
 import { useVoiceSilences } from "@/hooks/useVoiceSilences";
 import { analyzeAudioUrl } from "@/lib/music/analyze";
 import type { MusicTrackRow } from "@/lib/music/catalog";
 import { paceVoiceToMusic, type PaceChange } from "@/lib/music/pace-edit";
-import { gridFromBeats, gridOnTimeline, type PacingGrid } from "@/lib/music/pacing";
+import {
+  gridFromBeats,
+  gridFromStructure,
+  gridOnTimeline,
+  type PacingGrid,
+} from "@/lib/music/pacing";
 import { formatTime, layoutTimeline, type Timeline, type TimelineAudio } from "@/lib/edit/timeline";
 
 /**
@@ -50,6 +56,8 @@ export function PaceToMusic({
     sequenceId,
     enabled: !!voiceItem,
   });
+  // The bed's bars and sections, once found (Bars and sections, above).
+  const { data: known } = useMusicStructure(bed?.assetId ?? null);
   const [working, setWorking] = useState(false);
   const [proposal, setProposal] = useState<{
     change: PaceChange;
@@ -60,6 +68,7 @@ export function PaceToMusic({
   /** The bed's beats, as found once for its track, or found now. */
   async function beatsOf(item: TimelineAudio): Promise<{ beats: number[]; length: number | null }> {
     const length = track?.duration_seconds ? Number(track.duration_seconds) : null;
+    if (known) return { beats: known.structure.beats, length };
     if (track?.beats?.length) return { beats: track.beats, length };
     const url = await audioUrlFor(item.assetId);
     if (!url) throw new Error("The music file couldn't be opened");
@@ -82,10 +91,13 @@ export function PaceToMusic({
       const { beats, length } = await beatsOf(bed);
       const current = getTimeline();
       const item = current.audio.find((entry) => entry.id === bed.id) ?? bed;
-      // Bar lines every four beats from its first, until the music's own downbeats are known.
+      // The music's own bar lines once its bars are found; until then one every four
+      // beats from its first. Edited on its bars, it is paced to them as they play.
       const grid = gridOnTimeline(
         { ...item, sourceDuration: item.sourceDuration ?? length },
-        gridFromBeats(beats),
+        known && item.assetId === bed.assetId
+          ? gridFromStructure(known.structure)
+          : gridFromBeats(beats),
         layoutTimeline(current).total + 60,
       );
       const change = paceVoiceToMusic(current, voiceItem.id, silences.voice, grid);

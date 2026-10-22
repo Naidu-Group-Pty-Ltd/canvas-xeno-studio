@@ -9,6 +9,7 @@ import { fontFamily, fontStyle, sfntKind } from "./fonts.js";
 import { brandCaptionEvents, brandFaces, classicPanel, roughFaces } from "./caption-script.js";
 import { backdropWanted, measureCaptionBackdrops } from "./caption-backdrop.js";
 import { CAPTION_PANELS } from "./brand-captions.js";
+import { piecesChain, piecesInput, piecesInside, withPieces } from "./pieces.js";
 import { bandFilter, bandMargins, mixReport, readBand } from "./mixreport.js";
 
 /**
@@ -346,6 +347,8 @@ export function planSequence(params, sources) {
       duckLevel: num(item.duck_level, { min: 0.05, max: 1, fallback: 0.25, name: `audio ${index + 1} duck_level` }),
     });
     Object.assign(audio.at(-1), { index, pauses: planPauses(item.pauses, audio.at(-1), fps, index) });
+    // Music edited on its bars (feature music_pieces) plays its pieces in place of its trim and loop.
+    audio.push(withPieces(audio.pop(), item.pieces, `Audio ${index + 1}`));
   }
 
   const captionsRaw = p.captions && typeof p.captions === "object" ? p.captions : null;
@@ -1000,6 +1003,10 @@ export function mixArgs(plan, intermediatePaths, audioPaths, out, voiceActivity 
   for (const path of intermediatePaths) args.push("-i", path);
   for (const [index, item] of plan.audio.entries()) {
     if (item.loop) args.push("-stream_loop", "-1");
+    if (item.pieces) {
+      args.push(...piecesInput(item), "-i", audioPaths[index]);
+      continue;
+    }
     args.push("-ss", seconds(item.trimStart), "-t", seconds(item.length), "-i", audioPaths[index]);
   }
 
@@ -1018,7 +1025,7 @@ export function mixArgs(plan, intermediatePaths, audioPaths, out, voiceActivity 
     const input = plan.clips.length + index;
     const label = `t${index}`;
     const chain = [
-      `${pausedVoiceChain(lines, input, item, label)}asetpts=PTS-STARTPTS`,
+      item.pieces ? piecesChain(lines, input, item, index) : `${pausedVoiceChain(lines, input, item, label)}asetpts=PTS-STARTPTS`,
       "aresample=48000",
       "aformat=sample_fmts=fltp:channel_layouts=stereo",
       `atrim=end=${seconds(item.length)}`,
@@ -1469,6 +1476,11 @@ export async function fitAudioToSources(audio, durationOf) {
   const fitted = [];
   for (const item of audio) {
     const duration = item.loop ? null : await durationOf(item.source);
+    // A track in pieces plays them whole: each must be inside its file.
+    if (item.pieces) {
+      fitted.push(piecesInside(item, duration));
+      continue;
+    }
     const available = duration === null ? null : duration - item.trimStart + pausesWithin(item, duration);
     if (available !== null && available < 0.05) continue;
     if (available === null || available >= item.length) {

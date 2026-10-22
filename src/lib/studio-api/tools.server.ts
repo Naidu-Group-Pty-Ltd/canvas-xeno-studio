@@ -21,8 +21,10 @@ import { clipPrompt, LONG_VIDEO_LIMITS } from "../long-video/plan";
 import { addEndCard, applyBrandKit, brandKitOf, SAFE_AREAS } from "../edit/brand";
 import { CHANNELS, EMPTY_DNA, GOALS } from "../brand/dna";
 import { GITHUB_TOKEN_PATTERN } from "../brand/import-request";
-import { parseTimeline, timelineSchema } from "../edit/timeline";
+import { layoutTimeline, parseTimeline, timelineSchema } from "../edit/timeline";
 import { renderStems } from "../edit/mix-report";
+import { fitMusicToLength } from "../music/fit";
+import { readStructure } from "../music/structure";
 import { textCheckOf } from "../media/text-check";
 import { ALIGN_ANCHORS, ALIGN_DEFAULTS, ALIGN_LIMITS } from "../media/align-take";
 import { PRIVACY_NEEDS_UPDATE } from "../media/layout-only";
@@ -2404,6 +2406,155 @@ const renderEdit = tool({
 });
 
 /* ------------------------------------------------------------------ */
+/* Music on its bars                                                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A library track's bars and sections as kept on it (they are found from
+ * its audio in the Editor's Music panel), or why they can't be had.
+ */
+async function keptStructure(assetId: string) {
+  const { data, error } = await db
+    .from("music_tracks")
+    .select("*")
+    .eq("asset_id", assetId)
+    .limit(5);
+  if (error) throw new AppError("UNKNOWN", "The music library couldn't be read just now");
+  const rows = (data ?? []) as unknown as Json[];
+  if (!rows.length)
+    throw new AppError("INVALID_PARAMETERS", "That file isn't in the music library");
+  if (!rows.some((row) => "structure" in row))
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      "Keeping a track's bars and sections needs a database update (migration 0033_music_structure). Ask an admin to apply it.",
+    );
+  for (const row of rows) {
+    const known = readStructure(row["structure"], row["bar_features"]);
+    if (known) return known;
+  }
+  throw new AppError(
+    "INVALID_PARAMETERS",
+    "This track's bars haven't been found yet. Open an edit with it in the Editor and press Find bars and sections in the Music panel (they're found from the audio, in the browser), then try again.",
+  );
+}
+
+const getMusicStructure = tool({
+  name: "get_music_structure",
+  title: "Get a track's bars and sections",
+  description:
+    "A music track's tempo, how many beats a bar, where each bar starts and its sections (intro, build, drop, breakdown, reentry, outro or section, each with its loudness from 0 to 1 against the track's others), in seconds on the track's own clock, as found from its audio in the Editor's Music panel. Pass the library file's assetId; includeBeats adds every beat. fit_music plans music on these bars, and lands sections (by their index here) on times.",
+  scope: "read",
+  input: z.object({ assetId: id(), includeBeats: z.boolean().default(false) }),
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const { structure } = await keptStructure(args.assetId);
+    return {
+      bpm: structure.bpm,
+      beatsPerBar: structure.beatsPerBar,
+      bars: structure.bars,
+      sections: structure.sections.map((section, index) => ({ index, ...section })),
+      confidence: structure.confidence,
+      ...(args.includeBeats ? { beats: structure.beats } : {}),
+    };
+  },
+});
+
+const fitMusic = tool({
+  name: "fit_music",
+  title: "Fit an edit's music on its bars",
+  description:
+    "Plans an edit's music to run a length on its bars: bars played again or left out (those most like what they meet, in whole phrases, never a section's first bar), each join 20 ms ahead of a bar line under a 30 ms crossfade, with sections (by index, from get_music_structure) landed on times on the edit's timeline. It runs to the end of the edit from where the music starts unless seconds is given, and ends on the track's own ending or (ending: bar) on the bar line nearest the length. With apply (the default) the plan goes on the music item, only if the edit is still at expectedVersion, and its new version comes back; without, it only says what it would do. To play the whole track again, update_edit with the item's pieces left out.",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({
+    sequenceId: id(),
+    expectedVersion: z.number().int().min(1),
+    itemId: z
+      .string()
+      .min(1)
+      .max(64)
+      .optional()
+      .describe(
+        "The music item's id in the timeline's audio; the edit's first music item unless given",
+      ),
+    seconds: z.number().min(1).max(600).optional(),
+    ending: z.enum(["track", "bar"]).default("track"),
+    landmarks: z
+      .array(
+        z.object({
+          section: z.number().int().min(0).max(63),
+          at: z
+            .number()
+            .min(0)
+            .max(600)
+            .describe("When the section should start, in seconds on the edit's timeline"),
+        }),
+      )
+      .max(8)
+      .default([]),
+    apply: z.boolean().default(true),
+  }),
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const { data: sequence } = await db
+      .from("sequences")
+      .select("timeline,version")
+      .eq("id", args.sequenceId)
+      .maybeSingle();
+    if (!sequence) throw new AppError("INVALID_PARAMETERS", "That edit doesn't exist");
+    if (sequence.version !== args.expectedVersion)
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        "The edit changed since that version: read it again",
+      );
+    const timeline = parseTimeline(sequence.timeline);
+    if (!timeline) throw new AppError("INVALID_PARAMETERS", "The edit's timeline can't be read");
+    const item = timeline.audio.find((entry) =>
+      args.itemId ? entry.id === args.itemId : entry.role === "music",
+    );
+    if (!item || item.role !== "music")
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        args.itemId ? "That item isn't music in this edit" : "This edit has no music",
+      );
+    const known = await keptStructure(item.assetId);
+    const target = args.seconds ?? layoutTimeline(timeline).total - item.start;
+    if (!(target > 0))
+      throw new AppError("INVALID_PARAMETERS", "The music starts after the edit ends");
+    const fit = fitMusicToLength(known.structure, known.features, target, {
+      ending: args.ending,
+      landmarks: args.landmarks.map((mark) => ({
+        section: mark.section,
+        at: mark.at - item.start,
+      })),
+    });
+    if (!fit)
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        "This track can't be fitted to that length on its bars: it would take more joins than a track may have. Ask for a length nearer its own, or loop it.",
+      );
+    const plan = {
+      seconds: fit.length,
+      pieces: fit.pieces,
+      edits: fit.edits,
+      landmarks: fit.landmarks.map((mark) => ({
+        section: mark.section,
+        asked: Number((mark.asked + item.start).toFixed(6)),
+        at: Number((mark.at + item.start).toFixed(6)),
+      })),
+    };
+    if (!args.apply) return { plan };
+    const next = {
+      ...timeline,
+      audio: timeline.audio.map((entry) =>
+        entry.id === item.id ? { ...entry, pieces: fit.pieces, duration: null } : entry,
+      ),
+    };
+    return { ...(await saveEdit(args.sequenceId, args.expectedVersion, { timeline: next })), plan };
+  },
+});
+
+/* ------------------------------------------------------------------ */
 /* Rights and credits                                                  */
 /* ------------------------------------------------------------------ */
 
@@ -2505,6 +2656,7 @@ export const STUDIO_TOOLS: StudioTool[] = [
   getLongVideo,
   getEdit,
   getRender,
+  getMusicStructure,
   listBrandKits,
   getBrandKit,
   readBrandCode,
@@ -2542,6 +2694,7 @@ export const STUDIO_TOOLS: StudioTool[] = [
   createEdit,
   updateEdit,
   applyBrand,
+  fitMusic,
   renderEdit,
   getAssetRights,
   getEditCredits,

@@ -5093,6 +5093,7 @@ export type Database = {
           artist: string | null
           asset_id: string | null
           attribution: string | null
+          bar_features: Json | null
           beats: Json | null
           bpm: number | null
           campaign_id: string | null
@@ -5123,6 +5124,7 @@ export type Database = {
           source_id: string | null
           source_url: string | null
           status: string
+          structure: Json | null
           tags: string[]
           title: string
           updated_at: string
@@ -5132,6 +5134,7 @@ export type Database = {
           artist?: string | null
           asset_id?: string | null
           attribution?: string | null
+          bar_features?: Json | null
           beats?: Json | null
           bpm?: number | null
           campaign_id?: string | null
@@ -5162,6 +5165,7 @@ export type Database = {
           source_id?: string | null
           source_url?: string | null
           status?: string
+          structure?: Json | null
           tags?: string[]
           title: string
           updated_at?: string
@@ -5171,6 +5175,7 @@ export type Database = {
           artist?: string | null
           asset_id?: string | null
           attribution?: string | null
+          bar_features?: Json | null
           beats?: Json | null
           bpm?: number | null
           campaign_id?: string | null
@@ -5201,6 +5206,7 @@ export type Database = {
           source_id?: string | null
           source_url?: string | null
           status?: string
+          structure?: Json | null
           tags?: string[]
           title?: string
           updated_at?: string
@@ -7827,6 +7833,7 @@ export type Database = {
           artist: string | null
           asset_id: string | null
           attribution: string | null
+          bar_features: Json | null
           beats: Json | null
           bpm: number | null
           campaign_id: string | null
@@ -7857,6 +7864,7 @@ export type Database = {
           source_id: string | null
           source_url: string | null
           status: string
+          structure: Json | null
           tags: string[]
           title: string
           updated_at: string

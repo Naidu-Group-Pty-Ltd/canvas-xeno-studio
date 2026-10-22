@@ -73,6 +73,8 @@ function pick(value, allowed, fallback, name) {
  * silences by whole frames ("voice_pauses"), every render reports the voice's
  * margin over the music and the mix's loudness ("mix_report"), and a render
  * can hand back its voiceover, music and effects buses as files ("stems").
+ * Music edited on its bars plays its pieces in order, crossfaded at each
+ * join ("music_pieces", see ./pieces.js).
  */
 export const FEATURES = [
   "frame_focus",
@@ -95,6 +97,7 @@ export const FEATURES = [
   "voice_pauses",
   "mix_report",
   "stems",
+  "music_pieces",
   // A take put on the exact picture it must land on (align_take), and a logo's
   // lettering taken out of its art and laid back over a take (clean_plate,
   // lay_lettering).

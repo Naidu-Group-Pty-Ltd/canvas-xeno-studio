@@ -20,11 +20,10 @@ import { MusicLibrary, RenewLicence } from "@/components/music/MusicLibrary";
 import { LicenceTerms, LicenseBadge } from "@/components/music/TrackItem";
 import { useAuth } from "@/hooks/useAuth";
 import { useFileDrop } from "@/hooks/useFileDrop";
-import { audioUrlFor, useMusicTracks, useTracksForAssets } from "@/hooks/useMusicData";
+import { useMusicTracks, useTracksForAssets } from "@/hooks/useMusicData";
+import { findStructure, useMusicStructure } from "@/hooks/useMusicStructure";
 import { useStudioVoiceovers } from "@/hooks/useVoiceData";
 import { isUploadableAudio } from "@/lib/audio-upload";
-import { saveMusicAnalysis } from "@/lib/music.functions";
-import { analyzeAudioUrl } from "@/lib/music/analyze";
 import { beatTimesOnTimeline, snapCutsToBeats } from "@/lib/music/beats";
 import { creditLine, licenceTerms, type MusicTrackRow } from "@/lib/music/catalog";
 import { isMissingTableError } from "@/lib/edit/errors";
@@ -36,6 +35,7 @@ import {
   type TimelineLayout,
 } from "@/lib/edit/timeline";
 import { cn } from "@/lib/utils";
+import { MusicStructureSection } from "./MusicStructureSection";
 import type { Selection } from "./state";
 import { PaceToMusic } from "./PaceToMusic";
 
@@ -125,6 +125,9 @@ export function MusicPanel({
   );
   const bed = timeline.audio.find((item) => item.role === "music");
   const trackFor = (assetId: string) => tracks.find((track) => track.asset_id === assetId);
+  // The bed's bars and sections, once found; cuts can prefer its bar lines.
+  const { data: bedStructure } = useMusicStructure(bed?.assetId ?? null);
+  const [onBars, setOnBars] = useState(false);
   // Music can arrive after the edit has moved on (a track being made, a beat
   // being found), by when this panel may have closed (another tab, a clip
   // selected): it is applied to the edit as it is then, not as it was.
@@ -192,35 +195,27 @@ export function MusicPanel({
     setSyncing(true);
     try {
       const track = trackFor(bed.assetId);
-      let beats = track?.beats ?? null;
-      let bpm = track?.bpm ? Number(track.bpm) : null;
+      // Bars and sections, once found, put the beats on their attacks.
+      let known = bedStructure ?? null;
+      let beats = known?.structure.beats ?? track?.beats ?? null;
+      let bpm = known?.structure.bpm ?? (track?.bpm ? Number(track.bpm) : null);
       let length = track?.duration_seconds ? Number(track.duration_seconds) : null;
-      if (!beats?.length) {
-        const url = await audioUrlFor(bed.assetId);
-        if (!url) throw new Error("The music file couldn't be opened");
-        const analysis = await analyzeAudioUrl(url, length);
+      if (!beats?.length || (onBars && !known)) {
+        // Worked out once per track (with its bars and sections); the next edit reuses it.
+        const found = await findStructure({ queryClient, assetId: bed.assetId, track });
+        const analysis = found.beats;
         if (!analysis || analysis.confidence < 0.15 || analysis.beats.length < 4) {
           toast.error("This music has no steady beat to cut to.");
           return;
         }
-        beats = analysis.beats;
-        bpm = analysis.bpm;
-        length ??= analysis.duration;
-        if (track) {
-          // Worked out once per track; the next edit reuses it.
-          void saveMusicAnalysis({
-            data: {
-              trackId: track.id,
-              bpm: analysis.bpm,
-              beats: analysis.beats,
-              durationSeconds: analysis.duration,
-            },
-          })
-            .then(() => queryClient.invalidateQueries({ queryKey: ["music_tracks"] }))
-            .catch(() => undefined);
-        }
+        known = found.known;
+        beats = known?.structure.beats ?? analysis.beats;
+        bpm = known?.structure.bpm ?? analysis.bpm;
+        length ??= found.duration;
+        if (found.note) toast.message(found.note);
       }
       const beatsFound = beats;
+      const barsFound = onBars ? (known?.structure.downbeats ?? null) : null;
       const knownLength = length;
       const snap = (latestTimeline: Timeline) => {
         const found = latestTimeline.audio.find((item) => item.id === bed.id);
@@ -237,8 +232,10 @@ export function MusicPanel({
                   item.id === current.id ? current : item,
                 ),
               };
-        const times = beatTimesOnTimeline(current, beatsFound, layoutTimeline(timeline).total + 30);
-        const { timeline: snapped, moved } = snapCutsToBeats(timeline, times);
+        const total = layoutTimeline(timeline).total + 30;
+        const times = beatTimesOnTimeline(current, beatsFound, total);
+        const bars = barsFound ? beatTimesOnTimeline(current, barsFound, total) : null;
+        const { timeline: snapped, moved } = snapCutsToBeats(timeline, times, bars ? { bars } : {});
         return { base: timeline, snapped, moved };
       };
       // What to say is worked out from the edit as it is now, and the change
@@ -253,14 +250,15 @@ export function MusicPanel({
         return !result ? latestTimeline : result.moved ? result.snapped : result.base;
       });
       const { moved } = now;
+      const onTheBar = barsFound ? "the beat, on the bar lines where they could" : "the beat";
       if (!moved) {
         toast.message(
-          `The cuts already land on the beat${bpm ? ` (${Math.round(bpm)} BPM)` : ""}.`,
+          `The cuts already land on ${barsFound ? "the bar lines and beats" : "the beat"}${bpm ? ` (${Math.round(bpm)} BPM)` : ""}.`,
         );
         return;
       }
       toast.success(
-        `Moved ${moved} cut${moved === 1 ? "" : "s"} to the beat${bpm ? ` · ${Math.round(bpm)} BPM` : ""}`,
+        `Moved ${moved} cut${moved === 1 ? "" : "s"} to ${onTheBar}${bpm ? ` · ${Math.round(bpm)} BPM` : ""}`,
       );
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "The beat couldn't be found");
@@ -412,6 +410,26 @@ export function MusicPanel({
           )}
           Cut to the beat
         </Button>
+        {bed && (
+          <label className="flex items-center justify-between gap-2 text-xs">
+            Prefer bar lines
+            <Switch
+              checked={onBars}
+              onCheckedChange={setOnBars}
+              aria-label="Prefer bar lines when cutting to the beat"
+              data-testid="cut-to-bars"
+            />
+          </label>
+        )}
+        {bed && (
+          <MusicStructureSection
+            bed={bed}
+            track={trackFor(bed.assetId)}
+            layout={layout}
+            playhead={playhead}
+            onUpdate={onUpdate}
+          />
+        )}
         <PaceToMusic
           timeline={timeline}
           bed={bed}

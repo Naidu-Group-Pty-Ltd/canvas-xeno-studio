@@ -74,6 +74,12 @@ async function renderRequestFor(timeline: Timeline) {
       message:
         "This edit's titles or captions use a brand's fonts or colours, which the media service can't set until it is updated. Render again once the service has been updated.",
     });
+  if (usesMusicPieces(request.params))
+    needed.push({
+      feature: "music_pieces",
+      message:
+        "This edit's music is edited on its bars, which the media service can't play until it is updated. Play the whole track again (in the Music panel), or render again once the service has been updated.",
+    });
   const captions = (request.params["captions"] ?? null) as Record<string, unknown> | null;
   if (captions?.["style"] === "brand")
     needed.push({
@@ -121,6 +127,12 @@ async function renderRequestFor(timeline: Timeline) {
     if (!health.data?.features?.includes(feature))
       throw new AppError("INVALID_PARAMETERS", message);
   return request;
+}
+
+/** Whether a render request plays any music in pieces. */
+function usesMusicPieces(params: Record<string, unknown>): boolean {
+  const audio = params["audio"];
+  return Array.isArray(audio) && audio.some((item) => "pieces" in (item ?? {}));
 }
 
 /** Whether a render request has a title moving in a brand's motion (see ./overlay-motion). */
