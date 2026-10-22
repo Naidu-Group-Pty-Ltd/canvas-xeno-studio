@@ -215,6 +215,8 @@ function FitToLength({
   // A proposal belongs to the panel that made it: it goes when the panel does.
   useEffect(() => () => proposeFit(bed.id, null), [bed.id]);
   const target = Math.max(1, toEdit ? layout.total - bed.start : seconds);
+  // Music that starts as the edit ends (or after) has nothing to fit to.
+  const nothingToFit = toEdit && layout.total - bed.start < 2;
   const applied = musicPieces(bed);
   const choosable = structure.sections.map((section, index) => ({ section, index })).slice(1);
 
@@ -402,10 +404,16 @@ function FitToLength({
           <Plus className="size-3" /> Land a section at the playhead
         </button>
       )}
+      {nothingToFit && (
+        <p className="text-[11px] text-muted-foreground">
+          The music starts as the edit ends: move it earlier, or fit it to a length.
+        </p>
+      )}
       <Button
         variant="secondary"
         size="sm"
         className="h-7 w-full"
+        disabled={nothingToFit}
         onClick={propose}
         data-testid="propose-fit"
       >
