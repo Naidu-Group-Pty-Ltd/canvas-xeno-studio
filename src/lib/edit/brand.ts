@@ -11,7 +11,9 @@ import {
   BRAND_FONT_BUCKET,
   BRAND_FONT_PREFIX,
   FONT_FAMILY_PATTERN,
+  FONT_STYLES,
   isBrandFontFile,
+  type FontStyle,
 } from "./font-family";
 import {
   designOf,
@@ -47,7 +49,20 @@ export interface BrandFont {
   family: string;
   bucket: string;
   path: string;
+  /**
+   * The style it is drawn in, read from the file (see ./font-family): a
+   * family can have its regular, its italic and its bold. None on a font
+   * kept before styles were read, which is taken for the regular.
+   */
+  style?: FontStyle | undefined;
 }
+
+export const FONT_STYLE_LABELS: Record<FontStyle, string> = {
+  regular: "Regular",
+  italic: "Italic",
+  bold: "Bold",
+  bold_italic: "Bold italic",
+};
 
 /** The families a kit's text can be set in: Inter, then its own, each once. */
 export function fontChoices(fonts: readonly { family: string }[]): string[] {
@@ -100,10 +115,12 @@ export function brandFontsOf(value: unknown): BrandFont[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((entry) => {
     const record = (entry ?? {}) as Json;
-    const font = {
+    const style = record["style"];
+    const font: BrandFont = {
       family: text(record["family"]) ?? "",
       bucket: text(record["bucket"]) ?? "",
       path: text(record["path"]) ?? "",
+      ...((FONT_STYLES as readonly unknown[]).includes(style) ? { style: style as FontStyle } : {}),
     };
     return FONT_FAMILY_PATTERN.test(font.family) && isBrandFontFile(font) ? [font] : [];
   });
@@ -262,13 +279,29 @@ export function brandedOverlay(overlay: Overlay, kit: BrandKit): Overlay {
   };
 }
 
-/** An edit in a brand's look: its titles, calls to action and captions in the kit's fonts and colours. */
+/** A kit's font files, each family's regular before its italic and bold (as kept, otherwise). */
+function regularFirst(fonts: BrandFont[]): BrandFont[] {
+  const rank = (font: BrandFont) => FONT_STYLES.indexOf(font.style ?? "regular");
+  return fonts
+    .map((font, index) => ({ font, index }))
+    .sort((a, b) => rank(a.font) - rank(b.font) || a.index - b.index)
+    .map(({ font }) => font);
+}
+
+/**
+ * An edit in a brand's look: its titles, calls to action and captions in the
+ * kit's fonts and colours. The files of the kit's heading and body families
+ * go with it, the display face's italic too.
+ */
 export function applyBrandKit(timeline: Timeline, kit: BrandKit): Timeline {
   const families = new Set([kit.headingFont, kit.bodyFont].filter(Boolean));
   return {
     ...timeline,
     brandKitId: kit.id,
-    fonts: kit.fonts.filter((font) => families.has(font.family)).slice(0, LIMITS.fonts),
+    fonts: regularFirst(kit.fonts.filter((font) => families.has(font.family))).slice(
+      0,
+      LIMITS.fonts,
+    ),
     overlays: timeline.overlays.map((overlay) => brandedOverlay(overlay, kit)),
     captions: {
       ...timeline.captions,
@@ -448,7 +481,7 @@ function applyFontsFor(timeline: Timeline, kit: BrandKit): Timeline {
       (family): family is string => !!family && !have.has(family),
     ),
   );
-  const added = kit.fonts.filter((font) => wanted.has(font.family));
+  const added = regularFirst(kit.fonts.filter((font) => wanted.has(font.family)));
   return added.length
     ? { ...timeline, fonts: [...timeline.fonts, ...added].slice(0, LIMITS.fonts) }
     : timeline;

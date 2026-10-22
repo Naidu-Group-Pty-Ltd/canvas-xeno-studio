@@ -5,7 +5,7 @@ import { ffmpeg, probe } from "./ffmpeg.js";
 import { TaskError } from "./net.js";
 import { planeThumbnail, SEAM_EASE_SECONDS, seamCorrection, seamEaseChain } from "./seam.js";
 import { easedWarpFilter, joinHeadChain, JOIN_SOUND_SECONDS, measureJoin } from "./joins.js";
-import { fontFamily, sfntKind } from "./fonts.js";
+import { fontFamily, fontStyle, sfntKind } from "./fonts.js";
 
 /**
  * Sequence rendering: an edited timeline (ordered clips with trims, stills,
@@ -34,8 +34,8 @@ export const SEQUENCE_LIMITS = {
   overlays: 20,
   /** Pictures laid over the edit (a brand's logo). */
   images: 8,
-  /** A brand's own font files. */
-  fonts: 4,
+  /** A brand's own font files: a display face and its italic, a body face, a mono and more (feature more_fonts). */
+  fonts: 12,
   totalSeconds: 600,
   textLength: 220,
 };
@@ -1195,7 +1195,11 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
       if (!kind) throw bad(`Font ${index + 1} isn't a TrueType or OpenType font file`);
       await writeFile(join(fontsDir, `font-${index}.${kind}`), bytes);
       const named = fontFamily(bytes);
-      if (named && /^[\p{L}\p{N} ._'&+-]{1,80}$/u.test(named)) families.set(font.family, named);
+      // A family's italic (a file of its own) never renames the family its regular names.
+      const italic = fontStyle(bytes)?.italic === true;
+      if (named && /^[\p{L}\p{N} ._'&+-]{1,80}$/u.test(named) && (!families.has(font.family) || !italic)) {
+        families.set(font.family, named);
+      }
     }
   }
   const script = buildSubtitles(plan, families);

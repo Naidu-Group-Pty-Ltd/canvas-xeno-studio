@@ -8,7 +8,7 @@
  * shows is what the render produces.
  */
 import { z } from "zod";
-import { FONT_FAMILY_PATTERN, isBrandFontFile } from "./font-family";
+import { FONT_FAMILY_PATTERN, FONT_STYLES, isBrandFontFile } from "./font-family";
 
 export const ASPECT_RATIOS = [
   "9:16",
@@ -182,8 +182,12 @@ export const LIMITS = {
   overlayChars: 160,
   /** Pictures over the edit (a logo) and brand font files. */
   images: 8,
-  fonts: 4,
+  /** Enough for a display face and its italic, a body face, a mono and more (feature more_fonts). */
+  fonts: 12,
 } as const;
+
+/** The font files a media service from before "more_fonts" takes in one render. */
+export const BASIC_FONT_FILES = 4;
 
 const finite = (min: number, max: number) => z.number().finite().min(min).max(max);
 /** A colour as #rrggbb, or null for the style's own. */
@@ -307,12 +311,18 @@ export const imageOverlaySchema = z.object({
 });
 export type ImageOverlay = z.infer<typeof imageOverlaySchema>;
 
-/** A brand font file an edit's text is set in (kept where brand fonts are; see ./brand). */
+/**
+ * A brand font file an edit's text is set in (kept where brand fonts are; see
+ * ./brand). A family can have several: its regular, its italic, its bold,
+ * told apart by the style read from each file (none: a file from before
+ * styles were read, taken for the regular).
+ */
 export const fontFileSchema = z
   .object({
     family: z.string().regex(FONT_FAMILY_PATTERN),
     bucket: z.string().max(64),
     path: z.string().max(300),
+    style: z.enum(FONT_STYLES).optional(),
   })
   .refine(isBrandFontFile, "A font must be one of the brand's own font files");
 export type FontFile = z.infer<typeof fontFileSchema>;
@@ -977,17 +987,27 @@ export interface RenderSource {
   role: "video" | "image" | "audio";
 }
 
-/** The families an edit's text asks for that it carries a font file for. */
-export function usedFonts(timeline: Pick<Timeline, "fonts" | "overlays" | "captions">): FontFile[] {
+/**
+ * The font files a render carries, at most `max`: for each family the edit's
+ * text asks for that it carries a file for, the family's own file (its
+ * regular, else the first it has), in the order the edit keeps them. Text is
+ * set as its font was drawn, never made bolder, so a family's other files
+ * go only where something is set in them.
+ */
+export function usedFonts(
+  timeline: Pick<Timeline, "fonts" | "overlays" | "captions">,
+  max: number = LIMITS.fonts,
+): FontFile[] {
   const wanted = new Set<string>();
   for (const overlay of timeline.overlays) if (overlay.font) wanted.add(overlay.font);
   if (timeline.captions.enabled && timeline.captions.font) wanted.add(timeline.captions.font);
-  const seen = new Set<string>();
-  return timeline.fonts.filter((font) => {
-    if (!wanted.has(font.family) || seen.has(font.family)) return false;
-    seen.add(font.family);
-    return true;
+  const own = [...wanted].flatMap((family) => {
+    const files = timeline.fonts.filter((font) => font.family === family);
+    const main = files.find((font) => (font.style ?? "regular") === "regular") ?? files[0];
+    return main ? [main] : [];
   });
+  own.sort((a, b) => timeline.fonts.indexOf(a) - timeline.fonts.indexOf(b));
+  return own.slice(0, Math.max(0, max));
 }
 
 /**
@@ -1005,6 +1025,8 @@ export interface RenderOptions {
    * own volumes, which the service caps at 200%.
    */
   channelMix?: boolean;
+  /** The most font files to send: a media service from before "more_fonts" takes BASIC_FONT_FILES. */
+  maxFonts?: number;
 }
 
 const VOLUME_MAX = 2;
@@ -1102,7 +1124,7 @@ export function buildRenderRequest(
     : [];
 
   // A font is asked for only where its file goes with the render; otherwise the text is set in Inter.
-  const fonts = usedFonts(timeline);
+  const fonts = usedFonts(timeline, options.maxFonts);
   const carried = new Set(fonts.map((font) => font.family));
   const brandText = (item: {
     font: string | null;
