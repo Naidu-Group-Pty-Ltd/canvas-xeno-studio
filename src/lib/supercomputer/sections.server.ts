@@ -51,7 +51,7 @@ import {
   unavailableFrame,
   unsavedShots,
   warnFrom,
-  withLoose,
+  withGenerations,
   withSaved,
   type FrameRef,
   type FrameSource,
@@ -989,7 +989,25 @@ export async function startSectionWorker(input: {
       "INVALID_PARAMETERS",
       `Section ${section.position + 1} changed just now: try again`,
     );
+  // Claimed: anything that stops it starting now lets it go again, saying why.
+  try {
+    return await workerFor(view, section, parent, { ...work, note }, budget, used, input.userId);
+  } catch (error) {
+    await failSection(section.id, error).catch(() => undefined);
+    throw error;
+  }
+}
 
+/** A claimed section's worker: its conversation (made the first time) and its brief. */
+async function workerFor(
+  view: PlanView,
+  section: SectionView,
+  parent: ThreadSeed,
+  work: SectionWork,
+  budget: number,
+  used: number,
+  userId: string,
+): Promise<{ thread: ThreadSeed; worker: WorkerSection; brief: string; frames: string[] }> {
   let workerThreadId = section.workerThreadId;
   if (!workerThreadId) {
     const { data: made, error: madeError } = await db
@@ -1001,17 +1019,15 @@ export async function startSectionWorker(input: {
         campaign_id: parent.campaign_id,
         brief_id: parent.brief_id,
         settings: parent.settings as never,
-        created_by: input.userId,
+        created_by: userId,
       })
       .select("id")
       .single();
-    if (madeError || !made) {
-      await db.from("supercomputer_sections").update({ status: row.status }).eq("id", section.id);
+    if (madeError || !made)
       throw new AppError(
         "UNKNOWN",
         madeError?.message ?? "The worker's conversation couldn't be made",
       );
-    }
     const { data: linked } = await db
       .from("supercomputer_sections")
       .update({ worker_thread_id: made.id })
@@ -1043,8 +1059,22 @@ export async function startSectionWorker(input: {
       .update({ settings: parent.settings as never })
       .eq("id", workerThreadId);
 
-  const neighbours = await neighboursOf(view, section, input.userId, 20_000);
-  const brief = briefFor(view, section, neighbours, { ...work, note }, budget, used);
+  // Files of generations it started before that have come in since are kept to place.
+  await keepMadeWork(section.id, null).catch(() => "");
+  const { data: kept } = await db
+    .from("supercomputer_sections")
+    .select("work")
+    .eq("id", section.id)
+    .maybeSingle();
+  const neighbours = await neighboursOf(view, section, userId, 20_000);
+  const brief = briefFor(
+    view,
+    section,
+    neighbours,
+    { ...sectionWorkOf(kept?.work), note: work.note },
+    budget,
+    used,
+  );
   const frames = [neighbours.before?.frame, neighbours.after?.frame].flatMap((frame) =>
     frame?.status === "ready" && frame.assetId ? [frame.assetId] : [],
   );
@@ -1163,20 +1193,27 @@ async function changeWork(
 }
 
 /**
- * Keeps what a worker's turn made but didn't save to a shot (its
- * generations' files), so nothing done is lost, and merges what it saved.
- * Says in words what is kept.
+ * Keeps what a worker made but didn't save to a shot, so nothing done is
+ * lost: the generations its turn started (and any from before still being
+ * made) are recorded until their files are in, then kept as takes to place.
+ * Merges what it saved, and says in words what is kept.
  */
-async function keepMadeWork(worker: WorkerSection, state: TurnState): Promise<string> {
-  const generationIds = new Set<string>();
-  for (const { block } of state.display.blocks)
+async function keepMadeWork(sectionId: string, state: TurnState | null): Promise<string> {
+  const started = new Set<string>();
+  for (const { block } of state?.display.blocks ?? [])
     if (block.kind === "tool" && block.ui?.type === "generation")
-      generationIds.add(block.ui.generationId);
-  if (generationIds.size) {
+      started.add(block.ui.generationId);
+  const { data: before } = await db
+    .from("supercomputer_sections")
+    .select("work")
+    .eq("id", sectionId)
+    .maybeSingle();
+  const wanted = [...new Set([...sectionWorkOf(before?.work).generations, ...started])];
+  if (wanted.length) {
     const { data: files } = await db
       .from("assets")
       .select("id,asset_type,generation_id,created_at")
-      .in("generation_id", [...generationIds])
+      .in("generation_id", wanted)
       .is("deleted_at", null);
     const takes: LooseTake[] = (files ?? []).flatMap((file) =>
       file.asset_type === "video" || file.asset_type === "image"
@@ -1190,13 +1227,13 @@ async function keepMadeWork(worker: WorkerSection, state: TurnState): Promise<st
           ]
         : [],
     );
-    if (takes.length) await changeWork(worker.sectionId, (work) => withLoose(work, takes));
+    await changeWork(sectionId, (work) => withGenerations(work, [...started], takes));
   }
-  const merged = await mergeIntoEdit(worker.sectionId).catch(() => null);
+  const merged = await mergeIntoEdit(sectionId).catch(() => null);
   const { data } = await db
     .from("supercomputer_sections")
     .select("work")
-    .eq("id", worker.sectionId)
+    .eq("id", sectionId)
     .maybeSingle();
   const work = sectionWorkOf(data?.work);
   const parts = [
@@ -1206,6 +1243,7 @@ async function keepMadeWork(worker: WorkerSection, state: TurnState): Promise<st
     work.loose.length
       ? `${work.loose.length} ${work.loose.length === 1 ? "take" : "takes"} kept to place`
       : "",
+    work.generations.length ? `${work.generations.length} still being made` : "",
   ].filter(Boolean);
   return parts.join(", ");
 }
@@ -1242,7 +1280,7 @@ export function workerBudget(worker: WorkerSection): TurnBudget {
     maxSteps,
     warnAt: warnFrom(maxSteps),
     onWarning: async (state) => {
-      const kept = await keepMadeWork(worker, state);
+      const kept = await keepMadeWork(worker.sectionId, state);
       await db
         .from("supercomputer_sections")
         .update({ warned_at: now() })
@@ -1254,7 +1292,7 @@ export function workerBudget(worker: WorkerSection): TurnBudget {
       };
     },
     onLimit: async (state) => {
-      const kept = await keepMadeWork(worker, state);
+      const kept = await keepMadeWork(worker.sectionId, state);
       return `Section ${number} reached its step limit (${maxSteps} steps), so it stopped here. What it made is saved${kept ? `: ${kept}` : ""}. Carry it on to finish it.`;
     },
   };
@@ -1270,7 +1308,7 @@ export async function settleWorkerTurn(
   state: TurnState,
   userId: string,
 ): Promise<void> {
-  await keepMadeWork(worker, state).catch(() => "");
+  await keepMadeWork(worker.sectionId, state).catch(() => "");
   const used = await stepsUsed(worker.workerThreadId);
   const { data } = await db
     .from("supercomputer_sections")

@@ -233,6 +233,9 @@ function SectionRow({
           <p className="text-[11px] text-muted-foreground">
             {saved} of {count} {count === 1 ? "shot" : "shots"} saved
             {section.work.loose.length ? ` · ${section.work.loose.length} made, not placed` : ""}
+            {section.work.generations.length
+              ? ` · ${section.work.generations.length} still being made`
+              : ""}
           </p>
         </div>
         <StatusBadge status={status} />

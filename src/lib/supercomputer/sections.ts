@@ -439,6 +439,8 @@ export interface LooseTake {
 export interface SectionWork {
   shots: SavedShot[];
   loose: LooseTake[];
+  /** Generations its worker started whose files aren't in yet (a video takes minutes). */
+  generations: string[];
   /** Its worker's line on what it made, and on anything left. */
   summary: string | null;
   left: string | null;
@@ -451,6 +453,7 @@ export interface SectionWork {
 export const EMPTY_WORK: SectionWork = {
   shots: [],
   loose: [],
+  generations: [],
   summary: null,
   left: null,
   finished: false,
@@ -500,6 +503,9 @@ export function sectionWorkOf(value: unknown): SectionWork {
   return {
     shots,
     loose,
+    generations: (Array.isArray(item["generations"]) ? item["generations"] : [])
+      .filter((entry): entry is string => typeof entry === "string" && entry.length <= 64)
+      .slice(-40),
     summary: text(item["summary"], 600),
     left: text(item["left"], 600),
     finished: item["finished"] === true,
@@ -528,6 +534,26 @@ export function withLoose(work: SectionWork, takes: LooseTake[]): SectionWork {
     return true;
   });
   return added.length ? { ...work, loose: [...work.loose, ...added].slice(-40) } : work;
+}
+
+/**
+ * Work with the generations its worker started settled: those whose files
+ * are in give loose takes (never one already saved), those still being made
+ * are kept, so a video that finishes after its worker's turn ends isn't lost.
+ */
+export function withGenerations(
+  work: SectionWork,
+  started: string[],
+  files: LooseTake[],
+): SectionWork {
+  const made = new Set(files.flatMap((file) => (file.generationId ? [file.generationId] : [])));
+  const generations = [...new Set([...work.generations, ...started])]
+    .filter((generationId) => !made.has(generationId))
+    .slice(-40);
+  const next = withLoose(work, files);
+  return JSON.stringify(generations) === JSON.stringify(work.generations)
+    ? next
+    : { ...next, generations };
 }
 
 /** The shots of a section its worker hasn't saved, by index. */
@@ -644,6 +670,15 @@ export function sectionBrief(input: SectionBriefInput): string {
     if (input.before) lines.push(meetLine(input.before, "before"));
     if (input.after) lines.push(meetLine(input.after, "after"));
   }
+  if (work.generations.length)
+    lines.push(
+      "",
+      "## Started before, still being made",
+      ...work.generations.map(
+        (generationId) =>
+          `- Generation ${generationId}: wait for it with wait_for_generation, look at it and save it to its shot if it is right.`,
+      ),
+    );
   if (work.loose.length)
     lines.push(
       "",
@@ -1654,6 +1689,11 @@ export function planReport(view: PlanView): string {
       ...(section.work.loose.length
         ? [
             `${section.work.loose.length} made but not placed (${section.work.loose.map((take) => take.assetId).join(", ")})`,
+          ]
+        : []),
+      ...(section.work.generations.length
+        ? [
+            `${section.work.generations.length} still being made (${section.work.generations.join(", ")})`,
           ]
         : []),
       ...(section.work.summary ? [`“${section.work.summary}”`] : []),

@@ -35,6 +35,7 @@ import {
   unavailableFrame,
   unsavedShots,
   warnFrom,
+  withGenerations,
   withLoose,
   withSaved,
   type JoinMeasures,
@@ -948,3 +949,58 @@ describe("a plan as the tables keep it", () => {
     expect(again.summary).toContain("Clips were put between the two sections in the edit.");
   });
 });
+
+describe("what a worker started that is still being made", () => {
+  const file = (n: number, generationId: string) => ({
+    assetId: ASSET(n),
+    kind: "video" as const,
+    generationId,
+    madeAt: "2026-10-22T00:00:00Z",
+  });
+
+  test("is kept until its file is in, then kept as a take to place", () => {
+    // A video queued in a turn that ended before it finished.
+    const started = withGenerations(EMPTY_WORK, ["g1", "g2"], [file(1, "g1")]);
+    expect(started.generations).toEqual(["g2"]);
+    expect(started.loose.map((take) => take.assetId)).toEqual([ASSET(1)]);
+    // Its file came in by the next run.
+    const later = withGenerations(started, [], [file(2, "g2")]);
+    expect(later.generations).toEqual([]);
+    expect(later.loose.map((take) => take.assetId)).toEqual([ASSET(1), ASSET(2)]);
+    // One saved to a shot meanwhile isn't kept loose as well.
+    const saved = withSaved(started, [saved_(0, ASSET(2))]);
+    expect(withGenerations(saved, [], [file(2, "g2")]).loose.map((take) => take.assetId)).toEqual([
+      ASSET(1),
+    ]);
+    expect(sectionWorkOf(JSON.parse(JSON.stringify(started))).generations).toEqual(["g2"]);
+  });
+
+  test("its brief and the plan's report name it", () => {
+    const shots = reel(4);
+    const [section] = planSections(shots, { starts: [3] });
+    const work = { ...EMPTY_WORK, generations: ["g9"] };
+    const brief = sectionBrief({
+      plan: { title: "P", kind: "edit", sourceTitle: "Reel", editTitle: null, sections: 2 },
+      section: section!,
+      shots,
+      before: null,
+      after: null,
+      work,
+      budget: 10,
+    });
+    expect(brief).toContain("## Started before, still being made");
+    expect(brief).toContain("Generation g9: wait for it with wait_for_generation");
+  });
+});
+
+function saved_(shotIndex: number, assetId: string) {
+  return {
+    shot: shotIndex,
+    assetId,
+    kind: "video" as const,
+    seconds: null,
+    trimStart: 0,
+    fileSeconds: 5,
+    savedAt: "2026-10-22T00:00:00Z",
+  };
+}
