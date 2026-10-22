@@ -5,6 +5,9 @@ import { renderSequence, SEQUENCE_LIMITS } from "./sequence.js";
 import { cameraMotion, decodeThumbnails, extractFrameByIndex, pickHandoffFrame } from "./frames.js";
 import { measureSync, prepareAudio } from "./voice.js";
 import { lipCheck, lipCheckAvailable } from "./lipcheck.js";
+import { chromiumAvailable } from "./chromium.js";
+import { COMPOSITION_LIMITS, joinStretches, renderComposition } from "./composition.js";
+import { config } from "./config.js";
 
 /**
  * Task catalogue.
@@ -74,6 +77,8 @@ export const FEATURES = [
   "brand_text",
   "image_overlays",
   ...(lipCheckAvailable ? ["lip_check"] : []),
+  // Code-driven motion graphics drawn in Chromium ("compositions"), on a GPU here ("compositions_gpu").
+  ...(chromiumAvailable ? ["compositions", ...(config.gpu ? ["compositions_gpu"] : [])] : []),
 ];
 
 /** The point of the picture (0-1 across and down) a crop keeps in frame: the centre unless given. */
@@ -441,6 +446,28 @@ export const TASKS = {
           sources: { min: 1, max: 2 },
           outputs: () => 0,
           run: lipCheck,
+        },
+      }
+    : {}),
+
+  /**
+   * A composition (code-driven motion graphics; see composition.js) drawn as a
+   * camera would: its lossless master, a playable copy and a poster, or one
+   * lossless stretch of it. Its sources are its bundle, then its images and
+   * fonts. Only on a worker whose image has a browser.
+   */
+  ...(chromiumAvailable
+    ? {
+        render_composition: {
+          sources: { min: 1, max: 1 + 64 + 24 },
+          outputs: (params) => (params?.output === "stretch" ? 1 : 3),
+          run: renderComposition,
+        },
+        /** A composition's stretches joined frame for frame: its master, playable copy and poster. */
+        join_stretches: {
+          sources: { min: 1, max: COMPOSITION_LIMITS.stretches },
+          outputs: () => 3,
+          run: joinStretches,
         },
       }
     : {}),

@@ -20,6 +20,16 @@ export function laneOf(taskType) {
   return QUICK_TASKS.has(taskType) ? "quick" : "heavy";
 }
 
+/**
+ * How soon a task runs in its lane: a draft (a test render, sent with
+ * priority "draft") waits behind every other task, so a final render, or the
+ * stretch of one, never queues behind someone's test (Reel 1's workers' test
+ * renders competed with the final for the same four CPUs).
+ */
+export function priorityOf(task) {
+  return task?.params?.priority === "draft" ? 1 : 0;
+}
+
 export class Lanes {
   /**
    * @param {{ heavy: number, quick: number }} room how many of each may run at once
@@ -50,7 +60,11 @@ export class Lanes {
   }
 
   add(task) {
-    this.queues[laneOf(task.taskType)].push(task);
+    const queue = this.queues[laneOf(task.taskType)];
+    // In order within a priority: a final goes after the finals waiting, ahead of every draft.
+    const rank = priorityOf(task);
+    const behind = queue.findIndex((queued) => priorityOf(queued) > rank);
+    queue.splice(behind === -1 ? queue.length : behind, 0, task);
     this.pump();
   }
 
