@@ -424,10 +424,9 @@ export function MusicPanel({
           <MusicStructureSection
             bed={bed}
             track={trackFor(bed.assetId)}
-            timeline={timeline}
             layout={layout}
+            playhead={playhead}
             onUpdate={onUpdate}
-            getTimeline={getTimeline}
           />
         )}
       </div>

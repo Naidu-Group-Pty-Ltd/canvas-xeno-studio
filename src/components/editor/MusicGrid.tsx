@@ -1,6 +1,13 @@
 import { memo, useMemo } from "react";
+import { useFitProposal } from "@/hooks/useFitProposal";
 import { useMusicStructure } from "@/hooks/useMusicStructure";
-import type { Timeline, TimelineAudio, TimelineLayout } from "@/lib/edit/timeline";
+import { musicPieces, pieceJoins } from "@/lib/edit/pieces";
+import {
+  audioPlayLength,
+  type Timeline,
+  type TimelineAudio,
+  type TimelineLayout,
+} from "@/lib/edit/timeline";
 import { musicGridOnTimeline } from "@/lib/music/on-timeline";
 import { SECTION_LABELS, type SectionKind } from "@/lib/music/structure";
 import { cn } from "@/lib/utils";
@@ -23,7 +30,9 @@ const SECTION_TONES: Record<SectionKind, string> = {
  * the edit plays them (through its trim, its loop or its pieces): a line on
  * every bar line, fainter ones on the beats when they're far enough apart to
  * see, and each section named along the foot of the Music & FX row. Shown
- * once a track's bars have been found (the Music panel finds them).
+ * once a track's bars have been found (the Music panel finds them). Where
+ * music plays in pieces each join is marked, and a fit proposed in the Music
+ * panel shows in their place until it is applied.
  */
 export function MusicGrid({
   timeline,
@@ -71,13 +80,27 @@ const ItemGrid = memo(function ItemGrid({
   height: number;
 }) {
   const { data: known } = useMusicStructure(item.assetId);
-  const grid = useMemo(
-    () => (known ? musicGridOnTimeline(item, known.structure, total) : null),
-    [item, known, total],
+  // A fit proposed in the Music panel shows in place of what plays now, until it's applied or dropped.
+  const proposal = useFitProposal(item.id);
+  const shown = useMemo(
+    () => (proposal ? { ...item, pieces: proposal.pieces, duration: null } : item),
+    [item, proposal],
   );
-  if (!grid || !known) return null;
-  const beatPixels = (60 / known.structure.bpm) * pps;
-  const downbeats = new Set(grid.downbeats);
+  const grid = useMemo(
+    () => (known ? musicGridOnTimeline(shown, known.structure, total) : null),
+    [shown, known, total],
+  );
+  const joins = useMemo(() => {
+    const pieces = musicPieces(shown);
+    if (!pieces) return [];
+    const plays = audioPlayLength(shown, total);
+    return pieceJoins(pieces)
+      .filter((join) => join.at < plays)
+      .map((join) => shown.start + join.at);
+  }, [shown, total]);
+  if (!known && !joins.length) return null;
+  const beatPixels = known ? (60 / known.structure.bpm) * pps : 0;
+  const downbeats = new Set(grid?.downbeats ?? []);
   return (
     <div
       className="pointer-events-none absolute inset-x-0 z-[5]"
@@ -85,7 +108,27 @@ const ItemGrid = memo(function ItemGrid({
       data-testid="music-grid"
       aria-hidden
     >
-      {beatPixels >= MIN_BEAT_PIXELS &&
+      {joins.map((time) => (
+        <div
+          key={`j${time}`}
+          className={cn(
+            "absolute inset-y-0 w-0 border-l border-dashed",
+            proposal ? "border-warning" : "border-primary/70",
+          )}
+          style={{ left: time * pps }}
+          title={proposal ? "A join in the fit proposed" : "Where the music is joined on its bars"}
+        />
+      ))}
+      {proposal && (
+        <span
+          className="absolute top-0 rounded-sm bg-warning px-1 text-[8px] font-semibold uppercase leading-3 text-background"
+          style={{ left: shown.start * pps + 2 }}
+        >
+          Fit proposed
+        </span>
+      )}
+      {grid &&
+        beatPixels >= MIN_BEAT_PIXELS &&
         grid.beats
           .filter((time) => !downbeats.has(time))
           .map((time) => (
@@ -95,14 +138,14 @@ const ItemGrid = memo(function ItemGrid({
               style={{ left: time * pps }}
             />
           ))}
-      {grid.downbeats.map((time) => (
+      {grid?.downbeats.map((time) => (
         <div
           key={`d${time}`}
           className="absolute inset-y-0 w-px bg-foreground/45"
           style={{ left: time * pps }}
         />
       ))}
-      {grid.sections.map((section) => (
+      {grid?.sections.map((section) => (
         <div
           key={`s${section.index}-${section.start}`}
           className="absolute bottom-0 flex h-[8px] items-center overflow-hidden"
