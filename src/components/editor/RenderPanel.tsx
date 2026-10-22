@@ -34,6 +34,12 @@ import {
   renderInProgress,
 } from "@/lib/edit/renders";
 import { useTracksForAssets } from "@/hooks/useMusicData";
+import {
+  EditCreditsList,
+  KeptRights,
+  PublicUseChoice,
+  type RenderRightsChoice,
+} from "@/components/editor/EditCredits";
 import { useStudioVoiceovers } from "@/hooks/useVoiceData";
 import {
   keptLicenceLine,
@@ -61,6 +67,12 @@ function newRequestId() {
 export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: RenderPanelProps) {
   const [starting, setStarting] = useState(false);
   const [resending, setResending] = useState(false);
+  // For public use, and the exceptions confirmed (see EditCredits): sent with the render.
+  const [rightsChoice, setRightsChoice] = useState<RenderRightsChoice>({
+    publicUse: false,
+    confirmExceptions: [],
+  });
+  const [rightsHeld, setRightsHeld] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { data: renders = [] } = useSequenceRenders(sequenceId);
   const { data: worker } = useQuery({
@@ -191,7 +203,15 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
       const key = `${sequenceId}:${version}`;
       const ask = (clientRequestId: string) => {
         keepAttempt("render", key, clientRequestId);
-        return renderSequence({ data: { sequenceId, expectedVersion: version, clientRequestId } });
+        return renderSequence({
+          data: {
+            sequenceId,
+            expectedVersion: version,
+            clientRequestId,
+            publicUse: rightsChoice.publicUse,
+            confirmExceptions: rightsChoice.confirmExceptions,
+          },
+        });
       };
       let started = await ask(savedAttempt("render", key) ?? newRequestId());
       // That request's render had already failed for good: this press is a new render.
@@ -257,6 +277,12 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
 
   return (
     <div className="space-y-3 p-3">
+      <PublicUseChoice
+        timeline={timeline}
+        choice={rightsChoice}
+        onChoice={setRightsChoice}
+        onHeld={setRightsHeld}
+      />
       <Button
         className="w-full"
         disabled={
@@ -265,7 +291,8 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
           Boolean(active) ||
           blockers.length > 0 ||
           Boolean(workerProblem) ||
-          Boolean(licenceProblem)
+          Boolean(licenceProblem) ||
+          Boolean(rightsHeld)
         }
         onClick={() => void start()}
         data-testid="render-button"
@@ -384,6 +411,8 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
           </ul>
         </div>
       )}
+
+      <EditCreditsList timeline={timeline} />
 
       {renders.length > 0 && (
         <div className="space-y-1.5">
@@ -560,6 +589,7 @@ function RenderItem({
           Music terms: {music.terms.join(" · ")}
         </p>
       )}
+      {render.status === "completed" && <KeptRights metadata={kept} />}
       {render.status === "failed" && (
         <p className="mt-1 text-destructive">{render.error_message ?? "The render failed."}</p>
       )}
