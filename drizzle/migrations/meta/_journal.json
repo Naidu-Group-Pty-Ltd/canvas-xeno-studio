@@ -190,6 +190,76 @@
       "when": 1791310945140,
       "tag": "0026_brand_code_imports",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1791311005140,
+      "tag": "0027_asset_rights",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1791311065140,
+      "tag": "0028_generation_costs",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1791311125140,
+      "tag": "0029_brand_production",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1791311185140,
+      "tag": "0030_review_gates",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1791311245140,
+      "tag": "0031_render_quality",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1791311305140,
+      "tag": "0032_mix_reports",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1791311365140,
+      "tag": "0033_music_structure",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1791311425140,
+      "tag": "0034_compositions",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1791311485140,
+      "tag": "0035_reference_privacy",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1791311545140,
+      "tag": "0036_agent_sections",
+      "breakpoints": true
     }
   ]
 }
