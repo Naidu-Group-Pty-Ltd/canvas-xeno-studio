@@ -1073,8 +1073,12 @@ export function editVoicePauses(
           ),
         );
   const paused: TimelineAudio = { ...item, pauses: wanted, duration };
+  // Only what is heard moves anything: the pauses within the recording it plays.
   const before = pausesOnEdit({ ...item, pauses: heard });
-  const after = pausesOnEdit(paused);
+  const after = pausesOnEdit({
+    ...paused,
+    pauses: wanted.filter((pause) => pause.at <= reach + SAME_MOMENT),
+  });
   const move = (time: number, kind: "word" | "cut") =>
     Number(
       Math.min(

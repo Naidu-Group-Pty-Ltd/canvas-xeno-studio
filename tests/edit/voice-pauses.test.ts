@@ -393,6 +393,19 @@ describe("a voiceover's pauses in the timeline", () => {
     // Without `cuts`, the picture stays as it was.
     expect(withVoicePauses(timeline, "v1", [{ at: 2, frames: 15 }]).clips).toEqual(timeline.clips);
   });
+
+  test("a pause the voice never reaches moves nothing", () => {
+    // The voice plays 5 s of its recording; a pause at 7 s is never heard.
+    const timeline = edit({
+      audio: [{ id: "v1", assetId: VOICE, role: "voiceover", sourceDuration: 10, duration: 5 }],
+    });
+    const next = withVoicePauses(timeline, "v1", [{ at: 7, frames: 30 }], { cuts: true });
+    expect(next.clips).toEqual(timeline.clips);
+    expect(next.audio[0]!.duration).toBe(5);
+    expect(buildRenderRequest(next).params.audio).toEqual(
+      buildRenderRequest(timeline).params.audio,
+    );
+  });
 });
 
 describe("the media worker's held voice", () => {

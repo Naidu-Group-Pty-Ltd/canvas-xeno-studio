@@ -950,7 +950,7 @@ function AudioInspector({
                 Add a voiceover and the music will dip wherever it speaks.
               </p>
             )}
-            {!item.duck && hasVoice && (
+            {item.role === "music" && !item.duck && hasVoice && (
               <p className="text-xs text-muted-foreground" data-testid="never-ducked">
                 Never dipped: it plays at its own level all through, voice or not. Right for a quiet
                 bed under short lines, which dipping would make pump between them; keep its volume
