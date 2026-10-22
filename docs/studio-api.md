@@ -100,6 +100,7 @@ curl -X POST https://<your studio>/api/public/studio/list_models \
 | `create_edit` / `update_edit` | Makes an edit from a timeline, or changes one. An update is accepted only at the version you read.                                  |
 | `apply_brand_kit`             | Applies a kit's fonts and colours to the edit's text, and can add its end card inside a platform's safe area.                       |
 | `render_edit`                 | Renders the edit at a version. Poll it with `get_render`.                                                                           |
+| `import_storyboard_brief`     | Makes a storyboard from a brief in brief.json's shape: a scene a block, a shot a shot, each keeping its record and its cue.         |
 | `add_review_gate`             | Adds a review gate to a project, last in its order; with `heldUntilPrevious` it waits for the gate before to be approved.           |
 | `add_review_version`          | Puts library stills or videos (`assetIds`), a finished render or a storyboard up for review in a gate, as its next version.         |
 | `comment_on_review`           | Comments on a version, pinned to a time (`at`) or `frame`, a `point` on the picture, one of its files or a storyboard's shot.       |
@@ -150,6 +151,15 @@ The flow that made the Aurixa "Janice presents" video:
    default) styles the titles and captions.
 6. **Brand and render.** `apply_brand_kit` with `endCard: {"seconds": 3, "area": "tiktok"}`, then
    `render_edit`, and poll `get_render` for the link.
+
+## A storyboard from a brief
+
+`import_storyboard_brief` takes a brief written as data, in the shape Reel 1's
+`scripts/aurixa-reel-1/system_edition.py` writes `brief.json`: shots, each with its block, title,
+sources, beats, on-screen text, times and voiceover lines. Each block becomes a scene and each shot
+a shot, keeping everything the brief says about it in its spec, with its cue (the words it starts
+on). In Storyboards, **Time from the voice** then cuts each shot in the pause before its cue, from
+a prepared voiceover's measured words.
 
 ## Review gates
 

@@ -1,9 +1,11 @@
 /**
- * The studio API's review operations: a project's review gates, and adding
- * a version, commenting and deciding, as the token's owner. They follow the
- * same steps as the app's Reviews section (../reviews/store), so a script
- * and a person reviewing the same gate agree, and each decision records
- * that it came through the API.
+ * The studio API's planning operations: a brief written as data imported
+ * as a storyboard, and a project's review gates (adding a version,
+ * commenting and deciding), as the token's owner. They follow the same
+ * steps as the app's Storyboards page and Reviews section
+ * (../storyboard/brief, ../reviews/store), so a script and a person working
+ * on the same plan agree, and each decision records that it came through
+ * the API.
  *
  * Who may approve: any active team member, in the app as themselves or
  * through the API as the token's owner (a token with the "edit" scope).
@@ -15,6 +17,7 @@
 import { z } from "zod/v4";
 import { supabaseAdmin as db } from "@/integrations/supabase/client.server";
 import { AppError } from "../higgsfield/errors";
+import { planFromBrief, readBrief, saveStoryboardPlan } from "../storyboard/brief";
 import {
   gateStates,
   GATE_STATUS_LABELS,
@@ -60,12 +63,78 @@ const requestId = () =>
       "Your own unique id for this request (8-64 characters). Sending the same id again returns the first result instead of doing it twice.",
     );
 
-/** Reviews are for active team members: the token's owner must still be one. */
+/** Planning is for active team members: the token's owner must still be one. */
 async function activeMember(userId: string): Promise<void> {
   const { data } = await db.from("profiles").select("is_active").eq("id", userId).maybeSingle();
   if (!data?.is_active)
     throw new AppError("NOT_AUTHORIZED", "The token's owner is not an active team member");
 }
+
+async function assertProject(projectId: string): Promise<{ id: string; name: string }> {
+  const { data: project } = await db
+    .from("projects")
+    .select("id,name")
+    .eq("id", projectId)
+    .maybeSingle();
+  if (!project) throw new AppError("INVALID_PARAMETERS", "That project doesn't exist");
+  return project;
+}
+
+const importStoryboardBrief = tool({
+  name: "import_storyboard_brief",
+  title: "Import a brief as a storyboard",
+  description:
+    "Makes a storyboard from a brief written as data, in the shape of Reel 1's brief.json (shots, each with its block, title, sources, beats, camera, on-screen text, times and voiceover lines): a scene for each block and a shot for each shot, with everything the brief says about the shot kept in its spec, and its cue (its first voiceover line) ready to time it from the voice in Storyboards. The brief is checked first: what would make a wrong storyboard stops it, and warnings (gaps between shots, lengths that don't add up) come back with the storyboard's id.",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({
+    brief: z.record(z.string(), z.unknown()).describe("The brief, as brief.json holds it"),
+    projectId: id().nullable().optional(),
+    clientRequestId: requestId(),
+  }),
+  run: async (args, caller) => {
+    await activeMember(caller.userId);
+    if (args.projectId) await assertProject(args.projectId);
+    const reading = readBrief(args.brief);
+    if (!reading.ok)
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        `The brief can't be made into a storyboard: ${reading.problems.join(" ")}`,
+      );
+    const plan = planFromBrief(reading.brief);
+    const summary = {
+      scenes: plan.scenes.length,
+      shots: plan.shotCount,
+      seconds: plan.seconds,
+      warnings: reading.warnings,
+    };
+    // Sent again: the storyboard the first request made.
+    const { data: earlier } = await db
+      .from("storyboards")
+      .select("id,creative_direction")
+      .eq("created_by", caller.userId)
+      .eq("title", plan.storyboard.title);
+    const same = (earlier ?? []).find(
+      (row) =>
+        (row.creative_direction as Record<string, unknown> | null)?.["client_request_id"] ===
+        args.clientRequestId,
+    );
+    if (same) return { storyboardId: same.id, imported: false, ...summary };
+    plan.storyboard.creative_direction = {
+      ...plan.storyboard.creative_direction,
+      client_request_id: args.clientRequestId,
+    };
+    try {
+      const storyboardId = await saveStoryboardPlan(db, plan, {
+        userId: caller.userId,
+        projectId: args.projectId ?? null,
+      });
+      return { storyboardId, imported: true, ...summary };
+    } catch {
+      throw new AppError("UNKNOWN", "The storyboard couldn't be saved. Try again.");
+    }
+  },
+});
 
 const listReviewGates = tool({
   name: "list_review_gates",
@@ -80,12 +149,7 @@ const listReviewGates = tool({
   }),
   run: async (args, caller) => {
     await activeMember(caller.userId);
-    const { data: project } = await db
-      .from("projects")
-      .select("id,name")
-      .eq("id", args.projectId)
-      .maybeSingle();
-    if (!project) throw new AppError("INVALID_PARAMETERS", "That project doesn't exist");
+    const project = await assertProject(args.projectId);
     const reviews = await loadProjectReviews(db, args.projectId);
     if (!reviews.supported) throw new AppError("UNKNOWN", REVIEWS_NEED_UPDATE);
     const name = (userId: string | null) => (userId ? (reviews.people[userId] ?? null) : null);
@@ -190,12 +254,7 @@ const addReviewGate = tool({
   }),
   run: async (args, caller) => {
     await activeMember(caller.userId);
-    const { data: project } = await db
-      .from("projects")
-      .select("id")
-      .eq("id", args.projectId)
-      .maybeSingle();
-    if (!project) throw new AppError("INVALID_PARAMETERS", "That project doesn't exist");
+    await assertProject(args.projectId);
     const gateId = await addGate(db, {
       projectId: args.projectId,
       name: args.name,
@@ -302,8 +361,9 @@ const decideReview = tool({
   },
 });
 
-/** The review operations, in the order they are listed. */
-export const REVIEW_TOOLS: StudioTool[] = [
+/** The planning operations, in the order they are listed. */
+export const PLANNING_TOOLS: StudioTool[] = [
+  importStoryboardBrief,
   listReviewGates,
   addReviewGate,
   addReviewVersion,

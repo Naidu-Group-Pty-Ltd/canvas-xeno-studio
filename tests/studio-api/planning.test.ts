@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, mock, test } from "bun:test";
 import { FakeDb } from "../long-video/fake-db";
 import { newApiToken, tokenPrefixOf } from "../../src/lib/studio-api/tokens";
+import { BRIEF } from "../storyboard/reel-1";
 
 const db = new FakeDb();
 mock.module("@/integrations/supabase/client.server", () => ({ supabaseAdmin: db }));
@@ -59,6 +60,46 @@ function runner(token: string) {
 beforeAll(async () => {
   tokens = await import("../../src/lib/studio-api/tokens.server");
   mcp = await import("../../src/lib/studio-api/mcp.server");
+});
+
+describe("a storyboard from a brief, over the studio API", () => {
+  test("imports Reel 1's brief as its scenes and shots, once per request", async () => {
+    const run = runner(await tokenFor(["read", "edit"]));
+    const request = {
+      brief: BRIEF,
+      projectId: project["id"],
+      clientRequestId: "reel-1-brief-import",
+    };
+    const made = await run("import_storyboard_brief", request);
+    expect(made.status).toBe(200);
+    expect(made.body.result).toMatchObject({ imported: true, scenes: 15, shots: 27 });
+    const storyboardId = made.body.result!["storyboardId"] as string;
+    expect(db.find("storyboards", storyboardId)).toMatchObject({
+      title: "Aurixa Systems · Reel 1 · System edition",
+      project_id: project["id"],
+      created_by: producer["id"],
+    });
+    const scenes = db.rows("scenes").filter((scene) => scene["storyboard_id"] === storyboardId);
+    expect(scenes).toHaveLength(15);
+    const shots = db
+      .rows("shots")
+      .filter((shot) => scenes.some((scene) => scene["id"] === shot["scene_id"]));
+    expect(shots).toHaveLength(27);
+    expect((shots[0]!["spec"] as Record<string, unknown>)["cue"]).toBe("Somewhere in Australia,");
+
+    const again = await run("import_storyboard_brief", request);
+    expect(again.body.result).toMatchObject({ storyboardId, imported: false });
+    expect(db.rows("storyboards")).toHaveLength(1);
+
+    const broken = await run("import_storyboard_brief", {
+      brief: { title: "Nothing to it", shots: [{ id: "a", in: 2, out: 1 }] },
+      clientRequestId: "broken-brief-import",
+    });
+    expect(broken.status).toBe(400);
+    expect(broken.body.error?.message).toBe(
+      "The brief can't be made into a storyboard: Shot a ends (00:01.000) before it starts.",
+    );
+  });
 });
 
 describe("review gates over the studio API", () => {
@@ -183,6 +224,7 @@ describe("review gates over the studio API", () => {
     const catalogue = (await tools.json()) as { tools: { name: string }[] };
     const names = catalogue.tools.map((entry) => entry.name);
     for (const name of [
+      "import_storyboard_brief",
       "list_review_gates",
       "add_review_gate",
       "add_review_version",

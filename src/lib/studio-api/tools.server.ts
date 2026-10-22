@@ -27,7 +27,7 @@ import { CHARACTER_VIEWS } from "../characters/model";
 import type { ModelRegistryEntry } from "../model-schema";
 import type { ApiScope } from "./tokens";
 import type { ApiCaller } from "./tokens.server";
-import { REVIEW_TOOLS } from "./reviews.server";
+import { PLANNING_TOOLS } from "./planning.server";
 
 type Json = Record<string, unknown>;
 
@@ -1865,7 +1865,7 @@ export const STUDIO_TOOLS: StudioTool[] = [
   updateEdit,
   applyBrand,
   renderEdit,
-  ...REVIEW_TOOLS,
+  ...PLANNING_TOOLS,
 ];
 
 export function studioTool(name: string): StudioTool | null {
