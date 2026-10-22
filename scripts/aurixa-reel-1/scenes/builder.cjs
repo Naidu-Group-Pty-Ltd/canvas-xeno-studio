@@ -1,11 +1,15 @@
-// Reel 1, shots 12.2 and 12.3 (one scene, because one object carries across them): Daniel's Stock List with
-// 14 Wattle Grove selected for a client; his floor plan opened in its own tab; then the same plan, lifted out as
-// a document, beside the solicitor's Notes, saved: Matter updated.
+// Reel 1, shots 12.2 and 12.3 (one scene, because one object carries across them). 12.2: Daniel Reed's Stock
+// List on the Builders Network, 14 Wattle Grove Selected for a client; the pointer opens its floor plan in the
+// browser's next tab, and the plan (G-FLOORPLAN, drawn new for the third cut: ../pages/floorplan.cjs) lifts out
+// of the page as a sheet, clean and whole, and holds, turned a little toward the camera. 12.3: the same sheet
+// travels across to the left while the solicitor's matter opens beside it on its Notes; Save notes, and the
+// product's toast: Matter updated. Each state is given time to be read before the next begins.
 const M = require("../motion.cjs");
 const {
   FPS,
   frameOf,
   beat,
+  shotOf,
   EASE,
   span,
   lerp,
@@ -14,7 +18,6 @@ const {
   px,
   State,
   fade,
-  windowHtml,
   between,
   placeWindow,
   throughRect,
@@ -27,6 +30,7 @@ const {
   F,
   KIT,
 } = M;
+const FP = require("../pages/floorplan.cjs");
 
 /** A G-WINDOW holding plates already made (edited), one layer each, as windowHtml lays them out. */
 function windowOf(id, plates, z) {
@@ -38,43 +42,52 @@ function windowOf(id, plates, z) {
     .join("");
   return `<div class="fk-win" id="${id}" style="z-index:${z}"><div class="fk-page" id="${id}-page">${layers}<div class="fk-veil" id="${id}-veil"></div></div></div>`;
 }
+/** Where a window framed so lays its plate in the frame (placeWindow's geometry, without setting anything). */
+const geometry = (css, { rect, zoom, focus, at }) => ({ ...KIT.shotGeometry({ css, zoom, focus, at, rect }), zoom });
 
 // ------------------------------------------------------------------ 12.2 and 12.3: the builder, the solicitor
 function builderScene() {
-  const [tStock, tTab] = [0, 1].map((i) => beat("12.2", i));
-  const [tLift, tSave] = [0, 1].map((i) => beat("12.3", i));
-  const stockCss = F.plate("PL-12A-a").css;
-  // A12b: the Stock List, focus on 14 Wattle Grove's "Selected for a client"; A12c: the plan's tab, whole.
-  const A12B = { rect: [40, 475, 1000, 711], zoom: 0.79, focus: [888, 432], at: [540, 830] };
-  const A12C = { rect: [40, 388, 1000, 892], zoom: 1, focus: [760, 432], at: [540, 834] };
-  const CHIP = [1346, 503, 1479 - 1346, 521 - 503];
-  // F12: the plan as one object above the matter's Notes (the Notes window over its foot), Matter updated.
-  const F12_DOC = { x: 330, y: 386, width: 420, height: 420, rotate: -3 };
-  const F12_NOTES = { rect: [40, 700, 1000, 584], zoom: 1.5, focus: [920, 530], at: [540, 1000] };
-  const notes = F.plate("PL-12B-b", (html) =>
-    html.replace(
-      '<span class="btn" style="font-size:12.5px;padding:8px 14px">',
-      '<span class="btn savebtn" style="font-size:12.5px;padding:8px 14px">',
-    ),
-  );
-  // The tab's switch and the plan's lift happen between two frames.
+  const [tStock, tTab, tHold] = [0, 1, 2].map((i) => beat("12.2", i));
+  const [tTravel, tSave] = [0, 1].map((i) => beat("12.3", i));
+  const tEnd = shotOf("12.3").out;
+  // The builder's browser: the Stock List, and the floor plan's PDF in the next tab (the new sheet in its viewer).
+  const stock = F.plate("PL-12A-a");
+  const pdf = F.plate("PL-12A-b", FP.withSheet);
+  const css = stock.css;
+  // The solicitor's screen: the matter's Notes (the plan's PDF beside it carries the new sheet too).
+  const notes = F.plate("PL-12B-b", (html) => {
+    const btn = '<span class="btn" style="font-size:12.5px;padding:8px 14px">';
+    if (html.split(btn).length !== 2) throw new Error("12.3: PL-12B-b's Save notes button is not there once");
+    return FP.withSheet(html).replace(btn, '<span class="btn savebtn" style="font-size:12.5px;padding:8px 14px">');
+  });
+
+  // The Stock List, its tab strip at the window's top and 14 Wattle Grove's plate in full; then the PDF tab, its
+  // page centred, as the camera opens to it.
+  const STOCK = { rect: [20, 470, 1040, 702], zoom: 0.78, focus: [880, 0], at: [540, 470] };
+  const PDF = { rect: [20, 380, 1040, 892], zoom: 1, focus: [768, 484], at: [540, 826] };
+  // The matter's Notes, the solicitor's browser alone from its tabs down, beside the plan.
+  const NOTES = { rect: [211, 716, 849, 584], zoom: 1.15, focus: [566, 258], at: [225, 730] };
+  // The sheet as an object: drawn once at SHEET px wide, scaled and turned as it moves.
+  const SHEET = 700;
+  const SHEET_H = Math.round(SHEET * FP.SHEET_RATIO);
+  const HOLD = { c: [540, 800], w: 690, ax: 4, ay: -8, az: -1.2 };
+  const DESK = { c: [298, 524], w: 432, ax: 2, ay: 10, az: -3 };
+
+  // The tab changes between two frames; the camera opens to the page; the sheet leaves it.
   const between2 = (x) => (frameOf(x) - 0.5) / FPS;
   const tSwitch = between2(tTab + 0.05);
-  const tOut = between2(tLift); // the plan leaves its tab
+  const tOpenA = tTab + 0.03;
+  const tOpenB = tTab + 0.36;
+  const tLift = between2(tTab + 0.3);
+  const tLifted = tHold - 0.04;
+  const framing = (t) => between(css, STOCK, PDF, span(t, tOpenA, tOpenB, EASE.move));
 
   const html = () =>
     [
       `<div id="ground" class="fk-layer" style="z-index:0"><div class="fk-field"></div><div class="fk-glow"></div></div>`,
-      windowHtml("W", ["PL-12A-a", "PL-12A-b"], 2),
+      windowOf("W", [stock, pdf], 2),
       windowOf("N", [notes], 4),
-      // The plan as an object: the floor plan (D) on its white page, as the PDF viewer draws it.
-      `<div style="position:absolute;inset:0;z-index:3">${KIT.doc({
-        x: 0,
-        y: 0,
-        width: 100,
-        height: 100,
-        html: `<div id="plan-img" style="width:100%;height:100%;background:#fff ${F.asset("D.png") ? `url('${F.asset("D.png")}')` : ""} center/100% no-repeat"></div>`,
-      }).replace('class="fk-doc"', 'class="fk-doc" id="plan"')}</div>`,
+      `<div class="fk-doc" id="plan" style="left:0;top:0;width:${SHEET}px;height:${SHEET_H}px;z-index:6;transform-origin:${SHEET / 2}px ${SHEET_H / 2}px;visibility:hidden">${FP.sheet(SHEET)}</div>`,
       focusHtml(),
       pointerHtml(),
       captionHtml(),
@@ -83,82 +96,88 @@ function builderScene() {
   const state = (t, m) => {
     const st = new State();
     caption(st, t, m);
-    // 12.2: the Stock List; at the tab's press the plan's tab is in front, and the camera opens to it whole.
-    const onPlan = t >= tSwitch ? 1 : 0;
-    const open = span(t, tTab + 0.08, tTab + 0.72, EASE.move);
-    const framing = between(stockCss, A12B, A12C, open);
-    const windowGone = span(t, tLift + 0.02, tLift + 0.3, EASE.move);
-    const g = placeWindow(st, "W", stockCss, framing, [1, onPlan], { opacity: 1 - windowGone });
-    // Once the plan has left its tab, the viewer behind it is empty (no second copy fading out under it).
-    st.set("#W-1 .ppage", { visibility: t >= tOut ? "hidden" : "visible" });
-    // Focus on the selection, then gone as the pointer takes the tab.
-    if (t >= tStock + 0.12) {
-      corners(st, t, throughRect(g, CHIP), tStock + 0.12, tStock + 0.58);
+
+    // 12.2: the Stock List arrives out of the depth, then the PDF tab opens and the camera opens to its page.
+    const arrive = span(t, tStock, tStock + 0.45, EASE.settle);
+    const exit = span(t, tEnd - 0.34, tEnd, (u) => 0.5 - Math.cos(Math.PI * u) / 2);
+    const onPdf = t >= tSwitch ? 1 : 0;
+    const lift = span(t, tLift, tLifted, EASE.move);
+    const leave = span(t, tTravel, tTravel + 0.36, EASE.move);
+    const g = placeWindow(st, "W", css, framing(t), [1, onPdf], {
+      opacity: Math.min(span(t, tStock, tStock + 0.28, EASE.linear), 1 - leave),
+      veil: 0.58 * lift,
+      transform: `translateY(${px((1 - arrive) * 44)}) scale(${r3((0.965 + 0.035 * arrive) * (1 - 0.05 * lift))})`,
+    });
+    // Once the sheet has left its page, the viewer behind it is empty (no second copy under it).
+    st.set("#W-1 .ppage", { visibility: t >= tLift ? "hidden" : "visible" });
+
+    // G-FOCUS on Selected for a client, gone as the pointer takes the tab.
+    if (t >= tStock + 0.2) {
+      corners(st, t, throughRect(g, m.chip), tStock + 0.2, tStock + 0.66);
       st.set(
         "#focus",
-        fade(
-          span(t, tStock + 0.12, tStock + 0.28, EASE.linear) *
-            (1 - span(t, tTab - 0.1, tTab + 0.12, EASE.move)),
-        ),
+        fade(span(t, tStock + 0.2, tStock + 0.36, EASE.linear) * (1 - span(t, tTab - 0.12, tTab + 0.1, EASE.move))),
       );
     } else st.set("#focus", { left: "0px", top: "0px", width: "0px", height: "0px", ...fade(0) });
 
-    // 12.3: the plan lifts out of its tab as one object, from exactly where the tab draws it, to F12's place.
-    const sheet = throughRect(placeWindowGeometry(stockCss, A12C), m.plan);
-    const lift = span(t, tLift + 0.02, tLift + 0.74, EASE.move);
-    const centre = lerp2(
-      [sheet[0] + sheet[2] / 2, sheet[1] + sheet[3] / 2],
-      [F12_DOC.x + F12_DOC.width / 2, F12_DOC.y + F12_DOC.height / 2],
-      lift,
-    );
-    const side = lerp(sheet[2], F12_DOC.width, lift);
+    // The sheet: from exactly where the viewer draws its page, out to the hold, then across to the desk.
+    const page = throughRect(geometry(css, framing(tLift)), m.page);
+    const start = { c: [page[0] + page[2] / 2, page[1] + page[3] / 2], w: page[2], ax: 0, ay: 0, az: 0 };
+    const drift = span(t, tLifted, tTravel, EASE.linear);
+    const hold = { ...HOLD, c: [HOLD.c[0], HOLD.c[1] - 8 * drift], ay: HOLD.ay + 2 * drift };
+    const travel = span(t, tTravel, tTravel + 0.86, EASE.move);
+    const at = (a, b, p) => ({
+      c: lerp2(a.c, b.c, p),
+      w: lerp(a.w, b.w, p),
+      ax: lerp(a.ax, b.ax, p),
+      ay: lerp(a.ay, b.ay, p),
+      az: lerp(a.az, b.az, p),
+    });
+    const s = t < tTravel ? at(start, hold, lift) : at(hold, DESK, travel);
+    // Rising off the page: a little up and back before it settles, and its shadow opening as it leaves the page.
+    const rise = Math.sin(Math.PI * lift) * (t < tTravel ? 1 : 0);
+    const up = t < tTravel ? lift : 1;
     st.set("#plan", {
-      left: px(centre[0] - side / 2),
-      top: px(centre[1] - side / 2),
-      width: px(side),
-      height: px(side),
-      transform: `rotate(${r3(F12_DOC.rotate * lift)}deg)`,
-      // Its shadow grows as it lifts off the page it lay flat on.
-      "box-shadow": `0 ${px(26 * lift)} ${px(60 * lift)} rgba(0,0,0,${r3(0.5 * lift)})`,
-      ...fade(t >= tOut ? 1 : 0),
+      transform: `translate(${px(s.c[0] - SHEET / 2)}, ${px(s.c[1] - SHEET_H / 2 - 26 * rise)}) perspective(1700px) rotateX(${r3(s.ax)}deg) rotateY(${r3(s.ay)}deg) rotateZ(${r3(s.az)}deg) scale(${(s.w / SHEET).toFixed(5)})`,
+      "box-shadow": `0 ${px(30 * up)} ${px(80 * up)} rgba(0,0,0,${r3(0.55 * up)}), 0 ${px(4 * up)} ${px(14 * up)} rgba(0,0,0,${r3(0.3 * up)})`,
+      ...fade((t >= tLift ? 1 : 0) * (1 - exit)),
     });
-    st.set("#plan-img", { "background-size": `${r3(lerp(100, 90, lift))}%` });
-    // The matter's Notes window opens beside it, rising in.
-    const rise = span(t, tLift + 0.24, tLift + 0.72, EASE.settle);
-    const gn = placeWindow(st, "N", notes.css, F12_NOTES, [1], {
-      opacity: span(t, tLift + 0.24, tLift + 0.5, EASE.linear),
-      transform: `translateY(${px((1 - rise) * 40)})`,
+
+    // 12.3: the matter's Notes rises in beside the plan; Save notes, and the toast. Both ease back into the
+    // dark over the shot's last third of a second, so the devices (12.4) arrive from a breath rather than a cut.
+    const rise3 = span(t, tTravel + 0.2, tTravel + 0.82, EASE.settle);
+    const gn = placeWindow(st, "N", notes.css, NOTES, [1], {
+      opacity: Math.min(span(t, tTravel + 0.2, tTravel + 0.5, EASE.linear), 1 - exit),
+      transform: `translateY(${px((1 - rise3) * 56 - 10 * exit)}) scale(${r3(1 - 0.025 * exit)})`,
     });
-    // Save notes pressed: the button gives, and the product's toast arrives.
     const since = t - tSave;
     const give = since >= 0 && since < 0.2 ? Math.sin((Math.PI * since) / 0.2) : 0;
-    st.set("#N-0 .savebtn", { transform: `scale(${r3(1 - 0.04 * give)})` });
-    const toast = span(t, tSave + 0.1, tSave + 0.45, EASE.settle);
+    st.set("#N-0 .savebtn", { transform: `scale(${r3(1 - 0.05 * give)})` });
+    const toast = span(t, tSave + 0.12, tSave + 0.5, EASE.settle);
     st.set("#N-0 .ftoast", {
-      transform: `translateY(${px((1 - toast) * 14)})`,
-      ...fade(span(t, tSave + 0.1, tSave + 0.3, EASE.linear)),
+      transform: `translateY(${px((1 - toast) * 16)})`,
+      ...fade(span(t, tSave + 0.12, tSave + 0.32, EASE.linear)),
     });
 
     // The pointer: in 12.2 up to the plan's tab and press; in 12.3 to Save notes and press.
-    if (t < tLift)
+    if (t < tTravel)
       pointer(st, t, {
-        from: [860, 1180],
+        from: [880, 1200],
         to: g.map(m.tab),
-        a: tTab - 0.5,
+        a: tTab - 0.52,
         b: tTab - 0.03,
-        show: tTab - 0.58,
+        show: tTab - 0.6,
         hide: tTab + 0.3,
         press: tTab,
       });
     else
       pointer(st, t, {
-        from: [880, 1250],
+        from: [930, 1440],
         to: gn.map(m.save),
-        a: tSave - 0.46,
+        a: tSave - 0.5,
         b: tSave - 0.03,
-        show: tSave - 0.54,
-        // F12 draws no pointer: once the toast is in, it goes.
-        hide: tSave + 0.5,
+        show: tSave - 0.58,
+        hide: tSave + 0.62,
         press: tSave,
       });
     return st;
@@ -171,7 +190,8 @@ function builderScene() {
     html,
     measure: {
       tabs: ["#W-0", ".btab", true],
-      plan: ["#W-1", ".ppage"],
+      chip: ["#W-0", ".bchip.gold"],
+      page: ["#W-1", ".ppage"],
       save: ["#N-0", ".savebtn"],
     },
     derive(m) {
@@ -186,11 +206,6 @@ function builderScene() {
     },
     state,
   };
-}
-
-/** Where a window framed so lays its plate in the frame (placeWindow's geometry, without setting anything). */
-function placeWindowGeometry(css, { rect, zoom, focus, at }) {
-  return { ...KIT.shotGeometry({ css, zoom, focus, at, rect }), zoom };
 }
 
 module.exports = builderScene;
