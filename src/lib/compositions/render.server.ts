@@ -130,7 +130,6 @@ type ImageRow = {
   storage_bucket: string;
   storage_path: string;
   mime_type: string | null;
-  metadata: unknown;
 };
 
 /** A composition compiled as it will be drawn, with the files the media worker needs. */
@@ -177,7 +176,7 @@ export async function compiledFor(input: {
   const { data: rows, error } = wanted.size
     ? await supabaseAdmin
         .from("assets")
-        .select("id,asset_type,width,height,storage_bucket,storage_path,mime_type,metadata")
+        .select("id,asset_type,width,height,storage_bucket,storage_path,mime_type")
         .in("id", [...wanted])
         .is("deleted_at", null)
     : { data: [], error: null };
@@ -206,21 +205,15 @@ export async function compiledFor(input: {
       problem instanceof Error ? problem.message : "The motion graphic's settings aren't valid",
     );
   }
-  for (const assetId of compiled.imageIds) {
-    const row = byId.get(assetId);
-    if (!row)
+  for (const assetId of compiled.imageIds)
+    if (!byId.has(assetId))
       throw new AppError(
         "INVALID_PARAMETERS",
         "A picture this motion graphic shows is no longer in the library (or isn't a picture). Choose another.",
       );
-    // A reference marked layout-only (privacy) may never be placed in a frame.
-    const meta = (row.metadata ?? {}) as Record<string, unknown>;
-    if (meta["layout_only"] === true)
-      throw new AppError(
-        "INVALID_PARAMETERS",
-        "A picture this motion graphic shows is marked layout only, so it can't be placed in a frame.",
-      );
-  }
+  // A reference marked layout only (a client's screen) is never placed in a frame.
+  const { assertPlaceable } = await import("../media/layout-only.server");
+  await assertPlaceable(compiled.imageIds, "motion");
   for (const font of compiled.fonts)
     if (!isBrandFontFile(font))
       throw new AppError("INVALID_PARAMETERS", `The font "${font.family}" isn't a brand font file`);

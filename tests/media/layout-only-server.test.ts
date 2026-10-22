@@ -324,6 +324,7 @@ describe("each place a file reaches a frame still asks", () => {
     ["media.functions.ts", 'data.sourceAssetIds, "copy"'],
     ["media/align-take.server.ts", '[take.id, picture.id], "copy"'],
     ["media/clean-plate.server.ts", '[art.id, letteringFile?.id], "generation"'],
+    ["compositions/render.server.ts", 'compiled.imageIds, "motion"'],
   ])("%s", (path, args) => {
     const source = readFileSync(join(import.meta.dir, "../../src/lib", path), "utf8");
     expect(squashed(source)).toContain(squashed(`await assertPlaceable(${args})`));

@@ -1,7 +1,5 @@
 import { useState } from "react";
 import { ImageIcon, Plus, X } from "lucide-react";
-import { toast } from "sonner";
-import { layoutOnly } from "@/hooks/useCompositions";
 import type { AssetRow } from "@/hooks/useStudioData";
 import type { SignedMedia } from "@/hooks/useEditorData";
 import { LibraryPicker } from "@/components/studio/LibraryPicker";
@@ -34,12 +32,15 @@ export function CompositionFields({
   onChange,
   media,
   assets,
+  held,
 }: {
   fields: readonly TemplateField[];
   params: Params;
   onChange: (params: Params) => void;
   media: Map<string, SignedMedia>;
   assets: Map<string, AssetRow>;
+  /** Pictures marked layout only (a client's screen): never shown in a frame. */
+  held: Set<string>;
 }) {
   const set = (key: string, value: unknown) => onChange({ ...params, [key]: value });
   // A point is placed on the template's first picture, when it has one.
@@ -64,6 +65,7 @@ export function CompositionFields({
             onChange={(value) => set(field.key, value)}
             media={media}
             assets={assets}
+            held={held}
             picture={pictureFor}
           />
           {field.help && <p className="text-[11px] text-muted-foreground">{field.help}</p>}
@@ -79,6 +81,7 @@ function FieldInput({
   onChange,
   media,
   assets,
+  held,
   picture,
 }: {
   field: TemplateField;
@@ -86,6 +89,7 @@ function FieldInput({
   onChange: (value: unknown) => void;
   media: Map<string, SignedMedia>;
   assets: Map<string, AssetRow>;
+  held: Set<string>;
   picture: string | null;
 }) {
   const id = `cf-${field.key}`;
@@ -155,6 +159,7 @@ function FieldInput({
           optional={field.optional === true}
           media={media}
           assets={assets}
+          held={held}
           onChange={(ids) => onChange(ids[0] ?? null)}
           label={field.label}
         />
@@ -167,6 +172,7 @@ function FieldInput({
           optional
           media={media}
           assets={assets}
+          held={held}
           onChange={onChange}
           label={field.label}
         />
@@ -326,6 +332,7 @@ function ImagesField({
   optional,
   media,
   assets,
+  held,
   onChange,
   label,
 }: {
@@ -334,6 +341,7 @@ function ImagesField({
   optional: boolean;
   media: Map<string, SignedMedia>;
   assets: Map<string, AssetRow>;
+  held: Set<string>;
   onChange: (ids: string[]) => void;
   label: string;
 }) {
@@ -371,7 +379,7 @@ function ImagesField({
                   <X className="size-3" />
                 </button>
               )}
-              {asset && layoutOnly(asset) && (
+              {held.has(id) && (
                 <span className="absolute inset-x-0 bottom-0 bg-destructive/90 px-1 text-[9px] text-white">
                   Layout only: can&apos;t be shown
                 </span>
@@ -406,13 +414,8 @@ function ImagesField({
         max={max === 1 ? 1 : Math.max(1, room)}
         title={label}
         onConfirm={(picked) => {
-          const refused = picked.filter((asset) => layoutOnly(asset));
-          if (refused.length)
-            toast.error(
-              `“${refused[0]!.title ?? "That picture"}” is marked layout only, so it can't be placed in a frame.`,
-            );
-          const usable = picked.filter((asset) => !layoutOnly(asset)).map((asset) => asset.id);
-          onChange(max === 1 ? usable.slice(0, 1) : [...ids, ...usable].slice(0, max));
+          const chosen = picked.map((asset) => asset.id);
+          onChange(max === 1 ? chosen.slice(0, 1) : [...ids, ...chosen].slice(0, max));
         }}
       />
     </div>

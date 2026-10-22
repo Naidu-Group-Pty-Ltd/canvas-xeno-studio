@@ -20,6 +20,7 @@ export const PLACEMENTS = [
   "edit",
   "render",
   "copy",
+  "motion",
 ] as const;
 export type Placement = (typeof PLACEMENTS)[number];
 
@@ -56,6 +57,7 @@ export function layoutOnlyRefusal(titles: (string | null)[], where: Placement): 
     edit: `so ${it} can't be used in an edit. Take ${them} out of the timeline.`,
     render: `so this edit can't be rendered with ${them}. Take ${them} out of the timeline, then render again.`,
     copy: `so no copy can be made from ${them} here.`,
+    motion: `so ${it} can't be shown in a motion graphic. Choose another picture; ${stays} in the library to build from.`,
   };
   return `${subject} layout only: ${one ? "a reference" : "references"} for how a screen is laid out, never placed in a frame, ${what[where]} If ${it} may be shown after all, an admin can lift the mark in the library.`;
 }

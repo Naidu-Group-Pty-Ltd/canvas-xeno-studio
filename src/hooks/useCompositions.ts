@@ -23,6 +23,7 @@ import { compositionClips } from "@/lib/compositions/clips";
 import { QUALITY_SETTINGS, type RenderQuality } from "@/lib/compositions/settings";
 import { specKey, uuidsIn, type CompositionSpec } from "@/lib/compositions/spec";
 import { getCompositionCosts, getCompositionRender } from "@/lib/compositions.functions";
+import { getPrivacyMarks } from "@/lib/privacy.functions";
 
 const EMPTY_ASSETS = new Map<string, AssetRow>();
 const EMPTY_MEDIA = new Map<string, SignedMedia>();
@@ -77,9 +78,28 @@ export function useSignedFonts(fonts: BrandFont[]) {
   });
 }
 
-/** A layout-only reference (see the redaction step) may never be placed in a frame. */
-export function layoutOnly(asset: Pick<AssetRow, "metadata">): boolean {
-  return asset.metadata?.["layout_only"] === true;
+/**
+ * Which of these library files are marked layout only (a client's screen, see
+ * src/lib/media/layout-only): never placed in a frame, so never drawn in a
+ * motion graphic. None before migration 0035.
+ */
+export function useLayoutOnly(assetIds: string[]): Set<string> {
+  const key = [...new Set(assetIds)].sort().join(",");
+  const { data } = useQuery({
+    queryKey: ["privacy-marks", "motion", key],
+    enabled: key.length > 0,
+    staleTime: 60_000,
+    queryFn: () => getPrivacyMarks({ data: { assetIds: key.split(",") } }),
+  });
+  return useMemo(
+    () =>
+      new Set(
+        Object.entries(data ?? {})
+          .filter(([, mark]) => mark?.layoutOnly)
+          .map(([assetId]) => assetId),
+      ),
+    [data],
+  );
 }
 
 /** The library images compositions name (their settings, their brands' logos), with links to show them. */

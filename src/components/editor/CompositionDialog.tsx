@@ -8,8 +8,10 @@ import {
   useCompositionBrands,
   useCompositionCosts,
   useCompositionImages,
+  useLayoutOnly,
   useSignedFonts,
 } from "@/hooks/useCompositions";
+import { layoutOnlyRefusal } from "@/lib/media/layout-only";
 import { useBrandKits } from "@/hooks/useBrandKits";
 import { Button } from "@/components/ui/button";
 import {
@@ -159,6 +161,14 @@ function CompositionEditor({
   const brand = brandOf(kitId);
   const imageIds = useMemo(() => imageIdsFor(spec, brand), [spec, brand]);
   const { assets, media } = useCompositionImages(imageIds);
+  // A client's screen marked layout only is never drawn (the server refuses it too).
+  const held = useLayoutOnly(imageIds);
+  const heldOut = held.size
+    ? layoutOnlyRefusal(
+        [...held].map((assetId) => assets.get(assetId)?.title ?? null),
+        "motion",
+      )
+    : null;
   const fontFiles = useMemo(() => fontFilesFor(brand), [brand]);
   const { data: fonts = new Map<string, string>() } = useSignedFonts(fontFiles);
   const built = useMemo(
@@ -209,7 +219,7 @@ function CompositionEditor({
     initial.quality === quality &&
     initial.renderedKey !== null &&
     initial.renderedKey === specKey(spec, kitId);
-  const blocked = invalid ?? built.error;
+  const blocked = invalid ?? built.error ?? heldOut;
 
   async function draw() {
     if (blocked) return;
@@ -360,6 +370,7 @@ function CompositionEditor({
             onChange={(next) => setParamsBy((current) => ({ ...current, [template.id]: next }))}
             media={media}
             assets={assets}
+            held={held}
           />
           {initial &&
             initial.spec.template === template.id &&
