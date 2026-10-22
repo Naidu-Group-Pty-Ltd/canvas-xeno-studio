@@ -1036,7 +1036,7 @@
           "text": [
             "Aurixa · Ready when you are",
             "Draft a short note to Jordan Ellis about his Residence 014 client summary.",
-            "Needs your go-ahead · Email Preview: To Jordan Ellis · Residence 014: your client summary · Next step: discuss the next step",
+            "Needs your go-ahead · Send an email · To jordan.ellis@example.com · Residence 014: your client summary · Email Preview · Next step: discuss the next step",
             "Approve · Cancel"
           ]
         },
@@ -1052,7 +1052,9 @@
           "shots": "07A",
           "kind": "aurixa",
           "title": "The changed note, approved",
-          "text": ["Approved · Next step: review the remaining questions together"]
+          "text": [
+            "Approved · Send an email · Next step: review the remaining questions together · ✓ Approved"
+          ]
         },
         {
           "key": "PL-08A-a",

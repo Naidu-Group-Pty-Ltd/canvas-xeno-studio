@@ -18,13 +18,20 @@ const CHROMIUM = ["/opt/pw-browsers/chromium-1194/chrome-linux/chrome"].find((fi
   fs.existsSync(file),
 );
 
+// Required by ./frames.cjs, which passes the same two arguments: the plates are drawn in its frames
+// rather than rendered here.
+const MAIN = require.main === module;
 const OUT = path.resolve(process.argv[2] || "reel-1-plates");
 const ASSETS = process.argv[3] ? path.resolve(process.argv[3]) : null;
-fs.mkdirSync(OUT, { recursive: true });
+if (MAIN) fs.mkdirSync(OUT, { recursive: true });
 const dataUrl = (file, type) => `data:${type};base64,${fs.readFileSync(file).toString("base64")}`;
+// A frame draws several plates at once, so ./frames.cjs serves each image from this host once rather
+// than carrying it inline in every plate.
+const ASSET_HOST = "https://reel-assets.local";
 const asset = (name) => {
   const file = ASSETS && path.join(ASSETS, name);
-  return file && fs.existsSync(file) ? dataUrl(file, "image/png") : null;
+  if (!file || !fs.existsSync(file)) return null;
+  return MAIN ? dataUrl(file, "image/png") : `${ASSET_HOST}/${name}`;
 };
 const P = asset("P.png");
 const D = asset("D.png");
@@ -32,6 +39,8 @@ const EMBLEM = asset("emblem.png");
 const WORDMARK = asset("wordmark.png");
 // The supplied logo itself (its glow, rings, skyline and lettering), for the trial and closing cards.
 const LOGO = asset("logo-art.png");
+// The graphics kit: today's tools, shared with the style frames (./frames.cjs).
+const KIT = require("./kit.cjs")({ P, D });
 
 /** A Google font as a data URL, kept in the temp folder (Inter is a system font). */
 async function googleFont(family, weight) {
@@ -181,66 +190,7 @@ html, body { width:100%; height:100%; background:transparent; font-family:Inter,
   text-shadow:0 2px 24px rgba(4,11,22,.65); }
 .phrase .ul { display:block; margin:26px auto 0; width:220px; height:4px; border-radius:2px; background:linear-gradient(90deg, transparent, var(--gold2), transparent); }
 .close { position:absolute; inset:0; background:linear-gradient(180deg, rgba(10,25,47,0) 0%, rgba(10,25,47,.55) 18%, rgba(10,25,47,.94) 34%, #0A192F 55%, #0A192F 78%, rgba(4,11,22,.96) 100%); }
-/* system edition: today's tools (G-WINDOW-PLAIN, G-LISTING, the notifications), in the before tokens */
-.before { background:var(--reel-before-paper); color:var(--reel-before-ink); font-family:var(--reel-before-type); }
-.bp { position:absolute; display:flex; flex-direction:column; overflow:hidden; background:var(--reel-before-surface); color:var(--reel-before-ink);
-  font-family:var(--reel-before-type); border:1px solid var(--reel-before-border); border-radius:10px; box-shadow:0 14px 36px rgba(17,24,39,.14); }
-.bp-bar { height:52px; flex:none; display:flex; align-items:center; gap:10px; padding:0 18px; background:var(--reel-before-paper);
-  border-bottom:1px solid var(--reel-before-border); font-size:20px; font-weight:600; color:var(--reel-before-ink-muted); }
-.bp-bar i { width:13px; height:13px; border-radius:50%; background:var(--reel-before-border); }
-.bp-bar span { margin-left:10px; }
-.bp-in { flex:1; min-height:0; display:flex; }
-.bp-muted { color:var(--reel-before-ink-muted); }
-.bp-folders { width:250px; flex:none; padding:22px 14px; display:flex; flex-direction:column; gap:4px; border-right:1px solid var(--reel-before-border); font-size:22px; }
-.bp-folders div { display:flex; align-items:center; padding:11px 14px; border-radius:8px; }
-.bp-folders div.on { background:var(--reel-before-paper); font-weight:700; }
-.bp-folders b { margin-left:auto; font-size:19px; }
-.bp-list { width:640px; flex:none; display:flex; flex-direction:column; border-right:1px solid var(--reel-before-border); }
-.bp-list h4 { font-size:24px; padding:22px 24px 16px; border-bottom:1px solid var(--reel-before-border); display:flex; align-items:baseline; gap:12px; }
-.bp-row { padding:18px 24px; border-bottom:1px solid var(--reel-before-border); display:flex; flex-direction:column; gap:6px; position:relative; }
-.bp-row.on { background:var(--reel-before-paper); }
-.bp-row.on::before { content:""; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--reel-before-ink); }
-.bp-row .who { display:flex; align-items:center; gap:10px; font-size:23px; font-weight:700; }
-.bp-row .who em { width:10px; height:10px; border-radius:50%; background:var(--reel-before-ink); }
-.bp-row .who small { margin-left:auto; font-size:19px; font-weight:400; color:var(--reel-before-ink-muted); }
-.bp-row .subj { font-size:21px; font-weight:600; }
-.bp-row .prev { font-size:20px; color:var(--reel-before-ink-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.bp-row .bars div { height:13px; border-radius:7px; background:var(--reel-before-paper); margin:7px 0; }
-.bp-read { flex:1; min-width:0; padding:30px 36px; display:flex; flex-direction:column; gap:18px; }
-.bp-read h3 { font-size:34px; font-weight:700; line-height:1.2; }
-.bp-meta { font-size:21px; color:var(--reel-before-ink-muted); display:flex; gap:14px; }
-.bp-meta b { color:var(--reel-before-ink); font-weight:600; }
-.bp-msg { font-size:30px; line-height:1.4; }
-.bp-btns { display:flex; gap:14px; margin-top:6px; }
-.bp-btn { display:inline-flex; align-items:center; gap:10px; font-size:23px; font-weight:600; padding:13px 24px; border-radius:8px;
-  border:1px solid var(--reel-before-border); background:var(--reel-before-surface); color:var(--reel-before-ink); }
-.bp-btn.bp-reply { background:var(--reel-before-ink); border-color:var(--reel-before-ink); color:var(--reel-before-surface); }
-.bp-btn svg { width:22px; height:22px; }
-/* G-LISTING: a plain property-site card */
-.ls-card { display:flex; flex-direction:column; overflow:hidden; background:var(--reel-before-surface); color:var(--reel-before-ink);
-  font-family:var(--reel-before-type); border:1px solid var(--reel-before-border); border-radius:12px; }
-.ls-card.row { flex-direction:row; align-items:stretch; }
-.ls-photo { background:var(--reel-before-paper) center/cover no-repeat; flex:none; }
-.ls-body { padding:18px 22px; display:flex; flex-direction:column; gap:8px; min-width:0; }
-.ls-title { font-size:26px; font-weight:700; }
-.ls-addr { font-size:20px; color:var(--reel-before-ink-muted); }
-.ls-facts { display:flex; gap:20px; font-size:20px; font-weight:600; }
-.ls-facts span { display:inline-flex; align-items:center; gap:7px; }
-.ls-facts svg { width:20px; height:20px; color:var(--reel-before-ink-muted); }
-.ls-chips { display:flex; flex-wrap:wrap; gap:8px; }
-.ls-chip { font-size:17px; font-weight:600; padding:5px 11px; border-radius:999px; border:1px solid var(--reel-before-border); background:var(--reel-before-paper); }
-/* today's notifications */
-.nt-toast { position:absolute; display:flex; gap:16px; align-items:flex-start; width:640px; padding:20px 22px; background:var(--reel-before-surface);
-  color:var(--reel-before-ink); font-family:var(--reel-before-type); border:1px solid var(--reel-before-border); border-radius:14px;
-  box-shadow:0 12px 30px rgba(17,24,39,.18); }
-.nt-glyph { width:46px; height:46px; flex:none; border-radius:11px; background:var(--reel-before-paper); border:1px solid var(--reel-before-border);
-  display:grid; place-items:center; color:var(--reel-before-ink); }
-.nt-glyph svg { width:24px; height:24px; }
-.nt-thumb { width:92px; height:92px; flex:none; border-radius:10px; border:1px solid var(--reel-before-border); background:#fff center/contain no-repeat; }
-.nt-app { display:flex; font-size:19px; color:var(--reel-before-ink-muted); }
-.nt-app small { margin-left:auto; font-size:18px; }
-.nt-title { font-size:25px; font-weight:700; margin-top:3px; }
-.nt-text { font-size:21px; color:var(--reel-before-ink-muted); margin-top:2px; }
+${KIT.css}
 `;
 
 // On a button the pointer rests at its lower right, clear of the label.
@@ -393,77 +343,9 @@ const enquiry = (sent) => `
     ${sent ? `<div style="font-size:22px;color:#16794b;font-weight:700">✓ Sent</div>` : `<div class="gbtn" style="position:relative">Send${onButton()}</div>`}
   </div></div>`;
 
-// ---- system edition: today's tools, in the before tokens (BRIEF.md, "Pages still to build")
-/** G-WINDOW-PLAIN: white, a grey system title bar, the system's own type; no brand colour, no glass. */
-const plainWin = (x, y, w, h, title, inner) =>
-  `<div class="bp" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px"><div class="bp-bar"><i></i><i></i><i></i><span>${title}</span></div><div class="bp-in">${inner}</div></div>`;
-/** Line glyphs for today's tools, deliberately not the products' icon set. */
-const GLYPH = {
-  bed: '<path d="M3 18v-8h18v8M3 14h18M7 10V7h6v3"/>',
-  bath: '<path d="M4 12h16v3a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4zM6 12V6a2 2 0 0 1 4 0"/>',
-  car: '<path d="M5 16l1.5-5h11l1.5 5M4 16h16v3H4zM7 19v1M17 19v1"/>',
-  land: '<path d="M4 4h16v16H4zM4 9h5M15 20v-5"/>',
-  mail: '<path d="M3 6h18v12H3zM3 7l9 6 9-6"/>',
-  chat: '<path d="M4 5h16v10H9l-5 4z"/>',
-  calendar: '<path d="M4 6h16v14H4zM4 10h16M8 3v5M16 3v5"/>',
-  crm: '<path d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20a5 5 0 0 1 10 0M16 8h5M16 12h5M16 16h5"/>',
-  reply: '<path d="M10 8L5 12l5 4M5 12h9a5 5 0 0 1 5 5v1"/>',
-  forward: '<path d="M14 8l5 4-5 4M19 12h-9a5 5 0 0 0-5 5v1"/>',
-};
-const glyph = (name) =>
-  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${GLYPH[name]}</svg>`;
-/** G-LISTING: a plain property-site card: the image P, the address line, four facts, small status chips. */
-const listing = ({ width, row = false, chips = [], enquiries = null }) => {
-  const photo = row
-    ? `width:${Math.round(width * 0.36)}px`
-    : `height:${Math.round(width * 0.62)}px`;
-  const facts = [
-    ["bed", "4 bed"],
-    ["bath", "1 bath"],
-    ["car", "1 car"],
-    ["land", "290 m²"],
-  ]
-    .map(([g, t]) => `<span>${glyph(g)}${t}</span>`)
-    .join("");
-  return `<div class="ls-card${row ? " row" : ""}" style="width:${width}px">
-    <div class="ls-photo" style="${photo};${P ? `background-image:url('${P}')` : ""}"></div>
-    <div class="ls-body"><div class="ls-title">Residence 014</div><div class="ls-addr">Lot 14, Project Banksia · Banksia Rise NSW 2155</div>
-      <div class="ls-facts">${facts}</div>
-      ${chips.length ? `<div class="ls-chips">${chips.map((c) => `<span class="ls-chip">${c}</span>`).join("")}</div>` : ""}
-      ${enquiries === null ? "" : `<div class="ls-addr">${enquiries} enquiries</div>`}</div></div>`;
-};
-/** NEW-INBOX: a plain mail client with Jordan Ellis's question as the top row, and Reply (02.1). */
-const inbox = () => {
-  const folders = [["Inbox", "1"], ["Starred"], ["Sent"], ["Drafts"], ["Archive"]]
-    .map(([name, n], i) => `<div${i ? "" : ' class="on"'}>${name}${n ? `<b>${n}</b>` : ""}</div>`)
-    .join("");
-  const other = (a, b) =>
-    `<div class="bp-row"><div class="bars"><div style="width:${a}%"></div><div style="width:${b}%"></div></div></div>`;
-  return `<div class="bp-folders">${folders}</div>
-    <div class="bp-list"><h4>Inbox<span class="bp-muted" style="font-size:19px;font-weight:400">Today</span></h4>
-      <div class="bp-row on"><div class="who"><em></em>Jordan Ellis<small>9:14</small></div><div class="subj">Project Banksia / Residence 014</div><div class="prev">Can we review whether this suits my plans?</div></div>
-      ${other(46, 80)}${other(38, 72)}${other(52, 64)}${other(30, 76)}${other(44, 58)}</div>
-    <div class="bp-read"><h3>Project Banksia / Residence 014</h3>
-      <div class="bp-meta"><span>From: <b>Jordan Ellis</b> · To: <b>Alex Morgan</b></span><span style="margin-left:auto">Monday 9:14</span></div>
-      <div class="bp-msg">Can we review whether this suits my plans?</div>
-      ${listing({ width: 780, row: true, chips: ["Expressions of interest close Friday"] })}
-      <div class="bp-btns"><span class="bp-btn bp-reply">${glyph("reply")}Reply</span><span class="bp-btn">${glyph("forward")}Forward</span></div></div>`;
-};
-/** NEW-NOTIFICATIONS: plain toasts from mail, chat, a calendar and a CRM, and PL-03A's floor plan (03.1). */
-const NOTES = {
-  mail: ["mail", "Mail", "6 new messages", "2 flagged for follow-up"],
-  chat: ["chat", "Team chat", "3 unread in #listings", "Can someone pick up the 2 pm call?"],
-  calendar: ["calendar", "Calendar", "Team meeting in 10 minutes", "Weekly pipeline · Room 2"],
-  crm: ["crm", "CRM", "4 follow-ups due today", "The oldest is 3 days overdue"],
-  plan: [null, "Property information", "Floor plan received", "Residence 014"],
-};
-const note = (key, x = 24, y = 24) => {
-  const [g, app, title, text] = NOTES[key];
-  const lead = g
-    ? `<div class="nt-glyph">${glyph(g)}</div>`
-    : `<div class="nt-thumb" style="${D ? `background-image:url('${D}')` : ""}"></div>`;
-  return `<div class="nt-toast" style="left:${x}px;top:${y}px">${lead}<div style="flex:1;min-width:0"><div class="nt-app">${app}<small>now</small></div><div class="nt-title">${title}</div><div class="nt-text">${text}</div></div></div>`;
-};
+// ---- system edition: today's tools, in the before tokens (BRIEF.md, "Pages still to build"); drawn by
+// the graphics kit, which the style frames share.
+const { plainWin, glyph, listing, inbox, NOTES, note } = KIT;
 
 const PLATES = {
   // ---- system edition: the pages still to build that are today's tools
@@ -815,35 +697,44 @@ const portals = require("./portals.cjs")({
 for (const key of ["PL-05A", "PL-05B", "PL-06A", "PL-06B", "PL-09B"]) delete PLATES[key];
 Object.assign(PLATES, portals.plates);
 
-(async () => {
-  const CSS = css(await fontFaces()) + portals.css;
-  const { chromium } = playwright();
-  const browser = await chromium.launch(CHROMIUM ? { executablePath: CHROMIUM } : {});
-  // A plate drawn at a smaller CSS size and rendered at its scale, so its type is phone-sized.
-  const pages = new Map();
-  // PLATES_ONLY=PL-09B-a,PL-12A-a renders just those, to look at a change.
-  const only = process.env.PLATES_ONLY?.split(",");
-  for (const [key, plate] of Object.entries(PLATES)) {
-    if (only && !only.includes(key)) continue;
-    const scale = plate.scale ?? 1;
-    if (!pages.has(scale))
-      pages.set(scale, await (await browser.newContext({ deviceScaleFactor: scale })).newPage());
-    const page = pages.get(scale);
-    const [width, height] = plate.size;
-    await page.setViewportSize({
-      width: Math.round(width / scale),
-      height: Math.round(height / scale),
-    });
-    await page.setContent(
-      `<!doctype html><html><head><meta charset="utf-8"><style>${CSS}</style></head><body>${plate.html}</body></html>`,
-      { waitUntil: "load" },
-    );
-    await page.evaluate(() => document.fonts.ready);
-    await page.screenshot({
-      path: path.join(OUT, `${key}.png`),
-      omitBackground: !!plate.transparent,
-    });
-  }
-  await browser.close();
-  console.log(only ? only.length : Object.keys(PLATES).length, "plates →", OUT);
-})();
+/** The plates, their stylesheet (with its fonts) and the kit, for ./frames.cjs. */
+module.exports = {
+  PLATES,
+  KIT,
+  ASSET_HOST,
+  styles: async () => css(await fontFaces()) + portals.css,
+};
+
+if (MAIN)
+  (async () => {
+    const CSS = await module.exports.styles();
+    const { chromium } = playwright();
+    const browser = await chromium.launch(CHROMIUM ? { executablePath: CHROMIUM } : {});
+    // A plate drawn at a smaller CSS size and rendered at its scale, so its type is phone-sized.
+    const pages = new Map();
+    // PLATES_ONLY=PL-09B-a,PL-12A-a renders just those, to look at a change.
+    const only = process.env.PLATES_ONLY?.split(",");
+    for (const [key, plate] of Object.entries(PLATES)) {
+      if (only && !only.includes(key)) continue;
+      const scale = plate.scale ?? 1;
+      if (!pages.has(scale))
+        pages.set(scale, await (await browser.newContext({ deviceScaleFactor: scale })).newPage());
+      const page = pages.get(scale);
+      const [width, height] = plate.size;
+      await page.setViewportSize({
+        width: Math.round(width / scale),
+        height: Math.round(height / scale),
+      });
+      await page.setContent(
+        `<!doctype html><html><head><meta charset="utf-8"><style>${CSS}</style></head><body>${plate.html}</body></html>`,
+        { waitUntil: "load" },
+      );
+      await page.evaluate(() => document.fonts.ready);
+      await page.screenshot({
+        path: path.join(OUT, `${key}.png`),
+        omitBackground: !!plate.transparent,
+      });
+    }
+    await browser.close();
+    console.log(only ? only.length : Object.keys(PLATES).length, "plates →", OUT);
+  })();

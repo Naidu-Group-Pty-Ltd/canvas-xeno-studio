@@ -1086,31 +1086,6 @@
       "agrees": true,
       "note": null
     },
-    "paper": {
-      "brief": {
-        "token": "--aurixa-ivory",
-        "value": "44 70% 95%",
-        "from": "npc-client-dashboard `tokens.css`"
-      },
-      "css": [
-        {
-          "name": "--reel-paper",
-          "value": "hsl(44 70% 95%)"
-        }
-      ],
-      "declared": [
-        {
-          "repo": "Naidu-Group-Pty-Ltd/npc-client-dashboard",
-          "path": "src/styles/tokens.css",
-          "line": 150,
-          "by": "--aurixa-ivory",
-          "value": "44 70% 95%",
-          "written": "44 70% 95%"
-        }
-      ],
-      "agrees": true,
-      "note": null
-    },
     "before-paper": {
       "brief": {
         "token": "--color-chrome-100",

@@ -8,7 +8,7 @@
  *   Naidu-Group-Pty-Ltd/npc-client-dashboard @ 398235cb3e01
  *   Naidu-Group-Pty-Ltd/aurixa-mission-control-12b89885 @ df7f45f745a6
  * Each value is the code's own, with the repository, file and line it is declared on.
- * 35 of 37 roles hold the brief's value; 2 name no code.
+ * 34 of 36 roles hold the brief's value; 2 name no code.
  * Never edited by hand: scan again when the brand's code changes.
  */
 
@@ -94,8 +94,6 @@
   --reel-ink-muted: #B7C1D0; /* --color-marketing-muted · aurixa-systems src/index.css:31 */
   /* teal-builders */
   --reel-teal-builders: hsl(184 100% 35%); /* --primary (dark) · aurixa-builders src/styles/tokens.css:177; written 184 100% 35% */
-  /* paper */
-  --reel-paper: hsl(44 70% 95%); /* --aurixa-ivory · npc-client-dashboard src/styles/tokens.css:150; written 44 70% 95% */
   /* before-paper */
   --reel-before-paper: #F3F4F6; /* --color-chrome-100 · aurixa-systems src/index.css:11 */
   /* before-surface */

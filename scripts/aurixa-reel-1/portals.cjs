@@ -11,6 +11,15 @@ const SCALE = 1.5;
 const CC_SCALE = 1.25;
 
 const CSS = `
+/* The client's report, inside (NEW-REPORT-PAGES): one CSS px a point of its A4 sheet. */
+.rp { position:absolute; left:0; top:0; width:595.5px; height:842.25px; transform-origin:0 0; overflow:hidden; color:#333333;
+  font-family:'Liberation Sans', Helvetica, Arial, sans-serif; font-kerning:none; text-rendering:geometricPrecision; }
+.rp-t { position:absolute; white-space:nowrap; line-height:1; }
+.rp-r { position:absolute; display:block; }
+.rp-label { position:absolute; display:flex; align-items:center; justify-content:center; white-space:nowrap; background:#FCF7EB;
+  box-shadow:inset 0 0 0 0.6px #D9A520; font-size:7px; line-height:1; color:#624A0F; }
+.rp-photo { position:absolute; background:#2a3b52 center 38%/cover no-repeat; }
+.rp-dots { position:absolute; height:1px; background:radial-gradient(circle at 0.5px 0.5px, #D9A520 0.5px, transparent 0.6px) 0 0/6px 1px repeat-x; }
 .pt { position:absolute; inset:0; display:flex; color:#fff; font-family:Selawik, "Segoe UI", sans-serif; overflow:hidden;
   background: radial-gradient(1100px 520px at 88% -8%, rgba(32,52,150,.42), transparent 62%), #08090c; }
 .pt .side { width:226px; flex:none; background:#0c0d11; border-right:1px solid rgba(255,255,255,.06); padding:0; display:flex; flex-direction:column; gap:0; }
@@ -496,16 +505,27 @@ const CSS = `
 .ccr .qagh svg { width:17px; height:17px; }
 .ccr .qagb { flex:1; min-height:0; overflow:hidden; padding:14px 20px; display:flex; flex-direction:column; justify-content:flex-end; gap:10px; }
 .ccr .qagb > * { flex:none; }
-.ccr .qappr.old { opacity:.55; }
 .ccr .qubub { align-self:flex-end; max-width:82%; background:#1d4ed8; color:#fff; font-size:13px; font-weight:600; line-height:1.45; padding:10px 14px; border-radius:16px; }
 .ccr .qtrace { display:flex; align-items:center; gap:10px; font-size:12px; color:#a1a1aa; }
 .ccr .qorb { width:18px; height:18px; border-radius:50%; background:radial-gradient(circle at 40% 35%, #ffe08a, #d4a017 60%, #6b4a00); box-shadow:0 0 10px rgba(240,190,60,.6); }
-.ccr .qappr { border-radius:12px; border:1px solid rgba(229,185,58,.35); background:#0f0f13; padding:12px; }
-.ccr .qapprh { display:flex; align-items:center; font-size:12px; font-weight:700; }
-.ccr .qapprh .wait { color:#e5b93a; } .ccr .qapprh .ok { color:#33c6cf; }
+.ccr .qappr { border-radius:14px; border:1px solid rgba(229,185,58,.45); background:#0f0f13; overflow:hidden; box-shadow:0 0 0 3px rgba(229,185,58,.08); }
+.ccr .qappr.given { border-color:rgba(81,70,41,.75); box-shadow:none; }
+.ccr .qapprh { display:flex; align-items:center; gap:8px; padding:10px 12px 0; font-size:11px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:#8c8c8c; }
+.ccr .qapprh svg { width:14px; height:14px; flex:none; }
+.ccr .qact { display:flex; align-items:flex-start; gap:10px; padding:8px 12px; }
+.ccr .qacti { width:24px; height:24px; flex:none; margin-top:2px; border-radius:8px; display:grid; place-items:center; background:rgba(229,185,58,.12); color:#e5b93a; }
+.ccr .qappr.given .qacti { background:#1f1f1f; color:#8c8c8c; }
+.ccr .qacti svg { width:14px; height:14px; }
+.ccr .qact b { display:block; font-size:13px; font-weight:500; line-height:1.35; color:#ececef; }
+.ccr .qact .d { display:block; font-size:12px; color:#8c8c8c; overflow-wrap:anywhere; }
+.ccr .qapprb { padding:0 12px 10px; }
+.ccr .qapprf { display:flex; align-items:center; gap:4px; padding:8px 12px; border-top:1px solid rgba(81,70,41,.5); font-size:12px; color:#8fa6ff; }
+.ccr .qapprf svg { width:12px; height:12px; }
+.ccr .qapprk { display:flex; gap:8px; padding:10px 12px; border-top:1px solid rgba(81,70,41,.5); }
 .ccr .qmail { border-radius:9px; border:1px solid rgba(61,99,255,.25); overflow:hidden; font-size:11.5px; }
 .ccr .qmailh { font-weight:700; color:#8fa6ff; background:rgba(61,99,255,.10); padding:7px 12px; }
 .ccr .qmail .m { color:#9c9ca5; }
+.ccr .qmail b { font-weight:500; }
 .ccr .qchip { font-size:9.5px; font-weight:700; padding:2px 7px; border-radius:999px; border:1px solid rgba(255,255,255,.12); color:#a1a1aa; } .ccr .qchip.on { color:#8fa6ff; border-color:rgba(61,99,255,.35); background:rgba(61,99,255,.12); }
 .ccr .qbody { margin-top:4px; padding:8px 10px; border-radius:6px; border:1px solid rgba(255,255,255,.07); background:#0b0b0e; font-size:12px; line-height:1.5; color:#e4e4e7; }
 .ccr .qagf { padding:12px 16px 10px; border-top:1px solid rgba(255,255,255,.06); background:#08080b; display:flex; flex-direction:column; gap:10px; }
@@ -796,6 +816,9 @@ Object.assign(I, {
   mic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3ZM19 10v2a7 7 0 0 1-14 0v-2M12 19v3"/>',
   checkcheck: '<path d="M18 6 7 17l-5-5M22 10l-7.5 7.5L13 16"/>',
   x: '<path d="M18 6 6 18M6 6l12 12"/>',
+  mail: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
+  tick: '<path d="M20 6 9 17l-5-5"/>',
+  xcircle: '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/>',
   filebar:
     '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7ZM14 2v4a2 2 0 0 0 2 2h4M8 18v-2M12 18v-4M16 18v-6"/>',
   calcheck:
@@ -828,6 +851,9 @@ const cur = (style) =>
   `<svg class="cur" style="${style}" viewBox="0 0 24 24"><path d="M3 2l17 9.5-7.5 1.6L9 21z" fill="#fff" stroke="#0A192F" stroke-width="1.4" stroke-linejoin="round"/></svg>`;
 // A pointer resting at a control's lower right, clear of its label.
 const onIt = () => cur("right:-12px;bottom:-16px");
+
+// Helvetica's widths, for the report pages' lines (NEW-REPORT-PAGES).
+const { widthOf } = require("./helvetica.cjs");
 
 module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
   const pimg = (w, h, label = "P · Residence 014") =>
@@ -1103,16 +1129,17 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
       approved
         ? "Hi Jordan, your client summary for Residence 014 is ready. Next step: review the remaining questions together."
         : "Hi Jordan, your client summary for Residence 014 is ready. Next step: discuss the next step.";
-    const approval = (
-      approved,
-      superseded = false,
-    ) => `<div class="qappr${superseded ? " old" : ""}"><div class="qapprh"><span class="${approved ? "ok" : "wait"}">${approved ? "✓ Approved" : "Needs your go-ahead"}</span><span class="qsmall" style="margin-left:auto">Proposed action</span></div>
-      <div style="font-size:12.5px;font-weight:600;margin:8px 0">This action needs your approval</div>
-      <div class="qmail"><div class="qmailh">📧 Email Preview</div><div style="padding:10px 12px;display:flex;flex-direction:column;gap:6px">
+    // The go-ahead card as AgentApprovalCard draws it: its status as the heading, the act named in plain
+    // words from the tool call (summarisePendingActions: "Send an email", then who and what about), the
+    // email preview the widget passes in, and Approve / Cancel while pending or "Approved" once given.
+    const approval = (approved) => `<div class="qappr${approved ? " given" : ""}">
+      <div class="qapprh">${svg("shieldok", approved ? "#8c8c8c" : "#e5b93a", 2)}${approved ? "Approved" : "Needs your go-ahead"}</div>
+      <div class="qact"><span class="qacti">${svg("mail", "currentColor", 2)}</span><div style="min-width:0"><b>Send an email</b><span class="d">To jordan.ellis@example.com · Residence 014: your client summary</span></div></div>
+      <div class="qapprb"><div class="qmail"><div class="qmailh">📧 Email Preview</div><div style="padding:10px 12px;display:flex;flex-direction:column;gap:6px">
         <div><span class="m">From:</span> <span class="qchip on">🏢 Admin</span> <span class="qchip">👤 Personal</span></div>
-        <div><span class="m">To:</span> <b>Jordan Ellis</b></div><div><span class="m">Subject:</span> <b>Residence 014: your client summary</b></div>
-        <div class="qbody"><div class="m" style="font-size:9.5px;letter-spacing:.12em;margin-bottom:4px">BODY</div>${bodyOf(approved)}</div></div></div>
-      ${approved || superseded ? "" : `<div style="display:flex;gap:8px;margin-top:10px">${qbtn("check", "Approve", "blue wide")}${qbtn("", "⊗ Cancel", "wide")}</div>`}</div>`;
+        <div><span class="m">To:</span> <b>jordan.ellis@example.com</b></div><div><span class="m">Subject:</span> <b>Residence 014: your client summary</b></div>
+        <div class="qbody"><div class="m" style="font-size:9.5px;letter-spacing:.12em;margin-bottom:4px">BODY</div>${bodyOf(approved)}</div></div></div></div>
+      ${approved ? `<div class="qapprf">${svg("tick", "currentColor", 2.2)}Approved</div>` : `<div class="qapprk">${qbtn("tick", "Approve", "blue wide")}${qbtn("xcircle", "Cancel", "wide")}</div>`}</div>`;
     return `<div class="qagent">
       <div class="qagh">${mascot(50)}<div><b style="font-size:15px">Aurixa</b><div class="qsmall" style="font-size:12px">Ready when you are</div></div>
         <div style="margin-left:auto;display:flex;gap:14px;align-items:center">${["msg", "refresh", "users", "bell"].map((i) => svg(i, "#c4c4cc", 1.7)).join("")}<span style="color:#c4c4cc">···</span><span style="color:#c4c4cc;font-size:18px">×</span></div></div>
@@ -1120,7 +1147,7 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
         <div class="qubub">Draft a short note to Jordan Ellis about his Residence 014 client summary.</div>
         <div class="qtrace"><span class="qorb"></span>Worked for 4s · 1 step<span style="margin-left:auto">⌄</span></div>
         <div style="font-size:13px;line-height:1.55">Here is a draft for <b>Jordan Ellis</b>. Nothing is sent until you give it the go-ahead.</div>
-        ${approval(false, state === "approved")}
+        ${approval(false)}
         ${
           state === "approved"
             ? `<div class="qubub">Make the next step: review the remaining questions together.</div>
@@ -1476,9 +1503,10 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
   const STOCK_SCROLL = 316;
 
   // The client's report as the exported PDF delivers it (investmentPdfCover.ts): the issuer's cover, on
-  // an A4 sheet of 595.5 × 842.25 pt, drawn at k px per pt. The issuer is Aurixa Systems, in its navy
-  // and gold; the grade and score are not on the cover.
-  const reportCover = (k) => {
+  // an A4 sheet of 595.5 × 842.25 pt, drawn at k px per pt. The issuer is Aurixa Systems; the grade and
+  // score are not on the cover. PL-08B keeps the navy it was approved in; the report's own pages pass the
+  // colours the product resolves for an issuer that set no brand colour (DOC, below).
+  const reportCover = (k, { field = "#0C1526", gold = "#C9A14A", ink = "#FAF7F1" } = {}) => {
     const pt = (v) => `${(v * k).toFixed(2)}px`;
     const W = 595.5;
     const H = 842.25;
@@ -1493,17 +1521,17 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
     const photoW = photoH * 1.5;
     const text = (top, size, family, color, tracking, body, weight = 400) =>
       `<div style="position:absolute;left:0;right:0;top:${pt(top - size * 0.84)};text-align:center;font:${weight} ${pt(size)}/1 ${family};letter-spacing:${pt(tracking)};color:${color};white-space:nowrap">${body}</div>`;
-    return `<div class="ppage" style="width:${pt(W)};height:${pt(H)};background:#0C1526">
+    return `<div class="ppage" style="width:${pt(W)};height:${pt(H)};background:${field}">
       <div style="position:absolute;left:${pt(22)};right:${pt(22)};top:${pt(590)};height:${pt(photoH)};display:flex;justify-content:center">
         ${P ? `<div style="width:${pt(photoW)};height:100%;background:url('${P}') center 38%/cover no-repeat"></div>` : `<div class="pimg pph" data-label="P" style="width:${pt(photoW)};height:100%"></div>`}</div>
-      <div style="position:absolute;left:${pt(22)};right:${pt(22)};top:${pt(590)};border-top:${pt(0.75)} solid #C9A14A"></div>
-      <div style="position:absolute;inset:${pt(22)};border:${pt(0.6)} solid #C9A14A"></div>
-      <div style="position:absolute;left:${pt((W - markW) / 2)};top:${pt(groupTop)};width:${pt(markW)};height:${pt(markH)};${EMBLEM ? `background:url('${EMBLEM}') center/contain no-repeat` : "border:1px dashed #C9A14A"}"></div>
-      ${text(baseline, nameSize, "'Liberation Serif', 'Times New Roman', serif", "#C9A14A", nameSize * 0.12, "AURIXA SYSTEMS")}
-      <div style="position:absolute;left:${pt(W / 2 - 20)};width:${pt(40)};top:${pt(rule)};border-top:${pt(0.75)} solid #C9A14A"></div>
-      ${text(titleBase, 9, "'Liberation Sans', Helvetica, Arial, sans-serif", "#FAF7F1", 2.2, "INVESTMENT COMPASS")}
-      <div style="position:absolute;left:${pt(70)};right:${pt(70)};top:${pt(560.5)};border-top:${pt(0.5)} solid #C9A14A"></div>
-      ${text(575.25 + 9 * 0.718 * 0.5, 9, "'Liberation Sans', Helvetica, Arial, sans-serif", "#FAF7F1", 1.2, "RESIDENCE 014, PROJECT BANKSIA, BANKSIA RISE NSW 2155")}
+      <div style="position:absolute;left:${pt(22)};right:${pt(22)};top:${pt(590)};border-top:${pt(0.75)} solid ${gold}"></div>
+      <div style="position:absolute;inset:${pt(22)};border:${pt(0.6)} solid ${gold}"></div>
+      <div style="position:absolute;left:${pt((W - markW) / 2)};top:${pt(groupTop)};width:${pt(markW)};height:${pt(markH)};${EMBLEM ? `background:url('${EMBLEM}') center/contain no-repeat` : `border:1px dashed ${gold}`}"></div>
+      ${text(baseline, nameSize, "'Liberation Serif', 'Times New Roman', serif", gold, nameSize * 0.12, "AURIXA SYSTEMS")}
+      <div style="position:absolute;left:${pt(W / 2 - 20)};width:${pt(40)};top:${pt(rule)};border-top:${pt(0.75)} solid ${gold}"></div>
+      ${text(titleBase, 9, "'Liberation Sans', Helvetica, Arial, sans-serif", ink, 2.2, "INVESTMENT COMPASS")}
+      <div style="position:absolute;left:${pt(70)};right:${pt(70)};top:${pt(560.5)};border-top:${pt(0.5)} solid ${gold}"></div>
+      ${text(575.25 + 9 * 0.718 * 0.5, 9, "'Liberation Sans', Helvetica, Arial, sans-serif", ink, 1.2, "RESIDENCE 014, PROJECT BANKSIA, BANKSIA RISE NSW 2155")}
     </div>`;
   };
   // A content page in miniature for the page rail: white, with the black-and-gold corner shards.
@@ -1514,6 +1542,346 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
       <div class="pt1">${miniPage(`<b style="font-size:5.5px;letter-spacing:.12em;color:#0D264D">TABLE OF CONTENTS</b>${"<u></u>".repeat(9)}`)}<span>2</span></div>
       <div class="pt1">${miniPage(`<b style="font-size:6px;color:#0D264D">Floor plan</b><em></em>${D ? `<div style="height:58px;background:url('${D}') center/contain no-repeat"></div>` : ""}`)}<span>3</span></div>
       <div class="pt1">${miniPage(`<b style="font-size:5.5px;color:#0D264D">Investment Compass</b><em></em><div class="kpi"><i></i><i></i></div>${"<u></u>".repeat(6)}`)}<span>4</span></div></div>`;
+
+  // ---------------------------------------------------------------- The client's report, inside (NEW-REPORT-PAGES)
+  // The standard Investment Compass PDF as npc-client-dashboard draws it for an issuer that set no brand colour
+  // (investmentPdfDocument.ts, investmentPdfIssuerPage.ts, investmentPdfCover.ts; measured from a render of
+  // that code on 21 Oct 2026): white pages under the issuer's running head, in the family brandFamily.pure.ts
+  // resolves from no colour, with prose, the title and the headings in the code's own #333333. One CSS px is a
+  // point of the A4 sheet. Helvetica is drawn in its metric twin, Liberation Sans, with kerning off, and lines
+  // are broken and justified the way drawTextWithWrap breaks them (./helvetica.cjs), so they fall where the
+  // product's PDF puts them.
+  const DOC = {
+    gold: "#D9A520",
+    goldInk: "#624A0F",
+    field: "#251F18",
+    ivory: "#FAF7EF",
+    wash: "#FCF7EB",
+    stripe: "#FDFBF5",
+    hair: "#E3D6B5",
+    muted: "#544B40",
+    prose: "#333333",
+    note: "#373737",
+  };
+  const A4 = [595.5, 842.25];
+  // Guardrail 2 (BRIEF.md): anything modelled carries the illustrative label on the page itself. The
+  // product prints no such line; the film's pages carry it in the band above the first line of text.
+  const ILLUSTRATIVE =
+    "Illustrative example only: hypothetical client, figures and assumptions. Not a credit assessment or financial advice.";
+  const f2 = (v) => Number(v.toFixed(2));
+  const rule = (x, top, w, h, color) =>
+    `<i class="rp-r" style="left:${f2(x)}px;top:${f2(top)}px;width:${f2(w)}px;height:${f2(h)}px;background:${color}"></i>`;
+  /** Text on a baseline: x is its left edge, or with `end` its right edge, or with `mid` its centre. */
+  const set = (
+    x,
+    base,
+    size,
+    text,
+    { bold = false, color = DOC.prose, end = false, mid = false, track = 0 } = {},
+  ) => {
+    const top = base - 0.8465 * size; // at line-height 1, Liberation Sans' baseline is 0.8465 em down
+    const pos = end
+      ? `right:${f2(A4[0] - x - track)}px`
+      : mid
+        ? `left:${f2(x)}px;transform:translateX(calc(-50% + ${track / 2}px))`
+        : `left:${f2(x)}px`;
+    return `<div class="rp-t" style="${pos};top:${f2(top)}px;font-size:${size}px;font-weight:${bold ? 700 : 400};color:${color}${track ? `;letter-spacing:${track}px` : ""}">${text}</div>`;
+  };
+  const words = (src) => {
+    // **bold** runs, then words with drawTextWithWrap's glue: a run that does not open with a space
+    // continues the word before it.
+    const out = [];
+    let open = true;
+    for (const seg of src.split(/(\*\*[^*]+\*\*)/)) {
+      if (!seg) continue;
+      const bold = /^\*\*.*\*\*$/.test(seg);
+      const run = bold ? seg.slice(2, -2) : seg;
+      const ws = run.split(" ").filter(Boolean);
+      const continues = out.length > 0 && !open && !/^\s/.test(run);
+      ws.forEach((w, i) => out.push({ w, bold, glue: i === 0 && continues }));
+      if (ws.length) open = /\s$/.test(run);
+    }
+    return out;
+  };
+  /**
+   * A paragraph, wrapped and (unless `left`) justified as drawTextWithWrap does: greedy lines, the extra
+   * width spread over the real gaps, the last line left as it is. Lines stop at `bottom` (745.08, where the
+   * product stops drawing on a page). Returns its HTML, the last baseline it drew and whether it was cut.
+   */
+  const prose = (
+    src,
+    {
+      x = 55,
+      base,
+      width = 485,
+      size = 9.5,
+      lead = 15,
+      left = false,
+      bold = false,
+      color = DOC.prose,
+      bottom = 745.08,
+    },
+  ) => {
+    const ws = words(src).map((w) => ({ ...w, bold: w.bold || bold }));
+    const space = widthOf(" ", size);
+    const measure = (line) =>
+      line.reduce(
+        (sum, w, i) => sum + widthOf(w.w, size, w.bold) + (i > 0 && !w.glue ? space : 0),
+        0,
+      );
+    const lines = [];
+    let line = [];
+    for (const w of ws) {
+      const need = widthOf(w.w, size, w.bold) + (line.length && !w.glue ? space : 0);
+      if (line.length && measure(line) + need > width) {
+        if (w.glue && line.length > 1) {
+          const carried = line.pop();
+          lines.push(line);
+          line = [{ ...carried, glue: false }, w];
+        } else {
+          lines.push(line);
+          line = [{ ...w, glue: false }];
+        }
+      } else line.push(w);
+    }
+    if (line.length) lines.push(line);
+    let html = "";
+    let y = base;
+    let drawn = 0;
+    for (const [li, l] of lines.entries()) {
+      if (y > bottom) break;
+      const last = li === lines.length - 1;
+      const gaps = l.filter((w, i) => i > 0 && !w.glue).length;
+      const ink = l.reduce((sum, w) => sum + widthOf(w.w, size, w.bold), 0);
+      const gap = !left && !last && gaps ? (width - ink) / gaps : space;
+      let at = x;
+      for (const [wi, w] of l.entries()) {
+        html += set(at, y, size, esc(w.w), { bold: w.bold, color });
+        const next = l[wi + 1];
+        at += widthOf(w.w, size, w.bold) + (next && !next.glue ? gap : 0);
+      }
+      drawn++;
+      y += lead;
+    }
+    return { html, last: base + (drawn - 1) * lead, cut: drawn < lines.length };
+  };
+  const esc = (t) => t.replace(/&(?!amp;|nbsp;)/g, "&amp;").replace(/</g, "&lt;");
+  /** The running head and the footer every content page carries. */
+  const furniture = (page) =>
+    `${set(55, 38, 6.5, "AURIXA SYSTEMS", { color: DOC.muted, track: 1.3 })}${set(540.5, 38, 6.5, "INVESTMENT COMPASS", { color: DOC.muted, track: 1.3, end: true })}
+    ${rule(55, 45.75, 485.5, 0.5, DOC.hair)}${rule(55, 45, 34, 2, DOC.gold)}
+    ${rule(55, 797.83, 485, 0.5, DOC.gold)}${set(55, 810.08, 7, "Investment Report&nbsp;&nbsp;|&nbsp;&nbsp;Confidential", { color: DOC.muted })}${set(540, 810.08, 7, `Page ${page}`, { color: DOC.muted, end: true })}`;
+  /** A section's header, H2 and H3 alike: a gold bar, the heading, and its underline. */
+  const head = (title, base, color = DOC.prose) =>
+    `${rule(47, base - 12, 3, 18, DOC.gold)}${set(55, base, 14, esc(title), { bold: true, color })}${rule(55, base + 13.5, widthOf(title, 14, true) + 20, 1, DOC.gold)}`;
+  const label = (top) =>
+    `<div class="rp-label" style="left:55px;top:${top}px;width:485px;height:19px">${ILLUSTRATIVE}</div>`;
+  /** A KPI tile: the wash, a 1.2 pt gold border, the 4 pt strip, the label, the value and its caption. */
+  const kpiTile = (x, top, w, labelText, value, caption = null) =>
+    `<i class="rp-r" style="left:${f2(x - 0.6)}px;top:${f2(top - 0.6)}px;width:${f2(w + 1.2)}px;height:${f2(72 + 1.2)}px;background:${DOC.wash};box-shadow:inset 0 0 0 1.2px ${DOC.gold}"></i>
+    ${rule(x, top, w, 4, DOC.gold)}${set(x + w / 2, top + 18, 7, labelText, { bold: true, color: DOC.muted, mid: true })}
+    ${caption ? `${set(x + w / 2, top + 44, 15, value, { bold: true, color: DOC.field, mid: true })}${set(x + w / 2, top + 62, 6.5, caption, { color: DOC.muted, mid: true })}` : set(x + w / 2, top + 48, 16, value, { bold: true, color: DOC.field, mid: true })}`;
+  /** A page of the report, drawn at k px a point. */
+  const sheet = (k, html, bg = "#fff") =>
+    `<div class="ppage" style="position:relative;width:${f2(A4[0] * k)}px;height:${f2(A4[1] * k)}px;background:${bg}"><div class="rp" style="transform:scale(${k});background:${bg}">${html}</div></div>`;
+
+  // Page 1: the cover, in the colours the product resolves for this issuer.
+  const docCover = (k) => reportCover(k, { field: DOC.field, gold: DOC.gold, ink: DOC.ivory });
+
+  // Page 2: the contents, with the Compass's own sections (compassSectionRegistry.ts) and the grade's method.
+  const CONTENTS = [
+    ["1.", "Executive Verdict", 4],
+    ["2.", "Property & Locality Snapshot", 5],
+    ["3.", "Why This Location Matters", 6],
+    ["4.", "Infrastructure and Growth Context", 7],
+    ["5.", "Demand Drivers", 8],
+    ["6.", "Amenity & Access", 9],
+    ["7.", "Transport & Connectivity", 9],
+    ["8.", "Zoning, Planning and Development Considerations", 10],
+    ["9.", "Environment, Climate & Safety", 12],
+    ["10.", "Market Positioning", 13],
+    ["11.", "Competitive Landscape and Supply Pipeline", 14],
+    ["12.", "Property Fit Within the Suburb", 15],
+    ["13.", "Risk Dashboard", 15],
+    ["14.", "Due Diligence Checklist", 16],
+    ["15.", "Final Recommendation", 17],
+    ["16.", "Appendix, Source Notes & Disclaimer", 18],
+    ["16.1", "How this grade was reached", 19, true],
+  ];
+  const contentsPage = () => {
+    let y = 168.08;
+    const rows = CONTENTS.map(([n, name, page, sub]) => {
+      const size = sub ? 10 : 11;
+      const x0 = sub ? 70 : 55;
+      const nameX = x0 + widthOf(n, size, !sub) + 8;
+      const dotsFrom = nameX + widthOf(name, size) + 5;
+      const html = `${set(x0, y, size, n, { bold: !sub, color: DOC.goldInk })}${set(nameX, y, size, esc(name), { color: sub ? DOC.note : DOC.field })}
+        <i class="rp-dots" style="left:${f2(dotsFrom)}px;top:${f2(y - 3.5)}px;width:${f2(505 - dotsFrom)}px"></i>${set(540, y, size, String(page), { bold: true, color: DOC.field, end: true })}`;
+      y += sub ? 18 : 24;
+      return html;
+    }).join("");
+    return `${furniture(2)}${set(55, 103.08, 20, "TABLE OF CONTENTS", { bold: true, color: DOC.field })}${rule(55, 127.08, 485, 2, DOC.gold)}${rows}`;
+  };
+
+  // Page 3: "The property", the lead photograph contained on its sheet (investmentPdfPictures.ts).
+  const propertyPage = () =>
+    `${furniture(3)}${head("The property", 103.08, DOC.field)}${set(55, 133.08, 9, "Residence 014, Project Banksia, Banksia Rise NSW 2155", { color: DOC.note })}
+    <div class="rp-photo" style="left:55px;top:275.86px;width:485px;height:323.43px;${P ? `background-image:url('${P}')` : "background:#2a3b52"}"></div>
+    ${rule(55, 739.83, 485, 0.5, DOC.hair)}${rule(55, 757.83, 485, 0.5, DOC.hair)}${rule(55, 775.83, 485, 0.5, DOC.hair)}
+    ${set(55, 752.08, 8, "Source", { bold: true, color: DOC.field })}${set(173, 752.08, 8, "The listing's or the builder's marketing material.", { color: DOC.note })}
+    ${set(55, 770.08, 8, "Before relying on it", { bold: true, color: DOC.field })}${set(173, 770.08, 8, "Inspect the property: images can be dated or staged.", { color: DOC.note })}`;
+
+  // Page 4: the first section, Executive Verdict, under the report's title, with the Compass's two tiles. The
+  // verdict opens with the label the product prints for B+ assessed on 3 of 5 dimensions (printedVerdict,
+  // qualifyRecommendation), and the readiness statement follows the case (transactionReadiness.pure.ts).
+  const SUMMARY = [
+    "**BUY - Good investment opportunity with favourable metrics in most of the areas assessed.**",
+    "Residence 014 is graded **B+** on a composite of **74**, carried by capital growth and location; rental yield is moderate, and demand and property risk were not scored. The case rests on the area's measured growth record and on the property's access to transport, schools and shops, not on any figure this report estimated.",
+    "**Transaction readiness: material verification pending.** The grade is an assessment of the evidence this report holds. It is not permission to proceed, and it does not replace the checks in the Due Diligence Checklist, each of which can change the figures or the recommendation.",
+  ];
+  const WHAT_THIS_MEANS =
+    "The grade supports moving to the checks that settle it: the review of the land and build contracts, the lot's title and approvals, and an independent appraisal of the rent at completion.";
+  const summaryPage = () => {
+    const title = prose(
+      "Investment Compass: Residence 014, Project Banksia, Banksia Rise NSW 2155",
+      { base: 103.08, size: 18, lead: 24, left: true, bold: true },
+    );
+    const headBase = title.last + 49;
+    const tiles = headBase + 30;
+    let html = `${furniture(4)}${label(57)}${title.html}${head("Executive Verdict", headBase)}
+      ${kpiTile(55, tiles, 237.5, "PURCHASE PRICE", "$1,150,000")}${kpiTile(302.5, tiles, 237.5, "WEEKLY RENT", "$850", "Rent as supplied")}`;
+    let base = tiles + 72 + 16;
+    for (const src of SUMMARY) {
+      const p = prose(src, { base });
+      html += p.html;
+      base = p.last + 21;
+    }
+    const lines = prose(WHAT_THIS_MEANS, {
+      x: 72,
+      base: base + 30,
+      width: 454,
+      lead: 14,
+      left: true,
+    });
+    const n = Math.round((lines.last - (base + 30)) / 14) + 1;
+    const h = n * 14 + 28;
+    html += `${rule(55, base, 485, h, DOC.wash)}${rule(55, base, 3, h, DOC.gold)}${set(72, base + 16, 7.5, "WHAT THIS MEANS", { bold: true, color: DOC.goldInk })}${lines.html}`;
+    return html;
+  };
+
+  // Page 19: how the grade was reached, composed as strategyPositions.composeScoreDimensionTable writes it for
+  // a proportional grade whose record holds its weights. B+ at 74 on 3 of the 5 dimensions, as every plate
+  // shows it: capital growth 76, location 81, rental yield 58 at the original 40 / 25 / 15 re-spread to
+  // 50 / 31.25 / 18.75 (38.00 + 25.31 + 10.88 = 74.19, recorded as 74). The renderer sets "—" as "-".
+  const GRADE_INTRO =
+    "Five dimensions carry the method. Each has an **original weight**; the scoring method re-spreads those weights across the dimensions the evidence could measure - discounted by how much of each dimension's own method actually ran - giving the **adjusted weight** the composite is built from. That is why a dimension scored on part of its inputs can carry less than its original weight. The adjusted weights below are the ones the record holds, so they are the weights this grade was actually built from. A dimension that could not be assessed is disclosed rather than deducted: it lowers no score and caps no grade, and the scope of the assessment is stated with the result instead.";
+  const GRADE_ROWS = [
+    ["Capital growth", "76 / 100", "40%", "50%", "38.00"],
+    ["Location", "81 / 100", "25%", "31%", "25.31"],
+    ["Rental yield", "58 / 100", "15%", "19%", "10.88"],
+    ["Demand", "-", "15%", "- (not scored)", "-"],
+    ["Property risk", "-", "5%", "- (not scored)", "-"],
+  ];
+  const GRADE_AFTER = [
+    "**What each dimension rested on.**",
+    "• **Capital growth.** Scored on the published median sale price series for the council area, quarterly, as its publisher records it.",
+    "• **Location.** Nearest transit stop 600 m away. 7 schools within 3 km, and shops and the commute to its centre measured at the property's address.",
+    "• **Rental yield.** Scored on the recorded weekly rent against the purchase price.",
+    "• **Demand.** Not assessed - sufficient verified demand evidence is currently unavailable. What is missing is a published measure of how actively this market trades: sale volumes, days on market, vendor discounting or auction results. Population change is a supporting indicator and cannot stand in for one.",
+    "• **Property risk.** Not assessed - insufficient verified property-risk evidence is available. What is missing is property-specific risk measurement covering at least two independent subjects - for example a building condition assessment alongside hazard or planning controls checked against the parcel itself rather than a single map point.",
+    "**How the grade follows.**",
+    "• **Composite score 74.** The contributions come to 74.19, rounded once to the composite 74, the figure recorded with the grade. They are computed from the exact adjusted weights the scoring method retained with this grade, so they reproduce its arithmetic; the weights printed as whole percentages are those weights rounded for display.",
+    "• **Grade the composite alone gives: B+.**",
+    "• **Assessed on 3 of the 5 dimensions**, carrying 80% of the method's original weight. The dimensions that could not be assessed are named above with what would restore each one; none of them lowers this result.",
+  ];
+  const GRADE_EDGES = [55, 159.21, 246.76, 334.32, 424.68, 540];
+  const GRADE_MARKS = [];
+  const gradeTable = (top) => {
+    const rows = [
+      ["Dimension", "Score", "Original weight", "Adjusted weight", "Contribution"],
+      ...GRADE_ROWS,
+    ];
+    let html = "";
+    let y = top;
+    for (const [ri, row] of rows.entries()) {
+      const header = ri === 0;
+      if (header) html += rule(55, y - 2, 485, 24.5, DOC.field);
+      else if (ri % 2 === 0) html += rule(55, y - 2, 485, 24.5, DOC.stripe);
+      for (const [ci, cell] of row.entries())
+        html += set(GRADE_EDGES[ci] + 6, y + 15.5, 9.5, esc(cell), {
+          bold: header,
+          color: header ? "#FFFFFF" : DOC.prose,
+        });
+      for (const edge of GRADE_EDGES.slice(1, -1))
+        html += rule(edge - 0.25, y, 0.5, 24.5, DOC.hair);
+      html += header
+        ? rule(55, y - 0.75, 485, 1.5, DOC.gold) + rule(55, y + 24.5 - 0.75, 485, 1.5, DOC.gold)
+        : rule(55, y + 24.5 - 0.25, 485, 0.5, DOC.hair);
+      y += 24.5;
+    }
+    return { html, bottom: y };
+  };
+  const gradePage = () => {
+    let html = `${furniture(19)}${label(57)}${head("How this grade was reached", 103.08)}`;
+    const intro = prose(GRADE_INTRO, { base: 133.08 });
+    html += intro.html;
+    const table = gradeTable(intro.last + 21);
+    html += table.html;
+    // Where the two unscored rows' "- (not scored)" sit on the sheet, for the film's marker (08.2).
+    GRADE_MARKS.splice(
+      0,
+      GRADE_MARKS.length,
+      ...[4, 5].map((row) => ({
+        x: GRADE_EDGES[3] + 6,
+        base: intro.last + 21 + row * 24.5 + 15.5,
+        width: widthOf("- (not scored)", 9.5),
+      })),
+    );
+    let base = table.bottom + 18;
+    for (const src of GRADE_AFTER) {
+      if (base > 725.08) break; // a paragraph that would start below this goes to the next page
+      const p = prose(src, { base });
+      html += p.html;
+      if (p.cut) break;
+      base = p.last + 21;
+    }
+    return html;
+  };
+
+  // The pages around them, for the viewer's page rail: a section's heading and its text, in miniature.
+  const textPage = (page, heading, bars = 26) =>
+    `${furniture(page)}${head(heading, 103.08)}${Array.from({ length: bars }, (_, i) => rule(55, 128 + i * 21, i % 6 === 5 ? 300 : 485, 4.5, "#D9DCE0")).join("")}`;
+  const docThumbs = (pages, on) =>
+    `<div class="pthumbs">${pages.map(([n, page]) => `<div class="pt1${n === on ? " on" : ""}">${page}<span>${n}</span></div>`).join("")}</div>`;
+  const DOC_TITLE = "Investment Compass — Residence 014, Project Banksia, Banksia Rise NSW 2155";
+  // The viewer at page 4, the summary; and at page 19, how the grade was reached.
+  const docViewer = (page) =>
+    pdfViewer({
+      title: DOC_TITLE,
+      page: sheet(0.76, page === 4 ? summaryPage() : gradePage()),
+      pageOf: [page, 22],
+      zoom: "57%",
+      thumbs:
+        page === 4
+          ? docThumbs(
+              [
+                [1, docCover(0.16)],
+                [2, sheet(0.16, contentsPage())],
+                [3, sheet(0.16, propertyPage())],
+                [4, sheet(0.16, summaryPage())],
+              ],
+              4,
+            )
+          : docThumbs(
+              [
+                [17, sheet(0.16, textPage(17, "Final Recommendation"))],
+                [18, sheet(0.16, textPage(18, "Appendix, Source Notes & Disclaimer"))],
+                [19, sheet(0.16, gradePage())],
+                [20, sheet(0.16, textPage(20, "How this grade was reached", 18))],
+              ],
+              19,
+            ),
+    });
 
   // ---------------------------------------------------------------- Solicitor (Priya)
   // After SolicitorPortalLayout, SolicitorMatterDetail and MatterDocumentsPanel: the matter's page, its
@@ -2047,6 +2415,10 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
 
   const W = [1920, 1080];
   const L = [1920, 1200];
+  // An A4 page at 2 px a point, a pixel over so the sheet's own 595.5 × 842.25 fits whole.
+  const SHEET = [1192, 1686];
+  const onSheet = (html) =>
+    `<div style="position:absolute;inset:0;background:#fff">${sheet(1, html)}</div>`;
   const plates = {
     // Command Centre
     "PL-04B-a": {
@@ -2200,6 +2572,26 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
       size: W,
       scale: CC_SCALE,
       html: cc("Message Hub", messageHub(true), "", true, MH_SCROLL),
+    },
+    // 05.2 and 08.2: the client's report, inside, as the standard PDF draws it for this issuer. Each page on
+    // its own for the document fan, and the viewer at the summary (page 4) and at how the grade was reached.
+    "NEW-REPORT-PAGES-cover": {
+      size: SHEET,
+      scale: 2,
+      html: `<div style="position:absolute;inset:0;background:${DOC.field}"><div style="position:absolute;left:0;top:0">${docCover(1)}</div></div>`,
+    },
+    "NEW-REPORT-PAGES-contents": { size: SHEET, scale: 2, html: onSheet(contentsPage()) },
+    "NEW-REPORT-PAGES-property": { size: SHEET, scale: 2, html: onSheet(propertyPage()) },
+    "NEW-REPORT-PAGES-summary": { size: SHEET, scale: 2, html: onSheet(summaryPage()) },
+    "NEW-REPORT-PAGES-assessment": { size: SHEET, scale: 2, html: onSheet(gradePage()) },
+    "NEW-REPORT-PAGES-a": { size: W, scale: SCALE, html: docViewer(4) },
+    // `sheetAt` and `marks`: where the sheet is in the viewer, and the passages a frame marks on it.
+    "NEW-REPORT-PAGES-b": {
+      size: W,
+      scale: SCALE,
+      html: docViewer(19),
+      sheetAt: [493.71, 62, 0.76],
+      marks: GRADE_MARKS,
     },
     // 08.3: the report on the client's Reports page, and the next discussion on My Appointments.
     "NEW-CLIENT-REPORTS-a": { size: L, scale: 2, html: clientReports },
