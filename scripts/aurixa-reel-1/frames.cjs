@@ -807,52 +807,71 @@ const STILLS = {
   },
 };
 
-/** G-SYSTEM-MAP: the Command Centre as the hub and the five portals around it, each on its own dashboard. */
-function systemMap({ travellers, t = [0.62, 0.48, 0.7, 0.55, 0.4] }) {
-  const hub = plate("PL-11A-c");
-  const portals = [
-    ["PL-06A-a", "Client portal", [215, 470]],
-    ["NEW-DASHBOARDS-finance", "Finance portal", [865, 470]],
-    ["NEW-DASHBOARDS-accountant", "Accountant portal", [190, 1128]],
-    ["NEW-DASHBOARDS-solicitor", "Solicitor portal", [540, 1128]],
-    ["NEW-DASHBOARDS-builders", "Builders Network", [890, 1128], true],
-  ];
-  const hubAt = [540, 812];
-  const hubWidth = 540;
-  const layers = [];
-  const lines = [];
-  const chips = [];
-  for (const [i, [key, label, at, teal]] of portals.entries()) {
-    const p = plate(key);
-    const zoom = 300 / p.css[0];
-    lines.push(link(hubAt, at, { traveller: travellers ? t[i] : null }));
-    layers.push(
-      camera({
-        plate: p,
-        zoom,
-        focus: [p.css[0] / 2, p.css[1] / 2],
-        at,
-        style: `z-index:3${teal ? ";border-color:var(--reel-teal-builders)" : ""}`,
-      }),
-    );
-    chips.push(
-      `<div class="fk-chip" style="left:${at[0]}px;top:${at[1] + (p.css[1] * zoom) / 2 + 26}px;z-index:4${teal ? ";color:var(--reel-teal-builders)" : ""}">${label}</div>`,
-    );
-  }
-  const hubZoom = hubWidth / hub.css[0];
-  layers.push(
-    camera({
+/** G-SYSTEM-MAP's layout: the Command Centre as the hub and the five portals around it, each at its centre. */
+const SYSTEM_MAP = {
+  hub: { key: "PL-11A-c", label: "Command Centre", at: [540, 812], width: 540 },
+  portalWidth: 300,
+  portals: [
+    { key: "PL-06A-a", label: "Client portal", at: [215, 470] },
+    { key: "NEW-DASHBOARDS-finance", label: "Finance portal", at: [865, 470] },
+    { key: "NEW-DASHBOARDS-accountant", label: "Accountant portal", at: [190, 1128] },
+    { key: "NEW-DASHBOARDS-solicitor", label: "Solicitor portal", at: [540, 1128] },
+    { key: "NEW-DASHBOARDS-builders", label: "Builders Network", at: [890, 1128], teal: true },
+  ],
+};
+
+/** A label chip of the map, centred on x with its top at y. */
+const mapChip = (label, x, y, z, teal = false) =>
+  `<div class="fk-chip" style="left:${x}px;top:${y}px;z-index:${z}${teal ? ";color:var(--reel-teal-builders)" : ""}">${label}</div>`;
+
+/** One portal of the map, on its own dashboard: its line from the hub, its window and its label. */
+function mapPortal(i, { traveller = null } = {}) {
+  const { key, label, at, teal } = SYSTEM_MAP.portals[i];
+  const p = plate(key);
+  const zoom = SYSTEM_MAP.portalWidth / p.css[0];
+  return {
+    line: link(SYSTEM_MAP.hub.at, at, { traveller }),
+    window: camera({
+      plate: p,
+      zoom,
+      focus: [p.css[0] / 2, p.css[1] / 2],
+      at,
+      style: `z-index:3${teal ? ";border-color:var(--reel-teal-builders)" : ""}`,
+    }),
+    chip: mapChip(label, at[0], at[1] + (p.css[1] * zoom) / 2 + 26, 4, teal),
+  };
+}
+
+/** The map's hub: the Command Centre's window, and its label above it. */
+function mapHub() {
+  const { key, label, at, width } = SYSTEM_MAP.hub;
+  const hub = plate(key);
+  const zoom = width / hub.css[0];
+  return {
+    window: camera({
       plate: hub,
-      zoom: hubZoom,
+      zoom,
       focus: [hub.css[0] / 2, hub.css[1] / 2],
-      at: hubAt,
+      at,
       style: "z-index:5",
     }),
+    chip: mapChip(label, at[0], at[1] - (hub.css[1] * zoom) / 2 - 72, 6),
+  };
+}
+
+/** G-SYSTEM-MAP: the Command Centre as the hub and the five portals around it, each on its own dashboard. */
+function systemMap({ travellers, t = [0.62, 0.48, 0.7, 0.55, 0.4] }) {
+  const portals = SYSTEM_MAP.portals.map((_, i) =>
+    mapPortal(i, { traveller: travellers ? t[i] : null }),
   );
-  chips.push(
-    `<div class="fk-chip" style="left:${hubAt[0]}px;top:${hubAt[1] - (hub.css[1] * hubZoom) / 2 - 72}px;z-index:6">Command Centre</div>`,
-  );
-  return [...lines, ...layers, ...chips];
+  const hub = mapHub();
+  return [
+    ...portals.map((p) => p.line),
+    ...portals.map((p) => p.window),
+    hub.window,
+    ...portals.map((p) => p.chip),
+    hub.chip,
+  ];
 }
 
 /** G-WALL: the film's own screens tiled at a slight angle, dimmed and softened by the strongest glass blur. */
@@ -898,15 +917,13 @@ function captionAt(t) {
   return cue ? cue.text : "";
 }
 
-/**
- * Draws frames to PNG, one browser for the lot: each job names a frame (FRAMES or STILLS), the caption it
- * carries and its file. A marker goes under each run a frame marks (data-mark), where the browser set it.
- */
-async function drawAll(jobs) {
-  const css = (await styles()) + KIT.frameCss + FRAME_CSS;
-  const { chromium } = playwright();
-  const browser = await chromium.launch(CHROMIUM ? { executablePath: CHROMIUM } : {});
-  const page = await browser.newPage({ viewport: { width: 1080, height: 1920 } });
+/** The frames' stylesheet: the plates' (with their fonts), the kit's and the frames' own. */
+async function stylesheet() {
+  return (await styles()) + KIT.frameCss + FRAME_CSS;
+}
+
+/** Serves the assets folder's images to a page at ASSET_HOST, as the frames name them. */
+async function routeAssets(page) {
   await page.route(`${ASSET_HOST}/**`, (route) => {
     const name = decodeURIComponent(new URL(route.request().url()).pathname.slice(1));
     const file = ASSETS && path.join(ASSETS, path.basename(name));
@@ -914,6 +931,18 @@ async function drawAll(jobs) {
       ? route.fulfill({ path: file, contentType: "image/png" })
       : route.fulfill({ status: 404, body: "" });
   });
+}
+
+/**
+ * Draws frames to PNG, one browser for the lot: each job names a frame (FRAMES or STILLS), the caption it
+ * carries and its file. A marker goes under each run a frame marks (data-mark), where the browser set it.
+ */
+async function drawAll(jobs) {
+  const css = await stylesheet();
+  const { chromium } = playwright();
+  const browser = await chromium.launch(CHROMIUM ? { executablePath: CHROMIUM } : {});
+  const page = await browser.newPage({ viewport: { width: 1080, height: 1920 } });
+  await routeAssets(page);
   for (const { still, caption, file } of jobs) {
     const html = frame({
       palette: still.palette,
@@ -943,7 +972,26 @@ async function drawAll(jobs) {
   await browser.close();
 }
 
-module.exports = { FRAMES, STILLS, CAPTIONS, drawAll };
+module.exports = {
+  FRAMES,
+  STILLS,
+  CAPTIONS,
+  drawAll,
+  // For the motion renderer (./render.cjs): the same plates, pieces, styles and assets as the stills.
+  plate,
+  markWords,
+  SYSTEM_MAP,
+  mapPortal,
+  mapChip,
+  TEAM,
+  EMBLEM,
+  WORDMARK,
+  ASSETS,
+  stylesheet,
+  routeAssets,
+  playwright,
+  CHROMIUM,
+};
 
 // The 15 style frames, each under the caption at its key beat.
 if (require.main === module)

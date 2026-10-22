@@ -290,24 +290,43 @@ module.exports = function kit({ P = null, D = null } = {}) {
       : `<div style="position:absolute;left:${px(left)};top:${px(top)};${style}">${page}</div>`;
   };
   /**
+   * Where a window's page sits and how its plate is laid in it (`shot`'s camera, shared with the motion
+   * renderer so a still and the film can't frame a page differently): the page's size inside the window
+   * (`pw`, `ph`), the plate's offset in the page (`ox`, `oy`) and `map`, which says where any of the
+   * plate's points lands in the frame. `css` is the plate's size in CSS px.
+   */
+  const shotGeometry = ({ css, zoom, focus, at, rect }) => {
+    const [vx, vy, vw, vh] = rect;
+    const pad = 12 + K;
+    const pw = vw - 2 * pad;
+    const ph = vh - 2 * pad;
+    const [w, h] = css;
+    const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+    const ox = clamp(at[0] - vx - pad - focus[0] * zoom, Math.min(0, pw - w * zoom), 0);
+    const oy = clamp(at[1] - vy - pad - focus[1] * zoom, Math.min(0, ph - h * zoom), 0);
+    return {
+      pad,
+      pw,
+      ph,
+      ox,
+      oy,
+      map: ([x, y]) => [vx + pad + ox + x * zoom, vy + pad + oy + y * zoom],
+    };
+  };
+  /**
    * A plate in a window that stays put inside the frame (`rect`, frame px) while the camera moves in on
    * the page within it: the plate's point `focus` is brought as near the frame's point `at` as the page's
    * edges allow, at `zoom` frame px per plate px. Returns the window and `map`, which says where any of
    * the plate's points lands in the frame.
    */
   const shot = ({ plate, zoom, focus, at, rect, dim = 0, style = "" }) => {
-    const [vx, vy, vw, vh] = rect;
-    const pad = 12 + K;
-    const pw = vw - 2 * pad;
-    const ph = vh - 2 * pad;
+    const [vx, vy] = rect;
     const [w, h] = plate.css;
-    const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-    const ox = clamp(at[0] - vx - pad - focus[0] * zoom, Math.min(0, pw - w * zoom), 0);
-    const oy = clamp(at[1] - vy - pad - focus[1] * zoom, Math.min(0, ph - h * zoom), 0);
+    const { pw, ph, ox, oy, map } = shotGeometry({ css: plate.css, zoom, focus, at, rect });
     const veil = dim ? `<div class="fk-veil" style="opacity:${dim}"></div>` : "";
     return {
       html: `<div class="fk-win" style="left:${px(vx)};top:${px(vy)};${style}"><div class="fk-page" style="width:${px(pw)};height:${px(ph)}"><div class="fk-scale" style="width:${w}px;height:${h}px;transform:translate(${px(ox)}, ${px(oy)}) scale(${zoom})">${plate.html}</div>${veil}</div></div>`,
-      map: ([x, y]) => [vx + pad + ox + x * zoom, vy + pad + oy + y * zoom],
+      map,
     };
   };
   /** Where a plate's point lands in the frame under that camera. */
@@ -604,10 +623,14 @@ module.exports = function kit({ P = null, D = null } = {}) {
     ZONES,
     K,
     frame,
+    STAGES,
+    TICK,
     rail,
     camera,
+    shotGeometry,
     shot,
     through,
+    ARROW,
     pointer,
     focusCorners,
     marker,
