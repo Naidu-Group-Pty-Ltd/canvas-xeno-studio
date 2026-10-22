@@ -80,6 +80,12 @@ async function renderRequestFor(timeline: Timeline) {
       message:
         "This edit's captions are set word by word in the brand's type, which the media service can't do until it is updated. Choose another caption style, or render again once the service has been updated.",
     });
+  if (captions?.["panel"])
+    needed.push({
+      feature: "caption_panel",
+      message:
+        "This edit's captions have a panel chosen behind them, which the media service can't set until it is updated. Set the captions' panel back to the style's own, or render again once the service has been updated.",
+    });
   if (request.fonts.length > BASIC_FONT_FILES)
     needed.push({
       feature: "more_fonts",

@@ -53,8 +53,9 @@ function rectangle(width, height) {
 
 /** A rectangle's border `size` thick, inside its edge: the outer path, and the inner one wound the other way. */
 function frameOf(width, height, size) {
-  const [w, h, s] = [width, height, Math.min(size, width / 2, height / 2)].map(r2);
-  const [iw, ih] = [r2(width - size), r2(height - size)];
+  const edge = Math.min(size, width / 2, height / 2);
+  const [w, h, s] = [width, height, edge].map(r2);
+  const [iw, ih] = [r2(width - edge), r2(height - edge)];
   return `m 0 0 l ${w} 0 ${w} ${h} 0 ${h} m ${s} ${s} l ${s} ${ih} ${iw} ${ih} ${iw} ${s}`;
 }
 
@@ -303,5 +304,65 @@ export function brandCaptionEvents(plan, faces, options = {}) {
       events[kind].sort((a, b) => a.at - b.at).map((event) => event.line),
     ),
     plan: captionPlan,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* What is behind classic captions                                     */
+/* ------------------------------------------------------------------ */
+
+/** A #rrggbb colour at an opacity, as an ASS style writes it (&HAABBGGRR). */
+function styleColour(hex, opacity) {
+  return `&H${alphaTag(opacity).slice(2, 4)}${colourTag(hex).slice(2, 8)}`;
+}
+
+/**
+ * The classic styles over what is chosen behind them (feature
+ * caption_panel; none chosen, each style as it always was). "none" takes a
+ * boxed style's box away, leaving the clean style's outline. Otherwise the
+ * words sit on libass's opaque box, padded a quarter of the type, in the
+ * panel's material: the glass nearer opaque the lighter the picture
+ * measured behind each line (see ./caption-backdrop.js), a light card over
+ * a light one where it follows the picture. The style's own text colour
+ * stays wherever it reads on the box. Null where nothing changes.
+ */
+export function classicPanel(captions, fontSize) {
+  const panel = captions.panel ?? null;
+  if (!panel) return null;
+  if (panel === "none") {
+    if (captions.style !== "boxed") return null;
+    return {
+      borderStyle: 1,
+      outline: Math.max(2, Math.round(fontSize * 0.08)),
+      shadow: Math.max(1, Math.round(fontSize * 0.04)),
+      outlineColour: "&H00000000",
+      back: "&H80000000",
+      primary: null,
+      tags: () => "",
+    };
+  }
+  const own =
+    captions.style === "bold" ? (captions.accent ?? "#ffe500") : (captions.color ?? "#ffffff");
+  const colours = {
+    color: own,
+    accent: captions.accent ?? null,
+    panelColor: captions.panelColor ?? null,
+  };
+  const backdrops = captions.backdrop?.backdrops ?? [];
+  const look = panelLook(panel, null, colours);
+  const measured = panel === "auto" || panel === "dark";
+  return {
+    borderStyle: 3,
+    outline: Math.round(fontSize * 0.25),
+    shadow: 0,
+    outlineColour: styleColour(look.fill, look.fillOpacity),
+    back: styleColour(look.fill, look.fillOpacity),
+    primary: styleColour(look.ink, 1),
+    // Each line's box over the picture measured behind it.
+    tags: (index) => {
+      if (!measured) return "";
+      const line = panelLook(panel, backdrops[index] ?? null, colours);
+      return `\\3c${colourTag(line.fill)}\\3a${alphaTag(line.fillOpacity)}\\1c${colourTag(line.ink)}`;
+    },
   };
 }

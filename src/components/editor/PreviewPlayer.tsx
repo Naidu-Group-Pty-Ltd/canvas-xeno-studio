@@ -31,6 +31,7 @@ import { useClockPlaying, useClockTime, type PlaybackClock } from "./state";
 import { useBrandFontFaces } from "@/hooks/useBrandKits";
 import { safeInsets, type SafeArea } from "@/lib/edit/brand";
 import { BrandCaptionLayer } from "./BrandCaptions";
+import { classicPanelLook } from "@/lib/edit/brand-caption-plan";
 
 interface PreviewPlayerProps {
   timeline: Timeline;
@@ -647,6 +648,9 @@ function TextLayer({
   const overlays = timeline.overlays.filter(
     (overlay) => time >= overlay.start && time < overlay.end,
   );
+  // What is behind the words, where a panel is chosen: a box in its material, or none.
+  const panelBox = classicPanelLook(timeline.captions);
+  const boxed = panelBox ? panelBox.background !== null : timeline.captions.style === "boxed";
 
   const captionStyle = (): CSSProperties => {
     const { style, position, size, font, color, accent } = timeline.captions;
@@ -670,7 +674,7 @@ function TextLayer({
       base.transform = "translateY(-50%)";
     } else
       base.bottom = `${(position === "bottom" ? (portrait ? 0.12 : 0.07) : portrait ? 0.24 : 0.14) * 100}%`;
-    if (style === "boxed") return base;
+    if (boxed) return base;
     const outline = Math.max(1, fontSize * (style === "minimal" ? 0.04 : 0.08));
     base.textShadow = `0 0 ${outline}px #000, 0 0 ${outline}px #000, 0 ${outline / 2}px ${outline}px #000`;
     return base;
@@ -691,16 +695,24 @@ function TextLayer({
         <div style={captionStyle()}>
           <span
             style={
-              timeline.captions.style === "boxed"
+              panelBox?.background
                 ? {
-                    background: timeline.captions.accent
-                      ? tint(timeline.captions.accent, 0.65)
-                      : "rgba(0,0,0,0.65)",
-                    padding: "0.1em 0.35em",
+                    background: panelBox.background,
+                    color: panelBox.color ?? undefined,
+                    padding: "0.25em 0.35em",
                     boxDecorationBreak: "clone",
                     WebkitBoxDecorationBreak: "clone",
                   }
-                : undefined
+                : boxed
+                  ? {
+                      background: timeline.captions.accent
+                        ? tint(timeline.captions.accent, 0.65)
+                        : "rgba(0,0,0,0.65)",
+                      padding: "0.1em 0.35em",
+                      boxDecorationBreak: "clone",
+                      WebkitBoxDecorationBreak: "clone",
+                    }
+                  : undefined
             }
           >
             {timeline.captions.uppercase ? caption.text.toUpperCase() : caption.text}

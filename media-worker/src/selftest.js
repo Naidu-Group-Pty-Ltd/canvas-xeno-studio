@@ -422,6 +422,66 @@ await check("render_sequence sets brand captions word by word, in a brand font a
   if (!(early > 0.005 && spoken > early * 1.3)) throw new Error(`the words don't come in one by one (${early} then ${spoken})`);
 });
 
+/**
+ * Renders a line of captions over a clip of one colour, and gives back the
+ * panel the script holds longest (its fill, opacity and place) and the
+ * render's colour inside it, beside the words.
+ */
+async function captionsOver(name, colour, captions) {
+  const work = await mkdtemp(join(dir, `panel-${name}-`));
+  const clip = join(work, "clip.mp4");
+  await ffmpeg(["-f", "lavfi", "-i", `color=c=${colour}:s=360x640:d=3:r=25`, "-pix_fmt", "yuv420p", clip]);
+  const result = await TASKS.render_sequence.run({
+    sources: [{ path: clip, role: "video" }],
+    params: {
+      width: 360, height: 640, fps: 25, normalize_loudness: false,
+      clips: [{ source_index: 0, duration: 3, volume: 0 }],
+      captions: { ...captions, segments: [{ start: 0.3, end: 2.8, text: "Over the page" }] },
+    },
+    dir: work,
+  });
+  const script = await readFile(join(work, "text.ass"), "utf8");
+  const seconds = (text) => text.split(":").reduce((total, part) => total * 60 + Number(part), 0);
+  const panel = script
+    .split("\n")
+    .map((line) => /^Dialogue: 0,([^,]+),([^,]+),Brand,,0,0,0,,\{\\pos\(([\d.]+),([\d.]+)\)\\p1\\bord0\\shad0\\1c&H([0-9A-F]{6})&\\alpha&H([0-9A-F]{2})&\}m 0 0 l ([\d.]+) 0 [\d.]+ ([\d.]+) 0 [\d.]+\{\\p0\}$/.exec(line))
+    .filter(Boolean)
+    .map((match) => ({ length: seconds(match[2]) - seconds(match[1]), x: Number(match[3]), y: Number(match[4]), fill: match[5], alpha: match[6], width: Number(match[7]), height: Number(match[8]) }))
+    .sort((a, b) => b.length - a.length)[0];
+  const inside = panel ? await colourAtTime(result.outputs[0].path, 2, `4:4:${Math.round(panel.x + 3)}:${Math.round(panel.y + panel.height / 2 - 2)}`) : null;
+  return { script, panel, inside };
+}
+
+await check("render_sequence measures the picture behind captions: the glass nearer opaque over a white page than a dark shot", async () => {
+  const white = await captionsOver("glass-white", "white", { style: "brand", panel: "dark" });
+  const dark = await captionsOver("glass-dark", "0x101828", { style: "brand", panel: "dark" });
+  if (!white.panel || !dark.panel) throw new Error("no panel behind the captions");
+  // 93% over the white page, the site's 74% over the dark shot.
+  if (white.panel.alpha !== "12" || dark.panel.alpha !== "42") throw new Error(`the glass is ${white.panel.alpha} over white and ${dark.panel.alpha} over dark`);
+  // Over white it reads as the brand's navy at 93% (#0a172a over white), not the grey slab 74% made.
+  const over = (opacity, ground) => [10, 23, 42].map((value, index) => value * opacity + ground[index] * (1 - opacity));
+  const off = (colour, expected) => Math.max(...colour.map((value, index) => Math.abs(value - expected[index])));
+  if (!(off(white.inside, over(0.93, [255, 255, 255])) <= 12)) throw new Error(`the glass over white came out ${white.inside}`);
+  if (!(off(white.inside, over(0.74, [255, 255, 255])) >= 35)) throw new Error(`the glass over white reads as a grey slab: ${white.inside}`);
+  if (!(off(dark.inside, over(0.74, [16, 24, 40])) <= 12)) throw new Error(`the glass over the dark shot came out ${dark.inside}`);
+});
+
+await check("render_sequence sets a panel that follows the picture as a light card over a white page", async () => {
+  const white = await captionsOver("auto-white", "white", { style: "brand" });
+  const dark = await captionsOver("auto-dark", "0x101828", { style: "brand" });
+  if (white.panel?.fill !== "FFFFFF" || dark.panel?.fill !== "2A170A") throw new Error(`panels ${white.panel?.fill} over white, ${dark.panel?.fill} over dark`);
+  if (white.panel.alpha === dark.panel.alpha) throw new Error("the two panels are as opaque as each other");
+  // The words go dark on the light card.
+  if (!white.script.includes("\\1c&H37291F&")) throw new Error("the words aren't in the card's ink");
+  if (!(Math.min(...white.inside) > 200)) throw new Error(`the card came out ${white.inside}`);
+});
+
+await check("render_sequence boxes classic captions on the glass, nearer opaque over a white page", async () => {
+  const white = await captionsOver("boxed-white", "white", { style: "boxed", panel: "dark" });
+  if (!/Style: Caption,[^\n]*,3,\d+,0,2,/.test(white.script)) throw new Error("the captions aren't on a box");
+  if (!white.script.includes("\\3c&H2A170A&\\3a&H12&")) throw new Error("the box isn't the near-opaque glass");
+});
+
 await check("reframe_video crops around its focus point", async () => {
   const left = await TASKS.reframe_video.run({ sources: [{ path: halves }], params: { width: 180, height: 320, mode: "cover", focus_x: 0 }, dir });
   const leftColour = await colourAt(left.outputs[0].path, "40:40:70:140");

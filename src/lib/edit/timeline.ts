@@ -8,7 +8,7 @@
  * shows is what the render produces.
  */
 import { z } from "zod";
-import { emphasisRange, segmentWords } from "./brand-captions";
+import { CAPTION_PANELS, emphasisRange, segmentWords, type CaptionPanel } from "./brand-captions";
 import { FONT_FAMILY_PATTERN, FONT_STYLES, isBrandFontFile } from "./font-family";
 
 export const ASPECT_RATIOS = [
@@ -119,6 +119,20 @@ export const CAPTION_STYLE_LABELS: Record<CaptionStyle, string> = {
   bold: "Bold · yellow with outline",
   minimal: "Minimal · thin white",
   brand: "Brand · word by word, in the brand's type",
+};
+/**
+ * What is behind captions (unset: each style's own; the brand style's
+ * follows the picture). "auto" follows the picture the render measures
+ * behind each line: a light card over light pictures, a dark glass over
+ * dark ones, nearer opaque the lighter they are.
+ */
+export { CAPTION_PANELS, type CaptionPanel };
+export const CAPTION_PANEL_LABELS: Record<CaptionPanel, string> = {
+  auto: "Follows the picture",
+  light: "Light card",
+  dark: "Dark glass",
+  solid: "Solid, in the brand's colour",
+  none: "None",
 };
 export const CAPTION_POSITIONS = ["bottom", "lower_third", "center", "top"] as const;
 export type CaptionPosition = (typeof CAPTION_POSITIONS)[number];
@@ -293,6 +307,10 @@ export const captionsSchema = z.object({
   font: fontName,
   color: hexColour,
   accent: hexColour,
+  /** What is behind the words (see CAPTION_PANELS); null for the style's own. */
+  panel: z.enum(CAPTION_PANELS).nullable().default(null),
+  /** A solid panel's colour (null: the accent's). */
+  panelColor: hexColour,
   segments: z.array(captionSegmentSchema).max(LIMITS.captions).default([]),
 });
 export type Captions = z.infer<typeof captionsSchema>;
@@ -1216,6 +1234,8 @@ export function buildRenderRequest(
             size: timeline.captions.size,
             uppercase: timeline.captions.uppercase,
             ...brandText(timeline.captions),
+            // Sent only when chosen (feature caption_panel), so a media service from before renders the rest.
+            ...captionPanelOf(timeline.captions),
             segments,
           }
         : null,
@@ -1249,6 +1269,20 @@ export function buildRenderRequest(
           }
         : {}),
     },
+  };
+}
+
+/** What is behind the captions, as the media service takes it: the panel chosen, and a solid one's colour. */
+function captionPanelOf(captions: Pick<Captions, "panel" | "panelColor">): {
+  panel?: CaptionPanel;
+  panel_color?: string;
+} {
+  if (!captions.panel) return {};
+  return {
+    panel: captions.panel,
+    ...(captions.panel === "solid" && captions.panelColor
+      ? { panel_color: captions.panelColor }
+      : {}),
   };
 }
 

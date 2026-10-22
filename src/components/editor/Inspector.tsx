@@ -96,7 +96,7 @@ import { useVoiceovers } from "@/hooks/useVoiceData";
 import { phraseCaptions } from "@/lib/edit/captions";
 import { brandedOverlay, withCaptionStyle } from "@/lib/edit/brand";
 import { BrandSection, ImageOverlaysSection } from "./BrandPanel";
-import { CaptionEmphasisField } from "./BrandCaptionControls";
+import { CaptionEmphasisField, CaptionPanelField } from "./BrandCaptionControls";
 import { useEditBrandKit } from "@/hooks/useBrandKits";
 
 interface InspectorProps {
@@ -1401,6 +1401,7 @@ function TextPanel({
             </Select>
           </Field>
         </div>
+        <CaptionPanelField captions={captions} onChange={setCaptions} />
         <Field label="Size" hint={`${Math.round(captions.size * 100)}%`}>
           <Slider
             min={0.5}

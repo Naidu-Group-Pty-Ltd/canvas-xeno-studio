@@ -309,6 +309,8 @@ export function applyBrandKit(timeline: Timeline, kit: BrandKit): Timeline {
       font: captionFamily(kit, timeline.captions.style),
       color: kit.textColor,
       accent: kit.accentColor,
+      // A solid panel behind them is in the brand's ground colour.
+      panelColor: kit.backgroundColor,
     },
   };
 }
@@ -325,7 +327,7 @@ export function clearBrand(timeline: Timeline): Timeline {
       color: null,
       accent: null,
     })),
-    captions: { ...timeline.captions, font: null, color: null, accent: null },
+    captions: { ...timeline.captions, font: null, color: null, accent: null, panelColor: null },
   };
 }
 

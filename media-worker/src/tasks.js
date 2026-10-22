@@ -59,7 +59,10 @@ function pick(value, allowed, fallback, name) {
  * readable ("overlay_layout"), up to twelve brand font files in a render,
  * a family's italic and bold among them ("more_fonts"), captions set word
  * by word in a brand's type, each word on its spoken time, on a panel
- * ("brand_captions"), and, where the image has it, a clip's lips scored
+ * ("brand_captions"), what is behind captions chosen: a panel following
+ * the picture measured behind them, a light card, a glass nearer opaque
+ * over light pictures, a solid one in the brand's colour, or none
+ * ("caption_panel"), and, where the image has it, a clip's lips scored
  * from its picture ("lip_check").
  */
 export const FEATURES = [
@@ -78,6 +81,7 @@ export const FEATURES = [
   "image_overlays",
   "more_fonts",
   "brand_captions",
+  "caption_panel",
   ...(lipCheckAvailable ? ["lip_check"] : []),
 ];
 

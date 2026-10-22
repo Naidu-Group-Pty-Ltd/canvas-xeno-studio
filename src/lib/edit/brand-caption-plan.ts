@@ -65,7 +65,11 @@ export function editCaptionPlan(
 ): BrandCaptionPlan {
   const { captions } = timeline;
   const geometry = captionGeometry(frame, captions);
-  const colours = { color: captions.color, accent: captions.accent };
+  const colours = {
+    color: captions.color,
+    accent: captions.accent,
+    panelColor: captions.panelColor,
+  };
   return planBrandCaptions(brandCaptionLines(timeline), {
     geometry,
     faces: faces(geometry.em),
@@ -74,7 +78,40 @@ export function editCaptionPlan(
       const measured = run
         .map((index) => backdrops[index])
         .filter((value): value is number => typeof value === "number");
-      return panelLook("auto", measured.length ? Math.max(...measured) : null, colours);
+      return panelLook(
+        captions.panel ?? "auto",
+        measured.length ? Math.max(...measured) : null,
+        colours,
+      );
     },
   });
+}
+
+/** A #rrggbb colour at an opacity, as CSS writes it. */
+function rgba(hex: string, opacity: number): string {
+  const value = parseInt(hex.slice(1), 16);
+  return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, ${opacity})`;
+}
+
+/**
+ * The box behind a classic style's captions where a panel is chosen, as the
+ * preview draws it: its fill and the words' colour (see the media worker's
+ * classicPanel). Where it follows the picture, the preview shows the glass
+ * at the opacity it has where the picture isn't measured. Null: the style's
+ * own look ("none" takes a boxed style's box away).
+ */
+export function classicPanelLook(
+  captions: Pick<Timeline["captions"], "style" | "panel" | "panelColor" | "color" | "accent">,
+): { background: string | null; color: string | null } | null {
+  if (!captions.panel) return null;
+  if (captions.panel === "none")
+    return captions.style === "boxed" ? { background: null, color: null } : null;
+  const own =
+    captions.style === "bold" ? (captions.accent ?? "#ffe500") : (captions.color ?? "#ffffff");
+  const look = panelLook(captions.panel, null, {
+    color: own,
+    accent: captions.accent,
+    panelColor: captions.panelColor,
+  });
+  return { background: rgba(look.fill!, look.fillOpacity), color: look.ink };
 }
