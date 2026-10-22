@@ -1066,7 +1066,7 @@ export function qualityChecks(report) {
         fidelity.psnr_db.min,
         t.psnrWorst,
         {
-          time: fidelity.psnr_db.worst[0]?.time ?? null,
+          time: fidelity.psnr_db.worst?.[0]?.time ?? null,
         },
       ),
     );

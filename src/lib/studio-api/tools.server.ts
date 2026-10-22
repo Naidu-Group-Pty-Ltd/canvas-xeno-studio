@@ -22,6 +22,7 @@ import { addEndCard, applyBrandKit, brandKitOf, SAFE_AREAS } from "../edit/brand
 import { CHANNELS, EMPTY_DNA, GOALS } from "../brand/dna";
 import { GITHUB_TOKEN_PATTERN } from "../brand/import-request";
 import { parseTimeline, timelineSchema } from "../edit/timeline";
+import { qualityLines, qualitySummary, storedQualityOf } from "../edit/quality";
 import { textCheckOf } from "../media/text-check";
 import { CHARACTER_VIEWS } from "../characters/model";
 import type { ModelRegistryEntry } from "../model-schema";
@@ -373,7 +374,7 @@ const getRender = tool({
   name: "get_render",
   title: "Get a render",
   description:
-    "A render's progress (0 to 1), its status, and once complete, the finished video's library id and a download link valid for an hour.",
+    "A render's progress (0 to 1), its status, and once complete, the finished video's library id and a download link valid for an hour, with how it measured against its own lossless reference (quality: SSIM and PSNR, edge contrast kept, CIEDE2000 on flat fields and the brand's colours, banding, captions and cuts on their frames, the voiceover's sync and loudness, each a pass or a flag; qualityNotes says each in words).",
   scope: "read",
   input: z.object({ renderId: id() }),
   run: async (args) => {
@@ -388,14 +389,28 @@ const getRender = tool({
     const { data: asset } = render.asset_id
       ? await db
           .from("assets")
-          .select("storage_bucket,storage_path")
+          .select("storage_bucket,storage_path,metadata")
           .eq("id", render.asset_id)
           .is("deleted_at", null)
           .maybeSingle()
       : { data: null };
+    // Kept on the render since migration 0031_render_quality (before it, with the video's record).
+    const { data: extras } = await db
+      .from("sequence_renders")
+      .select("quality")
+      .eq("id", args.renderId)
+      .maybeSingle();
+    const quality = storedQualityOf(extras?.quality ?? null, asset?.metadata ?? null);
     return {
       ...render,
       url: asset ? await signedLink(asset.storage_bucket, asset.storage_path) : null,
+      quality: quality?.raw ?? null,
+      qualityNotes: quality
+        ? [
+            qualitySummary(quality.report),
+            ...qualityLines(quality.report).map((entry) => entry.text),
+          ]
+        : [],
     };
   },
 });

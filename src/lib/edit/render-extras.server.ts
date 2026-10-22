@@ -1,12 +1,15 @@
 /**
  * What a render asks of the media service beyond the edit itself, only when
  * the service can do it: a finished master passed through untouched (feature
- * "mastering"; see ./master). An older service is simply not asked, and
+ * "mastering"; see ./master), and the render measured against its own
+ * lossless reference, with the brand kit's colours to look for (feature
+ * "render_quality"; see ./quality). An older service is simply not asked, and
  * renders the edit as it always has, so nothing here can stop a render.
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { rememberedWorker, workerHealth } from "../media/worker.server";
 import { passThroughCandidate, untouchedClip } from "./master";
+import { brandColoursOf } from "./quality";
 import type { buildRenderRequest, Timeline } from "./timeline";
 
 type RenderRequest = ReturnType<typeof buildRenderRequest>;
@@ -48,6 +51,17 @@ async function passThroughSource(timeline: Timeline) {
   };
 }
 
+/** The colours of the brand kit the edit was styled from, to look for in the render; none without one. */
+async function kitColours(brandKitId: string | null): Promise<string[]> {
+  if (!brandKitId) return [];
+  const { data, error } = await supabaseAdmin
+    .from("brand_kits")
+    .select("text_color,accent_color,background_color,palette")
+    .eq("id", brandKitId)
+    .maybeSingle();
+  return error || !data ? [] : brandColoursOf(data as unknown as Record<string, unknown>);
+}
+
 /**
  * The render request with what the service can add to it. `features` is what
  * the service said just now, when the render asked it already.
@@ -57,9 +71,14 @@ export async function withRenderExtras(
   request: RenderRequest,
   features: string[] | null = null,
 ): Promise<RenderRequest> {
-  const source = await passThroughSource(timeline);
-  if (!passThroughCandidate(timeline, source)) return request;
   const can = await serviceFeatures(features);
-  if (!can.includes("mastering")) return request;
-  return { ...request, params: { ...request.params, pass_through: true } };
+  let params = request.params;
+  if (
+    can.includes("mastering") &&
+    passThroughCandidate(timeline, await passThroughSource(timeline))
+  )
+    params = { ...params, pass_through: true };
+  if (can.includes("render_quality"))
+    params = { ...params, measure: { brand_colours: await kitColours(timeline.brandKitId) } };
+  return params === request.params ? request : { ...request, params };
 }
