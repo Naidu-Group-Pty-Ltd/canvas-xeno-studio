@@ -216,6 +216,30 @@ export function decideSpend(input: {
   };
 }
 
+/**
+ * Turns down jobs the Higgsfield account can't pay for, as far as the studio
+ * knows: what it had when the run started (`balanceStart`; null when that
+ * couldn't be read, and then nothing is checked), less what the run has been
+ * allowed since (`committed`). A batch is turned down whole, never made in
+ * part and then refused for the balance. Null when the jobs fit.
+ */
+export function accountShortfall(input: {
+  total: number;
+  balanceStart: number | null;
+  committed: number;
+  label: string;
+}): string | null {
+  if (input.balanceStart === null || !Number.isFinite(input.balanceStart)) return null;
+  const left = Math.max(0, input.balanceStart - Math.max(0, input.committed));
+  if (input.total <= left + EPSILON) return null;
+  return (
+    `${capitalize(input.label)} would cost ${formatCredits(input.total)} credits, and the Higgsfield account has about ` +
+    `${formatCredits(left)} left (${formatCredits(input.balanceStart)} when this run started, less what it has spent). ` +
+    "It wasn't submitted, so nothing was made or charged. " +
+    "Fit the rest of the plan into the credits left, or finish with what is done."
+  );
+}
+
 function capitalize(text: string): string {
   return text ? text[0]!.toUpperCase() + text.slice(1) : text;
 }
