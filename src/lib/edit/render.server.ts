@@ -722,10 +722,21 @@ export async function recoverSequenceRender(input: {
 
   const { data: task, error: taskError } = await supabaseAdmin
     .from("media_tasks")
-    .select("id,operation_id,project_id,created_by,input_payload,storage_bucket")
+    .select("id,status,operation_id,project_id,created_by,input_payload,storage_bucket")
     .eq("id", row.media_task_id)
     .maybeSingle();
   if (taskError || !task) throw unchecked();
+  // Never sent: waiting for its motion graphics, settled from their drawings.
+  if (
+    task.status === "submitting" &&
+    Array.isArray(
+      (task.input_payload as { composition_renders?: unknown } | null)?.composition_renders,
+    )
+  ) {
+    const { checkWaitingRender } = await import("../compositions/sequence.server");
+    const outcome = await checkWaitingRender(input.renderId, task);
+    return as(false, outcome === "sent" ? "queued" : outcome === "failed" ? "failed" : row.status);
+  }
   const paths = ((task.input_payload ?? {}) as { storage_paths?: unknown }).storage_paths;
   if (
     (task.storage_bucket ?? OUTPUT_BUCKET) !== OUTPUT_BUCKET ||

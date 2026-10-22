@@ -12,7 +12,7 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { AppError } from "../higgsfield/errors";
 import { frameSize, type Timeline } from "../edit/timeline";
-import { startCompositionRender } from "./render.server";
+import { settleLostDrawing, startCompositionRender } from "./render.server";
 import { specKey } from "./spec";
 
 export interface EditCompositions {
@@ -228,5 +228,49 @@ export async function compositionSettled(renderId: string): Promise<void> {
         } as never,
       );
     }
+  }
+}
+
+/**
+ * An edit render waiting on its motion graphics that has gone quiet (the
+ * Render panel checks it): a drawing that was lost fails, and the render with
+ * it, saying so; once every drawing is in, the render is sent. "waiting"
+ * while they are still being drawn.
+ */
+export async function checkWaitingRender(
+  renderId: string,
+  task: { id: string; input_payload: unknown },
+): Promise<"waiting" | "sent" | "failed"> {
+  const input = (task.input_payload ?? {}) as Record<string, unknown>;
+  const renders = (
+    Array.isArray(input["composition_renders"]) ? input["composition_renders"] : []
+  ).filter((id): id is string => typeof id === "string");
+  // A lost drawing fails, and failing it fails the renders waiting on it (compositionSettled).
+  for (const id of renders) await settleLostDrawing(id).catch(() => false);
+  const { data: render } = await supabaseAdmin
+    .from("sequence_renders")
+    .select("status")
+    .eq("id", renderId)
+    .maybeSingle();
+  if (render?.status !== "queued") return render?.status === "failed" ? "failed" : "sent";
+  try {
+    const ready = await compositionsReady(task.id, task.input_payload);
+    if (ready === "waiting") return "waiting";
+    const { sendWaitingRender } = await import("../edit/render.server");
+    await sendWaitingRender(renderId);
+    return "sent";
+  } catch (problem) {
+    await supabaseAdmin.rpc(
+      "fail_sequence_render" as never,
+      {
+        p_render_id: renderId,
+        p_error_code: "COMPOSITION_FAILED",
+        p_error_message:
+          problem instanceof Error
+            ? problem.message.slice(0, 500)
+            : "A motion graphic couldn't be drawn",
+      } as never,
+    );
+    return "failed";
   }
 }

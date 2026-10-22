@@ -181,6 +181,22 @@ export class FakeDb {
   };
 }
 
+function containsJson(haystack: unknown, needle: unknown): boolean {
+  if (Array.isArray(needle))
+    return (
+      Array.isArray(haystack) &&
+      needle.every((item) => haystack.some((entry) => containsJson(entry, item)))
+    );
+  if (needle && typeof needle === "object")
+    return (
+      !!haystack &&
+      typeof haystack === "object" &&
+      !Array.isArray(haystack) &&
+      Object.entries(needle).every(([key, value]) => containsJson((haystack as Row)[key], value))
+    );
+  return haystack === needle;
+}
+
 const copy = <T>(value: T): T => (value === undefined ? value : JSON.parse(JSON.stringify(value)));
 
 class Query implements PromiseLike<{ data: unknown; error: unknown; count?: number }> {
@@ -252,6 +268,11 @@ class Query implements PromiseLike<{ data: unknown; error: unknown; count?: numb
       const values = String(value).replace(/[()]/g, "").split(",");
       this.filters.push((row) => !values.includes(String(row[column])));
     }
+    return this;
+  }
+  /** JSON containment, as Postgres's @> reads it. */
+  contains(column: string, value: unknown) {
+    this.filters.push((row) => containsJson(row[column], value));
     return this;
   }
   gt(column: string, value: number) {

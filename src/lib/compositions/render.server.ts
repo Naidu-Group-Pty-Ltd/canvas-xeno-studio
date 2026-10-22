@@ -97,10 +97,12 @@ type RenderRow = {
   seconds_per_drawing: number | null;
   master_bucket: string | null;
   master_path: string | null;
+  media_task_id: string | null;
+  updated_at: string;
 };
 
 const RENDER_FIELDS =
-  "id,hash,template,spec,brand_kit_id,fps,status,quality,progress,stage,proxy_asset_id,frames,drawings,changing,stretches,missing_fields,error_message,width,height,seconds_per_drawing,master_bucket,master_path";
+  "id,hash,template,spec,brand_kit_id,fps,status,quality,progress,stage,proxy_asset_id,frames,drawings,changing,stretches,missing_fields,error_message,width,height,seconds_per_drawing,master_bucket,master_path,media_task_id,updated_at";
 
 const sha256 = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
 
@@ -288,17 +290,100 @@ export async function measuredSecondsPerDrawing(quality: RenderQuality): Promise
   return values.length ? values[Math.floor(values.length / 2)]! : null;
 }
 
-/** A recorded render, by id. */
-export async function compositionRender(renderId: string): Promise<CompositionRenderView> {
+async function renderRow(renderId: string): Promise<RenderRow | null> {
   const { data, error } = await supabaseAdmin
     .from("composition_renders" as never)
     .select(RENDER_FIELDS)
     .eq("id", renderId)
     .maybeSingle();
   if (error) unlessMissing(error);
-  if (!data) throw new AppError("INVALID_PARAMETERS", "That motion graphic render doesn't exist");
-  const row = data as unknown as RenderRow;
+  return data as unknown as RenderRow | null;
+}
+
+/** A recorded render, by id (one whose drawing was lost is failed first, saying so). */
+export async function compositionRender(renderId: string): Promise<CompositionRenderView> {
+  let row = await renderRow(renderId);
+  if (!row) throw new AppError("INVALID_PARAMETERS", "That motion graphic render doesn't exist");
+  if (await settleLost(row)) row = (await renderRow(renderId)) ?? row;
   return viewOf(row, false, await measuredSecondsPerDrawing(row.quality));
+}
+
+/**
+ * The media worker reports on every task it holds at least once a minute
+ * (progress, or a heartbeat while it waits in the queue), so a drawing it has
+ * said nothing about for ten minutes was lost: the worker restarted, or the
+ * task never reached it.
+ */
+const LOST_AFTER_MS = 10 * 60_000;
+
+/** Why a drawing's media task is lost (failed, closed as lost, or silent), or null while it lives. */
+async function lostTask(taskId: string | null): Promise<string | null> {
+  if (!taskId) return null;
+  const { data } = await supabaseAdmin
+    .from("media_tasks")
+    .select("status,error_message,updated_at")
+    .eq("id", taskId)
+    .maybeSingle();
+  if (!data) return null;
+  if (data.status === "failed" || data.status === "cancelled")
+    return data.error_message ?? "The media service couldn't draw it";
+  if (
+    (data.status === "submitting" || data.status === "processing") &&
+    Date.now() - Date.parse(data.updated_at) > LOST_AFTER_MS
+  )
+    return "The media service stopped answering while drawing it. Draw it again.";
+  return null;
+}
+
+/**
+ * A drawing under way whose task was lost fails (a lost stretch fails, and the
+ * render with it), so asking for it again draws it afresh instead of waiting
+ * for ever. Returns whether anything changed.
+ */
+async function settleLost(row: RenderRow): Promise<boolean> {
+  if (row.status !== "queued" && row.status !== "drawing" && row.status !== "joining") return false;
+  if (row.status === "drawing" && row.stretches?.length) {
+    const { data } = await supabaseAdmin
+      .from("composition_stretches" as never)
+      .select("id,status,media_task_id")
+      .in(
+        "id",
+        row.stretches.map((stretch) => stretch.stretch_id),
+      );
+    let lost = false;
+    for (const stretch of (data ?? []) as {
+      id: string;
+      status: string;
+      media_task_id: string | null;
+    }[]) {
+      if (stretch.status !== "drawing") continue;
+      const why = await lostTask(stretch.media_task_id);
+      if (!why) continue;
+      await supabaseAdmin
+        .from("composition_stretches" as never)
+        .update({ status: "failed", error_code: "STALLED", error_message: why } as never)
+        .eq("id", stretch.id)
+        .eq("status", "drawing");
+      lost = true;
+    }
+    if (lost) await joinIfReady(row.id);
+    return lost;
+  }
+  // Recorded but never sent (the request that started it was cut off).
+  const why = row.media_task_id
+    ? await lostTask(row.media_task_id)
+    : Date.now() - Date.parse(row.updated_at) > LOST_AFTER_MS
+      ? "The motion graphic was never sent to the media service. Draw it again."
+      : null;
+  if (!why) return false;
+  await failRender(row.id, "STALLED", why);
+  return true;
+}
+
+/** Settles a drawing that was lost (see settleLost), by id. */
+export async function settleLostDrawing(renderId: string): Promise<boolean> {
+  const row = await renderRow(renderId);
+  return row ? settleLost(row) : false;
 }
 
 /**
@@ -326,7 +411,9 @@ export async function startCompositionRender(input: {
     .eq("hash", hash)
     .maybeSingle();
   if (existingError) unlessMissing(existingError);
-  const before = existing as unknown as RenderRow | null;
+  let before = existing as unknown as RenderRow | null;
+  // Under way but lost: failed now, and drawn again below on the same record.
+  if (before && (await settleLost(before))) before = await renderRow(before.id);
   if (before && before.status !== "failed") {
     // Drawn already (its playable copy still in the library), or under way.
     if (before.status !== "completed" || (await assetExists(before.proxy_asset_id)))
@@ -537,31 +624,33 @@ async function drawInStretches(
     const hash = sha256(stretchIdentity(compiled.bundle, from, to, files));
     const { data: found } = await supabaseAdmin
       .from("composition_stretches" as never)
-      .select("id,status")
+      .select("id,status,media_task_id")
       .eq("hash", hash)
       .maybeSingle();
-    let stretch = found as { id: string; status: string } | null;
+    type StretchRow = { id: string; status: string; media_task_id: string | null };
+    let stretch = found as StretchRow | null;
     if (!stretch) {
       const { data: added, error } = await supabaseAdmin
         .from("composition_stretches" as never)
         .insert({ hash, from_frame: from, to_frame: to, render_id: context.renderId } as never)
-        .select("id,status")
+        .select("id,status,media_task_id")
         .maybeSingle();
       if (error?.code === "23505") {
         const { data: raced } = await supabaseAdmin
           .from("composition_stretches" as never)
-          .select("id,status")
+          .select("id,status,media_task_id")
           .eq("hash", hash)
           .maybeSingle();
-        stretch = raced as { id: string; status: string } | null;
+        stretch = raced as StretchRow | null;
       } else if (error) unlessMissing(error);
-      else stretch = added as { id: string; status: string } | null;
+      else stretch = added as StretchRow | null;
     }
     if (!stretch)
       throw new AppError("UNKNOWN", "A stretch of the motion graphic couldn't be recorded");
     stretches.push({ from, to, hash, stretch_id: stretch.id });
-    // Drawn before, or being drawn for another render: nothing to send.
-    if (stretch.status === "completed" || stretch.status === "drawing") continue;
+    // Drawn before, or being drawn for another render: nothing to send (unless that drawing was lost).
+    if (stretch.status === "completed") continue;
+    if (stretch.status === "drawing" && !(await lostTask(stretch.media_task_id))) continue;
     const taskId = await sendCompositionTask({
       taskType: "render_composition",
       sources: drawingSources(context),

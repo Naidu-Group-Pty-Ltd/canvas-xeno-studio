@@ -68,11 +68,15 @@ export async function recordCompositionReport(
         .eq("status", "drawing")
         .contains("stretches", [{ stretch_id: stretchId }]);
       for (const render of (renders ?? []) as { id: string }[]) await joinIfReady(render.id);
-    } else if (renderId) {
-      const share = step === "join" ? 0.9 + 0.1 * (progress ?? 0) : (progress ?? 0);
+    } else if (renderId && (progress !== null || stage)) {
+      // A heartbeat carries no progress: it leaves the drawing's as it was.
+      const share = progress === null ? null : step === "join" ? 0.9 + 0.1 * progress : progress;
       await supabaseAdmin
         .from("composition_renders" as never)
-        .update({ progress: Math.min(0.99, share), ...(stage ? { stage } : {}) } as never)
+        .update({
+          ...(share !== null ? { progress: Math.min(0.99, share) } : {}),
+          ...(stage ? { stage } : {}),
+        } as never)
         .eq("id", renderId)
         .in("status", ["queued", "drawing", "joining"]);
     }
