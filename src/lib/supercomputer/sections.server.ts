@@ -1786,7 +1786,7 @@ async function checkJoin(
     verdict.status === "unmeasured" && unavailable
       ? {
           ...verdict,
-          summary: `${verdict.summary.replace(/not judged yet\.$/, "")}its frames couldn't be taken (${unavailable.note ?? "unavailable"}).`,
+          summary: `${verdict.summary.replace(/it couldn't be judged\.$/, "")}its frames couldn't be taken (${unavailable.note ?? "unavailable"}).`,
         }
       : verdict;
   await db

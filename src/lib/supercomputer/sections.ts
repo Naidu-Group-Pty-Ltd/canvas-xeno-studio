@@ -1101,7 +1101,7 @@ export function judgeJoin(measures: JoinMeasures, sides: JoinSides): JoinVerdict
   } else if (look?.framing === "same" || render?.left === "already_matching") {
     findings.push({ aspect: "framing", status: "ok", detail: "The framing carries straight on." });
   } else {
-    findings.push({ aspect: "framing", status: "unmeasured", detail: "Not judged yet." });
+    findings.push({ aspect: "framing", status: "unmeasured", detail: "Nothing could measure it." });
   }
 
   // Colour: held across one shot and within a scene; a new scene may change it.
@@ -1134,7 +1134,7 @@ export function judgeJoin(measures: JoinMeasures, sides: JoinSides): JoinVerdict
   } else if (look?.colour === "same") {
     findings.push({ aspect: "colour", status: "ok", detail: "The grade holds." });
   } else {
-    findings.push({ aspect: "colour", status: "unmeasured", detail: "Not judged yet." });
+    findings.push({ aspect: "colour", status: "unmeasured", detail: "Nothing could measure it." });
   }
 
   // Continuity: the setting, props, light and wardrobe, within one shot or scene.
@@ -1157,7 +1157,11 @@ export function judgeJoin(measures: JoinMeasures, sides: JoinSides): JoinVerdict
           : "What is in the picture holds.",
     });
   } else {
-    findings.push({ aspect: "continuity", status: "unmeasured", detail: "Not judged yet." });
+    findings.push({
+      aspect: "continuity",
+      status: "unmeasured",
+      detail: "Nothing could measure it.",
+    });
   }
 
   if (measures.characters) {
@@ -1188,7 +1192,7 @@ export function judgeJoin(measures: JoinMeasures, sides: JoinSides): JoinVerdict
       if (after === "garbled") redoAfter("its lettering is garbled");
       if (before === "garbled") redoBefore("its lettering is garbled");
     } else if (before === null && after === null) {
-      findings.push({ aspect: "lettering", status: "unmeasured", detail: "Not read yet." });
+      findings.push({ aspect: "lettering", status: "unmeasured", detail: "It couldn't be read." });
     } else
       findings.push({ aspect: "lettering", status: "ok", detail: "Any lettering reads right." });
   }
@@ -1202,7 +1206,7 @@ export function judgeJoin(measures: JoinMeasures, sides: JoinSides): JoinVerdict
       ? `${where}: ${differs.map((entry) => `${ASPECT_WORDS[entry.aspect]}: ${entry.detail.replace(/\.$/, "")}`).join("; ")}.`
       : status === "matches"
         ? `${where}: it meets as it should.${measures.apart ? " Clips were put between the two sections in the edit." : ""}`
-        : `${where}: not judged yet.`;
+        : `${where}: it couldn't be judged.`;
   return {
     status,
     findings,

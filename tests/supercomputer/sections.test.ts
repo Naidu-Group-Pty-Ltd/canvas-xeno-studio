@@ -719,7 +719,7 @@ describe("checking a join on both sides", () => {
   test("nothing measured yet is said so", () => {
     const verdict = judgeJoin(measures({}), sides);
     expect(verdict.status).toBe("unmeasured");
-    expect(verdict.summary).toContain("not judged yet");
+    expect(verdict.summary).toContain("it couldn't be judged");
   });
 
   test("a render's smart-join record is read for one clip", () => {
