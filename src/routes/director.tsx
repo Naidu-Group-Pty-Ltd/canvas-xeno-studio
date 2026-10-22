@@ -25,6 +25,7 @@ import {
   getReasoningHealth,
 } from "@/lib/director.functions";
 import type { ProductionPlan } from "@/lib/production-plan-schema";
+import { checkGenerationStage } from "@/lib/costs.functions";
 import { setCreatePrefill } from "@/lib/create-draft";
 
 export const Route = createFileRoute("/director")({
@@ -126,6 +127,23 @@ function DirectorPage() {
       toast.success(
         `Estimated total $${result.totalEstimatedUsd.toFixed(2)}${result.unresolvedShots ? ` · ${result.unresolvedShots} shot(s) without a priced model` : ""}`,
       );
+      // The plan's shots are the next stage: checked whole against the
+      // Higgsfield balance and the spending limit before any of it is shot.
+      const verdict = result.perShot.length
+        ? await checkGenerationStage({
+            data: {
+              items: result.perShot.slice(0, 200).map((shot) => ({
+                label: `Shot ${shot.shot}`,
+                usd: shot.cost,
+              })),
+              projectId:
+                (activePlan as { project_id?: string | null }).project_id ?? projectId ?? null,
+              allowUnpriced: true,
+            },
+          }).catch(() => null)
+        : null;
+      if (verdict && !verdict.fits && verdict.reasons[0]) toast.warning(verdict.reasons[0]);
+      else if (verdict?.warnings[0]) toast.message(verdict.warnings[0]);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Estimate unavailable");
     } finally {

@@ -43,6 +43,7 @@ import {
   type ToolUse,
 } from "./events";
 import {
+  accountShortfall,
   callLabel,
   classifyGuardedCall,
   decideSpend,
@@ -1343,6 +1344,26 @@ async function recordAnswer(
 }
 
 /**
+ * The Higgsfield account's balance when a run started (null when it couldn't
+ * be read), and what the run has been allowed since, read fresh for each call.
+ */
+async function accountRoom(
+  runId: string,
+): Promise<{ balanceStart: number | null; committed: number }> {
+  const { data, error } = await db
+    .from("katana_runs")
+    .select("balance_start, credits_reserved")
+    .eq("id", runId)
+    .maybeSingle();
+  if (error) throw new AppError("STORAGE_FAILED", error.message);
+  const start = data?.balance_start ?? null;
+  return {
+    balanceStart: start === null ? null : Number(start),
+    committed: Number(data?.credits_reserved ?? 0),
+  };
+}
+
+/**
  * Decides every paid call waiting in this pass. A call with credits is
  * committed by the database in one locked step (what the run's allowed calls
  * add up to, plus this one, against its limit), so readers racing each other
@@ -1393,6 +1414,19 @@ async function guardAsks(context: GuardContext, asks: ToolUse[]): Promise<void> 
       if (await recordAnswer(run, ask, false, unpriced.reason, pricing.items)) {
         await note(run.id, "credit", "Credit guard: turned down", unpriced.reason, {
           tool: ask.name,
+          allowed: false,
+        });
+      }
+      continue;
+    }
+    // What the account has left, as well as the run's limit: a batch it can't
+    // pay for is turned down whole, before any of it is made.
+    const short = accountShortfall({ total, ...(await accountRoom(run.id)), label: pricing.label });
+    if (short) {
+      if (await recordAnswer(run, ask, false, short, pricing.items, total)) {
+        await note(run.id, "credit", "Credit guard: turned down", short, {
+          tool: ask.name,
+          credits: total,
           allowed: false,
         });
       }

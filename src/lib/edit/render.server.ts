@@ -163,6 +163,10 @@ interface RenderInput {
   expectedVersion: number;
   clientRequestId: string;
   userId: string;
+  /** For public use: held until every file it uses is cleared or its exceptions are confirmed. */
+  publicUse?: boolean | undefined;
+  /** The files not cleared that the person rendering confirms as exceptions (all of them, or by id). */
+  confirmExceptions?: boolean | string[] | undefined;
 }
 
 export interface RenderStarted {
@@ -414,6 +418,14 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
   if (music.blocker) throw new AppError("INVALID_PARAMETERS", music.blocker);
   // A voiceover held open with pauses: measured, and each pause in one of its silences.
   await assertPausesRenderable(timeline, (assetId) => assets.get(assetId)?.title ?? null);
+  // The edit's credits go with the render; one for public use is held here
+  // until every file it uses is cleared or its exceptions are confirmed.
+  const { markPublicUse, renderRights } = await import("../rights/service.server");
+  const rights = await renderRights(timeline, {
+    userId: input.userId,
+    publicUse: input.publicUse === true,
+    confirmExceptions: input.confirmExceptions ?? false,
+  });
   const request = await renderRequestFor(timeline);
   // Motion graphics are drawn at final quality first (reused when drawn before):
   // the render waits for them (see ../compositions/sequence.server).
@@ -472,6 +484,7 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
                 composition_masters: motion.masters,
               }
             : {}),
+          ...rights.payload,
         },
       },
     } as never,
@@ -496,6 +509,7 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
     );
   if (outcome.outcome !== "started")
     throw new AppError("INVALID_PARAMETERS", "That edit no longer exists");
+  if (rights.check) await markPublicUse(renderId, rights.check);
 
   if (motion?.pending.length) {
     // Recorded, and sent the moment its motion graphics are drawn.

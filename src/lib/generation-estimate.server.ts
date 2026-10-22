@@ -7,6 +7,7 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { AppError } from "./higgsfield/errors";
 import { meteredQuoteFor, type MeteredQuote } from "./higgsfield/metered";
+import type { CostSource } from "./generation-costs.server";
 import {
   normalizeOption,
   providerPayload,
@@ -41,6 +42,8 @@ export async function estimateGenerationCost(data: {
     metered: null as MeteredQuote | null,
     byResolution: [] as { resolution: string; usd: number }[],
     message,
+    costSource: null as CostSource | null,
+    unitPrice: null as { unit: string; units: number; usd: number } | null,
   });
   if (!providerConfigured()) return unavailable("PROVIDER_NOT_CONFIGURED");
 
@@ -122,6 +125,8 @@ export async function estimateGenerationCost(data: {
       metered: null,
       byResolution: [],
       message: null,
+      costSource: "provider_estimate" as CostSource,
+      unitPrice: null,
     };
   // The rate turned into what this request costs, as the server records it
   // when the generation is sent, and what it would cost at each resolution
@@ -144,13 +149,24 @@ export async function estimateGenerationCost(data: {
     const priced = quote({ ...payload, resolution });
     return priced ? [{ resolution, usd: priced.usd }] : [];
   });
+  // Not a metered rate: the flat price the description states, else the
+  // model's list price, as the server will record it when it is sent.
+  const fallback = metered
+    ? null
+    : await import("./generation-costs.server").then(({ fallbackQuote }) =>
+        fallbackQuote(model, payload, pricingDescription),
+      );
   return {
     ok: true as const,
     code: null,
-    costUsd: metered?.usd ?? null,
+    costUsd: metered?.usd ?? fallback?.usd ?? null,
     pricingDescription,
     metered,
     byResolution,
     message: null,
+    costSource: (metered ? "metered_estimate" : (fallback?.source ?? null)) as CostSource | null,
+    unitPrice: fallback
+      ? { unit: fallback.unit, units: fallback.units, usd: fallback.unitUsd }
+      : null,
   };
 }

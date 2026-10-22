@@ -7,6 +7,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { useModels, useTeam } from "@/hooks/useStudioData";
 import { useUsageBalance } from "@/hooks/useUsageBalance";
 import { BalanceDetails } from "@/components/layout/BalanceChip";
+import { SpendByScope, UnpricedModels } from "@/components/usage/CostPanels";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -262,6 +263,11 @@ function UsagePage() {
             </div>
           </Panel>
         )}
+
+        <Panel title="Spend by project and campaign">
+          <SpendByScope since={since} />
+        </Panel>
+        <UnpricedModels />
 
         <p className="text-xs text-muted-foreground">
           All spend figures are provider cost estimates captured at submission time. Actual provider charges are only

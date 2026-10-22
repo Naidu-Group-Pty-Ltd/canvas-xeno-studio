@@ -333,6 +333,25 @@ export async function startTrainingPack(input: {
   const slot = painterSlot(painter);
   const references = sheet.slice(0, slot?.max ?? 4);
   const values = painterValues(painter, 3 / 4);
+  // A new pack is checked whole first (see ../stage-check); a pack asked for
+  // again finds its photos already started by their keys.
+  const { data: begun } = await supabaseAdmin
+    .from("generations")
+    .select("id")
+    .eq("client_request_id", packRequestKey(input.characterId, packId, 0))
+    .maybeSingle();
+  if (!begun)
+    await assertPackFits({
+      userId: input.userId,
+      painter,
+      values: { ...values, prompt: packPrompt(PACK_SHOTS[0]!, character) },
+      inputs: references.map((file, position) => ({
+        assetId: file.assetId,
+        role: slot?.role ?? "reference",
+        position,
+      })),
+      count,
+    });
   let started = 0;
   for (let index = 0; index < count; index += 1) {
     const shot = PACK_SHOTS[index % PACK_SHOTS.length]!;
@@ -363,6 +382,45 @@ export async function startTrainingPack(input: {
     }
   }
   return { packId, started, modelName: painter.display_name };
+}
+
+/**
+ * Refuses a training pack that wouldn't fit what is left on the Higgsfield
+ * API balance or the member's spending cap, before any of it is painted, so a
+ * pack never stops part way for want of credits that could be seen coming.
+ * Its photos are priced as one (they differ only in their prompts).
+ */
+async function assertPackFits(input: {
+  userId: string;
+  painter: ModelRegistryEntry;
+  values: Record<string, unknown>;
+  inputs: { assetId: string; role: string; position: number }[];
+  count: number;
+}): Promise<void> {
+  const { estimateGenerationCost } = await import("../generation-estimate.server");
+  const quote = await estimateGenerationCost({
+    userId: input.userId,
+    modelId: input.painter.id,
+    parameters: input.values,
+    inputs: input.inputs,
+  });
+  const { stageTotals } = await import("../stage-check");
+  const { checkStage } = await import("../stage.server");
+  const verdict = await checkStage({
+    userId: input.userId,
+    projectId: null,
+    campaignId: null,
+    totals: stageTotals(
+      [{ label: "The training pack", usd: quote.ok ? quote.costUsd : null, takes: input.count }],
+      0,
+    ),
+    allowUnpriced: true,
+  });
+  if (!verdict.fits)
+    throw new AppError(
+      "BUDGET_EXCEEDED",
+      `Nothing was painted. ${verdict.reasons[0] ?? ""}`.trim(),
+    );
 }
 
 /**

@@ -35,6 +35,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { defaultsForModel, validateParameters, type ModelRegistryEntry } from "@/lib/model-schema";
 import { estimateGeneration, submitGeneration } from "@/lib/generation.functions";
+import { checkGenerationStage } from "@/lib/costs.functions";
 import { useCampaigns } from "@/hooks/useV2Data";
 import { BatchMatrix, expandMatrix, type MatrixSelection } from "@/components/create/BatchMatrix";
 import { loadPromptDraft, takeCreatePrefill, PREFILL_EVENT } from "@/lib/create-draft";
@@ -929,6 +930,25 @@ function CreatePage() {
       // each carries its own idempotency key so none can be billed twice.
       const combos = expandMatrix(matrix);
       const payloads = combos.length ? combos : [{}];
+      // A batch is checked whole first, against the Higgsfield balance and the
+      // spending limit with an allowance for retakes, so it never stops part way.
+      if (payloads.length > 1) {
+        const verdict = await checkGenerationStage({
+          data: {
+            items: payloads.slice(0, 200).map((_, index) => ({
+              label: `Combination ${index + 1}`,
+              usd: estimate.kind === "ready" ? estimate.costUsd : null,
+            })),
+            projectId: projectId ?? null,
+            campaignId: campaignId ?? null,
+            allowUnpriced: true,
+          },
+        });
+        if (!verdict.fits) {
+          toast.error(verdict.reasons[0] ?? "This batch doesn't fit the balance or the limit.");
+          return;
+        }
+      }
       let result: { generationId: string; status: string; budgetWarning?: string | null } = {
         generationId: "",
         status: "",

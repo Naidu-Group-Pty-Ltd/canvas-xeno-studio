@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  accountShortfall,
   callLabel,
   classifyGuardedCall,
   decideSpend,
@@ -204,6 +205,44 @@ describe("decideSpend", () => {
     expect(formatCredits(12)).toBe("12");
     expect(formatCredits(12.5)).toBe("12.5");
     expect(formatCredits(1.146)).toBe("1.15");
+  });
+});
+
+describe("accountShortfall", () => {
+  test("jobs the account can pay for pass, up to exactly what is left", () => {
+    expect(
+      accountShortfall({ total: 40, balanceStart: 500, committed: 100, label: "a video" }),
+    ).toBeNull();
+    expect(
+      accountShortfall({ total: 400, balanceStart: 500, committed: 100, label: "a video" }),
+    ).toBeNull();
+  });
+
+  test("a batch the account can't pay for is turned down whole, saying what is left", () => {
+    // The run's limit (300) has room for the batch; the account doesn't.
+    const items = [
+      { index: 0, model: "kling_3_pro", credits: 60 },
+      { index: 1, model: "kling_3_pro", credits: 60 },
+    ];
+    expect(decideSpend({ items, reserved: 0, limit: 300, label: "2 videos" }).allow).toBe(true);
+    const short = accountShortfall({
+      total: 120,
+      balanceStart: 150,
+      committed: 45,
+      label: "2 videos",
+    });
+    expect(short).toContain("2 videos would cost 120 credits");
+    expect(short).toContain("about 105 left (150 when this run started");
+    expect(short).toContain("nothing was made or charged");
+  });
+
+  test("an account already spent leaves nothing, and a balance never read checks nothing", () => {
+    expect(
+      accountShortfall({ total: 1, balanceStart: 20, committed: 35, label: "an image" }),
+    ).toContain("about 0 left");
+    expect(
+      accountShortfall({ total: 5000, balanceStart: null, committed: 0, label: "an image" }),
+    ).toBeNull();
   });
 });
 

@@ -28,7 +28,7 @@ It is served two ways:
 | ---------- | ------------------------------------------------------------------------------------------------ |
 | `read`     | Reading models, library files, generations, long videos, edits, renders and brand kits; pricing. |
 | `generate` | Queuing generations, starting and steering long videos, and the text check. These spend credits. |
-| `edit`     | Edits, brand kits on them and renders; importing pictures; saving characters.                    |
+| `edit`     | Edits, brand kits on them and renders; importing pictures and audio; saving characters.          |
 
 Claude Code (`.mcp.json` in a project):
 
@@ -62,7 +62,7 @@ curl -X POST https://<your studio>/api/public/studio/list_models \
 | `list_models`         | The models the studio offers, filtered by `output`, `search` or `lipSync`. For each: the media inputs it takes (by role) and its parameters, with their options and defaults.                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `list_assets`         | Library files, newest first, filtered by `kind`, `projectId` or `search`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `get_asset`           | One file: what it is, a download link, its measured frame rate and any text check kept with it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| `get_generation`      | A generation's status and cost, and the files it made once it is done.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `get_generation`      | A generation's status and cost (with `cost_source`, see "Costs and stages"), and the files it made once it is done.                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `get_long_video`      | A long video and every clip: status, piece of voiceover, lip score, framing and mouth-in-pause readings, character check, file and kept takes.                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `get_edit`            | An edit's title and version, its latest render, and its timeline if `includeTimeline` is set.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `get_render`          | A render's progress and, once it is done, the video's library id and link, its `mix_report` (the voice's margin over the music in the speech band by section, and the mix's loudness) and any `stems`.                                                                                                                                                                                                                                                                                                                                                                               |
@@ -75,12 +75,16 @@ curl -X POST https://<your studio>/api/public/studio/list_models \
 | `get_character`       | One character: their reference sheet and training photos (with links), Soul IDs and the state of their latest Soul ID training.                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `estimate_generation` | The provider's price for a generation without making it: the same `modelId`, `parameters`, `inputs`, `characterIds` and `brandKitId` as `queue_generation`, priced as they would be sent. Nothing is billed.                                                                                                                                                                                                                                                                                                                                                                         |
 | `list_review_gates`   | A project's review gates in order (see below): each gate's state, whether it is held until the one before is approved, its versions newest first (their files, render or storyboard), the latest decision on each (who, when, its note and on whose behalf), the comments (counted, or whole with `includeComments`), and the notes given on it with their shots and whether each is done.                                                                                                                                                                                           |
+| `get_asset_rights`    | Library files' rights (`assetIds`): each one's source, licence and status for public use (`cleared`, `to_confirm` or `not_cleared`), the credit line owed, and who set and confirmed it and when (see "Rights and credits").                                                                                                                                                                                                                                                                                                                                                         |
+| `get_edit_credits`    | An edit's credits: every file it uses and how, each one's licence and status, the credit lines owed, and which files aren't cleared.                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `estimate_stage`      | Prices a list of `generations` together (each as `estimate_generation` would, every one of its `takes`), adds `retakeAllowance` (a fifth again unless given), and checks the total against the Higgsfield API balance and the spending limit that applies. Says whether it `fits`, and why not, with each item's price and `costSource`. Nothing is billed.                                                                                                                                                                                                                          |
 
 **Generate** (`generate` scope; spends credits):
 
 | Operation               | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `queue_generation`      | One image or video. Takes `modelId`, `parameters` and `inputs` (`[{assetId, role}]`) plus a `clientRequestId`. With `characterIds` the characters keep their likeness: on a Soul model their Soul ID is used, elsewhere their reference sheet goes in as reference images and their look into the prompt. With `brandKitId` it is made in that brand's look (its style line in the prompt, what it never shows in the negative prompt). Poll it with `get_generation`. |
+| `queue_stage`           | A whole stage, or none of it: priced and checked as `estimate_stage` checks it, and refused with nothing queued when it doesn't fit, an item can't be sent, or part of it can't be priced (unless `allowUnpriced`). Then every take is queued through `queue_generation`'s checks. The same `clientRequestId` returns its generations.                                                                                                                                 |
 | `make_soul_still`       | One photographic still of a character from their Soul ID, in the `scene` described, at an `aspectRatio`: their truest likeness, and the best start frame for a video of them. Takes a `brandKitId` too.                                                                                                                                                                                                                                                                |
 | `train_soul_id`         | Trains a character's Soul ID for one Soul model (`v2`, `cinema` or `v1`) on at least 5 of their images. Started once: an unclear answer from Higgsfield is never retried unless you pass `confirmUncertain`. Only the character's maker or an admin can train it.                                                                                                                                                                                                      |
 | `start_presenter_video` | A presenter speaking a prepared voiceover, with lip sync (see below).                                                                                                                                                                                                                                                                                                                                                                                                  |
@@ -96,15 +100,17 @@ curl -X POST https://<your studio>/api/public/studio/list_models \
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `save_character`              | Makes a character from library images, or changes one (`characterId`): name, look, sheet images by view, training photos.           |
 | `import_image`                | Puts a PNG, JPEG, WebP or GIF (up to 15 MB) into the library, from base64 `data` or an https `url`.                                 |
+| `import_audio`                | Puts a WAV, MP3, M4A or FLAC into the library as music, a sound effect or an edit's voiceover (see "Importing audio").              |
 | `open_in_editor`              | Lays a long video out as an edit. Takes captions from the script, titles on the voiceover's clock, music, and the brand kit's look. |
 | `create_edit` / `update_edit` | Makes an edit from a timeline, or changes one. An update is accepted only at the version you read. Pauses: below.                   |
 | `apply_brand_kit`             | Applies a kit's fonts, colours and title motion to the edit's text, and can add its end card inside a platform's safe area.         |
-| `render_edit`                 | Renders the edit at a version. Poll it with `get_render`.                                                                           |
+| `render_edit`                 | Renders the edit at a version, its credits with it. Poll it with `get_render`. `publicUse` holds it until every file is cleared.    |
 | `import_storyboard_brief`     | Makes a storyboard from a brief in brief.json's shape: a scene a block, a shot a shot, each keeping its record and its cue.         |
 | `add_review_gate`             | Adds a review gate to a project, last in its order; with `heldUntilPrevious` it waits for the gate before to be approved.           |
 | `add_review_version`          | Puts library stills or videos (`assetIds`), a finished render or a storyboard up for review in a gate, as its next version.         |
 | `comment_on_review`           | Comments on a version, pinned to a time (`at`) or `frame`, a `point` on the picture, one of its files or a storyboard's shot.       |
 | `decide_review`               | Approves a gate's latest version, or asks for changes, as the token's owner; `onBehalfOf` names a client who decided.               |
+| `set_asset_rights`            | Records a file's rights: its `status` and any `source`, `licence`, `licenceUrl`, `creditLine` or `notes`; `clear` forgets them.     |
 
 Every operation that spends or makes something takes your own `clientRequestId` (8 to 64
 characters). Sending the same request again returns the first result, so a retry never bills
@@ -136,6 +142,70 @@ dipped under the voice; music dips unless told not to, an effect only when told 
 `stems: true` in a timeline and its render also hands back the voiceover, music and effects (each
 bus heard in the edit, as mixed into it before its loudness is evened out) as WAV files in the
 library, listed with links in `get_render`'s `stems`.
+
+## Importing audio
+
+`import_audio` takes a WAV, MP3, M4A (AAC) or FLAC from base64 `data` (up to 20 MB) or an https
+`url` (up to 40 MB) into the same library and the same records as the app's own upload. The
+file's structure is checked before anything is recorded, and its length is read from the file
+(a FLAC's exactly, from its STREAMINFO).
+
+- **Music or a sound effect** (`use: "music"` or `"sound_effect"`) joins the music library with
+  its `licence`: `"licensed"`, with its `rights` (`licensor` and `scopes`, and any `reference`,
+  `territories`, `expiresOn` and `notes`), or `"owned"`. `projectId` and `campaignId` file it.
+- **A voiceover** (`use: "voiceover"`) becomes a take in an edit's Voice tab (`sequenceId`), with
+  any `transcript`, and renders like a take made there.
+- `confirmed: true` is your confirmation, as the token's owner: of the licence as stated, or that
+  the voiceover was recorded by or for the brand with the speaker's permission to use their
+  voice. It is recorded with who gave it and when.
+
+The answer has the file's `assetId`, its `trackId` or `voiceoverId`, its `mimeType` and
+`durationSeconds`, and `imported: false` when the same `clientRequestId` had imported it already.
+
+## Costs and stages
+
+Every generation has a price. It is the charge Higgsfield reported (`actual_cost_usd`, with
+`cost_source: "provider"`), or, when its result carried none, its estimate
+(`estimated_cost_usd`), marked by where it came from:
+
+- `provider_estimate`: Higgsfield's quote for the request;
+- `metered_estimate`: its metered rate (per 1,000 video tokens) for the request's size and length;
+- `unit_estimate`: a price per image, per request or per second that its pricing states, with
+  credits at 16 to the dollar;
+- `list_price`: for pricing the studio doesn't follow, the list price an admin set for the model
+  on the Usage page.
+
+A run with none of these is unpriced, never given a made-up figure; the Usage page lists its
+model for an admin to price. List prices need migration `0028_generation_costs`.
+
+A stage (`estimate_stage`, `queue_stage`) is checked whole before any of it is queued. Its total
+(every take of every item) with `retakeAllowance` must fit what is left on the Higgsfield API
+balance (the figure an admin recorded from the Console, less what was spent and is held since)
+and the spending limit that applies: the project's or campaign's, else your monthly cap for work
+outside both.
+
+## Rights and credits
+
+Every library file has a source, a licence and a status for public use: `cleared`, `to_confirm`
+or `not_cleared`, with the credit line owed where there is one. Until someone records them
+(`set_asset_rights`, or the file's details in the library) they are worked out:
+
+- music from the library takes its track's licence and credit, read from the music library;
+- what the studio made is under its provider's terms, said by name (Higgsfield's for a
+  generation or a Katana video, ElevenLabs' for a voiceover made in the Voice tab), and is
+  `to_confirm` when a file it was made from isn't cleared;
+- what the studio rendered or cut from a file follows what it was made from;
+- uploads and imports (`import_image`, `import_audio`) are `to_confirm`.
+
+What is recorded stands instead, with who set it and when, and who confirmed it (`cleared` or
+`not_cleared`) and when. A music track's licence and credit stay the music library's: only its
+status and notes are recorded. A licence that has run out is never cleared.
+
+`render_edit` takes the edit's credits with it, to the rendered video. With `publicUse: true` it
+is held, and nothing starts, until every file the edit uses is cleared, or you confirm the files
+that aren't as exceptions (`confirmExceptions: true`, or their asset ids). Who confirmed them, and
+when, is kept with the render. Recording rights and rendering for public use need migration
+`0027_asset_rights`; until it is applied, rights are worked out and can be read.
 
 ## A presenter video, end to end
 

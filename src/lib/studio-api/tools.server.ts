@@ -25,6 +25,8 @@ import { parseTimeline, timelineSchema } from "../edit/timeline";
 import { renderStems } from "../edit/mix-report";
 import { textCheckOf } from "../media/text-check";
 import { CHARACTER_VIEWS } from "../characters/model";
+import { RIGHTS_SCOPES, type RightsScope } from "../music/catalog";
+import { DEFAULT_RETAKE_ALLOWANCE, STAGE_LIMITS } from "../stage-check";
 import type { ModelRegistryEntry } from "../model-schema";
 import type { ApiScope } from "./tokens";
 import type { ApiCaller } from "./tokens.server";
@@ -277,14 +279,14 @@ const getGeneration = tool({
   name: "get_generation",
   title: "Get a generation",
   description:
-    "A generation's progress (local_queued, submitting, processing, completed, failed, ...), its cost and, once done, the library files it made.",
+    "A generation's progress (local_queued, submitting, processing, completed, failed, ...), its cost (actual_cost_usd, the charge Higgsfield reported, else estimated_cost_usd, with cost_source saying where the figure came from) and, once done, the library files it made.",
   scope: "read",
   input: z.object({ generationId: id() }),
   run: async (args) => {
     const { data: generation } = await db
       .from("generations")
       .select(
-        "id,status,model_path,operation,prompt,parameters,estimated_cost_usd,actual_cost_usd,error_code,error_message,project_id,campaign_id,client_request_id,auto_retries,retry_after,created_at,completed_at",
+        "id,status,model_path,operation,prompt,parameters,estimated_cost_usd,actual_cost_usd,cost_source,error_code,error_message,project_id,campaign_id,client_request_id,auto_retries,retry_after,created_at,completed_at",
       )
       .eq("id", args.generationId)
       .maybeSingle();
@@ -829,6 +831,67 @@ const estimateGeneration = tool({
       parameters: cast.parameters,
       inputs: cast.inputs.map((input, position) => ({ ...input, position })),
     });
+  },
+});
+
+/** A stage: generations priced together, and queued all together or not at all (see ../stage-check). */
+const stageInput = z.object({
+  generations: z
+    .array(
+      generationSpec.extend({
+        takes: z
+          .number()
+          .int()
+          .min(1)
+          .max(STAGE_LIMITS.takes)
+          .default(1)
+          .describe("How many takes of it the stage makes"),
+        label: z.string().max(80).optional().describe("Your name for it in the answer (its shot)"),
+      }),
+    )
+    .min(1)
+    .max(STAGE_LIMITS.items),
+  retakeAllowance: z
+    .number()
+    .min(0)
+    .max(STAGE_LIMITS.allowance)
+    .default(DEFAULT_RETAKE_ALLOWANCE)
+    .describe("The share added to the total for retakes that may follow (0.2, a fifth again)"),
+  projectId: id().nullable().optional(),
+  campaignId: id().nullable().optional(),
+});
+
+const estimateStage = tool({
+  name: "estimate_stage",
+  title: "Price a stage",
+  description:
+    "Prices a list of generations together, each as estimate_generation prices it and every take of each, adds an allowance for retakes, and checks the total against what is left on the Higgsfield API balance and the spending limit that applies (the project's or campaign's, or your monthly cap). Says whether the stage fits, and if not, why. Nothing is billed.",
+  scope: "read",
+  input: stageInput,
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const { estimateStage: run } = await import("./stage.server");
+    return run(args, caller, { activeModel, asSent });
+  },
+});
+
+const queueStage = tool({
+  name: "queue_stage",
+  title: "Queue a stage",
+  description:
+    "Queues a list of generations all together or not at all. The stage is priced and checked as estimate_stage checks it, and refused with nothing queued when its total with the allowance for retakes would go past the Higgsfield API balance or a spending limit, when Higgsfield has turned work away for want of credits, when an item can't be sent, or when part of it can't be priced (unless allowUnpriced). Then every take is queued, each through the same checks as queue_generation; poll them with get_generation. The same clientRequestId returns the stage's generations (and queues any it didn't reach) instead of queuing it twice.",
+  scope: "generate",
+  readOnly: false,
+  input: stageInput.extend({
+    allowUnpriced: z
+      .boolean()
+      .default(false)
+      .describe("Queue it even though part of it can't be priced (the rest is still checked)"),
+    clientRequestId: requestId(),
+  }),
+  run: async (args, caller) => {
+    const { queueStage: run } = await import("./stage.server");
+    return run(args, caller, { activeModel, asSent });
   },
 });
 
@@ -1614,6 +1677,78 @@ const importImage = tool({
   },
 });
 
+const importAudio = tool({
+  name: "import_audio",
+  title: "Import audio",
+  description:
+    "Puts audio into the studio's library, from its bytes (data, base64) or a public https address (url): WAV, MP3, M4A (AAC) or FLAC, up to 40 MB from a url or 20 MB as data. It goes in as the app's own upload does. As music or a sound effect (use) it joins the music library with its licence: \"licensed\", with its rights (licensor, scopes and any reference, territories, expiresOn and notes), or \"owned\"; confirmed: true is your confirmation, as the token's owner, that the brand holds that licence. As a voiceover it becomes a take in an edit's Voice tab (sequenceId); confirmed: true confirms it was recorded by or for the brand, with the speaker's permission to use their voice. The same clientRequestId returns the first import instead of a second copy.",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({
+    title: z.string().min(1).max(200),
+    data: z
+      .string()
+      .max(28_000_000)
+      .optional()
+      .describe("The audio's bytes in base64 (a data: prefix is fine), up to 20 MB"),
+    url: z
+      .string()
+      .max(2000)
+      .optional()
+      .describe("A public https address to read it from, up to 40 MB"),
+    use: z
+      .enum(["music", "sound_effect", "voiceover"])
+      .describe("Music or a sound effect for the music library, or a voiceover for an edit"),
+    licence: z
+      .enum(["licensed", "owned"])
+      .optional()
+      .describe("Music and sound effects: what the brand holds for the recording"),
+    rights: z
+      .object({
+        licensor: z.string().min(2).max(200).describe("Who licensed it"),
+        scopes: z
+          .array(z.enum(RIGHTS_SCOPES.map((scope) => scope.id) as [RightsScope, ...RightsScope[]]))
+          .min(1)
+          .max(RIGHTS_SCOPES.length)
+          .describe("Where it may be used"),
+        reference: z.string().max(200).optional().describe("The licence's id or reference"),
+        territories: z.string().max(200).optional().describe('Where, e.g. "Worldwide"'),
+        expiresOn: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .nullable()
+          .optional()
+          .describe("The licence's last day (YYYY-MM-DD), if it runs out"),
+        notes: z
+          .string()
+          .max(1000)
+          .optional()
+          .describe("Its conditions (credit wording and the like)"),
+      })
+      .optional()
+      .describe("A \"licensed\" recording's terms, as the app's form records them"),
+    artist: z.string().max(300).nullable().optional(),
+    genres: z.array(z.string().max(40)).max(8).default([]),
+    moods: z.array(z.string().max(40)).max(8).default([]),
+    instrumental: z.boolean().nullable().optional(),
+    sequenceId: id().optional().describe("A voiceover's edit (its Voice tab keeps the take)"),
+    transcript: z.string().max(4000).nullable().optional().describe("A voiceover's words"),
+    projectId: id().nullable().optional().describe("Music: the project it belongs to"),
+    campaignId: id().nullable().optional().describe("Music: the campaign it belongs to"),
+    confirmed: z
+      .literal(true)
+      .describe(
+        "Your confirmation: of the licence as stated (music), or that the voiceover was recorded by or for the brand with the speaker's permission",
+      ),
+    clientRequestId: requestId(),
+  }),
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const { importAudio: run } = await import("./audio-import.server");
+    return run(args, caller);
+  },
+});
+
 const openInEditor = tool({
   name: "open_in_editor",
   title: "Open a long video as an edit",
@@ -1891,13 +2026,23 @@ const renderEdit = tool({
   name: "render_edit",
   title: "Render an edit",
   description:
-    "Renders an edit to a finished video with the media service, at the version given (from get_edit). Returns the render's id: follow it with get_render.",
+    "Renders an edit to a finished video with the media service, at the version given (from get_edit). Returns the render's id: follow it with get_render. Its credits (get_edit_credits) go with it. With publicUse it is held, and nothing starts, until every file it uses is cleared (set_asset_rights) or you confirm the exceptions (confirmExceptions: true, or their asset ids), recorded with who and when.",
   scope: "edit",
   readOnly: false,
   input: z.object({
     sequenceId: id(),
     expectedVersion: z.number().int().min(1),
     clientRequestId: requestId(),
+    publicUse: z
+      .boolean()
+      .default(false)
+      .describe("For publishing or public use: every file it uses must be cleared first"),
+    confirmExceptions: z
+      .union([z.boolean(), z.array(id()).max(500)])
+      .default(false)
+      .describe(
+        "For public use: confirm the files not cleared as exceptions (all, or by asset id)",
+      ),
   }),
   run: async (args, caller) => {
     const { startSequenceRender } = await import("../edit/render.server");
@@ -1906,7 +2051,101 @@ const renderEdit = tool({
       expectedVersion: args.expectedVersion,
       clientRequestId: args.clientRequestId,
       userId: caller.userId,
+      publicUse: args.publicUse,
+      confirmExceptions: args.confirmExceptions,
     });
+  },
+});
+
+/* ------------------------------------------------------------------ */
+/* Rights and credits                                                  */
+/* ------------------------------------------------------------------ */
+
+const getAssetRights = tool({
+  name: "get_asset_rights",
+  title: "Get files' rights",
+  description:
+    "Library files' rights: where each came from, its licence and its status for public use (cleared, to_confirm or not_cleared), the credit line owed where there is one, and who set and confirmed it and when. Until someone records them they are worked out: music from the library takes its track's licence, what the studio made is under its provider's terms (said by name), what it rendered or cut follows what it was made from, and uploads and imports are to_confirm.",
+  scope: "read",
+  input: z.object({ assetIds: z.array(id()).min(1).max(100) }),
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const { rightsForAssets } = await import("../rights/service.server");
+    const rights = await rightsForAssets(args.assetIds);
+    return {
+      files: args.assetIds.flatMap((assetId) => rights.get(assetId) ?? []),
+      missing: args.assetIds.filter((assetId) => !rights.has(assetId)),
+    };
+  },
+});
+
+const setAssetRights = tool({
+  name: "set_asset_rights",
+  title: "Set a file's rights",
+  description:
+    "Records a library file's rights: its status (cleared, to_confirm or not_cleared) and, where it differs from what is worked out, its source, licence, licenceUrl, creditLine and notes. A field left out keeps what was recorded; null clears it. Who set it and who confirmed it (cleared or not_cleared) are recorded with when. A music library track's licence and credit stay the music library's: only its status and notes are set here. With clear: true, what was recorded is forgotten and its rights are worked out again.",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({
+    assetId: id(),
+    status: z.enum(["cleared", "to_confirm", "not_cleared"]).optional(),
+    source: z.string().max(300).nullable().optional().describe("Where it came from"),
+    licence: z.string().max(300).nullable().optional().describe('Its licence, e.g. "CC BY 4.0"'),
+    licenceUrl: z.string().max(500).nullable().optional(),
+    creditLine: z
+      .string()
+      .max(1000)
+      .nullable()
+      .optional()
+      .describe("The credit owed wherever it is published"),
+    notes: z.string().max(2000).nullable().optional(),
+    clear: z.boolean().default(false),
+  }),
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const rights = await import("../rights/service.server");
+    if (args.clear)
+      return rights.clearAssetRights({ userId: caller.userId, assetId: args.assetId });
+    if (!args.status)
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        "Give the file's status: cleared, to_confirm or not_cleared",
+      );
+    return rights.setAssetRights({
+      userId: caller.userId,
+      assetId: args.assetId,
+      change: {
+        status: args.status,
+        source: args.source,
+        licence: args.licence,
+        licenceUrl: args.licenceUrl,
+        creditLine: args.creditLine,
+        notes: args.notes,
+      },
+    });
+  },
+});
+
+const getEditCredits = tool({
+  name: "get_edit_credits",
+  title: "Get an edit's credits",
+  description:
+    "An edit's credits: every file it uses (its clips, the pictures over it and the sound heard), how it uses each, each one's source, licence and status, the credit lines owed, and which files aren't cleared (a render for public use is held until they are, or their exceptions are confirmed).",
+  scope: "read",
+  input: z.object({ sequenceId: id() }),
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const { data: sequence } = await db
+      .from("sequences")
+      .select("id,timeline")
+      .eq("id", args.sequenceId)
+      .maybeSingle();
+    if (!sequence) throw new AppError("INVALID_PARAMETERS", "That edit doesn't exist");
+    const timeline = parseTimeline(sequence.timeline);
+    if (!timeline) throw new AppError("INVALID_PARAMETERS", "The edit's timeline can't be read");
+    const { creditsForTimeline } = await import("../rights/service.server");
+    const credits = await creditsForTimeline(timeline);
+    return { ...credits, notCleared: credits.notCleared.map((file) => file.assetId) };
   },
 });
 
@@ -1928,7 +2167,9 @@ export const STUDIO_TOOLS: StudioTool[] = [
   listCharacters,
   getCharacter,
   estimateGeneration,
+  estimateStage,
   queueGeneration,
+  queueStage,
   makeSoulStill,
   trainSoul,
   startPresenterVideo,
@@ -1939,11 +2180,15 @@ export const STUDIO_TOOLS: StudioTool[] = [
   checkText,
   saveCharacter,
   importImage,
+  importAudio,
   openInEditor,
   createEdit,
   updateEdit,
   applyBrand,
   renderEdit,
+  getAssetRights,
+  getEditCredits,
+  setAssetRights,
   ...PLANNING_TOOLS,
   ...COMPOSITION_TOOLS,
 ];
