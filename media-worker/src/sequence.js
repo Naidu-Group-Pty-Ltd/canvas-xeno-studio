@@ -7,6 +7,7 @@ import { planeThumbnail, SEAM_EASE_SECONDS, seamCorrection, seamEaseChain } from
 import { easedWarpFilter, joinHeadChain, JOIN_SOUND_SECONDS, measureJoin } from "./joins.js";
 import { fontFamily, sfntKind } from "./fonts.js";
 import { LOSSLESS_INTERMEDIATE, losslessPlanner, MASTER_AUDIO_BITRATE, MASTER_ENCODING, passedThroughResult, passThroughSequence, planMastering } from "./master.js";
+import { measureRender, passedThroughQuality, planMeasurement, unmeasuredQuality } from "./quality.js";
 
 /**
  * Sequence rendering: an edited timeline (ordered clips with trims, stills,
@@ -415,6 +416,8 @@ export function planSequence(params, sources) {
     loudness: num(p.loudness_lufs, { min: -24, max: -9, fallback: -14, name: "loudness_lufs" }),
     // A master's quality, and a finished master passed through (feature mastering; see ./master.js).
     ...planMastering(p),
+    // The render measured against its own reference, and the brand's colours to look for (feature render_quality).
+    ...planMeasurement(p),
   };
 }
 
@@ -1121,7 +1124,11 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
   if (plan.passThrough) {
     progress(0, "Checking the video can go out as it is");
     const attempt = await passThroughSequence({ plan, sources, dir, limit, parseLoudness }).catch(() => ({ passed: null, reason: "it couldn't be checked" }));
-    if (attempt.passed) return passedThroughResult(plan, attempt);
+    if (attempt.passed) {
+      const result = passedThroughResult(plan, attempt);
+      if (plan.measure) result.metadata.quality = passedThroughQuality(plan, attempt.loudness);
+      return result;
+    }
     passThrough = { used: false, reason: attempt.reason };
   }
   // A master's clips are lossless while the task's disk has room for them.
@@ -1235,10 +1242,15 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
   }
   const out = join(dir, "sequence.mp4");
   const imagePaths = plan.images.map((image) => sources[image.source].path);
-  await ffmpeg(finalArgs(plan, intermediates, mixPath, subtitlePath, loudness, out, imagePaths, fontsDir), {
+  const finalArgv = finalArgs(plan, intermediates, mixPath, subtitlePath, loudness, out, imagePaths, fontsDir);
+  await ffmpeg(finalArgv, {
     ...watched,
-    onProgress: (done) => progress(0.6 + 0.38 * Math.min(1, done / plan.total), "Rendering the final cut"),
+    onProgress: (done) => progress(0.6 + (plan.measure ? 0.3 : 0.38) * Math.min(1, done / plan.total), "Rendering the final cut"),
   });
+  // Measured against the same graph's picture made again, while its inputs are still here (feature render_quality; see ./quality.js).
+  const quality = plan.measure
+    ? await measureRender({ plan, finalArgv, master: out, sources, dir, progress, parseLoudness, mastering: planner?.report() ?? null }).catch(unmeasuredQuality)
+    : null;
   // Only the finished cut is kept from here.
   for (const path of [...intermediates, mixPath]) await rm(path, { force: true });
 
@@ -1267,6 +1279,7 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
       ...(joins.length ? { smart_joins: joins } : {}),
       ...(planner ? { mastering: { quality: "master", ...planner.report() } } : {}),
       ...(passThrough ? { pass_through: passThrough } : {}),
+      ...(quality ? { quality } : {}),
     },
   };
 }

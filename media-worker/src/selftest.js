@@ -7,7 +7,7 @@ import { execFileSync, spawn } from "node:child_process";
 import { createHmac } from "node:crypto";
 import { request as httpRequest } from "node:http";
 import { existsSync } from "node:fs";
-import { copyFile, mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { copyFile, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { ffmpeg, probe } from "./ffmpeg.js";
@@ -430,6 +430,137 @@ await check("a pass-through asked of a file that doesn't match its edit is rende
     dir: work,
   });
   if (louder.metadata.pass_through?.used !== false || !/loudness/.test(louder.metadata.pass_through.reason)) throw new Error(`reported ${JSON.stringify(louder.metadata.pass_through)}`);
+});
+
+/**
+ * A render's final pass made by hand, as render_sequence makes it, keeping its
+ * inputs: two clips with a cross-fade, a caption, a title and a faded logo.
+ * Returns the plan, its sources, the final pass's arguments and its output.
+ */
+async function finalPassByHand(work) {
+  const { buildSubtitles, clipArgs, finalArgs, mixArgs, planSequence } = await import("./sequence.js");
+  const first = await finishedMaster(join(work, "first.mp4"));
+  const second = join(work, "second.mp4");
+  await ffmpeg(["-f", "lavfi", "-i", "smptehdbars=s=640x360:r=25:d=3", "-f", "lavfi", "-i", "sine=frequency=500:duration=3", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", second]);
+  const logo = join(work, "logo.png");
+  await ffmpeg(["-f", "lavfi", "-i", "color=c=red:s=100x100,format=rgba", "-frames:v", "1", logo]);
+  const sources = [{ path: first, role: "video" }, { path: second, role: "video" }, { path: logo, role: "image" }];
+  const plan = planSequence({
+    width: 360, height: 640, fps: 25, normalize_loudness: false, measure: {},
+    clips: [{ source_index: 0, duration: 2.4 }, { source_index: 1, duration: 2.4, transition: { type: "fade", duration: 0.6 } }],
+    captions: { segments: [{ start: 0.5, end: 2, text: "A caption" }] },
+    overlays: [{ start: 1, end: 3, text: "A TITLE", style: "title" }],
+    images: [{ source_index: 2, start: 0.5, end: 3.5, x: 0.3, y: 0.3, width: 0.2, fade: 0.3 }],
+  }, sources);
+  const intermediates = [];
+  for (const [index, clip] of plan.clips.entries()) {
+    const out = join(work, `clip-${index}.mkv`);
+    await ffmpeg(clipArgs(clip, plan, sources[clip.source].path, true, out, null, 25));
+    intermediates.push(out);
+  }
+  const mix = join(work, "mix.wav");
+  await ffmpeg(mixArgs(plan, intermediates, [], mix, []));
+  const ass = join(work, "text.ass");
+  await writeFile(ass, buildSubtitles(plan));
+  const out = join(work, "sequence.mp4");
+  return { plan, sources, finalArgv: finalArgs(plan, intermediates, mix, ass, null, out, [logo], null), out };
+}
+
+await check("a render's reference made again is its final pass's picture, frame for frame", async () => {
+  const { measureRender } = await import("./quality.js");
+  const { parseLoudness } = await import("./sequence.js");
+  const work = await mkdtemp(join(dir, "reference-"));
+  const { plan, sources, finalArgv, out } = await finalPassByHand(work);
+  // The same graph with its picture encoded losslessly: measured, it must be identical.
+  const lossless = finalArgv.map((arg) => (arg === "veryfast" ? "ultrafast" : arg));
+  lossless.splice(lossless.indexOf("-crf"), 2, "-qp", "0");
+  lossless.splice(lossless.indexOf("-profile:v"), 2);
+  await ffmpeg(lossless);
+  const report = await measureRender({ plan, finalArgv, master: out, sources, dir: work, parseLoudness });
+  const { fidelity } = report;
+  if (fidelity.frames_measured !== plan.totalFrames) throw new Error(`measured ${fidelity.frames_measured} of ${plan.totalFrames} frames`);
+  if (fidelity.ssim.min !== 1 || fidelity.psnr_db.min !== 100) throw new Error(`the reference differs from the final pass's picture: ${JSON.stringify(fidelity)}`);
+});
+
+await check("a measured render flags a stretch of its master softened after the encode, at its own frames", async () => {
+  const { measureRender } = await import("./quality.js");
+  const { parseLoudness } = await import("./sequence.js");
+  const work = await mkdtemp(join(dir, "softened-"));
+  const { plan, sources, finalArgv, out } = await finalPassByHand(work);
+  await ffmpeg(finalArgv);
+  const clean = await measureRender({ plan, finalArgv, master: out, sources, dir: work, parseLoudness });
+  const flagged = (report) => report.checks.filter((entry) => entry.result === "flag").map((entry) => entry.id);
+  if (flagged(clean).length) throw new Error(`the render as made should pass: ${flagged(clean).join(", ")}`);
+  // The second clip's frames (from 75, past the cross-fade) blurred, as a soft re-encode would leave them.
+  const softened = join(work, "softened.mp4");
+  await ffmpeg(["-i", out, "-vf", "gblur=sigma=1.6:enable=gte(n\\,75)", "-c:v", "libx264", "-preset", "veryfast", "-crf", "12", "-pix_fmt", "yuv420p", "-an", softened]);
+  const report = await measureRender({ plan, finalArgv, master: softened, sources, dir: work, parseLoudness });
+  // Softness shows in the worst frames' PSNR and in the edge contrast lost; a third of the frames softened
+  // leaves the mean SSIM above its line.
+  for (const id of ["psnr_worst", "edges", "edges_worst"])
+    if (!flagged(report).includes(id)) throw new Error(`${id} should be flagged: ${JSON.stringify(report.checks)}`);
+  const worst = [report.fidelity.ssim.worst[0].frame, report.fidelity.psnr_db.worst[0].frame, report.pixels.edges.worst.frame];
+  if (worst.some((frame) => frame < 75)) throw new Error(`the worst frames (${worst.join(", ")}) should be in the softened clip`);
+});
+
+await check("render_sequence measures a render: fidelity, colour, captions, cuts, the voice's sync and loudness all pass", async () => {
+  const work = await mkdtemp(join(dir, "measured-"));
+  const first = await finishedMaster(join(work, "first.mp4"));
+  const second = join(work, "second.mp4");
+  await ffmpeg(["-f", "lavfi", "-i", "smptehdbars=s=640x360:r=25:d=3", "-c:v", "libx264", "-pix_fmt", "yuv420p", second]);
+  const voice = join(work, "voice.wav");
+  await ffmpeg(["-f", "lavfi", "-i", "aevalsrc='0.5*sin(2*PI*220*t)*(between(t,0.3,1.4)+between(t,1.9,3.2))*(0.6+0.4*sin(2*PI*5*t))':s=48000:d=3.5", voice]);
+  const result = await TASKS.render_sequence.run({
+    sources: [{ path: first, role: "video" }, { path: second, role: "video" }, { path: voice, role: "audio" }],
+    params: {
+      width: 360, height: 640, fps: 25,
+      clips: [{ source_index: 0, duration: 2.4, volume: 0 }, { source_index: 1, duration: 2.4 }],
+      audio: [{ source_index: 2, role: "voiceover", start: 0.6 }],
+      captions: { segments: [{ start: 0.5, end: 1.9, text: "First caption here" }, { start: 2.6, end: 4.2, text: "And a second one" }] },
+      measure: { brand_colours: ["#ffffff", "#0832de"] },
+    },
+    dir: work,
+  });
+  const report = result.metadata.quality;
+  if (report?.status !== "measured") throw new Error(`not measured: ${JSON.stringify(report)}`);
+  const flags = report.checks.filter((entry) => entry.result === "flag");
+  if (flags.length) throw new Error(`flagged: ${JSON.stringify(flags)}`);
+  if (report.fidelity.frames_measured !== 120 || report.pixels.frames < 30) throw new Error(`measured ${report.fidelity.frames_measured} and ${report.pixels.frames} frames`);
+  if (report.cuts?.cuts?.[0]?.reads_as !== "cut" || report.cuts.cuts[0].frame !== 60) throw new Error(`the cut: ${JSON.stringify(report.cuts)}`);
+  if (report.captions?.status !== "measured" || report.captions.judged !== 2) throw new Error(`the captions: ${JSON.stringify(report.captions)}`);
+  if (report.sync?.items?.[0]?.status !== "measured" || Math.abs(report.sync.items[0].offset_ms) > 5) throw new Error(`the voice: ${JSON.stringify(report.sync)}`);
+  if (Math.abs(report.loudness.integrated_lufs + 14) > 1) throw new Error(`the loudness: ${JSON.stringify(report.loudness)}`);
+  const white = report.pixels.brand_colours.find((brand) => brand.hex === "#ffffff");
+  if (!white?.found || report.pixels.brand_colours.find((brand) => brand.hex === "#0832de")?.found) throw new Error(`the brand colours: ${JSON.stringify(report.pixels.brand_colours)}`);
+});
+
+await check("a caption the render dropped is flagged, and a cut a frame late is found", async () => {
+  const { judgeCaptions, judgeCuts, plannedCaptions, plannedCuts, TimingMeter, timingScale } = await import("./quality.js");
+  const { planSequence } = await import("./sequence.js");
+  const work = await mkdtemp(join(dir, "timing-"));
+  // Captions planned for 0.5-1.9 s and 2.6-4.2 s, but only the first burned in; and the cut late by a frame.
+  const plan = planSequence({
+    width: 360, height: 640, fps: 25,
+    clips: [{ source_index: 0, duration: 2.4 }, { source_index: 1, duration: 2.4 }],
+    captions: { segments: [{ start: 0.5, end: 1.9, text: "First caption here" }, { start: 2.6, end: 4.2, text: "And a second one" }] },
+  }, [{ role: "video" }, { role: "video" }]);
+  const { buildSubtitles } = await import("./sequence.js");
+  const ass = join(work, "first-only.ass");
+  await writeFile(ass, buildSubtitles({ ...plan, captions: { ...plan.captions, segments: plan.captions.segments.slice(0, 1) } }));
+  const late = join(work, "late.mp4");
+  await ffmpeg([
+    "-f", "lavfi", "-i", "testsrc2=s=360x640:r=25:d=2.44", "-f", "lavfi", "-i", "smptehdbars=s=360x640:r=25:d=2.36",
+    "-filter_complex", `[0:v][1:v]concat=n=2:v=1,ass=filename=${ass},format=yuv420p[v]`, "-map", "[v]", "-c:v", "libx264", "-crf", "16", late,
+  ]);
+  const width = Math.round(360 / timingScale(plan));
+  const height = Math.round(640 / timingScale(plan));
+  const meter = new TimingMeter(plan, width, height);
+  const raw = execFileSync("ffmpeg", ["-v", "error", "-i", late, "-vf", `scale=${width}:${height}:flags=area,format=gray`, "-f", "rawvideo", "-"], { maxBuffer: 64 * 1024 * 1024 });
+  for (let frame = 0; frame * width * height < raw.length; frame += 1) meter.add(raw.subarray(frame * width * height, (frame + 1) * width * height), frame);
+  const captions = judgeCaptions(plan, plannedCaptions(plan), meter.text);
+  if (captions.status !== "measured" || captions.missed_count !== 1 || captions.missed[0].caption !== 2) throw new Error(`the captions: ${JSON.stringify(captions)}`);
+  const cuts = judgeCuts(plannedCuts(plan), meter.change, 25);
+  if (cuts.missed !== 1 || cuts.cuts[0].found_at !== 61) throw new Error(`the cut: ${JSON.stringify(cuts)}`);
 });
 
 await check("reframe_video crops around its focus point", async () => {

@@ -59,7 +59,8 @@ function pick(value, allowed, fallback, name) {
  * readable ("overlay_layout"), and, where the image has it, a clip's lips
  * scored from its picture ("lip_check"). A render can also be a master, with
  * lossless clips and one fine encode, or a finished master passed through
- * as it is ("mastering"; see master.js).
+ * as it is ("mastering"; see master.js), and measured against its own
+ * lossless reference ("render_quality"; see quality.js).
  */
 export const FEATURES = [
   "frame_focus",
@@ -76,6 +77,7 @@ export const FEATURES = [
   "brand_text",
   "image_overlays",
   "mastering",
+  "render_quality",
   ...(lipCheckAvailable ? ["lip_check"] : []),
 ];
 

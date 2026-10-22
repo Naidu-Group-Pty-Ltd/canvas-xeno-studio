@@ -152,6 +152,38 @@ frame. The app sends one source per distinct asset (role `video`, `image`,
   once (`+faststart`), with its poster, and `metadata.pass_through` is
   `{"used": true}`. Otherwise the edit is rendered as usual, and
   `pass_through` is `{"used": false, "reason": "…"}`
+- `measure` (feature `render_quality`): `{"brand_colours": ["#rrggbb", …]}`
+  (up to 12, may be empty). The render is measured against its own lossless
+  reference: the final pass's picture before its encode, made again from the
+  same inputs and filter graph (frame for frame what the encoder was given),
+  both decoded as a BT.709 player decodes them (`src/quality.js`). The report
+  is `metadata.quality`, a few kilobytes:
+  - `fidelity`: SSIM and PSNR (RGB) frame by frame, of every frame up to 1,800
+    and an even sample beyond (`every`), with the mean, the worst and the three
+    worst frames' times
+  - `pixels`, on about 90 full frames spread over the edit: the share of the
+    reference's strong edge contrast the master keeps (`edges`), CIEDE2000 on
+    the reference's flat fields (`colour`: mean, 99th percentile, largest, the
+    share below 1), each brand colour where it covers a flat patch (the
+    reference's and the master's colour, their difference and how far the edit
+    drew it from the kit's own value), and banding in gentle gradients (the
+    smoothed difference over 16 x 32 pixels, outside transitions and fades)
+  - `captions`: each caption on the frames it was planned for, from the text
+    edges in the caption band of a small grey copy of every frame, judged
+    against its own clip's frames without captions (`missed` lists any not
+    shown); `cuts`: each cut on its frame (`reads_as` `cut`, `carried_through`
+    for a join the picture runs through, or `missed` with `found_at`); `sync`:
+    each voiceover (the eight longest) where it was placed, matched with the
+    master's sound (`offset_ms`, positive when late); `loudness`: integrated,
+    range and true peak, against the target when loudness is evened out
+  - `checks`: each measure judged `pass`, `flag` or `info` against the
+    thresholds in `src/quality.js` (from Reel 1's own: SSIM 0.98, PSNR 40 dB
+    and no frame below 37 dB, edges 98% and no frame below 95%, CIEDE2000 and
+    brand colours below 1, banding below one code value, every caption and
+    cut, sync within 20 ms, loudness within 1 LU, true peak at most −1 dBTP),
+    with `passes` and `flags` counted. A master passed through is reported as
+    `status: "passed_through"` with its loudness; a render that couldn't be
+    measured as `status: "unmeasured"` (it stands all the same)
 
 Timings are snapped to the frame grid, so the output has exactly the planned
 number of frames. Clips are normalised one at a time, which keeps memory flat
