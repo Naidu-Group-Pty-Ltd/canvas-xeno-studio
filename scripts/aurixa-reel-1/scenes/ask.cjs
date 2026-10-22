@@ -63,7 +63,8 @@ function askScene() {
 
   const state = (time, m) => {
     const st = new State();
-    const t = DK.tick(time, time < FLY[1] + 0.1 ? 240 : 120);
+    // Every subframe while the card flies and the window swings (fast, and text would strobe); twice a frame after.
+    const t = DK.tick(time, time < tIn + 0.8 ? Infinity : 120);
     caption(st, t, m);
     const c = DK.cameraAt(t);
     const pose = swing(t);

@@ -18,7 +18,8 @@ const IDS = ["msg", "inbox", "research", "sheet", "contact", "report"];
 function toolsScene() {
   const [tIn, tResearch, tSheet, tContact, tReport, tHop] = [0, 1, 2, 3, 4, 5].map((i) => beat("02.1", i));
   const tOut = M.shotOf("02.1").out;
-  // The moves the camera makes fast (the swing and the two whips): drawn four times a frame, for their blur.
+  // The moves the camera makes fast (the pull back, the swing, the two whips, the report and back): drawn on every
+  // subframe, so they blur rather than strobe.
   const fast = (t) =>
     [tResearch, tSheet, tContact].some((b) => t > b - 0.05 && t < b + 0.8) ||
     (t > tIn && t < tIn + 1.8) ||
@@ -30,7 +31,7 @@ function toolsScene() {
 
   const state = (time, m) => {
     const st = new State();
-    const t = DK.tick(time, fast(time) ? 240 : 120);
+    const t = DK.tick(time, fast(time) ? Infinity : 120);
     caption(st, t, m);
     const c = DK.cameraAt(t);
     DK.placeRoom(st, c, IDS, { fades: DK.fadesAt(t) });

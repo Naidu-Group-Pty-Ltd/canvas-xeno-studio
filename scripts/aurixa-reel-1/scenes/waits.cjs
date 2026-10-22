@@ -42,8 +42,9 @@ const tickerHtml = () =>
               <b>${figure}</b></span><i style="width:6px;height:6px;border-radius:50%;background:var(--reel-before-border)"></i>`,
         ).join(""),
     ).join("")}</div></div>`;
-// How far the strip has run u seconds in (px): slow, then faster and faster.
-const tickerAt = (u) => 150 * u + 70 * u * u + 32 * u * u * u;
+// How far the strip has run u seconds in (px): 150 px a second, gathering to 1,350 by the fall into the dark (any
+// faster and it no longer reads as a ticker, only as a streak).
+const tickerAt = (u) => 150 * u + 87 * u * u;
 
 // ------------------------------------------------------------------ the notifications (NEW-NOTIFICATIONS)
 // Each flies in from its own edge to where it stops, one after another.
@@ -90,7 +91,11 @@ function waitsScene() {
 
   const state = (time, m) => {
     const st = new State();
-    const t = DK.tick(time, time > tDark - 0.1 && time < tDark + 2.0 ? 240 : 120);
+    // Two clocks. The room (its blurred windows the costly part of a drawing) ticks twice a frame but for the push
+    // down to the phone; the ticker and the notifications, fast and light, take every subframe once the ticker
+    // runs fast, so they blur rather than strobe.
+    const t = DK.tick(time, time > tDark - 0.05 && time < tDark + 1.8 ? Infinity : 120);
+    const to = DK.tick(time, time > tHold + 1.4 ? Infinity : 120);
     caption(st, t, m);
     const c = DK.cameraAt(t);
     // The notifications push the windows apart (each away from the middle of the four) and out of focus; then,
@@ -116,29 +121,30 @@ function waitsScene() {
     const nt = span(t, tDark + 0.35, tDark + 0.75, EASE.settle);
     st.set("#dk-nt", { transform: `translateY(${px((1 - nt) * 30)}) scale(${r3(0.94 + 0.06 * nt)})`, ...fade(nt) });
 
-    // The overlays fall away with the room.
-    const away = 1 - span(t, tDark, tDark + 0.5, EASE.linear);
+    // The overlays (on their own clock) fall away with the room.
+    const away = 1 - span(to, tDark, tDark + 0.5, EASE.linear);
+    const drop = span(to, tDark, tDark + 0.9, EASE.move) ** 2;
     // The clock runs from Monday 9:14 to Wednesday 4:52 PM, ticking ten times a second.
-    const u = (Math.floor((t - tHold) * 10) / 10) / (tDark - tHold);
+    const u = Math.floor((to - tHold) * 10) / 10 / (tDark - tHold);
     st.set("#wt-clock-t", { $text: clockText(u) });
-    st.set("#wt-clock", { ...fade(span(t, tHold, tHold + 0.3, EASE.linear) * away) });
-    // The ticker: in from below, running, faster from the second beat.
-    const tin = span(t, tHold, tHold + 0.45, EASE.settle);
-    st.set("#wt-ticker", { transform: `translateY(${px((1 - tin) * 90)})`, ...fade(tin * away) });
-    st.set("#wt-strip", { transform: `translateX(${px(-tickerAt(Math.max(0, t - tHold)))})` });
+    st.set("#wt-clock", { ...fade(span(to, tHold, tHold + 0.3, EASE.linear) * away) });
+    // The ticker: in from below, running, faster and faster.
+    const tin = span(to, tHold, tHold + 0.45, EASE.settle);
+    st.set("#wt-ticker", { transform: `translateY(${px((1 - tin) * 90 + 300 * drop)})`, ...fade(tin * away) });
+    st.set("#wt-strip", { transform: `translateX(${px(-tickerAt(Math.max(0, to - tHold)))})` });
     // Its chips blink beside it.
     [0, 1].forEach((i) => {
-      const s = t - (tFaster + i * 0.35);
+      const s = to - (tFaster + i * 0.35);
       const on = s < 0 ? 0 : s < 0.9 ? (Math.floor(s / 0.15) % 2 === 0 ? 1 : 0.25) : 1;
-      st.set(`#wt-chip-${i}`, { transform: `translateY(${px((1 - span(t, tFaster + i * 0.35, tFaster + i * 0.35 + 0.3, EASE.settle)) * 14)})`, ...fade(on * away) });
+      st.set(`#wt-chip-${i}`, { transform: `translateY(${px((1 - span(to, tFaster + i * 0.35, tFaster + i * 0.35 + 0.3, EASE.settle)) * 14 + 300 * drop)})`, ...fade(on * away) });
     });
     // The notifications, one after another, each from its own edge.
     NOTES.forEach((n, i) => {
       const a = tNotes + i * 0.42;
-      const p = span(t, a, a + 0.45, EASE.settle);
+      const p = span(to, a, a + 0.45, EASE.settle);
       const x = n.at[0] + n.from[0] * (1 - p);
-      const y = n.at[1] + n.from[1] * (1 - p) + 600 * fall * fall;
-      st.set(`#wt-note-${n.key}`, { transform: `translate(${px(x)}, ${px(y)}) scale(0.86)`, "transform-origin": "0 0", ...fade(span(t, a, a + 0.12, EASE.linear) * away) });
+      const y = n.at[1] + n.from[1] * (1 - p) + 600 * drop;
+      st.set(`#wt-note-${n.key}`, { transform: `translate(${px(x)}, ${px(y)}) scale(0.86)`, "transform-origin": "0 0", ...fade(span(to, a, a + 0.12, EASE.linear) * away) });
     });
     // The frame dims toward dark, for the drop.
     st.set("#wt-dark", { opacity: r3(0.86 * span(t, tDim, tOut, EASE.linear)) });

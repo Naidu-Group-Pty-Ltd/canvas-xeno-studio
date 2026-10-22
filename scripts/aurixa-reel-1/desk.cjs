@@ -461,8 +461,11 @@ function path(keys) {
   };
 }
 
-/** A clock that ticks `q` times a second: of a frame's eight subframes only q/60 differ (the rest reuse). */
-const tick = (t, q = 120) => Math.floor(t * q + 1e-6) / q;
+/**
+ * A clock that ticks `q` times a second: of a frame's eight subframes only q/60 differ (the rest reuse the drawing
+ * before). Right for a slow drift; a fast move needs every subframe (q = Infinity), or text strobes into copies.
+ */
+const tick = (t, q = 120) => (Number.isFinite(q) ? Math.floor(t * q + 1e-6) / q : t);
 
 module.exports = {
   CSS,
