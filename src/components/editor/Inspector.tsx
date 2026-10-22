@@ -90,6 +90,7 @@ import { cn } from "@/lib/utils";
 import type { PlaybackClock, Selection } from "./state";
 import { VoiceoverPanel, type VoiceoverContext } from "./VoiceoverPanel";
 import { MusicPanel, type MusicContext } from "./MusicPanel";
+import { VoicePauses } from "./VoicePauses";
 import { Mixer } from "./Mixer";
 import { SendToKatana } from "@/components/katana/SendToKatana";
 import { useVoiceovers } from "@/hooks/useVoiceData";
@@ -741,6 +742,8 @@ function AudioInspector({
   clock,
   onChange,
   onSelect,
+  voiceover,
+  music,
   item,
 }: InspectorProps & { item: TimelineAudio }) {
   const asset = assets.get(item.assetId);
@@ -754,7 +757,7 @@ function AudioInspector({
       },
       key,
     );
-  const plays = audioPlayLength(item, layout.total);
+  const plays = audioPlayLength(item, layout.total, timeline.fps);
   const hasVoice = timeline.audio.some((entry) => entry.role === "voiceover");
 
   return (
@@ -950,6 +953,20 @@ function AudioInspector({
           </>
         )}
       </Section>
+
+      {item.role === "voiceover" && (
+        <Section title="Pauses">
+          <VoicePauses
+            timeline={timeline}
+            layout={layout}
+            item={item}
+            clock={clock}
+            projectId={voiceover?.projectId ?? music?.projectId ?? null}
+            sequenceId={voiceover?.sequenceId ?? null}
+            onChange={onChange}
+          />
+        </Section>
+      )}
     </div>
   );
 }
@@ -1238,7 +1255,7 @@ function TextPanel({
   const writeFromScript = () => {
     const from = voice ? voice.start : 0.3;
     const to = voice
-      ? voice.start + audioPlayLength(voice, layout.total)
+      ? voice.start + audioPlayLength(voice, layout.total, timeline.fps)
       : Math.max(0.6, layout.total - 0.3);
     const until = Math.min(to, layout.total);
     // With the voiceover's word timings, the script's words land where they

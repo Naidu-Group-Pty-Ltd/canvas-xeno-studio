@@ -96,13 +96,29 @@ curl -X POST https://<your studio>/api/public/studio/list_models \
 | `save_character`              | Makes a character from library images, or changes one (`characterId`): name, look, sheet images by view, training photos.           |
 | `import_image`                | Puts a PNG, JPEG, WebP or GIF (up to 15 MB) into the library, from base64 `data` or an https `url`.                                 |
 | `open_in_editor`              | Lays a long video out as an edit. Takes captions from the script, titles on the voiceover's clock, music, and the brand kit's look. |
-| `create_edit` / `update_edit` | Makes an edit from a timeline, or changes one. An update is accepted only at the version you read.                                  |
+| `create_edit` / `update_edit` | Makes an edit from a timeline, or changes one. An update is accepted only at the version you read. Pauses: below.                   |
 | `apply_brand_kit`             | Applies a kit's fonts and colours to the edit's text, and can add its end card inside a platform's safe area.                       |
 | `render_edit`                 | Renders the edit at a version. Poll it with `get_render`.                                                                           |
 
 Every operation that spends or makes something takes your own `clientRequestId` (8 to 64
 characters). Sending the same request again returns the first result, so a retry never bills
 twice.
+
+## A voiceover held open in its silences
+
+A voiceover item in a timeline can carry `pauses`: `[{"at": 3.95, "frames": 12}, …]`. Each puts
+`frames` whole frames (of the edit's `fps`) of silence into the recording at `at`, in seconds on
+the recording's own clock (as `trimStart` is), so the picture gets room to breathe and no word is
+stretched. The item plays that much longer: its `duration`, when set, is its length on the edit
+with its pauses in it. Time captions and titles on the held voice: a word moves by the pauses at
+or before it, a cut by those strictly before it, so a pause exactly on a cut opens the new shot
+before its first word. At most 200 pauses a voiceover, each 1 to 300 frames.
+
+A pause goes only where nobody speaks, as measured when the voiceover was prepared (in the Editor,
+select the voiceover and choose **Measure its silences** under Pauses). `create_edit` and
+`update_edit` move a pause just off a silence into it (`pausesSnapped` says how many) and refuse
+one inside a word, saying where. A voiceover not yet measured keeps its pauses as sent and is
+listed by item id in `pausesUnmeasured`: it can't be rendered until it is measured.
 
 ## A presenter video, end to end
 

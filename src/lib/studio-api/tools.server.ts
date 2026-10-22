@@ -1655,7 +1655,7 @@ const createEdit = tool({
   }),
   run: async (args, caller) => {
     await roleOf(caller.userId);
-    const timeline = validTimeline(args.timeline);
+    const { timeline, pauses } = await withSettledPauses(validTimeline(args.timeline));
     const missing = await missingFiles(timeline);
     if (missing.length)
       throw new AppError("INVALID_PARAMETERS", `Not in the library: ${missing.join(", ")}`);
@@ -1673,9 +1673,29 @@ const createEdit = tool({
       .select("id,version")
       .maybeSingle();
     if (error || !data) throw new AppError("UNKNOWN", "The edit couldn't be saved");
-    return { sequenceId: data.id, version: data.version };
+    return { sequenceId: data.id, version: data.version, ...pauses };
   },
 });
+
+/**
+ * A timeline's voiceover pauses held to the voices' measured silences: one
+ * just off a silence is moved into it, one nowhere near a silence refused.
+ * What was done is said in the answer: how many were moved, and which
+ * voiceovers (by item id) haven't been measured yet, so can't be rendered.
+ */
+async function withSettledPauses(timeline: ReturnType<typeof timelineSchema.parse>) {
+  if (!timeline.audio.some((item) => item.role === "voiceover" && item.pauses.length))
+    return { timeline, pauses: {} };
+  const { settleVoicePauses } = await import("../edit/voice-pauses.server");
+  const settled = await settleVoicePauses(timeline);
+  return {
+    timeline: settled.timeline,
+    pauses: {
+      ...(settled.snapped ? { pausesSnapped: settled.snapped } : {}),
+      ...(settled.unchecked.length ? { pausesUnmeasured: settled.unchecked } : {}),
+    },
+  };
+}
 
 /** Saves an edit's new timeline (or title) over the version given, as the Editor saves. */
 async function saveEdit(
@@ -1717,16 +1737,18 @@ const updateEdit = tool({
   }),
   run: async (args, caller) => {
     await roleOf(caller.userId);
-    const timeline = args.timeline ? validTimeline(args.timeline) : undefined;
+    const settled = args.timeline ? await withSettledPauses(validTimeline(args.timeline)) : null;
+    const timeline = settled?.timeline;
     if (timeline) {
       const missing = await missingFiles(timeline);
       if (missing.length)
         throw new AppError("INVALID_PARAMETERS", `Not in the library: ${missing.join(", ")}`);
     }
-    return saveEdit(args.sequenceId, args.expectedVersion, {
+    const saved = await saveEdit(args.sequenceId, args.expectedVersion, {
       ...(timeline ? { timeline } : {}),
       ...(args.title ? { title: args.title } : {}),
     });
+    return { ...saved, ...settled?.pauses };
   },
 });
 

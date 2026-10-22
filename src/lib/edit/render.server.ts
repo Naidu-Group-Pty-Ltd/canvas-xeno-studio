@@ -36,6 +36,7 @@ import {
   type Timeline,
 } from "./timeline";
 import { isBrandFontFile } from "./font-family";
+import { assertPausesRenderable } from "./voice-pauses.server";
 
 /**
  * The render request for a timeline. Channel levels are folded into the
@@ -72,6 +73,12 @@ async function renderRequestFor(timeline: Timeline) {
       message:
         "This edit's titles or captions use a brand's fonts or colours, which the media service can't set until it is updated. Render again once the service has been updated.",
     });
+  if (usesVoicePauses(request.params))
+    needed.push({
+      feature: "voice_pauses",
+      message:
+        "This edit's voiceover is held open with pauses, which the media service can't do until it is updated. Take the pauses out, or render again once the service has been updated.",
+    });
   if (!needed.length) return request;
   const health = await workerHealth();
   if (!health.ok)
@@ -83,6 +90,14 @@ async function renderRequestFor(timeline: Timeline) {
     if (!health.data?.features?.includes(feature))
       throw new AppError("INVALID_PARAMETERS", message);
   return request;
+}
+
+/** Whether a render request holds a voiceover open with pauses. */
+function usesVoicePauses(params: Record<string, unknown>): boolean {
+  return (
+    Array.isArray(params["audio"]) &&
+    params["audio"].some((item) => Array.isArray((item as { pauses?: unknown })?.pauses))
+  );
 }
 
 /** Whether a render request asks for a brand's colours anywhere. */
@@ -356,6 +371,8 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
     })),
   );
   if (music.blocker) throw new AppError("INVALID_PARAMETERS", music.blocker);
+  // A voiceover held open with pauses: measured, and each pause in one of its silences.
+  await assertPausesRenderable(timeline, (assetId) => assets.get(assetId)?.title ?? null);
   const request = await renderRequestFor(timeline);
 
   const renderId = crypto.randomUUID();

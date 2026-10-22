@@ -38,6 +38,9 @@ export const SEQUENCE_LIMITS = {
   fonts: 4,
   totalSeconds: 600,
   textLength: 220,
+  /** Pauses a voiceover is held open by, and the most frames one adds. */
+  pauses: 200,
+  pauseFrames: 300,
 };
 
 /** Transitions offered to editors, by FFmpeg xfade name. "cut" means no transition. */
@@ -300,6 +303,7 @@ export function planSequence(params, sources) {
       duck: role === "music" && item.duck !== false,
       duckLevel: num(item.duck_level, { min: 0.05, max: 1, fallback: 0.25, name: `audio ${index + 1} duck_level` }),
     });
+    audio.at(-1).pauses = planPauses(item.pauses, audio.at(-1), fps, index);
   }
 
   const captionsRaw = p.captions && typeof p.captions === "object" ? p.captions : null;
@@ -413,6 +417,123 @@ export function planSequence(params, sources) {
     normalize: p.normalize_loudness !== false,
     loudness: num(p.loudness_lufs, { min: -24, max: -9, fallback: -14, name: "loudness_lufs" }),
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Voiceover pauses                                                    */
+/* ------------------------------------------------------------------ */
+
+/** The mix's sample rate: a frame of pause is a whole number of samples at it (1600 at 30 fps). */
+const PAUSE_RATE = 48000;
+
+/**
+ * A voiceover's pauses (feature voice_pauses): whole frames of silence put in
+ * at moments of its recording (seconds on its own clock, as trim_start is),
+ * so it is held open in its own silences without a word being stretched. The
+ * app places them only in the voice's measured silences; here they are held
+ * to what the item plays: from its trim point, each starting before the item
+ * ends, in order, one per moment.
+ */
+export function planPauses(raw, item, fps, index) {
+  if (raw === undefined || raw === null) return [];
+  const what = `audio ${index + 1}`;
+  if (!Array.isArray(raw)) throw bad(`${what} pauses must be a list`);
+  if (!raw.length) return [];
+  if (item.role !== "voiceover") throw bad(`Only a voiceover can be held open with pauses (${what} is ${item.role})`);
+  if (raw.length > SEQUENCE_LIMITS.pauses) throw bad(`${what} may have at most ${SEQUENCE_LIMITS.pauses} pauses`);
+  const pauses = [];
+  let held = 0;
+  for (const [position, entry] of raw.entries()) {
+    const pause = entry && typeof entry === "object" ? entry : {};
+    const name = `${what} pause ${position + 1}`;
+    const at = num(pause.at, { min: 0, max: 86_400, name: `${name} at` });
+    const frames = num(pause.frames, { min: 1, max: SEQUENCE_LIMITS.pauseFrames, name: `${name} frames` });
+    if (!Number.isInteger(frames)) throw bad(`${name} frames must be a whole number`);
+    if (pauses.length && at <= pauses.at(-1).at) throw bad(`${what} pauses must be in order, one per moment`);
+    const from = at - item.trimStart + held;
+    if (at < item.trimStart - 1e-6 || from >= item.length - 1e-6) {
+      throw bad(`${name} (at ${at}s) is outside what the voiceover plays`);
+    }
+    const length = frames / fps;
+    pauses.push({ at, frames, seconds: length, samples: Math.round(length * PAUSE_RATE) });
+    held += length;
+  }
+  return pauses;
+}
+
+/**
+ * The seconds a voiceover's pauses add to what its recording holds (`duration`
+ * seconds long). A pause after the recording ends is outside what it plays.
+ */
+export function pausesWithin(item, duration) {
+  let held = 0;
+  for (const pause of item.pauses ?? []) {
+    if (pause.at > duration + 0.001) {
+      throw bad(`A voiceover's pause at ${pause.at}s comes after its recording ends (at ${Number(duration.toFixed(3))}s)`);
+    }
+    held += pause.seconds;
+  }
+  return held;
+}
+
+/**
+ * A voiceover held open at its pauses, as filtergraph lines pushed onto
+ * `lines`: its recording split at each pause, to the sample, with exact
+ * silence put between the pieces. Returns the label the held voice is read
+ * from; a voice without pauses is read straight from its input.
+ */
+export function pausedVoiceChain(lines, input, item, label) {
+  if (!item.pauses?.length) return `[${input}:a]`;
+  // Where each piece of the recording starts and ends, in samples from the trim point.
+  const edges = [0, ...item.pauses.map((pause) => Math.max(0, Math.round((pause.at - item.trimStart) * PAUSE_RATE))), null];
+  const pieces = [];
+  for (let index = 0; index + 1 < edges.length; index += 1) {
+    const [from, to] = [edges[index], edges[index + 1]];
+    if (to !== null && to <= from) continue;
+    pieces.push({ from, to, after: index });
+  }
+  const format = "aformat=sample_fmts=fltp:channel_layouts=stereo";
+  lines.push(
+    `[${input}:a]asetpts=PTS-STARTPTS,aresample=${PAUSE_RATE},${format},asplit=${pieces.length}` +
+      pieces.map((_, index) => `[${label}v${index}]`).join(""),
+  );
+  const order = [];
+  // Each silence follows the piece that ends at its pause; one at the very start opens the voice.
+  const silence = (index) => {
+    const pause = item.pauses[index];
+    lines.push(`anullsrc=r=${PAUSE_RATE}:cl=stereo,atrim=end_sample=${pause.samples},${format}[${label}z${index}]`);
+    order.push(`[${label}z${index}]`);
+  };
+  let next = 0;
+  for (const [index, piece] of pieces.entries()) {
+    while (next < piece.after) silence(next++);
+    const trim = piece.to === null ? `start_sample=${piece.from}` : `start_sample=${piece.from}:end_sample=${piece.to}`;
+    lines.push(`[${label}v${index}]atrim=${trim},asetpts=PTS-STARTPTS[${label}s${index}]`);
+    order.push(`[${label}s${index}]`);
+  }
+  while (next < item.pauses.length) silence(next++);
+  lines.push(`${order.join("")}concat=n=${order.length}:v=0:a=1[${label}held]`);
+  return `[${label}held]`;
+}
+
+/**
+ * A voiceover's speech regions (seconds into its recording, from its trim
+ * point) where they are heard once it is held open: a region's start moves
+ * with the pauses at or before it, its end with those strictly before it.
+ */
+export function pacedRegions(regions, item) {
+  if (!item.pauses?.length) return regions;
+  const moved = (time, inclusive) => {
+    let shift = 0;
+    for (const pause of item.pauses) {
+      const at = pause.at - item.trimStart;
+      if (inclusive ? at <= time + 1e-6 : at < time - 1e-6) shift += pause.seconds;
+    }
+    return time + shift;
+  };
+  return regions
+    .map(([from, to]) => [moved(from, true), Math.min(item.length, moved(to, false))])
+    .filter(([from, to]) => to - from >= 0.05);
 }
 
 /* ------------------------------------------------------------------ */
@@ -770,7 +891,7 @@ export function mixArgs(plan, intermediatePaths, audioPaths, out, voiceActivity 
     const input = plan.clips.length + index;
     const label = `t${index}`;
     const chain = [
-      `[${input}:a]asetpts=PTS-STARTPTS`,
+      `${pausedVoiceChain(lines, input, item, label)}asetpts=PTS-STARTPTS`,
       "aresample=48000",
       "aformat=sample_fmts=fltp:channel_layouts=stereo",
       `atrim=end=${seconds(item.length)}`,
@@ -1062,7 +1183,7 @@ export async function fitAudioToSources(audio, durationOf) {
   const fitted = [];
   for (const item of audio) {
     const duration = item.loop ? null : await durationOf(item.source);
-    const available = duration === null ? null : duration - item.trimStart;
+    const available = duration === null ? null : duration - item.trimStart + pausesWithin(item, duration);
     if (available !== null && available < 0.05) continue;
     if (available === null || available >= item.length) {
       fitted.push(item);
@@ -1164,7 +1285,7 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
       "-ss", seconds(item.trimStart), "-t", seconds(item.length), "-i", sources[item.source].path,
       "-af", "silencedetect=n=-38dB:d=0.35", "-f", "null", "-",
     ], watched);
-    for (const [from, to] of speechRegions(stderr, item.length)) {
+    for (const [from, to] of pacedRegions(speechRegions(stderr, item.length), item)) {
       voiceActivity.push([item.start + from, Math.min(plan.total, item.start + to)]);
     }
   }
