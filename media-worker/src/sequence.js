@@ -5,7 +5,10 @@ import { ffmpeg, probe } from "./ffmpeg.js";
 import { TaskError } from "./net.js";
 import { planeThumbnail, SEAM_EASE_SECONDS, seamCorrection, seamEaseChain } from "./seam.js";
 import { easedWarpFilter, joinHeadChain, JOIN_SOUND_SECONDS, measureJoin } from "./joins.js";
-import { fontFamily, sfntKind } from "./fonts.js";
+import { fontFamily, fontStyle, sfntKind } from "./fonts.js";
+import { brandCaptionEvents, brandFaces, classicPanel, roughFaces } from "./caption-script.js";
+import { backdropWanted, measureCaptionBackdrops } from "./caption-backdrop.js";
+import { CAPTION_PANELS } from "./brand-captions.js";
 import { piecesChain, piecesInput, piecesInside, withPieces } from "./pieces.js";
 import { bandFilter, bandMargins, mixReport, readBand } from "./mixreport.js";
 
@@ -36,8 +39,8 @@ export const SEQUENCE_LIMITS = {
   overlays: 20,
   /** Pictures laid over the edit (a brand's logo). */
   images: 8,
-  /** A brand's own font files. */
-  fonts: 4,
+  /** A brand's own font files: a display face and its italic, a body face, a mono and more (feature more_fonts). */
+  fonts: 12,
   totalSeconds: 600,
   textLength: 220,
   /** Pauses a voiceover is held open by, and the most frames one adds. */
@@ -75,7 +78,10 @@ export const TRANSITIONS = new Set([
 const FITS = new Set(["cover", "contain", "blur_pad"]);
 const MOTIONS = new Set(["none", "zoom_in", "zoom_out", "pan_left", "pan_right", "pan_up", "pan_down"]);
 const AUDIO_ROLES = new Set(["voiceover", "music", "sfx"]);
-const CAPTION_STYLES = new Set(["clean", "boxed", "bold", "minimal"]);
+// "brand": word by word, in the brand's type (feature brand_captions; see ./brand-captions.js).
+const CAPTION_STYLES = new Set(["clean", "boxed", "bold", "minimal", "brand"]);
+/** The most words a brand caption line carries times for: as many as its 220 characters can hold. */
+const CAPTION_WORDS = 120;
 const CAPTION_POSITIONS = new Set(["bottom", "lower_third", "center", "top"]);
 const OVERLAY_STYLES = new Set(["title", "subtitle", "cta"]);
 const OVERLAY_BACKINGS = new Set(["outline", "halo", "box"]);
@@ -133,6 +139,40 @@ function family(value, name) {
 function even(value) {
   const rounded = Math.round(value);
   return rounded % 2 === 0 ? rounded : rounded + 1;
+}
+
+/**
+ * A brand caption line's words, each with its time (seconds from the line's
+ * start, as measured from the voiceover; none: spread evenly), and its
+ * emphasis: the words [from, to) set in the italic.
+ */
+function brandLine(segment, index) {
+  const what = `caption ${index + 1}`;
+  let words = null;
+  if (segment.words !== undefined && segment.words !== null) {
+    if (!Array.isArray(segment.words)) throw bad(`${what} words must be a list`);
+    if (segment.words.length > CAPTION_WORDS) throw bad(`${what} may time at most ${CAPTION_WORDS} words`);
+    words = segment.words.map((raw, at) => {
+      const word = raw && typeof raw === "object" ? raw : {};
+      const text = cleanText(word.text, 80).replace(/\n/g, " ");
+      if (!text) throw bad(`${what} word ${at + 1} has no text`);
+      return {
+        text,
+        start: num(word.start, { min: 0, max: SEQUENCE_LIMITS.totalSeconds, name: `${what} word ${at + 1} start` }),
+        end: num(word.end, { min: 0, max: SEQUENCE_LIMITS.totalSeconds, name: `${what} word ${at + 1} end` }),
+      };
+    });
+  }
+  let emphasis = null;
+  if (segment.emphasis !== undefined && segment.emphasis !== null) {
+    const count = words?.length ?? cleanText(segment.text).split(/\s+/).filter(Boolean).length;
+    const [from, to] = Array.isArray(segment.emphasis) ? segment.emphasis : [];
+    if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to > count || from >= to) {
+      throw bad(`${what} emphasis must be two word positions within the line`);
+    }
+    emphasis = [from, to];
+  }
+  return { words, emphasis };
 }
 
 /** Rounds a duration onto the frame grid so every offset lands on a frame boundary. */
@@ -315,18 +355,21 @@ export function planSequence(params, sources) {
   let captions = null;
   if (captionsRaw && Array.isArray(captionsRaw.segments) && captionsRaw.segments.length) {
     if (captionsRaw.segments.length > SEQUENCE_LIMITS.captions) throw bad(`At most ${SEQUENCE_LIMITS.captions} caption lines are supported`);
+    const style = choice(captionsRaw.style, CAPTION_STYLES, "clean", "caption style");
     const segments = captionsRaw.segments
       .map((raw, index) => {
         const segment = raw && typeof raw === "object" ? raw : {};
         const start = num(segment.start, { min: 0, max: SEQUENCE_LIMITS.totalSeconds, name: `caption ${index + 1} start` });
         const end = num(segment.end, { min: 0, max: SEQUENCE_LIMITS.totalSeconds, name: `caption ${index + 1} end` });
-        return { start: Math.min(start, total), end: Math.min(end, total), text: cleanText(segment.text) };
+        const line = { start: Math.min(start, total), end: Math.min(end, total), text: cleanText(segment.text) };
+        // Brand captions: each word's time (seconds from the line's start) and the phrase it leans on.
+        return style === "brand" ? { ...line, ...brandLine(segment, index) } : line;
       })
       .filter((segment) => segment.text && segment.end - segment.start >= 0.1)
       .sort((a, b) => a.start - b.start);
     if (segments.length) {
       captions = {
-        style: choice(captionsRaw.style, CAPTION_STYLES, "clean", "caption style"),
+        style,
         position: choice(captionsRaw.position, CAPTION_POSITIONS, "lower_third", "caption position"),
         size: num(captionsRaw.size, { min: 0.5, max: 2, fallback: 1, name: "caption size" }),
         uppercase: captionsRaw.uppercase === true,
@@ -334,6 +377,10 @@ export function planSequence(params, sources) {
         font: family(captionsRaw.font, "caption font"),
         color: colour(captionsRaw.color, "caption color"),
         accent: colour(captionsRaw.accent, "caption accent"),
+        // What is behind the words, where chosen (feature caption_panel): one following the
+        // picture, a light card, the glass, a solid panel in the brand's colour, or none.
+        panel: choice(captionsRaw.panel, new Set(CAPTION_PANELS), null, "caption panel"),
+        panelColor: colour(captionsRaw.panel_color, "caption panel_color"),
         segments,
       };
     }
@@ -1308,7 +1355,12 @@ export function buildSubtitles(plan, families = new Map()) {
   const styles = [];
   const events = [];
 
-  if (plan.captions) {
+  if (plan.captions?.style === "brand") {
+    // Word by word, in the brand's type, laid out in the faces the render carries (see ./caption-script.js).
+    const brand = brandCaptionEvents(plan, plan.captions.faces ?? roughFaces(), plan.captions.backdrop ?? {});
+    styles.push(...brand.styles);
+    events.push(...brand.events);
+  } else if (plan.captions) {
     const { style, position, size } = plan.captions;
     const fontSize = Math.round(short * 0.058 * size);
     const alignment = position === "top" ? 8 : position === "center" ? 5 : 2;
@@ -1322,21 +1374,25 @@ export function buildSubtitles(plan, families = new Map()) {
             : 0;
     const margin = Math.round(width * 0.08);
     const bold = style === "minimal" ? 0 : -1;
-    const borderStyle = style === "boxed" ? 3 : 1;
-    const outline = style === "boxed" ? Math.round(fontSize * 0.25) : style === "minimal" ? Math.max(1, Math.round(fontSize * 0.04)) : Math.max(2, Math.round(fontSize * 0.08));
-    const shadow = style === "boxed" || style === "minimal" ? 0 : Math.max(1, Math.round(fontSize * 0.04));
+    // What is behind the words, where chosen (feature caption_panel; see ./caption-script.js).
+    const panel = classicPanel(plan.captions, fontSize);
+    const borderStyle = panel?.borderStyle ?? (style === "boxed" ? 3 : 1);
+    const outline = panel?.outline ?? (style === "boxed" ? Math.round(fontSize * 0.25) : style === "minimal" ? Math.max(1, Math.round(fontSize * 0.04)) : Math.max(2, Math.round(fontSize * 0.08)));
+    const shadow = panel?.shadow ?? (style === "boxed" || style === "minimal" ? 0 : Math.max(1, Math.round(fontSize * 0.04)));
     const { font, color, accent } = plan.captions;
     // A brand's accent is the box behind boxed captions, and the text of bold ones.
-    const outlineColour = style === "boxed" ? (accent ? assColour(accent, "59").style : "&H59000000") : "&H00000000";
-    const primary = style === "bold" ? (accent ? assColour(accent).style : "&H0000E5FF") : color ? assColour(color).style : "&H00FFFFFF";
-    const back = style === "boxed" ? (accent ? assColour(accent, "59").style : "&H59000000") : "&H80000000";
+    const outlineColour = panel?.outlineColour ?? (style === "boxed" ? (accent ? assColour(accent, "59").style : "&H59000000") : "&H00000000");
+    const primary = panel?.primary ?? (style === "bold" ? (accent ? assColour(accent).style : "&H0000E5FF") : color ? assColour(color).style : "&H00FFFFFF");
+    const back = panel?.back ?? (style === "boxed" ? (accent ? assColour(accent, "59").style : "&H59000000") : "&H80000000");
     // A brand font is set as it was drawn, never made bolder.
     styles.push(
       `Style: Caption,${fontOf(font)},${fontSize},${primary},&H000000FF,${outlineColour},${back},${font ? 0 : bold},0,0,0,100,100,0,0,${borderStyle},${outline},${shadow},${alignment},${margin},${margin},${marginV},1`,
     );
-    for (const segment of plan.captions.segments) {
+    for (const [index, segment] of plan.captions.segments.entries()) {
       const text = (plan.captions.uppercase ? segment.text.toUpperCase() : segment.text).replace(/\n/g, "\\N");
-      events.push(`Dialogue: 0,${assTime(segment.start)},${assTime(segment.end)},Caption,,0,0,0,,${text}`);
+      // Each line's box over the picture measured behind it, where it follows the picture.
+      const tags = panel?.tags(index) ?? "";
+      events.push(`Dialogue: 0,${assTime(segment.start)},${assTime(segment.end)},Caption,,0,0,0,,${tags ? `{${tags}}` : ""}${text}`);
     }
   }
 
@@ -1557,6 +1613,7 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
   // A brand's fonts, in a directory of their own, each set by the family its file names.
   let fontsDir = null;
   const families = new Map();
+  const fontFiles = [];
   if (plan.fonts.length) {
     fontsDir = join(dir, "fonts");
     await mkdir(fontsDir, { recursive: true });
@@ -1565,9 +1622,26 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
       const kind = sfntKind(bytes);
       if (!kind) throw bad(`Font ${index + 1} isn't a TrueType or OpenType font file`);
       await writeFile(join(fontsDir, `font-${index}.${kind}`), bytes);
+      fontFiles.push({ family: font.family, bytes });
       const named = fontFamily(bytes);
-      if (named && /^[\p{L}\p{N} ._'&+-]{1,80}$/u.test(named)) families.set(font.family, named);
+      // A family's italic (a file of its own) never renames the family its regular names.
+      const italic = fontStyle(bytes)?.italic === true;
+      if (named && /^[\p{L}\p{N} ._'&+-]{1,80}$/u.test(named) && (!families.has(font.family) || !italic)) {
+        families.set(font.family, named);
+      }
     }
+  }
+  // Brand captions are laid out in their family's own files (its regular and italic).
+  if (plan.captions?.style === "brand") plan.captions.faces = await brandFaces(plan.captions.font, fontFiles);
+  // How light the picture is behind each caption, where their panel follows it or its glass is
+  // nearer opaque over light pictures (see ./caption-backdrop.js). Measuring it never fails a render:
+  // unmeasured, the glass is near opaque.
+  if (backdropWanted(plan.captions)) {
+    progress(0.6, "Measuring the picture behind the captions");
+    plan.captions.backdrop = await measureCaptionBackdrops(plan, intermediates, dir, limit).catch((error) => {
+      console.error(JSON.stringify({ event: "caption_backdrop_unmeasured", message: error instanceof Error ? error.message : String(error) }));
+      return { backdrops: [], cuts: [] };
+    });
   }
   const script = buildSubtitles(plan, families);
   let subtitlePath = null;

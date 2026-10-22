@@ -559,6 +559,178 @@ await check("render_sequence lays a GIF logo from the edit's first frame, decode
   if (Math.abs(info.duration_seconds - 1) > 0.06) throw new Error(`rendered ${info.duration_seconds}s`);
 });
 
+/**
+ * A family installed here with a regular and an italic file of its own
+ * (Inter, in the worker's image): never downloaded, only found.
+ */
+async function italicPair() {
+  const { fontFamily: familyOf, fontStyle: styleOf } = await import("./fonts.js");
+  const files = execFileSync("sh", ["-c", "find /usr/share/fonts -type f \\( -name '*.ttf' -o -name '*.otf' \\) | sort"]).toString().trim().split("\n").filter(Boolean);
+  const families = new Map();
+  for (const path of files) {
+    const bytes = await readFile(path);
+    const family = familyOf(bytes);
+    const style = styleOf(bytes);
+    if (!family || !/^[A-Za-z][A-Za-z ]{2,40}$/.test(family) || !style || style.weight !== 400) continue;
+    const entry = families.get(family) ?? {};
+    entry[style.italic ? "italic" : "regular"] ??= path;
+    families.set(family, entry);
+    if (entry.regular && entry.italic) return { family, ...entry };
+  }
+  return null;
+}
+
+/**
+ * A font file's family renamed (every name record holding it, to a name as
+ * long), so the copy is a typeface no fontconfig on the machine knows: what
+ * the render sets in it can only come from the file it was given.
+ */
+function renamedFont(bytes, from, to) {
+  const out = Buffer.from(bytes);
+  const tables = out.readUInt16BE(4);
+  for (let index = 0; index < tables; index += 1) {
+    const record = 12 + index * 16;
+    if (out.toString("latin1", record, record + 4) !== "name") continue;
+    const name = out.readUInt32BE(record + 8);
+    const count = out.readUInt16BE(name + 2);
+    const strings = name + out.readUInt16BE(name + 4);
+    for (let entry = 0; entry < count; entry += 1) {
+      const at = name + 6 + entry * 12;
+      const platform = out.readUInt16BE(at);
+      const start = strings + out.readUInt16BE(at + 10);
+      const length = out.readUInt16BE(at + 8);
+      const wide = platform === 3 || platform === 0;
+      const raw = out.subarray(start, start + length);
+      const text = wide ? Buffer.from(raw).swap16().toString("utf16le") : raw.toString("latin1");
+      if (!text.includes(from)) continue;
+      const renamed = Buffer.from(text.split(from).join(to), wide ? "utf16le" : "latin1");
+      (wide ? renamed.swap16() : renamed).copy(out, start);
+    }
+  }
+  return out;
+}
+
+/** The share of a frame's region (at a time) brighter than mid grey. */
+async function brightShare(path, time, crop) {
+  const out = join(dir, `bright-${Math.random().toString(36).slice(2)}.gray`);
+  await ffmpeg(["-ss", String(time), "-i", path, "-frames:v", "1", "-vf", `crop=${crop},format=gray`, "-f", "rawvideo", out]);
+  const plane = await readFile(out);
+  return plane.filter((value) => value > 150).length / plane.length;
+}
+
+await check("render_sequence sets brand captions word by word, in a brand font and its own italic", async () => {
+  const pair = await italicPair();
+  if (!pair) throw new Error("no font family with an italic is installed to test with");
+  const family = `Selftest${"x".repeat(pair.family.length)}`.slice(0, pair.family.length);
+  const work = await mkdtemp(join(dir, "brand-captions-"));
+  const regular = join(work, "regular-font");
+  const italic = join(work, "italic-font");
+  await writeFile(regular, renamedFont(await readFile(pair.regular), pair.family, family));
+  await writeFile(italic, renamedFont(await readFile(pair.italic), pair.family, family));
+  const dark = join(work, "dark.mp4");
+  await ffmpeg(["-f", "lavfi", "-i", "color=c=0x101828:s=360x640:d=4:r=25", "-pix_fmt", "yuv420p", dark]);
+  const result = await TASKS.render_sequence.run({
+    sources: [
+      { path: dark, role: "video" },
+      { path: regular, role: "font" },
+      { path: italic, role: "font" },
+    ],
+    params: {
+      width: 360, height: 640, fps: 25, normalize_loudness: false,
+      clips: [{ source_index: 0, duration: 4, volume: 0 }],
+      fonts: [{ source_index: 1, family }, { source_index: 2, family }],
+      captions: {
+        style: "brand", font: family, color: "#ffffff", accent: "#d7b35f",
+        segments: [{
+          start: 0.4, end: 3.6, text: "Somewhere in Australia,",
+          words: [{ text: "Somewhere", start: 0, end: 0.4 }, { text: "in", start: 0.4, end: 0.78 }, { text: "Australia,", start: 1.6, end: 2 }],
+          emphasis: [2, 3],
+        }],
+      },
+    },
+    dir: work,
+  });
+  const out = result.outputs[0].path;
+  // Set in the family, the emphasis in its italic.
+  const script = await readFile(join(work, "text.ass"), "utf8");
+  if (!script.includes(`\\fn${family}`)) throw new Error("the words aren't set in the brand's family");
+  if (!/\\i1[^}]*}Australia,/.test(script)) throw new Error("the emphasis isn't set in the italic");
+  // libass takes both faces from the brand's own files (a file it was given is named without a path).
+  const { stderr } = await ffmpeg(["-v", "info", "-f", "lavfi", "-i", "color=c=black:s=360x640:r=25:d=4", "-vf", `ass=filename=${join(work, "text.ass")}:fontsdir=${join(work, "fonts")}`, "-f", "null", "-"]);
+  for (const slant of [0, 100]) {
+    const chosen = stderr.split("\n").find((line) => line.includes(`fontselect: (${family}, 400, ${slant})`));
+    if (!chosen) throw new Error(`libass wasn't asked for the ${slant ? "italic" : "regular"}`);
+    if (/->\s*\//.test(chosen)) throw new Error(`the ${slant ? "italic" : "regular"} came from the system: ${chosen.trim()}`);
+  }
+  // Word by word: nothing before the line, its first words before its last, all of it once spoken.
+  const band = "320:120:20:420";
+  const before = await brightShare(out, 0.1, band);
+  const early = await brightShare(out, 1.1, band);
+  const spoken = await brightShare(out, 3, band);
+  if (before > 0.001) throw new Error(`text shows before the line (${before})`);
+  if (!(early > 0.005 && spoken > early * 1.3)) throw new Error(`the words don't come in one by one (${early} then ${spoken})`);
+});
+
+/**
+ * Renders a line of captions over a clip of one colour, and gives back the
+ * panel the script holds longest (its fill, opacity and place) and the
+ * render's colour inside it, beside the words.
+ */
+async function captionsOver(name, colour, captions) {
+  const work = await mkdtemp(join(dir, `panel-${name}-`));
+  const clip = join(work, "clip.mp4");
+  await ffmpeg(["-f", "lavfi", "-i", `color=c=${colour}:s=360x640:d=3:r=25`, "-pix_fmt", "yuv420p", clip]);
+  const result = await TASKS.render_sequence.run({
+    sources: [{ path: clip, role: "video" }],
+    params: {
+      width: 360, height: 640, fps: 25, normalize_loudness: false,
+      clips: [{ source_index: 0, duration: 3, volume: 0 }],
+      captions: { ...captions, segments: [{ start: 0.3, end: 2.8, text: "Over the page" }] },
+    },
+    dir: work,
+  });
+  const script = await readFile(join(work, "text.ass"), "utf8");
+  const seconds = (text) => text.split(":").reduce((total, part) => total * 60 + Number(part), 0);
+  const panel = script
+    .split("\n")
+    .map((line) => /^Dialogue: 0,([^,]+),([^,]+),Brand,,0,0,0,,\{\\pos\(([\d.]+),([\d.]+)\)\\p1\\bord0\\shad0\\1c&H([0-9A-F]{6})&\\alpha&H([0-9A-F]{2})&\}m 0 0 l ([\d.]+) 0 [\d.]+ ([\d.]+) 0 [\d.]+\{\\p0\}$/.exec(line))
+    .filter(Boolean)
+    .map((match) => ({ length: seconds(match[2]) - seconds(match[1]), x: Number(match[3]), y: Number(match[4]), fill: match[5], alpha: match[6], width: Number(match[7]), height: Number(match[8]) }))
+    .sort((a, b) => b.length - a.length)[0];
+  const inside = panel ? await colourAtTime(result.outputs[0].path, 2, `4:4:${Math.round(panel.x + 3)}:${Math.round(panel.y + panel.height / 2 - 2)}`) : null;
+  return { script, panel, inside };
+}
+
+await check("render_sequence measures the picture behind captions: the glass nearer opaque over a white page than a dark shot", async () => {
+  const white = await captionsOver("glass-white", "white", { style: "brand", panel: "dark" });
+  const dark = await captionsOver("glass-dark", "0x101828", { style: "brand", panel: "dark" });
+  if (!white.panel || !dark.panel) throw new Error("no panel behind the captions");
+  // 93% over the white page, the site's 74% over the dark shot.
+  if (white.panel.alpha !== "12" || dark.panel.alpha !== "42") throw new Error(`the glass is ${white.panel.alpha} over white and ${dark.panel.alpha} over dark`);
+  // Over white it reads as the brand's navy at 93% (#0a172a over white), not the grey slab 74% made.
+  const over = (opacity, ground) => [10, 23, 42].map((value, index) => value * opacity + ground[index] * (1 - opacity));
+  const off = (colour, expected) => Math.max(...colour.map((value, index) => Math.abs(value - expected[index])));
+  if (!(off(white.inside, over(0.93, [255, 255, 255])) <= 12)) throw new Error(`the glass over white came out ${white.inside}`);
+  if (!(off(white.inside, over(0.74, [255, 255, 255])) >= 35)) throw new Error(`the glass over white reads as a grey slab: ${white.inside}`);
+  if (!(off(dark.inside, over(0.74, [16, 24, 40])) <= 12)) throw new Error(`the glass over the dark shot came out ${dark.inside}`);
+});
+
+await check("render_sequence sets a panel that follows the picture as a light card over a white page", async () => {
+  const white = await captionsOver("auto-white", "white", { style: "brand" });
+  const dark = await captionsOver("auto-dark", "0x101828", { style: "brand" });
+  if (white.panel?.fill !== "FFFFFF" || dark.panel?.fill !== "2A170A") throw new Error(`panels ${white.panel?.fill} over white, ${dark.panel?.fill} over dark`);
+  if (white.panel.alpha === dark.panel.alpha) throw new Error("the two panels are as opaque as each other");
+  // The words go dark on the light card.
+  if (!white.script.includes("\\1c&H37291F&")) throw new Error("the words aren't in the card's ink");
+  if (!(Math.min(...white.inside) > 200)) throw new Error(`the card came out ${white.inside}`);
+});
+
+await check("render_sequence boxes classic captions on the glass, nearer opaque over a white page", async () => {
+  const white = await captionsOver("boxed-white", "white", { style: "boxed", panel: "dark" });
+  if (!/Style: Caption,[^\n]*,3,\d+,0,2,/.test(white.script)) throw new Error("the captions aren't on a box");
+  if (!white.script.includes("\\3c&H2A170A&\\3a&H12&")) throw new Error("the box isn't the near-opaque glass");
+});
+
 await check("reframe_video crops around its focus point", async () => {
   const left = await TASKS.reframe_video.run({ sources: [{ path: halves }], params: { width: 180, height: 320, mode: "cover", focus_x: 0 }, dir });
   const leftColour = await colourAt(left.outputs[0].path, "40:40:70:140");

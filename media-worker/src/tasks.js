@@ -59,8 +59,14 @@ function pick(value, allowed, fallback, name) {
  * ("audio_sync"), the mixer's channel levels applied to each sound bus
  * ("channel_mix"), joins put in register: framing, colour, detail and
  * sound ("smart_join"), a title's height on the frame and what keeps it
- * readable ("overlay_layout"), and, where the image has it, a clip's lips
- * scored from its picture ("lip_check"). A voiceover can be held open in its
+ * readable ("overlay_layout"), up to twelve brand font files in a render,
+ * a family's italic and bold among them ("more_fonts"), captions set word
+ * by word in a brand's type, each word on its spoken time, on a panel
+ * ("brand_captions"), what is behind captions chosen: a panel following
+ * the picture measured behind them, a light card, a glass nearer opaque
+ * over light pictures, a solid one in the brand's colour, or none
+ * ("caption_panel"), and, where the image has it, a clip's lips scored
+ * from its picture ("lip_check"). A voiceover can be held open in its
  * silences by whole frames ("voice_pauses"), every render reports the voice's
  * margin over the music and the mix's loudness ("mix_report"), and a render
  * can hand back its voiceover, music and effects buses as files ("stems").
@@ -81,6 +87,9 @@ export const FEATURES = [
   "frame_rate_conversion",
   "brand_text",
   "image_overlays",
+  "more_fonts",
+  "brand_captions",
+  "caption_panel",
   "overlay_motion",
   "voice_pauses",
   "mix_report",

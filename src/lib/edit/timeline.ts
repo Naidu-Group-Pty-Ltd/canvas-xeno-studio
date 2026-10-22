@@ -9,7 +9,8 @@
  */
 import { z } from "zod";
 import { compositionClipSchema } from "../compositions/spec";
-import { FONT_FAMILY_PATTERN, isBrandFontFile } from "./font-family";
+import { CAPTION_PANELS, emphasisRange, segmentWords, type CaptionPanel } from "./brand-captions";
+import { FONT_FAMILY_PATTERN, FONT_STYLES, isBrandFontFile } from "./font-family";
 import { musicPieces, piecesLength, piecesSchema } from "./pieces";
 
 export const ASPECT_RATIOS = [
@@ -111,13 +112,29 @@ export const AUDIO_ROLE_LABELS: Record<AudioRole, string> = {
   sfx: "Sound effect",
 };
 
-export const CAPTION_STYLES = ["clean", "boxed", "bold", "minimal"] as const;
+/** "brand": word by word in the brand's type, on a panel (see ./brand-captions). */
+export const CAPTION_STYLES = ["clean", "boxed", "bold", "minimal", "brand"] as const;
 export type CaptionStyle = (typeof CAPTION_STYLES)[number];
 export const CAPTION_STYLE_LABELS: Record<CaptionStyle, string> = {
   clean: "Clean · white with outline",
   boxed: "Boxed · white on dark box",
   bold: "Bold · yellow with outline",
   minimal: "Minimal · thin white",
+  brand: "Brand · word by word, in the brand's type",
+};
+/**
+ * What is behind captions (unset: each style's own; the brand style's
+ * follows the picture). "auto" follows the picture the render measures
+ * behind each line: a light card over light pictures, a dark glass over
+ * dark ones, nearer opaque the lighter they are.
+ */
+export { CAPTION_PANELS, type CaptionPanel };
+export const CAPTION_PANEL_LABELS: Record<CaptionPanel, string> = {
+  auto: "Follows the picture",
+  light: "Light card",
+  dark: "Dark glass",
+  solid: "Solid, in the brand's colour",
+  none: "None",
 };
 export const CAPTION_POSITIONS = ["bottom", "lower_third", "center", "top"] as const;
 export type CaptionPosition = (typeof CAPTION_POSITIONS)[number];
@@ -181,14 +198,20 @@ export const LIMITS = {
   clipSeconds: 300,
   transitionSeconds: 3,
   captionChars: 220,
+  /** Words a caption line keeps times for. */
+  captionWords: 60,
   overlayChars: 160,
   /** Pictures over the edit (a logo) and brand font files. */
   images: 8,
-  fonts: 4,
+  /** Enough for a display face and its italic, a body face, a mono and more (feature more_fonts). */
+  fonts: 12,
   /** Pauses a voiceover is held open by, and the most frames one adds. */
   pauses: 200,
   pauseFrames: 300,
 } as const;
+
+/** The font files a media service from before "more_fonts" takes in one render. */
+export const BASIC_FONT_FILES = 4;
 
 const finite = (min: number, max: number) => z.number().finite().min(min).max(max);
 /** A colour as #rrggbb, or null for the style's own. */
@@ -282,10 +305,26 @@ export const audioSchema = z.object({
 });
 export type TimelineAudio = z.infer<typeof audioSchema>;
 
+/** A word of a caption line: when it is spoken, in seconds from the line's own start. */
+export const captionWordSchema = z.object({
+  text: z.string().max(80),
+  start: finite(0, LIMITS.totalSeconds),
+  end: finite(0, LIMITS.totalSeconds),
+});
+export type CaptionWord = z.infer<typeof captionWordSchema>;
+
 export const captionSegmentSchema = z.object({
   start: finite(0, LIMITS.totalSeconds),
   end: finite(0, LIMITS.totalSeconds),
   text: z.string().max(LIMITS.captionChars),
+  /**
+   * Its words' own times, measured from the voiceover it was made from, for
+   * captions set word by word. Kept from the line's start, so moving the
+   * line moves its words; a line without them has its words spread evenly.
+   */
+  words: z.array(captionWordSchema).max(LIMITS.captionWords).optional(),
+  /** The phrase it leans on (words of its text), set in the brand's italic and accent. */
+  emphasis: z.string().max(LIMITS.captionChars).nullable().optional(),
 });
 export type CaptionSegment = z.infer<typeof captionSegmentSchema>;
 
@@ -299,6 +338,10 @@ export const captionsSchema = z.object({
   font: fontName,
   color: hexColour,
   accent: hexColour,
+  /** What is behind the words (see CAPTION_PANELS); null for the style's own. */
+  panel: z.enum(CAPTION_PANELS).nullable().default(null),
+  /** A solid panel's colour (null: the accent's). */
+  panelColor: hexColour,
   segments: z.array(captionSegmentSchema).max(LIMITS.captions).default([]),
 });
 export type Captions = z.infer<typeof captionsSchema>;
@@ -359,12 +402,18 @@ export const imageOverlaySchema = z.object({
 });
 export type ImageOverlay = z.infer<typeof imageOverlaySchema>;
 
-/** A brand font file an edit's text is set in (kept where brand fonts are; see ./brand). */
+/**
+ * A brand font file an edit's text is set in (kept where brand fonts are; see
+ * ./brand). A family can have several: its regular, its italic, its bold,
+ * told apart by the style read from each file (none: a file from before
+ * styles were read, taken for the regular).
+ */
 export const fontFileSchema = z
   .object({
     family: z.string().regex(FONT_FAMILY_PATTERN),
     bucket: z.string().max(64),
     path: z.string().max(300),
+    style: z.enum(FONT_STYLES).optional(),
   })
   .refine(isBrandFontFile, "A font must be one of the brand's own font files");
 export type FontFile = z.infer<typeof fontFileSchema>;
@@ -1136,16 +1185,19 @@ export function editVoicePauses(
     ...timeline.captions,
     segments: timeline.captions.segments.map((segment) => {
       if (!inSpan(segment)) return segment;
-      const words = (segment as { words?: unknown }).words;
+      const moved = moveTimes(segment);
+      if (!segment.words) return moved;
+      // A caption's words are timed from its start (see ./brand-captions): each
+      // moves as the voice does where it is heard, timed from where the line now starts.
+      const fromStart = (time: number, kind: "word" | "cut") =>
+        Math.max(0, Number((move(segment.start + time, kind) - moved.start).toFixed(3)));
       return {
-        ...moveTimes(segment),
-        ...(Array.isArray(words)
-          ? {
-              words: words.map((word: { start: number; end: number }) =>
-                word && typeof word === "object" ? moveTimes(word) : word,
-              ),
-            }
-          : {}),
+        ...moved,
+        words: segment.words.map((word) => ({
+          ...word,
+          start: fromStart(word.start, "word"),
+          end: fromStart(word.end, "cut"),
+        })),
       };
     }),
   };
@@ -1344,17 +1396,34 @@ export interface RenderSource {
   role: "video" | "image" | "audio";
 }
 
-/** The families an edit's text asks for that it carries a font file for. */
-export function usedFonts(timeline: Pick<Timeline, "fonts" | "overlays" | "captions">): FontFile[] {
+/**
+ * The font files a render carries, at most `max`: for each family the edit's
+ * text asks for that it carries a file for, the family's own file (its
+ * regular, else the first it has), in the order the edit keeps them. Text is
+ * set as its font was drawn, never made bolder, so a family's other files
+ * go only where something is set in them: the italic brand captions set
+ * their emphasis in comes after every family's own file.
+ */
+export function usedFonts(
+  timeline: Pick<Timeline, "fonts" | "overlays" | "captions">,
+  max: number = LIMITS.fonts,
+): FontFile[] {
   const wanted = new Set<string>();
   for (const overlay of timeline.overlays) if (overlay.font) wanted.add(overlay.font);
   if (timeline.captions.enabled && timeline.captions.font) wanted.add(timeline.captions.font);
-  const seen = new Set<string>();
-  return timeline.fonts.filter((font) => {
-    if (!wanted.has(font.family) || seen.has(font.family)) return false;
-    seen.add(font.family);
-    return true;
+  const own = [...wanted].flatMap((family) => {
+    const files = timeline.fonts.filter((font) => font.family === family);
+    const main = files.find((font) => (font.style ?? "regular") === "regular") ?? files[0];
+    return main ? [main] : [];
   });
+  own.sort((a, b) => timeline.fonts.indexOf(a) - timeline.fonts.indexOf(b));
+  const { captions } = timeline;
+  const family = captions.enabled && captions.style === "brand" ? captions.font : null;
+  const others = timeline.fonts.filter((font) => font.family === family && !own.includes(font));
+  const italic =
+    others.find((font) => font.style === "italic") ??
+    others.find((font) => font.style === "bold_italic");
+  return [...own, ...(italic ? [italic] : [])].slice(0, Math.max(0, max));
 }
 
 /**
@@ -1372,6 +1441,8 @@ export interface RenderOptions {
    * own volumes, which the service caps at 200%.
    */
   channelMix?: boolean;
+  /** The most font files to send: a media service from before "more_fonts" takes BASIC_FONT_FILES. */
+  maxFonts?: number;
 }
 
 const VOLUME_MAX = 2;
@@ -1477,6 +1548,8 @@ export function buildRenderRequest(
     ...voicePausesParam(item, layout.total, timeline.fps),
   }));
 
+  // Brand captions carry each word's time and the phrase they lean on (feature brand_captions).
+  const brandCaptions = timeline.captions.style === "brand";
   const segments = timeline.captions.enabled
     ? timeline.captions.segments
         .filter(
@@ -1487,11 +1560,12 @@ export function buildRenderRequest(
           start: segment.start,
           end: Math.min(segment.end, layout.total),
           text: segment.text,
+          ...(brandCaptions ? brandLineOf(segment) : {}),
         }))
     : [];
 
   // A font is asked for only where its file goes with the render; otherwise the text is set in Inter.
-  const fonts = usedFonts(timeline);
+  const fonts = usedFonts(timeline, options.maxFonts);
   const carried = new Set(fonts.map((font) => font.family));
   const brandText = (item: {
     font: string | null;
@@ -1554,6 +1628,8 @@ export function buildRenderRequest(
             size: timeline.captions.size,
             uppercase: timeline.captions.uppercase,
             ...brandText(timeline.captions),
+            // Sent only when chosen (feature caption_panel), so a media service from before renders the rest.
+            ...captionPanelOf(timeline.captions),
             segments,
           }
         : null,
@@ -1598,6 +1674,37 @@ export function buildRenderRequest(
 function piecesParam(item: TimelineAudio): { pieces?: Array<{ from: number; to: number }> } {
   const pieces = musicPieces(item);
   return pieces ? { pieces: pieces.map(({ from, to }) => ({ from, to })) } : {};
+}
+
+/** What is behind the captions, as the media service takes it: the panel chosen, and a solid one's colour. */
+function captionPanelOf(captions: Pick<Captions, "panel" | "panelColor">): {
+  panel?: CaptionPanel;
+  panel_color?: string;
+} {
+  if (!captions.panel) return {};
+  return {
+    panel: captions.panel,
+    ...(captions.panel === "solid" && captions.panelColor
+      ? { panel_color: captions.panelColor }
+      : {}),
+  };
+}
+
+/**
+ * A brand caption line's words as the media service takes them: each with
+ * its time from the line's start (see ./brand-captions `segmentWords`), and
+ * its emphasis as the words [from, to) it covers, sent only when it has one.
+ */
+function brandLineOf(segment: CaptionSegment): {
+  words: CaptionWord[];
+  emphasis?: [number, number];
+} {
+  const words = segmentWords(segment);
+  const emphasis = emphasisRange(
+    words.map((word) => word.text),
+    segment.emphasis,
+  );
+  return { words, ...(emphasis ? { emphasis } : {}) };
 }
 
 /** A title's motion as the media worker takes it (see media-worker/src/sequence.js). */

@@ -18,7 +18,14 @@ import { useProjects } from "@/hooks/useStudioData";
 import { useAssetsById } from "@/hooks/useLongVideos";
 import { uploadBrandFont, useBrandFontFaces, useBrandKits } from "@/hooks/useBrandKits";
 import { archiveBrandKit, saveBrandKit } from "@/lib/brand.functions";
-import { DEFAULT_FONT, fontChoices, type BrandFont, type BrandKit } from "@/lib/edit/brand";
+import { KIT_FONT_FILES } from "@/lib/brand/kit-input";
+import {
+  DEFAULT_FONT,
+  FONT_STYLE_LABELS,
+  fontChoices,
+  type BrandFont,
+  type BrandKit,
+} from "@/lib/edit/brand";
 import { draftOf, EMPTY, type Draft } from "@/components/brand/kit-draft";
 import { BrandImportDialog } from "@/components/brand/BrandImportDialog";
 import { DesignSystemEditor } from "@/components/brand/DesignSystemEditor";
@@ -194,13 +201,22 @@ export function BrandKitDialog({ draft: initial, onClose }: { draft: Draft; onCl
     setUploading(true);
     try {
       const font = await uploadBrandFont(file);
+      const styleOf = (entry: BrandFont) => entry.style ?? "regular";
       setDraft((current) => ({
         ...current,
-        fonts: [...current.fonts.filter((entry) => entry.family !== font.family), font].slice(0, 6),
+        // A family keeps a file for each style: a new one replaces only its own style.
+        fonts: [
+          ...current.fonts.filter(
+            (entry) => entry.family !== font.family || styleOf(entry) !== styleOf(font),
+          ),
+          font,
+        ].slice(0, KIT_FONT_FILES),
         // A kit's first font is used for its titles straight away.
         headingFont: current.fonts.length ? current.headingFont : font.family,
       }));
-      toast.success(`“${font.family}” added.`);
+      toast.success(
+        `“${font.family}”${font.style && font.style !== "regular" ? ` (${FONT_STYLE_LABELS[font.style].toLowerCase()})` : ""} added.`,
+      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "The font couldn't be added");
     } finally {
@@ -391,35 +407,48 @@ export function BrandKitDialog({ draft: initial, onClose }: { draft: Draft; onCl
               <Type className="size-3.5" /> Fonts
             </Label>
             <div className="flex flex-wrap gap-1.5">
-              {draft.fonts.map((font) => (
-                <span
-                  key={font.path}
-                  className="flex items-center gap-1 rounded border border-border px-2 py-0.5 text-xs"
-                  style={{ fontFamily: `"${font.family}", Inter, sans-serif` }}
-                >
-                  {font.family}
-                  <button
-                    type="button"
-                    aria-label={`Remove ${font.family}`}
-                    className="text-muted-foreground hover:text-destructive"
-                    onClick={() =>
-                      set({
-                        fonts: draft.fonts.filter((entry) => entry.path !== font.path),
-                        headingFont:
-                          draft.headingFont === font.family ? DEFAULT_FONT : draft.headingFont,
-                        bodyFont: draft.bodyFont === font.family ? DEFAULT_FONT : draft.bodyFont,
-                      })
-                    }
+              {draft.fonts.map((font) => {
+                const style = font.style ?? "regular";
+                const name = `${font.family}${style === "regular" ? "" : ` ${FONT_STYLE_LABELS[style]}`}`;
+                return (
+                  <span
+                    key={font.path}
+                    className="flex items-center gap-1 rounded border border-border px-2 py-0.5 text-xs"
+                    style={{
+                      fontFamily: `"${font.family}", Inter, sans-serif`,
+                      fontStyle: style.endsWith("italic") ? "italic" : "normal",
+                      fontWeight: style.startsWith("bold") ? 700 : 400,
+                    }}
                   >
-                    ×
-                  </button>
-                </span>
-              ))}
+                    {name}
+                    <button
+                      type="button"
+                      aria-label={`Remove ${name}`}
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => {
+                        const fonts = draft.fonts.filter((entry) => entry.path !== font.path);
+                        // Titles and captions keep the family while it has a file left.
+                        const kept = (family: string) =>
+                          family !== font.family || fonts.some((entry) => entry.family === family)
+                            ? family
+                            : DEFAULT_FONT;
+                        set({
+                          fonts,
+                          headingFont: kept(draft.headingFont),
+                          bodyFont: kept(draft.bodyFont),
+                        });
+                      }}
+                    >
+                      ×
+                    </button>
+                  </span>
+                );
+              })}
               <Button
                 size="sm"
                 variant="outline"
                 className="h-7"
-                disabled={uploading || draft.fonts.length >= 6}
+                disabled={uploading || draft.fonts.length >= KIT_FONT_FILES}
                 onClick={() => fileInput.current?.click()}
               >
                 {uploading ? (

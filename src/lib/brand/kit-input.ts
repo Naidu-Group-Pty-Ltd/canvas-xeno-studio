@@ -3,9 +3,12 @@
  * and again by the server.
  */
 import { z } from "zod";
-import { FONT_FAMILY_PATTERN } from "../edit/font-family";
+import { FONT_FAMILY_PATTERN, FONT_STYLES } from "../edit/font-family";
 import { demoRecordSchema } from "../compositions/demo";
 import { DESIGN_LIMITS, PALETTE_ROLES } from "./design";
+
+/** The font files a kit keeps: enough for a display face, a body face and a mono, each with its italic and bold. */
+export const KIT_FONT_FILES = 12;
 
 const colour = z.string().regex(/^#[0-9a-fA-F]{6}$/, "A colour like #1a2b3c");
 const optionalText = (max: number) =>
@@ -36,15 +39,17 @@ export const kitInput = z.object({
   endCardAssetId: z.string().uuid().nullable().default(null),
   headingFont: z.string().regex(FONT_FAMILY_PATTERN).default("Inter"),
   bodyFont: z.string().regex(FONT_FAMILY_PATTERN).default("Inter"),
+  // A family's regular, italic and bold each count (the server reads each file's own style).
   fonts: z
     .array(
       z.object({
         family: z.string().regex(FONT_FAMILY_PATTERN),
         bucket: z.string().max(64),
         path: z.string().max(300),
+        style: z.enum(FONT_STYLES).optional(),
       }),
     )
-    .max(6)
+    .max(KIT_FONT_FILES)
     .default([]),
   textColor: colour.default("#ffffff"),
   accentColor: colour.default("#2563eb"),
