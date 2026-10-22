@@ -140,8 +140,9 @@ export async function brandFaces(family, files) {
 /**
  * The brand captions' plan for a render: its lines laid out in `faces`, each
  * run's panel looking as `captions.panel` says over the lightness measured
- * behind it (`backdrops`, one a line, null where unmeasured), no run carried
- * across a palette cut (`cuts`).
+ * behind it (`backdrops`, one a line, null where unmeasured). Where the panel
+ * follows the picture, no run is carried across a palette cut (`cuts`): its
+ * material changes there. A panel of one material crosses it.
  */
 export function brandCaptionPlan(plan, faces, { backdrops = [], cuts = [] } = {}) {
   const { captions } = plan;
@@ -175,7 +176,7 @@ export function brandCaptionPlan(plan, faces, { backdrops = [], cuts = [] } = {}
       ascent: metrics.ascent / metrics.unitsPerEm,
       descent: metrics.descent / metrics.unitsPerEm,
     },
-    cuts,
+    cuts: (captions.panel ?? "auto") === "auto" ? cuts : [],
     lookOf: (run) => {
       const measured = run
         .map((index) => backdrops[index])

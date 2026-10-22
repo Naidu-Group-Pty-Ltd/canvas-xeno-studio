@@ -677,6 +677,18 @@ describe("brand captions in a render request", () => {
     expect(planned.segments[0]).toMatchObject({ emphasis: [2, 3] });
   });
 
+  test("a caption as long as one can be goes with every word timed", () => {
+    // 220 characters: 110 words of one letter, more than a line made from a voiceover keeps.
+    const text = Array.from({ length: 110 }, () => "a").join(" ");
+    const long = parseTimeline({
+      clips: [{ id: "c1", assetId: A, kind: "video", duration: 6 }],
+      captions: { enabled: true, style: "brand", segments: [{ start: 0, end: 5, text }] },
+    })!;
+    const { params } = buildRenderRequest(long);
+    const planned = planSequence(params, [{ role: "video" }]).captions;
+    expect(planned.segments[0].words).toHaveLength(110);
+  });
+
   test("other styles send the lines as they always have, in the family's own file", () => {
     const plain = timeline("clean");
     const { params } = buildRenderRequest(plain);
@@ -697,10 +709,10 @@ describe("brand captions in a render request", () => {
     );
     expect(() =>
       planSequence(
-        params({ words: Array.from({ length: 61 }, () => ({ text: "w", start: 0, end: 1 })) }),
+        params({ words: Array.from({ length: 121 }, () => ({ text: "w", start: 0, end: 1 })) }),
         sources,
       ),
-    ).toThrow("at most 60 words");
+    ).toThrow("at most 120 words");
     expect(() =>
       planSequence(params({ words: [{ text: "", start: 0, end: 1 }] }), sources),
     ).toThrow("has no text");

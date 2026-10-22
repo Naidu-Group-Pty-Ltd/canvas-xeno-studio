@@ -55,7 +55,8 @@ export function brandCaptionLines(timeline: Timeline): BrandLine[] {
  * The plan the preview draws, on the frame the render makes. `faces(em)`
  * measures the type at the em; `backdrops` is the lightness behind each line
  * (null where it isn't known), and `cuts` the times the picture's palette
- * changes at, where they are known.
+ * changes at, where they are known: a panel that follows the picture changes
+ * its material there, so no run crosses one (a panel of one material does).
  */
 export function editCaptionPlan(
   timeline: Timeline,
@@ -73,7 +74,7 @@ export function editCaptionPlan(
   return planBrandCaptions(brandCaptionLines(timeline), {
     geometry,
     faces: faces(geometry.em),
-    cuts,
+    cuts: (captions.panel ?? "auto") === "auto" ? cuts : [],
     lookOf: (run) => {
       const measured = run
         .map((index) => backdrops[index])

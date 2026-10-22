@@ -260,6 +260,16 @@ describe("brand captions over a panel", () => {
     expect(drawn.cues[1].look).toMatchObject({ kind: "light", ink: "#1f2937" });
   });
 
+  test("a panel of one material carries its run across the cut", () => {
+    const { plan: drawn } = brandCaptionEvents(brand({ panel: "dark" }), roughFaces(), {
+      backdrops: [0.1, 0.95],
+      cuts: [45 / 30],
+    });
+    expect(drawn.cues.map((cue: { first: number }) => cue.first)).toEqual([0, 0]);
+    // Its glass is as opaque as the lighter picture under the run asks.
+    expect(drawn.cues[0].look.fillOpacity).toBeCloseTo(glassOpacity(0.95), 9);
+  });
+
   test("the preview plans the same panel from what it knows of the picture", () => {
     const timeline = edit({ style: "brand", panel: "solid", panelColor: "#0b1020" });
     const faces = (em: number) => ({

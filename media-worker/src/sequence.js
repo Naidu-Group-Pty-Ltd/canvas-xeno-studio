@@ -75,8 +75,8 @@ const MOTIONS = new Set(["none", "zoom_in", "zoom_out", "pan_left", "pan_right",
 const AUDIO_ROLES = new Set(["voiceover", "music", "sfx"]);
 // "brand": word by word, in the brand's type (feature brand_captions; see ./brand-captions.js).
 const CAPTION_STYLES = new Set(["clean", "boxed", "bold", "minimal", "brand"]);
-/** The most words a brand caption line carries times for. */
-const CAPTION_WORDS = 60;
+/** The most words a brand caption line carries times for: as many as its 220 characters can hold. */
+const CAPTION_WORDS = 120;
 const CAPTION_POSITIONS = new Set(["bottom", "lower_third", "center", "top"]);
 const OVERLAY_STYLES = new Set(["title", "subtitle", "cta"]);
 const OVERLAY_BACKINGS = new Set(["outline", "halo", "box"]);
