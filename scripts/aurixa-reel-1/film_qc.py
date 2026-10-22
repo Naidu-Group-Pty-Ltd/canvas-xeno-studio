@@ -221,6 +221,8 @@ def edge_keep(test_y, ref_y, strong=24.0):
     rules, borders): 1.0 is nothing softened. Dither and grain don't count, being far below `strong`."""
     gr = gradient(ref_y)
     m = gr >= strong
+    if not m.any():
+        return None  # a frame with no strong edge (the night before the logo) says nothing about sharpness
     return float(gradient(test_y)[m].mean() / gr[m].mean())
 
 
@@ -246,8 +248,8 @@ def timing(test, ref, decode_test, log, cuts):
         prev = yr
         mse = float(((t.astype(float) - r.astype(float)) ** 2).mean())
         psnr.append(99.0 if mse == 0 else 10 * math.log10(255 ** 2 / mse))
-        if i % 10 == 0:
-            keep.append(edge_keep(y, yr))
+        if i % 10 == 0 and (k := edge_keep(y, yr)) is not None:
+            keep.append(k)
     # The threshold between "words on screen" and "none" is read from the film itself: midway (geometrically)
     # between the median edge share of the frames that should carry words and of those that should not. A frame
     # within 4 frames of a change in what should be on screen is a transition and is not judged.
