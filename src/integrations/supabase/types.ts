@@ -4480,6 +4480,48 @@ export type Database = {
           },
         ]
       }
+      model_list_prices: {
+        Row: {
+          model_registry_id: string
+          note: string | null
+          set_at: string
+          set_by: string | null
+          unit: string
+          usd: number
+        }
+        Insert: {
+          model_registry_id: string
+          note?: string | null
+          set_at?: string
+          set_by?: string | null
+          unit: string
+          usd: number
+        }
+        Update: {
+          model_registry_id?: string
+          note?: string | null
+          set_at?: string
+          set_by?: string | null
+          unit?: string
+          usd?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "model_list_prices_model_registry_id_fkey"
+            columns: ["model_registry_id"]
+            isOneToOne: true
+            referencedRelation: "model_registry"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "model_list_prices_set_by_fkey"
+            columns: ["set_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       model_performance_metrics: {
         Row: {
           aspect_ratio: string | null
@@ -6609,6 +6651,19 @@ export type Database = {
         }
         Returns: undefined
       }
+      generation_spend_by_scope: {
+        Args: { p_campaign_id?: string; p_project_id?: string; p_since?: string }
+        Returns: {
+          campaign_id: string | null
+          confirmed_usd: number
+          estimated_usd: number
+          in_flight_usd: number
+          project_id: string | null
+          runs: number
+          uncertain: number
+          unpriced: number
+        }[]
+      }
       higgsfield_api_spend_since: { Args: { p_since: string }; Returns: Json }
       is_active_member: { Args: never; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
@@ -6751,6 +6806,14 @@ export type Database = {
           is_active: boolean
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
+        }[]
+      }
+      unpriced_generation_models: {
+        Args: { p_since?: string }
+        Returns: {
+          last_run_at: string
+          model_registry_id: string
+          runs: number
         }[]
       }
     }
