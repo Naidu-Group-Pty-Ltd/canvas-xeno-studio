@@ -1,7 +1,7 @@
 """Replace single frames of a render.cjs film with frames drawn again, and encode the master again.
 
   RENDER_FRAMES=193,194,... node scripts/aurixa-reel-1/render.cjs <frames dir> <assets> <voiceover.wav> 01.1 15.1
-  python3 scripts/aurixa-reel-1/replace_frames.py <render dir> <frames dir> <out dir> <voiceover.wav>
+  python3 scripts/aurixa-reel-1/replace_frames.py <render dir> <frames dir> <out dir> <voiceover.wav> ["why"]
 
 A change that touches a few frames (a caption's timing) needs those frames drawn again, not two hours of film. The
 reference is streamed frame by frame (lossless RGB in, lossless FFV1 out) with the new frames in their places, and
@@ -20,6 +20,7 @@ W, H, FPS = 1080, 1920, 30
 FRAME = W * H * 3
 
 src, patch, out, voiceover = (Path(a) for a in sys.argv[1:5])
+why = sys.argv[5] if len(sys.argv) > 5 else "captions: a line clears before the next arrives"
 out.mkdir(parents=True, exist_ok=True)
 log = json.loads((src / "film.json").read_text())
 f0, f1 = log["from"], log["to"]
@@ -62,6 +63,6 @@ subprocess.run([
     "-c:a", "aac", "-b:a", "256k", "-ar", "48000", "-ac", "2", "-movflags", "+faststart",
     str(out / "film.mp4"),
 ], check=True)
-log["patched"] = log.get("patched", []) + [{"frames": sorted(new), "why": "captions: a line clears before the next arrives"}]
+log["patched"] = log.get("patched", []) + [{"frames": sorted(new), "why": why}]
 (out / "film.json").write_text(json.dumps(log))
 print(f"{n} frames, {swapped} replaced -> {out}")
