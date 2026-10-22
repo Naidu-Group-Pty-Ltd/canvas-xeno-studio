@@ -248,7 +248,7 @@ _The pack's purpose:_ Connect the prepared research, illustrative finance compar
 - **Ends on:** The client's report: the cover in front, its pages fanned behind.
 - **On screen, exactly:** "Generated Reports" · "Investment Compass" · "RESIDENCE 014, PROJECT BANKSIA, BANKSIA RISE NSW 2155"
 - **Made from:** `PL-05C-a`, `PL-05C-b`, `PL-08B`, `NEW-REPORT-PAGES`, `G-RAIL`, `G-DOCUMENT`, `G-POINTER`
-- **Note:** The pages are the product's standard PDF, which since 21 October 2026 draws no floor-plan sheet. The cover carries no grade or score. Its colours are the ones the product resolves for an issuer with no brand colour, obsidian #251F18 and gold #D9A520 (NEW-REPORT-PAGES); PL-08B still shows the navy it was approved in and should take the same three colours before the film is drawn.
+- **Note:** The pages are the product's standard PDF, which since 21 October 2026 draws no floor-plan sheet. The cover carries no grade or score. Its colours are the ones the product resolves for an issuer with no brand colour, obsidian #251F18 and gold #D9A520 (NEW-REPORT-PAGES); PL-08B, the PDF in the viewer at its cover, is the same document in the same colours.
 
 ### Block 06 · Communication and the supporting agent (00:45.233 to 00:53.567)
 

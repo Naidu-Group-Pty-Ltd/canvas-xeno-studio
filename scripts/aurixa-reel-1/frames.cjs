@@ -30,6 +30,8 @@ const asset = (name) =>
   ASSETS && fs.existsSync(path.join(ASSETS, name)) ? `${ASSET_HOST}/${name}` : null;
 const P = asset("P.png");
 const D = asset("D.png");
+const EMBLEM = asset("emblem.png");
+const WORDMARK = asset("wordmark.png");
 
 /** A plate at its drawn size in CSS px, with its HTML (edited where a frame needs a state of its own). */
 function plate(key, edit = (html) => html) {
@@ -143,6 +145,11 @@ const FRAME_CSS = `
 .fk-doclist div.copy { border-color:var(--reel-before-ink-muted); border-style:dashed; background:var(--reel-before-surface); }
 .fk-shimmer { background:linear-gradient(110deg, #ffffff 30%, #5eddE8 50%, #ffffff 70%); background-size:200% 100%;
   -webkit-background-clip:text; background-clip:text; color:transparent; }
+.fk-horizon { position:absolute; left:0; right:0; height:2px; z-index:2;
+  background:linear-gradient(90deg, transparent, var(--reel-hairline) 16%, var(--reel-hairline) 84%, transparent); box-shadow:var(--reel-glow-gold); }
+.fk-confirm { position:absolute; transform:translate(-50%, -50%); z-index:8; padding:8px 16px; border-radius:999px; white-space:nowrap;
+  font:600 21px/1 var(--reel-sans); color:var(--reel-ink); background:color-mix(in srgb, var(--reel-surface) 94%, transparent);
+  border:2px solid var(--reel-gold-ink); box-shadow:var(--reel-glow-gold); }
 `;
 
 // ------------------------------------------------------------------ the frames
@@ -318,6 +325,7 @@ const FRAMES = {
   // 08.2: the report at how the assessment was reached, the marker on it (NEW-REPORT-PAGES).
   F08: {
     shot: "08.2",
+    beat: 1,
     at: 64.6,
     palette: "aurixa",
     rail: () => rail("Team"),
@@ -466,6 +474,7 @@ const FRAMES = {
   // 14.1: Your decision. on the wall of the film's own screens.
   F14: {
     shot: "14.1",
+    beat: 4,
     at: 99.0,
     palette: "aurixa",
     caption: false,
@@ -474,6 +483,7 @@ const FRAMES = {
   // 15.1: the closing card, the site's shimmer crossing START YOUR FREE TRIAL.
   F15: {
     shot: "15.1",
+    beat: 1,
     at: 105.0,
     palette: "aurixa",
     caption: false,
@@ -489,8 +499,316 @@ const FRAMES = {
   },
 };
 
+// ------------------------------------------------------------------ the animatic's stills
+// Review gate 2 (BRIEF.md): every shot as a still at its key state, timed to the voiceover by animatic.cjs. A
+// shot with a style frame uses it; these are the rest, and the further stills of the shots whose picture
+// changes outright partway (04.1, 08.2, 12.2, 14.1, 15.1). Each starts on its shot's `beat` (brief.json).
+const STILLS = {
+  // 01.2: Sent, the question readable, and on the attached listing the chip that says time is short.
+  A01: {
+    shot: "01.2",
+    palette: "before",
+    draw() {
+      const p = plate(
+        "PL-01B-b",
+        (html) =>
+          `${html}<span class="ls-chip" style="position:absolute;left:163px;top:404px;z-index:2;box-shadow:0 8px 20px rgba(17,24,39,.2)">Expressions of interest close Friday</span>`,
+      );
+      const view = shot({
+        plate: p,
+        zoom: 0.9,
+        focus: [675, 420],
+        at: [540, 830],
+        rect: [40, 520, 1000, 560],
+      });
+      return [view.html, pointer(...view.map([694, 386]))];
+    },
+  },
+  // 04.1, its first half: the emblem open over the gold hairline, the wordmark beneath (the supplied logo).
+  A04a: {
+    shot: "04.1",
+    palette: "aurixa",
+    draw() {
+      const emblem = [440, (440 * 628) / 679];
+      const wordmark = [620, (620 * 187) / 882];
+      return [
+        `<div class="fk-horizon" style="left:110px;right:110px;top:968px"></div>`,
+        `<div style="position:absolute;left:${540 - emblem[0] / 2}px;top:${948 - emblem[1]}px;width:${emblem[0]}px;height:${emblem[1]}px;${EMBLEM ? `background:url('${EMBLEM}') center/contain no-repeat` : ""}"></div>`,
+        `<div style="position:absolute;left:${540 - wordmark[0] / 2}px;top:996px;width:${wordmark[0]}px;height:${wordmark[1]}px;${WORDMARK ? `background:url('${WORDMARK}') center/contain no-repeat` : ""}"></div>`,
+      ];
+    },
+  },
+  // 04.1, from the emblem's lift: the Command Centre's Overview in the demo workspace, whole, in its window.
+  A04b: {
+    shot: "04.1",
+    beat: 3,
+    palette: "aurixa",
+    draw: () => [
+      shot({
+        plate: plate("PL-11A-c"),
+        zoom: 972 / 1536,
+        focus: [768, 432],
+        at: [540, 830],
+        rect: [40, 543, 1000, 575],
+      }).html,
+    ],
+  },
+  // 04.3: Reports, New Build selected, focus corners on the three build types, Residence 014's card beside them.
+  A04c: {
+    shot: "04.3",
+    palette: "aurixa",
+    draw() {
+      const view = shot({
+        plate: plate("PL-04B-b"),
+        zoom: 0.82,
+        focus: [887, 432],
+        at: [540, 830],
+        rect: [40, 462, 1000, 737],
+      });
+      const [x1, y1] = view.map([317, 690]);
+      const [x2, y2] = view.map([1457, 793]);
+      return [view.html, focusCorners(x1, y1, x2 - x1, y2 - y1), pointer(...view.map([940, 762]))];
+    },
+  },
+  // 05.1: + Financial pressed, the tier preparing, the rail on Financial.
+  A05: {
+    shot: "05.1",
+    palette: "aurixa",
+    rail: () => rail("Financial"),
+    draw() {
+      const view = shot({
+        plate: plate("PL-05A-b"),
+        zoom: 1,
+        focus: [766, 432],
+        at: [540, 834],
+        rect: [40, 388, 1000, 892],
+      });
+      return [view.html, pointer(...view.map([860, 133]))];
+    },
+  },
+  // 06.1: the question and the reply in one thread, in the Command Centre's Message Hub.
+  A06a: {
+    shot: "06.1",
+    palette: "aurixa",
+    rail: () => rail("Team"),
+    draw: () => [
+      shot({
+        plate: plate("NEW-MESSAGE-HUB-b"),
+        zoom: 1.55,
+        focus: [910, 600],
+        at: [540, 834],
+        rect: [40, 384, 1000, 900],
+      }).html,
+    ],
+  },
+  // 06.3: the agent's panel open over the report, its draft a card that reads Needs your go-ahead.
+  A06b: {
+    shot: "06.3",
+    palette: "aurixa",
+    rail: () => rail("Team"),
+    draw: () => [
+      shot({
+        plate: plate("PL-06B-b"),
+        zoom: 1.75,
+        focus: [1268, 462],
+        at: [540, 834],
+        rect: [40, 384, 1000, 900],
+      }).html,
+    ],
+  },
+  // 08.1: the accountant's request, Fulfilled.
+  A08a: {
+    shot: "08.1",
+    palette: "aurixa",
+    rail: () => rail("Team"),
+    draw: () => [
+      shot({
+        plate: plate("PL-08A-b"),
+        zoom: 1.5,
+        focus: [560, 380],
+        at: [540, 834],
+        rect: [40, 384, 1000, 900],
+      }).html,
+    ],
+  },
+  // 08.2, its first beat: the report at its summary, page 4, the marker under the readiness statement.
+  A08b: {
+    shot: "08.2",
+    palette: "aurixa",
+    rail: () => rail("Team"),
+    draw() {
+      const viewer = PLATES["NEW-REPORT-PAGES-a"];
+      const [left, top, k] = viewer.sheetAt;
+      const onPage = ([x, y]) => [left + k * x, top + k * y];
+      const view = shot({
+        plate: plate("NEW-REPORT-PAGES-a"),
+        zoom: 2.45,
+        focus: onPage([297.75, 288]),
+        at: [540, 834],
+        rect: [40, 384, 1000, 900],
+      });
+      const marks = viewer.marks.map(({ x, base, width }) => {
+        const [x1, y1] = view.map(onPage([x, base + 2.6]));
+        const [x2] = view.map(onPage([x + width, base]));
+        return marker(x1, y1, x2 - x1);
+      });
+      return [view.html, ...marks];
+    },
+  },
+  // 08.3: the report on the client's Reports page, the next discussion's card beside it, the pointer on Download.
+  A08c: {
+    shot: "08.3",
+    palette: "aurixa",
+    rail: () => rail("Team"),
+    draw() {
+      const view = shot({
+        plate: plate("NEW-CLIENT-REPORTS-a"),
+        zoom: 972 / 960,
+        focus: [480, 300],
+        at: [540, 718],
+        rect: [40, 400, 1000, 636],
+      });
+      const card = camera({
+        plate: plate("NEW-CLIENT-REPORTS-b"),
+        zoom: 1.25,
+        focus: [205, 176],
+        at: [90, 1078],
+        crop: [205, 176, 720, 73],
+        chrome: false,
+        style: "z-index:6;border-radius:14px;box-shadow:var(--reel-shadow-document)",
+      });
+      return [view.html, card, pointer(...view.map([352, 324]))];
+    },
+  },
+  // 09.2: the solicitor's document register, one copy of each document, each with its status.
+  A09: {
+    shot: "09.2",
+    palette: "aurixa",
+    draw: () => [
+      shot({
+        plate: plate("PL-09B-b"),
+        zoom: 1.3,
+        focus: [640, 380],
+        at: [540, 834],
+        rect: [40, 384, 1000, 900],
+      }).html,
+    ],
+  },
+  // 10.1: past the gold horizon into the system map, every portal live, its confirmations lit.
+  A10: {
+    shot: "10.1",
+    palette: "aurixa",
+    draw: () => [
+      `<div class="fk-horizon" style="top:330px"></div><div class="fk-traveller" style="left:676px;top:331px;z-index:3"></div>`,
+      ...systemMap({ travellers: true }),
+      `<div class="fk-confirm" style="left:890px;top:1020px">Selected</div>`,
+      `<div class="fk-confirm" style="left:744px;top:692px">Approved</div>`,
+      `<div class="fk-confirm" style="left:190px;top:1020px">Fulfilled</div>`,
+    ],
+  },
+  // 11.1: close on the button, pressed, its gold edge; the window holds the label and the button alone.
+  A11: {
+    shot: "11.1",
+    palette: "aurixa",
+    draw: () => [
+      shot({
+        plate: plate("PL-11A-b"),
+        zoom: 1.6,
+        focus: [960, 785],
+        at: [540, 830],
+        rect: [40, 640, 1000, 380],
+      }).html,
+    ],
+  },
+  // 12.1: the tour down the sidebar stops on the report's page.
+  A12a: {
+    shot: "12.1",
+    palette: "aurixa",
+    draw() {
+      const view = shot({
+        plate: plate("PL-05A-a"),
+        zoom: 1.25,
+        focus: [389, 432],
+        at: [540, 834],
+        rect: [40, 384, 1000, 900],
+      });
+      return [view.html, pointer(...view.map([172, 624]))];
+    },
+  },
+  // 12.2, its first beat: Daniel's Stock List, Residence 014 Selected for a client.
+  A12b: {
+    shot: "12.2",
+    palette: "aurixa",
+    draw() {
+      const view = shot({
+        plate: plate("PL-12A-a"),
+        zoom: 0.79,
+        focus: [888, 432],
+        at: [540, 830],
+        rect: [40, 475, 1000, 711],
+      });
+      const [x1, y1] = view.map([1346, 503]);
+      const [x2, y2] = view.map([1479, 521]);
+      return [view.html, focusCorners(x1, y1, x2 - x1, y2 - y1)];
+    },
+  },
+  // 12.2, from the click: the floor plan, whole, in its own tab.
+  A12c: {
+    shot: "12.2",
+    beat: 1,
+    palette: "aurixa",
+    draw: () => [
+      shot({
+        plate: plate("PL-12A-b"),
+        zoom: 1,
+        focus: [760, 432],
+        at: [540, 834],
+        rect: [40, 388, 1000, 892],
+      }).html,
+    ],
+  },
+  // 12.4: the system map at rest, a little further back, every link's pulse arrived.
+  A12d: {
+    shot: "12.4",
+    palette: "aurixa",
+    draw: () => [
+      `<div style="position:absolute;inset:0;transform:scale(.94);transform-origin:540px 812px">${systemMap({ travellers: true, t: [0.9, 0.9, 0.9, 0.9, 0.9] }).join("")}</div>`,
+    ],
+  },
+  // 14.1: the wall alone, then each phrase on its beat (the fourth is F14).
+  A14a: { shot: "14.1", palette: "aurixa", caption: false, draw: () => wall() },
+  A14b: {
+    shot: "14.1",
+    beat: 1,
+    palette: "aurixa",
+    caption: false,
+    draw: () => [...wall(), plate("PL-14A-1").html],
+  },
+  A14c: {
+    shot: "14.1",
+    beat: 2,
+    palette: "aurixa",
+    caption: false,
+    draw: () => [...wall(), plate("PL-14A-2").html],
+  },
+  A14d: {
+    shot: "14.1",
+    beat: 3,
+    palette: "aurixa",
+    caption: false,
+    draw: () => [...wall(), plate("PL-14A-3").html],
+  },
+  // 15.1: the closing card before the shimmer crosses it (F15).
+  A15: {
+    shot: "15.1",
+    palette: "aurixa",
+    caption: false,
+    draw: () => [...wall(0.18), plate("PL-15A").html],
+  },
+};
+
 /** G-SYSTEM-MAP: the Command Centre as the hub and the five portals around it, each on its own dashboard. */
-function systemMap({ travellers }) {
+function systemMap({ travellers, t = [0.62, 0.48, 0.7, 0.55, 0.4] }) {
   const hub = plate("PL-11A-c");
   const portals = [
     ["PL-06A-a", "Client portal", [215, 470]],
@@ -507,7 +825,7 @@ function systemMap({ travellers }) {
   for (const [i, [key, label, at, teal]] of portals.entries()) {
     const p = plate(key);
     const zoom = 300 / p.css[0];
-    lines.push(link(hubAt, at, { traveller: travellers ? [0.62, 0.48, 0.7, 0.55, 0.4][i] : null }));
+    lines.push(link(hubAt, at, { traveller: travellers ? t[i] : null }));
     layers.push(
       camera({
         plate: p,
@@ -580,10 +898,12 @@ function captionAt(t) {
   return cue ? cue.text : "";
 }
 
-(async () => {
-  fs.mkdirSync(OUT, { recursive: true });
+/**
+ * Draws frames to PNG, one browser for the lot: each job names a frame (FRAMES or STILLS), the caption it
+ * carries and its file. A marker goes under each run a frame marks (data-mark), where the browser set it.
+ */
+async function drawAll(jobs) {
   const css = (await styles()) + KIT.frameCss + FRAME_CSS;
-  const only = process.env.FRAMES_ONLY?.split(",");
   const { chromium } = playwright();
   const browser = await chromium.launch(CHROMIUM ? { executablePath: CHROMIUM } : {});
   const page = await browser.newPage({ viewport: { width: 1080, height: 1920 } });
@@ -594,14 +914,11 @@ function captionAt(t) {
       ? route.fulfill({ path: file, contentType: "image/png" })
       : route.fulfill({ status: 404, body: "" });
   });
-  const sheet = [];
-  for (const [id, f] of Object.entries(FRAMES)) {
-    if (only && !only.includes(id)) continue;
-    const caption = f.caption === false ? "" : captionAt(f.at);
+  for (const { still, caption, file } of jobs) {
     const html = frame({
-      palette: f.palette,
-      layers: f.draw(),
-      rail: f.rail ? f.rail() : "",
+      palette: still.palette,
+      layers: still.draw(),
+      rail: still.rail ? still.rail() : "",
       caption,
       zones: process.env.FRAMES_ZONES === "1",
     });
@@ -621,11 +938,28 @@ function captionAt(t) {
         }
       }
     });
-    const file = path.join(OUT, `${id}-${f.shot}.png`);
     await page.screenshot({ path: file });
-    sheet.push({ id, shot: f.shot, at: f.at, caption, file: path.basename(file) });
   }
   await browser.close();
-  fs.writeFileSync(path.join(OUT, "frames.json"), `${JSON.stringify(sheet, null, 2)}\n`);
-  console.log(sheet.length, "frames →", OUT);
-})();
+}
+
+module.exports = { FRAMES, STILLS, CAPTIONS, drawAll };
+
+// The 15 style frames, each under the caption at its key beat.
+if (require.main === module)
+  (async () => {
+    fs.mkdirSync(OUT, { recursive: true });
+    const only = process.env.FRAMES_ONLY?.split(",");
+    const jobs = [];
+    const sheet = [];
+    for (const [id, f] of Object.entries(FRAMES)) {
+      if (only && !only.includes(id)) continue;
+      const caption = f.caption === false ? "" : captionAt(f.at);
+      const file = path.join(OUT, `${id}-${f.shot}.png`);
+      jobs.push({ still: f, caption, file });
+      sheet.push({ id, shot: f.shot, at: f.at, caption, file: path.basename(file) });
+    }
+    await drawAll(jobs);
+    fs.writeFileSync(path.join(OUT, "frames.json"), `${JSON.stringify(sheet, null, 2)}\n`);
+    console.log(sheet.length, "frames →", OUT);
+  })();

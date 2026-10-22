@@ -148,7 +148,7 @@ SHOTS = [
          "Follows the click, then holds while the document comes forward.",
          "The client's report: the cover in front, its pages fanned behind.",
          ["Generated Reports", "Investment Compass", "RESIDENCE 014, PROJECT BANKSIA, BANKSIA RISE NSW 2155"],
-         "The pages are the product's standard PDF, which since 21 October 2026 draws no floor-plan sheet. The cover carries no grade or score. Its colours are the ones the product resolves for an issuer with no brand colour, obsidian #251F18 and gold #D9A520 (NEW-REPORT-PAGES); PL-08B still shows the navy it was approved in and should take the same three colours before the film is drawn."),
+         "The pages are the product's standard PDF, which since 21 October 2026 draws no floor-plan sheet. The cover carries no grade or score. Its colours are the ones the product resolves for an issuer with no brand colour, obsidian #251F18 and gold #D9A520 (NEW-REPORT-PAGES); PL-08B, the PDF in the viewer at its cover, is the same document in the same colours."),
     # 06 · Communication and the supporting agent
     shot("06.1", "06", ("block", "06"), "screen", "aurixa", "The reply the client was waiting for",
          ["NEW-MESSAGE-HUB", "G-WINDOW", "G-POINTER"],

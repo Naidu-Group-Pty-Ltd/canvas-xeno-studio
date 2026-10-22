@@ -232,14 +232,6 @@ const CSS = `
 .pdfv .pt1.on > :first-child { outline-color:#8ab4f8; }
 .pdfv .pstage { flex:1; min-width:0; display:flex; justify-content:center; align-items:flex-start; padding:14px; overflow:hidden; }
 .pdfv .ppage { position:relative; flex:none; box-shadow:0 2px 10px rgba(0,0,0,.45); overflow:hidden; }
-.pdfv .mini { position:relative; width:95px; height:134px; background:#fff; padding:14px 10px; display:flex; flex-direction:column; gap:4px; overflow:hidden; }
-.pdfv .mini .sh { position:absolute; width:22px; height:22px; background:linear-gradient(135deg,#111 0 45%,#C9A14A 45% 55%,transparent 55%); }
-.pdfv .mini .sh.tl { left:0; top:0; }
-.pdfv .mini .sh.br { right:0; bottom:0; transform:rotate(180deg); }
-.pdfv .mini u { display:block; height:2px; background:#d6d9de; }
-.pdfv .mini em { display:block; height:1px; width:40%; background:#C9A14A; }
-.pdfv .mini .kpi { display:flex; gap:3px; }
-.pdfv .mini .kpi i { flex:1; height:12px; border:1px solid #BF9B50; background:#FAF7F0; }
 /* Builders Network: the Builder / Developer portal (after BuilderPortalLayout and BuilderStockList) */
 .bn { position:absolute; inset:0; display:flex; color:#fff; font-family:Inter, sans-serif; overflow:hidden;
   background: radial-gradient(circle at top left, rgba(0,168,181,.10), transparent 28%), radial-gradient(circle at top right, rgba(0,168,181,.06), transparent 24%),
@@ -1504,9 +1496,9 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
 
   // The client's report as the exported PDF delivers it (investmentPdfCover.ts): the issuer's cover, on
   // an A4 sheet of 595.5 × 842.25 pt, drawn at k px per pt. The issuer is Aurixa Systems; the grade and
-  // score are not on the cover. PL-08B keeps the navy it was approved in; the report's own pages pass the
-  // colours the product resolves for an issuer that set no brand colour (DOC, below).
-  const reportCover = (k, { field = "#0C1526", gold = "#C9A14A", ink = "#FAF7F1" } = {}) => {
+  // score are not on the cover. Its colours are the ones the product resolves for an issuer that set no
+  // brand colour (DOC, below; docCover).
+  const reportCover = (k, { field, gold, ink }) => {
     const pt = (v) => `${(v * k).toFixed(2)}px`;
     const W = 595.5;
     const H = 842.25;
@@ -1534,14 +1526,6 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
       ${text(575.25 + 9 * 0.718 * 0.5, 9, "'Liberation Sans', Helvetica, Arial, sans-serif", ink, 1.2, "RESIDENCE 014, PROJECT BANKSIA, BANKSIA RISE NSW 2155")}
     </div>`;
   };
-  // A content page in miniature for the page rail: white, with the black-and-gold corner shards.
-  const miniPage = (inner) =>
-    `<div class="mini"><i class="sh tl"></i><i class="sh br"></i>${inner}</div>`;
-  const reportThumbs = `<div class="pthumbs">
-      <div class="pt1 on">${reportCover(0.16)}<span>1</span></div>
-      <div class="pt1">${miniPage(`<b style="font-size:5.5px;letter-spacing:.12em;color:#0D264D">TABLE OF CONTENTS</b>${"<u></u>".repeat(9)}`)}<span>2</span></div>
-      <div class="pt1">${miniPage(`<b style="font-size:6px;color:#0D264D">Floor plan</b><em></em>${D ? `<div style="height:58px;background:url('${D}') center/contain no-repeat"></div>` : ""}`)}<span>3</span></div>
-      <div class="pt1">${miniPage(`<b style="font-size:5.5px;color:#0D264D">Investment Compass</b><em></em><div class="kpi"><i></i><i></i></div>${"<u></u>".repeat(6)}`)}<span>4</span></div></div>`;
 
   // ---------------------------------------------------------------- The client's report, inside (NEW-REPORT-PAGES)
   // The standard Investment Compass PDF as npc-client-dashboard draws it for an issuer that set no brand colour
@@ -1606,7 +1590,8 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
   /**
    * A paragraph, wrapped and (unless `left`) justified as drawTextWithWrap does: greedy lines, the extra
    * width spread over the real gaps, the last line left as it is. Lines stop at `bottom` (745.08, where the
-   * product stops drawing on a page). Returns its HTML, the last baseline it drew and whether it was cut.
+   * product stops drawing on a page). Returns its HTML, the last baseline it drew, whether it was cut and
+   * where it set each word (`words`: x, baseline and width in points, for the film's marker).
    */
   const prose = (
     src,
@@ -1648,6 +1633,7 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
     let html = "";
     let y = base;
     let drawn = 0;
+    const placed = [];
     for (const [li, l] of lines.entries()) {
       if (y > bottom) break;
       const last = li === lines.length - 1;
@@ -1657,13 +1643,14 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
       let at = x;
       for (const [wi, w] of l.entries()) {
         html += set(at, y, size, esc(w.w), { bold: w.bold, color });
+        placed.push({ x: at, base: y, width: widthOf(w.w, size, w.bold) });
         const next = l[wi + 1];
         at += widthOf(w.w, size, w.bold) + (next && !next.glue ? gap : 0);
       }
       drawn++;
       y += lead;
     }
-    return { html, last: base + (drawn - 1) * lead, cut: drawn < lines.length };
+    return { html, last: base + (drawn - 1) * lead, cut: drawn < lines.length, words: placed };
   };
   const esc = (t) => t.replace(/&(?!amp;|nbsp;)/g, "&amp;").replace(/</g, "&lt;");
   /** The running head and the footer every content page carries. */
@@ -1739,6 +1726,10 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
     "Residence 014 is graded **B+** on a composite of **74**, carried by capital growth and location; rental yield is moderate, and demand and property risk were not scored. The case rests on the area's measured growth record and on the property's access to transport, schools and shops, not on any figure this report estimated.",
     "**Transaction readiness: material verification pending.** The grade is an assessment of the evidence this report holds. It is not permission to proceed, and it does not replace the checks in the Due Diligence Checklist, each of which can change the figures or the recommendation.",
   ];
+  // Where the readiness statement's lead ("Transaction readiness: material verification pending.") sits on
+  // the sheet, a mark a line, for the film's marker (08.2).
+  const READINESS_LEAD_WORDS = 5;
+  const SUMMARY_MARKS = [];
   const WHAT_THIS_MEANS =
     "The grade supports moving to the checks that settle it: the review of the land and build contracts, the lot's title and approvals, and an independent appraisal of the rent at completion.";
   const summaryPage = () => {
@@ -1751,9 +1742,18 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
     let html = `${furniture(4)}${label(57)}${title.html}${head("Executive Verdict", headBase)}
       ${kpiTile(55, tiles, 237.5, "PURCHASE PRICE", "$1,150,000")}${kpiTile(302.5, tiles, 237.5, "WEEKLY RENT", "$850", "Rent as supplied")}`;
     let base = tiles + 72 + 16;
-    for (const src of SUMMARY) {
+    for (const [i, src] of SUMMARY.entries()) {
       const p = prose(src, { base });
       html += p.html;
+      if (i === SUMMARY.length - 1) {
+        const lines = new Map();
+        for (const w of p.words.slice(0, READINESS_LEAD_WORDS)) {
+          const line = lines.get(w.base);
+          if (line) line.width = w.x + w.width - line.x;
+          else lines.set(w.base, { x: w.x, base: w.base, width: w.width });
+        }
+        SUMMARY_MARKS.splice(0, SUMMARY_MARKS.length, ...lines.values());
+      }
       base = p.last + 21;
     }
     const lines = prose(WHAT_THIS_MEANS, {
@@ -1854,15 +1854,15 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
   const docThumbs = (pages, on) =>
     `<div class="pthumbs">${pages.map(([n, page]) => `<div class="pt1${n === on ? " on" : ""}">${page}<span>${n}</span></div>`).join("")}</div>`;
   const DOC_TITLE = "Investment Compass — Residence 014, Project Banksia, Banksia Rise NSW 2155";
-  // The viewer at page 4, the summary; and at page 19, how the grade was reached.
+  // The viewer at page 1, the cover; at page 4, the summary; and at page 19, how the grade was reached.
   const docViewer = (page) =>
     pdfViewer({
       title: DOC_TITLE,
-      page: sheet(0.76, page === 4 ? summaryPage() : gradePage()),
+      page: page === 1 ? docCover(0.76) : sheet(0.76, page === 4 ? summaryPage() : gradePage()),
       pageOf: [page, 22],
       zoom: "57%",
       thumbs:
-        page === 4
+        page !== 19
           ? docThumbs(
               [
                 [1, docCover(0.16)],
@@ -1870,7 +1870,7 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
                 [3, sheet(0.16, propertyPage())],
                 [4, sheet(0.16, summaryPage())],
               ],
-              4,
+              page,
             )
           : docThumbs(
               [
@@ -2526,18 +2526,9 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
     // Accountant: a client file's Requests; Mia marks the income statement fulfilled.
     "PL-08A-a": { size: W, scale: SCALE, html: accFile(false) },
     "PL-08A-b": { size: W, scale: SCALE, html: accFile(true) },
-    // 08B: the client's report as delivered, the exported PDF, on the meeting room's display.
-    "PL-08B": {
-      size: W,
-      scale: SCALE,
-      html: pdfViewer({
-        title: "Investment Compass — Banksia Rise, NSW",
-        page: reportCover(0.76),
-        pageOf: [1, 22],
-        zoom: "57%",
-        thumbs: reportThumbs,
-      }),
-    },
+    // 08B: the client's report as delivered, the exported PDF at its cover: the same viewer, pages and
+    // colours as NEW-REPORT-PAGES.
+    "PL-08B": { size: W, scale: SCALE, html: docViewer(1) },
     // Solicitor: 09B, the matter's Overview, then its Docs (the document register) at Priya's click.
     "PL-09B-a": {
       size: W,
@@ -2584,7 +2575,13 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
     "NEW-REPORT-PAGES-property": { size: SHEET, scale: 2, html: onSheet(propertyPage()) },
     "NEW-REPORT-PAGES-summary": { size: SHEET, scale: 2, html: onSheet(summaryPage()) },
     "NEW-REPORT-PAGES-assessment": { size: SHEET, scale: 2, html: onSheet(gradePage()) },
-    "NEW-REPORT-PAGES-a": { size: W, scale: SCALE, html: docViewer(4) },
+    "NEW-REPORT-PAGES-a": {
+      size: W,
+      scale: SCALE,
+      html: docViewer(4),
+      sheetAt: [493.71, 62, 0.76],
+      marks: SUMMARY_MARKS,
+    },
     // `sheetAt` and `marks`: where the sheet is in the viewer, and the passages a frame marks on it.
     "NEW-REPORT-PAGES-b": {
       size: W,
