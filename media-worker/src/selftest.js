@@ -7,7 +7,7 @@ import { execFileSync, spawn } from "node:child_process";
 import { createHmac } from "node:crypto";
 import { request as httpRequest } from "node:http";
 import { existsSync } from "node:fs";
-import { copyFile, mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { copyFile, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { ffmpeg, probe } from "./ffmpeg.js";
@@ -982,6 +982,146 @@ await check("a quick task runs while the render lane is full", async () => {
   await new Promise((resolve) => setTimeout(resolve, 10));
   if (started.at(-1) !== "render-2") throw new Error("the waiting render didn't start when the first finished");
   if (laneOf("probe") !== "quick" || laneOf("render_sequence") !== "heavy" || laneOf("add_audio") !== "heavy") throw new Error("lanes misassigned");
+});
+
+/**
+ * A composition bundle as the app compiles one (see src/lib/compositions in the
+ * app), written by hand: a gold box crossing a navy ground at `speed` pixels a
+ * second until `until` seconds, then still. Each drawing sets the box only when
+ * it moved, as the app's track does.
+ */
+function boxBundle({ frames, settings, fps = 24, width = 160, height = 96, speed = 240, until = 0.25 }) {
+  const html = '<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#0a192f;overflow:hidden}#box{position:absolute;left:0;top:28px;width:40px;height:40px;background:#c89b3c}</style></head><body><div id="box"></div></body></html>';
+  const drawings = [];
+  let last = null;
+  for (let frame = 0; frame < frames; frame += 1) {
+    for (let j = 0; j < settings.drawings; j += 1) {
+      const time = Math.max(0, (frame + ((j + 0.5) / settings.drawings - 0.5) * (settings.shutter / 360)) / fps);
+      const x = `translateX(${(Math.min(time, until) * speed).toFixed(3)}px)`;
+      if (x === last && settings.reuse && drawings.length) drawings.push(0);
+      else drawings.push([[0, -1, { transform: x }]]);
+      last = x;
+    }
+  }
+  return { format: "xeno-composition", version: 1, width, height, fps, frames, settings, html, images: [], fonts: [], webgl: false, selectors: ["#box"], drawings, beats: [] };
+}
+
+async function bundleFile(name, bundle) {
+  const path = join(dir, `${name}.json`);
+  await writeFile(path, JSON.stringify(bundle), "utf8");
+  return { path, role: "data" };
+}
+
+/** One row of a frame of a video, as [r, g, b] a pixel. */
+async function rowOf(path, frame, y, width) {
+  const out = join(dir, `row-${Math.random().toString(36).slice(2)}.rgb`);
+  await ffmpeg(["-i", path, "-vf", `select=eq(n\\,${frame}),crop=${width}:1:0:${y}`, "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", out]);
+  const bytes = await readFile(out);
+  return Array.from({ length: width }, (_, x) => [bytes[x * 3], bytes[x * 3 + 1], bytes[x * 3 + 2]]);
+}
+
+/** Each frame's checksum, decoded: two files with the same list show the same pictures. */
+async function frameSums(path) {
+  const out = join(dir, `sums-${Math.random().toString(36).slice(2)}.txt`);
+  await ffmpeg(["-i", path, "-f", "framemd5", out]);
+  return (await readFile(out, "utf8")).split("\n").filter((line) => line && !line.startsWith("#")).map((line) => line.split(",").at(-1).trim());
+}
+
+const DRAFT = { scale: 1, drawings: 1, shutter: 180, reuse: true };
+const FINAL = { scale: 2, drawings: 8, shutter: 180, reuse: true };
+if (TASKS.render_composition) {
+  let wholeMaster = null;
+  await check("render_composition draws a draft, reusing each drawing that doesn't change", async () => {
+    const source = await bundleFile("box-draft", boxBundle({ frames: 12, settings: DRAFT }));
+    const work = await mkdtemp(join(dir, "comp-"));
+    // One browser, so every frame follows the one before on the same page (with more, each
+    // browser's first frame is drawn afresh). The stretches below are drawn with the default.
+    const browsers = config.compositionBrowsers;
+    config.compositionBrowsers = 1;
+    const result = await TASKS.render_composition.run({ sources: [source], params: { output: "full", priority: "draft" }, dir: work }).finally(() => {
+      config.compositionBrowsers = browsers;
+    });
+    const [proxy, master, poster] = result.outputs.map((output) => output.path);
+    const counts = result.metadata.composition;
+    // The box moves from frame 0 to 6 and holds: 7 drawn, 5 reused.
+    if (counts.drawings_captured !== 7 || counts.drawings_reused !== 5) throw new Error(`drew ${counts.drawings_captured}, reused ${counts.drawings_reused}`);
+    const info = await probe(proxy);
+    if (info.width !== 160 || info.height !== 96) throw new Error(`playable copy is ${info.width}x${info.height}`);
+    const sums = await frameSums(master);
+    if (sums.length !== 12) throw new Error(`master has ${sums.length} frames`);
+    if (new Set(sums.slice(6)).size !== 1) throw new Error("the held frames differ");
+    // Frame 3: the box at 30 px, gold from 30 to 70 across.
+    const row = await rowOf(master, 3, 48, 160);
+    if (!near(row[50], [200, 155, 60]) || !near(row[10], [10, 25, 47]) || !near(row[90], [10, 25, 47])) throw new Error(`frame 3 reads ${JSON.stringify([row[10], row[50], row[90]])}`);
+    if ((await stat(poster)).size < 300) throw new Error("no poster");
+    wholeMaster = master;
+  });
+
+  await check("render_composition at final quality blurs a fast move as a camera would, and keeps a still frame sharp", async () => {
+    const source = await bundleFile("box-final", boxBundle({ frames: 10, settings: FINAL, speed: 480, until: 0.2 }));
+    const work = await mkdtemp(join(dir, "comp-"));
+    const result = await TASKS.render_composition.run({ sources: [source], params: { output: "full", priority: "final" }, dir: work });
+    const master = result.outputs[1].path;
+    const between = (row) => row.filter(([r]) => r > 45 && r < 165).length;
+    // Frame 2 moves 20 px a frame with the shutter half open: its edges smear over about 10 px.
+    const moving = between(await rowOf(master, 2, 48, 160));
+    // Frame 8 has been still for three frames: hard edges, at most a pixel's ringing.
+    const still = between(await rowOf(master, 8, 48, 160));
+    if (moving < 8) throw new Error(`a moving edge has only ${moving} pixels between its colours`);
+    if (still > 2) throw new Error(`a still edge has ${still} pixels between its colours`);
+    const counts = result.metadata.composition;
+    if (counts.drawings_captured + counts.drawings_reused !== 80) throw new Error(`took ${counts.drawings_captured + counts.drawings_reused} drawings, not 80`);
+    if (counts.drawings_reused < 20) throw new Error(`reused only ${counts.drawings_reused} of the still frames' drawings`);
+  });
+
+  await check("a composition's stretches, drawn apart and joined, match it drawn whole, frame for frame", async () => {
+    if (!wholeMaster) throw new Error("the draft wasn't drawn");
+    const bundle = await bundleFile("box-stretches", boxBundle({ frames: 12, settings: DRAFT }));
+    const stretches = [];
+    for (const [from, to] of [[0, 5], [5, 12]]) {
+      const work = await mkdtemp(join(dir, "stretch-"));
+      const result = await TASKS.render_composition.run({ sources: [bundle], params: { output: "stretch", from_frame: from, to_frame: to, priority: "final" }, dir: work });
+      if (result.outputs.length !== 1) throw new Error("a stretch should make its master only");
+      stretches.push({ path: result.outputs[0].path, role: "video" });
+    }
+    const work = await mkdtemp(join(dir, "join-"));
+    const joined = await TASKS.join_stretches.run({ sources: stretches, params: { fps: 24, frames: 12 }, dir: work });
+    const [whole, parts] = await Promise.all([frameSums(wholeMaster), frameSums(joined.outputs[1].path)]);
+    if (whole.join() !== parts.join()) throw new Error("the joined stretches differ from the composition drawn whole");
+    if ((await probe(joined.outputs[0].path)).width !== 160) throw new Error("no playable copy");
+  });
+
+  await check("render_composition refuses a bundle that isn't one", async () => {
+    const path = join(dir, "not-a-bundle.json");
+    await writeFile(path, JSON.stringify({ format: "something-else" }), "utf8");
+    const refused = await TASKS.render_composition.run({ sources: [{ path, role: "data" }], params: {}, dir }).then(() => null, (error) => error);
+    if (!refused || refused.code !== "INVALID_PARAMETERS") throw new Error(`expected INVALID_PARAMETERS, got ${refused?.code ?? "no error"}`);
+  });
+} else {
+  await check("compositions aren't offered without a browser", async () => {
+    if (FEATURES.includes("compositions")) throw new Error("compositions offered with no browser");
+  });
+}
+
+await check("a final composition goes ahead of drafts waiting in the heavy lane, behind finals", async () => {
+  const started = [];
+  const finish = new Map();
+  const lanes = new Lanes({ heavy: 1, quick: 1 }, (task) => {
+    started.push(task.taskId);
+    return new Promise((resolve) => finish.set(task.taskId, resolve));
+  });
+  const task = (taskId, priority) => ({ taskId, taskType: "render_composition", params: { priority } });
+  lanes.add(task("first", "draft"));
+  lanes.add(task("draft-1", "draft"));
+  lanes.add(task("final-1", "final"));
+  lanes.add(task("draft-2", "draft"));
+  lanes.add(task("final-2", "final"));
+  for (let n = 0; n < 5; n += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    finish.get(started.at(-1))?.();
+  }
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  if (started.join() !== "first,final-1,final-2,draft-1,draft-2") throw new Error(`ran ${started.join()}`);
 });
 
 await check("the worker stops only when nothing runs, waits or is being reported", async () => {

@@ -2670,6 +2670,234 @@ export type Database = {
           },
         ]
       }
+      composition_renders: {
+        Row: {
+          brand_kit_id: string | null
+          bundle_bucket: string | null
+          bundle_path: string | null
+          changing: number
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          drawings: number
+          error_code: string | null
+          error_message: string | null
+          fps: number
+          frames: number
+          hash: string
+          height: number
+          id: string
+          master_bucket: string | null
+          master_path: string | null
+          media_task_id: string | null
+          missing_fields: string[]
+          poster_path: string | null
+          priority: string
+          progress: number
+          project_id: string | null
+          proxy_asset_id: string | null
+          quality: string
+          render_seconds: number | null
+          seconds_per_drawing: number | null
+          settings: Json
+          spec: Json
+          stage: string | null
+          status: string
+          stretches: Json
+          template: string
+          template_version: number
+          updated_at: string
+          webgl: boolean
+          width: number
+        }
+        Insert: {
+          brand_kit_id?: string | null
+          bundle_bucket?: string | null
+          bundle_path?: string | null
+          changing?: number
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          drawings?: number
+          error_code?: string | null
+          error_message?: string | null
+          fps: number
+          frames: number
+          hash: string
+          height: number
+          id?: string
+          master_bucket?: string | null
+          master_path?: string | null
+          media_task_id?: string | null
+          missing_fields?: string[]
+          poster_path?: string | null
+          priority?: string
+          progress?: number
+          project_id?: string | null
+          proxy_asset_id?: string | null
+          quality: string
+          render_seconds?: number | null
+          seconds_per_drawing?: number | null
+          settings: Json
+          spec: Json
+          stage?: string | null
+          status?: string
+          stretches?: Json
+          template: string
+          template_version: number
+          updated_at?: string
+          webgl?: boolean
+          width: number
+        }
+        Update: {
+          brand_kit_id?: string | null
+          bundle_bucket?: string | null
+          bundle_path?: string | null
+          changing?: number
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          drawings?: number
+          error_code?: string | null
+          error_message?: string | null
+          fps?: number
+          frames?: number
+          hash?: string
+          height?: number
+          id?: string
+          master_bucket?: string | null
+          master_path?: string | null
+          media_task_id?: string | null
+          missing_fields?: string[]
+          poster_path?: string | null
+          priority?: string
+          progress?: number
+          project_id?: string | null
+          proxy_asset_id?: string | null
+          quality?: string
+          render_seconds?: number | null
+          seconds_per_drawing?: number | null
+          settings?: Json
+          spec?: Json
+          stage?: string | null
+          status?: string
+          stretches?: Json
+          template?: string
+          template_version?: number
+          updated_at?: string
+          webgl?: boolean
+          width?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "composition_renders_brand_kit_id_fkey"
+            columns: ["brand_kit_id"]
+            isOneToOne: false
+            referencedRelation: "brand_kits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "composition_renders_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "composition_renders_media_task_id_fkey"
+            columns: ["media_task_id"]
+            isOneToOne: false
+            referencedRelation: "media_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "composition_renders_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "composition_renders_proxy_asset_id_fkey"
+            columns: ["proxy_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      composition_stretches: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_code: string | null
+          error_message: string | null
+          from_frame: number
+          hash: string
+          id: string
+          master_bucket: string | null
+          master_path: string | null
+          media_task_id: string | null
+          progress: number
+          render_id: string | null
+          seconds_per_drawing: number | null
+          status: string
+          to_frame: number
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          from_frame: number
+          hash: string
+          id?: string
+          master_bucket?: string | null
+          master_path?: string | null
+          media_task_id?: string | null
+          progress?: number
+          render_id?: string | null
+          seconds_per_drawing?: number | null
+          status?: string
+          to_frame: number
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          from_frame?: number
+          hash?: string
+          id?: string
+          master_bucket?: string | null
+          master_path?: string | null
+          media_task_id?: string | null
+          progress?: number
+          render_id?: string | null
+          seconds_per_drawing?: number | null
+          status?: string
+          to_frame?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "composition_stretches_media_task_id_fkey"
+            columns: ["media_task_id"]
+            isOneToOne: false
+            referencedRelation: "media_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "composition_stretches_render_id_fkey"
+            columns: ["render_id"]
+            isOneToOne: false
+            referencedRelation: "composition_renders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       continuity_pack_items: {
         Row: {
           asset_id: string

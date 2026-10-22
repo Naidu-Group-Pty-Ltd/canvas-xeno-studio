@@ -29,6 +29,7 @@ import type { ModelRegistryEntry } from "../model-schema";
 import type { ApiScope } from "./tokens";
 import type { ApiCaller } from "./tokens.server";
 import { PLANNING_TOOLS } from "./planning.server";
+import { COMPOSITION_TOOLS } from "./compositions.server";
 
 type Json = Record<string, unknown>;
 
@@ -456,7 +457,7 @@ const listBrandKits = tool({
       // A kit's whole DNA and its formulas run to thousands of characters each: a list of kits
       // says what kind of brand each is and names its formulas; get_brand_kit has the rest
       // (its production roles too).
-      const { fonts, design, dna, ownFormulas, production, ...kit } = brandKitOf(
+      const { fonts, design, dna, ownFormulas, production, demoRecord, ...kit } = brandKitOf(
         row as unknown as Json,
       );
       return {
@@ -1944,6 +1945,7 @@ export const STUDIO_TOOLS: StudioTool[] = [
   applyBrand,
   renderEdit,
   ...PLANNING_TOOLS,
+  ...COMPOSITION_TOOLS,
 ];
 
 export function studioTool(name: string): StudioTool | null {
