@@ -1,10 +1,12 @@
-// Reel 1, shot 06.1: the reply the client was waiting for, in the Command Centre's Message Hub.
+// Reel 1, shot 06.1: the reply the client was waiting for, in the Command Centre's Message Hub. The window floats in
+// depth (./workflowStage.cjs) and the camera eases in toward the thread as the reply goes.
 const M = require("../motion.cjs");
 const {
   beat,
   EASE,
   span,
   lerp2,
+  zoomLerp,
   r3,
   px,
   State,
@@ -17,21 +19,27 @@ const {
   railHtml,
   F,
 } = M;
-
-/** A G-WINDOW whose layers are plates given whole ({ html, css }), so a scene can edit a plate's markup. */
-const windowOf = (id, plates, z) =>
-  `<div class="fk-win" id="${id}" style="z-index:${z}"><div class="fk-page" id="${id}-page">${plates
-    .map(
-      (p, n) =>
-        `<div class="fk-scale" id="${id}-${n}" style="width:${p.css[0]}px;height:${p.css[1]}px">${p.html}</div>`,
-    )
-    .join("")}<div class="fk-veil" id="${id}-veil"></div></div></div>`;
+const S = require("./workflowStage.cjs");
 
 // ------------------------------------------------------------------ 06.1: the reply the client was waiting for
 function hubScene() {
+  const shot = M.shotOf("06.1");
   const [tIn, tSend] = [0, 1].map((i) => beat("06.1", i));
-  // A06a's framing: the thread, still.
-  const VIEW = { rect: [40, 384, 1000, 900], zoom: 1.55, focus: [910, 600], at: [540, 834] };
+  // The thread, from A06a's framing in toward its two messages as the reply goes: the window keeps the block's
+  // glass box (its top at 384, 1000 x 900), so the cuts on either side change the page, never the window.
+  const RECT = [40, 384, 1000, 900];
+  const OPEN = { rect: RECT, zoom: 1.55, focus: [910, 600], at: [540, 834] };
+  const CLOSE = { rect: RECT, zoom: 1.7, focus: [887, 652], at: [540, 834] };
+  const framing = (t) => {
+    const p = span(t, tIn, shot.out, EASE.linear);
+    const q = EASE.settle(p);
+    return {
+      rect: RECT,
+      zoom: zoomLerp(OPEN.zoom, CLOSE.zoom, q),
+      focus: lerp2(OPEN.focus, CLOSE.focus, q),
+      at: OPEN.at,
+    };
+  };
   const drafted = F.plate("NEW-MESSAGE-HUB-a");
   // Sent: the thread clips what it scrolls, so the reply can rise into it from the composer's edge.
   const sent = F.plate("NEW-MESSAGE-HUB-b", (html) => {
@@ -43,8 +51,8 @@ function hubScene() {
   const tGone = tSend + 0.07;
   const html = () =>
     [
-      `<div id="ground" class="fk-layer" style="z-index:0"><div class="fk-field"></div><div class="fk-glow"></div></div>`,
-      windowOf("W", [drafted, sent], 5),
+      S.stageHtml(),
+      S.stageWindow("W", [drafted, sent], 5),
       railHtml("rail-a", "Report"),
       railHtml("rail-b", "Team"),
       pointerHtml(),
@@ -54,10 +62,15 @@ function hubScene() {
   const state = (t, m) => {
     const st = new State();
     caption(st, t, m);
+    // The window floats in depth, on the film's clock.
+    const pose = S.drift(t);
+    const P = S.stageState(st, RECT, pose);
     // The drafted reply until the click; then the thread with the reply in it, scrolled from where the
     // drafted thread stood (the question unmoved), up to its place.
     const isSent = t >= tGone ? 1 : 0;
-    const g = placeWindow(st, "W", drafted.css, VIEW, [1 - isSent, isSent]);
+    const g = placeWindow(st, "W", drafted.css, framing(t), [1 - isSent, isSent], {
+      transform: P.css,
+    });
     const scroll = (1 - span(t, tGone, tGone + 0.5, EASE.move)) * m.offset;
     m.bodyItems.forEach((_, i) =>
       st.set("#W-1 .mh-body > *", { transform: `translateY(${px(scroll)})` }, i),
@@ -72,10 +85,12 @@ function hubScene() {
     const moved = span(t, tSend + 0.05, tSend + 0.4, EASE.move);
     st.set("#rail-a", fade(1 - moved));
     st.set("#rail-b", fade(moved));
-    // The pointer comes up from the composer's text to Send, presses it, and is gone.
-    const to = g.map(m.send);
+    // The pointer comes up from the composer's text to Send, presses it, and is gone; its points are the page's,
+    // carried through the window's turn.
+    const on = (pt) => P.map(g.map(pt));
+    const to = on(m.send);
     pointer(st, t, {
-      from: lerp2(to, g.map(m.text), 0.55),
+      from: lerp2(to, on(m.text), 0.55),
       to,
       a: tIn + 0.12,
       b: tSend - 0.08,

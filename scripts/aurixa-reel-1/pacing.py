@@ -2,6 +2,7 @@
 
   python3 scripts/aurixa-reel-1/pacing.py           # solve, check, and write docs/brands/aurixa-reel-1/system-edition/pacing.json
   python3 scripts/aurixa-reel-1/pacing.py --table   # the pauses and where every cut lands against the music
+  python3 scripts/aurixa-reel-1/pacing.py --voiceover <master.wav> <paced.wav>   # the voiceover held open
 
 The client's review of the second cut (22 October 2026) asked for room to breathe between screens and for National
 Treasures under the whole film. Both are answered here, and nothing else in the reel types a time for them:
@@ -372,10 +373,43 @@ def write(pauses):
     return data
 
 
+def paced_voiceover(src, out):
+    """The master voiceover held open: silence of each pause's length inserted at its place, sample for sample
+    (a frame is 1470 samples at 44.1 kHz), and silence after the last word to the film's end."""
+    import wave
+    import numpy as np
+    with wave.open(str(src)) as w:
+        if w.getframerate() != SR or w.getsampwidth() != 2:
+            raise SystemExit(f"{src}: expected 16-bit audio at {SR} Hz")
+        ch = w.getnchannels()
+        x = np.frombuffer(w.readframes(w.getnframes()), np.int16).reshape(-1, ch)
+    pieces, at = [], 0
+    for p in sorted((p for p in SOLVED if p["frames"]), key=lambda p: p["at"]):
+        cut = round(p["at"] * SR)
+        pieces += [x[at:cut], np.zeros((p["frames"] * SPF, ch), np.int16)]
+        at = cut
+    pieces.append(x[at:])
+    y = np.concatenate(pieces)
+    total = end_frame() * SPF
+    if len(y) > total:
+        raise SystemExit(f"The paced voiceover runs {len(y) / SR:.3f} s, past the film's end")
+    y = np.concatenate([y, np.zeros((total - len(y), ch), np.int16)])
+    with wave.open(str(out), "wb") as w:
+        w.setnchannels(ch)
+        w.setsampwidth(2)
+        w.setframerate(SR)
+        w.writeframes(y.tobytes())
+    return len(y) / SR
+
+
 def main():
     import system_edition as se  # solves the pacing on its shots, on this module imported by name
     import pacing as P
     cuts = [(s["id"], se.moment(s["start"], 0)) for s in se.SHOTS]
+    if sys.argv[1:2] == ["--voiceover"]:
+        seconds = P.paced_voiceover(Path(sys.argv[2]), Path(sys.argv[3]))
+        print(f"the voiceover held open: {seconds:.3f} s -> {sys.argv[3]}")
+        return
     if sys.argv[1:] == ["--table"]:
         for p in P.SOLVED:
             print(f"{p['at']:8.3f} {p['frames']:3d}f {p['frames'] / FPS:5.2f}s  {p['group']:5}  {p['why']}")
