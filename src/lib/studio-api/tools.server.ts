@@ -23,6 +23,7 @@ import { CHANNELS, EMPTY_DNA, GOALS } from "../brand/dna";
 import { GITHUB_TOKEN_PATTERN } from "../brand/import-request";
 import { parseTimeline, timelineSchema } from "../edit/timeline";
 import { textCheckOf } from "../media/text-check";
+import { ALIGN_ANCHORS, ALIGN_DEFAULTS, ALIGN_LIMITS } from "../media/align-take";
 import { CHARACTER_VIEWS } from "../characters/model";
 import type { ModelRegistryEntry } from "../model-schema";
 import type { ApiScope } from "./tokens";
@@ -1556,6 +1557,39 @@ const importImage = tool({
   },
 });
 
+/* ------------------------------------------------------------------ */
+/* Takes that land on a picture, logos' clean plates, private screens  */
+/* ------------------------------------------------------------------ */
+
+const alignTake = tool({
+  name: "align_take",
+  title: "Align a take to its picture",
+  description:
+    'Puts a take (a video) on the exact picture it must end on, or start on with anchor "first": the media service registers that frame on the picture, matches its colour, and crosses to the picture itself (crossSeconds), which then holds (holdSeconds) before anything else moves. The aligned take joins the library, with what was measured. Answers "processing" at first: ask again with the same clientRequestId to follow it.',
+  scope: "edit",
+  readOnly: false,
+  input: z.object({
+    takeAssetId: id(),
+    pictureAssetId: id().describe("The picture the take must land on, in the library"),
+    anchor: z
+      .enum(ALIGN_ANCHORS)
+      .default("last")
+      .describe("Which end of the take must be the picture"),
+    crossSeconds: z.number().min(0).max(ALIGN_LIMITS.cross).default(ALIGN_DEFAULTS.cross),
+    holdSeconds: z.number().min(0).max(ALIGN_LIMITS.hold).default(ALIGN_DEFAULTS.hold),
+    clientRequestId: requestId(),
+  }),
+  run: async (args, caller) => {
+    const { startAlignTake } = await import("../media/align-take.server");
+    const { clientRequestId, ...rest } = args;
+    return startAlignTake({
+      ...rest,
+      userId: caller.userId,
+      dedupeKey: `align-take:${caller.userId}:${clientRequestId}`,
+    });
+  },
+});
+
 const openInEditor = tool({
   name: "open_in_editor",
   title: "Open a long video as an edit",
@@ -1859,6 +1893,7 @@ export const STUDIO_TOOLS: StudioTool[] = [
   checkText,
   saveCharacter,
   importImage,
+  alignTake,
   openInEditor,
   createEdit,
   updateEdit,

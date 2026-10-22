@@ -10,6 +10,7 @@ import { MediaPreview } from "@/components/studio/MediaPreview";
 import { StatusBadge } from "@/components/studio/StatusBadge";
 import { MediaTaskPanel } from "@/components/studio/MediaTaskPanel";
 import { TextCheckPanel } from "@/components/studio/TextCheckPanel";
+import { AlignTakePanel } from "@/components/studio/AlignTakePanel";
 import { ReframeDialog } from "@/components/studio/ReframeDialog";
 import {
   downloadAsset,
@@ -375,6 +376,8 @@ export function AssetDetailDialog({
                 )}
 
                 <TextCheckPanel asset={asset} />
+
+                <AlignTakePanel asset={asset} />
 
                 <MediaTaskPanel asset={asset} />
 
