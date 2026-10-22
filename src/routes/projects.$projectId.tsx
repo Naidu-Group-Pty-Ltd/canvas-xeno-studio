@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { VoiceAssignment } from "@/components/voices/VoiceAssignment";
+import { ProjectSpend } from "@/components/usage/CostPanels";
 
 export const Route = createFileRoute("/projects/$projectId")({
   head: () => ({
@@ -160,10 +161,11 @@ function ProjectDetailPage() {
               · administrators only
             </p>
           )}
-          <p className="text-xs text-muted-foreground">
-            Spent so far: ${spentEstimated.toFixed(2)} estimated
-            {projectBudget?.budget_usd != null ? ` of $${Number(projectBudget.budget_usd).toFixed(2)}` : ""}
-          </p>
+          <ProjectSpend
+            projectId={projectId}
+            budgetUsd={projectBudget?.budget_usd != null ? Number(projectBudget.budget_usd) : null}
+            fallbackEstimatedUsd={spentEstimated}
+          />
           {project && (
             <VoiceAssignment
               table="projects"
