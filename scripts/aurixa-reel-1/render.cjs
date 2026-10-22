@@ -463,7 +463,8 @@ function brandScene() {
     st.set("#ground", fade(span(t, t0 + 0.05, t0 + 0.75, EASE.move)));
     // G-HAIRLINE: one gold line drawn across, the traveller's glow at its leading end.
     const drawn = span(t, t0 + 0.08, tEmblem + 0.05, EASE.move);
-    const away = span(t, tLift, tLift + 0.4, EASE.move);
+    // The hairline and the wordmark give way quickly, so they are gone before the window comes in.
+    const away = span(t, tLift, tLift + 0.32, EASE.settle);
     st.set("#hair", { transform: `scaleX(${r3(drawn)})`, ...fade(Math.min(drawn * 8, 1) - away) });
     st.set("#hair-head", {
       transform: `translate(${px(110 + 860 * drawn)}, 0) translate(-50%, -50%)`,
@@ -505,7 +506,8 @@ function brandScene() {
     // The Command Centre's window: it settles in as the emblem lands; its sidebar's groups set in,
     // then the top bar with its Demo workspace badge, then the Overview page.
     const winIn = span(t, tLift + 0.1, tLift + 0.5, EASE.move);
-    const reports = span(t, tPush + 0.22, tPush + 0.58, EASE.linear);
+    // Reports comes in while the push is at its fastest, so the change of page doesn't linger as a double image.
+    const reports = span(t, tPush + 0.12, tPush + 0.36, EASE.linear);
     const selected = span(t, tPress + 0.03, tPress + 0.18, EASE.linear);
     const wg = placeWindow(st, "W", css, framing, [1, reports, selected], {
       opacity: winIn,
@@ -756,14 +758,16 @@ function deliverableScene() {
     const cardCentre = [card[0] + card[2] / 2, card[1] + card[3] / 2];
     const [, cx, cy, crot] = FAN[FAN.length - 1];
     // The cover at time u: from the size of the page's document view, centred on it, up to F05's place.
+    // It starts as a small page on the document view (a fifth of its size, a little below where it
+    // lands) and rises to full size as it comes forward, its shadow growing with it.
     const coverAt = (u) => {
-      const p = span(u, tLift, tLift + 0.72, EASE.settle);
-      const c = lerp2(cardCentre, [cx + DOC_W / 2, cy + DOC_H / 2], p);
+      const p = span(u, tLift, tLift + 0.8, EASE.settle);
+      const c = lerp2([cardCentre[0], cardCentre[1] + 30], [cx + DOC_W / 2, cy + DOC_H / 2], p);
       return {
         left: c[0] - DOC_W / 2,
         top: c[1] - DOC_H / 2,
         angle: lerp(0, crot, p),
-        scale: lerp((card[2] / DOC_W) * 0.92, 1, p),
+        scale: zoomLerp(0.2, 1, p),
       };
     };
     FAN.forEach(([, x, y, rot], i) => {
@@ -772,10 +776,10 @@ function deliverableScene() {
       let opacity;
       if (cover) {
         s = coverAt(t);
-        opacity = span(t, tLift, tLift + 0.22, EASE.linear);
+        opacity = span(t, tLift, tLift + 0.1, EASE.linear);
       } else {
         // Each page starts exactly behind the cover, where the cover is at that moment, and fans out.
-        const a = tLift + 0.56 + i * 0.09;
+        const a = tLift + 0.62 + i * 0.09;
         const from = coverAt(a);
         const p = span(t, a, a + 0.6, EASE.settle);
         s = {

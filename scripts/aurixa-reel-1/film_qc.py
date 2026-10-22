@@ -30,7 +30,7 @@ from PIL import Image
 W, H = 1080, 1920
 FRAME_BYTES = W * H * 3
 # The master as a player decodes it: BT.709, TV range, chroma upsampled bilinearly.
-TO_RGB = "zscale=rangein=limited:matrixin=709:primariesin=709:transferin=709:range=full:filter=bilinear,format=rgb24"
+TO_RGB = "zscale=rangein=limited:matrixin=709:primariesin=709:transferin=709:range=full:primaries=709:transfer=709:filter=bilinear,format=gbrp,format=rgb24"
 
 
 def run(args, **kw):
@@ -66,7 +66,11 @@ def frames(file, decode, every=1, start=0):
 def ssim_psnr(test, ref, decode_test):
     """Whole-film SSIM and PSNR (RGB) of `test` against `ref`, and the worst frame's SSIM."""
     stats = Path(test).with_suffix(".ssim.log")
-    graph = f"[0:v]{decode_test},format=gbrp[t];[1:v]format=gbrp[r];[t]split[t1][t2];[r]split[r1][r2];[t1][r1]ssim=stats_file={stats};[t2][r2]psnr"
+    # Frames are paired by their index, never by timestamp: the reference's container keeps time in whole
+    # milliseconds, and pairing by time matches some moving frames with their neighbours.
+    index = "settb=1/30,setpts=N"
+    graph = (f"[0:v]{index},{decode_test},format=gbrp[t];[1:v]{index},format=gbrp[r];"
+             f"[t]split[t1][t2];[r]split[r1][r2];[t1][r1]ssim=stats_file={stats};[t2][r2]psnr")
     err = run(["ffmpeg", "-v", "info", "-i", str(test), "-i", str(ref), "-lavfi", graph, "-f", "null", "-"]).stderr.decode()
     ssim_line = [l for l in err.splitlines() if "SSIM" in l and "All:" in l][-1]
     psnr_line = [l for l in err.splitlines() if "PSNR" in l and "average:" in l][-1]
@@ -193,41 +197,60 @@ def luma(img):
     return img.astype(float) @ np.array([0.2126, 0.7152, 0.0722])
 
 
-def edge_energy(y):
-    return float(np.abs(np.diff(y, axis=0)).mean() + np.abs(np.diff(y, axis=1)).mean())
+def gradient(y):
+    gx = np.zeros_like(y)
+    gy = np.zeros_like(y)
+    gx[:, 1:-1] = (y[:, 2:] - y[:, :-2]) / 2
+    gy[1:-1, :] = (y[2:, :] - y[:-2, :]) / 2
+    return np.hypot(gx, gy)
+
+
+def edge_keep(test_y, ref_y, strong=24.0):
+    """How much of the reference's edge contrast the test keeps, at the reference's strong edges (text,
+    rules, borders): 1.0 is nothing softened. Dither and grain don't count, being far below `strong`."""
+    gr = gradient(ref_y)
+    m = gr >= strong
+    return float(gradient(test_y)[m].mean() / gr[m].mean())
 
 
 def timing(test, ref, decode_test, log, cuts):
-    """Captions where film.json puts them; the hard cuts exactly on their frames; still frames still."""
+    """Captions where film.json puts them; each hard cut on its frame; the picture as sharp as its source."""
     zone = slice(1300, 1560)
     expect = [bool(f["caption"]) for f in log["frames"]]
     seen = []
     diffs = []
     prev = None
-    sharp = []
+    keep = []
+    psnr = []
     for (i, t), (_, r) in zip(frames(test, decode_test), frames(ref, "format=rgb24")):
         y = luma(t)
-        cap = y[zone]
-        # A caption is white glyphs inside a black stroke: many near-white pixels with near-black beside them.
-        seen.append(bool(((cap > 235).sum() > 800) and ((cap < 25).sum() > 2000)))
+        # A caption is white glyphs in a black stroke: nothing else in the caption zone is near-white.
+        seen.append(bool((y[zone] > 235).sum() > 800))
         yr = luma(r)
+        # The picture's change from the frame before, outside the captions (a caption's change is its own).
         if prev is not None:
-            diffs.append(float(np.abs(yr - prev).mean()))
-            if diffs[-1] < 1e-9 and i % 15 == 0:
-                sharp.append(edge_energy(y) / edge_energy(yr))
+            diffs.append(float(np.concatenate([np.abs(yr - prev)[:1300], np.abs(yr - prev)[1560:]]).mean()))
         prev = yr
+        mse = float(((t.astype(float) - r.astype(float)) ** 2).mean())
+        psnr.append(99.0 if mse == 0 else 10 * math.log10(255 ** 2 / mse))
+        if i % 10 == 0:
+            keep.append(edge_keep(y, yr))
     mismatched = [log["frames"][k]["frame"] for k in range(min(len(seen), len(expect))) if seen[k] != expect[k]]
-    order = np.argsort(diffs)[::-1]
-    biggest = sorted(int(k) + 1 for k in order[: len(cuts)])
+    # A cut is the one frame in its neighbourhood (+/- 6 frames) where the picture changes most, and changes
+    # a lot: the change into frame c is diffs[c - 1].
+    cut_report = []
+    for c in cuts:
+        window = [diffs[k - 1] for k in range(max(1, c - 6), min(len(diffs), c + 7))]
+        cut_report.append({"frame": c, "change": round(diffs[c - 1], 2), "next_largest_nearby": round(sorted(window)[-2], 2),
+                           "on_its_frame": diffs[c - 1] == max(window) and diffs[c - 1] > 4 * sorted(window)[-2]})
+    worst = int(np.argmin(psnr))
     return {
         "frames_checked": len(seen),
         "caption_frames_expected": int(sum(expect)),
         "caption_mismatches": mismatched,
-        "cuts_expected_at": cuts,
-        "largest_changes_at": biggest,
-        "cuts_on_their_frames": biggest == sorted(cuts),
-        "still_frames_measured": len(sharp),
-        "sharpness_vs_reference": {"min": round(min(sharp), 4), "mean": round(float(np.mean(sharp)), 4)} if sharp else None,
+        "cuts": cut_report,
+        "psnr_by_frame_db": {"mean": round(float(np.mean(psnr)), 2), "min": round(psnr[worst], 2), "worst_frame_index": worst},
+        "edges_kept": {"frames": len(keep), "min": round(min(keep), 4), "mean": round(float(np.mean(keep)), 4)},
     }
 
 
@@ -235,14 +258,15 @@ def banding(test, ref, decode_test, index, out):
     """The ground's glow on one frame: a 12x contrast stretch of both, and the smoothed profiles' worst gap."""
     t = next(frames(test, decode_test, 1, index))[1]
     r = next(frames(ref, "format=rgb24", 1, index))[1]
-    box = (slice(1580, 1900), slice(0, W))
+    # Above the logo, inside the ground's radial glow: the film's smoothest gradient, and its darkest.
+    box = (slice(120, 480), slice(0, W))
     yt, yr = luma(t[box]), luma(r[box])
     prof_t, prof_r = yt.mean(1), yr.mean(1)
     lo = min(yr.min(), yt.min())
     stretch = lambda y: np.clip((y - lo) * 12, 0, 255).astype(np.uint8)
     both = np.concatenate([stretch(yr), np.full((8, W), 255, np.uint8), stretch(yt)], 0)
     Image.fromarray(both).save(out / "banding-glow-x12.png")
-    return {"frame_index": index, "rows": "1580-1900", "profile_max_gap_code_values": round(float(np.abs(prof_t - prof_r).max()), 3),
+    return {"frame_index": index, "rows": "120-480", "profile_max_gap_code_values": round(float(np.abs(prof_t - prof_r).max()), 3),
             "crop": "banding-glow-x12.png"}
 
 
