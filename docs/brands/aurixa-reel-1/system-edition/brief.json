@@ -603,7 +603,7 @@
     },
     "G-EMBLEM": {
       "name": "The emblem build",
-      "what": "The supplied logo, at half the frame's width, revealed out of the night by a video model's take of its clean plate that ends exactly on the supplied art (until the take is made, the art rises out of its own gold horizon); then its own lettering, the art's pixels and the shadow they stand in, rising letter by letter and the light crossing it once; then the emblem, the supplied file, lifts into the Command Centre. The logo is the supplied file, never redrawn or retyped.",
+      "what": "The supplied logo, at half the frame's width, revealed out of the night by a video model's take of its clean plate that ends exactly on the supplied art; then its own lettering, the art's pixels and the shadow they stand in, rising letter by letter and the light crossing it once; then the emblem, the supplied file, lifts into the Command Centre. The logo is the supplied file, never redrawn or retyped.",
       "tokens": ["ground", "hairline", "glow-gold", "ease-settle"]
     },
     "G-HORIZON": {
