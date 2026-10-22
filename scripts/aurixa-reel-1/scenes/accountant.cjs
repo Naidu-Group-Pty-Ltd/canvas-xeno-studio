@@ -1,5 +1,5 @@
 // Reel 1, shot 08.1: the accountant's part, done in the same system. Mia's Requests on Jordan's client file:
-// she marks his income statement fulfilled.
+// she marks his income statement fulfilled. The window floats in depth (./workflowStage.cjs).
 const M = require("../motion.cjs");
 const {
   beat,
@@ -8,7 +8,6 @@ const {
   px,
   State,
   fade,
-  windowHtml,
   placeWindow,
   pointerHtml,
   pointer,
@@ -17,6 +16,7 @@ const {
   railHtml,
   F,
 } = M;
+const S = require("./workflowStage.cjs");
 
 // ------------------------------------------------------------------ 08.1: the request, Fulfilled
 function accountantScene() {
@@ -26,8 +26,8 @@ function accountantScene() {
   const VIEW = { rect: [40, 384, 1000, 900], zoom: 1.5, focus: [560, 380], at: [540, 834] };
   const html = () =>
     [
-      `<div id="ground" class="fk-layer" style="z-index:0"><div class="fk-field"></div><div class="fk-glow"></div></div>`,
-      windowHtml("W", ["PL-08A-a", "PL-08A-b"], 5),
+      S.stageHtml(),
+      S.stageWindow("W", ["PL-08A-a", "PL-08A-b"], 5),
       railHtml("rail", "Team"),
       pointerHtml(),
       captionHtml(),
@@ -44,7 +44,8 @@ function accountantScene() {
     const turned = span(t, tPress + 0.06, tPress + 0.3, EASE.linear);
     // The fulfilled state is laid over the pending one (which stays whole beneath until it is covered),
     // so the page never dims through the change.
-    const g = placeWindow(st, "W", css, VIEW, [turned < 1 ? 1 : 0, turned]);
+    const P = S.stageState(st, VIEW.rect, S.drift(t));
+    const g = placeWindow(st, "W", css, VIEW, [turned < 1 ? 1 : 0, turned], { transform: P.css });
     const settled = span(t, tPress + 0.3, tPress + 0.62, EASE.move);
     const [ax, ay] = m.align;
     st.set("#W-1 .areq", {
@@ -66,10 +67,12 @@ function accountantScene() {
       "transform-origin": "100% 50%",
       ...fade(shown),
     });
-    // The pointer comes from the request's status to Mark fulfilled, presses it and is gone.
+    // The pointer comes from the request's status to Mark fulfilled, presses it and is gone; its points are the
+    // page's, carried through the window's turn.
+    const on = (pt) => P.map(g.map(pt));
     pointer(st, t, {
-      from: g.map(m.status),
-      to: g.map(m.fulfil),
+      from: on(m.status),
+      to: on(m.fulfil),
       a: tIn + 0.35,
       b: tPress - 0.08,
       show: tIn + 0.32,
