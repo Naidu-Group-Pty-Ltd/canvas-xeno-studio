@@ -81,7 +81,7 @@ function MATH() {
    * grow when it zooms, and a little larger nearer the camera than further from it.
    */
   const pinSize = (c, z) =>
-    Math.min(15 * Math.pow(9000 / Math.max(altitude(c), 200), 0.3), 28) * Math.pow(c.dist / z, 0.6);
+    Math.min(23 * Math.pow(9000 / Math.max(altitude(c), 200), 0.3), 28) * Math.pow(c.dist / z, 0.6);
   const FALL = 0.3;
   /**
    * A pin's pose `tau` seconds after it touches down (negative while it falls): how high it stands above its
@@ -586,8 +586,12 @@ function pageMain(M, PINS, CFG) {
     gl.bindVertexArray(P.vaoAll);
     gl.bindBuffer(gl.ARRAY_BUFFER, P.allBuf);
     gl.bufferData(gl.ARRAY_BUFFER, inst.subarray(0, n * 20), gl.DYNAMIC_DRAW);
+    // The ground pass takes the darkest shadow (and the brightest ripple) where they overlap, never their sum:
+    // summed, a city's thirty pins landing together laid down one black smudge.
+    gl.blendEquation(gl.MAX);
     gl.uniform1i(prog.u("uPass"), 0);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, n);
+    gl.blendEquation(gl.FUNC_ADD);
     gl.uniform1i(prog.u("uPass"), 1);
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, n);
     if (goldAt >= 0 && (g.glow || 0) > 0) {
