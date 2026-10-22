@@ -107,6 +107,10 @@ interface RenderInput {
   expectedVersion: number;
   clientRequestId: string;
   userId: string;
+  /** For public use: held until every file it uses is cleared or its exceptions are confirmed. */
+  publicUse?: boolean | undefined;
+  /** The files not cleared that the person rendering confirms as exceptions (all of them, or by id). */
+  confirmExceptions?: boolean | string[] | undefined;
 }
 
 export interface RenderStarted {
@@ -356,6 +360,14 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
     })),
   );
   if (music.blocker) throw new AppError("INVALID_PARAMETERS", music.blocker);
+  // The edit's credits go with the render; one for public use is held here
+  // until every file it uses is cleared or its exceptions are confirmed.
+  const { markPublicUse, renderRights } = await import("../rights/service.server");
+  const rights = await renderRights(timeline, {
+    userId: input.userId,
+    publicUse: input.publicUse === true,
+    confirmExceptions: input.confirmExceptions ?? false,
+  });
   const request = await renderRequestFor(timeline);
 
   const renderId = crypto.randomUUID();
@@ -399,6 +411,7 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
             : {}),
           ...(music.credits.length ? { music_credits: music.credits } : {}),
           ...(music.licences.length ? { music_licences: music.licences } : {}),
+          ...rights.payload,
         },
       },
     } as never,
@@ -423,6 +436,7 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
     );
   if (outcome.outcome !== "started")
     throw new AppError("INVALID_PARAMETERS", "That edit no longer exists");
+  if (rights.check) await markPublicUse(renderId, rights.check);
 
   return submitRender({ renderId, taskId, assets, request, videoPath, posterPath });
 }

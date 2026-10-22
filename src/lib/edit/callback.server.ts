@@ -164,6 +164,17 @@ export async function finishSequenceRender(
             ...(Array.isArray(input["music_licences"]) && input["music_licences"].length
               ? { music_licences: input["music_licences"] }
               : {}),
+            // Every file it used with its licence and status, the credit lines
+            // owed, and (for public use) the exceptions confirmed: see ../rights.
+            ...(Array.isArray(input["credits"]) && input["credits"].length
+              ? { credits: input["credits"] }
+              : {}),
+            ...(Array.isArray(input["credit_lines"]) && input["credit_lines"].length
+              ? { credit_lines: input["credit_lines"] }
+              : {}),
+            ...(input["rights_check"] && typeof input["rights_check"] === "object"
+              ? { rights_check: input["rights_check"] }
+              : {}),
           } as never,
         })
         .select("id")

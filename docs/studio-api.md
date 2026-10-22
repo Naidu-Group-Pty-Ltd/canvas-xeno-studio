@@ -74,6 +74,8 @@ curl -X POST https://<your studio>/api/public/studio/list_models \
 | `list_characters`     | The team's characters: their look, how many reference images they have, and their Soul IDs (one per Soul model) with each likeness score and approval.                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `get_character`       | One character: their reference sheet and training photos (with links), Soul IDs and the state of their latest Soul ID training.                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `estimate_generation` | The provider's price for a generation without making it: the same `modelId`, `parameters`, `inputs`, `characterIds` and `brandKitId` as `queue_generation`, priced as they would be sent. Nothing is billed.                                                                                                                                                                                                                                                                                                                                                                         |
+| `get_asset_rights`    | Library files' rights (`assetIds`): each one's source, licence and status for public use (`cleared`, `to_confirm` or `not_cleared`), the credit line owed, and who set and confirmed it and when (see "Rights and credits").                                                                                                                                                                                                                                                                                                                                                         |
+| `get_edit_credits`    | An edit's credits: every file it uses and how, each one's licence and status, the credit lines owed, and which files aren't cleared.                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `estimate_stage`      | Prices a list of `generations` together (each as `estimate_generation` would, every one of its `takes`), adds `retakeAllowance` (a fifth again unless given), and checks the total against the Higgsfield API balance and the spending limit that applies. Says whether it `fits`, and why not, with each item's price and `costSource`. Nothing is billed.                                                                                                                                                                                                                          |
 
 **Generate** (`generate` scope; spends credits):
@@ -101,7 +103,8 @@ curl -X POST https://<your studio>/api/public/studio/list_models \
 | `open_in_editor`              | Lays a long video out as an edit. Takes captions from the script, titles on the voiceover's clock, music, and the brand kit's look. |
 | `create_edit` / `update_edit` | Makes an edit from a timeline, or changes one. An update is accepted only at the version you read.                                  |
 | `apply_brand_kit`             | Applies a kit's fonts and colours to the edit's text, and can add its end card inside a platform's safe area.                       |
-| `render_edit`                 | Renders the edit at a version. Poll it with `get_render`.                                                                           |
+| `render_edit`                 | Renders the edit at a version, its credits with it. Poll it with `get_render`. `publicUse` holds it until every file is cleared.    |
+| `set_asset_rights`            | Records a file's rights: its `status` and any `source`, `licence`, `licenceUrl`, `creditLine` or `notes`; `clear` forgets them.     |
 
 Every operation that spends or makes something takes your own `clientRequestId` (8 to 64
 characters). Sending the same request again returns the first result, so a retry never bills
@@ -147,6 +150,28 @@ A stage (`estimate_stage`, `queue_stage`) is checked whole before any of it is q
 balance (the figure an admin recorded from the Console, less what was spent and is held since)
 and the spending limit that applies: the project's or campaign's, else your monthly cap for work
 outside both.
+
+## Rights and credits
+
+Every library file has a source, a licence and a status for public use: `cleared`, `to_confirm`
+or `not_cleared`, with the credit line owed where there is one. Until someone records them
+(`set_asset_rights`, or the file's details in the library) they are worked out:
+
+- music from the library takes its track's licence and credit, read from the music library;
+- what the studio made is under its provider's terms, said by name (Higgsfield's for a
+  generation or a Katana video, ElevenLabs' for a voiceover made in the Voice tab), and is
+  `to_confirm` when a file it was made from isn't cleared;
+- what the studio rendered or cut from a file follows what it was made from;
+- uploads and imports (`import_image`, `import_audio`) are `to_confirm`.
+
+What is recorded stands instead, with who set it and when, and who confirmed it (`cleared` or
+`not_cleared`) and when. A music track's licence and credit stay the music library's: only its
+status and notes are recorded. A licence that has run out is never cleared.
+
+`render_edit` takes the edit's credits with it, to the rendered video. With `publicUse: true` it
+is held, and nothing starts, until every file the edit uses is cleared, or you confirm the files
+that aren't as exceptions (`confirmExceptions: true`, or their asset ids). Who confirmed them, and
+when, is kept with the render.
 
 ## A presenter video, end to end
 

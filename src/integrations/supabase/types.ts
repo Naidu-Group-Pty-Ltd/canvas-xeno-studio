@@ -286,6 +286,73 @@ export type Database = {
           },
         ]
       }
+      asset_rights: {
+        Row: {
+          asset_id: string
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          credit_line: string | null
+          licence: string | null
+          licence_url: string | null
+          notes: string | null
+          source: string | null
+          status: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          asset_id: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          credit_line?: string | null
+          licence?: string | null
+          licence_url?: string | null
+          notes?: string | null
+          source?: string | null
+          status: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          asset_id?: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          credit_line?: string | null
+          licence?: string | null
+          licence_url?: string | null
+          notes?: string | null
+          source?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_rights_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: true
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_rights_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_rights_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assets: {
         Row: {
           asset_type: Database["public"]["Enums"]["asset_type"]
@@ -5496,6 +5563,8 @@ export type Database = {
           id: string
           media_task_id: string | null
           progress: number
+          public_use: boolean
+          rights_check: Json | null
           sequence_id: string
           sequence_version: number
           stage: string | null
@@ -5515,6 +5584,8 @@ export type Database = {
           id?: string
           media_task_id?: string | null
           progress?: number
+          public_use?: boolean
+          rights_check?: Json | null
           sequence_id: string
           sequence_version: number
           stage?: string | null
@@ -5534,6 +5605,8 @@ export type Database = {
           id?: string
           media_task_id?: string | null
           progress?: number
+          public_use?: boolean
+          rights_check?: Json | null
           sequence_id?: string
           sequence_version?: number
           stage?: string | null

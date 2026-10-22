@@ -1946,13 +1946,23 @@ const renderEdit = tool({
   name: "render_edit",
   title: "Render an edit",
   description:
-    "Renders an edit to a finished video with the media service, at the version given (from get_edit). Returns the render's id: follow it with get_render.",
+    "Renders an edit to a finished video with the media service, at the version given (from get_edit). Returns the render's id: follow it with get_render. Its credits (get_edit_credits) go with it. With publicUse it is held, and nothing starts, until every file it uses is cleared (set_asset_rights) or you confirm the exceptions (confirmExceptions: true, or their asset ids), recorded with who and when.",
   scope: "edit",
   readOnly: false,
   input: z.object({
     sequenceId: id(),
     expectedVersion: z.number().int().min(1),
     clientRequestId: requestId(),
+    publicUse: z
+      .boolean()
+      .default(false)
+      .describe("For publishing or public use: every file it uses must be cleared first"),
+    confirmExceptions: z
+      .union([z.boolean(), z.array(id()).max(500)])
+      .default(false)
+      .describe(
+        "For public use: confirm the files not cleared as exceptions (all, or by asset id)",
+      ),
   }),
   run: async (args, caller) => {
     const { startSequenceRender } = await import("../edit/render.server");
@@ -1961,7 +1971,101 @@ const renderEdit = tool({
       expectedVersion: args.expectedVersion,
       clientRequestId: args.clientRequestId,
       userId: caller.userId,
+      publicUse: args.publicUse,
+      confirmExceptions: args.confirmExceptions,
     });
+  },
+});
+
+/* ------------------------------------------------------------------ */
+/* Rights and credits                                                  */
+/* ------------------------------------------------------------------ */
+
+const getAssetRights = tool({
+  name: "get_asset_rights",
+  title: "Get files' rights",
+  description:
+    "Library files' rights: where each came from, its licence and its status for public use (cleared, to_confirm or not_cleared), the credit line owed where there is one, and who set and confirmed it and when. Until someone records them they are worked out: music from the library takes its track's licence, what the studio made is under its provider's terms (said by name), what it rendered or cut follows what it was made from, and uploads and imports are to_confirm.",
+  scope: "read",
+  input: z.object({ assetIds: z.array(id()).min(1).max(100) }),
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const { rightsForAssets } = await import("../rights/service.server");
+    const rights = await rightsForAssets(args.assetIds);
+    return {
+      files: args.assetIds.flatMap((assetId) => rights.get(assetId) ?? []),
+      missing: args.assetIds.filter((assetId) => !rights.has(assetId)),
+    };
+  },
+});
+
+const setAssetRights = tool({
+  name: "set_asset_rights",
+  title: "Set a file's rights",
+  description:
+    "Records a library file's rights: its status (cleared, to_confirm or not_cleared) and, where it differs from what is worked out, its source, licence, licenceUrl, creditLine and notes. A field left out keeps what was recorded; null clears it. Who set it and who confirmed it (cleared or not_cleared) are recorded with when. A music library track's licence and credit stay the music library's: only its status and notes are set here. With clear: true, what was recorded is forgotten and its rights are worked out again.",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({
+    assetId: id(),
+    status: z.enum(["cleared", "to_confirm", "not_cleared"]).optional(),
+    source: z.string().max(300).nullable().optional().describe("Where it came from"),
+    licence: z.string().max(300).nullable().optional().describe('Its licence, e.g. "CC BY 4.0"'),
+    licenceUrl: z.string().max(500).nullable().optional(),
+    creditLine: z
+      .string()
+      .max(1000)
+      .nullable()
+      .optional()
+      .describe("The credit owed wherever it is published"),
+    notes: z.string().max(2000).nullable().optional(),
+    clear: z.boolean().default(false),
+  }),
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const rights = await import("../rights/service.server");
+    if (args.clear)
+      return rights.clearAssetRights({ userId: caller.userId, assetId: args.assetId });
+    if (!args.status)
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        "Give the file's status: cleared, to_confirm or not_cleared",
+      );
+    return rights.setAssetRights({
+      userId: caller.userId,
+      assetId: args.assetId,
+      change: {
+        status: args.status,
+        source: args.source,
+        licence: args.licence,
+        licenceUrl: args.licenceUrl,
+        creditLine: args.creditLine,
+        notes: args.notes,
+      },
+    });
+  },
+});
+
+const getEditCredits = tool({
+  name: "get_edit_credits",
+  title: "Get an edit's credits",
+  description:
+    "An edit's credits: every file it uses (its clips, the pictures over it and the sound heard), how it uses each, each one's source, licence and status, the credit lines owed, and which files aren't cleared (a render for public use is held until they are, or their exceptions are confirmed).",
+  scope: "read",
+  input: z.object({ sequenceId: id() }),
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const { data: sequence } = await db
+      .from("sequences")
+      .select("id,timeline")
+      .eq("id", args.sequenceId)
+      .maybeSingle();
+    if (!sequence) throw new AppError("INVALID_PARAMETERS", "That edit doesn't exist");
+    const timeline = parseTimeline(sequence.timeline);
+    if (!timeline) throw new AppError("INVALID_PARAMETERS", "The edit's timeline can't be read");
+    const { creditsForTimeline } = await import("../rights/service.server");
+    const credits = await creditsForTimeline(timeline);
+    return { ...credits, notCleared: credits.notCleared.map((file) => file.assetId) };
   },
 });
 
@@ -2002,6 +2106,9 @@ export const STUDIO_TOOLS: StudioTool[] = [
   updateEdit,
   applyBrand,
   renderEdit,
+  getAssetRights,
+  getEditCredits,
+  setAssetRights,
 ];
 
 export function studioTool(name: string): StudioTool | null {

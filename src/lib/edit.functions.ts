@@ -12,6 +12,9 @@ const renderInput = z.object({
   sequenceId: z.string().uuid(),
   expectedVersion: z.number().int().min(1),
   clientRequestId: z.string().min(8).max(64),
+  /** For public use: held until every file is cleared or its exceptions are confirmed. */
+  publicUse: z.boolean().default(false),
+  confirmExceptions: z.union([z.boolean(), z.array(z.string().uuid()).max(500)]).default(false),
 });
 
 export const renderSequence = createServerFn({ method: "POST" })
