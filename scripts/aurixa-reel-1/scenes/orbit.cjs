@@ -104,6 +104,35 @@ function cardRect(t, h) {
   return [x - CARD_W / 2, tipY - TAIL - h, CARD_W, h];
 }
 
+/** What the globe draws at t (globe.cjs reads it from #globe-state): the camera, the pins' clock, the gold pin. */
+function globeState(t) {
+  const c = cameraAt(t);
+  const camObj = G.camera(c, 1080, 1920);
+  const gold = goldAt(t, camObj);
+  // The rest of the pins dim a little as the gold one turns; the ground a touch too, as the card arrives.
+  const dim = lerp(1, 0.5, span(t, T(2), T(2) + 0.5, EASE.settle));
+  const groundDim = lerp(1, 0.86, span(t, T(3), T(3) + 0.6, EASE.settle));
+  // Depth of field once the camera is low: the band round the pin sharp, the horizon and the near ground soft.
+  const low = span(t, T(2) + 0.4, T(2) + 1.3, EASE.settle);
+  const pinY = G.project(camObj, G.ll(GOLD[0], GOLD[1]))[1];
+  return JSON.stringify({
+    t: r3(t),
+    cam: {
+      lon: Number(c.lon.toFixed(5)),
+      lat: Number(c.lat.toFixed(5)),
+      dist: Number(c.dist.toFixed(3)),
+      heading: Number(c.heading.toFixed(4)),
+      tilt: Number(c.tilt.toFixed(4)),
+      fov: c.fov,
+      at: c.at.map((v) => Number(v.toFixed(3))),
+    },
+    dim: r3(dim),
+    gold,
+    dof: [r3(pinY), 380, 640, r3(1.2 * low)],
+    look: [r3(lerp(1.0, 1.12, low)), r3(groundDim), 0.34, r3(lerp(1, 0.55, low))],
+  });
+}
+
 // ------------------------------------------------------------------ 01.1
 /**
  * The continent from orbit, the sun low in the north-west: white pins rain onto it, a few and then hundreds,
@@ -134,33 +163,7 @@ function orbitScene() {
     // keeps the same clock; its spring and the captions keep the frame's own.
     const q = time > T(2) - 0.1 && time < T(2) + 1.8 ? 240 : 120;
     const t = Math.floor(time * q + 1e-6) / q;
-    const c = cameraAt(t);
-    const camObj = G.camera(c, 1080, 1920);
-    const gold = goldAt(t, camObj);
-    // The rest of the pins dim a little as the gold one turns; the ground a touch too, as the card arrives.
-    const dim = lerp(1, 0.5, span(t, T(2), T(2) + 0.5, EASE.settle));
-    const groundDim = lerp(1, 0.86, span(t, tCard, tCard + 0.6, EASE.settle));
-    // Depth of field once the camera is low: the band round the pin sharp, the horizon and the near ground soft.
-    const low = span(t, T(2) + 0.4, T(2) + 1.3, EASE.settle);
-    const pinY = G.project(camObj, G.ll(GOLD[0], GOLD[1]))[1];
-    st.set("#globe-state", {
-      $text: JSON.stringify({
-        t: r3(t),
-        cam: {
-          lon: Number(c.lon.toFixed(5)),
-          lat: Number(c.lat.toFixed(5)),
-          dist: Number(c.dist.toFixed(3)),
-          heading: Number(c.heading.toFixed(4)),
-          tilt: Number(c.tilt.toFixed(4)),
-          fov: c.fov,
-          at: c.at.map((v) => Number(v.toFixed(3))),
-        },
-        dim: r3(dim),
-        gold,
-        dof: [r3(pinY), 380, 640, r3(1.2 * low)],
-        look: [r3(lerp(1.0, 1.12, low)), r3(groundDim), 0.34, r3(lerp(1, 0.55, low))],
-      }),
-    });
+    st.set("#globe-state", { $text: globeState(t) });
     // The card springs out of the pin's head, overshooting a little, then settles.
     const tau = time - tCard;
     const s = tau < 0 ? 0 : 1 - Math.exp(-tau / 0.13) * Math.cos((tau * 2 * Math.PI) / 0.62);
@@ -187,6 +190,7 @@ function orbitScene() {
 module.exports = orbitScene;
 // For 01.2, which opens on this shot's last frame: its camera, its card and the pins' landing.
 module.exports.cameraAt = cameraAt;
+module.exports.globeState = globeState;
 module.exports.cardRect = cardRect;
 module.exports.goldAt = goldAt;
 module.exports.GOLD_LAND = GOLD_LAND;

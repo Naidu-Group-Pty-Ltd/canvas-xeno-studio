@@ -1,158 +1,92 @@
-// Reel 1, shot 02.1: four tools, one question.
+// Reel 1, shot 02.1 (third cut): four tools, one question.
 const M = require("../motion.cjs");
-const {
-  beat,
-  EASE,
-  span,
-  lerp,
-  lerp2,
-  zoomLerp,
-  r3,
-  px,
-  State,
-  fade,
-  pointerHtml,
-  pointer,
-  captionHtml,
-  caption,
-  F,
-} = M;
+const { beat, EASE, span, lerp, r3, px, State, fade, pointerHtml, pointer, captionHtml, caption } = M;
+const DK = require("../desk.cjs");
+const ask = require("./ask.cjs");
 
-// The frame's focus: the action zone's centre, where the camera's point of interest is held.
-const FOCUS = [540, 830];
-/** Where an F02 point lands in the frame under the camera { z, c }. */
-const through = ({ z, c }, [x, y]) => [FOCUS[0] + (x - c[0]) * z, FOCUS[1] + (y - c[1]) * z];
+const IDS = ["msg", "inbox", "research", "sheet", "contact", "report"];
 
-// ------------------------------------------------------------------ 02.1: the question meets four tools
 /**
- * The question lands at the top of a plain inbox, and the pointer goes to Reply and stops: there is nothing to
- * reply with yet. A research tool, a spreadsheet, a contact card and an empty report open over it one by one,
- * each in its own style, the camera pulling back a little with each until all four are in frame, overlapping
- * and misaligned: F02 (frames.cjs), whose own layers these are. The pointer then hops once between them.
+ * The camera pulls back from the sent message: it is one window of a desk of them, in depth, each a different
+ * tool in its own style under the same daylight. The question lands in a generic inbox as its top row and the
+ * pointer goes to Reply, and stops: there is nothing to reply with yet. Then one continuous move through the
+ * desk: a swing to the research tool (a map and comparable sales, still placeholders), a whip right to the
+ * worksheet (one formula cell selected), a whip down and left to Jordan Ellis's contact card, and the empty
+ * report behind them all, its caret blinking; the camera pulls back until the four hang in the frame together,
+ * misaligned and overlapping, none finished, and the pointer hops once between them and stops.
  */
 function toolsScene() {
-  const beats = [0, 1, 2, 3, 4].map((i) => beat("02.1", i));
-  const [tLand, tResearch, tSheet, tContact, tReport] = beats;
-  // F02's layers, in its order: the mail client (scaled to half), Research, the worksheet, the contact card,
-  // the empty report, and F02's pointer (drawn here by the moving one instead).
-  const layers = F.FRAMES.F02.draw();
-  // Each window's box in F02 (frame px): where it opens from, and what the camera must take in.
-  const BOX = [
-    [24, 384, 870, 520],
-    [400, 470, 650, 360],
-    [30, 640, 660, 340],
-    [470, 836, 580, 300],
-    [120, 990, 780, 290],
-  ];
-  const centre = ([x, y, w, h]) => [x + w / 2, y + h / 2];
-  // The camera after each arrival: in close on the inbox's new row and Reply, then back a little with each
-  // window, to F02's own framing (z 1, its focus at the frame's) for the fourth.
-  // (The first takes in the inbox's list and its reading pane, Reply included, above the caption zone.)
-  const SHOTS = [
-    { z: 1.3, c: [480, 600] },
-    { z: 1.2, c: [600, 620] },
-    { z: 1.12, c: [545, 690] },
-    { z: 1.06, c: [545, 760] },
-    { z: 1, c: FOCUS },
-  ];
-  const camera = (t) => {
-    let cam = SHOTS[0];
-    beats.forEach((b, i) => {
-      if (i === 0) return;
-      const p = span(t, b - 0.15, b + 0.75, EASE.move);
-      if (p > 0) {
-        const from = cam;
-        const to = SHOTS[i];
-        cam = { z: zoomLerp(from.z, to.z, p), c: lerp2(from.c, to.c, p) };
-      }
-    });
-    return cam;
-  };
+  const [tIn, tResearch, tSheet, tContact, tReport, tHop] = [0, 1, 2, 3, 4, 5].map((i) => beat("02.1", i));
+  const tOut = M.shotOf("02.1").out;
+  // The moves the camera makes fast (the swing and the two whips): drawn four times a frame, for their blur.
+  const fast = (t) =>
+    [tResearch, tSheet, tContact].some((b) => t > b - 0.05 && t < b + 0.8) ||
+    (t > tIn && t < tIn + 1.8) ||
+    (t > tReport - 0.05 && t < tHop + 0.05);
+  // The question lands in the inbox as the camera arrives on it, and the pointer goes to Reply.
+  const LAND = tIn + 1.25;
 
-  const html = () =>
-    [
-      `<div id="cam" class="fk-layer" style="transform-origin:0 0">${layers
-        .slice(0, 5)
-        .map((layer, i) => {
-          const [cx, cy] = centre(BOX[i]);
-          return `<div class="fk-layer" id="w${i}" style="transform-origin:${cx}px ${cy}px${i ? ";visibility:hidden" : ""}">${layer}</div>`;
-        })
-        .join("")}</div>`,
-      pointerHtml(),
-      captionHtml(),
-    ].join("");
+  const html = () => [`<style>${DK.CSS}</style>`, DK.roomHtml(IDS), pointerHtml(), captionHtml()].join("");
 
-  const state = (t, m) => {
+  const state = (time, m) => {
     const st = new State();
+    const t = DK.tick(time, fast(time) ? 240 : 120);
     caption(st, t, m);
-    const cam = camera(t);
-    const [tx, ty] = through(cam, [0, 0]);
-    st.set("#cam", { transform: `translate(${px(tx)}, ${px(ty)}) scale(${cam.z.toFixed(6)})` });
+    const c = DK.cameraAt(t);
+    DK.placeRoom(st, c, IDS, { fades: DK.fadesAt(t) });
 
-    // The inbox: the question lands as the top row, the rows below making room for it, and opens beside them.
-    const land = span(t, tLand + 0.05, tLand + 0.55, EASE.settle);
-    const rowH = m.rows[0][3];
+    // The message window as 01.2 left it: sent, the chip on its card.
+    ask.sentState(st, m);
+
+    // The inbox: the question lands as the top row, the rows below making room, and its reading pane opens.
+    const land = span(t, LAND, LAND + 0.5, EASE.settle);
+    const rowH = m.rows[1][1] - m.rows[0][1];
     m.rows.forEach((_, i) => {
       if (i === 0)
-        st.set(
-          "#w0 .bp-row",
-          {
-            transform: `translateY(${px((1 - land) * -18)})`,
-            ...fade(span(t, tLand + 0.05, tLand + 0.3, EASE.linear)),
-          },
-          0,
-        );
-      else st.set("#w0 .bp-row", { transform: `translateY(${px((1 - land) * -rowH)})` }, i);
+        st.set("#dk-inbox .bp-row", { transform: `translateY(${px((1 - land) * -24)})`, ...fade(span(t, LAND, LAND + 0.25, EASE.linear)) }, 0);
+      else st.set("#dk-inbox .bp-row", { transform: `translateY(${px((1 - land) * -rowH)})` }, i);
     });
-    st.set("#w0 .bp-read", {
-      transform: `translateY(${px((1 - span(t, tLand + 0.2, tLand + 0.7, EASE.settle)) * 14)})`,
-      ...fade(span(t, tLand + 0.2, tLand + 0.6, EASE.settle)),
-    });
+    st.set("#dk-read", { transform: `translateY(${px((1 - span(t, LAND + 0.15, LAND + 0.6, EASE.settle)) * 16)})`, ...fade(span(t, LAND + 0.15, LAND + 0.5, EASE.settle)) });
 
-    // The other tools open one by one, each in its own style, each a little off from the last.
-    beats.slice(1).forEach((b, k) => {
-      const i = k + 1;
-      const open = span(t, b, b + 0.42, EASE.settle);
-      st.set(`#w${i}`, {
-        transform: `translateY(${px((1 - open) * 18)}) scale(${r3(lerp(0.94, 1, open))})`,
-        ...fade(span(t, b, b + 0.2, EASE.linear)),
+    // The worksheet's selected cell and the empty report: their carets blink.
+    const blink = (from) => (t < from || Math.floor((t - from) / 0.53) % 2 === 0 ? "1" : "0");
+    st.set("#dk-cell-caret", { opacity: blink(tSheet + 0.3) });
+    st.set("#dk-report-caret", { opacity: blink(tReport + 0.2) });
+
+    // The pointer: in to Reply as the question lands, where it stops; gone while the camera moves through the
+    // desk; back for one hop between the four, ending on the empty report.
+    const reply = DK.on(c, "inbox", [m.reply[0] + m.reply[2] * 0.8, m.reply[1] + m.reply[3] * 0.7]);
+    if (t < tReport) {
+      pointer(st, t, {
+        from: [reply[0] + 240, reply[1] + 280],
+        to: reply,
+        a: LAND + 0.2,
+        b: LAND + 0.75,
+        show: LAND + 0.1,
+        hide: tResearch - 0.05,
       });
-    });
-    // The empty report's caret blinks once it is open.
-    const since = t - (tReport + 0.45);
-    st.set("#w4 .fk-caret", {
-      opacity: since < 0 || Math.floor(since / 0.53) % 2 === 0 ? "1" : "0",
-    });
-
-    // The pointer: to Reply, where it stops (there is nothing to reply with yet), held there as the camera
-    // pulls back; then once to each of the four tools, ending in the empty report (F02's pointer).
-    // On Reply, at its lower right (as the plates set a pointer on a button), clear of its label.
-    const reply = [m.reply[0] + m.reply[2] * 0.86, m.reply[1] + m.reply[3] * 0.74];
-    const sel = [m.sel[0] + m.sel[2] * 0.62, m.sel[1] + m.sel[3] * 0.66];
-    const stops = [
-      [880, 1210], // in from the lower right
-      reply,
-      [652, 612], // Research: its comparable sales
-      sel, // the worksheet's selected formula cell
-      [696, 960], // Jordan Ellis's contact card
-      [600, 1150], // the empty report, by its caret: F02's pointer
-    ];
-    // Four hops of 0.34 s, 0.12 s apart, the last landing before F02's moment (17.2 s).
-    const hop0 = tReport + 0.12;
-    const times = [
-      [tLand + 0.45, tLand + 1.25],
-      ...[0, 1, 2, 3].map((k) => [hop0 + k * 0.46, hop0 + k * 0.46 + 0.34]),
-    ];
-    let leg = 0;
-    while (leg < times.length - 1 && t >= times[leg + 1][0]) leg++;
-    pointer(st, t, {
-      from: through(cam, stops[leg]),
-      to: through(cam, stops[leg + 1]),
-      a: times[leg][0],
-      b: times[leg][1],
-      show: leg === 0 ? tLand + 0.35 : -1,
-      bow: leg === 0 ? 0.12 : 0.18,
-    });
+    } else {
+      // Each tool's own point: a comparable sale, the selected cell, the contact's name, the report's caret.
+      const stops = [
+        DK.on(c, "research", [760, 300]),
+        DK.on(c, "sheet", [m.cell[0] + m.cell[2] * 0.6, m.cell[1] + m.cell[3] * 0.62]),
+        DK.on(c, "contact", [300, 230]),
+        DK.on(c, "report", [m.caret[0] + 30, m.caret[1] + 40]),
+      ];
+      const hops = [0, 1, 2].map((k) => [tHop + k * 0.3, tHop + k * 0.3 + 0.22]);
+      let leg = 0;
+      while (leg < hops.length - 1 && t >= hops[leg + 1][0]) leg++;
+      pointer(st, t, {
+        from: stops[leg],
+        to: stops[leg + 1],
+        a: hops[leg][0],
+        b: hops[leg][1],
+        show: tHop - 0.18,
+        bow: 0.16,
+        // Gone before the cut: 03.1 holds the four with nobody's hand on them.
+        hide: tOut - 0.3,
+      });
+    }
     return st;
   };
   return {
@@ -161,11 +95,11 @@ function toolsScene() {
     palette: "before",
     html,
     measure: {
-      // The inbox's rows, in the mail client's own px (it is drawn at half size).
-      rows: ["#w0 .bp", ".bp-row", true],
-      // Reply and the worksheet's selected cell, in F02's frame px.
-      reply: ["#cam", "#w0 .bp-reply"],
-      sel: ["#cam", "#w2 .sel"],
+      ...ask.SENT_MEASURE,
+      rows: ["#dk-inbox", ".bp-row", true],
+      reply: ["#dk-inbox", "#dk-reply"],
+      cell: ["#dk-sheet", ".dk-sel"],
+      caret: ["#dk-report", "#dk-report-caret"],
     },
     state,
   };
