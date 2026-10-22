@@ -25,6 +25,7 @@ import { parseTimeline, timelineSchema } from "../edit/timeline";
 import { textCheckOf } from "../media/text-check";
 import { CHARACTER_VIEWS } from "../characters/model";
 import { RIGHTS_SCOPES, type RightsScope } from "../music/catalog";
+import { DEFAULT_RETAKE_ALLOWANCE, STAGE_LIMITS } from "../stage-check";
 import type { ModelRegistryEntry } from "../model-schema";
 import type { ApiScope } from "./tokens";
 import type { ApiCaller } from "./tokens.server";
@@ -275,14 +276,14 @@ const getGeneration = tool({
   name: "get_generation",
   title: "Get a generation",
   description:
-    "A generation's progress (local_queued, submitting, processing, completed, failed, ...), its cost and, once done, the library files it made.",
+    "A generation's progress (local_queued, submitting, processing, completed, failed, ...), its cost (actual_cost_usd, the charge Higgsfield reported, else estimated_cost_usd, with cost_source saying where the figure came from) and, once done, the library files it made.",
   scope: "read",
   input: z.object({ generationId: id() }),
   run: async (args) => {
     const { data: generation } = await db
       .from("generations")
       .select(
-        "id,status,model_path,operation,prompt,parameters,estimated_cost_usd,actual_cost_usd,error_code,error_message,project_id,campaign_id,client_request_id,auto_retries,retry_after,created_at,completed_at",
+        "id,status,model_path,operation,prompt,parameters,estimated_cost_usd,actual_cost_usd,cost_source,error_code,error_message,project_id,campaign_id,client_request_id,auto_retries,retry_after,created_at,completed_at",
       )
       .eq("id", args.generationId)
       .maybeSingle();
@@ -772,6 +773,67 @@ const estimateGeneration = tool({
       parameters: cast.parameters,
       inputs: cast.inputs.map((input, position) => ({ ...input, position })),
     });
+  },
+});
+
+/** A stage: generations priced together, and queued all together or not at all (see ../stage-check). */
+const stageInput = z.object({
+  generations: z
+    .array(
+      generationSpec.extend({
+        takes: z
+          .number()
+          .int()
+          .min(1)
+          .max(STAGE_LIMITS.takes)
+          .default(1)
+          .describe("How many takes of it the stage makes"),
+        label: z.string().max(80).optional().describe("Your name for it in the answer (its shot)"),
+      }),
+    )
+    .min(1)
+    .max(STAGE_LIMITS.items),
+  retakeAllowance: z
+    .number()
+    .min(0)
+    .max(STAGE_LIMITS.allowance)
+    .default(DEFAULT_RETAKE_ALLOWANCE)
+    .describe("The share added to the total for retakes that may follow (0.2, a fifth again)"),
+  projectId: id().nullable().optional(),
+  campaignId: id().nullable().optional(),
+});
+
+const estimateStage = tool({
+  name: "estimate_stage",
+  title: "Price a stage",
+  description:
+    "Prices a list of generations together, each as estimate_generation prices it and every take of each, adds an allowance for retakes, and checks the total against what is left on the Higgsfield API balance and the spending limit that applies (the project's or campaign's, or your monthly cap). Says whether the stage fits, and if not, why. Nothing is billed.",
+  scope: "read",
+  input: stageInput,
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const { estimateStage: run } = await import("./stage.server");
+    return run(args, caller, { activeModel, asSent });
+  },
+});
+
+const queueStage = tool({
+  name: "queue_stage",
+  title: "Queue a stage",
+  description:
+    "Queues a list of generations all together or not at all. The stage is priced and checked as estimate_stage checks it, and refused with nothing queued when its total with the allowance for retakes would go past the Higgsfield API balance or a spending limit, when Higgsfield has turned work away for want of credits, when an item can't be sent, or when part of it can't be priced (unless allowUnpriced). Then every take is queued, each through the same checks as queue_generation; poll them with get_generation. The same clientRequestId returns the stage's generations (and queues any it didn't reach) instead of queuing it twice.",
+  scope: "generate",
+  readOnly: false,
+  input: stageInput.extend({
+    allowUnpriced: z
+      .boolean()
+      .default(false)
+      .describe("Queue it even though part of it can't be priced (the rest is still checked)"),
+    clientRequestId: requestId(),
+  }),
+  run: async (args, caller) => {
+    const { queueStage: run } = await import("./stage.server");
+    return run(args, caller, { activeModel, asSent });
   },
 });
 
@@ -1921,7 +1983,9 @@ export const STUDIO_TOOLS: StudioTool[] = [
   listCharacters,
   getCharacter,
   estimateGeneration,
+  estimateStage,
   queueGeneration,
+  queueStage,
   makeSoulStill,
   trainSoul,
   startPresenterVideo,
