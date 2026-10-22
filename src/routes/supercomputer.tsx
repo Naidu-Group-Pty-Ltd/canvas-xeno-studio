@@ -10,9 +10,11 @@ import {
   Cpu,
   FileText,
   Globe,
+  Hand,
   Images,
   Layers,
   Lightbulb,
+  Loader2,
   Palette,
   PanelLeft,
   RefreshCw,
@@ -310,6 +312,28 @@ function SupercomputerPage() {
     if (!stream.busy && sectionsReady)
       void queryClient.invalidateQueries({ queryKey: ["supercomputer_section_plans"] });
   }, [stream.busy, sectionsReady, queryClient]);
+  // Said above the composer: a worker waiting for the person, or one working from this page.
+  const sectionsNote = (() => {
+    for (const plan of plans)
+      for (const section of plan.sections)
+        if (section.status === "awaiting_approval" && section.id !== runner.liveSectionId)
+          return {
+            planId: plan.id,
+            waiting: true,
+            text: `Section ${section.position + 1}'s worker waits for your approval.`,
+          };
+    const working = plans.find((plan) =>
+      plan.sections.some((section) => section.id === runner.liveSectionId),
+    );
+    const section = working?.sections.find((entry) => entry.id === runner.liveSectionId);
+    return working && section
+      ? {
+          planId: working.id,
+          waiting: false,
+          text: `Section ${section.position + 1}'s worker is building “${section.title}”.`,
+        }
+      : null;
+  })();
 
   // Prefill from Create / Library hand-offs. Nothing is sent automatically.
   useEffect(() => {
@@ -1134,6 +1158,29 @@ function SupercomputerPage() {
           </div>
 
           <div className="mx-auto w-full max-w-4xl px-4 pb-4">
+            {sectionsReady && sectionsNote && (
+              <div
+                className={cn(
+                  "mb-2 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs",
+                  sectionsNote.waiting ? "border-warning/50 bg-warning/5" : "border-border",
+                )}
+              >
+                {sectionsNote.waiting ? (
+                  <Hand className="size-3.5 shrink-0 text-warning" />
+                ) : (
+                  <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />
+                )}
+                <span className="min-w-0 flex-1">{sectionsNote.text}</span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => openSections(sectionsNote.planId)}
+                >
+                  Open the sections
+                </Button>
+              </div>
+            )}
             {agentMode ? (
               <AgentComposer
                 value={text}

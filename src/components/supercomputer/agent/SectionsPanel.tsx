@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   AlertTriangle,
@@ -202,6 +202,10 @@ function SectionRow({
   const live = runner.liveSectionId === section.id;
   const status: SectionStatus = live ? "working" : section.status;
   const [open, setOpen] = useState(status === "awaiting_approval");
+  // A worker that comes to wait for the person shows its turn, with the approval in it.
+  useEffect(() => {
+    if (status === "awaiting_approval") setOpen(true);
+  }, [status]);
   const count = section.last - section.first + 1;
   const saved = section.work.shots.length;
   const reached = section.used >= section.budget - 1;
