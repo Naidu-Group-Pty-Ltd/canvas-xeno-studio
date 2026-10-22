@@ -521,7 +521,7 @@ function RoleRow({
             value=""
             onValueChange={(value) => {
               const picked = others[Number(value)];
-              if (picked) replace({ ...picked.value, why: picked.why || null });
+              if (picked) replace({ ...picked.value, why: picked.why || null, picked: true });
             }}
           >
             <SelectTrigger

@@ -301,6 +301,8 @@ interface RoleBase {
   from: RoleSource | null;
   /** Why it was proposed (the evidence), or a person's note. */
   why: string | null;
+  /** A person picked it from the code's other candidates: reading the code again keeps it. */
+  picked?: boolean;
 }
 
 export interface ColourRole extends RoleBase {
@@ -441,7 +443,11 @@ function sourceOf(value: unknown): RoleSource | null {
 /** One stored role, if it is well formed for its kind; null otherwise. */
 export function roleOf(spec: ProductionRoleSpec, value: unknown): RoleValue | null {
   const item = record(value);
-  const base = { from: sourceOf(item["from"]), why: clip(item["why"], PRODUCTION_LIMITS.why) };
+  const base = {
+    from: sourceOf(item["from"]),
+    why: clip(item["why"], PRODUCTION_LIMITS.why),
+    ...(item["picked"] === true ? { picked: true } : {}),
+  };
   switch (spec.kind) {
     case "colour": {
       const css = safeCssValue(item["value"]);

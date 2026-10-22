@@ -329,7 +329,7 @@ function Review({
       ...initial,
       production:
         kit && !isEmptyProduction(kit.production)
-          ? reproposeProduction(kit.production, proposed.production)
+          ? reproposeProduction(kit.production, proposed.production, proposed.candidates)
           : proposed.production,
     };
   });

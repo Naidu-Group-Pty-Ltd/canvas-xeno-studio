@@ -686,6 +686,30 @@ describe("a stored production", () => {
     expect(merged.decisions[0]).toMatchObject({ chosen: "#C89B3C", note: "Ours." });
   });
 
+  test("read again from code, a candidate a person picked is kept, read afresh where it still is", () => {
+    const goldInk = proposal.candidates.signature!.find(
+      (candidate) => !candidate.value.from?.token,
+    )!;
+    const picked = withRole(production, "signature", {
+      ...goldInk.value,
+      why: goldInk.why,
+      picked: true,
+    });
+    // The flag is kept with the kit.
+    expect(productionOf(JSON.parse(JSON.stringify(picked))).roles.signature?.picked).toBe(true);
+    const again = reproposeProduction(picked, production, proposal.candidates);
+    const signature = again.roles.signature;
+    expect(signature?.kind === "colour" && signature.hex).toBe("#d7b35f");
+    expect(signature?.picked).toBe(true);
+    expect(signature?.why).toContain("written out 102×");
+    // Gone from the code read now: still the person's choice, saying so.
+    const gone = reproposeProduction(picked, production, {});
+    expect(gone.roles.signature?.kind === "colour" && gone.roles.signature.hex).toBe("#d7b35f");
+    expect(gone.roles.signature?.why).toBe(
+      "Picked by a person; no longer declared in the code read now.",
+    );
+  });
+
   test("values a person types", () => {
     expect(colourByHand("tomato")).toMatchObject({ hex: "#ff6347", alpha: 1, from: null });
     expect(colourByHand("hsl(220 60% 11% / 0.55)")).toMatchObject({ alpha: 0.55 });

@@ -1156,16 +1156,34 @@ export function proposeProduction(
 
 /**
  * A production read again from code, keeping what a person did: the roles
- * they set by hand and the notes they wrote on the disagreements that remain.
+ * they set by hand, the candidates they picked (read afresh where the same
+ * token is still declared, so its line is the new one), and the notes they
+ * wrote on the disagreements that remain.
  */
 export function reproposeProduction(
   previous: BrandProduction,
   next: BrandProduction,
+  candidates: ProductionProposal["candidates"] = {},
 ): BrandProduction {
   const roles: ProductionRoles = { ...next.roles };
   for (const spec of PRODUCTION_ROLES) {
     const role = previous.roles[spec.key];
-    if (role && !role.from) roles[spec.key] = role;
+    if (!role) continue;
+    if (!role.from) roles[spec.key] = role;
+    else if (role.picked) {
+      const same = (candidates[spec.key] ?? []).find(
+        (candidate) =>
+          candidate.value.from?.token === role.from?.token &&
+          candidate.value.from?.repo === role.from?.repo &&
+          candidate.value.from?.scheme === role.from?.scheme,
+      );
+      roles[spec.key] = same
+        ? { ...same.value, why: same.why || null, picked: true }
+        : {
+            ...role,
+            why: "Picked by a person; no longer declared in the code read now.",
+          };
+    }
   }
   const decisions = next.decisions.map((decision) => {
     const before = previous.decisions.find(
