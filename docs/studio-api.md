@@ -65,7 +65,7 @@ curl -X POST https://<your studio>/api/public/studio/list_models \
 | `get_generation`      | A generation's status and cost, and the files it made once it is done.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `get_long_video`      | A long video and every clip: status, piece of voiceover, lip score, framing and mouth-in-pause readings, character check, file and kept takes.                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `get_edit`            | An edit's title and version, its latest render, and its timeline if `includeTimeline` is set.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| `get_render`          | A render's progress and, once it is done, the video's library id and link.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `get_render`          | A render's progress and, once it is done, the video's library id and link, its `mix_report` (the voice's margin over the music in the speech band by section, and the mix's loudness) and any `stems`.                                                                                                                                                                                                                                                                                                                                                                               |
 | `list_brand_kits`     | The team's brand kits, each with its mood, the style line generations in it carry, what kind of brand it is, and the formulas written for it by name (`get_brand_kit` has its whole DNA).                                                                                                                                                                                                                                                                                                                                                                                            |
 | `get_brand_kit`       | One brand kit's whole design system: palette with roles, typefaces, the look of its imagery, its voice and rules, the lines generations carry, its style reference images, its DNA (kind of brand, market, archetype, positioning, who it serves, what it sells, what buyers use instead, its guardrails, pillars, buying moments, proof, distinctive assets, channels, goal), the content formulas it works with (`writtenForBrand` for its own), the formulas written for it, and its `production` roles and motion with their sources and checks (`includeCss`: as CSS).          |
 | `read_brand_code`     | Reads the styling code of up to six GitHub repositories together (`repos`; the first is the brand's own, a branch or folder can be named in its address), as text and never run: each colour with the tokens that name it and the repository, file and line each is declared on; the typefaces and how they load; the radius, shadow, motion, blur and gradient scales; where the repositories disagree. `includeCss` adds `tokensCss`, the tokens as one stylesheet. Nothing is kept. Private repositories need the studio's `GITHUB_TOKEN`, or a `githubToken` for this read only. |
@@ -97,7 +97,7 @@ curl -X POST https://<your studio>/api/public/studio/list_models \
 | `save_character`              | Makes a character from library images, or changes one (`characterId`): name, look, sheet images by view, training photos.           |
 | `import_image`                | Puts a PNG, JPEG, WebP or GIF (up to 15 MB) into the library, from base64 `data` or an https `url`.                                 |
 | `open_in_editor`              | Lays a long video out as an edit. Takes captions from the script, titles on the voiceover's clock, music, and the brand kit's look. |
-| `create_edit` / `update_edit` | Makes an edit from a timeline, or changes one. An update is accepted only at the version you read.                                  |
+| `create_edit` / `update_edit` | Makes an edit from a timeline, or changes one. An update is accepted only at the version you read. Pauses: below.                   |
 | `apply_brand_kit`             | Applies a kit's fonts, colours and title motion to the edit's text, and can add its end card inside a platform's safe area.         |
 | `render_edit`                 | Renders the edit at a version. Poll it with `get_render`.                                                                           |
 | `import_storyboard_brief`     | Makes a storyboard from a brief in brief.json's shape: a scene a block, a shot a shot, each keeping its record and its cue.         |
@@ -109,6 +109,33 @@ curl -X POST https://<your studio>/api/public/studio/list_models \
 Every operation that spends or makes something takes your own `clientRequestId` (8 to 64
 characters). Sending the same request again returns the first result, so a retry never bills
 twice.
+
+## A voiceover held open in its silences
+
+A voiceover item in a timeline can carry `pauses`: `[{"at": 3.95, "frames": 12}, …]`. Each puts
+`frames` whole frames (of the edit's `fps`) of silence into the recording at `at`, in seconds on
+the recording's own clock (as `trimStart` is), so the picture gets room to breathe and no word is
+stretched. The item plays that much longer: its `duration`, when set, is its length on the edit
+with its pauses in it. Time captions and titles on the held voice: a word moves by the pauses at
+or before it, a cut by those strictly before it, so a pause exactly on a cut opens the new shot
+before its first word. At most 200 pauses a voiceover, each 1 to 300 frames.
+
+A pause goes only where nobody speaks, as measured when the voiceover was prepared (in the Editor,
+select the voiceover and choose **Measure its silences** under Pauses). `create_edit` and
+`update_edit` move a pause just off a silence into it (`pausesSnapped` says how many) and refuse
+one inside a word, saying where. A voiceover not yet measured keeps its pauses as sent and is
+listed by item id in `pausesUnmeasured`: it can't be rendered until it is measured.
+
+## Stems and the mix report
+
+Every render reports how its sound sits, in `get_render`'s `mix_report`: the voice's margin over
+the music in the speech band (300 Hz to 4 kHz) where the voice speaks, in each music item's span
+(`sections`, with `margin_db` over them), and the finished mix's integrated loudness, loudness
+range and true peak (`loudness`). A music item, or a sound effect, with `duck: false` is never
+dipped under the voice; music dips unless told not to, an effect only when told to. Set
+`stems: true` in a timeline and its render also hands back the voiceover, music and effects (each
+bus heard in the edit, as mixed into it before its loudness is evened out) as WAV files in the
+library, listed with links in `get_render`'s `stems`.
 
 ## A presenter video, end to end
 

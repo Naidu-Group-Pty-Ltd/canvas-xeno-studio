@@ -90,6 +90,7 @@ import { cn } from "@/lib/utils";
 import type { PlaybackClock, Selection } from "./state";
 import { VoiceoverPanel, type VoiceoverContext } from "./VoiceoverPanel";
 import { MusicPanel, type MusicContext } from "./MusicPanel";
+import { VoicePauses } from "./VoicePauses";
 import { Mixer } from "./Mixer";
 import { SendToKatana } from "@/components/katana/SendToKatana";
 import { useVoiceovers } from "@/hooks/useVoiceData";
@@ -749,6 +750,8 @@ function AudioInspector({
   clock,
   onChange,
   onSelect,
+  voiceover,
+  music,
   item,
 }: InspectorProps & { item: TimelineAudio }) {
   const asset = assets.get(item.assetId);
@@ -762,7 +765,7 @@ function AudioInspector({
       },
       key,
     );
-  const plays = audioPlayLength(item, layout.total);
+  const plays = audioPlayLength(item, layout.total, timeline.fps);
   const hasVoice = timeline.audio.some((entry) => entry.role === "voiceover");
 
   return (
@@ -923,7 +926,7 @@ function AudioInspector({
             />
           </Field>
         </div>
-        {item.role === "music" && (
+        {(item.role === "music" || item.role === "sfx") && (
           <>
             <div className="flex items-center justify-between">
               <Label className="text-xs" htmlFor={`duck-${item.id}`}>
@@ -955,9 +958,30 @@ function AudioInspector({
                 Add a voiceover and the music will dip wherever it speaks.
               </p>
             )}
+            {item.role === "music" && !item.duck && hasVoice && (
+              <p className="text-xs text-muted-foreground" data-testid="never-ducked">
+                Never dipped: it plays at its own level all through, voice or not. Right for a quiet
+                bed under short lines, which dipping would make pump between them; keep its volume
+                low enough for the words.
+              </p>
+            )}
           </>
         )}
       </Section>
+
+      {item.role === "voiceover" && (
+        <Section title="Pauses">
+          <VoicePauses
+            timeline={timeline}
+            layout={layout}
+            item={item}
+            clock={clock}
+            projectId={voiceover?.projectId ?? music?.projectId ?? null}
+            sequenceId={voiceover?.sequenceId ?? null}
+            onChange={onChange}
+          />
+        </Section>
+      )}
     </div>
   );
 }
@@ -1143,6 +1167,22 @@ function SequenceSettings({ timeline, layout, assets, onChange }: InspectorProps
             onCheckedChange={(checked) => set({ normalizeLoudness: checked })}
           />
         </div>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <Label className="text-xs" htmlFor="stems">
+              Export stems with the video
+            </Label>
+            <p className="text-[11px] text-muted-foreground">
+              The voiceover, the music and the effects, each as a WAV file beside the finished
+              video, as mixed into it before its loudness is evened out.
+            </p>
+          </div>
+          <Switch
+            id="stems"
+            checked={timeline.stems}
+            onCheckedChange={(checked) => set({ stems: checked })}
+          />
+        </div>
       </Section>
     </div>
   );
@@ -1246,7 +1286,7 @@ function TextPanel({
   const writeFromScript = () => {
     const from = voice ? voice.start : 0.3;
     const to = voice
-      ? voice.start + audioPlayLength(voice, layout.total)
+      ? voice.start + audioPlayLength(voice, layout.total, timeline.fps)
       : Math.max(0.6, layout.total - 0.3);
     const until = Math.min(to, layout.total);
     // With the voiceover's word timings, the script's words land where they

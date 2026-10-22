@@ -36,6 +36,7 @@ import {
   type Timeline,
 } from "./timeline";
 import { isBrandFontFile } from "./font-family";
+import { assertPausesRenderable } from "./voice-pauses.server";
 
 /**
  * The render request for a timeline. Channel levels are folded into the
@@ -78,6 +79,18 @@ async function renderRequestFor(timeline: Timeline) {
       message:
         "This edit's titles move in a brand's own curves, which the media service can't draw until it is updated. Set their motion back to a plain fade in the Inspector, or render again once the service has been updated.",
     });
+  if (Array.isArray(request.params["stems"]))
+    needed.push({
+      feature: "stems",
+      message:
+        "This edit asks for its stems (the voiceover, music and effects as files beside the video), which the media service can't make until it is updated. Turn stems off in the edit's Format settings, or render again once the service has been updated.",
+    });
+  if (usesVoicePauses(request.params))
+    needed.push({
+      feature: "voice_pauses",
+      message:
+        "This edit's voiceover is held open with pauses, which the media service can't do until it is updated. Take the pauses out, or render again once the service has been updated.",
+    });
   if (!needed.length) return request;
   const health = await workerHealth();
   if (!health.ok)
@@ -98,6 +111,14 @@ function movesTitles(params: Record<string, unknown>): boolean {
     params["overlays"].some(
       (overlay) => !!overlay && typeof overlay === "object" && "motion" in overlay,
     )
+  );
+}
+
+/** Whether a render request holds a voiceover open with pauses. */
+function usesVoicePauses(params: Record<string, unknown>): boolean {
+  return (
+    Array.isArray(params["audio"]) &&
+    params["audio"].some((item) => Array.isArray((item as { pauses?: unknown })?.pauses))
   );
 }
 
@@ -372,6 +393,8 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
     })),
   );
   if (music.blocker) throw new AppError("INVALID_PARAMETERS", music.blocker);
+  // A voiceover held open with pauses: measured, and each pause in one of its silences.
+  await assertPausesRenderable(timeline, (assetId) => assets.get(assetId)?.title ?? null);
   const request = await renderRequestFor(timeline);
   // Motion graphics are drawn at final quality first (reused when drawn before):
   // the render waits for them (see ../compositions/sequence.server).
@@ -385,6 +408,9 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
     : `unassigned/${input.userId}`;
   const videoPath = `${scope}/edits/${sequence.id}/${renderId}.mp4`;
   const posterPath = `${scope}/edits/${sequence.id}/${renderId}.jpg`;
+  // Each stem asked for goes beside the video, in the order the media service hands them back.
+  const stems = Array.isArray(request.params["stems"]) ? (request.params["stems"] as string[]) : [];
+  const stemPaths = stems.map((role) => `${scope}/edits/${sequence.id}/${renderId}-${role}.wav`);
 
   // Everything the render needs is recorded in one transaction (see the
   // start_sequence_render database function): stalled renders of the edit are
@@ -409,7 +435,8 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
         input_payload: {
           sequence_id: sequence.id,
           render_id: renderId,
-          storage_paths: [videoPath, posterPath],
+          storage_paths: [videoPath, posterPath, ...stemPaths],
+          ...(stems.length ? { stems } : {}),
           mime_type: "video/mp4",
           output_kind: "video",
           sources: request.sources.map((source) => source.assetId),
@@ -470,6 +497,7 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
     videoPath,
     posterPath,
     masters: motion?.masters ?? {},
+    stemPaths,
   });
 }
 
@@ -495,6 +523,8 @@ async function submitRender(input: {
   posterPath: string;
   /** Composition clips' lossless masters ("bucket/path"), read in place of the files they play. */
   masters?: Record<string, string>;
+  /** Where the stems go, after the video and poster (feature stems). */
+  stemPaths?: string[];
 }): Promise<RenderStarted> {
   const { renderId, taskId, assets, request, videoPath, posterPath } = input;
   /**
@@ -540,7 +570,7 @@ async function submitRender(input: {
   }
 
   const uploads: { url: string; method: "PUT"; storage_key: string }[] = [];
-  for (const path of [videoPath, posterPath]) {
+  for (const path of [videoPath, posterPath, ...(input.stemPaths ?? [])]) {
     const url = await signUpload(OUTPUT_BUCKET, path);
     if (!url)
       await fail("STORAGE_FAILED", "A destination for the rendered video could not be prepared");
@@ -830,6 +860,7 @@ async function resumed(renderId: string): Promise<RenderStarted> {
     videoPath: paths[0],
     posterPath: paths[1],
     masters: motion.masters,
+    stemPaths: paths.slice(2).filter((path): path is string => typeof path === "string"),
   });
   return { ...sent, duplicate: true };
 }

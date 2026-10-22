@@ -37,6 +37,7 @@ import {
 } from "@/lib/edit/timeline";
 import { cn } from "@/lib/utils";
 import type { Selection } from "./state";
+import { PaceToMusic } from "./PaceToMusic";
 
 export interface MusicContext {
   projectId: string | null;
@@ -411,6 +412,15 @@ export function MusicPanel({
           )}
           Cut to the beat
         </Button>
+        <PaceToMusic
+          timeline={timeline}
+          bed={bed}
+          track={bed ? trackFor(bed.assetId) : undefined}
+          projectId={context.projectId}
+          sequenceId={null}
+          onUpdate={onUpdate}
+          getTimeline={getTimeline}
+        />
       </div>
 
       <div className="space-y-2">

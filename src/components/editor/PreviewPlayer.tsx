@@ -21,6 +21,7 @@ import {
   editFadeLevel,
   frameSize,
   sourceTimeFor,
+  voicePosition,
   type LaidOutClip,
   type Timeline,
   type TimelineAudio,
@@ -149,6 +150,7 @@ export function PreviewPlayer({
             time={time}
             playing={playing}
             total={layout.total}
+            fps={timeline.fps}
             voiceRanges={voiceRanges(timeline, layout.total)}
             channel={channelGain(timeline, channelOf(item.role))}
             level={level * fadeLevel}
@@ -179,7 +181,10 @@ export function PreviewPlayer({
 function voiceRanges(timeline: Timeline, total: number): [number, number][] {
   return timeline.audio
     .filter((item) => item.role === "voiceover" && audioGain(timeline, item) > 0)
-    .map((item) => [item.start, item.start + audioPlayLength(item, total)] as [number, number]);
+    .map(
+      (item) =>
+        [item.start, item.start + audioPlayLength(item, total, timeline.fps)] as [number, number],
+    );
 }
 
 /* ------------------------------------------------------------------ */
@@ -477,6 +482,8 @@ interface AudioLayerProps {
   time: number;
   playing: boolean;
   total: number;
+  /** The edit's frame rate: a voiceover's pauses are whole frames of it. */
+  fps: number;
   voiceRanges: [number, number][];
   /** The gain of the mixer channel the item plays on. */
   channel: number;
@@ -499,6 +506,7 @@ const AudioLayer = memo(function AudioLayer({
   time,
   playing,
   total,
+  fps,
   voiceRanges,
   channel,
   level,
@@ -508,27 +516,35 @@ const AudioLayer = memo(function AudioLayer({
   useEffect(() => {
     const element = audio.current;
     if (!element) return;
-    const length = audioPlayLength(item, total);
+    const length = audioPlayLength(item, total, fps);
     const elapsed = time - item.start;
     const active = elapsed >= 0 && elapsed < length;
     if (!active || item.volume * channel === 0) {
       if (!element.paused) element.pause();
       return;
     }
-    const { fadeIn, fadeOut } = audioFades(item, total);
+    // A voiceover held open: silent through each pause, then on from where it stopped.
+    const held = voicePosition(item, elapsed, fps);
+    if (held.held) {
+      if (!element.paused) element.pause();
+      if (element.readyState >= 1 && Math.abs(element.currentTime - held.source) > 0.03)
+        element.currentTime = held.source;
+      return;
+    }
+    const { fadeIn, fadeOut } = audioFades(item, total, fps);
     let gain = item.volume * channel;
     if (fadeIn > 0 && elapsed < fadeIn) gain *= elapsed / fadeIn;
     if (fadeOut > 0 && elapsed > length - fadeOut)
       gain *= Math.max(0, (length - elapsed) / fadeOut);
     if (
-      item.role === "music" &&
+      item.role !== "voiceover" &&
       item.duck &&
       voiceRanges.some(([from, to]) => time >= from - 0.25 && time <= to + 0.45)
     ) {
       gain *= item.duckLevel;
     }
     element.volume = Math.max(0, Math.min(1, gain * level));
-    const expected = audioSourceTime(item, elapsed);
+    const expected = item.role === "voiceover" ? held.source : audioSourceTime(item, elapsed);
     if (playing) {
       followClock(element, expected, 1);
       if (element.paused) void element.play().catch(() => undefined);
@@ -538,7 +554,7 @@ const AudioLayer = memo(function AudioLayer({
       if (element.readyState >= 1 && Math.abs(element.currentTime - expected) > 0.03)
         element.currentTime = expected;
     }
-  }, [item, time, playing, total, voiceRanges, channel, level]);
+  }, [item, time, playing, total, fps, voiceRanges, channel, level]);
 
   useEffect(() => {
     const element = audio.current;

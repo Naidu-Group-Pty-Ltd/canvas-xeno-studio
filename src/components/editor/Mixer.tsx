@@ -31,7 +31,14 @@ function channelContents(timeline: Timeline, channel: MixChannel): string {
   }
   const items = timeline.audio.filter((item) => channelOf(item.role) === channel).length;
   if (!items) return channel === "voiceover" ? "No voiceover yet" : "No music or effects yet";
-  return `${items} track${items === 1 ? "" : "s"}`;
+  // Music that never dips under the voice is said, so it isn't taken for a mistake.
+  const voiced = timeline.audio.some((item) => item.role === "voiceover");
+  const steady =
+    channel === "audio" && voiced
+      ? timeline.audio.filter((item) => item.role === "music" && !item.duck).length
+      : 0;
+  const never = steady ? ` · ${steady} never ${steady === 1 ? "dips" : "dip"} under the voice` : "";
+  return `${items} track${items === 1 ? "" : "s"}${never}`;
 }
 
 /**

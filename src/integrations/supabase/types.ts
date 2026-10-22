@@ -5838,6 +5838,7 @@ export type Database = {
           error_message: string | null
           id: string
           media_task_id: string | null
+          mix_report: Json | null
           progress: number
           sequence_id: string
           sequence_version: number
@@ -5857,6 +5858,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           media_task_id?: string | null
+          mix_report?: Json | null
           progress?: number
           sequence_id: string
           sequence_version: number
@@ -5876,6 +5878,7 @@ export type Database = {
           error_message?: string | null
           id?: string
           media_task_id?: string | null
+          mix_report?: Json | null
           progress?: number
           sequence_id?: string
           sequence_version?: number
