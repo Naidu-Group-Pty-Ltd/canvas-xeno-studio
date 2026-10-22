@@ -163,6 +163,8 @@ function timedCues() {
 const ENTER = 0.42; // a word rising into focus
 const LEAVE = 0.22; // a line leaving
 const RUN_GAP = 0.8; // a gap longer than this ends a run: the panel goes
+const HOLD = 0.2; // where the speech runs straight on, a line's last word is up at least this long
+const QUICK = 0.12; // and the line then leaves this quickly, before the next line's first word comes in
 /**
  * The cuts between the palettes (into 04.1, 09.1 and 09.2). A run of lines never crosses one: the line before it
  * leaves, and its panel goes, by the cut, and the next line arrives on a panel of the new shot's material. A
@@ -186,6 +188,18 @@ function schedule(cues) {
     if (cut !== undefined) c.leave = Math.min(c.leave, cut - LEAVE - 0.02);
     c.cut = cut ?? null;
     c.gone = c.leave + LEAVE;
+    // A line never arrives over the one before it. Where the speech runs straight on (the next line's first
+    // word comes in before this one would have gone), this one leaves quickly once its own last word has been
+    // up for HOLD, and the next line's words wait for it to go: measured, by 0.1 s at most.
+    if (next) {
+      const lastIn = Math.max(c.start, c.words.at(-1).at - 0.07);
+      const firstIn = Math.max(next.start, next.words[0].at - 0.07);
+      if (c.gone > firstIn) {
+        c.leave = Math.max(lastIn + HOLD, firstIn - QUICK);
+        c.gone = c.leave + QUICK;
+        next.appear = Math.max(next.start, c.gone);
+      }
+    }
     c.runStart = i > 0 && cues[i - 1].next === c ? cues[i - 1].runStart : c.start;
     c.next = together ? next : null;
   });
@@ -348,7 +362,7 @@ function state(st, t, { lines: boxes, phrases }, { span, fade, EASE, px, r3 }) {
         return;
       }
       // In: from just before it is spoken, rising a third of an em out of a soft blur.
-      const a = Math.max(c.start, w.at - 0.07);
+      const a = Math.max(c.appear ?? c.start, w.at - 0.07);
       const p = span(t, a, a + ENTER, EASE.settle);
       const o = Math.min(span(t, a, a + ENTER * 0.6, EASE.settle), 1 - leaving);
       const blur = (1 - p) * 9 + leaving * 5;
@@ -361,7 +375,7 @@ function state(st, t, { lines: boxes, phrases }, { span, fade, EASE, px, r3 }) {
       // (each word's band is the phrase's, offset by where the word sits in it).
       if (c.em && j >= c.em[0] && j < c.em[1] && c.palette === "aurixa") {
         const ph = phrases[c.i];
-        const lastIn = Math.max(c.start, c.words[c.em[1] - 1].at - 0.07) + ENTER * 0.7;
+        const lastIn = Math.max(c.appear ?? c.start, c.words[c.em[1] - 1].at - 0.07) + ENTER * 0.7;
         const sweep = span(t, lastIn, lastIn + 0.95, EASE.move);
         const band = ph.width * 0.9; // the highlight's width
         const x = -band + sweep * (ph.width + 2 * band); // its centre's travel, in phrase px
@@ -372,7 +386,7 @@ function state(st, t, { lines: boxes, phrases }, { span, fade, EASE, px, r3 }) {
       }
     });
     if (c.em && c.palette === "aurixa") {
-      const lastIn = Math.max(c.start, c.words[c.em[1] - 1].at - 0.07) + ENTER * 0.5;
+      const lastIn = Math.max(c.appear ?? c.start, c.words[c.em[1] - 1].at - 0.07) + ENTER * 0.5;
       const drawn = on ? span(t, lastIn, lastIn + 0.5, EASE.move) : 0;
       st.set(`#cul-${c.i}`, {
         transform: `scaleX(${r3(drawn)})`,
@@ -397,7 +411,7 @@ function visibleAt(t, { span, EASE }) {
     if (!(t >= c.start - 0.1 && t < c.gone)) continue;
     const leaving = span(t, c.leave, c.gone, EASE.move);
     c.words.forEach((w) => {
-      const a = Math.max(c.start, w.at - 0.07);
+      const a = Math.max(c.appear ?? c.start, w.at - 0.07);
       if (Math.min(span(t, a, a + ENTER * 0.6, EASE.settle), 1 - leaving) > 0.5) words.push(w.text);
     });
   }

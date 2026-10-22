@@ -254,12 +254,16 @@ def timing(test, ref, decode_test, log, cuts):
     # between the median edge share of the frames that should carry words and of those that should not. A frame
     # within 4 frames of a change in what should be on screen is a transition and is not judged.
     n = min(len(seen), len(expect))
+    # Before the captions' first frame and after their last the zone is the composition's own (the closing card
+    # sets its type there), so only the captions' span is judged.
+    spoken = [k for k in range(n) if expect[k]]
+    lo, hi = (spoken[0], spoken[-1]) if spoken else (0, -1)
     on = [seen[k] for k in range(n) if expect[k]]
-    off = [seen[k] for k in range(n) if not expect[k]]
+    off = [seen[k] for k in range(lo, hi + 1) if not expect[k]]
     edge_on = float(np.median(on)) if on else 0.0
     edge_off = float(np.median(off)) if off else 0.0
     threshold = math.sqrt(max(edge_on, 1e-6) * max(edge_off, 1e-6))
-    steady = [k for k in range(n) if all(expect[j] == expect[k] for j in range(max(0, k - 4), min(n, k + 5)))]
+    steady = [k for k in range(lo, hi + 1) if all(expect[j] == expect[k] for j in range(max(0, k - 4), min(n, k + 5)))]
     mismatched = [log["frames"][k]["frame"] for k in steady if (seen[k] > threshold) != expect[k]]
     # Every shot boundary, judged by the picture: a cut is the one frame in its neighbourhood (+/- 6 frames)
     # where the picture changes most, and changes a lot (the change into frame c is diffs[c - 1]); a boundary
