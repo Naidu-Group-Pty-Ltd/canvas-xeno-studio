@@ -30,6 +30,8 @@ import {
 import { useClockPlaying, useClockTime, type PlaybackClock } from "./state";
 import { useBrandFontFaces } from "@/hooks/useBrandKits";
 import { safeInsets, type SafeArea } from "@/lib/edit/brand";
+import { musicPieces } from "@/lib/edit/pieces";
+import { PiecesAudioLayer } from "./PiecesAudio";
 
 interface PreviewPlayerProps {
   timeline: Timeline;
@@ -127,7 +129,7 @@ export function PreviewPlayer({ timeline, layout, assets, media, clock }: Previe
           );
         })}
         {timeline.audio.map((item) => (
-          <AudioLayer
+          <SoundLayer
             key={item.id}
             item={item}
             url={media.get(item.assetId)?.url}
@@ -515,6 +517,11 @@ const AudioLayer = memo(function AudioLayer({
   if (!url) return null;
   return <audio ref={audio} src={url} preload="auto" loop={audioLoops(item)} />;
 });
+
+/** Music edited on its bars plays its pieces, as the render does (./PiecesAudio); any other sound as above. */
+function SoundLayer(props: AudioLayerProps) {
+  return musicPieces(props.item) ? <PiecesAudioLayer {...props} /> : <AudioLayer {...props} />;
+}
 
 /* ------------------------------------------------------------------ */
 /* Pictures over the edit, and the platform's clear area               */

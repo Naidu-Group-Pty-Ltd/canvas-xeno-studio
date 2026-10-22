@@ -58,6 +58,8 @@ function pick(value, allowed, fallback, name) {
  * sound ("smart_join"), a title's height on the frame and what keeps it
  * readable ("overlay_layout"), and, where the image has it, a clip's lips
  * scored from its picture ("lip_check").
+ * Music edited on its bars plays its pieces in order, crossfaded at each
+ * join ("music_pieces", see ./pieces.js).
  */
 export const FEATURES = [
   "frame_focus",
@@ -73,6 +75,7 @@ export const FEATURES = [
   "frame_rate_conversion",
   "brand_text",
   "image_overlays",
+  "music_pieces",
   ...(lipCheckAvailable ? ["lip_check"] : []),
 ];
 

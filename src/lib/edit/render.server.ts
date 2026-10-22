@@ -72,6 +72,12 @@ async function renderRequestFor(timeline: Timeline) {
       message:
         "This edit's titles or captions use a brand's fonts or colours, which the media service can't set until it is updated. Render again once the service has been updated.",
     });
+  if (usesMusicPieces(request.params))
+    needed.push({
+      feature: "music_pieces",
+      message:
+        "This edit's music is edited on its bars, which the media service can't play until it is updated. Play the whole track again (in the Music panel), or render again once the service has been updated.",
+    });
   if (!needed.length) return request;
   const health = await workerHealth();
   if (!health.ok)
@@ -83,6 +89,12 @@ async function renderRequestFor(timeline: Timeline) {
     if (!health.data?.features?.includes(feature))
       throw new AppError("INVALID_PARAMETERS", message);
   return request;
+}
+
+/** Whether a render request plays any music in pieces. */
+function usesMusicPieces(params: Record<string, unknown>): boolean {
+  const audio = params["audio"];
+  return Array.isArray(audio) && audio.some((item) => "pieces" in (item ?? {}));
 }
 
 /** Whether a render request asks for a brand's colours anywhere. */

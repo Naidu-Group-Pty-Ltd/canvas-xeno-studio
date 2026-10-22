@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { ffmpeg, probe } from "./ffmpeg.js";
 import { FEATURES, TASKS } from "./tasks.js";
 import { lipCheckAvailable, lipCheckDir, lipCheckPython } from "./lipcheck.js";
-import { clipRuns, fitAudioToSources, inParallel } from "./sequence.js";
+import { clipRuns, fitAudioToSources, inParallel, mixArgs, planSequence } from "./sequence.js";
 import { alignFrames, detailLevel, downscale } from "./align.js";
 import { Lanes, idleLongEnough, laneOf } from "./lanes.js";
 import { config } from "./config.js";
@@ -221,6 +221,69 @@ await check("render_sequence applies channel levels to whole buses", async () =>
   const both = [...voiceOnly, { source_index: 2, role: "music", start: 0, duck: false }];
   const musicOff = await meanVolume({ music: 0 }, both);
   if (!(Math.abs(musicOff - full) < 0.5)) throw new Error(`music at 0 should leave just the voice (voice ${full} dB, mix ${musicOff} dB)`);
+});
+
+/** The mean level of a stretch of a file's sound, in dB. */
+async function meanLevel(path, from, length) {
+  const { stderr } = await ffmpeg(["-ss", String(from), "-t", String(length), "-i", path, "-vn", "-af", "volumedetect", "-f", "null", "-"]);
+  return Number(/mean_volume:\s*(-?[\d.]+) dB/.exec(stderr)?.[1] ?? Number.NaN);
+}
+
+// Music in pieces: a six-second track whose first three seconds are a tone and the rest silence,
+// played as silence, tone, silence, tone (two seconds, two, one, one), so every join is audible.
+const piecesTrack = join(dir, "pieces-track.wav");
+await ffmpeg(["-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=3", "-af", "apad=whole_dur=6", "-ac", "2", "-c:a", "pcm_f32le", piecesTrack]);
+const TRACK_PIECES = [{ from: 3.5, to: 5.5 }, { from: 0.5, to: 2.5 }, { from: 4, to: 5 }, { from: 1, to: 2 }];
+
+await check("render_sequence plays music in pieces, each join where it was planned", async () => {
+  const still = join(dir, "pieces-still.jpg");
+  const music = join(dir, "pieces-music.wav");
+  await ffmpeg(["-f", "lavfi", "-i", "testsrc2=s=320x240:d=1", "-frames:v", "1", still]);
+  await copyFile(piecesTrack, music);
+  const result = await TASKS.render_sequence.run({
+    sources: [{ path: still, role: "image" }, { path: music, role: "audio" }],
+    params: {
+      width: 320, height: 240, fps: 25, normalize_loudness: false,
+      clips: [{ source_index: 0, kind: "image", duration: 7 }],
+      audio: [{ source_index: 1, role: "music", start: 0, duck: false, trim_start: 2, loop: true, pieces: TRACK_PIECES }],
+    },
+    dir,
+  });
+  const out = result.outputs[0].path;
+  // Either side of each join (2, 4 and 5 s) and of the music's end (6 s): silent, then the tone, and so on.
+  const expected = [[1.85, "quiet"], [2.05, "tone"], [3.85, "tone"], [4.05, "quiet"], [4.85, "quiet"], [5.05, "tone"], [5.85, "tone"], [6.1, "quiet"]];
+  for (const [from, kind] of expected) {
+    const level = await meanLevel(out, from, 0.1);
+    if (kind === "tone" ? !(level > -30) : !(level < -50)) throw new Error(`at ${from} s expected ${kind}, measured ${level} dB`);
+  }
+});
+
+await check("music in pieces crossfades each join over 30 ms, centred on it, and runs exactly their length", async () => {
+  const silent = join(dir, "pieces-picture.wav");
+  await ffmpeg(["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo", "-t", "7", "-c:a", "pcm_f32le", silent]);
+  const plan = planSequence(
+    { width: 320, height: 240, fps: 25, clips: [{ source_index: 0, kind: "image", duration: 7 }], audio: [{ source_index: 1, role: "music", duck: false, pieces: TRACK_PIECES }] },
+    [{ role: "image", path: silent }, { role: "audio", path: piecesTrack }],
+  );
+  // The music alone, without the picture's (silent) bus or a fade, sample for sample.
+  const mix = join(dir, "pieces-mix.wav");
+  await ffmpeg(mixArgs(plan, [silent], [piecesTrack], mix));
+  const full = await meanLevel(mix, 2.1, 0.5);
+  // The join into the tone at 2 s: silent until its crossfade starts at 1.985 s, full from 2.015 s,
+  // and on a quarter sine between: about 9 dB down a quarter of the way in (where a hard cut at 2 s
+  // would still be silent), half power at 2 s.
+  const before = await meanLevel(mix, 1.975, 0.008);
+  const rising = await meanLevel(mix, 1.99, 0.004);
+  const middle = await meanLevel(mix, 1.998, 0.004);
+  const after = await meanLevel(mix, 2.017, 0.008);
+  if (!(before < -60)) throw new Error(`the tone came in before its crossfade (${before} dB)`);
+  if (!(rising > full - 14 && rising < full - 5)) throw new Error(`a quarter of the way into the crossfade the tone should be about 9 dB down (${rising} dB, against ${full} dB)`);
+  if (!(Math.abs(middle - (full - 3)) < 1)) throw new Error(`half way through the crossfade the tone should be 3 dB down (${middle} dB, against ${full} dB)`);
+  if (!(Math.abs(after - full) < 0.5)) throw new Error(`the tone wasn't fully in after its crossfade (${after} dB, against ${full} dB)`);
+  // The music stops where its pieces end: six seconds in.
+  const tail = await meanLevel(mix, 6.001, 0.5);
+  const last = await meanLevel(mix, 5.9, 0.09);
+  if (!(tail < -60) || !(last > full - 1)) throw new Error(`the last piece should end at 6 s (${last} dB before, ${tail} dB after)`);
 });
 
 // A two-colour clip (red left, blue right) for checking where a crop lands.
