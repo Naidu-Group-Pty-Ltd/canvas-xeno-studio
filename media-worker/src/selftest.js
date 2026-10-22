@@ -931,6 +931,203 @@ await check("an idle worker stops cleanly, and turns away a task read as it deci
   }
 });
 
+/** Mean difference (levels) between frame `n` of a file and a grey plane of the same size. */
+async function offBy(path, n, plane, width, height) {
+  const frame = (await greyFrame(path, n, width, height)).plane;
+  let total = 0;
+  for (let i = 0; i < plane.length; i += 1) total += Math.abs(frame[i] - plane[i]);
+  return total / plane.length;
+}
+
+// A take that must land on an exact picture, made here as a video model gives
+// back the frame it was given: the picture 3% larger, moved 7 px right and 4 px
+// up, and lighter and warmer (a cast on each plane).
+const landing = join(dir, "landing.png");
+await ffmpeg(["-f", "lavfi", "-i", "testsrc2=s=640x360:d=1,noise=alls=40:allf=u,gblur=sigma=1.2", "-frames:v", "1", landing]);
+const landingTake = join(dir, "landing-take.mp4");
+{
+  const { warpFilter } = await import("./joins.js");
+  const s = 1 / 1.03;
+  const rerendered = { m: [s, 0, 0, s], t: [320 - s * 320 - 7 * s, 180 - s * 180 + 4 * s] };
+  await ffmpeg([
+    "-loop", "1", "-framerate", "24", "-t", "2", "-i", landing,
+    "-vf", `${warpFilter(rerendered, 640, 360)},format=yuv444p,lutyuv=y='clip(val*0.92+10,0,255)':u='clip(val+6,0,255)':v='clip(val-5,0,255)',format=yuv420p`,
+    "-c:v", "libx264", "-crf", "12", landingTake,
+  ]);
+}
+
+await check("align_take puts a take on the picture it must end on (framing and colour), then crosses to it", async () => {
+  const result = await TASKS.align_take.run({
+    sources: [{ path: landingTake, role: "video" }, { path: landing, role: "source" }],
+    params: { cross_seconds: 0.5, hold_seconds: 0.5 },
+    dir,
+  });
+  const report = result.metadata.alignment;
+  if (!report.registered || !report.framing) throw new Error(`the take wasn't registered: ${JSON.stringify(report)}`);
+  const { scale_x: sx, scale_y: sy, shift_x: dx, shift_y: dy } = report.framing;
+  if (Math.abs(sx - 1.03) > 0.004 || Math.abs(sy - 1.03) > 0.004 || Math.abs(dx - 7) > 0.5 || Math.abs(dy + 4) > 0.5) {
+    throw new Error(`the re-render's framing was misread: ${JSON.stringify(report.framing)}`);
+  }
+  const { y, u, v } = report.colour ?? {};
+  if (!y || Math.abs(y.gain - 1 / 0.92) > 0.02 || !u || Math.abs(u.offset + 6) > 1 || !v || Math.abs(v.offset - 5) > 1) {
+    throw new Error(`the colour cast was misread: ${JSON.stringify(report.colour)}`);
+  }
+  if (!(report.anchor_error_levels.after < report.anchor_error_levels.before / 5)) {
+    throw new Error(`the anchor should match the picture: ${JSON.stringify(report.anchor_error_levels)}`);
+  }
+  const out = result.outputs[0].path;
+  const picture = (await greyFrame(landing, 0, 640, 360)).plane;
+  const raw = await offBy(landingTake, 20, picture, 640, 360);
+  const aligned = await offBy(out, 20, picture, 640, 360);
+  if (!(raw > 8 && aligned < 2.5)) throw new Error(`the take should sit on the picture (${aligned.toFixed(2)} levels off, from ${raw.toFixed(2)})`);
+  // The cross ends at 2 s, then the picture itself holds for half a second.
+  const info = await probe(out);
+  if (Math.abs(info.duration_seconds - 2.5) > 0.06) throw new Error(`it lasts ${info.duration_seconds}s, not 2.5`);
+  const held = await offBy(out, 59, picture, 640, 360);
+  if (!(held < 1.5)) throw new Error(`it should end on the picture itself (${held.toFixed(2)} levels off)`);
+});
+
+await check("align_take starts a take anchored on its first frame on the picture, and leaves a take of another picture unmoved", async () => {
+  const first = await TASKS.align_take.run({
+    sources: [{ path: landingTake, role: "video" }, { path: landing, role: "source" }],
+    params: { anchor: "first", cross_seconds: 0.5, hold_seconds: 0 },
+    dir,
+  });
+  const picture = (await greyFrame(landing, 0, 640, 360)).plane;
+  const opening = await offBy(first.outputs[0].path, 0, picture, 640, 360);
+  if (!(opening < 1.5)) throw new Error(`it should start on the picture itself (${opening.toFixed(2)} levels off)`);
+  const other = join(dir, "other-take.mp4");
+  await ffmpeg(["-f", "lavfi", "-i", "smptebars=s=640x360:r=24:d=1", "-c:v", "libx264", "-pix_fmt", "yuv420p", other]);
+  const unrelated = await TASKS.align_take.run({ sources: [{ path: other, role: "video" }, { path: landing, role: "source" }], params: {}, dir });
+  const report = unrelated.metadata.alignment;
+  if (report.registered || report.left !== "different_pictures" || report.colour) throw new Error(`another picture was forced onto it: ${JSON.stringify(report)}`);
+  const squashed = join(dir, "squashed.png");
+  await ffmpeg(["-i", landing, "-vf", "scale=360:360", squashed]);
+  try {
+    await TASKS.align_take.run({ sources: [{ path: landingTake, role: "video" }, { path: squashed, role: "source" }], params: {}, dir });
+  } catch (error) {
+    if (error.code === "INVALID_PARAMETERS" && /same shape/.test(error.message)) return;
+    throw error;
+  }
+  throw new Error("a take of another shape was put on the picture");
+});
+
+/** Frame `n` of a file as packed RGB at its own size. */
+async function rgbFrame(path, n = 0) {
+  const out = join(dir, `rgb-${Math.random().toString(36).slice(2)}.rgb`);
+  await ffmpeg(["-i", path, "-vf", `select=eq(n\\,${n})`, "-fps_mode", "passthrough", "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", out]);
+  const data = await readFile(out);
+  await rm(out, { force: true });
+  return data;
+}
+
+/** The mean and the largest difference (levels) between two RGB frames over the pixels `where` keeps. */
+function rgbOff(a, b, width, where) {
+  let total = 0;
+  let most = 0;
+  let count = 0;
+  for (let i = 0; i < a.length; i += 3) {
+    const pixel = i / 3;
+    if (!where(pixel % width, Math.floor(pixel / width))) continue;
+    for (let c = 0; c < 3; c += 1) {
+      const d = Math.abs(a[i + c] - b[i + c]);
+      total += d;
+      most = Math.max(most, d);
+    }
+    count += 3;
+  }
+  return { mean: count ? total / count : 0, most };
+}
+
+// A logo's art: a textured ground with its lettering (two red bars), the
+// image edit that took the lettering out (returned 2 px right and 1 px down,
+// as image models give back what they're given), and the lettering alone as
+// a transparent file.
+const plateGround = join(dir, "plate-ground.png");
+await ffmpeg(["-f", "lavfi", "-i", "color=c=0x204060:s=640x360:d=1,noise=alls=30:allf=u,gblur=sigma=1", "-frames:v", "1", plateGround]);
+const LETTERS = "drawbox=x=170:y=260:w=130:h=40:color=red:t=fill,drawbox=x=320:y=260:w=150:h=40:color=red:t=fill";
+const plateArt = join(dir, "plate-art.png");
+await ffmpeg(["-i", plateGround, "-vf", LETTERS, "-frames:v", "1", plateArt]);
+const plateEdit = join(dir, "plate-edit.png");
+await ffmpeg(["-i", plateGround, "-vf", "pad=642:362:2:1,crop=640:360:0:0", "-frames:v", "1", plateEdit]);
+const plateLetters = join(dir, "plate-letters.png");
+await ffmpeg([
+  "-i", plateArt,
+  "-f", "lavfi", "-i", `color=c=black:s=640x360:d=1,format=gray,lut=y=0,${LETTERS.replace(/color=red/g, "color=white")}`,
+  "-filter_complex", "[0:v]format=rgba[art];[art][1:v]alphamerge",
+  "-frames:v", "1", plateLetters,
+]);
+const letterBox = [{ x: 170, y: 260, w: 300, h: 40 }];
+const inLetters = (x, y) => x >= 172 && x < 468 && y >= 262 && y < 298;
+const farFromLetters = (x, y) => x < 130 || x > 510 || y < 220 || y > 340;
+
+await check("clean_plate lays the edit into the art only where the lettering was, every other pixel the art's own", async () => {
+  const mask = await TASKS.clean_plate.run({ sources: [{ path: plateArt, role: "source" }], params: { output: "mask", boxes: letterBox, grow: 12, feather: 12 }, dir });
+  const drawn = (await greyFrame(mask.outputs[0].path, 0, 640, 360)).plane;
+  if (drawn[280 * 640 + 300] !== 255 || drawn[20 * 640 + 20] !== 0) throw new Error("the mask isn't white over the lettering and black away from it");
+  const result = await TASKS.clean_plate.run({
+    sources: [{ path: plateArt, role: "source" }, { path: plateEdit, role: "edit" }],
+    params: { output: "plate", boxes: letterBox, grow: 12, feather: 12 },
+    dir,
+  });
+  const framing = result.metadata.registration?.framing;
+  if (!framing || Math.abs(framing.shift_x - 2) > 0.3 || Math.abs(framing.shift_y - 1) > 0.3) {
+    throw new Error(`the edit wasn't put in register: ${JSON.stringify(result.metadata.registration)}`);
+  }
+  const plate = await rgbFrame(result.outputs[0].path);
+  const art = await rgbFrame(plateArt);
+  const ground = await rgbFrame(plateGround);
+  const kept = rgbOff(plate, art, 640, farFromLetters);
+  if (kept.most !== 0) throw new Error(`the art changed away from the lettering (by up to ${kept.most} levels)`);
+  const cleaned = rgbOff(plate, ground, 640, inLetters);
+  if (!(cleaned.mean < 1)) throw new Error(`the lettering is still there (${cleaned.mean.toFixed(2)} levels from the clean ground)`);
+});
+
+await check("clean_plate takes the lettering's mask from a transparent file of it, grown round the letters", async () => {
+  const mask = await TASKS.clean_plate.run({
+    sources: [{ path: plateArt, role: "source" }, { path: plateLetters, role: "lettering" }],
+    params: { output: "mask", grow: 12, feather: 0 },
+    dir,
+  });
+  const drawn = (await greyFrame(mask.outputs[0].path, 0, 640, 360)).plane;
+  // Inside a letter, 6 px past its edge (grown 12), the gap between the two (20 px, closed), and well away.
+  const at = (x, y) => drawn[y * 640 + x];
+  if (at(200, 280) !== 255 || at(200, 254) !== 255 || at(310, 280) !== 255 || at(200, 230) !== 0 || at(100, 280) !== 0) {
+    throw new Error(`the mask doesn't follow the lettering: ${[at(200, 280), at(200, 254), at(310, 280), at(200, 230), at(100, 280)]}`);
+  }
+});
+
+await check("lay_lettering lays the art's own letters back over a take, the rest of the take as it was", async () => {
+  const plate = await TASKS.clean_plate.run({
+    sources: [{ path: plateArt, role: "source" }, { path: plateEdit, role: "edit" }],
+    params: { boxes: letterBox },
+    dir,
+  });
+  // A take of the clean plate: its colour drifting, so a frame left as the take shows it.
+  const take = join(dir, "plate-take.mp4");
+  await ffmpeg(["-loop", "1", "-framerate", "24", "-t", "2", "-i", plate.outputs[0].path, "-vf", "hue=h='40*t',format=yuv420p", "-c:v", "libx264", "-crf", "14", take]);
+  const art = await rgbFrame(plateArt);
+  for (const [letters, sources] of [
+    ["art", [{ path: take, role: "video" }, { path: plateArt, role: "source" }]],
+    ["file", [{ path: take, role: "video" }, { path: plateArt, role: "source" }, { path: plateLetters, role: "lettering" }]],
+  ]) {
+    const result = await TASKS.lay_lettering.run({ sources, params: { letters, boxes: letterBox, grow: 4, feather: 4 }, dir });
+    const out = await rgbFrame(result.outputs[0].path, 40);
+    const shown = await rgbFrame(take, 40);
+    const letter = rgbOff(out, art, 640, inLetters);
+    const rest = rgbOff(out, shown, 640, farFromLetters);
+    if (!(letter.mean < 3)) throw new Error(`${letters}: the letters aren't the art's (${letter.mean.toFixed(2)} levels off)`);
+    if (!(rest.mean < 2)) throw new Error(`${letters}: the take changed away from the letters (${rest.mean.toFixed(2)} levels)`);
+  }
+  try {
+    await TASKS.lay_lettering.run({ sources: [{ path: landingTake, role: "video" }, { path: join(dir, "squashed.png"), role: "source" }], params: { boxes: letterBox }, dir });
+  } catch (error) {
+    if (error.code === "INVALID_PARAMETERS" && /framing/.test(error.message)) return;
+    throw error;
+  }
+  throw new Error("a take in another framing had the lettering laid over it");
+});
+
 // With its files (an image built with LIP_CHECK=1), SyncNet runs end to end: a
 // test pattern has no face to score. Without them, it isn't offered at all.
 await check(lipCheckAvailable ? "lip_check runs SyncNet, and finds no face in a test pattern" : "lip_check isn't offered without its files", async () => {

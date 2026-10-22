@@ -5,6 +5,8 @@ import { renderSequence, SEQUENCE_LIMITS } from "./sequence.js";
 import { cameraMotion, decodeThumbnails, extractFrameByIndex, pickHandoffFrame } from "./frames.js";
 import { measureSync, prepareAudio } from "./voice.js";
 import { lipCheck, lipCheckAvailable } from "./lipcheck.js";
+import { alignTake } from "./take.js";
+import { cleanPlate, layLettering } from "./plate.js";
 
 /**
  * Task catalogue.
@@ -73,6 +75,11 @@ export const FEATURES = [
   "frame_rate_conversion",
   "brand_text",
   "image_overlays",
+  // A take put on the exact picture it must land on (align_take), and a logo's
+  // lettering taken out of its art and laid back over a take (clean_plate,
+  // lay_lettering).
+  "align_take",
+  "clean_plate",
   ...(lipCheckAvailable ? ["lip_check"] : []),
 ];
 
@@ -428,6 +435,40 @@ export const TASKS = {
     sources: { min: 2, max: 2 },
     outputs: () => 0,
     run: measureSync,
+  },
+
+  /**
+   * A take that must land on an exact picture, put on it: registered and
+   * colour-matched to it on the frame that must equal it, then crossed to
+   * the picture itself (see take.js). Sources: the take and the picture.
+   */
+  align_take: {
+    sources: { min: 2, max: 2 },
+    outputs: () => 1,
+    run: alignTake,
+  },
+
+  /**
+   * A logo's lettering mask (from boxes, or a transparent file of the
+   * lettering), or its clean plate: an image edit with the lettering taken
+   * out, laid into the art only inside that mask (see plate.js). Sources: the
+   * art, its edit ("edit") and the lettering file ("lettering").
+   */
+  clean_plate: {
+    sources: { min: 1, max: 3 },
+    outputs: () => 1,
+    run: cleanPlate,
+  },
+
+  /**
+   * The lettering laid back over a take of the clean plate, exactly: the
+   * art's own letters, or the lettering file itself (see plate.js). Sources:
+   * the take, the art and the lettering file ("lettering").
+   */
+  lay_lettering: {
+    sources: { min: 2, max: 3 },
+    outputs: () => 1,
+    run: layLettering,
   },
 
   /**

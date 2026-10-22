@@ -276,6 +276,45 @@ fetched or doesn't match, the build still succeeds without it and prints
 "lip_check could not be installed". A worker without its files doesn't list `lip_check`
 in its features, and the app makes clips without scores.
 
+## Takes that land on a picture, and a logo's clean plate
+
+A video model re-renders the picture it is given, so a take that must land on an exact
+picture (a logo's reveal ending on the logo) comes back a pixel or two off and a shade off
+in colour. And it garbles lettering, so a logo is moved without its letters and they are
+laid back over the footage. These tasks do both (the app runs them as its clean-plate
+recipe; Reel 1's logo was made this way).
+
+- `align_take` (sources: the take, as `video`, and the picture it must land on; one MP4)
+  registers the take's last frame on the picture (`anchor: "first"` for its first frame;
+  an affine fit, as a smart join is put in register), then fits a gain and offset on each
+  of the picture's planes (Y, U, V) from 24-pixel block averages of the two, never pixel
+  against pixel, since the take is softer than the picture. Both are made on every frame;
+  then the take crosses to the picture itself (`cross_seconds`, default 0.5, at most 3),
+  which holds for `hold_seconds` (at least a frame after a cross). The picture sets the
+  frame, so the take must be its shape (within 12%); `fps` re-times it; the take's sound is
+  left out. `metadata.alignment` has the likeness before and after, the framing it undid
+  (`scale_x`, `scale_y`, `shift_x`, `shift_y`), the colour match per plane, and how far the
+  anchor frame was from the picture in levels of light, `before` and `after`. A frame that
+  isn't the picture at all is left unmoved (`left: "different_pictures"`).
+- `clean_plate` (sources: the art, and for the plate its image edit as `edit`; a
+  transparent file of the lettering as `lettering`; one PNG) draws the lettering's mask
+  from `boxes` (`[{x, y, w, h}]` in the art's pixels) and from the lettering file's alpha
+  (placed at `lettering_rect`, the whole art unless given; alpha above `threshold`, 6),
+  grown by `grow` pixels and feathered over `feather` (each 2% of the art's shorter side
+  unless given). `output: "mask"` gives the mask; `"plate"` (the default) puts the edit in
+  register with the art (fitted only where the lettering isn't) and lays it into the art
+  only inside the mask, so every other pixel is the art's own, bit for bit. Its
+  `metadata` reports the registration and `kept_difference_levels`: how far the edit
+  strayed from the art where it was told to keep it.
+- `lay_lettering` (sources: the take, in the art's framing, as `video`; the art; the
+  lettering file as `lettering`; one MP4) lays the art's own letters back over every frame
+  (`letters: "art"`: the art's pixels inside a tighter mask of the same `boxes` or the
+  file's alpha) or the lettering file itself by its own alpha (`letters: "file"`), from
+  `start_seconds`, fading in over `fade_seconds`. The take's sound is kept.
+
+`/health` lists `align_take` and `clean_plate` (for both `clean_plate` and
+`lay_lettering`) among its features.
+
 ## Configuration
 
 Copy `.env.example`. The only required variable is

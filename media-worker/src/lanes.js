@@ -14,6 +14,7 @@ export const QUICK_TASKS = new Set([
   "extract_audio",
   "prepare_audio",
   "measure_sync",
+  "clean_plate",
 ]);
 
 export function laneOf(taskType) {
