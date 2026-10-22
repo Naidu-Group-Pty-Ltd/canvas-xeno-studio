@@ -120,9 +120,10 @@ both sides, and each shot saved as soon as it is right.
 - **Spending.** A worker asks before it spends exactly as any conversation does, within the
   planning conversation's own allowance; its approvals are answered in the Sections panel.
 - **Joins.** As sections finish, the frames either side of each join are taken from the
-  integration edit's clips, and checked (`check_joins`, or Check the joins in the panel) by the
-  studio's AI for framing, colour and continuity, with the last render's smart-join measurement and
-  the character and lettering checks. A join holds to what it is: one shot carrying straight on
+  integration edit's clips, and checked (by the page on its own once no section is queued, or with
+  `check_joins`, or Check the joins in the panel) by the studio's AI for framing, colour and
+  continuity, with the last render's smart-join measurement and the character and lettering
+  checks. A join holds to what it is: one shot carrying straight on
   must be the same picture either side; a cut within a scene keeps its grade and continuity; a cut
   to another scene only its cast and lettering. What doesn't match is said, with its fixes: a smart
   blend or colour match on the edit (free; the next render does it), or the section on one side

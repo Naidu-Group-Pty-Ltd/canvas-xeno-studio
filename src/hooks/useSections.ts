@@ -21,6 +21,11 @@ type Json = Record<string, unknown>;
 
 const PLANS_KEY = "supercomputer_section_plans";
 
+/** How long a section shown as working is read again for (a worker's turn takes minutes). */
+const WORKING_WATCH_MS = 20 * 60_000;
+/** The least time between two checks of the same plan's joins started on their own. */
+const JOIN_RETRY_MS = 2 * 60_000;
+
 /**
  * A conversation's plans in sections, newest first, with their sections and
  * joins (migration 0036). Read again every few seconds while anything in them
@@ -57,10 +62,16 @@ export function useSectionPlans(threadId: string | null, enabled: boolean, busy 
     },
     refetchInterval: (query) => {
       if (busy) return 3000;
+      // A section left "working" long after it started was cut off: it isn't watched for ever.
+      const since = Date.now() - WORKING_WATCH_MS;
       const moving = (query.state.data ?? []).some(
         (plan) =>
           plan.sections.some(
-            (section) => section.status === "working" || section.status === "queued",
+            (section) =>
+              section.status === "queued" ||
+              (section.status === "working" &&
+                !!section.startedAt &&
+                Date.parse(section.startedAt) > since),
           ) || plan.joins.some((join) => join.status === "framing" || join.status === "checking"),
       );
       return moving ? 4000 : false;
@@ -168,16 +179,40 @@ export function useSectionRunner(input: { plans: PlanView[]; enabled: boolean })
     [runFor, run],
   );
 
-  // The next queued section starts once nothing runs from this page.
+  const checkJoins = useCallback(
+    (planId: string, again = false) => {
+      setChecking(planId);
+      void runFor(null, () => run({ joins: { planId, again } })).finally(() => setChecking(null));
+    },
+    [runFor, run],
+  );
+
+  // Once nothing runs from this page: the next queued section starts; with none
+  // queued, joins whose sections have saved either side are checked (each plan's
+  // at most every two minutes, for frames the media service is slow to take).
   const { enabled, plans } = input;
+  const joinsTried = useRef(new Map<string, number>());
   useEffect(() => {
     if (!enabled || paused || running || streaming) return;
-    const next = [...plans]
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    const ordered = [...plans].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    const next = ordered
       .flatMap((plan) => plan.sections)
       .find((section) => section.status === "queued");
-    if (next) start(next);
-  }, [enabled, paused, running, streaming, plans, start]);
+    if (next) {
+      start(next);
+      return;
+    }
+    const pending = ordered.find(
+      (plan) =>
+        plan.joins.some(
+          (join) => (join.status === "framing" || join.status === "checking") && !join.verdict,
+        ) && Date.now() - (joinsTried.current.get(plan.id) ?? 0) > JOIN_RETRY_MS,
+    );
+    if (pending) {
+      joinsTried.current.set(pending.id, Date.now());
+      checkJoins(pending.id);
+    }
+  }, [enabled, paused, running, streaming, plans, start, checkJoins]);
 
   const act = useCallback(
     async (work: () => Promise<unknown>, done?: string) => {
@@ -210,10 +245,7 @@ export function useSectionRunner(input: { plans: PlanView[]; enabled: boolean })
       stopTurn();
     },
     hold: (planId) => void act(() => holdAgentSections({ data: { planId } }), "The rest are held."),
-    checkJoins: (planId, again = false) => {
-      setChecking(planId);
-      void runFor(null, () => run({ joins: { planId, again } })).finally(() => setChecking(null));
-    },
+    checkJoins,
     fix: (planId, position, fix) => {
       if (fix === "redo_after" || fix === "redo_before") setPaused(false);
       void act(async () => {
