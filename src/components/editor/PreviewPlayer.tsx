@@ -30,6 +30,8 @@ import {
 import { useClockPlaying, useClockTime, type PlaybackClock } from "./state";
 import { useBrandFontFaces } from "@/hooks/useBrandKits";
 import { safeInsets, type SafeArea } from "@/lib/edit/brand";
+import type { Scene } from "@/lib/compositions/compile";
+import { CompositionPreview } from "./CompositionPreview";
 
 interface PreviewPlayerProps {
   timeline: Timeline;
@@ -37,6 +39,8 @@ interface PreviewPlayerProps {
   assets: Map<string, AssetRow>;
   media: Map<string, SignedMedia>;
   clock: PlaybackClock;
+  /** Motion graphics whose drawing no longer matches them, by clip: played live from their scenes. */
+  live?: Map<string, Scene> | undefined;
 }
 
 /**
@@ -44,7 +48,14 @@ interface PreviewPlayerProps {
  * transitions, motion, ducking and captions are close approximations of the
  * final video, which is produced by the media service.
  */
-export function PreviewPlayer({ timeline, layout, assets, media, clock }: PreviewPlayerProps) {
+export function PreviewPlayer({
+  timeline,
+  layout,
+  assets,
+  media,
+  clock,
+  live,
+}: PreviewPlayerProps) {
   // Brand fonts load into the page, so titles are set in them as the render sets them.
   useBrandFontFaces(timeline.fonts);
   const time = useClockTime(clock);
@@ -123,6 +134,9 @@ export function PreviewPlayer({ timeline, layout, assets, media, clock }: Previe
               transition={incoming?.transitionType ?? "cut"}
               fit={entry.clip.fit ?? timeline.fit}
               focus={entry.clip.focus}
+              live={live?.get(entry.clip.id) ?? null}
+              frameWidth={target.width}
+              frameHeight={target.height}
             />
           );
         })}
@@ -187,6 +201,10 @@ interface ClipLayerProps {
   fit: "cover" | "contain" | "blur_pad";
   /** Filling the frame: the point kept in it, as the render crops. */
   focus: { x: number; y: number } | null;
+  /** A motion graphic played live (its drawing is out of date), drawn at the edit's frame. */
+  live: Scene | null;
+  frameWidth: number;
+  frameHeight: number;
 }
 
 /** How the outgoing and incoming pictures look part-way through a transition. */
@@ -314,6 +332,9 @@ const ClipLayer = memo(function ClipLayer({
   transition,
   fit,
   focus,
+  live,
+  frameWidth,
+  frameHeight,
 }: ClipLayerProps) {
   const video = useRef<HTMLVideoElement>(null);
   const clip = entry.clip;
@@ -399,7 +420,20 @@ const ClipLayer = memo(function ClipLayer({
           draggable={false}
         />
       )}
-      {media && clip.kind === "video" && (
+      {live && clip.composition && (
+        <CompositionPreview
+          scene={live}
+          width={frameWidth}
+          height={frameHeight}
+          time={Math.min(
+            clip.composition.spec.duration,
+            sourceTimeFor(entry, Math.max(time, entry.start)),
+          )}
+          className="absolute inset-0"
+          label={clip.label ?? "Motion graphic"}
+        />
+      )}
+      {media && clip.kind === "video" && !live && (
         <video
           ref={video}
           src={media.url}
@@ -411,7 +445,7 @@ const ClipLayer = memo(function ClipLayer({
           muted
         />
       )}
-      {!media && (
+      {!media && !live && (
         <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
           {asset ? "Loading…" : "This file is no longer in the library"}
         </div>

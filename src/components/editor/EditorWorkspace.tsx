@@ -28,9 +28,11 @@ import {
   clipFromSource,
   duplicateClip,
   formatTime,
+  frameSize,
   insertClips,
   layoutTimeline,
   LIMITS,
+  newId,
   placeAt,
   parseTimeline,
   removeClip,
@@ -47,6 +49,22 @@ import { cn } from "@/lib/utils";
 import { Inspector } from "./Inspector";
 import { MediaBin } from "./MediaBin";
 import { probeDuration } from "@/lib/edit/probe";
+import { drawnRenderId, useClipDrawings } from "@/hooks/useCompositions";
+import { useEditBrandKit } from "@/hooks/useBrandKits";
+import type { Scene } from "@/lib/compositions/compile";
+import {
+  compositionClip,
+  compositionOf,
+  withDrawing,
+  type Drawing,
+} from "@/lib/compositions/clips";
+import type { RenderQuality } from "@/lib/compositions/settings";
+import { compositionSpecSchema, type CompositionClip } from "@/lib/compositions/spec";
+import { templateById } from "@/lib/compositions/templates";
+import { getCompositionRender, startComposition } from "@/lib/compositions.functions";
+import { CompositionDialog, type DrawStarted } from "./CompositionDialog";
+import { DrawingTray, type PendingDrawing } from "./DrawingTray";
+import type { CompositionControls } from "./CompositionSection";
 import { PreviewPlayer } from "./PreviewPlayer";
 import { RenderPanel } from "./RenderPanel";
 import { TimelineView } from "./TimelineView";
@@ -168,12 +186,15 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
         return;
       }
       const duration = asset.asset_type === "video" ? await probeDuration(asset) : null;
-      const clip = clipFromSource({
-        assetId: asset.id,
-        kind: asset.asset_type === "image" ? "image" : "video",
-        durationSeconds: duration,
-        title: asset.title,
-      });
+      const clip = {
+        ...clipFromSource({
+          assetId: asset.id,
+          kind: asset.asset_type === "image" ? "image" : "video",
+          durationSeconds: duration,
+          title: asset.title,
+        }),
+        ...(asset.asset_type === "video" ? await drawnComposition(asset) : {}),
+      };
       // Probing the file takes a moment, and other changes (another clip added
       // meanwhile) may land first: the clip goes into the timeline as it is by
       // then, after the clip selected by then.
@@ -209,6 +230,153 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
       setSelection({ kind: "audio", id: item.id });
     },
     [timeline.audio.length, update, clock, setSelection],
+  );
+
+  /* ------------------------- motion graphics ------------------------- */
+
+  const frame = frameSize(timeline.aspectRatio, timeline.resolution);
+  const { kit: editKit } = useEditBrandKit(timeline, sequence.project_id);
+  const [motionDialog, setMotionDialog] = useState<{
+    open: boolean;
+    editing: { clipId: string; composition: CompositionClip } | null;
+  }>({ open: false, editing: null });
+  const [drawing, setDrawing] = useState<PendingDrawing[]>([]);
+  const clipDrawings = useClipDrawings(timeline, assetMap);
+  // A motion graphic whose drawing no longer matches it plays live until it is drawn again.
+  const liveScenes = useMemo(() => {
+    const scenes = new Map<string, Scene>();
+    for (const [clipId, state] of clipDrawings)
+      if (state.stale && state.scene) scenes.set(clipId, state.scene);
+    return scenes;
+  }, [clipDrawings]);
+
+  /** A finished drawing goes in: as a new clip after `after` (or at the end), or to the clip it is a drawing of. */
+  const placeDrawing = useCallback(
+    (
+      request: DrawStarted & { after: string | null },
+      drawn: { assetId: string; renderId: string },
+    ) => {
+      const result: Drawing = {
+        assetId: drawn.assetId,
+        renderId: drawn.renderId,
+        spec: request.spec,
+        brandKitId: request.brandKitId,
+        quality: request.quality,
+      };
+      if (request.clipId) {
+        const clipId = request.clipId;
+        if (!timelineNow.current.clips.some((clip) => clip.id === clipId)) {
+          toast.message(
+            "The motion graphic is drawn, but its clip was removed. It's in the library.",
+          );
+          return;
+        }
+        update((current) => withDrawing(current, clipId, result));
+        return;
+      }
+      if (timelineNow.current.clips.length >= LIMITS.clips) {
+        toast.error(
+          `An edit can hold up to ${LIMITS.clips} clips. The motion graphic is in the library.`,
+        );
+        return;
+      }
+      const clip = compositionClip(result);
+      update((current) => {
+        if (current.clips.length >= LIMITS.clips) return current;
+        const at = request.after
+          ? current.clips.findIndex((item) => item.id === request.after) + 1
+          : 0;
+        return insertClips(current, [clip], at || current.clips.length);
+      });
+      setSelection({ kind: "clip", id: clip.id });
+    },
+    [update, setSelection],
+  );
+
+  const onDrawStarted = useCallback(
+    (started: DrawStarted) => {
+      const after =
+        started.clipId === null && selectionRef.current?.kind === "clip"
+          ? selectionRef.current.id
+          : null;
+      if (started.view.status === "completed" && started.view.assetId) {
+        placeDrawing(
+          { ...started, after },
+          { assetId: started.view.assetId, renderId: started.view.renderId },
+        );
+        if (started.view.cached) toast.success("Drawn before, so it's in at once.");
+        return;
+      }
+      const title = templateById(started.spec.template)?.title ?? "the motion graphic";
+      setDrawing((current) => [
+        // A clip waits for one drawing: its latest.
+        ...current.filter((entry) => started.clipId === null || entry.clipId !== started.clipId),
+        { ...started, id: newId(), title, after },
+      ]);
+    },
+    [placeDrawing],
+  );
+
+  const onDrawn = useCallback(
+    (entry: PendingDrawing, view: { assetId: string; renderId: string }) => {
+      setDrawing((current) => current.filter((item) => item.id !== entry.id));
+      placeDrawing(entry, view);
+    },
+    [placeDrawing],
+  );
+  const onDrawFailed = useCallback((entry: PendingDrawing, message: string) => {
+    setDrawing((current) => current.filter((item) => item.id !== entry.id));
+    toast.error(`${entry.title} couldn't be drawn: ${message}`);
+  }, []);
+
+  /** Draws a composition clip as it is now (again, or final). */
+  const redraw = useCallback(
+    async (clipId: string, quality: RenderQuality) => {
+      const current = timelineNow.current;
+      const composition = current.clips.find((item) => item.id === clipId)?.composition;
+      if (!composition) return;
+      const size = frameSize(current.aspectRatio, current.resolution);
+      try {
+        const view = await startComposition({
+          data: {
+            spec: composition.spec,
+            brandKitId: composition.brandKitId,
+            quality,
+            projectId: sequence.project_id,
+            width: size.width,
+            height: size.height,
+            fps: current.fps,
+          },
+        });
+        onDrawStarted({
+          view,
+          spec: composition.spec,
+          brandKitId: composition.brandKitId,
+          quality,
+          clipId,
+        });
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "The motion graphic couldn't be drawn",
+        );
+      }
+    },
+    [sequence.project_id, onDrawStarted],
+  );
+
+  const compositionControls = useMemo<CompositionControls>(
+    () => ({
+      states: clipDrawings,
+      drawing: new Set(drawing.flatMap((entry) => (entry.clipId ? [entry.clipId] : []))),
+      onChange: (clipId) => {
+        const composition = timelineNow.current.clips.find(
+          (item) => item.id === clipId,
+        )?.composition;
+        if (composition) setMotionDialog({ open: true, editing: { clipId, composition } });
+      },
+      onDraw: (clipId, quality) => void redraw(clipId, quality),
+    }),
+    [clipDrawings, drawing, redraw],
   );
 
   /* ---------------------------- keyboard ---------------------------- */
@@ -338,6 +506,7 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
       usedAssetIds={usedAssetIds}
       onAddVisual={(asset) => void addVisual(asset)}
       onAddAudio={(asset, role) => void addAudio(asset, role)}
+      onAddMotion={() => setMotionDialog({ open: true, editing: null })}
     />
   );
 
@@ -462,8 +631,17 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
               assets={assetMap}
               media={media}
               clock={clock}
+              live={liveScenes}
             />
           </div>
+          <DrawingTray
+            pending={drawing}
+            onDrawn={onDrawn}
+            onFailed={onDrawFailed}
+            onDismiss={(entry) =>
+              setDrawing((current) => current.filter((item) => item.id !== entry.id))
+            }
+          />
           <Transport
             clock={clock}
             total={layout.total}
@@ -513,6 +691,7 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
               getTimeline={getTimeline}
               voiceover={voiceover}
               music={music}
+              compositions={compositionControls}
             />
           </div>
           <div className="max-h-[45%] shrink-0 overflow-y-auto border-t border-border">
@@ -566,6 +745,7 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
                 getTimeline={getTimeline}
                 voiceover={voiceover}
                 music={music}
+                compositions={compositionControls}
               />
               <RenderPanel
                 sequenceId={sequence.id}
@@ -578,8 +758,42 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
           </SheetContent>
         </Sheet>
       </div>
+
+      <CompositionDialog
+        open={motionDialog.open}
+        onOpenChange={(open) => setMotionDialog((current) => ({ ...current, open }))}
+        width={frame.width}
+        height={frame.height}
+        fps={timeline.fps}
+        projectId={sequence.project_id}
+        defaultKitId={editKit?.id ?? null}
+        editing={motionDialog.editing}
+        onStarted={onDrawStarted}
+      />
     </div>
   );
+}
+
+/**
+ * A library video that is a motion graphic's drawing goes in with its
+ * composition, so it can be changed, and the render draws it final.
+ */
+async function drawnComposition(asset: AssetRow): Promise<{ composition?: CompositionClip }> {
+  const renderId = drawnRenderId(asset);
+  if (!renderId) return {};
+  const view = await getCompositionRender({ data: { renderId } }).catch(() => null);
+  if (!view || view.status !== "completed" || view.assetId !== asset.id) return {};
+  const spec = compositionSpecSchema.safeParse(view.spec);
+  if (!spec.success) return {};
+  return {
+    composition: compositionOf({
+      assetId: asset.id,
+      renderId,
+      spec: spec.data,
+      brandKitId: view.brandKitId,
+      quality: view.quality,
+    }),
+  };
 }
 
 function ToolButton({

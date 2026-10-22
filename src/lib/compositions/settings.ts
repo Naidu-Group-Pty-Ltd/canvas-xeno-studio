@@ -62,9 +62,10 @@ export function frameCount(seconds: number, fps: number): number {
 }
 
 /**
- * About how long a render takes, from the drawings it may need and the time
- * one drawing has been measured to take. An upper bound: drawings that reuse
- * the one before cost almost nothing, and a still composition reuses most.
+ * About how long a render takes, from the drawings it needs and the time one
+ * drawing has been measured to take. Drawings that reuse the one before cost
+ * almost nothing, so given how many change it counts only those; without, it
+ * is an upper bound.
  * The measured cost is the media service's own (kept from earlier renders);
  * without one, Reel 1's: about 0.25 s for a 2x drawing of a 1080 x 1920
  * frame on a 4-CPU machine with no GPU, a quarter of that at 1x.
@@ -72,6 +73,8 @@ export function frameCount(seconds: number, fps: number): number {
 export function renderEstimate(input: {
   frames: number;
   settings: RenderSettings;
+  /** The drawings that change something, when known (the rest reuse the one before, almost free). */
+  changing?: number | null;
   /** Seconds one drawing takes at this size and scale, if measured. */
   secondsPerDrawing?: number | null;
   /** How many browsers draw side by side. */
@@ -79,7 +82,9 @@ export function renderEstimate(input: {
   width: number;
   height: number;
 }): { drawings: number; seconds: number } {
-  const drawings = input.frames * input.settings.drawings;
+  const all = input.frames * input.settings.drawings;
+  const drawings =
+    input.changing && input.changing > 0 ? Math.min(all, Math.round(input.changing)) : all;
   const pixels = (input.width * input.height * input.settings.scale ** 2) / (1080 * 1920 * 4);
   const perDrawing =
     input.secondsPerDrawing && input.secondsPerDrawing > 0

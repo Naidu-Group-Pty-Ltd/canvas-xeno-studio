@@ -11,6 +11,7 @@
  */
 import { createHash } from "node:crypto";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import type { Json } from "@/integrations/supabase/types";
 import { AppError } from "../higgsfield/errors";
 import { brandKitOf, isBrandFontFile } from "../edit/brand";
 import { isMissingTableError } from "../edit/errors";
@@ -26,6 +27,8 @@ import {
 import { compositionBrandOf } from "./brand";
 import {
   compileComposition,
+  compositionFiles,
+  compositionIdentity,
   planStretches,
   STRETCH_FRAMES,
   stretchIdentity,
@@ -33,7 +36,7 @@ import {
 } from "./compile";
 import { demoRecordOf } from "./demo";
 import { QUALITY_SETTINGS, renderEstimate, type RenderQuality } from "./settings";
-import { compositionSpecSchema, type CompositionSpec } from "./spec";
+import { compositionSpecSchema, uuidsIn, type CompositionSpec } from "./spec";
 import { templateById } from "./templates";
 
 const OUTPUT_BUCKET = "generated-assets";
@@ -61,11 +64,24 @@ export interface CompositionRenderView {
   errorMessage: string | null;
   /** Drawn before: nothing new was drawn for this request. */
   cached: boolean;
+  /** What was drawn: the composition, its brand kit and its frame. */
+  template: string;
+  spec: Omit<CompositionSpec, "params"> & { params: { [key: string]: Json | undefined } };
+  brandKitId: string | null;
+  width: number;
+  height: number;
+  fps: number;
+  /** The hash of everything that decides its frames (see compositionIdentity). */
+  hash: string;
 }
 
 type RenderRow = {
   id: string;
   hash: string;
+  template: string;
+  spec: CompositionSpec;
+  brand_kit_id: string | null;
+  fps: number;
   status: CompositionRenderView["status"];
   quality: RenderQuality;
   progress: number;
@@ -85,7 +101,7 @@ type RenderRow = {
 };
 
 const RENDER_FIELDS =
-  "id,hash,status,quality,progress,stage,proxy_asset_id,frames,drawings,changing,stretches,missing_fields,error_message,width,height,seconds_per_drawing,master_bucket,master_path";
+  "id,hash,template,spec,brand_kit_id,fps,status,quality,progress,stage,proxy_asset_id,frames,drawings,changing,stretches,missing_fields,error_message,width,height,seconds_per_drawing,master_bucket,master_path";
 
 const sha256 = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
 
@@ -103,17 +119,6 @@ async function requireActiveMember(userId: string): Promise<void> {
     .maybeSingle();
   if (!data?.is_active)
     throw new AppError("NOT_AUTHORIZED", "Your account is not an active team member");
-}
-
-/** Every uuid in a value (the library images a template's settings name). */
-function uuidsIn(value: unknown, found = new Set<string>()): Set<string> {
-  if (typeof value === "string") {
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value))
-      found.add(value.toLowerCase());
-  } else if (Array.isArray(value)) for (const entry of value) uuidsIn(entry, found);
-  else if (value && typeof value === "object")
-    for (const entry of Object.values(value)) uuidsIn(entry, found);
-  return found;
 }
 
 type ImageRow = {
@@ -221,11 +226,7 @@ export async function compiledFor(input: {
     if (!isBrandFontFile(font))
       throw new AppError("INVALID_PARAMETERS", `The font "${font.family}" isn't a brand font file`);
   // What decides its frames: the bundle, and exactly which files it reads.
-  const files = [
-    ...compiled.imageIds.map((id) => `image:${id}`),
-    ...compiled.fonts.map((font) => `font:${font.bucket}/${font.path}`),
-  ];
-  const hash = sha256(JSON.stringify({ files, bundle: compiled.bundle }));
+  const hash = sha256(compositionIdentity(compiled));
   return { compiled, images: compiled.imageIds.map((id) => byId.get(id)!), hash };
 }
 
@@ -249,7 +250,8 @@ function viewOf(
     stretches: Math.max(1, (row.stretches ?? []).length),
     estimateSeconds: renderEstimate({
       frames: row.frames,
-      settings: { ...settings, drawings: settings.drawings },
+      settings,
+      changing: row.changing,
       secondsPerDrawing: row.seconds_per_drawing ?? secondsPerDrawing,
       width: row.width,
       height: row.height,
@@ -258,6 +260,13 @@ function viewOf(
     missing: row.missing_fields ?? [],
     errorMessage: row.error_message,
     cached,
+    template: row.template,
+    spec: row.spec as CompositionRenderView["spec"],
+    brandKitId: row.brand_kit_id,
+    width: row.width,
+    height: row.height,
+    fps: row.fps,
+    hash: row.hash,
   };
 }
 
@@ -525,10 +534,7 @@ async function drawInStretches(
   compiled: CompiledComposition,
   plan: { from: number; to: number }[],
 ): Promise<void> {
-  const files = [
-    ...compiled.imageIds.map((id) => `image:${id}`),
-    ...compiled.fonts.map((font) => `font:${font.bucket}/${font.path}`),
-  ];
+  const files = compositionFiles(compiled);
   const stretches: RenderRow["stretches"] = [];
   for (const { from, to } of plan) {
     const hash = sha256(stretchIdentity(compiled.bundle, from, to, files));

@@ -67,3 +67,15 @@ export function compositionCurrent(composition: CompositionClip): boolean {
     composition.renderedKey === specKey(composition.spec, composition.brandKitId)
   );
 }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Every uuid in a value: the library images a composition's settings name. */
+export function uuidsIn(value: unknown, found = new Set<string>()): Set<string> {
+  if (typeof value === "string") {
+    if (UUID.test(value)) found.add(value.toLowerCase());
+  } else if (Array.isArray(value)) for (const entry of value) uuidsIn(entry, found);
+  else if (value && typeof value === "object")
+    for (const entry of Object.values(value)) uuidsIn(entry, found);
+  return found;
+}

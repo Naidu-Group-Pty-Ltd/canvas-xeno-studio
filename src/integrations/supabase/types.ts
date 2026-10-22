@@ -2185,6 +2185,7 @@ export type Database = {
           call_to_action: string | null
           created_at: string
           created_by: string | null
+          demo_record: Json | null
           design: Json
           dna: Json
           formulas: Json
@@ -2215,6 +2216,7 @@ export type Database = {
           call_to_action?: string | null
           created_at?: string
           created_by?: string | null
+          demo_record?: Json | null
           design?: Json
           dna?: Json
           formulas?: Json
@@ -2245,6 +2247,7 @@ export type Database = {
           call_to_action?: string | null
           created_at?: string
           created_by?: string | null
+          demo_record?: Json | null
           design?: Json
           dna?: Json
           formulas?: Json

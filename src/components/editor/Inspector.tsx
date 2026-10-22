@@ -97,6 +97,7 @@ import { phraseCaptions } from "@/lib/edit/captions";
 import { brandedOverlay } from "@/lib/edit/brand";
 import { BrandSection, ImageOverlaysSection } from "./BrandPanel";
 import { useEditBrandKit } from "@/hooks/useBrandKits";
+import { CompositionSection, type CompositionControls } from "./CompositionSection";
 
 interface InspectorProps {
   timeline: Timeline;
@@ -117,6 +118,8 @@ interface InspectorProps {
   voiceover?: VoiceoverContext | undefined;
   /** The edit's project, campaign and planned music direction. */
   music?: MusicContext | undefined;
+  /** The edit's motion graphics: their state, and drawing them again. */
+  compositions?: CompositionControls | undefined;
 }
 
 const TAB_COLUMNS: Record<number, string> = {
@@ -430,6 +433,7 @@ function ClipInspector({
   clock,
   onChange,
   onSelect,
+  compositions,
   clip,
 }: InspectorProps & { clip: TimelineClip }) {
   const index = timeline.clips.findIndex((item) => item.id === clip.id);
@@ -527,6 +531,10 @@ function ClipInspector({
           />
         )}
       </Section>
+
+      {clip.composition && compositions && (
+        <CompositionSection clip={clip} composition={clip.composition} controls={compositions} />
+      )}
 
       <Section title={clip.kind === "image" ? "Timing" : "Trim"}>
         {clip.kind === "video" && (
@@ -697,7 +705,7 @@ function ClipInspector({
         )}
       </Section>
 
-      {clip.kind === "video" && (
+      {clip.kind === "video" && !clip.composition && (
         <Section title="Clip sound">
           <Field
             label="Volume"

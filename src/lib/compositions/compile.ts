@@ -228,6 +228,28 @@ export function compileComposition(
   };
 }
 
+/** The files a compiled composition reads, as named in its identity: its images, then its font files. */
+export function compositionFiles(
+  compiled: Pick<CompiledComposition, "imageIds" | "fonts">,
+): string[] {
+  return [
+    ...compiled.imageIds.map((id) => `image:${id}`),
+    ...compiled.fonts.map((font) => `font:${font.bucket}/${font.path}`),
+  ];
+}
+
+/**
+ * What decides a composition's frames, as text to hash: its bundle and exactly
+ * which files it reads. The server keeps each drawing by this text's hash (the
+ * same composition is never drawn twice); the Editor works out the same hash
+ * to tell when a clip's drawing no longer matches it.
+ */
+export function compositionIdentity(
+  compiled: Pick<CompiledComposition, "bundle" | "imageIds" | "fonts">,
+): string {
+  return JSON.stringify({ files: compositionFiles(compiled), bundle: compiled.bundle });
+}
+
 /* ------------------------------------------------------------------ */
 /* Stretches                                                           */
 /* ------------------------------------------------------------------ */

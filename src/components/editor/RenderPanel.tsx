@@ -19,6 +19,7 @@ import { getMediaWorkerStatus } from "@/lib/media.functions";
 import { recoverRender, renderSequence, resendRender } from "@/lib/edit.functions";
 import { keepAttempt, savedAttempt } from "@/lib/attempts";
 import { audibleAudio, formatTime, renderBlockers, type Timeline } from "@/lib/edit/timeline";
+import { compositionClips } from "@/lib/compositions/clips";
 import { joinSummary, readJoinReport } from "@/lib/edit/join-report";
 import { signedUrl } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
@@ -69,6 +70,7 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
     staleTime: 60_000,
   });
   const blockers = renderBlockers(timeline);
+  const motionGraphics = compositionClips(timeline).length;
   const active = renders.find((render) => renderInProgress(render));
   const renderedIds = useMemo(
     () =>
@@ -286,6 +288,15 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
           data-testid="render-blocker"
         >
           {blockers[0] ?? licenceProblem ?? workerProblem}
+        </p>
+      )}
+
+      {motionGraphics > 0 && !active && (
+        <p className="text-[11px] text-muted-foreground" data-testid="render-motion-note">
+          {motionGraphics === 1
+            ? "Its motion graphic is drawn final first"
+            : `Its ${motionGraphics} motion graphics are drawn final first`}{" "}
+          (at the edit&apos;s frame, with motion blur); any drawn before are reused.
         </p>
       )}
 
