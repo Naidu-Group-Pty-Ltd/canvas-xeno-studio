@@ -1210,6 +1210,30 @@ async function keepMadeWork(worker: WorkerSection, state: TurnState): Promise<st
   return parts.join(", ");
 }
 
+/** A section claimed for its worker whose turn couldn't start: let go again, saying why. */
+export async function failSection(sectionId: string, error: unknown): Promise<void> {
+  await db
+    .from("supercomputer_sections")
+    .update({
+      status: "failed",
+      error_message: (error instanceof Error ? error.message : "Its worker couldn't start").slice(
+        0,
+        600,
+      ),
+    })
+    .eq("id", sectionId)
+    .eq("status", "working");
+}
+
+/** A worker's section is being worked on again (a turn resumed after an approval). */
+export async function markSectionWorking(sectionId: string): Promise<void> {
+  await db
+    .from("supercomputer_sections")
+    .update({ status: "working", error_message: null })
+    .eq("id", sectionId)
+    .neq("status", "working");
+}
+
 /** A worker's turn held to its section's limit: warned near it, saved before it. */
 export function workerBudget(worker: WorkerSection): TurnBudget {
   const maxSteps = turnLimit(worker.budget, worker.usedBefore);
@@ -1444,6 +1468,16 @@ export async function queueSections(input: {
   }
   await db.from("supercomputer_section_plans").update({ status: "working" }).eq("id", view.id);
   return loadPlan(input.planId);
+}
+
+/** Takes a plan's queued sections back: none starts after the one working now. */
+export async function holdSections(planId: string): Promise<PlanView> {
+  await db
+    .from("supercomputer_sections")
+    .update({ status: "waiting" })
+    .eq("plan_id", planId)
+    .eq("status", "queued");
+  return loadPlan(planId);
 }
 
 /* ------------------------------------------------------------------ */

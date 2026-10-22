@@ -71,6 +71,23 @@ const requestSchema = z.object({
       decisions: z.record(z.string().max(80), z.enum(["approve", "deny"])),
     })
     .optional(),
+  /**
+   * A section's worker to start, or carry on, in its own conversation (see
+   * ./sections.server): `extend` raises its step limit by what its unsaved
+   * shots need; `note` is what it should do this time.
+   */
+  section: z
+    .object({
+      sectionId: z.string().uuid(),
+      extend: z.boolean().optional(),
+      note: z.string().max(1200).optional(),
+    })
+    .optional(),
+  /**
+   * A plan's joins to check, for the page (no turn): they take a minute or so,
+   * past what a server function is given, so they stream like a turn.
+   */
+  joins: z.object({ planId: z.string().uuid(), again: z.boolean().optional() }).optional(),
 });
 type AgentRequest = z.infer<typeof requestSchema>;
 
@@ -191,6 +208,8 @@ async function writeUserMessage(input: {
   text: string;
   attachmentAssetIds: string[];
   earlier: MessageRow[];
+  /** Written by the studio for a section's worker (its brief), not typed by the person. */
+  studio?: { sectionId: string; position: number };
 }): Promise<MessageRow> {
   const { thread, settings } = input;
   const { data: assets } = input.attachmentAssetIds.length
@@ -317,7 +336,11 @@ async function writeUserMessage(input: {
       role: "user",
       content: input.text.trim(),
       attachments: attachments as never,
-      payload: { intent: "chat", agent: { content, contextKey: key } } as never,
+      payload: {
+        intent: "chat",
+        ...(input.studio ? { studio: "section", section: input.studio } : {}),
+        agent: { content, contextKey: key },
+      } as never,
       created_by: input.userId,
     })
     .select("id,role,content,attachments,payload,status,created_at,superseded_at")
@@ -425,8 +448,30 @@ async function runRequest(
       "PROVIDER_NOT_CONFIGURED",
       "The Supercomputer agent runs on Claude: an admin needs to add an ANTHROPIC_API_KEY backend secret.",
     );
-  const { thread, settings, isNew } = await threadFor(input, userId, role);
-  let rows = await threadRows(thread.id);
+  // A section's worker starts (or carries on) in its own conversation, sent its brief.
+  const sections = await import("./sections.server");
+  if (input.joins) {
+    await checkPlanJoins(input.joins, userId, role, emit);
+    return;
+  }
+  const start = input.section
+    ? await sections.startSectionWorker({
+        sectionId: input.section.sectionId,
+        userId,
+        role,
+        extend: input.section.extend ?? false,
+        note: input.section.note ?? null,
+      })
+    : null;
+  // A section claimed for its worker that then can't start is let go again, saying why.
+  const letGo = async (error: unknown): Promise<never> => {
+    if (start) await sections.failSection(start.worker.sectionId, error).catch(() => undefined);
+    throw error;
+  };
+  const { thread, settings, isNew } = start
+    ? { thread: start.thread, settings: threadSettingsOf(start.thread.settings), isNew: false }
+    : await threadFor(input, userId, role);
+  let rows = await threadRows(thread.id).catch(letGo);
 
   let state: TurnState;
   let assistantId: string;
@@ -434,7 +479,7 @@ async function runRequest(
   let decisions: Record<string, "approve" | "deny"> | undefined;
   let history: Anthropic.Beta.Messages.BetaMessageParam[];
 
-  if (input.approval) {
+  if (input.approval && !start) {
     const row = rows.find((entry) => entry.id === input.approval!.messageId);
     if (!row || row.role !== "assistant" || row.status !== "awaiting_approval")
       throw new AppError("INVALID_PARAMETERS", "That answer isn't waiting for an approval");
@@ -455,7 +500,20 @@ async function runRequest(
     history = historyOf(rows.filter((entry) => entry.created_at < row.created_at));
   } else {
     rows = await abandonWaiting(rows);
-    if (input.regenerate || input.editMessageId) {
+    if (start) {
+      const written = await writeUserMessage({
+        thread,
+        settings,
+        userId,
+        person: { name, role },
+        text: start.brief,
+        attachmentAssetIds: start.frames,
+        earlier: rows,
+        studio: { sectionId: start.worker.sectionId, position: start.worker.position },
+      }).catch(letGo);
+      rows = [...rows, written];
+      userMessageId = written.id;
+    } else if (input.regenerate || input.editMessageId) {
       // The message the answer is made from (the last one, or the one edited) and everything after it.
       const target = input.editMessageId
         ? rows.find((entry) => entry.id === input.editMessageId && entry.role === "user")
@@ -519,9 +577,9 @@ async function runRequest(
       .select("id")
       .single();
     if (isMissingColumn(error) || /status_check/i.test(error?.message ?? ""))
-      throw new AppError("INVALID_PARAMETERS", NEEDS_MIGRATION);
+      return letGo(new AppError("INVALID_PARAMETERS", NEEDS_MIGRATION));
     if (error || !data)
-      throw new AppError("UNKNOWN", error?.message ?? "The answer couldn't be started");
+      return letGo(new AppError("UNKNOWN", error?.message ?? "The answer couldn't be started"));
     assistantId = data.id;
   }
 
@@ -552,6 +610,10 @@ async function runRequest(
       });
   }, 4000);
 
+  // A section's worker, in any of its turns: held to its section's step limit,
+  // and settled into its plan as the turn ends.
+  const worker = start?.worker ?? (await sections.workerOfThread(thread.id, assistantId));
+  if (worker && !start) await sections.markSectionWorking(worker.sectionId);
   const context: AgentContext = {
     userId,
     threadId: thread.id,
@@ -560,15 +622,26 @@ async function runRequest(
     projectId: thread.project_id,
     campaignId: thread.campaign_id,
     signal: ending.signal,
+    ...(worker
+      ? {
+          section: {
+            planId: worker.planId,
+            sectionId: worker.sectionId,
+            position: worker.position,
+          },
+        }
+      : {}),
   };
   const base = rows.find((entry) => entry.id === assistantId)?.payload ?? { intent: "chat" };
+  let ended: TurnState | null = null;
   try {
-    await runTurn(
+    ended = await runTurn(
       {
         context,
         system: AGENT_SYSTEM,
         history,
         emit,
+        ...(worker ? { budget: sections.workerBudget(worker) } : {}),
         resolve: resolveAssets,
         persist: async (current, phase) => {
           const status = STATUS_OF[current.display.status] ?? "streaming";
@@ -591,11 +664,52 @@ async function runRequest(
     clearInterval(watch);
     signal.removeEventListener("abort", end);
   }
+  if (worker && ended)
+    await sections.settleWorkerTurn(worker, ended, userId).catch((error: unknown) =>
+      console.error("section not settled", {
+        sectionId: worker.sectionId,
+        message: error instanceof Error ? error.message : String(error),
+      }),
+    );
   await db
     .from("supercomputer_threads")
     .update({ last_message_at: new Date().toISOString() })
     .eq("id", thread.id);
   await Promise.race([titling, new Promise((resolve) => setTimeout(resolve, 4000))]);
+}
+
+/**
+ * Checks a plan's joins for the page that shows them: its frames taken (a
+ * minute at most), then each join looked at. Only whoever planned it, or an
+ * admin; the stream says when it is done.
+ */
+async function checkPlanJoins(
+  input: { planId: string; again?: boolean | undefined },
+  userId: string,
+  role: string,
+  emit: (event: AgentEvent) => void,
+): Promise<void> {
+  const sections = await import("./sections.server");
+  const view = await sections.loadPlan(input.planId);
+  const { data: owner } = await db
+    .from("supercomputer_threads")
+    .select("created_by")
+    .eq("id", view.threadId)
+    .maybeSingle();
+  if (owner?.created_by !== userId && role !== "admin")
+    throw new AppError(
+      "NOT_AUTHORIZED",
+      "Only whoever planned these sections, or an admin, can check them",
+    );
+  emit({ type: "status", status: "streaming" });
+  await sections.checkJoins({
+    planId: input.planId,
+    userId,
+    waitMs: 60_000,
+    again: input.again === true,
+    look: true,
+  });
+  emit({ type: "status", status: "complete" });
 }
 
 /** Handles a POST to the agent's endpoint: the turn's events, streamed. */

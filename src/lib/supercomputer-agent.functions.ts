@@ -50,9 +50,12 @@ export const getAgentStatus = createServerFn({ method: "GET" })
       db.from("supercomputer_threads").select("id,settings,pinned").limit(1),
       db.from("supercomputer_memories").select("id").limit(1),
     ]);
+    const { sectionsReady } = await import("./supercomputer/sections.server");
     return {
       configured: !!process.env["ANTHROPIC_API_KEY"]?.trim(),
       tablesReady: !isMissingColumn(threads.error) && !isMissingColumn(memories.error),
+      /** Working in sections (migration 0036). */
+      sectionsReady: await sectionsReady().catch(() => false),
     };
   });
 
@@ -167,4 +170,85 @@ export const deleteAgentMemory = createServerFn({ method: "POST" })
       );
     await db.from("supercomputer_memories").delete().eq("id", data.id);
     return { ok: true };
+  });
+
+/* ------------------------------------------------------------------ */
+/* Sections                                                            */
+/* ------------------------------------------------------------------ */
+
+/** A plan in sections, if it belongs to a conversation of this person's (or they are an admin). */
+async function ownPlan(planId: string, userId: string) {
+  const db = await admin();
+  const { data, error } = await db
+    .from("supercomputer_section_plans")
+    .select("id,thread_id")
+    .eq("id", planId)
+    .maybeSingle();
+  if (isMissingColumn(error)) {
+    const { NEEDS_SECTIONS } = await import("./supercomputer/sections.server");
+    throw new AppError("INVALID_PARAMETERS", NEEDS_SECTIONS);
+  }
+  if (!data) throw new AppError("INVALID_PARAMETERS", "That plan no longer exists");
+  await ownThread(data.thread_id, userId);
+  return data;
+}
+
+/**
+ * Queues a plan's sections for their workers (all not done, or those at
+ * `positions`): the page runs them one after another. A note goes into each
+ * one's next brief.
+ */
+export const queueAgentSections = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        planId: z.string().uuid(),
+        positions: z.array(z.number().int().min(0).max(100)).max(100).optional(),
+        note: z.string().trim().max(1200).optional(),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    await ownPlan(data.planId, context.userId);
+    const { queueSections } = await import("./supercomputer/sections.server");
+    await queueSections({
+      planId: data.planId,
+      positions: data.positions ?? null,
+      note: data.note ?? null,
+    });
+    return { ok: true };
+  });
+
+/** Takes a plan's queued sections back, so none starts after the one working now. */
+export const holdAgentSections = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => z.object({ planId: z.string().uuid() }).parse(data))
+  .handler(async ({ data, context }) => {
+    await ownPlan(data.planId, context.userId);
+    const { holdSections } = await import("./supercomputer/sections.server");
+    await holdSections(data.planId);
+    return { ok: true };
+  });
+
+/**
+ * Puts a join right: a smart blend or colour match on the integration edit,
+ * or the section on one side queued to make its shot again.
+ */
+export const fixAgentJoin = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        planId: z.string().uuid(),
+        position: z.number().int().min(0).max(100),
+        fix: z.enum(["smart_blend", "colour_match", "redo_after", "redo_before"]),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    await ownPlan(data.planId, context.userId);
+    const { fixJoin } = await import("./supercomputer/sections.server");
+    const { done } = await fixJoin({ planId: data.planId, position: data.position, fix: data.fix });
+    return { done };
   });
