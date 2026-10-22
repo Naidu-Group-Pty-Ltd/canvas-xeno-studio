@@ -670,6 +670,10 @@ interface Context {
   /** Each repository's own scheme, as the scanner read it. */
   repoSchemes: Map<string, "dark" | "light" | null>;
   tokens: Token[];
+  /** The tokens by name, so a token's namesakes in other repositories and themes are found at once. */
+  byName: Map<string, Token[]>;
+  /** What every candidate is measured against, worked out once a proposal. */
+  once: { extreme?: number | null; vivid?: string[]; steps?: Map<string, number[]> };
 }
 
 /**
@@ -696,9 +700,8 @@ function schemeFit(
   if (token.scheme === context.scheme) add(score, 1, `its ${context.scheme} theme's value`);
   else if (token.scheme === "default") {
     const own = context.repoSchemes.get(token.repo);
-    const overridden = context.tokens.some(
-      (other) =>
-        other.repo === token.repo && other.name === token.name && other.scheme === context.scheme,
+    const overridden = (context.byName.get(token.name) ?? []).some(
+      (other) => other.repo === token.repo && other.scheme === context.scheme,
     );
     add(score, own && own !== context.scheme && overridden ? -1.5 : 0.5);
   } else add(score, -3);
@@ -711,7 +714,7 @@ function primaryFit(repo: string, context: Context, score: Score) {
 /** Other repositories that declare a token with the same value. */
 function alsoIn(token: Token, context: Context): string[] {
   const value = token.resolved.replace(/\s+/g, " ").trim().toLowerCase();
-  const repos = context.tokens
+  const repos = (context.byName.get(token.name) ?? [])
     .filter(
       (other) =>
         other.repo !== token.repo &&
@@ -977,9 +980,19 @@ function groundValue(source: ColourSource, context: Context, score: Score) {
     if (luminance >= 0.9) add(score, 2, `near white (${source.hex})`);
     else if (luminance >= 0.75) add(score, 1);
   }
-  // Among the opaque colours declared for the brand's scheme that aren't text, lines or rings.
+  const target = extremeLuminance(context);
+  if (target !== null && Math.abs(target - luminance) < 1e-6)
+    add(score, 1, `the ${context.scheme === "dark" ? "darkest" : "lightest"} colour declared`);
+}
+
+/**
+ * The darkest (or, for a light brand, lightest) of the opaque colours declared
+ * for the brand's scheme that aren't text, lines or rings; null for none.
+ */
+function extremeLuminance(context: Context): number | null {
+  if (context.once.extreme !== undefined) return context.once.extreme;
   const opposite = context.scheme === "dark" ? "light" : "dark";
-  const extreme = context.tokens
+  const levels = context.tokens
     .filter(
       (token) =>
         token.kind === "colour" &&
@@ -990,11 +1003,12 @@ function groundValue(source: ColourSource, context: Context, score: Score) {
         !NOT_SURFACE.test(nameWords(token.name)),
     )
     .map((token) => relativeLuminance(token.hex!));
-  if (extreme.length) {
-    const target = context.scheme === "dark" ? Math.min(...extreme) : Math.max(...extreme);
-    if (Math.abs(target - luminance) < 1e-6)
-      add(score, 1, `the ${context.scheme === "dark" ? "darkest" : "lightest"} colour declared`);
-  }
+  context.once.extreme = levels.length
+    ? context.scheme === "dark"
+      ? Math.min(...levels)
+      : Math.max(...levels)
+    : null;
+  return context.once.extreme;
 }
 
 /** A surface or a raised card: opaque, not the ground, and near it rather than the ink. */
@@ -1037,10 +1051,16 @@ function nextStep(ground: string, candidate: string, context: Context): boolean 
   const a = split(ground);
   const b = split(candidate);
   if (!a || !b || a.stem !== b.stem || a.step === b.step) return false;
-  const steps = context.tokens
-    .map((token) => split(token.name))
-    .filter((entry): entry is { stem: string; step: number } => !!entry && entry.stem === a.stem)
-    .map((entry) => entry.step);
+  // Every scale's steps, read once a proposal.
+  if (!context.once.steps) {
+    const scales = new Map<string, number[]>();
+    for (const token of context.tokens) {
+      const entry = split(token.name);
+      if (entry) scales.set(entry.stem, [...(scales.get(entry.stem) ?? []), entry.step]);
+    }
+    context.once.steps = scales;
+  }
+  const steps = context.once.steps.get(a.stem) ?? [];
   const toward =
     context.scheme === "dark"
       ? steps.filter((step) => step < a.step).sort((x, y) => y - x)
@@ -1050,10 +1070,11 @@ function nextStep(ground: string, candidate: string, context: Context): boolean 
 
 /** The scanner's vivid colours, heaviest first. */
 function vividRank(context: Context): string[] {
-  return context.system.colours
+  context.once.vivid ??= context.system.colours
     .filter((colour) => vivid(colour.hex))
     .sort((a, b) => b.weight - a.weight)
     .map((colour) => colour.hex);
+  return context.once.vivid;
 }
 
 function clusterOf(system: CodeDesignSystem, hex: string): CodeColour | null {
@@ -1627,14 +1648,19 @@ export function proposeProduction(
   options: { importId?: string | null } = {},
 ): ProductionProposal {
   const scheme = productionScheme(system);
+  const tokens = system.tokens.filter(
+    (token) => typeof token?.name === "string" && typeof token.resolved === "string",
+  );
+  const byName = new Map<string, Token[]>();
+  for (const token of tokens) byName.set(token.name, [...(byName.get(token.name) ?? []), token]);
   const context: Context = {
     system,
     scheme,
     primary: system.primary,
     repoSchemes: new Map(system.repos.map((repo) => [repo.label, repo.defaultScheme])),
-    tokens: system.tokens.filter(
-      (token) => typeof token?.name === "string" && typeof token.resolved === "string",
-    ),
+    tokens,
+    byName,
+    once: {},
   };
   const roles: ProductionRoles = {};
   const candidates: ProductionProposal["candidates"] = {};
