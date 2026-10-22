@@ -1006,6 +1006,8 @@ const UPLOAD_TYPES: Record<string, { mime: string; extension: string }> = {
   "audio/mpeg": { mime: "audio/mpeg", extension: "mp3" },
   "audio/mp4": { mime: "audio/mp4", extension: "m4a" },
   "audio/x-m4a": { mime: "audio/mp4", extension: "m4a" },
+  "audio/flac": { mime: "audio/flac", extension: "flac" },
+  "audio/x-flac": { mime: "audio/flac", extension: "flac" },
 };
 
 /**
@@ -1020,11 +1022,13 @@ function uploadTypeByName(fileName: string): { mime: string; extension: string }
       ? UPLOAD_TYPES["audio/mpeg"]
       : extension === "m4a"
         ? UPLOAD_TYPES["audio/mp4"]
-        : undefined;
+        : extension === "flac"
+          ? UPLOAD_TYPES["audio/flac"]
+          : undefined;
 }
 
-/** What a recording uploaded for its licence may be (the form asks for WAV, MP3 or M4A). */
-const UPLOAD_KINDS: readonly ProbedAudio[] = ["mp3", "wav", "m4a"];
+/** What a recording uploaded for its licence may be (the form asks for WAV, MP3, M4A or FLAC). */
+export const UPLOAD_KINDS: readonly ProbedAudio[] = ["mp3", "wav", "m4a", "flac"];
 
 /** Uploads whose licence was never recorded are cleared after this long (the form keeps one for a day). */
 const UPLOAD_TTL_MS = 2 * 24 * 60 * 60_000;
@@ -1040,12 +1044,12 @@ const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
 const uploadTooLarge = () =>
   new AppError(
     "INVALID_PARAMETERS",
-    `That file is too large (over ${MAX_UPLOAD_BYTES / 1024 / 1024} MB). Upload a compressed copy (MP3 or M4A).`,
+    `That file is too large (over ${MAX_UPLOAD_BYTES / 1024 / 1024} MB). Upload a compressed copy (MP3, M4A or FLAC).`,
   );
 const notAudio = () =>
   new AppError(
     "INVALID_PARAMETERS",
-    "That file isn't audio the studio can use. Upload a WAV, MP3 or M4A (AAC) file.",
+    "That file isn't audio the studio can use. Upload a WAV, MP3, M4A (AAC) or FLAC file.",
   );
 
 type MusicUploadRow = {
@@ -1075,6 +1079,10 @@ const uploadNotAdded = () =>
  * adds it to the library. So what an upload is, whose it is and how old it is
  * comes from the server's own record, never from a library record a member
  * could have changed.
+ *
+ * The server stages its own uploads the same way (an import through the
+ * studio's API), under an id it works out from the request, so asking again
+ * finds the upload already staged rather than staging another copy.
  */
 export async function stageUpload(input: {
   userId: string;
@@ -1082,14 +1090,15 @@ export async function stageUpload(input: {
   mimeType: string;
   size: number;
   projectId: string | null;
+  uploadId?: string;
 }): Promise<{ uploadId: string; bucket: string; path: string }> {
   await requireActiveMember(input.userId);
   const untyped = input.mimeType === "" || input.mimeType === "application/octet-stream";
   const type =
     UPLOAD_TYPES[input.mimeType] ?? (untyped ? uploadTypeByName(input.fileName) : undefined);
-  if (!type) throw new AppError("INVALID_PARAMETERS", "Upload a WAV, MP3 or M4A file.");
+  if (!type) throw new AppError("INVALID_PARAMETERS", "Upload a WAV, MP3, M4A or FLAC file.");
   if (input.size > MAX_UPLOAD_BYTES) throw uploadTooLarge();
-  const uploadId = crypto.randomUUID();
+  const uploadId = input.uploadId ?? crypto.randomUUID();
   const path = `${scopeFor(input.userId, input.projectId)}/music-uploads/${uploadId}.${type.extension}`;
   const { error } = await supabaseAdmin.from("music_uploads").insert({
     id: uploadId,

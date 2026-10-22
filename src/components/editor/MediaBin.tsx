@@ -77,8 +77,8 @@ export function MediaBin({ projectId, usedAssetIds, onAddVisual, onAddAudio }: M
     if (refused.length)
       toast.error(
         refused.length === 1
-          ? `“${refused[0]!.name}” isn't a file the library takes (MP4, MOV or WebM video; JPEG, PNG, WebP or GIF stills; WAV, MP3 or M4A audio).`
-          : `${refused.length} files aren't ones the library takes (MP4, MOV or WebM video; JPEG, PNG, WebP or GIF stills; WAV, MP3 or M4A audio).`,
+          ? `“${refused[0]!.name}” isn't a file the library takes (MP4, MOV or WebM video; JPEG, PNG, WebP or GIF stills; WAV, MP3, M4A or FLAC audio).`
+          : `${refused.length} files aren't ones the library takes (MP4, MOV or WebM video; JPEG, PNG, WebP or GIF stills; WAV, MP3, M4A or FLAC audio).`,
       );
     if (taken.length > 10) toast.message("Ten files at a time: the first ten were taken.");
     const batch = taken.slice(0, 10);

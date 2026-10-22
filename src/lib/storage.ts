@@ -31,6 +31,8 @@ export const ACCEPTED_MIME: Record<MediaKind, string[]> = {
     "audio/mpeg",
     "audio/mp4",
     "audio/x-m4a",
+    "audio/flac",
+    "audio/x-flac",
   ],
 };
 
@@ -47,7 +49,7 @@ export const PROVIDER_MIME: Record<MediaKind, string[]> = {
 export const ACCEPT_ATTRIBUTE: Record<MediaKind, string> = {
   image: ACCEPTED_MIME.image.join(","),
   video: [...ACCEPTED_MIME.video, ".mov", ".mp4", ".webm"].join(","),
-  audio: [...ACCEPTED_MIME.audio, ".wav", ".mp3", ".m4a"].join(","),
+  audio: [...ACCEPTED_MIME.audio, ".wav", ".mp3", ".m4a", ".flac"].join(","),
 };
 
 /** The types of files whose browser gave none (or only a generic one), by their extension. */
@@ -55,6 +57,7 @@ const TYPE_BY_EXTENSION: Record<string, string> = {
   wav: "audio/wav",
   mp3: "audio/mpeg",
   m4a: "audio/mp4",
+  flac: "audio/flac",
   mp4: "video/mp4",
   mov: "video/quicktime",
   webm: "video/webm",
@@ -91,9 +94,10 @@ export function mediaKindFor(mime: string): MediaKind | null {
   return null;
 }
 
-/** Browsers report WAV under several names; store the one the provider expects. */
+/** Browsers report WAV (and FLAC) under several names; store the one the provider expects. */
 export function normalizeMime(mime: string): string {
   if (["audio/wave", "audio/vnd.wave", "audio/x-wav"].includes(mime)) return "audio/wav";
+  if (mime === "audio/x-flac") return "audio/flac";
   if (mime === "image/jpg") return "image/jpeg";
   return mime;
 }

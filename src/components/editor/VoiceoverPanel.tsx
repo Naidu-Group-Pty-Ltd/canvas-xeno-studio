@@ -198,7 +198,7 @@ export function VoiceoverPanel({
     if (importInput.current) importInput.current.value = "";
     if (!file) return;
     if (!isUploadableAudio(file)) {
-      toast.error(`“${file.name}” isn't a WAV, MP3 or M4A file.`);
+      toast.error(`“${file.name}” isn't a WAV, MP3, M4A or FLAC file.`);
       return;
     }
     setImportFile(file);
@@ -751,7 +751,7 @@ export function VoiceoverPanel({
           </div>
         ) : (
           <p className="text-muted-foreground">
-            WAV, MP3 or M4A recorded elsewhere
+            WAV, MP3, M4A or FLAC recorded elsewhere
             <span className="hidden md:inline">, or drag the file onto this panel</span>.
           </p>
         )}

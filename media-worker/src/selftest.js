@@ -757,6 +757,58 @@ await check("prepare_audio keeps an M4A's timing (its encoder priming left out)"
   }
 });
 
+// FLAC, which the studio's uploads and its API take as they take WAV, MP3 and
+// M4A: lossless, so a voiceover comes through to the sample, at 44.1 kHz too.
+await check("prepare_audio reads a FLAC voiceover to the sample", async () => {
+  const take = join(dir, "take.flac");
+  await ffmpeg([
+    "-f", "lavfi", "-i",
+    "aevalsrc='0.4*sin(2*PI*220*t)*(between(t,0.30,1.40)+between(t,1.90,3.20)+between(t,3.70,4.60))*(0.6+0.4*sin(2*PI*5*t))':s=44100:d=5",
+    "-c:a", "flac", take,
+  ]);
+  const { metadata } = await TASKS.prepare_audio.run({ sources: [{ path: take, role: "audio" }], params: {}, dir });
+  if (metadata.samples !== 240000) throw new Error(`the FLAC's 5 s came out as ${metadata.samples} samples, not 240000`);
+  if (Math.abs(metadata.speech_start_seconds - 0.3) > 0.01) throw new Error(`speech should start at 0.30 s, found ${metadata.speech_start_seconds}`);
+  const near = (from, to) => metadata.pauses.some(([a, b]) => Math.abs(a - from) <= 0.02 && Math.abs(b - to) <= 0.02);
+  if (!near(1.4, 1.9) || !near(3.2, 3.7)) throw new Error(`expected pauses at 1.40-1.90 and 3.20-3.70, found ${JSON.stringify(metadata.pauses)}`);
+});
+
+await check("render_sequence mixes a FLAC voiceover over looped FLAC music", async () => {
+  const still = join(dir, "flac-still.jpg");
+  const voice = join(dir, "flac-voice.flac");
+  const music = join(dir, "flac-music.flac");
+  await ffmpeg(["-f", "lavfi", "-i", "testsrc2=s=640x360:d=1", "-frames:v", "1", still]);
+  await ffmpeg(["-f", "lavfi", "-i", "sine=frequency=700:duration=1:sample_rate=44100", "-c:a", "flac", voice]);
+  await ffmpeg(["-f", "lavfi", "-i", "sine=frequency=200:duration=1:sample_rate=48000", "-ac", "2", "-c:a", "flac", music]);
+  const result = await TASKS.render_sequence.run({
+    sources: [
+      { path: still, role: "image" },
+      { path: voice, role: "audio" },
+      { path: music, role: "audio" },
+    ],
+    params: {
+      width: 360, height: 640, fps: 25, normalize_loudness: false,
+      clips: [{ source_index: 0, kind: "image", duration: 3 }],
+      audio: [
+        { source_index: 1, role: "voiceover", start: 1 },
+        { source_index: 2, role: "music", start: 0, loop: true, duck: false, volume: 0.5 },
+      ],
+    },
+    dir,
+  });
+  const info = await probe(result.outputs[0].path);
+  if (!info.has_audio) throw new Error("no soundtrack");
+  if (Math.abs(info.duration_seconds - 3) > 0.1) throw new Error(`unexpected duration ${info.duration_seconds}`);
+  // Each sound in its own band: the voice (700 Hz) where it was laid, the music (200 Hz) looped past its one second.
+  const band = async (from, hz) => {
+    const { stderr } = await ffmpeg(["-ss", String(from), "-t", "0.5", "-i", result.outputs[0].path, "-vn", "-af", `bandpass=f=${hz}:width_type=q:w=8,volumedetect`, "-f", "null", "-"]);
+    return Number(/mean_volume:\s*(-?[\d.]+) dB/.exec(stderr)?.[1] ?? Number.NaN);
+  };
+  const [before, during, musicLate] = [await band(0.25, 700), await band(1.25, 700), await band(2.25, 200)];
+  if (!(during - before > 20)) throw new Error(`the FLAC voice isn't heard where it was laid (before ${before} dB, during ${during} dB)`);
+  if (!(musicLate > -40)) throw new Error(`the FLAC music didn't loop past its length (${musicLate} dB at 2.25 s)`);
+});
+
 await check("prepare_audio refuses a file with no sound", async () => {
   const mute = join(dir, "mute.mp4");
   await ffmpeg(["-f", "lavfi", "-i", "testsrc2=s=160x120:r=30:d=1", "-c:v", "libx264", "-pix_fmt", "yuv420p", mute]);
