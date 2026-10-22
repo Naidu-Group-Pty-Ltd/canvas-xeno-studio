@@ -54,7 +54,6 @@ const SWATCHES = [
   ["traveller", "--reel-traveller"],
   ["press-ring", "--reel-press-ring"],
   ["teal-builders", "--reel-teal-builders"],
-  ["paper", "--reel-paper"],
   ["ink", "--reel-ink"],
   ["ink-muted", "--reel-ink-muted"],
   ["before-paper", "--reel-before-paper"],
@@ -109,8 +108,6 @@ body { position: relative; overflow: hidden; background: var(--reel-ground); col
 .corners::after { right: 0; bottom: 0; border-right: var(--reel-corners-border-right); border-bottom: var(--reel-corners-border-bottom); }
 .rail { position: absolute; left: 410px; top: 80px; bottom: 60px; width: var(--reel-link-line-width); background: var(--reel-link-line); }
 .traveller { position: absolute; left: -2.5px; top: 46%; width: var(--reel-traveller-width); height: var(--reel-traveller-height); border-radius: var(--reel-traveller-border-radius); background: var(--reel-traveller); box-shadow: var(--reel-traveller-box-shadow); }
-.doc { position: absolute; right: 40px; top: 250px; width: 120px; height: 156px; border-radius: 4px; background: var(--reel-paper); box-shadow: var(--reel-shadow-document); }
-.doc::before { content: ""; position: absolute; left: 14px; right: 14px; top: 20px; height: 8px; border-radius: 2px; background: var(--reel-gold); opacity: .8; }
 .pointer { position: absolute; left: 300px; top: 300px; }
 .ring { position: absolute; left: -12px; top: -12px; width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--reel-press-ring); }
 .label { position: absolute; font: 400 11px/1.4 "Inconsolata", monospace; color: var(--reel-ink-muted); letter-spacing: .06em; }
@@ -152,14 +149,13 @@ ${SWATCHES.map(
       <p>BK-014 · ready for the client</p>
     </div>
     <div class="rail"><div class="traveller"></div></div>
-    <div class="doc"></div>
     <div class="pointer">
       <div class="ring"></div>
       <svg width="26" height="34" viewBox="0 0 26 34"><path d="M2 2 L2 27 L8.5 21 L13 31 L17.5 29 L13 19.5 L22 19.5 Z" fill="var(--reel-pointer)" stroke="var(--reel-pointer-edge)" stroke-width="1.6" stroke-linejoin="round"/></svg>
     </div>
   </div>
   <div class="label" style="left:60px; top:520px">glass · sheen · border · radius-window · shadow-window</div>
-  <div class="label" style="left:60px; top:540px">record card · focus corners · link-line · traveller · paper · pointer and press ring</div>
+  <div class="label" style="left:60px; top:540px">record card · focus corners · link-line · traveller · pointer and press ring</div>
 </div>
 <div class="foot"><span>Written by scripts/aurixa-reel-1/reel_css.ts from ${read.join(" · ")}</span><span>aurixa-reel.css</span></div>
 </body></html>`;

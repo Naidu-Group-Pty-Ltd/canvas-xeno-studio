@@ -48,8 +48,8 @@
 - [x] A design system read from the brand's code (docs/brand-code-import.md): up to six GitHub repositories read together, the first the brand's own, as text and never run. It yields every colour with the tokens that name it and the file and line each is declared on, the typefaces and how each is loaded, the radius, shadow, motion, blur and gradient scales, and where the repositories disagree. It powers the Brand page's Code import (with a Code tab in the review, tokens.css and JSON downloads, and Re-read), the agent's `import_brand_code`, the studio API's `read_brand_code` and `scripts/brand/scan-repos.ts`
 - [x] Updating a kit from code takes its colours and type and keeps the kit's look, voice, rules and style references
 - [x] Apply migration 0026_brand_code_imports
-- [ ] The studio's `GITHUB_TOKEN` backend secret (a fine-grained token with Contents: read on the brand's repositories), so private repositories are read without typing a token on each import
-- [ ] Deploy: the import is on branch claude/sharp-cannon-y04iey until it is merged to main
+- [x] The studio's `GITHUB_TOKEN` backend secret (a fine-grained token with Contents: read on the brand's repositories), so private repositories are read without typing a token on each import. Set by the client on 21 October 2026; checked on 22 October, when the live studio's `read_brand_code` read all four Aurixa repositories with no token in the request (two of them GitHub will not show without one)
+- [x] Deploy: merged to main in #45 and published
 
 ## Brand DNA and content formulas
 
@@ -118,6 +118,9 @@
 - [x] The brief in Xeno Studio, beside 848af668: creative brief 1ebd06fc-9e5f-5d7b-b7b6-be9a9a86bef0 (27 pages, its summary in the studio's brief shape, `analysis.extends` naming the pack), written with `system_edition.py --studio-sql`
 - [ ] The client's three decisions in the brief: the sound under the voiceover, real product footage, the opening palette
 - [x] The graphics kit's stylesheet (docs/brands/aurixa-reel-1/system-edition/aurixa-reel.css), written by the studio's code scanner from the four repositories (`scripts/aurixa-reel-1/reel_css.ts`): 58 custom properties, each with the repository, file and line it is declared on. The 35 roles that name code all hold the brief's value, and the token sheet (`aurixa-reel-tokens.png`) draws every one
-- [ ] The six pages still to build (NEW-INBOX, NEW-NOTIFICATIONS, NEW-MESSAGE-HUB, NEW-CLIENT-REPORTS, NEW-DASHBOARDS, NEW-REPORT-PAGES)
-- [ ] Style frames (one per block), then the animatic, then the renders and the edit
+- [x] The six pages still to build, from the products' code (NEW-INBOX, NEW-NOTIFICATIONS, NEW-MESSAGE-HUB, NEW-CLIENT-REPORTS, NEW-DASHBOARDS, NEW-REPORT-PAGES): 22 plates. The report's own pages are the standard Investment PDF as the product draws it for an issuer with no brand colour, set line for line in Helvetica's metrics (`scripts/aurixa-reel-1/helvetica.cjs`)
+- [x] Style frames, one per block at its key beat, under its caption (`scripts/aurixa-reel-1/frames.cjs` with the graphics kit, `kit.cjs`): 15 stills at 1080 x 1920 drawn from the plates' own HTML, sent to the client on 22 October 2026 (contact sheet: docs/brands/aurixa-reel-1/system-edition/style-frames.jpg)
+- [x] PL-08B, the report's PDF in the viewer at its cover, drawn with the product's own viewer, pages and colours (it still showed the navy it was approved in, and a floor-plan page the PDF no longer prints)
+- [x] The animatic (review gate 2): the 29 shots as timed stills on the master voiceover with the captions (`scripts/aurixa-reel-1/animatic.cjs`; 21 further stills in `frames.cjs` for the shots with no style frame and the pictures that change partway), cut on the brief's beats at whole frames; every one of its 3,181 frames checked against its schedule, and every shot and caption against the brief and the spec. Sent to the client on 22 October 2026 (storyboard: docs/brands/aurixa-reel-1/system-edition/animatic-shots.jpg)
+- [ ] The client's approval of the style frames and of the animatic's timing, then the renders and the edit
 - [ ] The studio records no price for metered GPT Image runs: Higgsfield's result carries none, so a run's cost and the balance countdown miss them (the Console's balance is the only record)

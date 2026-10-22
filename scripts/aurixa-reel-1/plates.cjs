@@ -18,13 +18,20 @@ const CHROMIUM = ["/opt/pw-browsers/chromium-1194/chrome-linux/chrome"].find((fi
   fs.existsSync(file),
 );
 
+// Required by ./frames.cjs, which passes the same two arguments: the plates are drawn in its frames
+// rather than rendered here.
+const MAIN = require.main === module;
 const OUT = path.resolve(process.argv[2] || "reel-1-plates");
 const ASSETS = process.argv[3] ? path.resolve(process.argv[3]) : null;
-fs.mkdirSync(OUT, { recursive: true });
+if (MAIN) fs.mkdirSync(OUT, { recursive: true });
 const dataUrl = (file, type) => `data:${type};base64,${fs.readFileSync(file).toString("base64")}`;
+// A frame draws several plates at once, so ./frames.cjs serves each image from this host once rather
+// than carrying it inline in every plate.
+const ASSET_HOST = "https://reel-assets.local";
 const asset = (name) => {
   const file = ASSETS && path.join(ASSETS, name);
-  return file && fs.existsSync(file) ? dataUrl(file, "image/png") : null;
+  if (!file || !fs.existsSync(file)) return null;
+  return MAIN ? dataUrl(file, "image/png") : `${ASSET_HOST}/${name}`;
 };
 const P = asset("P.png");
 const D = asset("D.png");
@@ -32,6 +39,8 @@ const EMBLEM = asset("emblem.png");
 const WORDMARK = asset("wordmark.png");
 // The supplied logo itself (its glow, rings, skyline and lettering), for the trial and closing cards.
 const LOGO = asset("logo-art.png");
+// The graphics kit: today's tools, shared with the style frames (./frames.cjs).
+const KIT = require("./kit.cjs")({ P, D });
 
 /** A Google font as a data URL, kept in the temp folder (Inter is a system font). */
 async function googleFont(family, weight) {
@@ -82,8 +91,16 @@ async function fontFaces() {
   return faces.join("\n");
 }
 
+// The system edition's tokens (written from the brand's code by ./reel_css.ts): the pages it adds
+// draw in them, and the plates before it never name one.
+const REEL_CSS = fs.readFileSync(
+  path.join(__dirname, "../../docs/brands/aurixa-reel-1/system-edition/aurixa-reel.css"),
+  "utf8",
+);
+
 const css = (faces) => `
 ${faces}
+${REEL_CSS}
 :root { --navy:#0A192F; --deep:#040B16; --panel:#10233D; --panel2:#15304f; --gold:#C89B3C; --gold2:#D7B35F; --teal:#00A8B5;
   --blue:#1238E8; --white:#FFFFFF; --muted:#B7C1D0; --line:rgba(183,193,208,.16); }
 * { box-sizing:border-box; margin:0; padding:0; }
@@ -173,6 +190,7 @@ html, body { width:100%; height:100%; background:transparent; font-family:Inter,
   text-shadow:0 2px 24px rgba(4,11,22,.65); }
 .phrase .ul { display:block; margin:26px auto 0; width:220px; height:4px; border-radius:2px; background:linear-gradient(90deg, transparent, var(--gold2), transparent); }
 .close { position:absolute; inset:0; background:linear-gradient(180deg, rgba(10,25,47,0) 0%, rgba(10,25,47,.55) 18%, rgba(10,25,47,.94) 34%, #0A192F 55%, #0A192F 78%, rgba(4,11,22,.96) 100%); }
+${KIT.css}
 `;
 
 // On a button the pointer rests at its lower right, clear of the label.
@@ -325,7 +343,29 @@ const enquiry = (sent) => `
     ${sent ? `<div style="font-size:22px;color:#16794b;font-weight:700">✓ Sent</div>` : `<div class="gbtn" style="position:relative">Send${onButton()}</div>`}
   </div></div>`;
 
+// ---- system edition: today's tools, in the before tokens (BRIEF.md, "Pages still to build"); drawn by
+// the graphics kit, which the style frames share.
+const { plainWin, glyph, listing, inbox, NOTES, note } = KIT;
+
 const PLATES = {
+  // ---- system edition: the pages still to build that are today's tools
+  "NEW-INBOX": {
+    size: [1920, 1200],
+    html: `<div class="screen before">${plainWin(90, 80, 1740, 1040, "Mail", inbox())}</div>`,
+  },
+  "NEW-NOTIFICATIONS": {
+    size: [720, 830],
+    html: `<div class="screen before">${Object.keys(NOTES)
+      .map((key, i) => note(key, 24, 24 + i * 158))
+      .join("")}</div>`,
+  },
+  // Each on its own, transparent, to arrive from its own edge in 03.1.
+  ...Object.fromEntries(
+    Object.keys(NOTES).map((key) => [
+      `NEW-NOTIFICATIONS-${key}`,
+      { size: [700, 190], transparent: true, html: `<div class="screen">${note(key)}</div>` },
+    ]),
+  ),
   // ---- generic, unbranded problem scenes
   "PL-01B-a": {
     size: [1920, 1200],
@@ -657,35 +697,44 @@ const portals = require("./portals.cjs")({
 for (const key of ["PL-05A", "PL-05B", "PL-06A", "PL-06B", "PL-09B"]) delete PLATES[key];
 Object.assign(PLATES, portals.plates);
 
-(async () => {
-  const CSS = css(await fontFaces()) + portals.css;
-  const { chromium } = playwright();
-  const browser = await chromium.launch(CHROMIUM ? { executablePath: CHROMIUM } : {});
-  // A plate drawn at a smaller CSS size and rendered at its scale, so its type is phone-sized.
-  const pages = new Map();
-  // PLATES_ONLY=PL-09B-a,PL-12A-a renders just those, to look at a change.
-  const only = process.env.PLATES_ONLY?.split(",");
-  for (const [key, plate] of Object.entries(PLATES)) {
-    if (only && !only.includes(key)) continue;
-    const scale = plate.scale ?? 1;
-    if (!pages.has(scale))
-      pages.set(scale, await (await browser.newContext({ deviceScaleFactor: scale })).newPage());
-    const page = pages.get(scale);
-    const [width, height] = plate.size;
-    await page.setViewportSize({
-      width: Math.round(width / scale),
-      height: Math.round(height / scale),
-    });
-    await page.setContent(
-      `<!doctype html><html><head><meta charset="utf-8"><style>${CSS}</style></head><body>${plate.html}</body></html>`,
-      { waitUntil: "load" },
-    );
-    await page.evaluate(() => document.fonts.ready);
-    await page.screenshot({
-      path: path.join(OUT, `${key}.png`),
-      omitBackground: !!plate.transparent,
-    });
-  }
-  await browser.close();
-  console.log(only ? only.length : Object.keys(PLATES).length, "plates →", OUT);
-})();
+/** The plates, their stylesheet (with its fonts) and the kit, for ./frames.cjs. */
+module.exports = {
+  PLATES,
+  KIT,
+  ASSET_HOST,
+  styles: async () => css(await fontFaces()) + portals.css,
+};
+
+if (MAIN)
+  (async () => {
+    const CSS = await module.exports.styles();
+    const { chromium } = playwright();
+    const browser = await chromium.launch(CHROMIUM ? { executablePath: CHROMIUM } : {});
+    // A plate drawn at a smaller CSS size and rendered at its scale, so its type is phone-sized.
+    const pages = new Map();
+    // PLATES_ONLY=PL-09B-a,PL-12A-a renders just those, to look at a change.
+    const only = process.env.PLATES_ONLY?.split(",");
+    for (const [key, plate] of Object.entries(PLATES)) {
+      if (only && !only.includes(key)) continue;
+      const scale = plate.scale ?? 1;
+      if (!pages.has(scale))
+        pages.set(scale, await (await browser.newContext({ deviceScaleFactor: scale })).newPage());
+      const page = pages.get(scale);
+      const [width, height] = plate.size;
+      await page.setViewportSize({
+        width: Math.round(width / scale),
+        height: Math.round(height / scale),
+      });
+      await page.setContent(
+        `<!doctype html><html><head><meta charset="utf-8"><style>${CSS}</style></head><body>${plate.html}</body></html>`,
+        { waitUntil: "load" },
+      );
+      await page.evaluate(() => document.fonts.ready);
+      await page.screenshot({
+        path: path.join(OUT, `${key}.png`),
+        omitBackground: !!plate.transparent,
+      });
+    }
+    await browser.close();
+    console.log(only ? only.length : Object.keys(PLATES).length, "plates →", OUT);
+  })();

@@ -6,7 +6,7 @@ It reads the code as text and never runs it. The result is a design system in wh
 says where it is declared:
 
 > `#C89B3C` is `--color-prism-magenta` in aurixa-systems `src/index.css:18`, `colors.brand` in
-> aurixa-builders `tailwind.config.ts:61` and `AURIXA_PALETTE.gold` in aurixa-mission-control
+> aurixa-builders `tailwind.config.ts:61` and `AURIXA_PALETTE.gold` in aurixa-mission-control-12b89885
 > `src/lib/brand/aurixa-brand.ts:50`.
 
 Code shows a brand's colours, type and scales exactly. It doesn't show the look of the brand's

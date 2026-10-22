@@ -116,10 +116,10 @@
             "npc-client-dashboard",
             "The Command Centre and the Client, Finance, Accountant and Solicitor portals",
             "`src/styles/tokens.css` and `glass.css`: HSL channels (Tailwind 3), light and `.dark`; the workspace's brand colour written at run time by `src/branding/token-resolver.ts`",
-            "The screens (through the plates), the same scales as the Builders Network, and the ivory of its documents"
+            "The screens (through the plates), the same scales as the Builders Network, and its report's pages (from its PDF code)"
           ],
           [
-            "aurixa-mission-control",
+            "aurixa-mission-control-12b89885",
             "The operators' console",
             "`src/styles.css`: Tailwind 4 `@theme inline` in oklch; Archivo and JetBrains Mono; 0 px radius",
             "Nothing: it is not in the film, and its electric cyan and lime are its own, not the brand's"
@@ -215,11 +215,11 @@
             "Secondary text, the rail's later stages"
           ],
           [
-            "Ivory",
-            "`--aurixa-ivory`",
-            "`44 70% 95%`",
-            "npc-client-dashboard `src/styles/tokens.css`",
-            "The pages of a document"
+            "The report's pages",
+            "none (the PDF's own code)",
+            "`#FFFFFF` pages, `#D9A520` gold, `#251F18` obsidian, `#333333` text",
+            "npc-client-dashboard `brandFamily.pure.ts` (no brand colour) and `investmentPdfDocument.ts`",
+            "The client's report, exactly as the product prints it"
           ],
           [
             "Chrome greys",
@@ -527,7 +527,6 @@
       "ink": ["--color-text-primary", "#FFFFFF", "aurixa-systems `@theme`"],
       "ink-muted": ["--color-marketing-muted", "#B7C1D0", "aurixa-systems `@theme`"],
       "teal-builders": ["--primary (.dark)", "184 100% 35%", "aurixa-builders `tokens.css`"],
-      "paper": ["--aurixa-ivory", "44 70% 95%", "npc-client-dashboard `tokens.css`"],
       "before-paper": ["--color-chrome-100", "#F3F4F6", "aurixa-systems `@theme`"],
       "before-surface": ["none", "#FFFFFF", "white"],
       "before-border": ["--color-chrome-300", "#D1D5DB", "aurixa-systems `@theme`"],
@@ -589,8 +588,8 @@
     },
     "G-DOCUMENT": {
       "name": "The document",
-      "what": "A PDF that lifts off a page as an object: its cover in front, its pages fanned behind on the products' ivory, the products' deepest elevation beneath. The floor plan travels between portals as the same object.",
-      "tokens": ["paper", "shadow-document", "ease-settle"]
+      "what": "A PDF that lifts off a page as an object: its cover in front, its pages fanned behind, each the report's own page as the product prints it, with the products' deepest elevation beneath. The floor plan travels between portals as the same object.",
+      "tokens": ["shadow-document", "ease-settle"]
     },
     "G-HIGHLIGHT": {
       "name": "The marker",
@@ -651,23 +650,23 @@
     },
     "NEW-MESSAGE-HUB": {
       "name": "Command Centre · Message Hub, Jordan Ellis's thread",
-      "what": "His question at the top and Alex Morgan's reply: Your Residence 014 report is ready in your portal. Let's go through it together on Thursday.",
-      "from": "npc-client-dashboard's Message Hub"
+      "what": "Two states. First, his question from Monday at the top and Alex Morgan's reply typed in the composer, his row in the list reading Draft; then sent, with its delivered tick, and his row moved to Today: Your Residence 014 report is ready in your portal. Let's go through it together on Thursday.",
+      "from": "npc-client-dashboard's Message Hub (the list, the thread and its Details)"
     },
     "NEW-CLIENT-REPORTS": {
       "name": "Client Portal · the report and the next discussion",
-      "what": "Investment Compass · Residence 014 · Ready to read, beside Next discussion · Thursday 10:00 · Alex Morgan.",
-      "from": "npc-client-dashboard's Client Portal dashboard and reports"
+      "what": "Two pages. Reports: Project Banksia / Residence 014, Investment Report · Compass, New, with Download Report. My Appointments: Report walkthrough with Alex Morgan, Thu, 22 Oct 2026, 10:00 AM – 10:30 AM, Upcoming.",
+      "from": "npc-client-dashboard's Client Portal: its Reports and My Appointments pages"
     },
     "NEW-DASHBOARDS": {
       "name": "The Solicitor, Accountant, Finance and Builders Network dashboards",
-      "what": "Each portal's home page with the demo record: Shah Legal (Priya Shah): Welcome back, Open matters, 1 active matter, Ellis: Purchase, Residence 014 at Instructed in the stage mix; Patel & Co Accountants (Mia Patel): Good to see you, Mia, 1 allocated client, Jordan Ellis recently allocated; Harbour Finance Group (Jamie Chen): Welcome back, Jamie, 1 active purchase file, Jordan Ellis · Residence 014; Reed Constructions (Daniel Reed): Welcome back, Open projects, 1 active project, Project Banksia. The Client Portal's is PL-06A-a.",
+      "what": "Each portal's home page with the demo record. Shah Legal (Priya Shah): Welcome back, Open matters, 1 active matter; Ellis: Purchase, Residence 014 in Contract review, marked Watch after 13 days in the stage. Patel & Co Accountants (Mia Patel): Good to see you, Mia, 1 allocated client; Needs you next: Jordan Ellis, purchasing entity not yet confirmed. Harbour Finance Group (Jamie Chen): Welcome back, Jamie, the agreement templates (download only), and Today: You're clear for today. Reed Constructions (Daniel Reed): Welcome back, the organisation's title block, 1 project; Recent activity and Project delivery attention, both empty. The Client Portal's is PL-06A-a.",
       "from": "the supplied dashboard screenshots' layout, the portals' code (npc-client-dashboard, aurixa-builders) and the plates' own sidebars"
     },
     "NEW-REPORT-PAGES": {
-      "name": "Investment Compass · the summary and the assessment pages",
-      "what": "Two inside pages of the client's report for the PDF viewer and the document fan: the summary, and how the assessment was reached (assessed and not assessed dimensions), each carrying the illustrative-example label.",
-      "from": "npc-client-dashboard's Investment Compass masters (scripts/template-library) and the plates' existing cover (PL-08B)"
+      "name": "Investment Compass · the client's report, inside",
+      "what": "The standard PDF as the product draws it for an issuer with no brand colour: white pages under the issuer's running head, in gold #D9A520 and obsidian #251F18. Its cover, the contents, The property, the summary (page 4: Executive Verdict, the purchase price and the rent, the readiness statement) and How this grade was reached (page 19: capital growth, location and rental yield scored; demand and property risk not), each on its own for the document fan, and the PDF viewer at pages 4 and 19. Every modelled page carries the illustrative-example label.",
+      "from": "npc-client-dashboard's standard Investment PDF (investmentPdfDocument.ts, investmentPdfCover.ts, investmentPdfIssuerPage.ts, measured from a render of that code) and its grade composer (strategyPositions.pure.ts)"
     }
   },
   "screenshots": [
@@ -1064,9 +1063,9 @@
       "on_screen": [
         "Generated Reports",
         "Investment Compass",
-        "RESIDENCE 014 · PROJECT BANKSIA · BANKSIA RISE NSW 2155"
+        "RESIDENCE 014, PROJECT BANKSIA, BANKSIA RISE NSW 2155"
       ],
-      "notes": "The cover carries no grade or score (as PL-08B).",
+      "notes": "The pages are the product's standard PDF, which since 21 October 2026 draws no floor-plan sheet. The cover carries no grade or score. Its colours are the ones the product resolves for an issuer with no brand colour, obsidian #251F18 and gold #D9A520 (NEW-REPORT-PAGES); PL-08B, the PDF in the viewer at its cover, is the same document in the same colours.",
       "in": 41.4,
       "out": 45.233,
       "seconds": 3.833,
@@ -1082,7 +1081,7 @@
         },
         {
           "at": 43.2,
-          "do": "The document itself lifts out of the page: the Investment Compass cover, then its pages fan out behind it (contents, the summary, the floor plan)."
+          "do": "The document itself lifts out of the page: the Investment Compass cover, then its pages fan out behind it (the contents, The property's photograph, the summary)."
         }
       ]
     },
@@ -1099,7 +1098,7 @@
         "Can we review whether this suits my plans?",
         "Your Residence 014 report is ready in your portal. Let's go through it together on Thursday."
       ],
-      "notes": "The payoff of 03.1: the same words, now answered.",
+      "notes": "The payoff of 03.1: the same words, now answered. The Message Hub sits in the Command Centre's Client & CRM group, and its Details name the professional's side Command Center, the product's own spelling.",
       "in": 45.233,
       "out": 47.0,
       "seconds": 1.767,
@@ -1249,14 +1248,15 @@
       "kind": "deliverable",
       "palette": "aurixa",
       "title": "What the client is trusting you with",
-      "sources": ["PL-08B", "NEW-REPORT-PAGES", "G-DOCUMENT", "G-HIGHLIGHT"],
+      "sources": ["NEW-REPORT-PAGES", "G-DOCUMENT", "G-HIGHLIGHT"],
       "camera": "Still; the pages turn.",
       "result": "Two pages of the client's own report, each with one marked passage.",
       "on_screen": [
         "Investment Compass",
+        "How this grade was reached",
         "Illustrative example only: hypothetical client, figures and assumptions. Not a credit assessment or financial advice."
       ],
-      "notes": "Guardrail 2: anything modelled carries the illustrative label on the page itself.",
+      "notes": "Guardrail 2: anything modelled carries the illustrative label on the page itself. The verdict line is the product's own for a B+ assessed on 3 of 5 dimensions (BUY - Good investment opportunity with favourable metrics in most of the areas assessed); the camera and the marker stay on the case and on the readiness statement, which says the grade is not permission to proceed.",
       "in": 60.7,
       "out": 65.1,
       "seconds": 4.4,
@@ -1264,11 +1264,11 @@
       "beats": [
         {
           "at": 60.7,
-          "do": "The client's report in the PDF viewer at its summary page; the marker settles under the opportunity it sets out."
+          "do": "The client's report in the PDF viewer at its summary, page 4 of 22: Executive Verdict, the purchase price and the rent, and the readiness statement. The marker settles under the case it sets out."
         },
         {
           "at": 63.5,
-          "do": "The page turns to how the assessment was reached: what was assessed and what was not, labelled as an illustrative example. The marker settles on it."
+          "do": "The page turns to page 19, How this grade was reached: three dimensions scored and two not, under the illustrative label. The marker settles under the two that were not scored."
         }
       ]
     },
@@ -1282,10 +1282,12 @@
       "camera": "Still.",
       "result": "The report and the next discussion, side by side for the client.",
       "on_screen": [
-        "Investment Compass · Residence 014 · Ready to read",
-        "Next discussion · Thursday 10:00 · Alex Morgan"
+        "Investment Report · Compass · New",
+        "Download Report",
+        "Report walkthrough with Alex Morgan",
+        "Thu, 22 Oct 2026 · 10:00 AM – 10:30 AM · Upcoming"
       ],
-      "notes": "Guides the decision: nothing on screen makes it.",
+      "notes": "The two cards are on two pages of the Client Portal (Reports and My Appointments), and no page holds both, so the second is brought in as a graphic. Guides the decision: nothing on screen makes it.",
       "in": 65.1,
       "out": 67.033,
       "seconds": 1.933,
@@ -1293,11 +1295,11 @@
       "beats": [
         {
           "at": 65.1,
-          "do": "The Client Portal: the report is ready to read, and beside it the next conversation, Thursday 10:00 with Alex Morgan."
+          "do": "The Client Portal's Reports page: the report's card, Project Banksia / Residence 014, Investment Report · Compass, marked New."
         },
         {
-          "at": 65.9,
-          "do": "The pointer opens the report card."
+          "at": 65.8,
+          "do": "Beside it, the next discussion's card from My Appointments slides in: Report walkthrough with Alex Morgan, Thu, 22 Oct 2026, 10:00 AM – 10:30 AM, Upcoming. The pointer comes to rest on Download Report."
         }
       ]
     },

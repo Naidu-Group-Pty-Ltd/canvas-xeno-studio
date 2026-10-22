@@ -31,7 +31,7 @@ const REPOS = [
   "aurixa-systems",
   "aurixa-builders",
   "npc-client-dashboard",
-  "aurixa-mission-control",
+  "aurixa-mission-control-12b89885",
 ] as const;
 
 type Role = [token: string, value: string, source: string];

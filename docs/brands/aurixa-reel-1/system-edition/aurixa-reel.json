@@ -10,10 +10,10 @@
     },
     {
       "repo": "Naidu-Group-Pty-Ltd/npc-client-dashboard",
-      "sha": "73bde4cdb1b1145aaa8183866a0fdd4376022c69"
+      "sha": "398235cb3e016d49f6f89eefcde4029b9e16c236"
     },
     {
-      "repo": "Naidu-Group-Pty-Ltd/aurixa-mission-control",
+      "repo": "Naidu-Group-Pty-Ltd/aurixa-mission-control-12b89885",
       "sha": "df7f45f745a6c2612cef894c101c24e77159b796"
     }
   ],
@@ -1081,31 +1081,6 @@
           "by": "--primary",
           "value": "184 100% 35%",
           "written": "184 100% 35%"
-        }
-      ],
-      "agrees": true,
-      "note": null
-    },
-    "paper": {
-      "brief": {
-        "token": "--aurixa-ivory",
-        "value": "44 70% 95%",
-        "from": "npc-client-dashboard `tokens.css`"
-      },
-      "css": [
-        {
-          "name": "--reel-paper",
-          "value": "hsl(44 70% 95%)"
-        }
-      ],
-      "declared": [
-        {
-          "repo": "Naidu-Group-Pty-Ltd/npc-client-dashboard",
-          "path": "src/styles/tokens.css",
-          "line": 150,
-          "by": "--aurixa-ivory",
-          "value": "44 70% 95%",
-          "written": "44 70% 95%"
         }
       ],
       "agrees": true,

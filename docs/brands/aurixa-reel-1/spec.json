@@ -1036,7 +1036,7 @@
           "text": [
             "Aurixa · Ready when you are",
             "Draft a short note to Jordan Ellis about his Residence 014 client summary.",
-            "Needs your go-ahead · Email Preview: To Jordan Ellis · Residence 014: your client summary · Next step: discuss the next step",
+            "Needs your go-ahead · Send an email · To jordan.ellis@example.com · Residence 014: your client summary · Email Preview · Next step: discuss the next step",
             "Approve · Cancel"
           ]
         },
@@ -1052,7 +1052,9 @@
           "shots": "07A",
           "kind": "aurixa",
           "title": "The changed note, approved",
-          "text": ["Approved · Next step: review the remaining questions together"]
+          "text": [
+            "Approved · Send an email · Next step: review the remaining questions together · ✓ Approved"
+          ]
         },
         {
           "key": "PL-08A-a",
@@ -1081,8 +1083,8 @@
           "kind": "aurixa",
           "title": "The client's report as delivered: its PDF on the meeting room's display",
           "text": [
-            "The browser's PDF viewer: Investment Compass — Banksia Rise, NSW · 1 / 22 · its page rail",
-            "The cover: the Aurixa emblem, AURIXA SYSTEMS (gold serif capitals), INVESTMENT COMPASS, RESIDENCE 014, PROJECT BANKSIA, BANKSIA RISE NSW 2155, the photograph (P) in the lower band, a thin gold frame",
+            "The browser's PDF viewer: Investment Compass — Residence 014, Project Banksia, Banksia Rise NSW 2155 · 1 / 22 · its page rail (the cover, the contents, The property, the summary)",
+            "The cover as the product draws it for an issuer with no brand colour, gold #D9A520 on obsidian #251F18: the Aurixa emblem, AURIXA SYSTEMS (gold serif capitals), INVESTMENT COMPASS, RESIDENCE 014, PROJECT BANKSIA, BANKSIA RISE NSW 2155, the photograph (P) in the lower band, a thin gold frame",
             "No grade or score on the cover"
           ]
         },
