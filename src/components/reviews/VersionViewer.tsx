@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { Crosshair, Loader2, MessageSquare, Trash2, X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { RenderReport } from "@/components/editor/RenderQuality";
+import { ReviewSheet } from "@/components/editor/ReviewSheet";
+import { isMissingColumnError } from "@/lib/edit/errors";
 import { useReviewAction } from "@/hooks/useReviews";
 import { useSignedUrl } from "@/components/studio/MediaPreview";
 import { formatTime } from "@/lib/edit/timeline";
@@ -51,13 +55,48 @@ function pinText(
 }
 
 /**
- * Where a render's review sheet (a picture of every shot's beats beside the
- * brief) and its measurements (proposals G2 and G1) will show once renders
- * have them: kept as one place, beside the render being reviewed, so they
- * land where a reviewer looks. Nothing until then.
+ * A render's review sheet (every shot, half a second in and on its last frame,
+ * labelled from the brief) and its measurements against its own lossless
+ * reference (proposals G2 and G1), beside the render being reviewed, so they
+ * land where a reviewer looks. Before migration 0031_render_quality the
+ * measurements come from the video's own record, and no sheet can be made.
  */
-export function RenderSheetSlot(_props: { renderId: string | null; versionId: string }) {
-  return null;
+export function RenderSheetSlot({ renderId }: { renderId: string | null; versionId: string }) {
+  const { data } = useQuery({
+    queryKey: ["sequence_renders", "review", renderId],
+    enabled: Boolean(renderId),
+    staleTime: 30_000,
+    queryFn: async () => {
+      const read = (columns: string) =>
+        supabase.from("sequence_renders").select(columns).eq("id", renderId!).maybeSingle();
+      let answer = await read("id,status,asset_id,quality,review_sheet_task_id");
+      if (answer.error && isMissingColumnError(answer.error, "quality"))
+        answer = await read("id,status,asset_id");
+      if (answer.error) throw answer.error;
+      const render = answer.data as unknown as {
+        status: string;
+        asset_id: string | null;
+        quality?: unknown;
+        review_sheet_task_id?: string | null;
+      } | null;
+      const { data: video } = render?.asset_id
+        ? await supabase.from("assets").select("metadata").eq("id", render.asset_id).maybeSingle()
+        : { data: null };
+      return { render, metadata: (video?.metadata ?? null) as unknown };
+    },
+  });
+  const render = data?.render;
+  if (!renderId || !render || render.status !== "completed") return null;
+  return (
+    <div
+      className="space-y-1.5 rounded-lg border border-border p-3"
+      data-testid="render-sheet-slot"
+    >
+      <p className="label-eyebrow">The render, measured</p>
+      <RenderReport stored={render.quality ?? null} metadata={data.metadata} />
+      <ReviewSheet renderId={renderId} taskId={render.review_sheet_task_id ?? null} />
+    </div>
+  );
 }
 
 interface Point {
