@@ -73,6 +73,12 @@ async function renderRequestFor(timeline: Timeline) {
       message:
         "This edit's titles or captions use a brand's fonts or colours, which the media service can't set until it is updated. Render again once the service has been updated.",
     });
+  if (Array.isArray(request.params["stems"]))
+    needed.push({
+      feature: "stems",
+      message:
+        "This edit asks for its stems (the voiceover, music and effects as files beside the video), which the media service can't make until it is updated. Turn stems off in the edit's Format settings, or render again once the service has been updated.",
+    });
   if (usesVoicePauses(request.params))
     needed.push({
       feature: "voice_pauses",
@@ -382,6 +388,9 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
     : `unassigned/${input.userId}`;
   const videoPath = `${scope}/edits/${sequence.id}/${renderId}.mp4`;
   const posterPath = `${scope}/edits/${sequence.id}/${renderId}.jpg`;
+  // Each stem asked for goes beside the video, in the order the media service hands them back.
+  const stems = Array.isArray(request.params["stems"]) ? (request.params["stems"] as string[]) : [];
+  const stemPaths = stems.map((role) => `${scope}/edits/${sequence.id}/${renderId}-${role}.wav`);
 
   // Everything the render needs is recorded in one transaction (see the
   // start_sequence_render database function): stalled renders of the edit are
@@ -406,7 +415,8 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
         input_payload: {
           sequence_id: sequence.id,
           render_id: renderId,
-          storage_paths: [videoPath, posterPath],
+          storage_paths: [videoPath, posterPath, ...stemPaths],
+          ...(stems.length ? { stems } : {}),
           mime_type: "video/mp4",
           output_kind: "video",
           sources: request.sources.map((source) => source.assetId),
@@ -441,7 +451,7 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
   if (outcome.outcome !== "started")
     throw new AppError("INVALID_PARAMETERS", "That edit no longer exists");
 
-  return submitRender({ renderId, taskId, assets, request, videoPath, posterPath });
+  return submitRender({ renderId, taskId, assets, request, videoPath, posterPath, stemPaths });
 }
 
 /**
@@ -456,6 +466,8 @@ async function submitRender(input: {
   request: ReturnType<typeof buildRenderRequest>;
   videoPath: string;
   posterPath: string;
+  /** Where the stems go, after the video and poster (feature stems). */
+  stemPaths?: string[];
 }): Promise<RenderStarted> {
   const { renderId, taskId, assets, request, videoPath, posterPath } = input;
   /**
@@ -492,7 +504,7 @@ async function submitRender(input: {
   }
 
   const uploads: { url: string; method: "PUT"; storage_key: string }[] = [];
-  for (const path of [videoPath, posterPath]) {
+  for (const path of [videoPath, posterPath, ...(input.stemPaths ?? [])]) {
     const url = await signUpload(OUTPUT_BUCKET, path);
     if (!url)
       await fail("STORAGE_FAILED", "A destination for the rendered video could not be prepared");
@@ -763,6 +775,7 @@ async function resumed(renderId: string): Promise<RenderStarted> {
     request: await renderRequestFor(timeline),
     videoPath: paths[0],
     posterPath: paths[1],
+    stemPaths: paths.slice(2).filter((path): path is string => typeof path === "string"),
   });
   return { ...sent, duplicate: true };
 }

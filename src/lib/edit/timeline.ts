@@ -386,6 +386,8 @@ export const timelineSchema = z.object({
   brandKitId: z.string().uuid().nullable().default(null),
   /** The platform whose clear area the preview shows (see ./brand SAFE_AREAS). */
   safeArea: z.enum(["none", "tiktok", "reels", "shorts", "youtube"]).default("none"),
+  /** Hand back the voiceover, music and effects buses as files beside the video (see stemRolesFor). */
+  stems: z.boolean().default(false),
 });
 export type Timeline = z.infer<typeof timelineSchema>;
 
@@ -1346,6 +1348,23 @@ export function mixNeedsChannelLevels(timeline: Timeline): boolean {
   );
 }
 
+/** The order a render hands back its stems in, after the video and its poster. */
+export const STEM_ROLES: readonly AudioRole[] = ["voiceover", "music", "sfx"];
+
+/**
+ * The stems a render of the edit hands back when asked for: each bus with
+ * sound heard in it (its voiceover, its music, its effects), as mixed into the
+ * master, as a file beside the video.
+ */
+export function stemRolesFor(
+  timeline: Timeline,
+  total = layoutTimeline(timeline).total,
+): AudioRole[] {
+  if (!timeline.stems) return [];
+  const heard = new Set(audibleAudio(timeline, total).map((item) => item.role));
+  return STEM_ROLES.filter((role) => heard.has(role));
+}
+
 /**
  * The media worker's render_sequence parameters for a timeline, plus the
  * ordered list of distinct assets it needs (one download per asset).
@@ -1408,7 +1427,8 @@ export function buildRenderRequest(
     fade_in: item.fadeIn,
     fade_out: item.fadeOut,
     loop: audioLoops(item),
-    duck: item.role === "music" ? item.duck : false,
+    // Music dips under the voice, and an effect can too; a voiceover never does.
+    duck: item.role === "voiceover" ? false : item.duck,
     duck_level: item.duckLevel,
     // Sent only when it has some (feature voice_pauses), so an older media service renders the rest.
     ...voicePausesParam(item, layout.total, timeline.fps),
@@ -1511,6 +1531,10 @@ export function buildRenderRequest(
         ? { frame_rate_conversion: timeline.frameRateConversion }
         : {}),
       ...(timeline.upscale !== "standard" ? { upscale: timeline.upscale } : {}),
+      // Sent only when asked for (feature stems): one more file a bus, in STEM_ROLES' order.
+      ...(stemRolesFor(timeline, layout.total).length
+        ? { stems: stemRolesFor(timeline, layout.total) }
+        : {}),
       ...(busMix
         ? {
             mix: {

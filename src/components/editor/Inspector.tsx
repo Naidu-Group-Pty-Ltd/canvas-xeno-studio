@@ -918,7 +918,7 @@ function AudioInspector({
             />
           </Field>
         </div>
-        {item.role === "music" && (
+        {(item.role === "music" || item.role === "sfx") && (
           <>
             <div className="flex items-center justify-between">
               <Label className="text-xs" htmlFor={`duck-${item.id}`}>
@@ -948,6 +948,13 @@ function AudioInspector({
             {item.duck && !hasVoice && (
               <p className="text-xs text-muted-foreground">
                 Add a voiceover and the music will dip wherever it speaks.
+              </p>
+            )}
+            {!item.duck && hasVoice && (
+              <p className="text-xs text-muted-foreground" data-testid="never-ducked">
+                Never dipped: it plays at its own level all through, voice or not. Right for a quiet
+                bed under short lines, which dipping would make pump between them; keep its volume
+                low enough for the words.
               </p>
             )}
           </>
@@ -1150,6 +1157,22 @@ function SequenceSettings({ timeline, layout, assets, onChange }: InspectorProps
             id="loudness"
             checked={timeline.normalizeLoudness}
             onCheckedChange={(checked) => set({ normalizeLoudness: checked })}
+          />
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <Label className="text-xs" htmlFor="stems">
+              Export stems with the video
+            </Label>
+            <p className="text-[11px] text-muted-foreground">
+              The voiceover, the music and the effects, each as a WAV file beside the finished
+              video, as mixed into it before its loudness is evened out.
+            </p>
+          </div>
+          <Switch
+            id="stems"
+            checked={timeline.stems}
+            onCheckedChange={(checked) => set({ stems: checked })}
           />
         </div>
       </Section>

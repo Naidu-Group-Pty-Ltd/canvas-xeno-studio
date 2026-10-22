@@ -502,7 +502,7 @@ const AudioLayer = memo(function AudioLayer({
     if (fadeOut > 0 && elapsed > length - fadeOut)
       gain *= Math.max(0, (length - elapsed) / fadeOut);
     if (
-      item.role === "music" &&
+      item.role !== "voiceover" &&
       item.duck &&
       voiceRanges.some(([from, to]) => time >= from - 0.25 && time <= to + 0.45)
     ) {

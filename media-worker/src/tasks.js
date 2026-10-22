@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { probe, ffmpeg } from "./ffmpeg.js";
 import { TaskError } from "./net.js";
-import { renderSequence, SEQUENCE_LIMITS } from "./sequence.js";
+import { renderSequence, SEQUENCE_LIMITS, stemRoles } from "./sequence.js";
 import { cameraMotion, decodeThumbnails, extractFrameByIndex, pickHandoffFrame } from "./frames.js";
 import { measureSync, prepareAudio } from "./voice.js";
 import { lipCheck, lipCheckAvailable } from "./lipcheck.js";
@@ -58,7 +58,9 @@ function pick(value, allowed, fallback, name) {
  * sound ("smart_join"), a title's height on the frame and what keeps it
  * readable ("overlay_layout"), and, where the image has it, a clip's lips
  * scored from its picture ("lip_check"). A voiceover can be held open in its
- * silences by whole frames ("voice_pauses").
+ * silences by whole frames ("voice_pauses"), every render reports the voice's
+ * margin over the music and the mix's loudness ("mix_report"), and a render
+ * can hand back its voiceover, music and effects buses as files ("stems").
  */
 export const FEATURES = [
   "frame_focus",
@@ -75,6 +77,8 @@ export const FEATURES = [
   "brand_text",
   "image_overlays",
   "voice_pauses",
+  "mix_report",
+  "stems",
   ...(lipCheckAvailable ? ["lip_check"] : []),
 ];
 
@@ -403,11 +407,12 @@ export const TASKS = {
    * An edited sequence rendered to a finished video: clips and stills with
    * trims, speed and motion, per-cut transitions, the clips' own sound,
    * voiceover, music ducked under the voice, captions, titles and loudness
-   * normalisation. Produces the video and a poster frame.
+   * normalisation. Produces the video and a poster frame, then any stems
+   * asked for (the voiceover, music and effects buses, in the order asked).
    */
   render_sequence: {
     sources: { min: 1, max: SEQUENCE_LIMITS.clips + SEQUENCE_LIMITS.audio + SEQUENCE_LIMITS.images + SEQUENCE_LIMITS.fonts },
-    outputs: () => 2,
+    outputs: (params) => 2 + stemRoles(params?.stems).length,
     run: renderSequence,
   },
 

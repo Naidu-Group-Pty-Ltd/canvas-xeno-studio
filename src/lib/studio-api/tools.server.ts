@@ -22,6 +22,7 @@ import { addEndCard, applyBrandKit, brandKitOf, SAFE_AREAS } from "../edit/brand
 import { CHANNELS, EMPTY_DNA, GOALS } from "../brand/dna";
 import { GITHUB_TOKEN_PATTERN } from "../brand/import-request";
 import { parseTimeline, timelineSchema } from "../edit/timeline";
+import { renderStems } from "../edit/mix-report";
 import { textCheckOf } from "../media/text-check";
 import { CHARACTER_VIEWS } from "../characters/model";
 import type { ModelRegistryEntry } from "../model-schema";
@@ -373,7 +374,7 @@ const getRender = tool({
   name: "get_render",
   title: "Get a render",
   description:
-    "A render's progress (0 to 1), its status, and once complete, the finished video's library id and a download link valid for an hour.",
+    "A render's progress (0 to 1), its status, and once complete, the finished video's library id and a download link valid for an hour, how its sound sits (mix_report: the voice's margin over the music in the speech band, section by section, and the mix's loudness), and its stems if asked for.",
   scope: "read",
   input: z.object({ renderId: id() }),
   run: async (args) => {
@@ -388,7 +389,7 @@ const getRender = tool({
     const { data: asset } = render.asset_id
       ? await db
           .from("assets")
-          .select("storage_bucket,storage_path")
+          .select("storage_bucket,storage_path,metadata")
           .eq("id", render.asset_id)
           .is("deleted_at", null)
           .maybeSingle()
@@ -396,9 +397,48 @@ const getRender = tool({
     return {
       ...render,
       url: asset ? await signedLink(asset.storage_bucket, asset.storage_path) : null,
+      ...(await renderSound(args.renderId, asset?.metadata ?? null)),
     };
   },
 });
+
+/**
+ * How a render's sound sits, as kept on it (or, before migration
+ * 0032_mix_reports, with its video's own record), and its stems with links.
+ */
+async function renderSound(renderId: string, videoMetadata: unknown) {
+  const { data: kept, error } = await db
+    .from("sequence_renders")
+    .select("mix_report")
+    .eq("id", renderId)
+    .maybeSingle();
+  const probe = (videoMetadata as { probe?: { mix_report?: unknown } } | null)?.probe;
+  const report = (!error && kept?.mix_report) || probe?.mix_report || null;
+  const stems = renderStems(videoMetadata);
+  const { data: files } = stems.length
+    ? await db
+        .from("assets")
+        .select("id,storage_bucket,storage_path")
+        .in(
+          "id",
+          stems.map((stem) => stem.assetId),
+        )
+        .is("deleted_at", null)
+    : { data: [] };
+  return {
+    mix_report: report,
+    stems: await Promise.all(
+      stems.map(async (stem) => {
+        const stored = (files ?? []).find((entry) => entry.id === stem.assetId);
+        return {
+          role: stem.role,
+          assetId: stem.assetId,
+          url: stored ? await signedLink(stored.storage_bucket, stored.storage_path) : null,
+        };
+      }),
+    ),
+  };
+}
 
 const listBrandKits = tool({
   name: "list_brand_kits",

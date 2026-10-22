@@ -317,6 +317,58 @@ await check("render_sequence plays a held voiceover under music, silent in its p
   if (!(speaking - done > 30)) throw new Error(`the voice runs past where its pause puts its end (${done} dB at 4.4 s)`);
 });
 
+await check("render_sequence reports the voice's margin over the music by section, the loudness, and its stems", async () => {
+  const still = join(dir, "report-still.jpg");
+  const voice = join(dir, "report-voice.wav");
+  const music = join(dir, "report-music.wav");
+  await ffmpeg(["-f", "lavfi", "-i", "testsrc2=s=640x360:d=1", "-frames:v", "1", still]);
+  // A voice that speaks for 1.5 s, stops for 1 s, then speaks for 1.5 s; a bed in the same band.
+  await ffmpeg([
+    "-f", "lavfi", "-i", "sine=frequency=1000:duration=1.5", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
+    "-f", "lavfi", "-i", "sine=frequency=1000:duration=1.5",
+    "-filter_complex", "[1:a]atrim=end=1[gap];[0:a][gap][2:a]concat=n=3:v=0:a=1", voice,
+  ]);
+  await ffmpeg(["-f", "lavfi", "-i", "sine=frequency=1500:duration=6", music]);
+  const result = await TASKS.render_sequence.run({
+    sources: [
+      { path: still, role: "image" },
+      { path: voice, role: "audio" },
+      { path: music, role: "audio" },
+    ],
+    params: {
+      width: 360, height: 640, fps: 30,
+      clips: [{ source_index: 0, kind: "image", duration: 5 }],
+      // The bed at a quarter of the voice's level (12.04 dB under it), then an eighth (18.06 dB).
+      audio: [
+        { source_index: 1, role: "voiceover", start: 0.5 },
+        { source_index: 2, role: "music", start: 0, duration: 2.5, volume: 0.25, duck: false },
+        { source_index: 2, role: "music", start: 2.5, volume: 0.125, duck: false },
+      ],
+      stems: ["voiceover", "music", "sfx"],
+    },
+    dir,
+  });
+  const report = result.metadata.mix_report;
+  const [first, second] = report?.sections ?? [];
+  if (!first || !second || report.sections.length !== 2) throw new Error(`sections ${JSON.stringify(report?.sections)}`);
+  if (Math.abs(first.margin_db - 12.04) > 0.5 || Math.abs(second.margin_db - 18.06) > 0.5) throw new Error(`margins ${first.margin_db} and ${second.margin_db} dB, not 12 and 18`);
+  if (first.speech_seconds !== 1.5 || second.speech_seconds !== 1.5 || first.index !== 1 || second.index !== 2) throw new Error(`sections ${JSON.stringify(report.sections)}`);
+  if (Math.abs(report.loudness?.integrated_lufs + 14) > 0.6) throw new Error(`loudness ${JSON.stringify(report.loudness)}`);
+  if (report.loudness.true_peak_dbtp > -1) throw new Error(`true peak ${report.loudness.true_peak_dbtp} dBTP`);
+  // The video, its poster, then the three stems asked for: each as long as the edit, the effects' silent.
+  if (result.outputs.length !== 5 || TASKS.render_sequence.outputs({ stems: ["voiceover", "music", "sfx"] }) !== 5) throw new Error(`${result.outputs.length} outputs`);
+  const level = async (path) => {
+    const { stderr } = await ffmpeg(["-i", path, "-af", "volumedetect", "-f", "null", "-"]);
+    return Number(/max_volume:\s*(-?[\d.]+|-inf) dB/.exec(stderr)?.[1] ?? Number.NaN);
+  };
+  for (const [index, stem] of result.outputs.slice(2).entries()) {
+    const info = await probe(stem.path);
+    if (stem.kind !== "audio" || Math.abs(info.duration_seconds - 5) > 0.01) throw new Error(`stem ${index + 1}: ${stem.kind}, ${info.duration_seconds} s`);
+  }
+  const [voiced, bed, effects] = await Promise.all(result.outputs.slice(2).map((stem) => level(stem.path)));
+  if (!(voiced > -25 && bed > -40 && !(effects > -90))) throw new Error(`stem levels ${voiced}, ${bed}, ${effects} dB`);
+});
+
 // A two-colour clip (red left, blue right) for checking where a crop lands.
 const halves = join(dir, "halves.mp4");
 await ffmpeg([

@@ -6,6 +6,7 @@ import { TaskError } from "./net.js";
 import { planeThumbnail, SEAM_EASE_SECONDS, seamCorrection, seamEaseChain } from "./seam.js";
 import { easedWarpFilter, joinHeadChain, JOIN_SOUND_SECONDS, measureJoin } from "./joins.js";
 import { fontFamily, sfntKind } from "./fonts.js";
+import { bandFilter, bandMargins, mixReport, readBand } from "./mixreport.js";
 
 /**
  * Sequence rendering: an edited timeline (ordered clips with trims, stills,
@@ -300,10 +301,11 @@ export function planSequence(params, sources) {
       fadeIn: Math.min(fadeIn, length / 2),
       fadeOut: Math.min(fadeOut, length / 2),
       loop: role === "music" && item.loop === true,
-      duck: role === "music" && item.duck !== false,
+      // Music dips under the voice unless told not to; an effect only when asked to.
+      duck: (role === "music" && item.duck !== false) || (role === "sfx" && item.duck === true),
       duckLevel: num(item.duck_level, { min: 0.05, max: 1, fallback: 0.25, name: `audio ${index + 1} duck_level` }),
     });
-    audio.at(-1).pauses = planPauses(item.pauses, audio.at(-1), fps, index);
+    Object.assign(audio.at(-1), { index, pauses: planPauses(item.pauses, audio.at(-1), fps, index) });
   }
 
   const captionsRaw = p.captions && typeof p.captions === "object" ? p.captions : null;
@@ -416,6 +418,8 @@ export function planSequence(params, sources) {
     outroFade: Math.min(outroFade, total / 3),
     normalize: p.normalize_loudness !== false,
     loudness: num(p.loudness_lufs, { min: -24, max: -9, fallback: -14, name: "loudness_lufs" }),
+    // The buses handed back on their own beside the video (feature stems).
+    stems: stemRoles(p.stems),
   };
 }
 
@@ -534,6 +538,80 @@ export function pacedRegions(regions, item) {
   return regions
     .map(([from, to]) => [moved(from, true), Math.min(item.length, moved(to, false))])
     .filter(([from, to]) => to - from >= 0.05);
+}
+
+/* ------------------------------------------------------------------ */
+/* Stems and the mix report                                            */
+/* ------------------------------------------------------------------ */
+
+/** The sound buses a render can hand back on their own (feature stems). */
+export const STEM_ROLES = ["voiceover", "music", "sfx"];
+const STEM_SET = new Set(STEM_ROLES);
+
+/** The stems a render is asked for: some of STEM_ROLES, each once, in the order the app sends its upload slots. */
+export function stemRoles(raw) {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw)) throw bad("stems must be a list");
+  const roles = raw.map((role) => choice(role, STEM_SET, null, "stem"));
+  if (roles.some((role) => role === null)) throw bad("stems may only be voiceover, music or sfx");
+  if (new Set(roles).size !== roles.length) throw bad("Each stem may be asked for once");
+  return roles;
+}
+
+/** Whether a render's mix is measured: it has a voice and music to weigh against each other (feature mix_report). */
+export function measuresMix(plan) {
+  return plan.audio.some((item) => item.role === "voiceover") && plan.audio.some((item) => item.role === "music");
+}
+
+/**
+ * The buses taken off on their own in the mix pass as well: a stem is its bus
+ * as mixed into the master, with the edit's fades; a band is its speech band
+ * at 16 kHz, for the mix report (see ./mixreport.js). A bus tapped is split,
+ * and the mix takes its own copy; a stem of a bus with nothing on it is
+ * silence. Pushes the graph's lines and returns the extra outputs' arguments.
+ */
+export function busTaps(lines, finalInputs, buses, plan, taps = {}) {
+  const total = seconds(plan.total);
+  const outputs = [];
+  for (const role of STEM_ROLES) {
+    const stem = taps.stems?.[role] ?? null;
+    const band = taps.bands?.[role] ?? null;
+    const bus = buses[role] ?? null;
+    if (!stem && !(band && bus)) continue;
+    const tag = `${role}tap`;
+    if (bus) {
+      const copies = [`${tag}mix`, ...(stem ? [`${tag}s`] : []), ...(band ? [`${tag}b`] : [])];
+      lines.push(`[${bus}]asplit=${copies.length}${copies.map((label) => `[${label}]`).join("")}`);
+      finalInputs[finalInputs.indexOf(bus)] = `${tag}mix`;
+    } else {
+      lines.push(`anullsrc=r=48000:cl=stereo,atrim=end=${total}[${tag}s]`);
+    }
+    if (band && bus) {
+      lines.push(`[${tag}b]${bandFilter()}[${tag}band]`);
+      outputs.push("-map", `[${tag}band]`, "-c:a", "pcm_s16le", "-t", total, band);
+    }
+    if (stem) {
+      const fades = [];
+      if (plan.introFade > 0) fades.push(`afade=t=in:st=0:d=${seconds(plan.introFade)}`);
+      if (plan.outroFade > 0) fades.push(`afade=t=out:st=${seconds(plan.total - plan.outroFade)}:d=${seconds(plan.outroFade)}`);
+      lines.push(`[${tag}s]${fades.length ? fades.join(",") : "anull"}[${tag}stem]`);
+      outputs.push("-map", `[${tag}stem]`, "-c:a", "pcm_s24le", "-ar", "48000", "-ac", "2", "-t", total, stem);
+    }
+  }
+  return outputs;
+}
+
+/**
+ * The voice's margin over the music where the voice speaks, in each music
+ * item's span, from the bands the mix pass wrote. Null when either is missing.
+ */
+export async function measureBands(plan, bands, speech) {
+  const [voice, music] = await Promise.all([readBand(bands.voiceover), readBand(bands.music)]);
+  if (!voice || !music || voice.channels !== music.channels) return null;
+  const sections = plan.audio
+    .filter((item) => item.role === "music")
+    .map((item) => ({ index: item.index, from: item.start, to: Math.min(plan.total, item.start + item.length) }));
+  return bandMargins({ voice: voice.samples, music: music.samples, rate: voice.rate, channels: voice.channels, speech, sections });
 }
 
 /* ------------------------------------------------------------------ */
@@ -867,7 +945,7 @@ export function duckExpression(intervals, level) {
 }
 
 /** Arguments for pass 2: the full soundtrack as a float WAV of exact length. */
-export function mixArgs(plan, intermediatePaths, audioPaths, out, voiceActivity = []) {
+export function mixArgs(plan, intermediatePaths, audioPaths, out, voiceActivity = [], taps = {}) {
   const total = seconds(plan.total);
   const args = [];
   for (const path of intermediatePaths) args.push("-i", path);
@@ -902,7 +980,7 @@ export function mixArgs(plan, intermediatePaths, audioPaths, out, voiceActivity 
     const delay = Math.round(item.start * 1000);
     if (delay > 0) chain.push(`adelay=delays=${delay}:all=1`);
     chain.push("apad", `atrim=end=${total}`, "asetpts=PTS-STARTPTS");
-    const duck = item.role === "music" && item.duck ? duckExpression(speech, item.duckLevel) : null;
+    const duck = item.duck ? duckExpression(speech, item.duckLevel) : null;
     if (duck) chain.push(`volume='${duck}':eval=frame`);
     lines.push(`${chain.join(",")}[${label}]`);
     if (item.role === "voiceover") groups.voiceover.push(label);
@@ -927,6 +1005,8 @@ export function mixArgs(plan, intermediatePaths, audioPaths, out, voiceActivity 
   if (music) finalInputs.push(music);
   const sfx = merge(groups.sfx, "sfxbed", gains.sfx);
   if (sfx) finalInputs.push(sfx);
+  // The buses on their own as well, for stems and the mix report.
+  const tapped = busTaps(lines, finalInputs, { voiceover: voice, music, sfx }, plan, taps);
 
   if (finalInputs.length === 1) {
     lines.push(`[clips]anull[mix]`);
@@ -942,6 +1022,7 @@ export function mixArgs(plan, intermediatePaths, audioPaths, out, voiceActivity 
     "-c:a", "pcm_f32le", "-ar", "48000", "-ac", "2",
     "-t", total,
     out,
+    ...tapped,
   );
   return args;
 }
@@ -1278,7 +1359,8 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
   // found by listening for silence in each voice track.
   progress(0.5, "Mixing sound");
   const voiceActivity = [];
-  const ducking = plan.audio.some((item) => item.role === "music" && item.duck);
+  // Listened for as well when the mix is measured: the report weighs the voice where it speaks.
+  const ducking = plan.audio.some((item) => item.duck) || measuresMix(plan);
   for (const item of plan.audio) {
     if (!ducking || item.role !== "voiceover" || item.volume === 0) continue;
     const { stderr } = await ffmpeg([
@@ -1290,7 +1372,14 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
     }
   }
   const mixPath = join(dir, "mix.wav");
-  await ffmpeg(mixArgs(plan, intermediates, plan.audio.map((item) => sources[item.source].path), mixPath, voiceActivity), watched);
+  // The buses on their own too: the stems asked for, and the speech bands the mix report weighs.
+  const taps = {
+    stems: Object.fromEntries(plan.stems.map((role) => [role, join(dir, `stem-${role}.wav`)])),
+    ...(measuresMix(plan) ? { bands: { voiceover: join(dir, "band-voice.wav"), music: join(dir, "band-music.wav") } } : {}),
+  };
+  await ffmpeg(mixArgs(plan, intermediates, plan.audio.map((item) => sources[item.source].path), mixPath, voiceActivity, taps), watched);
+  // A report that can't be measured is left out: it is never worth a failed render.
+  const margins = taps.bands ? await measureBands(plan, taps.bands, voiceActivity).catch(() => null) : null;
 
   // Pass 3: loudness, measured on the finished mix so the target is met evenly.
   let loudness = null;
@@ -1331,8 +1420,12 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
     ...watched,
     onProgress: (done) => progress(0.6 + 0.38 * Math.min(1, done / plan.total), "Rendering the final cut"),
   });
-  // Only the finished cut is kept from here.
-  for (const path of [...intermediates, mixPath]) await rm(path, { force: true });
+  // Only the finished cut is kept from here (and the stems asked for).
+  for (const path of [...intermediates, mixPath, ...Object.values(taps.bands ?? {})]) await rm(path, { force: true });
+  // The finished mix's own loudness, as a player measures it.
+  const master = await ffmpeg(["-i", out, "-vn", "-af", "loudnorm=print_format=json", "-f", "null", "-"], limit)
+    .then(({ stderr }) => parseLoudness(stderr))
+    .catch(() => null);
 
   const poster = join(dir, "poster.jpg");
   await ffmpeg([
@@ -1349,6 +1442,8 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
     outputs: [
       { path: out, mime: "video/mp4", kind: "video" },
       { path: poster, mime: "image/jpeg", kind: "image" },
+      // Then each stem, in the order asked for (feature stems).
+      ...plan.stems.map((role) => ({ path: taps.stems[role], mime: "audio/wav", kind: "audio" })),
     ],
     metadata: {
       ...metadata,
@@ -1357,6 +1452,8 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
       loudness_lufs: loudness ? plan.loudness : null,
       ...(seams.length ? { seams_matched: seams } : {}),
       ...(joins.length ? { smart_joins: joins } : {}),
+      mix_report: mixReport({ margins: margins ?? [], master, mixed: loudness }),
+      ...(plan.stems.length ? { stems: plan.stems } : {}),
     },
   };
 }
