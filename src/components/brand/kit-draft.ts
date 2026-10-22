@@ -5,6 +5,7 @@
 import { EMPTY_DESIGN, type BrandDesign, type PaletteColour } from "@/lib/brand/design";
 import { EMPTY_DNA, type BrandDna } from "@/lib/brand/dna";
 import type { BrandFormula } from "@/lib/brand/formulas";
+import { EMPTY_PRODUCTION, type BrandProduction } from "@/lib/brand/production";
 import { DEFAULT_FONT, type BrandFont, type BrandKit } from "@/lib/edit/brand";
 import type { OverlayBacking } from "@/lib/edit/timeline";
 
@@ -33,6 +34,8 @@ export interface Draft {
   dna: BrandDna;
   /** The formulas written for this brand. */
   ownFormulas: BrandFormula[];
+  /** The roles its graphics are drawn in, and how they move. */
+  production: BrandProduction;
 }
 
 export const EMPTY: Draft = {
@@ -59,6 +62,7 @@ export const EMPTY: Draft = {
   referenceAssetIds: [],
   dna: EMPTY_DNA,
   ownFormulas: [],
+  production: EMPTY_PRODUCTION,
 };
 
 export function draftOf(kit: BrandKit): Draft {
@@ -86,5 +90,6 @@ export function draftOf(kit: BrandKit): Draft {
     referenceAssetIds: kit.referenceAssetIds,
     dna: kit.dna,
     ownFormulas: kit.ownFormulas,
+    production: kit.production,
   };
 }

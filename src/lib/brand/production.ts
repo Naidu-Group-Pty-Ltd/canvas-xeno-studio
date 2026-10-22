@@ -751,10 +751,11 @@ function scaleSource(token: ScaleToken, value: string): RoleSource {
   };
 }
 
-/** The best candidates first, one per value and token. */
+/** The best candidates first, one per value and token; none the evidence speaks against. */
 function ranked(list: RoleCandidate[]): RoleCandidate[] {
   const seen = new Set<string>();
   return list
+    .filter((candidate) => candidate.score > 0)
     .sort((a, b) => b.score - a.score)
     .filter((candidate) => {
       const from = candidate.value.from;
@@ -1990,7 +1991,9 @@ export function productionChecks(
       detail: conflicts.length
         ? open.length
           ? `${decided} of ${conflicts.length} decided; still to write: ${open.slice(0, 6).join(", ")}${open.length > 6 ? "…" : ""}.`
-          : `All ${conflicts.length} decided.`
+          : conflicts.length === 1
+            ? "Decided."
+            : `All ${conflicts.length} decided.`
         : "The repositories agree.",
     },
   ];

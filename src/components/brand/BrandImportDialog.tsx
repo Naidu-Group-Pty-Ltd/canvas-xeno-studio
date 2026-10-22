@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -39,6 +39,14 @@ import { DEFAULT_FONT, fontChoices, type BrandFont, type BrandKit } from "@/lib/
 import { OVERLAY_BACKING_LABELS, OVERLAY_BACKINGS, type OverlayBacking } from "@/lib/edit/timeline";
 import { signedUrl, storageScope, uploadAssetBlob } from "@/lib/storage";
 import { CodeSystemPanel } from "@/components/brand/CodeSystemPanel";
+import { ProductionPanel } from "@/components/brand/ProductionPanel";
+import {
+  EMPTY_PRODUCTION,
+  isEmptyProduction,
+  proposeProduction,
+  reproposeProduction,
+  type BrandProduction,
+} from "@/lib/brand/production";
 import { DesignSystemEditor } from "@/components/brand/DesignSystemEditor";
 import { DnaEditor } from "@/components/brand/DnaEditor";
 import { FormulaBrowser } from "@/components/brand/FormulaBrowser";
@@ -176,6 +184,8 @@ interface ReviewDraft {
   projectId: string | null;
   isDefault: boolean;
   dna: BrandDna;
+  /** The roles its graphics are drawn in, proposed from its code (see ./ProductionPanel). */
+  production: BrandProduction;
 }
 
 function draftOf(
@@ -214,6 +224,7 @@ function draftOf(
     isDefault: kit?.isDefault ?? false,
     // Updating a kit keeps the DNA a person gave it; the reading fills what it left empty.
     dna: kit ? mergeSuggestion(kit.dna, proposal.dna) : proposal.dna,
+    production: kit?.production ?? EMPTY_PRODUCTION,
   };
 }
 
@@ -310,7 +321,23 @@ function Review({
   const proposal = record.proposal!;
   const { user } = useAuth();
   const { data: projects = [] } = useProjects();
-  const [draft, setDraft] = useState<ReviewDraft>(() => draftOf(proposal, kit, record.kind));
+  // From code, the production roles are proposed from what was read; re-reading a kit keeps the
+  // roles a person set on it and the notes they wrote.
+  const proposed = useMemo(
+    () => (record.code ? proposeProduction(record.code, { importId: record.id }) : null),
+    [record.code, record.id],
+  );
+  const [draft, setDraft] = useState<ReviewDraft>(() => {
+    const initial = draftOf(proposal, kit, record.kind);
+    if (!proposed) return initial;
+    return {
+      ...initial,
+      production:
+        kit && !isEmptyProduction(kit.production)
+          ? reproposeProduction(kit.production, proposed.production)
+          : proposed.production,
+    };
+  });
   const [saving, setSaving] = useState(false);
   const [picking, setPicking] = useState(false);
   useBrandFontFaces(draft.fonts);
@@ -378,6 +405,10 @@ function Review({
             palette: draft.palette,
             design: draft.design as unknown as Record<string, unknown>,
             dna: draft.dna as unknown as Record<string, unknown>,
+            // Read from code, its production roles go with it (otherwise the kit keeps its own).
+            ...(record.code
+              ? { production: draft.production as unknown as Record<string, unknown> }
+              : {}),
           },
           logo,
           references: draft.references,
@@ -406,10 +437,11 @@ function Review({
         </div>
       )}
       <Tabs defaultValue="identity">
-        <TabsList className={cn("grid w-full", record.code ? "grid-cols-5" : "grid-cols-4")}>
+        <TabsList className={cn("grid w-full", record.code ? "grid-cols-6" : "grid-cols-4")}>
           <TabsTrigger value="identity">Identity</TabsTrigger>
           <TabsTrigger value="system">Design system</TabsTrigger>
           {record.code && <TabsTrigger value="code">Code</TabsTrigger>}
+          {record.code && <TabsTrigger value="production">Production</TabsTrigger>}
           <TabsTrigger value="dna">DNA</TabsTrigger>
           <TabsTrigger value="imagery">Imagery ({draft.references.length})</TabsTrigger>
         </TabsList>
@@ -660,6 +692,18 @@ function Review({
         {record.code && (
           <TabsContent value="code" className="pt-3">
             <CodeSystemPanel system={record.code} name={draft.name || proposal.name} />
+          </TabsContent>
+        )}
+
+        {record.code && (
+          <TabsContent value="production" className="pt-3">
+            <ProductionPanel
+              name={draft.name || proposal.name}
+              production={draft.production}
+              onProduction={(production) => set({ production })}
+              candidates={proposed?.candidates}
+              fonts={draft.fonts}
+            />
           </TabsContent>
         )}
 
