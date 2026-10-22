@@ -74,6 +74,7 @@ curl -X POST https://<your studio>/api/public/studio/list_models \
 | `list_characters`     | The team's characters: their look, how many reference images they have, and their Soul IDs (one per Soul model) with each likeness score and approval.                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `get_character`       | One character: their reference sheet and training photos (with links), Soul IDs and the state of their latest Soul ID training.                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `estimate_generation` | The provider's price for a generation without making it: the same `modelId`, `parameters`, `inputs`, `characterIds` and `brandKitId` as `queue_generation`, priced as they would be sent. Nothing is billed.                                                                                                                                                                                                                                                                                                                                                                         |
+| `list_review_gates`   | A project's review gates in order (see below): each gate's state, whether it is held until the one before is approved, its versions newest first (their files, render or storyboard), the latest decision on each (who, when, its note and on whose behalf), the comments (counted, or whole with `includeComments`), and the notes given on it with their shots and whether each is done.                                                                                                                                                                                           |
 
 **Generate** (`generate` scope; spends credits):
 
@@ -99,6 +100,10 @@ curl -X POST https://<your studio>/api/public/studio/list_models \
 | `create_edit` / `update_edit` | Makes an edit from a timeline, or changes one. An update is accepted only at the version you read.                                  |
 | `apply_brand_kit`             | Applies a kit's fonts and colours to the edit's text, and can add its end card inside a platform's safe area.                       |
 | `render_edit`                 | Renders the edit at a version. Poll it with `get_render`.                                                                           |
+| `add_review_gate`             | Adds a review gate to a project, last in its order; with `heldUntilPrevious` it waits for the gate before to be approved.           |
+| `add_review_version`          | Puts library stills or videos (`assetIds`), a finished render or a storyboard up for review in a gate, as its next version.         |
+| `comment_on_review`           | Comments on a version, pinned to a time (`at`) or `frame`, a `point` on the picture, one of its files or a storyboard's shot.       |
+| `decide_review`               | Approves a gate's latest version, or asks for changes, as the token's owner; `onBehalfOf` names a client who decided.               |
 
 Every operation that spends or makes something takes your own `clientRequestId` (8 to 64
 characters). Sending the same request again returns the first result, so a retry never bills
@@ -145,3 +150,29 @@ The flow that made the Aurixa "Janice presents" video:
    default) styles the titles and captions.
 6. **Brand and render.** `apply_brand_kit` with `endCard: {"seconds": 3, "area": "tiktok"}`, then
    `render_edit`, and poll `get_render` for the link.
+
+## Review gates
+
+A project's reviews (the Reviews tab on its page) are gates in order, such as Style frames,
+Animatic, Proof and Film. Each holds versions of what is being reviewed (library stills or videos,
+a render, a storyboard), comments pinned to a time or a frame and optionally a point on the
+picture, and decisions. An admin applies migration `drizzle/migrations/0030_review_gates.sql`
+first.
+
+- **Who may approve.** Any active team member: in the app as themselves, or through the API as
+  the token's owner, with a token that has the `edit` scope. Every decision records who made it,
+  when, and whether it came through the app or the API. `onBehalfOf` names someone outside the
+  team who decided, such as a client who approved on a call. A decision is never changed or
+  removed: a new one supersedes it.
+- **What is decided.** Only a gate's latest version. A new version puts the gate back in review.
+- **Holds.** A gate held until the one before it is approved takes no version, and can't be
+  approved, until then. A new version in the gate before holds it again.
+
+A script runs them like this:
+
+1. `add_review_gate` for each stage (`heldUntilPrevious` after the first), or add them in the app.
+2. `add_review_version` with the stills, the render (once `get_render` says it is complete) or the
+   storyboard.
+3. `comment_on_review` for each point, pinned where it applies, and `decide_review` once the client
+   has answered.
+4. `list_review_gates` shows where every gate stands.

@@ -5397,6 +5397,385 @@ export type Database = {
           },
         ]
       }
+      review_comments: {
+        Row: {
+          at_seconds: number | null
+          body: string
+          client_request_id: string | null
+          created_at: string
+          created_by: string | null
+          file_id: string | null
+          frame: number | null
+          id: string
+          shot_id: string | null
+          version_id: string
+          via: string
+          x: number | null
+          y: number | null
+        }
+        Insert: {
+          at_seconds?: number | null
+          body: string
+          client_request_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          file_id?: string | null
+          frame?: number | null
+          id?: string
+          shot_id?: string | null
+          version_id: string
+          via?: string
+          x?: number | null
+          y?: number | null
+        }
+        Update: {
+          at_seconds?: number | null
+          body?: string
+          client_request_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          file_id?: string | null
+          frame?: number | null
+          id?: string
+          shot_id?: string | null
+          version_id?: string
+          via?: string
+          x?: number | null
+          y?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_comments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_comments_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "review_version_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_comments_shot_id_fkey"
+            columns: ["shot_id"]
+            isOneToOne: false
+            referencedRelation: "shots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_comments_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "review_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      review_decisions: {
+        Row: {
+          client_request_id: string | null
+          created_at: string
+          decided_by: string | null
+          decision: string
+          id: string
+          note: string | null
+          on_behalf_of: string | null
+          version_id: string
+          via: string
+        }
+        Insert: {
+          client_request_id?: string | null
+          created_at?: string
+          decided_by?: string | null
+          decision: string
+          id?: string
+          note?: string | null
+          on_behalf_of?: string | null
+          version_id: string
+          via?: string
+        }
+        Update: {
+          client_request_id?: string | null
+          created_at?: string
+          decided_by?: string | null
+          decision?: string
+          id?: string
+          note?: string | null
+          on_behalf_of?: string | null
+          version_id?: string
+          via?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_decisions_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_decisions_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "review_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      review_gates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          held_until_previous: boolean
+          id: string
+          name: string
+          position: number
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          held_until_previous?: boolean
+          id?: string
+          name: string
+          position?: number
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          held_until_previous?: boolean
+          id?: string
+          name?: string
+          position?: number
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_gates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_gates_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      review_notes: {
+        Row: {
+          answered_in_version_id: string | null
+          body: string
+          created_at: string
+          created_by: string | null
+          done_at: string | null
+          done_by: string | null
+          gate_id: string
+          given_by: string | null
+          id: string
+          number: number
+          status: string
+          targets: Json
+          updated_at: string
+          version_id: string | null
+        }
+        Insert: {
+          answered_in_version_id?: string | null
+          body: string
+          created_at?: string
+          created_by?: string | null
+          done_at?: string | null
+          done_by?: string | null
+          gate_id: string
+          given_by?: string | null
+          id?: string
+          number: number
+          status?: string
+          targets?: Json
+          updated_at?: string
+          version_id?: string | null
+        }
+        Update: {
+          answered_in_version_id?: string | null
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          done_at?: string | null
+          done_by?: string | null
+          gate_id?: string
+          given_by?: string | null
+          id?: string
+          number?: number
+          status?: string
+          targets?: Json
+          updated_at?: string
+          version_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_notes_answered_in_version_id_fkey"
+            columns: ["answered_in_version_id"]
+            isOneToOne: false
+            referencedRelation: "review_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_notes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_notes_done_by_fkey"
+            columns: ["done_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_notes_gate_id_fkey"
+            columns: ["gate_id"]
+            isOneToOne: false
+            referencedRelation: "review_gates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_notes_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "review_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      review_version_files: {
+        Row: {
+          asset_id: string | null
+          created_at: string
+          id: string
+          position: number
+          title: string | null
+          version_id: string
+        }
+        Insert: {
+          asset_id?: string | null
+          created_at?: string
+          id?: string
+          position?: number
+          title?: string | null
+          version_id: string
+        }
+        Update: {
+          asset_id?: string | null
+          created_at?: string
+          id?: string
+          position?: number
+          title?: string | null
+          version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_version_files_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_version_files_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "review_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      review_versions: {
+        Row: {
+          client_request_id: string | null
+          created_at: string
+          created_by: string | null
+          gate_id: string
+          id: string
+          kind: string
+          label: string
+          note: string | null
+          number: number
+          render_id: string | null
+          snapshot: Json | null
+          storyboard_id: string | null
+        }
+        Insert: {
+          client_request_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          gate_id: string
+          id?: string
+          kind: string
+          label: string
+          note?: string | null
+          number?: number
+          render_id?: string | null
+          snapshot?: Json | null
+          storyboard_id?: string | null
+        }
+        Update: {
+          client_request_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          gate_id?: string
+          id?: string
+          kind?: string
+          label?: string
+          note?: string | null
+          number?: number
+          render_id?: string | null
+          snapshot?: Json | null
+          storyboard_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_versions_gate_id_fkey"
+            columns: ["gate_id"]
+            isOneToOne: false
+            referencedRelation: "review_gates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_versions_render_id_fkey"
+            columns: ["render_id"]
+            isOneToOne: false
+            referencedRelation: "sequence_renders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_versions_storyboard_id_fkey"
+            columns: ["storyboard_id"]
+            isOneToOne: false
+            referencedRelation: "storyboards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scenes: {
         Row: {
           continuity_requirements: string | null
