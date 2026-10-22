@@ -130,4 +130,50 @@
 - [x] All 29 shots animated on the brief's beats (`scripts/aurixa-reel-1/scenes/`, one file a scene, 25 scenes), each matched to its style frame or still and every cut checked on both sides
 - [x] The film, sent to the client on 22 October 2026: all 29 shots, 3,181 frames on the master voiceover (106.03 s), drawn by `render.cjs` in one pass (24,524 drawings, 2 h 05 m), then the 86 frames a caption fix touched drawn again and put in their places (`replace_frames.py`). Measured against its lossless frames as a player decodes it (`film_qc.py`): SSIM 0.989 and PSNR 43.9 dB, no frame below 39.2 dB; 99.7% of the edge contrast kept (no frame below 98.3%); CIEDE2000 0.41 on average over 559 million flat pixels, 94.5% of them below 1, and the brand's colours on their values; 22 cuts each on its frame and 6 boundaries carried through in one move, none off its frame; every caption where the record puts it (the 23 frames the test flags are a line's first short word still coming into focus); the voiceover 0 ms from the picture. H.264 High, BT.709 4:2:0, 99.96 MB (shots: docs/brands/aurixa-reel-1/system-edition/film-shots.jpg; detail at 100%: film-detail.jpg)
 - [x] The handover brief (docs/brands/aurixa-reel-1/HANDOVER.md): the formula Reel 1 was made by, step by step with its scripts, settings and numbers, and 29 proposals for Xeno Studio from what the reel had to build beside it, in the order to build them
-- [ ] The studio records no price for metered GPT Image runs: Higgsfield's result carries none, so a run's cost and the balance countdown miss them (the Console's balance is the only record)
+- [x] The studio records a price for metered runs whose result carries none (GPT Image's on Higgsfield): a stated unit price, or an admin's list price, never an invented one (E3 below)
+
+## Aurixa Reel 1's handover, built into the studio (its 29 proposals)
+
+Built from docs/brands/aurixa-reel-1/HANDOVER.md, part 2, each proposal tested on Reel 1's own records where it has them. Nothing has been run against the live database, and no migration has been applied.
+
+- [x] A1. Motion graphics (compositions) in the Editor: a page in the brand's colours and type, moved by a function of time, previewed live in the Editor and drawn by the media worker's own browser; on the studio API as `list_motion_templates`, `draw_motion_graphic` and `get_motion_graphic` (docs/compositions.md; migration 0034_compositions)
+- [x] A2. Drawn as a camera would, as settings: at twice the frame's size, averaged over the shutter, kept as a lossless master with a BT.709 copy to play; a draft first, the final when asked
+- [x] A3. Never drawn twice: each drawing is known by what it is made of (its page, pictures and fonts); a long final is drawn in stretches of about 240 frames, side by side on as many media workers as there are, each stretch kept on its own and joined frame for frame
+- [x] A4. A mastering export (`quality: "master"`): lossless intermediates and one encode (x264 slow at CRF 12, aq-mode 3, AAC 256 kb/s), and an edit that is one finished master passed through untouched
+- [x] A5. WebGL on a GPU: a media worker run with `MEDIA_WORKER_GPU=1` draws WebGL motion graphics when `MEDIA_WORKER_GPU_URL` names it, and the globe's own techniques (plain textures, a resolution per layer, a quantised clock) where there is none
+- [x] B1. `import_audio` on the studio API: WAV, MP3, M4A or FLAC, from base64 or an https address, as music, an effect, or a voiceover with its consent
+- [x] B2. A voiceover held open in its silences: pauses of whole frames, only where the measured speech isn't, captions, titles and (if asked) cuts moving with the words; on Reel 1's records all 51 pauses pass and all 27 shots land on their frames
+- [x] B3. A track's bars, downbeats and sections, found in the app (migration 0033_music_structure)
+- [x] B4. Music edited on its bars: a track played as pieces, fitted to the edit by whole groups of bars with its landmarks exact (`fit_music`); on Reel 1, the drop, breakdown and re-entry land where pacing.py put them
+- [x] B5. One solver for cuts, voice and music (pacing.py's, over the whole edit): Reel 1's 52 pauses and 26 cuts reproduced
+- [x] B6. Ducking by section, a mix report (the voice against the music where it speaks, and the finished file's loudness) and stems (migration 0032_mix_reports)
+- [x] C1. Captions word by word in the brand's type: Reel 1's captions.cjs in the render and the preview, frame for frame
+- [x] C2. Captions that stay legible: a panel that follows the picture's lightness behind each line (auto, light, dark, solid or none)
+- [x] C3. Up to 12 font files in an edit, a family's regular and italic each its own
+- [x] D1. A production stylesheet from the Brand page: 27 roles (colour, type, radius, shadow, blur and motion), each with the file and line it came from (migration 0029_brand_production)
+- [x] D2. Motion in the brand kit: titles move on the brand's own curves and durations, in the render as in the preview
+- [x] D3. Product pages as templates with a demo record: the fictional people, records and figures on the Brand page that every product screen's motion graphic reads, so a reel never shows a real client
+- [x] E1. Reference screenshots redacted, and a picture marked layout-only held out of frames, motion graphics included (migration 0035_reference_privacy)
+- [x] E2. A licence and credits ledger, and a render's public-use check (migration 0027_asset_rights)
+- [x] E3. Every generation's cost recorded, and the balance checked before a stage is queued (migration 0028_generation_costs)
+- [x] F1. Review gates in a project: versions, comments pinned to a time, frame or point, decisions in the app or over the API, versions side by side (migration 0030_review_gates)
+- [x] F2. Notes to tasks: a client's notes matched to the shots they're about, with the evidence shown
+- [x] G1. Every render measured against its own lossless reference: fidelity, edges, colour, banding, captions, cuts, sync and loudness, each judged (migration 0031_render_quality)
+- [x] G2. Review sheets of a render's shots, from the Render panel, the Reviews tab and the API
+- [x] H1. Storyboards timed from the measured voice, and a brief in brief.json's shape imported as a storyboard
+- [x] I1. The agent's work in sections: each worker on its own shots with a step limit, merged into one edit and its joins checked (migration 0036_agent_sections). The sections run one after another, not side by side: the app's requests can't outlive the page, nor run many at once
+- [x] I2. Render-aware scheduling: an edit's render starts its motion graphics' finals ahead of any draft in the media workers' queues, says how many are done, and goes the moment the last is in
+- [x] J1. A clean-plate recipe for logos and lettering (`clean_plate`, `lay_lettering`, and "Logo in motion" in an image's details)
+- [x] J2. A take aligned to its end frame (`align_take`): registered on the picture, colour-matched, then crossed to it
+- [x] Render colours in BT.709 (found by G1): pictures brought in by BT.709's matrix, colours drawn into the picture handed over to FFmpeg's own, every render tagged, and frames taken out read as a player shows them; brand colours within a CIEDE2000 of 0.75, where they were off by up to 8.6 (media-worker/README.md, Colour)
+- [x] Migrations 0027 to 0036 in the journal, with a test that keeps it in step with the files
+- [ ] Apply migrations 0027 to 0036, in order (until then each feature says it needs its update)
+- [ ] Deploy the media worker with its browser (the image installs Chromium) and, for WebGL motion graphics, a worker on a GPU (`MEDIA_WORKER_GPU=1`, its address in `MEDIA_WORKER_GPU_URL`); the GPU path hasn't been run on a GPU
+- [ ] Check the new pages and panels signed in on the live app: none has been run in a browser against the live database
+- [ ] Set list prices for the models whose results carry no price (GPT Image's metered runs), once 0028 is applied
+- [ ] The Editor still lets a layout-only picture be laid on a timeline (the render and the API refuse it); a database check would break the Editor's autosave
+- [ ] The Editor's preview shows an auto caption panel unmeasured (measuring needs pixel reads the browser's cross-origin rules allow)
+- [ ] The Google-font import installs one file a family, so an imported kit has no italic until one is uploaded on the Brand page
+- [ ] A music fit isn't redone when the edit's length changes (press Fit again); dragging the start of a music item made of pieces changes its trim, which does nothing; the preview's crossfades between pieces are approximate
+- [ ] A render recovered from storage doesn't register its stems, and `get_render` doesn't report `public_use` (its file's metadata carries the rights check and credits)
+- [ ] A brief per beat (H1's shape), for review sheets to describe each shot from; until then they come from the shots, drafts and image notes
