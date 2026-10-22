@@ -40,13 +40,16 @@ import {
   abandonPending,
   afterFallback,
   freshState,
+  MAX_STEPS,
   mergePayload,
   runTurn,
   type ApiMessage,
   type StepStream,
+  type TurnBudget,
   type TurnIo,
   type TurnState,
 } from "../../src/lib/supercomputer/agent-loop.server";
+import { SECTION_LIMITS } from "../../src/lib/supercomputer/sections";
 
 /* ------------------------------------------------------------------ */
 /* Events                                                              */
@@ -699,7 +702,10 @@ function scripted(content: Block[], stopReason: string, model = "claude-opus-5-5
   };
 }
 
-function harness(steps: (() => StepStream)[], options: { signal?: AbortSignal } = {}) {
+function harness(
+  steps: (() => StepStream)[],
+  options: { signal?: AbortSignal; budget?: TurnBudget } = {},
+) {
   const events: AgentEvent[] = [];
   const saves: { state: TurnState; phase: string }[] = [];
   const requests: Record<string, unknown>[] = [];
@@ -728,6 +734,7 @@ function harness(steps: (() => StepStream)[], options: { signal?: AbortSignal } 
       if (!step) throw new Error("No more scripted steps");
       return step();
     },
+    ...(options.budget ? { budget: options.budget } : {}),
   };
   return { io, events, saves, requests };
 }
@@ -1178,5 +1185,145 @@ describe("a turn", () => {
     ]);
     const state = await runTurn(io, freshState("claude-opus-5-5"));
     expect(state.display.model).toBe("claude-opus-4-8");
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Held turns                                                          */
+/* ------------------------------------------------------------------ */
+
+describe("a turn held to a section's step limit", () => {
+  const write = (n: number) => () =>
+    scripted(
+      [
+        {
+          type: "tool_use",
+          id: `toolu_${n}`,
+          name: "write_document",
+          input: { title: `Part ${n}`, markdown: "x" },
+        },
+      ],
+      "tool_use",
+    );
+  const notices = (state: TurnState) =>
+    state.display.blocks.flatMap(({ block }) => (block.kind === "notice" ? [block.text] : []));
+
+  test("a section's limit is never more than a turn's own", () => {
+    expect(SECTION_LIMITS.turnSteps).toBe(MAX_STEPS);
+  });
+
+  test("warned near its limit, in what it reads next; saved as it stops there", async () => {
+    const warned: number[] = [];
+    const limited: number[] = [];
+    const { io, requests } = harness([write(1), write(2), write(3), write(4)], {
+      budget: {
+        maxSteps: 3,
+        warnAt: 2,
+        onWarning: async (state) => {
+          warned.push(state.steps);
+          return {
+            note: "[Studio] 1 step left: save now.",
+            notice: "Near its limit: 1 step left.",
+          };
+        },
+        onLimit: async (state) => {
+          limited.push(state.steps);
+          return "It reached its limit: what it made is saved.";
+        },
+      },
+    });
+    const state = await runTurn(io, freshState("claude-opus-5-5"));
+    // Stopped at its own limit, not a turn's 32.
+    expect(requests).toHaveLength(3);
+    expect(state.steps).toBe(3);
+    expect(warned).toEqual([2]);
+    expect(limited).toEqual([3]);
+    // The note went with the results the third step read, after them.
+    const sent = requests[2]!["messages"] as ApiMessage[];
+    const last = sent.at(-1)!.content as Block[];
+    expect(last[0]).toMatchObject({ type: "tool_result", tool_use_id: "toolu_2" });
+    expect(last.at(-1)).toEqual({ type: "text", text: "[Studio] 1 step left: save now." });
+    // The second step's request didn't have it yet.
+    const before = (requests[1]!["messages"] as ApiMessage[]).at(-1)!.content as Block[];
+    expect(before.some((block) => block["type"] === "text")).toBe(false);
+    expect(notices(state)).toEqual([
+      "Near its limit: 1 step left.",
+      "It reached its limit: what it made is saved.",
+    ]);
+    expect(state.warned).toBe(true);
+    expect(state.display.status).toBe("complete");
+  });
+
+  test("a save that fails still warns and stops, in the studio's own words", async () => {
+    const { io, requests } = harness([write(1), write(2), write(3)], {
+      budget: {
+        maxSteps: 2,
+        warnAt: 1,
+        onWarning: async () => {
+          throw new Error("database away");
+        },
+        onLimit: async () => {
+          throw new Error("database away");
+        },
+      },
+    });
+    const state = await runTurn(io, freshState("claude-opus-5-5"));
+    expect(requests).toHaveLength(2);
+    expect(notices(state)).toEqual([
+      "Near its step limit: 1 step is left of the 2 this turn may take.",
+      "It reached its step limit, so it stopped here. What it made is kept.",
+    ]);
+    const last = (requests[1]!["messages"] as ApiMessage[]).at(-1)!.content as Block[];
+    expect(String(last.at(-1)!["text"])).toContain("[From the studio] 1 step is left");
+  });
+
+  test("a turn that finishes before its limit isn't warned or stopped", async () => {
+    let called = false;
+    const { io } = harness(
+      [write(1), () => scripted([{ type: "text", text: "Done." }], "end_turn")],
+      {
+        budget: {
+          maxSteps: 10,
+          warnAt: 8,
+          onWarning: async () => {
+            called = true;
+            return null;
+          },
+        },
+      },
+    );
+    const state = await runTurn(io, freshState("claude-opus-5-5"));
+    expect(called).toBe(false);
+    expect(notices(state)).toEqual([]);
+    expect(state.warned).toBeUndefined();
+  });
+
+  test("a turn resumed after an approval is warned only once", async () => {
+    const generate = {
+      type: "tool_use",
+      id: "toolu_g",
+      name: "queue_generation",
+      input: { modelId: "7f1b6d2e-58c4-4a93-9d43-1b2c3d4e5f60", parameters: { prompt: "x" } },
+    };
+    let warnings = 0;
+    const budget: TurnBudget = {
+      maxSteps: 4,
+      warnAt: 1,
+      onWarning: async () => {
+        warnings += 1;
+        return { note: "[Studio] save now.", notice: "Near its limit." };
+      },
+    };
+    const first = harness([write(1), () => scripted([generate], "tool_use")], { budget });
+    const waiting = await runTurn(first.io, freshState("claude-opus-5-5"));
+    expect(waiting.display.status).toBe("awaiting_approval");
+    expect(waiting.warned).toBe(true);
+    const kept = JSON.parse(JSON.stringify(waiting)) as TurnState;
+    const second = harness([() => scripted([{ type: "text", text: "Saved." }], "end_turn")], {
+      budget,
+    });
+    const done = await runTurn(second.io, kept, { toolu_g: "deny" });
+    expect(done.display.status).toBe("complete");
+    expect(warnings).toBe(1);
   });
 });

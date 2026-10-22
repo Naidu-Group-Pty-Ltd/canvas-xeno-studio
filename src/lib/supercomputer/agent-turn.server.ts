@@ -365,6 +365,7 @@ function payloadOf(base: unknown, state: TurnState): Json {
       usage: state.usage,
       model: state.model,
       steps: state.steps,
+      ...(state.warned ? { warned: true } : {}),
     },
   };
 }
