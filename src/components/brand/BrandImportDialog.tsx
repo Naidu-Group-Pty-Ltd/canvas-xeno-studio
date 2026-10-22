@@ -411,6 +411,7 @@ function Review({
         },
       });
       toast.success(`“${draft.name}” ${target ? "updated" : "saved"} from its design system.`);
+      if (result.note) toast.warning(result.note);
       onDone(result.kitId);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "The kit couldn't be saved");

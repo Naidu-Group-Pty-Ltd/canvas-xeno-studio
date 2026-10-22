@@ -962,7 +962,7 @@ async function keepStaged(
 export async function applyImport(
   userId: string,
   choices: ApplyChoices,
-): Promise<{ kitId: string }> {
+): Promise<{ kitId: string; note: string | null }> {
   const row = await loadImport(choices.importId);
   if (!row) throw new AppError("INVALID_PARAMETERS", "That import no longer exists");
   if (row.status === "applied")
@@ -1001,7 +1001,7 @@ export async function applyImport(
   }
 
   const design = designOf({ ...EMPTY_DESIGN, ...choices.kit.design });
-  const { id } = await writeBrandKit(userId, {
+  const { id, note } = await writeImportedKit(userId, {
     ...choices.kit,
     logoAssetId,
     referenceAssetIds,
@@ -1019,7 +1019,34 @@ export async function applyImport(
     .eq("id", choices.importId);
   // What wasn't kept is no longer needed (an applied import isn't reviewed again).
   await removeUnkeptFiles(choices.importId).catch(() => undefined);
-  return { kitId: id };
+  return { kitId: id, note };
+}
+
+/**
+ * Writes the kit an import is kept as. Before migration 0029 the production
+ * roles proposed from a brand's code can't be kept: rather than lose the
+ * import, the kit is kept without them, and the note says so (they are read
+ * again from the code once the migration is applied).
+ */
+async function writeImportedKit(
+  userId: string,
+  input: KitInput,
+): Promise<{ id: string; note: string | null }> {
+  try {
+    return { ...(await writeBrandKit(userId, input)), note: null };
+  } catch (error) {
+    if (
+      !input.production ||
+      !(error instanceof AppError) ||
+      !error.message.includes("0029_brand_production")
+    )
+      throw error;
+    const { production: _production, ...without } = input;
+    return {
+      ...(await writeBrandKit(userId, without)),
+      note: "Kept without its production roles: they need a database update (migration 0029_brand_production). Ask an admin to apply it, then re-read the brand's code.",
+    };
+  }
 }
 
 /**
