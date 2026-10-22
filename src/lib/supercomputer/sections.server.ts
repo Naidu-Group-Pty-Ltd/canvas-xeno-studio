@@ -858,6 +858,11 @@ export interface WorkerSection {
   usedBefore: number;
   parentThreadId: string;
   workerThreadId: string;
+  /**
+   * The planning conversation's settings as they are now: a worker spends
+   * within that conversation's own allowance, in its brand, on its model.
+   */
+  settings: unknown;
 }
 
 interface ThreadSeed {
@@ -900,6 +905,11 @@ export async function workerOfThread(
     .eq("id", data.plan_id)
     .maybeSingle();
   if (!plan) return null;
+  const { data: parent } = await db
+    .from("supercomputer_threads")
+    .select("settings")
+    .eq("id", plan.thread_id)
+    .maybeSingle();
   return {
     planId: data.plan_id,
     sectionId: data.id,
@@ -908,6 +918,7 @@ export async function workerOfThread(
     usedBefore: await stepsUsed(threadId, turnId),
     parentThreadId: plan.thread_id,
     workerThreadId: threadId,
+    settings: parent?.settings ?? {},
   };
 }
 
@@ -1088,6 +1099,7 @@ async function workerFor(
       usedBefore: used,
       parentThreadId: parent.id,
       workerThreadId,
+      settings: parent.settings,
     },
     brief: used > 0 ? `Carry on: here is where your section stands.\n\n${brief}` : brief,
     frames,

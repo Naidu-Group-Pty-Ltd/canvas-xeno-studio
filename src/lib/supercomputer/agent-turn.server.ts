@@ -618,7 +618,8 @@ async function runRequest(
     userId,
     threadId: thread.id,
     turnId: assistantId,
-    settings,
+    // A worker spends within the planning conversation's own allowance, as it is now.
+    settings: worker ? threadSettingsOf(worker.settings) : settings,
     projectId: thread.project_id,
     campaignId: thread.campaign_id,
     signal: ending.signal,
