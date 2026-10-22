@@ -604,11 +604,11 @@ export interface SectionBriefInput {
 
 function shotLine(shot: ReelShot, saved: SavedShot | undefined): string {
   const made = saved
-    ? `saved: library file ${saved.assetId}`
+    ? `saved (library file ${saved.assetId})`
     : shot.assetId
-      ? `made: library file ${shot.assetId}`
+      ? `made (library file ${shot.assetId})`
       : `not made yet (${shot.kind === "image" ? "a still" : "a video"} to make)`;
-  const beat = shot.beat ? `: ${shot.beat.replace(/\s+/g, " ").slice(0, 400)}` : "";
+  const beat = shot.beat ? ` · ${shot.beat.replace(/\s+/g, " ").slice(0, 400)}` : "";
   return `- Shot ${shot.index + 1} “${shot.label}” · ${shot.seconds.toFixed(1)} s · ${made}${beat}`;
 }
 

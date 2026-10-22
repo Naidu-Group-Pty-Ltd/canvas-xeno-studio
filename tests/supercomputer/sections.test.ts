@@ -271,7 +271,7 @@ describe("a worker's brief", () => {
     expect(brief).toContain("# Section 2 of 3: Shots 4–6");
     expect(brief).toContain("You own shots 4–6 and nothing else");
     expect(brief).toContain("“Launch · sections”");
-    expect(brief).toContain(`Shot 4 “Clip 4” · 2.0 s · made: library file ${ASSET(4)}: Beat 4`);
+    expect(brief).toContain(`Shot 4 “Clip 4” · 2.0 s · made (library file ${ASSET(4)}) · Beat 4`);
     expect(brief).toContain(
       `Section 1's last frame (shot 3 “Clip 3”) is library image ${ASSET(99)}, shown below.`,
     );
@@ -306,7 +306,7 @@ describe("a worker's brief", () => {
       budget: 20,
       used: 13,
     });
-    expect(brief).toContain(`Shot 4 “Clip 4” · 2.0 s · saved: library file ${ASSET(50)}`);
+    expect(brief).toContain(`Shot 4 “Clip 4” · 2.0 s · saved (library file ${ASSET(50)})`);
     expect(brief).toContain(`Library file ${ASSET(51)} (video, generation g1)`);
     expect(brief).toContain("## To put right\nMake shot 4 again");
     expect(brief).toContain("You have 7 steps");
