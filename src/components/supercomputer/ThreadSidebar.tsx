@@ -39,6 +39,8 @@ interface Props {
   pinsEnabled?: boolean;
   /** The conversation an answer is being written in, from this page. */
   streamingThreadId?: string | null;
+  /** Sections are in (migration 0036): their workers' conversations aren't listed. */
+  sectionsEnabled?: boolean;
 }
 
 const BRIEF_DOT: Record<string, string> = {
@@ -57,6 +59,7 @@ export function ThreadSidebar({
   onImportBrief,
   pinsEnabled = false,
   streamingThreadId = null,
+  sectionsEnabled = false,
 }: Props) {
   const { user, isAdmin } = useAuth();
   const queryClient = useQueryClient();
@@ -64,7 +67,12 @@ export function ThreadSidebar({
   const [term, setTerm] = useState("");
   const [renaming, setRenaming] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
-  const { data: threads = [], isLoading } = useThreads(scope, enabled, pinsEnabled);
+  const { data: threads = [], isLoading } = useThreads(
+    scope,
+    enabled,
+    pinsEnabled,
+    sectionsEnabled,
+  );
   const { data: briefs = [] } = useBriefs(enabled);
 
   const filtered = threads.filter((thread) =>
