@@ -72,6 +72,12 @@ async function renderRequestFor(timeline: Timeline) {
       message:
         "This edit's titles or captions use a brand's fonts or colours, which the media service can't set until it is updated. Render again once the service has been updated.",
     });
+  if (movesTitles(request.params))
+    needed.push({
+      feature: "overlay_motion",
+      message:
+        "This edit's titles move in a brand's own curves, which the media service can't draw until it is updated. Set their motion back to a plain fade in the Inspector, or render again once the service has been updated.",
+    });
   if (!needed.length) return request;
   const health = await workerHealth();
   if (!health.ok)
@@ -83,6 +89,16 @@ async function renderRequestFor(timeline: Timeline) {
     if (!health.data?.features?.includes(feature))
       throw new AppError("INVALID_PARAMETERS", message);
   return request;
+}
+
+/** Whether a render request has a title moving in a brand's motion (see ./overlay-motion). */
+function movesTitles(params: Record<string, unknown>): boolean {
+  return (
+    Array.isArray(params["overlays"]) &&
+    params["overlays"].some(
+      (overlay) => !!overlay && typeof overlay === "object" && "motion" in overlay,
+    )
+  );
 }
 
 /** Whether a render request asks for a brand's colours anywhere. */

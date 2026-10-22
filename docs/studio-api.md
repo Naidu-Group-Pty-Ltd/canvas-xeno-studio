@@ -97,7 +97,7 @@ curl -X POST https://<your studio>/api/public/studio/list_models \
 | `import_image`                | Puts a PNG, JPEG, WebP or GIF (up to 15 MB) into the library, from base64 `data` or an https `url`.                                 |
 | `open_in_editor`              | Lays a long video out as an edit. Takes captions from the script, titles on the voiceover's clock, music, and the brand kit's look. |
 | `create_edit` / `update_edit` | Makes an edit from a timeline, or changes one. An update is accepted only at the version you read.                                  |
-| `apply_brand_kit`             | Applies a kit's fonts and colours to the edit's text, and can add its end card inside a platform's safe area.                       |
+| `apply_brand_kit`             | Applies a kit's fonts, colours and title motion to the edit's text, and can add its end card inside a platform's safe area.         |
 | `render_edit`                 | Renders the edit at a version. Poll it with `get_render`.                                                                           |
 
 Every operation that spends or makes something takes your own `clientRequestId` (8 to 64

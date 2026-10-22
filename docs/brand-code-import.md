@@ -138,6 +138,48 @@ Updating a kit from code works like this:
 Needs migration `0026_brand_code_imports`, which allows the `repos` import kind and adds
 `brand_imports.code`. Without it, importing from code says so, and nothing else changes.
 
+## From code to production
+
+The review of a code import has a **Production** tab: the roles the brand's graphics are drawn in,
+each read from a token in the code, with the repository, file and line it is declared on. Reel 1
+needed a script for this step (`scripts/aurixa-reel-1/reel_css.ts`); this is it in the studio.
+
+| Kind    | Roles                                                                                      |
+| ------- | ------------------------------------------------------------------------------------------ |
+| Colour  | ground, surface, raised, glass, ink, muted ink, accent, signature, line, selection, danger |
+| Type    | display, display italic, body, mono, eyebrow                                               |
+| Corners | window, card                                                                               |
+| Shadows | window, lift                                                                               |
+| Blur    | glass, backdrop                                                                            |
+| Motion  | move, settle, enter, exit, press: each an easing curve (cubic-bezier) and a duration       |
+
+Each role is proposed from the tokens' names (`--color-base-950` is a ground, `--motion-ease-out`
+a settle), their values (a ground is near black in a dark brand, glass is translucent, ink reads on
+the ground) and how much the code uses them, the brand's own repository and its own theme first.
+The review shows why each was proposed and the other candidates the code holds; a person can pick
+another or set any value by hand, and one set by hand says so. Selection, danger, mono and the
+eyebrow are proposed only when the code names them.
+
+Four checks sit above the roles:
+
+- every role filled (selection, danger, glass, mono, eyebrow and the lift shadow and blurs only if
+  the brand uses them);
+- the ink's WCAG contrast on the ground and on the surface (AA, 4.5:1), and on the rest;
+- each face loaded, by the brand's code or as one of the kit's own font files;
+- every value the repositories disagree on decided: the value production uses, and a note why.
+
+It downloads as a stylesheet of `--brand-*` custom properties (each with its source in a comment,
+the checks and the decisions in its header, as `aurixa-reel.css` has), as JSON, and as a token
+sheet drawn in the browser. The roles are kept on the kit (`production`, migration
+`0029_brand_production`): the kit editor has the same panel, `get_brand_kit` returns them, and
+`src/lib/brand/production.ts` writes the stylesheet for compositions (`productionStylesheet`,
+`productionTokens`). Without the migration, kits read with none, and saving some says so.
+
+The motion roles move titles too: applying the kit in the Editor gives its titles the enter and
+exit curves and durations (`src/lib/edit/overlay-motion.ts`). A title rises into place on the
+enter curve and lifts away on the exit curve; the preview and the render draw it the same, frame
+by frame (the media worker's `overlay_motion`).
+
 The code lives in `src/lib/brand/`:
 
 - `scan-code.ts`: planning, reading and merging;

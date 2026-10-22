@@ -351,6 +351,8 @@ export function planSequence(params, sources) {
         font: family(overlay.font, `overlay ${index + 1} font`),
         color: colour(overlay.color, `overlay ${index + 1} color`),
         accent: colour(overlay.accent, `overlay ${index + 1} accent`),
+        // How it comes in and goes, in a brand's motion (feature overlay_motion); null: the quarter-second fade.
+        motion: overlayMotionOf(overlay.motion, `overlay ${index + 1}`),
       };
     })
     .filter((overlay) => overlay.text && overlay.end - overlay.start >= 0.1);
@@ -943,6 +945,147 @@ function assColour(hex, alpha = "00") {
   return { style: `&H${alpha}${bgr}`, tag: `&H${bgr}&` };
 }
 
+/* ------------------------------------------------------------------ */
+/* Title motion (feature overlay_motion)                               */
+/* ------------------------------------------------------------------ */
+
+/** A curve's four numbers (x1, y1, x2, y2), as CSS's cubic-bezier takes them; linear when none is given. */
+function easeOf(value, name) {
+  if (value === undefined || value === null) return [0, 0, 1, 1];
+  if (!Array.isArray(value) || value.length !== 4) throw bad(`${name} must be a curve's four numbers`);
+  return value.map((part, index) => num(part, { min: index % 2 === 0 ? 0 : -2, max: index % 2 === 0 ? 1 : 3, name }));
+}
+
+/**
+ * How a title comes in and goes, in a brand's own motion: seconds to come in
+ * and to go, the curve of each, and how far it rises into place (a share of
+ * its size). Null for none: it fades over a quarter of a second, as ever.
+ */
+function overlayMotionOf(value, what) {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "object" || Array.isArray(value)) throw bad(`${what} motion must be an object`);
+  return {
+    enter: num(value.enter, { min: 0, max: 2, fallback: 0.25, name: `${what} motion enter` }),
+    exit: num(value.exit, { min: 0, max: 2, fallback: 0.25, name: `${what} motion exit` }),
+    enterEase: easeOf(value.enter_ease, `${what} motion enter_ease`),
+    exitEase: easeOf(value.exit_ease, `${what} motion exit_ease`),
+    rise: num(value.rise, { min: 0, max: 1, fallback: 0, name: `${what} motion rise` }),
+  };
+}
+
+/**
+ * How far along a curve is at `x` (0 to 1 of its time), solved as a browser
+ * solves CSS's cubic-bezier. The app solves it the same way
+ * (src/lib/brand/motion.ts), so the preview and the render agree.
+ */
+export function cubicBezierAt([x1, y1, x2, y2], x) {
+  if (!(x > 0)) return 0;
+  if (x >= 1) return 1;
+  const cx = 3 * x1;
+  const bx = 3 * (x2 - x1) - cx;
+  const ax = 1 - cx - bx;
+  const cy = 3 * y1;
+  const by = 3 * (y2 - y1) - cy;
+  const ay = 1 - cy - by;
+  const sampleX = (s) => ((ax * s + bx) * s + cx) * s;
+  const sampleY = (s) => ((ay * s + by) * s + cy) * s;
+  const slopeX = (s) => (3 * ax * s + 2 * bx) * s + cx;
+  let s = x;
+  for (let step = 0; step < 8; step += 1) {
+    const error = sampleX(s) - x;
+    if (Math.abs(error) < 1e-7) return sampleY(s);
+    const slope = slopeX(s);
+    if (Math.abs(slope) < 1e-6) break;
+    s -= error / slope;
+  }
+  let low = 0;
+  let high = 1;
+  s = x;
+  for (let step = 0; step < 50; step += 1) {
+    const at = sampleX(s);
+    if (Math.abs(at - x) < 1e-7) break;
+    if (at < x) low = s;
+    else high = s;
+    s = (low + high) / 2;
+  }
+  return sampleY(s);
+}
+
+/**
+ * Where a moving title is at `time`: how opaque (0-1), and how far from its
+ * place as a share of its size (positive below). It comes in over its enter
+ * time on its curve, rising from `rise` below, and goes over its exit time,
+ * lifting half that; each takes at most half its time. The app's
+ * overlayMotionState (src/lib/edit/overlay-motion.ts) is the same.
+ */
+export function overlayMotionState(overlay, time) {
+  const { start, end, motion } = overlay;
+  if (time < start || time >= end) return { opacity: 0, offset: 0 };
+  const half = Math.max(0, end - start) / 2;
+  const enter = Math.min(motion.enter, half);
+  const exit = Math.min(motion.exit, half);
+  if (enter > 0 && time < start + enter) {
+    const eased = cubicBezierAt(motion.enterEase, (time - start) / enter);
+    return { opacity: Math.min(1, Math.max(0, eased)), offset: (1 - eased) * motion.rise };
+  }
+  if (exit > 0 && time >= end - exit) {
+    const eased = cubicBezierAt(motion.exitEase, (time - (end - exit)) / exit);
+    return { opacity: Math.min(1, Math.max(0, 1 - eased)), offset: eased ? -eased * motion.rise * 0.5 : 0 };
+  }
+  return { opacity: 1, offset: 0 };
+}
+
+/** Where a title's alignment and margin put it, as an anchor (\an) and a point (\pos) to move it from. */
+function overlayAnchor(overlay, { width, height, alignment, marginV }) {
+  const x = Math.round(width / 2);
+  if (overlay.y !== null) return { an: 5, x, y: Math.round(height * overlay.y) };
+  if (alignment === 8) return { an: 8, x, y: marginV };
+  if (alignment === 2) return { an: 2, x, y: height - marginV };
+  return { an: 5, x, y: Math.round(height / 2) };
+}
+
+/**
+ * A moving title as ASS events: one a frame while it comes in and while it
+ * goes, each drawn where its curve has it on that frame (keyed steps: ASS's
+ * own \t can't ease a position, and its acceleration can't follow an
+ * S-curve), and one for the time it holds still. A step runs from half a
+ * frame before its frame to half a frame after, so times rounded to
+ * centiseconds never show a frame another step. Its opacity is a \fade, which
+ * libass lays over the title's own (a box's, a halo's) as \fad does.
+ */
+export function overlayMotionEvents(overlay, { fps, size, anchor, tags, styleName, text }) {
+  const { start, end } = overlay;
+  const half = Math.max(0, end - start) / 2;
+  const enter = Math.min(overlay.motion.enter, half);
+  const exit = Math.min(overlay.motion.exit, half);
+  const events = [];
+  const step = (from, to, state) => {
+    if (to - from < 0.005) return;
+    const y = Math.round(anchor.y + state.offset * size);
+    const alpha = Math.round((1 - state.opacity) * 255);
+    const fade = alpha > 0 ? `\\fade(${alpha},${alpha},${alpha},0,0,0,0)` : "";
+    events.push(`Dialogue: 1,${assTime(from)},${assTime(to)},${styleName},,0,0,0,,{\\an${anchor.an}\\pos(${anchor.x},${y})${tags}${fade}}${text}`);
+  };
+  let cursor = start;
+  for (let frame = Math.ceil(start * fps - 1e-6); frame / fps < start + enter - 1e-9; frame += 1) {
+    const to = Math.min(end, (frame + 0.5) / fps);
+    step(cursor, to, overlayMotionState(overlay, frame / fps));
+    cursor = to;
+  }
+  const firstOut = Math.ceil((end - exit) * fps - 1e-6);
+  const still = exit > 0 ? Math.max(cursor, (firstOut - 0.5) / fps) : end;
+  step(cursor, still, { opacity: 1, offset: 0 });
+  cursor = still;
+  if (exit > 0)
+    for (let frame = firstOut; frame / fps < end - 1e-9; frame += 1) {
+      // The last step runs to the title's end, as a title without motion does.
+      const to = (frame + 1) / fps >= end - 1e-9 ? end : (frame + 0.5) / fps;
+      step(cursor, to, overlayMotionState(overlay, frame / fps));
+      cursor = to;
+    }
+  return events;
+}
+
 /**
  * Builds an ASS script for captions and title overlays. Positions keep text
  * clear of the areas social apps cover with their own buttons and captions.
@@ -1024,6 +1167,12 @@ export function buildSubtitles(plan, families = new Map()) {
         overlay.accent && (boxed || overlay.style === "cta") ? `\\3c${assColour(overlay.accent).tag}\\4c${assColour(overlay.accent).tag}` : "",
       ].join("");
       const text = overlay.text.replace(/\n/g, "\\N");
+      // Moving in a brand's own motion (feature overlay_motion): a frame at a time, from where it would sit.
+      if (overlay.motion) {
+        const anchor = overlayAnchor(overlay, { width, height, alignment, marginV });
+        events.push(...overlayMotionEvents(overlay, { fps: plan.fps, size, anchor, tags: `${halo}${brand}`, styleName, text }));
+        continue;
+      }
       events.push(`Dialogue: 1,${assTime(overlay.start)},${assTime(overlay.end)},${styleName},,0,0,${overlay.y !== null ? 0 : marginV},,{${place}${halo}${brand}\\fad(250,250)}${text}`);
     }
   }

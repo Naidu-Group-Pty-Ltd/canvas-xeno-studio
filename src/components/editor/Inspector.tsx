@@ -1600,6 +1600,24 @@ function TextPanel({
                   )}
                 </div>
               </Field>
+              {overlay.motion && (
+                <Field label="Motion" hint="the brand kit's">
+                  <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                    <span>
+                      Rises in over {Math.round(overlay.motion.enter * 1000)} ms and goes over{" "}
+                      {Math.round(overlay.motion.exit * 1000)} ms, on the brand's curves.
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 shrink-0 px-1.5 text-[11px]"
+                      onClick={() => updateOverlay(overlay.id, { motion: null })}
+                    >
+                      Plain fade
+                    </Button>
+                  </div>
+                </Field>
+              )}
               <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-1.5">
                 <Field label="From">
                   <Seconds

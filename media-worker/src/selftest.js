@@ -286,6 +286,46 @@ await check("render_sequence lays a logo over the picture between its times, and
   if (!script.includes("\\1c&H00FF00&") || !script.includes("\\3c&H332211&")) throw new Error("the title isn't in the brand's colours");
 });
 
+await check("render_sequence moves a title in a brand's motion: in on its curve, holding, lifting away (overlay_motion)", async () => {
+  if (!FEATURES.includes("overlay_motion")) throw new Error("overlay_motion isn't advertised");
+  const navy = join(dir, "navy.mp4");
+  await ffmpeg(["-f", "lavfi", "-i", "color=c=0x040b16:s=320x180:d=2:r=25", "-pix_fmt", "yuv420p", navy]);
+  // A white title on a white box, so how much of it shows is how bright its middle is. Linear
+  // curves, so each frame's opacity is plain to work out: in from 0.4 s to 0.8 s, out from 1.2 s.
+  const motion = { enter: 0.4, exit: 0.4, enter_ease: [0, 0, 1, 1], exit_ease: [0, 0, 1, 1], rise: 0.25 };
+  const result = await TASKS.render_sequence.run({
+    sources: [{ path: navy, role: "video" }],
+    params: {
+      width: 320, height: 180, fps: 25, normalize_loudness: false,
+      clips: [{ source_index: 0, duration: 2, volume: 0 }],
+      overlays: [{ start: 0.4, end: 1.6, text: "MOTION", style: "title", y: 0.5, backing: "box", color: "#ffffff", accent: "#ffffff", motion }],
+    },
+    dir,
+  });
+  const out = result.outputs[0].path;
+  const light = async (time) => {
+    const [r, g, b] = await colourAtTime(out, time, "40:10:140:85");
+    return (r + g + b) / 3;
+  };
+  const before = await light(0.4);
+  const half = await light(0.6);
+  const held = await light(1.0);
+  const going = await light(1.4);
+  const after = await light(1.8);
+  if (before > 40) throw new Error(`the title shows on its first frame (${before.toFixed(0)})`);
+  if (held < 130) throw new Error(`the title isn't fully in while it holds (${held.toFixed(0)})`);
+  // Half way in and half way out, about half as bright as held over the navy.
+  for (const [what, level] of [["coming in", half], ["going", going]])
+    if (level < 0.3 * held || level > 0.75 * held) throw new Error(`${what}, it shows ${level.toFixed(0)} against ${held.toFixed(0)} held`);
+  if (after > 40) throw new Error(`the title is still there after its end (${after.toFixed(0)})`);
+  // One event a frame coming in (10 at 25 fps) and going (10), and one holding still.
+  const script = await readFile(join(dir, "text.ass"), "utf8");
+  const steps = script.split("\n").filter((line) => line.startsWith("Dialogue: 1,") && line.endsWith("}MOTION"));
+  if (steps.length !== 21) throw new Error(`${steps.length} events for the title, not 21`);
+  if (!steps[0].includes("\\fade(255,255,255,0,0,0,0)")) throw new Error("its first frame isn't unseen");
+  if (!steps[10].includes("{\\an5\\pos(160,90)\\")) throw new Error("it doesn't hold where a still title sits");
+});
+
 await check("render_sequence lays a GIF logo from the edit's first frame, decoded once", async () => {
   const blue = join(dir, "blue-gif.mp4");
   const logo = join(dir, "logo.gif");

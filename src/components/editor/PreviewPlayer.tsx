@@ -30,6 +30,7 @@ import {
 import { useClockPlaying, useClockTime, type PlaybackClock } from "./state";
 import { useBrandFontFaces } from "@/hooks/useBrandKits";
 import { safeInsets, type SafeArea } from "@/lib/edit/brand";
+import { overlayMotionState } from "@/lib/edit/overlay-motion";
 
 interface PreviewPlayerProps {
   timeline: Timeline;
@@ -721,6 +722,12 @@ function TextLayer({
           style.top = "50%";
           style.transform = "translateY(-50%)";
         }
+        // How it comes in and goes, as the render draws it: a brand's motion, else the quarter-second
+        // fade. Its offset is a share of its own size, so in em.
+        const moving = overlayMotionState(overlay, time);
+        style.opacity = moving.opacity;
+        if (moving.offset)
+          style.transform = `${style.transform ?? ""} translateY(${moving.offset}em)`.trim();
         return (
           <div key={overlay.id} style={style}>
             {overlay.style === "cta" ? (

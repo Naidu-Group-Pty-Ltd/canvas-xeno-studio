@@ -73,6 +73,7 @@ export const FEATURES = [
   "frame_rate_conversion",
   "brand_text",
   "image_overlays",
+  "overlay_motion",
   ...(lipCheckAvailable ? ["lip_check"] : []),
 ];
 

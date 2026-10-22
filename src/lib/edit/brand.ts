@@ -25,6 +25,7 @@ import { dnaOf, type BrandDna } from "../brand/dna";
 import type { BrandFormula } from "../brand/formulas";
 import { ownFormulasOf } from "../brand/own-formulas";
 import { productionOf, type BrandProduction } from "../brand/production";
+import { kitOverlayMotion } from "./overlay-motion";
 import {
   aspectQuotient,
   layoutTimeline,
@@ -246,15 +247,18 @@ export function safeInsets(area: SafeArea, aspect: AspectRatio): Insets {
 /* Applying a kit                                                      */
 /* ------------------------------------------------------------------ */
 
-/** A brand's look for one title, subtitle or call to action. */
+/** A brand's look for one title, subtitle or call to action, moving as the brand moves. */
 export function brandedOverlay(overlay: Overlay, kit: BrandKit): Overlay {
   const font = overlay.style === "subtitle" ? kit.bodyFont : kit.headingFont;
+  // Its enter and exit curves and durations (see ./overlay-motion); none keeps the studio's fade.
+  const motion = kitOverlayMotion(kit.production);
   if (overlay.style === "cta")
     return {
       ...overlay,
       font,
       accent: kit.accentColor,
       color: contrastOn(kit.accentColor),
+      motion,
     };
   return {
     ...overlay,
@@ -262,6 +266,7 @@ export function brandedOverlay(overlay: Overlay, kit: BrandKit): Overlay {
     color: kit.textColor,
     accent: kit.accentColor,
     backing: kit.titleBacking,
+    motion,
     text:
       kit.uppercaseTitles && overlay.style === "title" ? overlay.text.toUpperCase() : overlay.text,
   };
@@ -295,6 +300,7 @@ export function clearBrand(timeline: Timeline): Timeline {
       font: null,
       color: null,
       accent: null,
+      motion: null,
     })),
     captions: { ...timeline.captions, font: null, color: null, accent: null },
   };
