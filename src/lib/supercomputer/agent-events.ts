@@ -40,7 +40,9 @@ export type ToolUi =
   | { type: "models"; models: { id: string; name: string; output: string }[] }
   | { type: "drafts"; count: number }
   | { type: "memory"; content: string; scope: "personal" | "team" }
-  | { type: "document"; title: string; markdown: string };
+  | { type: "document"; title: string; markdown: string }
+  /** A reel planned in sections (see ./sections): its card opens the Sections panel. */
+  | { type: "sections"; planId: string; title: string; sections: number };
 
 /** A tool call waiting for a person: what it would do, and what it would cost. */
 export interface ApprovalRequest {

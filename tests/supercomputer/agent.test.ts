@@ -1327,3 +1327,74 @@ describe("a turn held to a section's step limit", () => {
     expect(warnings).toBe(1);
   });
 });
+
+/* ------------------------------------------------------------------ */
+/* Section tools                                                       */
+/* ------------------------------------------------------------------ */
+
+describe("the tools for working in sections", () => {
+  const tool = (name: string) => agentTools().find((entry) => entry.name === name)!;
+  const context = (section?: { planId: string; sectionId: string; position: number }) => ({
+    userId: "u",
+    threadId: "t",
+    turnId: "2b6b1d6e-58c4-4a93-9d43-1b2c3d4e5f60",
+    settings: { ...DEFAULT_THREAD_SETTINGS },
+    projectId: null,
+    campaignId: null,
+    signal: new AbortController().signal,
+    ...(section ? { section } : {}),
+  });
+  const ID = "7f1b6d2e-58c4-4a93-9d43-1b2c3d4e5f60";
+
+  test("they are offered after the others, and none of them spends", () => {
+    const names = agentTools().map((entry) => entry.name);
+    const own = [
+      "plan_sections",
+      "start_sections",
+      "get_sections",
+      "check_joins",
+      "fix_join",
+      "save_section",
+      "finish_section",
+    ];
+    expect(names.slice(-own.length)).toEqual(own);
+    for (const name of own) {
+      expect(tool(name).inputSchema["type"]).toBe("object");
+      // What spends is a worker's own generation calls, asked about as ever.
+      expect(tool(name).spends({})).toBe(false);
+    }
+    expect(tool("plan_sections").label({ kind: "long_video", id: ID })).toBe(
+      "Planning the long video in sections",
+    );
+    expect(tool("start_sections").label({ planId: ID, sections: [2, 3] })).toBe(
+      "Giving sections 2 and 3 to workers",
+    );
+    expect(tool("save_section").label({ shots: [{ shot: 4, assetId: ID }] })).toBe("Saving shot 4");
+  });
+
+  test("their inputs are checked", () => {
+    expect(tool("plan_sections").parse({ kind: "film", id: ID }).ok).toBe(false);
+    expect(tool("plan_sections").parse({ kind: "edit", id: ID, starts: [1] }).ok).toBe(false);
+    expect(tool("plan_sections").parse({ kind: "storyboard", id: ID, sections: 3 }).ok).toBe(true);
+    expect(tool("save_section").parse({ shots: [] }).ok).toBe(false);
+    expect(tool("save_section").parse({ shots: [{ shot: 0, assetId: ID }] }).ok).toBe(false);
+    expect(tool("fix_join").parse({ planId: ID, join: 1, fix: "smart_blend" }).ok).toBe(true);
+    expect(tool("fix_join").parse({ planId: ID, join: 1, fix: "repaint" }).ok).toBe(false);
+  });
+
+  test("a worker works on its own section only; only a worker saves into a plan", async () => {
+    const section = { planId: ID, sectionId: ID, position: 1 };
+    await expect(
+      tool("plan_sections").run({ kind: "edit", id: ID }, context(section), "toolu_1"),
+    ).rejects.toThrow("A section's worker works on its own section only");
+    await expect(
+      tool("start_sections").run({ planId: ID }, context(section), "toolu_2"),
+    ).rejects.toThrow("A section's worker works on its own section only");
+    await expect(
+      tool("save_section").run({ shots: [{ shot: 2, assetId: ID }] }, context(), "toolu_3"),
+    ).rejects.toThrow("Only a section's worker saves into a plan");
+    await expect(
+      tool("finish_section").run({ summary: "Done" }, context(), "toolu_4"),
+    ).rejects.toThrow("Only a section's worker saves into a plan");
+  });
+});

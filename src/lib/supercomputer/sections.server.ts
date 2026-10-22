@@ -1044,22 +1044,7 @@ export async function startSectionWorker(input: {
       .eq("id", workerThreadId);
 
   const neighbours = await neighboursOf(view, section, input.userId, 20_000);
-  const brief = sectionBrief({
-    plan: {
-      title: view.title,
-      kind: view.kind,
-      sourceTitle: view.sourceTitle,
-      editTitle: view.sequenceId ? `${view.sourceTitle} · sections` : null,
-      sections: view.sections.length,
-    },
-    section: { ...section, steps: section.estimated, seconds: sectionSeconds(view, section) },
-    shots: view.shots,
-    before: neighbours.before,
-    after: neighbours.after,
-    work: { ...work, note },
-    budget,
-    used,
-  });
+  const brief = briefFor(view, section, neighbours, { ...work, note }, budget, used);
   const frames = [neighbours.before?.frame, neighbours.after?.frame].flatMap((frame) =>
     frame?.status === "ready" && frame.assetId ? [frame.assetId] : [],
   );
@@ -1075,6 +1060,71 @@ export async function startSectionWorker(input: {
       workerThreadId,
     },
     brief: used > 0 ? `Carry on: here is where your section stands.\n\n${brief}` : brief,
+    frames,
+  };
+}
+
+/** A worker's brief from its plan as it stands (see sectionBrief). */
+function briefFor(
+  view: PlanView,
+  section: SectionView,
+  neighbours: { before: Neighbour | null; after: Neighbour | null },
+  work: SectionWork,
+  budget: number,
+  used: number,
+): string {
+  return sectionBrief({
+    plan: {
+      title: view.title,
+      kind: view.kind,
+      sourceTitle: view.sourceTitle,
+      editTitle: view.sequenceId ? `${view.sourceTitle} · sections` : null,
+      sections: view.sections.length,
+    },
+    section: { ...section, steps: section.estimated, seconds: sectionSeconds(view, section) },
+    shots: view.shots,
+    before: neighbours.before,
+    after: neighbours.after,
+    work,
+    budget,
+    used,
+  });
+}
+
+/**
+ * A worker's brief as its section stands now, with its neighbours' frames
+ * as they are (for a worker that started before they were taken).
+ */
+export async function sectionBriefNow(
+  sectionId: string,
+  userId: string,
+): Promise<{ brief: string; frames: { label: string; bucket: string; path: string }[] }> {
+  const { data: row } = await db
+    .from("supercomputer_sections")
+    .select("plan_id")
+    .eq("id", sectionId)
+    .maybeSingle();
+  if (!row) throw new AppError("INVALID_PARAMETERS", "That section no longer exists");
+  const view = await loadPlan(row.plan_id);
+  const section = view.sections.find((entry) => entry.id === sectionId)!;
+  const neighbours = await neighboursOf(view, section, userId, 10_000);
+  const used = section.workerThreadId ? await stepsUsed(section.workerThreadId) : section.used;
+  const frames = [
+    { neighbour: neighbours.before, side: "last" },
+    { neighbour: neighbours.after, side: "first" },
+  ].flatMap(({ neighbour, side }) =>
+    neighbour?.frame?.status === "ready" && neighbour.frame.bucket && neighbour.frame.path
+      ? [
+          {
+            label: `Section ${neighbour.section + 1}'s ${side} frame (shot ${neighbour.shot.index + 1}, library image ${neighbour.frame.assetId})`,
+            bucket: neighbour.frame.bucket,
+            path: neighbour.frame.path,
+          },
+        ]
+      : [],
+  );
+  return {
+    brief: briefFor(view, section, neighbours, section.work, section.budget, used),
     frames,
   };
 }
@@ -1299,7 +1349,12 @@ export async function mergeIntoEdit(sectionId: string): Promise<MergeResult> {
  */
 export async function saveSectionShots(input: {
   sectionId: string;
-  shots: { shot: number; assetId: string; seconds?: number | null; trimStart?: number | null }[];
+  shots: {
+    shot: number;
+    assetId: string;
+    seconds?: number | null | undefined;
+    trimStart?: number | null | undefined;
+  }[];
 }): Promise<{ saved: SavedShot[]; merge: MergeResult; left: number[]; section: SectionView }> {
   const { data: row } = await db
     .from("supercomputer_sections")
@@ -1501,12 +1556,10 @@ export async function checkJoins(input: {
     const wanted = view.joins.filter(
       (join) => !input.positions?.length || input.positions.includes(join.position),
     );
-    let waiting = false;
-    for (const join of wanted) {
-      const result = await checkJoin(view, join.position, edit, input);
-      if (result === "framing") waiting = true;
-    }
-    if (!waiting || Date.now() >= until) return loadPlan(input.planId);
+    const results = await Promise.all(
+      wanted.map((join) => checkJoin(view, join.position, edit, input)),
+    );
+    if (!results.includes("framing") || Date.now() >= until) return loadPlan(input.planId);
     await pause(3_000);
   }
 }

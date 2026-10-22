@@ -593,7 +593,7 @@ export function frameWords(neighbour: Neighbour, side: "last" | "first"): string
   if (frame?.status === "ready" && frame.assetId)
     return `${whose} is library image ${frame.assetId}, shown below.`;
   if (frame?.status === "taking")
-    return `${whose} is still being taken: get_section shows it once it is.`;
+    return `${whose} is still being taken: get_sections shows it once it is.`;
   const why =
     frame?.note ?? (neighbour.shot.assetId ? "it couldn't be taken" : "its shot isn't made yet");
   return `${whose} isn't to be had (${why})${neighbour.shot.beat ? `: work from what the shot is, ${neighbour.shot.beat.replace(/\s+/g, " ").slice(0, 300)}` : ""}.`;
