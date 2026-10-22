@@ -157,8 +157,15 @@ def flat_mask(img, tol=1):
     return m
 
 
+# CIEDE2000 is gathered into a histogram as the frames go by (0.001 a bin, to 30), never held per pixel: a
+# whole film's flat fields are hundreds of millions of values, and holding them ended the process.
+DE_BIN = 0.001
+DE_BINS = 30000
+
+
 def colour(test, ref, decode_test, every=10):
-    des = []
+    hist = np.zeros(DE_BINS + 1, np.int64)
+    total, below_1, de_max = 0.0, 0, 0.0
     sw = {k: [[], []] for k in SWATCHES}
     for (i, t), (j, r) in zip(frames(test, decode_test, every), frames(ref, "format=rgb24", every)):
         assert i == j
@@ -166,14 +173,18 @@ def colour(test, ref, decode_test, every=10):
         if not m.any():
             continue
         de = ciede2000(srgb_to_lab(r[m].astype(float)), srgb_to_lab(t[m].astype(float)))
-        des.append(de)
+        hist += np.bincount(np.minimum((de / DE_BIN).astype(np.int64), DE_BINS), minlength=DE_BINS + 1)
+        total += float(de.sum())
+        below_1 += int((de < 1).sum())
+        de_max = max(de_max, float(de.max()))
         for name, hexv in SWATCHES.items():
             c = np.array([int(hexv[k:k + 2], 16) for k in (0, 2, 4)])
             hit = m & (np.abs(r.astype(int) - c).max(-1) <= 1)
             if hit.sum() >= 50:
                 sw[name][0].append(r[hit].astype(float).mean(0))
                 sw[name][1].append(t[hit].astype(float).mean(0))
-    allde = np.concatenate(des)
+    count = int(hist.sum())
+    p99 = (int(np.searchsorted(np.cumsum(hist), 0.99 * count)) + 0.5) * DE_BIN
     swatches = {}
     for name, (rs, ts) in sw.items():
         if not rs:
@@ -186,9 +197,9 @@ def colour(test, ref, decode_test, every=10):
             "frames": len(rs),
         }
     return {
-        "flat_pixels": int(allde.size),
-        "delta_e_2000": {"mean": round(float(allde.mean()), 3), "p99": round(float(np.percentile(allde, 99)), 3),
-                         "max": round(float(allde.max()), 3), "share_below_1": round(float((allde < 1).mean()), 5)},
+        "flat_pixels": count,
+        "delta_e_2000": {"mean": round(total / count, 3), "p99": round(p99, 3), "max": round(de_max, 3),
+                         "share_below_1": round(below_1 / count, 5)},
         "swatches": swatches,
     }
 
@@ -248,13 +259,21 @@ def timing(test, ref, decode_test, log, cuts):
     threshold = math.sqrt(max(edge_on, 1e-6) * max(edge_off, 1e-6))
     steady = [k for k in range(n) if all(expect[j] == expect[k] for j in range(max(0, k - 4), min(n, k + 5)))]
     mismatched = [log["frames"][k]["frame"] for k in steady if (seen[k] > threshold) != expect[k]]
-    # A cut is the one frame in its neighbourhood (+/- 6 frames) where the picture changes most, and changes
-    # a lot: the change into frame c is diffs[c - 1].
+    # Every shot boundary, judged by the picture: a cut is the one frame in its neighbourhood (+/- 6 frames)
+    # where the picture changes most, and changes a lot (the change into frame c is diffs[c - 1]); a boundary
+    # the film carries through in one move changes no more than its neighbours. A large change anywhere else
+    # in the neighbourhood is a cut that missed its frame.
     cut_report = []
     for c in cuts:
-        window = [diffs[k - 1] for k in range(max(1, c - 6), min(len(diffs), c + 7))]
-        cut_report.append({"frame": c, "change": round(diffs[c - 1], 2), "next_largest_nearby": round(sorted(window)[-2], 2),
-                           "on_its_frame": diffs[c - 1] == max(window) and diffs[c - 1] > 4 * sorted(window)[-2]})
+        if c < 1 or c > len(diffs):
+            continue
+        near = {k: diffs[k - 1] for k in range(max(1, c - 6), min(len(diffs), c + 6) + 1)}
+        others = sorted(v for k, v in near.items() if k != c)
+        top = max(near, key=near.get)
+        kind = ("cut" if top == c and diffs[c - 1] > 4 * others[-1] else
+                "missed its frame" if near[top] > 8 and near[top] > 4 * sorted(near.values())[-2] else "carried through")
+        cut_report.append({"frame": c + log["from"], "change": round(diffs[c - 1], 2),
+                           "next_largest_nearby": round(others[-1], 2), "reads_as": kind})
     worst = int(np.argmin(psnr))
     return {
         "frames_checked": len(seen),
@@ -350,8 +369,22 @@ def main():
     brief = json.loads((Path(__file__).parent / "../../docs/brands/aurixa-reel-1/system-edition/brief.json").read_text())
     fps = log["fps"]
     shots = [s for s in brief["shots"] if s["id"] in log["shots"]]
-    # Only the cuts the renderer makes as cuts (a new scene), not the shots it carries through in one move.
-    scene_starts = sorted({round(s["in"] * fps) - log["from"] for s in shots if s["id"] in ("05.1", "05.2")})
+    # Every shot boundary inside the stretch: each is judged as a cut, or as carried through in one move.
+    boundaries = sorted({round(s["in"] * fps) - log["from"] for s in shots} - {0})
+    # The pictures looked at closely, at absolute frames; those outside the stretch are left out.
+    inside = lambda f: log["from"] <= f < log["to"]
+    glow = next((f for f in (796, 2990) if inside(f)), log["from"])
+    picks = [(f - log["from"], box, label) for f, box, label in [
+        (1072, (300, 820, 520, 300), "build-types-04.3"),
+        (855, (150, 370, 780, 840), "logo-04.1"),
+        (925, (160, 1360, 760, 140), "caption-04.1"),
+        (1336, (60, 240, 960, 160), "rail-05.2"),
+        (1351, (180, 760, 720, 480), "cover-05.2"),
+        (1952, (80, 460, 960, 540), "report-08.2"),
+        (2361, (180, 400, 720, 780), "trial-card-10.2"),
+        (2924, (120, 1020, 840, 180), "phrase-14.1"),
+        (3155, (160, 1160, 760, 480), "closing-card-15.1"),
+    ] if inside(f)]
 
     p = probe(film)
     v = next(s for s in p["streams"] if s["codec_type"] == "video")
@@ -367,14 +400,9 @@ def main():
         },
         "fidelity": ssim_psnr(film, ref, TO_RGB),
         "colour": colour(film, ref, TO_RGB),
-        "timing": timing(film, ref, TO_RGB, log, scene_starts),
-        "banding": banding(film, ref, TO_RGB, 20, qc),
-        "crops": crops(film, ref, TO_RGB, [
-            (296, (300, 820, 520, 300), "build-types-04.3"),
-            (40, (240, 500, 600, 520), "logo-04.1"),
-            (560, (60, 240, 960, 160), "rail-05.2"),
-            (575, (180, 760, 720, 480), "cover-05.2"),
-        ], qc),
+        "timing": timing(film, ref, TO_RGB, log, boundaries),
+        "banding": banding(film, ref, TO_RGB, glow - log["from"], qc),
+        "crops": crops(film, ref, TO_RGB, picks, qc),
     }
     if voiceover:
         report["sound"] = sound(film, voiceover, log["from"] / fps, (log["to"] - log["from"]) / fps)
