@@ -11,11 +11,12 @@ the master as a player does and measures that difference, then checks the master
   sharpness  edge energy of the master against the reference, on frames that hold still
   banding    the ground's glow, the smoothest gradient in the film, as a smoothed profile
   timing     every frame's caption where film.json says it is, and the cuts on the frames the brief puts them
-  sound      the voiceover's offset from the picture, by cross-correlation with the source
+  sound      the soundtrack's offset from the picture, by cross-correlation with its source
   export     with --export, the same measures after the studio's own export (media-worker/src/sequence.js:
              each clip to an intermediate at CRF 14, then the cut at CRF 17, as the Editor renders it)
 
-Run: python3 scripts/aurixa-reel-1/film_qc.py <outDir of render.cjs> [--voiceover vo.wav] [--export]
+Run: python3 scripts/aurixa-reel-1/film_qc.py <outDir of render.cjs> [--voiceover soundtrack.wav] [--export]
+(--voiceover names the sound the master was made with: since the third cut, soundtrack.ts's mix.)
 Writes qc.json and the crops it names into <outDir>/qc.
 """
 import json
@@ -377,20 +378,27 @@ def main():
     shots = [s for s in brief["shots"] if s["id"] in log["shots"]]
     # Every shot boundary inside the stretch: each is judged as a cut, or as carried through in one move.
     boundaries = sorted({round(s["in"] * fps) - log["from"] for s in shots} - {0})
-    # The pictures looked at closely, at absolute frames; those outside the stretch are left out.
+    # The pictures looked at closely, each a moment of a shot (a beat of the brief, plus seconds), so they follow
+    # the shots wherever the pacing puts them; those outside the stretch are left out.
+    by_id = {s["id"]: s for s in brief["shots"]}
     inside = lambda f: log["from"] <= f < log["to"]
-    glow = next((f for f in (796, 2990) if inside(f)), log["from"])
+    def moment(shot, beat, after):
+        s = by_id.get(shot)
+        return None if s is None else round((s["beats"][beat]["at"] + after) * fps)
+    glow = next((f for f in (moment("10.1", 1, 0.6), moment("15.1", 0, 2.0)) if f is not None and inside(f)), log["from"])
     picks = [(f - log["from"], box, label) for f, box, label in [
-        (1072, (300, 820, 520, 300), "build-types-04.3"),
-        (855, (150, 370, 780, 840), "logo-04.1"),
-        (925, (160, 1360, 760, 140), "caption-04.1"),
-        (1336, (60, 240, 960, 160), "rail-05.2"),
-        (1351, (180, 760, 720, 480), "cover-05.2"),
-        (1952, (80, 460, 960, 540), "report-08.2"),
-        (2361, (180, 400, 720, 780), "trial-card-10.2"),
-        (2924, (120, 1020, 840, 180), "phrase-14.1"),
-        (3155, (160, 1160, 760, 480), "closing-card-15.1"),
-    ] if inside(f)]
+        (moment("01.1", 3, 0.6), (120, 300, 840, 900), "card-01.1"),
+        (moment("04.1", 2, 0.8), (150, 370, 780, 840), "logo-04.1"),
+        (moment("04.2", 1, 0.8), (60, 240, 960, 760), "portal-04.2"),
+        (moment("05.1", 1, 0.8), (160, 1300, 760, 300), "caption-05.1"),
+        (moment("05.2", 2, 0.9), (60, 300, 960, 1000), "report-05.2"),
+        (moment("08.2", 0, 1.2), (60, 300, 960, 1000), "grade-08.2"),
+        (moment("09.2", 0, 0.35), (0, 300, 1080, 1000), "sweep-09.2"),
+        (moment("10.2", 2, 0.4), (180, 700, 720, 600), "cta-10.2"),
+        (moment("12.2", 1, 1.0), (60, 300, 960, 1000), "floorplan-12.2"),
+        (moment("14.1", 1, 0.8), (120, 1020, 840, 180), "phrase-14.1"),
+        (moment("15.1", 3, 0.4), (160, 700, 760, 900), "closing-card-15.1"),
+    ] if f is not None and inside(f)]
 
     p = probe(film)
     v = next(s for s in p["streams"] if s["codec_type"] == "video")
