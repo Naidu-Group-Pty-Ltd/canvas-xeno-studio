@@ -316,6 +316,43 @@ describe("a caption line's words and emphasis", () => {
     expect(even.map((word) => word.start)).toEqual([0, 0.28]);
   });
 
+  test("are the words the media service sets: what it would strip is stripped, an emptied word left out", () => {
+    const words = app.segmentWords({
+      start: 0,
+      end: 3,
+      text: "Pay {in} \\ full",
+      words: [
+        { text: "Pay", start: 0, end: 0.3 },
+        { text: "in", start: 0.3, end: 0.5 },
+        { text: "full", start: 0.9, end: 1.2 },
+      ],
+    });
+    expect(words).toEqual([
+      { text: "Pay", start: 0, end: 0.3 },
+      { text: "in", start: 0.3, end: 0.5 },
+      { text: "full", start: 0.9, end: 1.2 },
+    ]);
+    // So the media worker takes them as they are, emphasis and all.
+    const timeline = parseTimeline({
+      clips: [
+        { id: "c1", assetId: "11111111-1111-4111-8111-111111111111", kind: "video", duration: 4 },
+      ],
+      captions: {
+        enabled: true,
+        style: "brand",
+        segments: [{ start: 0, end: 3, text: "Pay {in} \\ full", emphasis: "full" }],
+      },
+    })!;
+    const { params } = buildRenderRequest(timeline);
+    const planned = planSequence(params, [{ role: "video" }]);
+    expect(planned.captions.segments[0].words.map((word: { text: string }) => word.text)).toEqual([
+      "Pay",
+      "in",
+      "full",
+    ]);
+    expect(planned.captions.segments[0].emphasis).toEqual([2, 3]);
+  });
+
   test("an emphasis is the words of the line it names, wherever they are", () => {
     expect(
       app.emphasisRange(["a", "property", "opportunity", "has"], "Property Opportunity"),

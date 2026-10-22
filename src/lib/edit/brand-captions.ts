@@ -811,6 +811,22 @@ function keyOf(text: string): string {
 const ms = (value: number) => Math.round(value * 1000) / 1000;
 
 /**
+ * A word as the media service sets it: without control characters, or the
+ * braces and backslashes that mean something in a subtitle file, and at most
+ * 80 characters (see media-worker/src/sequence.js cleanText).
+ */
+function cleanWord(text: string): string {
+  return [...text]
+    .filter((char) => {
+      const code = char.charCodeAt(0);
+      return code > 0x1f && code !== 0x7f && char !== "{" && char !== "}" && char !== "\\";
+    })
+    .join("")
+    .trim()
+    .slice(0, 80);
+}
+
+/**
  * A caption line's words, each with its time from the line's start, as the
  * brand style draws them: the times kept with it (measured from its
  * voiceover) matched to its text as it now reads, else spread evenly. A word
@@ -821,9 +837,12 @@ const ms = (value: number) => Math.round(value * 1000) / 1000;
 export function segmentWords(
   segment: Pick<CaptionSegment, "start" | "end" | "text" | "words">,
 ): LineWord[] {
-  const texts = segment.text.split(/\s+/).filter(Boolean);
+  // Words as the media service sets them: one it would empty is left out.
+  const texts = segment.text.split(/\s+/).map(cleanWord).filter(Boolean);
   const duration = Math.max(0, segment.end - segment.start);
-  const kept = (segment.words ?? []).filter((word) => word.text.trim());
+  const kept = (segment.words ?? [])
+    .map((word) => ({ ...word, text: cleanWord(word.text) }))
+    .filter((word) => word.text);
   if (!texts.length) return [];
   if (!kept.length)
     return evenWords(texts.join(" "), duration).map((word) => ({
