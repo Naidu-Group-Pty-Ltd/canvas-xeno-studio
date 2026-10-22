@@ -32,6 +32,7 @@ import {
   LIMITS,
   newId,
   type AspectRatio,
+  type CaptionStyle,
   type ImageOverlay,
   type Overlay,
   type OverlayBacking,
@@ -305,7 +306,7 @@ export function applyBrandKit(timeline: Timeline, kit: BrandKit): Timeline {
     overlays: timeline.overlays.map((overlay) => brandedOverlay(overlay, kit)),
     captions: {
       ...timeline.captions,
-      font: kit.bodyFont,
+      font: captionFamily(kit, timeline.captions.style),
       color: kit.textColor,
       accent: kit.accentColor,
     },
@@ -473,16 +474,41 @@ export function addEndCard(timeline: Timeline, kit: BrandKit, input: EndCardInpu
   );
 }
 
-/** Carries the kit's font files an edit's text now asks for. */
+/** Carries the kit's font files an edit's text now asks for (a family's italic too). */
 function applyFontsFor(timeline: Timeline, kit: BrandKit): Timeline {
-  const have = new Set(timeline.fonts.map((font) => font.family));
+  const have = new Set(timeline.fonts.map((font) => font.path));
   const wanted = new Set(
     [...timeline.overlays.map((overlay) => overlay.font), timeline.captions.font].filter(
-      (family): family is string => !!family && !have.has(family),
+      (family): family is string => !!family,
     ),
   );
-  const added = regularFirst(kit.fonts.filter((font) => wanted.has(font.family)));
+  const added = regularFirst(
+    kit.fonts.filter((font) => wanted.has(font.family) && !have.has(font.path)),
+  );
   return added.length
     ? { ...timeline, fonts: [...timeline.fonts, ...added].slice(0, LIMITS.fonts) }
     : timeline;
+}
+
+/** The family a kit sets captions of a style in: the brand style its display face, the others its body face. */
+function captionFamily(kit: BrandKit, style: CaptionStyle): string | null {
+  return style === "brand" ? (kit.headingFont ?? kit.bodyFont) : kit.bodyFont;
+}
+
+/**
+ * An edit's captions in another style. In an edit styled from a kit, the
+ * brand style takes the kit's display face (with its italic, for the
+ * phrase each line leans on), the others its body face.
+ */
+export function withCaptionStyle(
+  timeline: Timeline,
+  style: CaptionStyle,
+  kit: BrandKit | null,
+): Timeline {
+  const captions = { ...timeline.captions, style };
+  if (!kit || timeline.brandKitId !== kit.id) return { ...timeline, captions };
+  return applyFontsFor(
+    { ...timeline, captions: { ...captions, font: captionFamily(kit, style) } },
+    kit,
+  );
 }

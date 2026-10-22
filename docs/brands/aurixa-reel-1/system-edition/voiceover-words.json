@@ -1,0 +1,1332 @@
+{
+"source": "audio_preparations c47a30e0-edcd-4389-b98f-6c3fa11887d7 (the voiceover's measured words, as the studio prepared it)",
+"voiceover_asset": "84c0abf7-60d1-4439-84fd-e7038feffc01",
+"note": "The recogniser's spellings (Arixa, number's, judgment) are its own; captions spell from the script. Times are seconds, rounded to the millisecond.",
+"words": [
+{
+"text": "Somewhere",
+"start": 0,
+"end": 0.4
+},
+{
+"text": "in",
+"start": 0.4,
+"end": 0.78
+},
+{
+"text": "Australia",
+"start": 0.78,
+"end": 1.14
+},
+{
+"text": "a",
+"start": 1.68,
+"end": 1.78
+},
+{
+"text": "property",
+"start": 1.78,
+"end": 2.06
+},
+{
+"text": "opportunity",
+"start": 2.06,
+"end": 2.56
+},
+{
+"text": "has",
+"start": 2.56,
+"end": 2.96
+},
+{
+"text": "just",
+"start": 2.96,
+"end": 3.5
+},
+{
+"text": "appeared",
+"start": 3.5,
+"end": 3.72
+},
+{
+"text": "A",
+"start": 4.44,
+"end": 4.48
+},
+{
+"text": "client",
+"start": 4.48,
+"end": 4.74
+},
+{
+"text": "wants",
+"start": 4.74,
+"end": 4.96
+},
+{
+"text": "to",
+"start": 4.96,
+"end": 5.2
+},
+{
+"text": "know",
+"start": 5.2,
+"end": 5.34
+},
+{
+"text": "if",
+"start": 5.34,
+"end": 5.54
+},
+{
+"text": "it's",
+"start": 5.54,
+"end": 5.68
+},
+{
+"text": "right",
+"start": 5.68,
+"end": 5.92
+},
+{
+"text": "for",
+"start": 5.92,
+"end": 6.14
+},
+{
+"text": "them",
+"start": 6.14,
+"end": 6.24
+},
+{
+"text": "while",
+"start": 6.52,
+"end": 6.66
+},
+{
+"text": "there's",
+"start": 6.66,
+"end": 6.84
+},
+{
+"text": "still",
+"start": 6.84,
+"end": 7.22
+},
+{
+"text": "time",
+"start": 7.22,
+"end": 7.42
+},
+{
+"text": "to",
+"start": 7.42,
+"end": 8
+},
+{
+"text": "act",
+"start": 8,
+"end": 8
+},
+{
+"text": "But",
+"start": 8.5,
+"end": 8.66
+},
+{
+"text": "before",
+"start": 8.66,
+"end": 9.04
+},
+{
+"text": "you",
+"start": 9.04,
+"end": 9.22
+},
+{
+"text": "can",
+"start": 9.22,
+"end": 9.56
+},
+{
+"text": "answer",
+"start": 9.56,
+"end": 9.7
+},
+{
+"text": "the",
+"start": 10.22,
+"end": 10.24
+},
+{
+"text": "research",
+"start": 10.24,
+"end": 10.68
+},
+{
+"text": "is",
+"start": 10.68,
+"end": 10.88
+},
+{
+"text": "in",
+"start": 10.88,
+"end": 11.08
+},
+{
+"text": "one",
+"start": 11.08,
+"end": 11.28
+},
+{
+"text": "platform",
+"start": 11.28,
+"end": 11.7
+},
+{
+"text": "the",
+"start": 12.02,
+"end": 12.2
+},
+{
+"text": "number's",
+"start": 12.2,
+"end": 12.58
+},
+{
+"text": "in",
+"start": 12.58,
+"end": 12.84
+},
+{
+"text": "another",
+"start": 12.84,
+"end": 13.02
+},
+{
+"text": "the",
+"start": 13.44,
+"end": 13.68
+},
+{
+"text": "client",
+"start": 13.68,
+"end": 13.98
+},
+{
+"text": "details",
+"start": 13.98,
+"end": 14.38
+},
+{
+"text": "somewhere",
+"start": 14.38,
+"end": 14.8
+},
+{
+"text": "else",
+"start": 14.8,
+"end": 15.16
+},
+{
+"text": "and",
+"start": 15.32,
+"end": 15.56
+},
+{
+"text": "the",
+"start": 15.56,
+"end": 15.8
+},
+{
+"text": "report",
+"start": 15.8,
+"end": 16.06
+},
+{
+"text": "hasn't",
+"start": 16.06,
+"end": 16.44
+},
+{
+"text": "even",
+"start": 16.44,
+"end": 16.86
+},
+{
+"text": "begun",
+"start": 16.86,
+"end": 17.1
+},
+{
+"text": "What",
+"start": 17.78,
+"end": 17.92
+},
+{
+"text": "happens",
+"start": 17.92,
+"end": 18.24
+},
+{
+"text": "then",
+"start": 18.24,
+"end": 18.74
+},
+{
+"text": "The",
+"start": 19.14,
+"end": 19.26
+},
+{
+"text": "market",
+"start": 19.26,
+"end": 19.66
+},
+{
+"text": "keeps",
+"start": 19.66,
+"end": 20.16
+},
+{
+"text": "moving",
+"start": 20.16,
+"end": 20.56
+},
+{
+"text": "Your",
+"start": 21.12,
+"end": 21.3
+},
+{
+"text": "attention",
+"start": 21.3,
+"end": 21.64
+},
+{
+"text": "is",
+"start": 21.64,
+"end": 22.2
+},
+{
+"text": "pulled",
+"start": 22.2,
+"end": 22.2
+},
+{
+"text": "in",
+"start": 22.2,
+"end": 22.56
+},
+{
+"text": "every",
+"start": 22.56,
+"end": 22.94
+},
+{
+"text": "direction",
+"start": 22.94,
+"end": 23.38
+},
+{
+"text": "And",
+"start": 23.68,
+"end": 24.16
+},
+{
+"text": "the",
+"start": 24.16,
+"end": 24.68
+},
+{
+"text": "client",
+"start": 24.68,
+"end": 24.68
+},
+{
+"text": "is",
+"start": 24.68,
+"end": 25.08
+},
+{
+"text": "waiting",
+"start": 25.08,
+"end": 25.48
+},
+{
+"text": "Arixa",
+"start": 26,
+"end": 26.4
+},
+{
+"text": "Systems",
+"start": 26.4,
+"end": 26.92
+},
+{
+"text": "was",
+"start": 26.92,
+"end": 27.22
+},
+{
+"text": "built",
+"start": 27.22,
+"end": 27.44
+},
+{
+"text": "by",
+"start": 27.44,
+"end": 27.9
+},
+{
+"text": "property",
+"start": 27.9,
+"end": 28.18
+},
+{
+"text": "professionals",
+"start": 28.18,
+"end": 28.8
+},
+{
+"text": "for",
+"start": 28.8,
+"end": 29.42
+},
+{
+"text": "property",
+"start": 29.42,
+"end": 29.84
+},
+{
+"text": "professionals",
+"start": 29.84,
+"end": 30.44
+},
+{
+"text": "We're",
+"start": 31.26,
+"end": 31.3
+},
+{
+"text": "here",
+"start": 31.3,
+"end": 31.66
+},
+{
+"text": "with",
+"start": 32.06,
+"end": 32.08
+},
+{
+"text": "a",
+"start": 32.08,
+"end": 32.22
+},
+{
+"text": "connected",
+"start": 32.22,
+"end": 32.68
+},
+{
+"text": "operating",
+"start": 32.68,
+"end": 33.28
+},
+{
+"text": "environment",
+"start": 33.28,
+"end": 33.82
+},
+{
+"text": "designed",
+"start": 33.82,
+"end": 34.36
+},
+{
+"text": "around",
+"start": 34.36,
+"end": 34.74
+},
+{
+"text": "how",
+"start": 34.74,
+"end": 35.08
+},
+{
+"text": "property",
+"start": 35.08,
+"end": 35.38
+},
+{
+"text": "professionals",
+"start": 35.38,
+"end": 35.92
+},
+{
+"text": "actually",
+"start": 35.92,
+"end": 36.72
+},
+{
+"text": "work",
+"start": 36.72,
+"end": 37.34
+},
+{
+"text": "Picture",
+"start": 37.74,
+"end": 37.82
+},
+{
+"text": "a",
+"start": 37.82,
+"end": 38.18
+},
+{
+"text": "property",
+"start": 38.18,
+"end": 38.38
+},
+{
+"text": "moving",
+"start": 38.38,
+"end": 38.78
+},
+{
+"text": "from",
+"start": 38.78,
+"end": 39.16
+},
+{
+"text": "research",
+"start": 39.16,
+"end": 39.68
+},
+{
+"text": "into",
+"start": 39.68,
+"end": 40.08
+},
+{
+"text": "financial",
+"start": 40.08,
+"end": 40.66
+},
+{
+"text": "analysis",
+"start": 40.66,
+"end": 41.1
+},
+{
+"text": "then",
+"start": 41.66,
+"end": 41.9
+},
+{
+"text": "into",
+"start": 41.9,
+"end": 42.24
+},
+{
+"text": "a",
+"start": 42.24,
+"end": 42.5
+},
+{
+"text": "professional",
+"start": 42.5,
+"end": 42.9
+},
+{
+"text": "report",
+"start": 42.9,
+"end": 43.38
+},
+{
+"text": "your",
+"start": 43.38,
+"end": 43.68
+},
+{
+"text": "client",
+"start": 43.68,
+"end": 43.94
+},
+{
+"text": "can",
+"start": 43.94,
+"end": 44.28
+},
+{
+"text": "understand",
+"start": 44.28,
+"end": 44.84
+},
+{
+"text": "Picture",
+"start": 45.68,
+"end": 45.68
+},
+{
+"text": "communication",
+"start": 45.68,
+"end": 46.5
+},
+{
+"text": "client",
+"start": 47.18,
+"end": 47.22
+},
+{
+"text": "relationships",
+"start": 47.22,
+"end": 47.94
+},
+{
+"text": "and",
+"start": 48.22,
+"end": 48.64
+},
+{
+"text": "property",
+"start": 48.64,
+"end": 48.82
+},
+{
+"text": "partners",
+"start": 48.82,
+"end": 49.28
+},
+{
+"text": "connected",
+"start": 49.28,
+"end": 49.84
+},
+{
+"text": "to",
+"start": 49.84,
+"end": 50.1
+},
+{
+"text": "that",
+"start": 50.1,
+"end": 50.38
+},
+{
+"text": "journey",
+"start": 50.38,
+"end": 50.6
+},
+{
+"text": "with",
+"start": 50.98,
+"end": 51.24
+},
+{
+"text": "Arixa",
+"start": 51.24,
+"end": 51.56
+},
+{
+"text": "agents",
+"start": 51.56,
+"end": 52.06
+},
+{
+"text": "supporting",
+"start": 52.06,
+"end": 52.56
+},
+{
+"text": "the",
+"start": 52.56,
+"end": 52.96
+},
+{
+"text": "work",
+"start": 52.96,
+"end": 53.02
+},
+{
+"text": "behind",
+"start": 53.02,
+"end": 53.42
+},
+{
+"text": "it",
+"start": 53.42,
+"end": 53.72
+},
+{
+"text": "Not",
+"start": 53.72,
+"end": 54.24
+},
+{
+"text": "to",
+"start": 54.24,
+"end": 54.46
+},
+{
+"text": "replace",
+"start": 54.46,
+"end": 54.9
+},
+{
+"text": "your",
+"start": 54.9,
+"end": 55.24
+},
+{
+"text": "judgment",
+"start": 55.24,
+"end": 55.48
+},
+{
+"text": "but",
+"start": 55.92,
+"end": 55.98
+},
+{
+"text": "to",
+"start": 55.98,
+"end": 56.24
+},
+{
+"text": "give",
+"start": 56.24,
+"end": 56.32
+},
+{
+"text": "it",
+"start": 56.32,
+"end": 56.6
+},
+{
+"text": "room",
+"start": 56.6,
+"end": 56.74
+},
+{
+"text": "to",
+"start": 56.74,
+"end": 57.06
+},
+{
+"text": "lead",
+"start": 57.06,
+"end": 57.68
+},
+{
+"text": "Because",
+"start": 58.04,
+"end": 58.04
+},
+{
+"text": "clients",
+"start": 58.04,
+"end": 58.44
+},
+{
+"text": "don't",
+"start": 58.44,
+"end": 58.76
+},
+{
+"text": "pay",
+"start": 58.76,
+"end": 59.04
+},
+{
+"text": "you",
+"start": 59.04,
+"end": 59.26
+},
+{
+"text": "to",
+"start": 59.26,
+"end": 59.56
+},
+{
+"text": "manage",
+"start": 59.56,
+"end": 59.78
+},
+{
+"text": "software",
+"start": 59.78,
+"end": 60.26
+},
+{
+"text": "They",
+"start": 60.92,
+"end": 60.98
+},
+{
+"text": "trust",
+"start": 60.98,
+"end": 61.38
+},
+{
+"text": "you",
+"start": 61.38,
+"end": 61.66
+},
+{
+"text": "to",
+"start": 61.66,
+"end": 61.9
+},
+{
+"text": "identify",
+"start": 61.9,
+"end": 62.36
+},
+{
+"text": "opportunities",
+"start": 62.36,
+"end": 63.18
+},
+{
+"text": "make",
+"start": 63.68,
+"end": 63.78
+},
+{
+"text": "sense",
+"start": 63.78,
+"end": 64.1
+},
+{
+"text": "of",
+"start": 64.1,
+"end": 64.82
+},
+{
+"text": "complexity",
+"start": 64.82,
+"end": 64.82
+},
+{
+"text": "and",
+"start": 65.28,
+"end": 65.68
+},
+{
+"text": "guide",
+"start": 65.68,
+"end": 65.72
+},
+{
+"text": "the",
+"start": 65.72,
+"end": 65.94
+},
+{
+"text": "next",
+"start": 65.94,
+"end": 66.26
+},
+{
+"text": "decision",
+"start": 66.26,
+"end": 66.68
+},
+{
+"text": "You",
+"start": 67.26,
+"end": 67.3
+},
+{
+"text": "can",
+"start": 67.3,
+"end": 67.52
+},
+{
+"text": "keep",
+"start": 67.52,
+"end": 67.78
+},
+{
+"text": "asking",
+"start": 67.78,
+"end": 68.04
+},
+{
+"text": "your",
+"start": 68.04,
+"end": 68.38
+},
+{
+"text": "team",
+"start": 68.38,
+"end": 68.64
+},
+{
+"text": "to",
+"start": 68.64,
+"end": 69.14
+},
+{
+"text": "bridge",
+"start": 69.14,
+"end": 69.14
+},
+{
+"text": "the",
+"start": 69.14,
+"end": 69.64
+},
+{
+"text": "gaps",
+"start": 69.64,
+"end": 69.64
+},
+{
+"text": "between",
+"start": 69.64,
+"end": 70.04
+},
+{
+"text": "disconnected",
+"start": 70.04,
+"end": 70.66
+},
+{
+"text": "systems",
+"start": 70.66,
+"end": 71.18
+},
+{
+"text": "but",
+"start": 71.68,
+"end": 71.82
+},
+{
+"text": "why",
+"start": 71.82,
+"end": 72.16
+},
+{
+"text": "should",
+"start": 72.16,
+"end": 72.36
+},
+{
+"text": "they",
+"start": 72.36,
+"end": 72.56
+},
+{
+"text": "have",
+"start": 72.56,
+"end": 72.84
+},
+{
+"text": "to",
+"start": 72.84,
+"end": 73.08
+},
+{
+"text": "Arixa",
+"start": 73.62,
+"end": 73.94
+},
+{
+"text": "Systems",
+"start": 73.94,
+"end": 74.44
+},
+{
+"text": "isn't",
+"start": 74.44,
+"end": 74.84
+},
+{
+"text": "on",
+"start": 74.84,
+"end": 75.06
+},
+{
+"text": "the",
+"start": 75.06,
+"end": 75.64
+},
+{
+"text": "horizon",
+"start": 75.64,
+"end": 75.64
+},
+{
+"text": "We've",
+"start": 76.2,
+"end": 76.54
+},
+{
+"text": "arrived",
+"start": 76.54,
+"end": 76.96
+},
+{
+"text": "and",
+"start": 77.26,
+"end": 77.44
+},
+{
+"text": "the",
+"start": 77.44,
+"end": 77.74
+},
+{
+"text": "invitation",
+"start": 77.74,
+"end": 78.08
+},
+{
+"text": "is",
+"start": 78.08,
+"end": 78.56
+},
+{
+"text": "open",
+"start": 78.56,
+"end": 78.94
+},
+{
+"text": "Experience",
+"start": 79.6,
+"end": 80
+},
+{
+"text": "what",
+"start": 80,
+"end": 80.22
+},
+{
+"text": "we've",
+"start": 80.22,
+"end": 80.66
+},
+{
+"text": "built",
+"start": 80.66,
+"end": 80.66
+},
+{
+"text": "with",
+"start": 80.66,
+"end": 80.88
+},
+{
+"text": "a",
+"start": 80.88,
+"end": 81.06
+},
+{
+"text": "14",
+"start": 81.06,
+"end": 81.54
+},
+{
+"text": "day",
+"start": 81.54,
+"end": 81.76
+},
+{
+"text": "free",
+"start": 81.76,
+"end": 82.22
+},
+{
+"text": "trial",
+"start": 82.22,
+"end": 82.5
+},
+{
+"text": "Explore",
+"start": 83.14,
+"end": 83.46
+},
+{
+"text": "the",
+"start": 83.46,
+"end": 83.66
+},
+{
+"text": "platform",
+"start": 83.66,
+"end": 84.1
+},
+{
+"text": "put",
+"start": 84.64,
+"end": 84.66
+},
+{
+"text": "it",
+"start": 84.66,
+"end": 84.84
+},
+{
+"text": "alongside",
+"start": 84.84,
+"end": 85.28
+},
+{
+"text": "the",
+"start": 85.28,
+"end": 85.54
+},
+{
+"text": "way",
+"start": 85.54,
+"end": 85.7
+},
+{
+"text": "you",
+"start": 85.7,
+"end": 85.86
+},
+{
+"text": "work",
+"start": 85.86,
+"end": 86.1
+},
+{
+"text": "today",
+"start": 86.1,
+"end": 86.5
+},
+{
+"text": "and",
+"start": 86.8,
+"end": 87.44
+},
+{
+"text": "discover",
+"start": 87.44,
+"end": 87.44
+},
+{
+"text": "what",
+"start": 87.44,
+"end": 87.7
+},
+{
+"text": "a",
+"start": 87.7,
+"end": 87.88
+},
+{
+"text": "more",
+"start": 87.88,
+"end": 88.52
+},
+{
+"text": "connected",
+"start": 88.52,
+"end": 88.52
+},
+{
+"text": "business",
+"start": 88.52,
+"end": 88.96
+},
+{
+"text": "could",
+"start": 88.96,
+"end": 89.28
+},
+{
+"text": "feel",
+"start": 89.28,
+"end": 89.6
+},
+{
+"text": "like",
+"start": 89.6,
+"end": 89.92
+},
+{
+"text": "Don't",
+"start": 90.42,
+"end": 90.5
+},
+{
+"text": "just",
+"start": 90.5,
+"end": 90.76
+},
+{
+"text": "take",
+"start": 90.76,
+"end": 90.92
+},
+{
+"text": "our",
+"start": 90.92,
+"end": 91.2
+},
+{
+"text": "word",
+"start": 91.2,
+"end": 91.4
+},
+{
+"text": "for",
+"start": 91.4,
+"end": 91.66
+},
+{
+"text": "it",
+"start": 91.66,
+"end": 91.86
+},
+{
+"text": "let",
+"start": 92.24,
+"end": 92.3
+},
+{
+"text": "your",
+"start": 92.3,
+"end": 92.5
+},
+{
+"text": "own",
+"start": 92.5,
+"end": 92.92
+},
+{
+"text": "experience",
+"start": 92.92,
+"end": 93.3
+},
+{
+"text": "make",
+"start": 93.3,
+"end": 93.54
+},
+{
+"text": "the",
+"start": 93.54,
+"end": 93.72
+},
+{
+"text": "case",
+"start": 93.72,
+"end": 94.08
+},
+{
+"text": "14",
+"start": 94.98,
+"end": 94.98
+},
+{
+"text": "days",
+"start": 94.98,
+"end": 95.4
+},
+{
+"text": "Your",
+"start": 95.98,
+"end": 96.16
+},
+{
+"text": "business",
+"start": 96.16,
+"end": 96.62
+},
+{
+"text": "Your",
+"start": 97.08,
+"end": 97.32
+},
+{
+"text": "experience",
+"start": 97.32,
+"end": 97.9
+},
+{
+"text": "Your",
+"start": 98.42,
+"end": 98.64
+},
+{
+"text": "decision",
+"start": 98.64,
+"end": 99.1
+},
+{
+"text": "Arixa",
+"start": 99.94,
+"end": 100.06
+},
+{
+"text": "Systems",
+"start": 100.06,
+"end": 100.52
+},
+{
+"text": "The",
+"start": 101.22,
+"end": 101.4
+},
+{
+"text": "operating",
+"start": 101.4,
+"end": 101.84
+},
+{
+"text": "system",
+"start": 101.84,
+"end": 102.2
+},
+{
+"text": "for",
+"start": 102.2,
+"end": 102.64
+},
+{
+"text": "modern",
+"start": 102.64,
+"end": 102.94
+},
+{
+"text": "property",
+"start": 102.94,
+"end": 103.32
+},
+{
+"text": "professionals",
+"start": 103.32,
+"end": 103.82
+},
+{
+"text": "Start",
+"start": 104.7,
+"end": 104.74
+},
+{
+"text": "your",
+"start": 104.74,
+"end": 104.96
+},
+{
+"text": "free",
+"start": 104.96,
+"end": 105.24
+},
+{
+"text": "trial",
+"start": 105.24,
+"end": 105.4
+},
+{
+"text": "today",
+"start": 105.4,
+"end": 105.88
+}
+]
+}

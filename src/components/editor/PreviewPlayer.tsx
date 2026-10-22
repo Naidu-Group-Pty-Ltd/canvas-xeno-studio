@@ -30,6 +30,7 @@ import {
 import { useClockPlaying, useClockTime, type PlaybackClock } from "./state";
 import { useBrandFontFaces } from "@/hooks/useBrandKits";
 import { safeInsets, type SafeArea } from "@/lib/edit/brand";
+import { BrandCaptionLayer } from "./BrandCaptions";
 
 interface PreviewPlayerProps {
   timeline: Timeline;
@@ -638,9 +639,11 @@ function TextLayer({
   if (!scale) return null;
   const short = Math.min(frameWidth, frameHeight);
   const portrait = frameHeight > frameWidth;
-  const caption = timeline.captions.enabled
-    ? timeline.captions.segments.find((segment) => time >= segment.start && time < segment.end)
-    : undefined;
+  const brandCaptions = timeline.captions.enabled && timeline.captions.style === "brand";
+  const caption =
+    timeline.captions.enabled && !brandCaptions
+      ? timeline.captions.segments.find((segment) => time >= segment.start && time < segment.end)
+      : undefined;
   const overlays = timeline.overlays.filter(
     (overlay) => time >= overlay.start && time < overlay.end,
   );
@@ -675,6 +678,15 @@ function TextLayer({
 
   return (
     <div className="pointer-events-none absolute inset-0 z-10">
+      {brandCaptions && (
+        // Word by word in the brand's type, moving as the render moves them.
+        <BrandCaptionLayer
+          timeline={timeline}
+          time={time}
+          frameWidth={frameWidth}
+          frameHeight={frameHeight}
+        />
+      )}
       {caption && (
         <div style={captionStyle()}>
           <span

@@ -8,6 +8,7 @@
  * shows is what the render produces.
  */
 import { z } from "zod";
+import { emphasisRange, segmentWords } from "./brand-captions";
 import { FONT_FAMILY_PATTERN, FONT_STYLES, isBrandFontFile } from "./font-family";
 
 export const ASPECT_RATIOS = [
@@ -109,13 +110,15 @@ export const AUDIO_ROLE_LABELS: Record<AudioRole, string> = {
   sfx: "Sound effect",
 };
 
-export const CAPTION_STYLES = ["clean", "boxed", "bold", "minimal"] as const;
+/** "brand": word by word in the brand's type, on a panel (see ./brand-captions). */
+export const CAPTION_STYLES = ["clean", "boxed", "bold", "minimal", "brand"] as const;
 export type CaptionStyle = (typeof CAPTION_STYLES)[number];
 export const CAPTION_STYLE_LABELS: Record<CaptionStyle, string> = {
   clean: "Clean · white with outline",
   boxed: "Boxed · white on dark box",
   bold: "Bold · yellow with outline",
   minimal: "Minimal · thin white",
+  brand: "Brand · word by word, in the brand's type",
 };
 export const CAPTION_POSITIONS = ["bottom", "lower_third", "center", "top"] as const;
 export type CaptionPosition = (typeof CAPTION_POSITIONS)[number];
@@ -179,6 +182,8 @@ export const LIMITS = {
   clipSeconds: 300,
   transitionSeconds: 3,
   captionChars: 220,
+  /** Words a caption line keeps times for. */
+  captionWords: 60,
   overlayChars: 160,
   /** Pictures over the edit (a logo) and brand font files. */
   images: 8,
@@ -255,10 +260,26 @@ export const audioSchema = z.object({
 });
 export type TimelineAudio = z.infer<typeof audioSchema>;
 
+/** A word of a caption line: when it is spoken, in seconds from the line's own start. */
+export const captionWordSchema = z.object({
+  text: z.string().max(80),
+  start: finite(0, LIMITS.totalSeconds),
+  end: finite(0, LIMITS.totalSeconds),
+});
+export type CaptionWord = z.infer<typeof captionWordSchema>;
+
 export const captionSegmentSchema = z.object({
   start: finite(0, LIMITS.totalSeconds),
   end: finite(0, LIMITS.totalSeconds),
   text: z.string().max(LIMITS.captionChars),
+  /**
+   * Its words' own times, measured from the voiceover it was made from, for
+   * captions set word by word. Kept from the line's start, so moving the
+   * line moves its words; a line without them has its words spread evenly.
+   */
+  words: z.array(captionWordSchema).max(LIMITS.captionWords).optional(),
+  /** The phrase it leans on (words of its text), set in the brand's italic and accent. */
+  emphasis: z.string().max(LIMITS.captionChars).nullable().optional(),
 });
 export type CaptionSegment = z.infer<typeof captionSegmentSchema>;
 
@@ -992,7 +1013,8 @@ export interface RenderSource {
  * text asks for that it carries a file for, the family's own file (its
  * regular, else the first it has), in the order the edit keeps them. Text is
  * set as its font was drawn, never made bolder, so a family's other files
- * go only where something is set in them.
+ * go only where something is set in them: the italic brand captions set
+ * their emphasis in comes after every family's own file.
  */
 export function usedFonts(
   timeline: Pick<Timeline, "fonts" | "overlays" | "captions">,
@@ -1007,7 +1029,13 @@ export function usedFonts(
     return main ? [main] : [];
   });
   own.sort((a, b) => timeline.fonts.indexOf(a) - timeline.fonts.indexOf(b));
-  return own.slice(0, Math.max(0, max));
+  const { captions } = timeline;
+  const family = captions.enabled && captions.style === "brand" ? captions.font : null;
+  const others = timeline.fonts.filter((font) => font.family === family && !own.includes(font));
+  const italic =
+    others.find((font) => font.style === "italic") ??
+    others.find((font) => font.style === "bold_italic");
+  return [...own, ...(italic ? [italic] : [])].slice(0, Math.max(0, max));
 }
 
 /**
@@ -1110,6 +1138,8 @@ export function buildRenderRequest(
     duck_level: item.duckLevel,
   }));
 
+  // Brand captions carry each word's time and the phrase they lean on (feature brand_captions).
+  const brandCaptions = timeline.captions.style === "brand";
   const segments = timeline.captions.enabled
     ? timeline.captions.segments
         .filter(
@@ -1120,6 +1150,7 @@ export function buildRenderRequest(
           start: segment.start,
           end: Math.min(segment.end, layout.total),
           text: segment.text,
+          ...(brandCaptions ? brandLineOf(segment) : {}),
         }))
     : [];
 
@@ -1219,6 +1250,23 @@ export function buildRenderRequest(
         : {}),
     },
   };
+}
+
+/**
+ * A brand caption line's words as the media service takes them: each with
+ * its time from the line's start (see ./brand-captions `segmentWords`), and
+ * its emphasis as the words [from, to) it covers, sent only when it has one.
+ */
+function brandLineOf(segment: CaptionSegment): {
+  words: CaptionWord[];
+  emphasis?: [number, number];
+} {
+  const words = segmentWords(segment);
+  const emphasis = emphasisRange(
+    words.map((word) => word.text),
+    segment.emphasis,
+  );
+  return { words, ...(emphasis ? { emphasis } : {}) };
 }
 
 /** Problems that stop a render, in plain words. Empty when the timeline can render. */

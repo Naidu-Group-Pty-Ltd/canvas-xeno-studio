@@ -7,7 +7,7 @@ import { execFileSync, spawn } from "node:child_process";
 import { createHmac } from "node:crypto";
 import { request as httpRequest } from "node:http";
 import { existsSync } from "node:fs";
-import { copyFile, mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { copyFile, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { ffmpeg, probe } from "./ffmpeg.js";
@@ -308,6 +308,118 @@ await check("render_sequence lays a GIF logo from the edit's first frame, decode
   if (!near(await colourAtTime(out, 0.96, "10:10:75:85"), [255, 0, 0])) throw new Error("the logo isn't on the last frame");
   const info = await probe(out);
   if (Math.abs(info.duration_seconds - 1) > 0.06) throw new Error(`rendered ${info.duration_seconds}s`);
+});
+
+/**
+ * A family installed here with a regular and an italic file of its own
+ * (Inter, in the worker's image): never downloaded, only found.
+ */
+async function italicPair() {
+  const { fontFamily: familyOf, fontStyle: styleOf } = await import("./fonts.js");
+  const files = execFileSync("sh", ["-c", "find /usr/share/fonts -type f \\( -name '*.ttf' -o -name '*.otf' \\) | sort"]).toString().trim().split("\n").filter(Boolean);
+  const families = new Map();
+  for (const path of files) {
+    const bytes = await readFile(path);
+    const family = familyOf(bytes);
+    const style = styleOf(bytes);
+    if (!family || !/^[A-Za-z][A-Za-z ]{2,40}$/.test(family) || !style || style.weight !== 400) continue;
+    const entry = families.get(family) ?? {};
+    entry[style.italic ? "italic" : "regular"] ??= path;
+    families.set(family, entry);
+    if (entry.regular && entry.italic) return { family, ...entry };
+  }
+  return null;
+}
+
+/**
+ * A font file's family renamed (every name record holding it, to a name as
+ * long), so the copy is a typeface no fontconfig on the machine knows: what
+ * the render sets in it can only come from the file it was given.
+ */
+function renamedFont(bytes, from, to) {
+  const out = Buffer.from(bytes);
+  const tables = out.readUInt16BE(4);
+  for (let index = 0; index < tables; index += 1) {
+    const record = 12 + index * 16;
+    if (out.toString("latin1", record, record + 4) !== "name") continue;
+    const name = out.readUInt32BE(record + 8);
+    const count = out.readUInt16BE(name + 2);
+    const strings = name + out.readUInt16BE(name + 4);
+    for (let entry = 0; entry < count; entry += 1) {
+      const at = name + 6 + entry * 12;
+      const platform = out.readUInt16BE(at);
+      const start = strings + out.readUInt16BE(at + 10);
+      const length = out.readUInt16BE(at + 8);
+      const wide = platform === 3 || platform === 0;
+      const raw = out.subarray(start, start + length);
+      const text = wide ? Buffer.from(raw).swap16().toString("utf16le") : raw.toString("latin1");
+      if (!text.includes(from)) continue;
+      const renamed = Buffer.from(text.split(from).join(to), wide ? "utf16le" : "latin1");
+      (wide ? renamed.swap16() : renamed).copy(out, start);
+    }
+  }
+  return out;
+}
+
+/** The share of a frame's region (at a time) brighter than mid grey. */
+async function brightShare(path, time, crop) {
+  const out = join(dir, `bright-${Math.random().toString(36).slice(2)}.gray`);
+  await ffmpeg(["-ss", String(time), "-i", path, "-frames:v", "1", "-vf", `crop=${crop},format=gray`, "-f", "rawvideo", out]);
+  const plane = await readFile(out);
+  return plane.filter((value) => value > 150).length / plane.length;
+}
+
+await check("render_sequence sets brand captions word by word, in a brand font and its own italic", async () => {
+  const pair = await italicPair();
+  if (!pair) throw new Error("no font family with an italic is installed to test with");
+  const family = `Selftest${"x".repeat(pair.family.length)}`.slice(0, pair.family.length);
+  const work = await mkdtemp(join(dir, "brand-captions-"));
+  const regular = join(work, "regular-font");
+  const italic = join(work, "italic-font");
+  await writeFile(regular, renamedFont(await readFile(pair.regular), pair.family, family));
+  await writeFile(italic, renamedFont(await readFile(pair.italic), pair.family, family));
+  const dark = join(work, "dark.mp4");
+  await ffmpeg(["-f", "lavfi", "-i", "color=c=0x101828:s=360x640:d=4:r=25", "-pix_fmt", "yuv420p", dark]);
+  const result = await TASKS.render_sequence.run({
+    sources: [
+      { path: dark, role: "video" },
+      { path: regular, role: "font" },
+      { path: italic, role: "font" },
+    ],
+    params: {
+      width: 360, height: 640, fps: 25, normalize_loudness: false,
+      clips: [{ source_index: 0, duration: 4, volume: 0 }],
+      fonts: [{ source_index: 1, family }, { source_index: 2, family }],
+      captions: {
+        style: "brand", font: family, color: "#ffffff", accent: "#d7b35f",
+        segments: [{
+          start: 0.4, end: 3.6, text: "Somewhere in Australia,",
+          words: [{ text: "Somewhere", start: 0, end: 0.4 }, { text: "in", start: 0.4, end: 0.78 }, { text: "Australia,", start: 1.6, end: 2 }],
+          emphasis: [2, 3],
+        }],
+      },
+    },
+    dir: work,
+  });
+  const out = result.outputs[0].path;
+  // Set in the family, the emphasis in its italic.
+  const script = await readFile(join(work, "text.ass"), "utf8");
+  if (!script.includes(`\\fn${family}`)) throw new Error("the words aren't set in the brand's family");
+  if (!/\\i1[^}]*}Australia,/.test(script)) throw new Error("the emphasis isn't set in the italic");
+  // libass takes both faces from the brand's own files (a file it was given is named without a path).
+  const { stderr } = await ffmpeg(["-v", "info", "-f", "lavfi", "-i", "color=c=black:s=360x640:r=25:d=4", "-vf", `ass=filename=${join(work, "text.ass")}:fontsdir=${join(work, "fonts")}`, "-f", "null", "-"]);
+  for (const slant of [0, 100]) {
+    const chosen = stderr.split("\n").find((line) => line.includes(`fontselect: (${family}, 400, ${slant})`));
+    if (!chosen) throw new Error(`libass wasn't asked for the ${slant ? "italic" : "regular"}`);
+    if (/->\s*\//.test(chosen)) throw new Error(`the ${slant ? "italic" : "regular"} came from the system: ${chosen.trim()}`);
+  }
+  // Word by word: nothing before the line, its first words before its last, all of it once spoken.
+  const band = "320:120:20:420";
+  const before = await brightShare(out, 0.1, band);
+  const early = await brightShare(out, 1.1, band);
+  const spoken = await brightShare(out, 3, band);
+  if (before > 0.001) throw new Error(`text shows before the line (${before})`);
+  if (!(early > 0.005 && spoken > early * 1.3)) throw new Error(`the words don't come in one by one (${early} then ${spoken})`);
 });
 
 await check("reframe_video crops around its focus point", async () => {

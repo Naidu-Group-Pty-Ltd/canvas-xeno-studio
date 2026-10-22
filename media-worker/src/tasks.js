@@ -57,8 +57,10 @@ function pick(value, allowed, fallback, name) {
  * ("channel_mix"), joins put in register: framing, colour, detail and
  * sound ("smart_join"), a title's height on the frame and what keeps it
  * readable ("overlay_layout"), up to twelve brand font files in a render,
- * a family's italic and bold among them ("more_fonts"), and, where the
- * image has it, a clip's lips scored from its picture ("lip_check").
+ * a family's italic and bold among them ("more_fonts"), captions set word
+ * by word in a brand's type, each word on its spoken time, on a panel
+ * ("brand_captions"), and, where the image has it, a clip's lips scored
+ * from its picture ("lip_check").
  */
 export const FEATURES = [
   "frame_focus",
@@ -75,6 +77,7 @@ export const FEATURES = [
   "brand_text",
   "image_overlays",
   "more_fonts",
+  "brand_captions",
   ...(lipCheckAvailable ? ["lip_check"] : []),
 ];
 

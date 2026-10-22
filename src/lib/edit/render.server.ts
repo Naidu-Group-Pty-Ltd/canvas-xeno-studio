@@ -73,6 +73,13 @@ async function renderRequestFor(timeline: Timeline) {
       message:
         "This edit's titles or captions use a brand's fonts or colours, which the media service can't set until it is updated. Render again once the service has been updated.",
     });
+  const captions = (request.params["captions"] ?? null) as Record<string, unknown> | null;
+  if (captions?.["style"] === "brand")
+    needed.push({
+      feature: "brand_captions",
+      message:
+        "This edit's captions are set word by word in the brand's type, which the media service can't do until it is updated. Choose another caption style, or render again once the service has been updated.",
+    });
   if (request.fonts.length > BASIC_FONT_FILES)
     needed.push({
       feature: "more_fonts",

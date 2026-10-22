@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
-import { applyBrandKit, brandKitOf, type BrandFont } from "../../src/lib/edit/brand";
+import {
+  applyBrandKit,
+  brandKitOf,
+  withCaptionStyle,
+  type BrandFont,
+} from "../../src/lib/edit/brand";
 import { fontFamily, fontMetrics, fontStyle } from "../../src/lib/edit/font-family";
 import {
   BASIC_FONT_FILES,
@@ -206,5 +211,34 @@ describe("a brand kit's fonts", () => {
     ]);
     // Stored with the edit as they are.
     expect(parseTimeline(branded)!.fonts).toEqual(branded.fonts);
+  });
+
+  test("captions in the brand style are set in the display face, and its italic goes with them", () => {
+    const timeline = parseTimeline({
+      clips: [{ id: "c1", assetId: A, kind: "video", duration: 4 }],
+      captions: {
+        enabled: true,
+        segments: [{ start: 0, end: 2, text: "Somewhere in Australia," }],
+      },
+    })!;
+    // Applied to an edit with clean captions, they are in the body face.
+    const branded = applyBrandKit(timeline, kit);
+    expect(branded.captions.font).toBe("Body");
+    expect(usedFonts(branded).map((font) => font.path)).toEqual(["brand-fonts/body.ttf"]);
+    // Chosen in the brand style: the display face, its regular and then its italic sent.
+    const word = withCaptionStyle(branded, "brand", kit);
+    expect(word.captions).toMatchObject({ style: "brand", font: "Display" });
+    expect(usedFonts(word).map((font) => font.path)).toEqual([
+      "brand-fonts/display.ttf",
+      "brand-fonts/display-italic.ttf",
+    ]);
+    // Back to a plain style, the body face again; without the kit, only the style changes.
+    expect(withCaptionStyle(word, "clean", kit).captions.font).toBe("Body");
+    expect(withCaptionStyle(timeline, "brand", null).captions).toMatchObject({
+      style: "brand",
+      font: null,
+    });
+    // A kit applied to brand-style captions sets them in its display face straight away.
+    expect(applyBrandKit(word, kit).captions.font).toBe("Display");
   });
 });

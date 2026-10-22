@@ -6,6 +6,7 @@ import { TaskError } from "./net.js";
 import { planeThumbnail, SEAM_EASE_SECONDS, seamCorrection, seamEaseChain } from "./seam.js";
 import { easedWarpFilter, joinHeadChain, JOIN_SOUND_SECONDS, measureJoin } from "./joins.js";
 import { fontFamily, fontStyle, sfntKind } from "./fonts.js";
+import { brandCaptionEvents, brandFaces, roughFaces } from "./caption-script.js";
 
 /**
  * Sequence rendering: an edited timeline (ordered clips with trims, stills,
@@ -70,7 +71,10 @@ export const TRANSITIONS = new Set([
 const FITS = new Set(["cover", "contain", "blur_pad"]);
 const MOTIONS = new Set(["none", "zoom_in", "zoom_out", "pan_left", "pan_right", "pan_up", "pan_down"]);
 const AUDIO_ROLES = new Set(["voiceover", "music", "sfx"]);
-const CAPTION_STYLES = new Set(["clean", "boxed", "bold", "minimal"]);
+// "brand": word by word, in the brand's type (feature brand_captions; see ./brand-captions.js).
+const CAPTION_STYLES = new Set(["clean", "boxed", "bold", "minimal", "brand"]);
+/** The most words a brand caption line carries times for. */
+const CAPTION_WORDS = 60;
 const CAPTION_POSITIONS = new Set(["bottom", "lower_third", "center", "top"]);
 const OVERLAY_STYLES = new Set(["title", "subtitle", "cta"]);
 const OVERLAY_BACKINGS = new Set(["outline", "halo", "box"]);
@@ -128,6 +132,40 @@ function family(value, name) {
 function even(value) {
   const rounded = Math.round(value);
   return rounded % 2 === 0 ? rounded : rounded + 1;
+}
+
+/**
+ * A brand caption line's words, each with its time (seconds from the line's
+ * start, as measured from the voiceover; none: spread evenly), and its
+ * emphasis: the words [from, to) set in the italic.
+ */
+function brandLine(segment, index) {
+  const what = `caption ${index + 1}`;
+  let words = null;
+  if (segment.words !== undefined && segment.words !== null) {
+    if (!Array.isArray(segment.words)) throw bad(`${what} words must be a list`);
+    if (segment.words.length > CAPTION_WORDS) throw bad(`${what} may time at most ${CAPTION_WORDS} words`);
+    words = segment.words.map((raw, at) => {
+      const word = raw && typeof raw === "object" ? raw : {};
+      const text = cleanText(word.text, 80).replace(/\n/g, " ");
+      if (!text) throw bad(`${what} word ${at + 1} has no text`);
+      return {
+        text,
+        start: num(word.start, { min: 0, max: SEQUENCE_LIMITS.totalSeconds, name: `${what} word ${at + 1} start` }),
+        end: num(word.end, { min: 0, max: SEQUENCE_LIMITS.totalSeconds, name: `${what} word ${at + 1} end` }),
+      };
+    });
+  }
+  let emphasis = null;
+  if (segment.emphasis !== undefined && segment.emphasis !== null) {
+    const count = words?.length ?? cleanText(segment.text).split(/\s+/).filter(Boolean).length;
+    const [from, to] = Array.isArray(segment.emphasis) ? segment.emphasis : [];
+    if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to > count || from >= to) {
+      throw bad(`${what} emphasis must be two word positions within the line`);
+    }
+    emphasis = [from, to];
+  }
+  return { words, emphasis };
 }
 
 /** Rounds a duration onto the frame grid so every offset lands on a frame boundary. */
@@ -306,18 +344,21 @@ export function planSequence(params, sources) {
   let captions = null;
   if (captionsRaw && Array.isArray(captionsRaw.segments) && captionsRaw.segments.length) {
     if (captionsRaw.segments.length > SEQUENCE_LIMITS.captions) throw bad(`At most ${SEQUENCE_LIMITS.captions} caption lines are supported`);
+    const style = choice(captionsRaw.style, CAPTION_STYLES, "clean", "caption style");
     const segments = captionsRaw.segments
       .map((raw, index) => {
         const segment = raw && typeof raw === "object" ? raw : {};
         const start = num(segment.start, { min: 0, max: SEQUENCE_LIMITS.totalSeconds, name: `caption ${index + 1} start` });
         const end = num(segment.end, { min: 0, max: SEQUENCE_LIMITS.totalSeconds, name: `caption ${index + 1} end` });
-        return { start: Math.min(start, total), end: Math.min(end, total), text: cleanText(segment.text) };
+        const line = { start: Math.min(start, total), end: Math.min(end, total), text: cleanText(segment.text) };
+        // Brand captions: each word's time (seconds from the line's start) and the phrase it leans on.
+        return style === "brand" ? { ...line, ...brandLine(segment, index) } : line;
       })
       .filter((segment) => segment.text && segment.end - segment.start >= 0.1)
       .sort((a, b) => a.start - b.start);
     if (segments.length) {
       captions = {
-        style: choice(captionsRaw.style, CAPTION_STYLES, "clean", "caption style"),
+        style,
         position: choice(captionsRaw.position, CAPTION_POSITIONS, "lower_third", "caption position"),
         size: num(captionsRaw.size, { min: 0.5, max: 2, fallback: 1, name: "caption size" }),
         uppercase: captionsRaw.uppercase === true,
@@ -956,7 +997,12 @@ export function buildSubtitles(plan, families = new Map()) {
   const styles = [];
   const events = [];
 
-  if (plan.captions) {
+  if (plan.captions?.style === "brand") {
+    // Word by word, in the brand's type, laid out in the faces the render carries (see ./caption-script.js).
+    const brand = brandCaptionEvents(plan, plan.captions.faces ?? roughFaces(), plan.captions.backdrop ?? {});
+    styles.push(...brand.styles);
+    events.push(...brand.events);
+  } else if (plan.captions) {
     const { style, position, size } = plan.captions;
     const fontSize = Math.round(short * 0.058 * size);
     const alignment = position === "top" ? 8 : position === "center" ? 5 : 2;
@@ -1186,6 +1232,7 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
   // A brand's fonts, in a directory of their own, each set by the family its file names.
   let fontsDir = null;
   const families = new Map();
+  const fontFiles = [];
   if (plan.fonts.length) {
     fontsDir = join(dir, "fonts");
     await mkdir(fontsDir, { recursive: true });
@@ -1194,6 +1241,7 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
       const kind = sfntKind(bytes);
       if (!kind) throw bad(`Font ${index + 1} isn't a TrueType or OpenType font file`);
       await writeFile(join(fontsDir, `font-${index}.${kind}`), bytes);
+      fontFiles.push({ family: font.family, bytes });
       const named = fontFamily(bytes);
       // A family's italic (a file of its own) never renames the family its regular names.
       const italic = fontStyle(bytes)?.italic === true;
@@ -1202,6 +1250,8 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
       }
     }
   }
+  // Brand captions are laid out in their family's own files (its regular and italic).
+  if (plan.captions?.style === "brand") plan.captions.faces = await brandFaces(plan.captions.font, fontFiles);
   const script = buildSubtitles(plan, families);
   let subtitlePath = null;
   if (script) {
