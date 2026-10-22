@@ -184,7 +184,8 @@ const RANGE = new RegExp(
   String.raw`(?:between\s+)?(${CLOCK})\s*(?:-|–|—|to|and|until)\s*(${CLOCK})`,
   "gi",
 );
-const MOMENT = new RegExp(String.raw`(?<![\d:.])(${CLOCK})(?![\d:])`, "g");
+// A time of day ("10:00 AM", on a page in the film) isn't a moment in it.
+const MOMENT = new RegExp(String.raw`(?<![\d:.])(${CLOCK})(?![\d:]|\s*[ap]\.?m\b)`, "gi");
 // "at 42 s" is a moment; "by 2.6 s" or "for 0.8 s" is an amount.
 const SECONDS =
   /\b(?:at|around|about|from|near)\s+(\d{1,4}(?:\.\d+)?)\s*(?:s|sec|secs|seconds)\b/gi;

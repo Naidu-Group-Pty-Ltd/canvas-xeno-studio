@@ -262,6 +262,8 @@ describe("the parts", () => {
     // A length, a trial's days and the frame's shape aren't times; "at 9:16" is.
     expect(at("hold it 2.6 s; the 14-day trial; 9:16 is fine")).toEqual([]);
     expect(at("at 9:16")).toEqual([[556, 556]]);
+    // A time of day on a page in the film isn't a moment in it.
+    expect(at("The card says 10:00 AM – 10:30 AM")).toEqual([]);
   });
 
   test("words to match: grades, calls to action, compounds, never the common ones", () => {
