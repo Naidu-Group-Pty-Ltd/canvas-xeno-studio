@@ -2670,6 +2670,234 @@ export type Database = {
           },
         ]
       }
+      composition_renders: {
+        Row: {
+          brand_kit_id: string | null
+          bundle_bucket: string | null
+          bundle_path: string | null
+          changing: number
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          drawings: number
+          error_code: string | null
+          error_message: string | null
+          fps: number
+          frames: number
+          hash: string
+          height: number
+          id: string
+          master_bucket: string | null
+          master_path: string | null
+          media_task_id: string | null
+          missing_fields: string[]
+          poster_path: string | null
+          priority: string
+          progress: number
+          project_id: string | null
+          proxy_asset_id: string | null
+          quality: string
+          render_seconds: number | null
+          seconds_per_drawing: number | null
+          settings: Json
+          spec: Json
+          stage: string | null
+          status: string
+          stretches: Json
+          template: string
+          template_version: number
+          updated_at: string
+          webgl: boolean
+          width: number
+        }
+        Insert: {
+          brand_kit_id?: string | null
+          bundle_bucket?: string | null
+          bundle_path?: string | null
+          changing?: number
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          drawings?: number
+          error_code?: string | null
+          error_message?: string | null
+          fps: number
+          frames: number
+          hash: string
+          height: number
+          id?: string
+          master_bucket?: string | null
+          master_path?: string | null
+          media_task_id?: string | null
+          missing_fields?: string[]
+          poster_path?: string | null
+          priority?: string
+          progress?: number
+          project_id?: string | null
+          proxy_asset_id?: string | null
+          quality: string
+          render_seconds?: number | null
+          seconds_per_drawing?: number | null
+          settings: Json
+          spec: Json
+          stage?: string | null
+          status?: string
+          stretches?: Json
+          template: string
+          template_version: number
+          updated_at?: string
+          webgl?: boolean
+          width: number
+        }
+        Update: {
+          brand_kit_id?: string | null
+          bundle_bucket?: string | null
+          bundle_path?: string | null
+          changing?: number
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          drawings?: number
+          error_code?: string | null
+          error_message?: string | null
+          fps?: number
+          frames?: number
+          hash?: string
+          height?: number
+          id?: string
+          master_bucket?: string | null
+          master_path?: string | null
+          media_task_id?: string | null
+          missing_fields?: string[]
+          poster_path?: string | null
+          priority?: string
+          progress?: number
+          project_id?: string | null
+          proxy_asset_id?: string | null
+          quality?: string
+          render_seconds?: number | null
+          seconds_per_drawing?: number | null
+          settings?: Json
+          spec?: Json
+          stage?: string | null
+          status?: string
+          stretches?: Json
+          template?: string
+          template_version?: number
+          updated_at?: string
+          webgl?: boolean
+          width?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "composition_renders_brand_kit_id_fkey"
+            columns: ["brand_kit_id"]
+            isOneToOne: false
+            referencedRelation: "brand_kits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "composition_renders_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "composition_renders_media_task_id_fkey"
+            columns: ["media_task_id"]
+            isOneToOne: false
+            referencedRelation: "media_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "composition_renders_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "composition_renders_proxy_asset_id_fkey"
+            columns: ["proxy_asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      composition_stretches: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_code: string | null
+          error_message: string | null
+          from_frame: number
+          hash: string
+          id: string
+          master_bucket: string | null
+          master_path: string | null
+          media_task_id: string | null
+          progress: number
+          render_id: string | null
+          seconds_per_drawing: number | null
+          status: string
+          to_frame: number
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          from_frame: number
+          hash: string
+          id?: string
+          master_bucket?: string | null
+          master_path?: string | null
+          media_task_id?: string | null
+          progress?: number
+          render_id?: string | null
+          seconds_per_drawing?: number | null
+          status?: string
+          to_frame: number
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          from_frame?: number
+          hash?: string
+          id?: string
+          master_bucket?: string | null
+          master_path?: string | null
+          media_task_id?: string | null
+          progress?: number
+          render_id?: string | null
+          seconds_per_drawing?: number | null
+          status?: string
+          to_frame?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "composition_stretches_media_task_id_fkey"
+            columns: ["media_task_id"]
+            isOneToOne: false
+            referencedRelation: "media_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "composition_stretches_render_id_fkey"
+            columns: ["render_id"]
+            isOneToOne: false
+            referencedRelation: "composition_renders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       continuity_pack_items: {
         Row: {
           asset_id: string
@@ -6388,6 +6616,217 @@ export type Database = {
           },
         ]
       }
+      supercomputer_section_joins: {
+        Row: {
+          checked_at: string | null
+          claimed_at: string | null
+          created_at: string
+          frames: Json
+          id: string
+          kind: string
+          plan_id: string
+          position: number
+          status: string
+          updated_at: string
+          verdict: Json | null
+        }
+        Insert: {
+          checked_at?: string | null
+          claimed_at?: string | null
+          created_at?: string
+          frames?: Json
+          id?: string
+          kind: string
+          plan_id: string
+          position: number
+          status?: string
+          updated_at?: string
+          verdict?: Json | null
+        }
+        Update: {
+          checked_at?: string | null
+          claimed_at?: string | null
+          created_at?: string
+          frames?: Json
+          id?: string
+          kind?: string
+          plan_id?: string
+          position?: number
+          status?: string
+          updated_at?: string
+          verdict?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supercomputer_section_joins_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "supercomputer_section_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supercomputer_section_plans: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          project_id: string | null
+          sequence_id: string | null
+          shots: Json
+          source_id: string
+          source_kind: string
+          source_title: string
+          status: string
+          thread_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          project_id?: string | null
+          sequence_id?: string | null
+          shots?: Json
+          source_id: string
+          source_kind: string
+          source_title?: string
+          status?: string
+          thread_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          project_id?: string | null
+          sequence_id?: string | null
+          shots?: Json
+          source_id?: string
+          source_kind?: string
+          source_title?: string
+          status?: string
+          thread_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supercomputer_section_plans_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supercomputer_section_plans_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supercomputer_section_plans_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "sequences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supercomputer_section_plans_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "supercomputer_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supercomputer_sections: {
+        Row: {
+          clips: Json
+          created_at: string
+          error_message: string | null
+          estimated_steps: number
+          finished_at: string | null
+          first_shot: number
+          id: string
+          last_shot: number
+          merged_at: string | null
+          plan_id: string
+          position: number
+          started_at: string | null
+          status: string
+          step_budget: number
+          steps_used: number
+          title: string
+          updated_at: string
+          warned_at: string | null
+          work: Json
+          worker_thread_id: string | null
+        }
+        Insert: {
+          clips?: Json
+          created_at?: string
+          error_message?: string | null
+          estimated_steps?: number
+          finished_at?: string | null
+          first_shot: number
+          id?: string
+          last_shot: number
+          merged_at?: string | null
+          plan_id: string
+          position: number
+          started_at?: string | null
+          status?: string
+          step_budget: number
+          steps_used?: number
+          title: string
+          updated_at?: string
+          warned_at?: string | null
+          work?: Json
+          worker_thread_id?: string | null
+        }
+        Update: {
+          clips?: Json
+          created_at?: string
+          error_message?: string | null
+          estimated_steps?: number
+          finished_at?: string | null
+          first_shot?: number
+          id?: string
+          last_shot?: number
+          merged_at?: string | null
+          plan_id?: string
+          position?: number
+          started_at?: string | null
+          status?: string
+          step_budget?: number
+          steps_used?: number
+          title?: string
+          updated_at?: string
+          warned_at?: string | null
+          work?: Json
+          worker_thread_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supercomputer_sections_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "supercomputer_section_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supercomputer_sections_worker_thread_id_fkey"
+            columns: ["worker_thread_id"]
+            isOneToOne: false
+            referencedRelation: "supercomputer_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       supercomputer_threads: {
         Row: {
           brief_id: string | null
@@ -6397,6 +6836,7 @@ export type Database = {
           id: string
           is_archived: boolean
           last_message_at: string
+          parent_thread_id: string | null
           pinned: boolean
           project_id: string | null
           settings: Json
@@ -6411,6 +6851,7 @@ export type Database = {
           id?: string
           is_archived?: boolean
           last_message_at?: string
+          parent_thread_id?: string | null
           pinned?: boolean
           project_id?: string | null
           settings?: Json
@@ -6425,6 +6866,7 @@ export type Database = {
           id?: string
           is_archived?: boolean
           last_message_at?: string
+          parent_thread_id?: string | null
           pinned?: boolean
           project_id?: string | null
           settings?: Json
@@ -6451,6 +6893,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supercomputer_threads_parent_thread_id_fkey"
+            columns: ["parent_thread_id"]
+            isOneToOne: false
+            referencedRelation: "supercomputer_threads"
             referencedColumns: ["id"]
           },
           {

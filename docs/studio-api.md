@@ -215,3 +215,33 @@ A script runs them like this:
 3. `comment_on_review` for each point, pinned where it applies, and `decide_review` once the client
    has answered.
 4. `list_review_gates` shows where every gate stands.
+
+## Motion graphics
+
+Motion graphics are drawn from the studio's templates in a brand kit (see `docs/compositions.md`):
+the graphics kit Reel 1 was built from, brand cards, and product pages drawn from the kit's demo
+record. Drawing one costs no credits, so these need the `edit` scope (reading them, `read`). An
+admin applies migration `drizzle/migrations/0034_compositions.sql` first.
+
+| Operation               | What it does                                                                                                                                              |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `list_motion_templates` | The templates: each one's `id`, `version`, what it draws, how long it may run (`seconds`), its `settings` (kind, limits, meaning) and its `defaults`.     |
+| `draw_motion_graphic`   | Draws one: a `template` with its `params` and `seconds`, in a `brandKitId`, as a `draft` or `final`. `sequenceId` draws it at that edit's frame and rate. |
+| `get_motion_graphic`    | A drawing's status, progress and estimate; once completed, the library video (`assetId`) a clip plays, and what was drawn (`spec`, kit, frame, `hash`).   |
+| `set_demo_record`       | Sets the fictional record a kit's product screens show (its people, records, figures and lists). `null` goes back to the studio's own.                    |
+
+The same composition is never drawn twice: drawing it again (the same template, settings, kit,
+demo record, frame, rate and quality) returns the drawing already made, with `cached: true`. A
+script puts one in an edit like this:
+
+1. `draw_motion_graphic` with the edit's `sequenceId`, then `get_motion_graphic` until it is
+   `completed`.
+2. `update_edit` with a video clip playing its `assetId`, its `composition` set to
+   `{ "spec": <the drawing's spec>, "brandKitId": <its kit>, "renderId": <its renderId>, "quality": "draft", "renderedKey": null }`,
+   and its `duration` the drawing's length.
+3. `render_edit`: the render draws each motion graphic final at the edit's frame first (or reuses
+   one drawn before), and the render's `stage` says how many are drawn while it waits.
+
+A template's text can name the demo record as `{{entity.field}}` (`{{record.title}}`,
+`{{client.name}}`). `set_demo_record` changes what every one of them says the next time it is
+drawn; a field the record lacks is left blank, and `get_motion_graphic` lists it in `missing`.

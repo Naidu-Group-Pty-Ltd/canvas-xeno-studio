@@ -39,6 +39,10 @@ export interface AgentRequestBody {
   editMessageId?: string;
   regenerate?: boolean;
   approval?: { messageId: string; decisions: Record<string, "approve" | "deny"> };
+  /** A section's worker to start or carry on (see src/lib/supercomputer/sections.server). */
+  section?: { sectionId: string; extend?: boolean; note?: string };
+  /** A plan's joins to check (no turn). */
+  joins?: { planId: string; again?: boolean };
 }
 
 /** A turn in progress, as this page sees it while it streams. */

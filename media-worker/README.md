@@ -276,6 +276,37 @@ fetched or doesn't match, the build still succeeds without it and prints
 "lip_check could not be installed". A worker without its files doesn't list `lip_check`
 in its features, and the app makes clips without scores.
 
+## Motion graphics
+
+The app compiles a motion graphic (a composition, see `docs/compositions.md`)
+into a bundle: one HTML page in the brand's colours and type, and its track,
+the style changes each drawing makes. The worker never runs code from an edit:
+it loads the page in Chromium (driven over a pipe, every request answered by
+the worker from the task's own files, nothing let onto the network), applies
+each drawing's changes as data, captures it, and encodes.
+
+- **`render_composition`** (feature `compositions`) draws a bundle's frames.
+  At `final` quality each frame is drawn at twice its size eight times, spread
+  over a 180-degree shutter, averaged (FFmpeg's `tmix`) and scaled down
+  (`zscale`, Lanczos), so a fast move blurs as a camera's would and a still
+  frame stays exactly as sharp; a drawing whose state hasn't changed reuses the
+  one before. It writes the lossless master (FFV1, `bgr0`) the edit's render
+  reads, a playable H.264 copy (BT.709, dithered) and a poster. With
+  `output: "stretch"`, `from_frame` and `to_frame` it draws one stretch of a
+  long composition, master only, so stretches can be drawn on several workers
+  at once.
+- **`join_stretches`** joins a composition's stretches frame for frame (a
+  stream copy: nothing is encoded again) and makes its playable copy and poster.
+
+`COMPOSITION_BROWSERS` (2 with four or more CPUs, else 1) draws that many
+stretches of one task's frames side by side. Final drawings go ahead of drafts
+in the heavy lane (`priority`). A worker on a machine with a GPU, run with
+`MEDIA_WORKER_GPU=1`, draws WebGL on it (and offers `compositions_gpu`); the
+app sends compositions that draw with WebGL there when `MEDIA_WORKER_GPU_URL`
+names it. The image installs Debian's Chromium; build with
+`--build-arg COMPOSITIONS=0` to leave it out (the worker then doesn't offer
+`compositions`). `CHROMIUM_PATH` names another browser.
+
 ## Configuration
 
 Copy `.env.example`. The only required variable is

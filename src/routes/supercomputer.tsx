@@ -10,8 +10,11 @@ import {
   Cpu,
   FileText,
   Globe,
+  Hand,
   Images,
+  Layers,
   Lightbulb,
+  Loader2,
   Palette,
   PanelLeft,
   RefreshCw,
@@ -37,6 +40,7 @@ import {
 import { ThreadSidebar } from "@/components/supercomputer/ThreadSidebar";
 import { AgentComposer } from "@/components/supercomputer/agent/AgentComposer";
 import { ArtifactsPanel, MemoryDialog } from "@/components/supercomputer/agent/AgentPanels";
+import { SectionsPanel } from "@/components/supercomputer/agent/SectionsPanel";
 import type { ApprovalDecisions } from "@/components/supercomputer/agent/AgentTranscript";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,6 +54,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { useAgentStatus, useAgentStream } from "@/hooks/useAgent";
+import { useSectionPlans, useSectionRunner } from "@/hooks/useSections";
 import { useModels, useProjects, type AssetRow } from "@/hooks/useStudioData";
 import { useCampaigns } from "@/hooks/useV2Data";
 import {
@@ -274,6 +279,8 @@ function SupercomputerPage() {
   const [artifactsOpen, setArtifactsOpen] = useState(false);
   const [artifactFocus, setArtifactFocus] = useState<string | null>(null);
   const [memoryOpen, setMemoryOpen] = useState(false);
+  const [sectionsOpen, setSectionsOpen] = useState(false);
+  const [sectionsFocus, setSectionsFocus] = useState<string | null>(null);
 
   // How the agent runs: a new conversation's own choice, or the open one's (saved with it).
   const [draftSettings, setDraftSettings] = useState<AgentThreadSettings>(DEFAULT_THREAD_SETTINGS);
@@ -290,6 +297,43 @@ function SupercomputerPage() {
     : draftSettings;
   const canAct = !thread || thread.created_by === user?.id || isAdmin;
   const clock = useClock(30_000);
+
+  // Working in sections (migration 0036): the conversation's plans, and their
+  // workers run from this page one after another, each its own request, while
+  // the conversation's own turn isn't streaming.
+  const sectionsReady = agentMode && agentQuery.data?.sectionsReady === true;
+  const { data: plans = [] } = useSectionPlans(threadId, sectionsReady && !!thread);
+  const runner = useSectionRunner({
+    plans,
+    enabled: sectionsReady && !!thread && canAct && !stream.busy,
+  });
+  // A turn that ends may have planned or queued sections.
+  useEffect(() => {
+    if (!stream.busy && sectionsReady)
+      void queryClient.invalidateQueries({ queryKey: ["supercomputer_section_plans"] });
+  }, [stream.busy, sectionsReady, queryClient]);
+  // Said above the composer: a worker waiting for the person, or one working from this page.
+  const sectionsNote = (() => {
+    for (const plan of plans)
+      for (const section of plan.sections)
+        if (section.status === "awaiting_approval" && section.id !== runner.liveSectionId)
+          return {
+            planId: plan.id,
+            waiting: true,
+            text: `Section ${section.position + 1}'s worker waits for your approval.`,
+          };
+    const working = plans.find((plan) =>
+      plan.sections.some((section) => section.id === runner.liveSectionId),
+    );
+    const section = working?.sections.find((entry) => entry.id === runner.liveSectionId);
+    return working && section
+      ? {
+          planId: working.id,
+          waiting: false,
+          text: `Section ${section.position + 1}'s worker is building “${section.title}”.`,
+        }
+      : null;
+  })();
 
   // Prefill from Create / Library hand-offs. Nothing is sent automatically.
   useEffect(() => {
@@ -560,6 +604,13 @@ function SupercomputerPage() {
       );
   }
 
+  /** The Sections panel, on a plan (or the newest). */
+  function openSections(planId: string | null) {
+    setSectionsFocus(planId);
+    setSectionsOpen(true);
+    void queryClient.invalidateQueries({ queryKey: ["supercomputer_section_plans", threadId] });
+  }
+
   function openDocument(document: { title: string; markdown: string }) {
     setArtifactFocus(document.title);
     setArtifactsOpen(true);
@@ -739,6 +790,7 @@ function SupercomputerPage() {
           : null,
       onOpenAsset: setSelectedAsset,
       onOpenDocument: openDocument,
+      onOpenSections: sectionsReady ? openSections : undefined,
     },
     onRegenerate:
       agentMode &&
@@ -797,6 +849,7 @@ function SupercomputerPage() {
       }}
       pinsEnabled={agentTables}
       streamingThreadId={live?.threadId ?? null}
+      sectionsEnabled={sectionsReady}
     />
   );
 
@@ -896,6 +949,20 @@ function SupercomputerPage() {
                 >
                   <Brain className="size-4" />
                 </Button>
+                {sectionsReady && plans.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 gap-1.5 text-xs"
+                    onClick={() => openSections(null)}
+                    data-testid="agent-sections"
+                  >
+                    <Layers className="size-3.5" /> Sections
+                    {runner.busy ? (
+                      <span className="size-1.5 animate-pulse rounded-full bg-primary" />
+                    ) : null}
+                  </Button>
+                )}
               </>
             )}
           </header>
@@ -1091,6 +1158,29 @@ function SupercomputerPage() {
           </div>
 
           <div className="mx-auto w-full max-w-4xl px-4 pb-4">
+            {sectionsReady && sectionsNote && (
+              <div
+                className={cn(
+                  "mb-2 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs",
+                  sectionsNote.waiting ? "border-warning/50 bg-warning/5" : "border-border",
+                )}
+              >
+                {sectionsNote.waiting ? (
+                  <Hand className="size-3.5 shrink-0 text-warning" />
+                ) : (
+                  <Loader2 className="size-3.5 shrink-0 animate-spin text-primary" />
+                )}
+                <span className="min-w-0 flex-1">{sectionsNote.text}</span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => openSections(sectionsNote.planId)}
+                >
+                  Open the sections
+                </Button>
+              </div>
+            )}
             {agentMode ? (
               <AgentComposer
                 value={text}
@@ -1253,6 +1343,18 @@ function SupercomputerPage() {
             onOpenAsset={setSelectedAsset}
           />
           <MemoryDialog open={memoryOpen} onOpenChange={setMemoryOpen} />
+          {sectionsReady && (
+            <SectionsPanel
+              open={sectionsOpen}
+              onOpenChange={setSectionsOpen}
+              plans={plans}
+              focus={sectionsFocus}
+              onFocus={setSectionsFocus}
+              runner={runner}
+              canAct={canAct}
+              actions={{ onOpenAsset: setSelectedAsset, onOpenDocument: openDocument }}
+            />
+          )}
         </>
       )}
     </AppShell>

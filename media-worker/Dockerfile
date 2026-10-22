@@ -1,10 +1,23 @@
 FROM node:22-bookworm-slim
 
-# FFmpeg is the only system dependency; everything else is Node built-ins.
+# FFmpeg (and, for motion graphics, Chromium) are the system dependencies;
+# everything else is Node built-ins.
 # Inter is the typeface for burned-in captions and titles.
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ffmpeg ca-certificates fonts-inter \
   && rm -rf /var/lib/apt/lists/*
+
+# Motion graphics (render_composition, see src/composition.js) are drawn in
+# Chromium, Debian's own, driven over a pipe and never let onto the network.
+# libvulkan1 lets a machine with a GPU draw WebGL on it (MEDIA_WORKER_GPU=1;
+# see docs/compositions.md). Built with COMPOSITIONS=0 the worker has no
+# browser, doesn't offer render_composition, and the app says so.
+ARG COMPOSITIONS=1
+RUN if [ "$COMPOSITIONS" = "1" ]; then \
+    apt-get update \
+    && apt-get install -y --no-install-recommends chromium libvulkan1 \
+    && rm -rf /var/lib/apt/lists/*; \
+  fi
 
 # Lip scores (the lip_check task, see src/lipcheck.js): SyncNet in its own
 # Python, with MediaPipe to find the face. Optional and best effort: built
