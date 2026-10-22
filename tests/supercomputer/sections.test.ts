@@ -10,10 +10,15 @@ import {
   frameIndex,
   joinClips,
   joinsOf,
+  joinLookOf,
+  joinMeasuresOf,
   joinVerdictOf,
   judgeJoin,
   mergeSection,
+  ownedByAsset,
+  planReport,
   planSections,
+  planViewOf,
   renderJoinAt,
   SECTION_LIMITS,
   sectionBrief,
@@ -753,5 +758,193 @@ describe("checking a join on both sides", () => {
       joinVerdictOf({ findings: [{ aspect: "smell", status: "ok" }], fixes: [{ kind: "x" }] }),
     ).toEqual({ status: "unmeasured", findings: [], summary: "", fixes: [] });
     expect(joinVerdictOf(null)).toBeNull();
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Plans as kept                                                       */
+/* ------------------------------------------------------------------ */
+
+describe("a plan as the tables keep it", () => {
+  const shots = reel(6, (index) => ({
+    continuous: index === 3,
+    ...(index === 5 ? { assetId: null } : {}),
+  }));
+  const planned = planSections(shots, { starts: [4] });
+  const planRow = {
+    id: "11111111-58c4-4a93-9d43-1b2c3d4e5f60",
+    thread_id: "22222222-58c4-4a93-9d43-1b2c3d4e5f60",
+    title: "Launch in sections",
+    source_kind: "long_video",
+    source_id: "33333333-58c4-4a93-9d43-1b2c3d4e5f60",
+    source_title: "Launch",
+    sequence_id: "44444444-58c4-4a93-9d43-1b2c3d4e5f60",
+    project_id: null,
+    status: "working",
+    shots: JSON.parse(JSON.stringify(shots)),
+    created_at: "2026-10-22T00:00:00Z",
+  };
+  const sectionRows = planned.map((section) => ({
+    id: `5555555${section.position}-58c4-4a93-9d43-1b2c3d4e5f60`,
+    position: section.position,
+    title: section.title,
+    first_shot: section.first,
+    last_shot: section.last,
+    status: section.position === 0 ? "done" : "saved",
+    step_budget: section.budget,
+    estimated_steps: section.steps,
+    steps_used: section.position === 0 ? 7 : 13,
+    worker_thread_id: null,
+    work:
+      section.position === 0
+        ? {
+            shots: [saved(0, ASSET(1)), saved(1, ASSET(2))],
+            finished: true,
+            summary: "The opening is in.",
+          }
+        : {
+            shots: [saved(3, ASSET(9))],
+            loose: [{ assetId: ASSET(8), kind: "video" }],
+            left: "Shot 6 to make.",
+          },
+    clips: [{ shot: section.first, clipId: `c${section.first}` }],
+  }));
+  const joinRows = [
+    {
+      id: "66666666-58c4-4a93-9d43-1b2c3d4e5f60",
+      position: 0,
+      kind: "continuous",
+      status: "differs",
+      frames: {
+        before: {
+          clipId: "c2",
+          source: { kind: "video", assetId: ASSET(3), seconds: 2 },
+          frame: { status: "ready", assetId: ASSET(70), bucket: "b", path: "x.png" },
+        },
+        after: {
+          clipId: "c3",
+          source: { kind: "still", assetId: ASSET(71) },
+          frame: { status: "taking" },
+        },
+      },
+      verdict: judgeJoin(
+        measures({ look: look("different", "same", "same", ["framing: closer"]) }),
+        {
+          before: 0,
+          after: 1,
+        },
+      ),
+    },
+  ];
+
+  test("its shots, sections and joins come back as they were planned and worked", () => {
+    const view = planViewOf(planRow, [...sectionRows].reverse(), joinRows)!;
+    expect(view.shots).toEqual(shots);
+    expect(view.kind).toBe("long_video");
+    expect(
+      view.sections.map((section) => [section.position, section.status, section.used]),
+    ).toEqual([
+      [0, "done", 7],
+      [1, "saved", 13],
+    ]);
+    expect(view.sections[1]!.work.loose).toHaveLength(1);
+    expect(view.sections[0]!.clips).toEqual([{ shot: 0, clipId: "c0" }]);
+    expect(view.joins[0]!.before?.frame.assetId).toBe(ASSET(70));
+    expect(view.joins[0]!.after?.frame.status).toBe("taking");
+    expect(view.joins[0]!.verdict?.status).toBe("differs");
+    expect(planViewOf({ ...planRow, source_kind: "film" }, [], [])).toBeNull();
+    expect(
+      planViewOf({ ...planRow, shots: [{ ref: "x" }, ...planRow.shots] }, [], [])!.shots,
+    ).toHaveLength(6);
+  });
+
+  test("the agent reads every section's state and work, and every join's check", () => {
+    const report = planReport(planViewOf(planRow, sectionRows, joinRows)!);
+    expect(report).toContain(
+      "Plan “Launch in sections” (planId 11111111-58c4-4a93-9d43-1b2c3d4e5f60) for the long video “Launch”",
+    );
+    expect(report).toContain("6 shots in 2 sections, working.");
+    expect(report).toContain("Integration edit: 44444444-58c4-4a93-9d43-1b2c3d4e5f60");
+    expect(report).toContain("- Section 1 · Shots 1–3 · done · 7 of");
+    expect(report).toContain("saved shots 1, 2");
+    expect(report).toContain("“The opening is in.”");
+    expect(report).toContain(`1 made but not placed (${ASSET(8)})`);
+    expect(report).toContain("left: Shot 6 to make.");
+    expect(report).toContain(
+      "- Join 1 (sections 1 → 2, one shot carrying straight on): doesn't match. framing: closer",
+    );
+    expect(report).toContain("Fixes: Make section 2's first shot again");
+  });
+
+  test("a new integration edit's clips are matched to the shots: by id when copied, else by file", () => {
+    const copied = edit([clip("ref-0", ASSET(1)), clip("ref-1", ASSET(2))]);
+    expect(ownedByAsset(reel(2), copied)).toEqual([
+      { shot: 0, clipId: "ref-0" },
+      { shot: 1, clipId: "ref-1" },
+    ]);
+    // Laid out afresh: matched by the file each shot shows, in order, each clip once.
+    const twice = reel(3, (index) => ({
+      ref: `x${index}`,
+      assetId: index === 2 ? ASSET(1) : ASSET(index + 1),
+    }));
+    const laid = edit([
+      clip("a", ASSET(1)),
+      clip("b", ASSET(2)),
+      clip("c", ASSET(1)),
+      clip("end", ASSET(9)),
+    ]);
+    expect(ownedByAsset(twice, laid)).toEqual([
+      { shot: 0, clipId: "a" },
+      { shot: 1, clipId: "b" },
+      { shot: 2, clipId: "c" },
+    ]);
+    expect(
+      ownedByAsset(
+        reel(1, () => ({ assetId: null, ref: "none" })),
+        laid,
+      ),
+    ).toEqual([]);
+  });
+
+  test("the AI's look at a join is read, anything it couldn't judge as unseen", () => {
+    expect(
+      joinLookOf({
+        framing: "minor",
+        colour: "different",
+        continuity: "maybe",
+        differences: ["colour: warmer after", "", 4, "a", "b", "c"],
+      }),
+    ).toEqual({
+      framing: "minor",
+      colour: "different",
+      continuity: "unseen",
+      differences: ["colour: warmer after", "a", "b", "c"],
+    });
+    expect(joinLookOf(null).framing).toBe("unseen");
+  });
+
+  test("a verdict keeps what it was judged from, so a fix judges it again", () => {
+    const measured = measures({
+      look: look("minor", "minor", "same"),
+      render: {
+        matched: false,
+        moved: null,
+        likenessBefore: 0.9,
+        likenessAfter: 0.9,
+        left: "already_matching",
+      },
+      characters: { flagged: false, summary: null },
+      lettering: { before: "none", after: "legible", summary: null },
+      apart: true,
+    });
+    const kept = JSON.parse(
+      JSON.stringify({ ...judgeJoin(measured, { before: 0, after: 1 }), measures: measured }),
+    );
+    expect(joinMeasuresOf(kept)).toEqual(measured);
+    expect(joinMeasuresOf({})).toBeNull();
+    // Smart-blended since: nothing left to offer.
+    const again = judgeJoin({ ...joinMeasuresOf(kept)!, blend: "smart" }, { before: 0, after: 1 });
+    expect(again.fixes).toEqual([]);
+    expect(again.summary).toContain("Clips were put between the two sections in the edit.");
   });
 });

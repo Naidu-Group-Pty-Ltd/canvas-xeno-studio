@@ -896,6 +896,22 @@ export interface JoinLook {
   differences: string[];
 }
 
+/** The studio's AI's answer on a join's two frames, read (anything it couldn't judge is "unseen"). */
+export function joinLookOf(answer: unknown): JoinLook {
+  const item = (answer && typeof answer === "object" ? answer : {}) as Json;
+  const likeness = (value: unknown): Likeness =>
+    value === "same" || value === "minor" || value === "different" ? value : "unseen";
+  return {
+    framing: likeness(item["framing"]),
+    colour: likeness(item["colour"]),
+    continuity: likeness(item["continuity"]),
+    differences: (Array.isArray(item["differences"]) ? item["differences"] : [])
+      .filter((entry): entry is string => typeof entry === "string" && !!entry.trim())
+      .map((entry) => entry.trim().slice(0, 160))
+      .slice(0, 4),
+  };
+}
+
 /** What a render's smart blend measured at a join (see ../edit/join-report). */
 export interface RenderJoin {
   matched: boolean;
@@ -1289,3 +1305,377 @@ export const JOIN_STATUS_LABELS: Record<JoinStatus, string> = {
   differs: "Doesn't match",
   unmeasured: "Couldn't be judged",
 };
+
+/* ------------------------------------------------------------------ */
+/* Plans as kept                                                       */
+/* ------------------------------------------------------------------ */
+
+export const PLAN_STATUSES = ["planned", "working", "done", "stopped"] as const;
+export type PlanStatus = (typeof PLAN_STATUSES)[number];
+
+/** One side of a join as its check took it: the edit's clip, where in it, and the frame. */
+export interface JoinFrame {
+  clipId: string;
+  source: FrameSource;
+  frame: FrameRef;
+}
+
+export interface SectionView {
+  id: string;
+  position: number;
+  title: string;
+  first: number;
+  last: number;
+  status: SectionStatus;
+  /** Its step limit now, the estimate it was set from, and the steps its worker has used. */
+  budget: number;
+  estimated: number;
+  used: number;
+  workerThreadId: string | null;
+  work: SectionWork;
+  clips: OwnedClip[];
+  warnedAt: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  mergedAt: string | null;
+  error: string | null;
+}
+
+export interface JoinView {
+  id: string;
+  position: number;
+  kind: JoinKind;
+  status: JoinStatus;
+  before: JoinFrame | null;
+  after: JoinFrame | null;
+  verdict: JoinVerdict | null;
+  checkedAt: string | null;
+}
+
+/** A plan as the agent and the page see it. */
+export interface PlanView {
+  id: string;
+  threadId: string;
+  title: string;
+  kind: ReelKind;
+  sourceId: string;
+  sourceTitle: string;
+  /** The integration edit. */
+  sequenceId: string | null;
+  /** The project its frames and edit belong to. */
+  projectId: string | null;
+  status: PlanStatus;
+  shots: ReelShot[];
+  sections: SectionView[];
+  joins: JoinView[];
+  createdAt: string;
+}
+
+const id = (value: unknown): string | null =>
+  typeof value === "string" && value.length >= 8 && value.length <= 64 ? value : null;
+const time = (value: unknown): string | null => (typeof value === "string" ? value : null);
+const whole = (value: unknown, fallback = 0): number =>
+  typeof value === "number" && Number.isFinite(value) ? Math.round(value) : fallback;
+
+/** Where a frame is read from, as kept. */
+export function frameSourceOf(value: unknown): FrameSource | null {
+  const item = (value && typeof value === "object" ? value : {}) as Json;
+  const assetId = id(item["assetId"]);
+  if (!assetId) return null;
+  if (item["kind"] === "still") return { kind: "still", assetId };
+  const seconds = number(item["seconds"]);
+  return item["kind"] === "video" && seconds !== null && seconds >= 0
+    ? { kind: "video", assetId, seconds }
+    : null;
+}
+
+/** A frame as kept. */
+export function frameRefOf(value: unknown): FrameRef | null {
+  const item = (value && typeof value === "object" ? value : null) as Json | null;
+  if (!item) return null;
+  const status = item["status"];
+  if (status !== "ready" && status !== "taking" && status !== "unavailable") return null;
+  return {
+    status,
+    assetId: id(item["assetId"]),
+    bucket: text(item["bucket"], 64),
+    path: text(item["path"], 600),
+    note: text(item["note"], 300),
+  };
+}
+
+/** A plan's shots as kept (supercomputer_section_plans.shots), anything malformed left out. */
+export function reelShotsOf(value: unknown): ReelShot[] {
+  return (Array.isArray(value) ? (value as Json[]) : []).flatMap((entry, index) => {
+    const ref = text(entry?.["ref"], 64);
+    const kind = kindOf(entry?.["kind"]);
+    const seconds = number(entry?.["seconds"]);
+    if (!ref || !kind || seconds === null) return [];
+    return [
+      {
+        ref,
+        index,
+        label: text(entry["label"], 200) ?? `Shot ${index + 1}`,
+        seconds,
+        assetId: id(entry["assetId"]),
+        kind,
+        beat: text(entry["beat"], 600),
+        group: text(entry["group"], 120),
+        continuous: entry["continuous"] === true,
+        firstFrame: frameSourceOf(entry["firstFrame"]),
+        lastFrame: frameSourceOf(entry["lastFrame"]),
+      } satisfies ReelShot,
+    ];
+  });
+}
+
+/** The clips a section owns, as kept. */
+export function ownedClipsOf(value: unknown): OwnedClip[] {
+  return (Array.isArray(value) ? (value as Json[]) : []).flatMap((entry) => {
+    const shotIndex = number(entry?.["shot"]);
+    const clipId = text(entry?.["clipId"], 64);
+    return shotIndex !== null && shotIndex >= 0 && clipId
+      ? [{ shot: Math.round(shotIndex), clipId }]
+      : [];
+  });
+}
+
+function joinFrameOf(value: unknown): JoinFrame | null {
+  const item = (value && typeof value === "object" ? value : null) as Json | null;
+  const clipId = text(item?.["clipId"], 64);
+  const source = frameSourceOf(item?.["source"]);
+  const frame = frameRefOf(item?.["frame"]);
+  return clipId && source && frame ? { clipId, source, frame } : null;
+}
+
+/** A section's row, read tolerantly (null when it isn't one). */
+export function sectionViewOf(row: Json): SectionView | null {
+  const sectionId = id(row["id"]);
+  if (!sectionId) return null;
+  const first = whole(row["first_shot"], -1);
+  const last = whole(row["last_shot"], -1);
+  if (first < 0 || last < first) return null;
+  const status = (SECTION_STATUSES as readonly string[]).includes(String(row["status"]))
+    ? (row["status"] as SectionStatus)
+    : "waiting";
+  return {
+    id: sectionId,
+    position: whole(row["position"]),
+    title: text(row["title"], 200) ?? `Shots ${first + 1}–${last + 1}`,
+    first,
+    last,
+    status,
+    budget: Math.max(1, whole(row["step_budget"], SECTION_LIMITS.minBudget)),
+    estimated: whole(row["estimated_steps"]),
+    used: Math.max(0, whole(row["steps_used"])),
+    workerThreadId: id(row["worker_thread_id"]),
+    work: sectionWorkOf(row["work"]),
+    clips: ownedClipsOf(row["clips"]),
+    warnedAt: time(row["warned_at"]),
+    startedAt: time(row["started_at"]),
+    finishedAt: time(row["finished_at"]),
+    mergedAt: time(row["merged_at"]),
+    error: text(row["error_message"], 600),
+  };
+}
+
+/** A join's row, read tolerantly. */
+export function joinViewOf(row: Json): JoinView | null {
+  const joinId = id(row["id"]);
+  const kind = row["kind"];
+  if (!joinId || (kind !== "continuous" && kind !== "cut" && kind !== "scene")) return null;
+  const frames = (row["frames"] && typeof row["frames"] === "object" ? row["frames"] : {}) as Json;
+  return {
+    id: joinId,
+    position: whole(row["position"]),
+    kind,
+    status: (JOIN_STATUSES as readonly string[]).includes(String(row["status"]))
+      ? (row["status"] as JoinStatus)
+      : "waiting",
+    before: joinFrameOf(frames["before"]),
+    after: joinFrameOf(frames["after"]),
+    verdict: joinVerdictOf(row["verdict"]),
+    checkedAt: time(row["checked_at"]),
+  };
+}
+
+/** A plan with its sections and joins, as the tables keep them. */
+export function planViewOf(plan: Json, sections: Json[], joins: Json[]): PlanView | null {
+  const planId = id(plan["id"]);
+  const threadId = id(plan["thread_id"]);
+  const sourceId = id(plan["source_id"]);
+  const kind = plan["source_kind"];
+  if (
+    !planId ||
+    !threadId ||
+    !sourceId ||
+    !(REEL_KINDS as readonly string[]).includes(String(kind))
+  )
+    return null;
+  const status = (PLAN_STATUSES as readonly string[]).includes(String(plan["status"]))
+    ? (plan["status"] as PlanStatus)
+    : "planned";
+  return {
+    id: planId,
+    threadId,
+    title: text(plan["title"], 200) ?? "Sections",
+    kind: kind as ReelKind,
+    sourceId,
+    sourceTitle: text(plan["source_title"], 200) ?? "",
+    sequenceId: id(plan["sequence_id"]),
+    projectId: id(plan["project_id"]),
+    status,
+    shots: reelShotsOf(plan["shots"]),
+    sections: sections
+      .flatMap((row) => {
+        const view = sectionViewOf(row);
+        return view ? [view] : [];
+      })
+      .sort((a, b) => a.position - b.position),
+    joins: joins
+      .flatMap((row) => {
+        const view = joinViewOf(row);
+        return view ? [view] : [];
+      })
+      .sort((a, b) => a.position - b.position),
+    createdAt: time(plan["created_at"]) ?? new Date(0).toISOString(),
+  };
+}
+
+/**
+ * The integration edit's clips for each shot when it is first laid out: an
+ * edit copied whole keeps its clip ids; a long video or storyboard laid out
+ * afresh is matched by the file each shot shows, in order.
+ */
+export function ownedByAsset(shots: ReelShot[], timeline: Pick<Timeline, "clips">): OwnedClip[] {
+  const claimed = new Set<string>();
+  return shots.flatMap((shot) => {
+    const match = timeline.clips.find(
+      (clip) =>
+        !claimed.has(clip.id) &&
+        (clip.id === shot.ref || (!!shot.assetId && clip.assetId === shot.assetId)),
+    );
+    if (!match) return [];
+    claimed.add(match.id);
+    return [{ shot: shot.index, clipId: match.id }];
+  });
+}
+
+/** What a join's verdict was judged from, kept with it so a fix can judge it again. */
+export function joinMeasuresOf(value: unknown): JoinMeasures | null {
+  const item = (value && typeof value === "object" ? value : null) as Json | null;
+  const measures = (
+    item?.["measures"] && typeof item["measures"] === "object" ? item["measures"] : null
+  ) as Json | null;
+  if (!measures) return null;
+  const kind = measures["kind"];
+  if (kind !== "continuous" && kind !== "cut" && kind !== "scene") return null;
+  const likeness = (value: unknown): Likeness =>
+    (LIKENESSES as readonly string[]).includes(String(value)) ? (value as Likeness) : "unseen";
+  const lookItem = (
+    measures["look"] && typeof measures["look"] === "object" ? measures["look"] : null
+  ) as Json | null;
+  const renderItem = (
+    measures["render"] && typeof measures["render"] === "object" ? measures["render"] : null
+  ) as Json | null;
+  const charactersItem = (
+    measures["characters"] && typeof measures["characters"] === "object"
+      ? measures["characters"]
+      : null
+  ) as Json | null;
+  const letteringItem = (
+    measures["lettering"] && typeof measures["lettering"] === "object"
+      ? measures["lettering"]
+      : null
+  ) as Json | null;
+  const verdict = (value: unknown): TextVerdict | null =>
+    value === "none" || value === "legible" || value === "garbled" ? value : null;
+  const left = renderItem?.["left"];
+  const blend = measures["blend"];
+  return {
+    kind,
+    look: lookItem
+      ? {
+          framing: likeness(lookItem["framing"]),
+          colour: likeness(lookItem["colour"]),
+          continuity: likeness(lookItem["continuity"]),
+          differences: (Array.isArray(lookItem["differences"]) ? lookItem["differences"] : [])
+            .filter((entry): entry is string => typeof entry === "string")
+            .slice(0, 6),
+        }
+      : null,
+    render: renderItem
+      ? {
+          matched: renderItem["matched"] === true,
+          moved: number(renderItem["moved"]),
+          likenessBefore: number(renderItem["likenessBefore"]),
+          likenessAfter: number(renderItem["likenessAfter"]),
+          left:
+            left === "different_pictures" || left === "already_matching" || left === "unmeasured"
+              ? left
+              : null,
+        }
+      : null,
+    characters: charactersItem
+      ? {
+          flagged: charactersItem["flagged"] === true,
+          summary: text(charactersItem["summary"], 600),
+        }
+      : null,
+    lettering: letteringItem
+      ? {
+          before: verdict(letteringItem["before"]),
+          after: verdict(letteringItem["after"]),
+          summary: text(letteringItem["summary"], 600),
+        }
+      : null,
+    videos: measures["videos"] === true,
+    blend: blend === "smart" || blend === "colour" ? blend : "plain",
+    ...(measures["apart"] === true ? { apart: true } : {}),
+  };
+}
+
+/** A plan as the agent reads it: every section's state and work, and every join's check. */
+export function planReport(view: PlanView): string {
+  const lines = [
+    `Plan “${view.title}” (planId ${view.id}) for the ${REEL_KIND_LABELS[view.kind]} “${view.sourceTitle}” (${view.sourceId}): ${view.shots.length} shots in ${view.sections.length} sections, ${view.status}.`,
+    view.sequenceId
+      ? `Integration edit: ${view.sequenceId} (every section is merged into it as it saves).`
+      : "No integration edit (it was deleted): plan the sections again.",
+    "",
+  ];
+  for (const section of view.sections) {
+    const saved = section.work.shots.map((entry) => entry.shot + 1);
+    const parts = [
+      `Section ${section.position + 1} · ${section.title} · ${SECTION_STATUS_LABELS[section.status].toLowerCase()} · ${section.used} of ${section.budget} steps`,
+      saved.length
+        ? `saved ${saved.length === 1 ? "shot" : "shots"} ${saved.join(", ")}`
+        : "nothing saved",
+      ...(section.work.loose.length
+        ? [
+            `${section.work.loose.length} made but not placed (${section.work.loose.map((take) => take.assetId).join(", ")})`,
+          ]
+        : []),
+      ...(section.work.summary ? [`“${section.work.summary}”`] : []),
+      ...(section.work.left ? [`left: ${section.work.left}`] : []),
+      ...(section.error ? [`error: ${section.error}`] : []),
+    ];
+    lines.push(`- ${parts.join(" · ")} (sectionId ${section.id})`);
+  }
+  if (view.joins.length) lines.push("");
+  for (const join of view.joins) {
+    const head = `Join ${join.position + 1} (sections ${join.position + 1} → ${join.position + 2}, ${JOIN_KIND_LABELS[join.kind]})`;
+    if (!join.verdict) {
+      lines.push(`- ${head}: ${JOIN_STATUS_LABELS[join.status].toLowerCase()}.`);
+      continue;
+    }
+    const fixes = join.verdict.fixes.map((fix) => fix.label);
+    lines.push(
+      `- ${head}: ${join.verdict.status === "matches" ? "meets as it should" : join.verdict.status === "differs" ? "doesn't match" : "couldn't be judged"}.${join.verdict.findings
+        .filter((entry) => entry.status === "differs")
+        .map((entry) => ` ${entry.aspect}: ${entry.detail}`)
+        .join(";")}${fixes.length ? ` Fixes: ${fixes.join("; ")}.` : ""}`,
+    );
+  }
+  return lines.join("\n");
+}
