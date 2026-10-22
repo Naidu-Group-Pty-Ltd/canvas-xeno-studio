@@ -16,6 +16,7 @@
  *
  * Pure functions, shared by the Storyboards page and tests.
  */
+import { musicStructureSchema } from "../music/structure";
 import type { TimedWord } from "../lip-sync/segments";
 
 /** The rule's numbers: timing.py's, which cut Reel 1. */
@@ -476,10 +477,20 @@ export function musicGrid(
 ): MusicGrid {
   const shift = (list: number[]) =>
     list.map((at) => round6(at + offsetSeconds)).filter((at) => at >= 0);
+  // A found structure's beats are moved onto their attacks, and its bars lie on
+  // them (see ../music/structure): the track's own beat grid can be some 30 ms
+  // off them, so the structure's are used where there is one.
+  const structure = musicStructureSchema.safeParse(track.structure ?? null);
+  const beats = structure.success ? structure.data.beats : times(track.beats);
+  const bpm = structure.success
+    ? structure.data.bpm
+    : typeof track.bpm === "number" && track.bpm > 0
+      ? track.bpm
+      : null;
   return {
-    beats: shift(times(track.beats)).sort((a, b) => a - b),
+    beats: shift(beats).sort((a, b) => a - b),
     bars: shift(barsFromStructure(track.structure ?? null)),
-    bpm: typeof track.bpm === "number" && track.bpm > 0 ? track.bpm : null,
+    bpm,
   };
 }
 

@@ -391,6 +391,29 @@ describe("the music beside the cuts", () => {
     expect(musicGrid({ bpm: null, beats: null }).beats).toEqual([]);
   });
 
+  test("takes a found structure's beats (moved onto their attacks) over the track's own grid", () => {
+    // The track's grid runs some 30 ms early; the structure's beats are on the attacks, its bars on them.
+    const structure = {
+      bpm: 120,
+      beats: [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4],
+      beatsPerBar: 4,
+      downbeats: [0.5, 2.5],
+      bars: [0.5, 2.5],
+      sections: [{ kind: "intro", start: 0, end: 4.5, energy: 0.4 }],
+      confidence: 0.9,
+    };
+    const grid = musicGrid({ bpm: 119.6, beats: [0.47, 0.97, 1.47], structure });
+    expect(grid.beats).toEqual(structure.beats);
+    expect(grid.bars).toEqual([0.5, 2.5]);
+    expect(grid.bpm).toBe(120);
+    // A structure it can't read leaves the track's own grid.
+    expect(musicGrid({ bpm: 119.6, beats: [0.47, 0.97], structure: { bars: [0.5] } })).toEqual({
+      beats: [0.47, 0.97],
+      bars: [0.5],
+      bpm: 119.6,
+    });
+  });
+
   test("reads bars from a structure in any of its shapes, else none", () => {
     expect(barsFromStructure({ bars: [3, 1, 2, 2] })).toEqual([1, 2, 3]);
     expect(barsFromStructure({ bars: [{ start: 1.5, end: 3.4 }, { at: 3.4 }] })).toEqual([
