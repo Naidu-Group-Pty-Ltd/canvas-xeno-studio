@@ -1,0 +1,60 @@
+{
+ "frames": {
+  "card-logo.png": {
+   "sha": "e6f6aa66c70408d2",
+   "assetId": "45e9165f-b3bf-49d1-83fb-82c587865661",
+   "size": [
+    2000,
+    1125
+   ]
+  },
+  "hero-ground.png": {
+   "sha": "33d88b6fe4406166",
+   "assetId": "105243ff-07d4-4da2-9c9c-20937e0db00c",
+   "size": [
+    2160,
+    3840
+   ]
+  },
+  "hero-logo.png": {
+   "sha": "fca900272fa81aac",
+   "assetId": "467975b2-1845-4ee9-a40b-2106e588912d",
+   "size": [
+    2160,
+    3840
+   ]
+  }
+ },
+ "takes": {
+  "A1-take1": {
+   "key": "A1",
+   "use": "04.1, the reveal: the dark navy night to the logo",
+   "digest": "cd9a576cff72",
+   "generationId": "f9fdaf41-c2da-40f9-8870-5ad37de3f376",
+   "status": "failed",
+   "reverse": false,
+   "costUsd": 0,
+   "error": "PROVIDER_REJECTED Your credit balance is too low to complete this request. Please top up your balance and try again."
+  },
+  "A2-take1": {
+   "key": "A2",
+   "use": "04.1, the reveal made backwards: the logo dissolving into the night, played in reverse",
+   "digest": "3ff5736fcfb3",
+   "generationId": "cd6505c8-8b4f-4e0a-9bf5-c2d568bdad37",
+   "status": "failed",
+   "reverse": true,
+   "costUsd": 0,
+   "error": "PROVIDER_REJECTED Your credit balance is too low to complete this request. Please top up your balance and try again."
+  },
+  "B1-take1": {
+   "key": "B1",
+   "use": "10.2, 11.1 and 15.1: the logo alive on the trial and closing cards",
+   "digest": "224108949b0b",
+   "generationId": "e57d18e8-e01e-4fee-9910-024ac35377ce",
+   "status": "failed",
+   "reverse": false,
+   "costUsd": 0,
+   "error": "PROVIDER_REJECTED Your credit balance is too low to complete this request. Please top up your balance and try again."
+  }
+ }
+}

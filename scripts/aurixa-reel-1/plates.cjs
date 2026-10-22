@@ -43,12 +43,16 @@ const LOGO = asset("logo-art.png");
 const KIT = require("./kit.cjs")({ P, D });
 
 /** A Google font as a data URL, kept in the temp folder (Inter is a system font). */
-async function googleFont(family, weight) {
-  const file = path.join(os.tmpdir(), `${family.replace(/ /g, "-").toLowerCase()}-${weight}.ttf`);
+async function googleFont(family, weight, style = "normal") {
+  const italic = style === "italic";
+  const file = path.join(
+    os.tmpdir(),
+    `${family.replace(/ /g, "-").toLowerCase()}-${weight}${italic ? "-italic" : ""}.ttf`,
+  );
   if (!fs.existsSync(file)) {
     const sheet = await (
       await fetch(
-        `https://fonts.googleapis.com/css2?family=${family.replace(/ /g, "+")}:wght@${weight}`,
+        `https://fonts.googleapis.com/css2?family=${family.replace(/ /g, "+")}:${italic ? `ital,wght@1,${weight}` : `wght@${weight}`}`,
         { headers: { "user-agent": "Mozilla/5.0 Chrome/120" } },
       )
     ).text();
@@ -67,15 +71,18 @@ async function googleFont(family, weight) {
 const FONTS = [
   ["Playfair Display", [600, 700]],
   ["Playfair Display", [500], "Aurixa Display"],
+  // The film's captions (./captions.cjs): the website's headline face at Medium, and its italic.
+  ["Playfair Display", [500], "Aurixa Caption"],
+  ["Playfair Display", [500], "Aurixa Caption", "italic"],
   ["Inconsolata", [400, 700]],
 ];
 const LOCAL_FONTS = [["Selawik", [400, 600, 700]]];
 async function fontFaces() {
   const faces = [];
-  for (const [family, weights, as = family] of FONTS)
+  for (const [family, weights, as = family, style = "normal"] of FONTS)
     for (const weight of weights)
       faces.push(
-        `@font-face { font-family: "${as}"; font-weight: ${weight}; src: url("${await googleFont(family, weight)}") format("truetype"); }`,
+        `@font-face { font-family: "${as}"; font-weight: ${weight}; font-style: ${style}; src: url("${await googleFont(family, weight, style)}") format("truetype"); }`,
       );
   for (const [family, weights] of LOCAL_FONTS)
     for (const weight of weights) {

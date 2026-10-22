@@ -987,6 +987,7 @@ module.exports = {
   EMBLEM,
   WORDMARK,
   ASSETS,
+  asset,
   stylesheet,
   routeAssets,
   playwright,
