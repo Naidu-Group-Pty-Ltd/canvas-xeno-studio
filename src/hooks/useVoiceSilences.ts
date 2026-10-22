@@ -34,11 +34,15 @@ export function useVoiceSilences(input: {
   assetId: string;
   projectId: string | null;
   sequenceId: string | null;
+  /** False to look nothing up (there's no voiceover yet). */
+  enabled?: boolean;
 }): VoiceSilencesState {
   const { assetId, projectId } = input;
+  const enabled = input.enabled !== false;
   const queryClient = useQueryClient();
   const file = useQuery({
     queryKey: ["voice-silences-file", assetId],
+    enabled,
     staleTime: 60_000,
     queryFn: async () => {
       const { data } = await supabase
@@ -54,7 +58,7 @@ export function useVoiceSilences(input: {
   const preparationId = typeof madeBy === "string" ? madeBy : null;
   const preparation = useQuery({
     queryKey: ["voice-silences", assetId, preparationId],
-    enabled: file.isSuccess,
+    enabled: enabled && file.isSuccess,
     queryFn: () => getLipSyncVoiceover({ data: preparationId ? { preparationId } : { assetId } }),
     refetchInterval: (query) => (query.state.data?.status === "preparing" ? 2500 : false),
   });
