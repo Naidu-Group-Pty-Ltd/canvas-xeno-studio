@@ -143,7 +143,7 @@ Every generation has a price. It is the charge Higgsfield reported (`actual_cost
   on the Usage page.
 
 A run with none of these is unpriced, never given a made-up figure; the Usage page lists its
-model for an admin to price.
+model for an admin to price. List prices need migration `0028_generation_costs`.
 
 A stage (`estimate_stage`, `queue_stage`) is checked whole before any of it is queued. Its total
 (every take of every item) with `retakeAllowance` must fit what is left on the Higgsfield API
@@ -171,7 +171,8 @@ status and notes are recorded. A licence that has run out is never cleared.
 `render_edit` takes the edit's credits with it, to the rendered video. With `publicUse: true` it
 is held, and nothing starts, until every file the edit uses is cleared, or you confirm the files
 that aren't as exceptions (`confirmExceptions: true`, or their asset ids). Who confirmed them, and
-when, is kept with the render.
+when, is kept with the render. Recording rights and rendering for public use need migration
+`0027_asset_rights`; until it is applied, rights are worked out and can be read.
 
 ## A presenter video, end to end
 
