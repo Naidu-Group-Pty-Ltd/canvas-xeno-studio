@@ -17,13 +17,12 @@ import {
   type BrandProduction,
   type MotionRole,
   type ProductionDecision,
-  type ProductionProposal,
   type ProductionRoleSpec,
-  type RoleCandidate,
   type RoleSource,
   type RoleValue,
   type TypeRole,
 } from "@/lib/brand/production";
+import type { ProductionProposal, RoleCandidate } from "@/lib/brand/production-proposal";
 import { drawTokenSheet } from "@/components/brand/token-sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

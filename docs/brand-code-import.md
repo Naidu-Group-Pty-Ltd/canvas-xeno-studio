@@ -186,6 +186,11 @@ The code lives in `src/lib/brand/`:
 - `scan-css.ts`, `scan-tailwind.ts` and `scan-tokens.ts`: the readers;
 - `scan-repos.ts`: the steps over any source of files;
 - `github-source.ts`: GitHub;
-- `imports.server.ts`: the import itself.
+- `imports.server.ts`: the import itself;
+- `production.ts`: the production roles, their checks and the stylesheet;
+- `production-proposal.ts`: how the roles are proposed from what was read;
+- `motion.ts`: easing curves and durations as code writes them.
 
-Tests are in `tests/brand/scan-code.test.ts` and `tests/brand/scan-repos.test.ts`.
+Tests are in `tests/brand/scan-code.test.ts`, `tests/brand/scan-repos.test.ts` and
+`tests/brand/production.test.ts` (which reads Reel 1's own record back through the scanner), and
+`tests/edit/overlay-motion.test.ts` for titles.

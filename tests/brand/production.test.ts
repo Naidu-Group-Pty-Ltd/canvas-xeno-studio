@@ -16,14 +16,11 @@ import {
   contrastLevel,
   isEmptyProduction,
   motionByHand,
-  nameWords,
   PRODUCTION_ROLES,
   productionChecks,
   productionOf,
   productionStylesheet,
   productionTokens,
-  proposeProduction,
-  reproposeProduction,
   roleProperties,
   scaleByHand,
   typeByHand,
@@ -31,6 +28,11 @@ import {
   type BrandProduction,
   type ProductionRoleKey,
 } from "../../src/lib/brand/production";
+import {
+  nameWords,
+  proposeProduction,
+  reproposeProduction,
+} from "../../src/lib/brand/production-proposal";
 import {
   fontRoleOf,
   mergeCodeScans,

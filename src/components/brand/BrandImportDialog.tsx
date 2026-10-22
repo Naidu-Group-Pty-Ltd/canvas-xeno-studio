@@ -40,13 +40,8 @@ import { OVERLAY_BACKING_LABELS, OVERLAY_BACKINGS, type OverlayBacking } from "@
 import { signedUrl, storageScope, uploadAssetBlob } from "@/lib/storage";
 import { CodeSystemPanel } from "@/components/brand/CodeSystemPanel";
 import { ProductionPanel } from "@/components/brand/ProductionPanel";
-import {
-  EMPTY_PRODUCTION,
-  isEmptyProduction,
-  proposeProduction,
-  reproposeProduction,
-  type BrandProduction,
-} from "@/lib/brand/production";
+import { EMPTY_PRODUCTION, isEmptyProduction, type BrandProduction } from "@/lib/brand/production";
+import { proposeProduction, reproposeProduction } from "@/lib/brand/production-proposal";
 import { DesignSystemEditor } from "@/components/brand/DesignSystemEditor";
 import { DnaEditor } from "@/components/brand/DnaEditor";
 import { FormulaBrowser } from "@/components/brand/FormulaBrowser";
