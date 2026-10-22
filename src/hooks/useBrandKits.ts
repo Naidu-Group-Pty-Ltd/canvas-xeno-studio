@@ -9,7 +9,9 @@ import {
   BRAND_FONT_PREFIX,
   fontFamily,
   fontKind,
+  fontStyle,
   FONT_FAMILY_PATTERN,
+  type FontStyle,
 } from "@/lib/edit/font-family";
 
 /**
@@ -57,8 +59,9 @@ const FONT_MAX_BYTES = 12 * 1024 * 1024;
 
 /**
  * Uploads a brand font: read first as a font (TrueType or OpenType; WOFF
- * isn't one the render can use), by the family it names itself by, then
- * kept where brand fonts are. The kit keeps it once saved.
+ * isn't one the render can use), by the family it names itself by and the
+ * style it is drawn in (a family's italic is a file of its own), then kept
+ * where brand fonts are. The kit keeps it once saved.
  */
 export async function uploadBrandFont(file: File): Promise<BrandFont> {
   if (file.size > FONT_MAX_BYTES) throw new Error("That font file is over 12 MB");
@@ -68,13 +71,21 @@ export async function uploadBrandFont(file: File): Promise<BrandFont> {
   const family = fontFamily(bytes);
   if (!family || !FONT_FAMILY_PATTERN.test(family))
     throw new Error("That font's name couldn't be read from the file");
+  const style = fontStyle(bytes)?.style;
   const path = `${BRAND_FONT_PREFIX}${crypto.randomUUID()}.${kind}`;
   const { error } = await supabase.storage.from(BRAND_FONT_BUCKET).upload(path, bytes, {
     contentType: kind === "otf" ? "font/otf" : "font/ttf",
     upsert: false,
   });
   if (error) throw new Error(error.message);
-  return { family, bucket: BRAND_FONT_BUCKET, path };
+  return { family, bucket: BRAND_FONT_BUCKET, path, ...(style ? { style } : {}) };
+}
+
+/** How the page's font matching knows a file's style: italic or not, and its weight. */
+export function fontFaceDescriptors(style: FontStyle | undefined): FontFaceDescriptors {
+  const italic = style === "italic" || style === "bold_italic";
+  const bold = style === "bold" || style === "bold_italic";
+  return { style: italic ? "italic" : "normal", weight: bold ? "700" : "400" };
 }
 
 /** Fonts loaded into this page, by file: each once. */
@@ -82,14 +93,17 @@ const loaded = new Map<string, Promise<void>>();
 
 /**
  * Loads brand fonts into the page, so the Editor's preview sets titles in
- * them as the render will. Returns how many have loaded, which changes as
- * each arrives so the preview draws again.
+ * them as the render will: each file under its family and its own style, so
+ * an italic is used where text is italic. Returns how many have loaded,
+ * which changes as each arrives so the preview draws again.
  */
 export function useBrandFontFaces(
-  fonts: { family: string; bucket: string; path: string }[],
+  fonts: { family: string; bucket: string; path: string; style?: FontStyle | undefined }[],
 ): number {
   const [ready, setReady] = useState(0);
-  const key = fonts.map((font) => `${font.family}|${font.bucket}/${font.path}`).join(",");
+  const key = fonts
+    .map((font) => `${font.family}|${font.style ?? ""}|${font.bucket}/${font.path}`)
+    .join(",");
   useEffect(() => {
     if (!fonts.length || typeof document === "undefined" || !("fonts" in document)) return;
     let live = true;
@@ -102,7 +116,11 @@ export function useBrandFontFaces(
             .from(font.bucket)
             .createSignedUrl(font.path, 3600);
           if (!data?.signedUrl) throw new Error("unreadable");
-          const face = new FontFace(font.family, `url(${JSON.stringify(data.signedUrl)})`);
+          const face = new FontFace(
+            font.family,
+            `url(${JSON.stringify(data.signedUrl)})`,
+            fontFaceDescriptors(font.style),
+          );
           document.fonts.add(await face.load());
         })();
         loaded.set(id, work);

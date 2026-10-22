@@ -18,6 +18,7 @@
  *
  * Pure functions, shared by the Editor, the server and tests.
  */
+import { emphasisFor } from "./brand-captions";
 import { LIMITS, type CaptionSegment } from "./timeline";
 
 export interface TimedWord {
@@ -460,7 +461,9 @@ export interface PhraseCaptionOptions extends PhraseOptions {
  * Phrase captions for a voiceover's words, placed `offset` seconds into the
  * edit (see the module comment). With a script, the script's words are shown;
  * one that doesn't fit the timings (another script) is set aside and the
- * heard words used, spelt right.
+ * heard words used, spelt right. Each card keeps its words' own times (from
+ * its start), for captions set word by word, and the phrase it leans on
+ * (see ./brand-captions `emphasisFor`).
  */
 export function phraseCaptions(
   heard: TimedWord[],
@@ -473,9 +476,16 @@ export function phraseCaptions(
   const aligned = options.script?.trim() ? alignScript(options.script, spelt) : null;
   const words = aligned ?? spelt;
   const cards = phraseCards(words, options);
+  // The words the cards are made of, in order (as phraseCards takes them).
+  const usable = words
+    .map((word) => ({ text: word.text.trim(), start: word.start, end: word.end }))
+    .filter((word) => word.text && Number.isFinite(word.start) && Number.isFinite(word.end));
+  let taken = 0;
 
   const segments: CaptionSegment[] = [];
   cards.forEach((card, index) => {
+    const own = usable.slice(taken, taken + card.words);
+    taken += card.words;
     const start = card.start + offset;
     if (start >= until) return;
     const nextStart = cards[index + 1] ? cards[index + 1]!.start + offset : Infinity;
@@ -486,10 +496,22 @@ export function phraseCaptions(
     if (end <= from) return;
     const shown = Math.max(start, from);
     if (end - shown < 0.05) return;
+    const segmentStart = Number(Math.max(0, shown).toFixed(3));
+    const since = (at: number) => Number(Math.max(0, at + offset - segmentStart).toFixed(3));
+    const emphasis = emphasisFor(
+      own.map((word) => word.text),
+      options.terms ?? [],
+    );
     segments.push({
-      start: Number(Math.max(0, shown).toFixed(3)),
+      start: segmentStart,
       end: Number(end.toFixed(3)),
       text: card.text.slice(0, LIMITS.captionChars),
+      words: own.slice(0, LIMITS.captionWords).map((word) => ({
+        text: word.text.slice(0, 80),
+        start: since(word.start),
+        end: since(word.end),
+      })),
+      ...(emphasis ? { emphasis } : {}),
     });
   });
   return { segments: segments.slice(0, LIMITS.captions), source: aligned ? "script" : "words" };

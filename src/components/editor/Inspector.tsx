@@ -95,8 +95,9 @@ import { Mixer } from "./Mixer";
 import { SendToKatana } from "@/components/katana/SendToKatana";
 import { useVoiceovers } from "@/hooks/useVoiceData";
 import { phraseCaptions } from "@/lib/edit/captions";
-import { brandedOverlay } from "@/lib/edit/brand";
+import { brandedOverlay, withCaptionStyle } from "@/lib/edit/brand";
 import { BrandSection, ImageOverlaysSection } from "./BrandPanel";
+import { CaptionEmphasisField, CaptionPanelField } from "./BrandCaptionControls";
 import { useEditBrandKit } from "@/hooks/useBrandKits";
 import { CompositionSection, type CompositionControls } from "./CompositionSection";
 
@@ -1412,7 +1413,8 @@ function TextPanel({
             <Select
               value={captions.style}
               onValueChange={(value) =>
-                setCaptions({ style: value as Timeline["captions"]["style"] })
+                // In a brand's edit, its brand style is set in the kit's display face.
+                onChange(withCaptionStyle(timeline, value as Timeline["captions"]["style"], kit))
               }
             >
               <SelectTrigger className="h-8">
@@ -1447,6 +1449,7 @@ function TextPanel({
             </Select>
           </Field>
         </div>
+        <CaptionPanelField captions={captions} onChange={setCaptions} />
         <Field label="Size" hint={`${Math.round(captions.size * 100)}%`}>
           <Slider
             min={0.5}
@@ -1514,6 +1517,22 @@ function TextPanel({
                       )
                     }
                   />
+                  {captions.style === "brand" && (
+                    <CaptionEmphasisField
+                      segment={segment}
+                      index={index}
+                      onChange={(emphasis) =>
+                        setCaptions(
+                          {
+                            segments: captions.segments.map((item, position) =>
+                              position === index ? { ...item, emphasis } : item,
+                            ),
+                          },
+                          `caption-emphasis:${index}`,
+                        )
+                      }
+                    />
+                  )}
                 </li>
               );
             })}

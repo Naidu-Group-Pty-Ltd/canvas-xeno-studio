@@ -500,3 +500,50 @@ describe("the media worker's held voice", () => {
     ]);
   });
 });
+
+describe("a brand caption's words under a paused voice", () => {
+  // Brand captions time their words from the line's start (see src/lib/edit/brand-captions).
+  function brandEdit(): Timeline {
+    const timeline = parseTimeline({
+      fps: 30,
+      clips: [{ id: "c1", assetId: STILL, kind: "image", duration: 8 }],
+      audio: [{ id: "v1", assetId: VOICE, role: "voiceover", sourceDuration: 10 }],
+      captions: {
+        enabled: true,
+        style: "brand",
+        segments: [
+          {
+            start: 1,
+            end: 3,
+            text: "Somewhere in Australia",
+            words: [
+              { text: "Somewhere", start: 0, end: 0.5 },
+              { text: "in", start: 0.6, end: 0.8 },
+              { text: "Australia", start: 1.2, end: 1.9 },
+            ],
+            emphasis: "Australia",
+          },
+        ],
+      },
+    });
+    if (!timeline) throw new Error("timeline didn't parse");
+    return timeline;
+  }
+
+  test("a pause inside the line moves its later words; one before it moves the line whole", () => {
+    const timeline = brandEdit();
+    // A half-second pause at 2 s on the edit: between "in" and "Australia".
+    const inside = withVoicePauses(timeline, "v1", [{ at: 2, frames: 15 }]);
+    const segment = inside.captions.segments[0]!;
+    expect(segment).toMatchObject({ start: 1, end: 3.5, emphasis: "Australia" });
+    expect(segment.words).toEqual([
+      { text: "Somewhere", start: 0, end: 0.5 },
+      { text: "in", start: 0.6, end: 0.8 },
+      { text: "Australia", start: 1.7, end: 2.4 },
+    ]);
+    expect(withVoicePauses(inside, "v1", []).captions.segments).toEqual(timeline.captions.segments);
+    const before = withVoicePauses(timeline, "v1", [{ at: 0.5, frames: 15 }]);
+    expect(before.captions.segments[0]).toMatchObject({ start: 1.5, end: 3.5 });
+    expect(before.captions.segments[0]!.words).toEqual(timeline.captions.segments[0]!.words);
+  });
+});

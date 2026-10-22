@@ -27,6 +27,7 @@ import {
 import { isMissingTableError } from "./errors";
 import {
   audibleAudio,
+  BASIC_FONT_FILES,
   buildRenderRequest,
   frameSize,
   layoutTimeline,
@@ -72,6 +73,24 @@ async function renderRequestFor(timeline: Timeline) {
       feature: "brand_text",
       message:
         "This edit's titles or captions use a brand's fonts or colours, which the media service can't set until it is updated. Render again once the service has been updated.",
+    });
+  const captions = (request.params["captions"] ?? null) as Record<string, unknown> | null;
+  if (captions?.["style"] === "brand")
+    needed.push({
+      feature: "brand_captions",
+      message:
+        "This edit's captions are set word by word in the brand's type, which the media service can't do until it is updated. Choose another caption style, or render again once the service has been updated.",
+    });
+  if (captions?.["panel"])
+    needed.push({
+      feature: "caption_panel",
+      message:
+        "This edit's captions have a panel chosen behind them, which the media service can't set until it is updated. Set the captions' panel back to the style's own, or render again once the service has been updated.",
+    });
+  if (request.fonts.length > BASIC_FONT_FILES)
+    needed.push({
+      feature: "more_fonts",
+      message: `This edit's text is set in ${request.fonts.length} brand font files, and the media service takes ${BASIC_FONT_FILES} until it is updated. Use fewer brand fonts, or render again once the service has been updated.`,
     });
   if (movesTitles(request.params))
     needed.push({
