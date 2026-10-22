@@ -7,7 +7,9 @@
 //    it and the light crosses it once, as the site's own shimmer crosses its type;
 //  - a square panel behind them, which reshapes from one line to the next: before the brand arrives, a
 //    white card of today's tools (their border and shadow) with the type in their ink; once it has, the
-//    site's glass (border 1 px white at 9%, a deep-navy ground and its blur) with the type in silver;
+//    site's glass (border 1 px white at 9%, a deep-navy ground and its blur) with the type in silver. The
+//    ground is near-opaque (88 to 93%) since the third cut: its pages are white, and at the site's 74% a
+//    caption over one read as a grey slab rather than the brand's navy;
 //  - each word rising into focus on its own spoken time, measured from the voiceover (voiceover-words.json),
 //    on the brand's ease-settle; a line leaves together, just before the next arrives.
 // The words are the script's (spec.json's captions), never the recogniser's spellings.
@@ -250,7 +252,7 @@ const CENTRE = 1430;
 const css = `
 #captions { pointer-events:none; }
 .cpanel { position:absolute; left:540px; top:${CENTRE}px; width:0; height:0; transform:translate(-50%,-50%);
-  background:linear-gradient(180deg, rgba(10,23,42,.74), rgba(4,11,22,.80)); border:2px solid rgba(255,255,255,.09);
+  background:linear-gradient(180deg, rgba(10,23,42,.88), rgba(4,11,22,.93)); border:2px solid rgba(255,255,255,.09);
   -webkit-backdrop-filter:blur(14px) saturate(1.15); backdrop-filter:blur(14px) saturate(1.15);
   box-shadow:0 18px 60px rgba(0,0,0,.38); visibility:hidden; }
 /* Before the brand arrives, the panel is today's: a white card on the paper desktop, its border and shadow. */

@@ -1,4 +1,5 @@
-// Reel 1, shot 07.1: the professional changes the agent's draft in her own words, then approves it.
+// Reel 1, shot 07.1: the professional changes the agent's draft in her own words, then approves it. The window
+// floats in depth (./workflowStage.cjs).
 const M = require("../motion.cjs");
 const {
   beat,
@@ -19,15 +20,7 @@ const {
   F,
   KIT,
 } = M;
-
-/** A G-WINDOW whose layers are plates given whole ({ html, css }), so a scene can edit a plate's markup. */
-const windowOf = (id, plates, z) =>
-  `<div class="fk-win" id="${id}" style="z-index:${z}"><div class="fk-page" id="${id}-page">${plates
-    .map(
-      (p, n) =>
-        `<div class="fk-scale" id="${id}-${n}" style="width:${p.css[0]}px;height:${p.css[1]}px">${p.html}</div>`,
-    )
-    .join("")}<div class="fk-veil" id="${id}-veil"></div></div></div>`;
+const S = require("./workflowStage.cjs");
 
 /** `find` replaced by `put` in `html`, where it is there exactly once. */
 const once = (html, find, put, what) => {
@@ -59,12 +52,13 @@ function approveScene() {
   const ZOOM = 2.07;
   const F07 = { rect: [40, 384, 1000, 900], zoom: ZOOM, focus: [1272, 495], at: [540, 834] };
   const TYPING = { ...F07, focus: [1272, 652] };
-  // Her change, typed into the agent's composer: a letter at a time, each word taking the marker (G-HIGHLIGHT,
-  // a K px gold rule 1 px under the line, as the stills draw it) once it is typed.
+  // Her change, typed into the agent's composer: a letter at a time, at a pace the words can be read as they
+  // come, each word taking the marker (G-HIGHLIGHT, a K px gold rule 1 px under the line, as the stills draw it)
+  // once it is typed.
   const TYPED = "Make the next step: review the remaining questions together";
   const WORDS = TYPED.split(" ");
   const STARTS = WORDS.map((_, i) => WORDS.slice(0, i).join(" ").length + (i ? 1 : 0));
-  const PER_CHAR = 1 / 70;
+  const PER_CHAR = 1 / 45;
   const typedBy = (t) =>
     t < tType ? 0 : Math.min(TYPED.length, Math.floor((t - tType) / PER_CHAR) + 1);
   const tTyped = tType + (TYPED.length - 1) * PER_CHAR;
@@ -132,8 +126,8 @@ function approveScene() {
 
   const html = () =>
     [
-      `<div id="ground" class="fk-layer" style="z-index:0"><div class="fk-field"></div><div class="fk-glow"></div></div>`,
-      windowOf("W", [typing, sent], 5),
+      S.stageHtml(),
+      S.stageWindow("W", [typing, sent], 5),
       railHtml("rail", "Team"),
       pointerHtml(),
       captionHtml(),
@@ -155,12 +149,14 @@ function approveScene() {
     st.set("#rail", fade(1));
     // The composer until she sends; then the thread with her message and the agent's revised draft in it.
     // Her text leaves the composer at once; the draft's next step goes, and the revised one takes its place.
-    // Then the camera drifts up to F07, nearly there by the press and settled well before F07's time.
+    // Then the camera drifts up to F07, nearly there by the press, and settles as the card turns Approved.
     const sent = span(t, tSend, tSend + 0.24, EASE.linear);
-    const rise = span(t, tSend + 0.2, tSend + 1.3, EASE.move);
+    const rise = span(t, tSend + 0.1, tSend + 1.0, EASE.move);
+    const fr = between(css, TYPING, F07, rise);
+    const P = S.stageState(st, fr.rect, S.drift(t));
     // The thread is laid over the composer's state, which stays whole beneath until it is covered, so the
     // page never dims through the change.
-    const g = placeWindow(st, "W", css, between(css, TYPING, F07, rise), [sent < 1 ? 1 : 0, sent]);
+    const g = placeWindow(st, "W", css, fr, [sent < 1 ? 1 : 0, sent], { transform: P.css });
     st.set("#tx", fade(1 - span(t, tSend, tSend + 0.06, EASE.linear)));
     st.set("#old", fade(1 - span(t, tSend + 0.04, tSend + 0.12, EASE.linear)));
 
@@ -210,10 +206,12 @@ function approveScene() {
       height: px(lerp(m.keys, m.approved, span(t, tPress + 0.04, tPress + 0.42, EASE.move))),
     });
 
-    // The pointer comes in over the revised draft as the camera rises, presses Approve and is gone.
+    // The pointer comes in over the revised draft as the camera rises, presses Approve and is gone; its points
+    // are the page's, carried through the window's turn.
+    const on = (pt) => P.map(g.map(pt));
     pointer(st, t, {
-      from: g.map(m.from),
-      to: g.map(m.approve),
+      from: on(m.from),
+      to: on(m.approve),
       a: tSend + 0.18,
       b: tPress - 0.07,
       show: tSend + 0.16,

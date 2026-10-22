@@ -42,8 +42,14 @@ const SCENES = require("./scenes/index.cjs").map((scene) => {
 function launchArgs() {
   return {
     ...(F.CHROMIUM ? { executablePath: F.CHROMIUM } : {}),
-    // Large images are decoded before a frame is drawn, never filled in a frame later.
-    args: ["--disable-checker-imaging", "--force-color-profile=srgb"],
+    // Large images are decoded before a frame is drawn, never filled in a frame later; and every compositor
+    // stage (raster of every tile included) runs before a frame is drawn, so a busy machine can never capture a
+    // layer with a tile still unpainted (seen once, as a black rectangle, in the third cut's depth-staged shots).
+    args: [
+      "--disable-checker-imaging",
+      "--force-color-profile=srgb",
+      "--run-all-compositor-stages-before-draw",
+    ],
   };
 }
 /** A scene's page: the frame (.fk) with the scene's layers; each scene draws its own ground, to fade it. */

@@ -236,9 +236,9 @@ _The pack's purpose:_ Connect the prepared research, illustrative finance compar
 
 - **Camera:** Follows the click, then rides the pages as they pass, slowing at the end.
 - **Ends on:** The client's report: chart pages, never paragraphs.
-- **On screen, exactly:** "Investment Compass" · "14 WATTLE GROVE, BANKSIA RISE NSW 2155" · "A+" · "Key figures" · "Capital growth" · "10-year cash flow"
+- **On screen, exactly:** "Financial Analysis" · "14 WATTLE GROVE, BANKSIA RISE NSW 2155" · "A+" · "Key figures" · "Capital growth" · "10-year cash flow"
 - **Made from:** `PL-05C-a`, `NEW-REPORT-CHARTS`, `G-PAGE-SCROLL`, `G-RAIL`, `G-POINTER`
-- **Note:** The pages are the product's report in its own unbranded colours (obsidian #251F18, gold #D9A520); the client asked for figures, charts and infographics rather than pages of prose (22 October 2026). Every modelled page carries the illustrative-example label.
+- **Note:** The pages are the Financial Analysis that 05.1 prepares from the Compass (the product keeps the purchase's modelling out of the Compass and in this report), in the product's own unbranded colours (obsidian #251F18, gold #D9A520); the client asked for figures, charts and infographics rather than pages of prose (22 October 2026). Every modelled page carries the illustrative-example label.
 
 ### Block 06 · Communication and the supporting agent (00:45.233 to 00:53.567)
 
@@ -343,13 +343,13 @@ _The pack's purpose:_ Show an accountant contributing a concrete review, then re
 
 > They trust you to identify opportunities, make sense of complexity
 
-| At        | What happens                                                                                                                                                                                                                       |
-| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 01:11.967 | The report again, further in: How this grade was reached, A+ on a dial, its five dimensions as bars (capital growth, location, rental yield, demand, property risk), every one scored. The marker settles under the composite, 84. |
-| 01:15.233 | The pages run on: the suburb at a glance (its median price, growth, days on market, the share of owners, drawn as figures and icons), then rental comparables on a chart.                                                          |
-| 01:15.967 | The run settles on the risk dashboard: each risk a coloured level with its evidence, nothing in prose.                                                                                                                             |
+| At        | What happens                                                                                                                                                                                                                                                                      |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 01:11.967 | The Investment Compass the Financial Analysis was prepared from, further in: How this grade was reached, A+ on a dial, its five dimensions as bars (capital growth, location, rental yield, demand, property risk), every one scored. The marker settles under the composite, 84. |
+| 01:15.233 | The pages run on: the suburb at a glance (its median price, growth, days on market, the share of owners, drawn as figures and icons), then rental comparables on a chart.                                                                                                         |
+| 01:15.967 | The run settles on the risk dashboard: each risk a coloured level with its evidence, nothing in prose.                                                                                                                                                                            |
 
-- **Camera:** Rides the pages as they pass, a different stretch of the same report from 05.2.
+- **Camera:** Rides the pages as they pass: the Compass, where 05.2 rode the Financial Analysis.
 - **Ends on:** The report's grade, area and risk pages: figures the client can read at a glance.
 - **On screen, exactly:** "How this grade was reached" · "A+ · 84" · "Capital growth · Location · Rental yield · Demand · Property risk" · "Illustrative example only: hypothetical client, figures and assumptions. Not a credit assessment or financial advice."
 - **Made from:** `NEW-REPORT-CHARTS`, `G-PAGE-SCROLL`, `G-HIGHLIGHT`

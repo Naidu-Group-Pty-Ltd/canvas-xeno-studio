@@ -1,4 +1,4 @@
-// Reel 1, shot 06.3: Aurixa Agent, beside the work.
+// Reel 1, shot 06.3: Aurixa Agent, beside the work. The window floats in depth (./workflowStage.cjs).
 const M = require("../motion.cjs");
 const {
   beat,
@@ -9,7 +9,6 @@ const {
   px,
   State,
   fade,
-  windowHtml,
   between,
   placeWindow,
   pointerHtml,
@@ -19,6 +18,7 @@ const {
   railHtml,
   F,
 } = M;
+const S = require("./workflowStage.cjs");
 
 // ------------------------------------------------------------------ 06.3: Aurixa Agent, beside the work
 function agentScene() {
@@ -33,8 +33,8 @@ function agentScene() {
   const LOW = { ...A06B, focus: [990 + half[0], css[1] - half[1]] };
   const html = () =>
     [
-      `<div id="ground" class="fk-layer" style="z-index:0"><div class="fk-field"></div><div class="fk-glow"></div></div>`,
-      windowHtml("W", ["PL-06B-a", "PL-06B-b"], 5),
+      S.stageHtml(),
+      S.stageWindow("W", ["PL-06B-a", "PL-06B-b"], 5),
       railHtml("rail", "Team"),
       pointerHtml(),
       captionHtml(),
@@ -47,7 +47,9 @@ function agentScene() {
     // Still until the press; then the camera rises to the panel as it opens.
     const push = span(t, tPress + 0.05, tPress + 0.95, EASE.move);
     const opened = span(t, tPress + 0.02, tPress + 0.1, EASE.linear);
-    const g = placeWindow(st, "W", css, between(css, LOW, A06B, push), [1, opened]);
+    const fr = between(css, LOW, A06B, push);
+    const P = S.stageState(st, fr.rect, S.drift(t));
+    const g = placeWindow(st, "W", css, fr, [1, opened], { transform: P.css });
     // The button's label shows as the pointer reaches it.
     const hover = span(t, tHover - 0.04, tHover + 0.18, EASE.settle);
     st.set("#W-0 .qtip", { transform: `translateX(${px((1 - hover) * 8)})`, ...fade(hover) });
@@ -73,11 +75,12 @@ function agentScene() {
         k + 1,
       );
     });
-    // The pointer comes to the button, rests on it while its label shows, presses it and is gone.
-    const to = g.map(m.button);
+    // The pointer comes to the button, rests on it while its label shows, presses it and is gone; its points
+    // are the page's, carried through the window's turn.
+    const on = (pt) => P.map(g.map(pt));
     pointer(st, t, {
-      from: g.map(m.start),
-      to,
+      from: on(m.start),
+      to: on(m.button),
       a: tIn + 0.06,
       b: tHover,
       show: tIn,

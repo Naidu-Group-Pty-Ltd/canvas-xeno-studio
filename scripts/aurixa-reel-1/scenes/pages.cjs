@@ -1,99 +1,109 @@
-// Reel 1, shot 08.2: what the client is trusting you with. The client's report in the browser's PDF viewer at
-// its summary (page 4), the marker settling under the case it sets out; then the page turns to page 19, how the
-// grade was reached, and the marker settles under the two dimensions that were not scored.
+// Reel 1, shot 08.2: what the client is trusting you with. The report again, further into the Investment
+// Compass, the camera running through its pages in depth (G-PAGE-SCROLL) as it did in 05.2, on a different
+// stretch: how this grade was reached (A+ on its dial, the five dimensions as bars, every one scored, and the
+// marker settling under the composite, 84), then the suburb at a glance, rental comparables and the risk
+// dashboard, each held long enough to read and each drawing its figures as it lands (NEW-REPORT-CHARTS). None
+// of these pages appears in 05.2.
 const M = require("../motion.cjs");
-const {
-  beat,
-  EASE,
-  span,
-  lerp,
-  r3,
-  px,
-  State,
-  fade,
-  placeWindow,
-  captionHtml,
-  caption,
-  railHtml,
-  F,
-  KIT,
-} = M;
-const { PLATES } = require("../plates.cjs");
+const { beat, shotOf, EASE, span, lerp, r3, State, fade, captionHtml, caption, F } = M;
+const reportCharts = require("../pages/reportCharts.cjs");
+const reportDeck = require("../pages/reportDeck.cjs");
 
-// ------------------------------------------------------------------ 08.2: the report's pages, marked
 function pagesScene() {
-  const KEYS = ["NEW-REPORT-PAGES-a", "NEW-REPORT-PAGES-b"];
-  const css = F.plate(KEYS[0]).css; // the two viewer states share one size
-  const [tIn, tTurn] = [0, 1].map((i) => beat("08.2", i));
-  // Where the sheet is in the viewer (its left and top in the plate, and plate px a point), and the passages
-  // each page marks: the readiness statement's lead on page 4, the two unscored rows' "- (not scored)" on 19.
-  const [left, top, k] = PLATES[KEYS[0]].sheetAt;
-  const onPage = ([x, y]) => [left + k * x, top + k * y];
-  const MARKS = KEYS.map((key) => PLATES[key].marks);
-  // A08b and F08: the page at 2.45 frame px a plate px, centred on the sheet, in the 1000 x 900 window.
-  const ZOOM = 2.45;
-  const rect = [40, 384, 1000, 900];
-  const framing = (y) => ({ rect, zoom: ZOOM, focus: onPage([297.75, y]), at: [540, 834] });
-  const FRAMINGS = [framing(288), framing(285)];
-  // The turn scrolls the viewer from one page to the next: a page's height and the viewer's gap between
-  // pages, in frame px.
-  const SHEET = [595.5, 842.25];
-  const TURN = SHEET[1] * k * ZOOM + 14 * k * ZOOM;
+  const RC = reportCharts({ P: F.asset("P.png"), EMBLEM: F.EMBLEM });
+  const KEYS = ["grade", "suburb", "comparables", "risk"];
+  // A little smaller than 05.2's, so that what each page is about (the composite and its marker, the places
+  // within reach, the last risk) stands clear of the captions without the camera having to scroll to it.
+  const deck = reportDeck({ RC, keys: KEYS, id: "deck", width: 820, top: 330, rise: 0.39 });
 
-  // The window, as windowHtml draws it, with the viewer's grey behind the pages, each page cut to its sheet
-  // (so the viewer's toolbar never rides the turn) and its marks inside it, in the sheet's own coordinates.
-  const viewerHtml = (id, z) => {
-    const layers = KEYS.map((key, n) => {
-      const p = F.plate(key);
-      const [x0, y0] = onPage([0, 0]);
-      const [x1, y1] = onPage(SHEET);
-      const clip = `inset(${r3(y0)}px ${r3(p.css[0] - x1)}px ${r3(p.css[1] - y1)}px ${r3(x0)}px)`;
-      const marks = MARKS[n]
-        .map(({ x, base, width }, i) => {
-          const [mx, my] = onPage([x, base + 2.6]);
-          return `<div class="fk-mark" id="${id}-m${n}-${i}" style="left:${r3(mx)}px;top:${r3(my)}px;width:${r3(width * k)}px;height:${r3(KIT.K / ZOOM)}px;transform-origin:0 50%;transform:scaleX(0)"></div>`;
-        })
-        .join("");
-      return `<div class="fk-scale" id="${id}-${n}" style="width:${p.css[0]}px;height:${p.css[1]}px;clip-path:${clip}">${p.html}${marks}</div>`;
-    }).join("");
-    return `<div class="fk-win" id="${id}" style="z-index:${z}"><div class="fk-page" id="${id}-page" style="background:#525659">${layers}<div class="fk-veil" id="${id}-veil"></div></div></div>`;
-  };
+  // The shot's times, from the brief's beats: the grade page comes in on the cut and is read longest, its
+  // figures drawing as it lands; the others follow on the brief's run of pages.
+  const [t0, tRun] = [0, 1].map((i) => beat("08.2", i));
+  const end = shotOf("08.2").out;
+  // Each page is read for 0.9 s or more, counting the settle of its arrival, and leaves in half a second; the
+  // grade's marker is held a moment before the run moves on, and the last move is the slowest.
+  const LAND = [t0 + 0.36, t0 + 1.943, tRun - 0.1, end - 0.733];
+  const MOVE = [0, 0.5, 0.5, 0.55];
+  const LEAVE = LAND.map((l, k) => (k + 1 < LAND.length ? LAND[k + 1] - MOVE[k + 1] : end));
+  const STOPS = [
+    [t0, -0.32],
+    [LAND[0], 0, EASE.settle],
+  ];
+  LAND.forEach((l, k) => {
+    if (k) STOPS.push([l, k]);
+    STOPS.push([LEAVE[k], k + (k === LAND.length - 1 ? 0.015 : 0.03)]);
+  });
+  // How far each page scrolls up while it is read (frame px): the camera rides it.
+  const RIDE = [-26, -24, -20, -24];
+  const rideSpan = [
+    [t0 + 0.4, LEAVE[0] + 0.2],
+    ...LAND.slice(1).map((l, k) => [l - 0.05, LEAVE[k + 1] + 0.2]),
+  ];
 
   const html = () =>
     [
       `<div id="ground" class="fk-layer" style="z-index:0"><div class="fk-field"></div><div class="fk-glow"></div></div>`,
-      viewerHtml("W", 5),
-      railHtml("rail", "Team"),
+      deck.html(),
       captionHtml(),
     ].join("");
-
-  /** A page's marks, drawn left to right one after the other from `a`, each over `d` on ease-settle. */
-  const draw = (st, n, t, a, d = 0.42) =>
-    MARKS[n].forEach((_, i) => {
-      const p = span(t, a + i * 0.16, a + i * 0.16 + d, EASE.settle);
-      st.set(`#W-m${n}-${i}`, { transform: `scaleX(${r3(p)})`, ...fade(p > 0 ? 1 : 0) });
-    });
 
   const state = (t, m) => {
     const st = new State();
     caption(st, t, m);
-    st.set("#rail", fade(1));
-    // The turn: the viewer scrolls from page 4 to page 19 in one move, both pages riding it.
-    const s = TURN * span(t, tTurn, tTurn + 0.62, EASE.move);
-    const g = placeWindow(st, "W", css, FRAMINGS[0], [1, 1]);
-    const g19 = KIT.shotGeometry({ css, ...FRAMINGS[1] });
-    st.set("#W-0", {
-      transform: `translate(${px(g.ox)}, ${px(g.oy - s)}) scale(${ZOOM.toFixed(6)})`,
-      ...fade(s < TURN - 1 ? 1 : 0),
+    const c = deck.camera(t, STOPS, EASE.move);
+    deck.place(st, c, {
+      ride: (i) => RIDE[i] * EASE.move(span(t, rideSpan[i][0], rideSpan[i][1], EASE.linear)),
     });
-    st.set("#W-1", {
-      transform: `translate(${px(g19.ox)}, ${px(g19.oy + TURN - s)}) scale(${ZOOM.toFixed(6)})`,
-      ...fade(s > 1 ? 1 : 0),
+
+    // How this grade was reached: the dial sweeps to 84 as its number counts, the five dimensions fill in
+    // turn with their scores and what each contributes, and the marker settles under the composite.
+    const sweep = span(t, t0 + 0.1, t0 + 0.8, EASE.move);
+    const composite = RC.figures.COMPOSITE;
+    st.set("#rc-g-arc", {
+      "stroke-dashoffset": String(r3(1.001 * (1 - (sweep * composite) / 100))),
     });
-    // G-HIGHLIGHT: on page 4 under the readiness statement's lead, once the page has been read; on page 19
-    // under the two dimensions not scored, once it has landed.
-    draw(st, 0, t, tIn + 0.7);
-    draw(st, 1, t, tTurn + 0.78);
+    st.set("#rc-g-num", { $text: String(Math.round(composite * sweep)) });
+    RC.figures.DIMENSIONS.forEach((_, i) => {
+      const a = t0 + 0.2 + i * 0.06;
+      st.set(`#rc-g-bar-${i}`, { transform: `scaleX(${r3(span(t, a, a + 0.45, EASE.settle))})` });
+      st.set(`#rc-g-score-${i}`, fade(span(t, a + 0.27, a + 0.43, EASE.linear)));
+      st.set(`#rc-g-part-${i}`, fade(span(t, a + 0.33, a + 0.49, EASE.linear)));
+    });
+    st.set("#rc-g-mark", {
+      transform: `scaleX(${r3(span(t, t0 + 0.8, t0 + 1.12, EASE.settle))})`,
+    });
+
+    // The suburb at a glance: the line out from the lot reaches each place in turn; the owners fill in.
+    const a1 = LAND[1] - 0.25;
+    const reach = span(t, a1, a1 + 0.52, EASE.linear);
+    st.set("#rc-sb-reach", { transform: `scaleX(${r3(EASE.settle(reach))})` });
+    RC.reachAlong.forEach((f, i) => {
+      const p = span(t, a1 + 0.52 * f - 0.12, a1 + 0.52 * f + 0.1, EASE.settle);
+      st.set(`#rc-sb-stop-${i}`, { transform: `scale(${r3(lerp(0.3, 1, p))})`, ...fade(p) });
+    });
+    for (let k = 0; k < 10; k++) {
+      const p = span(t, a1 + k * 0.035, a1 + k * 0.035 + 0.2, EASE.settle);
+      st.set(".rc-sb-home", { transform: `scale(${r3(lerp(0.5, 1, p))})`, ...fade(p) }, k);
+    }
+
+    // Rental comparables: the leases fill, longest first, each with its rent.
+    const a2 = LAND[2] - 0.25;
+    for (let i = 0; i < 7; i++) {
+      const a = a2 + i * 0.035;
+      st.set(`#rc-cp-bar-${i}`, { transform: `scaleX(${r3(span(t, a, a + 0.36, EASE.settle))})` });
+      st.set(`#rc-cp-val-${i}`, fade(span(t, a + 0.24, a + 0.38, EASE.linear)));
+    }
+
+    // The risk dashboard: each risk's level fills in, row by row.
+    const a3 = LAND[3] - 0.22;
+    RC.riskMeters.forEach((n, i) => {
+      for (let k = 0; k < n; k++) {
+        const a = a3 + i * 0.045 + k * 0.05;
+        st.set(`#rc-rk-${i}-${k}`, {
+          transform: `scaleX(${r3(span(t, a, a + 0.18, EASE.settle))})`,
+        });
+      }
+    });
     return st;
   };
 

@@ -1141,14 +1141,14 @@
       "camera": "Follows the click, then rides the pages as they pass, slowing at the end.",
       "result": "The client's report: chart pages, never paragraphs.",
       "on_screen": [
-        "Investment Compass",
+        "Financial Analysis",
         "14 WATTLE GROVE, BANKSIA RISE NSW 2155",
         "A+",
         "Key figures",
         "Capital growth",
         "10-year cash flow"
       ],
-      "notes": "The pages are the product's report in its own unbranded colours (obsidian #251F18, gold #D9A520); the client asked for figures, charts and infographics rather than pages of prose (22 October 2026). Every modelled page carries the illustrative-example label.",
+      "notes": "The pages are the Financial Analysis that 05.1 prepares from the Compass (the product keeps the purchase's modelling out of the Compass and in this report), in the product's own unbranded colours (obsidian #251F18, gold #D9A520); the client asked for figures, charts and infographics rather than pages of prose (22 October 2026). Every modelled page carries the illustrative-example label.",
       "in": 49.167,
       "out": 54.3,
       "seconds": 5.133,
@@ -1342,7 +1342,7 @@
       "palette": "aurixa",
       "title": "What the client is trusting you with",
       "sources": ["NEW-REPORT-CHARTS", "G-PAGE-SCROLL", "G-HIGHLIGHT"],
-      "camera": "Rides the pages as they pass, a different stretch of the same report from 05.2.",
+      "camera": "Rides the pages as they pass: the Compass, where 05.2 rode the Financial Analysis.",
       "result": "The report's grade, area and risk pages: figures the client can read at a glance.",
       "on_screen": [
         "How this grade was reached",
@@ -1359,7 +1359,7 @@
       "beats": [
         {
           "at": 71.967,
-          "do": "The report again, further in: How this grade was reached, A+ on a dial, its five dimensions as bars (capital growth, location, rental yield, demand, property risk), every one scored. The marker settles under the composite, 84."
+          "do": "The Investment Compass the Financial Analysis was prepared from, further in: How this grade was reached, A+ on a dial, its five dimensions as bars (capital growth, location, rental yield, demand, property risk), every one scored. The marker settles under the composite, 84."
         },
         {
           "at": 75.233,

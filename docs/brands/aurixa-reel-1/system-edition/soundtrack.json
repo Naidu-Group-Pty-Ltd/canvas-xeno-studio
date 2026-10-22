@@ -1,0 +1,198 @@
+{
+  "written": "2026-10-22",
+  "note": "The third cut's soundtrack as a studio edit's audio (src/lib/edit/timeline.ts), mixed by the media worker's code (media-worker/src/sequence.js). The voiceover item is the master asset held open in its silences by pacing.py, prepared as one track.",
+  "timeline": {
+    "audio": [
+      {
+        "id": "voiceover",
+        "assetId": "84c0abf7-60d1-4439-84fd-e7038feffc01",
+        "role": "voiceover",
+        "start": 0,
+        "trimStart": 0,
+        "duration": 131.2,
+        "volume": 1,
+        "fadeIn": 0,
+        "fadeOut": 0,
+        "loop": false,
+        "duck": false,
+        "duckLevel": 0.25,
+        "label": "The voiceover, held open in its silences (pacing.py)"
+      },
+      {
+        "id": "music-1",
+        "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+        "role": "music",
+        "start": 0,
+        "trimStart": 0,
+        "duration": 14.807595,
+        "volume": 0.6,
+        "fadeIn": 0,
+        "fadeOut": 0.03,
+        "loop": false,
+        "duck": true,
+        "duckLevel": 0.25,
+        "label": "The intro"
+      },
+      {
+        "id": "music-2",
+        "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+        "role": "music",
+        "start": 14.777595,
+        "trimStart": 7.335339,
+        "duration": 14.914513,
+        "volume": 0.6,
+        "fadeIn": 0.03,
+        "fadeOut": 0.03,
+        "loop": false,
+        "duck": true,
+        "duckLevel": 0.25,
+        "label": "The intro's last four bars, again"
+      },
+      {
+        "id": "music-3",
+        "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+        "role": "music",
+        "start": 29.662108,
+        "trimStart": 22.219852,
+        "duration": 68.870871,
+        "volume": 0.5,
+        "fadeIn": 0.03,
+        "fadeOut": 0.03,
+        "loop": false,
+        "duck": true,
+        "duckLevel": 0.22,
+        "label": "The drop and the groove, to the end of bar 36"
+      },
+      {
+        "id": "music-4",
+        "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+        "role": "music",
+        "start": 98.502979,
+        "trimStart": 83.618466,
+        "duration": 13.053949,
+        "volume": 0.5,
+        "fadeIn": 0.03,
+        "fadeOut": 0.03,
+        "loop": false,
+        "duck": true,
+        "duckLevel": 0.22,
+        "label": "Bars 33 to 36 again, then on to the breakdown"
+      },
+      {
+        "id": "music-5",
+        "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+        "role": "music",
+        "start": 111.526928,
+        "trimStart": 96.642415,
+        "duration": 7.472256,
+        "volume": 0.45,
+        "fadeIn": 0.03,
+        "fadeOut": 0.03,
+        "loop": false,
+        "duck": false,
+        "duckLevel": 1,
+        "label": "The breakdown"
+      },
+      {
+        "id": "music-6",
+        "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+        "role": "music",
+        "start": 118.969184,
+        "trimStart": 107.805799,
+        "duration": 3.751129,
+        "volume": 0.45,
+        "fadeIn": 0.03,
+        "fadeOut": 0.03,
+        "loop": false,
+        "duck": false,
+        "duckLevel": 1,
+        "label": "The breakdown's last two bars"
+      },
+      {
+        "id": "music-7",
+        "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+        "role": "music",
+        "start": 122.690313,
+        "trimStart": 111.526928,
+        "duration": 8.509687,
+        "volume": 0.6,
+        "fadeIn": 0.03,
+        "fadeOut": 1.002,
+        "loop": false,
+        "duck": true,
+        "duckLevel": 0.3,
+        "label": "The re-entry, to the last downbeat and its ring"
+      }
+    ],
+    "mix": {
+      "picture": {
+        "level": 1,
+        "muted": true
+      },
+      "voiceover": {
+        "level": 1,
+        "muted": false
+      },
+      "audio": {
+        "level": 1,
+        "muted": false
+      }
+    },
+    "normalizeLoudness": true
+  },
+  "plan": {
+    "total": 131.2,
+    "loudness": -14,
+    "mix": {
+      "picture": 0,
+      "voiceover": 1,
+      "music": 1,
+      "sfx": 1
+    }
+  },
+  "speech": [
+    [0.911, 4.686],
+    [5.228, 9.632],
+    [10.006, 11.615],
+    [11.985, 19.494],
+    [20.417, 21.396],
+    [22.03, 28.416],
+    [30.887, 35.727],
+    [36.434, 37.274],
+    [38.266, 40.27],
+    [41.095, 44.257],
+    [45.347, 49.163],
+    [49.733, 53.07],
+    [54.48, 55.804],
+    [56.517, 63.37],
+    [64.12, 67.817],
+    [68.829, 71.386],
+    [71.856, 74.862],
+    [75.224, 78.771],
+    [80.221, 84.385],
+    [85.388, 86.801],
+    [87.688, 90.111],
+    [91.018, 91.891],
+    [92.391, 94.065],
+    [94.884, 98.265],
+    [98.876, 100.6],
+    [101.814, 104.099],
+    [104.696, 107.976],
+    [109.637, 111.086],
+    [111.696, 113.675],
+    [115.149, 116.161],
+    [116.837, 117.689],
+    [118.638, 119.686],
+    [120.499, 121.395],
+    [122.854, 123.983],
+    [124.482, 127.43],
+    [128.054, 129.741]
+  ],
+  "measured": {
+    "input_i": -20.18,
+    "input_tp": -3.4,
+    "input_lra": 5.3,
+    "input_thresh": -30.69,
+    "target_offset": 0.41
+  }
+}

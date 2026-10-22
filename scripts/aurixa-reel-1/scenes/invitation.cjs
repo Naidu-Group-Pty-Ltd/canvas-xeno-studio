@@ -1,188 +1,271 @@
-// Reel 1, shots 10.2 and 11.1 (one scene): the invitation rises over the system map, the pointer comes to its
-// button; then close on the button, and the press.
+// Reel 1, shot 10.2 (third cut): we've arrived, and the invitation is open. One shot from the logo to the press.
+// Out of 10.1's sun the supplied emblem leaps at the viewer (G-LOGO-JUMP): it rushes from a point in the sun to
+// filling the frame, faster as it comes, and lands on the music's beat with a flash, a shock ring and sparks
+// (../pages/light.cjs); then it pulls back and settles at the top of the card, its light now the sun's. AURIXA
+// SYSTEMS sets in beneath it on the next bar, 14-DAY FREE TRIAL on the beat after, and the button (G-CTA,
+// ../pages/cta.cjs: the site's prismatic button, alive) rises in and lands as "invitation" is said. The pointer
+// comes over it; it lifts and quickens; the press on the bar before "Experience", and the light ripples out
+// across the card; it holds, pulsing, as the camera pushes slowly in. The emblem and the wordmark are the
+// supplied files (emblem.png, wordmark.png: exact crops of the art), never redrawn; 15.1 uses the living card
+// logo instead, so the two cards differ.
 const M = require("../motion.cjs");
-const L = require("../logo.cjs");
-const { travellerAt } = require("./horizon.cjs");
-const {
-  FPS,
-  frameOf,
-  beat,
-  EASE,
-  span,
-  lerp,
-  lerp2,
-  r3,
-  px,
-  State,
-  fade,
-  placeWindow,
-  pointerHtml,
-  pointer,
-  captionHtml,
-  caption,
-  F,
-  KIT,
-} = M;
+const L = require("../pages/light.cjs");
+const C = require("../pages/cta.cjs");
 
-/** A G-WINDOW holding plates already made (edited), one layer each, as windowHtml lays them out. */
-function windowOf(id, plates, z) {
-  const layers = plates
-    .map(
-      (p, n) =>
-        `<div class="fk-scale" id="${id}-${n}" style="width:${p.css[0]}px;height:${p.css[1]}px">${p.html}</div>`,
-    )
-    .join("");
-  return `<div class="fk-win" id="${id}" style="z-index:${z}"><div class="fk-page" id="${id}-page">${layers}<div class="fk-veil" id="${id}-veil"></div></div></div>`;
+const { F, beat, shotOf, span, lerp, r3, px, State, fade, pointerHtml, pointer } = M;
+const { captionHtml, caption, EASE, clamp01 } = M;
+
+/** The film's beat n (0 is the drop) and the first beat at or after t. */
+const grid = (n) => C.DROP + n * C.PERIOD;
+const beatFrom = (t) => grid(Math.ceil((t - C.DROP) / C.PERIOD - 1e-6));
+
+// The card, in frame px (the action zone, 360 to 1300; the captions below it).
+const EMB = { w: 440, h: (440 * 628) / 679, cx: 540, top: 360 };
+EMB.cy = EMB.top + EMB.h / 2;
+const WM = { w: 560, h: (560 * 187) / 882, top: 806 };
+const EYE = { top: 954 };
+const BTN = { w: 820, h: 132, left: 130, top: 1030 };
+BTN.c = [BTN.left + BTN.w / 2, BTN.top + BTN.h / 2];
+/** Where the emblem lands from the sun: the frame's centre, a little above. */
+const PEAK = { cy: 900, scale: 2.4 };
+
+const css = `
+.iv-group { position:absolute; left:0; top:0; width:1080px; height:1920px; transform-origin:${BTN.c[0]}px ${BTN.c[1]}px; }
+.iv-aura { position:absolute; left:0; top:0; width:1000px; height:1000px; border-radius:50%;
+  background:radial-gradient(closest-side, rgba(255,226,160,.42), rgba(245,209,122,.20) 34%, rgba(200,155,60,.08) 62%, rgba(200,155,60,0) 100%); }
+.iv-stage { position:absolute; left:0; top:0; width:1080px; height:1920px; }
+.iv-emb { position:absolute; left:0; top:0; width:${EMB.w}px; height:${r3(EMB.h)}px; transform-origin:50% 50%;
+  filter:drop-shadow(0 0 26px rgba(245,209,122,.42)) drop-shadow(0 0 70px rgba(200,155,60,.22)); }
+.iv-wm { position:absolute; left:${540 - WM.w / 2}px; top:${WM.top}px; width:${WM.w}px; height:${r3(WM.h)}px; }
+.iv-wm img { position:absolute; inset:0; width:100%; height:100%; }
+.iv-wm b { position:absolute; inset:0; mix-blend-mode:screen;
+  -webkit-mask-image:url('${F.WORDMARK}'); -webkit-mask-size:100% 100%; mask-image:url('${F.WORDMARK}'); mask-size:100% 100%;
+  background:linear-gradient(105deg, rgba(255,244,214,0) 0%, rgba(255,244,214,.95) 50%, rgba(255,244,214,0) 100%) no-repeat; background-size:34% 100%; }
+.iv-eye { position:absolute; left:0; right:0; top:${EYE.top}px; display:flex; align-items:center; justify-content:center; gap:26px; }
+.iv-eye span { font:700 30px/1 Inter, sans-serif; color:${L.CYAN}; text-shadow:0 0 18px rgba(94,221,232,.35); white-space:nowrap; }
+.iv-eye i { display:block; width:92px; height:2px; }
+.iv-eye i.l { background:linear-gradient(90deg, rgba(200,155,60,0), ${L.GOLD_INK}); transform-origin:100% 50%; }
+.iv-eye i.r { background:linear-gradient(90deg, ${L.GOLD_INK}, rgba(200,155,60,0)); transform-origin:0 50%; }
+`;
+
+/**
+ * 10.2's clock: the brief's beats, and the music's beats the moves land on. The landing on the first beat the
+ * rush can reach; the wordmark on the next bar; the trial on the beat after; the button lands on bar 34
+ * ("invitation"); the press on bar 35, the beat before "Experience what we've built".
+ */
+function timeline() {
+  const shot = shotOf("10.2");
+  const t0 = beat("10.1", 0); // the dawn's clock: it carries on from 10.1 unbroken
+  const tCut = beat("10.2", 0);
+  const tArrive = beat("10.2", 2); // the pointer over the button
+  const tHold = beat("10.2", 3);
+  const tImpact = beatFrom(tCut + 0.42);
+  const tWord = beatFrom(tImpact + 0.3);
+  const tEye = tWord + 2 * C.PERIOD;
+  const tLand = beatFrom(tEye + 0.75);
+  const tRise = tLand - C.PERIOD;
+  const tPress = beatFrom(tArrive + 0.3);
+  if (!(tPress < tHold && tPress > tArrive))
+    throw new Error("10.2: the press isn't between beats 2 and 3");
+  if (!(tLand < tArrive - 0.6))
+    throw new Error("10.2: the button hasn't landed before the pointer comes");
+  return {
+    shot,
+    t0,
+    tCut,
+    tArrive,
+    tHold,
+    tImpact,
+    tWord,
+    tEye,
+    tLand,
+    tRise,
+    tPress,
+    tPush: tLand,
+  };
+}
+/** Where the pointer's tip rests on the button (its own px). */
+const LOCAL = [BTN.w * 0.71, BTN.h * 0.6];
+/** The camera's push at t: a scale about the button's centre. */
+const pushAt = (T, t) => 1 + 0.075 * span(t, T.tPush, T.shot.out, EASE.move);
+const pushed = (k, [x, y]) => [BTN.c[0] + (x - BTN.c[0]) * k, BTN.c[1] + (y - BTN.c[1]) * k];
+/** The button's own life at t (G-CTA's terms), so 11.1 can carry the same button on across the cut. */
+function buttonLife(T, t, ptr) {
+  const live = span(t, T.tLand - 0.05, T.tLand + 0.25, EASE.settle);
+  const hover = span(t, T.tArrive - 0.14, T.tArrive + 0.1, EASE.settle);
+  return {
+    w: BTN.w,
+    h: BTN.h,
+    t0: T.tRise,
+    hover,
+    hoverAt: T.tArrive - 0.14,
+    ptr: hover > 0 ? ptr : null,
+    press: T.tPress,
+    pulse: live,
+    edge: live,
+    glow: live + 0.6 * Math.exp(-Math.abs(t - T.tLand) / 0.16) * (t >= T.tLand - 0.05 ? 1 : 0),
+  };
 }
 
-/** The pointer's tip in the plate's own baked cursor (where the approved stills draw it). */
-const tipOf = ([x, y, w, h]) => [x + (w * 3) / 24, y + (h * 2) / 24];
-
-// ------------------------------------------------------------------ 10.2 and 11.1: the invitation, the press
 function invitationScene() {
-  const [tRise, tHover] = [0, 1].map((i) => beat("10.2", i));
-  const [tClose, tPress] = [0, 1].map((i) => beat("11.1", i));
-  // The cut to the close-up falls between two frames, so no frame's shutter holds both pictures.
-  const cut = (frameOf(tClose) - 0.5) / FPS;
-  // F10: the invitation drawn whole (no window), its left at -420 and top at 280, under a soft round mask.
-  const INV = { left: -420, top: 280, centre: [540, 820] };
-  // A11: close on the label and the button, in a window.
-  const A11 = { rect: [40, 640, 1000, 380], zoom: 1.6, focus: [960, 785], at: [540, 830] };
-  const button = (html) =>
-    html.replace(
-      '<div style="position:relative;margin-top:34px',
-      '<div class="tbtn" style="position:relative;margin-top:34px',
-    );
-  // The invitation over the map: its logo lives, as the closing card's does (../logo.cjs: the card take's
-  // footage, under the art's own lettering), drawn where the plate draws the supplied art. The close-up
-  // frames the label and the button, below the footage, so its plate keeps the art.
-  const LOGO = /<img src="[^"]*logo-art\.png" alt="AURIXA SYSTEMS"[^>]*>/;
-  const invitation = F.plate("PL-11A-a", (html) => {
-    if (!LOGO.test(html)) throw new Error("PL-11A-a has no logo image to lay the footage in");
-    return button(html)
-      .replace('<div class="tbtn"', '<div class="tbtn" id="trial-btn"')
-      .replace(LOGO, L.cardLogoHtml({ id: "trial-logo", width: 1010 }));
-  });
-  // Close up, one plate: the press is drawn on its own button (PL-11A-b's pressed look: the deeper blue, the
-  // inset shadow and the gold edge), so the label never doubles in a cross-fade.
-  const close = [F.plate("PL-11A-a", button)];
-  const css = close[0].css;
-  const hub = F.SYSTEM_MAP.hub;
-  const hubPlate = F.plate(hub.key);
-  const hubZoom = hub.width / hubPlate.css[0];
-  // 10.1's last state: the map live, a traveller on each line (still running, as 10.1 runs them), the horizon
-  // above with its traveller at rest; the confirmations have blinked and gone.
-  const T = F.SYSTEM_MAP.portals.map(() => 0);
+  const T = timeline();
+  const { t0, tCut, tArrive, tImpact, tWord, tEye, tLand, tRise, tPress } = T;
 
-  const html = () => {
-    const portals = F.SYSTEM_MAP.portals.map((_, i) => F.mapPortal(i, { traveller: T[i] }));
-    const map = [
-      ...portals.map((p, i) =>
-        p.line.replace('class="fk-traveller"', `class="fk-traveller" id="T${i}"`),
-      ),
-      ...portals.map((p) => p.window),
-      KIT.camera({
-        plate: hubPlate,
-        zoom: hubZoom,
-        focus: [hubPlate.css[0] / 2, hubPlate.css[1] / 2],
-        at: hub.at,
-        style: "z-index:5",
-      }),
-      ...portals.map((p) => p.chip),
-      F.mapChip(hub.label, hub.at[0], hub.at[1] - (hubPlate.css[1] * hubZoom) / 2 - 72, 6),
-    ].join("");
-    const extras = `<div class="fk-horizon" style="top:330px"></div><div class="fk-traveller" style="left:676px;top:331px;z-index:3"></div>`;
-    const mask = "radial-gradient(46% 52% at 50% 48%, #000 62%, transparent 100%)";
-    return [
-      // The plates' own drawn pointer gives way to the moving one, as every scene's does.
-      `<style>.fk svg.cursor { visibility:hidden !important; }</style>`,
-      `<div id="ground" class="fk-layer" style="z-index:0"><div class="fk-field"></div><div class="fk-glow"></div></div>`,
-      `<div id="map" class="fk-layer" style="z-index:2">${map}</div>`,
-      `<div id="extras" class="fk-layer" style="z-index:3">${extras}</div>`,
-      `<div id="rise" class="fk-layer" style="z-index:4;visibility:hidden"><div id="inv" style="position:absolute;left:${INV.left}px;top:${INV.top}px;width:${invitation.css[0]}px;height:${invitation.css[1]}px;-webkit-mask-image:${mask};mask-image:${mask}">${invitation.html}</div></div>`,
-      windowOf("W", close, 5),
+  const html = () =>
+    [
+      `<style>${L.dawnCss}${L.burstCss}${C.ctaCss}${css}</style>`,
+      `<div class="fk-layer" style="z-index:0;background:#040B16"></div>`,
+      `<div class="iv-group" id="dawn" style="z-index:1">${L.dawnHtml("dw")}</div>`,
+      `<div class="iv-group" id="card" style="z-index:10">`,
+      `<div class="iv-aura" id="aura" style="visibility:hidden"></div>`,
+      `<div class="iv-stage"><img class="iv-emb" id="emb" src="${F.EMBLEM}" alt="" style="visibility:hidden"></div>`,
+      `<div class="iv-wm" id="wm" style="visibility:hidden"><img src="${F.WORDMARK}" alt="AURIXA SYSTEMS"><b id="wm-sweep"></b></div>`,
+      `<div class="iv-eye" id="eye" style="visibility:hidden"><i class="l" id="eye-l"></i><span id="eye-t">14-DAY FREE TRIAL</span><i class="r" id="eye-r"></i></div>`,
+      C.ctaHtml("cta", { w: BTN.w, h: BTN.h, size: 33 }),
+      L.rippleHtml("rp", 26),
+      `</div>`,
+      L.burstHtml("lj", { z: 9, sparks: 44, rings: 2 }),
       pointerHtml(),
       captionHtml(),
     ].join("");
-  };
-
-  // The button: its hover (the site's CTA hover: a lift and a stronger glow), h, and its press, p (to PL-11A-b's
-  // pressed look: the deeper blue, an inset shadow, the gold edge), sinking by `sink` as the pointer dips.
-  const mix = (a, b, u) => a.map((v, i) => Math.round(v + (b[i] - v) * u));
-  const buttonStyle = (h, p = 0, sink = 0) => {
-    const ring = mix([0, 168, 181], [215, 179, 95], p);
-    const lift = 1 - p;
-    return {
-      transform: `translateY(${px(-2 * h * lift + 3 * sink)}) scale(${r3(1 - 0.012 * sink)})`,
-      background: `rgb(${mix([18, 56, 232], [13, 43, 181], p).join(",")})`,
-      "box-shadow": `inset 0 ${px(4 * p)} ${px(12 * p)} rgba(0,0,0,${r3(0.5 * p)}), 0 0 0 ${px(2 + 2 * p)} rgba(${ring.join(",")},${r3(lerp(0.55 + 0.25 * h, 0.7, p))}), 0 ${px((10 + 4 * h) * lift)} ${px((40 + 14 * h) * lift)} rgba(18,56,232,${r3((0.45 + 0.17 * h) * lift)})`,
-      filter: h * lift > 0.001 ? `brightness(${r3(1 + 0.06 * h * lift)})` : "none",
-    };
-  };
 
   const state = (t, m) => {
     const st = new State();
     caption(st, t, m);
-    const closeUp = t >= cut;
-    // 10.2: the map dims; the live extras (the horizon and the travellers, still running) go first.
-    const dim = span(t, tRise, tRise + 0.7, EASE.move);
-    const live = 1 - span(t, tRise, tRise + 0.35, EASE.move);
-    st.set("#map", fade(closeUp ? 0 : lerp(1, 0.32, dim)));
-    st.set("#extras", fade(closeUp ? 0 : live));
-    T.forEach((_, i) => {
-      const { at, o } = travellerAt(i, t);
-      st.set(`#T${i}`, { left: px(at[0]), top: px(at[1]), ...fade(closeUp ? 0 : o * live) });
-    });
-    // The invitation rises into the centre over it.
-    const rise = span(t, tRise + 0.15, tRise + 1.05, EASE.settle);
-    st.set("#rise", {
-      transform: `translateY(${px((1 - rise) * 70)}) scale(${r3(lerp(0.96, 1, rise))})`,
-      "transform-origin": `${INV.centre[0]}px ${INV.centre[1]}px`,
-      ...fade(closeUp ? 0 : span(t, tRise + 0.15, tRise + 0.6, EASE.linear)),
-    });
-    // Its logo's footage, from 4 s into the take (15.1 plays it from the start), so the two cards differ.
-    L.cardLogoState(st, "trial-logo", t, { t0: tRise, offset: 120, frameOf });
-    // Its hover state, once the pointer is over the button (and still, close on it, until the press).
-    const hover = span(t, tHover, tHover + 0.18, EASE.settle);
-    st.set("#trial-btn", buttonStyle(closeUp ? 1 : hover));
+    const k = pushAt(T, t);
 
-    // 11.1: close on the button, in its window; the press sinks it and gives it its gold edge.
-    const pressed = span(t, tPress + 0.02, tPress + 0.16, EASE.settle);
-    const sink =
-      t < tPress
-        ? 0
-        : 0.6 * Math.sin(Math.min(1, (t - tPress) / 0.22) * Math.PI) +
-          0.4 * span(t, tPress, tPress + 0.12, EASE.settle);
-    const g = placeWindow(st, "W", css, A11, [1], { opacity: closeUp ? 1 : 0 });
-    st.set("#W-0 .tbtn", buttonStyle(1, closeUp ? pressed : 0, closeUp ? sink : 0));
+    // ---- the dawn: the sun flares as the emblem leaves it and is gone under the landing's flash; its warmth
+    // stays on the sky, lower. The dawn is far off, so the push moves it a third as much.
+    const rush = span(t, tCut, tImpact, EASE.linear);
+    const after = span(t, tImpact, tImpact + 0.14, EASE.linear);
+    const sun = t < tImpact ? 1 + 0.4 * EASE.move(rush) : 1.4 * (1 - after);
+    const sky = t < tImpact ? sun : lerp(1.4, 0.46, span(t, tImpact, tImpact + 0.5, EASE.settle));
+    const rays = t < tImpact ? 0.9 * rush : 0.9 * Math.exp(-(t - tImpact) / 0.3);
+    L.dawnState(st, t, "dw", { t0, sun, sky, burst: rays });
+    st.set("#dawn", { transform: `scale(${r3(1 + (k - 1) * 0.35)})` });
+    st.set("#card", { transform: `scale(${r3(k)})` });
 
-    // The pointer: up from the lower right to the button (its tip where the approved frame draws it); at the
-    // cut, on the same point of the button close up; then the press.
-    const onButton = [INV.left + m.tip[0], INV.top + m.tip[1]];
-    if (!closeUp)
-      pointer(st, t, {
-        from: [900, 1250],
-        to: onButton,
-        a: tHover - 0.42,
-        b: tHover,
-        show: tHover - 0.5,
-      });
-    else {
-      const at = g.map(m.tipW);
-      pointer(st, t, { from: at, to: at, a: cut, b: cut + 0.01, show: cut - 1, press: tPress });
+    // ---- the leap: out of the sun at the cut, rushing at the viewer (its scale growing by ratio, faster as it
+    // comes, as a thing flying at you does), turning square to the camera; over-size at the landing, filling the
+    // frame; then back, settling at the top of the card on ease-settle with a breath of undershoot.
+    let s;
+    let cy;
+    let ry = 0;
+    let rz = 0;
+    if (t < tImpact) {
+      const p = rush ** 1.8;
+      s = 0.07 * (PEAK.scale / 0.07) ** p;
+      cy = lerp(L.dawnAt(tCut, t0).sunY, PEAK.cy, rush * rush);
+      ry = -26 * (1 - p);
+      rz = -9 * (1 - rush) ** 2;
+    } else {
+      const v = span(t, tImpact, tImpact + 0.62, EASE.settle);
+      const w = clamp01((t - tImpact - 0.18) / 0.6);
+      s = 1 + (PEAK.scale - 1) * (1 - v) - 0.045 * Math.sin(Math.PI * w) * (1 - w);
+      cy = lerp(PEAK.cy, EMB.cy, v);
     }
+    // At the landing its own light kicks, so its edges hold as the flash goes off behind it.
+    const kick = t < tImpact ? 1 + 0.35 * rush * rush : 1 + 0.42 * Math.exp(-(t - tImpact) / 0.12);
+    st.set("#emb", {
+      // Its turn to the camera is drawn in the plane (a 3D turn can leave a frame's drawing a layer behind).
+      transform: `translate(${px(EMB.cx - EMB.w / 2)}, ${px(cy - EMB.h / 2)}) rotate(${r3(rz)}deg) scale(${r3(s * Math.cos((ry * Math.PI) / 180))}, ${r3(s)})`,
+      filter: `brightness(${r3(kick)}) drop-shadow(0 0 26px rgba(245,209,122,.42)) drop-shadow(0 0 70px rgba(200,155,60,.22))`,
+      ...fade(span(t, tCut, tCut + 0.06, EASE.linear)),
+    });
+    // Its light: the sun's, now the emblem's, breathing on the beats once it has landed.
+    const landed = span(t, tImpact, tImpact + 0.5, EASE.settle);
+    const aura = t < tImpact ? 0.5 * rush : lerp(1, 0.62, landed) + 0.18 * C.beatPulse(t) * landed;
+    const as = 0.6 + 0.4 * Math.min(s, 1.6);
+    st.set("#aura", {
+      transform: `translate(${px(EMB.cx - 500)}, ${px(cy - 500)}) scale(${r3(as)})`,
+      ...fade(aura),
+    });
+    // The landing: a flash, the shock ring (and a second, cyan), sparks; from the emblem's centre.
+    L.burstState(st, t, "lj", {
+      at: tImpact,
+      c: [540, PEAK.cy],
+      flash: 0.95,
+      reach: 1500,
+      spread: 720,
+      sparks: 44,
+      rings: 2,
+      seed: 33,
+    });
+
+    // ---- AURIXA SYSTEMS sets in on the bar: opening from its centre and rising into place, then the light
+    // crosses it once, kept to the letters' own shapes.
+    const wp = span(t, tWord, tWord + 0.5, EASE.settle);
+    st.set("#wm", {
+      transform: `translateY(${px((1 - wp) * 22)})`,
+      "clip-path": `inset(-10% ${r3((1 - wp) * 50)}% -10% ${r3((1 - wp) * 50)}%)`,
+      ...fade(span(t, tWord, tWord + 0.3, EASE.linear)),
+    });
+    const sweep = span(t, tWord + 0.32, tWord + 1.2, EASE.move);
+    st.set("#wm-sweep", {
+      "background-position": `${r3(-60 + 200 * sweep)}% 0`,
+      ...fade(t > tWord + 0.32 && sweep < 1 ? 1 : 0),
+    });
+
+    // ---- 14-DAY FREE TRIAL on the beat after: its letters closing in to the site's tracking, the gold rules
+    // drawing out from it.
+    const ep = span(t, tEye, tEye + 0.6, EASE.settle);
+    st.set("#eye", {
+      ...fade(span(t, tEye, tEye + 0.3, EASE.linear)),
+      transform: `translateY(${px((1 - ep) * 12)})`,
+    });
+    st.set("#eye-t", {
+      "letter-spacing": `${r3(lerp(0.7, 0.34, ep))}em`,
+      "padding-left": `${r3(lerp(0.7, 0.34, ep))}em`,
+    });
+    const rule = span(t, tEye + 0.15, tEye + 0.7, EASE.move);
+    st.set("#eye-l", { transform: `scaleX(${r3(rule)})` });
+    st.set("#eye-r", { transform: `scaleX(${r3(rule)})` });
+
+    // ---- the button rises in and lands on the bar; from then it breathes on the beats and its edge runs.
+    const bp = span(t, tRise, tLand, EASE.settle);
+    st.set("#cta", {
+      transform: `translate(${px(BTN.left)}, ${px(BTN.top + (1 - bp) * 90)}) scale(${r3(lerp(0.86, 1, bp))})`,
+      ...fade(span(t, tRise, tRise + 0.28, EASE.linear)),
+    });
+    // ---- the pointer: up from the lower right onto the button's label, riding the push; its press on the bar.
+    const target = pushed(k, [BTN.left + LOCAL[0], BTN.top + LOCAL[1]]);
+    const tip = pointer(st, t, {
+      from: [1000, 1520],
+      to: target,
+      a: tArrive - 0.5,
+      b: tArrive,
+      bow: 0.1,
+      show: tArrive - 0.56,
+      press: tPress,
+    });
+    // The tip in the button's own px (undoing the push), for its spotlight and lean.
+    const ptr = [
+      (tip[0] - BTN.c[0]) / k + BTN.c[0] - BTN.left,
+      (tip[1] - BTN.c[1]) / k + BTN.c[1] - BTN.top,
+    ];
+    C.ctaState(st, t, "cta", buttonLife(T, t, ptr));
+    // The press throws a ripple of light out across the card from the point pressed.
+    L.rippleState(st, t, "rp", {
+      at: tPress,
+      c: [BTN.left + LOCAL[0], BTN.top + LOCAL[1]],
+      reach: 1500,
+    });
     return st;
   };
 
-  return {
-    id: "invitation",
-    shots: ["10.2", "11.1"],
-    palette: "aurixa",
-    html,
-    measure: { cur: ["#inv", "svg.cursor"], curW: ["#W-0", "svg.cursor"] },
-    derive: (m) => ({ ...m, tip: tipOf(m.cur), tipW: tipOf(m.curW) }),
-    state,
-  };
+  return { id: "invitation", shots: ["10.2"], palette: "aurixa", html, state };
 }
 
 module.exports = invitationScene;
+// What 11.1 carries on from the cut: the button as it stands (its place, the push and its life), and where the
+// pointer rests on it.
+module.exports.handoff = () => {
+  const T = timeline();
+  return {
+    BTN,
+    LOCAL,
+    push: (t) => pushAt(T, t),
+    life: (t, ptr) => buttonLife(T, t, ptr),
+    tip: (t) => pushed(pushAt(T, t), [BTN.left + LOCAL[0], BTN.top + LOCAL[1]]),
+  };
+};
