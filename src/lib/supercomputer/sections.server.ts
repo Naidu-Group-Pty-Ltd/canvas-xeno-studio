@@ -1030,7 +1030,8 @@ async function workerFor(
         campaign_id: parent.campaign_id,
         brief_id: parent.brief_id,
         settings: parent.settings as never,
-        created_by: userId,
+        // Whoever planned it owns its workers' conversations, so they can answer them.
+        created_by: parent.created_by ?? userId,
       })
       .select("id")
       .single();
