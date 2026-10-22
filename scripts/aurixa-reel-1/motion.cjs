@@ -281,6 +281,7 @@ const railHtml = (id, stage) =>
 // plate moves except what a frame moves.
 const RENDER_CSS = `
 .fk-scale .cur { display:none !important; }
+.fk-scale svg.cursor { visibility:hidden !important; }
 *, *::before, *::after { transition:none !important; animation:none !important; caret-color:transparent; }
 .fk-press, .fk-pointer { left:0; top:0; }
 `;

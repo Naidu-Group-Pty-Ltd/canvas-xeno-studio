@@ -163,12 +163,28 @@ function timedCues() {
 const ENTER = 0.42; // a word rising into focus
 const LEAVE = 0.22; // a line leaving
 const RUN_GAP = 0.8; // a gap longer than this ends a run: the panel goes
+/**
+ * The cuts between the palettes (into 04.1, 09.1 and 09.2). A run of lines never crosses one: the line before it
+ * leaves, and its panel goes, by the cut, and the next line arrives on a panel of the new shot's material. A
+ * panel carried over the cut would show today's white card on the brand's first dark frames (or its glass on
+ * today's white page) while the one material faded into the other.
+ */
+const PALETTE_CUTS = BRIEF.shots
+  .filter((s, k) => k > 0 && s.palette !== BRIEF.shots[k - 1].palette)
+  .map((s) => s.in);
+
 /** When each line leaves, and the runs of lines one panel carries. */
 function schedule(cues) {
   cues.forEach((c, i) => {
     const next = cues[i + 1];
-    const together = next && next.start - c.end < RUN_GAP;
+    const cut = next ? PALETTE_CUTS.find((T) => T > c.start && T <= next.start + 1e-6) : undefined;
+    const spoken = Math.max(...c.words.map((w) => w.until ?? w.at));
+    if (cut !== undefined && spoken > cut - LEAVE - 0.02)
+      throw new Error(`"${c.text}" is still being spoken at the cut between the palettes (${cut})`);
+    const together = next && cut === undefined && next.start - c.end < RUN_GAP;
     c.leave = together ? Math.max(c.words.at(-1).at + 0.3, next.start - LEAVE) : c.end + 0.15;
+    if (cut !== undefined) c.leave = Math.min(c.leave, cut - LEAVE - 0.02);
+    c.cut = cut ?? null;
     c.gone = c.leave + LEAVE;
     c.runStart = i > 0 && cues[i - 1].next === c ? cues[i - 1].runStart : c.start;
     c.next = together ? next : null;
@@ -181,23 +197,13 @@ function schedule(cues) {
     c.first = first;
   });
   for (const c of cues) c.first.panelGone = Math.max(c.first.panelGone ?? 0, c.gone + 0.12);
+  for (const c of cues) if (c.cut !== null) c.first.panelGone = Math.min(c.first.panelGone, c.cut);
   return cues;
 }
 
 const CUES = schedule(timedCues());
 
 // ------------------------------------------------------------------ drawing
-/** How much of the panel is the brand's glass at t (1) rather than today's white card (0): the shot's palette,
- * changing over the first 0.3 s after each cut between the palettes. */
-function glassAt(t, span, EASE) {
-  const shots = BRIEF.shots;
-  const i = shots.findIndex((s) => t >= s.in - 1e-6 && t < s.out);
-  const k = i < 0 ? (t < shots[0].in ? 0 : shots.length - 1) : i;
-  const now = shots[k].palette === "aurixa" ? 1 : 0;
-  const before = k > 0 ? (shots[k - 1].palette === "aurixa" ? 1 : 0) : now;
-  return before + (now - before) * span(t, shots[k].in, shots[k].in + 0.3, EASE.move);
-}
-
 /** The captions' layer: every line laid out once (hidden), the panel, and its hairline. */
 function html() {
   const lines = CUES.map((c) => {
@@ -297,9 +303,9 @@ async function measure(tab) {
  */
 function state(st, t, { lines: boxes, phrases }, { span, fade, EASE, px, r3 }) {
   const PAD = [40, 26]; // the panel's padding around the text (x, y)
-  const live = CUES.filter((c) => t >= c.first.start - 0.2 && t < c.first.panelGone + 0.05);
-  // The panel: in with its run's first line, from one line's size to the next's, out after its last.
-  const run = live.length ? live[0].first : null;
+  // The panel: in with its run's first line, from one line's size to the next's, out after its last. At a
+  // cut between the palettes one run's panel has gone before the next one's arrives.
+  const run = CUES.find((c) => t >= c.first.start - 0.2 && t < c.first.panelGone)?.first ?? null;
   if (run) {
     const lines = CUES.filter((c) => c.first === run);
     const cur = [...lines].reverse().find((c) => t >= c.start - 0.06) ?? lines[0];
@@ -307,14 +313,17 @@ function state(st, t, { lines: boxes, phrases }, { span, fade, EASE, px, r3 }) {
     const size = (c) => [boxes[c.i][0] + 2 * PAD[0], boxes[c.i][1] + 2 * PAD[1]];
     const p = prev ? span(t, cur.start - 0.06, cur.start + 0.3, EASE.move) : 1;
     const [w, h] = prev ? size(prev).map((v, k) => v + (size(cur)[k] - v) * p) : size(cur);
+    // It leads its first line by 0.08 s, but never into the time before the film begins: the first line is
+    // spoken on the film's first frame, which would otherwise open on an empty card part-way in.
+    const enter = Math.max(0, run.start - 0.08);
     const shown = Math.min(
-      span(t, run.start - 0.08, run.start + 0.24, EASE.settle),
+      span(t, enter, run.start + 0.24, EASE.settle),
       1 - span(t, run.panelGone - 0.3, run.panelGone, EASE.move),
     );
-    const grow = 0.965 + 0.035 * span(t, run.start - 0.08, run.start + 0.32, EASE.settle);
-    // The material follows the shots: the brand's glass from the cut where it arrives (04.1, and back from
-    // 09.1), today's white card before it, from one to the other over the cut's first 0.3 s.
-    const g = glassAt(t, span, EASE);
+    const grow = 0.965 + 0.035 * span(t, enter, run.start + 0.32, EASE.settle);
+    // The material is the run's: the brand's glass from the cut where it arrives (04.1, and again from 09.2),
+    // today's white card before it (and in 09.1).
+    const g = run.palette === "aurixa" ? 1 : 0;
     const box = {
       width: px(w),
       height: px(h),
