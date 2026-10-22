@@ -187,6 +187,12 @@ export interface MusicTrackRow {
   duration_seconds: number | null;
   bpm: number | null;
   beats: number[] | null;
+  /**
+   * Its bars and sections, and what each bar sounds like, once found (read
+   * them with readStructure in ./structure). Not there before migration 0033.
+   */
+  structure?: unknown;
+  bar_features?: unknown;
   genres: string[];
   moods: string[];
   tags: string[];

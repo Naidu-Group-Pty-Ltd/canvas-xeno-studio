@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { AppError } from "./higgsfield/errors";
 import { MUSIC_LENGTH, MUSIC_MODELS } from "./music/catalog";
+import { barFeaturesSchema, musicStructureSchema } from "./music/structure";
 
 /** What the browser gets back about a track it just added; the library list has the rest. */
 interface TrackSummary {
@@ -248,13 +249,19 @@ export const saveMusicAnalysis = createServerFn({ method: "POST" })
         bpm: z.number().min(40).max(250),
         beats: z.array(z.number().min(0).max(36_000)).max(5000),
         durationSeconds: z.number().positive().max(36_000).nullable().default(null),
+        /** Its bars and sections and each bar's features, kept together when they were found. */
+        structure: musicStructureSchema.nullable().default(null),
+        features: barFeaturesSchema.nullable().default(null),
+      })
+      .refine((value) => (value.structure === null) === (value.features === null), {
+        message: "A track's bars and sections are kept with their features.",
       })
       .parse(data),
   )
   .handler(async ({ data, context }) => {
     const { saveTrackAnalysis } = await import("./music/service.server");
-    await saveTrackAnalysis({ ...data, userId: context.userId });
-    return { ok: true };
+    const kept = await saveTrackAnalysis({ ...data, userId: context.userId });
+    return { ok: true, ...kept };
   });
 
 export const setMusicArchived = createServerFn({ method: "POST" })

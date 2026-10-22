@@ -237,11 +237,15 @@ function cutAfter(layout: TimelineLayout, index: number): number {
  * (within half a frame), and the clip must still start where it did, so cuts
  * already on the beat stay there. A cut that can't be placed that way stays
  * where it is.
+ *
+ * Given `bars` (the bar lines on the timeline), a cut prefers them: it moves
+ * onto a bar line within reach before it would move onto a beat, and a cut
+ * already on a beat moves only onto a bar line.
  */
 export function snapCutsToBeats(
   timeline: Timeline,
   beatTimes: number[],
-  options: { minClip?: number; maxShift?: number } = {},
+  options: { minClip?: number; maxShift?: number; bars?: number[] } = {},
 ): { timeline: Timeline; moved: number } {
   const minClip = options.minClip ?? 0.4;
   const spacing =
@@ -260,12 +264,18 @@ export function snapCutsToBeats(
     const clip = result.clips[index]!;
     const ceiling = maxClipDuration(clip);
     const frames = Math.round(clip.duration * fps);
-    const beats = beatTimes
-      .filter((time) => Math.abs(time - cut) <= maxShift)
-      .sort((a, b) => Math.abs(a - cut) - Math.abs(b - cut));
-    if (!beats.length || Math.abs(beats[0]! - cut) < onBeat) continue;
+    const nearby = (times: number[]) =>
+      times
+        .filter((time) => Math.abs(time - cut) <= maxShift)
+        .sort((a, b) => Math.abs(a - cut) - Math.abs(b - cut));
+    const beats = nearby(beatTimes);
+    const bars = options.bars ? nearby(options.bars) : [];
+    const onBar = bars.length > 0 && Math.abs(bars[0]! - cut) < onBeat;
+    const onAnyBeat = beats.length > 0 && Math.abs(beats[0]! - cut) < onBeat;
+    if (onBar || (onAnyBeat && !bars.length) || (!beats.length && !bars.length)) continue;
+    const targets = onAnyBeat ? bars : [...bars, ...beats];
     let best: { duration: number; miss: number } | null = null;
-    for (const beat of beats) {
+    for (const beat of targets) {
       for (let count = frames - reach; count <= frames + reach; count += 1) {
         const duration = Number((count / fps).toFixed(3));
         if (count === frames || count < 2 || duration < minClip || duration > ceiling + 1e-6)
