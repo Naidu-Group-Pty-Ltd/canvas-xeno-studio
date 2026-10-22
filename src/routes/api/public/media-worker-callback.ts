@@ -144,9 +144,16 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
         const forVoiceover = typeof taskInput["audio_preparation_id"] === "string";
         // ...and so does a single clip made to a voiceover whose sync was measured.
         const forClipSync = typeof taskInput["lip_sync_clip_asset_id"] === "string";
+        // ...and so does a clean-plate recipe, whose next step can start then.
+        const forCleanPlate = typeof taskInput["clean_plate_recipe_id"] === "string";
         const moveLongVideoOn = async () => {
-          if (!forLongVideo && !forVoiceover && !forClipSync) return;
+          if (!forLongVideo && !forVoiceover && !forClipSync && !forCleanPlate) return;
           const { runAfterResponse } = await import("@/lib/generation-pipeline.server");
+          if (forCleanPlate) {
+            const { advanceForMediaTask: advanceCleanPlate } =
+              await import("@/lib/media/clean-plate.server");
+            await runAfterResponse(request, () => advanceCleanPlate(task.id));
+          }
           if (forVoiceover) {
             const { finishAudioPreparation } = await import("@/lib/lip-sync/prepare.server");
             await runAfterResponse(request, () => finishAudioPreparation(task.id));

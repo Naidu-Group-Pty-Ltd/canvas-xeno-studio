@@ -1590,6 +1590,157 @@ const alignTake = tool({
   },
 });
 
+const share = () => z.number().min(0).max(1);
+const plateBox = () =>
+  z
+    .object({ x: share(), y: share(), w: share(), h: share() })
+    .describe("A box as shares of the art's width and height, from its top-left corner");
+const plateLettering = () =>
+  plateBox()
+    .extend({ assetId: id() })
+    .describe(
+      "A transparent file of the lettering (its alpha is the mask) and where it sits on the art",
+    );
+
+const startCleanPlate = tool({
+  name: "start_clean_plate",
+  title: "Start a clean-plate recipe",
+  description:
+    "Starts the recipe that moves a logo (or any lettering) with a video model without the model ever drawing a letter: mask, edit, blend, animate, align, overlay (see get_clean_plate). The lettering's mask is proposed from a transparent file of it (lettering), from boxes you give, or else from the studio's AI reading where the lettering is. Nothing is made or billed until set_clean_plate_mask uses the mask and queue_clean_plate_step makes the edit.",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({
+    artAssetId: id().describe("The picture with its lettering"),
+    lettering: plateBox()
+      .partial()
+      .extend({ assetId: id() })
+      .nullable()
+      .optional()
+      .describe(
+        "A transparent file of the lettering, and where it sits (the whole art if not given)",
+      ),
+    boxes: z.array(plateBox()).max(200).nullable().optional(),
+    letters: z
+      .enum(["art", "file"])
+      .optional()
+      .describe(
+        'Lay back the art\'s own letters ("art", the default) or the lettering file itself',
+      ),
+    projectId: id().nullable().optional(),
+    clientRequestId: requestId(),
+  }),
+  run: async (args, caller) => {
+    const { startCleanPlate: start } = await import("../media/clean-plate.server");
+    const { clientRequestId, ...rest } = args;
+    return start({
+      ...rest,
+      userId: caller.userId,
+      dedupeKey: `clean-plate:${caller.userId}:${clientRequestId}`,
+    });
+  },
+});
+
+const getCleanPlate = tool({
+  name: "get_clean_plate",
+  title: "Get a clean-plate recipe",
+  description:
+    "A clean-plate recipe and its six steps (mask, edit, blend, animate, align, overlay): each one's status, the library file it made, what was measured, and what happens next in words. Reading it moves it on: a finished job's file is taken up, and a step the media service does starts when its turn comes.",
+  scope: "read",
+  input: z.object({ recipeId: id() }),
+  run: async (args, caller) => {
+    const { getCleanPlate: read } = await import("../media/clean-plate.server");
+    return read(args.recipeId, caller.userId);
+  },
+});
+
+const setCleanPlateMask = tool({
+  name: "set_clean_plate_mask",
+  title: "Use a clean-plate mask",
+  description:
+    "Uses the lettering's mask, as proposed or changed: boxes over the lettering, a transparent file of it, how far past it the edit is laid in (grow) and how softly it fades into the art (feather), in the art's pixels. The mask is drawn into the library, and what was made from an older mask is made again.",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({
+    recipeId: id(),
+    boxes: z.array(plateBox()).max(200).optional(),
+    lettering: plateLettering().nullable().optional(),
+    grow: z.number().min(0).max(300).optional(),
+    feather: z.number().min(0).max(200).optional(),
+    letters: z.enum(["art", "file"]).optional(),
+  }),
+  run: async (args, caller) => {
+    const { setCleanPlateMask: set } = await import("../media/clean-plate.server");
+    const { recipeId, ...change } = args;
+    return set(recipeId, caller.userId, change);
+  },
+});
+
+const plateStep = () =>
+  z.object({
+    recipeId: id(),
+    step: z
+      .enum(["edit", "animate"])
+      .describe(
+        "edit: an image model takes the lettering out; animate: a video model moves the plate",
+      ),
+    modelId: id(),
+    parameters: z
+      .record(z.string(), z.unknown())
+      .default({})
+      .describe("The model's settings; the prompt has a sensible default for the edit"),
+    end: z
+      .enum(["last", "first", "both"])
+      .optional()
+      .describe("Animating: whether the take ends on the plate, starts on it, or both"),
+    crossSeconds: z.number().min(0).max(3).optional(),
+    holdSeconds: z.number().min(0).max(10).optional(),
+  });
+
+const estimateCleanPlateStep = tool({
+  name: "estimate_clean_plate_step",
+  title: "Price a clean-plate step",
+  description:
+    "The provider's price for a recipe's edit or take, as queue_clean_plate_step would send it (the art or the clean plate in the model's frames, the prompt as it will be). Nothing is billed.",
+  scope: "read",
+  input: plateStep(),
+  run: async (args, caller) => {
+    const { estimateCleanPlateStep: estimate } = await import("../media/clean-plate.server");
+    const { recipeId, step, ...request } = args;
+    return estimate(recipeId, caller.userId, step, request);
+  },
+});
+
+const queueCleanPlateStep = tool({
+  name: "queue_clean_plate_step",
+  title: "Make a clean-plate step",
+  description:
+    "Makes a recipe's edit (an image model takes the lettering out of the art) or its take (a video model moves the clean plate, told never to draw a letter), through the same spending checks as queue_generation, billed by the provider. The steps after it (blend, align, overlay) then run by themselves; follow them with get_clean_plate.",
+  scope: "generate",
+  readOnly: false,
+  input: plateStep().extend({
+    estimatedCostUsd: z.number().min(0).max(10_000).nullable().optional(),
+  }),
+  run: async (args, caller) => {
+    const { queueCleanPlateStep: queue } = await import("../media/clean-plate.server");
+    const { recipeId, step, ...request } = args;
+    return queue(recipeId, caller.userId, step, request);
+  },
+});
+
+const retryCleanPlateStep = tool({
+  name: "retry_clean_plate_step",
+  title: "Retry a clean-plate step",
+  description:
+    "Tries a recipe's failed mask, blend, align or overlay step again (the edit and the take are made again with queue_clean_plate_step).",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({ recipeId: id(), step: z.enum(["mask", "blend", "align", "overlay"]) }),
+  run: async (args, caller) => {
+    const { retryCleanPlateStep: retry } = await import("../media/clean-plate.server");
+    return retry(args.recipeId, caller.userId, args.step);
+  },
+});
+
 const openInEditor = tool({
   name: "open_in_editor",
   title: "Open a long video as an edit",
@@ -1894,6 +2045,12 @@ export const STUDIO_TOOLS: StudioTool[] = [
   saveCharacter,
   importImage,
   alignTake,
+  startCleanPlate,
+  getCleanPlate,
+  setCleanPlateMask,
+  estimateCleanPlateStep,
+  queueCleanPlateStep,
+  retryCleanPlateStep,
   openInEditor,
   createEdit,
   updateEdit,

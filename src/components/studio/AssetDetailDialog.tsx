@@ -11,6 +11,7 @@ import { StatusBadge } from "@/components/studio/StatusBadge";
 import { MediaTaskPanel } from "@/components/studio/MediaTaskPanel";
 import { TextCheckPanel } from "@/components/studio/TextCheckPanel";
 import { AlignTakePanel } from "@/components/studio/AlignTakePanel";
+import { CleanPlatePanel } from "@/components/studio/CleanPlatePanel";
 import { ReframeDialog } from "@/components/studio/ReframeDialog";
 import {
   downloadAsset,
@@ -378,6 +379,8 @@ export function AssetDetailDialog({
                 <TextCheckPanel asset={asset} />
 
                 <AlignTakePanel asset={asset} />
+
+                <CleanPlatePanel asset={asset} />
 
                 <MediaTaskPanel asset={asset} />
 
