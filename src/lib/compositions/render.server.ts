@@ -34,7 +34,6 @@ import {
   stretchIdentity,
   type CompiledComposition,
 } from "./compile";
-import { demoRecordOf } from "./demo";
 import { QUALITY_SETTINGS, renderEstimate, type RenderQuality } from "./settings";
 import { compositionSpecSchema, uuidsIn, type CompositionSpec } from "./spec";
 import { templateById } from "./templates";
@@ -168,10 +167,8 @@ export async function compiledFor(input: {
     if (!data) throw new AppError("INVALID_PARAMETERS", "That brand kit doesn't exist");
     kitRow = data as unknown as Record<string, unknown>;
   }
-  const kit = kitRow ? brandKitOf(kitRow) : null;
-  const brand = compositionBrandOf(kit, {
-    demo: kitRow ? demoRecordOf(kitRow["demo_record"]) : null,
-  });
+  // The kit as it is now: its colours, production roles, motion and demo record.
+  const brand = compositionBrandOf(kitRow ? brandKitOf(kitRow) : null);
   // The images its settings and its brand name: their sizes frame them, and they go with the task.
   const wanted = uuidsIn(spec.params);
   if (brand.logoAssetId) wanted.add(brand.logoAssetId);

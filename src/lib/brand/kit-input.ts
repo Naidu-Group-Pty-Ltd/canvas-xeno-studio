@@ -4,6 +4,7 @@
  */
 import { z } from "zod";
 import { FONT_FAMILY_PATTERN } from "../edit/font-family";
+import { demoRecordSchema } from "../compositions/demo";
 import { DESIGN_LIMITS, PALETTE_ROLES } from "./design";
 
 const colour = z.string().regex(/^#[0-9a-fA-F]{6}$/, "A colour like #1a2b3c");
@@ -63,6 +64,8 @@ export const kitInput = z.object({
   formulas: z.array(z.record(z.string(), z.unknown())).max(16).optional(),
   // Its production roles and motion (see ./production): left as they are when not sent.
   production: z.record(z.string(), z.unknown()).optional(),
+  // Its demo record (see ../compositions/demo; null: the studio's own): left as it is when not sent.
+  demoRecord: demoRecordSchema.nullable().optional(),
   referenceAssetIds: z.array(z.string().uuid()).max(12).optional(),
   source: z
     .object({

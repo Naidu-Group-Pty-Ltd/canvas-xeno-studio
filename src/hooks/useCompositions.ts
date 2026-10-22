@@ -20,7 +20,6 @@ import {
   type Scene,
 } from "@/lib/compositions/compile";
 import { compositionClips } from "@/lib/compositions/clips";
-import { demoRecordOf, type DemoRecord } from "@/lib/compositions/demo";
 import { QUALITY_SETTINGS, type RenderQuality } from "@/lib/compositions/settings";
 import { specKey, uuidsIn, type CompositionSpec } from "@/lib/compositions/spec";
 import { getCompositionCosts, getCompositionRender } from "@/lib/compositions.functions";
@@ -32,25 +31,6 @@ const EMPTY_FONTS = new Map<string, string>();
 const BLANK_IMAGE =
   "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
-/** Each brand kit's demo record (none before migration 0034: then the studio's own is used). */
-export function useDemoRecords() {
-  return useQuery({
-    queryKey: ["brand_kits", "demo_records"],
-    staleTime: 60_000,
-    queryFn: async (): Promise<{ supported: boolean; records: Map<string, DemoRecord | null> }> => {
-      const { data, error } = await supabase
-        .from("brand_kits")
-        .select("id,demo_record")
-        .eq("is_archived", false);
-      if (error) return { supported: false, records: new Map() };
-      return {
-        supported: true,
-        records: new Map((data ?? []).map((row) => [row.id, demoRecordOf(row.demo_record)])),
-      };
-    },
-  });
-}
-
 /**
  * The brand a composition is drawn in, by the kit it names (none: the
  * studio's own look), as the server draws it.
@@ -59,8 +39,7 @@ export function useCompositionBrands(): {
   brandOf: (kitId: string | null) => CompositionBrand;
   ready: boolean;
 } {
-  const { data: kits, isSuccess: kitsKnown } = useBrandKits();
-  const { data: demos, isSuccess: demosKnown } = useDemoRecords();
+  const { data: kits, isSuccess: ready } = useBrandKits();
   return useMemo(() => {
     const cache = new Map<string, CompositionBrand>();
     const brandOf = (kitId: string | null) => {
@@ -68,15 +47,13 @@ export function useCompositionBrands(): {
       let brand = cache.get(key);
       if (!brand) {
         const kit = kitId ? (kits?.kits.find((entry) => entry.id === kitId) ?? null) : null;
-        brand = compositionBrandOf(kit, {
-          demo: kit ? (demos?.records.get(kit.id) ?? null) : null,
-        });
+        brand = compositionBrandOf(kit);
         cache.set(key, brand);
       }
       return brand;
     };
-    return { brandOf, ready: kitsKnown && demosKnown };
-  }, [kits, demos, kitsKnown, demosKnown]);
+    return { brandOf, ready };
+  }, [kits, ready]);
 }
 
 /** Signed links to brand font files, by "bucket/path", for a composition's page. */

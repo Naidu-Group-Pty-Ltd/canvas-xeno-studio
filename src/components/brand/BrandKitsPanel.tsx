@@ -25,6 +25,7 @@ import { DesignSystemEditor } from "@/components/brand/DesignSystemEditor";
 import { DnaEditor } from "@/components/brand/DnaEditor";
 import { OwnFormulas } from "@/components/brand/OwnFormulas";
 import { ProductionPanel } from "@/components/brand/ProductionPanel";
+import { DemoRecordEditor } from "@/components/brand/DemoRecordEditor";
 import { isEmptyProduction, PRODUCTION_ROLES } from "@/lib/brand/production";
 import { isEmptyDna, mergeSuggestion, typeWords } from "@/lib/brand/dna";
 import { suggestDna } from "@/lib/brand/dna-client";
@@ -267,6 +268,7 @@ export function BrandKitDialog({ draft: initial, onClose }: { draft: Draft; onCl
           dna: draft.dna as unknown as Record<string, unknown>,
           formulas: draft.ownFormulas as unknown as Record<string, unknown>[],
           production: draft.production as unknown as Record<string, unknown>,
+          demoRecord: draft.demoRecord,
         },
       });
       await queryClient.invalidateQueries({ queryKey: ["brand_kits"] });
@@ -672,6 +674,30 @@ export function BrandKitDialog({ draft: initial, onClose }: { draft: Draft; onCl
                   production={draft.production}
                   onProduction={(production) => set({ production })}
                   fonts={draft.fonts}
+                />
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="demo" className="border-b-0">
+              <AccordionTrigger className="text-sm">
+                <span className="flex items-center gap-2">
+                  Demo record
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {draft.demoRecord
+                      ? `${draft.demoRecord.entities.length} things on screen, ${draft.demoRecord.lists.length} lists`
+                      : "the studio's own"}
+                  </span>
+                </span>
+              </AccordionTrigger>
+              <AccordionContent className="space-y-2">
+                <p className="text-[11px] text-muted-foreground">
+                  The fictional people, records and figures this brand&apos;s product screens show
+                  in motion graphics, so a reel never shows a real client. A template&apos;s text
+                  names a field as {"{{record.title}}"}: change it here and every motion graphic
+                  that names it changes the next time it is drawn.
+                </p>
+                <DemoRecordEditor
+                  record={draft.demoRecord}
+                  onRecord={(demoRecord) => set({ demoRecord })}
                 />
               </AccordionContent>
             </AccordionItem>

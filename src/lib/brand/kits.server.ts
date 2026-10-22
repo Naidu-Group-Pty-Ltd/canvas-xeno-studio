@@ -217,6 +217,17 @@ export async function writeBrandKit(userId: string, data: KitInput): Promise<{ i
           },
         ]
       : []),
+    ...(data.demoRecord !== undefined
+      ? [
+          {
+            column: "demo_record",
+            value: data.demoRecord,
+            empty: data.demoRecord === null,
+            needs: "A demo record needs",
+            migration: "0034_compositions",
+          },
+        ]
+      : []),
   ];
   const values: Record<string, unknown> = {
     ...row,

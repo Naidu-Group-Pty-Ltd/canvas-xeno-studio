@@ -7,6 +7,7 @@
  *
  * Shared by the browser, the server and tests.
  */
+import { brandMotion, colourOver, type ColourRoleKey } from "../brand/production";
 import type { BrandFont, BrandKit } from "../edit/brand";
 import { DEFAULT_DEMO_RECORD, type DemoRecord } from "./demo";
 import { DEFAULT_MOTION, mix, safeColour } from "./state";
@@ -60,24 +61,59 @@ export function isDarkColour(hex: string): boolean {
   return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5) < 0.2;
 }
 
-/** The roles from a kit's colours and palette. */
+/**
+ * The roles from a kit: its production roles first (read from its code, see
+ * ../brand/production), then its colours and palette, then mixed from those.
+ * A translucent role (a line written with an alpha) is seen over the ground.
+ */
 export function compositionColours(
-  kit: Pick<BrandKit, "backgroundColor" | "textColor" | "accentColor" | "palette"> | null,
+  kit:
+    | (Pick<BrandKit, "backgroundColor" | "textColor" | "accentColor" | "palette"> &
+        Partial<Pick<BrandKit, "production">>)
+    | null,
 ): CompositionColours {
-  const ground = safeColour(kit?.backgroundColor, "#0b1020");
-  const ink = safeColour(kit?.textColor, "#ffffff");
-  const accent = safeColour(kit?.accentColor, "#2563eb");
+  const roles = kit?.production?.roles ?? {};
+  const produced = (key: ColourRoleKey, under: string | null = null): string | null => {
+    const role = roles[key];
+    if (role?.kind !== "colour") return null;
+    return role.alpha < 1 && under ? colourOver(role, under) : role.hex;
+  };
+  const ground = safeColour(produced("ground") ?? kit?.backgroundColor, "#0b1020");
+  const ink = safeColour(produced("ink", ground) ?? kit?.textColor, "#ffffff");
+  const accent = safeColour(produced("accent", ground) ?? kit?.accentColor, "#2563eb");
   const role = (name: string) => kit?.palette.find((colour) => colour.role === name)?.hex ?? null;
   const dark = isDarkColour(ground);
+  const surface = safeColour(
+    produced("surface", ground) ?? role("surface"),
+    mix(ground, ink, dark ? 0.07 : 0.04),
+  );
   return {
     ground,
-    surface: safeColour(role("surface"), mix(ground, ink, dark ? 0.07 : 0.04)),
-    raised: mix(ground, ink, dark ? 0.13 : 0.08),
+    surface,
+    raised: safeColour(produced("raised", ground), mix(ground, ink, dark ? 0.13 : 0.08)),
     ink,
-    muted: safeColour(role("muted"), mix(ink, ground, 0.42)),
-    line: mix(ground, ink, dark ? 0.2 : 0.14),
+    muted: safeColour(produced("ink-muted", ground) ?? role("muted"), mix(ink, ground, 0.42)),
+    line: safeColour(produced("line", surface), mix(ground, ink, dark ? 0.2 : 0.14)),
     accent,
-    highlight: safeColour(role("highlight"), accent),
+    highlight: safeColour(produced("signature", ground) ?? role("highlight"), accent),
+  };
+}
+
+/** How a kit moves, from its production roles (each left to the studio's own where it has none). */
+export function kitMotion(
+  kit: Partial<Pick<BrandKit, "production">> | null,
+): Partial<CompositionBrand["motion"]> {
+  if (!kit?.production) return {};
+  const motion = brandMotion(kit.production);
+  const curve = (ease: readonly number[] | null) =>
+    ease && ease.length === 4 && ease.every((value) => Number.isFinite(value))
+      ? ([ease[0], ease[1], ease[2], ease[3]] as [number, number, number, number])
+      : undefined;
+  const press = motion.press.durationMs;
+  return {
+    ...(curve(motion.move.ease) ? { move: curve(motion.move.ease)! } : {}),
+    ...(curve(motion.settle.ease) ? { settle: curve(motion.settle.ease)! } : {}),
+    ...(press && press > 0 && press <= 5000 ? { pressSeconds: press / 1000 } : {}),
   };
 }
 
@@ -89,6 +125,7 @@ export function compositionBrandOf(
     motion?: Partial<CompositionBrand["motion"]> | null;
   } = {},
 ): CompositionBrand {
+  const kitMoves = kitMotion(kit);
   return {
     name: kit?.name ?? "Brand",
     colours: compositionColours(kit),
@@ -99,11 +136,12 @@ export function compositionBrandOf(
     callToAction: kit?.callToAction ?? null,
     website: kit?.website ?? null,
     motion: {
-      move: extras.motion?.move ?? DEFAULT_MOTION.move,
-      settle: extras.motion?.settle ?? DEFAULT_MOTION.settle,
-      pressSeconds: extras.motion?.pressSeconds ?? DEFAULT_MOTION.pressSeconds,
+      move: extras.motion?.move ?? kitMoves.move ?? DEFAULT_MOTION.move,
+      settle: extras.motion?.settle ?? kitMoves.settle ?? DEFAULT_MOTION.settle,
+      pressSeconds:
+        extras.motion?.pressSeconds ?? kitMoves.pressSeconds ?? DEFAULT_MOTION.pressSeconds,
     },
-    demo: extras.demo ?? DEFAULT_DEMO_RECORD,
+    demo: extras.demo ?? kit?.demoRecord ?? DEFAULT_DEMO_RECORD,
   };
 }
 

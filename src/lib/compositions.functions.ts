@@ -1,8 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { AppError } from "./higgsfield/errors";
-import { demoRecordSchema } from "./compositions/demo";
 import { RENDER_QUALITIES } from "./compositions/settings";
 import { compositionSpecSchema } from "./compositions/spec";
 
@@ -56,32 +54,4 @@ export const getCompositionCosts = createServerFn({ method: "GET" })
       measuredSecondsPerDrawing("final"),
     ]);
     return { draft, final };
-  });
-
-/** Saves a brand kit's demo record (null: the studio's own fictional one). */
-export const saveDemoRecord = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) =>
-    z.object({ brandKitId: z.string().uuid(), record: demoRecordSchema.nullable() }).parse(data),
-  )
-  .handler(async ({ data, context }) => {
-    const { activeMember } = await import("./brand/kits.server");
-    await activeMember(context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: saved, error } = await supabaseAdmin
-      .from("brand_kits")
-      .update({ demo_record: data.record } as never)
-      .eq("id", data.brandKitId)
-      .eq("is_archived", false)
-      .select("id");
-    if (error) {
-      if (/demo_record/.test(error.message))
-        throw new AppError(
-          "INVALID_PARAMETERS",
-          "The demo record needs a database update (migration 0034_compositions). Ask an admin to apply it.",
-        );
-      throw new AppError("UNKNOWN", "The demo record couldn't be saved. Try again.");
-    }
-    if (!saved?.length) throw new AppError("INVALID_PARAMETERS", "That brand kit no longer exists");
-    return { ok: true };
   });

@@ -25,6 +25,7 @@ import { dnaOf, type BrandDna } from "../brand/dna";
 import type { BrandFormula } from "../brand/formulas";
 import { ownFormulasOf } from "../brand/own-formulas";
 import { productionOf, type BrandProduction } from "../brand/production";
+import { demoRecordOf, type DemoRecord } from "../compositions/demo";
 import { kitOverlayMotion } from "./overlay-motion";
 import {
   aspectQuotient,
@@ -91,6 +92,8 @@ export interface BrandKit {
   ownFormulas: BrandFormula[];
   /** The roles its graphics are drawn in and how they move, read from its code (see ../brand/production). */
   production: BrandProduction;
+  /** The fictional record its product screens show (see ../compositions/demo); null: the studio's own. */
+  demoRecord: DemoRecord | null;
 }
 
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -158,6 +161,8 @@ export function brandKitOf(row: Json): BrandKit {
     ownFormulas: ownFormulasOf(row["formulas"]),
     // And from before production roles (migration 0029), none.
     production: productionOf(row["production"]),
+    // And from before demo records (migration 0034), none.
+    demoRecord: demoRecordOf(row["demo_record"]),
   };
 }
 

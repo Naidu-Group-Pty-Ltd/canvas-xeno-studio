@@ -6,6 +6,7 @@ import { EMPTY_DESIGN, type BrandDesign, type PaletteColour } from "@/lib/brand/
 import { EMPTY_DNA, type BrandDna } from "@/lib/brand/dna";
 import type { BrandFormula } from "@/lib/brand/formulas";
 import { EMPTY_PRODUCTION, type BrandProduction } from "@/lib/brand/production";
+import type { DemoRecord } from "@/lib/compositions/demo";
 import { DEFAULT_FONT, type BrandFont, type BrandKit } from "@/lib/edit/brand";
 import type { OverlayBacking } from "@/lib/edit/timeline";
 
@@ -36,6 +37,8 @@ export interface Draft {
   ownFormulas: BrandFormula[];
   /** The roles its graphics are drawn in, and how they move. */
   production: BrandProduction;
+  /** The fictional record its product screens show (null: the studio's own). */
+  demoRecord: DemoRecord | null;
 }
 
 export const EMPTY: Draft = {
@@ -63,6 +66,7 @@ export const EMPTY: Draft = {
   dna: EMPTY_DNA,
   ownFormulas: [],
   production: EMPTY_PRODUCTION,
+  demoRecord: null,
 };
 
 export function draftOf(kit: BrandKit): Draft {
@@ -91,5 +95,6 @@ export function draftOf(kit: BrandKit): Draft {
     dna: kit.dna,
     ownFormulas: kit.ownFormulas,
     production: kit.production,
+    demoRecord: kit.demoRecord,
   };
 }
