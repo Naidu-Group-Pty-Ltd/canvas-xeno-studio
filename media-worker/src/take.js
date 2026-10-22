@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { readFile, rm } from "node:fs/promises";
+import { matrixOver, toMatrix } from "./colour.js";
 import { ffmpeg, probe } from "./ffmpeg.js";
 import { TaskError } from "./net.js";
 import { alignFrames, downscale } from "./align.js";
@@ -135,12 +136,16 @@ function levelExpression(fit) {
   ]);
 }
 
-/** One frame (frame `index` of a video; a still's only one) as Y, U and V planes at width x height. */
-async function planesOf(path, { index = null, width, height, warp = null, dir, tag }) {
+/**
+ * One frame (frame `index` of a video; a still's only one) as Y, U and V
+ * planes at width x height, brought into the take's matrix by `colour` (scale
+ * options; see ./colour.js) where it isn't in it.
+ */
+async function planesOf(path, { index = null, width, height, warp = null, colour = null, dir, tag }) {
   const out = join(dir, `take-${tag}-${Date.now().toString(36)}.yuv`);
   const filters = [
     ...(index === null ? [] : [`select=eq(n\\,${index})`]),
-    `scale=${width}:${height}:flags=lanczos`,
+    `scale=${width}:${height}:flags=lanczos${colour ? `:${colour},format=yuv444p` : ""}`,
     "setsar=1",
     ...(warp ? [warpFilter(warp, width, height)] : []),
     "format=yuv444p",
@@ -191,9 +196,9 @@ function planeError(target, current, map = null) {
  * there (null when none is needed, or the two aren't the same picture), the
  * colour match, and the report of both.
  */
-async function measureAnchor({ take, picture, anchorIndex, frame, dir }) {
+async function measureAnchor({ take, picture, anchorIndex, frame, colour, dir }) {
   const { width, height } = frame;
-  const target = await planesOf(picture.path, { width, height, dir, tag: "picture" });
+  const target = await planesOf(picture.path, { width, height, colour, dir, tag: "picture" });
   const anchor = await planesOf(take.path, { index: anchorIndex, width, height, dir, tag: "anchor" });
   const factor = Math.max(1, Math.round(Math.max(width, height) / ANALYSIS_SIZE));
   const ref = downscale(target.y, width, height, factor);
@@ -289,7 +294,9 @@ export async function alignTake({ sources, params, dir }) {
   // last frame always ends on at least one frame of the picture itself.
   const hold = anchor === "last" && cross > 0 ? Math.max(holdAsked, 1 / fps) : holdAsked;
 
-  const { warp, levels, report } = await measureAnchor({ take, picture, anchorIndex, frame, dir });
+  // The picture in the take's own colour (a still's RGB by the take's matrix; see ./colour.js), measured and shown so.
+  const colour = toMatrix(pictureInfo, matrixOver(takeInfo));
+  const { warp, levels, report } = await measureAnchor({ take, picture, anchorIndex, frame, colour, dir });
 
   const { width, height } = frame;
   const looks = [];
@@ -303,7 +310,7 @@ export async function alignTake({ sources, params, dir }) {
     `[0:v]fps=${fps},scale=${width}:${height}:flags=lanczos,setsar=1${looks.length ? `,${looks.join(",")}` : ""},format=yuv420p,settb=AVTB,setpts=PTS-STARTPTS[t]`,
   ];
   if (still > 0) {
-    lines.push(`[1:v]scale=${width}:${height}:flags=lanczos,setsar=1,fps=${fps},format=yuv420p,settb=AVTB,setpts=PTS-STARTPTS[p]`);
+    lines.push(`[1:v]scale=${width}:${height}:flags=lanczos${colour ? `:${colour},format=yuv444p` : ""},setsar=1,fps=${fps},format=yuv420p,settb=AVTB,setpts=PTS-STARTPTS[p]`);
   }
   const [first, second] = anchor === "last" ? ["t", "p"] : ["p", "t"];
   if (still > 0 && cross > 0) {

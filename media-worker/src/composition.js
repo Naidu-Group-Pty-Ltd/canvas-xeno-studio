@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { RENDER_TO_JPEG } from "./colour.js";
 import { config } from "./config.js";
 import { ffmpeg, probe, run } from "./ffmpeg.js";
 import { sfntKind } from "./fonts.js";
@@ -450,7 +451,8 @@ async function posterOf(video, poster, seconds, width) {
     "-ss", Math.min(1, seconds / 2).toFixed(3),
     "-i", video,
     "-frames:v", "1",
-    "-vf", `scale=${Math.min(720, width)}:-2`,
+    // In a JPEG's own colour (BT.601), as viewers read it.
+    "-vf", `scale=${Math.min(720, width)}:-2:${RENDER_TO_JPEG}`,
     "-q:v", "3",
     poster,
   ]);

@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { readFile, rm } from "node:fs/promises";
+import { matrixOver, overlayTo } from "./colour.js";
 import { ffmpeg, probe } from "./ffmpeg.js";
 import { TaskError } from "./net.js";
 import { alignFrames, downscale } from "./align.js";
@@ -287,7 +288,8 @@ export async function layLettering({ sources, params, dir }) {
     feather: spec.feather * k,
   };
   const fadeIn = start > 0 || fade > 0 ? `,fade=t=in:st=${start.toFixed(3)}:d=${Math.max(fade, 1 / fps).toFixed(3)}:alpha=1` : "";
-  const loop = `loop=loop=-1:size=1,setpts=N/(${fps}*TB)`;
+  // The layer in the take's own colour (its RGB by the take's matrix; see ./colour.js), then held.
+  const loop = `${overlayTo(matrixOver(takeInfo))},loop=loop=-1:size=1,setpts=N/(${fps}*TB)`;
   const lines = [];
   const inputs = ["-i", take.path, "-i", art.path, ...(lettering ? ["-i", lettering.path] : [])];
   if (letters === "file") {

@@ -189,6 +189,36 @@ Timings are snapped to the frame grid, so the output has exactly the planned
 number of frames. Clips are normalised one at a time, which keeps memory flat
 for long timelines.
 
+## Colour
+
+A render is BT.709 at limited range, and tagged so (its intermediates too), the
+way an HD player reads it. FFmpeg turns RGB into YUV with BT.601's weights
+unless told otherwise, and draws text, boxes and padding into a YUV picture
+with them whatever the picture is, so a render made that way plays back off:
+measured on a 720 × 1280 render, a brand's teal by a CIEDE2000 of 8.6, a red by
+5.7, a green by 6.7 and a gold by 2.2. `src/colour.js` puts that right, and the
+self-test measures it (each colour now within 0.75):
+
+- Pictures in RGB (stills, logos, a motion graphic's lossless master) are
+  turned into YUV by BT.709's matrix; a JPEG's or WebP's own YUV (BT.601) and a
+  video tagged BT.601 (or an untagged one below HD sizes) are converted to it.
+  An untagged HD video is taken as BT.709; HDR (BT.2020) is taken as it comes,
+  since it needs tone mapping, not a matrix.
+- Colours drawn into the picture (captions, titles and their boxes and panels,
+  a reframe's `background`) are handed over so that FFmpeg's own matrix lands
+  them on BT.709's values. Which matrix FFmpeg draws with is measured once per
+  process, by drawing a 16 × 16 teal box the way the render does (BT.601 in
+  every FFmpeg so far; a newer one may follow the script's `YCbCr Matrix:
+  TV.709`, which the script names). A render keeps its script as composed
+  (`text.ass`) and as drawn (`text.drawn.ass`).
+- Frames taken out of a video (thumbnails, frames, last frames, posters, review
+  sheet tiles) are read as a player shows them and written in their image
+  format's own colour (a JPEG's YUV is BT.601 at full range): a BT.709 video's
+  thumbnail was off by 9.1, now 0.7. The take and clean-plate recipes bring
+  their art into the take's own matrix before laying it over.
+
+`probe` reports a picture's `pix_fmt`, `color_space` and `color_range`.
+
 ## Long videos: true last frames and seamless joins
 
 A long video chains generated clips: each clip after the first is generated

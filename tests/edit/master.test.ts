@@ -193,7 +193,11 @@ describe("the media service's master", () => {
     ).join(" ");
     expect(standardArgs).toContain("-c:v libx264 -preset veryfast -crf 17 -profile:v high");
     expect(standardArgs).toContain("-c:a aac -b:a 192k");
-    expect(standardArgs).not.toContain("bt709");
+    // Every render is BT.709 and says so (see media-worker/src/colour.js), once.
+    expect(standardArgs).toContain(
+      "-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709",
+    );
+    for (const args of [masterArgs, standardArgs]) expect(args.split("-colorspace").length).toBe(2);
   });
 });
 

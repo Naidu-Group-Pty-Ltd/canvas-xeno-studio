@@ -139,6 +139,10 @@ export async function probe(filePath) {
     fps: video?.avg_frame_rate && video.avg_frame_rate !== "0/0" ? evaluateRate(video.avg_frame_rate) : null,
     has_audio: Boolean(audio),
     video_codec: video?.codec_name ?? null,
+    // How its picture's colour is stored (see ./colour.js).
+    pix_fmt: video?.pix_fmt ?? null,
+    color_space: video?.color_space ?? null,
+    color_range: video?.color_range ?? null,
     audio_codec: audio?.codec_name ?? null,
     format: parsed.format?.format_name ?? null,
     size_bytes: Number(parsed.format?.size ?? 0) || null,

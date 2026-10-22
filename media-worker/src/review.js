@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { writeFile } from "node:fs/promises";
+import { asImage } from "./colour.js";
 import { ffmpeg, probe } from "./ffmpeg.js";
 import { TaskError } from "./net.js";
 import { cleanText, inParallel, seekPoint } from "./sequence.js";
@@ -215,7 +216,8 @@ export async function reviewSheet({ sources, params, dir }) {
         "-frames:v",
         "1",
         "-vf",
-        `scale=${tileWidth}:${tileHeight}:flags=lanczos,setsar=1,pad=${tileWidth}:${tileHeight + band}:0:0:color=${BAND_COLOUR}`,
+        // As a player shows the frame, in RGB, so the band is drawn as the colour it is (see ./colour.js).
+        `scale=${tileWidth}:${tileHeight}:flags=lanczos:${asImage(info, "png")},format=rgb24,setsar=1,pad=${tileWidth}:${tileHeight + band}:0:0:color=${BAND_COLOUR}`,
         out,
       ]);
     },

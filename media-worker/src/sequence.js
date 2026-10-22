@@ -13,6 +13,7 @@ import { piecesChain, piecesInput, piecesInside, withPieces } from "./pieces.js"
 import { bandFilter, bandMargins, mixReport, readBand } from "./mixreport.js";
 import { LOSSLESS_INTERMEDIATE, losslessPlanner, MASTER_AUDIO_BITRATE, MASTER_ENCODING, passedThroughResult, passThroughSequence, planMastering } from "./master.js";
 import { measureRender, passedThroughQuality, planMeasurement, unmeasuredQuality } from "./quality.js";
+import { BT709_OUTPUT, BT709_TAGS, captionMatrix, OVERLAY_TO_BT709, RENDER_TO_JPEG, SCRIPT_MATRIX, scriptForDrawing, STILL_TO_BT709, videoToBt709 } from "./colour.js";
 
 /**
  * Sequence rendering: an edited timeline (ordered clips with trims, stills,
@@ -701,6 +702,16 @@ export function frameChain(input, output, width, height, fit, tag, focus = { x: 
 }
 
 /**
+ * A video source's picture with its pixels squared up, so nothing is
+ * stretched, and in BT.709 where it isn't already (a motion graphic's RGB
+ * master, an SD camera's BT.601; see ./colour.js). `info` is its probe.
+ */
+export function squaredSource(info) {
+  const colour = videoToBt709(info);
+  return `scale=trunc(iw*sar/2)*2:ih${colour ? `:${colour},format=yuv444p` : ""},setsar=1`;
+}
+
+/**
  * The filter that brings a clip's picture to the edit's frame rate. A clip
  * already at it (within half a percent, after its speed change) is only
  * re-timed; otherwise frames are repeated, blended or made from the motion
@@ -842,8 +853,11 @@ export async function inParallel(items, limit, work) {
   if (failure) throw failure.error;
 }
 
-/** Arguments for pass 1: one clip normalised to an exact-length intermediate. */
-export function clipArgs(clip, plan, sourcePath, hasAudio, out, seam = null, sourceFps = null) {
+/**
+ * Arguments for pass 1: one clip normalised to an exact-length intermediate,
+ * its picture in BT.709 (`source` is a video's probe, for its colour).
+ */
+export function clipArgs(clip, plan, sourcePath, hasAudio, out, seam = null, sourceFps = null, source = null) {
   const { width, height, fps } = plan;
   const sharp = plan.upscale === "sharp";
   const duration = seconds(clip.durationFrames / fps);
@@ -858,19 +872,18 @@ export function clipArgs(clip, plan, sourcePath, hasAudio, out, seam = null, sou
       // and moves smoothly, then let zoompan produce the output frames.
       filters.push(frameChain("0:v", "framed", width * 2, height * 2, clip.fit, "m", clip.focus, sharp));
       filters.push(
-        `[framed]zoompan=z='${motion.z}':x='${motion.x}':y='${motion.y}':d=1:s=${width}x${height}:fps=${fps},` +
+        `[framed]scale=${STILL_TO_BT709},format=yuv444p,zoompan=z='${motion.z}':x='${motion.x}':y='${motion.y}':d=1:s=${width}x${height}:fps=${fps},` +
           `setsar=1,format=yuv420p,trim=end_frame=${clip.durationFrames},setpts=PTS-STARTPTS[v]`,
       );
     } else {
       filters.push(frameChain("0:v", "framed", width, height, clip.fit, "f", clip.focus, sharp));
-      filters.push(`[framed]fps=${fps},setsar=1,format=yuv420p,trim=end_frame=${clip.durationFrames},setpts=PTS-STARTPTS[v]`);
+      filters.push(`[framed]scale=${STILL_TO_BT709},format=yuv444p,fps=${fps},setsar=1,format=yuv420p,trim=end_frame=${clip.durationFrames},setpts=PTS-STARTPTS[v]`);
     }
   } else {
     const span = seconds((clip.durationFrames / fps) * clip.speed + 0.25);
     args.push("-ss", seconds(seekPoint(clip.trimStart)), "-t", span, "-i", sourcePath);
     const speed = clip.speed === 1 ? "setpts=PTS-STARTPTS" : `setpts=(PTS-STARTPTS)/${clip.speed}`;
-    // Non-square source pixels are squared up first so nothing is stretched.
-    filters.push(`[0:v]scale=trunc(iw*sar/2)*2:ih,setsar=1,${speed},${retimeFilter(plan.retime, fps, sourceFps, clip.speed, { width, height })}[paced]`);
+    filters.push(`[0:v]${squaredSource(source)},${speed},${retimeFilter(plan.retime, fps, sourceFps, clip.speed, { width, height })}[paced]`);
     filters.push(frameChain("paced", "framed", width, height, clip.fit, "f", clip.focus, sharp));
     let framed = "framed";
     if (seam?.head) {
@@ -910,7 +923,7 @@ export function clipArgs(clip, plan, sourcePath, hasAudio, out, seam = null, sou
     "-filter_complex", filters.join(";"),
     "-map", "[v]",
     "-map", "[a]",
-    "-c:v", "libx264", ...intermediateEncoding(plan, clip), "-pix_fmt", "yuv420p",
+    "-c:v", "libx264", ...intermediateEncoding(plan, clip), "-pix_fmt", "yuv420p", ...BT709_OUTPUT,
     "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "2",
     "-frames:v", String(clip.durationFrames),
     out,
@@ -1142,10 +1155,10 @@ export function finalArgs(plan, intermediatePaths, mixPath, subtitlePath, loudne
     for (const [index, image] of plan.images.entries()) {
       const input = intermediatePaths.length + 1 + index;
       const width = even(Math.max(2, image.width * plan.width));
-      // Scaled once, then that one frame held at the edit's rate (never decoded again).
+      // Scaled once and brought into BT.709, then that one frame held at the edit's rate (never decoded again).
       const held =
         `[${input}:v]trim=end_frame=1,format=rgba,scale=${width}:-2:flags=lanczos,colorchannelmixer=aa=${image.opacity.toFixed(3)},` +
-        `loop=loop=-1:size=1,setpts=N/(${plan.fps}*TB)`;
+        `${OVERLAY_TO_BT709},loop=loop=-1:size=1,setpts=N/(${plan.fps}*TB)`;
       // Faded in and out on its own clear background, unseen outside its times;
       // with no fade, shown from its first frame to its last.
       const fades =
@@ -1162,7 +1175,8 @@ export function finalArgs(plan, intermediatePaths, mixPath, subtitlePath, loudne
     pictureLabel = `over${plan.images.length}`;
   }
 
-  const finishing = ["setpts=PTS-STARTPTS"];
+  // Tagged as the BT.709 it is, before the text is drawn into it (its colours handed over for the drawing; see renderSequence).
+  const finishing = ["setpts=PTS-STARTPTS", BT709_TAGS];
   if (subtitlePath) finishing.push(`ass=filename=${subtitlePath}${fontsDir ? `:fontsdir=${fontsDir}` : ""}`);
   if (plan.introFade > 0) finishing.push(`fade=t=in:st=0:d=${seconds(plan.introFade)}`);
   if (plan.outroFade > 0) finishing.push(`fade=t=out:st=${seconds(plan.total - plan.outroFade)}:d=${seconds(plan.outroFade)}`);
@@ -1189,7 +1203,7 @@ export function finalArgs(plan, intermediatePaths, mixPath, subtitlePath, loudne
     "-map", "[vout]",
     "-map", "[aout]",
     "-c:v", "libx264", ...finalEncoding(plan), "-profile:v", "high", "-pix_fmt", "yuv420p",
-    "-r", String(plan.fps), "-g", String(plan.fps * 2),
+    "-r", String(plan.fps), "-g", String(plan.fps * 2), ...BT709_OUTPUT,
     "-c:a", "aac", "-b:a", finalAudioBitrate(plan), "-ar", "48000", "-ac", "2",
     "-movflags", "+faststart",
     "-t", seconds(plan.total),
@@ -1468,6 +1482,8 @@ export function buildSubtitles(plan, families = new Map()) {
     `PlayResY: ${height}`,
     "WrapStyle: 0",
     "ScaledBorderAndShadow: yes",
+    // Its colours are for a BT.709 picture (a player that reads the script itself converts them so).
+    SCRIPT_MATRIX,
     "",
     "[V4+ Styles]",
     "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
@@ -1585,7 +1601,7 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
     }
     const out = join(dir, `clip-${String(index).padStart(3, "0")}.mkv`);
     if (planner) clip.lossless = await planner.choose(index);
-    await ffmpeg(clipArgs(clip, plan, sources[clip.source].path, Boolean(info?.has_audio), out, seam, info?.fps ?? null), watched);
+    await ffmpeg(clipArgs(clip, plan, sources[clip.source].path, Boolean(info?.has_audio), out, seam, info?.fps ?? null, info), watched);
     planner?.done(index);
     intermediates[index] = out;
     ready += 1;
@@ -1682,8 +1698,10 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
   const script = buildSubtitles(plan, families);
   let subtitlePath = null;
   if (script) {
-    subtitlePath = join(dir, "text.ass");
-    await writeFile(subtitlePath, script, "utf8");
+    // As composed; and as drawn, its colours handed over to the matrix FFmpeg draws them with (see ./colour.js).
+    await writeFile(join(dir, "text.ass"), script, "utf8");
+    subtitlePath = join(dir, "text.drawn.ass");
+    await writeFile(subtitlePath, scriptForDrawing(script, await captionMatrix()), "utf8");
   }
   const out = join(dir, "sequence.mp4");
   const imagePaths = plan.images.map((image) => sources[image.source].path);
@@ -1708,7 +1726,8 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
     "-ss", seconds(Math.min(1, plan.total / 2)),
     "-i", out,
     "-frames:v", "1",
-    "-vf", `scale=${Math.min(720, plan.width)}:-2`,
+    // In a JPEG's own colour (BT.601), as viewers read it.
+    "-vf", `scale=${Math.min(720, plan.width)}:-2:${RENDER_TO_JPEG}`,
     "-q:v", "3",
     poster,
   ], limit);
@@ -1751,7 +1770,7 @@ async function smartJoinFor({ clip, previous, previousPath, plan, sourcePath, in
     next: {
       input: ["-ss", seconds(seekPoint(anchor)), "-i", sourcePath],
       shownInput: clip.trimStart - anchor > 0.5 / rate ? ["-ss", seconds(seekPoint(clip.trimStart)), "-i", sourcePath] : null,
-      filters: `[0:v]scale=trunc(iw*sar/2)*2:ih,setsar=1[sp];${layout};[sf]`,
+      filters: `[0:v]${squaredSource(info)}[sp];${layout};[sf]`,
       frames: clip.durationFrames,
     },
     plan,
@@ -1777,7 +1796,7 @@ async function seamFor({ clip, previous, previousPath, plan, sourcePath, info, d
   const layout = frameChain("sp", "sf", plan.width, plan.height, clip.fit, "s", clip.focus, plan.upscale === "sharp");
   const current = await planeThumbnail(
     ["-ss", seconds(seekPoint(anchor)), "-i", sourcePath],
-    `[0:v]scale=trunc(iw*sar/2)*2:ih,setsar=1[sp];${layout};[sf]`,
+    `[0:v]${squaredSource(info)}[sp];${layout};[sf]`,
     dir,
     `c${index}`,
     limit,

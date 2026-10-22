@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { probe, ffmpeg } from "./ffmpeg.js";
+import { asImage, handedOverHex, matrixOver, matrixTag, padMatrix, rgbOf } from "./colour.js";
 import { TaskError } from "./net.js";
 import { renderSequence, SEQUENCE_LIMITS, stemRoles } from "./sequence.js";
 import { cameraMotion, decodeThumbnails, extractFrameByIndex, pickHandoffFrame } from "./frames.js";
@@ -136,10 +137,24 @@ function padColour(value) {
 }
 
 /**
- * Builds the scale/pad filter for a target frame, without cropping the subject
- * away in "contain". "cover" crops around `focus`; "contain" pads in `background`.
+ * The colour around a video (padColour's), with the frame's tag to set before
+ * it is drawn: a YUV picture's colour is handed over to the matrix FFmpeg
+ * draws padding with, so it plays back as the colour asked for (see
+ * ./colour.js). An RGB picture's is drawn as it is.
  */
-function frameFilter(width, height, mode, { focus = { x: 0.5, y: 0.5 }, background = "black" } = {}) {
+async function videoPadding(colour, info) {
+  if (colour === "black" || rgbOf(info)) return { background: colour, tag: null };
+  const target = matrixOver(info);
+  const handed = handedOverHex(`#${colour.slice(2)}`, await padMatrix(target), target);
+  return { background: `0x${handed.slice(1)}`, tag: matrixTag(target) };
+}
+
+/**
+ * Builds the scale/pad filter for a target frame, without cropping the subject
+ * away in "contain". "cover" crops around `focus`; "contain" pads in
+ * `background`, the frame given `tag` first (see videoPadding).
+ */
+function frameFilter(width, height, mode, { focus = { x: 0.5, y: 0.5 }, background = "black", tag = null } = {}) {
   const w = even(width);
   const h = even(height);
   if (mode === "cover") {
@@ -153,7 +168,7 @@ function frameFilter(width, height, mode, { focus = { x: 0.5, y: 0.5 }, backgrou
       `[bgb][fgs]overlay=(W-w)/2:(H-h)/2`
     );
   }
-  return `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:color=${background}`;
+  return `scale=${w}:${h}:force_original_aspect_ratio=decrease,${tag ? `${tag},` : ""}pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:color=${background}`;
 }
 
 /**
@@ -195,9 +210,11 @@ export const TASKS = {
       const time = num(params.time_seconds, { min: 0, max: 86_400, fallback: 0, name: "time_seconds" });
       const format = pick(params.format, IMAGE_FORMATS, "jpg", "format");
       const out = join(dir, `thumbnail.${format}`);
+      // Its colour as a viewer sees the picture, in the image format's own (see ./colour.js).
+      const info = await probe(sources[0].path);
       const args = [];
       if (time > 0) args.push("-ss", String(time));
-      args.push("-i", sources[0].path, "-frames:v", "1", "-vf", `scale=${width}:-2`);
+      args.push("-i", sources[0].path, "-frames:v", "1", "-vf", `scale=${width}:-2:${asImage(info, format)}`);
       if (format === "jpg") args.push("-q:v", "3");
       args.push(out);
       await ffmpeg(args);
@@ -219,10 +236,11 @@ export const TASKS = {
       if (params.frame === "index") return frameAtIndex(sources[0].path, params, dir);
       const times = timestamps(params);
       const width = even(num(params.width, { min: 64, max: 3840, fallback: 960, name: "width" }));
+      const colour = asImage(await probe(sources[0].path), "jpg");
       const outputs = [];
       for (const [index, time] of times.entries()) {
         const out = join(dir, `frame-${String(index + 1).padStart(3, "0")}.jpg`);
-        await ffmpeg(["-ss", String(time), "-i", sources[0].path, "-frames:v", "1", "-vf", `scale=${width}:-2`, "-q:v", "3", out]);
+        await ffmpeg(["-ss", String(time), "-i", sources[0].path, "-frames:v", "1", "-vf", `scale=${width}:-2:${colour}`, "-q:v", "3", out]);
         outputs.push({ path: out, mime: "image/jpeg", kind: "image", timestamp_seconds: time });
       }
       return { outputs, metadata: { frame_times: times } };
@@ -286,8 +304,10 @@ export const TASKS = {
       const mode = pick(params.mode, SCALE_MODES, "cover", "mode");
       const format = pick(params.format, VIDEO_FORMATS, "mp4", "format");
       const crf = num(params.crf, { min: 14, max: 40, fallback: 20, name: "crf" });
-      const framing = { focus: focusOf(params), background: padColour(params.background) };
+      const focus = focusOf(params);
+      const colour = padColour(params.background);
       const probed = await probe(sources[0].path);
+      const framing = { focus, ...(await videoPadding(colour, probed)) };
       const out = join(dir, `reframed.${format}`);
       await ffmpeg([
         "-i", sources[0].path,
@@ -591,7 +611,7 @@ async function lastFrame(path, params, dir) {
   const rate = info.fps && info.fps > 0 ? info.fps : info.duration_seconds ? thumbs.count / info.duration_seconds : null;
   const chosen = pickHandoffFrame(thumbs, rate ?? 0);
   const out = join(dir, `frame-last.${format}`);
-  await extractFrameByIndex(path, chosen.index, out, { width, sourceWidth: info.width, format });
+  await extractFrameByIndex(path, chosen.index, out, { width, sourceWidth: info.width, format, source: info });
   const image = await probe(out);
   const at = rate ? Number((chosen.index / rate).toFixed(6)) : null;
   return {
@@ -631,7 +651,7 @@ async function frameAtIndex(path, params, dir) {
   const rate = info.fps && info.fps > 0 ? info.fps : info.duration_seconds ? thumbs.count / info.duration_seconds : null;
   const index = Math.min(wanted, thumbs.count - 1);
   const out = join(dir, `frame-${index}.${format}`);
-  await extractFrameByIndex(path, index, out, { width, sourceWidth: info.width, format });
+  await extractFrameByIndex(path, index, out, { width, sourceWidth: info.width, format, source: info });
   const image = await probe(out);
   const at = rate ? Number((index / rate).toFixed(6)) : null;
   return {

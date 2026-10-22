@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { readFile, rm } from "node:fs/promises";
+import { asImage } from "./colour.js";
 import { ffmpeg } from "./ffmpeg.js";
 import { TaskError } from "./net.js";
 
@@ -268,12 +269,14 @@ export function cameraMotion(thumbs, endIndex, fps) {
 
 /**
  * One frame, chosen by its number in display order (0 is the first), at the
- * clip's own size unless `width` asks for another. PNG keeps it exactly as
- * decoded; JPEG is for frames too large to send as PNG.
+ * clip's own size unless `width` asks for another, its colour as a player
+ * shows it (`source` is the video's probe; see ./colour.js). PNG keeps it
+ * exactly as decoded; JPEG is for frames too large to send as PNG.
  */
-export async function extractFrameByIndex(path, index, out, { width = null, sourceWidth = null, format = "png" } = {}) {
+export async function extractFrameByIndex(path, index, out, { width = null, sourceWidth = null, format = "png", source = null } = {}) {
   const filters = [`select=eq(n\\,${index})`];
-  if (width && width !== sourceWidth) filters.push(`scale=${width}:-2:flags=lanczos`);
+  const colour = asImage(source, format);
+  filters.push(width && width !== sourceWidth ? `scale=${width}:-2:flags=lanczos:${colour}` : `scale=${colour}`);
   await ffmpeg([
     "-i", path,
     "-map", "0:v:0",

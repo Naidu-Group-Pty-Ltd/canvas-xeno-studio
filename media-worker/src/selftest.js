@@ -2077,6 +2077,110 @@ await check("redact_image blurs what a screenshot must not show, and leaves ever
   }
 });
 
+/* Colour (see ./colour.js): what a render shows, read as a player reads BT.709. */
+
+const BRAND = { gold: [200, 155, 60], red: [225, 29, 72], green: [22, 163, 74], teal: [0, 168, 181] };
+const hexOf = (rgb) => rgb.map((value) => value.toString(16).padStart(2, "0")).join("");
+
+/** A video's (or an image's) frame at `time` as RGB, its picture read as `read` (scale options) says. */
+async function shownFrame(path, time, read = "in_color_matrix=bt709:in_range=tv") {
+  const out = join(dir, `rgb-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}.rgb`);
+  await ffmpeg([...(time === null ? [] : ["-ss", String(time)]), "-i", path, "-frames:v", "1", "-vf", `scale=${read}:flags=bilinear+accurate_rnd+full_chroma_int,format=rgb24`, "-f", "rawvideo", out]);
+  const data = await readFile(out);
+  await rm(out, { force: true });
+  return data;
+}
+
+/** The median colour of a square of pixels (`size` across) centred at x, y of a frame `width` wide. */
+function medianAt(data, width, x, y, size = 9) {
+  const channels = [[], [], []];
+  for (let dy = -(size >> 1); dy <= size >> 1; dy += 1) {
+    for (let dx = -(size >> 1); dx <= size >> 1; dx += 1) {
+      const at = ((y + dy) * width + x + dx) * 3;
+      for (let c = 0; c < 3; c += 1) channels[c].push(data[at + c]);
+    }
+  }
+  return channels.map((values) => values.sort((a, b) => a - b)[values.length >> 1]);
+}
+
+await check("a render's colours land on BT.709: a still, a logo, a motion graphic's RGB master, a call to action's box, and its poster", async () => {
+  const { deltaE } = await import("./quality.js");
+  const work = await mkdtemp(join(dir, "colour-"));
+  const still = join(work, "gold.png");
+  const logo = join(work, "logo.png");
+  const master = join(work, "motion.mkv");
+  await ffmpeg(["-f", "lavfi", "-i", `color=c=0x${hexOf(BRAND.gold)}:s=720x1280,format=rgb24`, "-frames:v", "1", still]);
+  await ffmpeg(["-f", "lavfi", "-i", `color=c=0x${hexOf(BRAND.red)}:s=200x200,format=rgba`, "-frames:v", "1", logo]);
+  // As the compositions make their masters: lossless RGB (FFV1, bgr0).
+  await ffmpeg(["-f", "lavfi", "-i", `color=c=0x${hexOf(BRAND.green)}:s=720x1280:r=25:d=2,format=rgb24`, "-c:v", "ffv1", "-pix_fmt", "bgr0", master]);
+  const result = await TASKS.render_sequence.run({
+    sources: [{ path: still, role: "image" }, { path: master, role: "video" }, { path: logo, role: "image" }],
+    params: {
+      width: 720, height: 1280, fps: 25, normalize_loudness: false,
+      clips: [{ source_index: 0, kind: "image", duration: 1 }, { source_index: 1, duration: 1.2 }],
+      images: [{ source_index: 2, start: 0, end: 1, x: 0.5, y: 0.25, width: 0.25 }],
+      overlays: [{ start: 1, end: 2.2, text: "GO", style: "cta", accent: `#${hexOf(BRAND.teal)}` }],
+    },
+    dir: work,
+  });
+  const [video, poster] = result.outputs.map((output) => output.path);
+  const info = await probe(video);
+  if (info.color_space !== "bt709" || info.color_range !== "tv") throw new Error(`tagged ${info.color_space}/${info.color_range}`);
+  const off = [];
+  const near = (name, got, wanted) => {
+    const distance = deltaE(got, wanted);
+    if (distance > 1.5) off.push(`${name} ${got.join(",")} (ΔE ${distance.toFixed(2)})`);
+  };
+  const first = await shownFrame(video, 0.5);
+  near("the still", medianAt(first, 720, 360, 960), BRAND.gold);
+  near("the logo", medianAt(first, 720, 360, 320), BRAND.red);
+  const second = await shownFrame(video, 1.6);
+  near("the motion graphic", medianAt(second, 720, 100, 100), BRAND.green);
+  // The box: from the left along the middle, the first pixels that aren't the motion graphic's green.
+  const row = 640;
+  let edge = -1;
+  for (let x = 0; x < 360; x += 1) {
+    if (deltaE(medianAt(second, 720, x, row, 1), BRAND.green) > 10) {
+      edge = x;
+      break;
+    }
+  }
+  if (edge < 0) throw new Error("the call to action's box wasn't found");
+  near("the call to action's box", medianAt(second, 720, edge + 8, row, 5), BRAND.teal);
+  // The poster is a JPEG: read as one (BT.601 at full range).
+  near("the poster", medianAt(await shownFrame(poster, null, "in_color_matrix=bt601:in_range=pc"), 720, 100, 100), BRAND.green);
+  if (off.length) throw new Error(`off: ${off.join("; ")}`);
+});
+
+await check("frames taken out of a BT.709 video, and a reframe's border, are the colours a player shows", async () => {
+  const { deltaE } = await import("./quality.js");
+  const work = await mkdtemp(join(dir, "frames-colour-"));
+  // A camera's teal, tagged BT.709 as cameras tag it.
+  const camera = join(work, "camera.mp4");
+  await ffmpeg(["-f", "lavfi", "-i", `color=c=0x${hexOf(BRAND.teal)}:s=720x1280:r=25:d=1,format=rgb24`, "-vf", "scale=out_color_matrix=bt709:out_range=tv,format=yuv420p", "-c:v", "libx264", "-crf", "12", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", camera]);
+  const off = [];
+  const near = async (name, path, read, x, y, width, wanted = BRAND.teal) => {
+    const got = medianAt(await shownFrame(path, null, read), width, x, y);
+    const distance = deltaE(got, wanted);
+    if (distance > 1.5) off.push(`${name} ${got.join(",")} (ΔE ${distance.toFixed(2)})`);
+  };
+  const jpeg = "in_color_matrix=bt601:in_range=pc";
+  const thumbnail = await TASKS.create_thumbnail.run({ sources: [{ path: camera }], params: { width: 320 }, dir: work });
+  await near("a thumbnail", thumbnail.outputs[0].path, jpeg, 160, 284, 320);
+  const frames = await TASKS.extract_frames.run({ sources: [{ path: camera }], params: { times_seconds: [0.5], width: 360 }, dir: work });
+  await near("a frame", frames.outputs[0].path, jpeg, 180, 320, 360);
+  const last = await TASKS.extract_frames.run({ sources: [{ path: camera }], params: { frame: "last" }, dir: work });
+  await near("its last frame", last.outputs[0].path, "in_color_matrix=bt709", 360, 640, 720);
+  const reframed = await TASKS.reframe_video.run({
+    sources: [{ path: camera }],
+    params: { width: 720, height: 720, mode: "contain", background: `#${hexOf(BRAND.red)}` },
+    dir: work,
+  });
+  await near("a reframe's border", reframed.outputs[0].path, "in_color_matrix=bt709:in_range=tv", 60, 360, 720, BRAND.red);
+  await near("a reframe's picture", reframed.outputs[0].path, "in_color_matrix=bt709:in_range=tv", 360, 360, 720);
+  if (off.length) throw new Error(`off: ${off.join("; ")}`);
+});
+
 // With its files (an image built with LIP_CHECK=1), SyncNet runs end to end: a
 // test pattern has no face to score. Without them, it isn't offered at all.
 await check(lipCheckAvailable ? "lip_check runs SyncNet, and finds no face in a test pattern" : "lip_check isn't offered without its files", async () => {

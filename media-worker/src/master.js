@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { asImage } from "./colour.js";
 import { config } from "./config.js";
 import { ffmpeg, probe, run } from "./ffmpeg.js";
 import { TaskError } from "./net.js";
@@ -31,7 +32,8 @@ export const QUALITIES = new Set(["standard", "master"]);
  * against the lossless frames, where the standard encode keeps 0.989 and
  * 44.6 dB); aq-mode 3 spends more of the bits on dark, flat areas, where
  * gradients would otherwise band. It takes about five times as long as the
- * standard encode, and its file is about four times the size.
+ * standard encode, and its file is about four times the size. It is tagged
+ * BT.709 as every render is (see ./colour.js).
  */
 export const MASTER_ENCODING = [
   "-preset",
@@ -40,14 +42,6 @@ export const MASTER_ENCODING = [
   "12",
   "-x264-params",
   "aq-mode=3:aq-strength=0.9",
-  "-color_range",
-  "tv",
-  "-colorspace",
-  "bt709",
-  "-color_primaries",
-  "bt709",
-  "-color_trc",
-  "bt709",
 ];
 export const MASTER_AUDIO_BITRATE = "256k";
 
@@ -350,6 +344,10 @@ export async function passThroughSequence({ plan, sources, dir, limit, parseLoud
   const copied = passThroughProblem(plan, await streamsOf(out));
   if (copied) return { passed: null, reason: `its copy ${copied.replace(/^it /, "")}` };
 
+  // Its poster in a JPEG's own colour, its picture read as a player reads it (see ./colour.js).
+  const picture = (info.streams ?? []).find(
+    (stream) => stream.codec_type === "video" && !stream.disposition?.attached_pic,
+  );
   const poster = join(dir, "poster.jpg");
   await ffmpeg(
     [
@@ -360,7 +358,7 @@ export async function passThroughSequence({ plan, sources, dir, limit, parseLoud
       "-frames:v",
       "1",
       "-vf",
-      `scale=${Math.min(720, plan.width)}:-2`,
+      `scale=${Math.min(720, plan.width)}:-2:${asImage(picture, "jpg")}`,
       "-q:v",
       "3",
       poster,
