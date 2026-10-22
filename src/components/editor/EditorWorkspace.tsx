@@ -522,6 +522,7 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
               timeline={timeline}
               saveNow={save.saveNow}
               disabled={save.status === "conflict"}
+              onChange={change}
             />
           </div>
         </aside>
@@ -573,6 +574,7 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
                 timeline={timeline}
                 saveNow={save.saveNow}
                 disabled={save.status === "conflict"}
+                onChange={change}
               />
             </div>
           </SheetContent>

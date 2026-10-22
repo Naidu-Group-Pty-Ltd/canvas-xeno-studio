@@ -57,7 +57,9 @@ function pick(value, allowed, fallback, name) {
  * ("channel_mix"), joins put in register: framing, colour, detail and
  * sound ("smart_join"), a title's height on the frame and what keeps it
  * readable ("overlay_layout"), and, where the image has it, a clip's lips
- * scored from its picture ("lip_check").
+ * scored from its picture ("lip_check"). A render can also be a master, with
+ * lossless clips and one fine encode, or a finished master passed through
+ * as it is ("mastering"; see master.js).
  */
 export const FEATURES = [
   "frame_focus",
@@ -73,6 +75,7 @@ export const FEATURES = [
   "frame_rate_conversion",
   "brand_text",
   "image_overlays",
+  "mastering",
   ...(lipCheckAvailable ? ["lip_check"] : []),
 ];
 

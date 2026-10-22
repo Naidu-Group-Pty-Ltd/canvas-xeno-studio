@@ -33,6 +33,7 @@ import {
   RENDER_UNCONFIRMED_STAGE,
   renderInProgress,
 } from "@/lib/edit/renders";
+import { QualitySetting } from "./RenderQuality";
 import { useTracksForAssets } from "@/hooks/useMusicData";
 import { useStudioVoiceovers } from "@/hooks/useVoiceData";
 import {
@@ -49,6 +50,8 @@ interface RenderPanelProps {
   timeline: Timeline;
   saveNow: () => Promise<number>;
   disabled: boolean;
+  /** Changes the edit's render settings (its quality); without it they are shown, not changed. */
+  onChange?: (timeline: Timeline) => void;
 }
 
 function newRequestId() {
@@ -58,7 +61,14 @@ function newRequestId() {
 }
 
 /** Render the final video and keep every version that was rendered. */
-export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: RenderPanelProps) {
+export function RenderPanel({
+  sequenceId,
+  title,
+  timeline,
+  saveNow,
+  disabled,
+  onChange,
+}: RenderPanelProps) {
   const [starting, setStarting] = useState(false);
   const [resending, setResending] = useState(false);
   const queryClient = useQueryClient();
@@ -257,6 +267,7 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
 
   return (
     <div className="space-y-3 p-3">
+      <QualitySetting timeline={timeline} onChange={onChange} disabled={disabled} />
       <Button
         className="w-full"
         disabled={

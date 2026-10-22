@@ -310,6 +310,128 @@ await check("render_sequence lays a GIF logo from the edit's first frame, decode
   if (Math.abs(info.duration_seconds - 1) > 0.06) throw new Error(`rendered ${info.duration_seconds}s`);
 });
 
+/** A file's streams as ffprobe reports them. */
+function streamsOf(path) {
+  return JSON.parse(execFileSync("ffprobe", ["-v", "error", "-print_format", "json", "-show_streams", path]).toString()).streams;
+}
+
+/** An MP4's top-level boxes, in order ("ftyp", "moov", "mdat", ...). */
+async function topBoxes(path) {
+  const bytes = await readFile(path);
+  const boxes = [];
+  for (let at = 0; at + 8 <= bytes.length; ) {
+    let size = bytes.readUInt32BE(at);
+    if (size === 1) size = Number(bytes.readBigUInt64BE(at + 8));
+    boxes.push(bytes.toString("latin1", at + 4, at + 8));
+    if (size < 8) break;
+    at += size;
+  }
+  return boxes;
+}
+
+/** A clip of moving pictures with sound, as a finished master might be: H.264 4:2:0 with AAC, in MP4. */
+async function finishedMaster(path, { seconds = 2, size = "360x640", rate = 25, volume = "0.5" } = {}) {
+  await ffmpeg([
+    "-f", "lavfi", "-i", `testsrc2=s=${size}:r=${rate}:d=${seconds}`,
+    "-f", "lavfi", "-i", `sine=frequency=440:duration=${seconds},volume=${volume}`,
+    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", path,
+  ]);
+  return path;
+}
+
+await check("render_sequence makes a master: lossless clips, then x264 slow at CRF 12 with aq-mode 3, a 2 s GOP, BT.709 tags and AAC at 256 kb/s", async () => {
+  const work = await mkdtemp(join(dir, "master-"));
+  const first = await finishedMaster(join(work, "first.mp4"));
+  const second = await finishedMaster(join(work, "second.mp4"), { size: "640x360" });
+  const result = await TASKS.render_sequence.run({
+    sources: [{ path: first, role: "video" }, { path: second, role: "video" }],
+    params: {
+      width: 360, height: 640, fps: 25, quality: "master",
+      clips: [
+        { source_index: 0, duration: 1.6 },
+        { source_index: 1, duration: 1.6, transition: { type: "fade", duration: 0.4 } },
+      ],
+    },
+    dir: work,
+  });
+  const mastering = result.metadata.mastering;
+  if (mastering?.quality !== "master" || mastering.lossless_clips.join() !== "1,2" || mastering.standard_clips.length)
+    throw new Error(`the clips weren't kept lossless: ${JSON.stringify(mastering)}`);
+  const out = result.outputs[0].path;
+  const [video, audio] = ["video", "audio"].map((type) => streamsOf(out).find((stream) => stream.codec_type === type));
+  if (video.profile !== "High" || video.pix_fmt !== "yuv420p") throw new Error(`encoded as ${video.profile} ${video.pix_fmt}`);
+  for (const [key, value] of [["color_range", "tv"], ["color_space", "bt709"], ["color_primaries", "bt709"], ["color_transfer", "bt709"]])
+    if (video[key] !== value) throw new Error(`${key} is ${video[key]}, not ${value}`);
+  if (!(Math.abs(Number(audio.bit_rate) - 256_000) < 30_000) || audio.sample_rate !== "48000") throw new Error(`the sound is ${audio.bit_rate} b/s at ${audio.sample_rate} Hz`);
+  // x264 writes the settings it encoded with into the stream: the slow preset's subme 8, CRF 12, aq-mode 3, a 50-frame GOP.
+  const settings = (await readFile(out)).toString("latin1");
+  for (const wanted of ["crf=12.0", "aq=3:0.90", "subme=8", "keyint=50 "])
+    if (!settings.includes(wanted)) throw new Error(`the encode wasn't made with ${wanted}`);
+  if (Math.abs((await probe(out)).duration_seconds - 2.8) > 0.06) throw new Error("the master isn't the edit's length");
+});
+
+await check("a master whose lossless clips wouldn't fit on the task's disk makes them the standard way, and says so", async () => {
+  const work = await mkdtemp(join(dir, "master-tight-"));
+  const clip = await finishedMaster(join(work, "clip.mp4"));
+  const before = config.maxTaskWorkspaceBytes;
+  // Room for the source and a standard clip, not a lossless one (about 10 MB at its largest here).
+  config.maxTaskWorkspaceBytes = 8 * 1024 * 1024;
+  try {
+    const result = await TASKS.render_sequence.run({
+      sources: [{ path: clip, role: "video" }],
+      params: { width: 360, height: 640, fps: 25, quality: "master", normalize_loudness: false, clips: [{ source_index: 0, duration: 2, volume: 0 }] },
+      dir: work,
+    });
+    const mastering = result.metadata.mastering;
+    if (mastering?.lossless_clips.length || mastering?.standard_clips.join() !== "1") throw new Error(`decided ${JSON.stringify(mastering)}`);
+    if (!(mastering.needed_bytes > mastering.budget_bytes)) throw new Error(`it should say how much room it needed: ${JSON.stringify(mastering)}`);
+    if (!streamsOf(result.outputs[0].path).some((stream) => stream.color_space === "bt709")) throw new Error("the final encode should still be the master's");
+  } finally {
+    config.maxTaskWorkspaceBytes = before;
+  }
+});
+
+await check("render_sequence passes a finished master through untouched: its picture packet for packet, laid out to play at once", async () => {
+  const work = await mkdtemp(join(dir, "through-"));
+  const source = await finishedMaster(join(work, "master.mp4"));
+  const packets = (path) => execFileSync("ffmpeg", ["-v", "error", "-i", path, "-map", "0:v", "-c", "copy", "-f", "framemd5", "-"]).toString().split("\n").filter((line) => line && !line.startsWith("#")).map((line) => line.split(",").at(-1).trim());
+  const original = packets(source);
+  const result = await TASKS.render_sequence.run({
+    sources: [{ path: source, role: "video" }],
+    params: { width: 360, height: 640, fps: 25, normalize_loudness: false, pass_through: true, clips: [{ source_index: 0, duration: 2 }] },
+    dir: work,
+  });
+  const out = result.outputs[0].path;
+  if (result.metadata.pass_through?.used !== true) throw new Error(`not passed through: ${JSON.stringify(result.metadata.pass_through)}`);
+  const copied = packets(out);
+  if (copied.length !== 50 || copied.join() !== original.join()) throw new Error(`the picture was changed (${copied.length} packets)`);
+  if (!streamsOf(out).some((stream) => stream.codec_type === "audio" && stream.codec_name === "aac")) throw new Error("the sound was lost");
+  const boxes = await topBoxes(out);
+  if (boxes.indexOf("moov") === -1 || boxes.indexOf("moov") > boxes.indexOf("mdat")) throw new Error(`not laid out to play at once: ${boxes.join(" ")}`);
+  if ((await stat(result.outputs[1].path)).size < 1000) throw new Error("no poster");
+});
+
+await check("a pass-through asked of a file that doesn't match its edit is rendered, and says why", async () => {
+  const work = await mkdtemp(join(dir, "through-not-"));
+  const source = await finishedMaster(join(work, "master.mp4"));
+  // The clip stops 10 frames short of the file's end: the file isn't the render.
+  const shorter = await TASKS.render_sequence.run({
+    sources: [{ path: source, role: "video" }],
+    params: { width: 360, height: 640, fps: 25, normalize_loudness: false, pass_through: true, clips: [{ source_index: 0, duration: 1.6 }] },
+    dir: work,
+  });
+  if (shorter.metadata.pass_through?.used !== false || !/40/.test(shorter.metadata.pass_through.reason)) throw new Error(`reported ${JSON.stringify(shorter.metadata.pass_through)}`);
+  if (Math.abs((await probe(shorter.outputs[0].path)).duration_seconds - 1.6) > 0.06) throw new Error("it wasn't rendered to the clip's length");
+  // A quiet file in an edit that evens loudness out: the render would change its level.
+  const quiet = await finishedMaster(join(work, "quiet.mp4"), { volume: "0.05" });
+  const louder = await TASKS.render_sequence.run({
+    sources: [{ path: quiet, role: "video" }],
+    params: { width: 360, height: 640, fps: 25, pass_through: true, clips: [{ source_index: 0, duration: 2 }] },
+    dir: work,
+  });
+  if (louder.metadata.pass_through?.used !== false || !/loudness/.test(louder.metadata.pass_through.reason)) throw new Error(`reported ${JSON.stringify(louder.metadata.pass_through)}`);
+});
+
 await check("reframe_video crops around its focus point", async () => {
   const left = await TASKS.reframe_video.run({ sources: [{ path: halves }], params: { width: 180, height: 320, mode: "cover", focus_x: 0 }, dir });
   const leftColour = await colourAt(left.outputs[0].path, "40:40:70:140");
