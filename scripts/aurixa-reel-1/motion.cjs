@@ -217,7 +217,7 @@ const throughRect = (g, [x, y, w, h]) => {
 // ------------------------------------------------------------------ G-POINTER, G-FOCUS, the caption
 const POINTER_TIP = [3 * (46 / 24), 2 * (46 / 24)];
 const pointerHtml = () =>
-  `<div class="fk-press" id="ring" style="visibility:hidden"></div><svg class="fk-pointer" id="ptr" style="left:0;top:0;visibility:hidden" viewBox="0 0 24 24">${KIT.ARROW}</svg>`;
+  `<div class="fk-press" id="fk-ring" style="visibility:hidden"></div><svg class="fk-pointer" id="fk-ptr" style="left:0;top:0;visibility:hidden" viewBox="0 0 24 24">${KIT.ARROW}</svg>`;
 /**
  * The pointer's state: its tip on a gentle curve from `from` to `to` over [a, b] on ease-move (the
  * curve's bow is a fraction of the distance, to the right of travel), shown from `show`, hidden at
@@ -239,7 +239,7 @@ function pointer(st, t, { from, to, a, b, bow = 0.12, show, hide = Infinity, pre
   const opacity = Math.min(span(t, show, show + 0.14, EASE.linear), 1 - gone);
   const since = press === null ? -1 : t - press;
   const dip = since >= 0 && since < 0.2 ? 1 - 0.1 * Math.sin((Math.PI * since) / 0.2) : 1;
-  st.set("#ptr", {
+  st.set("#fk-ptr", {
     transform: `translate(${px(x - POINTER_TIP[0])}, ${px(y - POINTER_TIP[1])}) scale(${r3(dip)})`,
     "transform-origin": `${POINTER_TIP[0]}px ${POINTER_TIP[1]}px`,
     ...fade(opacity),
@@ -247,13 +247,13 @@ function pointer(st, t, { from, to, a, b, bow = 0.12, show, hide = Infinity, pre
   if (since >= 0 && since < PRESS) {
     const u = since / PRESS;
     const d = 24 * KIT.K * EASE.settle(u);
-    st.set("#ring", {
+    st.set("#fk-ring", {
       transform: `translate(${px(x - d / 2)}, ${px(y - d / 2)})`,
       width: px(d),
       height: px(d),
       ...fade((1 - u) * opacity),
     });
-  } else st.set("#ring", { transform: "none", width: "0px", height: "0px", ...fade(0) });
+  } else st.set("#fk-ring", { transform: "none", width: "0px", height: "0px", ...fade(0) });
   return [x, y];
 }
 /** G-FOCUS closing in on a frame rect from `from` px further out, over [a, b] on ease-settle. */

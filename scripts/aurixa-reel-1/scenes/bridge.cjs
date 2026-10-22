@@ -173,7 +173,7 @@ function bridgeScene() {
         [HOLD[0] - DROP[0], HOLD[1] - DROP[1]],
         u,
       );
-      st.set("#ptr", {
+      st.set("#fk-ptr", {
         transform: `translate(${px(cx + offset[0] - POINTER_TIP[0])}, ${px(cy + offset[1] - POINTER_TIP[1])}) scale(1)`,
       });
     }

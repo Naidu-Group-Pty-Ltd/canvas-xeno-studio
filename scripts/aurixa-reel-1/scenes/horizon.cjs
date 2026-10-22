@@ -98,9 +98,10 @@ function horizonScene() {
       const { at, o } = travellerAt(i, t);
       st.set(`#T${i}`, { left: px(at[0]), top: px(at[1]), ...fade(o) });
     });
-    // The confirmations blink once each, one after another, once the camera has settled on the map.
+    // The confirmations blink once each, one after another, as the camera settles on the map; the last is
+    // gone before the cut into 10.2, which does not draw them.
     CONFIRMS.forEach((_, i) => {
-      const a = tLand + 0.04 + i * 0.1;
+      const a = tLand - 0.06 + i * 0.1;
       const on = span(t, a, a + 0.14, EASE.settle);
       const off = span(t, a + 0.36, a + 0.6, EASE.move);
       st.set(`#cf${i}`, {
