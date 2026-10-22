@@ -40,11 +40,20 @@ export interface ThreadRow {
 export const THREAD_COLUMNS =
   "id,title,project_id,campaign_id,brief_id,created_by,last_message_at,created_at";
 
-/** Conversations, newest first; pinned ones first of all once pins exist (migration 0022). */
-export function useThreads(scope: "mine" | "team", enabled = true, withPins = false) {
+/**
+ * Conversations, newest first; pinned ones first of all once pins exist
+ * (migration 0022). A section worker's own conversation is seen from its
+ * plan, not listed (once sections are in, migration 0036).
+ */
+export function useThreads(
+  scope: "mine" | "team",
+  enabled = true,
+  withPins = false,
+  withSections = false,
+) {
   const { user } = useAuth();
   return useQuery({
-    queryKey: ["supercomputer_threads", scope, user?.id ?? null, withPins],
+    queryKey: ["supercomputer_threads", scope, user?.id ?? null, withPins, withSections],
     enabled: enabled && !!user,
     queryFn: async () => {
       let query = supabase
@@ -54,6 +63,7 @@ export function useThreads(scope: "mine" | "team", enabled = true, withPins = fa
         .order("last_message_at", { ascending: false })
         .limit(80);
       if (scope === "mine" && user) query = query.eq("created_by", user.id);
+      if (withSections) query = query.is("parent_thread_id", null);
       const { data, error } = await query;
       if (error) throw error;
       const rows = (data ?? []) as unknown as ThreadRow[];

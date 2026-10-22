@@ -48,10 +48,13 @@ export interface TranscriptActions {
   onDecide: ((decisions: ApprovalDecisions) => void) | null;
   onOpenAsset: (asset: AssetRow) => void;
   onOpenDocument: (document: { title: string; markdown: string }) => void;
+  /** Opens the Sections panel on a plan (left out: there is no panel here). */
+  onOpenSections?: ((planId: string) => void) | undefined;
 }
 
 /** A tool's family, for its icon. */
 function toolIcon(name: string) {
+  if (name.includes("section") || name.includes("join")) return Layers;
   if (name === "queue_generation" || name === "make_soul_still") return Sparkles;
   if (name === "view_media") return Eye;
   if (name === "wait_for_generation") return Clock;
@@ -374,6 +377,28 @@ function ToolResult({ ui, actions }: { ui: ToolUi; actions: TranscriptActions })
           {ui.count} {ui.count === 1 ? "draft is" : "drafts are"} below, ready to run.
         </p>
       ) : null;
+    case "sections":
+      return (
+        <div className="flex items-center gap-3 rounded-lg border border-border bg-surface px-3 py-2">
+          <Layers className="size-5 shrink-0 text-primary" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium">{ui.title}</p>
+            <p className="text-[11px] text-muted-foreground">
+              {ui.sections} sections, each built by its own worker and merged into one edit
+            </p>
+          </div>
+          {actions.onOpenSections && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7"
+              onClick={() => actions.onOpenSections?.(ui.planId)}
+            >
+              Open
+            </Button>
+          )}
+        </div>
+      );
     default:
       return null;
   }
