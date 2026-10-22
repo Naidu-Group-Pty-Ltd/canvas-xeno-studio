@@ -210,7 +210,9 @@ void main() {
       }
     }
     col = col * (col * (col * 0.305306011 + 0.682171111) + 0.012522878); // sRGB to linear
-    // The light: a low warm sun from the north-west and the sky's blue; the sea takes the sun's glint.
+    // The light: a low warm sun from the north-west and the sky's blue; the sea takes the sky's sheen at a grazing
+    // angle. It takes no glint: with no sun in the frame, the sun's highlight on the Indian Ocean read as a smudge on
+    // the opening frame.
     float ndl = dot(N, uSun);
     float day = smoothstep(-0.1, 0.3, ndl);
     vec3 sunCol = vec3(1.0, 0.88, 0.72);
@@ -220,10 +222,8 @@ void main() {
     float water = smoothstep(1.25, 1.9, col.b / max(max(col.r, col.g), 1e-4));
     if (water > 0.0) {
       vec3 V = -dir;
-      float nh = max(dot(N, normalize(uSun + V)), 0.0);
-      float spec = pow(nh, 1400.0) * 0.18;
       float fres = pow(1.0 - max(dot(N, V), 0.0), 5.0);
-      lit += water * (sunCol * spec * day + skyCol * fres * 0.25);
+      lit += water * skyCol * fres * 0.25;
     }
     // The gold pin's light on the ground, and the ring it sends out (only where they can reach).
     float cg = dot(N, uRing.xyz);
