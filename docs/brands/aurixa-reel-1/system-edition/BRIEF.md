@@ -88,7 +88,7 @@ _The pack's purpose:_ Give the viewer one recognisable property and one client q
 - **Ends on:** The property's card, readable, above its gold pin on the satellite map.
 - **On screen, exactly:** "14 Wattle Grove" · "Banksia Rise NSW 2155" · "4 bed · 2 bath · 2 car · 450 m² land" · "New listing · just now"
 - **Made from:** `G-SATELLITE`, `G-PINS`, `G-LISTING`, `G-STAGE`, `P`
-- **Note:** The pins are where Australians live (the ABS's population by statistical area, thinned to about 600 pins), so the east coast glows and the interior stays dark. The imagery is NASA's Blue Marble Next Generation and its shaded relief, public domain; nothing on it names a real street.
+- **Note:** The pins are where Australians live: 599 of them, placed from GeoNames' towns and cities of 1,000 people or more (CC BY 4.0, credit GeoNames), so the east coast glows and the interior stays dark. The ground is NASA's Blue Marble Next Generation, lit by Natural Earth's shaded relief, its coast redrawn from GLOBE's land mask (NOAA), all public domain; globe.cjs draws it in the renderer's own browser and satellite.py builds its textures. Nothing on it names a real street, and the gold pin is the film's own property, placed in its postcode by the scene.
 
 #### 01.2 · The client asks
 

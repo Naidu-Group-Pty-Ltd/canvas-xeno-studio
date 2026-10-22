@@ -76,7 +76,7 @@ SHOTS = [
          "A slow orbit across the continent, then one fall from orbit to the suburb, easing in; the card ends in the upper action zone with the gold pin under it.",
          "The property's card, readable, above its gold pin on the satellite map.",
          ["14 Wattle Grove", "Banksia Rise NSW 2155", "4 bed · 2 bath · 2 car · 450 m² land", "New listing · just now"],
-         "The pins are where Australians live (the ABS's population by statistical area, thinned to about 600 pins), so the east coast glows and the interior stays dark. The imagery is NASA's Blue Marble Next Generation and its shaded relief, public domain; nothing on it names a real street."),
+         "The pins are where Australians live: 599 of them, placed from GeoNames' towns and cities of 1,000 people or more (CC BY 4.0, credit GeoNames), so the east coast glows and the interior stays dark. The ground is NASA's Blue Marble Next Generation, lit by Natural Earth's shaded relief, its coast redrawn from GLOBE's land mask (NOAA), all public domain; globe.cjs draws it in the renderer's own browser and satellite.py builds its textures. Nothing on it names a real street, and the gold pin is the film's own property, placed in its postcode by the scene."),
     shot("01.2", "01", ("cap", 3), "screen", "before", "The client asks",
          ["PL-01B-a", "PL-01B-b", "G-WINDOW-PLAIN", "G-POINTER", "G-STAGE"],
          [(0.0, "The card shrinks into a link preview in a plain messaging window that swings in from the right, in depth: from Jordan Ellis to Alex Morgan, today's tools in daylight greys, its shadow soft on the paper-white desk beneath."),
