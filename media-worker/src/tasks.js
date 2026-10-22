@@ -1,10 +1,13 @@
 import { join } from "node:path";
 import { probe, ffmpeg } from "./ffmpeg.js";
 import { TaskError } from "./net.js";
-import { renderSequence, SEQUENCE_LIMITS } from "./sequence.js";
+import { renderSequence, SEQUENCE_LIMITS, stemRoles } from "./sequence.js";
 import { cameraMotion, decodeThumbnails, extractFrameByIndex, pickHandoffFrame } from "./frames.js";
 import { measureSync, prepareAudio } from "./voice.js";
 import { lipCheck, lipCheckAvailable } from "./lipcheck.js";
+import { chromiumAvailable } from "./chromium.js";
+import { COMPOSITION_LIMITS, joinStretches, renderComposition } from "./composition.js";
+import { config } from "./config.js";
 
 /**
  * Task catalogue.
@@ -57,7 +60,10 @@ function pick(value, allowed, fallback, name) {
  * ("channel_mix"), joins put in register: framing, colour, detail and
  * sound ("smart_join"), a title's height on the frame and what keeps it
  * readable ("overlay_layout"), and, where the image has it, a clip's lips
- * scored from its picture ("lip_check").
+ * scored from its picture ("lip_check"). A voiceover can be held open in its
+ * silences by whole frames ("voice_pauses"), every render reports the voice's
+ * margin over the music and the mix's loudness ("mix_report"), and a render
+ * can hand back its voiceover, music and effects buses as files ("stems").
  * Music edited on its bars plays its pieces in order, crossfaded at each
  * join ("music_pieces", see ./pieces.js).
  */
@@ -75,8 +81,14 @@ export const FEATURES = [
   "frame_rate_conversion",
   "brand_text",
   "image_overlays",
+  "overlay_motion",
+  "voice_pauses",
+  "mix_report",
+  "stems",
   "music_pieces",
   ...(lipCheckAvailable ? ["lip_check"] : []),
+  // Code-driven motion graphics drawn in Chromium ("compositions"), on a GPU here ("compositions_gpu").
+  ...(chromiumAvailable ? ["compositions", ...(config.gpu ? ["compositions_gpu"] : [])] : []),
 ];
 
 /** The point of the picture (0-1 across and down) a crop keeps in frame: the centre unless given. */
@@ -404,11 +416,12 @@ export const TASKS = {
    * An edited sequence rendered to a finished video: clips and stills with
    * trims, speed and motion, per-cut transitions, the clips' own sound,
    * voiceover, music ducked under the voice, captions, titles and loudness
-   * normalisation. Produces the video and a poster frame.
+   * normalisation. Produces the video and a poster frame, then any stems
+   * asked for (the voiceover, music and effects buses, in the order asked).
    */
   render_sequence: {
     sources: { min: 1, max: SEQUENCE_LIMITS.clips + SEQUENCE_LIMITS.audio + SEQUENCE_LIMITS.images + SEQUENCE_LIMITS.fonts },
-    outputs: () => 2,
+    outputs: (params) => 2 + stemRoles(params?.stems).length,
     run: renderSequence,
   },
 
@@ -444,6 +457,28 @@ export const TASKS = {
           sources: { min: 1, max: 2 },
           outputs: () => 0,
           run: lipCheck,
+        },
+      }
+    : {}),
+
+  /**
+   * A composition (code-driven motion graphics; see composition.js) drawn as a
+   * camera would: its lossless master, a playable copy and a poster, or one
+   * lossless stretch of it. Its sources are its bundle, then its images and
+   * fonts. Only on a worker whose image has a browser.
+   */
+  ...(chromiumAvailable
+    ? {
+        render_composition: {
+          sources: { min: 1, max: 1 + 64 + 24 },
+          outputs: (params) => (params?.output === "stretch" ? 1 : 3),
+          run: renderComposition,
+        },
+        /** A composition's stretches joined frame for frame: its master, playable copy and poster. */
+        join_stretches: {
+          sources: { min: 1, max: COMPOSITION_LIMITS.stretches },
+          outputs: () => 3,
+          run: joinStretches,
         },
       }
     : {}),

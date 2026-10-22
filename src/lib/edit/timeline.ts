@@ -8,6 +8,7 @@
  * shows is what the render produces.
  */
 import { z } from "zod";
+import { compositionClipSchema } from "../compositions/spec";
 import { FONT_FAMILY_PATTERN, isBrandFontFile } from "./font-family";
 import { musicPieces, piecesLength, piecesSchema } from "./pieces";
 
@@ -184,6 +185,9 @@ export const LIMITS = {
   /** Pictures over the edit (a logo) and brand font files. */
   images: 8,
   fonts: 4,
+  /** Pauses a voiceover is held open by, and the most frames one adds. */
+  pauses: 200,
+  pauseFrames: 300,
 } as const;
 
 const finite = (min: number, max: number) => z.number().finite().min(min).max(max);
@@ -230,8 +234,26 @@ export const clipSchema = z.object({
   label: z.string().max(200).optional(),
   /** Length of the source media, cached so the editor can bound trims. */
   sourceDuration: z.number().finite().positive().nullable().optional(),
+  /**
+   * The clip is a composition (motion graphics as code, see ../compositions):
+   * its file is a drawing of it, and the render takes that drawing's lossless
+   * master instead.
+   */
+  composition: compositionClipSchema.nullable().optional(),
 });
 export type TimelineClip = z.infer<typeof clipSchema>;
+
+/**
+ * Room to breathe in a voiceover without stretching a word: `frames` whole
+ * frames (of the edit's frame rate) of silence put in at `at`, a moment of
+ * the recording's own (seconds on its clock, as trimStart is). A pause sits
+ * only in one of the voiceover's measured silences (see ./voice-pauses).
+ */
+export const voicePauseSchema = z.object({
+  at: finite(0, 86_400),
+  frames: z.number().int().min(1).max(LIMITS.pauseFrames),
+});
+export type VoicePause = z.infer<typeof voicePauseSchema>;
 
 export const audioSchema = z.object({
   id: z.string().min(1).max(64),
@@ -255,6 +277,8 @@ export const audioSchema = z.object({
    * looping). See ./pieces.
    */
   pieces: piecesSchema.optional(),
+  /** A voiceover held open in its silences, in the recording's order (see voicePauseSchema). */
+  pauses: z.array(voicePauseSchema).max(LIMITS.pauses).transform(sortedPauses).default([]),
 });
 export type TimelineAudio = z.infer<typeof audioSchema>;
 
@@ -279,6 +303,25 @@ export const captionsSchema = z.object({
 });
 export type Captions = z.infer<typeof captionsSchema>;
 
+/** A cubic-bezier curve's four numbers (x1, y1, x2, y2), as a brand's code writes its easing. */
+const easeSchema = z.tuple([finite(0, 1), finite(-2, 3), finite(0, 1), finite(-2, 3)]);
+
+/**
+ * How a title comes in and goes, in a brand's own motion (its kit's enter and
+ * exit roles, see ../brand/production and ./overlay-motion): how long each
+ * takes, on which curve, and how far it rises into place, as a share of its
+ * own size (it lifts half that as it goes). Without one a title fades in and
+ * out over a quarter of a second, as titles always have.
+ */
+export const overlayMotionSchema = z.object({
+  enter: finite(0, 2),
+  exit: finite(0, 2),
+  enterEase: easeSchema,
+  exitEase: easeSchema,
+  rise: finite(0, 1).default(0.3),
+});
+export type OverlayMotion = z.infer<typeof overlayMotionSchema>;
+
 export const overlaySchema = z.object({
   id: z.string().min(1).max(64),
   text: z.string().max(LIMITS.overlayChars),
@@ -293,6 +336,8 @@ export const overlaySchema = z.object({
   font: fontName,
   color: hexColour,
   accent: hexColour,
+  /** How it comes in and goes (a brand's motion); none: the quarter-second fade. */
+  motion: overlayMotionSchema.nullable().optional(),
 });
 export type Overlay = z.infer<typeof overlaySchema>;
 
@@ -376,6 +421,8 @@ export const timelineSchema = z.object({
   brandKitId: z.string().uuid().nullable().default(null),
   /** The platform whose clear area the preview shows (see ./brand SAFE_AREAS). */
   safeArea: z.enum(["none", "tiktok", "reels", "shorts", "youtube"]).default("none"),
+  /** Hand back the voiceover, music and effects buses as files beside the video (see stemRolesFor). */
+  stems: z.boolean().default(false),
 });
 export type Timeline = z.infer<typeof timelineSchema>;
 
@@ -792,15 +839,20 @@ export function audioLoops(item: Pick<TimelineAudio, "role" | "loop" | "pieces">
   return item.role === "music" && item.loop && !musicPieces(item);
 }
 
-/** Seconds of an audio item that actually play within a picture of `total` seconds. */
-export function audioPlayLength(item: TimelineAudio, total: number): number {
+/**
+ * Seconds of an audio item that actually play within a picture of `total`
+ * seconds. A voiceover's pauses add their silence to what its recording holds
+ * (in whole frames of `fps`, the edit's frame rate).
+ */
+export function audioPlayLength(item: TimelineAudio, total: number, fps = 30): number {
   if (item.start >= total) return 0;
   const pieces = musicPieces(item);
   const available = pieces
     ? piecesLength(pieces)
     : audioLoops(item) || !item.sourceDuration
       ? Infinity
-      : Math.max(0, item.sourceDuration - item.trimStart);
+      : Math.max(0, item.sourceDuration - item.trimStart) +
+        pausedSeconds(item, fps, item.sourceDuration);
   return Math.max(0, Math.min(item.duration ?? Infinity, available, total - item.start));
 }
 
@@ -811,8 +863,9 @@ export function audioPlayLength(item: TimelineAudio, total: number): number {
 export function audioFades(
   item: TimelineAudio,
   total: number,
+  fps = 30,
 ): { fadeIn: number; fadeOut: number } {
-  const length = audioPlayLength(item, total);
+  const length = audioPlayLength(item, total, fps);
   return { fadeIn: Math.min(item.fadeIn, length / 2), fadeOut: Math.min(item.fadeOut, length / 2) };
 }
 
@@ -831,6 +884,311 @@ export function editFadeLevel(
   if (fadeIn > 0 && time < fadeIn) return Math.max(0, time / fadeIn);
   if (fadeOut > 0 && time > total - fadeOut) return Math.max(0, (total - time) / fadeOut);
   return 1;
+}
+
+/* ------------------------------------------------------------------ */
+/* Voiceover pauses                                                    */
+/* ------------------------------------------------------------------ */
+
+/*
+ * A voiceover held open in its own silences, after Reel 1's pacing
+ * (scripts/aurixa-reel-1/pacing.cjs): whole frames of silence go into the
+ * recording between its words, and no word is ever stretched. What hangs on
+ * the voice moves with it: a word (a caption, a title) by the pauses at or
+ * before it, a cut by those strictly before it, so a pause placed exactly on
+ * a cut opens the new shot before its first word. The media worker splits the
+ * voice at the same moments, to the sample (pausedVoiceChain in
+ * media-worker/src/sequence.js), so the preview and the render agree.
+ */
+
+/** Two moments closer than this (seconds) are the same moment. */
+const SAME_MOMENT = 1e-6;
+
+/** Pauses in the recording's order, one per moment: two at the same moment become one. */
+export function sortedPauses(pauses: readonly VoicePause[]): VoicePause[] {
+  const merged: VoicePause[] = [];
+  for (const pause of [...pauses].sort((a, b) => a.at - b.at)) {
+    const last = merged.at(-1);
+    if (last && pause.at - last.at < SAME_MOMENT)
+      last.frames = Math.min(LIMITS.pauseFrames, last.frames + pause.frames);
+    else merged.push({ at: pause.at, frames: pause.frames });
+  }
+  return merged.slice(0, LIMITS.pauses);
+}
+
+/** The frames of the pauses at or before a moment (a word's), or strictly before it (a cut's). */
+function framesBefore(pauses: readonly VoicePause[], time: number, inclusive: boolean): number {
+  let frames = 0;
+  for (const pause of pauses)
+    if (inclusive ? pause.at <= time + SAME_MOMENT : pause.at < time - SAME_MOMENT)
+      frames += pause.frames;
+  return frames;
+}
+
+/** Seconds a word at `time` (on the pauses' own clock) moves: every pause at or before it. */
+export function wordShift(pauses: readonly VoicePause[], time: number, fps: number): number {
+  return framesBefore(pauses, time, true) / fps;
+}
+
+/** Seconds a cut at `time` moves: every pause strictly before it (one on it opens the new shot). */
+export function cutShift(pauses: readonly VoicePause[], time: number, fps: number): number {
+  return framesBefore(pauses, time, false) / fps;
+}
+
+/** A word's time once the pauses are in, as pacing.cjs gives it. */
+export function warpWord(pauses: readonly VoicePause[], time: number, fps: number): number {
+  return Number((time + wordShift(pauses, time, fps)).toFixed(6));
+}
+
+/** A cut's time once the pauses are in, as pacing.cjs gives it. */
+export function warpCut(pauses: readonly VoicePause[], time: number, fps: number): number {
+  return Number((time + cutShift(pauses, time, fps)).toFixed(6));
+}
+
+/**
+ * The pauses a voiceover item is held open by, from where it starts playing
+ * (one before its trim point is never heard). Music and effects aren't paused.
+ */
+export function itemPauses(
+  item: Pick<TimelineAudio, "role" | "pauses" | "trimStart">,
+): VoicePause[] {
+  if (item.role !== "voiceover") return [];
+  return item.pauses.filter((pause) => pause.at >= item.trimStart - SAME_MOMENT);
+}
+
+/** A voiceover's pauses at the moments of the edit they fall at, before any of them is counted. */
+export function pausesOnEdit(
+  item: Pick<TimelineAudio, "role" | "pauses" | "trimStart" | "start">,
+): VoicePause[] {
+  return itemPauses(item).map((pause) => ({
+    at: item.start + (pause.at - item.trimStart),
+    frames: pause.frames,
+  }));
+}
+
+/** Seconds of silence a voiceover's pauses at or before `until` (its recording's clock) add. */
+export function pausedSeconds(
+  item: Pick<TimelineAudio, "role" | "pauses" | "trimStart">,
+  fps: number,
+  until = Infinity,
+): number {
+  return framesBefore(itemPauses(item), until, true) / fps;
+}
+
+/**
+ * The pauses a voiceover plays within `length` seconds of it: where each one's
+ * silence starts (seconds into the item, on the edit's clock) and how long it
+ * holds. A pause the item ends before never sounds, and isn't sent to render.
+ */
+export function pauseSilences(
+  item: Pick<TimelineAudio, "role" | "pauses" | "trimStart">,
+  fps: number,
+  length = Infinity,
+): { at: number; frames: number; from: number; seconds: number }[] {
+  const silences: { at: number; frames: number; from: number; seconds: number }[] = [];
+  let held = 0;
+  for (const pause of itemPauses(item)) {
+    const from = pause.at - item.trimStart + held;
+    if (from >= length - SAME_MOMENT) break;
+    const seconds = pause.frames / fps;
+    silences.push({ at: pause.at, frames: pause.frames, from, seconds });
+    held += seconds;
+  }
+  return silences;
+}
+
+/** A voiceover's pauses as the media worker takes them: those it plays, sent only when it has some. */
+function voicePausesParam(item: TimelineAudio, total: number, fps: number) {
+  const silences = pauseSilences(item, fps, audioPlayLength(item, total, fps));
+  return silences.length ? { pauses: silences.map(({ at, frames }) => ({ at, frames })) } : {};
+}
+
+/**
+ * Where a voiceover is in its recording `elapsed` seconds after it starts on
+ * the edit, and whether it is holding one of its pauses there (silent): the
+ * recording plays up to a pause, stops for its frames, and goes on from where
+ * it stopped.
+ */
+export function voicePosition(
+  item: Pick<TimelineAudio, "role" | "pauses" | "trimStart">,
+  elapsed: number,
+  fps: number,
+): { source: number; held: boolean } {
+  let offset = 0;
+  let source = item.trimStart;
+  for (const pause of itemPauses(item)) {
+    const reached = offset + (pause.at - source);
+    if (elapsed < reached) return { source: source + (elapsed - offset), held: false };
+    const seconds = pause.frames / fps;
+    if (elapsed < reached + seconds) return { source: pause.at, held: true };
+    offset = reached + seconds;
+    source = pause.at;
+  }
+  return { source: source + (elapsed - offset), held: false };
+}
+
+/**
+ * Where a moment of the edit lands when a voiceover's pauses change from
+ * `before` to `after` (both as pausesOnEdit gives them). A moment inside one
+ * of the old silences keeps its share of that silence as it is now; any other
+ * moment is carried by the voice, and where a new pause falls exactly on it,
+ * it moves as a word does (after the silence) or as a cut does (before it).
+ */
+export function retimeForPauses(
+  time: number,
+  before: readonly VoicePause[],
+  after: readonly VoicePause[],
+  fps: number,
+  kind: "word" | "cut",
+): number {
+  let held = 0;
+  for (const pause of before) {
+    const silence = pause.at + held;
+    if (time < silence - SAME_MOMENT) break;
+    const seconds = pause.frames / fps;
+    if (time <= silence + seconds + SAME_MOMENT) {
+      const share = Math.max(0, Math.min(1, (time - silence) / seconds));
+      const kept = after.find((entry) => Math.abs(entry.at - pause.at) < SAME_MOMENT);
+      return pause.at + cutShift(after, pause.at, fps) + share * ((kept?.frames ?? 0) / fps);
+    }
+    held += seconds;
+  }
+  const unpaced = time - held;
+  return unpaced + (kind === "word" ? wordShift : cutShift)(after, unpaced, fps);
+}
+
+export interface VoicePauseEdit {
+  timeline: Timeline;
+  /** Clips that couldn't be made as long as their cut needs: there isn't the footage. */
+  shortClips: string[];
+}
+
+/**
+ * A voiceover held open by new pauses (or fewer), and what is timed to it
+ * moved to match: captions (and any word times they carry) and titles within
+ * the voiceover's span move as its words do. A voiceover with a set length
+ * grows by the silence added, so the same last word still plays. With `cuts`,
+ * the clips are lengthened (or shortened) so each cut keeps its place against
+ * the words; a clip without the footage for it stops short, in `shortClips`.
+ */
+export function editVoicePauses(
+  timeline: Timeline,
+  itemId: string,
+  pauses: readonly VoicePause[],
+  options: { cuts?: boolean } = {},
+): VoicePauseEdit {
+  const item = timeline.audio.find((entry) => entry.id === itemId);
+  if (!item || item.role !== "voiceover") return { timeline, shortClips: [] };
+  const fps = timeline.fps;
+  const layout = layoutTimeline(timeline);
+  const length = audioPlayLength(item, layout.total, fps);
+  const wanted = sortedPauses(
+    pauses
+      .filter((pause) => Number.isFinite(pause.at) && pause.at >= item.trimStart - SAME_MOMENT)
+      .map((pause) => ({
+        at: Math.max(0, pause.at),
+        frames: Math.max(1, Math.min(LIMITS.pauseFrames, Math.round(pause.frames))),
+      })),
+  );
+
+  // A set length keeps its last word: the recording it plays, plus its silences.
+  const heard = pauseSilences(item, fps, length);
+  const silent = heard.reduce(
+    (sum, entry) => sum + Math.min(entry.seconds, Math.max(0, length - entry.from)),
+    0,
+  );
+  const recording = Math.max(0, length - silent);
+  const reach = item.trimStart + recording;
+  const duration =
+    item.duration === null
+      ? null
+      : Math.max(
+          0.1,
+          Math.min(
+            LIMITS.totalSeconds,
+            Number((recording + framesBefore(wanted, reach, true) / fps).toFixed(6)),
+          ),
+        );
+  const paused: TimelineAudio = { ...item, pauses: wanted, duration };
+  // Only what is heard moves anything: the pauses within the recording it plays.
+  const before = pausesOnEdit({ ...item, pauses: heard });
+  const after = pausesOnEdit({
+    ...paused,
+    pauses: wanted.filter((pause) => pause.at <= reach + SAME_MOMENT),
+  });
+  const move = (time: number, kind: "word" | "cut") =>
+    Number(
+      Math.min(
+        LIMITS.totalSeconds,
+        Math.max(0, retimeForPauses(time, before, after, fps, kind)),
+      ).toFixed(3),
+    );
+  // What is timed within the voiceover's span moves with it; the rest stays.
+  const spanEnd = item.start + length;
+  const inSpan = (entry: { start: number; end: number }) =>
+    entry.start < spanEnd - SAME_MOMENT && entry.end > item.start + SAME_MOMENT;
+  const moveTimes = <T extends { start: number; end: number }>(entry: T): T => ({
+    ...entry,
+    start: move(entry.start, "word"),
+    end: move(entry.end, "cut"),
+  });
+  const captions = {
+    ...timeline.captions,
+    segments: timeline.captions.segments.map((segment) => {
+      if (!inSpan(segment)) return segment;
+      const words = (segment as { words?: unknown }).words;
+      return {
+        ...moveTimes(segment),
+        ...(Array.isArray(words)
+          ? {
+              words: words.map((word: { start: number; end: number }) =>
+                word && typeof word === "object" ? moveTimes(word) : word,
+              ),
+            }
+          : {}),
+      };
+    }),
+  };
+  const overlays = timeline.overlays.map((overlay) =>
+    inSpan(overlay) ? moveTimes(overlay) : overlay,
+  );
+  let next: Timeline = {
+    ...timeline,
+    audio: timeline.audio.map((entry) => (entry.id === itemId ? paused : entry)),
+    captions,
+    overlays,
+  };
+
+  const shortClips: string[] = [];
+  if (options.cuts) {
+    // Each clip ends where its cut lands now, in whole frames; the clips start
+    // where the clip before them ends, less their transition, as laid out.
+    let endFrame = 0;
+    const clips = timeline.clips.map((clip, index) => {
+      const entry = layout.clips[index]!;
+      const target = Math.round(retimeForPauses(entry.end, before, after, fps, "cut") * fps);
+      const startFrame = endFrame - Math.round(entry.transitionIn * fps);
+      const want = Math.max(2, target - startFrame);
+      const most = Math.floor(maxClipDuration(clip) * fps + 1e-6);
+      const frames = Math.min(want, most);
+      if (frames < want) shortClips.push(clip.id);
+      endFrame = startFrame + frames;
+      const duration = Number((frames / fps).toFixed(6));
+      return Math.round(clip.duration * fps) === frames ? clip : { ...clip, duration };
+    });
+    next = { ...next, clips };
+  }
+  return { timeline: next, shortClips };
+}
+
+/** A voiceover held open by these pauses, with its captions and titles (and, if asked, cuts) moved to match. */
+export function withVoicePauses(
+  timeline: Timeline,
+  itemId: string,
+  pauses: readonly VoicePause[],
+  options: { cuts?: boolean } = {},
+): Timeline {
+  return editVoicePauses(timeline, itemId, pauses, options).timeline;
 }
 
 /* ------------------------------------------------------------------ */
@@ -1031,6 +1389,23 @@ export function mixNeedsChannelLevels(timeline: Timeline): boolean {
   );
 }
 
+/** The order a render hands back its stems in, after the video and its poster. */
+export const STEM_ROLES: readonly AudioRole[] = ["voiceover", "music", "sfx"];
+
+/**
+ * The stems a render of the edit hands back when asked for: each bus with
+ * sound heard in it (its voiceover, its music, its effects), as mixed into the
+ * master, as a file beside the video.
+ */
+export function stemRolesFor(
+  timeline: Timeline,
+  total = layoutTimeline(timeline).total,
+): AudioRole[] {
+  if (!timeline.stems) return [];
+  const heard = new Set(audibleAudio(timeline, total).map((item) => item.role));
+  return STEM_ROLES.filter((role) => heard.has(role));
+}
+
 /**
  * The media worker's render_sequence parameters for a timeline, plus the
  * ordered list of distinct assets it needs (one download per asset).
@@ -1093,10 +1468,13 @@ export function buildRenderRequest(
     fade_in: item.fadeIn,
     fade_out: item.fadeOut,
     loop: audioLoops(item),
-    duck: item.role === "music" ? item.duck : false,
+    // Music dips under the voice, and an effect can too; a voiceover never does.
+    duck: item.role === "voiceover" ? false : item.duck,
     duck_level: item.duckLevel,
     // Sent only when set, so a media service from before them renders the rest.
     ...piecesParam(item),
+    // Sent only when it has some (feature voice_pauses), so an older media service renders the rest.
+    ...voicePausesParam(item, layout.total, timeline.fps),
   }));
 
   const segments = timeline.captions.enabled
@@ -1140,6 +1518,8 @@ export function buildRenderRequest(
       ...(overlay.y !== null ? { y: overlay.y } : {}),
       ...(overlay.backing !== "outline" ? { backing: overlay.backing } : {}),
       ...brandText(overlay),
+      // Its motion (feature overlay_motion), sent only when it has one.
+      ...(overlay.motion ? { motion: overlayMotionParams(overlay.motion) } : {}),
     }));
 
   const images = timeline.images
@@ -1196,6 +1576,10 @@ export function buildRenderRequest(
         ? { frame_rate_conversion: timeline.frameRateConversion }
         : {}),
       ...(timeline.upscale !== "standard" ? { upscale: timeline.upscale } : {}),
+      // Sent only when asked for (feature stems): one more file a bus, in STEM_ROLES' order.
+      ...(stemRolesFor(timeline, layout.total).length
+        ? { stems: stemRolesFor(timeline, layout.total) }
+        : {}),
       ...(busMix
         ? {
             mix: {
@@ -1214,6 +1598,17 @@ export function buildRenderRequest(
 function piecesParam(item: TimelineAudio): { pieces?: Array<{ from: number; to: number }> } {
   const pieces = musicPieces(item);
   return pieces ? { pieces: pieces.map(({ from, to }) => ({ from, to })) } : {};
+}
+
+/** A title's motion as the media worker takes it (see media-worker/src/sequence.js). */
+export function overlayMotionParams(motion: OverlayMotion) {
+  return {
+    enter: motion.enter,
+    exit: motion.exit,
+    enter_ease: [...motion.enterEase],
+    exit_ease: [...motion.exitEase],
+    rise: motion.rise,
+  };
 }
 
 /** Problems that stop a render, in plain words. Empty when the timeline can render. */

@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { VoiceAssignment } from "@/components/voices/VoiceAssignment";
+import { ProjectReviews } from "@/components/reviews/ProjectReviews";
 
 export const Route = createFileRoute("/projects/$projectId")({
   head: () => ({
@@ -179,6 +180,7 @@ function ProjectDetailPage() {
             <TabsTrigger value="assets">Assets ({assets.length})</TabsTrigger>
             <TabsTrigger value="history">Generation history</TabsTrigger>
             <TabsTrigger value="folders">Folders</TabsTrigger>
+            <TabsTrigger value="reviews">Reviews</TabsTrigger>
           </TabsList>
 
           <TabsContent value="assets" className="mt-4">
@@ -217,6 +219,10 @@ function ProjectDetailPage() {
 
           <TabsContent value="folders" className="mt-4">
             <FolderManager projectId={projectId} folders={folders} />
+          </TabsContent>
+
+          <TabsContent value="reviews" className="mt-4">
+            <ProjectReviews projectId={projectId} />
           </TabsContent>
         </Tabs>
       </div>

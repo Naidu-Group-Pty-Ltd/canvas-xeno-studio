@@ -407,3 +407,76 @@ describe("edits over the plain HTTP API", () => {
     expect(catalogue.tools.map((entry) => entry.name)).not.toContain("queue_generation");
   });
 });
+
+describe("a brand's production roles over MCP", () => {
+  const produced = db.add("brand_kits", {
+    name: "Aurixa in production",
+    is_archived: false,
+    is_default: false,
+    fonts: [],
+    terms: [],
+    production: {
+      scheme: "dark",
+      roles: {
+        ground: {
+          kind: "colour",
+          value: "#040B16",
+          from: {
+            token: "--color-base-950",
+            repo: "Naidu-Group-Pty-Ltd/aurixa-systems",
+            path: "src/index.css",
+            line: 7,
+          },
+        },
+        surface: { kind: "colour", value: "#10233D" },
+        ink: { kind: "colour", value: "#FFFFFF" },
+        settle: { kind: "motion", ease: [0.22, 1, 0.36, 1], durationMs: null },
+      },
+      read: [{ repo: "Naidu-Group-Pty-Ltd/aurixa-systems", sha: "fb9ecba1eb20" }],
+    },
+  });
+
+  async function call(name: string, args: unknown) {
+    const reader = await tokenFor(member["id"], ["read"]);
+    const answer = (await (
+      await mcp.handleMcpRequest(
+        post("/api/public/studio-mcp", reader, {
+          jsonrpc: "2.0",
+          id: 11,
+          method: "tools/call",
+          params: { name, arguments: args },
+        }),
+      )
+    ).json()) as { result: { isError: boolean; structuredContent?: unknown } };
+    return answer.result;
+  }
+
+  test("get_brand_kit has the roles with where each is declared, their checks, and its stylesheet when asked", async () => {
+    const plain = await call("get_brand_kit", { brandKitId: produced["id"] });
+    expect(plain.isError).toBe(false);
+    const read = plain.structuredContent as Record<string, unknown>;
+    const production = read["production"] as { roles: Record<string, { from: unknown }> };
+    expect(Object.keys(production.roles)).toEqual(["ground", "surface", "ink", "settle"]);
+    expect(production.roles["ground"]!.from).toMatchObject({ path: "src/index.css", line: 7 });
+    const checks = read["productionChecks"] as { key: string; ok: boolean }[];
+    expect(checks.find((check) => check.key === "contrast")?.ok).toBe(true);
+    expect(checks.find((check) => check.key === "roles")?.ok).toBe(false);
+    expect(read["productionCss"]).toBeUndefined();
+
+    const withCss = await call("get_brand_kit", { brandKitId: produced["id"], includeCss: true });
+    const css = (withCss.structuredContent as Record<string, unknown>)["productionCss"] as string;
+    expect(css).toContain(
+      "--brand-ground: #040B16; /* --color-base-950 · aurixa-systems src/index.css:7 */",
+    );
+    expect(css).toContain("--brand-ease-settle: cubic-bezier(0.22, 1, 0.36, 1);");
+  });
+
+  test("a kit from before production roles has none, and a list of kits leaves them out", async () => {
+    const before = await call("get_brand_kit", { brandKitId: kit["id"] });
+    const read = before.structuredContent as Record<string, unknown>;
+    expect(read["production"]).toMatchObject({ roles: {}, decisions: [] });
+    const listed = await call("list_brand_kits", {});
+    const kits = (listed.structuredContent as { result: Record<string, unknown>[] }).result;
+    expect(kits.find((entry) => entry["id"] === produced["id"])).not.toHaveProperty("production");
+  });
+});

@@ -22,6 +22,7 @@ import { addEndCard, applyBrandKit, brandKitOf, SAFE_AREAS } from "../edit/brand
 import { CHANNELS, EMPTY_DNA, GOALS } from "../brand/dna";
 import { GITHUB_TOKEN_PATTERN } from "../brand/import-request";
 import { layoutTimeline, parseTimeline, timelineSchema } from "../edit/timeline";
+import { renderStems } from "../edit/mix-report";
 import { fitMusicToLength } from "../music/fit";
 import { readStructure } from "../music/structure";
 import { textCheckOf } from "../media/text-check";
@@ -29,6 +30,7 @@ import { CHARACTER_VIEWS } from "../characters/model";
 import type { ModelRegistryEntry } from "../model-schema";
 import type { ApiScope } from "./tokens";
 import type { ApiCaller } from "./tokens.server";
+import { PLANNING_TOOLS } from "./planning.server";
 
 type Json = Record<string, unknown>;
 
@@ -375,7 +377,7 @@ const getRender = tool({
   name: "get_render",
   title: "Get a render",
   description:
-    "A render's progress (0 to 1), its status, and once complete, the finished video's library id and a download link valid for an hour.",
+    "A render's progress (0 to 1), its status, and once complete, the finished video's library id and a download link valid for an hour, how its sound sits (mix_report: the voice's margin over the music in the speech band, section by section, and the mix's loudness), and its stems if asked for.",
   scope: "read",
   input: z.object({ renderId: id() }),
   run: async (args) => {
@@ -390,7 +392,7 @@ const getRender = tool({
     const { data: asset } = render.asset_id
       ? await db
           .from("assets")
-          .select("storage_bucket,storage_path")
+          .select("storage_bucket,storage_path,metadata")
           .eq("id", render.asset_id)
           .is("deleted_at", null)
           .maybeSingle()
@@ -398,9 +400,48 @@ const getRender = tool({
     return {
       ...render,
       url: asset ? await signedLink(asset.storage_bucket, asset.storage_path) : null,
+      ...(await renderSound(args.renderId, asset?.metadata ?? null)),
     };
   },
 });
+
+/**
+ * How a render's sound sits, as kept on it (or, before migration
+ * 0032_mix_reports, with its video's own record), and its stems with links.
+ */
+async function renderSound(renderId: string, videoMetadata: unknown) {
+  const { data: kept, error } = await db
+    .from("sequence_renders")
+    .select("mix_report")
+    .eq("id", renderId)
+    .maybeSingle();
+  const probe = (videoMetadata as { probe?: { mix_report?: unknown } } | null)?.probe;
+  const report = (!error && kept?.mix_report) || probe?.mix_report || null;
+  const stems = renderStems(videoMetadata);
+  const { data: files } = stems.length
+    ? await db
+        .from("assets")
+        .select("id,storage_bucket,storage_path")
+        .in(
+          "id",
+          stems.map((stem) => stem.assetId),
+        )
+        .is("deleted_at", null)
+    : { data: [] };
+  return {
+    mix_report: report,
+    stems: await Promise.all(
+      stems.map(async (stem) => {
+        const stored = (files ?? []).find((entry) => entry.id === stem.assetId);
+        return {
+          role: stem.role,
+          assetId: stem.assetId,
+          url: stored ? await signedLink(stored.storage_bucket, stored.storage_path) : null,
+        };
+      }),
+    ),
+  };
+}
 
 const listBrandKits = tool({
   name: "list_brand_kits",
@@ -415,8 +456,11 @@ const listBrandKits = tool({
     const { brandStyleLine } = await import("../brand/design");
     return (data ?? []).map((row) => {
       // A kit's whole DNA and its formulas run to thousands of characters each: a list of kits
-      // says what kind of brand each is and names its formulas; get_brand_kit has the rest.
-      const { fonts, design, dna, ownFormulas, ...kit } = brandKitOf(row as unknown as Json);
+      // says what kind of brand each is and names its formulas; get_brand_kit has the rest
+      // (its production roles too).
+      const { fonts, design, dna, ownFormulas, production, ...kit } = brandKitOf(
+        row as unknown as Json,
+      );
       return {
         ...kit,
         fonts: fonts.map((font) => font.family),
@@ -443,9 +487,12 @@ const getBrandKit = tool({
   name: "get_brand_kit",
   title: "Get a brand kit",
   description:
-    "One brand kit's whole design system: palette (each colour's role and use), typefaces, the look of its imagery (mood, photography, lighting, grading, composition, motion), its voice (tone, sample lines, words it uses and avoids), its rules, the line generations carry and what they must not show, and its style reference images.",
+    "One brand kit's whole design system: palette (each colour's role and use), typefaces, the look of its imagery (mood, photography, lighting, grading, composition, motion), its voice (tone, sample lines, words it uses and avoids), its rules, the line generations carry and what they must not show, and its style reference images. Its `production` holds the roles its graphics are drawn in (ground, surfaces, glass, ink, accent, signature, lines; display, body and mono type; corners, shadows, blur) and its motion (move, settle, enter, exit and press curves and durations), each with the repository, file and line it is declared on; `productionChecks` says whether they pass, and with `includeCss` `productionCss` is them as one stylesheet of --brand-* custom properties.",
   scope: "read",
-  input: z.object({ brandKitId: id() }),
+  input: z.object({
+    brandKitId: id(),
+    includeCss: z.boolean().default(false),
+  }),
   run: async (args, caller) => {
     await roleOf(caller.userId);
     const { requireBrandKit } = await import("../brand/use.server");
@@ -471,9 +518,19 @@ const getBrandKit = tool({
         summary: formula.summary,
         audience: formula.own?.audience ?? null,
       })),
+      ...(await productionOutput(kit, args.includeCss)),
     };
   },
 });
+
+/** A kit's production checks, and its stylesheet when asked for (see ../brand/production). */
+async function productionOutput(kit: ReturnType<typeof brandKitOf>, includeCss: boolean) {
+  const { productionChecks, productionStylesheet } = await import("../brand/production");
+  return {
+    productionChecks: productionChecks(kit.production, { fonts: kit.fonts }).list,
+    ...(includeCss ? { productionCss: productionStylesheet(kit) } : {}),
+  };
+}
 
 const readBrandCode = tool({
   name: "read_brand_code",
@@ -1657,7 +1714,7 @@ const createEdit = tool({
   }),
   run: async (args, caller) => {
     await roleOf(caller.userId);
-    const timeline = validTimeline(args.timeline);
+    const { timeline, pauses } = await withSettledPauses(validTimeline(args.timeline));
     const missing = await missingFiles(timeline);
     if (missing.length)
       throw new AppError("INVALID_PARAMETERS", `Not in the library: ${missing.join(", ")}`);
@@ -1675,9 +1732,29 @@ const createEdit = tool({
       .select("id,version")
       .maybeSingle();
     if (error || !data) throw new AppError("UNKNOWN", "The edit couldn't be saved");
-    return { sequenceId: data.id, version: data.version };
+    return { sequenceId: data.id, version: data.version, ...pauses };
   },
 });
+
+/**
+ * A timeline's voiceover pauses held to the voices' measured silences: one
+ * just off a silence is moved into it, one nowhere near a silence refused.
+ * What was done is said in the answer: how many were moved, and which
+ * voiceovers (by item id) haven't been measured yet, so can't be rendered.
+ */
+async function withSettledPauses(timeline: ReturnType<typeof timelineSchema.parse>) {
+  if (!timeline.audio.some((item) => item.role === "voiceover" && item.pauses.length))
+    return { timeline, pauses: {} };
+  const { settleVoicePauses } = await import("../edit/voice-pauses.server");
+  const settled = await settleVoicePauses(timeline);
+  return {
+    timeline: settled.timeline,
+    pauses: {
+      ...(settled.snapped ? { pausesSnapped: settled.snapped } : {}),
+      ...(settled.unchecked.length ? { pausesUnmeasured: settled.unchecked } : {}),
+    },
+  };
+}
 
 /** Saves an edit's new timeline (or title) over the version given, as the Editor saves. */
 async function saveEdit(
@@ -1719,16 +1796,18 @@ const updateEdit = tool({
   }),
   run: async (args, caller) => {
     await roleOf(caller.userId);
-    const timeline = args.timeline ? validTimeline(args.timeline) : undefined;
+    const settled = args.timeline ? await withSettledPauses(validTimeline(args.timeline)) : null;
+    const timeline = settled?.timeline;
     if (timeline) {
       const missing = await missingFiles(timeline);
       if (missing.length)
         throw new AppError("INVALID_PARAMETERS", `Not in the library: ${missing.join(", ")}`);
     }
-    return saveEdit(args.sequenceId, args.expectedVersion, {
+    const saved = await saveEdit(args.sequenceId, args.expectedVersion, {
       ...(timeline ? { timeline } : {}),
       ...(args.title ? { title: args.title } : {}),
     });
+    return { ...saved, ...settled?.pauses };
   },
 });
 
@@ -2017,6 +2096,7 @@ export const STUDIO_TOOLS: StudioTool[] = [
   applyBrand,
   fitMusic,
   renderEdit,
+  ...PLANNING_TOOLS,
 ];
 
 export function studioTool(name: string): StudioTool | null {

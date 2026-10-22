@@ -74,6 +74,9 @@ async function signLinks(task: {
   const input = (task.input_payload ?? {}) as Record<string, unknown>;
   const strings = (value: unknown) =>
     Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+  // A task whose sources aren't library files (a composition's bundle, its
+  // stretches) names where each is kept and its role instead.
+  if (Array.isArray(input["source_files"])) return signFiles(task, input, strings);
   const ids = strings(input["sources"]);
   const { data: assets } = await supabaseAdmin
     .from("assets")
@@ -97,6 +100,47 @@ async function signLinks(task: {
     });
   }
   // A worker that lost the task (a restart) makes it again, over anything it uploaded before.
+  const uploads: MediaWorkerTask["uploads"] = [];
+  for (const path of strings(input["storage_paths"])) {
+    const { data: signed, error } = await supabaseAdmin.storage
+      .from(task.storage_bucket ?? OUTPUT_BUCKET)
+      .createSignedUploadUrl(path, { upsert: true });
+    if (error || !signed?.signedUrl)
+      return {
+        ok: false,
+        message: "A destination for the rendered file could not be prepared. Try again.",
+      };
+    uploads.push({ url: signed.signedUrl, method: "PUT", storage_key: path });
+  }
+  return { ok: true, sources, uploads };
+}
+
+/** signLinks for a task that names its sources by where they are kept (`source_files`). */
+async function signFiles(
+  task: { storage_bucket: string | null },
+  input: Record<string, unknown>,
+  strings: (value: unknown) => string[],
+): Promise<
+  | { ok: true; sources: MediaWorkerTask["sources"]; uploads: MediaWorkerTask["uploads"] }
+  | { ok: false; message: string }
+> {
+  const sources: MediaWorkerTask["sources"] = [];
+  for (const entry of input["source_files"] as unknown[]) {
+    const file = (entry ?? {}) as Record<string, unknown>;
+    const bucket = typeof file["bucket"] === "string" ? file["bucket"] : null;
+    const path = typeof file["path"] === "string" ? file["path"] : null;
+    const { data: signed } =
+      bucket && path
+        ? await supabaseAdmin.storage.from(bucket).createSignedUrl(path, SOURCE_URL_TTL)
+        : { data: null };
+    if (!signed?.signedUrl)
+      return { ok: false, message: "A source file could not be read from storage. Try again." };
+    sources.push({
+      role: typeof file["role"] === "string" ? file["role"] : "source",
+      url: signed.signedUrl,
+      mime: typeof file["mime"] === "string" ? file["mime"] : null,
+    });
+  }
   const uploads: MediaWorkerTask["uploads"] = [];
   for (const path of strings(input["storage_paths"])) {
     const { data: signed, error } = await supabaseAdmin.storage

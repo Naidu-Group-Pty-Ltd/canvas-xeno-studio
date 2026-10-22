@@ -10,6 +10,7 @@
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { logOperationCompleted } from "../media/events.server";
+import { isMissingColumnError } from "./errors";
 
 interface RenderTask {
   id: string;
@@ -120,6 +121,8 @@ export async function finishSequenceRender(
         .maybeSingle()
     : { data: null, error: null };
   must({ error: sequenceError }, "sequence lookup");
+  // The stems asked for, each a library file of its own, before the video that lists them.
+  const stems = await registerStems(task, { input, outputs, storagePaths, sequence, metadata });
 
   let assetId: string | null = null;
   if (videoPath) {
@@ -158,6 +161,7 @@ export async function finishSequenceRender(
             render_id: renderId,
             ...(posterPath ? { poster_path: posterPath } : {}),
             ...(metadata ? { probe: metadata } : {}),
+            ...(stems.length ? { stems } : {}),
             ...(Array.isArray(input["music_credits"]) && input["music_credits"].length
               ? { music_credits: input["music_credits"] }
               : {}),
@@ -201,6 +205,7 @@ export async function finishSequenceRender(
     );
   };
   if (!options.renderLast) await finishRender();
+  if (finished) await recordMixReport(renderId, metadata);
   if (sequenceId && renderId)
     await settleEdit(sequenceId, renderId, finished ? "rendered" : "failed");
 
@@ -291,6 +296,119 @@ async function settleEdit(sequenceId: string, renderId: string, status: "rendere
       .neq("version", version),
     "sequence",
   );
+}
+
+const STEM_TITLES: Record<string, string> = {
+  voiceover: "Voiceover stem",
+  music: "Music stem",
+  sfx: "Effects stem",
+};
+
+/**
+ * The stems a render handed back (feature stems): its voiceover, music and
+ * effects buses, after the video and poster in the order asked for. Each is
+ * recorded once as library audio linked to the render (the render and its
+ * bus in the file's own record; the files in the video's), so it is kept and
+ * downloaded beside the video. The music stem carries the music's credits and
+ * terms, as the video does.
+ */
+async function registerStems(
+  task: RenderTask,
+  context: {
+    input: Record<string, unknown>;
+    outputs: Record<string, unknown>[];
+    storagePaths: string[];
+    sequence: { title: string | null; project_id: string | null } | null;
+    metadata: Record<string, unknown> | null;
+  },
+): Promise<{ role: string; asset_id: string }[]> {
+  const { input, outputs, storagePaths, sequence, metadata } = context;
+  const roles = Array.isArray(input["stems"])
+    ? input["stems"].filter((role): role is string => typeof role === "string")
+    : [];
+  const bucket = task.storage_bucket ?? "generated-assets";
+  const registered: { role: string; asset_id: string }[] = [];
+  for (const [position, role] of roles.entries()) {
+    const index = 2 + position;
+    const output = outputs.find((entry) => entry["index"] === index);
+    const path = text(output?.["storage_key"], storagePaths[index] ?? "");
+    // Not uploaded: nothing to keep.
+    if (!output || !path) continue;
+    const findExisting = async () => {
+      const { data, error } = await supabaseAdmin
+        .from("assets")
+        .select("id")
+        .eq("storage_bucket", bucket)
+        .eq("storage_path", path)
+        .maybeSingle();
+      must({ error }, "stem lookup");
+      return data?.id ?? null;
+    };
+    let stemId = await findExisting();
+    if (!stemId) {
+      const { data: inserted, error } = await supabaseAdmin
+        .from("assets")
+        .insert({
+          uploaded_by: task.created_by,
+          project_id: sequence?.project_id ?? task.project_id,
+          asset_type: "audio",
+          storage_bucket: bucket,
+          storage_path: path,
+          mime_type: "audio/wav",
+          file_size: numberOrNull(output["bytes"]),
+          duration_seconds:
+            numberOrNull(metadata?.["planned_duration_seconds"]) ??
+            numberOrNull(metadata?.["duration_seconds"]),
+          source_type: "generated",
+          title: `${sequence?.title ?? "Edit"} · ${STEM_TITLES[role] ?? "Stem"}`.slice(0, 200),
+          metadata: {
+            derived: true,
+            media_task_id: task.id,
+            task_type: "render_sequence",
+            sequence_id: input["sequence_id"] ?? null,
+            render_id: input["render_id"] ?? null,
+            stem: role,
+            ...(role === "music" &&
+            Array.isArray(input["music_credits"]) &&
+            input["music_credits"].length
+              ? { music_credits: input["music_credits"] }
+              : {}),
+            ...(role === "music" &&
+            Array.isArray(input["music_licences"]) &&
+            input["music_licences"].length
+              ? { music_licences: input["music_licences"] }
+              : {}),
+          } as never,
+        })
+        .select("id")
+        .maybeSingle();
+      // A concurrent duplicate report may have registered it a moment ago.
+      if (error?.code === "23505") stemId = await findExisting();
+      else must({ error }, "stem");
+      stemId ??= inserted?.id ?? null;
+    }
+    if (stemId) registered.push({ role, asset_id: stemId });
+  }
+  return registered;
+}
+
+/**
+ * How the render's sound sits (the media service's mix_report), kept on the
+ * render (migration 0032_mix_reports). Before that is applied the column
+ * isn't there: the report is still kept with the video's own record (its
+ * probe), where the Render panel and get_render read it.
+ */
+async function recordMixReport(
+  renderId: string | null,
+  metadata: Record<string, unknown> | null,
+): Promise<void> {
+  const report = metadata?.["mix_report"];
+  if (!renderId || !report || typeof report !== "object" || Array.isArray(report)) return;
+  const { error } = await supabaseAdmin
+    .from("sequence_renders")
+    .update({ mix_report: report } as never)
+    .eq("id", renderId);
+  if (error && !isMissingColumnError(error, "mix_report")) must({ error }, "mix report");
 }
 
 /** A write that failed is thrown, so the callback answers 5xx and the worker retries. */

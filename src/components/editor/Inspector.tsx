@@ -91,6 +91,7 @@ import type { PlaybackClock, Selection } from "./state";
 import { VoiceoverPanel, type VoiceoverContext } from "./VoiceoverPanel";
 import { MusicPanel, type MusicContext } from "./MusicPanel";
 import { MusicPiecesNote } from "./MusicStructureSection";
+import { VoicePauses } from "./VoicePauses";
 import { Mixer } from "./Mixer";
 import { SendToKatana } from "@/components/katana/SendToKatana";
 import { useVoiceovers } from "@/hooks/useVoiceData";
@@ -98,6 +99,7 @@ import { phraseCaptions } from "@/lib/edit/captions";
 import { brandedOverlay } from "@/lib/edit/brand";
 import { BrandSection, ImageOverlaysSection } from "./BrandPanel";
 import { useEditBrandKit } from "@/hooks/useBrandKits";
+import { CompositionSection, type CompositionControls } from "./CompositionSection";
 
 interface InspectorProps {
   timeline: Timeline;
@@ -118,6 +120,8 @@ interface InspectorProps {
   voiceover?: VoiceoverContext | undefined;
   /** The edit's project, campaign and planned music direction. */
   music?: MusicContext | undefined;
+  /** The edit's motion graphics: their state, and drawing them again. */
+  compositions?: CompositionControls | undefined;
 }
 
 const TAB_COLUMNS: Record<number, string> = {
@@ -431,6 +435,7 @@ function ClipInspector({
   clock,
   onChange,
   onSelect,
+  compositions,
   clip,
 }: InspectorProps & { clip: TimelineClip }) {
   const index = timeline.clips.findIndex((item) => item.id === clip.id);
@@ -528,6 +533,10 @@ function ClipInspector({
           />
         )}
       </Section>
+
+      {clip.composition && compositions && (
+        <CompositionSection clip={clip} composition={clip.composition} controls={compositions} />
+      )}
 
       <Section title={clip.kind === "image" ? "Timing" : "Trim"}>
         {clip.kind === "video" && (
@@ -698,7 +707,7 @@ function ClipInspector({
         )}
       </Section>
 
-      {clip.kind === "video" && (
+      {clip.kind === "video" && !clip.composition && (
         <Section title="Clip sound">
           <Field
             label="Volume"
@@ -742,6 +751,8 @@ function AudioInspector({
   clock,
   onChange,
   onSelect,
+  voiceover,
+  music,
   item,
 }: InspectorProps & { item: TimelineAudio }) {
   const asset = assets.get(item.assetId);
@@ -755,7 +766,7 @@ function AudioInspector({
       },
       key,
     );
-  const plays = audioPlayLength(item, layout.total);
+  const plays = audioPlayLength(item, layout.total, timeline.fps);
   const hasVoice = timeline.audio.some((entry) => entry.role === "voiceover");
 
   return (
@@ -917,7 +928,7 @@ function AudioInspector({
             />
           </Field>
         </div>
-        {item.role === "music" && (
+        {(item.role === "music" || item.role === "sfx") && (
           <>
             <div className="flex items-center justify-between">
               <Label className="text-xs" htmlFor={`duck-${item.id}`}>
@@ -949,9 +960,30 @@ function AudioInspector({
                 Add a voiceover and the music will dip wherever it speaks.
               </p>
             )}
+            {item.role === "music" && !item.duck && hasVoice && (
+              <p className="text-xs text-muted-foreground" data-testid="never-ducked">
+                Never dipped: it plays at its own level all through, voice or not. Right for a quiet
+                bed under short lines, which dipping would make pump between them; keep its volume
+                low enough for the words.
+              </p>
+            )}
           </>
         )}
       </Section>
+
+      {item.role === "voiceover" && (
+        <Section title="Pauses">
+          <VoicePauses
+            timeline={timeline}
+            layout={layout}
+            item={item}
+            clock={clock}
+            projectId={voiceover?.projectId ?? music?.projectId ?? null}
+            sequenceId={voiceover?.sequenceId ?? null}
+            onChange={onChange}
+          />
+        </Section>
+      )}
     </div>
   );
 }
@@ -1137,6 +1169,22 @@ function SequenceSettings({ timeline, layout, assets, onChange }: InspectorProps
             onCheckedChange={(checked) => set({ normalizeLoudness: checked })}
           />
         </div>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <Label className="text-xs" htmlFor="stems">
+              Export stems with the video
+            </Label>
+            <p className="text-[11px] text-muted-foreground">
+              The voiceover, the music and the effects, each as a WAV file beside the finished
+              video, as mixed into it before its loudness is evened out.
+            </p>
+          </div>
+          <Switch
+            id="stems"
+            checked={timeline.stems}
+            onCheckedChange={(checked) => set({ stems: checked })}
+          />
+        </div>
       </Section>
     </div>
   );
@@ -1240,7 +1288,7 @@ function TextPanel({
   const writeFromScript = () => {
     const from = voice ? voice.start : 0.3;
     const to = voice
-      ? voice.start + audioPlayLength(voice, layout.total)
+      ? voice.start + audioPlayLength(voice, layout.total, timeline.fps)
       : Math.max(0.6, layout.total - 0.3);
     const until = Math.min(to, layout.total);
     // With the voiceover's word timings, the script's words land where they
@@ -1602,6 +1650,24 @@ function TextPanel({
                   )}
                 </div>
               </Field>
+              {overlay.motion && (
+                <Field label="Motion" hint="the brand kit's">
+                  <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                    <span>
+                      Rises in over {Math.round(overlay.motion.enter * 1000)} ms and goes over{" "}
+                      {Math.round(overlay.motion.exit * 1000)} ms, on the brand's curves.
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 shrink-0 px-1.5 text-[11px]"
+                      onClick={() => updateOverlay(overlay.id, { motion: null })}
+                    >
+                      Plain fade
+                    </Button>
+                  </div>
+                </Field>
+              )}
               <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-1.5">
                 <Field label="From">
                   <Seconds

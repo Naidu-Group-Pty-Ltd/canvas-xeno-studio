@@ -7,6 +7,7 @@ import { planeThumbnail, SEAM_EASE_SECONDS, seamCorrection, seamEaseChain } from
 import { easedWarpFilter, joinHeadChain, JOIN_SOUND_SECONDS, measureJoin } from "./joins.js";
 import { fontFamily, sfntKind } from "./fonts.js";
 import { piecesChain, piecesInput, piecesInside, withPieces } from "./pieces.js";
+import { bandFilter, bandMargins, mixReport, readBand } from "./mixreport.js";
 
 /**
  * Sequence rendering: an edited timeline (ordered clips with trims, stills,
@@ -39,6 +40,9 @@ export const SEQUENCE_LIMITS = {
   fonts: 4,
   totalSeconds: 600,
   textLength: 220,
+  /** Pauses a voiceover is held open by, and the most frames one adds. */
+  pauses: 200,
+  pauseFrames: 300,
 };
 
 /** Transitions offered to editors, by FFmpeg xfade name. "cut" means no transition. */
@@ -298,9 +302,11 @@ export function planSequence(params, sources) {
       fadeIn: Math.min(fadeIn, length / 2),
       fadeOut: Math.min(fadeOut, length / 2),
       loop: role === "music" && item.loop === true,
-      duck: role === "music" && item.duck !== false,
+      // Music dips under the voice unless told not to; an effect only when asked to.
+      duck: (role === "music" && item.duck !== false) || (role === "sfx" && item.duck === true),
       duckLevel: num(item.duck_level, { min: 0.05, max: 1, fallback: 0.25, name: `audio ${index + 1} duck_level` }),
     });
+    Object.assign(audio.at(-1), { index, pauses: planPauses(item.pauses, audio.at(-1), fps, index) });
     // Music edited on its bars (feature music_pieces) plays its pieces in place of its trim and loop.
     audio.push(withPieces(audio.pop(), item.pieces, `Audio ${index + 1}`));
   }
@@ -354,6 +360,8 @@ export function planSequence(params, sources) {
         font: family(overlay.font, `overlay ${index + 1} font`),
         color: colour(overlay.color, `overlay ${index + 1} color`),
         accent: colour(overlay.accent, `overlay ${index + 1} accent`),
+        // How it comes in and goes, in a brand's motion (feature overlay_motion); null: the quarter-second fade.
+        motion: overlayMotionOf(overlay.motion, `overlay ${index + 1}`),
       };
     })
     .filter((overlay) => overlay.text && overlay.end - overlay.start >= 0.1);
@@ -415,7 +423,200 @@ export function planSequence(params, sources) {
     outroFade: Math.min(outroFade, total / 3),
     normalize: p.normalize_loudness !== false,
     loudness: num(p.loudness_lufs, { min: -24, max: -9, fallback: -14, name: "loudness_lufs" }),
+    // The buses handed back on their own beside the video (feature stems).
+    stems: stemRoles(p.stems),
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Voiceover pauses                                                    */
+/* ------------------------------------------------------------------ */
+
+/** The mix's sample rate: a frame of pause is a whole number of samples at it (1600 at 30 fps). */
+const PAUSE_RATE = 48000;
+
+/**
+ * A voiceover's pauses (feature voice_pauses): whole frames of silence put in
+ * at moments of its recording (seconds on its own clock, as trim_start is),
+ * so it is held open in its own silences without a word being stretched. The
+ * app places them only in the voice's measured silences; here they are held
+ * to what the item plays: from its trim point, each starting before the item
+ * ends, in order, one per moment.
+ */
+export function planPauses(raw, item, fps, index) {
+  if (raw === undefined || raw === null) return [];
+  const what = `audio ${index + 1}`;
+  if (!Array.isArray(raw)) throw bad(`${what} pauses must be a list`);
+  if (!raw.length) return [];
+  if (item.role !== "voiceover") throw bad(`Only a voiceover can be held open with pauses (${what} is ${item.role})`);
+  if (raw.length > SEQUENCE_LIMITS.pauses) throw bad(`${what} may have at most ${SEQUENCE_LIMITS.pauses} pauses`);
+  const pauses = [];
+  let held = 0;
+  for (const [position, entry] of raw.entries()) {
+    const pause = entry && typeof entry === "object" ? entry : {};
+    const name = `${what} pause ${position + 1}`;
+    const at = num(pause.at, { min: 0, max: 86_400, name: `${name} at` });
+    const frames = num(pause.frames, { min: 1, max: SEQUENCE_LIMITS.pauseFrames, name: `${name} frames` });
+    if (!Number.isInteger(frames)) throw bad(`${name} frames must be a whole number`);
+    if (pauses.length && at <= pauses.at(-1).at) throw bad(`${what} pauses must be in order, one per moment`);
+    const from = at - item.trimStart + held;
+    if (at < item.trimStart - 1e-6 || from >= item.length - 1e-6) {
+      throw bad(`${name} (at ${at}s) is outside what the voiceover plays`);
+    }
+    const length = frames / fps;
+    pauses.push({ at, frames, seconds: length, samples: Math.round(length * PAUSE_RATE) });
+    held += length;
+  }
+  return pauses;
+}
+
+/**
+ * The seconds a voiceover's pauses add to what its recording holds (`duration`
+ * seconds long). A pause after the recording ends is outside what it plays.
+ */
+export function pausesWithin(item, duration) {
+  let held = 0;
+  for (const pause of item.pauses ?? []) {
+    if (pause.at > duration + 0.001) {
+      throw bad(`A voiceover's pause at ${pause.at}s comes after its recording ends (at ${Number(duration.toFixed(3))}s)`);
+    }
+    held += pause.seconds;
+  }
+  return held;
+}
+
+/**
+ * A voiceover held open at its pauses, as filtergraph lines pushed onto
+ * `lines`: its recording split at each pause, to the sample, with exact
+ * silence put between the pieces. Returns the label the held voice is read
+ * from; a voice without pauses is read straight from its input.
+ */
+export function pausedVoiceChain(lines, input, item, label) {
+  if (!item.pauses?.length) return `[${input}:a]`;
+  // Where each piece of the recording starts and ends, in samples from the trim point.
+  const edges = [0, ...item.pauses.map((pause) => Math.max(0, Math.round((pause.at - item.trimStart) * PAUSE_RATE))), null];
+  const pieces = [];
+  for (let index = 0; index + 1 < edges.length; index += 1) {
+    const [from, to] = [edges[index], edges[index + 1]];
+    if (to !== null && to <= from) continue;
+    pieces.push({ from, to, after: index });
+  }
+  const format = "aformat=sample_fmts=fltp:channel_layouts=stereo";
+  lines.push(
+    `[${input}:a]asetpts=PTS-STARTPTS,aresample=${PAUSE_RATE},${format},asplit=${pieces.length}` +
+      pieces.map((_, index) => `[${label}v${index}]`).join(""),
+  );
+  const order = [];
+  // Each silence follows the piece that ends at its pause; one at the very start opens the voice.
+  const silence = (index) => {
+    const pause = item.pauses[index];
+    lines.push(`anullsrc=r=${PAUSE_RATE}:cl=stereo,atrim=end_sample=${pause.samples},${format}[${label}z${index}]`);
+    order.push(`[${label}z${index}]`);
+  };
+  let next = 0;
+  for (const [index, piece] of pieces.entries()) {
+    while (next < piece.after) silence(next++);
+    const trim = piece.to === null ? `start_sample=${piece.from}` : `start_sample=${piece.from}:end_sample=${piece.to}`;
+    lines.push(`[${label}v${index}]atrim=${trim},asetpts=PTS-STARTPTS[${label}s${index}]`);
+    order.push(`[${label}s${index}]`);
+  }
+  while (next < item.pauses.length) silence(next++);
+  lines.push(`${order.join("")}concat=n=${order.length}:v=0:a=1[${label}held]`);
+  return `[${label}held]`;
+}
+
+/**
+ * A voiceover's speech regions (seconds into its recording, from its trim
+ * point) where they are heard once it is held open: a region's start moves
+ * with the pauses at or before it, its end with those strictly before it.
+ */
+export function pacedRegions(regions, item) {
+  if (!item.pauses?.length) return regions;
+  const moved = (time, inclusive) => {
+    let shift = 0;
+    for (const pause of item.pauses) {
+      const at = pause.at - item.trimStart;
+      if (inclusive ? at <= time + 1e-6 : at < time - 1e-6) shift += pause.seconds;
+    }
+    return time + shift;
+  };
+  return regions
+    .map(([from, to]) => [moved(from, true), Math.min(item.length, moved(to, false))])
+    .filter(([from, to]) => to - from >= 0.05);
+}
+
+/* ------------------------------------------------------------------ */
+/* Stems and the mix report                                            */
+/* ------------------------------------------------------------------ */
+
+/** The sound buses a render can hand back on their own (feature stems). */
+export const STEM_ROLES = ["voiceover", "music", "sfx"];
+const STEM_SET = new Set(STEM_ROLES);
+
+/** The stems a render is asked for: some of STEM_ROLES, each once, in the order the app sends its upload slots. */
+export function stemRoles(raw) {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw)) throw bad("stems must be a list");
+  const roles = raw.map((role) => choice(role, STEM_SET, null, "stem"));
+  if (roles.some((role) => role === null)) throw bad("stems may only be voiceover, music or sfx");
+  if (new Set(roles).size !== roles.length) throw bad("Each stem may be asked for once");
+  return roles;
+}
+
+/** Whether a render's mix is measured: it has a voice and music to weigh against each other (feature mix_report). */
+export function measuresMix(plan) {
+  return plan.audio.some((item) => item.role === "voiceover") && plan.audio.some((item) => item.role === "music");
+}
+
+/**
+ * The buses taken off on their own in the mix pass as well: a stem is its bus
+ * as mixed into the master, with the edit's fades; a band is its speech band
+ * at 16 kHz, for the mix report (see ./mixreport.js). A bus tapped is split,
+ * and the mix takes its own copy; a stem of a bus with nothing on it is
+ * silence. Pushes the graph's lines and returns the extra outputs' arguments.
+ */
+export function busTaps(lines, finalInputs, buses, plan, taps = {}) {
+  const total = seconds(plan.total);
+  const outputs = [];
+  for (const role of STEM_ROLES) {
+    const stem = taps.stems?.[role] ?? null;
+    const band = taps.bands?.[role] ?? null;
+    const bus = buses[role] ?? null;
+    if (!stem && !(band && bus)) continue;
+    const tag = `${role}tap`;
+    if (bus) {
+      const copies = [`${tag}mix`, ...(stem ? [`${tag}s`] : []), ...(band ? [`${tag}b`] : [])];
+      lines.push(`[${bus}]asplit=${copies.length}${copies.map((label) => `[${label}]`).join("")}`);
+      finalInputs[finalInputs.indexOf(bus)] = `${tag}mix`;
+    } else {
+      lines.push(`anullsrc=r=48000:cl=stereo,atrim=end=${total}[${tag}s]`);
+    }
+    if (band && bus) {
+      lines.push(`[${tag}b]${bandFilter()}[${tag}band]`);
+      outputs.push("-map", `[${tag}band]`, "-c:a", "pcm_s16le", "-t", total, band);
+    }
+    if (stem) {
+      const fades = [];
+      if (plan.introFade > 0) fades.push(`afade=t=in:st=0:d=${seconds(plan.introFade)}`);
+      if (plan.outroFade > 0) fades.push(`afade=t=out:st=${seconds(plan.total - plan.outroFade)}:d=${seconds(plan.outroFade)}`);
+      lines.push(`[${tag}s]${fades.length ? fades.join(",") : "anull"}[${tag}stem]`);
+      outputs.push("-map", `[${tag}stem]`, "-c:a", "pcm_s24le", "-ar", "48000", "-ac", "2", "-t", total, stem);
+    }
+  }
+  return outputs;
+}
+
+/**
+ * The voice's margin over the music where the voice speaks, in each music
+ * item's span, from the bands the mix pass wrote. Null when either is missing.
+ */
+export async function measureBands(plan, bands, speech) {
+  const [voice, music] = await Promise.all([readBand(bands.voiceover), readBand(bands.music)]);
+  if (!voice || !music || voice.channels !== music.channels) return null;
+  const sections = plan.audio
+    .filter((item) => item.role === "music")
+    .map((item) => ({ index: item.index, from: item.start, to: Math.min(plan.total, item.start + item.length) }));
+  return bandMargins({ voice: voice.samples, music: music.samples, rate: voice.rate, channels: voice.channels, speech, sections });
 }
 
 /* ------------------------------------------------------------------ */
@@ -749,7 +950,7 @@ export function duckExpression(intervals, level) {
 }
 
 /** Arguments for pass 2: the full soundtrack as a float WAV of exact length. */
-export function mixArgs(plan, intermediatePaths, audioPaths, out, voiceActivity = []) {
+export function mixArgs(plan, intermediatePaths, audioPaths, out, voiceActivity = [], taps = {}) {
   const total = seconds(plan.total);
   const args = [];
   for (const path of intermediatePaths) args.push("-i", path);
@@ -777,7 +978,7 @@ export function mixArgs(plan, intermediatePaths, audioPaths, out, voiceActivity 
     const input = plan.clips.length + index;
     const label = `t${index}`;
     const chain = [
-      item.pieces ? piecesChain(lines, input, item, index) : `[${input}:a]asetpts=PTS-STARTPTS`,
+      item.pieces ? piecesChain(lines, input, item, index) : `${pausedVoiceChain(lines, input, item, label)}asetpts=PTS-STARTPTS`,
       "aresample=48000",
       "aformat=sample_fmts=fltp:channel_layouts=stereo",
       `atrim=end=${seconds(item.length)}`,
@@ -788,7 +989,7 @@ export function mixArgs(plan, intermediatePaths, audioPaths, out, voiceActivity 
     const delay = Math.round(item.start * 1000);
     if (delay > 0) chain.push(`adelay=delays=${delay}:all=1`);
     chain.push("apad", `atrim=end=${total}`, "asetpts=PTS-STARTPTS");
-    const duck = item.role === "music" && item.duck ? duckExpression(speech, item.duckLevel) : null;
+    const duck = item.duck ? duckExpression(speech, item.duckLevel) : null;
     if (duck) chain.push(`volume='${duck}':eval=frame`);
     lines.push(`${chain.join(",")}[${label}]`);
     if (item.role === "voiceover") groups.voiceover.push(label);
@@ -813,6 +1014,8 @@ export function mixArgs(plan, intermediatePaths, audioPaths, out, voiceActivity 
   if (music) finalInputs.push(music);
   const sfx = merge(groups.sfx, "sfxbed", gains.sfx);
   if (sfx) finalInputs.push(sfx);
+  // The buses on their own as well, for stems and the mix report.
+  const tapped = busTaps(lines, finalInputs, { voiceover: voice, music, sfx }, plan, taps);
 
   if (finalInputs.length === 1) {
     lines.push(`[clips]anull[mix]`);
@@ -828,6 +1031,7 @@ export function mixArgs(plan, intermediatePaths, audioPaths, out, voiceActivity 
     "-c:a", "pcm_f32le", "-ar", "48000", "-ac", "2",
     "-t", total,
     out,
+    ...tapped,
   );
   return args;
 }
@@ -950,6 +1154,147 @@ function assColour(hex, alpha = "00") {
   return { style: `&H${alpha}${bgr}`, tag: `&H${bgr}&` };
 }
 
+/* ------------------------------------------------------------------ */
+/* Title motion (feature overlay_motion)                               */
+/* ------------------------------------------------------------------ */
+
+/** A curve's four numbers (x1, y1, x2, y2), as CSS's cubic-bezier takes them; linear when none is given. */
+function easeOf(value, name) {
+  if (value === undefined || value === null) return [0, 0, 1, 1];
+  if (!Array.isArray(value) || value.length !== 4) throw bad(`${name} must be a curve's four numbers`);
+  return value.map((part, index) => num(part, { min: index % 2 === 0 ? 0 : -2, max: index % 2 === 0 ? 1 : 3, name }));
+}
+
+/**
+ * How a title comes in and goes, in a brand's own motion: seconds to come in
+ * and to go, the curve of each, and how far it rises into place (a share of
+ * its size). Null for none: it fades over a quarter of a second, as ever.
+ */
+function overlayMotionOf(value, what) {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "object" || Array.isArray(value)) throw bad(`${what} motion must be an object`);
+  return {
+    enter: num(value.enter, { min: 0, max: 2, fallback: 0.25, name: `${what} motion enter` }),
+    exit: num(value.exit, { min: 0, max: 2, fallback: 0.25, name: `${what} motion exit` }),
+    enterEase: easeOf(value.enter_ease, `${what} motion enter_ease`),
+    exitEase: easeOf(value.exit_ease, `${what} motion exit_ease`),
+    rise: num(value.rise, { min: 0, max: 1, fallback: 0, name: `${what} motion rise` }),
+  };
+}
+
+/**
+ * How far along a curve is at `x` (0 to 1 of its time), solved as a browser
+ * solves CSS's cubic-bezier. The app solves it the same way
+ * (src/lib/brand/motion.ts), so the preview and the render agree.
+ */
+export function cubicBezierAt([x1, y1, x2, y2], x) {
+  if (!(x > 0)) return 0;
+  if (x >= 1) return 1;
+  const cx = 3 * x1;
+  const bx = 3 * (x2 - x1) - cx;
+  const ax = 1 - cx - bx;
+  const cy = 3 * y1;
+  const by = 3 * (y2 - y1) - cy;
+  const ay = 1 - cy - by;
+  const sampleX = (s) => ((ax * s + bx) * s + cx) * s;
+  const sampleY = (s) => ((ay * s + by) * s + cy) * s;
+  const slopeX = (s) => (3 * ax * s + 2 * bx) * s + cx;
+  let s = x;
+  for (let step = 0; step < 8; step += 1) {
+    const error = sampleX(s) - x;
+    if (Math.abs(error) < 1e-7) return sampleY(s);
+    const slope = slopeX(s);
+    if (Math.abs(slope) < 1e-6) break;
+    s -= error / slope;
+  }
+  let low = 0;
+  let high = 1;
+  s = x;
+  for (let step = 0; step < 50; step += 1) {
+    const at = sampleX(s);
+    if (Math.abs(at - x) < 1e-7) break;
+    if (at < x) low = s;
+    else high = s;
+    s = (low + high) / 2;
+  }
+  return sampleY(s);
+}
+
+/**
+ * Where a moving title is at `time`: how opaque (0-1), and how far from its
+ * place as a share of its size (positive below). It comes in over its enter
+ * time on its curve, rising from `rise` below, and goes over its exit time,
+ * lifting half that; each takes at most half its time. The app's
+ * overlayMotionState (src/lib/edit/overlay-motion.ts) is the same.
+ */
+export function overlayMotionState(overlay, time) {
+  const { start, end, motion } = overlay;
+  if (time < start || time >= end) return { opacity: 0, offset: 0 };
+  const half = Math.max(0, end - start) / 2;
+  const enter = Math.min(motion.enter, half);
+  const exit = Math.min(motion.exit, half);
+  if (enter > 0 && time < start + enter) {
+    const eased = cubicBezierAt(motion.enterEase, (time - start) / enter);
+    return { opacity: Math.min(1, Math.max(0, eased)), offset: (1 - eased) * motion.rise };
+  }
+  if (exit > 0 && time >= end - exit) {
+    const eased = cubicBezierAt(motion.exitEase, (time - (end - exit)) / exit);
+    return { opacity: Math.min(1, Math.max(0, 1 - eased)), offset: eased ? -eased * motion.rise * 0.5 : 0 };
+  }
+  return { opacity: 1, offset: 0 };
+}
+
+/** Where a title's alignment and margin put it, as an anchor (\an) and a point (\pos) to move it from. */
+function overlayAnchor(overlay, { width, height, alignment, marginV }) {
+  const x = Math.round(width / 2);
+  if (overlay.y !== null) return { an: 5, x, y: Math.round(height * overlay.y) };
+  if (alignment === 8) return { an: 8, x, y: marginV };
+  if (alignment === 2) return { an: 2, x, y: height - marginV };
+  return { an: 5, x, y: Math.round(height / 2) };
+}
+
+/**
+ * A moving title as ASS events: one a frame while it comes in and while it
+ * goes, each drawn where its curve has it on that frame (keyed steps: ASS's
+ * own \t can't ease a position, and its acceleration can't follow an
+ * S-curve), and one for the time it holds still. A step runs from half a
+ * frame before its frame to half a frame after, so times rounded to
+ * centiseconds never show a frame another step. Its opacity is a \fade, which
+ * libass lays over the title's own (a box's, a halo's) as \fad does.
+ */
+export function overlayMotionEvents(overlay, { fps, size, anchor, tags, styleName, text }) {
+  const { start, end } = overlay;
+  const half = Math.max(0, end - start) / 2;
+  const enter = Math.min(overlay.motion.enter, half);
+  const exit = Math.min(overlay.motion.exit, half);
+  const events = [];
+  const step = (from, to, state) => {
+    if (to - from < 0.005) return;
+    const y = Math.round(anchor.y + state.offset * size);
+    const alpha = Math.round((1 - state.opacity) * 255);
+    const fade = alpha > 0 ? `\\fade(${alpha},${alpha},${alpha},0,0,0,0)` : "";
+    events.push(`Dialogue: 1,${assTime(from)},${assTime(to)},${styleName},,0,0,0,,{\\an${anchor.an}\\pos(${anchor.x},${y})${tags}${fade}}${text}`);
+  };
+  let cursor = start;
+  for (let frame = Math.ceil(start * fps - 1e-6); frame / fps < start + enter - 1e-9; frame += 1) {
+    const to = Math.min(end, (frame + 0.5) / fps);
+    step(cursor, to, overlayMotionState(overlay, frame / fps));
+    cursor = to;
+  }
+  const firstOut = Math.ceil((end - exit) * fps - 1e-6);
+  const still = exit > 0 ? Math.max(cursor, (firstOut - 0.5) / fps) : end;
+  step(cursor, still, { opacity: 1, offset: 0 });
+  cursor = still;
+  if (exit > 0)
+    for (let frame = firstOut; frame / fps < end - 1e-9; frame += 1) {
+      // The last step runs to the title's end, as a title without motion does.
+      const to = (frame + 1) / fps >= end - 1e-9 ? end : (frame + 0.5) / fps;
+      step(cursor, to, overlayMotionState(overlay, frame / fps));
+      cursor = to;
+    }
+  return events;
+}
+
 /**
  * Builds an ASS script for captions and title overlays. Positions keep text
  * clear of the areas social apps cover with their own buttons and captions.
@@ -1031,6 +1376,12 @@ export function buildSubtitles(plan, families = new Map()) {
         overlay.accent && (boxed || overlay.style === "cta") ? `\\3c${assColour(overlay.accent).tag}\\4c${assColour(overlay.accent).tag}` : "",
       ].join("");
       const text = overlay.text.replace(/\n/g, "\\N");
+      // Moving in a brand's own motion (feature overlay_motion): a frame at a time, from where it would sit.
+      if (overlay.motion) {
+        const anchor = overlayAnchor(overlay, { width, height, alignment, marginV });
+        events.push(...overlayMotionEvents(overlay, { fps: plan.fps, size, anchor, tags: `${halo}${brand}`, styleName, text }));
+        continue;
+      }
       events.push(`Dialogue: 1,${assTime(overlay.start)},${assTime(overlay.end)},${styleName},,0,0,${overlay.y !== null ? 0 : marginV},,{${place}${halo}${brand}\\fad(250,250)}${text}`);
     }
   }
@@ -1074,7 +1425,7 @@ export async function fitAudioToSources(audio, durationOf) {
       fitted.push(piecesInside(item, duration));
       continue;
     }
-    const available = duration === null ? null : duration - item.trimStart;
+    const available = duration === null ? null : duration - item.trimStart + pausesWithin(item, duration);
     if (available !== null && available < 0.05) continue;
     if (available === null || available >= item.length) {
       fitted.push(item);
@@ -1169,19 +1520,27 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
   // found by listening for silence in each voice track.
   progress(0.5, "Mixing sound");
   const voiceActivity = [];
-  const ducking = plan.audio.some((item) => item.role === "music" && item.duck);
+  // Listened for as well when the mix is measured: the report weighs the voice where it speaks.
+  const ducking = plan.audio.some((item) => item.duck) || measuresMix(plan);
   for (const item of plan.audio) {
     if (!ducking || item.role !== "voiceover" || item.volume === 0) continue;
     const { stderr } = await ffmpeg([
       "-ss", seconds(item.trimStart), "-t", seconds(item.length), "-i", sources[item.source].path,
       "-af", "silencedetect=n=-38dB:d=0.35", "-f", "null", "-",
     ], watched);
-    for (const [from, to] of speechRegions(stderr, item.length)) {
+    for (const [from, to] of pacedRegions(speechRegions(stderr, item.length), item)) {
       voiceActivity.push([item.start + from, Math.min(plan.total, item.start + to)]);
     }
   }
   const mixPath = join(dir, "mix.wav");
-  await ffmpeg(mixArgs(plan, intermediates, plan.audio.map((item) => sources[item.source].path), mixPath, voiceActivity), watched);
+  // The buses on their own too: the stems asked for, and the speech bands the mix report weighs.
+  const taps = {
+    stems: Object.fromEntries(plan.stems.map((role) => [role, join(dir, `stem-${role}.wav`)])),
+    ...(measuresMix(plan) ? { bands: { voiceover: join(dir, "band-voice.wav"), music: join(dir, "band-music.wav") } } : {}),
+  };
+  await ffmpeg(mixArgs(plan, intermediates, plan.audio.map((item) => sources[item.source].path), mixPath, voiceActivity, taps), watched);
+  // A report that can't be measured is left out: it is never worth a failed render.
+  const margins = taps.bands ? await measureBands(plan, taps.bands, voiceActivity).catch(() => null) : null;
 
   // Pass 3: loudness, measured on the finished mix so the target is met evenly.
   let loudness = null;
@@ -1222,8 +1581,12 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
     ...watched,
     onProgress: (done) => progress(0.6 + 0.38 * Math.min(1, done / plan.total), "Rendering the final cut"),
   });
-  // Only the finished cut is kept from here.
-  for (const path of [...intermediates, mixPath]) await rm(path, { force: true });
+  // Only the finished cut is kept from here (and the stems asked for).
+  for (const path of [...intermediates, mixPath, ...Object.values(taps.bands ?? {})]) await rm(path, { force: true });
+  // The finished mix's own loudness, as a player measures it.
+  const master = await ffmpeg(["-i", out, "-vn", "-af", "loudnorm=print_format=json", "-f", "null", "-"], limit)
+    .then(({ stderr }) => parseLoudness(stderr))
+    .catch(() => null);
 
   const poster = join(dir, "poster.jpg");
   await ffmpeg([
@@ -1240,6 +1603,8 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
     outputs: [
       { path: out, mime: "video/mp4", kind: "video" },
       { path: poster, mime: "image/jpeg", kind: "image" },
+      // Then each stem, in the order asked for (feature stems).
+      ...plan.stems.map((role) => ({ path: taps.stems[role], mime: "audio/wav", kind: "audio" })),
     ],
     metadata: {
       ...metadata,
@@ -1248,6 +1613,8 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
       loudness_lufs: loudness ? plan.loudness : null,
       ...(seams.length ? { seams_matched: seams } : {}),
       ...(joins.length ? { smart_joins: joins } : {}),
+      mix_report: mixReport({ margins: margins ?? [], master, mixed: loudness }),
+      ...(plan.stems.length ? { stems: plan.stems } : {}),
     },
   };
 }

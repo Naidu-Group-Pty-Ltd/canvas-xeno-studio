@@ -7,6 +7,7 @@ import {
   sectionsOnTimeline,
   timesOnTimeline,
 } from "../../src/lib/music/on-timeline";
+import { gridFromStructure, gridOnTimeline } from "../../src/lib/music/pacing";
 import type { MusicStructure } from "../../src/lib/music/structure";
 
 const MUSIC = "cccccccc-1111-4111-8111-111111111111";
@@ -87,6 +88,26 @@ describe("where a track plays on the timeline", () => {
 
   test("an item that starts after the picture ends plays nothing", () => {
     expect(audioSpans(item({ start: 25 }), 20)).toEqual([]);
+  });
+
+  test("pacing the voice to music edited on its bars uses its bars as they play", () => {
+    // The drop's first bar, then the drop again for two bars, then the intro's first:
+    // each piece starts 20 ms ahead of its bar line. Its trim point and loop don't apply.
+    const pieces = [
+      { from: 4.48, to: 6.48 },
+      { from: 4.48, to: 8.48 },
+      { from: 0.48, to: 2.48 },
+    ];
+    const edited = item({ start: 1, trimStart: 3, loop: true, sourceDuration: 10, pieces });
+    const round = (times: number[]) => times.map((time) => Number(time.toFixed(3)));
+    const paced = gridOnTimeline(edited, gridFromStructure(TRACK), 30);
+    const shown = musicGridOnTimeline(edited, TRACK, 30);
+    expect(round(paced.beats)).toEqual(shown.beats);
+    expect(round(paced.beats.filter((_, index) => paced.bars[index]))).toEqual(shown.downbeats);
+    expect(shown.downbeats).toEqual([1.02, 3.02, 5.02, 7.02]);
+    // Cut short where the item stops.
+    const short = gridOnTimeline({ ...edited, duration: 3 }, gridFromStructure(TRACK), 30);
+    expect(round(short.beats)).toEqual([1.02, 1.52, 2.02, 2.52, 3.02, 3.52]);
   });
 });
 

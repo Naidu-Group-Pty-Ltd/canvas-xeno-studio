@@ -65,16 +65,17 @@ curl -X POST https://<your studio>/api/public/studio/list_models \
 | `get_generation`      | A generation's status and cost, and the files it made once it is done.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `get_long_video`      | A long video and every clip: status, piece of voiceover, lip score, framing and mouth-in-pause readings, character check, file and kept takes.                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `get_edit`            | An edit's title and version, its latest render, and its timeline if `includeTimeline` is set.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| `get_render`          | A render's progress and, once it is done, the video's library id and link.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `get_render`          | A render's progress and, once it is done, the video's library id and link, its `mix_report` (the voice's margin over the music in the speech band by section, and the mix's loudness) and any `stems`.                                                                                                                                                                                                                                                                                                                                                                               |
 | `get_music_structure` | A music track's tempo, beats a bar, where each bar starts and its sections (intro, build, drop, breakdown, reentry, outro), with each section's loudness, on the track's own clock, as found from its audio in the Editor's Music panel. `includeBeats` adds every beat.                                                                                                                                                                                                                                                                                                             |
 | `list_brand_kits`     | The team's brand kits, each with its mood, the style line generations in it carry, what kind of brand it is, and the formulas written for it by name (`get_brand_kit` has its whole DNA).                                                                                                                                                                                                                                                                                                                                                                                            |
-| `get_brand_kit`       | One brand kit's whole design system: palette with roles, typefaces, the look of its imagery, its voice and rules, the lines generations carry, its style reference images, its DNA (kind of brand, market, archetype, positioning, who it serves, what it sells, what buyers use instead, its guardrails, pillars, buying moments, proof, distinctive assets, channels, goal), the content formulas it works with (`writtenForBrand` for its own) and the formulas written for it.                                                                                                   |
+| `get_brand_kit`       | One brand kit's whole design system: palette with roles, typefaces, the look of its imagery, its voice and rules, the lines generations carry, its style reference images, its DNA (kind of brand, market, archetype, positioning, who it serves, what it sells, what buyers use instead, its guardrails, pillars, buying moments, proof, distinctive assets, channels, goal), the content formulas it works with (`writtenForBrand` for its own), the formulas written for it, and its `production` roles and motion with their sources and checks (`includeCss`: as CSS).          |
 | `read_brand_code`     | Reads the styling code of up to six GitHub repositories together (`repos`; the first is the brand's own, a branch or folder can be named in its address), as text and never run: each colour with the tokens that name it and the repository, file and line each is declared on; the typefaces and how they load; the radius, shadow, motion, blur and gradient scales; where the repositories disagree. `includeCss` adds `tokensCss`, the tokens as one stylesheet. Nothing is kept. Private repositories need the studio's `GITHUB_TOKEN`, or a `githubToken` for this read only. |
 | `list_brand_formulas` | The content formulas (proven structures for videos and posts, each with its research), ranked for a brand's DNA with `brandKitId` and for a `goal`, `channel` and `seconds`; with `brandKitId`, the formulas written for the brand come first (`writtenForBrand`, with the `audience` each is for). Each says why it fits, what to watch for, and how strong its evidence is (`A` measured, `B` platform guidance or research, `C` convention).                                                                                                                                      |
 | `get_brand_formula`   | One formula written out for a length and channel: its beats timed (what each must do, show and say), its rules with the channel's own, its guardrails, why it works and its sources, plus a `brief` to plan or script from. A formula written for a brand needs its `brandKitId`, and says what it was written after (`basedOn`), who it is for and how often it runs.                                                                                                                                                                                                               |
 | `list_characters`     | The team's characters: their look, how many reference images they have, and their Soul IDs (one per Soul model) with each likeness score and approval.                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `get_character`       | One character: their reference sheet and training photos (with links), Soul IDs and the state of their latest Soul ID training.                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `estimate_generation` | The provider's price for a generation without making it: the same `modelId`, `parameters`, `inputs`, `characterIds` and `brandKitId` as `queue_generation`, priced as they would be sent. Nothing is billed.                                                                                                                                                                                                                                                                                                                                                                         |
+| `list_review_gates`   | A project's review gates in order (see below): each gate's state, whether it is held until the one before is approved, its versions newest first (their files, render or storyboard), the latest decision on each (who, when, its note and on whose behalf), the comments (counted, or whole with `includeComments`), and the notes given on it with their shots and whether each is done.                                                                                                                                                                                           |
 
 **Generate** (`generate` scope; spends credits):
 
@@ -97,14 +98,46 @@ curl -X POST https://<your studio>/api/public/studio/list_models \
 | `save_character`              | Makes a character from library images, or changes one (`characterId`): name, look, sheet images by view, training photos.           |
 | `import_image`                | Puts a PNG, JPEG, WebP or GIF (up to 15 MB) into the library, from base64 `data` or an https `url`.                                 |
 | `open_in_editor`              | Lays a long video out as an edit. Takes captions from the script, titles on the voiceover's clock, music, and the brand kit's look. |
-| `create_edit` / `update_edit` | Makes an edit from a timeline, or changes one. An update is accepted only at the version you read.                                  |
-| `apply_brand_kit`             | Applies a kit's fonts and colours to the edit's text, and can add its end card inside a platform's safe area.                       |
+| `create_edit` / `update_edit` | Makes an edit from a timeline, or changes one. An update is accepted only at the version you read. Pauses: below.                   |
+| `apply_brand_kit`             | Applies a kit's fonts, colours and title motion to the edit's text, and can add its end card inside a platform's safe area.         |
 | `fit_music`                   | Fits the edit's music to a length on its bars, with sections landed on times; `apply: false` only plans it.                         |
 | `render_edit`                 | Renders the edit at a version. Poll it with `get_render`.                                                                           |
+| `import_storyboard_brief`     | Makes a storyboard from a brief in brief.json's shape: a scene a block, a shot a shot, each keeping its record and its cue.         |
+| `add_review_gate`             | Adds a review gate to a project, last in its order; with `heldUntilPrevious` it waits for the gate before to be approved.           |
+| `add_review_version`          | Puts library stills or videos (`assetIds`), a finished render or a storyboard up for review in a gate, as its next version.         |
+| `comment_on_review`           | Comments on a version, pinned to a time (`at`) or `frame`, a `point` on the picture, one of its files or a storyboard's shot.       |
+| `decide_review`               | Approves a gate's latest version, or asks for changes, as the token's owner; `onBehalfOf` names a client who decided.               |
 
 Every operation that spends or makes something takes your own `clientRequestId` (8 to 64
 characters). Sending the same request again returns the first result, so a retry never bills
 twice.
+
+## A voiceover held open in its silences
+
+A voiceover item in a timeline can carry `pauses`: `[{"at": 3.95, "frames": 12}, …]`. Each puts
+`frames` whole frames (of the edit's `fps`) of silence into the recording at `at`, in seconds on
+the recording's own clock (as `trimStart` is), so the picture gets room to breathe and no word is
+stretched. The item plays that much longer: its `duration`, when set, is its length on the edit
+with its pauses in it. Time captions and titles on the held voice: a word moves by the pauses at
+or before it, a cut by those strictly before it, so a pause exactly on a cut opens the new shot
+before its first word. At most 200 pauses a voiceover, each 1 to 300 frames.
+
+A pause goes only where nobody speaks, as measured when the voiceover was prepared (in the Editor,
+select the voiceover and choose **Measure its silences** under Pauses). `create_edit` and
+`update_edit` move a pause just off a silence into it (`pausesSnapped` says how many) and refuse
+one inside a word, saying where. A voiceover not yet measured keeps its pauses as sent and is
+listed by item id in `pausesUnmeasured`: it can't be rendered until it is measured.
+
+## Stems and the mix report
+
+Every render reports how its sound sits, in `get_render`'s `mix_report`: the voice's margin over
+the music in the speech band (300 Hz to 4 kHz) where the voice speaks, in each music item's span
+(`sections`, with `margin_db` over them), and the finished mix's integrated loudness, loudness
+range and true peak (`loudness`). A music item, or a sound effect, with `duck: false` is never
+dipped under the voice; music dips unless told not to, an effect only when told to. Set
+`stems: true` in a timeline and its render also hands back the voiceover, music and effects (each
+bus heard in the edit, as mixed into it before its loudness is evened out) as WAV files in the
+library, listed with links in `get_render`'s `stems`.
 
 ## A presenter video, end to end
 
@@ -147,3 +180,38 @@ The flow that made the Aurixa "Janice presents" video:
    default) styles the titles and captions.
 6. **Brand and render.** `apply_brand_kit` with `endCard: {"seconds": 3, "area": "tiktok"}`, then
    `render_edit`, and poll `get_render` for the link.
+
+## A storyboard from a brief
+
+`import_storyboard_brief` takes a brief written as data, in the shape Reel 1's
+`scripts/aurixa-reel-1/system_edition.py` writes `brief.json`: shots, each with its block, title,
+sources, beats, on-screen text, times and voiceover lines. Each block becomes a scene and each shot
+a shot, keeping everything the brief says about it in its spec, with its cue (the words it starts
+on). In Storyboards, **Time from the voice** then cuts each shot in the pause before its cue, from
+a prepared voiceover's measured words.
+
+## Review gates
+
+A project's reviews (the Reviews tab on its page) are gates in order, such as Style frames,
+Animatic, Proof and Film. Each holds versions of what is being reviewed (library stills or videos,
+a render, a storyboard), comments pinned to a time or a frame and optionally a point on the
+picture, and decisions. An admin applies migration `drizzle/migrations/0030_review_gates.sql`
+first.
+
+- **Who may approve.** Any active team member: in the app as themselves, or through the API as
+  the token's owner, with a token that has the `edit` scope. Every decision records who made it,
+  when, and whether it came through the app or the API. `onBehalfOf` names someone outside the
+  team who decided, such as a client who approved on a call. A decision is never changed or
+  removed: a new one supersedes it.
+- **What is decided.** Only a gate's latest version. A new version puts the gate back in review.
+- **Holds.** A gate held until the one before it is approved takes no version, and can't be
+  approved, until then. A new version in the gate before holds it again.
+
+A script runs them like this:
+
+1. `add_review_gate` for each stage (`heldUntilPrevious` after the first), or add them in the app.
+2. `add_review_version` with the stills, the render (once `get_render` says it is complete) or the
+   storyboard.
+3. `comment_on_review` for each point, pinned where it applies, and `decide_review` once the client
+   has answered.
+4. `list_review_gates` shows where every gate stands.

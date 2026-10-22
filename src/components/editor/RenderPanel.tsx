@@ -19,7 +19,16 @@ import { getMediaWorkerStatus } from "@/lib/media.functions";
 import { recoverRender, renderSequence, resendRender } from "@/lib/edit.functions";
 import { keepAttempt, savedAttempt } from "@/lib/attempts";
 import { audibleAudio, formatTime, renderBlockers, type Timeline } from "@/lib/edit/timeline";
+import { compositionClips } from "@/lib/compositions/clips";
 import { joinSummary, readJoinReport } from "@/lib/edit/join-report";
+import {
+  mixReportOf,
+  mixSummary,
+  quietVoiceSections,
+  renderStems,
+  sectionMargin,
+  type MixReport,
+} from "@/lib/edit/mix-report";
 import { signedUrl } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -69,6 +78,7 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
     staleTime: 60_000,
   });
   const blockers = renderBlockers(timeline);
+  const motionGraphics = compositionClips(timeline).length;
   const active = renders.find((render) => renderInProgress(render));
   const renderedIds = useMemo(
     () =>
@@ -289,6 +299,15 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
         </p>
       )}
 
+      {motionGraphics > 0 && !active && (
+        <p className="text-[11px] text-muted-foreground" data-testid="render-motion-note">
+          {motionGraphics === 1
+            ? "Its motion graphic is drawn final first"
+            : `Its ${motionGraphics} motion graphics are drawn final first`}{" "}
+          (at the edit&apos;s frame, with motion blur); any drawn before are reused.
+        </p>
+      )}
+
       {active && (
         <div className="space-y-1.5 rounded-md border border-border p-2.5" aria-live="polite">
           <div className="flex items-center justify-between text-xs">
@@ -432,6 +451,9 @@ function RenderItem({
   // may use other music by now).
   const music = keptMusic(kept);
   const joins = readJoinReport(kept);
+  // How its sound sits, and its stems, as kept with the rendered video.
+  const report = mixReportOf(null, kept);
+  const stems = renderStems(kept);
   const stalled =
     (render.status === "queued" || render.status === "rendering") && !renderInProgress(render);
   const when = new Date(render.created_at).toLocaleString(undefined, {
@@ -555,6 +577,10 @@ function RenderItem({
           {joinSummary(joins)}
         </p>
       )}
+      {render.status === "completed" && report && <MixReportView report={report} />}
+      {render.status === "completed" && stems.length > 0 && (
+        <StemDownloads stems={stems} title={title} />
+      )}
       {render.status === "completed" && music.terms.length > 0 && (
         <p className="mt-1 text-[11px] text-muted-foreground" data-testid="render-music-terms">
           Music terms: {music.terms.join(" · ")}
@@ -567,5 +593,104 @@ function RenderItem({
         <p className="mt-1 text-destructive">This render stopped responding. Render again.</p>
       )}
     </li>
+  );
+}
+
+/**
+ * How a render's sound sits: the voice's margin over the music in the speech
+ * band in each music section, and the finished mix's loudness. A section where
+ * the voice stands too little over the music is pointed out.
+ */
+function MixReportView({ report }: { report: MixReport }) {
+  const quiet = quietVoiceSections(report);
+  return (
+    <div className="mt-1.5 space-y-1" data-testid="render-mix-report">
+      <p className="text-[11px] text-muted-foreground">{mixSummary(report)}</p>
+      {report.sections.length > 1 && (
+        <ul className="space-y-0.5 text-[11px]">
+          {report.sections.map((section) => (
+            <li
+              key={`${section.index}-${section.from}`}
+              className={cn(
+                "flex justify-between tabular-nums",
+                quiet.includes(section) ? "text-warning" : "text-muted-foreground",
+              )}
+            >
+              <span>
+                Music {formatTime(section.from)}–{formatTime(section.to)}
+              </span>
+              <span>{sectionMargin(section)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {quiet.length > 0 && (
+        <p className="text-[11px] text-warning" data-testid="render-quiet-voice">
+          The voice may be hard to follow over the music in{" "}
+          {quiet.length === 1 ? "one section" : `${quiet.length} sections`}. Turn the music down
+          there, or let it dip further under the voice, then render again.
+        </p>
+      )}
+    </div>
+  );
+}
+
+const STEM_LABELS: Record<string, string> = {
+  voiceover: "Voiceover",
+  music: "Music",
+  sfx: "Effects",
+};
+
+/** A render's stems, each downloaded beside the video. */
+function StemDownloads({
+  stems,
+  title,
+}: {
+  stems: { role: string; assetId: string }[];
+  title: string;
+}) {
+  const [opening, setOpening] = useState<string | null>(null);
+  async function download(stem: { role: string; assetId: string }) {
+    setOpening(stem.assetId);
+    try {
+      const { data } = await supabase
+        .from("assets")
+        .select("storage_bucket,storage_path")
+        .eq("id", stem.assetId)
+        .maybeSingle();
+      const url = data ? await signedUrl(data.storage_bucket, data.storage_path) : null;
+      if (!url) throw new Error("The stem could not be opened");
+      const name = `${title.replace(/[^\w.-]+/g, "_") || "edit"}-${stem.role}.wav`;
+      const anchor = document.createElement("a");
+      anchor.href = `${url}${url.includes("?") ? "&" : "?"}download=${encodeURIComponent(name)}`;
+      anchor.click();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The stem could not be opened");
+    } finally {
+      setOpening(null);
+    }
+  }
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-1" data-testid="render-stems">
+      <span className="text-[11px] text-muted-foreground">Stems</span>
+      {stems.map((stem) => (
+        <Button
+          key={stem.assetId}
+          variant="ghost"
+          size="sm"
+          className="h-6 px-1.5 text-[11px]"
+          disabled={opening !== null}
+          onClick={() => void download(stem)}
+          aria-label={`Download the ${STEM_LABELS[stem.role] ?? stem.role} stem`}
+        >
+          {opening === stem.assetId ? (
+            <Loader2 className="mr-1 size-3 animate-spin" />
+          ) : (
+            <Download className="mr-1 size-3" />
+          )}
+          {STEM_LABELS[stem.role] ?? stem.role}
+        </Button>
+      ))}
+    </div>
   );
 }

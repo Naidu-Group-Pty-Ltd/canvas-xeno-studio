@@ -13,7 +13,8 @@ import { tmpdir } from "node:os";
 import { ffmpeg, probe } from "./ffmpeg.js";
 import { FEATURES, TASKS } from "./tasks.js";
 import { lipCheckAvailable, lipCheckDir, lipCheckPython } from "./lipcheck.js";
-import { clipRuns, fitAudioToSources, inParallel, mixArgs, planSequence } from "./sequence.js";
+import { clipRuns, fitAudioToSources, inParallel } from "./sequence.js";
+import { mixArgs, planSequence } from "./sequence.js";
 import { alignFrames, detailLevel, downscale } from "./align.js";
 import { Lanes, idleLongEnough, laneOf } from "./lanes.js";
 import { config } from "./config.js";
@@ -286,6 +287,151 @@ await check("music in pieces crossfades each join over 30 ms, centred on it, and
   if (!(tail < -60) || !(last > full - 1)) throw new Error(`the last piece should end at 6 s (${last} dB before, ${tail} dB after)`);
 });
 
+/** A float WAV's left channel, sample by sample (the mix pass writes 32-bit float stereo). */
+async function leftChannel(path) {
+  const bytes = await readFile(path);
+  const data = bytes.indexOf("data", 12);
+  const body = bytes.subarray(data + 8, data + 8 + bytes.readUInt32LE(data + 4));
+  const left = new Float32Array(body.length / 8);
+  for (let index = 0; index < left.length; index += 1) left[index] = body.readFloatLE(index * 8);
+  return left;
+}
+
+/** The runs of exact digital silence in a signal, as [first sample, sample after the last]. */
+function silentRuns(samples) {
+  const runs = [];
+  let from = null;
+  for (let index = 0; index <= samples.length; index += 1) {
+    const silent = index < samples.length && samples[index] === 0;
+    if (silent && from === null) from = index;
+    if (!silent && from !== null) {
+      runs.push([from, index]);
+      from = null;
+    }
+  }
+  return runs;
+}
+
+await check("a voiceover held open at its pauses has exact silence at each, to the sample", async () => {
+  // A voice that never touches zero, so the only silence in the mix is what the pauses put in.
+  const voice = join(dir, "held-voice.wav");
+  const picture = join(dir, "held-picture.wav");
+  await ffmpeg(["-f", "lavfi", "-i", "aevalsrc=0.5+0.1*sin(2*PI*440*t):s=48000:c=stereo:d=2", "-c:a", "pcm_f32le", voice]);
+  await ffmpeg(["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo", "-t", "4", "-c:a", "pcm_f32le", picture]);
+  const plan = planSequence(
+    {
+      width: 360, height: 640, fps: 25, normalize_loudness: false,
+      clips: [{ source_index: 0, kind: "image", duration: 4 }],
+      // From 0.25 s into the recording, half a second into the edit; 10 frames at 0.75 s, 5 at 1.5 s.
+      audio: [{ source_index: 1, role: "voiceover", start: 0.5, trim_start: 0.25, pauses: [{ at: 0.75, frames: 10 }, { at: 1.5, frames: 5 }] }],
+    },
+    [{ path: "still.png", role: "image" }, { path: voice, role: "audio" }],
+  );
+  const out = join(dir, "held-mix.wav");
+  await ffmpeg(mixArgs(plan, [picture], [voice], out, []));
+  const left = await leftChannel(out);
+  // At 25 fps a frame is 1920 samples: 10 frames 19200, 5 frames 9600.
+  const want = [[0, 24000], [48000, 67200], [103200, 112800], [136800, 192000]];
+  if (JSON.stringify(silentRuns(left)) !== JSON.stringify(want)) throw new Error(`silences at ${JSON.stringify(silentRuns(left))}`);
+  // Either side of each pause the recording runs on unbroken: the sample after it is the one it stopped at.
+  const recorded = (sample) => Math.fround(0.5 + 0.1 * Math.sin((2 * Math.PI * 440 * sample) / 48000));
+  for (const [edit, source] of [[47999, 35999], [67200, 36000], [103199, 71999], [112800, 72000]]) {
+    if (Math.abs(left[edit] - recorded(source)) > 1e-6) throw new Error(`sample ${edit} is ${left[edit]}, not the recording's ${recorded(source)}`);
+  }
+});
+
+await check("render_sequence plays a held voiceover under music, silent in its pauses", async () => {
+  const still = join(dir, "held-still.jpg");
+  const voice = join(dir, "held-tone.wav");
+  const music = join(dir, "held-bed.wav");
+  await ffmpeg(["-f", "lavfi", "-i", "testsrc2=s=640x360:d=1", "-frames:v", "1", still]);
+  await ffmpeg(["-f", "lavfi", "-i", "sine=frequency=1000:duration=3", voice]);
+  await ffmpeg(["-f", "lavfi", "-i", "sine=frequency=200:duration=5", music]);
+  const result = await TASKS.render_sequence.run({
+    sources: [
+      { path: still, role: "image" },
+      { path: voice, role: "audio" },
+      { path: music, role: "audio" },
+    ],
+    params: {
+      width: 360, height: 640, fps: 30, normalize_loudness: false,
+      clips: [{ source_index: 0, kind: "image", duration: 5 }],
+      // A second of silence after the first second of the voice: it now ends at 4 s, not 3.
+      audio: [
+        { source_index: 1, role: "voiceover", start: 0, pauses: [{ at: 1, frames: 30 }] },
+        { source_index: 2, role: "music", start: 0, volume: 0.3, duck: false },
+      ],
+    },
+    dir,
+  });
+  const info = await probe(result.outputs[0].path);
+  if (Math.abs(info.duration_seconds - 5) > 0.1) throw new Error(`unexpected duration ${info.duration_seconds}`);
+  // The voice's 1 kHz tone, heard apart from the music's 200 Hz.
+  const voiceLevel = async (from) => {
+    const { stderr } = await ffmpeg(["-ss", String(from), "-t", "0.4", "-i", result.outputs[0].path, "-vn", "-af", "highpass=f=700,highpass=f=700,volumedetect", "-f", "null", "-"]);
+    return Number(/mean_volume:\s*(-?[\d.]+) dB/.exec(stderr)?.[1] ?? Number.NaN);
+  };
+  const speaking = await voiceLevel(0.3);
+  const held = await voiceLevel(1.3);
+  const after = await voiceLevel(3.4);
+  const done = await voiceLevel(4.4);
+  if (!(speaking - held > 30)) throw new Error(`the voice isn't silent in its pause (${speaking} dB speaking, ${held} dB held)`);
+  if (!(Math.abs(after - speaking) < 3)) throw new Error(`the voice doesn't go on after its pause (${after} dB at 3.4 s)`);
+  if (!(speaking - done > 30)) throw new Error(`the voice runs past where its pause puts its end (${done} dB at 4.4 s)`);
+});
+
+await check("render_sequence reports the voice's margin over the music by section, the loudness, and its stems", async () => {
+  const still = join(dir, "report-still.jpg");
+  const voice = join(dir, "report-voice.wav");
+  const music = join(dir, "report-music.wav");
+  await ffmpeg(["-f", "lavfi", "-i", "testsrc2=s=640x360:d=1", "-frames:v", "1", still]);
+  // A voice that speaks for 1.5 s, stops for 1 s, then speaks for 1.5 s; a bed in the same band.
+  await ffmpeg([
+    "-f", "lavfi", "-i", "sine=frequency=1000:duration=1.5", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
+    "-f", "lavfi", "-i", "sine=frequency=1000:duration=1.5",
+    "-filter_complex", "[1:a]atrim=end=1[gap];[0:a][gap][2:a]concat=n=3:v=0:a=1", voice,
+  ]);
+  await ffmpeg(["-f", "lavfi", "-i", "sine=frequency=1500:duration=6", music]);
+  const result = await TASKS.render_sequence.run({
+    sources: [
+      { path: still, role: "image" },
+      { path: voice, role: "audio" },
+      { path: music, role: "audio" },
+    ],
+    params: {
+      width: 360, height: 640, fps: 30,
+      clips: [{ source_index: 0, kind: "image", duration: 5 }],
+      // The bed at a quarter of the voice's level (12.04 dB under it), then an eighth (18.06 dB).
+      audio: [
+        { source_index: 1, role: "voiceover", start: 0.5 },
+        { source_index: 2, role: "music", start: 0, duration: 2.5, volume: 0.25, duck: false },
+        { source_index: 2, role: "music", start: 2.5, volume: 0.125, duck: false },
+      ],
+      stems: ["voiceover", "music", "sfx"],
+    },
+    dir,
+  });
+  const report = result.metadata.mix_report;
+  const [first, second] = report?.sections ?? [];
+  if (!first || !second || report.sections.length !== 2) throw new Error(`sections ${JSON.stringify(report?.sections)}`);
+  if (Math.abs(first.margin_db - 12.04) > 0.5 || Math.abs(second.margin_db - 18.06) > 0.5) throw new Error(`margins ${first.margin_db} and ${second.margin_db} dB, not 12 and 18`);
+  if (first.speech_seconds !== 1.5 || second.speech_seconds !== 1.5 || first.index !== 1 || second.index !== 2) throw new Error(`sections ${JSON.stringify(report.sections)}`);
+  if (Math.abs(report.loudness?.integrated_lufs + 14) > 0.6) throw new Error(`loudness ${JSON.stringify(report.loudness)}`);
+  if (report.loudness.true_peak_dbtp > -1) throw new Error(`true peak ${report.loudness.true_peak_dbtp} dBTP`);
+  // The video, its poster, then the three stems asked for: each as long as the edit, the effects' silent.
+  if (result.outputs.length !== 5 || TASKS.render_sequence.outputs({ stems: ["voiceover", "music", "sfx"] }) !== 5) throw new Error(`${result.outputs.length} outputs`);
+  const level = async (path) => {
+    const { stderr } = await ffmpeg(["-i", path, "-af", "volumedetect", "-f", "null", "-"]);
+    return Number(/max_volume:\s*(-?[\d.]+|-inf) dB/.exec(stderr)?.[1] ?? Number.NaN);
+  };
+  for (const [index, stem] of result.outputs.slice(2).entries()) {
+    const info = await probe(stem.path);
+    if (stem.kind !== "audio" || Math.abs(info.duration_seconds - 5) > 0.01) throw new Error(`stem ${index + 1}: ${stem.kind}, ${info.duration_seconds} s`);
+  }
+  const [voiced, bed, effects] = await Promise.all(result.outputs.slice(2).map((stem) => level(stem.path)));
+  if (!(voiced > -25 && bed > -40 && !(effects > -90))) throw new Error(`stem levels ${voiced}, ${bed}, ${effects} dB`);
+});
+
 // A two-colour clip (red left, blue right) for checking where a crop lands.
 const halves = join(dir, "halves.mp4");
 await ffmpeg([
@@ -347,6 +493,46 @@ await check("render_sequence lays a logo over the picture between its times, and
   if (!named || !script.includes(`\\fn${named}\\b0`)) throw new Error(`the title isn't set in ${named}`);
   if (!script.includes(`Style: Caption,${named},`)) throw new Error("the captions aren't set in the brand font");
   if (!script.includes("\\1c&H00FF00&") || !script.includes("\\3c&H332211&")) throw new Error("the title isn't in the brand's colours");
+});
+
+await check("render_sequence moves a title in a brand's motion: in on its curve, holding, lifting away (overlay_motion)", async () => {
+  if (!FEATURES.includes("overlay_motion")) throw new Error("overlay_motion isn't advertised");
+  const navy = join(dir, "navy.mp4");
+  await ffmpeg(["-f", "lavfi", "-i", "color=c=0x040b16:s=320x180:d=2:r=25", "-pix_fmt", "yuv420p", navy]);
+  // A white title on a white box, so how much of it shows is how bright its middle is. Linear
+  // curves, so each frame's opacity is plain to work out: in from 0.4 s to 0.8 s, out from 1.2 s.
+  const motion = { enter: 0.4, exit: 0.4, enter_ease: [0, 0, 1, 1], exit_ease: [0, 0, 1, 1], rise: 0.25 };
+  const result = await TASKS.render_sequence.run({
+    sources: [{ path: navy, role: "video" }],
+    params: {
+      width: 320, height: 180, fps: 25, normalize_loudness: false,
+      clips: [{ source_index: 0, duration: 2, volume: 0 }],
+      overlays: [{ start: 0.4, end: 1.6, text: "MOTION", style: "title", y: 0.5, backing: "box", color: "#ffffff", accent: "#ffffff", motion }],
+    },
+    dir,
+  });
+  const out = result.outputs[0].path;
+  const light = async (time) => {
+    const [r, g, b] = await colourAtTime(out, time, "40:10:140:85");
+    return (r + g + b) / 3;
+  };
+  const before = await light(0.4);
+  const half = await light(0.6);
+  const held = await light(1.0);
+  const going = await light(1.4);
+  const after = await light(1.8);
+  if (before > 40) throw new Error(`the title shows on its first frame (${before.toFixed(0)})`);
+  if (held < 130) throw new Error(`the title isn't fully in while it holds (${held.toFixed(0)})`);
+  // Half way in and half way out, about half as bright as held over the navy.
+  for (const [what, level] of [["coming in", half], ["going", going]])
+    if (level < 0.3 * held || level > 0.75 * held) throw new Error(`${what}, it shows ${level.toFixed(0)} against ${held.toFixed(0)} held`);
+  if (after > 40) throw new Error(`the title is still there after its end (${after.toFixed(0)})`);
+  // One event a frame coming in (10 at 25 fps) and going (10), and one holding still.
+  const script = await readFile(join(dir, "text.ass"), "utf8");
+  const steps = script.split("\n").filter((line) => line.startsWith("Dialogue: 1,") && line.endsWith("}MOTION"));
+  if (steps.length !== 21) throw new Error(`${steps.length} events for the title, not 21`);
+  if (!steps[0].includes("\\fade(255,255,255,0,0,0,0)")) throw new Error("its first frame isn't unseen");
+  if (!steps[10].includes("{\\an5\\pos(160,90)\\")) throw new Error("it doesn't hold where a still title sits");
 });
 
 await check("render_sequence lays a GIF logo from the edit's first frame, decoded once", async () => {

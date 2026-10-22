@@ -10,6 +10,7 @@ import { FONT_FAMILY_PATTERN, fontFamily, isBrandFontFile } from "../edit/font-f
 import { designOf, isEmptyDesign, paletteOf } from "./design";
 import { dnaOf, isEmptyDna } from "./dna";
 import { ownFormulasOf } from "./own-formulas";
+import { isEmptyProduction, productionOf } from "./production";
 import type { KitInput } from "./kit-input";
 
 /** The largest font file read. */
@@ -179,6 +180,7 @@ export async function writeBrandKit(userId: string, data: KitInput): Promise<{ i
           .maybeSingle();
   const dna = data.dna ? dnaOf(data.dna) : null;
   const formulas = data.formulas ? ownFormulasOf(data.formulas) : null;
+  const production = data.production ? productionOf(data.production) : null;
   // Newer parts go in only when sent. Before its migration a kit saves
   // without one, unless that would lose something.
   const later = [
@@ -201,6 +203,28 @@ export async function writeBrandKit(userId: string, data: KitInput): Promise<{ i
             empty: !formulas.length,
             needs: "A brand's own formulas need",
             migration: "0024_brand_formulas",
+          },
+        ]
+      : []),
+    ...(production
+      ? [
+          {
+            column: "production",
+            value: production,
+            empty: isEmptyProduction(production),
+            needs: "Production roles need",
+            migration: "0029_brand_production",
+          },
+        ]
+      : []),
+    ...(data.demoRecord !== undefined
+      ? [
+          {
+            column: "demo_record",
+            value: data.demoRecord,
+            empty: data.demoRecord === null,
+            needs: "A demo record needs",
+            migration: "0034_compositions",
           },
         ]
       : []),

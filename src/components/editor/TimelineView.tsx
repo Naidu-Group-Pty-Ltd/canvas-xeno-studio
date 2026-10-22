@@ -280,7 +280,7 @@ export function TimelineView(props: TimelineViewProps) {
         origin: {
           start: item.start,
           trimStart: item.trimStart,
-          duration: item.duration ?? audioPlayLength(item, layout.total),
+          duration: item.duration ?? audioPlayLength(item, layout.total, timeline.fps),
         },
       };
     }
@@ -687,7 +687,11 @@ function AudioRow({
       onPointerDown={onBackground}
     >
       {items.map((item) => {
-        const length = audioPlayLength(item, Math.max(layout.total, item.start + 0.1));
+        const length = audioPlayLength(
+          item,
+          Math.max(layout.total, item.start + 0.1),
+          timeline.fps,
+        );
         const selected = selection?.kind === "audio" && selection.id === item.id;
         const asset = assets.get(item.assetId);
         const tone =
