@@ -279,6 +279,25 @@ export const captionsSchema = z.object({
 });
 export type Captions = z.infer<typeof captionsSchema>;
 
+/** A cubic-bezier curve's four numbers (x1, y1, x2, y2), as a brand's code writes its easing. */
+const easeSchema = z.tuple([finite(0, 1), finite(-2, 3), finite(0, 1), finite(-2, 3)]);
+
+/**
+ * How a title comes in and goes, in a brand's own motion (its kit's enter and
+ * exit roles, see ../brand/production and ./overlay-motion): how long each
+ * takes, on which curve, and how far it rises into place, as a share of its
+ * own size (it lifts half that as it goes). Without one a title fades in and
+ * out over a quarter of a second, as titles always have.
+ */
+export const overlayMotionSchema = z.object({
+  enter: finite(0, 2),
+  exit: finite(0, 2),
+  enterEase: easeSchema,
+  exitEase: easeSchema,
+  rise: finite(0, 1).default(0.3),
+});
+export type OverlayMotion = z.infer<typeof overlayMotionSchema>;
+
 export const overlaySchema = z.object({
   id: z.string().min(1).max(64),
   text: z.string().max(LIMITS.overlayChars),
@@ -293,6 +312,8 @@ export const overlaySchema = z.object({
   font: fontName,
   color: hexColour,
   accent: hexColour,
+  /** How it comes in and goes (a brand's motion); none: the quarter-second fade. */
+  motion: overlayMotionSchema.nullable().optional(),
 });
 export type Overlay = z.infer<typeof overlaySchema>;
 
@@ -1136,6 +1157,8 @@ export function buildRenderRequest(
       ...(overlay.y !== null ? { y: overlay.y } : {}),
       ...(overlay.backing !== "outline" ? { backing: overlay.backing } : {}),
       ...brandText(overlay),
+      // Its motion (feature overlay_motion), sent only when it has one.
+      ...(overlay.motion ? { motion: overlayMotionParams(overlay.motion) } : {}),
     }));
 
   const images = timeline.images
@@ -1203,6 +1226,17 @@ export function buildRenderRequest(
           }
         : {}),
     },
+  };
+}
+
+/** A title's motion as the media worker takes it (see media-worker/src/sequence.js). */
+export function overlayMotionParams(motion: OverlayMotion) {
+  return {
+    enter: motion.enter,
+    exit: motion.exit,
+    enter_ease: [...motion.enterEase],
+    exit_ease: [...motion.exitEase],
+    rise: motion.rise,
   };
 }
 

@@ -414,8 +414,11 @@ const listBrandKits = tool({
     const { brandStyleLine } = await import("../brand/design");
     return (data ?? []).map((row) => {
       // A kit's whole DNA and its formulas run to thousands of characters each: a list of kits
-      // says what kind of brand each is and names its formulas; get_brand_kit has the rest.
-      const { fonts, design, dna, ownFormulas, ...kit } = brandKitOf(row as unknown as Json);
+      // says what kind of brand each is and names its formulas; get_brand_kit has the rest
+      // (its production roles too).
+      const { fonts, design, dna, ownFormulas, production, ...kit } = brandKitOf(
+        row as unknown as Json,
+      );
       return {
         ...kit,
         fonts: fonts.map((font) => font.family),
@@ -442,9 +445,12 @@ const getBrandKit = tool({
   name: "get_brand_kit",
   title: "Get a brand kit",
   description:
-    "One brand kit's whole design system: palette (each colour's role and use), typefaces, the look of its imagery (mood, photography, lighting, grading, composition, motion), its voice (tone, sample lines, words it uses and avoids), its rules, the line generations carry and what they must not show, and its style reference images.",
+    "One brand kit's whole design system: palette (each colour's role and use), typefaces, the look of its imagery (mood, photography, lighting, grading, composition, motion), its voice (tone, sample lines, words it uses and avoids), its rules, the line generations carry and what they must not show, and its style reference images. Its `production` holds the roles its graphics are drawn in (ground, surfaces, glass, ink, accent, signature, lines; display, body and mono type; corners, shadows, blur) and its motion (move, settle, enter, exit and press curves and durations), each with the repository, file and line it is declared on; `productionChecks` says whether they pass, and with `includeCss` `productionCss` is them as one stylesheet of --brand-* custom properties.",
   scope: "read",
-  input: z.object({ brandKitId: id() }),
+  input: z.object({
+    brandKitId: id(),
+    includeCss: z.boolean().default(false),
+  }),
   run: async (args, caller) => {
     await roleOf(caller.userId);
     const { requireBrandKit } = await import("../brand/use.server");
@@ -470,9 +476,19 @@ const getBrandKit = tool({
         summary: formula.summary,
         audience: formula.own?.audience ?? null,
       })),
+      ...(await productionOutput(kit, args.includeCss)),
     };
   },
 });
+
+/** A kit's production checks, and its stylesheet when asked for (see ../brand/production). */
+async function productionOutput(kit: ReturnType<typeof brandKitOf>, includeCss: boolean) {
+  const { productionChecks, productionStylesheet } = await import("../brand/production");
+  return {
+    productionChecks: productionChecks(kit.production, { fonts: kit.fonts }).list,
+    ...(includeCss ? { productionCss: productionStylesheet(kit) } : {}),
+  };
+}
 
 const readBrandCode = tool({
   name: "read_brand_code",

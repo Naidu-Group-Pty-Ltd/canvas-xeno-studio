@@ -9,6 +9,7 @@ import {
   Dna,
   FileText,
   Globe,
+  Layers,
   Loader2,
   Palette,
   Plus,
@@ -37,6 +38,7 @@ import { discardBrandImport } from "@/lib/brand-import.functions";
 import { brandStyleLine, PALETTE_ROLE_LABELS } from "@/lib/brand/design";
 import { ARCHETYPE_INFO, EMPTY_DNA, MARKET_LABELS, typeWords } from "@/lib/brand/dna";
 import { formulasForBrand } from "@/lib/brand/formulas";
+import { isEmptyProduction, productionChecks } from "@/lib/brand/production";
 import { DEFAULT_FONT, type BrandKit } from "@/lib/edit/brand";
 
 export const Route = createFileRoute("/brand")({
@@ -212,6 +214,7 @@ function BrandCard({
                 : (kit.source.title ?? "its guidelines")}
           </p>
         )}
+        {!isEmptyProduction(kit.production) && <ProductionStatus kit={kit} />}
         <div className="mt-auto flex gap-1.5 pt-1">
           <Button size="sm" variant="outline" className="h-8 flex-1" onClick={onEdit}>
             <Palette className="mr-1.5 size-3.5" /> Edit
@@ -233,6 +236,25 @@ function BrandCard({
         </div>
       </div>
     </article>
+  );
+}
+
+/** How far a kit's production roles are: how many are filled, and whether their checks pass. */
+function ProductionStatus({ kit }: { kit: BrandKit }) {
+  const checks = productionChecks(kit.production, { fonts: kit.fonts });
+  const open = checks.list.filter((check) => !check.ok);
+  return (
+    <p
+      className="flex items-center gap-1 truncate text-[11px] text-muted-foreground"
+      data-testid="brand-production-status"
+      title={open.map((check) => `${check.label}: ${check.detail}`).join("\n") || undefined}
+    >
+      <Layers className="size-3 shrink-0" />
+      Production: {checks.roles.filled} of {checks.roles.total} roles
+      {open.length
+        ? `, ${open.length} check${open.length === 1 ? "" : "s"} to finish`
+        : ", every check passed"}
+    </p>
   );
 }
 

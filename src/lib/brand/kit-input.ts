@@ -61,6 +61,8 @@ export const kitInput = z.object({
   dna: z.record(z.string(), z.unknown()).optional(),
   // The formulas written for it (see ./own-formulas): left as they are when not sent.
   formulas: z.array(z.record(z.string(), z.unknown())).max(16).optional(),
+  // Its production roles and motion (see ./production): left as they are when not sent.
+  production: z.record(z.string(), z.unknown()).optional(),
   referenceAssetIds: z.array(z.string().uuid()).max(12).optional(),
   source: z
     .object({

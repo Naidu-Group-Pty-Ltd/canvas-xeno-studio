@@ -2198,6 +2198,7 @@ export type Database = {
           logo_asset_id: string | null
           name: string
           palette: Json
+          production: Json
           project_id: string | null
           reference_asset_ids: string[]
           source: Json | null
@@ -2229,6 +2230,7 @@ export type Database = {
           logo_asset_id?: string | null
           name: string
           palette?: Json
+          production?: Json
           project_id?: string | null
           reference_asset_ids?: string[]
           source?: Json | null
@@ -2260,6 +2262,7 @@ export type Database = {
           logo_asset_id?: string | null
           name?: string
           palette?: Json
+          production?: Json
           project_id?: string | null
           reference_asset_ids?: string[]
           source?: Json | null

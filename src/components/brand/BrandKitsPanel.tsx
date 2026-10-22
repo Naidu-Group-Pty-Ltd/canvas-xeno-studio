@@ -24,6 +24,8 @@ import { BrandImportDialog } from "@/components/brand/BrandImportDialog";
 import { DesignSystemEditor } from "@/components/brand/DesignSystemEditor";
 import { DnaEditor } from "@/components/brand/DnaEditor";
 import { OwnFormulas } from "@/components/brand/OwnFormulas";
+import { ProductionPanel } from "@/components/brand/ProductionPanel";
+import { isEmptyProduction, PRODUCTION_ROLES } from "@/lib/brand/production";
 import { isEmptyDna, mergeSuggestion, typeWords } from "@/lib/brand/dna";
 import { suggestDna } from "@/lib/brand/dna-client";
 import { OVERLAY_BACKING_LABELS, OVERLAY_BACKINGS, type OverlayBacking } from "@/lib/edit/timeline";
@@ -264,6 +266,7 @@ export function BrandKitDialog({ draft: initial, onClose }: { draft: Draft; onCl
           referenceAssetIds: draft.referenceAssetIds,
           dna: draft.dna as unknown as Record<string, unknown>,
           formulas: draft.ownFormulas as unknown as Record<string, unknown>[],
+          production: draft.production as unknown as Record<string, unknown>,
         },
       });
       await queryClient.invalidateQueries({ queryKey: ["brand_kits"] });
@@ -644,6 +647,31 @@ export function BrandKitDialog({ draft: initial, onClose }: { draft: Draft; onCl
                   audience={draft.design.audience}
                   onSuggest={draft.name.trim() ? () => void suggest() : undefined}
                   suggesting={suggesting}
+                />
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="production" className="border-b-0">
+              <AccordionTrigger className="text-sm">
+                <span className="flex items-center gap-2">
+                  Production roles and motion
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {isEmptyProduction(draft.production)
+                      ? "read from its code, or set by hand"
+                      : `${Object.keys(draft.production.roles).length} of ${PRODUCTION_ROLES.length} roles`}
+                  </span>
+                </span>
+              </AccordionTrigger>
+              <AccordionContent className="space-y-2">
+                <p className="text-[11px] text-muted-foreground">
+                  The roles the brand's graphics are drawn in, and its easing curves and durations.
+                  Titles take its enter and exit motion when the kit is applied in the Editor.
+                  Import its code on the Brand page to propose them from where each is declared.
+                </p>
+                <ProductionPanel
+                  name={draft.name}
+                  production={draft.production}
+                  onProduction={(production) => set({ production })}
+                  fonts={draft.fonts}
                 />
               </AccordionContent>
             </AccordionItem>
