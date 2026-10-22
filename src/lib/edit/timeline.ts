@@ -8,6 +8,7 @@
  * shows is what the render produces.
  */
 import { z } from "zod";
+import { compositionClipSchema } from "../compositions/spec";
 import { FONT_FAMILY_PATTERN, isBrandFontFile } from "./font-family";
 
 export const ASPECT_RATIOS = [
@@ -229,6 +230,12 @@ export const clipSchema = z.object({
   label: z.string().max(200).optional(),
   /** Length of the source media, cached so the editor can bound trims. */
   sourceDuration: z.number().finite().positive().nullable().optional(),
+  /**
+   * The clip is a composition (motion graphics as code, see ../compositions):
+   * its file is a drawing of it, and the render takes that drawing's lossless
+   * master instead.
+   */
+  composition: compositionClipSchema.nullable().optional(),
 });
 export type TimelineClip = z.infer<typeof clipSchema>;
 

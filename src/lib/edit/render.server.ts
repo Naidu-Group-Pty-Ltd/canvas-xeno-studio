@@ -357,6 +357,10 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
   );
   if (music.blocker) throw new AppError("INVALID_PARAMETERS", music.blocker);
   const request = await renderRequestFor(timeline);
+  // Motion graphics are drawn at final quality first (reused when drawn before):
+  // the render waits for them (see ../compositions/sequence.server).
+  const { compositionsFor } = await import("../compositions/sequence.server");
+  const motion = await compositionsFor(timeline, input.userId, sequence.project_id);
 
   const renderId = crypto.randomUUID();
   const taskId = crypto.randomUUID();
@@ -399,6 +403,13 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
             : {}),
           ...(music.credits.length ? { music_credits: music.credits } : {}),
           ...(music.licences.length ? { music_licences: music.licences } : {}),
+          ...(motion
+            ? {
+                composition_renders: motion.renders,
+                composition_files: motion.files,
+                composition_masters: motion.masters,
+              }
+            : {}),
         },
       },
     } as never,
@@ -424,7 +435,34 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
   if (outcome.outcome !== "started")
     throw new AppError("INVALID_PARAMETERS", "That edit no longer exists");
 
-  return submitRender({ renderId, taskId, assets, request, videoPath, posterPath });
+  if (motion?.pending.length) {
+    // Recorded, and sent the moment its motion graphics are drawn.
+    await supabaseAdmin
+      .from("sequence_renders")
+      .update({
+        stage: `Drawing motion graphics (${motion.renders.length - motion.pending.length} of ${motion.renders.length} done)`,
+      } as never)
+      .eq("id", renderId)
+      .eq("status", "queued");
+    return { renderId, status: "queued", duplicate: false };
+  }
+  return submitRender({
+    renderId,
+    taskId,
+    assets,
+    request,
+    videoPath,
+    posterPath,
+    masters: motion?.masters ?? {},
+  });
+}
+
+/**
+ * Sends an edit render that was waiting for its motion graphics, now that
+ * they are drawn (see ../compositions/sequence.server).
+ */
+export async function sendWaitingRender(renderId: string): Promise<RenderStarted> {
+  return resumed(renderId);
 }
 
 /**
@@ -439,6 +477,8 @@ async function submitRender(input: {
   request: ReturnType<typeof buildRenderRequest>;
   videoPath: string;
   posterPath: string;
+  /** Composition clips' lossless masters ("bucket/path"), read in place of the files they play. */
+  masters?: Record<string, string>;
 }): Promise<RenderStarted> {
   const { renderId, taskId, assets, request, videoPath, posterPath } = input;
   /**
@@ -457,13 +497,22 @@ async function submitRender(input: {
     throw new AppError(code as never, message);
   }
 
+  const { masterFor } = await import("../compositions/sequence.server");
   const sources: { role: string; url: string; mime?: string | null }[] = [];
   for (const source of request.sources) {
     const asset = assets.get(source.assetId)!;
-    const url = await signSource(asset);
+    // A motion graphic is read from its final drawing's lossless master.
+    const master = masterFor(input.masters, source.assetId);
+    const url = master
+      ? await signSource({ storage_bucket: master.bucket, storage_path: master.path })
+      : await signSource(asset);
     if (!url)
       await fail("STORAGE_FAILED", `"${asset.title ?? "A file"}" could not be read from storage`);
-    sources.push({ role: source.role, url: url!, mime: asset.mime_type });
+    sources.push({
+      role: source.role,
+      url: url!,
+      mime: master ? "video/x-matroska" : asset.mime_type,
+    });
   }
   for (const font of request.fonts) {
     const url = isBrandFontFile(font)
@@ -739,6 +788,24 @@ async function resumed(renderId: string): Promise<RenderStarted> {
     }
     throw problem;
   }
+  // One waiting for its motion graphics is sent once they are all drawn.
+  const { compositionsReady } = await import("../compositions/sequence.server");
+  let motion: Awaited<ReturnType<typeof compositionsReady>>;
+  try {
+    motion = await compositionsReady(task.id, task.input_payload);
+  } catch (problem) {
+    if (problem instanceof AppError)
+      await supabaseAdmin.rpc(
+        "fail_sequence_render" as never,
+        {
+          p_render_id: renderId,
+          p_error_code: "COMPOSITION_FAILED",
+          p_error_message: problem.message,
+        } as never,
+      );
+    throw problem;
+  }
+  if (motion === "waiting") return as(row.status);
   const sent = await submitRender({
     renderId,
     taskId: task.id,
@@ -746,6 +813,7 @@ async function resumed(renderId: string): Promise<RenderStarted> {
     request: await renderRequestFor(timeline),
     videoPath: paths[0],
     posterPath: paths[1],
+    masters: motion.masters,
   });
   return { ...sent, duplicate: true };
 }
@@ -879,10 +947,18 @@ export async function refreshRenderCredentials(
   if (assetError) return { status: 202 };
   const assets = new Map((rows ?? []).map((row) => [row.id, row]));
 
+  const { masterFor } = await import("../compositions/sequence.server");
+  const masters = (input["composition_masters"] ?? {}) as Record<string, unknown>;
   const sources: { url: string }[] = [];
   for (const id of ids) {
+    // A motion graphic's file is read from its final drawing's master, as first sent.
+    const master = masterFor(masters, id);
     const asset = assets.get(id);
-    const url = asset ? await signSource(asset) : null;
+    const url = master
+      ? await signSource({ storage_bucket: master.bucket, storage_path: master.path })
+      : asset
+        ? await signSource(asset)
+        : null;
     if (!url) return { status: 202 };
     sources.push({ url });
   }

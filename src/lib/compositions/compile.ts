@@ -8,53 +8,21 @@
  *
  * Pure: shared by the browser, the server and tests.
  */
-import { z } from "zod";
 import type { BrandFont } from "../edit/brand";
 import { fontFilesFor, type CompositionBrand } from "./brand";
 import { fillDemo } from "./demo";
 import { kitCss } from "./kit";
 import { drawingTimes, frameCount, type RenderSettings } from "./settings";
 import { motionOf, type ElementProps } from "./state";
+import type { CompositionSpec } from "./spec";
 import { templateById } from "./templates";
 import type { BuiltScene } from "./types";
 
-/** The longest a composition runs: a shot, not a film (a film is a run of them). */
-export const COMPOSITION_MAX_SECONDS = 60;
-
-export const compositionSpecSchema = z.object({
-  template: z.string().min(1).max(60),
-  /** The template's version it was made with (see CompositionTemplate.version). */
-  version: z.number().int().min(1),
-  params: z.record(z.string(), z.unknown()).default({}),
-  duration: z.number().finite().min(0.5).max(COMPOSITION_MAX_SECONDS),
-});
-export type CompositionSpec = z.infer<typeof compositionSpecSchema>;
+export { COMPOSITION_MAX_SECONDS, compositionSpecSchema, specKey } from "./spec";
+export type { CompositionSpec } from "./spec";
 
 /** Where the page the media service holds reads its files from (it answers these itself). */
 export const COMPOSITION_HOST = "https://composition.local";
-
-/** A spec as one stable string: two specs that draw the same are the same key. */
-export function specKey(spec: CompositionSpec, brandKitId: string | null): string {
-  const sorted = (value: unknown): unknown => {
-    if (Array.isArray(value)) return value.map(sorted);
-    if (value && typeof value === "object")
-      return Object.fromEntries(
-        Object.keys(value as Record<string, unknown>)
-          .sort()
-          .map((key) => [key, sorted((value as Record<string, unknown>)[key])]),
-      );
-    return value;
-  };
-  return JSON.stringify(
-    sorted({
-      template: spec.template,
-      version: spec.version,
-      params: spec.params,
-      duration: spec.duration,
-      brandKitId,
-    }),
-  );
-}
 
 export interface SceneInput {
   spec: CompositionSpec;
@@ -258,4 +226,93 @@ export function compileComposition(
     missing: built.missing,
     changing,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Stretches                                                           */
+/* ------------------------------------------------------------------ */
+
+/** About how many frames a stretch is: eight seconds at 30 fps. */
+export const STRETCH_FRAMES = 240;
+
+/**
+ * A long composition's stretches: runs of whole frames, about STRETCH_FRAMES
+ * each, the last taking any short remainder, so the media service can draw
+ * them side by side and join them frame for frame. One stretch for a short one.
+ */
+export function planStretches(
+  frames: number,
+  size = STRETCH_FRAMES,
+): { from: number; to: number }[] {
+  const count = Math.max(1, Math.round(frames / size));
+  const stretches: { from: number; to: number }[] = [];
+  for (let k = 0; k < count; k += 1)
+    stretches.push({
+      from: Math.round((frames * k) / count),
+      to: Math.round((frames * (k + 1)) / count),
+    });
+  return stretches;
+}
+
+/**
+ * Everything the page has been set to by the start of frame `from`: each
+ * element's properties, as one canonical record (sorted), so two bundles whose
+ * stretch starts the same way say so in the same words.
+ */
+export function stateAtFrame(bundle: CompositionBundle, from: number): string {
+  const merged = new Map<string, ElementProps>();
+  const end = from * bundle.settings.drawings;
+  for (let index = 0; index < end; index += 1) {
+    const drawing = bundle.drawings[index];
+    if (!drawing) continue;
+    for (const [selector, element, props] of drawing) {
+      const key = `${bundle.selectors[selector]}\u0000${element}`;
+      merged.set(key, { ...(merged.get(key) ?? {}), ...props });
+    }
+  }
+  return JSON.stringify(
+    [...merged.entries()]
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .map(([key, props]) => [
+        key,
+        Object.fromEntries(Object.entries(props).sort(([a], [b]) => (a < b ? -1 : 1))),
+      ]),
+  );
+}
+
+/**
+ * What decides a stretch's frames, as text to hash: the page, its files, its
+ * size, rate and drawing settings, the state it starts from and its own
+ * drawings (with their selectors spelled out). A change elsewhere in the
+ * composition leaves the stretch's text, and so its drawing, as it was.
+ */
+export function stretchIdentity(
+  bundle: CompositionBundle,
+  from: number,
+  to: number,
+  files: string[],
+): string {
+  const per = bundle.settings.drawings;
+  const own = bundle.drawings
+    .slice(from * per, to * per)
+    .map((drawing) =>
+      drawing === 0
+        ? 0
+        : drawing.map(([selector, element, props]) => [bundle.selectors[selector], element, props]),
+    );
+  return JSON.stringify({
+    format: bundle.format,
+    version: bundle.version,
+    html: bundle.html,
+    files,
+    width: bundle.width,
+    height: bundle.height,
+    fps: bundle.fps,
+    settings: bundle.settings,
+    webgl: bundle.webgl,
+    from,
+    to,
+    start: stateAtFrame(bundle, from),
+    own,
+  });
 }

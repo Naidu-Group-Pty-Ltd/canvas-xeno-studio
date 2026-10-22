@@ -58,6 +58,23 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
           return new Response(JSON.stringify({ received: true, duplicate: true }), { status: 200 });
         }
 
+        // A composition's tasks (its drawing, its stretches, their join) are
+        // recorded on the composition: see src/lib/compositions/callback.server.
+        const { isCompositionTask, recordCompositionReport } =
+          await import("@/lib/compositions/callback.server");
+        if (isCompositionTask(task.task_type)) {
+          const recorded = await recordCompositionReport(task, payload).catch((error: unknown) => {
+            console.error("composition callback not recorded", {
+              taskId: task.id,
+              message: error instanceof Error ? error.message : String(error),
+            });
+            return false;
+          });
+          return new Response(JSON.stringify({ received: recorded }), {
+            status: recorded ? 200 : 503,
+          });
+        }
+
         // Anything other than a final result (progress, heartbeat) never changes a
         // task's state, so one arriving late or out of order is harmless.
         if (status !== "completed" && status !== "failed") {
