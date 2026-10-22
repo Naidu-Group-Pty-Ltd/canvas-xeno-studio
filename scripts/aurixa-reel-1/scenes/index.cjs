@@ -5,9 +5,8 @@
 const fs = require("fs");
 const path = require("path");
 
-// The third cut (22 October 2026): 27 shots. Retired with the second cut's design: listing (01.1, now orbit),
-// horizon (10.1, now sunrise), demo (11.2, now trial), tour (12.1, now marketplace) and connected (12.4, now
-// devices).
+// The third cut (22 October 2026): 27 shots. The second cut's listing (01.1), horizon (10.1), demo (11.2), tour
+// (12.1) and connected (12.4) scenes are gone, replaced by orbit, sunrise, trial, marketplace and devices.
 const ORDER = [
   "orbit", // 01.1
   "ask", // 01.2
