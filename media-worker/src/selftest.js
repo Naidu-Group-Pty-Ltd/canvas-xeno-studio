@@ -731,6 +731,301 @@ await check("render_sequence boxes classic captions on the glass, nearer opaque 
   if (!white.script.includes("\\3c&H2A170A&\\3a&H12&")) throw new Error("the box isn't the near-opaque glass");
 });
 
+/** A file's streams as ffprobe reports them. */
+function streamsOf(path) {
+  return JSON.parse(execFileSync("ffprobe", ["-v", "error", "-print_format", "json", "-show_streams", path]).toString()).streams;
+}
+
+/** An MP4's top-level boxes, in order ("ftyp", "moov", "mdat", ...). */
+async function topBoxes(path) {
+  const bytes = await readFile(path);
+  const boxes = [];
+  for (let at = 0; at + 8 <= bytes.length; ) {
+    let size = bytes.readUInt32BE(at);
+    if (size === 1) size = Number(bytes.readBigUInt64BE(at + 8));
+    boxes.push(bytes.toString("latin1", at + 4, at + 8));
+    if (size < 8) break;
+    at += size;
+  }
+  return boxes;
+}
+
+/** A clip of moving pictures with sound, as a finished master might be: H.264 4:2:0 with AAC, in MP4. */
+async function finishedMaster(path, { seconds = 2, size = "360x640", rate = 25, volume = "0.5" } = {}) {
+  await ffmpeg([
+    "-f", "lavfi", "-i", `testsrc2=s=${size}:r=${rate}:d=${seconds}`,
+    "-f", "lavfi", "-i", `sine=frequency=440:duration=${seconds},volume=${volume}`,
+    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", path,
+  ]);
+  return path;
+}
+
+await check("render_sequence makes a master: lossless clips, then x264 slow at CRF 12 with aq-mode 3, a 2 s GOP, BT.709 tags and AAC at 256 kb/s", async () => {
+  const work = await mkdtemp(join(dir, "master-"));
+  const first = await finishedMaster(join(work, "first.mp4"));
+  const second = await finishedMaster(join(work, "second.mp4"), { size: "640x360" });
+  const result = await TASKS.render_sequence.run({
+    sources: [{ path: first, role: "video" }, { path: second, role: "video" }],
+    params: {
+      width: 360, height: 640, fps: 25, quality: "master",
+      clips: [
+        { source_index: 0, duration: 1.6 },
+        { source_index: 1, duration: 1.6, transition: { type: "fade", duration: 0.4 } },
+      ],
+    },
+    dir: work,
+  });
+  const mastering = result.metadata.mastering;
+  if (mastering?.quality !== "master" || mastering.lossless_clips.join() !== "1,2" || mastering.standard_clips.length)
+    throw new Error(`the clips weren't kept lossless: ${JSON.stringify(mastering)}`);
+  const out = result.outputs[0].path;
+  const [video, audio] = ["video", "audio"].map((type) => streamsOf(out).find((stream) => stream.codec_type === type));
+  if (video.profile !== "High" || video.pix_fmt !== "yuv420p") throw new Error(`encoded as ${video.profile} ${video.pix_fmt}`);
+  for (const [key, value] of [["color_range", "tv"], ["color_space", "bt709"], ["color_primaries", "bt709"], ["color_transfer", "bt709"]])
+    if (video[key] !== value) throw new Error(`${key} is ${video[key]}, not ${value}`);
+  if (!(Math.abs(Number(audio.bit_rate) - 256_000) < 30_000) || audio.sample_rate !== "48000") throw new Error(`the sound is ${audio.bit_rate} b/s at ${audio.sample_rate} Hz`);
+  // x264 writes the settings it encoded with into the stream: the slow preset's subme 8, CRF 12, aq-mode 3, a 50-frame GOP.
+  const settings = (await readFile(out)).toString("latin1");
+  for (const wanted of ["crf=12.0", "aq=3:0.90", "subme=8", "keyint=50 "])
+    if (!settings.includes(wanted)) throw new Error(`the encode wasn't made with ${wanted}`);
+  if (Math.abs((await probe(out)).duration_seconds - 2.8) > 0.06) throw new Error("the master isn't the edit's length");
+});
+
+await check("a master whose lossless clips wouldn't fit on the task's disk makes them the standard way, and says so", async () => {
+  const work = await mkdtemp(join(dir, "master-tight-"));
+  const clip = await finishedMaster(join(work, "clip.mp4"));
+  const before = config.maxTaskWorkspaceBytes;
+  // Room for the source and a standard clip, not a lossless one (about 10 MB at its largest here).
+  config.maxTaskWorkspaceBytes = 8 * 1024 * 1024;
+  try {
+    const result = await TASKS.render_sequence.run({
+      sources: [{ path: clip, role: "video" }],
+      params: { width: 360, height: 640, fps: 25, quality: "master", normalize_loudness: false, clips: [{ source_index: 0, duration: 2, volume: 0 }] },
+      dir: work,
+    });
+    const mastering = result.metadata.mastering;
+    if (mastering?.lossless_clips.length || mastering?.standard_clips.join() !== "1") throw new Error(`decided ${JSON.stringify(mastering)}`);
+    if (!(mastering.needed_bytes > mastering.budget_bytes)) throw new Error(`it should say how much room it needed: ${JSON.stringify(mastering)}`);
+    if (!streamsOf(result.outputs[0].path).some((stream) => stream.color_space === "bt709")) throw new Error("the final encode should still be the master's");
+  } finally {
+    config.maxTaskWorkspaceBytes = before;
+  }
+});
+
+await check("render_sequence passes a finished master through untouched: its picture packet for packet, laid out to play at once", async () => {
+  const work = await mkdtemp(join(dir, "through-"));
+  const source = await finishedMaster(join(work, "master.mp4"));
+  const packets = (path) => execFileSync("ffmpeg", ["-v", "error", "-i", path, "-map", "0:v", "-c", "copy", "-f", "framemd5", "-"]).toString().split("\n").filter((line) => line && !line.startsWith("#")).map((line) => line.split(",").at(-1).trim());
+  const original = packets(source);
+  const result = await TASKS.render_sequence.run({
+    sources: [{ path: source, role: "video" }],
+    params: { width: 360, height: 640, fps: 25, normalize_loudness: false, pass_through: true, clips: [{ source_index: 0, duration: 2 }] },
+    dir: work,
+  });
+  const out = result.outputs[0].path;
+  if (result.metadata.pass_through?.used !== true) throw new Error(`not passed through: ${JSON.stringify(result.metadata.pass_through)}`);
+  const copied = packets(out);
+  if (copied.length !== 50 || copied.join() !== original.join()) throw new Error(`the picture was changed (${copied.length} packets)`);
+  if (!streamsOf(out).some((stream) => stream.codec_type === "audio" && stream.codec_name === "aac")) throw new Error("the sound was lost");
+  const boxes = await topBoxes(out);
+  if (boxes.indexOf("moov") === -1 || boxes.indexOf("moov") > boxes.indexOf("mdat")) throw new Error(`not laid out to play at once: ${boxes.join(" ")}`);
+  if ((await stat(result.outputs[1].path)).size < 1000) throw new Error("no poster");
+});
+
+await check("a pass-through asked of a file that doesn't match its edit is rendered, and says why", async () => {
+  const work = await mkdtemp(join(dir, "through-not-"));
+  const source = await finishedMaster(join(work, "master.mp4"));
+  // The clip stops 10 frames short of the file's end: the file isn't the render.
+  const shorter = await TASKS.render_sequence.run({
+    sources: [{ path: source, role: "video" }],
+    params: { width: 360, height: 640, fps: 25, normalize_loudness: false, pass_through: true, clips: [{ source_index: 0, duration: 1.6 }] },
+    dir: work,
+  });
+  if (shorter.metadata.pass_through?.used !== false || !/40/.test(shorter.metadata.pass_through.reason)) throw new Error(`reported ${JSON.stringify(shorter.metadata.pass_through)}`);
+  if (Math.abs((await probe(shorter.outputs[0].path)).duration_seconds - 1.6) > 0.06) throw new Error("it wasn't rendered to the clip's length");
+  // A quiet file in an edit that evens loudness out: the render would change its level.
+  const quiet = await finishedMaster(join(work, "quiet.mp4"), { volume: "0.05" });
+  const louder = await TASKS.render_sequence.run({
+    sources: [{ path: quiet, role: "video" }],
+    params: { width: 360, height: 640, fps: 25, pass_through: true, clips: [{ source_index: 0, duration: 2 }] },
+    dir: work,
+  });
+  if (louder.metadata.pass_through?.used !== false || !/loudness/.test(louder.metadata.pass_through.reason)) throw new Error(`reported ${JSON.stringify(louder.metadata.pass_through)}`);
+});
+
+/**
+ * A render's final pass made by hand, as render_sequence makes it, keeping its
+ * inputs: two clips with a cross-fade, a caption, a title and a faded logo.
+ * Returns the plan, its sources, the final pass's arguments and its output.
+ */
+async function finalPassByHand(work) {
+  const { buildSubtitles, clipArgs, finalArgs, mixArgs, planSequence } = await import("./sequence.js");
+  const first = await finishedMaster(join(work, "first.mp4"));
+  const second = join(work, "second.mp4");
+  await ffmpeg(["-f", "lavfi", "-i", "smptehdbars=s=640x360:r=25:d=3", "-f", "lavfi", "-i", "sine=frequency=500:duration=3", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", second]);
+  const logo = join(work, "logo.png");
+  await ffmpeg(["-f", "lavfi", "-i", "color=c=red:s=100x100,format=rgba", "-frames:v", "1", logo]);
+  const sources = [{ path: first, role: "video" }, { path: second, role: "video" }, { path: logo, role: "image" }];
+  const plan = planSequence({
+    width: 360, height: 640, fps: 25, normalize_loudness: false, measure: {},
+    clips: [{ source_index: 0, duration: 2.4 }, { source_index: 1, duration: 2.4, transition: { type: "fade", duration: 0.6 } }],
+    captions: { segments: [{ start: 0.5, end: 2, text: "A caption" }] },
+    overlays: [{ start: 1, end: 3, text: "A TITLE", style: "title" }],
+    images: [{ source_index: 2, start: 0.5, end: 3.5, x: 0.3, y: 0.3, width: 0.2, fade: 0.3 }],
+  }, sources);
+  const intermediates = [];
+  for (const [index, clip] of plan.clips.entries()) {
+    const out = join(work, `clip-${index}.mkv`);
+    await ffmpeg(clipArgs(clip, plan, sources[clip.source].path, true, out, null, 25));
+    intermediates.push(out);
+  }
+  const mix = join(work, "mix.wav");
+  await ffmpeg(mixArgs(plan, intermediates, [], mix, []));
+  const ass = join(work, "text.ass");
+  await writeFile(ass, buildSubtitles(plan));
+  const out = join(work, "sequence.mp4");
+  return { plan, sources, finalArgv: finalArgs(plan, intermediates, mix, ass, null, out, [logo], null), out };
+}
+
+await check("a render's reference made again is its final pass's picture, frame for frame", async () => {
+  const { measureRender } = await import("./quality.js");
+  const { parseLoudness } = await import("./sequence.js");
+  const work = await mkdtemp(join(dir, "reference-"));
+  const { plan, sources, finalArgv, out } = await finalPassByHand(work);
+  // The same graph with its picture encoded losslessly: measured, it must be identical.
+  const lossless = finalArgv.map((arg) => (arg === "veryfast" ? "ultrafast" : arg));
+  lossless.splice(lossless.indexOf("-crf"), 2, "-qp", "0");
+  lossless.splice(lossless.indexOf("-profile:v"), 2);
+  await ffmpeg(lossless);
+  const report = await measureRender({ plan, finalArgv, master: out, sources, dir: work, parseLoudness });
+  const { fidelity } = report;
+  if (fidelity.frames_measured !== plan.totalFrames) throw new Error(`measured ${fidelity.frames_measured} of ${plan.totalFrames} frames`);
+  if (fidelity.ssim.min !== 1 || fidelity.psnr_db.min !== 100) throw new Error(`the reference differs from the final pass's picture: ${JSON.stringify(fidelity)}`);
+});
+
+await check("a measured render flags a stretch of its master softened after the encode, at its own frames", async () => {
+  const { measureRender } = await import("./quality.js");
+  const { parseLoudness } = await import("./sequence.js");
+  const work = await mkdtemp(join(dir, "softened-"));
+  const { plan, sources, finalArgv, out } = await finalPassByHand(work);
+  await ffmpeg(finalArgv);
+  const clean = await measureRender({ plan, finalArgv, master: out, sources, dir: work, parseLoudness });
+  const flagged = (report) => report.checks.filter((entry) => entry.result === "flag").map((entry) => entry.id);
+  if (flagged(clean).length) throw new Error(`the render as made should pass: ${flagged(clean).join(", ")}`);
+  // The second clip's frames (from 75, past the cross-fade) blurred, as a soft re-encode would leave them.
+  const softened = join(work, "softened.mp4");
+  await ffmpeg(["-i", out, "-vf", "gblur=sigma=1.6:enable=gte(n\\,75)", "-c:v", "libx264", "-preset", "veryfast", "-crf", "12", "-pix_fmt", "yuv420p", "-an", softened]);
+  const report = await measureRender({ plan, finalArgv, master: softened, sources, dir: work, parseLoudness });
+  // Softness shows in the worst frames' PSNR and in the edge contrast lost; a third of the frames softened
+  // leaves the mean SSIM above its line.
+  for (const id of ["psnr_worst", "edges", "edges_worst"])
+    if (!flagged(report).includes(id)) throw new Error(`${id} should be flagged: ${JSON.stringify(report.checks)}`);
+  const worst = [report.fidelity.ssim.worst[0].frame, report.fidelity.psnr_db.worst[0].frame, report.pixels.edges.worst.frame];
+  if (worst.some((frame) => frame < 75)) throw new Error(`the worst frames (${worst.join(", ")}) should be in the softened clip`);
+});
+
+await check("render_sequence measures a render: fidelity, colour, captions, cuts, the voice's sync and loudness all pass", async () => {
+  const work = await mkdtemp(join(dir, "measured-"));
+  const first = await finishedMaster(join(work, "first.mp4"));
+  const second = join(work, "second.mp4");
+  await ffmpeg(["-f", "lavfi", "-i", "smptehdbars=s=640x360:r=25:d=3", "-c:v", "libx264", "-pix_fmt", "yuv420p", second]);
+  const voice = join(work, "voice.wav");
+  await ffmpeg(["-f", "lavfi", "-i", "aevalsrc='0.5*sin(2*PI*220*t)*(between(t,0.3,1.4)+between(t,1.9,3.2))*(0.6+0.4*sin(2*PI*5*t))':s=48000:d=3.5", voice]);
+  const result = await TASKS.render_sequence.run({
+    sources: [{ path: first, role: "video" }, { path: second, role: "video" }, { path: voice, role: "audio" }],
+    params: {
+      width: 360, height: 640, fps: 25,
+      clips: [{ source_index: 0, duration: 2.4, volume: 0 }, { source_index: 1, duration: 2.4 }],
+      audio: [{ source_index: 2, role: "voiceover", start: 0.6 }],
+      captions: { segments: [{ start: 0.5, end: 1.9, text: "First caption here" }, { start: 2.6, end: 4.2, text: "And a second one" }] },
+      measure: { brand_colours: ["#ffffff", "#0832de"] },
+    },
+    dir: work,
+  });
+  const report = result.metadata.quality;
+  if (report?.status !== "measured") throw new Error(`not measured: ${JSON.stringify(report)}`);
+  const flags = report.checks.filter((entry) => entry.result === "flag");
+  if (flags.length) throw new Error(`flagged: ${JSON.stringify(flags)}`);
+  if (report.fidelity.frames_measured !== 120 || report.pixels.frames < 30) throw new Error(`measured ${report.fidelity.frames_measured} and ${report.pixels.frames} frames`);
+  if (report.cuts?.cuts?.[0]?.reads_as !== "cut" || report.cuts.cuts[0].frame !== 60) throw new Error(`the cut: ${JSON.stringify(report.cuts)}`);
+  if (report.captions?.status !== "measured" || report.captions.judged !== 2) throw new Error(`the captions: ${JSON.stringify(report.captions)}`);
+  if (report.sync?.items?.[0]?.status !== "measured" || Math.abs(report.sync.items[0].offset_ms) > 5) throw new Error(`the voice: ${JSON.stringify(report.sync)}`);
+  if (Math.abs(report.loudness.integrated_lufs + 14) > 1) throw new Error(`the loudness: ${JSON.stringify(report.loudness)}`);
+  const white = report.pixels.brand_colours.find((brand) => brand.hex === "#ffffff");
+  if (!white?.found || report.pixels.brand_colours.find((brand) => brand.hex === "#0832de")?.found) throw new Error(`the brand colours: ${JSON.stringify(report.pixels.brand_colours)}`);
+});
+
+await check("a caption the render dropped is flagged, and a cut a frame late is found", async () => {
+  const { judgeCaptions, judgeCuts, plannedCaptions, plannedCuts, TimingMeter, timingScale } = await import("./quality.js");
+  const { planSequence } = await import("./sequence.js");
+  const work = await mkdtemp(join(dir, "timing-"));
+  // Captions planned for 0.5-1.9 s and 2.6-4.2 s, but only the first burned in; and the cut late by a frame.
+  const plan = planSequence({
+    width: 360, height: 640, fps: 25,
+    clips: [{ source_index: 0, duration: 2.4 }, { source_index: 1, duration: 2.4 }],
+    captions: { segments: [{ start: 0.5, end: 1.9, text: "First caption here" }, { start: 2.6, end: 4.2, text: "And a second one" }] },
+  }, [{ role: "video" }, { role: "video" }]);
+  const { buildSubtitles } = await import("./sequence.js");
+  const ass = join(work, "first-only.ass");
+  await writeFile(ass, buildSubtitles({ ...plan, captions: { ...plan.captions, segments: plan.captions.segments.slice(0, 1) } }));
+  const late = join(work, "late.mp4");
+  await ffmpeg([
+    "-f", "lavfi", "-i", "testsrc2=s=360x640:r=25:d=2.44", "-f", "lavfi", "-i", "smptehdbars=s=360x640:r=25:d=2.36",
+    "-filter_complex", `[0:v][1:v]concat=n=2:v=1,ass=filename=${ass},format=yuv420p[v]`, "-map", "[v]", "-c:v", "libx264", "-crf", "16", late,
+  ]);
+  const width = Math.round(360 / timingScale(plan));
+  const height = Math.round(640 / timingScale(plan));
+  const meter = new TimingMeter(plan, width, height);
+  const raw = execFileSync("ffmpeg", ["-v", "error", "-i", late, "-vf", `scale=${width}:${height}:flags=area,format=gray`, "-f", "rawvideo", "-"], { maxBuffer: 64 * 1024 * 1024 });
+  for (let frame = 0; frame * width * height < raw.length; frame += 1) meter.add(raw.subarray(frame * width * height, (frame + 1) * width * height), frame);
+  const captions = judgeCaptions(plan, plannedCaptions(plan), meter.text);
+  if (captions.status !== "measured" || captions.missed_count !== 1 || captions.missed[0].caption !== 2) throw new Error(`the captions: ${JSON.stringify(captions)}`);
+  const cuts = judgeCuts(plannedCuts(plan), meter.change, 25);
+  if (cuts.missed !== 1 || cuts.cuts[0].found_at !== 61) throw new Error(`the cut: ${JSON.stringify(cuts)}`);
+});
+
+await check("review_sheet lays a video's frames out as one labelled picture, its text drawn from a file", async () => {
+  const work = await mkdtemp(join(dir, "sheet-"));
+  const video = join(work, "shots.mp4");
+  await ffmpeg([
+    "-f", "lavfi", "-i", "color=c=red:s=360x640:r=25:d=1", "-f", "lavfi", "-i", "color=c=blue:s=360x640:r=25:d=1",
+    "-filter_complex", "[0:v][1:v]concat=n=2:v=1[v]", "-map", "[v]", "-c:v", "libx264", "-pix_fmt", "yuv420p", video,
+  ]);
+  const result = await TASKS.review_sheet.run({
+    sources: [{ path: video, role: "video" }],
+    params: {
+      title: "Self-test · version 1",
+      columns: 3,
+      tile_width: 120,
+      tiles: [
+        { time: 0.5, label: "1 · Red {\\b1}shot{\\b0}", note: "0:00.5 · The first shot" },
+        { time: 0.96, label: "1 · last frame", note: "0:00.9" },
+        { time: 1.5, label: "2 · Blue shot", note: "0:01.5" },
+        // Past the end: the last frame.
+        { time: 9, label: "2 · last frame", note: "0:01.9" },
+      ],
+    },
+    dir: work,
+  });
+  // Tiles 120 x 214 over 72-pixel label bands, three across with 16-pixel margins and 8 between, under a
+  // 34-pixel heading; the fourth starts a second row, the rest of which is left empty.
+  const { metadata } = result;
+  if (metadata.width !== 408 || metadata.height !== 646 || metadata.columns !== 3 || metadata.rows !== 2) throw new Error(`laid out as ${JSON.stringify(metadata)}`);
+  const sheet = result.outputs[0].path;
+  const size = streamsOf(sheet)[0];
+  if (size.width !== 408 || size.height !== 646) throw new Error(`the sheet is ${size.width}x${size.height}`);
+  const sheetColour = [15, 17, 21];
+  const expected = [[255, 0, 0], [255, 0, 0], [0, 0, 255], [0, 0, 255], sheetColour, sheetColour];
+  for (const [index, colour] of expected.entries()) {
+    const at = `10:10:${16 + (index % 3) * 128 + 55}:${34 + 16 + Math.floor(index / 3) * 294 + 100}`;
+    const got = await colourAt(sheet, at);
+    if (!near(got, colour)) throw new Error(`tile ${index + 1} shows ${got}, not ${colour}`);
+  }
+  const script = await readFile(join(work, "sheet.ass"), "utf8");
+  if (!script.includes("1 · Red b1shotb0") || script.includes("{\\b1}")) throw new Error("a label's markup wasn't stripped");
+  if (!script.includes("Self-test · version 1") || !script.includes("0:00.5 · The first shot")) throw new Error("the sheet's text is missing");
+});
+
 await check("reframe_video crops around its focus point", async () => {
   const left = await TASKS.reframe_video.run({ sources: [{ path: halves }], params: { width: 180, height: 320, mode: "cover", focus_x: 0 }, dir });
   const leftColour = await colourAt(left.outputs[0].path, "40:40:70:140");

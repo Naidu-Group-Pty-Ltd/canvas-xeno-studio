@@ -11,6 +11,8 @@ import { backdropWanted, measureCaptionBackdrops } from "./caption-backdrop.js";
 import { CAPTION_PANELS } from "./brand-captions.js";
 import { piecesChain, piecesInput, piecesInside, withPieces } from "./pieces.js";
 import { bandFilter, bandMargins, mixReport, readBand } from "./mixreport.js";
+import { LOSSLESS_INTERMEDIATE, losslessPlanner, MASTER_AUDIO_BITRATE, MASTER_ENCODING, passedThroughResult, passThroughSequence, planMastering } from "./master.js";
+import { measureRender, passedThroughQuality, planMeasurement, unmeasuredQuality } from "./quality.js";
 
 /**
  * Sequence rendering: an edited timeline (ordered clips with trims, stills,
@@ -472,6 +474,10 @@ export function planSequence(params, sources) {
     loudness: num(p.loudness_lufs, { min: -24, max: -9, fallback: -14, name: "loudness_lufs" }),
     // The buses handed back on their own beside the video (feature stems).
     stems: stemRoles(p.stems),
+    // A master's quality, and a finished master passed through (feature mastering; see ./master.js).
+    ...planMastering(p),
+    // The render measured against its own reference, and the brand's colours to look for (feature render_quality).
+    ...planMeasurement(p),
   };
 }
 
@@ -773,6 +779,16 @@ export function seekPoint(trimStart) {
  */
 export const FINAL_ENCODING = ["-preset", "veryfast", "-crf", "17"];
 
+/** The final encode a render asks for: a master's (see ./master.js), or the standard one. */
+export function finalEncoding(plan) {
+  return plan.quality === "master" ? MASTER_ENCODING : FINAL_ENCODING;
+}
+
+/** The final encode's sound: AAC at 256 kb/s for a master, 192 kb/s otherwise. */
+export function finalAudioBitrate(plan) {
+  return plan.quality === "master" ? MASTER_AUDIO_BITRATE : "192k";
+}
+
 /** Up to this long, a render's clips are kept as larger, faster-made intermediates. */
 const QUICK_INTERMEDIATES_SECONDS = 300;
 
@@ -780,9 +796,11 @@ const QUICK_INTERMEDIATES_SECONDS = 300;
  * How each clip's intermediate is encoded. It is encoded again in the final
  * pass, so it only has to keep the picture: "superfast" takes 0.6 of the time
  * of "veryfast" at the same CRF, and its files are about 1.7 times bigger, so
- * longer edits keep "veryfast" to stay within the task's disk.
+ * longer edits keep "veryfast" to stay within the task's disk. A master's clip
+ * that has room for it is kept lossless (see ./master.js).
  */
-export function intermediateEncoding(plan) {
+export function intermediateEncoding(plan, clip = null) {
+  if (clip?.lossless) return LOSSLESS_INTERMEDIATE;
   return ["-preset", plan.total <= QUICK_INTERMEDIATES_SECONDS ? "superfast" : "veryfast", "-crf", "14"];
 }
 
@@ -892,7 +910,7 @@ export function clipArgs(clip, plan, sourcePath, hasAudio, out, seam = null, sou
     "-filter_complex", filters.join(";"),
     "-map", "[v]",
     "-map", "[a]",
-    "-c:v", "libx264", ...intermediateEncoding(plan), "-pix_fmt", "yuv420p",
+    "-c:v", "libx264", ...intermediateEncoding(plan, clip), "-pix_fmt", "yuv420p",
     "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "2",
     "-frames:v", String(clip.durationFrames),
     out,
@@ -1170,9 +1188,9 @@ export function finalArgs(plan, intermediatePaths, mixPath, subtitlePath, loudne
     "-filter_complex", lines.join(";"),
     "-map", "[vout]",
     "-map", "[aout]",
-    "-c:v", "libx264", ...FINAL_ENCODING, "-profile:v", "high", "-pix_fmt", "yuv420p",
+    "-c:v", "libx264", ...finalEncoding(plan), "-profile:v", "high", "-pix_fmt", "yuv420p",
     "-r", String(plan.fps), "-g", String(plan.fps * 2),
-    "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
+    "-c:a", "aac", "-b:a", finalAudioBitrate(plan), "-ar", "48000", "-ac", "2",
     "-movflags", "+faststart",
     "-t", seconds(plan.total),
     out,
@@ -1519,6 +1537,22 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
   };
   plan.audio = await fitAudioToSources(plan.audio, async (index) => (await inspect(index)).duration_seconds ?? null);
 
+  // A finished master the edit doesn't change goes out as it is (see ./master.js); one
+  // that turns out not to match it is rendered, and the render says why.
+  let passThrough = null;
+  if (plan.passThrough) {
+    progress(0, "Checking the video can go out as it is");
+    const attempt = await passThroughSequence({ plan, sources, dir, limit, parseLoudness }).catch(() => ({ passed: null, reason: "it couldn't be checked" }));
+    if (attempt.passed) {
+      const result = passedThroughResult(plan, attempt);
+      if (plan.measure) result.metadata.quality = passedThroughQuality(plan, attempt.loudness);
+      return result;
+    }
+    passThrough = { used: false, reason: attempt.reason };
+  }
+  // A master's clips are lossless while the task's disk has room for them.
+  const planner = plan.quality === "master" ? losslessPlanner(plan, dir) : null;
+
   // Pass 1: every clip normalised to the output format at its exact length.
   // Runs of clips joined to the one before go in order; separate runs are
   // made side by side, as many at a time as CLIP_PARALLELISM.
@@ -1550,7 +1584,9 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
       if (seam) seams.push({ clip: index, likeness: seam.correction.likeness, largest_shift: seam.correction.largest_shift });
     }
     const out = join(dir, `clip-${String(index).padStart(3, "0")}.mkv`);
+    if (planner) clip.lossless = await planner.choose(index);
     await ffmpeg(clipArgs(clip, plan, sources[clip.source].path, Boolean(info?.has_audio), out, seam, info?.fps ?? null), watched);
+    planner?.done(index);
     intermediates[index] = out;
     ready += 1;
     progress((ready / plan.clips.length) * 0.45, `Preparing clips (${ready} of ${plan.clips.length} ready)`);
@@ -1651,10 +1687,15 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
   }
   const out = join(dir, "sequence.mp4");
   const imagePaths = plan.images.map((image) => sources[image.source].path);
-  await ffmpeg(finalArgs(plan, intermediates, mixPath, subtitlePath, loudness, out, imagePaths, fontsDir), {
+  const finalArgv = finalArgs(plan, intermediates, mixPath, subtitlePath, loudness, out, imagePaths, fontsDir);
+  await ffmpeg(finalArgv, {
     ...watched,
-    onProgress: (done) => progress(0.6 + 0.38 * Math.min(1, done / plan.total), "Rendering the final cut"),
+    onProgress: (done) => progress(0.6 + (plan.measure ? 0.3 : 0.38) * Math.min(1, done / plan.total), "Rendering the final cut"),
   });
+  // Measured against the same graph's picture made again, while its inputs are still here (feature render_quality; see ./quality.js).
+  const quality = plan.measure
+    ? await measureRender({ plan, finalArgv, master: out, sources, dir, progress, parseLoudness, mastering: planner?.report() ?? null }).catch(unmeasuredQuality)
+    : null;
   // Only the finished cut is kept from here (and the stems asked for).
   for (const path of [...intermediates, mixPath, ...Object.values(taps.bands ?? {})]) await rm(path, { force: true });
   // The finished mix's own loudness, as a player measures it.
@@ -1689,6 +1730,9 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
       ...(joins.length ? { smart_joins: joins } : {}),
       mix_report: mixReport({ margins: margins ?? [], master, mixed: loudness }),
       ...(plan.stems.length ? { stems: plan.stems } : {}),
+      ...(planner ? { mastering: { quality: "master", ...planner.report() } } : {}),
+      ...(passThrough ? { pass_through: passThrough } : {}),
+      ...(quality ? { quality } : {}),
     },
   };
 }

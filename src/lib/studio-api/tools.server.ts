@@ -22,6 +22,7 @@ import { addEndCard, applyBrandKit, brandKitOf, SAFE_AREAS } from "../edit/brand
 import { CHANNELS, EMPTY_DNA, GOALS } from "../brand/dna";
 import { GITHUB_TOKEN_PATTERN } from "../brand/import-request";
 import { layoutTimeline, parseTimeline, timelineSchema } from "../edit/timeline";
+import { qualityLines, qualitySummary, storedQualityOf } from "../edit/quality";
 import { renderStems } from "../edit/mix-report";
 import { fitMusicToLength } from "../music/fit";
 import { readStructure } from "../music/structure";
@@ -386,7 +387,7 @@ const getRender = tool({
   name: "get_render",
   title: "Get a render",
   description:
-    "A render's progress (0 to 1), its status, and once complete, the finished video's library id and a download link valid for an hour, how its sound sits (mix_report: the voice's margin over the music in the speech band, section by section, and the mix's loudness), and its stems if asked for.",
+    "A render's progress (0 to 1), its status, and once complete, the finished video's library id and a download link valid for an hour, how its sound sits (mix_report: the voice's margin over the music in the speech band, section by section, and the mix's loudness), its stems if asked for, and how it measured against its own lossless reference (quality: SSIM and PSNR, edge contrast kept, CIEDE2000 on flat fields and the brand's colours, banding, captions and cuts on their frames, the voiceover's sync and loudness, each a pass or a flag; qualityNotes says each in words), and its review sheet once one is asked for (reviewSheet: making, ready with its library id and a link, or failed).",
   scope: "read",
   input: z.object({ renderId: id() }),
   run: async (args) => {
@@ -406,10 +407,27 @@ const getRender = tool({
           .is("deleted_at", null)
           .maybeSingle()
       : { data: null };
+    // Kept on the render since migration 0031_render_quality (before it, with the video's record).
+    const { data: extras } = await db
+      .from("sequence_renders")
+      .select("quality,review_sheet_task_id")
+      .eq("id", args.renderId)
+      .maybeSingle();
+    const quality = storedQualityOf(extras?.quality ?? null, asset?.metadata ?? null);
+    const { reviewSheetOf } = await import("../edit/review-sheet.server");
+    const reviewSheet = await reviewSheetOf(extras?.review_sheet_task_id);
     return {
       ...render,
       url: asset ? await signedLink(asset.storage_bucket, asset.storage_path) : null,
       ...(await renderSound(args.renderId, asset?.metadata ?? null)),
+      quality: quality?.raw ?? null,
+      qualityNotes: quality
+        ? [
+            qualitySummary(quality.report),
+            ...qualityLines(quality.report).map((entry) => entry.text),
+          ]
+        : [],
+      reviewSheet,
     };
   },
 });
@@ -2405,6 +2423,29 @@ const renderEdit = tool({
   },
 });
 
+const makeReviewSheet = tool({
+  name: "make_review_sheet",
+  title: "Make a render's review sheet",
+  description:
+    "Lays a finished render's every shot out as one JPEG, half a second in and on its last frame, each labelled with its clip's name and, for an edit made from a storyboard or a brief, the shot's description. The sheet is kept in the library and linked to the render: follow it with get_render (reviewSheet). Asking again returns the sheet being made or already made, unless again is set.",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({
+    renderId: id(),
+    clientRequestId: requestId(),
+    again: z.boolean().default(false).describe("Make the sheet afresh even if the render has one."),
+  }),
+  run: async (args, caller) => {
+    const { startReviewSheet } = await import("../edit/review-sheet.server");
+    return startReviewSheet({
+      renderId: args.renderId,
+      clientRequestId: args.clientRequestId,
+      again: args.again,
+      userId: caller.userId,
+    });
+  },
+});
+
 /* ------------------------------------------------------------------ */
 /* Music on its bars                                                   */
 /* ------------------------------------------------------------------ */
@@ -2696,6 +2737,7 @@ export const STUDIO_TOOLS: StudioTool[] = [
   applyBrand,
   fitMusic,
   renderEdit,
+  makeReviewSheet,
   getAssetRights,
   getEditCredits,
   setAssetRights,

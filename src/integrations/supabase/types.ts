@@ -6366,6 +6366,8 @@ export type Database = {
           progress: number
           public_use: boolean
           rights_check: Json | null
+          quality: Json | null
+          review_sheet_task_id: string | null
           sequence_id: string
           sequence_version: number
           stage: string | null
@@ -6388,6 +6390,8 @@ export type Database = {
           progress?: number
           public_use?: boolean
           rights_check?: Json | null
+          quality?: Json | null
+          review_sheet_task_id?: string | null
           sequence_id: string
           sequence_version: number
           stage?: string | null
@@ -6410,6 +6414,8 @@ export type Database = {
           progress?: number
           public_use?: boolean
           rights_check?: Json | null
+          quality?: Json | null
+          review_sheet_task_id?: string | null
           sequence_id?: string
           sequence_version?: number
           stage?: string | null
@@ -6435,6 +6441,13 @@ export type Database = {
           {
             foreignKeyName: "sequence_renders_media_task_id_fkey"
             columns: ["media_task_id"]
+            isOneToOne: false
+            referencedRelation: "media_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sequence_renders_review_sheet_task_id_fkey"
+            columns: ["review_sheet_task_id"]
             isOneToOne: false
             referencedRelation: "media_tasks"
             referencedColumns: ["id"]

@@ -11,6 +11,7 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { logOperationCompleted } from "../media/events.server";
 import { isMissingColumnError } from "./errors";
+import { recordRenderQuality } from "./quality.server";
 
 interface RenderTask {
   id: string;
@@ -217,6 +218,8 @@ export async function finishSequenceRender(
   };
   if (!options.renderLast) await finishRender();
   if (finished) await recordMixReport(renderId, metadata);
+  // How the render measured against its own reference (see ./quality.server).
+  if (finished && renderId) await recordRenderQuality(renderId, metadata);
   if (sequenceId && renderId)
     await settleEdit(sequenceId, renderId, finished ? "rendered" : "failed");
 

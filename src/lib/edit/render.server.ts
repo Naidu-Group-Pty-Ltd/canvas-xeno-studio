@@ -38,6 +38,7 @@ import {
 } from "./timeline";
 import { isBrandFontFile } from "./font-family";
 import { assertPausesRenderable } from "./voice-pauses.server";
+import { withRenderExtras } from "./render-extras.server";
 
 /**
  * The render request for a timeline. Channel levels are folded into the
@@ -116,7 +117,13 @@ async function renderRequestFor(timeline: Timeline) {
       message:
         "This edit's voiceover is held open with pauses, which the media service can't do until it is updated. Take the pauses out, or render again once the service has been updated.",
     });
-  if (!needed.length) return request;
+  if (request.params["quality"] === "master")
+    needed.push({
+      feature: "mastering",
+      message:
+        "This edit is set to render as a master, which the media service can't make until it is updated. Set its quality back to Standard in the Render panel, or render again once the service has been updated.",
+    });
+  if (!needed.length) return withRenderExtras(timeline, request);
   const health = await workerHealth();
   if (!health.ok)
     throw new AppError(
@@ -126,7 +133,7 @@ async function renderRequestFor(timeline: Timeline) {
   for (const { feature, message } of needed)
     if (!health.data?.features?.includes(feature))
       throw new AppError("INVALID_PARAMETERS", message);
-  return request;
+  return withRenderExtras(timeline, request, health.data?.features ?? []);
 }
 
 /** Whether a render request plays any music in pieces. */

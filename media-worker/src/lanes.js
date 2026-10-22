@@ -16,6 +16,7 @@ export const QUICK_TASKS = new Set([
   "measure_sync",
   "clean_plate",
   "redact_image",
+  "review_sheet",
 ]);
 
 export function laneOf(taskType) {

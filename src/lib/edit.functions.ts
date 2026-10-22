@@ -42,3 +42,23 @@ export const recoverRender = createServerFn({ method: "POST" })
     const { recoverSequenceRender } = await import("./edit/render.server");
     return recoverSequenceRender({ renderId: data.renderId, userId: context.userId });
   });
+
+/**
+ * Makes a finished render's review sheet: every shot half a second in and on
+ * its last frame, labelled, as one picture in the library (see ./edit/review-sheet).
+ */
+export const makeReviewSheet = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        renderId: z.string().uuid(),
+        clientRequestId: z.string().min(8).max(64),
+        again: z.boolean().default(false),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    const { startReviewSheet } = await import("./edit/review-sheet.server");
+    return startReviewSheet({ ...data, userId: context.userId });
+  });

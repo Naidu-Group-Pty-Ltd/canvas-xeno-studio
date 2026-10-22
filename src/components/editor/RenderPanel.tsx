@@ -42,6 +42,9 @@ import {
   RENDER_UNCONFIRMED_STAGE,
   renderInProgress,
 } from "@/lib/edit/renders";
+import { QualitySetting, RenderReport } from "./RenderQuality";
+import { ReviewSheet } from "./ReviewSheet";
+import { useRenderExtras, type RenderExtras } from "@/hooks/useRenderExtras";
 import { useTracksForAssets } from "@/hooks/useMusicData";
 import {
   EditCreditsList,
@@ -64,6 +67,8 @@ interface RenderPanelProps {
   timeline: Timeline;
   saveNow: () => Promise<number>;
   disabled: boolean;
+  /** Changes the edit's render settings (its quality); without it they are shown, not changed. */
+  onChange?: (timeline: Timeline) => void;
 }
 
 function newRequestId() {
@@ -73,7 +78,14 @@ function newRequestId() {
 }
 
 /** Render the final video and keep every version that was rendered. */
-export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: RenderPanelProps) {
+export function RenderPanel({
+  sequenceId,
+  title,
+  timeline,
+  saveNow,
+  disabled,
+  onChange,
+}: RenderPanelProps) {
   const [starting, setStarting] = useState(false);
   const [resending, setResending] = useState(false);
   // For public use, and the exceptions confirmed (see EditCredits): sent with the render.
@@ -100,6 +112,12 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
     [renders],
   );
   const { data: renderedFiles } = useAssetsByIds(renderedIds);
+  // Each finished render's quality report and review sheet (migration 0031_render_quality).
+  const finishedIds = useMemo(
+    () => renders.filter((render) => render.status === "completed").map((render) => render.id),
+    [renders],
+  );
+  const { data: extras } = useRenderExtras(sequenceId, finishedIds);
   // Only audio heard in the render needs a credit or a licence check.
   const audioIds = useMemo(() => audibleAudio(timeline).map((item) => item.assetId), [timeline]);
   const {
@@ -293,6 +311,7 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
         onChoice={setRightsChoice}
         onHeld={setRightsHeld}
       />
+      <QualitySetting timeline={timeline} onChange={onChange} disabled={disabled} />
       <Button
         className="w-full"
         disabled={
@@ -443,6 +462,7 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
                 render={render}
                 title={title}
                 file={render.asset_id ? renderedFiles?.get(render.asset_id) : undefined}
+                extras={extras?.byRender.get(render.id)}
               />
             ))}
           </ul>
@@ -468,11 +488,14 @@ function RenderItem({
   render,
   title,
   file,
+  extras,
 }: {
   render: RenderRow;
   title: string;
   /** The rendered video's library record, with its music credit and terms in its metadata. */
   file?: AssetRow | undefined;
+  /** Its quality report and review sheet, as kept on the render. */
+  extras?: RenderExtras | undefined;
 }) {
   const kept = file?.metadata;
   const [opening, setOpening] = useState(false);
@@ -609,6 +632,10 @@ function RenderItem({
       {render.status === "completed" && report && <MixReportView report={report} />}
       {render.status === "completed" && stems.length > 0 && (
         <StemDownloads stems={stems} title={title} />
+      )}
+      {render.status === "completed" && <RenderReport stored={extras?.quality} metadata={kept} />}
+      {render.status === "completed" && (
+        <ReviewSheet renderId={render.id} taskId={extras?.reviewSheetTaskId ?? null} />
       )}
       {render.status === "completed" && music.terms.length > 0 && (
         <p className="mt-1 text-[11px] text-muted-foreground" data-testid="render-music-terms">

@@ -189,6 +189,20 @@ export const UPSCALE_LABELS: Record<Upscale, string> = {
   sharp: "Sharp (Lanczos)",
 };
 
+/**
+ * How the finished video is encoded. Standard encodes each clip to an
+ * intermediate and the cut again, quickly. Master keeps the clips lossless
+ * (while the media service's disk has room) and encodes the cut once, finely:
+ * x264's slow preset at CRF 12, BT.709 tagged, AAC at 256 kb/s. It takes about
+ * five times as long to render, and its file is about four times the size.
+ */
+export const EXPORT_QUALITIES = ["standard", "master"] as const;
+export type ExportQuality = (typeof EXPORT_QUALITIES)[number];
+export const EXPORT_QUALITY_LABELS: Record<ExportQuality, string> = {
+  standard: "Standard",
+  master: "Master",
+};
+
 export const LIMITS = {
   clips: 60,
   audio: 16,
@@ -457,6 +471,8 @@ export const timelineSchema = z.object({
   fadeIn: finite(0, 3).default(0),
   fadeOut: finite(0, 3).default(0),
   normalizeLoudness: z.boolean().default(true),
+  /** How the finished video is encoded: see EXPORT_QUALITIES. */
+  quality: z.enum(EXPORT_QUALITIES).default("standard"),
   /** Channel levels; an edit saved before the mixer existed plays as it did. */
   mix: mixSchema.default({}),
   /** Clips at another frame rate: see FRAME_RATE_CONVERSIONS. */
@@ -1656,6 +1672,7 @@ export function buildRenderRequest(
       ...(stemRolesFor(timeline, layout.total).length
         ? { stems: stemRolesFor(timeline, layout.total) }
         : {}),
+      ...(timeline.quality === "master" ? { quality: "master" } : {}),
       ...(busMix
         ? {
             mix: {
