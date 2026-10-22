@@ -1,4 +1,14 @@
 import { describe, expect, test } from "bun:test";
+import {
+  briefImageNotes,
+  draftNotes,
+  reviewSheetParams,
+  reviewSheetState,
+  reviewTiles,
+  shotNotes,
+  tileWidthFor,
+} from "../../src/lib/edit/review-sheet";
+import { parseTimeline, type Timeline } from "../../src/lib/edit/timeline";
 // @ts-expect-error The media worker is plain JavaScript.
 import * as review from "../../media-worker/src/review.js";
 
@@ -195,5 +205,209 @@ describe("a review sheet's script", () => {
     expect(Number(fields[3][5])).toBe(16 + 270 + 8 + geometry.pad);
     // The third tile has a note but no label.
     expect(fields[4][3]).toBe("Note");
+  });
+});
+
+const A = "11111111-1111-4111-8111-111111111111";
+const B = "22222222-2222-4222-8222-222222222222";
+const C = "33333333-3333-4333-8333-333333333333";
+
+/** An edit of clips, each [asset, seconds, label?, cross-fade into it?], at 30 fps. */
+function edit(clips: [string, number, string?, number?][]): Timeline {
+  const timeline = parseTimeline({
+    fps: 30,
+    clips: clips.map(([assetId, duration, label, fade], index) => ({
+      id: `clip-${index + 1}`,
+      assetId,
+      kind: "video",
+      duration,
+      ...(label !== undefined ? { label } : {}),
+      ...(fade ? { transition: { type: "fade", duration: fade } } : {}),
+    })),
+  });
+  if (!timeline) throw new Error("not a timeline");
+  return timeline;
+}
+
+describe("a render's review sheet frames", () => {
+  test("take each shot half a second in and on its last frame, on the frame grid", () => {
+    const tiles = reviewTiles(
+      edit([
+        [A, 2, "01.1 Orbit"],
+        [B, 3, "01.2 Pins"],
+      ]),
+      ["The globe turns to Australia"],
+    );
+    expect(tiles).toEqual([
+      { time: 0.5, label: "1 · 01.1 Orbit", note: "0:00.5 · The globe turns to Australia" },
+      { time: 59 / 30, label: "1 · last frame", note: "0:01.9" },
+      { time: 2.5, label: "2 · 01.2 Pins", note: "0:02.5" },
+      { time: 149 / 30, label: "2 · last frame", note: "0:04.9" },
+    ]);
+  });
+
+  test("keep out of transitions: in once a shot is on its own, out before the next fades in", () => {
+    const tiles = reviewTiles(
+      edit([
+        [A, 2, "One"],
+        [B, 3, "Two", 0.5],
+      ]),
+    );
+    // The second clip fades in over frames 45 to 59.
+    expect(tiles.map((tile) => Math.round(tile.time * 30))).toEqual([15, 44, 60, 134]);
+  });
+
+  test("show a clip too short for two frames once, and name an unnamed one by its place", () => {
+    const tiles = reviewTiles(
+      edit([
+        [A, 0.2],
+        [B, 1, "  Spaced   out  "],
+      ]),
+    );
+    expect(tiles.map((tile) => tile.label)).toEqual([
+      "1 · Clip 1",
+      "2 · Spaced out",
+      "2 · last frame",
+    ]);
+    expect(tiles[0]!.time).toBe(5 / 30);
+  });
+});
+
+describe("a render's review sheet request", () => {
+  test("heads the sheet with the edit, its version and length, in tiles of the render's shape", () => {
+    const params = reviewSheetParams({
+      title: "Aurixa reel",
+      version: 3,
+      timeline: edit([
+        [A, 2, "One"],
+        [B, 2, "Two"],
+      ]),
+      size: { width: 1080, height: 1920 },
+    });
+    expect(params.title).toBe("Aurixa reel · version 3 · 0:04.0");
+    expect(params.columns).toBe(4);
+    expect(params.tile_width).toBe(270);
+    expect(params.tiles).toHaveLength(4);
+    // The media service takes it as it is.
+    const plan = worker.planReviewSheet(params);
+    expect(plan.tiles.map((tile) => tile.label)).toEqual(params.tiles.map((tile) => tile.label));
+    expect(plan.tileWidth).toBe(270);
+  });
+
+  test("sizes tiles to about the same area whatever the shape, and lays a long vertical edit six across", () => {
+    expect([tileWidthFor(1080, 1920), tileWidthFor(1080, 1080), tileWidthFor(1920, 1080)]).toEqual([
+      270, 360, 480,
+    ]);
+    const long = edit(Array.from({ length: 30 }, (_, index) => [A, 2, `Shot ${index + 1}`]));
+    const params = reviewSheetParams({ title: "Long", version: 1, timeline: long });
+    expect(params.tiles).toHaveLength(60);
+    expect(params.columns).toBe(6);
+    // Without the render's own size, the edit's frame.
+    expect(params.tile_width).toBe(270);
+    const landscape = reviewSheetParams({
+      title: "Wide",
+      version: 1,
+      timeline: { ...long, aspectRatio: "16:9" },
+    });
+    expect([landscape.columns, landscape.tile_width]).toEqual([4, 480]);
+  });
+});
+
+describe("a shot's description", () => {
+  const shots = [
+    {
+      sceneNumber: 1,
+      shotNumber: 1,
+      description: "The globe turns to Australia",
+      prompt: "orbit shot",
+      assetIds: [A],
+    },
+    {
+      sceneNumber: 2,
+      shotNumber: 3,
+      description: null,
+      prompt: "Pins rain over the cities",
+      assetIds: [],
+    },
+  ];
+
+  test("comes from the storyboard shot whose take the clip plays, or the one its name numbers", () => {
+    const clips = edit([
+      [A, 2, "Renamed"],
+      [B, 2, "2.3 Pins"],
+      [C, 2, "Shot 9.9"],
+    ]).clips;
+    expect(shotNotes(clips, { shots })).toEqual([
+      "The globe turns to Australia",
+      "Pins rain over the cities",
+      null,
+    ]);
+  });
+
+  test("comes from the draft the clip is named for, or the brief's note on its picture", () => {
+    const clips = edit([
+      [A, 2, "Hero shot"],
+      [B, 2, "Another"],
+    ]).clips;
+    expect(
+      shotNotes(clips, {
+        drafts: [{ title: "Hero shot", note: "Opens on the product" }],
+        imageNotes: [{ assetId: B, description: "The style frame for the close" }],
+      }),
+    ).toEqual(["Opens on the product", "The style frame for the close"]);
+  });
+
+  test("of a Supercomputer draft is the edit plan's note on it, else its purpose, else its prompt", () => {
+    expect(
+      draftNotes({
+        drafts: [
+          { title: "Hero", purpose: "Hook", prompt: "a hero shot" },
+          { title: "Close", prompt: "the logo" },
+          { title: " ", prompt: "unnamed" },
+          { title: "Middle", purpose: "Proof" },
+        ],
+        editPlan: { shots: [{ draftIndex: 0, note: "Open on it" }, { draftIndex: 3 }] },
+      }),
+    ).toEqual([
+      { title: "Hero", note: "Open on it" },
+      { title: "Close", note: "the logo" },
+      { title: "Middle", note: "Proof" },
+    ]);
+    expect(draftNotes(null)).toEqual([]);
+  });
+
+  test("of a brief's picture is its analysis's note on it", () => {
+    expect(
+      briefImageNotes({
+        image_notes: [
+          { asset_id: A, description: "Style frame", suggested_use: "end card" },
+          { asset_id: 4, description: "bad" },
+          null,
+        ],
+      }),
+    ).toEqual([{ assetId: A, description: "Style frame" }]);
+    expect(briefImageNotes("nothing")).toEqual([]);
+  });
+});
+
+describe("where a review sheet stands", () => {
+  const task = { id: "task", result_asset_id: null, error_message: null };
+  test("is read from its media task", () => {
+    expect(reviewSheetState({ ...task, status: "processing" }).status).toBe("making");
+    expect(reviewSheetState({ ...task, status: "submitting" }).status).toBe("making");
+    expect(reviewSheetState({ ...task, status: "completed", result_asset_id: A })).toEqual({
+      taskId: "task",
+      status: "ready",
+      assetId: A,
+      error: null,
+    });
+    expect(reviewSheetState({ ...task, status: "failed", error_message: "No picture" })).toEqual({
+      taskId: "task",
+      status: "failed",
+      assetId: null,
+      error: "No picture",
+    });
+    // Finished without a picture to show.
+    expect(reviewSheetState({ ...task, status: "completed" }).status).toBe("failed");
   });
 });

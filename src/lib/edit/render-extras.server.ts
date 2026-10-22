@@ -21,7 +21,7 @@ const REMEMBERED_FOR_MS = 12 * 60 * 60 * 1000;
  * What the media service can do: as it says now (its features, if asked
  * already), else as it last said, else asked; nothing when it can't be.
  */
-async function serviceFeatures(known: string[] | null): Promise<string[]> {
+export async function serviceFeatures(known: string[] | null): Promise<string[]> {
   if (known) return known;
   const remembered = await rememberedWorker(REMEMBERED_FOR_MS).catch(() => null);
   if (remembered) return remembered.features;

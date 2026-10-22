@@ -34,6 +34,7 @@ import {
   renderInProgress,
 } from "@/lib/edit/renders";
 import { QualitySetting, RenderReport } from "./RenderQuality";
+import { ReviewSheet } from "./ReviewSheet";
 import { useRenderExtras, type RenderExtras } from "@/hooks/useRenderExtras";
 import { useTracksForAssets } from "@/hooks/useMusicData";
 import { useStudioVoiceovers } from "@/hooks/useVoiceData";
@@ -578,6 +579,9 @@ function RenderItem({
         </p>
       )}
       {render.status === "completed" && <RenderReport stored={extras?.quality} metadata={kept} />}
+      {render.status === "completed" && (
+        <ReviewSheet renderId={render.id} taskId={extras?.reviewSheetTaskId ?? null} />
+      )}
       {render.status === "completed" && music.terms.length > 0 && (
         <p className="mt-1 text-[11px] text-muted-foreground" data-testid="render-music-terms">
           Music terms: {music.terms.join(" · ")}
