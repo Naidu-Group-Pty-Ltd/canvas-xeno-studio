@@ -364,6 +364,9 @@ async function resolveInputs(
 ): Promise<RunInputRow[]> {
   if (!requested.length) return [];
   const ids = [...new Set(requested.map((input) => input.assetId))];
+  // A layout-only picture (a real client's screen, say) is never handed to Katana.
+  const { assertPlaceable } = await import("../media/layout-only.server");
+  await assertPlaceable(ids, "katana");
   const { data, error } = await db
     .from("assets")
     .select("id,asset_type,storage_bucket,storage_path,mime_type,file_size,title,deleted_at")

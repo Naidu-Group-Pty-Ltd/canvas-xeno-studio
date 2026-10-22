@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Images, LayoutGrid, List } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Images, LayoutGrid, List, ShieldCheck } from "lucide-react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/layout/AppShell";
@@ -8,6 +9,9 @@ import { AssetCard } from "@/components/studio/AssetCard";
 import { AssetDetailDialog } from "@/components/studio/AssetDetailDialog";
 import { MediaPreview } from "@/components/studio/MediaPreview";
 import { EmptyState } from "@/components/studio/EmptyState";
+import { ReferenceImportDialog } from "@/components/studio/ReferenceImportDialog";
+import { getPrivacyMarks } from "@/lib/privacy.functions";
+import { privacyBadge } from "@/lib/media/layout-only";
 import { useAssets, useProjects, useTeam, type AssetRow } from "@/hooks/useStudioData";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -41,6 +45,7 @@ function AssetsPage() {
   const [sort, setSort] = useState<"newest" | "oldest">("newest");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [selected, setSelected] = useState<AssetRow | null>(null);
+  const [importing, setImporting] = useState(false);
 
   const { data: projects = [] } = useProjects();
   const { data: team = [] } = useTeam();
@@ -54,6 +59,15 @@ function AssetsPage() {
     search: term,
     sort,
   });
+  // Layout-only files and screenshots' redacted copies are badged (none before migration 0035).
+  const shownIds = (assets ?? []).map((asset) => asset.id).slice(0, 200);
+  const { data: marks } = useQuery({
+    queryKey: ["privacy-marks", "library", shownIds.join(",")],
+    queryFn: () => getPrivacyMarks({ data: { assetIds: shownIds } }),
+    enabled: shownIds.length > 0,
+    staleTime: 30_000,
+  });
+  const badgeOf = (asset: AssetRow) => privacyBadge(marks?.[asset.id] ?? null);
 
   useEffect(() => {
     if (!search.asset) return;
@@ -134,6 +148,10 @@ function AssetsPage() {
                 <SelectItem value="oldest">Oldest</SelectItem>
               </SelectContent>
             </Select>
+            <Button variant="outline" size="sm" className="h-8" onClick={() => setImporting(true)}>
+              <ShieldCheck className="mr-1.5 size-4" />
+              Import a screenshot
+            </Button>
             <Button variant="outline" size="icon" className="size-8" onClick={() => setView(view === "grid" ? "list" : "grid")} aria-label="Toggle view">
               {view === "grid" ? <List className="size-4" /> : <LayoutGrid className="size-4" />}
             </Button>
@@ -161,7 +179,7 @@ function AssetsPage() {
         {!isLoading && !!assets?.length && view === "grid" && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {assets.map((asset) => (
-              <AssetCard key={asset.id} asset={asset} onOpen={setSelected} />
+              <AssetCard key={asset.id} asset={asset} onOpen={setSelected} badge={badgeOf(asset)} />
             ))}
           </div>
         )}
@@ -178,6 +196,9 @@ function AssetsPage() {
                   <MediaPreview bucket={asset.storage_bucket} path={asset.storage_path} type={asset.asset_type} />
                 </span>
                 <span className="min-w-0 flex-1 truncate">{asset.title ?? "Untitled"}</span>
+                {badgeOf(asset) && (
+                  <span className="text-xs text-muted-foreground">{badgeOf(asset)}</span>
+                )}
                 <span className="hidden text-xs text-muted-foreground sm:block">{asset.asset_type}</span>
                 <span className="hidden text-xs text-muted-foreground md:block">
                   {new Date(asset.created_at).toLocaleDateString()}
@@ -189,6 +210,7 @@ function AssetsPage() {
       </div>
 
       <AssetDetailDialog asset={selected} onOpenChange={(open) => !open && setSelected(null)} />
+      <ReferenceImportDialog open={importing} onOpenChange={setImporting} />
     </AppShell>
   );
 }

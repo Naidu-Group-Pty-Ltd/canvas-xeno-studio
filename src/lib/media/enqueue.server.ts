@@ -13,7 +13,8 @@ const OUTPUT_BUCKET = "generated-assets";
 const SOURCE_URL_TTL = 2 * 60 * 60;
 
 export interface InternalTaskSource {
-  assetId: string;
+  /** Null for a file kept out of the library (a screenshot's original, while it is redacted). */
+  assetId: string | null;
   assetType: MediaKind;
   bucket: string;
   path: string;
@@ -30,7 +31,12 @@ export interface InternalTaskRequest {
     | "resize_image"
     | "prepare_audio"
     | "measure_sync"
-    | "lip_check";
+    | "lip_check"
+    // A take aligned to its picture, a logo's clean plate and lettering, a screenshot redacted.
+    | "align_take"
+    | "clean_plate"
+    | "lay_lettering"
+    | "redact_image";
   source: InternalTaskSource;
   /** More sources after the first, each in its role (measure_sync's voiceover piece, as "audio"). */
   extraSources?: (InternalTaskSource & { role: string })[];

@@ -8,6 +8,9 @@ import { lipCheck, lipCheckAvailable } from "./lipcheck.js";
 import { chromiumAvailable } from "./chromium.js";
 import { COMPOSITION_LIMITS, joinStretches, renderComposition } from "./composition.js";
 import { config } from "./config.js";
+import { alignTake } from "./take.js";
+import { cleanPlate, layLettering } from "./plate.js";
+import { redactImage } from "./redact.js";
 
 /**
  * Task catalogue.
@@ -92,6 +95,13 @@ export const FEATURES = [
   "voice_pauses",
   "mix_report",
   "stems",
+  // A take put on the exact picture it must land on (align_take), and a logo's
+  // lettering taken out of its art and laid back over a take (clean_plate,
+  // lay_lettering).
+  "align_take",
+  "clean_plate",
+  // A reference screenshot's private details blurred in a copy (redact_image).
+  "redact_image",
   ...(lipCheckAvailable ? ["lip_check"] : []),
   // Code-driven motion graphics drawn in Chromium ("compositions"), on a GPU here ("compositions_gpu").
   ...(chromiumAvailable ? ["compositions", ...(config.gpu ? ["compositions_gpu"] : [])] : []),
@@ -450,6 +460,51 @@ export const TASKS = {
     sources: { min: 2, max: 2 },
     outputs: () => 0,
     run: measureSync,
+  },
+
+  /**
+   * A take that must land on an exact picture, put on it: registered and
+   * colour-matched to it on the frame that must equal it, then crossed to
+   * the picture itself (see take.js). Sources: the take and the picture.
+   */
+  align_take: {
+    sources: { min: 2, max: 2 },
+    outputs: () => 1,
+    run: alignTake,
+  },
+
+  /**
+   * A logo's lettering mask (from boxes, or a transparent file of the
+   * lettering), or its clean plate: an image edit with the lettering taken
+   * out, laid into the art only inside that mask (see plate.js). Sources: the
+   * art, its edit ("edit") and the lettering file ("lettering").
+   */
+  clean_plate: {
+    sources: { min: 1, max: 3 },
+    outputs: () => 1,
+    run: cleanPlate,
+  },
+
+  /**
+   * The lettering laid back over a take of the clean plate, exactly: the
+   * art's own letters, or the lettering file itself (see plate.js). Sources:
+   * the take, the art and the lettering file ("lettering").
+   */
+  lay_lettering: {
+    sources: { min: 2, max: 3 },
+    outputs: () => 1,
+    run: layLettering,
+  },
+
+  /**
+   * A screenshot with what it must not show (people's names, emails, phone
+   * numbers, addresses) blurred in the boxes given, and nothing else changed
+   * (see redact.js).
+   */
+  redact_image: {
+    sources: { min: 1, max: 1 },
+    outputs: () => 1,
+    run: redactImage,
   },
 
   /**
