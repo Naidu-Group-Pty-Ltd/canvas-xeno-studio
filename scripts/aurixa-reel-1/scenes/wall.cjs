@@ -8,15 +8,17 @@ const path = require("path");
 const M = require("../motion.cjs");
 const { F, beat, shotOf, EASE, span, r3, px, State, fade, captionHtml, caption } = M;
 
+const PACE = require("../pacing.cjs");
+// The measured words on the film's clock (./pacing.cjs): the breakdown's pauses put each key word on a downbeat.
 const WORDS = JSON.parse(
   fs.readFileSync(
     path.join(__dirname, "../../../docs/brands/aurixa-reel-1/system-edition/voiceover-words.json"),
     "utf8",
   ),
-).words;
+).words.map((w) => ({ ...w, start: PACE.word(w.start), end: PACE.word(w.end) }));
 
 /** The wall's drift: one slow lateral move from 14.1's first frame to the end of 15.1, at an even pace. */
-const DRIFT = { from: 94.4, to: 106.031, x: [64, -64] };
+const DRIFT = { from: shotOf("14.1").in, to: PACE.END, x: [64, -64] };
 const driftAt = (t) =>
   DRIFT.x[0] +
   (DRIFT.x[1] - DRIFT.x[0]) * Math.min(1, Math.max(0, (t - DRIFT.from) / (DRIFT.to - DRIFT.from)));

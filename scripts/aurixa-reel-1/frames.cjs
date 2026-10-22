@@ -265,7 +265,7 @@ const FRAMES = {
       ];
     },
   },
-  // 06.2: the five team cards ring Residence 014's record, linked to it.
+  // 06.2: the five team cards ring 14 Wattle Grove's record, linked to it.
   F06: {
     shot: "06.2",
     at: 50.5,
@@ -367,7 +367,7 @@ const FRAMES = {
           450,
           440,
           "Documents",
-          list("Residence 014 — documents", [
+          list("14 Wattle Grove — documents", [
             "Contract of sale (draft)",
             "Floor plan",
             "Building specification",
@@ -381,7 +381,7 @@ const FRAMES = {
           540,
           "Documents (2)",
           list(
-            "Residence 014 — documents",
+            "14 Wattle Grove — documents",
             [
               "Contract of sale (draft)",
               "Floor plan",
@@ -553,7 +553,7 @@ const STILLS = {
       }).html,
     ],
   },
-  // 04.3: Reports, New Build selected, focus corners on the three build types, Residence 014's card beside them.
+  // 04.3: Reports, New Build selected, focus corners on the three build types, 14 Wattle Grove's card beside them.
   A04c: {
     shot: "04.3",
     palette: "aurixa",
@@ -735,7 +735,7 @@ const STILLS = {
       return [view.html, pointer(...view.map([172, 624]))];
     },
   },
-  // 12.2, its first beat: Daniel's Stock List, Residence 014 Selected for a client.
+  // 12.2, its first beat: Daniel's Stock List, 14 Wattle Grove Selected for a client.
   A12b: {
     shot: "12.2",
     palette: "aurixa",

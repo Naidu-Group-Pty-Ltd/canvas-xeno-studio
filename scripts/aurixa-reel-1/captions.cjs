@@ -15,11 +15,19 @@ const fs = require("fs");
 const path = require("path");
 
 const DOCS = path.join(__dirname, "../../docs/brands/aurixa-reel-1");
+const PACE = require("./pacing.cjs");
 const SPEC = JSON.parse(fs.readFileSync(path.join(DOCS, "spec.json"), "utf8"));
 const BRIEF = JSON.parse(fs.readFileSync(path.join(DOCS, "system-edition/brief.json"), "utf8"));
+// Every time here is on the film's clock: the voiceover's own (the captions, the measured words) moved by the
+// third cut's pauses (./pacing.cjs), as the brief's shots already are.
+const CAPTIONS = SPEC.edit.captions.map((c) => ({
+  ...c,
+  start: PACE.word(c.start),
+  end: PACE.word(c.end),
+}));
 const MEASURED = JSON.parse(
   fs.readFileSync(path.join(DOCS, "system-edition/voiceover-words.json"), "utf8"),
-).words;
+).words.map((w) => ({ ...w, start: PACE.word(w.start), end: PACE.word(w.end) }));
 
 /** The phrase each line leans on (its words, as the script spells them); a line not named has none. */
 const EMPHASIS = {
@@ -98,7 +106,7 @@ function timedCues() {
   let cursor = 0;
   const shotAt = (t) =>
     BRIEF.shots.find((s) => t >= s.in - 1e-6 && t < s.out) ?? BRIEF.shots.at(-1);
-  return SPEC.edit.captions.map((cue, ci) => {
+  return CAPTIONS.map((cue, ci) => {
     // An eyebrow's dash is drawn as its rules, not set.
     const tokens = cue.text
       .split(/\s+/)

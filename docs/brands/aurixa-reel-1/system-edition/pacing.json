@@ -1,0 +1,409 @@
+{
+  "fps": 30,
+  "sample_rate": 44100,
+  "voiceover": {
+    "seconds": 106.031,
+    "speech_end": 105.88
+  },
+  "end": 131.2,
+  "pauses": [
+    {
+      "at": 0.0,
+      "frames": 26,
+      "seconds": 0.8667,
+      "why": "the map and its pins before the first word",
+      "group": "open"
+    },
+    {
+      "at": 3.95,
+      "frames": 12,
+      "seconds": 0.4,
+      "why": "the property, popped up and held",
+      "group": "open"
+    },
+    {
+      "at": 6.39,
+      "frames": 3,
+      "seconds": 0.1,
+      "why": "after 'right for them,'",
+      "group": "open"
+    },
+    {
+      "at": 8.267,
+      "frames": 11,
+      "seconds": 0.3667,
+      "why": "the tools open on a breath",
+      "group": "open"
+    },
+    {
+      "at": 10.0,
+      "frames": 6,
+      "seconds": 0.2,
+      "why": "after 'But before you can answer,'",
+      "group": "open"
+    },
+    {
+      "at": 11.96,
+      "frames": 6,
+      "seconds": 0.2,
+      "why": "after 'in one platform,'",
+      "group": "open"
+    },
+    {
+      "at": 13.46,
+      "frames": 5,
+      "seconds": 0.1667,
+      "why": "after 'in another,'",
+      "group": "open"
+    },
+    {
+      "at": 17.6,
+      "frames": 11,
+      "seconds": 0.3667,
+      "why": "the pressure opens",
+      "group": "open"
+    },
+    {
+      "at": 18.85,
+      "frames": 7,
+      "seconds": 0.2333,
+      "why": "after 'What happens then'",
+      "group": "open"
+    },
+    {
+      "at": 25.6,
+      "frames": 5,
+      "seconds": 0.1667,
+      "why": "the question alone, held as the music falls silent",
+      "group": "open"
+    },
+    {
+      "at": 25.867,
+      "frames": 54,
+      "seconds": 1.8,
+      "why": "the logo, on the drop, before 'Aurixa Systems'",
+      "group": "main"
+    },
+    {
+      "at": 30.867,
+      "frames": 21,
+      "seconds": 0.7,
+      "why": "the Command Centre becomes the hub",
+      "group": "main"
+    },
+    {
+      "at": 31.8,
+      "frames": 26,
+      "seconds": 0.8667,
+      "why": "after 'We're here,': the first portal",
+      "group": "main"
+    },
+    {
+      "at": 33.9,
+      "frames": 21,
+      "seconds": 0.7,
+      "why": "after 'operating environment': the portals, one at a time",
+      "group": "main"
+    },
+    {
+      "at": 37.4,
+      "frames": 19,
+      "seconds": 0.6333,
+      "why": "before 'Picture a property'",
+      "group": "main"
+    },
+    {
+      "at": 41.4,
+      "frames": 12,
+      "seconds": 0.4,
+      "why": "the report opens",
+      "group": "main"
+    },
+    {
+      "at": 45.0,
+      "frames": 27,
+      "seconds": 0.9,
+      "why": "the report's pages, still turning",
+      "group": "main"
+    },
+    {
+      "at": 46.75,
+      "frames": 17,
+      "seconds": 0.5667,
+      "why": "after 'Picture communication,': the reply sent",
+      "group": "main"
+    },
+    {
+      "at": 50.7,
+      "frames": 6,
+      "seconds": 0.2,
+      "why": "before 'with Aurixa Agent'",
+      "group": "main"
+    },
+    {
+      "at": 53.54,
+      "frames": 7,
+      "seconds": 0.2333,
+      "why": "the agent's draft, read",
+      "group": "main"
+    },
+    {
+      "at": 53.567,
+      "frames": 11,
+      "seconds": 0.3667,
+      "why": "before 'Not to replace'",
+      "group": "main"
+    },
+    {
+      "at": 57.4,
+      "frames": 7,
+      "seconds": 0.2333,
+      "why": "Approved, held",
+      "group": "main"
+    },
+    {
+      "at": 57.633,
+      "frames": 11,
+      "seconds": 0.3667,
+      "why": "before 'Because clients'",
+      "group": "main"
+    },
+    {
+      "at": 60.4,
+      "frames": 7,
+      "seconds": 0.2333,
+      "why": "Fulfilled, held",
+      "group": "main"
+    },
+    {
+      "at": 60.7,
+      "frames": 9,
+      "seconds": 0.3,
+      "why": "the report's pages again",
+      "group": "main"
+    },
+    {
+      "at": 63.38,
+      "frames": 5,
+      "seconds": 0.1667,
+      "why": "after 'identify opportunities,'",
+      "group": "main"
+    },
+    {
+      "at": 65.0,
+      "frames": 9,
+      "seconds": 0.3,
+      "why": "the last page, held",
+      "group": "main"
+    },
+    {
+      "at": 66.9,
+      "frames": 12,
+      "seconds": 0.4,
+      "why": "the next decision, held",
+      "group": "main"
+    },
+    {
+      "at": 67.033,
+      "frames": 18,
+      "seconds": 0.6,
+      "why": "the disconnected tools",
+      "group": "main"
+    },
+    {
+      "at": 71.5,
+      "frames": 21,
+      "seconds": 0.7,
+      "why": "the light sweeps today's tools into Aurixa",
+      "group": "main"
+    },
+    {
+      "at": 73.2,
+      "frames": 8,
+      "seconds": 0.2667,
+      "why": "the register, held",
+      "group": "main"
+    },
+    {
+      "at": 73.367,
+      "frames": 4,
+      "seconds": 0.1333,
+      "why": "the horizon",
+      "group": "main"
+    },
+    {
+      "at": 76.0,
+      "frames": 21,
+      "seconds": 0.7,
+      "why": "the logo, at the viewer",
+      "group": "main"
+    },
+    {
+      "at": 77.1,
+      "frames": 7,
+      "seconds": 0.2333,
+      "why": "after 'We've arrived,'",
+      "group": "main"
+    },
+    {
+      "at": 79.267,
+      "frames": 12,
+      "seconds": 0.4,
+      "why": "the button, pressed",
+      "group": "main"
+    },
+    {
+      "at": 80.7,
+      "frames": 6,
+      "seconds": 0.2,
+      "why": "the trial opens",
+      "group": "main"
+    },
+    {
+      "at": 82.75,
+      "frames": 11,
+      "seconds": 0.3667,
+      "why": "the workspace, ready",
+      "group": "main"
+    },
+    {
+      "at": 82.933,
+      "frames": 10,
+      "seconds": 0.3333,
+      "why": "before 'Explore the platform'",
+      "group": "main"
+    },
+    {
+      "at": 84.3,
+      "frames": 18,
+      "seconds": 0.6,
+      "why": "the marketplace, held",
+      "group": "main"
+    },
+    {
+      "at": 84.333,
+      "frames": 10,
+      "seconds": 0.3333,
+      "why": "before 'put it alongside'",
+      "group": "main"
+    },
+    {
+      "at": 86.528,
+      "frames": 8,
+      "seconds": 0.2667,
+      "why": "the floor plan, held",
+      "group": "main"
+    },
+    {
+      "at": 86.533,
+      "frames": 16,
+      "seconds": 0.5333,
+      "why": "before 'and discover'",
+      "group": "main"
+    },
+    {
+      "at": 90.0,
+      "frames": 29,
+      "seconds": 0.9667,
+      "why": "the business in sync, held",
+      "group": "main"
+    },
+    {
+      "at": 90.133,
+      "frames": 8,
+      "seconds": 0.2667,
+      "why": "before 'Don't just take our word'",
+      "group": "main"
+    },
+    {
+      "at": 91.9,
+      "frames": 7,
+      "seconds": 0.2333,
+      "why": "after 'Don't just take our word for it.'",
+      "group": "main"
+    },
+    {
+      "at": 94.2,
+      "frames": 33,
+      "seconds": 1.1,
+      "why": "after 'make the case.': the music has fallen away",
+      "group": "close"
+    },
+    {
+      "at": 95.6,
+      "frames": 9,
+      "seconds": 0.3,
+      "why": "'Your business' on its downbeat",
+      "group": "close"
+    },
+    {
+      "at": 96.8,
+      "frames": 21,
+      "seconds": 0.7,
+      "why": "'Your experience' on its downbeat",
+      "group": "close"
+    },
+    {
+      "at": 98.1,
+      "frames": 17,
+      "seconds": 0.5667,
+      "why": "'Your decision' on its downbeat",
+      "group": "close"
+    },
+    {
+      "at": 99.3,
+      "frames": 30,
+      "seconds": 1.0,
+      "why": "held before the music comes back",
+      "group": "close"
+    },
+    {
+      "at": 104.2,
+      "frames": 18,
+      "seconds": 0.6,
+      "why": "'Start your free trial today.' on its downbeat",
+      "group": "close"
+    }
+  ],
+  "music": {
+    "file": "National Treasures (the client's track), 272.300 s, 44.1 kHz stereo",
+    "period": 0.46514101885610903,
+    "drop_in_file": 22.254852,
+    "splice_lead": 0.02,
+    "crossfade": 0.03,
+    "pieces": [
+      {
+        "file_from": 0.0,
+        "file_to": 14.792595,
+        "film_at": 0.0,
+        "why": "the intro to four bars before the drop"
+      },
+      {
+        "file_from": 7.350339,
+        "file_to": 91.075722,
+        "film_at": 14.792595,
+        "why": "four bars of the intro again, the drop, the groove to the end of bar 36"
+      },
+      {
+        "file_from": 83.633466,
+        "file_to": 104.099671,
+        "film_at": 98.517979,
+        "why": "bars 33 to 36 again (the bars most like what follows: 0.95), then on to the breakdown's bar 44"
+      },
+      {
+        "file_from": 107.820799,
+        "file_to": null,
+        "film_at": 118.984184,
+        "why": "the breakdown from bar 46: bars 44 and 45 left out, so its two-bar phrases stay whole"
+      }
+    ],
+    "film_drop": 29.697108,
+    "bars": {
+      "breakdown": 111.561927,
+      "statements": [115.283055, 117.143619, 119.004184, 120.864748],
+      "reentry": 122.725312,
+      "final": 130.167568
+    },
+    "ring": 1.0
+  }
+}

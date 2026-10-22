@@ -848,14 +848,14 @@ const onIt = () => cur("right:-12px;bottom:-16px");
 const { widthOf } = require("./helvetica.cjs");
 
 module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
-  const pimg = (w, h, label = "P · Residence 014") =>
+  const pimg = (w, h, label = "P · 14 Wattle Grove") =>
     P
       ? `<div class="pimg" style="width:${w}px;height:${h}px;background-image:url('${P}')"></div>`
       : `<div class="pimg pph" data-label="${label}" style="width:${w}px;height:${h}px"></div>`;
   const dimg = (w, h) =>
     D
       ? `<div class="pimg" style="width:${w}px;height:${h}px;background:#fff url('${D}') center/contain no-repeat"></div>`
-      : `<div class="pimg pph" data-label="D · Residence 014 floor plan" style="width:${w}px;height:${h}px"></div>`;
+      : `<div class="pimg pph" data-label="D · 14 Wattle Grove floor plan" style="width:${w}px;height:${h}px"></div>`;
   const emb = (size) =>
     EMBLEM
       ? `<div class="emb real" style="width:${size}px;height:${size}px;background-image:url('${EMBLEM}')"></div>`
@@ -985,7 +985,7 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
   // The property Alex is preparing, on the right of the workspace section: P keeps this place
   // from 04B into 05A (the selected-property match).
   const ctx = `<div class="cctx">${pimg(118, 74)}<div><div class="kick" style="font-size:8.5px;letter-spacing:.24em">PREPARING FOR JORDAN ELLIS</div>
-    <div class="n" style="margin-top:7px">Project Banksia / Residence 014</div><div class="m">BK-014 · Demo workspace</div></div></div>`;
+    <div class="n" style="margin-top:7px">14 Wattle Grove, Banksia Rise</div><div class="m">WG-14 · Demo workspace</div></div></div>`;
   const workspace = `<div class="sec"><div><div class="kick">INVESTMENT REPORT WORKSPACE</div><div class="h2">Investment Report Generator</div>
     <div class="desc">Generate comprehensive property investment analysis for addresses, postcodes, or states across Australia.</div></div>${ctx}</div>`;
   const types = (selected) => {
@@ -1008,7 +1008,7 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
     `<div class="qfab">${mascot(96)}${hover ? cur("left:52px;top:56px") : ""}</div>${hover ? `<div class="qtip">Aurixa</div>` : ""}`;
 
   // ---- After the supplied Command Centre pages (Generated Reports, an investment report, the agent
-  // open over it, and Overview): their structure and wording, with the demo's Residence 014.
+  // open over it, and Overview): their structure and wording, with the demo's 14 Wattle Grove.
   const pill = (t, cls = "") => `<span class="qpill ${cls}">${t}</span>`;
   const qbtn = (ic, t, cls = "", extra = "") =>
     `<div class="qbtn ${cls}">${ic ? svg(ic, "currentColor", 1.9) : ""}${t}${extra}</div>`;
@@ -1035,21 +1035,21 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
   ) => `<div class="qrep" style="margin-top:${-scroll}px">
     <div class="qbar">
       <div><div style="display:flex;gap:10px;align-items:center">${qbtn("file", "Generated Reports")}<div class="qlink">${svg("arrowl", "#e5e5ea", 2)}Back</div></div>
-        <div style="display:flex;gap:10px;align-items:center;margin-top:14px">${pill("Compass", "dark")}<b style="font-size:13px">Project Banksia / Residence 014</b></div></div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:14px">${pill("Compass", "dark")}<b style="font-size:13px">14 Wattle Grove, Banksia Rise</b></div></div>
       ${tiers(state)}
       <div style="display:flex;gap:8px;align-items:center">${qbtn("layers", "Choose template")}${qbtn("upload", "Export PDF", "blue")}${qbtn("send", "Send to Client")}${qbtn("", "··· More")}</div>
     </div>
     <div class="qcol">
       <div class="qhero"><div style="flex:1">
           <div style="display:flex;gap:8px">${pill("✧ Investment Report", "dark")}${pill("Compass", "dark")}${pill("ⓘ 4 Adjustments", "violet")}</div>
-          <div class="qtitle">Project Banksia /<br>Residence 014</div>
+          <div class="qtitle">14 Wattle Grove,<br>Banksia Rise</div>
           <div class="qmeta">${svg("calendar", "#a1a1aa", 1.8)}Generated Oct 21, 2026, 9:41 AM <span style="margin-left:14px"></span>${svg("file", "#a1a1aa", 1.8)}Internal report</div>
           <div class="qmeta">${svg("check", "#a1a1aa", 1.8)}Completed</div></div>
-        <div class="qgradebox">${grade("B+", "gold")}<div><b style="font-size:14px">Investment Grade</b><div class="qsmall">Assessed on 3 of 5 dimensions: capital growth, location and rental yield.</div></div></div>
+        <div class="qgradebox">${grade("A+", "gold")}<div><b style="font-size:14px">Investment Grade</b><div class="qsmall">Strong buy. Assessed on all five dimensions.</div></div></div>
       </div>
       <div class="qstats5">
-        <div class="qstat"><div class="l">Investment grade</div><div class="v">B+</div><div class="d">Measured across capital growth, location and rental yield</div></div>
-        <div class="qstat"><div class="l">Score /100</div><div class="v"><span style="color:#f5c542">★</span> <span style="color:#e5b93a">74</span> <span class="d" style="font-size:13px">/100</span></div><div class="d">Qualified score — based on 3 of 5 assessed dimensions</div></div>
+        <div class="qstat"><div class="l">Investment grade</div><div class="v">A+</div><div class="d">Measured across all five dimensions</div></div>
+        <div class="qstat"><div class="l">Score /100</div><div class="v"><span style="color:#f5c542">★</span> <span style="color:#e5b93a">84</span> <span class="d" style="font-size:13px">/100</span></div><div class="d">Composite of all five assessed dimensions</div></div>
         <div class="qstat"><div class="l">Report tier</div><div class="v">Compass</div></div>
         <div class="qstat"><div class="l">Manual overrides</div><div class="v">4</div><div class="d">Adjusted fields</div></div>
         <div class="qstat"><div class="l">Report status</div><div class="v">Completed</div><div class="d">Internal report</div></div>
@@ -1063,17 +1063,24 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
       }</span>${qbtn("layers", state === "compass" ? "Prepare all 4 reports" : "Prepare the other 3")}</div>
       <div style="display:flex;gap:22px;align-items:flex-start">
         <div class="qcard" style="flex:1.75"><div style="display:flex;align-items:center"><b style="font-size:15px">${svg("trend", "#fff", 2)} Analysis Report</b><span style="margin-left:auto">${qbtn("upload", "Raw text", "ghost")}</span></div>
-          <div class="qsmall">Client-facing document view for Project Banksia / Residence 014</div></div>
+          <div class="qsmall">Client-facing document view for 14 Wattle Grove, Banksia Rise</div></div>
         <div class="qcard" style="flex:1"><b style="font-size:15px">${svg("upload", "#fff", 2)} Publishing &amp; Export</b><div class="qsmall">Configure report content, generate PDFs, and manage premium styling.</div></div>
       </div>
     </div></div>`;
 
-  // Generated Reports: the library, Residence 014's card first.
-  const reportCard = (title, tags, g, score, pointer) => `<div class="qrcard">
+  // Generated Reports: the library, 14 Wattle Grove's card first.
+  const reportCard = (
+    title,
+    tags,
+    g,
+    score,
+    pointer,
+    verdict = ["Under review", "Qualified score"],
+  ) => `<div class="qrcard">
       <div style="display:flex;gap:10px"><span class="qpin">${svg("pin", "#3d63ff", 1.9)}</span><div style="flex:1"><div class="qrtitle">${title}</div>
         <div class="qsmall" style="margin-top:4px">Latest Oct 21, 2026, 9:41 AM · completed</div>
         <div class="qtags">${tags.map((t) => `<span>${t}</span>`).join("")}</div>
-        <div class="qgtile">${grade(g, "gold")}<div style="flex:1"><div class="l">INVESTMENT GRADE</div><b style="font-size:12.5px">Under review</b><div class="qsmall" style="font-size:9.5px">Qualified score</div></div>
+        <div class="qgtile">${grade(g, "gold")}<div style="flex:1"><div class="l">INVESTMENT GRADE</div><b style="font-size:12.5px">${verdict[0]}</b><div class="qsmall" style="font-size:9.5px">${verdict[1]}</div></div>
           <div style="text-align:right"><div style="color:#e5b93a;font-size:21px;font-weight:700">${score}</div><div class="qsmall" style="font-size:10px">/100 score</div></div></div></div>
         <div style="display:flex;gap:8px;align-items:flex-start">${svg("inbox", "#d4d4d8", 1.8)}<span class="qver">${svg("layers", "#e5e5ea", 1.9)}${tags.length} ⌄</span></div></div>${pointer ? cur("left:46%;top:16%") : ""}</div>`;
   const generatedReports = (pointer) => `<div class="qpage">
@@ -1111,32 +1118,32 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
     <div class="qtools"><div class="qsearch">${svg("search", "#a1a1aa", 1.9)}Search by property address...</div>
       <div class="qseg">${qbtn("grid", "Cards", "on")}${qbtn("file", "Table")}</div>${qbtn("search", "Filters ⌄")}${qbtn("inbox", "Show Archived")}
       <div class="qcountbox"><b>3 of 3 reports</b><div>Showing last 30 days</div></div></div>
-    <div class="qcards">${reportCard("Project Banksia / Residence 014", ["Compass", "Financial", "Strategic", "Snapshot", "Briefing"], "B+", 74, pointer)}
-      ${reportCard("Project Banksia / Residence 015", ["Compass", "Financial"], "B", 68)}${reportCard("Project Banksia / Residence 016", ["Compass"], "B+", 71)}</div>
+    <div class="qcards">${reportCard("14 Wattle Grove, Banksia Rise", ["Compass", "Financial", "Strategic", "Snapshot", "Briefing"], "A+", 84, pointer, ["Strong buy", "All five dimensions"])}
+      ${reportCard("9 Ironbark Close, Banksia Rise", ["Compass", "Financial"], "A", 77)}${reportCard("27 Bottlebrush Avenue, Banksia Rise", ["Compass"], "B+", 72)}</div>
   </div>`;
 
   // The agent, open over the page: Alex's ask, Aurixa's draft for Jordan as a go-ahead card, and her edit.
   const agentPanel = (state) => {
     const bodyOf = (approved) =>
       approved
-        ? "Hi Jordan, your client summary for Residence 014 is ready. Next step: review the remaining questions together."
-        : "Hi Jordan, your client summary for Residence 014 is ready. Next step: discuss the next step.";
+        ? "Hi Jordan, your client summary for 14 Wattle Grove is ready. Next step: review the remaining questions together."
+        : "Hi Jordan, your client summary for 14 Wattle Grove is ready. Next step: discuss the next step.";
     // The go-ahead card as AgentApprovalCard draws it: its status as the heading, the act named in plain
     // words from the tool call (summarisePendingActions: "Send an email", then who and what about), the
     // email preview the widget passes in, and Approve / Cancel while pending or "Approved" once given.
     const approval = (approved) => `<div class="qappr${approved ? " given" : ""}">
       <div class="qapprh">${svg("shieldok", approved ? "#8c8c8c" : "#e5b93a", 2)}${approved ? "Approved" : "Needs your go-ahead"}</div>
-      <div class="qact"><span class="qacti">${svg("mail", "currentColor", 2)}</span><div style="min-width:0"><b>Send an email</b><span class="d">To jordan.ellis@example.com · Residence 014: your client summary</span></div></div>
+      <div class="qact"><span class="qacti">${svg("mail", "currentColor", 2)}</span><div style="min-width:0"><b>Send an email</b><span class="d">To jordan.ellis@example.com · 14 Wattle Grove: your client summary</span></div></div>
       <div class="qapprb"><div class="qmail"><div class="qmailh">📧 Email Preview</div><div style="padding:10px 12px;display:flex;flex-direction:column;gap:6px">
         <div><span class="m">From:</span> <span class="qchip on">🏢 Admin</span> <span class="qchip">👤 Personal</span></div>
-        <div><span class="m">To:</span> <b>jordan.ellis@example.com</b></div><div><span class="m">Subject:</span> <b>Residence 014: your client summary</b></div>
+        <div><span class="m">To:</span> <b>jordan.ellis@example.com</b></div><div><span class="m">Subject:</span> <b>14 Wattle Grove: your client summary</b></div>
         <div class="qbody"><div class="m" style="font-size:9.5px;letter-spacing:.12em;margin-bottom:4px">BODY</div>${bodyOf(approved)}</div></div></div></div>
       ${approved ? `<div class="qapprf">${svg("tick", "currentColor", 2.2)}Approved</div>` : `<div class="qapprk">${qbtn("tick", "Approve", "blue wide")}${qbtn("xcircle", "Cancel", "wide")}</div>`}</div>`;
     return `<div class="qagent">
       <div class="qagh">${mascot(50)}<div><b style="font-size:15px">Aurixa</b><div class="qsmall" style="font-size:12px">Ready when you are</div></div>
         <div style="margin-left:auto;display:flex;gap:14px;align-items:center">${["msg", "refresh", "users", "bell"].map((i) => svg(i, "#c4c4cc", 1.7)).join("")}<span style="color:#c4c4cc">···</span><span style="color:#c4c4cc;font-size:18px">×</span></div></div>
       <div class="qagb">
-        <div class="qubub">Draft a short note to Jordan Ellis about his Residence 014 client summary.</div>
+        <div class="qubub">Draft a short note to Jordan Ellis about his 14 Wattle Grove client summary.</div>
         <div class="qtrace"><span class="qorb"></span>Worked for 4s · 1 step<span style="margin-left:auto">⌄</span></div>
         <div style="font-size:13px;line-height:1.55">Here is a draft for <b>Jordan Ellis</b>. Nothing is sent until you give it the go-ahead.</div>
         ${approval(false)}
@@ -1175,7 +1182,7 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
         )
         .join("")}</div></div>
     <div class="qops" style="padding-bottom:18px"><div class="qeb">● EXECUTIVE SNAPSHOT</div>
-      <div style="display:flex;gap:16px;align-items:center;margin-top:12px"><div class="qproj">${pimg(150, 94)}<div><div class="qeb" style="color:#7d97ff">DEMO PROJECT</div><b style="font-size:20px">Residence 014</b><div class="qsmall">Project Banksia · New Build</div></div></div>
+      <div style="display:flex;gap:16px;align-items:center;margin-top:12px"><div class="qproj">${pimg(150, 94)}<div><div class="qeb" style="color:#7d97ff">DEMO PROJECT</div><b style="font-size:20px">14 Wattle Grove</b><div class="qsmall">Banksia Rise · New Build</div></div></div>
         <div><b style="font-size:18px">Intake performance</b><div class="qsmall" style="font-size:12.5px">Headline operating metrics for the filtered property pipeline.</div></div></div></div>
   </div>`;
   // ---------------------------------------------------------------- Finance (Jamie)
@@ -1234,7 +1241,7 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
     "Settlement Runway": "trend",
   };
   const purchaseFile = (tab, body, pointerOn) => `
-    <div class="fbar"><b>Residence 014, Project Banksia</b><span class="pill" style="margin-left:8px">Active</span>
+    <div class="fbar"><b>14 Wattle Grove, Banksia Rise</b><span class="pill" style="margin-left:8px">Active</span>
       <div style="margin-left:auto;display:flex;gap:4px">${[
         ["calendar", "Dates"],
         ["file", "Docs"],
@@ -1246,19 +1253,19 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
         <span class="fghost on">${ic("eye", "#7d97ff", 12)}Watching</span></div></div>
     <div class="fghost" style="align-self:flex-start;margin:-4px 0 -6px -8px">${ic("arrowl", "#c3c8d4", 12)}All purchase files</div>
     <div style="display:flex;align-items:flex-start;gap:14px">${pimg(118, 74)}
-      <div style="flex:1"><div style="display:flex;align-items:center;gap:9px">${ic("case", "#4767ff", 20)}<span style="font-size:23px;font-weight:700;letter-spacing:-.01em">Residence 014, Project Banksia</span></div>
-        <div class="sub" style="margin-top:6px">Jordan Ellis · Residence 014, Project Banksia NSW</div></div>
+      <div style="flex:1"><div style="display:flex;align-items:center;gap:9px">${ic("case", "#4767ff", 20)}<span style="font-size:23px;font-weight:700;letter-spacing:-.01em">14 Wattle Grove, Banksia Rise</span></div>
+        <div class="sub" style="margin-top:6px">Jordan Ellis · 14 Wattle Grove, Banksia Rise NSW 2155</div></div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:7px"><span class="fsel" style="width:150px">Active</span><span class="fsel" style="width:200px">In Assessment</span>
         <span class="btn ghost" style="font-size:11.5px;padding:7px 12px">${ic("trend", "#fff", 12)}Record outcome</span></div></div>
     <div class="ftabs"><span class="fchev">‹</span>${TABS.map((t) => `<span class="ftab ${t === tab ? "on" : ""}">${ic(TAB_ICON[t], t === tab ? "#fff" : "#9aa3b5", 12)}${t}${t === pointerOn ? onIt() : ""}</span>`).join("")}<span class="fchev" style="margin-left:auto">›</span></div>
     ${body}`;
   const fileSummary = `<div class="panel fsum"><div class="ph">${ic("spark", "#4767ff", 15)}Intelligent File Summary<span class="qsm" style="margin-left:auto">2 hours ago</span></div>
-      <div style="font-size:13px;font-weight:700">Residence 014 is in assessment for Jordan Ellis</div><div class="ps" style="margin-top:-8px">Docs received · lender shortlist in progress</div>
+      <div style="font-size:13px;font-weight:700">14 Wattle Grove is in assessment for Jordan Ellis</div><div class="ps" style="margin-top:-8px">Docs received · lender shortlist in progress</div>
       <div style="display:flex;gap:28px"><div style="flex:1"><div class="qsm" style="font-weight:700;color:#cfd5e2">${ic("file", "#cfd5e2", 11)} Outstanding documents</div><ul class="fli"><li>Latest two payslips</li><li>Signed privacy consent</li></ul></div>
         <div style="flex:1"><div class="qsm" style="font-weight:700;color:#D7B35F">${ic("alert", "#D7B35F", 11)} Watch-outs</div><ul class="fli"><li>Valuation not yet ordered</li></ul></div></div>
-      <div class="fnext">${ic("search", "#4767ff", 12)}<span><b>Next best action:</b> record the finance position for Residence 014 before the client summary goes out.</span></div></div>`;
+      <div class="fnext">${ic("search", "#4767ff", 12)}<span><b>Next best action:</b> record the finance position for 14 Wattle Grove before the client summary goes out.</span></div></div>`;
   const overviewTab = `${fileSummary}<div class="row">
-      <div class="panel" style="flex:1"><div class="ph">Property</div>${[["Address", "Residence 014, Project Banksia"]].map(([l, v]) => `<div><div class="flab">${l}</div><div class="fin">${v}</div></div>`).join("")}
+      <div class="panel" style="flex:1"><div class="ph">Property</div>${[["Address", "14 Wattle Grove, Banksia Rise"]].map(([l, v]) => `<div><div class="flab">${l}</div><div class="fin">${v}</div></div>`).join("")}
         <div class="row" style="gap:8px">${[
           ["Suburb", "Banksia Rise"],
           ["State", "NSW"],
@@ -1375,7 +1382,7 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
     ["building", "FINANCE BROKER", "Jamie Chen", "Harbour Finance Group"],
     ["shield", "SOLICITOR / CONVEYANCER", "Priya Shah", "Shah Legal"],
     ["chart", "ACCOUNTANT", "Mia Patel", "Patel &amp; Co Accountants"],
-    ["building", "BUILDER / DEVELOPER", "Daniel Reed", "Reed Constructions · Project Banksia"],
+    ["building", "BUILDER / DEVELOPER", "Daniel Reed", "Reed Constructions · Banksia Rise"],
   ];
   const cliWelcome = `<div class="banner" style="padding:16px 18px"><div class="av" style="width:40px;height:40px;font-size:13px">JE</div><div><div class="eb">WELCOME BACK</div>
     <div class="h1" style="font-size:22px">Jordan Ellis</div><div class="sub" style="font-size:11px">Here's the opportunity you're considering and the team around it.</div></div></div>`;
@@ -1489,9 +1496,9 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
   const planPage = (side) =>
     D
       ? `<div class="ppage" style="width:${side}px;height:${side}px;background:#fff url('${D}') center/contain no-repeat"></div>`
-      : `<div class="ppage pimg pph" data-label="D · Residence 014 floor plan" style="width:${side}px;height:${side}px"></div>`;
-  const PLAN_FILE = "floorplan-R014.pdf";
-  // How far Daniel has scrolled his Stock List: to the Residence 014 plate.
+      : `<div class="ppage pimg pph" data-label="D · 14 Wattle Grove floor plan" style="width:${side}px;height:${side}px"></div>`;
+  const PLAN_FILE = "floorplan-14-wattle-grove.pdf";
+  // How far Daniel has scrolled his Stock List: to the 14 Wattle Grove plate.
   const STOCK_SCROLL = 316;
 
   // The client's report as the exported PDF delivers it (investmentPdfCover.ts): the issuer's cover, on
@@ -1523,7 +1530,7 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
       <div style="position:absolute;left:${pt(W / 2 - 20)};width:${pt(40)};top:${pt(rule)};border-top:${pt(0.75)} solid ${gold}"></div>
       ${text(titleBase, 9, "'Liberation Sans', Helvetica, Arial, sans-serif", ink, 2.2, "INVESTMENT COMPASS")}
       <div style="position:absolute;left:${pt(70)};right:${pt(70)};top:${pt(560.5)};border-top:${pt(0.5)} solid ${gold}"></div>
-      ${text(575.25 + 9 * 0.718 * 0.5, 9, "'Liberation Sans', Helvetica, Arial, sans-serif", ink, 1.2, "RESIDENCE 014, PROJECT BANKSIA, BANKSIA RISE NSW 2155")}
+      ${text(575.25 + 9 * 0.718 * 0.5, 9, "'Liberation Sans', Helvetica, Arial, sans-serif", ink, 1.2, "14 WATTLE GROVE, BANKSIA RISE NSW 2155")}
     </div>`;
   };
 
@@ -1712,18 +1719,19 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
 
   // Page 3: "The property", the lead photograph contained on its sheet (investmentPdfPictures.ts).
   const propertyPage = () =>
-    `${furniture(3)}${head("The property", 103.08, DOC.field)}${set(55, 133.08, 9, "Residence 014, Project Banksia, Banksia Rise NSW 2155", { color: DOC.note })}
+    `${furniture(3)}${head("The property", 103.08, DOC.field)}${set(55, 133.08, 9, "14 Wattle Grove, Banksia Rise NSW 2155", { color: DOC.note })}
     <div class="rp-photo" style="left:55px;top:275.86px;width:485px;height:323.43px;${P ? `background-image:url('${P}')` : "background:#2a3b52"}"></div>
     ${rule(55, 739.83, 485, 0.5, DOC.hair)}${rule(55, 757.83, 485, 0.5, DOC.hair)}${rule(55, 775.83, 485, 0.5, DOC.hair)}
     ${set(55, 752.08, 8, "Source", { bold: true, color: DOC.field })}${set(173, 752.08, 8, "The listing's or the builder's marketing material.", { color: DOC.note })}
     ${set(55, 770.08, 8, "Before relying on it", { bold: true, color: DOC.field })}${set(173, 770.08, 8, "Inspect the property: images can be dated or staged.", { color: DOC.note })}`;
 
   // Page 4: the first section, Executive Verdict, under the report's title, with the Compass's two tiles. The
-  // verdict opens with the label the product prints for B+ assessed on 3 of 5 dimensions (printedVerdict,
-  // qualifyRecommendation), and the readiness statement follows the case (transactionReadiness.pure.ts).
+  // verdict opens with the label the product prints for A+ assessed on all five dimensions (printedVerdict;
+  // qualifyRecommendation leaves a full assessment unqualified), and the readiness statement follows the case
+  // (transactionReadiness.pure.ts).
   const SUMMARY = [
-    "**BUY - Good investment opportunity with favourable metrics in most of the areas assessed.**",
-    "Residence 014 is graded **B+** on a composite of **74**, carried by capital growth and location; rental yield is moderate, and demand and property risk were not scored. The case rests on the area's measured growth record and on the property's access to transport, schools and shops, not on any figure this report estimated.",
+    "**STRONG BUY - Excellent investment opportunity with strong fundamentals across all metrics.**",
+    "14 Wattle Grove is graded **A+** on a composite of **84**, led by location and capital growth, with demand, property risk and rental yield all scored. The case rests on the area's measured growth record, its market activity and the property's access to transport, schools and shops, not on any figure this report estimated.",
     "**Transaction readiness: material verification pending.** The grade is an assessment of the evidence this report holds. It is not permission to proceed, and it does not replace the checks in the Due Diligence Checklist, each of which can change the figures or the recommendation.",
   ];
   // Where the readiness statement's lead ("Transaction readiness: material verification pending.") sits on
@@ -1733,10 +1741,13 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
   const WHAT_THIS_MEANS =
     "The grade supports moving to the checks that settle it: the review of the land and build contracts, the lot's title and approvals, and an independent appraisal of the rent at completion.";
   const summaryPage = () => {
-    const title = prose(
-      "Investment Compass: Residence 014, Project Banksia, Banksia Rise NSW 2155",
-      { base: 103.08, size: 18, lead: 24, left: true, bold: true },
-    );
+    const title = prose("Investment Compass: 14 Wattle Grove, Banksia Rise NSW 2155", {
+      base: 103.08,
+      size: 18,
+      lead: 24,
+      left: true,
+      bold: true,
+    });
     const headBase = title.last + 49;
     const tiles = headBase + 30;
     let html = `${furniture(4)}${label(57)}${title.html}${head("Executive Verdict", headBase)}
@@ -1770,29 +1781,29 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
   };
 
   // Page 19: how the grade was reached, composed as strategyPositions.composeScoreDimensionTable writes it for
-  // a proportional grade whose record holds its weights. B+ at 74 on 3 of the 5 dimensions, as every plate
-  // shows it: capital growth 76, location 81, rental yield 58 at the original 40 / 25 / 15 re-spread to
-  // 50 / 31.25 / 18.75 (38.00 + 25.31 + 10.88 = 74.19, recorded as 74). The renderer sets "—" as "-".
+  // a proportional grade whose record holds its weights. A+ at 84 on all five dimensions, as every plate shows
+  // it: capital growth 86, location 90, rental yield 72, demand 84 and property risk 80 at their original
+  // 40 / 25 / 15 / 15 / 5 (34.40 + 22.50 + 10.80 + 12.60 + 4.00 = 84.30, recorded as 84).
   const GRADE_INTRO =
     "Five dimensions carry the method. Each has an **original weight**; the scoring method re-spreads those weights across the dimensions the evidence could measure - discounted by how much of each dimension's own method actually ran - giving the **adjusted weight** the composite is built from. That is why a dimension scored on part of its inputs can carry less than its original weight. The adjusted weights below are the ones the record holds, so they are the weights this grade was actually built from. A dimension that could not be assessed is disclosed rather than deducted: it lowers no score and caps no grade, and the scope of the assessment is stated with the result instead.";
   const GRADE_ROWS = [
-    ["Capital growth", "76 / 100", "40%", "50%", "38.00"],
-    ["Location", "81 / 100", "25%", "31%", "25.31"],
-    ["Rental yield", "58 / 100", "15%", "19%", "10.88"],
-    ["Demand", "-", "15%", "- (not scored)", "-"],
-    ["Property risk", "-", "5%", "- (not scored)", "-"],
+    ["Capital growth", "86 / 100", "40%", "40%", "34.40"],
+    ["Location", "90 / 100", "25%", "25%", "22.50"],
+    ["Rental yield", "72 / 100", "15%", "15%", "10.80"],
+    ["Demand", "84 / 100", "15%", "15%", "12.60"],
+    ["Property risk", "80 / 100", "5%", "5%", "4.00"],
   ];
   const GRADE_AFTER = [
     "**What each dimension rested on.**",
     "• **Capital growth.** Scored on the published median sale price series for the council area, quarterly, as its publisher records it.",
     "• **Location.** Nearest transit stop 600 m away. 7 schools within 3 km, and shops and the commute to its centre measured at the property's address.",
     "• **Rental yield.** Scored on the recorded weekly rent against the purchase price.",
-    "• **Demand.** Not assessed - sufficient verified demand evidence is currently unavailable. What is missing is a published measure of how actively this market trades: sale volumes, days on market, vendor discounting or auction results. Population change is a supporting indicator and cannot stand in for one.",
-    "• **Property risk.** Not assessed - insufficient verified property-risk evidence is available. What is missing is property-specific risk measurement covering at least two independent subjects - for example a building condition assessment alongside hazard or planning controls checked against the parcel itself rather than a single map point.",
+    "• **Demand.** Scored on the area's recorded sales volumes against their own trailing average, with population change as a supporting indicator.",
+    "• **Property risk.** Scored on a building condition record and on the hazard and planning controls read at the parcel.",
     "**How the grade follows.**",
-    "• **Composite score 74.** The contributions come to 74.19, rounded once to the composite 74, the figure recorded with the grade. They are computed from the exact adjusted weights the scoring method retained with this grade, so they reproduce its arithmetic; the weights printed as whole percentages are those weights rounded for display.",
-    "• **Grade the composite alone gives: B+.**",
-    "• **Assessed on 3 of the 5 dimensions**, carrying 80% of the method's original weight. The dimensions that could not be assessed are named above with what would restore each one; none of them lowers this result.",
+    "• **Composite score 84.** The contributions come to 84.30, rounded once to the composite 84, the figure recorded with the grade.",
+    "• **Grade the composite alone gives: A+.**",
+    "• **Assessed on all 5 dimensions**, carrying the whole of the method's original weight.",
   ];
   const GRADE_EDGES = [55, 159.21, 246.76, 334.32, 424.68, 540];
   const GRADE_MARKS = [];
@@ -1853,7 +1864,7 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
     `${furniture(page)}${head(heading, 103.08)}${Array.from({ length: bars }, (_, i) => rule(55, 128 + i * 21, i % 6 === 5 ? 300 : 485, 4.5, "#D9DCE0")).join("")}`;
   const docThumbs = (pages, on) =>
     `<div class="pthumbs">${pages.map(([n, page]) => `<div class="pt1${n === on ? " on" : ""}">${page}<span>${n}</span></div>`).join("")}</div>`;
-  const DOC_TITLE = "Investment Compass — Residence 014, Project Banksia, Banksia Rise NSW 2155";
+  const DOC_TITLE = "Investment Compass — 14 Wattle Grove, Banksia Rise NSW 2155";
   // The viewer at page 1, the cover; at page 4, the summary; and at page 19, how the grade was reached.
   const docViewer = (page) =>
     pdfViewer({
@@ -1918,7 +1929,7 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
         <div class="me"><span class="demo">Demo workspace</span><div class="av">PS</div>Priya Shah</div></div>
       <div class="body">${body}</div></section>${extra}</div>`;
   const matterHead = `<div class="banner" style="align-items:flex-end;flex-wrap:wrap;row-gap:12px"><div style="flex:1;min-width:300px"><div class="eb">${ic("scale", "#3556f0", 11)}MATTER</div>
-      <div class="h1">Ellis: Purchase, Residence 014</div><div class="sub">Residence 014, Project Banksia, Banksia Rise NSW 2155</div></div>
+      <div class="h1">Ellis: Purchase, 14 Wattle Grove</div><div class="sub">14 Wattle Grove, Banksia Rise NSW 2155</div></div>
       <div style="display:flex;gap:8px;align-items:center"><span class="fghost">${ic("arrowl", "#c3c8d4", 12)}All matters</span><span class="pill blue" style="margin:0;font-size:12px;padding:5px 12px">Contract review</span>
         <span class="btn" style="font-size:12px;padding:7px 12px">${ic("pencil", "#fff", 12)}Change status</span></div></div>`;
   const MATTER_TABS = [
@@ -1964,7 +1975,7 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
       <div style="display:flex;flex-direction:column;gap:12px">
         <div class="panel"><div class="ph">${ic("landmark", "#4767ff", 15)}Finance status</div><div class="ps">Finance clause visibility only — no client financials.</div>
           ${[
-            ["Finance file", "Residence 014, Project Banksia"],
+            ["Finance file", "14 Wattle Grove, Banksia Rise"],
             ["Status", "More information required"],
             ["Finance clause", "Subject to finance"],
             ["Lender", "Shortlist in progress"],
@@ -1982,14 +1993,18 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
     [
       "Contract of sale (draft)",
       "Under review",
-      "Contract of sale · Other side · due 24 Oct 2026 · contract-R014-draft.pdf (1.1 MB)",
+      "Contract of sale · Other side · due 24 Oct 2026 · contract-14-wattle-grove-draft.pdf (1.1 MB)",
     ],
     [
-      "Floor plan — Residence 014",
+      "Floor plan — 14 Wattle Grove",
       "Under review",
       `Plan / survey · Builder · ${PLAN_FILE} (2.4 MB)`,
     ],
-    ["Building specification", "Accepted", "Other · Builder · specification-R014.pdf (860 KB)"],
+    [
+      "Building specification",
+      "Accepted",
+      "Other · Builder · specification-14-wattle-grove.pdf (860 KB)",
+    ],
     ["Planning certificate", "Requested", "Disclosure statement · Other side · due 28 Oct 2026"],
   ];
   const docsTab = `<div class="qsm" style="font-size:12px;margin:-2px 0 -4px">3 outstanding</div>
@@ -2008,7 +2023,7 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
       ).join("")}</div>`;
   const notesCard = (pointer) => `<div class="panel"><div class="ph">Notes</div>
       <div class="ps">The client summary is shared with the Command Centre and the client. Practice notes never leave this portal.</div>
-      <div><div class="flab">Client-facing summary</div><div class="fta" style="height:70px">Your contract and the Residence 014 floor plan are with us for review. We will go through the remaining document questions with you before exchange.</div></div>
+      <div><div class="flab">Client-facing summary</div><div class="fta" style="height:70px">Your contract and the 14 Wattle Grove floor plan are with us for review. We will go through the remaining document questions with you before exchange.</div></div>
       <div><div class="flab">Practice-only notes</div><div class="fta" style="height:104px">Floor plan (${PLAN_FILE}) checked against the contract plan: four bedrooms, layout as drawn. Remaining questions: planning certificate still to come; confirm the specification's inclusions with the builder.</div></div>
       <div style="display:flex;justify-content:flex-end"><span class="btn" style="font-size:12.5px;padding:8px 14px">${ic("save", "#fff", 12)}Save notes${pointer ? onIt() : ""}</span></div></div>`;
   // Priya's screen in 12B: the floor plan's PDF tab and the matter's Notes, as two windows side by side.
@@ -2070,32 +2085,32 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
       )
       .join("")}</div>
     <div class="bpanel"><div class="bct">Selected for a buyer</div><div class="bcd">A connected workspace has selected these properties from your stock list. Acknowledge each one to confirm you have seen it.</div>
-      <div class="bsel"><div style="flex:1"><div style="font-size:13.5px;font-weight:600">Lot 14, Project Banksia · Residence 014</div><div class="bl" style="margin-top:3px">Selected 21/10/2026, 9:14:03 am · by Aurixa Systems · A. Morgan</div></div>
+      <div class="bsel"><div style="flex:1"><div style="font-size:13.5px;font-weight:600">Lot 14 · 14 Wattle Grove, Banksia Rise</div><div class="bl" style="margin-top:3px">Selected 21/10/2026, 9:14:03 am · by Aurixa Systems · A. Morgan</div></div>
         <span class="bbtn" style="height:34px">${ic("check", "#e6f7f8", 14)}Acknowledge</span></div></div>`;
   const schedule = [
     ["PRICE", `<b class="bprice">$1,150,000</b><div class="bl">fixed price, house and land</div>`],
     ["BEDROOMS", "4"],
-    ["BATHROOMS", "1"],
-    ["CAR SPACES", "1"],
-    ["HOME", "168 m²"],
-    ["LAND", "290 m²"],
+    ["BATHROOMS", "2"],
+    ["CAR SPACES", "2"],
+    ["HOME", "224 m²"],
+    ["LAND", "450 m²"],
     ["AVAILABILITY", `<span class="bselect" style="width:170px">Available</span>`],
   ];
   const stockPlate = `<li class="bplate"><div><div class="bframe">${P ? `<i style="background-image:url('${P}')"></i><b style="background-image:url('${P}')"></b>` : ""}</div>
         <div class="bcap"><span class="bchip ok">${ic("image", "#4ADE80", 11)}BUILDER SUPPLIED</span><span class="bghost">${ic("image", "#9CA3AF", 11)}Replace</span>
           <span class="bstage">${ic("file", "#9CA3AF", 10)}Stock list 1</span><span class="bstage dash">${ic("map", "#9CA3AF", 10)}Street View —</span><span class="bstage dash">${ic("globe", "#9CA3AF", 10)}Online —</span></div></div>
-      <div class="bsheet"><div style="display:flex;align-items:flex-start;gap:12px"><div style="flex:1;min-width:0"><div class="ann">PROJECT BANKSIA · HOUSE AND LAND</div>
-          <div class="btitle">Lot 14, Project Banksia · Residence 014</div><div class="bl" style="font-size:12.5px">Banksia Rise NSW 2155 · Ref R014</div></div>
+      <div class="bsheet"><div style="display:flex;align-items:flex-start;gap:12px"><div style="flex:1;min-width:0"><div class="ann">BANKSIA RISE · HOUSE AND LAND</div>
+          <div class="btitle">Lot 14 · 14 Wattle Grove, Banksia Rise</div><div class="bl" style="font-size:12.5px">Banksia Rise NSW 2155 · Ref WG-14</div></div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><span class="bchip gold">SELECTED FOR A CLIENT</span><span class="bghost">${ic("trash", "#9CA3AF", 11)}Remove</span></div></div>
         <dl class="bspec">${schedule.map(([l, v]) => `<dt class="ann">${l}</dt><dd>${v}</dd>`).join("")}</dl>
         <div style="display:flex;align-items:center;gap:10px"><span class="bl" style="flex:1">Supplied by you: every figure.</span><span class="brev">${ic("ruler", "#fff", 12)}UPDATE THE SCHEDULE</span></div></div></li>`;
   const stockWorkspace = `<div class="bpanel bstock"><div class="ann" style="color:#22C3CE">YOUR STOCK</div><div class="bct" style="margin-top:4px">3 properties on the marketplace</div>
       <div class="bcd">Properties imported from your stock lists. These are what the Command Centre sees.</div>
       <div class="brail"><span class="bsearch">${ic("search", "#9CA3AF", 14)}Search address, suburb, development or reference</span><span class="bselect" style="width:180px">All availability</span><span class="bselect" style="width:220px">All stock lists</span></div>
-      <ul class="bplates">${stockPlate}<li class="bplate" style="opacity:.75"><div><div class="bframe" style="background:#122036"></div></div><div class="bsheet"><div class="ann">PROJECT BANKSIA · HOUSE AND LAND</div><div class="btitle">Lot 15, Project Banksia · Residence 015</div></div></li></ul></div>`;
+      <ul class="bplates">${stockPlate}<li class="bplate" style="opacity:.75"><div><div class="bframe" style="background:#122036"></div></div><div class="bsheet"><div class="ann">BANKSIA RISE · HOUSE AND LAND</div><div class="btitle">Lot 15 · 9 Ironbark Close, Banksia Rise</div></div></li></ul></div>`;
   const stockList = (scroll) => bn("Stock List", `${stockHero}${stockWorkspace}`, scroll);
   const bnUrl = `${ic("lock", "#9aa0a6", 12)}<span>aurixasystems.com.au<span style="color:#80868b">/builder/stock</span></span>`;
-  const fileUrl = `<span style="color:#9aa0a6">File</span><span style="color:#5f6368">|</span><span>C:/Users/Daniel/Documents/Residence 014/${PLAN_FILE}</span>`;
+  const fileUrl = `<span style="color:#9aa0a6">File</span><span style="color:#5f6368">|</span><span>C:/Users/Daniel/Documents/14 Wattle Grove/${PLAN_FILE}</span>`;
   const daniel = (onPlan) =>
     browser({
       style: "inset:0",
@@ -2150,7 +2165,7 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
       ${ndPanel(
         `${ic("alert", "#f26464", 15)}At risk &amp; stuck matters`,
         "Ranked by severity from dates, stage dwell time and recent activity.",
-        `<div class="line" style="display:block"><div style="display:flex;align-items:center;gap:10px"><div class="a">Ellis: Purchase, Residence 014</div><span class="pill muted">Watch</span></div>
+        `<div class="line" style="display:block"><div style="display:flex;align-items:center;gap:10px"><div class="a">Ellis: Purchase, 14 Wattle Grove</div><span class="pill muted">Watch</span></div>
           <div class="b">Contract review · 13 days in stage</div>
           <div class="b" style="color:#c3c8d4;margin-top:6px"><b style="color:#fff;font-weight:600">Stuck in stage:</b> 13 days in contract review (expected under 10).</div></div>`,
         "flex:2",
@@ -2296,7 +2311,7 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
     AM: "#2a2d3a",
   };
   const REPLY =
-    "Your Residence 014 report is ready in your portal. Let's go through it together on Thursday.";
+    "Your 14 Wattle Grove report is ready in your portal. Let's go through it together on Thursday.";
   const mhRow = (ini, name, time, line, { on = false, draft = false, client = false } = {}) =>
     `<div class="mh-row${on ? " on" : ""}"><div class="mh-av" style="background:${TONE[ini]}">${ini}${client ? `<em>${icon("userround", "#5fe0e8", 2.2)}</em>` : ""}</div>
       <div class="mh-rt"><div class="mh-r1"><b>${name}</b><small>${time}</small></div>
@@ -2307,7 +2322,7 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
         "PS",
         "Priya Shah",
         "Tue",
-        "<i>Priya Shah:</i> Contract review is under way for Residence 014.",
+        "<i>Priya Shah:</i> Contract review is under way for 14 Wattle Grove.",
       ],
       ["JC", "Jamie Chen", "Tue", "<i>Jamie Chen:</i> Valuation ordered with the lender."],
     ],
@@ -2320,7 +2335,7 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
       ],
     ],
     earlier: [
-      ["DR", "Daniel Reed", "14 Oct", "<i>Daniel Reed:</i> Residence 014 is on our stock list."],
+      ["DR", "Daniel Reed", "14 Oct", "<i>Daniel Reed:</i> 14 Wattle Grove is on our stock list."],
     ],
   };
   const mhList = (sent) => {
@@ -2395,7 +2410,7 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
       .map((c, i) => `<span class="cr-chip${i ? "" : " on"}">${c}</span>`)
       .join("")}</div>
     <div class="cr-card"><div class="cr-ic">${ic("filebar", "#4767ff", 15)}</div><div style="flex:1;min-width:0">
-        <div class="cr-t">Project Banksia / Residence 014<span class="cr-new">New</span></div>
+        <div class="cr-t">14 Wattle Grove, Banksia Rise<span class="cr-new">New</span></div>
         <div class="cr-tags"><span>Investment Report</span><span class="sec">Compass</span></div>
         <div class="cr-note">Prepared for our discussion on Thursday.</div>
         <span class="cr-dl">${ic("download", "#fff", 10)}Download Report</span></div>
@@ -2409,7 +2424,7 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
     <div class="cr-card"><div class="cr-ic">${ic("calendar", "#4767ff", 14)}</div><div style="flex:1;min-width:0">
         <div class="cr-t">Report walkthrough with Alex Morgan<span class="cr-up">Upcoming</span></div>
         <div class="cr-meta"><span>${ic("calendar", "#9aa3b5", 9)}Thu, 22 Oct 2026</span><span>${ic("clock", "#9aa3b5", 9)}10:00 AM – 10:30 AM</span></div>
-        <div class="cr-note">Residence 014 · your Investment Compass</div></div>
+        <div class="cr-note">14 Wattle Grove · your Investment Compass</div></div>
       <div class="cr-when"><small style="margin-top:0">in about 23 hours</small></div></div>`,
   );
 
@@ -2450,7 +2465,7 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
       scale: CC_SCALE,
       html: cc("Generated Reports", investmentReport("financial-preparing"), fab(false), true),
     },
-    // 05C: the library, Residence 014's report under the pointer; the click opens the report's page.
+    // 05C: the library, 14 Wattle Grove's report under the pointer; the click opens the report's page.
     "PL-05C-a": {
       size: W,
       scale: CC_SCALE,
@@ -2516,10 +2531,10 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
         "dash",
         `${cliWelcome}
         <div class="team"><div class="dots">${roles.map(() => `<i>${'<span style="width:11px;height:11px;display:inline-flex">' + icon("user", "#fff", 2) + "</span>"}</i>`).join("")}</div>
-          <div><div style="font-size:12px;font-weight:800">Your property team</div><div style="font-size:9.5px;color:#9aa3b5">5 professionals working on Residence 014</div></div><span style="margin-left:auto;font-size:10px;color:#3556f0;font-weight:700">View team →</span></div>
-        <div class="row"><div class="mini"><div class="k">OPPORTUNITY</div><div class="v">Residence 014</div></div><div class="mini"><div class="k">STAGE</div><div class="v">Under consideration</div></div>
+          <div><div style="font-size:12px;font-weight:800">Your property team</div><div style="font-size:9.5px;color:#9aa3b5">5 professionals working on 14 Wattle Grove</div></div><span style="margin-left:auto;font-size:10px;color:#3556f0;font-weight:700">View team →</span></div>
+        <div class="row"><div class="mini"><div class="k">OPPORTUNITY</div><div class="v">14 Wattle Grove</div></div><div class="mini"><div class="k">STAGE</div><div class="v">Under consideration</div></div>
           <div class="mini"><div class="k">NEXT</div><div class="v">Client summary</div></div></div>
-        <div class="panel"><div class="ph" style="font-size:12.5px">Active opportunity</div><div class="line">${pimg(90, 56)}<div><div class="a" style="font-size:12px">Project Banksia / Residence 014</div><div class="b">New build</div></div><span class="pill">Under consideration</span></div></div>`,
+        <div class="panel"><div class="ph" style="font-size:12.5px">Active opportunity</div><div class="line">${pimg(90, 56)}<div><div class="a" style="font-size:12px">14 Wattle Grove, Banksia Rise</div><div class="b">New build</div></div><span class="pill">Under consideration</span></div></div>`,
       ),
     },
     "PL-06A-b": { size: L, scale: 2, html: cli("team", propertyTeam) },
@@ -2543,7 +2558,7 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
     // 12B: the floor plan's PDF beside the matter's Notes; "Save notes", then its toast.
     "PL-12B-a": { size: W, scale: SCALE, html: tiled(false) },
     "PL-12B-b": { size: W, scale: SCALE, html: tiled(true) },
-    // Builder / Developer: 12A, the Residence 014 plate on the Stock List, then the plan's own tab. At the
+    // Builder / Developer: 12A, the 14 Wattle Grove plate on the Stock List, then the plan's own tab. At the
     // Command Centre's scale: the plate's elevation is 34rem wide in the code, too wide for a 1280 px page.
     "PL-12A-a": { size: W, scale: CC_SCALE, html: daniel(false) },
     "PL-12A-b": { size: W, scale: CC_SCALE, html: daniel(true) },

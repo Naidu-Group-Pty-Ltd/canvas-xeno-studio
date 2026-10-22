@@ -72,7 +72,7 @@ function deliverableScene() {
   const state = (t, m) => {
     const st = new State();
     caption(st, t, m);
-    // Generated Reports, the pointer on Residence 014; it opens the report's page, and the camera follows
+    // Generated Reports, the pointer on 14 Wattle Grove; it opens the report's page, and the camera follows
     // the click back to the whole page (F05's framing), which dims while the document comes forward.
     const start = {
       rect: [40, 384, 1000, 892],

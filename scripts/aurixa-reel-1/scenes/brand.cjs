@@ -405,7 +405,7 @@ function brandScene() {
       const nb = m.newBuildCard[1];
       return {
         ...m,
-        // The pointer's tip on New Build's label, right of its centre; it starts on Residence 014's card.
+        // The pointer's tip on New Build's label, right of its centre; it starts on 14 Wattle Grove's card.
         newBuild: [nb[0] + nb[2] * 0.66, nb[1] + nb[3] * 0.58],
         property: [
           m.propertyCard[0] + m.propertyCard[2] * 0.5,

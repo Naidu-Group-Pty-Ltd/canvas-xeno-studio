@@ -205,14 +205,14 @@ const onButton = () =>
   `<svg class="cursor" style="right:-18px;bottom:-26px" viewBox="0 0 24 24"><path d="M3 2l17 9.5-7.5 1.6L9 21z" fill="#fff" stroke="#0A192F" stroke-width="1.4" stroke-linejoin="round"/></svg>`;
 const cursor = (x, y) =>
   `<svg class="cursor" style="left:${x}px;top:${y}px" viewBox="0 0 24 24"><path d="M3 2l17 9.5-7.5 1.6L9 21z" fill="#fff" stroke="#0A192F" stroke-width="1.4" stroke-linejoin="round"/></svg>`;
-const pimg = (w, h, label = "P · Residence 014 image") =>
+const pimg = (w, h, label = "P · 14 Wattle Grove image") =>
   P
     ? `<div class="pimg" style="width:${w}px;height:${h}px;background-image:url('${P}')"></div>`
     : `<div class="pimg ph" data-label="${label}" style="width:${w}px;height:${h}px"></div>`;
 const dimg = (w, h) =>
   D
     ? `<div class="pimg" style="width:${w}px;height:${h}px;background:#fff url('${D}') center/contain no-repeat"></div>`
-    : `<div class="pimg ph" data-label="D · Residence 014 floor plan" style="width:${w}px;height:${h}px"></div>`;
+    : `<div class="pimg ph" data-label="D · 14 Wattle Grove floor plan" style="width:${w}px;height:${h}px"></div>`;
 const emblem = (size = 58) =>
   EMBLEM
     ? `<div class="emblem real" style="width:${size}px;height:${size}px;background-image:url('${EMBLEM}')"></div>`
@@ -245,7 +245,7 @@ function shell({ secondary = "", groups, top = "", body, teal = false, grid = fa
 const ctxCard = (
   sel = false,
 ) => `<div class="card${sel ? " sel" : ""}" style="flex:none"><div class="ctx">${pimg(300, 190)}<div>
-  <div class="kicker">Prepared context</div><div class="name">Project Banksia / Residence 014</div><div class="meta">BK-014 · Opportunity under consideration</div></div></div></div>`;
+  <div class="kicker">Prepared context</div><div class="name">14 Wattle Grove, Banksia Rise</div><div class="meta">WG-14 · Opportunity under consideration</div></div></div></div>`;
 
 // Portal shells, after the pack's reference map (pages 7-8).
 const CC = (activeNav, body) =>
@@ -345,7 +345,7 @@ const enquiry = (sent) => `
   <div style="display:flex;gap:24px;align-items:flex-start">${pimg(420, 270)}
   <div style="flex:1;display:flex;flex-direction:column;gap:12px">
     <div style="font-size:20px;color:#64748b">From <b style="color:#1f2937">Jordan Ellis</b> · To <b style="color:#1f2937">Alex Morgan</b></div>
-    <div style="font-size:26px;font-weight:700;color:#0f172a">Project Banksia / Residence 014</div>
+    <div style="font-size:26px;font-weight:700;color:#0f172a">14 Wattle Grove, Banksia Rise</div>
     <div class="note" style="background:#f8fafc;border-color:#dbe3ec;color:#0f172a;font-size:28px;line-height:1.35">Can we review whether this suits my plans?</div>
     ${sent ? `<div style="font-size:22px;color:#16794b;font-weight:700">✓ Sent</div>` : `<div class="gbtn" style="position:relative">Send${onButton()}</div>`}
   </div></div>`;
@@ -391,7 +391,7 @@ const PLATES = {
         900,
         470,
         "Research",
-        `<div style="font-weight:700">Residence 014 · area notes</div>${lines(6, [92, 80, 86, 70])}`,
+        `<div style="font-weight:700">14 Wattle Grove · area notes</div>${lines(6, [92, 80, 86, 70])}`,
       ) +
         win(
           980,
@@ -436,7 +436,7 @@ const PLATES = {
           880,
           960,
           "Property information",
-          `<div style="display:flex;gap:18px;align-items:center;background:#eef5ff;border:2px solid #9cc0f5;border-radius:12px;padding:18px">${pimg(200, 130)}<div><div style="font-size:30px;font-weight:700;color:#0f172a">Floor plan received</div><div style="color:#475569">Residence 014</div></div></div>${lines(5, [88, 70, 80])}`,
+          `<div style="display:flex;gap:18px;align-items:center;background:#eef5ff;border:2px solid #9cc0f5;border-radius:12px;padding:18px">${pimg(200, 130)}<div><div style="font-size:30px;font-weight:700;color:#0f172a">Floor plan received</div><div style="color:#475569">14 Wattle Grove</div></div></div>${lines(5, [88, 70, 80])}`,
         ),
     ),
   },
@@ -461,7 +461,7 @@ const PLATES = {
         880,
         960,
         "Documents",
-        `<div style="font-weight:700">Residence 014 — documents</div>${["Contract of sale (draft)", "Floor plan", "Building specification", "Strata information"].map((t) => `<div style="padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">${t}</div>`).join("")}`,
+        `<div style="font-weight:700">14 Wattle Grove — documents</div>${["Contract of sale (draft)", "Floor plan", "Building specification", "Strata information"].map((t) => `<div style="padding:14px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">${t}</div>`).join("")}`,
       ) +
         win(
           980,
@@ -469,7 +469,7 @@ const PLATES = {
           880,
           960,
           "Documents (2)",
-          `<div style="font-weight:700">Residence 014 — documents</div>${["Contract of sale (draft)", "Floor plan", "Floor plan (copy)", "Building specification"].map((t, i) => `<div style="padding:14px 16px;background:${i === 2 ? "#fff7ed" : "#f8fafc"};border:1px solid ${i === 2 ? "#fdba74" : "#e2e8f0"};border-radius:8px">${t}</div>`).join("")}`,
+          `<div style="font-weight:700">14 Wattle Grove — documents</div>${["Contract of sale (draft)", "Floor plan", "Floor plan (copy)", "Building specification"].map((t, i) => `<div style="padding:14px 16px;background:${i === 2 ? "#fff7ed" : "#f8fafc"};border:1px solid ${i === 2 ? "#fdba74" : "#e2e8f0"};border-radius:8px">${t}</div>`).join("")}`,
         ),
     ),
   },
@@ -508,7 +508,7 @@ const PLATES = {
     size: [1920, 1080],
     html: `<div class="screen aurixa" style="padding:40px 220px;display:block">
       <div class="report" style="height:100%">
-        <div style="display:flex;gap:30px;align-items:center">${pimg(340, 210)}<div><div class="kicker" style="color:#9a7424">Project Banksia / Residence 014</div><h2>Client summary</h2></div></div>
+        <div style="display:flex;gap:30px;align-items:center">${pimg(340, 210)}<div><div class="kicker" style="color:#9a7424">14 Wattle Grove, Banksia Rise</div><h2>Client summary</h2></div></div>
         <div class="rule"></div><h4>Key considerations</h4><div class="lines"><div style="width:92%"></div><div style="width:84%"></div></div>
         <div class="rule"></div><h4>Questions for discussion</h4><div class="lines"><div style="width:88%"></div><div style="width:70%"></div></div></div></div>`,
   },
@@ -517,7 +517,7 @@ const PLATES = {
     html: CC(
       "reports",
       `<div class="row" style="flex:1">
-      <div style="flex:1;display:flex;flex-direction:column;gap:24px">${ctxCard(false)}<div class="card"><div class="kicker">Questions for review</div><h3>Residence 014</h3><p>Prepared with the client's enquiry</p></div></div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:24px">${ctxCard(false)}<div class="card"><div class="kicker">Questions for review</div><h3>14 Wattle Grove</h3><p>Prepared with the client's enquiry</p></div></div>
       <div class="agent" style="width:700px"><div class="hd"><span class="dot"></span>Aurixa Agent</div>
         <div class="draft"><div class="lab">Draft client summary</div>Discuss the next step</div>
         <div style="display:flex;gap:12px"><span class="pill gold">Review required</span><span class="pill">Question to verify</span></div></div></div>`,
@@ -528,7 +528,7 @@ const PLATES = {
     html: CC(
       "reports",
       `<div class="row" style="flex:1">
-      <div style="flex:1;display:flex;flex-direction:column;gap:24px">${ctxCard(false)}<div class="card"><div class="kicker">Questions for review</div><h3>Residence 014</h3><p>Prepared with the client's enquiry</p></div></div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:24px">${ctxCard(false)}<div class="card"><div class="kicker">Questions for review</div><h3>14 Wattle Grove</h3><p>Prepared with the client's enquiry</p></div></div>
       <div class="agent" style="width:700px"><div class="hd"><span class="dot"></span>Aurixa Agent</div>
         <div class="draft" style="outline:3px solid var(--blue)"><div class="lab">Draft client summary</div>Discuss the next step</div>
         <div style="display:flex;gap:12px"><span class="pill gold">Review required</span></div><div class="btn blue" style="align-self:flex-start">Save draft</div></div></div>`,
@@ -539,7 +539,7 @@ const PLATES = {
     html: CC(
       "reports",
       `<div class="row" style="flex:1">
-      <div style="flex:1;display:flex;flex-direction:column;gap:24px">${ctxCard(false)}<div class="card"><div class="kicker">Questions for review</div><h3>Residence 014</h3><p>Prepared with the client's enquiry</p></div></div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:24px">${ctxCard(false)}<div class="card"><div class="kicker">Questions for review</div><h3>14 Wattle Grove</h3><p>Prepared with the client's enquiry</p></div></div>
       <div class="agent" style="width:700px"><div class="hd"><span class="dot"></span>Aurixa Agent</div>
         <div class="draft"><div class="lab">Draft client summary</div>Review the remaining questions together</div>
         <div class="done" style="font-size:24px">✓ Draft saved</div></div></div>`,
@@ -553,7 +553,7 @@ const PLATES = {
       groups: [["", ["*Demo workspace", "Projects", "Reports", "Message Hub"]]],
       body: `
       <div class="banner"><div class="eyebrow">DEMO WORKSPACE</div><div class="title">Explore your workspace</div></div>
-      <div class="row"><div class="card sel" style="flex:none;width:820px;flex-direction:row;gap:26px;align-items:center">${pimg(320, 210)}<div><div class="kicker">Project</div><h3 style="font-size:38px">Residence 014</h3><p>Project Banksia</p></div></div>
+      <div class="row"><div class="card sel" style="flex:none;width:820px;flex-direction:row;gap:26px;align-items:center">${pimg(320, 210)}<div><div class="kicker">Project</div><h3 style="font-size:38px">14 Wattle Grove</h3><p>Banksia Rise NSW 2155</p></div></div>
       <div class="card"><div class="kicker">Portals</div><h3>Finance · Legal · Builder · Accounting</h3></div></div>`,
     }),
   },
@@ -569,7 +569,7 @@ const PLATES = {
   },
   "PL-13A-a": {
     size: [1920, 1080],
-    html: FIN(`<div class="ctx">${pimg(240, 150)}<div><div class="kicker">Active Purchase Files</div><div class="name">Project Banksia / Residence 014</div></div></div>
+    html: FIN(`<div class="ctx">${pimg(240, 150)}<div><div class="kicker">Active Purchase Files</div><div class="name">14 Wattle Grove, Banksia Rise</div></div></div>
       <div class="tabs"><div class="tab on">Scenario comparison</div><div class="tab">Questions for discussion</div></div>
       <div class="row"><div class="card"><div class="kicker">Scenario</div><h3 style="font-size:40px">Base case</h3>${lines(2)}</div>
       <div class="card" style="position:relative"><div class="kicker">Scenario</div><h3 style="font-size:40px">Alternative case</h3>${lines(2)}${cursor(360, 60)}</div></div>
@@ -577,7 +577,7 @@ const PLATES = {
   },
   "PL-13A-b": {
     size: [1920, 1080],
-    html: FIN(`<div class="ctx">${pimg(240, 150)}<div><div class="kicker">Active Purchase Files</div><div class="name">Project Banksia / Residence 014</div></div></div>
+    html: FIN(`<div class="ctx">${pimg(240, 150)}<div><div class="kicker">Active Purchase Files</div><div class="name">14 Wattle Grove, Banksia Rise</div></div></div>
       <div class="tabs"><div class="tab on">Scenario comparison</div><div class="tab">Questions for discussion</div></div>
       <div class="row"><div class="card"><div class="kicker">Scenario</div><h3 style="font-size:40px">Base case</h3>${lines(2)}</div>
       <div class="card sel"><div class="kicker" style="color:#b9c6ff">Scenario · selected</div><h3 style="font-size:40px">Alternative case</h3>${lines(2)}<div style="height:10px;border-radius:5px;background:linear-gradient(90deg,var(--teal),transparent);width:70%"></div></div></div>
@@ -588,7 +588,7 @@ const PLATES = {
   "PL-06A": {
     size: [1920, 1200],
     html: CLI(`<div class="banner"><div class="eyebrow">WELCOME BACK, JORDAN</div><div class="title" style="font-size:46px">Your property team</div></div>
-      <div class="card sel" style="flex:none;padding:26px"><div class="kicker" style="color:#b9c6ff">Your property team · Residence 014</div>
+      <div class="card sel" style="flex:none;padding:26px"><div class="kicker" style="color:#b9c6ff">Your property team · 14 Wattle Grove</div>
         <div class="row" style="gap:16px">${[
           ["Property", "Alex Morgan"],
           ["Finance", "Jamie Chen"],
@@ -601,7 +601,7 @@ const PLATES = {
               `<div class="card" style="padding:20px;background:#0c1f39"><div class="kicker" style="font-size:14px;color:#7fe3ea">${r}</div><h3 style="font-size:25px">${n}</h3></div>`,
           )
           .join("")}</div></div>
-      <div class="row"><div class="card" style="flex-direction:row;gap:22px;align-items:center">${pimg(260, 160)}<div><div class="kicker">Your property</div><h3>Project Banksia / Residence 014</h3></div></div>
+      <div class="row"><div class="card" style="flex-direction:row;gap:22px;align-items:center">${pimg(260, 160)}<div><div class="kicker">Your property</div><h3>14 Wattle Grove, Banksia Rise</h3></div></div>
       <div class="card"><div class="kicker">Next discussion</div><h3>Client summary</h3><p>Questions for discussion</p></div></div>`),
   },
 
@@ -609,19 +609,19 @@ const PLATES = {
   "PL-08A-a": {
     size: [1920, 1080],
     html: ACC(`<div class="banner" style="display:flex;align-items:center"><div><div class="eyebrow">WELCOME BACK, MIA</div><div class="title" style="font-size:46px">Needs you next</div></div><div class="btn" style="margin-left:auto">All clients</div></div>
-      <div class="list"><div class="item sel" style="position:relative"><div style="flex:1"><div style="font-size:30px;font-weight:600">Supporting information</div><div class="sub">Jordan Ellis · Residence 014</div></div><div class="btn blue" style="position:relative">Mark reviewed${onButton()}</div></div>
+      <div class="list"><div class="item sel" style="position:relative"><div style="flex:1"><div style="font-size:30px;font-weight:600">Supporting information</div><div class="sub">Jordan Ellis · 14 Wattle Grove</div></div><div class="btn blue" style="position:relative">Mark reviewed${onButton()}</div></div>
       <div class="item"><div style="flex:1">Recently allocated<div class="sub">Client documents</div></div></div></div>`),
   },
   "PL-08A-b": {
     size: [1920, 1080],
     html: ACC(`<div class="banner" style="display:flex;align-items:center"><div><div class="eyebrow">WELCOME BACK, MIA</div><div class="title" style="font-size:46px">Needs you next</div></div><div class="btn" style="margin-left:auto">All clients</div></div>
-      <div class="list"><div class="item" style="border:3px solid var(--teal)"><div style="flex:1"><div style="font-size:30px;font-weight:600">Supporting information</div><div class="sub">Jordan Ellis · Residence 014</div></div><div class="done" style="font-size:28px">✓ Reviewed</div></div>
+      <div class="list"><div class="item" style="border:3px solid var(--teal)"><div style="flex:1"><div style="font-size:30px;font-weight:600">Supporting information</div><div class="sub">Jordan Ellis · 14 Wattle Grove</div></div><div class="done" style="font-size:28px">✓ Reviewed</div></div>
       <div class="item"><div style="flex:1">Recently allocated<div class="sub">Client documents</div></div></div></div>`),
   },
   "PL-08B": {
     size: [1920, 1080],
     html: `<div class="screen aurixa" style="padding:50px 160px;display:block"><div class="report" style="height:100%">
-      <div style="display:flex;gap:30px;align-items:center">${pimg(300, 190)}<div><div class="kicker" style="color:#9a7424">Residence 014</div><h2>Client summary</h2></div></div>
+      <div style="display:flex;gap:30px;align-items:center">${pimg(300, 190)}<div><div class="kicker" style="color:#9a7424">14 Wattle Grove</div><h2>Client summary</h2></div></div>
       <div class="rule"></div><h4>Key considerations</h4><div class="lines"><div style="width:90%"></div><div style="width:78%"></div></div>
       <div class="rule"></div><h4>Questions for discussion</h4><div class="lines"><div style="width:86%"></div><div style="width:64%"></div></div></div></div>`,
   },
@@ -630,20 +630,20 @@ const PLATES = {
   "PL-09B": {
     size: [1920, 1080],
     html: SOL(`<div class="banner" style="display:flex;align-items:center"><div><div class="eyebrow">WELCOME BACK, PRIYA</div><div class="title" style="font-size:46px">Open matters</div></div><div class="btn blue" style="margin-left:auto">Open matters</div></div>
-      <div class="row"><div class="list" style="flex:1.2"><div class="item sel">${pimg(130, 84)}<div><div style="font-size:28px;font-weight:600">Project Banksia / Residence 014</div><div class="sub">Opportunity under consideration</div></div></div>
+      <div class="row"><div class="list" style="flex:1.2"><div class="item sel">${pimg(130, 84)}<div><div style="font-size:28px;font-weight:600">14 Wattle Grove, Banksia Rise</div><div class="sub">Opportunity under consideration</div></div></div>
         <div class="item" style="opacity:.6">Other matter<div class="sub" style="margin-left:auto">Review</div></div></div>
-      <div class="card"><div class="kicker">Residence 014</div><h3>Document review</h3><p>Contract of sale · Floor plan · Specification</p><span class="pill blue" style="align-self:flex-start">Next discussion</span></div></div>`),
+      <div class="card"><div class="kicker">14 Wattle Grove</div><h3>Document review</h3><p>Contract of sale · Floor plan · Specification</p><span class="pill blue" style="align-self:flex-start">Next discussion</span></div></div>`),
   },
   "PL-12B-a": {
     size: [1920, 1080],
     html: SOL(`<div class="row" style="flex:1"><div class="card" style="flex:1.25;align-items:center;justify-content:center">${dimg(860, 560)}</div>
-      <div class="card"><div class="kicker">Residence 014 · document review</div><div class="draft" style="font-size:30px"><div class="lab">Note</div>Discuss the remaining document questions.</div>
+      <div class="card"><div class="kicker">14 Wattle Grove · document review</div><div class="draft" style="font-size:30px"><div class="lab">Note</div>Discuss the remaining document questions.</div>
       <div class="btn blue" style="align-self:flex-start;position:relative">Save note${onButton()}</div></div></div>`),
   },
   "PL-12B-b": {
     size: [1920, 1080],
     html: SOL(`<div class="row" style="flex:1"><div class="card" style="flex:1.25;align-items:center;justify-content:center">${dimg(860, 560)}</div>
-      <div class="card"><div class="kicker">Residence 014 · document review</div><div class="draft" style="font-size:30px"><div class="lab">Note</div>Discuss the remaining document questions.</div>
+      <div class="card"><div class="kicker">14 Wattle Grove · document review</div><div class="draft" style="font-size:30px"><div class="lab">Note</div>Discuss the remaining document questions.</div>
       <div class="done" style="font-size:26px">✓ Note saved</div><span class="pill blue" style="align-self:flex-start">Matter remains under review</span></div></div>`),
   },
 
@@ -652,9 +652,9 @@ const PLATES = {
     size: [1920, 1080],
     html: BLD(
       "stock",
-      `<div class="banner" style="border-color:rgba(0,168,181,.45)"><div class="eyebrow" style="color:var(--teal)">PROJECTS · STOCK LIST</div><div class="title" style="font-size:46px">Project Banksia</div></div>
-      <div class="list"><div class="item tealsel" style="border:3px solid var(--teal);background:rgba(0,168,181,.16);position:relative">${pimg(150, 96)}<div style="flex:1"><div style="font-size:30px;font-weight:600">Residence 014</div><div class="sub">Floor plan · Specification</div></div>${cursor(1080, 30)}</div>
-      <div class="item" style="opacity:.55">Residence 015</div><div class="item" style="opacity:.55">Residence 016</div></div>`,
+      `<div class="banner" style="border-color:rgba(0,168,181,.45)"><div class="eyebrow" style="color:var(--teal)">PROJECTS · STOCK LIST</div><div class="title" style="font-size:46px">Banksia Rise</div></div>
+      <div class="list"><div class="item tealsel" style="border:3px solid var(--teal);background:rgba(0,168,181,.16);position:relative">${pimg(150, 96)}<div style="flex:1"><div style="font-size:30px;font-weight:600">14 Wattle Grove</div><div class="sub">Floor plan · Specification</div></div>${cursor(1080, 30)}</div>
+      <div class="item" style="opacity:.55">9 Ironbark Close</div><div class="item" style="opacity:.55">27 Bottlebrush Avenue</div></div>`,
     ),
   },
   "PL-12A-b": {
@@ -662,7 +662,7 @@ const PLATES = {
     html: BLD(
       "stock",
       `<div class="row" style="flex:1"><div class="card" style="flex:1.5;align-items:center;justify-content:center;border:3px solid var(--teal)">${dimg(1000, 640)}</div>
-      <div class="card"><div class="kicker" style="color:var(--teal)">Floor plan</div><h3>Residence 014</h3><p>Project Banksia</p></div></div>`,
+      <div class="card"><div class="kicker" style="color:var(--teal)">Floor plan</div><h3>14 Wattle Grove</h3><p>Banksia Rise NSW 2155</p></div></div>`,
     ),
   },
 

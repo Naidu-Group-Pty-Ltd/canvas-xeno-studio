@@ -91,15 +91,15 @@ module.exports = function kit({ P = null, D = null } = {}) {
       : `height:${Math.round(width * 0.62)}px`;
     const facts = [
       ["bed", "4 bed"],
-      ["bath", "1 bath"],
-      ["car", "1 car"],
-      ["land", "290 m² land"],
+      ["bath", "2 bath"],
+      ["car", "2 car"],
+      ["land", "450 m² land"],
     ]
       .map(([g, t]) => `<span>${glyph(g)}${t}</span>`)
       .join("");
     return `<div class="ls-card${row ? " row" : ""}" style="width:${width}px">
     <div class="ls-photo" style="${photo};${P ? `background-image:url('${P}')` : ""}"></div>
-    <div class="ls-body"><div class="ls-title">Residence 014 · Project Banksia</div><div class="ls-addr">Banksia Rise NSW 2155</div>
+    <div class="ls-body"><div class="ls-title">14 Wattle Grove</div><div class="ls-addr">Banksia Rise NSW 2155</div>
       <div class="ls-facts">${facts}</div>
       ${chips.length ? `<div class="ls-chips">${chips.map((c) => `<span class="ls-chip">${c}</span>`).join("")}</div>` : ""}
       ${enquiries === null ? "" : `<div class="ls-addr">${enquiries} enquiries</div>`}</div></div>`;
@@ -113,9 +113,9 @@ module.exports = function kit({ P = null, D = null } = {}) {
       `<div class="bp-row"><div class="bars"><div style="width:${a}%"></div><div style="width:${b}%"></div></div></div>`;
     return `<div class="bp-folders">${folders}</div>
     <div class="bp-list"><h4>Inbox<span class="bp-muted" style="font-size:19px;font-weight:400">Today</span></h4>
-      <div class="bp-row on"><div class="who"><em></em>Jordan Ellis<small>9:14</small></div><div class="subj">Project Banksia / Residence 014</div><div class="prev">Can we review whether this suits my plans?</div></div>
+      <div class="bp-row on"><div class="who"><em></em>Jordan Ellis<small>9:14</small></div><div class="subj">14 Wattle Grove, Banksia Rise</div><div class="prev">Can we review whether this suits my plans?</div></div>
       ${other(46, 80)}${other(38, 72)}${other(52, 64)}${other(30, 76)}${other(44, 58)}</div>
-    <div class="bp-read"><h3>Project Banksia / Residence 014</h3>
+    <div class="bp-read"><h3>14 Wattle Grove, Banksia Rise</h3>
       <div class="bp-meta"><span>From: <b>Jordan Ellis</b> · To: <b>Alex Morgan</b></span><span style="margin-left:auto">Monday 9:14</span></div>
       <div class="bp-msg">Can we review whether this suits my plans?</div>
       ${listing({ width: 780, row: true, chips: ["Expressions of interest close Friday"] })}
@@ -127,7 +127,7 @@ module.exports = function kit({ P = null, D = null } = {}) {
     chat: ["chat", "Team chat", "3 unread in #listings", "Can someone pick up the 2 pm call?"],
     calendar: ["calendar", "Calendar", "Team meeting in 10 minutes", "Weekly pipeline · Room 2"],
     crm: ["crm", "CRM", "4 follow-ups due today", "The oldest is 3 days overdue"],
-    plan: [null, "Property information", "Floor plan received", "Residence 014"],
+    plan: [null, "Property information", "Floor plan received", "14 Wattle Grove"],
   };
   const note = (key, x = 24, y = 24) => {
     const [g, app, title, text] = NOTES[key];
@@ -210,7 +210,7 @@ module.exports = function kit({ P = null, D = null } = {}) {
 .fk-link { position:absolute; height:${K}px; transform-origin:0 50%; background:linear-gradient(90deg, transparent, #5edde8 12%, #c89b3c 88%, transparent); }
 .fk-traveller { position:absolute; width:calc(var(--reel-traveller-width) * ${K}); height:calc(var(--reel-traveller-height) * ${K});
   border-radius:var(--reel-traveller-border-radius); background:var(--reel-traveller); box-shadow:0 0 28px #d7b35f; transform:translate(-50%, -50%); }
-/* G-RECORD-CARD: Residence 014, the object the film follows. */
+/* G-RECORD-CARD: 14 Wattle Grove, the object the film follows. */
 .fk-record { position:absolute; overflow:hidden; border-radius:calc(var(--reel-radius-card) * ${K}); background:var(--reel-surface-raised);
   border:${K}px solid var(--reel-border); box-shadow:var(--reel-shadow-window); }
 .fk-record .img { background:#2a3b52 center/cover no-repeat; }
@@ -368,7 +368,7 @@ module.exports = function kit({ P = null, D = null } = {}) {
   };
   const recordCard = ({ x, y, width = 520, imageHeight = 300, titleSize = 46 }) =>
     `<div class="fk-record" style="left:${px(x)};top:${px(y)};width:${px(width)}"><div class="img" style="height:${px(imageHeight)};${P ? `background-image:url('${P}')` : ""}"></div>
-      <div class="body"><div class="fk-eyebrow">Project Banksia</div><h3 style="font-size:${titleSize}px">Residence 014</h3><p>BK-014 · New Build</p></div></div>`;
+      <div class="body"><div class="fk-eyebrow">Banksia Rise</div><h3 style="font-size:${titleSize}px">14 Wattle Grove</h3><p>WG-14 · New Build</p></div></div>`;
   const person = ({ x, y, initials, tone, role, name, firm, width = null }) =>
     `<div class="fk-person" style="left:${px(x)};top:${px(y)}${width ? `;width:${px(width)}` : ""}"><div class="av" style="background:${tone}">${initials}</div>
       <div style="min-width:0"><div class="r">${role}</div><div class="n">${name}</div><div class="o">${firm}</div></div></div>`;

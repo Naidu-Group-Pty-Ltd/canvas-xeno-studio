@@ -1,5 +1,5 @@
 // Reel 1, shots 12.2 and 12.3 (one scene, because one object carries across them): Daniel's Stock List with
-// Residence 014 selected for a client; his floor plan opened in its own tab; then the same plan, lifted out as
+// 14 Wattle Grove selected for a client; his floor plan opened in its own tab; then the same plan, lifted out as
 // a document, beside the solicitor's Notes, saved: Matter updated.
 const M = require("../motion.cjs");
 const {
@@ -44,7 +44,7 @@ function builderScene() {
   const [tStock, tTab] = [0, 1].map((i) => beat("12.2", i));
   const [tLift, tSave] = [0, 1].map((i) => beat("12.3", i));
   const stockCss = F.plate("PL-12A-a").css;
-  // A12b: the Stock List, focus on Residence 014's "Selected for a client"; A12c: the plan's tab, whole.
+  // A12b: the Stock List, focus on 14 Wattle Grove's "Selected for a client"; A12c: the plan's tab, whole.
   const A12B = { rect: [40, 475, 1000, 711], zoom: 0.79, focus: [888, 432], at: [540, 830] };
   const A12C = { rect: [40, 388, 1000, 892], zoom: 1, focus: [760, 432], at: [540, 834] };
   const CHIP = [1346, 503, 1479 - 1346, 521 - 503];

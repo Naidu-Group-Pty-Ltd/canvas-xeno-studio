@@ -45,7 +45,7 @@ function teamScene() {
     at: [540, 834],
   };
   const F06 = { rect: WINDOW, zoom: 1.04, focus: [480, 300], at: [540, 834] };
-  // F06's ring: each of the five round Residence 014's record card, linked to its centre.
+  // F06's ring: each of the five round 14 Wattle Grove's record card, linked to its centre.
   const CENTRE = [540, 830];
   const RING = [
     [540, 455],

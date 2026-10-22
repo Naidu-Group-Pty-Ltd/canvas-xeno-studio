@@ -13,19 +13,21 @@ Every shot is one continuous composition, and its beats land on the voiceover: a
 caption sits where timing.py puts any cut before that caption's first word (in the pause before it, else
 0.1 s ahead), on the 30 fps grid, and a shot that starts a block starts on the block's own cut. Nothing here
 is typed as a time: it is all computed from the measured speech, the captions and the blocks in spec.json,
-and checked (no gaps, no overlaps, 106.031 s end to end).
+and checked (no gaps, no overlaps, end to end). Since the third cut (22 October 2026) the voiceover is held open in
+its own silences and the film is cut to National Treasures (pacing.py), so every time is moved onto the film's clock.
 
 Writes brief.json (the shots and their beats, for the renderer that will make them) and BRIEF.md (the brief).
 """
-import json, sys
+import json, math, sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import timing  # the measured speech and the cut rule the spec's own cuts were made with
+import pacing  # the third cut's pauses and the music the film is cut to
 SPEC = json.loads((HERE.parents[1] / "docs" / "brands" / "aurixa-reel-1" / "spec.json").read_text())
 FPS = SPEC["delivery"]["fps"]
-END = SPEC["delivery"]["seconds"]
+END = None  # the film's end, from pacing.py once it is solved (set below)
 CAPTIONS = SPEC["edit"]["captions"]
 BLOCKS = {b["block"]: b for b in SPEC["timing"]["blocks"]}
 
@@ -64,122 +66,123 @@ def shot(id, block, start, kind, palette, title, sources, beats, camera, result,
 
 SHOTS = [
     # 01 · The opportunity and the client
-    shot("01.1", "01", ("block", "01"), "graphic", "before", "Somewhere in Australia, one listing",
-         ["G-MAP", "G-LISTING", "P"],
-         [(0.0, "A dot-matrix map of Australia draws itself in fine ink on paper white, from the west coast east."),
-          (0.6, "One pin drops on the New South Wales coast, in the brand's gold: the only colour in the frame. A soft ring pulses once."),
-          (("cap", 2), "The pin opens into a listing card, the way a map marker opens on a property site: the photograph P, the address line and four facts."),
-          (3.1, "A small chip reads New listing · just now.")],
-         "A slow push from the whole continent to the card; the card ends centred in the upper action zone.",
-         "The listing card, readable, with the gold pin above it.",
-         ["Banksia Rise NSW 2155", "Residence 014 · Project Banksia", "4 bed · 1 bath · 1 car · 290 m² land", "New listing · just now"]),
+    shot("01.1", "01", ("block", "01"), "graphic", "before", "Somewhere in Australia, one pin turns gold",
+         ["G-SATELLITE", "G-PINS", "G-LISTING", "G-STAGE", "P"],
+         [(0.0, "The continent from orbit: Australia in satellite colour and relief, tilted away from the camera in depth, a low warm sun from the north-west raking its ranges, the oceans deepening to the horizon under a thin haze of atmosphere. Already falling into it: white location pins, a few, then hundreds, each landing with a small bounce, a soft shadow on the land and a pinpoint of light, dense along the east coast and around the five capitals, sparse across the interior."),
+          (1.5, "The rain of pins thickens into the coastal cities; every pin is the same white."),
+          (("cap", 2), "One pin on the New South Wales coast, north-west of Sydney, turns gold: it rises out of the field, a ring pulses out from it once, and every other pin dims a little. The camera begins to fall toward it."),
+          (3.25, "The camera arrives over Sydney's north-west, the relief sharpening as it nears; the gold pin's head opens and the property pops up from it on a spring: the photograph P, 14 Wattle Grove, Banksia Rise NSW 2155, four facts, a New listing chip."),
+          (4.6, "The card settles, lifted off the map by its own shadow, the gold pin still standing beneath it.")],
+         "A slow orbit across the continent, then one fall from orbit to the suburb, easing in; the card ends in the upper action zone with the gold pin under it.",
+         "The property's card, readable, above its gold pin on the satellite map.",
+         ["14 Wattle Grove", "Banksia Rise NSW 2155", "4 bed · 2 bath · 2 car · 450 m² land", "New listing · just now"],
+         "The pins are where Australians live (the ABS's population by statistical area, thinned to about 600 pins), so the east coast glows and the interior stays dark. The imagery is NASA's Blue Marble Next Generation and its shaded relief, public domain; nothing on it names a real street."),
     shot("01.2", "01", ("cap", 3), "screen", "before", "The client asks",
-         ["PL-01B-a", "PL-01B-b", "G-WINDOW-PLAIN", "G-POINTER"],
-         [(0.0, "A plain messaging window (no product's brand) with the listing attached as a card, from Jordan Ellis to Alex Morgan."),
-          (0.3, "The question types itself in, at a reading pace."),
-          (("cap", 4), "The pointer reaches Send and presses it; the window's own pressed state, then Sent."),
-          (2.9, "On the attached card a small chip appears: Expressions of interest close Friday.")],
-         "Starts on the composer, eases in to the message and the Send button, holds on Sent.",
-         "Sent, with the question readable and the attached listing.",
+         ["PL-01B-a", "PL-01B-b", "G-WINDOW-PLAIN", "G-POINTER", "G-STAGE"],
+         [(0.0, "The card shrinks into a link preview in a plain messaging window that swings in from the right, in depth: from Jordan Ellis to Alex Morgan, today's tools in daylight greys, its shadow soft on the paper-white desk beneath."),
+          (0.35, "The question types itself in at a reading pace, the window turning gently toward the camera as it does."),
+          (("cap", 4), "The pointer reaches Send and presses it: the window's own pressed state, then Sent, and the message lifts into its thread."),
+          (3.2, "On the attached card a small chip appears: Expressions of interest close Friday.")],
+         "A slow arc around the window from three-quarter to front-on, easing in to the message and Send; holds on Sent.",
+         "Sent, with the question readable and the property attached.",
          ["From: Jordan Ellis · To: Alex Morgan", "Can we review whether this suits my plans?", "Send → Sent", "Expressions of interest close Friday"]),
     # 02 · The scattered workflow
     shot("02.1", "02", ("block", "02"), "workflow", "before", "Four tools, one question",
-         ["PL-02A", "NEW-INBOX", "G-WINDOW-PLAIN", "G-POINTER"],
-         [(0.0, "The question lands in a generic inbox as the top row; the pointer moves to Reply and stops, because there is nothing to reply with yet."),
-          (("cap", 6), "A research tool opens over it: a map and a list of comparable sales, as grey placeholder rows."),
-          (("cap", 7), "A spreadsheet opens, offset: a few labelled columns, one formula cell selected."),
-          (("cap", 8), "A contact card for Jordan Ellis opens in a third tool, in a different style again."),
-          (("cap", 9), "A fourth window: Untitled report, empty, its caret blinking. The pointer hops between the four windows once each.")],
-         "Pulls back a little with each window, so all four are in frame by the last beat, overlapping and misaligned.",
-         "Four separate windows, none of them finished, and the empty report in front.",
+         ["NEW-INBOX", "G-WINDOW-PLAIN", "G-POINTER", "G-STAGE"],
+         [(0.0, "The camera pulls back from the sent message: it is one window of a desk of them, in depth, each a different tool in a different style, floating at different distances under the same daylight. The question lands in a generic inbox as its top row; the pointer moves to Reply and stops, because there is nothing to reply with yet."),
+          (("cap", 6), "The camera swings to a research tool, nearer and to the left: a map and comparable sales as grey placeholder rows. It comes forward and fills the frame for a moment."),
+          (("cap", 7), "A whip to the right, the frames streaking: a spreadsheet, a few labelled columns and one formula cell selected."),
+          (("cap", 8), "Another whip, down and left: a contact card for Jordan Ellis in a third tool, in a different style again."),
+          (("cap", 9), "The fourth, behind them all: Untitled report, empty, its caret blinking. The camera pulls back until all four hang in the frame together, misaligned and overlapping, none of them finished."),
+          (9.2, "The pointer hops once between the four, and stops.")],
+         "One continuous move through a desk of floating windows: a pull back, three whips (each with motion blur and a settle), a final pull back.",
+         "Four separate windows in depth, none of them finished, and the empty report in front.",
          ["Can we review whether this suits my plans?", "Research", "Financial worksheet", "Client details", "Untitled report"],
-         "PL-02A has the four windows in one plate; here they arrive one by one, so each is built as its own window."),
+         "Each window is a different tool, so each has its own look: none carries a product's brand."),
     # 03 · The pressure while the client waits
     shot("03.1", "03", ("block", "03"), "workflow", "before", "The market moves, the client waits",
-         ["NEW-NOTIFICATIONS", "G-LISTING", "PL-03A", "PL-03C", "G-CLOCK"],
-         [(0.0, "The four windows hold; in the corner the desktop clock starts to run (Monday 9:14 onward)."),
-          (("cap", 11), "The listing card slides back in over them: its enquiry count ticks up, a Price guide updated chip and an Inspection booked chip appear."),
-          (("cap", 12), "Notifications arrive from every edge (mail, chat, calendar, the CRM, a floor plan received for Residence 014) and the windows are nudged apart."),
-          (("cap", 13), "Everything clears except the client's question: Sent Monday 9:14, No reply yet. The clock now reads Wednesday."),
-          (7.6, "The frame dims toward dark.")],
-         "Locked off; the notifications move, not the camera. The last beat is a slow push to the question.",
-         "The unanswered question alone, with No reply yet.",
-         ["Can we review whether this suits my plans?", "Sent Monday 9:14 · No reply yet"],
-         "The listing figures that move are the listing site's own (enquiries, inspections), never a claim about Aurixa."),
+         ["NEW-NOTIFICATIONS", "G-TICKER", "G-PHONE", "G-CLOCK", "G-STAGE"],
+         [(0.0, "The four windows hold in their depth; the desktop clock in the corner starts to run (Monday 9:14 onward), and a market ticker scrolls across the lower third: new listings, price guides, auction results, moving."),
+          (("cap", 11), "The ticker speeds up; Price guide updated and Inspection booked chips blink beside it."),
+          (("cap", 12), "Notifications fly in from every edge (mail, chat, calendar, the CRM, a floor plan received for 14 Wattle Grove), each pushing the windows further apart and out of focus."),
+          (("cap", 13), "Everything falls away into the dark except a phone on the desk, face up: its lock screen lights with Jordan Ellis's follow-up, Wednesday 4:52 PM. The clock has run to Wednesday."),
+          (8.2, "The phone's light fades a little; the frame dims toward dark.")],
+         "Locked off while everything moves; then one slow push down to the phone.",
+         "The phone's lock screen alone: the client's follow-up, unanswered.",
+         ["Jordan Ellis", "Any update on 14 Wattle Grove? EOIs close Friday.", "Wednesday 4:52 PM"],
+         "The ticker's listings and figures are the listing site's own kind (new listings, guides, results), never a claim about Aurixa."),
     # 04 · Aurixa arrives and the viewer enters the console
-    shot("04.1", "04", ("block", "04"), "graphic", "aurixa", "The brand arrives, then its Command Centre",
-         ["REF-LOGO", "G-HAIRLINE", "G-EMBLEM", "PL-11A-c", "G-WINDOW"],
-         [(0.0, "The dimmed frame becomes the brand's deep navy. A single gold hairline draws across the middle."),
-          (0.45, "The supplied logo's emblem opens out of the hairline: its triangle, then the orb's glow."),
-          (1.4, "Its wordmark, AURIXA SYSTEMS, opens beneath it letter by letter: the supplied logo, never retyped."),
-          (("cap", 15), "The emblem lifts into the top left and becomes the Command Centre's own sidebar mark; the sidebar's groups set in, then the top bar with its Demo workspace badge, then the Overview page.")],
-         "Still for the emblem; one slow push as the Command Centre settles into its glass window.",
-         "The Command Centre's Overview in the demo workspace, whole, in its window.",
+    shot("04.1", "04", ("block", "04"), "graphic", "aurixa", "The brand arrives, on the drop",
+         ["REF-LOGO", "G-HAIRLINE", "G-EMBLEM", "PL-11A-c", "G-WINDOW", "G-STAGE"],
+         [(0.0, "In the music's silence the dimmed frame becomes the brand's deep navy and a single gold hairline draws across its middle."),
+          (("beat", 0), "On the drop the emblem bursts open out of the hairline: its triangle, then the orb's glow, the light flaring once across the frame."),
+          (("beat", 2), "Its wordmark, AURIXA SYSTEMS, rises beneath it letter by letter: the supplied logo, never retyped."),
+          (("cap", 15), "The emblem lifts into the top left and becomes the Command Centre's own sidebar mark; the Command Centre assembles in its glass window, in depth: the sidebar's groups, the top bar with its Demo workspace badge, then the Overview.")],
+         "Still for the emblem; then one slow push as the Command Centre settles into its window, turned a few degrees in depth.",
+         "The Command Centre's Overview in the demo workspace, whole, in its window: the only time the Overview is shown.",
          ["AURIXA SYSTEMS", "COMMAND CENTRE", "DEMO WORKSPACE", "Overview"]),
-    shot("04.2", "04", ("cap", 16), "workflow", "aurixa", "One connected operating environment",
-         ["G-SYSTEM-MAP", "PL-11A-c", "PL-06A-a", "NEW-DASHBOARDS"],
-         [(0.0, "The Command Centre's window shrinks to the centre and becomes the hub."),
-          (("cap", 17), "Five portal windows arrive around it, each on its own dashboard: Client, Finance, Accountant, Solicitor, the Builders Network. A line draws from the hub to each as it arrives, and each takes a small mono label.")],
-         "A slow pull back; nothing rotates.",
-         "The hub and its five portals, every link drawn and every label readable.",
-         ["COMMAND CENTRE", "CLIENT PORTAL", "FINANCE PORTAL", "ACCOUNTANT PORTAL", "SOLICITOR PORTAL", "BUILDERS NETWORK"]),
-    shot("04.3", "04", ("cap", 18), "screen", "aurixa", "Reports: the work starts the way it actually starts",
-         ["PL-04B-a", "PL-04B-b", "G-WINDOW", "G-POINTER", "G-FOCUS"],
-         [(0.0, "The camera pushes from the hub into the Command Centre: Reports, the Investment Report Workspace preparing for Jordan Ellis, with Residence 014's card."),
-          (1.0, "The pointer travels to New Build."),
-          (1.8, "It presses: the card takes the product's selected blue. Focus corners close in on the three build types."),
-          (2.0, "Hold on the selection with Residence 014's card beside it.")],
-         "One push in, then still.",
-         "New Build selected, Residence 014 · BK-014 unchanged beside it.",
-         ["Reports", "Investment Report Workspace", "Project Banksia / Residence 014 · BK-014", "Existing Property · New Build · Land Only"]),
+    shot("04.2", "04", ("cap", 16), "workflow", "aurixa", "One connected operating environment, one portal at a time",
+         ["G-PORTAL-SPOTLIGHT", "G-SYSTEM-MAP", "NEW-DASHBOARDS", "PL-06A-a", "G-STAGE"],
+         [(0.0, "The Command Centre's window swings back and shrinks to the top of the frame: the hub, its label lit."),
+          (0.95, "The Client Portal comes forward on its own, almost the width of the frame, turned slightly in depth: its dashboard for Jordan Ellis, CLIENT PORTAL in large mono above it, a gold underline drawing beneath the label. A line of light runs from the hub to it."),
+          (2.15, "It swings aside into its place in an orbit around the hub as the Finance Portal comes forward the same way, FINANCE PORTAL above it."),
+          (3.35, "Then the Accountant Portal, ACCOUNTANT PORTAL."),
+          (4.55, "Then the Solicitor Portal, SOLICITOR PORTAL."),
+          (5.75, "Then the Builders Network, in its own teal, BUILDERS NETWORK."),
+          (6.95, "The camera pulls back: the hub and the five portals in their orbit, every line lit, a traveller running each one once.")],
+         "A spotlight, five times: each portal arrives large and front of frame, holds while its name is read, and swings back into the orbit; one pull back at the end.",
+         "The hub and its five portals, each seen on its own first, joined at the end.",
+         ["COMMAND CENTRE", "CLIENT PORTAL", "FINANCE PORTAL", "ACCOUNTANT PORTAL", "SOLICITOR PORTAL", "BUILDERS NETWORK"],
+         "The client asked for each portal to be seen on its own and clearly (22 October 2026): the orbit is the payoff after all five, never the way they are introduced."),
     # 05 · Research to financial analysis to a report
     shot("05.1", "05", ("block", "05"), "screen", "aurixa", "From research into financial analysis",
-         ["PL-05A-a", "PL-05A-b", "G-RAIL", "G-POINTER"],
-         [(0.0, "The investment report's page: Project Banksia / Residence 014, its Compass on view. The journey rail slides in above the window with Research lit."),
-          (("cap", 20), "The pointer presses + Financial; the tier reads preparing and the rail moves to Financial.")],
-         "Starts on the record's header and tiers; a short pan to + Financial.",
+         ["PL-05A-a", "PL-05A-b", "G-RAIL", "G-POINTER", "G-FOCUS", "G-STAGE"],
+         [(0.0, "The orbit's Command Centre comes forward and opens on the investment report's page: 14 Wattle Grove, Banksia Rise, its Compass on view and its grade card reading A+. The journey rail slides in above the window with Research lit."),
+          (("cap", 20), "Focus corners close on + Financial; the pointer presses it, the tier reads preparing and the rail moves to Financial.")],
+         "Starts on the record's header and its A+ grade card; a short pan to + Financial.",
          "Financial preparing from the Compass, the rail on Financial.",
-         ["Compass · + Financial", "Preparing Financial from this Compass", "RESEARCH · FINANCIAL · REPORT · TEAM · DECISION"]),
+         ["14 Wattle Grove, Banksia Rise", "A+ · Investment Grade", "Compass · + Financial", "Preparing Financial from this Compass", "RESEARCH · FINANCIAL · REPORT · TEAM · DECISION"]),
     shot("05.2", "05", ("cap", 21), "deliverable", "aurixa", "Into a report the client can understand",
-         ["PL-05C-a", "PL-05C-b", "PL-08B", "NEW-REPORT-PAGES", "G-RAIL", "G-DOCUMENT", "G-POINTER"],
-         [(0.0, "Generated Reports: the pointer is on Residence 014."),
-          (0.5, "It opens: the report's page, Prepared from this Compass: Financial. The rail moves to Report."),
-          (("cap", 22), "The document itself lifts out of the page: the Investment Compass cover, then its pages fan out behind it (the contents, The property's photograph, the summary).")],
-         "Follows the click, then holds while the document comes forward.",
-         "The client's report: the cover in front, its pages fanned behind.",
-         ["Generated Reports", "Investment Compass", "RESIDENCE 014, PROJECT BANKSIA, BANKSIA RISE NSW 2155"],
-         "The pages are the product's standard PDF, which since 21 October 2026 draws no floor-plan sheet. The cover carries no grade or score. Its colours are the ones the product resolves for an issuer with no brand colour, obsidian #251F18 and gold #D9A520 (NEW-REPORT-PAGES); PL-08B, the PDF in the viewer at its cover, is the same document in the same colours."),
+         ["PL-05C-a", "NEW-REPORT-CHARTS", "G-PAGE-SCROLL", "G-RAIL", "G-POINTER"],
+         [(0.0, "Generated Reports: the pointer opens 14 Wattle Grove's report and the rail moves to Report."),
+          (0.55, "The document lifts off the page and comes forward: its cover, A+ in gold beside the address."),
+          (("cap", 22), "The pages run past the camera one after another, in depth, each held long enough to read its headline figure: the key figures (purchase price, weekly rent, gross yield, a ten-year growth figure), the capital growth chart rising across ten years, the ten-year cash flow in bars."),
+          (4.2, "The run slows on the cash flow page, its last bar settling.")],
+         "Follows the click, then rides the pages as they pass, slowing at the end.",
+         "The client's report: chart pages, never paragraphs.",
+         ["Investment Compass", "14 WATTLE GROVE, BANKSIA RISE NSW 2155", "A+", "Key figures", "Capital growth", "10-year cash flow"],
+         "The pages are the product's report in its own unbranded colours (obsidian #251F18, gold #D9A520); the client asked for figures, charts and infographics rather than pages of prose (22 October 2026). Every modelled page carries the illustrative-example label."),
     # 06 · Communication and the supporting agent
     shot("06.1", "06", ("block", "06"), "screen", "aurixa", "The reply the client was waiting for",
-         ["NEW-MESSAGE-HUB", "G-WINDOW", "G-POINTER"],
-         [(0.0, "The Command Centre's Message Hub, Jordan Ellis's thread: his question from 01.2 at the top, the reply drafted below it."),
-          (0.6, "The pointer presses Send; the reply joins the thread with its delivered tick. The rail moves to Team.")],
-         "Still.",
+         ["NEW-MESSAGE-HUB", "G-WINDOW", "G-POINTER", "G-STAGE"],
+         [(0.0, "The Command Centre's Message Hub, Jordan Ellis's thread: his question from Monday at the top, the reply drafted below it."),
+          (0.85, "The pointer presses Send; the reply joins the thread with its delivered tick. The rail moves to Team.")],
+         "A gentle push in toward the thread.",
          "Question and answer in one thread, inside Aurixa.",
-         ["Can we review whether this suits my plans?", "Your Residence 014 report is ready in your portal. Let's go through it together on Thursday."],
-         "The payoff of 03.1: the same words, now answered. The Message Hub sits in the Command Centre's Client & CRM group, and its Details name the professional's side Command Center, the product's own spelling."),
+         ["Can we review whether this suits my plans?", "Your 14 Wattle Grove report is ready in your portal. Let's go through it together on Thursday."],
+         "The payoff of 03.1: the client asked again on Wednesday; here he is answered."),
     shot("06.2", "06", ("cap", 24), "workflow", "aurixa", "Client relationships and property partners",
          ["PL-06A-a", "PL-06A-b", "G-RECORD-CARD", "G-LINKS", "G-POINTER"],
          [(0.0, "The Client Portal: Welcome back, Jordan Ellis. The pointer presses My Property Team."),
-          (0.7, "The team's page: five of five roles engaged."),
-          (("cap", 25), "The five team cards lift out of the page and ring Residence 014's record card; the rail line draws from each card to it, and a traveller dot runs each line once.")],
-         "Still, then a pull back as the cards ring the record.",
+          (0.75, "The team's page: five of five roles engaged."),
+          (("cap", 25), "The five team cards lift out of the page and ring 14 Wattle Grove's record card in depth; a line of light draws from each card to it, and a traveller runs each line once.")],
+         "Still, then a slow pull back and a slight orbit as the cards ring the record.",
          "Five named professionals linked to one record.",
          ["My Property Team", "5 of 5 roles engaged", "Alex Morgan · Jamie Chen · Priya Shah · Mia Patel · Daniel Reed"]),
     shot("06.3", "06", ("cap", 26), "screen", "aurixa", "Aurixa Agent, beside the work",
          ["PL-06B-a", "PL-06B-b", "G-POINTER"],
          [(0.0, "The report's page with the agent's own floating button; its label shows on hover."),
-          (0.7, "The pointer presses it and the agent's panel opens over the report."),
-          (1.3, "Its draft for Jordan sets in as a card that reads Needs your go-ahead.")],
+          (0.75, "The pointer presses it and the agent's panel opens over the report."),
+          (1.4, "Its draft for Jordan sets in as a card that reads Needs your go-ahead.")],
          "Pushes to the panel as it opens.",
          "The agent's draft, marked as needing the professional's go-ahead.",
-         ["Aurixa", "Draft a short note to Jordan Ellis about his Residence 014 client summary.", "Needs your go-ahead"],
+         ["Aurixa", "Draft a short note to Jordan Ellis about his 14 Wattle Grove client summary.", "Needs your go-ahead"],
          "Guardrail 7: the agent drafts and a person reviews; the card says so on screen."),
     # 07 · Professional judgement remains visible
     shot("07.1", "07", ("block", "07"), "screen", "aurixa", "The professional changes it, then approves it",
          ["PL-07A-a", "PL-07A-b", "G-POINTER"],
          [(0.0, "Close on the draft's next step. The caret enters it."),
-          (0.4, "The professional types her own change; each new word takes the marker, a fine gold rule, beneath it as it is typed."),
+          (0.45, "The professional types her own change; each new word takes the marker, a fine gold rule, beneath it as it is typed."),
           (("cap", 28), "The pointer presses Approve: the card reads Approved, with the changed line.")],
          "Close and still; the text is the subject.",
          "Approved, with the professional's own words.",
@@ -188,105 +191,115 @@ SHOTS = [
     shot("08.1", "08", ("block", "08"), "screen", "aurixa", "The accountant's part, done in the same system",
          ["PL-08A-a", "PL-08A-b", "G-POINTER"],
          [(0.0, "The Accountant Portal: Jordan Ellis's client file, Requests. FY2026 income statement · Client responded."),
-          (1.0, "The pointer presses Mark fulfilled; the request turns Fulfilled.")],
-         "Still.",
+          (1.1, "The pointer presses Mark fulfilled; the request turns Fulfilled.")],
+         "Still, with a slow drift.",
          "The request Fulfilled.",
          ["CLIENT FILE · Jordan Ellis", "FY2026 income statement", "Mark fulfilled → Fulfilled"]),
     shot("08.2", "08", ("cap", 30), "deliverable", "aurixa", "What the client is trusting you with",
-         ["NEW-REPORT-PAGES", "G-DOCUMENT", "G-HIGHLIGHT"],
-         [(0.0, "The client's report in the PDF viewer at its summary, page 4 of 22: Executive Verdict, the purchase price and the rent, and the readiness statement. The marker settles under the case it sets out."),
-          (("cap", 31), "The page turns to page 19, How this grade was reached: three dimensions scored and two not, under the illustrative label. The marker settles under the two that were not scored.")],
-         "Still; the pages turn.",
-         "Two pages of the client's own report, each with one marked passage.",
-         ["Investment Compass", "How this grade was reached", "Illustrative example only: hypothetical client, figures and assumptions. Not a credit assessment or financial advice."],
-         "Guardrail 2: anything modelled carries the illustrative label on the page itself. The verdict line is the product's own for a B+ assessed on 3 of 5 dimensions (BUY - Good investment opportunity with favourable metrics in most of the areas assessed); the camera and the marker stay on the case and on the readiness statement, which says the grade is not permission to proceed."),
+         ["NEW-REPORT-CHARTS", "G-PAGE-SCROLL", "G-HIGHLIGHT"],
+         [(0.0, "The report again, further in: How this grade was reached, A+ on a dial, its five dimensions as bars (capital growth, location, rental yield, demand, property risk), every one scored. The marker settles under the composite, 84."),
+          (("cap", 31), "The pages run on: the suburb at a glance (its median price, growth, days on market, the share of owners, drawn as figures and icons), then rental comparables on a chart."),
+          (4.0, "The run settles on the risk dashboard: each risk a coloured level with its evidence, nothing in prose.")],
+         "Rides the pages as they pass, a different stretch of the same report from 05.2.",
+         "The report's grade, area and risk pages: figures the client can read at a glance.",
+         ["How this grade was reached", "A+ · 84", "Capital growth · Location · Rental yield · Demand · Property risk", "Illustrative example only: hypothetical client, figures and assumptions. Not a credit assessment or financial advice."],
+         "Guardrail 2: anything modelled carries the illustrative label on the page itself. The grade is the product's own for a composite of 84 across all five dimensions: A+, STRONG BUY - Excellent investment opportunity with strong fundamentals across all metrics. None of these pages appears in 05.2."),
     shot("08.3", "08", ("cap", 32), "screen", "aurixa", "The next decision, in the client's portal",
          ["NEW-CLIENT-REPORTS", "G-POINTER"],
-         [(0.0, "The Client Portal's Reports page: the report's card, Project Banksia / Residence 014, Investment Report · Compass, marked New."),
-          (0.7, "Beside it, the next discussion's card from My Appointments slides in: Report walkthrough with Alex Morgan, Thu, 22 Oct 2026, 10:00 AM – 10:30 AM, Upcoming. The pointer comes to rest on Download Report.")],
+         [(0.0, "The Client Portal's Reports page: the report's card, 14 Wattle Grove, Banksia Rise, Investment Report · Compass, marked New."),
+          (0.75, "Beside it, the next discussion's card from My Appointments slides in: Report walkthrough with Alex Morgan, Thu, 22 Oct 2026, 10:00 AM – 10:30 AM, Upcoming. The pointer comes to rest on Download Report.")],
          "Still.",
          "The report and the next discussion, side by side for the client.",
          ["Investment Report · Compass · New", "Download Report", "Report walkthrough with Alex Morgan", "Thu, 22 Oct 2026 · 10:00 AM – 10:30 AM · Upcoming"],
-         "The two cards are on two pages of the Client Portal (Reports and My Appointments), and no page holds both, so the second is brought in as a graphic. Guides the decision: nothing on screen makes it."),
+         "Guides the decision: nothing on screen makes it."),
     # 09 · The manual gap and the connected matter
     shot("09.1", "09", ("block", "09"), "graphic", "before", "Bridging the gaps by hand",
-         ["PL-09A", "G-BRIDGE"],
-         [(0.0, "Two plain document lists for Residence 014 side by side, each with its own copy of the contract and the floor plan."),
-          (("cap", 34), "Dashed bridges reach across the gap between them; a document is dragged across by hand, a bridge breaks, a third copy appears.")],
-         "Still.",
-         "Two lists, three copies of one document, no bridge holding.",
-         ["Residence 014 — documents"]),
+         ["PL-09A", "G-BRIDGE", "G-STAGE"],
+         [(0.0, "Back in today's grey tools, under flat daylight: two plain document lists for 14 Wattle Grove side by side in depth, each with its own copy of the contract and the floor plan."),
+          (("cap", 34), "Dashed bridges reach across the gap between them; a document is dragged across by hand, a bridge breaks, a third copy appears."),
+          (4.4, "The broken bridges hang; the grey frame holds a moment, unresolved.")],
+         "Still, with a slow drift that stops as the bridge breaks.",
+         "Two grey lists, three copies of one document, no bridge holding.",
+         ["14 Wattle Grove — documents"],
+         "The film's last look at today's tools: plain greys, the system face, no glass and no gold."),
     shot("09.2", "09", ("cap", 35), "screen", "aurixa", "One register instead",
-         ["PL-09B-a", "PL-09B-b", "G-POINTER"],
-         [(0.0, "The Solicitor Portal: the matter Ellis: Purchase, Residence 014. The pointer presses Docs."),
-          (0.5, "The document register: four documents, one copy of each, each with its status.")],
-         "Still.",
+         ["G-LIGHT-SWEEP", "PL-09B-a", "PL-09B-b", "G-POINTER"],
+         [(0.0, "A band of gold light sweeps across the frame from left to right on the beat: behind it the grey lists burn away and the dark of Aurixa takes their place, so the change from today's tools to the product is a single, visible event."),
+          (0.7, "The Solicitor Portal, the matter Ellis: Purchase, 14 Wattle Grove, settles in its glass window; the pointer presses Docs."),
+          (1.3, "The document register: four documents, one copy of each, each with its status.")],
+         "Locked through the sweep, then a short push to the register.",
          "The register, 3 outstanding of 4, the floor plan Under review.",
-         ["Ellis: Purchase, Residence 014", "Document register", "Contract of sale (draft) · Floor plan — Residence 014 · Building specification · Planning certificate"]),
+         ["Ellis: Purchase, 14 Wattle Grove", "Document register", "Contract of sale (draft) · Floor plan — 14 Wattle Grove · Building specification · Planning certificate"],
+         "The client asked for a clear distinction between the generic system and Aurixa's own (22 October 2026): the sweep is it."),
     # 10 · The system is here
     shot("10.1", "10", ("block", "10"), "graphic", "aurixa", "Not on the horizon",
-         ["G-HORIZON", "G-SYSTEM-MAP"],
-         [(0.0, "A gold horizon line across the lower third, the traveller's glow along it."),
-          (1.0, "The camera tilts down past it into the system map, every portal live: small confirmations seen earlier (Selected, Approved, Fulfilled) blink once in their portals.")],
-         "One tilt down.",
-         "The whole system, live.",
-         []),
-    shot("10.2", "10", ("cap", 37), "graphic", "aurixa", "The invitation is open",
-         ["PL-11A-a", "G-SYSTEM-MAP", "G-POINTER"],
-         [(0.0, "The system map dims; the trial invitation rises into the centre over it."),
-          (2.2, "The pointer arrives over START YOUR FREE TRIAL; its hover state.")],
-         "Still.",
-         "The invitation, whole, with the pointer on its button.",
-         ["14-DAY FREE TRIAL", "START YOUR FREE TRIAL"]),
+         ["G-SUNRISE"],
+         [(0.0, "Dawn: a long gold horizon across the lower third of the navy, and the sun's edge beginning to clear it, its light spreading up the sky and along the line."),
+          (1.3, "The sun rises fully above the horizon, its rays fanning across the frame, the navy above it warming toward gold.")],
+         "One slow rise with the sun.",
+         "The sun clear of the horizon, the frame lit gold.",
+         [],
+         "Aurixa Systems isn't on the horizon: the sun is already up. The system map is not shown again."),
+    shot("10.2", "10", ("cap", 37), "graphic", "aurixa", "We've arrived: the logo, at the viewer, and the invitation",
+         ["G-LOGO-JUMP", "PL-11A-a", "G-CTA", "G-POINTER"],
+         [(0.0, "Out of the sun the emblem leaps at the viewer: it rushes from small to filling the frame with a burst of light and a ring that ripples outward, overshoots, and settles at the top of the card."),
+          (("cap", 37), "AURIXA SYSTEMS sets in beneath it; the trial invitation rises into the centre: 14-DAY FREE TRIAL, and the button START YOUR FREE TRIAL, its gradient pulsing gold to light gold to cyan and back, a soft glow breathing around it."),
+          (("cap", 38), "The pointer arrives over the button: it lifts, its glow brightens and the gradient quickens; the press, and a ripple of light runs out from it across the card."),
+          (5.1, "The card holds, the button pulsing, as the light settles.")],
+         "Still for the logo's leap (the leap is the move); then a slow push to the button.",
+         "The invitation, whole, with its button pressed and pulsing.",
+         ["AURIXA SYSTEMS", "14-DAY FREE TRIAL", "START YOUR FREE TRIAL"],
+         "One shot from the logo to the press: the close-up of the button that repeated it (the second cut's 11.1) is gone, at the client's direction (22 October 2026)."),
     # 11 · The fourteen day invitation
-    shot("11.1", "11", ("block", "11"), "screen", "aurixa", "Start the trial",
-         ["PL-11A-a", "PL-11A-b", "G-POINTER"],
-         [(0.0, "Close on the button."), (0.35, "The press: the button sinks and takes its gold edge.")],
-         "Close and still.",
-         "The pressed button.",
-         ["START YOUR FREE TRIAL"]),
-    shot("11.2", "11", ("cap", 39), "screen", "aurixa", "The demo workspace opens",
-         ["PL-11A-c", "G-WINDOW"],
-         [(0.0, "The Command Centre's Overview opens in the demo workspace; the Demo workspace badge glows once."),
-          (1.2, "Focus settles on the Demo project card: Residence 014.")],
-         "A short push to the demo project.",
-         "The demo workspace, with Residence 014 waiting in it.",
-         ["DEMO WORKSPACE", "Demo project · Residence 014 · Project Banksia · New Build"]),
+    shot("11.1", "11", ("cap", 39), "screen", "aurixa", "Your fourteen days begin",
+         ["NEW-TRIAL-SETUP", "G-WINDOW"],
+         [(0.0, "The press carries through into a new window: Setting up your trial workspace, three steps checking themselves off in turn (Workspace created · Demo data loaded · Portals connected)."),
+          (1.5, "The window settles on Your 14-day trial is ready, a day counter reading 14 days left beside it.")],
+         "A short push as the steps complete.",
+         "The trial ready, fourteen days on the counter.",
+         ["Setting up your trial workspace", "Workspace created · Demo data loaded · Portals connected", "Your 14-day trial is ready", "14 days left"],
+         "Replaces the Overview the second cut showed here, which the brand's arrival (04.1) already shows (22 October 2026)."),
     # 12 · Explore the working partner portals
     shot("12.1", "12", ("block", "12"), "screen", "aurixa", "Explore the platform",
-         ["PL-11A-c", "PL-04B-a", "PL-05C-a", "PL-05A-a", "G-POINTER"],
-         [(0.0, "The pointer runs down the sidebar: Overview, Reports, Generated Reports, then the report, each page changing as the product changes pages.")],
-         "Still; the pages change under it.",
-         "The report's page, where the tour stops.",
-         ["Overview · Reports · Generated Reports"],
-         "The one montage in the film: no single page is held to read."),
+         ["NEW-MARKETPLACE", "G-POINTER", "G-STAGE"],
+         [(0.0, "The Command Centre's Property Marketplace, in depth: a grid of listing cards, 14 Wattle Grove among them with its gold A+ chip. The camera glides across the grid as the pointer moves over it, each card it passes lifting under it."),
+          (1.5, "The pointer comes to rest on 14 Wattle Grove's card, which lifts and brightens.")],
+         "One slow lateral glide across the grid, easing to a stop on the card.",
+         "The marketplace, 14 Wattle Grove under the pointer.",
+         ["Property Marketplace", "14 Wattle Grove, Banksia Rise", "A+"],
+         "The tour has room now: one page, explored, instead of four in a second and a half."),
     shot("12.2", "12", ("cap", 41), "screen", "aurixa", "Alongside the way you work: the builder",
-         ["PL-12A-a", "PL-12A-b", "G-POINTER", "G-DOCUMENT"],
-         [(0.0, "The Builders Network: Daniel Reed's Stock List, Residence 014 Selected for a client."),
-          (0.7, "The pointer opens the floorplan-R014.pdf tab; the floor plan, whole.")],
-         "Still.",
-         "The floor plan in its own tab.",
-         ["Stock List", "SELECTED FOR A CLIENT", "floorplan-R014.pdf"]),
+         ["PL-12A-a", "G-FLOORPLAN", "G-POINTER", "G-DOCUMENT"],
+         [(0.0, "The Builders Network: Daniel Reed's Stock List, 14 Wattle Grove Selected for a client."),
+          (0.85, "The pointer opens its floor plan: the plan lifts out of the page as a sheet, drawn clean and whole, every room named and dimensioned."),
+          (2.0, "The plan holds, turned a little toward the camera.")],
+         "A gentle push, then still on the plan.",
+         "The floor plan, whole, lifted off the builder's page.",
+         ["Stock List", "SELECTED FOR A CLIENT", "14 Wattle Grove · Floor plan"],
+         "The plan is drawn new for this cut, at the client's direction (22 October 2026): 4 bedrooms, 2 bathrooms, a double garage, every wall and label crisp at the frame's size."),
     shot("12.3", "12", ("cap", 42), "workflow", "aurixa", "The same document, the solicitor's notes",
-         ["PL-12B-a", "PL-12B-b", "G-POINTER", "G-DOCUMENT"],
-         [(0.0, "The same floor plan (carried over from 12.2 as one object) slides to the left; the matter's Notes window opens beside it."),
-          (1.0, "The pointer presses Save notes; the product's toast: Matter updated.")],
-         "Still.",
+         ["PL-12B-a", "PL-12B-b", "G-FLOORPLAN", "G-POINTER", "G-DOCUMENT"],
+         [(0.0, "The same floor plan (carried over from 12.2 as one object) travels across to the left; the solicitor's matter and its Notes window open beside it."),
+          (1.1, "The pointer presses Save notes; the product's toast: Matter updated.")],
+         "Follows the plan across, then still.",
          "The plan beside the notes, Matter updated.",
-         ["floorplan-R014.pdf", "Notes", "Matter updated"]),
-    shot("12.4", "12", ("cap", 43), "graphic", "aurixa", "A more connected business",
-         ["G-SYSTEM-MAP"],
-         [(0.0, "Back to the system map: one pulse travels from the hub to each portal in turn and every link brightens once.")],
-         "A slight pull back.",
-         "The system map at rest.",
-         []),
+         ["14 Wattle Grove · Floor plan", "Notes", "Matter updated"]),
+    shot("12.4", "12", ("cap", 43), "graphic", "aurixa", "What a more connected business could feel like",
+         ["G-DEVICES"],
+         [(0.0, "A laptop, a tablet and a phone in depth, each showing a different portal on the same record: the Command Centre, the Client Portal, the Builders Network. A pulse of light leaves the laptop and runs to the others; as it arrives each screen updates at once, the same Matter updated on all three."),
+          (1.3, "The three settle together, in sync, the pulse fading.")],
+         "A slow orbit around the three devices.",
+         "Three devices, one record, in sync.",
+         ["Matter updated"],
+         "Replaces the system map the second cut showed here (22 October 2026)."),
     # 13 · The viewer can assess the experience
     shot("13.1", "13", ("block", "13"), "screen", "aurixa", "A decision recorded, and the journey complete",
          ["PL-13A-a", "PL-13A-b", "G-RAIL", "G-POINTER"],
-         [(0.0, "The Finance Portal: Record finance decision for Residence 014, Subject to valuation."),
-          (0.8, "The pointer presses Record decision; the product's toast: Decision recorded."),
-          (("cap", 45), "The camera pulls back to the journey rail, now complete: Research, Financial, Report, Team, Decision, the last reading Subject to valuation.")],
-         "Still, then one pull back.",
+         [(0.0, "The Finance Portal: Record finance decision for 14 Wattle Grove, Subject to valuation."),
+          (0.9, "The pointer presses Record decision; the product's toast: Decision recorded."),
+          (("cap", 45), "As the music falls away, the camera pulls back to the journey rail, now complete: Research, Financial, Report, Team, Decision, the last reading Subject to valuation."),
+          (4.6, "The rail holds in the quiet.")],
+         "Still, then one long pull back into the quiet.",
          "The complete rail, ending on Subject to valuation.",
          ["Record finance decision", "Decision: Subject to valuation", "Decision recorded"],
          "The decision recorded is the broker's call, Subject to valuation: no approval or outcome is shown."),
@@ -296,24 +309,28 @@ SHOTS = [
          [(0.0, "A slow lateral drift across a wall of the film's own screens, dimmed and softened."),
           (("phrase", 1), "Fourteen days."), (("phrase", 2), "Your business."), (("phrase", 3), "Your experience."), (("phrase", 4), "Your decision.")],
          "One slow lateral drift, never reversing.",
-         "Each phrase alone and readable on the wall of screens.",
+         "Each phrase alone and readable on the wall of screens, each landing on the music's downbeat.",
          ["Fourteen days.", "Your business.", "Your experience.", "Your decision."],
-         "The phrases are set as the captions are, at display size: Playfair Display in the site's silver headline gradient, the key word in its gold italic (Fourteen, business, experience, decision) with the gold rule drawing under it, landing word by word on the voiceover; no captions over them."),
+         "The phrases are set as the captions are, at display size: Playfair Display in the site's silver headline gradient, the key word in its gold italic (Fourteen, business, experience, decision) with the gold rule drawing under it; each key word lands on a downbeat of the breakdown (pacing.py); no captions over them."),
     # 15 · The final brand and trial invitation
-    shot("15.1", "15", ("block", "15"), "graphic", "aurixa", "Aurixa Systems, and the trial",
-         ["PL-15A"],
-         [(0.0, "The closing card, complete from its first frame: the logo, the operating-system line, 14-DAY FREE TRIAL, START YOUR FREE TRIAL and aurixasystems.com.au."),
-          (5.2, "As the last line is spoken, the site's own shimmer (.pricing-shimmer-text: white, focus cyan, white) crosses START YOUR FREE TRIAL once; nothing else moves.")],
-         "Still.",
-         "The closing card, held through the audio tail.",
+    shot("15.1", "15", ("block", "15"), "graphic", "aurixa", "Aurixa Systems, and the trial: the last word",
+         ["PL-15A", "G-CTA", "G-POINTER"],
+         [(0.0, "On the music's return the closing card slams in with it: a flash of light, the logo landing at full size with a shock ring, the gold lines of the card drawing out from it; the operating-system line, 14-DAY FREE TRIAL, the button and aurixasystems.com.au are there from this first frame."),
+          (("bar", 51), "The button's gradient pulses on the bar; light runs around its edge."),
+          (("bar", 53), "As Start your free trial today is spoken, the pointer arrives and the button rises under it, glowing."),
+          (("bar", 54), "On the last downbeat the press: a burst of light from the button and a ring across the whole card, the logo flaring once; then everything settles and holds, the button still breathing.")],
+         "Still, but alive: the card's own light moves on the music's bars.",
+         "The closing card, pressed on the last downbeat, held through the ring of the music.",
          ["AURIXA SYSTEMS", "The operating system for modern property professionals.", "14-DAY FREE TRIAL", "START YOUR FREE TRIAL", "aurixasystems.com.au"],
-         "The pack's rule: the whole offer is visible from the start of Block 15, so nothing builds on."),
+         "The pack's rule still holds: the whole offer is visible from the first frame of Block 15. What moves is light and the press, on the music's bars (pacing.py)."),
 ]
+SHOTS_V3 = SHOTS  # pacing.py reads the cuts from here
 
 
 # --------------------------------------------------------------------------------------- resolve and check
 def moment(ref, start):
-    """A beat's or shot's time on the voiceover's clock."""
+    """A beat's or shot's time on the voiceover's own clock, before pacing.py holds it open: a number is seconds
+    after the shot's start."""
     if isinstance(ref, (int, float)):
         return snap(start + ref)
     kind, value = ref
@@ -326,43 +343,79 @@ def moment(ref, start):
     raise ValueError(ref)
 
 
+def on_frame(t):
+    """A music moment on the frame its attack falls in."""
+    return round(math.floor(t * FPS + 1e-6) / FPS, 3)
+
+
+def film_moment(ref, start):
+    """A beat's or shot's time on the film's clock: the voiceover's moments moved by pacing.py's pauses (a cut or a
+    beat before a word as a cut, a phrase as a word); the music's own moments (`beat` n, `bar` b: 0 is the drop) on
+    the frame their attack falls in; a number is seconds after the shot's start."""
+    if isinstance(ref, (int, float)):
+        return snap(start + ref)
+    kind, value = ref
+    if kind in ("cap", "block"):
+        return snap(pacing.warp_cut(moment(ref, 0)))
+    if kind == "phrase":
+        return snap(pacing.warp_word(moment(ref, 0)))
+    if kind == "beat":
+        return on_frame(pacing.film_beat(value))
+    if kind == "bar":
+        return on_frame(pacing.film_bar(value))
+    raise ValueError(ref)
+
+
+# The third cut's pauses, solved on these shots, and the film's end: the last downbeat and its ring.
+pacing.solve([(s["id"], moment(s["start"], 0)) for s in SHOTS], cap(45))
+END = round(pacing.end_frame() / FPS, 3)
+
+
+# A block whose own cut falls inside the shot before it, and that shot: the trial's button is pressed in 10.2, which
+# runs on from the invitation (the second cut showed the press on its own, as 11.1; the client asked for it to go).
+RUNS_OVER = {"11": "10.2"}
+
+
 def resolved():
-    """Every shot with its in, out, seconds, the voiceover under it and its beats on the clock; checked."""
+    """Every shot with its in, out, seconds, the voiceover under it and its beats on the film's clock; checked."""
     out = []
-    starts = [moment(s["start"], 0) for s in SHOTS]
+    voice = [moment(s["start"], 0) for s in SHOTS]
+    starts = [film_moment(s["start"], 0) for s in SHOTS]
     for i, s in enumerate(SHOTS):
         start, end = starts[i], (starts[i + 1] if i + 1 < len(SHOTS) else END)
+        v0, v1 = voice[i], (voice[i + 1] if i + 1 < len(SHOTS) else timing.END)
         if end <= start:
             raise SystemExit(f"{s['id']}: starts at {start} but the next shot starts at {end}")
-        if s["start"][0] == "block" and start != block_in(s["block"]):
+        if s["start"][0] == "block" and s["start"][1] != s["block"]:
             raise SystemExit(f"{s['id']}: a block's first shot must start on the block's cut")
-        beats = [{"at": moment(at, start), "do": text} for at, text in s["beats"]]
+        beats = [{"at": film_moment(at, start), "do": text} for at, text in s["beats"]]
         for a, b in zip(beats, beats[1:]):
             if b["at"] < a["at"]:
                 raise SystemExit(f"{s['id']}: beat at {b['at']} comes before the beat at {a['at']}")
         if beats and (beats[0]["at"] < start or beats[-1]["at"] >= end):
-            raise SystemExit(f"{s['id']}: a beat falls outside {start}–{end}")
+            raise SystemExit(f"{s['id']}: a beat falls outside {start}–{end}: {[b['at'] for b in beats]}")
         # The lines this shot carries: the captions whose first word is spoken in it (every cut sits just before a
         # caption, so each line belongs to exactly one shot); a shot no line starts in shows the line it sits in.
-        words = [c["text"] for c in CAPTIONS if start - 1e-6 <= timing.onset(c["start"]) < end - 1e-6]
+        words = [c["text"] for c in CAPTIONS if v0 - 1e-6 <= timing.onset(c["start"]) < v1 - 1e-6]
         if not words:
-            words = [c["text"] for c in CAPTIONS if c["start"] < end and c["end"] > start]
+            words = [c["text"] for c in CAPTIONS if c["start"] < v1 and c["end"] > v0]
         if s["block"] == "14":
             words = [o["text"] for o in SPEC["edit"]["overlays"]]
         if s["block"] == "15":
-            words = [c["text"] for c in SPEC["timing"]["cues"] if c["start"] >= start]
+            words = [c["text"] for c in SPEC["timing"]["cues"] if c["start"] >= v0]
         out.append({**{k: v for k, v in s.items() if k not in ("start", "beats")},
-                    "in": start, "out": round(end, 3), "seconds": round(end - start, 3), "voiceover": words,
-                    "beats": beats})
+                    "in": start, "out": round(end, 3), "seconds": round(end - start, 3),
+                    "voice_in": v0, "voiceover": words, "beats": beats})
     if out[0]["in"] != 0 or abs(sum(s["seconds"] for s in out) - END) > 1e-6:
-        raise SystemExit("The shots don't run from 0 to the end of the voiceover")
+        raise SystemExit("The shots don't run from 0 to the film's end")
     for b, block in BLOCKS.items():
         first = next(s for s in out if s["block"] == b)
-        if first["in"] != block["in"]:
-            raise SystemExit(f"Block {b} starts at {block['in']} but its first shot starts at {first['in']}")
+        want = snap(pacing.warp_cut(block["in"]))
+        if first["in"] != want:
+            host = RUNS_OVER.get(b)
+            if not host or not any(s["id"] == host and s["in"] < want < s["out"] for s in out):
+                raise SystemExit(f"Block {b} starts at {want} but its first shot starts at {first['in']}")
     return out
-
-
 
 
 # ------------------------------------------------------------------------------------------- the brief's words
@@ -371,19 +424,19 @@ EXTENDS = {"brief": "848af668-b28b-4ddb-8ab2-f8916ce314f0",
            "title": "Aurixa Systems Reel 1 Video Production — Final Cinematic Edition / Revision 2",
            "source": SPEC["source"]}
 
-IDEA = ("Watch one property move through one connected system. Residence 014 arrives as a single enquiry, waits "
+IDEA = ("Watch one property move through one connected system. 14 Wattle Grove arrives as a single enquiry, waits "
         "while today's scattered tools fail to answer it, and then travels through Aurixa Systems: research, "
         "financial analysis, the client's report, the professional team's portals, the agent's draft and the "
         "professional's own judgement, to a recorded decision and a 14-day trial. Every frame is the product "
         "working, readable, or a graphic drawn in the product's own design system.")
 
 KEEPS = [
-    "The master voiceover, verbatim and never stretched: 106.031 s, speech ending at 105.88 s.",
+    "The master voiceover, verbatim and never stretched: 106.031 s, speech ending at 105.88 s. Since the third cut it is held open in its own silences (pacing.py: 51 pauses between its measured speech segments, each a whole number of frames), so the film runs to the music's last downbeat and its ring.",
     "Its cut points. Each block starts where the working master's block starts, and every new cut uses the spec's timing rule (in the pause before a word, else 0.1 s ahead, on the 30 fps grid).",
     "The 45 captions, verbatim, at most two lines; none over the Block 14 phrases or the closing card. Since 22 October 2026, at the client's direction, set in the brand's own type and moving (scripts/aurixa-reel-1/captions.cjs): Playfair Display Medium, the site's headline face, in its silver headline gradient, one phrase a line in its italic (silver before the brand arrives, gold after, where a gold hairline draws under it and the light crosses it once), each word rising into focus on its spoken time (the voiceover's measured words), on a panel that reshapes from line to line: a white card of today's tools before the brand, the site's glass after.",
     "The Block 14 phrases (PL-14A-1 to PL-14A-4) at the edit's own times.",
     "The closing card (PL-15A), complete from the first frame of Block 15 through the audio tail.",
-    "The record: Project Banksia / Residence 014 / BK-014, the property image P and the floor plan D, in Australia with no real street address, still at the evaluation stage.",
+    "The record, since the third cut a mock address at the client's direction: 14 Wattle Grove, Banksia Rise NSW 2155 (Banksia Rise is not a real suburb), stock reference WG-14, the property image P and a floor plan drawn new for this cut, still at the evaluation stage, graded A+ on a composite of 84 across all five dimensions in the product's own words (STRONG BUY - Excellent investment opportunity with strong fundamentals across all metrics).",
     "The names, now only as accounts and records on screen: Jordan Ellis (client), Alex Morgan, Jamie Chen, Priya Shah, Mia Patel, Daniel Reed.",
     "A Demo workspace label on every Aurixa screen, and fictional demonstration data only.",
     "Every don't in the pack's brand guidelines, and the twelve guardrails of the studio's Aurixa Systems kit (docs/brands/aurixa-systems.md): no fabricated returns, approvals, valuations or results; no automatic financial, legal or accounting decision; no NPC wording; Aurixa Systems, AURIXA SYSTEMS and Aurixa Agent spelled exactly.",
@@ -427,18 +480,19 @@ PRODUCTION = [
     ("Compositions", "Each shot is one HTML composition at 1080 x 1920: the plate builders' own pages (scripts/aurixa-reel-1/portals.cjs, built from the products' code) placed in the graphics kit's window, with a timeline that sets every element's state at time t from the shot's beats in brief.json."),
     ("Rendering", "Frame by frame in Chromium (Playwright): set t = frame / 30, let the page lay out, capture, and encode at 30 fps with ffmpeg (H.264, yuv420p, high quality; an overlay with transparency as ProRes 4444). Deterministic: the same brief renders the same film, and a change to one shot re-renders only that shot."),
     ("Design tokens", "The kit's colours, type, radii, shadows, glass and motion come from one stylesheet written from the four Aurixa repositories' own code (see The design system, from the code), not from values picked by eye."),
-    ("Assembly", "scripts/aurixa-reel-1/render.cjs draws the whole reel, shot by shot from scenes/, and encodes it as one master with the voiceover: the method the client approved on 22 October 2026 after the proof of 04.1 to 05.2. The studio's Editor is not in the path."),
+    ("Assembly", "scripts/aurixa-reel-1/render.cjs draws the whole reel, shot by shot from scenes/, and encodes it as one master with its soundtrack: the method the client approved on 22 October 2026 after the proof of 04.1 to 05.2. The studio's Editor is not in the picture's path."),
+    ("Soundtrack", "National Treasures under the whole film and the voiceover held open in its silences (pacing.py), laid out as a studio edit's audio items on the Editor's mixer channels (the voiceover on its own channel, the music and its four pieces on Music & FX, each with its gain, fades and ducking under speech) and mixed by the studio's own media worker code, with two-pass loudness normalisation (soundtrack.py)."),
     ("Cost", "Nothing billed by a provider but the logo's moments: one image edit for its clean plate and the video model's takes (logo-takes.json); the rest is building the kit, the pages and the compositions, then rendering."),
 ]
 
 REVIEW_GATES = [
     "Style frames: one still per block, at its key beat, in the final look. Approve before anything moves.",
-    "Animatic: the 29 shots as timed stills on the voiceover, with the captions. Approve the timing before the final renders.",
+    "Animatic: the shots as timed stills on the voiceover, with the captions. Approve the timing before the final renders.",
     "First render: the full reel in the Editor as a draft, then shot by shot changes.",
 ]
 
 DECISIONS = [
-    ("Sound under the voiceover", "The pack keeps the voiceover as the only spoken track and asks whether there is a licensed score. Recommended for this edition: quiet interface sounds on presses and page changes (well under the voiceover), and either no music or a licensed bed. Which?"),
+    ("The music's licence", "National Treasures is the client's choice (22 October 2026) and is in the film. Its licence for paid or public use is the client's to confirm before the film runs anywhere but review."),
     ("Real product footage", "If the client can record the live Command Centre on the demo workspace, those recordings can replace any composition one for one. The code-built pages are the default because they are exact, fictional and ready now."),
     ("The opening palette", "Blocks 01 to 03 are deliberately unbranded and light, so Block 04's turn to navy and gold reads as Aurixa arriving. The alternative is to open in the brand's navy and keep the problem in muted tones."),
 ]
@@ -454,28 +508,41 @@ GRAPHICS = {
     "G-FOCUS": ("Focus corners", "The site's own corner marks (.compliance-corners): a 1 px cyan corner top left and a gold one bottom right, 1rem long, closing in on the part of a page that acts.", ["corners", "ease-settle"]),
     "G-RAIL": ("The journey rail", "Research · Financial · Report · Team · Decision, set in the site's eyebrow (mono, .28em, uppercase) on a panel strip above the window; the current stage in gold ink with the eyebrow's gold rule, the ones passed ticked, the rest muted. The film's one recurring chapter device.", ["surface", "mono", "gold-ink", "hairline", "ink-muted"]),
     "G-SYSTEM-MAP": ("The system map", "The Command Centre as the hub, five portal windows around it (Client, Finance, Accountant, Solicitor, Builders Network), each on its own dashboard, on the site's cyan dot field. Each is joined to the hub by the site's rail line (cyan to gold), which draws in; a traveller dot runs along a line when something passes along it. Labels in the eyebrow mono on panel chips; the Builders Network window carries its own teal. Never rotates.", ["ground", "dot-field", "glass", "surface", "link-line", "traveller", "mono", "gold-ink", "teal-builders"]),
-    "G-RECORD-CARD": ("The record card", "Residence 014 · BK-014 with the image P: the object the film follows. The same card in every scene it appears in, its title in the display serif, settling on the products' ease-out.", ["surface-raised", "border", "radius-card", "ink", "display", "sans", "ease-settle"]),
+    "G-RECORD-CARD": ("The record card", "14 Wattle Grove · WG-14 with the image P: the object the film follows. The same card in every scene it appears in, its title in the display serif, settling on the products' ease-out.", ["surface-raised", "border", "radius-card", "ink", "display", "sans", "ease-settle"]),
     "G-LINKS": ("Links", "The site's rail line (1 px, cyan to gold) drawn from one card to another, with a traveller dot that runs it once and settles; used for the team ringing the record.", ["link-line", "traveller", "ease-move"]),
     "G-DOCUMENT": ("The document", "A PDF that lifts off a page as an object: its cover in front, its pages fanned behind, each the report's own page as the product prints it, with the products' deepest elevation beneath. The floor plan travels between portals as the same object.", ["shadow-document", "ease-settle"]),
     "G-HIGHLIGHT": ("The marker", "The eyebrow's 1 px gold rule, drawn under the passage the voiceover points to and under the words the professional types.", ["hairline", "gold", "ease-settle"]),
     "G-HAIRLINE": ("The hairline", "One gold line drawn across the frame on the site's ground, with the traveller's gold glow at its leading end: the turn from today's tools to Aurixa.", ["ground", "hairline", "glow-gold"]),
     "G-EMBLEM": ("The emblem build", "The supplied logo, at half the frame's width, revealed out of the night by a video model's take of its clean plate that ends exactly on the supplied art; then its own lettering, the art's pixels and the shadow they stand in, rising letter by letter and the light crossing it once; then the emblem, the supplied file, lifts into the Command Centre. The logo is the supplied file, never redrawn or retyped.", ["ground", "hairline", "glow-gold", "ease-settle"]),
-    "G-HORIZON": ("The horizon", "A gold horizon line across the lower third with the traveller's glow along it; the camera tilts down past it into the system map.", ["ground", "gold", "glow-gold"]),
     "G-WALL": ("The wall of screens", "The film's own screens tiled at a slight angle in their glass windows, dimmed and softened by the products' strongest glass blur, drifting slowly sideways behind the Block 14 phrases.", ["ground", "blur", "shadow-window"]),
-    "G-MAP": ("The map", "A dot-matrix map of Australia in fine ink on paper white, with one gold pin and one pulse.", ["before-paper", "before-ink", "gold"]),
     "G-LISTING": ("The listing card", "A plain property-site card (no product's brand): the image P, the address line, four facts and small status chips.", ["before-surface", "before-border", "before-ink", "before-ink-muted", "before-type"]),
     "G-CLOCK": ("The desktop clock", "A small clock in the corner of today's desktop that runs from Monday to Wednesday through Block 03.", ["before-ink", "before-type"]),
     "G-BRIDGE": ("The bridges", "Dashed lines that try to join two plain document lists and break; a document dragged across by hand.", ["before-ink-muted", "before-border"]),
+    "G-SATELLITE": ("The continent from orbit", "Australia in NASA's Blue Marble Next Generation colour with its shaded relief multiplied in, graded toward night (deeper oceans, lifted ranges, a low warm sun from the north-west), laid on a plane the camera views in perspective and falls toward; a thin haze of atmosphere at the horizon, a vignette, and the relief sharpening as the camera nears. Public-domain imagery: no street is named on it.", ["satellite", "perspective", "ground"]),
+    "G-PINS": ("The pins", "Hundreds of white location pins, a stem and a head with a soft shadow on the land and a pinpoint of light, placed where Australians live and landing in waves with a small bounce; one turns gold, rises out of the field and pulses a ring while the rest dim.", ["ink", "gold", "glow-gold"]),
+    "G-STAGE": ("The stage in depth", "Windows and documents set in a space instead of on a flat page: the site's own perspective (its grid-forward keyframe), a few degrees of turn, soft shadows on a ground that fades into the distance (paper white for today's tools, the brand's night after), depth of field on what is not the subject, and camera moves with motion blur.", ["perspective", "shadow-window", "blur", "before-paper"]),
+    "G-TICKER": ("The market ticker", "A strip of listings and prices scrolling across today's desktop (New listing · Price guide updated · Auction result) in the system face, speeding up as the pressure builds.", ["before-ink", "before-ink-muted", "before-type"]),
+    "G-PHONE": ("The phone", "A plain phone face up on the desk, its lock screen lighting with the client's follow-up: no product's brand, the system's own type.", ["before-surface", "before-ink", "before-type"]),
+    "G-PORTAL-SPOTLIGHT": ("One portal at a time", "Each portal comes forward on its own, almost the frame's width and turned slightly in depth, its dashboard live and its name above it in the eyebrow's mono at display size with a gold rule drawing under it; then it swings into its place in an orbit around the hub as the next comes forward, a line of light running from the hub to it.", ["glass", "mono", "gold-ink", "hairline", "link-line"]),
+    "G-PAGE-SCROLL": ("The pages, running past", "The report's pages travel past the camera one after another in depth, each with the document's own deep shadow, slowing on each long enough to read its headline figure.", ["shadow-document", "ease-move"]),
+    "G-LIGHT-SWEEP": ("The light sweep", "A band of gold light, the hairline's colour with the traveller's glow, sweeping across the frame on a beat: today's grey tools burn away behind it and the brand's night takes their place.", ["gold", "glow-gold", "traveller"]),
+    "G-SUNRISE": ("The sunrise", "A long gold horizon across the navy and the sun clearing it: its disc in the traveller's light, rays fanning up, the sky warming above it.", ["ground", "gold", "glow-gold", "traveller"]),
+    "G-LOGO-JUMP": ("The logo, at the viewer", "The supplied emblem rushing from small to filling the frame on the products' emphasized ease, with a burst of light and a ring rippling outward, overshooting and settling on their ease-out: the supplied file, never redrawn.", ["ease-move", "ease-settle", "glow-gold"]),
+    "G-CTA": ("The button, alive", "START YOUR FREE TRIAL on the site's own prismatic button (.btn-chrome-prismatic: its marketing gradient at -45 degrees through gold and cyan, moving on prism-shine), quickened into a pulse, with pulse-glow's gold halo breathing around it; under the pointer it lifts and brightens, and its press is the focus ring's ripple.", ["cta-gradient", "pulse-glow", "press-ring", "motion-press"]),
+    "G-DEVICES": ("The business in sync", "A laptop, a tablet and a phone in depth, each showing a different portal on the same record; a pulse of light runs between them along the rail line and each screen updates as it arrives.", ["glass", "link-line", "traveller", "perspective"]),
+    "G-FLOORPLAN": ("The floor plan", "14 Wattle Grove drawn clean at the frame's own size: walls in solid ink, doors and windows as an architect draws them, every room named and dimensioned, a north point and a scale bar; a sheet that lifts off the page as the document does.", ["display", "sans", "hairline", "shadow-document"]),
 }
 
 # Pages a shot needs that no plate has yet: each is built from the product's own code, like the 41 plates.
 NEW_PAGES = {
     "NEW-INBOX": ("A generic inbox", "Today's tools: a plain mail client with Jordan Ellis's question as the top row, and Reply.", "01.2's question; no product's brand"),
-    "NEW-NOTIFICATIONS": ("Today's notifications", "Plain toasts from mail, chat, a calendar and a CRM, and the floor plan received for Residence 014 (PL-03A's item).", "unbranded system notifications"),
-    "NEW-MESSAGE-HUB": ("Command Centre · Message Hub, Jordan Ellis's thread", "Two states. First, his question from Monday at the top and Alex Morgan's reply typed in the composer, his row in the list reading Draft; then sent, with its delivered tick, and his row moved to Today: Your Residence 014 report is ready in your portal. Let's go through it together on Thursday.", "npc-client-dashboard's Message Hub (the list, the thread and its Details)"),
-    "NEW-CLIENT-REPORTS": ("Client Portal · the report and the next discussion", "Two pages. Reports: Project Banksia / Residence 014, Investment Report · Compass, New, with Download Report. My Appointments: Report walkthrough with Alex Morgan, Thu, 22 Oct 2026, 10:00 AM – 10:30 AM, Upcoming.", "npc-client-dashboard's Client Portal: its Reports and My Appointments pages"),
-    "NEW-DASHBOARDS": ("The Solicitor, Accountant, Finance and Builders Network dashboards", "Each portal's home page with the demo record. Shah Legal (Priya Shah): Welcome back, Open matters, 1 active matter; Ellis: Purchase, Residence 014 in Contract review, marked Watch after 13 days in the stage. Patel & Co Accountants (Mia Patel): Good to see you, Mia, 1 allocated client; Needs you next: Jordan Ellis, purchasing entity not yet confirmed. Harbour Finance Group (Jamie Chen): Welcome back, Jamie, the agreement templates (download only), and Today: You're clear for today. Reed Constructions (Daniel Reed): Welcome back, the organisation's title block, 1 project; Recent activity and Project delivery attention, both empty. The Client Portal's is PL-06A-a.", "the supplied dashboard screenshots' layout, the portals' code (npc-client-dashboard, aurixa-builders) and the plates' own sidebars"),
-    "NEW-REPORT-PAGES": ("Investment Compass · the client's report, inside", "The standard PDF as the product draws it for an issuer with no brand colour: white pages under the issuer's running head, in gold #D9A520 and obsidian #251F18. Its cover, the contents, The property, the summary (page 4: Executive Verdict, the purchase price and the rent, the readiness statement) and How this grade was reached (page 19: capital growth, location and rental yield scored; demand and property risk not), each on its own for the document fan, and the PDF viewer at pages 4 and 19. Every modelled page carries the illustrative-example label.", "npc-client-dashboard's standard Investment PDF (investmentPdfDocument.ts, investmentPdfCover.ts, investmentPdfIssuerPage.ts, measured from a render of that code) and its grade composer (strategyPositions.pure.ts)"),
+    "NEW-NOTIFICATIONS": ("Today's notifications", "Plain toasts from mail, chat, a calendar and a CRM, and the floor plan received for 14 Wattle Grove (PL-03A's item).", "unbranded system notifications"),
+    "NEW-MESSAGE-HUB": ("Command Centre · Message Hub, Jordan Ellis's thread", "Two states. First, his question from Monday at the top and Alex Morgan's reply typed in the composer, his row in the list reading Draft; then sent, with its delivered tick, and his row moved to Today: Your 14 Wattle Grove report is ready in your portal. Let's go through it together on Thursday.", "npc-client-dashboard's Message Hub (the list, the thread and its Details)"),
+    "NEW-CLIENT-REPORTS": ("Client Portal · the report and the next discussion", "Two pages. Reports: 14 Wattle Grove, Banksia Rise, Investment Report · Compass, New, with Download Report. My Appointments: Report walkthrough with Alex Morgan, Thu, 22 Oct 2026, 10:00 AM – 10:30 AM, Upcoming.", "npc-client-dashboard's Client Portal: its Reports and My Appointments pages"),
+    "NEW-DASHBOARDS": ("The Solicitor, Accountant, Finance and Builders Network dashboards", "Each portal's home page with the demo record. Shah Legal (Priya Shah): Welcome back, Open matters, 1 active matter; Ellis: Purchase, 14 Wattle Grove in Contract review, marked Watch after 13 days in the stage. Patel & Co Accountants (Mia Patel): Good to see you, Mia, 1 allocated client; Needs you next: Jordan Ellis, purchasing entity not yet confirmed. Harbour Finance Group (Jamie Chen): Welcome back, Jamie, the agreement templates (download only), and Today: You're clear for today. Reed Constructions (Daniel Reed): Welcome back, the organisation's title block, 1 project; Recent activity and Project delivery attention, both empty. The Client Portal's is PL-06A-a.", "the supplied dashboard screenshots' layout, the portals' code (npc-client-dashboard, aurixa-builders) and the plates' own sidebars"),
+    "NEW-REPORT-CHARTS": ("Investment Compass · the client's report, in figures", "The product's report in its own unbranded colours (white pages under the issuer's running head, gold #D9A520 and obsidian #251F18), drawn as figures instead of prose: the cover with A+ beside the address; Key figures (purchase price $1,150,000, weekly rent $850, gross yield 3.8 percent, ten-year median growth); capital growth, the council area's median price across ten years as a line; the ten-year cash flow in bars; How this grade was reached, A+ on a dial and its five dimensions as bars, composite 84; the suburb at a glance in figures and icons; rental comparables on a chart; the risk dashboard in levels. Every modelled page carries the illustrative-example label.", "npc-client-dashboard's standard Investment PDF (its running head, palette and chart primitives: gauge, bars, line, tiles) and its grade composer (scoringV2Production.pure.ts: A+ from 80, STRONG BUY across all metrics)"),
+    "NEW-TRIAL-SETUP": ("The trial's first minute", "Setting up your trial workspace: three steps checking themselves off (Workspace created · Demo data loaded · Portals connected), then Your 14-day trial is ready with a day counter at 14 days left, in the Command Centre's own cards and progress steps.", "npc-client-dashboard's Command Centre components and the site's 14-day trial"),
+    "NEW-MARKETPLACE": ("Command Centre · Property Marketplace", "The Listings page as the product draws it: a grid of listing cards (photograph, address, price, beds, baths, cars) under its filters; 14 Wattle Grove among them with its A+, the rest mock addresses in neighbouring suburbs.", "npc-client-dashboard's Listings page (the Property Marketplace) and its listing card"),
 }
 
 
@@ -614,6 +681,10 @@ DESIGN = {
         "before-border": ("--color-chrome-300", "#D1D5DB", f"{SITE} `@theme`"),
         "before-ink": ("--color-chrome-700", "#374151", f"{SITE} `@theme`"),
         "before-ink-muted": ("--color-chrome-500", "#6B7280", f"{SITE} `@theme`"),
+        "satellite": ("none", "Blue Marble Next Generation · shaded relief", "NASA Earth Observatory imagery, public domain (the basemap-data and three-globe packages' copies)"),
+        "perspective": ("@keyframes grid-forward", "perspective(1000px) rotateX(70deg)", f"{SITE} `src/index.css`"),
+        "cta-gradient": (".btn-chrome-prismatic · --background-image-marketing-cta", "linear-gradient(-45deg, #111827 0%, #C89B3C 25%, #00A8B5 50%, #0A192F 75%, #111827 100%) · 300% · prism-shine", f"{SITE} `src/index.css`"),
+        "pulse-glow": ("@keyframes pulse-glow", "0 0 10px rgba(200,155,60,.1) → 0 0 40px rgba(200,155,60,.4)", f"{SITE} `src/index.css`"),
         "before-type": ("system-ui", "Selawik", "the system face, as the plates set it"),
     },
 }
@@ -679,7 +750,7 @@ def screens_inventory(shots):
                 rows.setdefault(key, []).append(s["id"])
     out = []
     for key in sorted(rows, key=lambda k: (not k.startswith("PL-"), k)):
-        what = EDITION_TITLES.get(key) or plates[key]["title"] if key in plates else {"P": "The property image, Residence 014", "D": "The floor plan, Residence 014", "REF-LOGO": "The supplied Aurixa Systems logo"}.get(key, key)
+        what = EDITION_TITLES.get(key) or plates[key]["title"] if key in plates else {"P": "The property image, 14 Wattle Grove", "D": "The floor plan, 14 Wattle Grove", "REF-LOGO": "The supplied Aurixa Systems logo"}.get(key, key)
         out.append((key, what, rows[key]))
     unused = sorted(k for k in plates if k not in rows)
     return out, unused
@@ -890,7 +961,7 @@ def studio_analysis(shots):
                         "with Aurixa Agent supporting, not replacing, professional judgement."),
         "supporting_messages": [
             "Every frame is the product working, readable, or a graphic in the brand's own design system.",
-            "One property, Residence 014, moves through research, financial analysis, the client's report, the team's portals, the agent's draft and the professional's own change, to a recorded decision.",
+            "One property, 14 Wattle Grove, moves through research, financial analysis, the client's report, the team's portals, the agent's draft and the professional's own change, to a recorded decision.",
             "Every action shows its consequence: the pointer, the press, then the product's own response.",
             "The graphics are drawn in the brand's code: the site's palette and motifs, the products' glass, depth and motion.",
         ],

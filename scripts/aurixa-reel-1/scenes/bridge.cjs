@@ -1,4 +1,4 @@
-// Reel 1, shot 09.1: bridging the gaps by hand, on today's desktop. Two plain document lists for Residence 014 side
+// Reel 1, shot 09.1: bridging the gaps by hand, on today's desktop. Two plain document lists for 14 Wattle Grove side
 // by side, each with its own copy of the contract and the floor plan; dashed bridges reach across the gap between
 // them, the floor plan is dragged across by hand, a bridge breaks and a third copy appears.
 const M = require("../motion.cjs");
@@ -65,7 +65,7 @@ function bridgeScene() {
         "LW",
         LEFT,
         "Documents",
-        list("Residence 014 — documents", [
+        list("14 Wattle Grove — documents", [
           "Contract of sale (draft)",
           "Floor plan",
           "Building specification",
@@ -77,7 +77,7 @@ function bridgeScene() {
         RIGHT,
         "Documents (2)",
         list(
-          "Residence 014 — documents",
+          "14 Wattle Grove — documents",
           [
             "Contract of sale (draft)",
             "Floor plan",

@@ -1,4 +1,4 @@
-// Reel 1, shot 11.2: the demo workspace opens, its badge glows once, and focus settles on Residence 014.
+// Reel 1, shot 11.2: the demo workspace opens, its badge glows once, and focus settles on 14 Wattle Grove.
 const M = require("../motion.cjs");
 const {
   beat,
