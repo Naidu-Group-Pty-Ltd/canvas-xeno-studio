@@ -110,10 +110,45 @@ function brandScene() {
   // takes over from its last frames. Until it is made, the clean plate rises in out of the horizon instead.
   const FILM = L.takeFrames("A");
   const REVEAL = [t0 + 0.03, tLift - 0.3];
-  const footageAt = (t) =>
-    FILM[
-      Math.min(FILM.length - 1, Math.round(span(t, ...REVEAL, EASE.linear) * (FILM.length - 1)))
-    ];
+  // The take's own time against the film's: [film t, take seconds]. Its first dark second is under the turn
+  // from today's tools; the point of gold and the line it draws come on the hairline beat (2.2x); the emblem
+  // rises and forms through "Aurixa Systems" (2x); then it settles at near its own pace (1.07x) while the
+  // wordmark lands, ending on the take's last frame, which is the hero.
+  const FILM_KEYS = [
+    [t0, 0.9],
+    [t0 + 0.633, 2.3],
+    [t0 + 1.433, 3.9],
+    [REVEAL[1], (FILM.length - 1) / FPS],
+  ];
+  const footageAt = (t) => {
+    const k = FILM_KEYS;
+    const sec = (() => {
+      if (t <= k[0][0]) return k[0][1];
+      if (t >= k.at(-1)[0]) return k.at(-1)[1];
+      // Monotone cubic between the keys (Fritsch-Carlson), so the take's speed changes without a jolt.
+      const d = k.slice(1).map(([x, y], i) => (y - k[i][1]) / (x - k[i][0]));
+      const m = k.map((_, i) =>
+        i === 0
+          ? d[0]
+          : i === k.length - 1
+            ? d.at(-1)
+            : d[i - 1] * d[i] <= 0
+              ? 0
+              : (2 * d[i - 1] * d[i]) / (d[i - 1] + d[i]),
+      );
+      const i = k.findIndex(([x], j) => j < k.length - 1 && t >= x && t < k[j + 1][0]);
+      const [x0, y0] = k[i];
+      const [x1, y1] = k[i + 1];
+      const h = x1 - x0;
+      const u = (t - x0) / h;
+      const h00 = 2 * u ** 3 - 3 * u ** 2 + 1;
+      const h10 = u ** 3 - 2 * u ** 2 + u;
+      const h01 = -2 * u ** 3 + 3 * u ** 2;
+      const h11 = u ** 3 - u ** 2;
+      return h00 * y0 + h10 * h * m[i] + h01 * y1 + h11 * h * m[i + 1];
+    })();
+    return FILM[Math.min(FILM.length - 1, Math.max(0, Math.round(sec * FPS)))];
+  };
   const GLINT = H.art[1] + 1140 * H.k; // the art's own gold horizon, under the wordmark
 
   const html = () => {

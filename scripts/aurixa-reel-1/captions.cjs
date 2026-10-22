@@ -187,6 +187,17 @@ function schedule(cues) {
 const CUES = schedule(timedCues());
 
 // ------------------------------------------------------------------ drawing
+/** How much of the panel is the brand's glass at t (1) rather than today's white card (0): the shot's palette,
+ * changing over the first 0.3 s after each cut between the palettes. */
+function glassAt(t, span, EASE) {
+  const shots = BRIEF.shots;
+  const i = shots.findIndex((s) => t >= s.in - 1e-6 && t < s.out);
+  const k = i < 0 ? (t < shots[0].in ? 0 : shots.length - 1) : i;
+  const now = shots[k].palette === "aurixa" ? 1 : 0;
+  const before = k > 0 ? (shots[k - 1].palette === "aurixa" ? 1 : 0) : now;
+  return before + (now - before) * span(t, shots[k].in, shots[k].in + 0.3, EASE.move);
+}
+
 /** The captions' layer: every line laid out once (hidden), the panel, and its hairline. */
 function html() {
   const lines = CUES.map((c) => {
@@ -301,9 +312,9 @@ function state(st, t, { lines: boxes, phrases }, { span, fade, EASE, px, r3 }) {
       1 - span(t, run.panelGone - 0.3, run.panelGone, EASE.move),
     );
     const grow = 0.965 + 0.035 * span(t, run.start - 0.08, run.start + 0.32, EASE.settle);
-    // The material: paper before the brand, its glass after; from one to the other as the line changes.
-    const glass = (c) => (c.palette === "aurixa" ? 1 : 0);
-    const g = prev ? glass(prev) + (glass(cur) - glass(prev)) * p : glass(cur);
+    // The material follows the shots: the brand's glass from the cut where it arrives (04.1, and back from
+    // 09.1), today's white card before it, from one to the other over the cut's first 0.3 s.
+    const g = glassAt(t, span, EASE);
     const box = {
       width: px(w),
       height: px(h),

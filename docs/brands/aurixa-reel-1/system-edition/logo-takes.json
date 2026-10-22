@@ -62,10 +62,18 @@
    "use": "04.1, the reveal: the dark navy night to the logo",
    "digest": "1b8067bbfac1",
    "generationId": "d1d9d049-c718-4d89-beae-d918dac2a647",
-   "status": "in_progress",
+   "status": "completed",
    "reverse": false,
    "costUsd": 0,
-   "error": null
+   "error": null,
+   "asset": "b8521f76-a3d3-42cc-a215-37d3e88bfef4",
+   "file": "take-A1-take1-pro.mp4",
+   "size": [
+    1080,
+    1920
+   ],
+   "seconds": 5.04,
+   "fps": 24
   },
   "B1-take1-pro": {
    "key": "B1",
@@ -73,10 +81,18 @@
    "use": "10.2, 11.1 and 15.1: the logo alive on the trial and closing cards",
    "digest": "221a2cb781e6",
    "generationId": "caa989e0-2064-438d-8764-5acf2d67ea9a",
-   "status": "in_progress",
+   "status": "completed",
    "reverse": false,
    "costUsd": 0,
-   "error": null
+   "error": null,
+   "asset": "6169f24e-5d7b-432e-99e4-5fea5aedc1ff",
+   "file": "take-B1-take1-pro.mp4",
+   "size": [
+    1920,
+    1080
+   ],
+   "seconds": 10.04,
+   "fps": 24
   },
   "A2-take1-pro": {
    "key": "A2",
@@ -89,5 +105,80 @@
    "costUsd": 0,
    "error": "PROVIDER_REJECTED Your credit balance is too low to complete this request. Please top up your balance and try again."
   }
+ },
+ "slots": {
+  "A": {
+   "take": "A1-take1-pro",
+   "frames": 152,
+   "registration": 0.9953487190401604,
+   "warp": [
+    [
+     0.9991000294685364,
+     0.00019999999494757503,
+     0.6485000252723694
+    ],
+    [
+     -0.0003000000142492354,
+     0.9987999796867371,
+     2.566699981689453
+    ]
+   ],
+   "gain": [
+    0.9843000173568726,
+    0.988099992275238,
+    1.0041999816894531
+   ],
+   "offset": [
+    2.4700000286102295,
+    2.640000104904175,
+    3.0899999141693115
+   ],
+   "anchor_error_levels": {
+    "before": 3.61,
+    "after": 2.13
+   }
+  },
+  "B1": {
+   "take": "B1-take1-pro",
+   "frames": 302,
+   "registration": 0.999890759393722,
+   "warp": [
+    [
+     1.0,
+     0.0,
+     -0.0017000000225380063
+    ],
+    [
+     0.0,
+     0.9998999834060669,
+     0.005400000140070915
+    ]
+   ],
+   "gain": [
+    1.0154999494552612,
+    1.0011999607086182,
+    1.0
+   ],
+   "offset": [
+    0.8999999761581421,
+    1.840000033378601,
+    2.7899999618530273
+   ],
+   "anchor_error_levels": {
+    "before": 2.69,
+    "after": 1.96
+   }
+  }
+ },
+ "picked": {
+  "A": {
+   "take": "A1-take1-pro",
+   "use": "04.1: the reveal, from the night to the hero; the clean plate and the supplied lettering take over from its last frames"
+  },
+  "B1": {
+   "take": "B1-take1-pro",
+   "use": "10.2, 11.1 and 15.1: the logo alive on the trial and closing cards, under the supplied lettering"
+  },
+  "note": "Kling 3.0 Pro (1080p, the film's own width). The 4K takes and A2 (the dissolve made backwards) were refused for the provider's balance before anything was made."
  }
 }
