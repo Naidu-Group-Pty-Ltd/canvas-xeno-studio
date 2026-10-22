@@ -9,6 +9,7 @@
  */
 import { z } from "zod";
 import { FONT_FAMILY_PATTERN, isBrandFontFile } from "./font-family";
+import { musicPieces, piecesLength, piecesSchema } from "./pieces";
 
 export const ASPECT_RATIOS = [
   "9:16",
@@ -248,6 +249,12 @@ export const audioSchema = z.object({
   duckLevel: finite(0.05, 1).default(0.25),
   label: z.string().max(200).optional(),
   sourceDuration: z.number().finite().positive().nullable().optional(),
+  /**
+   * Music edited on its bars: the stretches of its track it plays in order,
+   * in the track's own seconds, instead of from its trim point (and without
+   * looping). See ./pieces.
+   */
+  pieces: piecesSchema.optional(),
 });
 export type TimelineAudio = z.infer<typeof audioSchema>;
 
@@ -780,16 +787,18 @@ export function withChannel(
   };
 }
 
-/** Whether an audio item loops: only music beds do, in the preview and the render alike. */
-export function audioLoops(item: Pick<TimelineAudio, "role" | "loop">): boolean {
-  return item.role === "music" && item.loop;
+/** Whether an audio item loops: only music beds do (not in pieces), in the preview and the render alike. */
+export function audioLoops(item: Pick<TimelineAudio, "role" | "loop" | "pieces">): boolean {
+  return item.role === "music" && item.loop && !musicPieces(item);
 }
 
 /** Seconds of an audio item that actually play within a picture of `total` seconds. */
 export function audioPlayLength(item: TimelineAudio, total: number): number {
   if (item.start >= total) return 0;
-  const available =
-    audioLoops(item) || !item.sourceDuration
+  const pieces = musicPieces(item);
+  const available = pieces
+    ? piecesLength(pieces)
+    : audioLoops(item) || !item.sourceDuration
       ? Infinity
       : Math.max(0, item.sourceDuration - item.trimStart);
   return Math.max(0, Math.min(item.duration ?? Infinity, available, total - item.start));
@@ -1086,6 +1095,8 @@ export function buildRenderRequest(
     loop: audioLoops(item),
     duck: item.role === "music" ? item.duck : false,
     duck_level: item.duckLevel,
+    // Sent only when set, so a media service from before them renders the rest.
+    ...piecesParam(item),
   }));
 
   const segments = timeline.captions.enabled
@@ -1197,6 +1208,12 @@ export function buildRenderRequest(
         : {}),
     },
   };
+}
+
+/** A music item's pieces as the media service takes them (feature music_pieces), when it has any. */
+function piecesParam(item: TimelineAudio): { pieces?: Array<{ from: number; to: number }> } {
+  const pieces = musicPieces(item);
+  return pieces ? { pieces: pieces.map(({ from, to }) => ({ from, to })) } : {};
 }
 
 /** Problems that stop a render, in plain words. Empty when the timeline can render. */

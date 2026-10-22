@@ -16,6 +16,8 @@ import {
   type TimelineAudio,
   type TimelineLayout,
 } from "@/lib/edit/timeline";
+import { musicPieces } from "@/lib/edit/pieces";
+import { audioSpans, timesOnTimeline } from "./on-timeline";
 
 export interface BeatAnalysis {
   bpm: number;
@@ -195,9 +197,11 @@ export function analyzeBeats(samples: Float32Array, sampleRate: number): BeatAna
 /**
  * Where a music item's beats fall on the edit's timeline. Like the render and
  * the preview, the first pass plays from the trim point to the end of the
- * source, and a loop then repeats the whole source from its start.
+ * source, and a loop then repeats the whole source from its start; music
+ * edited on its bars plays its pieces in order.
  */
 export function beatTimesOnTimeline(item: TimelineAudio, beats: number[], total: number): number[] {
+  if (musicPieces(item)) return timesOnTimeline(audioSpans(item, total), beats);
   const length = item.sourceDuration ?? null;
   const plays = Math.min(item.duration ?? Infinity, total - item.start);
   const times: number[] = [];

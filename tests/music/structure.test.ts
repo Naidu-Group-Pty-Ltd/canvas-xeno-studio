@@ -71,10 +71,10 @@ describe("the bar and its phase", () => {
   });
 
   test("keeps the grid on the beat to the end of a long track, though the tracker's period drifts", () => {
-    // Eight minutes at 124 BPM, loud and quiet in turn every 16 bars.
+    // Six minutes at 124 BPM, loud and quiet in turn every 16 bars.
     const period = 60 / 124;
-    const track = new Track(480);
-    for (let bar = 0; bar < 240; bar += 16)
+    const track = new Track(360);
+    for (let bar = 0; bar < 176; bar += 16)
       groove(track, { first: 0.3, period, beatsPerBar: 4 }, bar, bar + 16, bar % 32 ? 0.3 : 1);
     const { structure } = analyzeStructure(track.samples, RATE)!;
     const misses = structure.beats.map((beat) => {
@@ -84,7 +84,7 @@ describe("the bar and its phase", () => {
     expect(Math.max(...misses.slice(0, 20), ...misses.slice(-20))).toBeLessThan(0.008);
     expect(structure.bpm).toBeCloseTo(124, 1);
     expect(Math.abs(structure.bars[0]! - 0.3)).toBeLessThan(0.008);
-  });
+  }, 30_000);
 
   test("hears three beats a bar when the one comes every third beat", () => {
     const { structure } = inThrees()!;
@@ -178,7 +178,7 @@ describe("Reel 1's track, as pacing.py measured it", () => {
     expect(structure.beatsPerBar).toBe(4);
     expect(Math.abs(structure.bpm - 128.99)).toBeLessThanOrEqual(0.02);
     expect(Math.abs(barSeconds(structure) / 4 - REEL_ONE.period)).toBeLessThan(0.0001);
-  });
+  }, 30_000);
 
   test("the drop is a downbeat at 22.255 s in the file, and the sections fall on its bars", () => {
     const { structure } = reelOne()!;

@@ -4,6 +4,7 @@
  * it: from its trim point (a loop then repeats the whole track from its
  * start), or piece by piece when it is edited on its bars.
  */
+import { musicPieces } from "@/lib/edit/pieces";
 import { audioLoops, audioPlayLength, type TimelineAudio } from "@/lib/edit/timeline";
 import type { MusicStructure, SectionKind } from "./structure";
 
@@ -28,6 +29,18 @@ export interface TimelineSection {
 export function audioSpans(item: TimelineAudio, total: number): AudioSpan[] {
   const plays = audioPlayLength(item, total);
   if (plays <= 0) return [];
+  const pieces = musicPieces(item);
+  if (pieces) {
+    const spans: AudioSpan[] = [];
+    let at = 0;
+    for (const piece of pieces) {
+      if (at >= plays - 1e-9) break;
+      const length = Math.min(piece.to - piece.from, plays - at);
+      spans.push({ from: piece.from, to: piece.from + length, at: item.start + at });
+      at += piece.to - piece.from;
+    }
+    return spans;
+  }
   const length = item.sourceDuration ?? null;
   if (!audioLoops(item) || !length)
     return [{ from: item.trimStart, to: item.trimStart + plays, at: item.start }];
