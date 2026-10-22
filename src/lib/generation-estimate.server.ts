@@ -42,6 +42,17 @@ export async function estimateGenerationCost(data: {
     byResolution: [] as { resolution: string; usd: number }[],
     message,
   });
+  // A layout-only picture (a real client's screen, say) is never sent, even to price a run
+  // (shown as a problem with a reference, in the refusal's own words).
+  const { assertPlaceable } = await import("./media/layout-only.server");
+  try {
+    await assertPlaceable(
+      data.inputs.map((input) => input.assetId),
+      "estimate",
+    );
+  } catch (error) {
+    return unavailable("UPLOAD_FAILED", error instanceof Error ? error.message : null);
+  }
   if (!providerConfigured()) return unavailable("PROVIDER_NOT_CONFIGURED");
 
   const { supabaseAdmin, model } = await loadModel(data.modelId);

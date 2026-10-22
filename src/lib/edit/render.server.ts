@@ -347,6 +347,15 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
   if (blockers.length) throw new AppError("INVALID_PARAMETERS", blockers[0]);
 
   const assets = await resolveAssets(timeline);
+  // A layout-only picture (a real client's screen, say) is never rendered into a frame.
+  const { assertPlaceable } = await import("../media/layout-only.server");
+  await assertPlaceable(
+    [
+      ...timeline.clips.map((clip) => clip.assetId),
+      ...timeline.images.map((image) => image.assetId),
+    ],
+    "render",
+  );
   // Only audio that is heard in the render needs crediting or licence checks.
   const music = await musicRights(
     audibleAudio(timeline).map((item) => ({

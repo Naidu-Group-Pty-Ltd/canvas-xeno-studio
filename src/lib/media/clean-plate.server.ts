@@ -217,6 +217,9 @@ export async function startCleanPlate(input: StartCleanPlate): Promise<CleanPlat
   const letteringFile = input.lettering ? files.get(input.lettering.assetId) : null;
   if (input.lettering && (!letteringFile || letteringFile.asset_type !== "image"))
     throw new AppError("INVALID_PARAMETERS", "The lettering file must be a picture in the library");
+  // The art goes to an image model; a layout-only picture never does.
+  const { assertPlaceable } = await import("./layout-only.server");
+  await assertPlaceable([art.id, letteringFile?.id], "generation");
   const size = await pictureSize(art);
 
   const lettering: LetteringFile | null = input.lettering
@@ -682,6 +685,27 @@ export async function advanceCleanPlate(recipeId: string): Promise<CleanPlateRec
     if (startedOne || !nextWorkerStep(next)) return next;
   }
   return last!;
+}
+
+/**
+ * The studio's recovery job: recipes changed in the last two days are moved
+ * on, so a generation that finished while no one was looking is taken up and
+ * the steps after it run. Returns how many it looked at.
+ */
+export async function sweepCleanPlates(limit = 10): Promise<number> {
+  const since = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabaseAdmin
+    .from("operations")
+    .select("id")
+    .eq("operation_type", OPERATION_TYPE)
+    .eq("status", "running")
+    .gt("updated_at", since)
+    .order("updated_at", { ascending: true })
+    .limit(limit);
+  if (error) return 0;
+  for (const row of (data ?? []) as { id: string }[])
+    await advanceCleanPlate(row.id).catch(() => undefined);
+  return data?.length ?? 0;
 }
 
 /** Moves on the recipe a media task belongs to, once its result is recorded. */

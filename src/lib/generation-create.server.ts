@@ -70,6 +70,13 @@ export async function createAndSubmitGeneration(
 ): Promise<GenerationStarted> {
   const { model } = request;
 
+  // A layout-only picture (a real client's screen, say) never goes into a frame.
+  const { assertPlaceable } = await import("./media/layout-only.server");
+  await assertPlaceable(
+    request.inputs.map((input) => input.assetId),
+    "generation",
+  );
+
   // Only inputs that map to a slot the model declares are kept, so a stray
   // reference is never uploaded to the provider for nothing.
   const slotRoles = new Set((model.capabilities?.inputs ?? []).map((slot) => slot.role));

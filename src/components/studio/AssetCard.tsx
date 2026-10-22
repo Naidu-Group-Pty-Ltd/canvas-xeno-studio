@@ -7,10 +7,13 @@ export function AssetCard({
   asset,
   onOpen,
   contain,
+  badge,
 }: {
   asset: AssetRow;
   onOpen: (asset: AssetRow) => void;
   contain?: boolean;
+  /** A privacy mark's label ("Layout only", "Redacted"), if it has one. */
+  badge?: string | null;
 }) {
   return (
     <button
@@ -33,6 +36,11 @@ export function AssetCard({
       )}
       {asset.is_favorite && (
         <Heart className="absolute top-2 right-2 size-4 fill-primary text-primary" />
+      )}
+      {badge && (
+        <span className="absolute bottom-2 left-2 rounded-full bg-background/80 px-2 py-0.5 text-[10px] backdrop-blur transition-opacity group-hover:opacity-0">
+          {badge}
+        </span>
       )}
       <span
         className={cn(

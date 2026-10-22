@@ -12,6 +12,7 @@ import { MediaTaskPanel } from "@/components/studio/MediaTaskPanel";
 import { TextCheckPanel } from "@/components/studio/TextCheckPanel";
 import { AlignTakePanel } from "@/components/studio/AlignTakePanel";
 import { CleanPlatePanel } from "@/components/studio/CleanPlatePanel";
+import { PrivacyPanel } from "@/components/studio/PrivacyPanel";
 import { ReframeDialog } from "@/components/studio/ReframeDialog";
 import {
   downloadAsset,
@@ -377,6 +378,8 @@ export function AssetDetailDialog({
                 )}
 
                 <TextCheckPanel asset={asset} />
+
+                <PrivacyPanel asset={asset} />
 
                 <AlignTakePanel asset={asset} />
 

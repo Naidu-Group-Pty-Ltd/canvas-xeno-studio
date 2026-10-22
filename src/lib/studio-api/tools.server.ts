@@ -24,6 +24,8 @@ import { GITHUB_TOKEN_PATTERN } from "../brand/import-request";
 import { parseTimeline, timelineSchema } from "../edit/timeline";
 import { textCheckOf } from "../media/text-check";
 import { ALIGN_ANCHORS, ALIGN_DEFAULTS, ALIGN_LIMITS } from "../media/align-take";
+import { PRIVACY_NEEDS_UPDATE } from "../media/layout-only";
+import { SCREENSHOT_TYPES } from "../media/redaction";
 import { CHARACTER_VIEWS } from "../characters/model";
 import type { ModelRegistryEntry } from "../model-schema";
 import type { ApiScope } from "./tokens";
@@ -247,7 +249,7 @@ const getAsset = tool({
   name: "get_asset",
   title: "Get a library file",
   description:
-    "One library file: what it is, a download link valid for an hour, and any text check kept with it.",
+    "One library file: what it is, a download link valid for an hour, any text check kept with it, and its privacy mark (layout only: never placed in a frame; or a redacted copy of a screenshot).",
   scope: "read",
   input: z.object({ assetId: id() }),
   run: async (args) => {
@@ -262,10 +264,13 @@ const getAsset = tool({
     if (!asset) throw new AppError("INVALID_PARAMETERS", "That file isn't in the library");
     const { storage_bucket: bucket, storage_path: path, metadata, ...rest } = asset;
     const measured = (metadata ?? {}) as Json;
+    const { privacyMarks } = await import("../media/layout-only.server");
     return {
       ...rest,
       fps: typeof measured["fps"] === "number" ? measured["fps"] : null,
       textCheck: textCheckOf(metadata),
+      // Layout only (never placed in a frame), or a redacted copy; null for neither.
+      privacy: (await privacyMarks([asset.id])).get(asset.id) ?? null,
       url: await signedLink(bucket, path),
     };
   },
@@ -1435,7 +1440,7 @@ const importImage = tool({
   name: "import_image",
   title: "Import a picture",
   description:
-    "Puts a picture into the studio's library, from its bytes (data, base64) or a public https address (url): a typeset screen plate, a logo, a reference someone supplied. PNG, JPEG, WebP or GIF, up to 15 MB. It can then be a generation's input, a character's image or an edit's overlay. The same clientRequestId returns the first import instead of a second copy.",
+    "Puts a picture into the studio's library, from its bytes (data, base64) or a public https address (url): a typeset screen plate, a logo, a reference someone supplied. PNG, JPEG, WebP or GIF, up to 15 MB. It can then be a generation's input, a character's image or an edit's overlay. The same clientRequestId returns the first import instead of a second copy. A screenshot of a real client's screen goes with reference: kept out of the library until its private details are blurred (get_redaction, apply_redaction), and marked layout only.",
   scope: "edit",
   readOnly: false,
   input: z.object({
@@ -1448,11 +1453,36 @@ const importImage = tool({
     url: z.string().max(2000).optional().describe("A public https address to read it from"),
     projectId: id().nullable().optional(),
     clientRequestId: requestId(),
+    reference: z
+      .object({
+        redact: z
+          .boolean()
+          .default(true)
+          .describe(
+            "Find names, emails, phone numbers and addresses and blur them in a copy (see apply_redaction); the original never joins the library",
+          ),
+        layoutOnly: z
+          .boolean()
+          .default(true)
+          .describe("Never placed in a frame: no generation or edit may use it"),
+        keepOriginal: z
+          .boolean()
+          .default(false)
+          .describe(
+            "With redact: keep the original once the copy is made, where only admins can open it",
+          ),
+      })
+      .optional()
+      .describe("A screenshot supplied as a reference, such as a client's screen"),
   }),
   run: async (args, caller) => {
     await roleOf(caller.userId);
     if (!args.data === !args.url)
       throw new AppError("INVALID_PARAMETERS", "Give the picture as data or as a url, not both");
+    if (args.reference?.layoutOnly || args.reference?.redact) {
+      const { privacyReady } = await import("../media/redaction.server");
+      if (!(await privacyReady())) throw new AppError("INVALID_PARAMETERS", PRIVACY_NEEDS_UPDATE);
+    }
     const { data: before } = await db
       .from("assets")
       .select("id,width,height,mime_type")
@@ -1461,6 +1491,10 @@ const importImage = tool({
       .is("deleted_at", null)
       .limit(1)
       .maybeSingle();
+    if (before && args.reference?.layoutOnly) {
+      const { setLayoutOnly } = await import("../media/layout-only.server");
+      await setLayoutOnly({ assetId: before.id, userId: caller.userId, layoutOnly: true });
+    }
     if (before)
       return {
         assetId: before.id,
@@ -1505,6 +1539,28 @@ const importImage = tool({
     if (!kind || !IMPORT_TYPES.has(kind.mime))
       throw new AppError("INVALID_PARAMETERS", "That isn't a PNG, JPEG, WebP or GIF picture");
     const size = imageSize(bytes);
+    if (args.reference?.redact) {
+      // Kept out of the library, read for its private details: apply_redaction makes the copy.
+      if (!SCREENSHOT_TYPES[kind.mime])
+        throw new AppError(
+          "INVALID_PARAMETERS",
+          "A screenshot to redact must be a PNG, JPEG or WebP",
+        );
+      const { importScreenshot } = await import("../media/redaction.server");
+      const redaction = await importScreenshot({
+        userId: caller.userId,
+        bytes,
+        mimeType: kind.mime,
+        title: args.title,
+        projectId: args.projectId ?? null,
+        choices: {
+          layoutOnly: args.reference.layoutOnly,
+          keepOriginal: args.reference.keepOriginal,
+        },
+        clientRequestId: args.clientRequestId,
+      });
+      return { assetId: null, redaction };
+    }
 
     // Where uploads from the app go (see storageScope in ../storage).
     const bucket = "generation-inputs";
@@ -1547,9 +1603,14 @@ const importImage = tool({
       await db.storage.from(bucket).remove([path]);
       throw new AppError("STORAGE_FAILED", "The picture couldn't be added to the library");
     }
+    if (args.reference?.layoutOnly) {
+      const { setLayoutOnly } = await import("../media/layout-only.server");
+      await setLayoutOnly({ assetId: row.id, userId: caller.userId, layoutOnly: true });
+    }
     return {
       assetId: row.id,
       imported: true,
+      ...(args.reference?.layoutOnly ? { layoutOnly: true } : {}),
       width: size?.width ?? null,
       height: size?.height ?? null,
       mimeType: kind.mime,
@@ -1590,7 +1651,91 @@ const alignTake = tool({
   },
 });
 
+/** A share of a picture's width or height (0-1), as boxes are given. */
 const share = () => z.number().min(0).max(1);
+
+const getRedaction = tool({
+  name: "get_redaction",
+  title: "Get a screenshot's redaction",
+  description:
+    "A reference screenshot imported with import_image's reference choice: where it stands (reading, review, applying, completed), the boxes to blur (as shares of the picture, each with its kind and a label that hides most of what it covers), and, once made, the redacted copy's library id. Only who imported it, or an admin, can read it.",
+  scope: "read",
+  input: z.object({ redactionId: id() }),
+  run: async (args, caller) => {
+    const { getRedaction: read } = await import("../media/redaction.server");
+    return read(args.redactionId, caller.userId);
+  },
+});
+
+const applyRedaction = tool({
+  name: "apply_redaction",
+  title: "Blur a screenshot's private details",
+  description:
+    "Blurs a reference screenshot's boxes in a copy, which joins the library marked layout only (unless layoutOnly is false): the boxes as proposed, or the ones you give (add any the reading missed, leave out any that aren't private). With no box at all the screenshot joins the library as it is. The original is then deleted, unless keepOriginal, when only admins can open it. Follow it with get_redaction.",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({
+    redactionId: id(),
+    boxes: z
+      .array(
+        z.object({
+          id: z.string().max(40).optional(),
+          x: share(),
+          y: share(),
+          w: share(),
+          h: share(),
+          kind: z.enum(["name", "email", "phone", "address", "drawn"]).optional(),
+          label: z.string().max(60).optional(),
+        }),
+      )
+      .max(200)
+      .optional()
+      .describe("The boxes to blur, as shares of the picture; leave out to blur those proposed"),
+    layoutOnly: z.boolean().optional(),
+    keepOriginal: z.boolean().optional(),
+  }),
+  run: async (args, caller) => {
+    const { applyRedaction: apply } = await import("../media/redaction.server");
+    return apply(args.redactionId, caller.userId, {
+      ...(args.boxes ? { boxes: args.boxes } : {}),
+      layoutOnly: args.layoutOnly,
+      keepOriginal: args.keepOriginal,
+    });
+  },
+});
+
+const cancelRedaction = tool({
+  name: "cancel_redaction",
+  title: "Drop a screenshot before it is redacted",
+  description:
+    "Drops a reference screenshot whose copy isn't made yet: its original is deleted and nothing joins the library.",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({ redactionId: id() }),
+  run: async (args, caller) => {
+    const { cancelRedaction: cancel } = await import("../media/redaction.server");
+    return cancel(args.redactionId, caller.userId);
+  },
+});
+
+const setLayoutOnly = tool({
+  name: "set_layout_only",
+  title: "Mark a picture layout only",
+  description:
+    "Marks a library file layout only (a reference for how a screen is laid out, never placed in a frame: no generation, edit, render or copy may use it), or lifts the mark, which only an admin may do.",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({
+    assetId: id(),
+    layoutOnly: z.boolean(),
+    note: z.string().max(500).nullable().optional().describe("Why, for whoever finds it"),
+  }),
+  run: async (args, caller) => {
+    const { setLayoutOnly: set } = await import("../media/layout-only.server");
+    return { assetId: args.assetId, privacy: await set({ ...args, userId: caller.userId }) };
+  },
+});
+
 const plateBox = () =>
   z
     .object({ x: share(), y: share(), w: share(), h: share() })
@@ -1806,6 +1951,20 @@ async function missingFiles(timeline: ReturnType<typeof timelineSchema.parse>): 
   return ids.filter((assetId) => !found.has(assetId));
 }
 
+/** Refuses a timeline that places a layout-only picture (a real client's screen) in a frame. */
+async function assertPlaceableTimeline(
+  timeline: ReturnType<typeof timelineSchema.parse>,
+): Promise<void> {
+  const { assertPlaceable } = await import("../media/layout-only.server");
+  await assertPlaceable(
+    [
+      ...timeline.clips.map((clip) => clip.assetId),
+      ...timeline.images.map((image) => image.assetId),
+    ],
+    "edit",
+  );
+}
+
 function validTimeline(value: unknown) {
   const parsed = timelineSchema.safeParse(value ?? {});
   if (!parsed.success)
@@ -1844,6 +2003,7 @@ const createEdit = tool({
     const missing = await missingFiles(timeline);
     if (missing.length)
       throw new AppError("INVALID_PARAMETERS", `Not in the library: ${missing.join(", ")}`);
+    await assertPlaceableTimeline(timeline);
     const { data, error } = await db
       .from("sequences")
       .insert({
@@ -1907,6 +2067,7 @@ const updateEdit = tool({
       const missing = await missingFiles(timeline);
       if (missing.length)
         throw new AppError("INVALID_PARAMETERS", `Not in the library: ${missing.join(", ")}`);
+      await assertPlaceableTimeline(timeline);
     }
     return saveEdit(args.sequenceId, args.expectedVersion, {
       ...(timeline ? { timeline } : {}),
@@ -2044,6 +2205,10 @@ export const STUDIO_TOOLS: StudioTool[] = [
   checkText,
   saveCharacter,
   importImage,
+  getRedaction,
+  applyRedaction,
+  cancelRedaction,
+  setLayoutOnly,
   alignTake,
   startCleanPlate,
   getCleanPlate,

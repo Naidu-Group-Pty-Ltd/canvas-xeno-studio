@@ -116,6 +116,8 @@ export async function startAlignTake(input: AlignTakeRequest): Promise<AlignTake
     throw new AppError("INVALID_PARAMETERS", "The take must be a video");
   if (picture.asset_type !== "image")
     throw new AppError("INVALID_PARAMETERS", "The picture it lands on must be an image");
+  const { assertPlaceable } = await import("./layout-only.server");
+  await assertPlaceable([take.id, picture.id], "copy");
   await requireWorkerFeature("align_take", "Aligning a take to its picture");
 
   const task = await enqueueInternalMediaTask({

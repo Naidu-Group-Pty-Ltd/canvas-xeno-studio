@@ -1128,6 +1128,47 @@ await check("lay_lettering lays the art's own letters back over a take, the rest
   throw new Error("a take in another framing had the lettering laid over it");
 });
 
+// A screenshot full of fine detail, as a page of small text is, with two
+// regions that must not be shown (a name and an email, say).
+await check("redact_image blurs what a screenshot must not show, and leaves every other pixel as it was", async () => {
+  const screenshot = join(dir, "screenshot.png");
+  await ffmpeg(["-f", "lavfi", "-i", "testsrc2=s=640x360:d=1,noise=alls=60:allf=u", "-frames:v", "1", screenshot]);
+  const boxes = [{ x: 40, y: 30, w: 160, h: 24 }, { x: 300, y: 200, w: 220, h: 30 }];
+  const inBoxes = (x, y) => boxes.some((box) => x >= box.x && x < box.x + box.w && y >= box.y && y < box.y + box.h);
+  const result = await TASKS.redact_image.run({ sources: [{ path: screenshot, role: "source" }], params: { boxes }, dir });
+  if (result.metadata.redaction?.boxes !== 2) throw new Error(`reported ${JSON.stringify(result.metadata.redaction)}`);
+  const before = await rgbFrame(screenshot);
+  const after = await rgbFrame(result.outputs[0].path);
+  const kept = rgbOff(after, before, 640, (x, y) => !inBoxes(x, y));
+  if (kept.most !== 0) throw new Error(`pixels outside the boxes changed (by up to ${kept.most} levels)`);
+  // Inside, the fine detail (what lettering is made of) is gone: the mean square of a
+  // Laplacian, which a smooth gradient left by the blur hardly counts.
+  const detail = (frame, box) => {
+    const at = (x, y) => frame[(y * 640 + x) * 3];
+    let total = 0;
+    let count = 0;
+    for (let y = box.y + 1; y < box.y + box.h - 1; y += 1)
+      for (let x = box.x + 1; x < box.x + box.w - 1; x += 1) {
+        total += (at(x - 1, y) + at(x + 1, y) + at(x, y - 1) + at(x, y + 1) - 4 * at(x, y)) ** 2;
+        count += 1;
+      }
+    return total / count;
+  };
+  for (const box of boxes) {
+    const [was, now] = [detail(before, box), detail(after, box)];
+    if (!(now < was * 0.01)) throw new Error(`the box at ${box.x},${box.y} can still be read (detail ${now.toFixed(1)} from ${was.toFixed(1)})`);
+  }
+  for (const params of [{}, { boxes: [{ x: 700, y: 10, w: 20, h: 20 }] }, { boxes, format: "gif" }]) {
+    try {
+      await TASKS.redact_image.run({ sources: [{ path: screenshot, role: "source" }], params, dir });
+    } catch (error) {
+      if (error.code === "INVALID_PARAMETERS") continue;
+      throw error;
+    }
+    throw new Error(`${JSON.stringify(params)} was accepted`);
+  }
+});
+
 // With its files (an image built with LIP_CHECK=1), SyncNet runs end to end: a
 // test pattern has no face to score. Without them, it isn't offered at all.
 await check(lipCheckAvailable ? "lip_check runs SyncNet, and finds no face in a test pattern" : "lip_check isn't offered without its files", async () => {

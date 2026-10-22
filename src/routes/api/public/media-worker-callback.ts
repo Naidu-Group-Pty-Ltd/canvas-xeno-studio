@@ -144,11 +144,19 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
         const forVoiceover = typeof taskInput["audio_preparation_id"] === "string";
         // ...and so does a single clip made to a voiceover whose sync was measured.
         const forClipSync = typeof taskInput["lip_sync_clip_asset_id"] === "string";
-        // ...and so does a clean-plate recipe, whose next step can start then.
+        // ...and so does a clean-plate recipe, whose next step can start then,
+        // and a screenshot's redacted copy (it joins the library then, marked).
         const forCleanPlate = typeof taskInput["clean_plate_recipe_id"] === "string";
+        const forRedaction = typeof taskInput["reference_redaction_id"] === "string";
         const moveLongVideoOn = async () => {
-          if (!forLongVideo && !forVoiceover && !forClipSync && !forCleanPlate) return;
+          if (!forLongVideo && !forVoiceover && !forClipSync && !forCleanPlate && !forRedaction)
+            return;
           const { runAfterResponse } = await import("@/lib/generation-pipeline.server");
+          if (forRedaction) {
+            const { advanceForMediaTask: finishRedaction } =
+              await import("@/lib/media/redaction.server");
+            await runAfterResponse(request, () => finishRedaction(task.id));
+          }
           if (forCleanPlate) {
             const { advanceForMediaTask: advanceCleanPlate } =
               await import("@/lib/media/clean-plate.server");

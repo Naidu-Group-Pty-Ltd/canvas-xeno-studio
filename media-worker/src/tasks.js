@@ -7,6 +7,7 @@ import { measureSync, prepareAudio } from "./voice.js";
 import { lipCheck, lipCheckAvailable } from "./lipcheck.js";
 import { alignTake } from "./take.js";
 import { cleanPlate, layLettering } from "./plate.js";
+import { redactImage } from "./redact.js";
 
 /**
  * Task catalogue.
@@ -80,6 +81,8 @@ export const FEATURES = [
   // lay_lettering).
   "align_take",
   "clean_plate",
+  // A reference screenshot's private details blurred in a copy (redact_image).
+  "redact_image",
   ...(lipCheckAvailable ? ["lip_check"] : []),
 ];
 
@@ -469,6 +472,17 @@ export const TASKS = {
     sources: { min: 2, max: 3 },
     outputs: () => 1,
     run: layLettering,
+  },
+
+  /**
+   * A screenshot with what it must not show (people's names, emails, phone
+   * numbers, addresses) blurred in the boxes given, and nothing else changed
+   * (see redact.js).
+   */
+  redact_image: {
+    sources: { min: 1, max: 1 },
+    outputs: () => 1,
+    run: redactImage,
   },
 
   /**

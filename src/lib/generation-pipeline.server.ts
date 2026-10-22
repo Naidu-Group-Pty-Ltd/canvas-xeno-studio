@@ -274,6 +274,11 @@ async function uploadStoredMedia(media: StoredMedia): Promise<{ url: string; mim
  */
 export async function providerMediaUrl(media: StoredMedia): Promise<string> {
   const assetId = media.assetId;
+  // The last guard, whatever sent it: no layout-only file reaches the provider.
+  if (assetId) {
+    const { assertPlaceable } = await import("./media/layout-only.server");
+    await assertPlaceable([assetId], "provider");
+  }
   if (!assetId) return (await uploadStoredMedia(media)).url;
   const key = `${assetId}:${media.bucket}/${media.path}`;
   const pending = uploadsInFlight.get(key);

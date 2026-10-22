@@ -315,6 +315,23 @@ recipe; Reel 1's logo was made this way).
 `/health` lists `align_take` and `clean_plate` (for both `clean_plate` and
 `lay_lettering`) among its features.
 
+## Screenshots with what they must not show blurred
+
+A screenshot supplied as a reference (a client's portal, say) can show real people's
+names, emails, phone numbers and addresses. The app finds them and a person checks the
+boxes; this task blurs them in a copy.
+
+- `redact_image` (source: the screenshot, PNG, JPEG or WebP, at most 8000 pixels a side;
+  one PNG, or `format: "jpg"`) blurs inside each of `boxes` (`[{x, y, w, h}]` in the
+  picture's pixels, at most 200): the picture there is broken into blocks most of the
+  tallest box's height (`metadata.redaction.block`, at least 12 pixels), then blurred, so
+  no letter survives to be read or recovered. Every pixel outside the boxes comes out
+  exactly as it was. The boxes are numbers only: the text they cover never reaches the
+  worker. `metadata.redaction.boxes` says how many were blurred.
+
+`/health` lists `redact_image` among its features. It is a quick task, so a screenshot
+isn't kept waiting behind a render.
+
 ## Configuration
 
 Copy `.env.example`. The only required variable is

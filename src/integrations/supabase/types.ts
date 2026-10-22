@@ -286,6 +286,74 @@ export type Database = {
           },
         ]
       }
+      asset_privacy: {
+        Row: {
+          asset_id: string
+          layout_only: boolean
+          lifted_at: string | null
+          lifted_by: string | null
+          marked_at: string
+          marked_by: string | null
+          note: string | null
+          redacted_areas: number | null
+          redaction_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          asset_id: string
+          layout_only?: boolean
+          lifted_at?: string | null
+          lifted_by?: string | null
+          marked_at?: string
+          marked_by?: string | null
+          note?: string | null
+          redacted_areas?: number | null
+          redaction_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          asset_id?: string
+          layout_only?: boolean
+          lifted_at?: string | null
+          lifted_by?: string | null
+          marked_at?: string
+          marked_by?: string | null
+          note?: string | null
+          redacted_areas?: number | null
+          redaction_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_privacy_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: true
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_privacy_lifted_by_fkey"
+            columns: ["lifted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_privacy_marked_by_fkey"
+            columns: ["marked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_privacy_redaction_id_fkey"
+            columns: ["redaction_id"]
+            isOneToOne: false
+            referencedRelation: "reference_redactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assets: {
         Row: {
           asset_type: Database["public"]["Enums"]["asset_type"]
@@ -5391,6 +5459,119 @@ export type Database = {
           {
             foreignKeyName: "provider_media_uploads_asset_id_fkey"
             columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reference_redactions: {
+        Row: {
+          attempt: number
+          boxes: Json
+          client_request_id: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          error_code: string | null
+          error_message: string | null
+          file_size: number | null
+          height: number | null
+          id: string
+          keep_original: boolean
+          layout_only: boolean
+          media_task_id: string | null
+          mime_type: string
+          original_bucket: string
+          original_path: string
+          original_removed_at: string | null
+          project_id: string | null
+          reading: Json | null
+          redacted_asset_id: string | null
+          status: string
+          title: string
+          updated_at: string
+          width: number | null
+        }
+        Insert: {
+          attempt?: number
+          boxes?: Json
+          client_request_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          file_size?: number | null
+          height?: number | null
+          id?: string
+          keep_original?: boolean
+          layout_only?: boolean
+          media_task_id?: string | null
+          mime_type: string
+          original_bucket?: string
+          original_path: string
+          original_removed_at?: string | null
+          project_id?: string | null
+          reading?: Json | null
+          redacted_asset_id?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          width?: number | null
+        }
+        Update: {
+          attempt?: number
+          boxes?: Json
+          client_request_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          file_size?: number | null
+          height?: number | null
+          id?: string
+          keep_original?: boolean
+          layout_only?: boolean
+          media_task_id?: string | null
+          mime_type?: string
+          original_bucket?: string
+          original_path?: string
+          original_removed_at?: string | null
+          project_id?: string | null
+          reading?: Json | null
+          redacted_asset_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reference_redactions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reference_redactions_media_task_id_fkey"
+            columns: ["media_task_id"]
+            isOneToOne: false
+            referencedRelation: "media_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reference_redactions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reference_redactions_redacted_asset_id_fkey"
+            columns: ["redacted_asset_id"]
             isOneToOne: false
             referencedRelation: "assets"
             referencedColumns: ["id"]
