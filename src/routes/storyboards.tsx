@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { MediaPreview } from "@/components/studio/MediaPreview";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Clapperboard, Film, Loader2 } from "lucide-react";
+import { Clapperboard, FileJson, Film, Loader2 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { EmptyState } from "@/components/studio/EmptyState";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { createSequence } from "@/hooks/useEditorData";
 import { compileFromStoryboard, type CompileAsset, type CompileTake } from "@/lib/edit/compile";
 import { SendToKatana } from "@/components/katana/SendToKatana";
+import { ImportStoryboardBrief } from "@/components/storyboard/ImportStoryboardBrief";
+import { VoiceTiming } from "@/components/storyboard/VoiceTiming";
 
 export const Route = createFileRoute("/storyboards")({
   head: () => ({
@@ -91,6 +93,7 @@ function StoryboardsPage() {
   const { data, isLoading } = useStoryboards();
   const [openId, setOpenId] = useState<string | null>(null);
   const [compiling, setCompiling] = useState(false);
+  const [importing, setImporting] = useState(false);
   const open = data?.find((s) => s.id === openId) ?? data?.[0] ?? null;
 
   async function compile(board: StoryboardWithScenes) {
@@ -158,6 +161,15 @@ function StoryboardsPage() {
               {board.title}
             </button>
           ))}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-2 w-full justify-start px-2 text-muted-foreground"
+            onClick={() => setImporting(true)}
+            data-testid="import-storyboard-brief"
+          >
+            <FileJson className="mr-1.5 size-3.5" /> Import a brief
+          </Button>
         </aside>
 
         <section className="panel min-w-0 p-4">
@@ -191,6 +203,11 @@ function StoryboardsPage() {
                   Compile selected takes
                 </Button>
               </header>
+              <VoiceTiming
+                key={open.id}
+                storyboardId={open.id}
+                creativeDirection={open.creative_direction}
+              />
               <div className="space-y-4">
                 {[...(open.scenes ?? [])]
                   .sort((a, b) => a.scene_number - b.scene_number)
@@ -242,6 +259,7 @@ function StoryboardsPage() {
           )}
         </section>
       </div>
+      <ImportStoryboardBrief open={importing} onOpenChange={setImporting} onImported={setOpenId} />
     </AppShell>
   );
 }
