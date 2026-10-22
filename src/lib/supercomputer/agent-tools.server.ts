@@ -819,7 +819,11 @@ const readBrief = ownTool({
     const { briefExcerpt } = await import("../briefs/pages");
     const excerpt = briefExcerpt(
       data.extracted_text ?? "",
-      { fromPage: input.from_page, toPage: input.to_page, offset: input.offset },
+      {
+        ...(input.from_page !== undefined ? { fromPage: input.from_page } : {}),
+        ...(input.to_page !== undefined ? { toPage: input.to_page } : {}),
+        ...(input.offset !== undefined ? { offset: input.offset } : {}),
+      },
       BRIEF_READ_CHARS,
     );
     const where = excerpt.pages
