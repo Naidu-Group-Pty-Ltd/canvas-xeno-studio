@@ -927,8 +927,11 @@ async function routeAssets(page) {
   await page.route(`${ASSET_HOST}/**`, (route) => {
     const name = decodeURIComponent(new URL(route.request().url()).pathname.slice(1));
     const file = ASSETS && path.join(ASSETS, path.basename(name));
+    const type = { ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp" }[
+      path.extname(name)
+    ];
     return file && fs.existsSync(file)
-      ? route.fulfill({ path: file, contentType: "image/png" })
+      ? route.fulfill({ path: file, contentType: type ?? "image/png" })
       : route.fulfill({ status: 404, body: "" });
   });
 }

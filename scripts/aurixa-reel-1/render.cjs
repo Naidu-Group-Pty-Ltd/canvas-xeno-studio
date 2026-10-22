@@ -68,7 +68,9 @@ async function load(tab, scene, css) {
       }),
     );
     const els = new Map();
-    window.__apply = (updates) => {
+    // `$src` changes an image (a frame of footage): the drawing waits until it is decoded, never a frame later.
+    window.__apply = async (updates) => {
+      const decoding = [];
       for (const [selector, index, props] of updates) {
         const key = `${selector}\u0000${index}`;
         let el = els.get(key);
@@ -85,15 +87,22 @@ async function load(tab, scene, css) {
         }
         for (const [k, v] of Object.entries(props)) {
           if (k === "$text") el.textContent = v;
-          else el.style.setProperty(k, v);
+          else if (k === "$src") {
+            if (el.getAttribute("src") !== v) {
+              el.setAttribute("src", v);
+              decoding.push(el.decode());
+            }
+          } else el.style.setProperty(k, v);
         }
       }
+      await Promise.all(decoding);
     };
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   });
 }
 /** A scene's plate measurements: each named element's box in its plate's own CSS px. */
 async function measure(tab, scene) {
+  if (!scene.measure) return scene.derive ? scene.derive({}) : {};
   const raw = await tab.evaluate((queries) => {
     const out = {};
     for (const [name, [root, selector, all]] of Object.entries(queries)) {
@@ -118,16 +127,66 @@ async function measure(tab, scene) {
 }
 
 /** Draws frames [from, to) on WORKERS browsers, handing each PNG (2x) to `sink` in order. */
+/**
+ * A scene's still layers drawn once to images (scene.bake: [{ name, width, height, html }], CSS px), at the
+ * drawing's 2x with transparency, into OUT/bake, and served to the scenes from BAKE_HOST. A layer the browser
+ * would otherwise redraw on every drawing (a wall of screens under a 28 px blur, moving) is moved as a picture.
+ */
+const BAKE_HOST = "https://reel-bake.local";
+const BAKED = path.join(OUT, "bake");
+const routeBaked = (tab) =>
+  tab.route(`${BAKE_HOST}/**`, (route) => {
+    const file = path.join(BAKED, path.basename(new URL(route.request().url()).pathname));
+    return fs.existsSync(file)
+      ? route.fulfill({ path: file, contentType: "image/png" })
+      : route.fulfill({ status: 404, body: "" });
+  });
+async function bake(browser, scenes, css) {
+  fs.mkdirSync(BAKED, { recursive: true });
+  for (const scene of scenes)
+    for (const { name, width, height, html } of scene.bake ? scene.bake() : []) {
+      const file = path.join(BAKED, name);
+      if (fs.existsSync(file)) continue;
+      const ctx = await browser.newContext({
+        viewport: { width, height },
+        deviceScaleFactor: SUPERSAMPLE,
+      });
+      const tab = await ctx.newPage();
+      await F.routeAssets(tab);
+      await tab.setContent(
+        `<!doctype html><html><head><meta charset="utf-8"><style>${css}${RENDER_CSS} html,body{background:transparent}</style></head><body>${html}</body></html>`,
+        { waitUntil: "load" },
+      );
+      await tab.evaluate(async () => {
+        await document.fonts.ready;
+        await Promise.all([...document.images].map((i) => i.decode().catch(() => null)));
+      });
+      await tab.screenshot({
+        path: file,
+        omitBackground: true,
+        clip: { x: 0, y: 0, width, height },
+      });
+      await ctx.close();
+      console.log(`baked ${name}`);
+    }
+}
+
 async function draw(frames, sink) {
   const { chromium } = F.playwright();
   const css = await F.stylesheet();
   // Measure each scene once.
   const probe = await chromium.launch(launchArgs());
   const measures = new Map();
+  await bake(
+    probe,
+    SCENES.filter((scene) => frames.some((f) => f >= scene.from && f < scene.to)),
+    css,
+  );
   {
     const ctx = await probe.newContext({ viewport: { width: WIDTH, height: HEIGHT } });
     const tab = await ctx.newPage();
     await F.routeAssets(tab);
+    await routeBaked(tab);
     for (const scene of SCENES)
       if (frames.some((f) => f >= scene.from && f < scene.to)) {
         await load(tab, scene, css);
@@ -165,6 +224,7 @@ async function draw(frames, sink) {
     });
     const tab = await ctx.newPage();
     await F.routeAssets(tab);
+    await routeBaked(tab);
     const cdp = await ctx.newCDPSession(tab);
     let loaded = null;
     let last = new Map();
@@ -390,8 +450,13 @@ function encoder(film, reference, audio) {
   const log = frames.map((f) => {
     const t = f / FPS;
     const shot = shots.find((s) => frameOf(s.in) <= f && f < frameOf(s.out));
-    const cue = F.CAPTIONS.find((c) => frameOf(c.start) <= f && f < frameOf(c.end));
-    return { frame: f, t: Number(t.toFixed(4)), shot: shot?.id ?? null, caption: cue?.text ?? "" };
+    // The caption words on screen (half in or more), as ./captions.cjs sets them word by word.
+    return {
+      frame: f,
+      t: Number(t.toFixed(4)),
+      shot: shot?.id ?? null,
+      caption: CAP.visibleAt(t, { span: M.span, EASE: M.EASE }),
+    };
   });
   fs.writeFileSync(
     path.join(OUT, "film.json"),

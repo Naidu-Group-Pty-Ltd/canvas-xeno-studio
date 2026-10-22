@@ -60,7 +60,60 @@ const heroArtHtml = (src, id = "hero-art", z = 2) => {
  * keeps a fine regular pattern poorly; the film draws its own dots over the footage). */
 const modelGroundHtml = () => `<div class="fk-glow"></div>`;
 
-module.exports = { ART, HERO, heroArtHtml, modelGroundHtml, fadeMask };
+/** The cards' crop of the art (art px): the frame their take (B1) is made from, 16:9 about the art's centre. */
+const CARD_CROP = [0, 104, 2000, 1125];
+
+/** A take's frames in the assets folder (logo-<take>-0001.jpg and on, at the film's 30 fps), as the page names them. */
+function takeFrames(take) {
+  const F = require("./frames.cjs");
+  if (!F.ASSETS || !fs.existsSync(F.ASSETS)) return [];
+  const pattern = new RegExp(`^logo-${take}-\\d{4}\\.jpg$`);
+  return fs
+    .readdirSync(F.ASSETS)
+    .filter((n) => pattern.test(n))
+    .sort()
+    .map((n) => F.asset(n));
+}
+
+/**
+ * The cards' logo where plates.cjs's logoArt draws it (its vignette, screened over the card): the supplied art
+ * whole and, once the card take's frames are in the assets folder, its footage over the crop it was made from
+ * (top and foot feathered into the art), with the art's own lettering and the shadow it stands in laid over
+ * it (logo-letters.png), so the letters are the supplied ones, pixel for pixel. Without the frames it draws
+ * exactly what logoArt draws.
+ */
+function cardLogoHtml({ id, width, style = "", take = "B1" }) {
+  const F = require("./frames.cjs");
+  const k = width / ART.w;
+  const frames = takeFrames(take);
+  const art = F.asset("logo-art.png");
+  const film = frames.length
+    ? `<img id="${id}-film" src="${frames[0]}" alt="" style="position:absolute;left:0;top:${CARD_CROP[1] * k}px;width:${width}px;height:${CARD_CROP[3] * k}px;-webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 7%, #000 93%, transparent 100%);mask-image:linear-gradient(to bottom, transparent 0, #000 7%, #000 93%, transparent 100%)">` +
+      `<img src="${F.asset("logo-letters.png")}" alt="" style="position:absolute;inset:0;width:100%;height:100%">`
+    : "";
+  return `<div id="${id}" role="img" aria-label="AURIXA SYSTEMS" style="position:relative;width:${width}px;height:${(ART.h * k).toFixed(3)}px;mix-blend-mode:screen;-webkit-mask-image:radial-gradient(ellipse 50% 50% at 50% 50%, #000 62%, transparent 100%);mask-image:radial-gradient(ellipse 50% 50% at 50% 50%, #000 62%, transparent 100%);${style}"><img src="${art}" alt="" style="position:absolute;inset:0;width:100%;height:100%">${film}</div>`;
+}
+
+/** The card logo's footage at t: frame (offset + the film frames since t0), looping (the take starts and ends
+ * on the same frame), set on `#<id>-film`; nothing where the take's frames are not in yet. */
+function cardLogoState(st, id, t, { t0, offset = 0, take = "B1", frameOf }) {
+  const frames = takeFrames(take);
+  if (!frames.length) return;
+  const n = Math.max(0, offset + frameOf(t) - frameOf(t0));
+  st.set(`#${id}-film`, { $src: frames[n % frames.length] });
+}
+
+module.exports = {
+  ART,
+  HERO,
+  CARD_CROP,
+  heroArtHtml,
+  modelGroundHtml,
+  fadeMask,
+  takeFrames,
+  cardLogoHtml,
+  cardLogoState,
+};
 
 if (require.main === module) {
   (async () => {

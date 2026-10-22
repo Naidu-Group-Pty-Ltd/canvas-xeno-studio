@@ -7,11 +7,12 @@ never draws the lettering, because video models garble text: it is given the log
 art with AURIXA SYSTEMS taken out, and the supplied wordmark and emblem (exact crops of the art) are laid over
 its footage where the art has them.
 
-  python3 scripts/aurixa-reel-1/logo_motion.py clean <assetsDir> <edit.png>   # logo-clean.png from an edit of the art
+  python3 scripts/aurixa-reel-1/logo_motion.py clean <assetsDir> <edit.png>   # logo-clean.png (and logo-letters.png)
   python3 scripts/aurixa-reel-1/logo_motion.py frames <assetsDir> <outDir>    # the input frames, as PNG
   python3 scripts/aurixa-reel-1/logo_motion.py price <outDir> [--only A1,B1]   # import them, price every take
   python3 scripts/aurixa-reel-1/logo_motion.py run <outDir> [--only A1] [--take 2] [--confirm]   # queue, wait, download
   python3 scripts/aurixa-reel-1/logo_motion.py fetch <outDir>                 # the takes' state again, and their files
+  python3 scripts/aurixa-reel-1/logo_motion.py ingest <outDir> <assetsDir> A1-take1 A   # a take's frames, for the film
 
 The clean plate: the art was edited once (Marketing Studio 2.5 Sunburst image edit, 2048 x 1360, told to take
 the words and their shadow out and keep everything else), registered to the art (ECC, affine; it lay within a
@@ -33,7 +34,10 @@ from studio import call, SETTLED  # noqa: E402
 HERE = Path(__file__).parent
 ROOT = HERE.parents[1]
 LEDGER = ROOT / "docs" / "brands" / "aurixa-reel-1" / "system-edition" / "logo-takes.json"
-MODEL_PATH = "kling-video/v3.0/4k/image-to-video"
+# Kling 3.0 at 4K, or (--model pro) at 1080p: the film is delivered 1080 wide, so 1080p is its own resolution.
+MODELS = {"4k": "kling-video/v3.0/4k/image-to-video", "pro": "kling-video/v3.0/pro/image-to-video"}
+MODEL = sys.argv[sys.argv.index("--model") + 1] if "--model" in sys.argv else "4k"
+MODEL_PATH = MODELS[MODEL]
 # The lockup in the supplied art (2000 x 1333): emblem.png and wordmark.png are exact crops of it.
 WORDMARK_IN_ART = (561, 931, 882, 187)
 # The cards' crop of the art: 16:9 about its centre (the sky above and the floor below fall under the
@@ -112,9 +116,27 @@ def clean_plate(assets, edit_file):
     m = np.clip(cv2.GaussianBlur(m, (0, 0), 14) * 1.6, 0, 1)[..., None]
     out = art * (1 - m) + edit * m
     cv2.imwrite(str(assets / "logo-clean.png"), out.clip(0, 255).round().astype(np.uint8))
+    letters_overlay(assets)
     kept = np.abs(edit - art).mean(axis=2)[60:880, 60:w - 60].mean()
     print(f"logo-clean.png: registration {cc:.4f}, warp {np.round(warp, 4).tolist()}, "
           f"edit against the art where it was kept: {kept:.2f} levels")
+
+
+def letters_overlay(assets):
+    """logo-letters.png: the supplied art's own lettering and the shadow it stands in, the rest transparent, to lay
+    over footage of the clean plate (the glyphs dilated 22 px and feathered, so the halo fades into the plate)."""
+    import cv2
+
+    art = np.asarray(Image.open(assets / "logo-art.png").convert("RGB"))
+    wm = np.asarray(Image.open(assets / "wordmark.png"))
+    x, y, ww, wh = WORDMARK_IN_ART
+    letters = np.zeros(art.shape[:2], np.uint8)
+    letters[y:y + wh, x:x + ww] = (wm[..., 3] > 6).astype(np.uint8) * 255
+    a = cv2.dilate(letters, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (45, 45))).astype(np.float32)
+    a = cv2.GaussianBlur(a, (0, 0), 9)
+    rgba = np.dstack([art, a.clip(0, 255).astype(np.uint8)])
+    Image.fromarray(rgba, "RGBA").save(assets / "logo-letters.png")
+    print("logo-letters.png")
 
 
 def frames(assets, out):
@@ -152,7 +174,7 @@ def import_frames(out, ledger, keys):
 
 
 def model_id():
-    for m in call("list_models", {"output": "video", "search": "kling 4k"}):
+    for m in call("list_models", {"output": "video", "search": "kling 3.0"}):
         if m["path"] == MODEL_PATH:
             return m["id"]
     raise SystemExit(f"No active model {MODEL_PATH}")
@@ -184,6 +206,8 @@ def settle(out, ledger, timeout=60 * 60):
     """Polls every unsettled take, downloads each one's file when it is done, and saves as it goes."""
     deadline = time.monotonic() + timeout
     while True:
+        # Read afresh each round, so a take queued meanwhile (or another writer's change) is never overwritten.
+        ledger = load_ledger()
         waiting = 0
         for name, take in ledger["takes"].items():
             if take.get("status") in SETTLED and (take["status"] != "completed" or take.get("file")):
@@ -208,8 +232,73 @@ def settle(out, ledger, timeout=60 * 60):
         time.sleep(20)
 
 
+# Where each slot's frames are laid in, and the frame of the take that must match the exact picture: the reveal
+# (A) ends on the hero, the card loop (B1) starts and ends on the card. Sizes are the drawing's (2x CSS px).
+SLOTS = {
+    "A": {"target": "hero-logo.png", "size": (2160, 3840)},
+    "B1": {"target": "card-logo.png", "size": (2000, 1125)},
+}
+
+
+def ingest(out, assets, name, slot):
+    """A take's frames into the assets folder as logo-<slot>-0001.jpg and on, at the film's 30 fps, in the order
+    the film plays them (a take made backwards is reversed), aligned and colour-matched to the exact picture its
+    anchor frame must be (an affine registration and a per-channel gain and offset, measured on that frame and
+    applied to every frame), so the film's hand-over to the exact picture is invisible."""
+    import cv2
+
+    take = load_ledger()["takes"][name]
+    src = out / take["file"]
+    W, H = SLOTS[slot]["size"]
+    target = np.asarray(Image.open(out / SLOTS[slot]["target"]).convert("RGB").resize((W, H), Image.LANCZOS)).astype(np.float32)
+    # The take at 30 fps (frames blended where the rates differ), at the drawing's size.
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", str(src), "-vf", f"framerate=fps=30,scale={W}:{H}:flags=lanczos",
+                          "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], check=True, capture_output=True).stdout
+    n = len(raw) // (W * H * 3)
+    frames_ = np.frombuffer(raw, np.uint8).reshape(n, H, W, 3)
+    order = list(range(n))[::-1] if take.get("reverse") else list(range(n))
+    # The anchor: the frame that must equal the exact picture (the film's last for A, its first for B1).
+    anchor = frames_[order[-1] if slot == "A" else order[0]].astype(np.float32)
+    small = lambda im: cv2.resize(cv2.cvtColor(im.astype(np.uint8), cv2.COLOR_RGB2GRAY), (W // 4, H // 4), interpolation=cv2.INTER_AREA)
+    warp = np.eye(2, 3, dtype=np.float32)
+    try:
+        cc, warp = cv2.findTransformECC(small(target), small(anchor), warp, cv2.MOTION_AFFINE,
+                                        (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 200, 1e-6), None, 5)
+    except cv2.error:
+        cc = None
+    warp[:, 2] *= 4  # back to full size
+    fit = lambda im: cv2.warpAffine(im, warp, (W, H), flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP, borderMode=cv2.BORDER_REPLICATE)
+    a = fit(anchor)
+    # Colour from 24 px block averages, never pixel against pixel: the take is softer than the picture it was
+    # made from, and a fit across that difference in detail pulls the gain towards zero.
+    blocks = lambda im: cv2.resize(im, (W // 24, H // 24), interpolation=cv2.INTER_AREA).reshape(-1, 3).astype(np.float64)
+    ba, bt = blocks(a), blocks(target)
+    gain, offset = [], []
+    for c in range(3):
+        g, o = np.polyfit(ba[:, c], bt[:, c], 1)
+        gain.append(g)
+        offset.append(o)
+    gain, offset = np.array(gain, np.float32), np.array(offset, np.float32)
+    before = float(np.abs(anchor - target).mean())
+    after = float(np.abs(np.clip(a * gain + offset, 0, 255) - target).mean())
+    for old in assets.glob(f"logo-{slot}-*.jpg"):
+        old.unlink()
+    for i, k in enumerate(order):
+        im = np.clip(fit(frames_[k].astype(np.float32)) * gain + offset, 0, 255).round().astype(np.uint8)
+        Image.fromarray(im).save(assets / f"logo-{slot}-{i + 1:04d}.jpg", quality=95, subsampling=0)
+    ledger = load_ledger()
+    ledger.setdefault("slots", {})[slot] = {"take": name, "frames": n, "registration": cc, "warp": np.round(warp, 4).tolist(),
+                                             "gain": np.round(gain, 4).tolist(), "offset": np.round(offset, 2).tolist(),
+                                             "anchor_error_levels": {"before": round(before, 2), "after": round(after, 2)}}
+    save_ledger(ledger)
+    print(f"{slot}: {name}, {n} frames at 30 fps; anchor off by {before:.2f} levels, {after:.2f} after alignment")
+
+
 def main():
     cmd = sys.argv[1]
+    if cmd == "ingest":
+        ingest(Path(sys.argv[2]), Path(sys.argv[3]), sys.argv[4], sys.argv[5])
+        return
     if cmd == "clean":
         clean_plate(Path(sys.argv[2]), Path(sys.argv[3]))
         return
@@ -238,9 +327,9 @@ def main():
         for key in only:
             body = request(key, ledger, mid)
             digest = hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()[:12]
-            name = f"{key}-take{take_no}"
+            name = f"{key}-take{take_no}" + ("" if MODEL == "4k" else f"-{MODEL}")
             q = call("estimate_generation", body)
-            print(f"{name}: {TAKES[key]['use']}; {TAKES[key]['duration']} s at 4K, US${q.get('costUsd')}")
+            print(f"{name}: {TAKES[key]['use']}; {TAKES[key]['duration']} s on {MODEL_PATH}, US${q.get('costUsd')}")
             if "--confirm" not in sys.argv:
                 continue
             known = ledger["takes"].get(name, {})
@@ -255,7 +344,7 @@ def main():
             started = call("queue_generation", {**body, "estimatedCostUsd": q.get("costUsd"),
                                                 "clientRequestId": request_id}, timeout=300)
             if known.get("generationId") != started["generationId"]:
-                ledger["takes"][name] = {"key": key, "use": TAKES[key]["use"], "digest": digest,
+                ledger["takes"][name] = {"key": key, "model": MODEL_PATH, "use": TAKES[key]["use"], "digest": digest,
                                          "generationId": started["generationId"], "status": started["status"],
                                          "reverse": bool(TAKES[key].get("reverse")),
                                          **({"refused": refused} if refused else {})}

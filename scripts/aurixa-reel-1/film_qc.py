@@ -224,8 +224,10 @@ def timing(test, ref, decode_test, log, cuts):
     psnr = []
     for (i, t), (_, r) in zip(frames(test, decode_test), frames(ref, "format=rgb24")):
         y = luma(t)
-        # A caption is white glyphs in a black stroke: nothing else in the caption zone is near-white.
-        seen.append(bool((y[zone] > 235).sum() > 800))
+        # A caption is type: strong edges in the caption zone, on the glass panel or the white card alike (a
+        # panel's own border and an empty panel have few). Measured as the share of the zone's pixels on an
+        # edge of type's contrast.
+        seen.append(float((gradient(y[zone, 60:1020]) >= 40).mean()))
         yr = luma(r)
         # The picture's change from the frame before, outside the captions (a caption's change is its own).
         if prev is not None:
@@ -235,7 +237,17 @@ def timing(test, ref, decode_test, log, cuts):
         psnr.append(99.0 if mse == 0 else 10 * math.log10(255 ** 2 / mse))
         if i % 10 == 0:
             keep.append(edge_keep(y, yr))
-    mismatched = [log["frames"][k]["frame"] for k in range(min(len(seen), len(expect))) if seen[k] != expect[k]]
+    # The threshold between "words on screen" and "none" is read from the film itself: midway (geometrically)
+    # between the median edge share of the frames that should carry words and of those that should not. A frame
+    # within 4 frames of a change in what should be on screen is a transition and is not judged.
+    n = min(len(seen), len(expect))
+    on = [seen[k] for k in range(n) if expect[k]]
+    off = [seen[k] for k in range(n) if not expect[k]]
+    edge_on = float(np.median(on)) if on else 0.0
+    edge_off = float(np.median(off)) if off else 0.0
+    threshold = math.sqrt(max(edge_on, 1e-6) * max(edge_off, 1e-6))
+    steady = [k for k in range(n) if all(expect[j] == expect[k] for j in range(max(0, k - 4), min(n, k + 5)))]
+    mismatched = [log["frames"][k]["frame"] for k in steady if (seen[k] > threshold) != expect[k]]
     # A cut is the one frame in its neighbourhood (+/- 6 frames) where the picture changes most, and changes
     # a lot: the change into frame c is diffs[c - 1].
     cut_report = []
@@ -247,6 +259,8 @@ def timing(test, ref, decode_test, log, cuts):
     return {
         "frames_checked": len(seen),
         "caption_frames_expected": int(sum(expect)),
+        "caption_edge_share": {"with_words_median": round(edge_on, 4), "without_median": round(edge_off, 4),
+                               "threshold": round(threshold, 4), "steady_frames_judged": len(steady)},
         "caption_mismatches": mismatched,
         "cuts": cut_report,
         "psnr_by_frame_db": {"mean": round(float(np.mean(psnr)), 2), "min": round(psnr[worst], 2), "worst_frame_index": worst},

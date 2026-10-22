@@ -55,6 +55,39 @@
    "reverse": false,
    "costUsd": 0,
    "error": "PROVIDER_REJECTED Your credit balance is too low to complete this request. Please top up your balance and try again."
+  },
+  "A1-take1-pro": {
+   "key": "A1",
+   "model": "kling-video/v3.0/pro/image-to-video",
+   "use": "04.1, the reveal: the dark navy night to the logo",
+   "digest": "1b8067bbfac1",
+   "generationId": "d1d9d049-c718-4d89-beae-d918dac2a647",
+   "status": "in_progress",
+   "reverse": false,
+   "costUsd": 0,
+   "error": null
+  },
+  "B1-take1-pro": {
+   "key": "B1",
+   "model": "kling-video/v3.0/pro/image-to-video",
+   "use": "10.2, 11.1 and 15.1: the logo alive on the trial and closing cards",
+   "digest": "221a2cb781e6",
+   "generationId": "caa989e0-2064-438d-8764-5acf2d67ea9a",
+   "status": "in_progress",
+   "reverse": false,
+   "costUsd": 0,
+   "error": null
+  },
+  "A2-take1-pro": {
+   "key": "A2",
+   "model": "kling-video/v3.0/pro/image-to-video",
+   "use": "04.1, the reveal made backwards: the logo dissolving into the night, played in reverse",
+   "digest": "3880ce8bc0d4",
+   "generationId": "2b0606ac-4218-48a9-b461-bebd27b48f1a",
+   "status": "failed",
+   "reverse": true,
+   "costUsd": 0,
+   "error": "PROVIDER_REJECTED Your credit balance is too low to complete this request. Please top up your balance and try again."
   }
  }
 }

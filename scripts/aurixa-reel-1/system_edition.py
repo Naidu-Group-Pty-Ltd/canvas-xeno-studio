@@ -298,7 +298,7 @@ SHOTS = [
          "One slow lateral drift, never reversing.",
          "Each phrase alone and readable on the wall of screens.",
          ["Fourteen days.", "Your business.", "Your experience.", "Your decision."],
-         "The phrases are the edit's own overlays at the spec's times; no captions over them."),
+         "The phrases are set as the captions are, at display size: Playfair Display in the site's silver headline gradient, the key word in its gold italic (Fourteen, business, experience, decision) with the gold rule drawing under it, landing word by word on the voiceover; no captions over them."),
     # 15 · The final brand and trial invitation
     shot("15.1", "15", ("block", "15"), "graphic", "aurixa", "Aurixa Systems, and the trial",
          ["PL-15A"],
@@ -380,7 +380,7 @@ IDEA = ("Watch one property move through one connected system. Residence 014 arr
 KEEPS = [
     "The master voiceover, verbatim and never stretched: 106.031 s, speech ending at 105.88 s.",
     "Its cut points. Each block starts where the working master's block starts, and every new cut uses the spec's timing rule (in the pause before a word, else 0.1 s ahead, on the 30 fps grid).",
-    "The 45 captions, verbatim, at most two lines; none over the Block 14 phrases or the closing card.",
+    "The 45 captions, verbatim, at most two lines; none over the Block 14 phrases or the closing card. Since 22 October 2026, at the client's direction, set in the brand's own type and moving (scripts/aurixa-reel-1/captions.cjs): Playfair Display Medium, the site's headline face, in its silver headline gradient, one phrase a line in its italic (silver before the brand arrives, gold after, where a gold hairline draws under it and the light crosses it once), each word rising into focus on its spoken time (the voiceover's measured words), on a panel that reshapes from line to line: a white card of today's tools before the brand, the site's glass after.",
     "The Block 14 phrases (PL-14A-1 to PL-14A-4) at the edit's own times.",
     "The closing card (PL-15A), complete from the first frame of Block 15 through the audio tail.",
     "The record: Project Banksia / Residence 014 / BK-014, the property image P and the floor plan D, in Australia with no real street address, still at the evaluation stage.",
@@ -394,7 +394,7 @@ REPLACES = [
     ("People, hands, faces, rooms and sets, and the cast's sheets and Soul IDs",
      "None appear. The product is the cast. (The six characters and their approved Soul IDs stay in the studio, unused here.)"),
     ("Generated video of any kind",
-     "None. Every frame is rendered from code: the products' pages as the reel's plates already rebuild them, and graphics written in the brand's CSS. Text is exact and sharp by construction, and nothing is billed to make a frame."),
+     "None, but for the logo's moments, which the client asked to be made with a video model (22 October 2026): 04.1's reveal and the logo alive on the trial and closing cards are footage of the logo's clean plate (the supplied art with its lettering taken out), and the supplied lettering and emblem are laid over it, so no letter is ever drawn by a model. Every other frame is rendered from code: the products' pages as the reel's plates already rebuild them, and graphics written in the brand's CSS. Text is exact and sharp by construction."),
     ("\"Each portal demonstration must show a real hand using a mouse, keyboard or touchpad\"",
      "Each portal demonstration shows the product's own pointer, the control under it, the press, and the product's own response, in that order."),
     ("\"60 percent people and property, 25 percent platform, 15 percent architecture\"",
@@ -427,8 +427,8 @@ PRODUCTION = [
     ("Compositions", "Each shot is one HTML composition at 1080 x 1920: the plate builders' own pages (scripts/aurixa-reel-1/portals.cjs, built from the products' code) placed in the graphics kit's window, with a timeline that sets every element's state at time t from the shot's beats in brief.json."),
     ("Rendering", "Frame by frame in Chromium (Playwright): set t = frame / 30, let the page lay out, capture, and encode at 30 fps with ffmpeg (H.264, yuv420p, high quality; an overlay with transparency as ProRes 4444). Deterministic: the same brief renders the same film, and a change to one shot re-renders only that shot."),
     ("Design tokens", "The kit's colours, type, radii, shadows, glass and motion come from one stylesheet written from the four Aurixa repositories' own code (see The design system, from the code), not from values picked by eye."),
-    ("Assembly", "The 29 renders go into the studio's library and are laid out in the Editor on the voiceover's clock with the captions, the Block 14 phrases and the closing card, as the working master's edit was (scripts/aurixa-reel-1/edit.py, extended to take these shots)."),
-    ("Cost", "No generation and nothing billed by a provider; the work is building the kit, the six new pages and the compositions, then rendering."),
+    ("Assembly", "scripts/aurixa-reel-1/render.cjs draws the whole reel, shot by shot from scenes/, and encodes it as one master with the voiceover: the method the client approved on 22 October 2026 after the proof of 04.1 to 05.2. The studio's Editor is not in the path."),
+    ("Cost", "Nothing billed by a provider but the logo's moments: one image edit for its clean plate and the video model's takes (logo-takes.json); the rest is building the kit, the pages and the compositions, then rendering."),
 ]
 
 REVIEW_GATES = [
@@ -459,7 +459,7 @@ GRAPHICS = {
     "G-DOCUMENT": ("The document", "A PDF that lifts off a page as an object: its cover in front, its pages fanned behind, each the report's own page as the product prints it, with the products' deepest elevation beneath. The floor plan travels between portals as the same object.", ["shadow-document", "ease-settle"]),
     "G-HIGHLIGHT": ("The marker", "The eyebrow's 1 px gold rule, drawn under the passage the voiceover points to and under the words the professional types.", ["hairline", "gold", "ease-settle"]),
     "G-HAIRLINE": ("The hairline", "One gold line drawn across the frame on the site's ground, with the traveller's gold glow at its leading end: the turn from today's tools to Aurixa.", ["ground", "hairline", "glow-gold"]),
-    "G-EMBLEM": ("The emblem build", "The supplied logo revealed in two parts: its emblem through a mask that opens from the hairline (the triangle, then the orb's glow), then its wordmark through a mask that opens letter by letter. The logo is the supplied file, never redrawn or retyped.", ["ground", "hairline", "glow-gold", "ease-settle"]),
+    "G-EMBLEM": ("The emblem build", "The supplied logo, at half the frame's width, revealed out of the night by a video model's take of its clean plate that ends exactly on the supplied art (until the take is made, the art rises out of its own gold horizon); then its own lettering, the art's pixels and the shadow they stand in, rising letter by letter and the light crossing it once; then the emblem, the supplied file, lifts into the Command Centre. The logo is the supplied file, never redrawn or retyped.", ["ground", "hairline", "glow-gold", "ease-settle"]),
     "G-HORIZON": ("The horizon", "A gold horizon line across the lower third with the traveller's glow along it; the camera tilts down past it into the system map.", ["ground", "gold", "glow-gold"]),
     "G-WALL": ("The wall of screens", "The film's own screens tiled at a slight angle in their glass windows, dimmed and softened by the products' strongest glass blur, drifting slowly sideways behind the Block 14 phrases.", ["ground", "blur", "shadow-window"]),
     "G-MAP": ("The map", "A dot-matrix map of Australia in fine ink on paper white, with one gold pin and one pulse.", ["before-paper", "before-ink", "gold"]),

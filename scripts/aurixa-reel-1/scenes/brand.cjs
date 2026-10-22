@@ -1,5 +1,8 @@
 // Reel 1, shots 04.1 to 04.3 (one scene): the brand arrives, the system around it, then Reports.
+const fs = require("fs");
+const path = require("path");
 const M = require("../motion.cjs");
+const L = require("../logo.cjs");
 const {
   BRIEF,
   FPS,
@@ -55,21 +58,26 @@ function brandScene() {
   // 04.3's last beat (35.833) is the hold: nothing moves after the corners close.
   const [tPush, tTravel, tPress] = [0, 1, 2].map((i) => beat("04.3", i));
 
-  // The supplied logo: the emblem 440 px wide with its foot 20 px above the hairline, the wordmark 620 px
-  // wide below it (A04a), the wordmark cut into its letters where the file's own gaps fall (13 of them).
-  const EM = { w: 440, h: (440 * 628) / 679, file: [679, 628] };
-  EM.left = 540 - EM.w / 2;
-  EM.top = 948 - EM.h;
-  const ORB = [340, 392]; // the orb's centre in the emblem's file
-  const WM = { w: 620, h: (620 * 187) / 882, top: 996, file: [882, 187] };
-  WM.left = 540 - WM.w / 2;
-  const k = WM.w / WM.file[0];
+  // The supplied logo where the hero stands it (logo.cjs HERO: the art at 0.8, the lockup centred in the
+  // action zone): its clean plate (the art without its lettering), the art's own lettering and the shadow it
+  // stands in (logo-letters.png) cut into its letters where the wordmark's own gaps fall (13 of them), and the
+  // emblem (emblem.png, an exact crop of the art) that lifts away into the Command Centre.
+  const H = L.HERO;
+  const EM = {
+    left: H.emblem[0],
+    top: H.emblem[1],
+    w: H.emblem[2],
+    h: H.emblem[3],
+    file: [679, 628],
+  };
+  const [WX, WY] = L.ART.wordmark; // the wordmark's place in the art
+  const HALO = 40; // the lettering's shadow beyond its glyphs, in art px
   const letters = [];
   const cut = (runs, y0, y1) =>
     runs.forEach(([a, b], i) => {
-      const l = i === 0 ? 0 : (runs[i - 1][1] + a) / 2;
-      const r = i === runs.length - 1 ? WM.file[0] : (b + runs[i + 1][0]) / 2;
-      letters.push({ l, r, y0, y1 });
+      const l = i === 0 ? -HALO : (runs[i - 1][1] + a) / 2;
+      const r = i === runs.length - 1 ? L.ART.wordmark[2] + HALO : (b + runs[i + 1][0]) / 2;
+      letters.push({ l: WX + l, r: WX + r, y0: WY + y0, y1: WY + y1 });
     });
   // AURIXA, then SYSTEMS: each letter's columns in wordmark.png (measured from its alpha).
   cut(
@@ -81,7 +89,7 @@ function brandScene() {
       [581, 712],
       [742, 881],
     ],
-    0,
+    -HALO,
     114,
   );
   cut(
@@ -95,18 +103,36 @@ function brandScene() {
       [690, 739],
     ],
     114,
-    WM.file[1],
+    187 + HALO,
   );
+  // The reveal's footage (logo_motion.py's chosen take, its frames at 30 fps as logo-A-0001.jpg on) plays
+  // from the shot's first frame to just before the lift, where it ends on the hero exactly; the clean plate
+  // takes over from its last frames. Until it is made, the clean plate rises in out of the horizon instead.
+  const FILM = L.takeFrames("A");
+  const REVEAL = [t0 + 0.03, tLift - 0.3];
+  const footageAt = (t) =>
+    FILM[
+      Math.min(FILM.length - 1, Math.round(span(t, ...REVEAL, EASE.linear) * (FILM.length - 1)))
+    ];
+  const GLINT = H.art[1] + 1140 * H.k; // the art's own gold horizon, under the wordmark
 
   const html = () => {
-    const lead = F.FRAMES.F03.draw().join("");
-    const logo = (file) => (file ? `url('${file}')` : "none");
+    // 03.1's last state (./waits.cjs), dimmed, as the turn from today's tools to Aurixa; F03 before it exists.
+    const waits = fs.existsSync(path.join(__dirname, "waits.cjs")) ? require("./waits.cjs") : null;
+    const lead = (waits && waits.finalLayers ? waits.finalLayers() : F.FRAMES.F03.draw()).join("");
+    const lettering = F.asset("logo-letters.png");
+    const [ax, ay, aw, ah] = H.art;
     const letterDivs = letters
       .map(
         ({ l, r, y0, y1 }, i) =>
-          `<div id="wm-${i}" style="position:absolute;left:${px(WM.left + l * k)};top:${px(WM.top + y0 * k)};width:${px((r - l) * k)};height:${px((y1 - y0) * k)};background:${logo(F.WORDMARK)} ${px(-l * k)} ${px(-y0 * k)}/${px(WM.w)} ${px(WM.h)} no-repeat;visibility:hidden"></div>`,
+          `<div id="wm-${i}" style="position:absolute;left:${px(ax + l * H.k)};top:${px(ay + y0 * H.k)};width:${px((r - l) * H.k)};height:${px((y1 - y0) * H.k)};background:url('${lettering}') ${px(-l * H.k)} ${px(-y0 * H.k)}/${px(aw)} ${px(ah)} no-repeat;visibility:hidden"></div>`,
       )
       .join("");
+    // The light that crosses the wordmark once it has landed: a band, kept to the letters' own shapes.
+    const [wx, wy, ww, wh] = H.wordmark;
+    const sweep = `<div id="wm-sweep" style="position:absolute;left:${px(wx)};top:${px(wy)};width:${px(ww)};height:${px(wh)};z-index:7;mix-blend-mode:screen;visibility:hidden;
+      -webkit-mask-image:url('${F.WORDMARK}');-webkit-mask-size:100% 100%;mask-image:url('${F.WORDMARK}');mask-size:100% 100%;
+      background:linear-gradient(105deg, rgba(255,240,205,0) 0%, rgba(255,240,205,.85) 50%, rgba(255,240,205,0) 100%) no-repeat;background-size:40% 100%"></div>`;
     const portals = F.SYSTEM_MAP.portals.map((_, i) => F.mapPortal(i, { traveller: 0 }));
     const lines = portals
       .map(
@@ -136,12 +162,14 @@ function brandScene() {
       `<div id="lead" class="fk-layer before" style="z-index:1">${lead}<div class="fk-veil" id="lead-veil" style="opacity:.78;z-index:100"></div></div>`,
       `<div id="map" class="fk-layer" style="z-index:3;transform-origin:${hub.at[0]}px ${hub.at[1]}px">${lines}${wins}${chips}${hubChip}</div>`,
       windowHtml("W", [hub.key, "PL-04B-a", "PL-04B-b"], 5),
-      `<div class="fk-horizon" id="hair" style="left:110px;right:110px;top:968px;transform-origin:0 50%;visibility:hidden"></div>`,
-      `<div class="fk-traveller" id="hair-head" style="left:0;top:969px;z-index:3;visibility:hidden"></div>`,
+      FILM.length
+        ? `<div class="fk-layer" id="hero-film" style="z-index:2;visibility:hidden"><img id="hero-film-img" src="${FILM[0]}" alt="" style="position:absolute;left:0;top:0;width:1080px;height:1920px"></div>`
+        : "",
+      L.heroArtHtml(F.asset("logo-clean.png"), "hero-art", 2),
+      `<div class="fk-horizon" id="hair" style="left:110px;right:110px;top:${px(GLINT)};transform-origin:50% 50%;visibility:hidden"></div>`,
       `<div id="wordmark" class="fk-layer" style="z-index:6">${letterDivs}</div>`,
-      `<div id="emblem" style="position:absolute;left:${px(EM.left)};top:${px(EM.top)};width:${px(EM.w)};height:${px(EM.h)};z-index:8;transform-origin:0 0;background:${logo(F.EMBLEM)} center/contain no-repeat;visibility:hidden">
-        <div id="orb" style="position:absolute;left:${px((ORB[0] / EM.file[0]) * EM.w - 130)};top:${px((ORB[1] / EM.file[1]) * EM.h - 130)};width:260px;height:260px;border-radius:50%;mix-blend-mode:screen;
-          background:radial-gradient(closest-side, rgba(245,209,122,.85), rgba(215,179,95,.35) 45%, rgba(215,179,95,0) 100%);visibility:hidden"></div></div>`,
+      sweep,
+      `<div id="emblem" style="position:absolute;left:${px(EM.left)};top:${px(EM.top)};width:${px(EM.w)};height:${px(EM.h)};z-index:8;transform-origin:0 0;background:url('${F.EMBLEM}') center/contain no-repeat;visibility:hidden"></div>`,
       focusHtml(),
       pointerHtml(),
       captionHtml(),
@@ -183,21 +211,33 @@ function brandScene() {
     // The dimmed frame becomes the brand's deep navy.
     st.set("#lead", fade(1 - span(t, t0, t0 + 0.4, EASE.move)));
     st.set("#ground", fade(span(t, t0 + 0.05, t0 + 0.75, EASE.move)));
-    // G-HAIRLINE: one gold line drawn across, the traveller's glow at its leading end.
-    const drawn = span(t, t0 + 0.08, tEmblem + 0.05, EASE.move);
-    // The hairline and the wordmark give way quickly, so they are gone before the window comes in.
-    const away = span(t, tLift, tLift + 0.32, EASE.settle);
-    st.set("#hair", { transform: `scaleX(${r3(drawn)})`, ...fade(Math.min(drawn * 8, 1) - away) });
-    st.set("#hair-head", {
-      transform: `translate(${px(110 + 860 * drawn)}, 0) translate(-50%, -50%)`,
-      ...fade(Math.min(drawn * 10, 1) - span(t, tEmblem, tEmblem + 0.5, EASE.move)),
-    });
-    // G-EMBLEM: the emblem through a mask that opens from the hairline (its edge travels, on ease-move,
-    // and the emblem settles up out of the line, on ease-settle); then the orb's glow.
-    const open = span(t, tEmblem, tEmblem + 0.78, EASE.move);
-    const rise = span(t, tEmblem, tEmblem + 0.9, EASE.settle);
     const { framing, map, push = 0 } = ccFraming(t, m);
-    // ...and from the lift, the emblem flies to the Command Centre's own sidebar mark.
+    // Everything of the hero gives way quickly at the lift, so it is gone before the window comes in.
+    const away = span(t, tLift, tLift + 0.32, EASE.settle);
+    if (FILM.length) {
+      // The model's reveal, from the night to the logo; its last frames hand over to the clean plate (the
+      // same picture, exactly), which holds until the lift.
+      st.set("#hero-film", fade(1 - away));
+      st.set("#hero-film-img", { $src: footageAt(t) });
+      st.set("#hero-art", fade(span(t, REVEAL[1] - 0.3, REVEAL[1], EASE.linear) * (1 - away)));
+      st.set("#hair", fade(0));
+    } else {
+      // Until the footage is made: the art's own gold horizon draws out from the centre, and the clean plate
+      // rises out of it into place.
+      const drawn = span(t, t0 + 0.08, tEmblem + 0.1, EASE.move);
+      st.set("#hair", {
+        transform: `scaleX(${r3(drawn)})`,
+        ...fade(Math.min(drawn * 6, 1) * (1 - span(t, tEmblem + 0.4, tEmblem + 0.9, EASE.move))),
+      });
+      const rise = span(t, tEmblem, tEmblem + 1.1, EASE.settle);
+      st.set("#hero-art", {
+        transform: `translateY(${px((1 - rise) * 26)}) scale(${r3(lerp(1.035, 1, rise))})`,
+        "transform-origin": `540px ${px(GLINT)}`,
+        ...fade(span(t, tEmblem, tEmblem + 0.8, EASE.settle) * (1 - away)),
+      });
+    }
+    // The emblem itself (the exact file, standing on its own place in the picture) from just before the lift,
+    // then it flies to the Command Centre's own sidebar mark.
     const lift = span(t, tLift, tLift + 0.78, EASE.move);
     const g = KIT.shotGeometry({ css, ...framing });
     const [ex, ey, ew] = m.emb; // the sidebar mark's box in the plate
@@ -207,23 +247,25 @@ function brandScene() {
     const pos = lerp2([EM.left, EM.top], target, lift);
     const landed = lift >= 1;
     st.set("#emblem", {
-      transform: `translate(${px(pos[0] - EM.left)}, ${px(pos[1] - EM.top)}) translateY(${px((1 - rise) * 18)}) scale(${scale.toFixed(6)})`,
-      "clip-path": open < 1 ? `inset(${r3((1 - open) * 100)}% 0 0 0)` : "none",
-      ...fade(t < tEmblem ? 0 : landed ? 0 : 1),
+      transform: `translate(${px(pos[0] - EM.left)}, ${px(pos[1] - EM.top)}) scale(${scale.toFixed(6)})`,
+      ...fade(landed ? 0 : span(t, tLift - 0.12, tLift, EASE.linear)),
     });
-    const glow =
-      span(t, tEmblem + 0.62, tEmblem + 1.0, EASE.settle) *
-      lerp(1, 0.42, span(t, tEmblem + 0.9, tWordmark + 0.6, EASE.move));
-    st.set("#orb", fade(glow * (1 - span(t, tLift, tLift + 0.3, EASE.move))));
-    // The wordmark through a mask that opens letter by letter, out of the hairline.
+    // The wordmark, the art's own letters and their shadow, rising into focus one by one as AURIXA, then
+    // SYSTEMS; then the light crosses it once.
     letters.forEach((_, i) => {
-      const a = i < 6 ? tWordmark + i * 0.045 : tWordmark + 0.12 + (i - 6) * 0.035;
-      const p = span(t, a, a + 0.32, EASE.settle);
+      const a = i < 6 ? tWordmark + i * 0.06 : tWordmark + 0.2 + (i - 6) * 0.045;
+      const p = span(t, a, a + 0.5, EASE.settle);
+      const blur = (1 - p) * 8;
       st.set(`#wm-${i}`, {
-        transform: `translateY(${px(-(1 - p) * 12 + away * 8)})`,
-        "clip-path": p < 1 ? `inset(0 0 ${r3((1 - p) * 100)}% 0)` : "none",
-        ...fade(Math.min(p * 3, 1) * (1 - away)),
+        transform: `translateY(${px((1 - p) * 16 + away * 8)})`,
+        filter: blur > 0.05 ? `blur(${r3(blur)}px)` : "none",
+        ...fade(Math.min(span(t, a, a + 0.3, EASE.settle), 1 - away)),
       });
+    });
+    const swept = span(t, tWordmark + 0.75, tWordmark + 1.55, EASE.move);
+    st.set("#wm-sweep", {
+      "background-position": `${r3(-70 + swept * 240)}% 0`,
+      ...fade(swept > 0 && swept < 1 ? 1 - away : 0),
     });
     // The Command Centre's window: it settles in as the emblem lands; its sidebar's groups set in,
     // then the top bar with its Demo workspace badge, then the Overview page.

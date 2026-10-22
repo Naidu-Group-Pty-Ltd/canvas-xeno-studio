@@ -370,7 +370,21 @@ function state(st, t, { lines: boxes, phrases }, { span, fade, EASE, px, r3 }) {
   }
 }
 
-module.exports = { CUES, html, css, measure, state };
+/** The caption words on screen at t (each at least half in), as one string: what film.json records. */
+function visibleAt(t, { span, EASE }) {
+  const words = [];
+  for (const c of CUES) {
+    if (!(t >= c.start - 0.1 && t < c.gone)) continue;
+    const leaving = span(t, c.leave, c.gone, EASE.move);
+    c.words.forEach((w) => {
+      const a = Math.max(c.start, w.at - 0.07);
+      if (Math.min(span(t, a, a + ENTER * 0.6, EASE.settle), 1 - leaving) > 0.5) words.push(w.text);
+    });
+  }
+  return words.join(" ");
+}
+
+module.exports = { CUES, html, css, measure, state, visibleAt };
 
 if (require.main === module) {
   for (const c of CUES)
