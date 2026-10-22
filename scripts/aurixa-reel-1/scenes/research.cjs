@@ -46,9 +46,12 @@ const PRESS = (() => {
   const { film_drop: drop, period } = PACE.MUSIC;
   return drop + Math.ceil((B1 + 0.45 - drop) / period) * period;
 })();
-/** The report's window: the Command Centre's width at the plate's own shape, then opened into the action zone. */
-const WIDE = { x: 40, y: 392, w: 1000 };
-const OPEN_H = 836;
+/**
+ * The report's window: the Command Centre's width at the plate's own shape, then opened into the action zone, to
+ * exactly the window 05.2 (./deliverable.cjs) opens on, so the cut to Generated Reports changes only the page.
+ */
+const WIDE = { x: 40, y: 384, w: 1000 };
+const OPEN_H = 892;
 /** How near the camera comes to the page: the record's header and its grade card side by side, readable. */
 const ZOOM = 1.3;
 /** How much of the page the opened window shows at ZOOM. */
@@ -62,7 +65,7 @@ function researchScene() {
     [
       S.stageCss(),
       portals.CSS,
-      `<div id="ground" class="fk-layer" style="z-index:0"><div class="fk-glow"></div></div>`,
+      `<div id="ground" class="fk-layer" style="z-index:0"><div class="fk-field" id="field" style="visibility:hidden"></div><div class="fk-glow"></div></div>`,
       S.floorHtml("floor", 1),
       S.shadowHtml("W-shadow", 2),
       portals.orbitHtml(),
@@ -79,9 +82,17 @@ function researchScene() {
     const st = new State();
     caption(st, t, m);
     // The camera moves in toward the hub: the floor flows on under it and its horizon settles a little lower.
+    // Once the press has landed, the camera squares up to the page and the floor gives way to the site's dot
+    // field, as 05.2 has its ground, so the cut to it changes only the page.
     const push = span(t, B0, B0 + 1.37, portals.LEAVE);
+    const square = span(t, PRESS + 0.35, END - 0.05, smooth);
     const horizon = lerp(portals.ORBIT_HORIZON, 620, push);
-    S.floorState(st, "floor", { horizon, flow: brand.flowAt(t) - 150 + 300 * push, opacity: 1 });
+    S.floorState(st, "floor", {
+      horizon,
+      flow: brand.flowAt(t) - 150 + 300 * push,
+      opacity: 1 - square,
+    });
+    st.set("#field", fade(square));
 
     // The window: the hub as the orbit leaves it, coming forward at its own shape to the Command Centre's width
     // (grow), then opened down into the action zone as the camera moves in on the page (open).
@@ -100,9 +111,10 @@ function researchScene() {
     const framing = { rect, at: [rect[0] + rect[2] / 2, rect[1] + rect[3] / 2] };
     const pw = rect[2] - 2 * PAD;
     const ph = rect[3] - 2 * PAD;
-    // Turned a few degrees in depth once it has come forward, and turning on a little while it is read.
-    const settle = smooth(Math.min(1, Math.max(0, (t - B0) / 1.6)));
-    const ry = -3 * settle - 1.4 * span(t, B0 + 1.4, END, EASE.linear);
+    // Turned a few degrees in depth once it has come forward, and turning on a little while it is read; square
+    // to the camera again by the cut.
+    const settle = smooth(Math.min(1, Math.max(0, (t - B0) / 1.6))) * (1 - square);
+    const ry = (-3 - 1.4 * span(t, B0 + 1.4, PRESS, EASE.linear)) * settle;
     const rx = 2 * settle;
     st.set("#W", {
       left: px(rect[0]),
@@ -114,7 +126,7 @@ function researchScene() {
     });
     st.set("#W-page", { width: px(pw), height: px(ph) });
     st.set("#W-veil", fade(0));
-    portals.shadowOf(st, "W-shadow", framing, horizon);
+    portals.shadowOf(st, "W-shadow", framing, horizon, 1 - square);
 
     // The page in the window: the Overview whole as the hub showed it, giving way to the report page whole; then
     // the camera moves in on the record's header and its grade card, and later pans up to the tiers.
