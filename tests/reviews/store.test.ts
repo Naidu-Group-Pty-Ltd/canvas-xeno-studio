@@ -228,7 +228,7 @@ describe("review gates, step by step through Reel 1", () => {
     expect(snapshot.clock).toBe("brief");
     expect(snapshot.shots).toHaveLength(27);
     expect(snapshot.shots[4]).toMatchObject({ label: "04.1", start: 28.933, end: 35.733 });
-    expect(snapshot.shots[4]!.words).toContain("G-EMBLEM");
+    expect(snapshot.shots[4]!.sources).toContain("G-EMBLEM");
   });
 
   test("adds a render only once it has finished, with its video, clips and captions", async () => {

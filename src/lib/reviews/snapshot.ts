@@ -36,8 +36,12 @@ export interface SnapshotShot {
   start: number;
   end: number;
   cue: string | null;
-  /** Its words: what is on screen, the voiceover lines it carries, what it is made from. */
-  words: string[];
+  /** What the shot is known by: its title, its on-screen text exactly, what it is made from. */
+  title: string | null;
+  onScreen: string[];
+  sources: string[];
+  /** The voiceover lines it carries. */
+  lines: string[];
 }
 
 export interface StoryboardSnapshot {
@@ -173,12 +177,10 @@ export function storyboardSnapshot(board: StoryboardInput): StoryboardSnapshot {
         start: round3(time.start),
         end: round3(time.end),
         cue: typeof spec["cue"] === "string" ? spec["cue"] : null,
-        words: [
-          ...(typeof spec["title"] === "string" ? [spec["title"]] : []),
-          ...strings(spec["on_screen"]),
-          ...strings(spec["voiceover"]),
-          ...strings(spec["sources"]),
-        ],
+        title: typeof spec["title"] === "string" ? spec["title"] : null,
+        onScreen: strings(spec["on_screen"]),
+        sources: strings(spec["sources"]),
+        lines: strings(spec["voiceover"]),
       };
     }),
   };
