@@ -24,6 +24,7 @@ import { GITHUB_TOKEN_PATTERN } from "../brand/import-request";
 import { parseTimeline, timelineSchema } from "../edit/timeline";
 import { textCheckOf } from "../media/text-check";
 import { CHARACTER_VIEWS } from "../characters/model";
+import { RIGHTS_SCOPES, type RightsScope } from "../music/catalog";
 import type { ModelRegistryEntry } from "../model-schema";
 import type { ApiScope } from "./tokens";
 import type { ApiCaller } from "./tokens.server";
@@ -1556,6 +1557,78 @@ const importImage = tool({
   },
 });
 
+const importAudio = tool({
+  name: "import_audio",
+  title: "Import audio",
+  description:
+    "Puts audio into the studio's library, from its bytes (data, base64) or a public https address (url): WAV, MP3, M4A (AAC) or FLAC, up to 40 MB from a url or 20 MB as data. It goes in as the app's own upload does. As music or a sound effect (use) it joins the music library with its licence: \"licensed\", with its rights (licensor, scopes and any reference, territories, expiresOn and notes), or \"owned\"; confirmed: true is your confirmation, as the token's owner, that the brand holds that licence. As a voiceover it becomes a take in an edit's Voice tab (sequenceId); confirmed: true confirms it was recorded by or for the brand, with the speaker's permission to use their voice. The same clientRequestId returns the first import instead of a second copy.",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({
+    title: z.string().min(1).max(200),
+    data: z
+      .string()
+      .max(28_000_000)
+      .optional()
+      .describe("The audio's bytes in base64 (a data: prefix is fine), up to 20 MB"),
+    url: z
+      .string()
+      .max(2000)
+      .optional()
+      .describe("A public https address to read it from, up to 40 MB"),
+    use: z
+      .enum(["music", "sound_effect", "voiceover"])
+      .describe("Music or a sound effect for the music library, or a voiceover for an edit"),
+    licence: z
+      .enum(["licensed", "owned"])
+      .optional()
+      .describe("Music and sound effects: what the brand holds for the recording"),
+    rights: z
+      .object({
+        licensor: z.string().min(2).max(200).describe("Who licensed it"),
+        scopes: z
+          .array(z.enum(RIGHTS_SCOPES.map((scope) => scope.id) as [RightsScope, ...RightsScope[]]))
+          .min(1)
+          .max(RIGHTS_SCOPES.length)
+          .describe("Where it may be used"),
+        reference: z.string().max(200).optional().describe("The licence's id or reference"),
+        territories: z.string().max(200).optional().describe('Where, e.g. "Worldwide"'),
+        expiresOn: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .nullable()
+          .optional()
+          .describe("The licence's last day (YYYY-MM-DD), if it runs out"),
+        notes: z
+          .string()
+          .max(1000)
+          .optional()
+          .describe("Its conditions (credit wording and the like)"),
+      })
+      .optional()
+      .describe("A \"licensed\" recording's terms, as the app's form records them"),
+    artist: z.string().max(300).nullable().optional(),
+    genres: z.array(z.string().max(40)).max(8).default([]),
+    moods: z.array(z.string().max(40)).max(8).default([]),
+    instrumental: z.boolean().nullable().optional(),
+    sequenceId: id().optional().describe("A voiceover's edit (its Voice tab keeps the take)"),
+    transcript: z.string().max(4000).nullable().optional().describe("A voiceover's words"),
+    projectId: id().nullable().optional().describe("Music: the project it belongs to"),
+    campaignId: id().nullable().optional().describe("Music: the campaign it belongs to"),
+    confirmed: z
+      .literal(true)
+      .describe(
+        "Your confirmation: of the licence as stated (music), or that the voiceover was recorded by or for the brand with the speaker's permission",
+      ),
+    clientRequestId: requestId(),
+  }),
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const { importAudio: run } = await import("./audio-import.server");
+    return run(args, caller);
+  },
+});
+
 const openInEditor = tool({
   name: "open_in_editor",
   title: "Open a long video as an edit",
@@ -1859,6 +1932,7 @@ export const STUDIO_TOOLS: StudioTool[] = [
   checkText,
   saveCharacter,
   importImage,
+  importAudio,
   openInEditor,
   createEdit,
   updateEdit,

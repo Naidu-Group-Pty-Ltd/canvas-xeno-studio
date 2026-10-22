@@ -28,7 +28,7 @@ It is served two ways:
 | ---------- | ------------------------------------------------------------------------------------------------ |
 | `read`     | Reading models, library files, generations, long videos, edits, renders and brand kits; pricing. |
 | `generate` | Queuing generations, starting and steering long videos, and the text check. These spend credits. |
-| `edit`     | Edits, brand kits on them and renders; importing pictures; saving characters.                    |
+| `edit`     | Edits, brand kits on them and renders; importing pictures and audio; saving characters.          |
 
 Claude Code (`.mcp.json` in a project):
 
@@ -95,6 +95,7 @@ curl -X POST https://<your studio>/api/public/studio/list_models \
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `save_character`              | Makes a character from library images, or changes one (`characterId`): name, look, sheet images by view, training photos.           |
 | `import_image`                | Puts a PNG, JPEG, WebP or GIF (up to 15 MB) into the library, from base64 `data` or an https `url`.                                 |
+| `import_audio`                | Puts a WAV, MP3, M4A or FLAC into the library as music, a sound effect or an edit's voiceover (see "Importing audio").              |
 | `open_in_editor`              | Lays a long video out as an edit. Takes captions from the script, titles on the voiceover's clock, music, and the brand kit's look. |
 | `create_edit` / `update_edit` | Makes an edit from a timeline, or changes one. An update is accepted only at the version you read.                                  |
 | `apply_brand_kit`             | Applies a kit's fonts and colours to the edit's text, and can add its end card inside a platform's safe area.                       |
@@ -103,6 +104,25 @@ curl -X POST https://<your studio>/api/public/studio/list_models \
 Every operation that spends or makes something takes your own `clientRequestId` (8 to 64
 characters). Sending the same request again returns the first result, so a retry never bills
 twice.
+
+## Importing audio
+
+`import_audio` takes a WAV, MP3, M4A (AAC) or FLAC from base64 `data` (up to 20 MB) or an https
+`url` (up to 40 MB) into the same library and the same records as the app's own upload. The
+file's structure is checked before anything is recorded, and its length is read from the file
+(a FLAC's exactly, from its STREAMINFO).
+
+- **Music or a sound effect** (`use: "music"` or `"sound_effect"`) joins the music library with
+  its `licence`: `"licensed"`, with its `rights` (`licensor` and `scopes`, and any `reference`,
+  `territories`, `expiresOn` and `notes`), or `"owned"`. `projectId` and `campaignId` file it.
+- **A voiceover** (`use: "voiceover"`) becomes a take in an edit's Voice tab (`sequenceId`), with
+  any `transcript`, and renders like a take made there.
+- `confirmed: true` is your confirmation, as the token's owner: of the licence as stated, or that
+  the voiceover was recorded by or for the brand with the speaker's permission to use their
+  voice. It is recorded with who gave it and when.
+
+The answer has the file's `assetId`, its `trackId` or `voiceoverId`, its `mimeType` and
+`durationSeconds`, and `imported: false` when the same `clientRequestId` had imported it already.
 
 ## A presenter video, end to end
 
