@@ -1,0 +1,66 @@
+{
+  "what": "The third cut with shot 12.1 drawn again: every listing in the Property Marketplace under its own photograph (spec Stage 6), and the page easing back as 14 Wattle Grove is chosen",
+  "date": "2026-10-23",
+  "delivered": {
+    "file": "film.mp4, as sent on 22 October 2026 (Google Drive 1jrniXrIEloOXZYm6iP9VIdInqx9PhyJ7)",
+    "bytes": 198544946,
+    "sha256": "b0bf32c28cb461c4e3ec8642b91e432acec34b04f93fb9db3a974c9beeddbb22"
+  },
+  "spliced": {
+    "bytes": 199385354,
+    "sha256": "5be07feb62116049b6bf242e83009521110c54e047867bf5be993ac8cc047629",
+    "how": "scripts/aurixa-reel-1/splice_shot.py, from render.cjs's drawing of 12.1 (assets folder rebuilt: studio.py fetch, selawik.py, mascot.cjs, the emblem cropped from REF-LOGO)"
+  },
+  "redraw_against_delivered": {
+    "what": "12.1 drawn again as it was, against the delivered master's own frames 2969 to 3038 (luma PSNR, 4:2:0, through the renderer's zimg step): within the master's own encoding error",
+    "frames": 70,
+    "min_db": 46.89,
+    "mean_db": 49.62,
+    "max_db": 54.35
+  },
+  "frames": 3936,
+  "shot": [2969, 3039],
+  "encoded_again": [2949, 3066],
+  "master_keyframes_near": [2861, 2889, 2949, 3009, 3066, 3126, 3186],
+  "untouched_identical": {
+    "head": true,
+    "tail": true
+  },
+  "audio_identical": true,
+  "stretch_psnr_vs_its_source": {
+    "before": {
+      "frames": 20,
+      "identical": 0,
+      "min_db": 56.09,
+      "mean_db": 56.68
+    },
+    "shot": {
+      "frames": 70,
+      "identical": 0,
+      "min_db": 46.76,
+      "mean_db": 48.81
+    },
+    "after": {
+      "frames": 27,
+      "identical": 0,
+      "min_db": 55.19,
+      "mean_db": 56.33
+    }
+  },
+  "changed": {
+    "frames": "2970 to 3037 (the shot's first and last frames are in its fades)",
+    "pixels_changed_by_more_than_8_levels": "up to 26.4% of a frame, the cards' pictures and, at rest, the cards around 14 Wattle Grove"
+  },
+  "container": {
+    "frames": 3936,
+    "seconds": 131.2,
+    "video_timestamps_identical": true,
+    "keyframes_identical": true,
+    "audio_packets_identical": true,
+    "strict_decode": "clean"
+  },
+  "x264": "x264 - core 164 r3108 31e19f9 - H.264/MPEG-4 AVC codec - Copyleft 2003-2023 - http://www.videolan.org/x264.html",
+  "x264_options_identical": true,
+  "parameter_sets_identical": true,
+  "evidence": "third-cut-12.1-listing-photos.jpg: the delivered master and the spliced one, decoded as a player decodes them, at 98.17 s (11.1), four moments of 12.1 and 102.33 s (12.2)"
+}
