@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   blobPath,
+  BRIEF_LINK_ORDER,
   chunkCount,
   CODE_SNAPSHOT,
   codeLine,
@@ -11,6 +12,7 @@ import {
   holdLine,
   holdOf,
   isWorkPath,
+  LINK_KINDS,
   linksFromCall,
   mergePatch,
   resumeBrief,
@@ -19,6 +21,7 @@ import {
   textList,
   WORK_LIMITS,
   type JournalRow,
+  type LinkKind,
   type WorkRow,
   type WorkView,
 } from "../../src/lib/work/model";
@@ -430,6 +433,82 @@ describe("the brief anyone resuming a work is given", () => {
       "## Code\ncanvas-xeno-studio, branch main at 5438ea7aa1b2, with 2 commits no remote held and changes not committed when last saved: kept with the work (work/code/commits.bundle, work/code/uncommitted.patch).",
     );
     expect(text).toContain("`python3 scripts/studio-work/work.py restore-code` checks it out");
+  });
+
+  /** A section of a brief, from its heading to the next. */
+  const section = (text: string, heading: string) =>
+    text.split("\n## ").find((part) => part.startsWith(heading)) ?? "";
+  const items = (part: string) => part.split("\n").filter((line) => line.startsWith("- "));
+
+  test("lists the files only it holds first, and says where they sit on a machine", () => {
+    const kept = view();
+    const file = (path: string, size: number) => ({
+      ...kept.files[0]!,
+      id: path,
+      path,
+      size,
+      version: 1,
+      note: null,
+    });
+    // As the service gives them: in order of their paths.
+    kept.files = [
+      file("records/spec.json", 2_000),
+      file(CODE_SNAPSHOT.state, 300),
+      file("work/masters/third-cut-revised.mp4", 199_593_310),
+      file("work/shots/12.1/reference.mkv", 63_507_134),
+    ];
+    const files = section(resumeBrief(kept, { now: new Date("2026-10-23T12:00:00Z") }), "Files");
+    expect(files).toContain(
+      `Roots: records → docs/brands/aurixa-reel-1, renders → renders, work → its own folder, outside git (on a machine, .xeno-work/${WORK_ID}/files beside the checkout)`,
+    );
+    expect(items(files).map((line) => line.slice(2).split(" · ")[0])).toEqual([
+      "work/masters/third-cut-revised.mp4",
+      "work/shots/12.1/reference.mkv",
+      "records/spec.json",
+      CODE_SNAPSHOT.state,
+    ]);
+    // With nothing under work/, the roots are only its own.
+    expect(section(resumeBrief(view()), "Files")).toContain(
+      "Roots: records → docs/brands/aurixa-reel-1, renders → renders\n",
+    );
+  });
+
+  test("counts what it has in the studio by kind, and lists what shapes it before the many things it made", () => {
+    const kept = view();
+    const link = (kind: LinkKind, id: string, role: string) => ({
+      ...kept.links[0]!,
+      id: `${kind}:${id}`,
+      kind,
+      object_id: id,
+      role,
+      title: null,
+      status: null,
+    });
+    // As the service gives them: the latest first.
+    kept.links = [
+      link("generation", GEN, "P take1"),
+      link("asset", ASSET, "P take1, picked"),
+      link("brief", EDIT, "the prompt pack"),
+      link("generation", RENDER, "P take2"),
+    ];
+    const studio = section(resumeBrief(kept), "In the studio");
+    expect(studio).toStartWith(
+      "In the studio (4)\n1 creative brief, 1 library file, 2 generations\n",
+    );
+    expect(items(studio)).toEqual([
+      `- Creative brief ${EDIT} — the prompt pack`,
+      `- Library file ${ASSET} — P take1, picked`,
+      `- Generation ${GEN} — P take1`,
+      `- Generation ${RENDER} — P take2`,
+    ]);
+    // One kind alone needs no count.
+    expect(section(resumeBrief(view()), "In the studio")).toStartWith(
+      `In the studio (1)\n- Generation ${GEN}`,
+    );
+  });
+
+  test("every kind of link has its place in a brief", () => {
+    expect([...BRIEF_LINK_ORDER].sort()).toEqual([...LINK_KINDS].sort());
   });
 
   test("is cut to the length asked, and says so", () => {
