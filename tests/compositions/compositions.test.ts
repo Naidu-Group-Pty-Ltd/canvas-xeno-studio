@@ -38,6 +38,7 @@ import {
   demoRecordOf,
   demoValue,
   fillDemo,
+  type DemoRecord,
 } from "../../src/lib/compositions/demo";
 import {
   drawingTimes,
@@ -53,6 +54,7 @@ import {
 } from "../../src/lib/compositions/spec";
 import { bezier, CompositionState, parseCubicBezier } from "../../src/lib/compositions/state";
 import { TEMPLATES, templateById } from "../../src/lib/compositions/templates";
+import { gradeBars } from "../../src/lib/compositions/templates/report";
 
 const SCREEN = "11111111-1111-4111-8111-111111111111";
 const LOGO = "22222222-2222-4222-8222-222222222222";
@@ -385,6 +387,52 @@ describe("the templates", () => {
           expect(beat.at).toBeLessThanOrEqual(template.duration.max);
         }
       });
+
+  test("a report page with no bars of its own draws the record's grade, and a record without one the illustrative bars", () => {
+    const bars = (demo: DemoRecord, params: Record<string, unknown> = {}) => {
+      const scene = buildScene({
+        spec: spec("report-page", params),
+        brand: { ...brand, demo },
+        width: 1080,
+        height: 1920,
+        fps: 30,
+        imageInfo: sizes,
+        imageUrl: () => "",
+        fontUrl: () => "",
+      });
+      const values = [...scene.document.matchAll(/id="rp-val-\d+"[^>]*>([^<]*)</g)].map(
+        (m) => m[1],
+      );
+      const labels = [...scene.document.matchAll(/<span>([^<]*)<\/span>/g)].map((m) => m[1]);
+      return { values, labels: labels.slice(-values.length) };
+    };
+    const graded: DemoRecord = {
+      ...DEFAULT_DEMO_RECORD,
+      lists: [
+        {
+          key: "grade",
+          label: "How the grade was reached",
+          columns: ["Dimension", "Score", "Weight"],
+          rows: [
+            ["Capital growth", "86 / 100", "40%"],
+            ["Location", "90 / 100", "25%"],
+            ["Rental yield", "72 / 100", "15%"],
+            ["", "50", "5%"],
+          ],
+        },
+      ],
+    };
+    // The record's own scores, its first number a row (never "86 / 100" read as 86100); a row with no label left out.
+    expect(bars(graded)).toEqual({
+      values: ["86", "90", "72"],
+      labels: ["Capital growth", "Location", "Rental yield"],
+    });
+    expect(gradeBars(graded)).toEqual(["Capital growth: 86", "Location: 90", "Rental yield: 72"]);
+    // Bars a person set win; a record with no grade list draws the plainly illustrative five.
+    expect(bars(graded, { bars: ["Risk: 40"] }).values).toEqual(["40"]);
+    expect(gradeBars(DEFAULT_DEMO_RECORD)).toBeNull();
+    expect(bars(DEFAULT_DEMO_RECORD).values).toEqual(["78", "92", "64", "85", "71"]);
+  });
 
   test("settings a template can't take are refused, with which and why", () => {
     expect(() =>
