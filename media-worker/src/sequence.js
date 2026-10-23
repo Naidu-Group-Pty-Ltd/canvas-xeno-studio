@@ -949,6 +949,22 @@ export function crossInput(frames = null) {
 }
 
 /**
+ * Transitions FFmpeg's xfade draws reading past the picture on their first
+ * frame (5.1 and 6.1 alike): slideup takes its top row from below the
+ * picture, and slideleft each row's first pixel from past the row's end, a
+ * line of whatever memory lies there (green, or noise that differs from one
+ * render to the next). Each is drawn as its mirror image, which reads only
+ * the picture: slidedown on both pictures turned upside down, then turned
+ * back (vflip only re-points the rows), and slideright mirrored left to
+ * right. Every frame is as FFmpeg draws it but for that line, and the first
+ * is the first clip's own.
+ */
+const MIRRORED_TRANSITIONS = {
+  slideup: { as: "slidedown", flip: "vflip" },
+  slideleft: { as: "slideright", flip: "hflip" },
+};
+
+/**
  * Joins per-clip streams with each clip's transition. Every input is first
  * given the same frame rate, time base and sample format, which xfade and
  * acrossfade require. Returns the graph lines and the final label.
@@ -978,8 +994,13 @@ export function joinChain(plan, kind) {
       const duration = seconds(clip.transitionFrames / plan.fps);
       if (kind === "v") {
         const offset = seconds((lengthFrames - clip.transitionFrames) / plan.fps);
-        lines.push(`[${previous}]${crossInput(lengthFrames)}[${output}in]`);
-        lines.push(`[${output}in][${next}]xfade=transition=${clip.transitionType}:duration=${duration}:offset=${offset}[${output}]`);
+        const mirror = MIRRORED_TRANSITIONS[clip.transitionType];
+        const flip = mirror ? `,${mirror.flip}` : "";
+        lines.push(`[${previous}]${crossInput(lengthFrames)}${flip}[${output}in]`);
+        if (mirror) lines.push(`[${next}]${mirror.flip}[${output}next]`);
+        lines.push(
+          `[${output}in][${mirror ? `${output}next` : next}]xfade=transition=${mirror?.as ?? clip.transitionType}:duration=${duration}:offset=${offset}${flip}[${output}]`,
+        );
       } else {
         lines.push(`[${previous}][${next}]acrossfade=d=${duration}:c1=tri:c2=tri[${output}]`);
       }
