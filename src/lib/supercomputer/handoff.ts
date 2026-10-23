@@ -11,6 +11,8 @@ export interface SupercomputerHandoff {
   briefId?: string | null;
   projectId?: string | null;
   campaignId?: string | null;
+  /** A conversation already made for it (a work carried on): kept open, the composer filled. */
+  threadId?: string | null;
 }
 
 const KEY = "xeno.supercomputer.handoff";

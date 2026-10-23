@@ -34,6 +34,7 @@ import {
   ListChecks,
   FolderOpen,
   Gauge,
+  ClipboardList,
 } from "lucide-react";
 import { APP_NAME } from "@/lib/app-config";
 import { useAuth } from "@/hooks/useAuth";
@@ -73,6 +74,7 @@ const NAV = [
   { to: "/canvas", label: "Canvas", icon: Network, flag: "v2_canvas" },
   { to: "/campaigns", label: "Campaigns", icon: Megaphone, flag: "v2_campaigns" },
   { to: "/projects", label: "Projects", icon: LayoutGrid, flag: null },
+  { to: "/work", label: "Work in progress", icon: ClipboardList, flag: null },
   { to: "/assets", label: "Library", icon: Images, flag: null },
   { to: "/model-lab", label: "Model Lab", icon: Swords, flag: "v2_model_arena" },
   { to: "/models", label: "Models", icon: Boxes, flag: null },

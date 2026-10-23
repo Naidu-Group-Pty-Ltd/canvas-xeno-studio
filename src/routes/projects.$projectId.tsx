@@ -21,6 +21,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { VoiceAssignment } from "@/components/voices/VoiceAssignment";
 import { ProjectReviews } from "@/components/reviews/ProjectReviews";
 import { ProjectSpend } from "@/components/usage/CostPanels";
+import { WorkList } from "@/components/work/WorkList";
 
 export const Route = createFileRoute("/projects/$projectId")({
   head: () => ({
@@ -183,6 +184,7 @@ function ProjectDetailPage() {
             <TabsTrigger value="history">Generation history</TabsTrigger>
             <TabsTrigger value="folders">Folders</TabsTrigger>
             <TabsTrigger value="reviews">Reviews</TabsTrigger>
+            <TabsTrigger value="work">Work</TabsTrigger>
           </TabsList>
 
           <TabsContent value="assets" className="mt-4">
@@ -225,6 +227,10 @@ function ProjectDetailPage() {
 
           <TabsContent value="reviews" className="mt-4">
             <ProjectReviews projectId={projectId} />
+          </TabsContent>
+
+          <TabsContent value="work" className="mt-4">
+            <WorkList projectId={projectId} includeFinished />
           </TabsContent>
         </Tabs>
       </div>
