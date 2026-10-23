@@ -167,13 +167,16 @@ Built from docs/brands/aurixa-reel-1/HANDOVER.md, part 2, each proposal tested o
 - [x] J2. A take aligned to its end frame (`align_take`): registered on the picture, colour-matched, then crossed to it
 - [x] Render colours in BT.709 (found by G1): pictures brought in by BT.709's matrix, colours drawn into the picture handed over to FFmpeg's own, every render tagged, and frames taken out read as a player shows them; brand colours within a CIEDE2000 of 0.75, where they were off by up to 8.6 (media-worker/README.md, Colour)
 - [x] Migrations 0027 to 0036 in the journal, with a test that keeps it in step with the files
+- [x] Migrations 0027 to 0036 run on a scratch Postgres 16 built as the live database was (Lovable's migrations, then 0000 to 0026, on stand-ins for Supabase's auth, storage, cron and net): each applies, alone or all ten in one transaction, and can run again; they only add to the tables the live app uses, so it runs on as it is; the 15 new tables have row security with nothing for the signed-out; the review gates' triggers and functions behave as members use them; and the generated types, the values the code writes and the functions it calls match what they make
 - [ ] Apply migrations 0027 to 0036, in order (until then each feature says it needs its update)
 - [ ] Deploy the media worker with its browser (the image installs Chromium) and, for WebGL motion graphics, a worker on a GPU (`MEDIA_WORKER_GPU=1`, its address in `MEDIA_WORKER_GPU_URL`); the GPU path hasn't been run on a GPU
 - [ ] Check the new pages and panels signed in on the live app: none has been run in a browser against the live database
 - [ ] Set list prices for the models whose results carry no price (GPT Image's metered runs), once 0028 is applied
-- [ ] The Editor still lets a layout-only picture be laid on a timeline (the render and the API refuse it); a database check would break the Editor's autosave
+- [x] The Editor asks a picture's privacy mark before it lays it on a timeline (a clip, the brand's logo, a picture over the video), and refuses a layout-only one as the render does
 - [ ] The Editor's preview shows an auto caption panel unmeasured (measuring needs pixel reads the browser's cross-origin rules allow)
-- [ ] The Google-font import installs one file a family, so an imported kit has no italic until one is uploaded on the Brand page
-- [ ] A music fit isn't redone when the edit's length changes (press Fit again); dragging the start of a music item made of pieces changes its trim, which does nothing; the preview's crossfades between pieces are approximate
-- [ ] A render recovered from storage doesn't register its stems, and `get_render` doesn't report `public_use` (its file's metadata carries the rights check and credits)
+- [x] A brand imported from its site gets its headings' italic too, where Google has one, for brand captions' emphasis
+- [x] Music fitted to the edit records what it was fitted to, and the Music panel says when the edit's length has changed since and fits it again; dragging the start of music in pieces trims into its first piece, the rest staying where it plays
+- [ ] The preview's crossfades between pieces of music are approximate
+- [x] A render recovered from storage keeps its stems, and `get_render` reports `public_use`, its `rights_check` and the `credit_lines` it owes
+- [x] An effect ducks under the voice only when told to, as before effects could (a timeline written through the API without a duck field had made it dip)
 - [ ] A brief per beat (H1's shape), for review sheets to describe each shot from; until then they come from the shots, drafts and image notes
