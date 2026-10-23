@@ -361,7 +361,7 @@ go in on the Brand page before the pages are built (decision 5):
   the solicitor, the finance broker and the accountant.
 - **The partners,** each with its access live:
   - Harbour Finance Group (Jamie Chen);
-  - Shah Legal (Priya Shah). Her Solicitor & Conveyancer Portal account puts the matter in her portal;
+  - Shah Legal (Priya Shah), with a Solicitor & Conveyancer Portal account, so the matter appears in Priya Shah's portal;
   - Patel & Co Accountants (Mia Patel).
 - **The portrait's state:** the photograph is held by the verification provider.
 - **The opening's six roles, as roles only:** Buyer's agent, Finance broker, Solicitor / conveyancer, Accountant,
