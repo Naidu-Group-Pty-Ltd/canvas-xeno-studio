@@ -49,6 +49,7 @@ import { cn } from "@/lib/utils";
 import { Inspector } from "./Inspector";
 import { MediaBin } from "./MediaBin";
 import { probeDuration } from "@/lib/edit/probe";
+import { timelineRefusal } from "@/lib/media/layout-only-check";
 import { drawnRenderId, useClipDrawings } from "@/hooks/useCompositions";
 import { useEditBrandKit } from "@/hooks/useBrandKits";
 import type { Scene } from "@/lib/compositions/compile";
@@ -183,6 +184,12 @@ function Workspace({ sequence, initial }: { sequence: SequenceRow; initial: Time
     async (asset: AssetRow) => {
       if (timeline.clips.length >= LIMITS.clips) {
         toast.error(`An edit can hold up to ${LIMITS.clips} clips`);
+        return;
+      }
+      // A client's screen marked layout only is never placed in a frame (see ../../lib/media/layout-only).
+      const refused = await timelineRefusal([{ id: asset.id, title: asset.title }]);
+      if (refused) {
+        toast.error(refused);
         return;
       }
       const duration = asset.asset_type === "video" ? await probeDuration(asset) : null;

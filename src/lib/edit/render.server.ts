@@ -791,6 +791,11 @@ export async function recoverSequenceRender(input: {
   const [videoFile, posterFile] = await Promise.all([outputFile(video), outputFile(poster)]);
   // Not both there: it didn't finish (or is still uploading), so nothing to finish it from.
   if (!videoFile || !posterFile) return as(false);
+  // The stems asked for come after them (feature stems): each one that is there is kept.
+  const stemPaths: unknown[] = paths.slice(2);
+  const stemFiles = await Promise.all(
+    stemPaths.map((path) => (typeof path === "string" ? outputFile(path) : null)),
+  );
 
   const timeline = parseTimeline(row.timeline);
   const size = timeline ? frameSize(timeline.aspectRatio, timeline.resolution) : null;
@@ -818,6 +823,19 @@ export async function recoverSequenceRender(input: {
           bytes: bytes(posterFile),
           storage_key: poster,
         },
+        ...stemFiles.flatMap((file, position) =>
+          file
+            ? [
+                {
+                  index: 2 + position,
+                  kind: "audio",
+                  mime_type: "audio/wav",
+                  bytes: bytes(file),
+                  storage_key: stemPaths[position] as string,
+                },
+              ]
+            : [],
+        ),
       ],
       // What the render was asked for: the worker's own measurements didn't arrive.
       metadata: {

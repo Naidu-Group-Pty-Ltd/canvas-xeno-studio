@@ -387,7 +387,7 @@ const getRender = tool({
   name: "get_render",
   title: "Get a render",
   description:
-    "A render's progress (0 to 1), its status, and once complete, the finished video's library id and a download link valid for an hour, how its sound sits (mix_report: the voice's margin over the music in the speech band, section by section, and the mix's loudness), its stems if asked for, and how it measured against its own lossless reference (quality: SSIM and PSNR, edge contrast kept, CIEDE2000 on flat fields and the brand's colours, banding, captions and cuts on their frames, the voiceover's sync and loudness, each a pass or a flag; qualityNotes says each in words), and its review sheet once one is asked for (reviewSheet: making, ready with its library id and a link, or failed).",
+    "A render's progress (0 to 1), its status, whether it was made for public use (public_use; null before the rights ledger exists) with what was confirmed for it (rights_check) and the credit lines it owes (credit_lines), and once complete, the finished video's library id and a download link valid for an hour, how its sound sits (mix_report: the voice's margin over the music in the speech band, section by section, and the mix's loudness), its stems if asked for, and how it measured against its own lossless reference (quality: SSIM and PSNR, edge contrast kept, CIEDE2000 on flat fields and the brand's colours, banding, captions and cuts on their frames, the voiceover's sync and loudness, each a pass or a flag; qualityNotes says each in words), and its review sheet once one is asked for (reviewSheet: making, ready with its library id and a link, or failed).",
   scope: "read",
   input: z.object({ renderId: id() }),
   run: async (args) => {
@@ -418,6 +418,7 @@ const getRender = tool({
     const reviewSheet = await reviewSheetOf(extras?.review_sheet_task_id);
     return {
       ...render,
+      ...(await renderRightsOf(args.renderId, asset?.metadata ?? null)),
       url: asset ? await signedLink(asset.storage_bucket, asset.storage_path) : null,
       ...(await renderSound(args.renderId, asset?.metadata ?? null)),
       quality: quality?.raw ?? null,
@@ -431,6 +432,26 @@ const getRender = tool({
     };
   },
 });
+
+/**
+ * Whether a render was made for public use and what was confirmed for it, as
+ * kept on it since migration 0027_asset_rights (before it, unknown, and the
+ * check as its video's own record carries it), with the credit lines owed.
+ */
+async function renderRightsOf(renderId: string, videoMetadata: unknown) {
+  const { data: kept, error } = await db
+    .from("sequence_renders")
+    .select("public_use,rights_check")
+    .eq("id", renderId)
+    .maybeSingle();
+  const video = (videoMetadata ?? {}) as { rights_check?: unknown; credit_lines?: unknown };
+  const lines = Array.isArray(video.credit_lines) ? video.credit_lines : [];
+  return {
+    public_use: !error && typeof kept?.public_use === "boolean" ? kept.public_use : null,
+    rights_check: (!error && kept?.rights_check) || video.rights_check || null,
+    credit_lines: lines.filter((line): line is string => typeof line === "string"),
+  };
+}
 
 /**
  * How a render's sound sits, as kept on it (or, before migration
@@ -2588,7 +2609,15 @@ const fitMusic = tool({
     const next = {
       ...timeline,
       audio: timeline.audio.map((entry) =>
-        entry.id === item.id ? { ...entry, pieces: fit.pieces, duration: null } : entry,
+        entry.id === item.id
+          ? // Fitted to the edit, it says to how long (see fitOutOfDate); to a length of its own, not.
+            {
+              ...entry,
+              pieces: fit.pieces,
+              duration: null,
+              fittedTo: args.seconds === undefined ? target : undefined,
+            }
+          : entry,
       ),
     };
     return { ...(await saveEdit(args.sequenceId, args.expectedVersion, { timeline: next })), plan };

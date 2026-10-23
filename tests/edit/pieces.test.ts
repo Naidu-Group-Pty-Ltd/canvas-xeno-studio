@@ -9,6 +9,8 @@ import {
   piecesLength,
   piecesPlacing,
   piecesSounding,
+  trimPiecesHead,
+  fitOutOfDate,
   type MusicPiece,
 } from "../../src/lib/edit/pieces";
 import {
@@ -225,5 +227,102 @@ describe("an item in pieces on the timeline", () => {
     expect(sections[2]!.start).toBeCloseTo(bars.breakdown, 2);
     expect(sections[3]!.start).toBeCloseTo(bars.reentry, 2);
     expect(sections[3]!.end).toBeCloseTo(131.2, 2);
+  });
+});
+
+describe("an item in pieces, its start dragged", () => {
+  const pieces: MusicPiece[] = [
+    { from: 10, to: 14 },
+    { from: 30, to: 31 },
+    { from: 50, to: 60 },
+  ];
+  /** What plays at each moment from the item's start: the track's second. */
+  const trackAt = (cut: MusicPiece[], at: number) => {
+    let left = at;
+    for (const piece of cut) {
+      if (left < piece.to - piece.from) return piece.from + left;
+      left -= piece.to - piece.from;
+    }
+    return null;
+  };
+
+  test("later: the first piece loses its head, and everything after plays where it did", () => {
+    const { pieces: cut, trimmed } = trimPiecesHead(pieces, 1.5);
+    expect(trimmed).toBe(1.5);
+    expect(cut).toEqual([{ from: 11.5, to: 14 }, ...pieces.slice(1)]);
+    // Moved by what was taken, each moment of the edit plays the same second of the track.
+    for (const at of [2, 3.9, 5, 9])
+      expect(trackAt(cut, at - trimmed)).toBeCloseTo(trackAt(pieces, at)!, 9);
+  });
+
+  test("past a piece: it goes, and so does one that would be left too short to play", () => {
+    // 4.2 s: the first piece (4 s) goes, and the next keeps 0.8 s, long enough to play.
+    expect(trimPiecesHead(pieces, 4.2)).toEqual({
+      pieces: [
+        { from: 30.2, to: 31 },
+        { from: 50, to: 60 },
+      ],
+      trimmed: 4.2,
+    });
+    // 4.7 s would leave it 0.3 s: it goes too, and the trim is the 5 s of both.
+    expect(trimPiecesHead(pieces, 4.7)).toEqual({ pieces: [{ from: 50, to: 60 }], trimmed: 5 });
+    expect(trimPiecesHead(pieces, 5.3)).toEqual({ pieces: [{ from: 50.3, to: 60 }], trimmed: 5.3 });
+    // Never past the shortest piece the last can be.
+    expect(trimPiecesHead(pieces, 100)).toEqual({
+      pieces: [{ from: 59.5, to: 60 }],
+      trimmed: 14.5,
+    });
+  });
+
+  test("earlier: the first piece reaches back into its track, never before its start", () => {
+    expect(trimPiecesHead(pieces, -2)).toEqual({
+      pieces: [{ from: 8, to: 14 }, ...pieces.slice(1)],
+      trimmed: -2,
+    });
+    expect(trimPiecesHead([{ from: 3, to: 9 }], -5)).toEqual({
+      pieces: [{ from: 0, to: 9 }],
+      trimmed: -3,
+    });
+    expect(trimPiecesHead(pieces, 0)).toEqual({ pieces, trimmed: 0 });
+  });
+});
+
+describe("music fitted to the edit", () => {
+  const fitted = {
+    role: "music",
+    start: 2,
+    pieces: [{ from: 0, to: 40 }],
+    fittedTo: 38,
+  };
+
+  test("holds while the edit runs as long as it was fitted to", () => {
+    expect(fitOutOfDate(fitted, 40)).toBeNull();
+    expect(fitOutOfDate(fitted, 40.005)).toBeNull();
+  });
+
+  test("is out of date once the edit runs longer or shorter, and says how long it now runs", () => {
+    expect(fitOutOfDate(fitted, 42.5)).toBe(40.5);
+    expect(fitOutOfDate(fitted, 30)).toBe(28);
+    // Moved later, the same edit leaves it less room.
+    expect(fitOutOfDate({ ...fitted, start: 4 }, 40)).toBe(36);
+  });
+
+  test("a fit to a length of its own, or no fit, is never out of date", () => {
+    expect(fitOutOfDate({ ...fitted, fittedTo: undefined }, 60)).toBeNull();
+    expect(fitOutOfDate({ ...fitted, pieces: undefined }, 60)).toBeNull();
+    expect(fitOutOfDate({ ...fitted, role: "sfx" }, 60)).toBeNull();
+  });
+
+  test("an edit keeps what its music was fitted to, and the render isn't sent it", () => {
+    const timeline = parseTimeline({
+      clips: [{ id: "c1", assetId: CLIP, kind: "image", duration: 40 }],
+      audio: [
+        { id: "m1", assetId: MUSIC, role: "music", pieces: [{ from: 0, to: 40 }], fittedTo: 40 },
+      ],
+    })!;
+    expect(timeline.audio[0]!.fittedTo).toBe(40);
+    const sent = buildRenderRequest(timeline).params.audio as Record<string, unknown>[];
+    expect(sent[0]).not.toHaveProperty("fittedTo");
+    expect(sent[0]).not.toHaveProperty("fitted_to");
   });
 });

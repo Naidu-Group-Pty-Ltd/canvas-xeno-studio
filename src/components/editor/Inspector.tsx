@@ -96,6 +96,7 @@ import { Mixer } from "./Mixer";
 import { SendToKatana } from "@/components/katana/SendToKatana";
 import { useVoiceovers } from "@/hooks/useVoiceData";
 import { phraseCaptions } from "@/lib/edit/captions";
+import { musicPieces } from "@/lib/edit/pieces";
 import { brandedOverlay, withCaptionStyle } from "@/lib/edit/brand";
 import { BrandSection, ImageOverlaysSection } from "./BrandPanel";
 import { CaptionEmphasisField, CaptionPanelField } from "./BrandCaptionControls";
@@ -790,7 +791,10 @@ function AudioInspector({
           Plays {formatTime(item.start)} – {formatTime(item.start + plays)}
           {item.sourceDuration ? ` · track ${item.sourceDuration.toFixed(1)}s` : ""}
         </p>
-        <MusicPiecesNote item={item} onPlayWhole={() => set({ pieces: undefined })} />
+        <MusicPiecesNote
+          item={item}
+          onPlayWhole={() => set({ pieces: undefined, fittedTo: undefined })}
+        />
         <div className="grid grid-cols-2 gap-1.5">
           <Button
             variant="outline"
@@ -849,15 +853,18 @@ function AudioInspector({
               onChange={(value) => set({ start: value })}
             />
           </Field>
-          <Field label="From the track at">
-            <Seconds
-              label="Offset into the track"
-              value={item.trimStart}
-              min={0}
-              max={Math.max(0, (item.sourceDuration ?? 86_400) - 0.1)}
-              onChange={(value) => set({ trimStart: value })}
-            />
-          </Field>
+          {/* Music in pieces plays its pieces from their own places in the track, not from an offset. */}
+          {!musicPieces(item) && (
+            <Field label="From the track at">
+              <Seconds
+                label="Offset into the track"
+                value={item.trimStart}
+                min={0}
+                max={Math.max(0, (item.sourceDuration ?? 86_400) - 0.1)}
+                onChange={(value) => set({ trimStart: value })}
+              />
+            </Field>
+          )}
         </div>
         <div className="flex items-center justify-between">
           <Label className="text-xs" htmlFor={`auto-${item.id}`}>

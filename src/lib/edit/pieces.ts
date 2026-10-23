@@ -56,6 +56,70 @@ export function piecesLength(pieces: readonly MusicPiece[]): number {
   return pieces.reduce((sum, piece) => sum + (piece.to - piece.from), 0);
 }
 
+/**
+ * Pieces with their head trimmed by `seconds` of playing (an item's start
+ * dragged later), or grown by it when negative (dragged earlier: the first
+ * piece reaches back into its track, never before the track's start). A piece
+ * used up, or with less than the shortest piece left of it, goes, and the
+ * trim carries on into the next; what is left plays exactly what it did, and
+ * at least the shortest piece always stays. `trimmed` is how much was taken
+ * (negative: given), for the item's start to move by, so the rest stays where
+ * it was.
+ */
+export function trimPiecesHead(
+  pieces: readonly MusicPiece[],
+  seconds: number,
+): { pieces: MusicPiece[]; trimmed: number } {
+  const first = pieces[0];
+  if (!first || !Number.isFinite(seconds) || seconds === 0)
+    return { pieces: [...pieces], trimmed: 0 };
+  if (seconds < 0) {
+    const grown = Math.min(-seconds, first.from);
+    return {
+      pieces: [{ from: first.from - grown, to: first.to }, ...pieces.slice(1)],
+      trimmed: -grown,
+    };
+  }
+  const out = pieces.map((piece) => ({ ...piece }));
+  let left = Math.max(0, Math.min(seconds, piecesLength(pieces) - PIECES.minSeconds));
+  let trimmed = 0;
+  while (left > 1e-9) {
+    const head = out[0]!;
+    const length = head.to - head.from;
+    if (out.length > 1 && length - left < PIECES.minSeconds) {
+      out.shift();
+      trimmed += length;
+      left = Math.max(0, left - length);
+    } else {
+      const cut = Math.min(left, length - PIECES.minSeconds);
+      out[0] = { from: head.from + cut, to: head.to };
+      trimmed += cut;
+      left = 0;
+    }
+  }
+  return { pieces: out, trimmed };
+}
+
+/**
+ * How long the edit now runs from an item's start, when its music was fitted
+ * to the edit and the edit has changed length since (more than a hundredth of
+ * a second: a fit is to its frames); null while the fit still holds, or when
+ * it wasn't fitted to the edit.
+ */
+export function fitOutOfDate(
+  item: {
+    role: string;
+    start: number;
+    pieces?: MusicPiece[] | undefined;
+    fittedTo?: number | undefined;
+  },
+  total: number,
+): number | null {
+  if (!musicPieces(item) || item.fittedTo === undefined) return null;
+  const room = Math.max(0, total - item.start);
+  return Math.abs(room - item.fittedTo) > 0.01 ? room : null;
+}
+
 /** Where each piece starts, in seconds from the start of the item's playing. */
 export function pieceOffsets(pieces: readonly MusicPiece[]): number[] {
   const offsets: number[] = [];

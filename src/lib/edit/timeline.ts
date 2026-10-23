@@ -292,31 +292,41 @@ export const voicePauseSchema = z.object({
 });
 export type VoicePause = z.infer<typeof voicePauseSchema>;
 
-export const audioSchema = z.object({
-  id: z.string().min(1).max(64),
-  assetId: z.string().uuid(),
-  role: z.enum(AUDIO_ROLES),
-  start: finite(0, LIMITS.totalSeconds).default(0),
-  trimStart: finite(0, 86_400).default(0),
-  /** Seconds to play; null plays to the end of the source (or the picture). */
-  duration: finite(0.1, LIMITS.totalSeconds).nullable().default(null),
-  volume: finite(0, 2).default(1),
-  fadeIn: finite(0, 10).default(0),
-  fadeOut: finite(0, 10).default(0),
-  loop: z.boolean().default(false),
-  duck: z.boolean().default(true),
-  duckLevel: finite(0.05, 1).default(0.25),
-  label: z.string().max(200).optional(),
-  sourceDuration: z.number().finite().positive().nullable().optional(),
-  /**
-   * Music edited on its bars: the stretches of its track it plays in order,
-   * in the track's own seconds, instead of from its trim point (and without
-   * looping). See ./pieces.
-   */
-  pieces: piecesSchema.optional(),
-  /** A voiceover held open in its silences, in the recording's order (see voicePauseSchema). */
-  pauses: z.array(voicePauseSchema).max(LIMITS.pauses).transform(sortedPauses).default([]),
-});
+export const audioSchema = z
+  .object({
+    id: z.string().min(1).max(64),
+    assetId: z.string().uuid(),
+    role: z.enum(AUDIO_ROLES),
+    start: finite(0, LIMITS.totalSeconds).default(0),
+    trimStart: finite(0, 86_400).default(0),
+    /** Seconds to play; null plays to the end of the source (or the picture). */
+    duration: finite(0.1, LIMITS.totalSeconds).nullable().default(null),
+    volume: finite(0, 2).default(1),
+    fadeIn: finite(0, 10).default(0),
+    fadeOut: finite(0, 10).default(0),
+    loop: z.boolean().default(false),
+    /** Dips under the voice: music unless told not to, an effect only when told to (see below). */
+    duck: z.boolean().optional(),
+    duckLevel: finite(0.05, 1).default(0.25),
+    label: z.string().max(200).optional(),
+    sourceDuration: z.number().finite().positive().nullable().optional(),
+    /**
+     * Music edited on its bars: the stretches of its track it plays in order,
+     * in the track's own seconds, instead of from its trim point (and without
+     * looping). See ./pieces.
+     */
+    pieces: piecesSchema.optional(),
+    /**
+     * Pieces fitted to the edit: the seconds of it (from the item's start)
+     * they were fitted to, so a change in the edit's length shows the fit is
+     * out of date (see fitOutOfDate). Unset for a fit to a length of its own.
+     */
+    fittedTo: finite(0.1, LIMITS.totalSeconds).optional(),
+    /** A voiceover held open in its silences, in the recording's order (see voicePauseSchema). */
+    pauses: z.array(voicePauseSchema).max(LIMITS.pauses).transform(sortedPauses).default([]),
+  })
+  // An item that doesn't say: music ducks, an effect (and a voiceover) doesn't, as before effects could.
+  .transform((item) => ({ ...item, duck: item.duck ?? item.role === "music" }));
 export type TimelineAudio = z.infer<typeof audioSchema>;
 
 /** A word of a caption line: when it is spoken, in seconds from the line's own start. */

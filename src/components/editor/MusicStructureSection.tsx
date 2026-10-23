@@ -14,7 +14,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { proposeFit, useFitProposal } from "@/hooks/useFitProposal";
 import { findStructure, useMusicStructure, type KnownStructure } from "@/hooks/useMusicStructure";
-import { musicPieces, piecesLength } from "@/lib/edit/pieces";
+import { fitOutOfDate, musicPieces, piecesLength } from "@/lib/edit/pieces";
 import {
   formatTime,
   type Timeline,
@@ -218,10 +218,12 @@ function FitToLength({
   // Music that starts as the edit ends (or after) has nothing to fit to.
   const nothingToFit = toEdit && layout.total - bed.start < 2;
   const applied = musicPieces(bed);
+  // Fitted to the edit, which has changed length since: the fit no longer reaches its end.
+  const changedTo = fitOutOfDate(bed, layout.total);
   const choosable = structure.sections.map((section, index) => ({ section, index })).slice(1);
 
-  function propose() {
-    const fit = fitMusicToLength(structure, features, target, {
+  function propose(length = target) {
+    const fit = fitMusicToLength(structure, features, length, {
       ending: keepEnding ? "track" : "bar",
       landmarks: marks.map((mark) => ({ section: mark.section, at: mark.at - bed.start })),
     });
@@ -239,7 +241,8 @@ function FitToLength({
       ...latest,
       audio: latest.audio.map((item) =>
         item.id === bed.id && item.assetId === bed.assetId
-          ? { ...item, pieces: fit.pieces, duration: null }
+          ? // Fitted to the edit, it says to how long, so a later change in the edit shows.
+            { ...item, pieces: fit.pieces, duration: null, fittedTo: toEdit ? target : undefined }
           : item,
       ),
     }));
@@ -256,7 +259,7 @@ function FitToLength({
       ...latest,
       audio: latest.audio.map((item) => {
         if (item.id !== bed.id) return item;
-        const { pieces: _pieces, ...whole } = item;
+        const { pieces: _pieces, fittedTo: _fittedTo, ...whole } = item;
         return whole;
       }),
     }));
@@ -282,6 +285,27 @@ function FitToLength({
             data-testid="play-whole-track"
           >
             Play the whole track
+          </button>
+        </div>
+      )}
+      {applied && !proposal && changedTo !== null && bed.fittedTo !== undefined && (
+        <div
+          className="flex items-center justify-between gap-2 rounded border border-warning/40 bg-warning/10 px-1.5 py-1"
+          data-testid="fit-out-of-date"
+        >
+          <span>
+            Fitted to {formatTime(bed.fittedTo)} of the edit, which now runs {formatTime(changedTo)}{" "}
+            from here
+          </span>
+          <button
+            type="button"
+            className="shrink-0 text-[11px] text-primary hover:underline"
+            onClick={() => {
+              setToEdit(true);
+              propose(Math.max(1, changedTo));
+            }}
+          >
+            Fit again
           </button>
         </div>
       )}
@@ -414,7 +438,7 @@ function FitToLength({
         size="sm"
         className="h-7 w-full"
         disabled={nothingToFit}
-        onClick={propose}
+        onClick={() => propose()}
         data-testid="propose-fit"
       >
         Propose a fit

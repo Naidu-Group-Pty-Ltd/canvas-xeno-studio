@@ -127,6 +127,23 @@ const UNIQUE: Record<string, string[][]> = {
   generations: [["client_request_id"]],
 };
 
+/** An `or` filter's conditions: split at the commas that aren't inside an in-list's brackets. */
+function orConditions(conditions: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let current = "";
+  for (const character of conditions) {
+    if (character === "(") depth += 1;
+    if (character === ")") depth -= 1;
+    if (character === "," && depth === 0) {
+      parts.push(current);
+      current = "";
+    } else current += character;
+  }
+  if (current) parts.push(current);
+  return parts;
+}
+
 let ids = 0;
 export function fakeId(): string {
   ids += 1;
@@ -268,6 +285,26 @@ class Query implements PromiseLike<{ data: unknown; error: unknown; count?: numb
       const values = String(value).replace(/[()]/g, "").split(",");
       this.filters.push((row) => !values.includes(String(row[column])));
     }
+    return this;
+  }
+  /** Any one of PostgREST's conditions, as `or` takes them: "status.in.(a,b),code.eq.X" (eq, neq, in and is). */
+  or(conditions: string) {
+    const tests = orConditions(conditions).map((condition): Filter => {
+      const [column = "", operator, ...rest] = condition.split(".");
+      const value = rest.join(".");
+      if (operator === "in") {
+        const values = value.replace(/^\(|\)$/g, "").split(",");
+        return (row) => values.includes(String(row[column]));
+      }
+      if (operator === "is")
+        return (row) =>
+          value === "null"
+            ? row[column] === null || row[column] === undefined
+            : String(row[column]) === value;
+      if (operator === "neq") return (row) => String(row[column]) !== value;
+      return (row) => String(row[column]) === value;
+    });
+    this.filters.push((row) => tests.some((test) => test(row)));
     return this;
   }
   /** JSON containment, as Postgres's @> reads it. */

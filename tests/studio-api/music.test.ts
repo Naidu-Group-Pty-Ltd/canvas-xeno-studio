@@ -157,10 +157,12 @@ describe("music on its bars over the API", () => {
     });
     expect(applied.body.result!["version"]).toBe(2);
     const timeline = db.find("sequences", sequenceId)!["timeline"] as {
-      audio: { pieces?: unknown; duration: unknown }[];
+      audio: { pieces?: unknown; duration: unknown; fittedTo?: number }[];
     };
     expect(timeline.audio[0]!.pieces).toEqual(plan.pieces);
     expect(timeline.audio[0]!.duration).toBeNull();
+    // Fitted to the edit (40 s from its start), it says so, so a later change in the edit shows.
+    expect((timeline.audio[0] as { fittedTo?: number }).fittedTo).toBe(40);
 
     const stale = await run(editor, "fit_music", { sequenceId, expectedVersion: 1 });
     expect(stale.body.error?.message).toContain("changed since that version");
@@ -170,6 +172,14 @@ describe("music on its bars over the API", () => {
       itemId: "c1",
     });
     expect(noMusic.body.error?.message).toContain("isn't music in this edit");
+
+    // Fitted to a length of its own, it isn't tied to the edit's.
+    const own = await run(editor, "fit_music", { sequenceId, expectedVersion: 2, seconds: 30 });
+    expect(own.body.result!["version"]).toBe(3);
+    const after = db.find("sequences", sequenceId)!["timeline"] as {
+      audio: { fittedTo?: number }[];
+    };
+    expect(after.audio[0]!.fittedTo).toBeUndefined();
   });
 
   test("fitting changes an edit, so it needs the edit scope", async () => {

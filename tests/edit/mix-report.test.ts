@@ -360,6 +360,16 @@ describe("what dips under the voice", () => {
     });
     const audio = buildRenderRequest(timeline).params.audio as { duck: boolean }[];
     expect(audio.map((item) => item.duck)).toEqual([false, false, true]);
+    // Not told (a timeline written through the API): music ducks, an effect doesn't.
+    const untold = edit({
+      audio: [
+        { id: "m1", assetId: MUSIC, role: "music" },
+        { id: "s1", assetId: EFFECT, role: "sfx" },
+      ],
+    });
+    expect(untold.audio.map((item) => item.duck)).toEqual([true, false]);
+    const sent = buildRenderRequest(untold).params.audio as { duck: boolean }[];
+    expect(sent.map((item) => item.duck)).toEqual([true, false]);
     const plan = planSequence(
       {
         clips: [{ source_index: 0, kind: "image", duration: 4 }],

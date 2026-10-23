@@ -339,6 +339,67 @@ describe("an edit's credits, and a render for public use", () => {
     expect(sentTasks).toHaveLength(1);
   });
 
+  test("get_render says it was for public use, what was confirmed, and the credit lines owed", async () => {
+    const started = await call("render_edit", {
+      sequenceId: edit["id"],
+      expectedVersion: 3,
+      clientRequestId: "reel-1-public-2",
+      publicUse: true,
+      confirmExceptions: [voice["id"]],
+    });
+    const renderId = started.body.result!["renderId"] as string;
+    const payload = recordedTasks.at(-1)!["input_payload"] as Record<string, unknown>;
+    // Finished, as the callback leaves it: the video carries the credits and the check too.
+    const video = db.add("assets", {
+      title: "Reel 1",
+      asset_type: "video",
+      source_type: "generated",
+      storage_bucket: OUTPUT,
+      storage_path: `projects/p/edits/${renderId}.mp4`,
+      deleted_at: null,
+      metadata: {
+        task_type: "render_sequence",
+        render_id: renderId,
+        credit_lines: payload["credit_lines"],
+        rights_check: payload["rights_check"],
+      },
+    });
+    Object.assign(db.find("sequence_renders", renderId)!, {
+      status: "completed",
+      asset_id: video["id"],
+    });
+    const got = await call("get_render", { renderId }, ["read"]);
+    expect(got.status).toBe(200);
+    expect(got.body.result).toMatchObject({
+      status: "completed",
+      public_use: true,
+      rights_check: { public_use: true, status: "cleared", confirmed_by: member["id"] },
+      credit_lines: payload["credit_lines"] as string[],
+    });
+    expect(got.body.result!["credit_lines"]).toHaveLength(1);
+  });
+
+  test("before the ledger exists, get_render can't say about public use, and reads the check from the video", async () => {
+    const video = db.add("assets", {
+      title: "An older render",
+      asset_type: "video",
+      source_type: "generated",
+      storage_bucket: OUTPUT,
+      storage_path: "projects/p/edits/older.mp4",
+      deleted_at: null,
+      metadata: { rights_check: { public_use: false, status: "to_confirm" } },
+    });
+    // A render row from before 0027: no public_use or rights_check on it.
+    const older = db.add("sequence_renders", { status: "completed", asset_id: video["id"] });
+    const got = await call("get_render", { renderId: older["id"] }, ["read"]);
+    expect(got.status).toBe(200);
+    expect(got.body.result).toMatchObject({
+      public_use: null,
+      rights_check: { public_use: false, status: "to_confirm" },
+      credit_lines: [],
+    });
+  });
+
   test("a render not for public use isn't held, and still takes its credits", async () => {
     const started = await call("render_edit", {
       sequenceId: edit["id"],
