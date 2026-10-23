@@ -610,6 +610,12 @@ assistant):
 - Brand-building formulas (When…, Signal, Founder's Desk and the like) now end on the brand: the
   planners had been adding the demo or priority-access ask to them.
 
+Checked again live: When… closes on Aurixa Systems with no demo or URL, Signal resolves to "Signal,
+from Aurixa Systems", credits the MFAA and makes no demo ask, and Create's prompt assistant starts
+in Aurixa's kit and writes in its look. It had asked the image model to letter the "AI-generated scene"
+label in a corner, which models garble; it now leaves the label out of the prompt and says to add
+it in the layout or caption.
+
 **Loading the data again.** The kit's `dna` and `formulas` columns take the two values in
 `aurixa-systems.json` as they are (`formulas` needs migration `0024_brand_formulas`). Anything changed on
 the Brand page since then is kept in the kit, not in this file.

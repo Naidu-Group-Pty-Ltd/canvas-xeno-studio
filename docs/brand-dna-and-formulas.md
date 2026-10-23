@@ -54,7 +54,10 @@ order: who it is, its guardrails, its proof, its call to action and the words to
 then its voice, what it never shows, its audiences, buying moments and formulas; then what holds
 them back, its look and the rest of its content; the look in detail (lighting, grading,
 composition) last, as every picture and clip carries the brand's style line anyway. For the prompt
-assistant, which writes pictures and clips, the look is kept first instead.
+assistant, which writes pictures and clips, the look is kept first instead. Labels a guardrail asks
+for on finished work (an AI-generated disclosure, a "Concept" tag, a source and date) are never put
+in its prompts for the model to letter: it says what to add in a note under its suggestions, for the
+layout or caption.
 
 **The content mix.** Over time, about 60% brand-building to 40% activation for consumer brands,
 close to 50:50 for business brands, and about 55:45 for both (Binet & Field). A default to lean on,
