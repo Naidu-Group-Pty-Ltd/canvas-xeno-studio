@@ -1,0 +1,64 @@
+{
+  "what": "The third cut with shot 03.1 drawn again: the waiting clock (G-CLOCK) made prominent in the brand's colours, at the client's direction (navy glass, gold edge and glow, the weekday in the brand's mono, the time in large gold figures, a ring filling with the wait, hands spinning ever faster, how long the client has waited, a flare each new day)",
+  "date": "2026-10-23",
+  "applied_to": {
+    "what": "the third cut with 12.1's listing photographs (splice-12.1.json)",
+    "bytes": 199385354,
+    "sha256": "5be07feb62116049b6bf242e83009521110c54e047867bf5be993ac8cc047629"
+  },
+  "result": {
+    "bytes": 199593310,
+    "sha256": "d07725545be361ef603dadb346f7f8bc174486157f444d495523fcfe1dd04d95",
+    "against_the_delivered_third_cut": "404 frames differ (593 to 879 and 2949 to 3065, the two stretches encoded again), every other frame and the soundtrack identical; keyframes and timestamps identical"
+  },
+  "redraw_against_delivered": {
+    "what": "03.1 drawn again as it was, against the delivered master's own frames 597 to 867 (luma PSNR, 4:2:0, through the renderer's zimg step)",
+    "frames": 271,
+    "min_db": 37.66,
+    "mean_db": 53.74,
+    "max_db": 57.24,
+    "where_lower": "frames 809, 810, 818 and 819 as the room falls dark: the delivered frames carry transient raster artefacts there (a stale tile over the falling spreadsheet window in 809 and 810, at most 42 levels); the redraw is clean"
+  },
+  "frames": 3936,
+  "shot": [597, 868],
+  "encoded_again": [593, 880],
+  "master_keyframes_near": [474, 533, 593, 653, 713, 773, 817, 861, 880, 940, 1000],
+  "untouched_identical": {
+    "head": true,
+    "tail": true
+  },
+  "audio_identical": true,
+  "stretch_psnr_vs_its_source": {
+    "before": {
+      "frames": 4,
+      "identical": 0,
+      "min_db": 56.06,
+      "mean_db": 56.39
+    },
+    "shot": {
+      "frames": 271,
+      "identical": 0,
+      "min_db": 51.27,
+      "mean_db": 53.78
+    },
+    "after": {
+      "frames": 12,
+      "identical": 1,
+      "min_db": 55.72,
+      "mean_db": 62.56
+    }
+  },
+  "changed": {
+    "frames": "598 to 817 (the clock on screen; it arrives at 19.90 s and falls away with the room from 26.77 s)",
+    "region": "the clock card, its glow and shadow (x 0 to 580, y 200 to 470), and three frames of the fall (813 to 815) where two draws of the falling layers differ by at most 21 levels"
+  },
+  "container": {
+    "frames": 3936,
+    "seconds": 131.2,
+    "strict_decode": "clean"
+  },
+  "x264": "x264 - core 164 r3108 31e19f9 - H.264/MPEG-4 AVC codec - Copyleft 2003-2023 - http://www.videolan.org/x264.html",
+  "x264_options_identical": true,
+  "parameter_sets_identical": true,
+  "evidence": "third-cut-03.1-waiting-clock.jpg: the delivered master and the result, decoded as a player decodes them, at 19.50 s (02.1, unchanged) and five moments of 03.1, each with its corner at full size"
+}

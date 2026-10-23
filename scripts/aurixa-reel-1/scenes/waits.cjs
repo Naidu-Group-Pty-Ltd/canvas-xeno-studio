@@ -5,16 +5,78 @@ const DK = require("../desk.cjs");
 
 const IDS = ["research", "sheet", "contact", "report", "phone"];
 
-// ------------------------------------------------------------------ the desktop clock (G-CLOCK)
-// It runs from Monday 9:14 AM and gathers speed, reaching Wednesday 4:52 PM as the room falls dark.
+// ------------------------------------------------------------------ the waiting clock (G-CLOCK)
+// It runs from Monday 9:14 AM, when Jordan's enquiry came in, and gathers speed, reaching Wednesday 4:52 PM as the
+// room falls dark. It is the one thing in the room drawn in the brand's colours (at the client's direction,
+// 23 October 2026): today's desktop clock would be a small white pill, and the wait has to be felt. A navy glass
+// card with a gold edge and glow, the weekday in the brand's mono capitals, the time in the trial card's gold, a
+// ring that fills as the wait grows (the trial ring's gradient: the wait here, the fourteen days there), hands
+// that spin faster and faster, and how long the client has been waiting. Each new day the card flares.
 const DAYS = ["Monday", "Tuesday", "Wednesday"];
 const FROM = 9 * 60 + 14;
 const TO = 2 * 1440 + 16 * 60 + 52;
-function clockText(u) {
-  const minutes = Math.round(FROM + (TO - FROM) * Math.min(1, Math.max(0, u)) ** 2.1);
+const minutesAt = (u) => FROM + (TO - FROM) * Math.min(1, Math.max(0, u)) ** 2.1;
+const pad = (n) => String(n).padStart(2, "0");
+function clockParts(u) {
+  const minutes = Math.round(minutesAt(u));
   const h = Math.floor((minutes % 1440) / 60);
-  return `${DAYS[Math.floor(minutes / 1440)]} ${((h + 11) % 12) + 1}:${String(minutes % 60).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
+  const waited = minutes - FROM;
+  return {
+    day: DAYS[Math.floor(minutes / 1440)],
+    hm: `${((h + 11) % 12) + 1}:${pad(minutes % 60)}`,
+    ap: h < 12 ? "AM" : "PM",
+    waited: `${Math.floor(waited / 1440)}D ${pad(Math.floor((waited % 1440) / 60))}H ${pad(waited % 60)}M`,
+  };
 }
+// Where it stands (frame px): in the rail's band below the platforms' own buttons, clear of the mail notification
+// that lands at (380, 404).
+const CLK = { x: 36, y: 262, w: 470, h: 140, ring: 108, stroke: 8 };
+CLK.r = (CLK.ring - CLK.stroke) / 2;
+CLK.c = 2 * Math.PI * CLK.r;
+const clockCss = `
+.wt-clk { position:absolute; left:${CLK.x}px; top:${CLK.y}px; width:${CLK.w}px; height:${CLK.h}px; box-sizing:border-box; border-radius:20px;
+  display:flex; align-items:center; gap:22px; padding:0 22px 0 16px; overflow:hidden; transform-origin:${CLK.ring / 2 + 16}px 50%;
+  background:linear-gradient(160deg, rgba(16,35,61,.97), rgba(4,11,22,.97)); border:1.5px solid rgba(215,179,95,.8); color:var(--reel-ink); }
+.wt-clk::before { content:""; position:absolute; inset:0; background:var(--reel-sheen); pointer-events:none; }
+.wt-clk svg { flex:none; position:relative; }
+.wt-clk .hand { transform-box:view-box; transform-origin:${CLK.ring / 2}px ${CLK.ring / 2}px; }
+.wt-clk .txt { position:relative; display:flex; flex-direction:column; min-width:0; }
+.wt-clk .day { font-family:"Inconsolata", ui-monospace, monospace; font-weight:700; font-size:21px; line-height:1; letter-spacing:.28em;
+  text-transform:uppercase; color:var(--reel-gold-ink); }
+.wt-clk .time { display:flex; align-items:baseline; gap:10px; margin-top:6px; font-family:var(--reel-sans); font-weight:700; line-height:1;
+  font-variant-numeric:tabular-nums; white-space:nowrap; }
+.wt-clk .time b { font-size:66px; letter-spacing:-.02em; background:linear-gradient(180deg, #F5D17A 8%, #D7B35F 58%, #C89B3C 100%);
+  -webkit-background-clip:text; background-clip:text; color:transparent; }
+.wt-clk .time small { font-size:26px; color:var(--reel-gold-ink); letter-spacing:.04em; }
+.wt-clk .wait { display:flex; align-items:center; gap:9px; margin-top:9px; font-family:"Inconsolata", ui-monospace, monospace; font-weight:700;
+  font-size:15px; line-height:1; letter-spacing:.2em; text-transform:uppercase; color:var(--reel-ink-muted); white-space:nowrap; }
+.wt-clk .wait i { width:9px; height:9px; border-radius:50%; background:#F5D17A; box-shadow:0 0 10px #d7b35f; }
+.wt-clk .wait b { color:var(--reel-ink); font-variant-numeric:tabular-nums; }`;
+function clockHtml() {
+  const o = CLK.ring / 2;
+  const ticks = Array.from({ length: 12 }, (_, i) => {
+    const a = (i * Math.PI) / 6;
+    const [r0, r1] = i % 3 === 0 ? [CLK.r - 15, CLK.r - 6] : [CLK.r - 11, CLK.r - 6];
+    return `<line x1="${r3(o + r0 * Math.sin(a))}" y1="${r3(o - r0 * Math.cos(a))}" x2="${r3(o + r1 * Math.sin(a))}" y2="${r3(o - r1 * Math.cos(a))}"/>`;
+  }).join("");
+  const p = clockParts(0);
+  return `<div class="wt-clk" id="wt-clock">
+    <svg width="${CLK.ring}" height="${CLK.ring}" viewBox="0 0 ${CLK.ring} ${CLK.ring}">
+      <defs><linearGradient id="wt-clk-rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F5D17A"/><stop offset=".55" stop-color="#D7B35F"/><stop offset="1" stop-color="#5EDDE8"/></linearGradient></defs>
+      <circle cx="${o}" cy="${o}" r="${r3(CLK.r)}" fill="rgba(4,11,22,.6)" stroke="rgba(255,255,255,.12)" stroke-width="${CLK.stroke}"/>
+      <circle id="wt-clk-arc" cx="${o}" cy="${o}" r="${r3(CLK.r)}" fill="none" stroke="url(#wt-clk-rg)" stroke-width="${CLK.stroke}" stroke-linecap="round"
+        stroke-dasharray="${r3(CLK.c)}" stroke-dashoffset="${r3(CLK.c)}" transform="rotate(-90 ${o} ${o})"/>
+      <g stroke="rgba(215,179,95,.55)" stroke-width="2.4" stroke-linecap="round">${ticks}</g>
+      <line class="hand" id="wt-clk-h" x1="${o}" y1="${o}" x2="${o}" y2="${o - 25}" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"/>
+      <line class="hand" id="wt-clk-m" x1="${o}" y1="${o + 6}" x2="${o}" y2="${o - 36}" stroke="#F5D17A" stroke-width="3.4" stroke-linecap="round"/>
+      <circle cx="${o}" cy="${o}" r="5" fill="#F5D17A"/>
+    </svg>
+    <div class="txt"><div class="day" id="wt-clock-day">${p.day}</div>
+      <div class="time"><b id="wt-clock-t">${p.hm}</b><small id="wt-clock-ap">${p.ap}</small></div>
+      <div class="wait"><i id="wt-clock-dot"></i>Client waiting<b id="wt-clock-w">${p.waited}</b></div></div></div>`;
+}
+// The moments the clock turns to a new day (Tuesday, Wednesday), as shares of its run, for the card's flare.
+const NEW_DAYS = [1, 2].map((d) => ((d * 1440 - FROM) / (TO - FROM)) ** (1 / 2.1));
 
 // ------------------------------------------------------------------ the market ticker (G-TICKER)
 // The listing site's own kind of news, on made-up streets of the film's made-up suburb.
@@ -69,9 +131,9 @@ function waitsScene() {
   const tOut = M.shotOf("03.1").out;
   const html = () =>
     [
-      `<style>${DK.CSS}</style>`,
+      `<style>${DK.CSS}${clockCss}</style>`,
       DK.roomHtml(IDS),
-      `<div style="position:absolute;inset:0;z-index:43;pointer-events:none">${KIT.clock(36, 268, `<span id="wt-clock-t">${clockText(0)}</span>`).replace('class="fk-clock"', 'class="fk-clock" id="wt-clock"')}</div>`,
+      `<div style="position:absolute;inset:0;z-index:43;pointer-events:none">${clockHtml()}</div>`,
       tickerHtml(),
       ["Price guide updated", "Inspection booked"]
         .map(
@@ -124,10 +186,38 @@ function waitsScene() {
     // The overlays (on their own clock) fall away with the room.
     const away = 1 - span(to, tDark, tDark + 0.5, EASE.linear);
     const drop = span(to, tDark, tDark + 0.9, EASE.move) ** 2;
-    // The clock runs from Monday 9:14 to Wednesday 4:52 PM, ticking ten times a second.
-    const u = Math.floor((to - tHold) * 10) / 10 / (tDark - tHold);
-    st.set("#wt-clock-t", { $text: clockText(u) });
-    st.set("#wt-clock", { ...fade(span(to, tHold, tHold + 0.3, EASE.linear) * away) });
+    // The clock runs from Monday 9:14 to Wednesday 4:52 PM, its words ticking ten times a second, and only between
+    // frames (a tick inside a frame's shutter would print two times over each other); its hands and its ring run on
+    // the overlays' own clock, so a hand that spins faster than the frame blurs as a camera would see it.
+    const u = Math.floor((Math.round(to * M.FPS) / M.FPS - tHold) * 10 + 1e-6) / 10 / (tDark - tHold);
+    const parts = clockParts(u);
+    st.set("#wt-clock-day", { $text: parts.day });
+    st.set("#wt-clock-t", { $text: parts.hm });
+    st.set("#wt-clock-ap", { $text: parts.ap });
+    st.set("#wt-clock-w", { $text: parts.waited });
+    const run = (to - tHold) / (tDark - tHold);
+    const minutes = minutesAt(run);
+    st.set("#wt-clk-h", { transform: `rotate(${r3(((minutes % 720) / 720) * 360)}deg)` });
+    st.set("#wt-clk-m", { transform: `rotate(${r3(((minutes % 60) / 60) * 360)}deg)` });
+    st.set("#wt-clk-arc", { "stroke-dashoffset": `${r3(CLK.c * (1 - (minutes - FROM) / (TO - FROM)))}` });
+    // It arrives a little ahead of the room's own motion; its glow builds as the clock speeds up, and each new day
+    // it flares and swells.
+    const arrive = span(to, tHold, tHold + 0.35, EASE.settle);
+    const flare = Math.max(
+      0,
+      ...NEW_DAYS.map((d) => {
+        const s = to - (tHold + d * (tDark - tHold));
+        return s >= 0 && s < 0.5 ? Math.sin((Math.PI * s) / 0.5) : 0;
+      }),
+    );
+    const glow = 0.3 + 0.35 * span(to, tFaster, tDark, EASE.linear) + 0.45 * flare;
+    st.set("#wt-clock", {
+      transform: `translateY(${px(-12 * (1 - arrive))}) scale(${r3((0.94 + 0.06 * arrive) * (1 + 0.05 * flare))})`,
+      "box-shadow": `0 18px 44px rgba(4,11,22,.42), 0 0 ${px(18 + 26 * glow)} rgba(215,179,95,${r3(0.25 + 0.4 * glow)})`,
+      ...fade(span(to, tHold, tHold + 0.3, EASE.linear) * away),
+    });
+    // The live dot beside the wait, beating twice a second.
+    st.set("#wt-clock-dot", { opacity: r3(0.35 + 0.65 * (0.5 + 0.5 * Math.cos(2 * Math.PI * 2 * Math.max(0, to - tHold)))) });
     // The ticker: in from below, running, faster and faster.
     const tin = span(to, tHold, tHold + 0.45, EASE.settle);
     st.set("#wt-ticker", { transform: `translateY(${px((1 - tin) * 90 + 300 * drop)})`, ...fade(tin * away) });
