@@ -18,7 +18,7 @@ its own silences and the film is cut to National Treasures (pacing.py), so every
 
 Writes brief.json (the shots and their beats, for the renderer that will make them) and BRIEF.md (the brief).
 """
-import json, math, sys
+import json, math, re, sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -491,10 +491,11 @@ REVIEW_GATES = [
     "First render: one stretch at full quality (the proof), measured against its lossless reference; then the full film, a change drawing only the frames it touches.",
 ]
 
+# Each with whether it is still open: the third cut, approved on 23 October 2026, settled the other two.
 DECISIONS = [
-    ("The music's licence", "National Treasures is the client's choice (22 October 2026) and is in the film. Its licence for paid or public use is the client's to confirm before the film runs anywhere but review."),
-    ("Real product footage", "If the client can record the live Command Centre on the demo workspace, those recordings can replace any composition one for one. The code-built pages are the default because they are exact, fictional and ready now."),
-    ("The opening palette", "Blocks 01 to 03 are deliberately unbranded and light, so Block 04's turn to navy and gold reads as Aurixa arriving. The alternative is to open in the brand's navy and keep the problem in muted tones."),
+    ("The music's licence", "National Treasures is the client's choice (22 October 2026) and is in the approved film. Its licence for paid or public use is the client's to confirm before the film runs anywhere but review. The studio's rights ledger records it as owned by the brand (confirmed when it was uploaded on 10 October), while a released recording is normally licensed from its label and publishers, so that record is the client's to confirm too.", True),
+    ("Real product footage", "Decided on 23 October 2026: the code-built pages, as the approved third cut has them, because they are exact, fictional and ready. No recording of the live Command Centre is used.", False),
+    ("The opening palette", "Decided on 23 October 2026: Blocks 01 to 03 stay unbranded and light, so Block 04's turn to navy and gold reads as Aurixa arriving, as the approved third cut has them. The one exception is 03.1's waiting clock, in the brand's colours at the client's direction (23 October 2026), so that the wait reads as urgent.", False),
 ]
 
 
@@ -917,7 +918,7 @@ def markdown(shots, design):
     w("")
     w("## Decisions for the client")
     w("")
-    for name, text in DECISIONS:
+    for name, text, _ in DECISIONS:
         w(f"- **{name}.** {text}")
     w("")
     return "\n".join(L)
@@ -997,18 +998,39 @@ def studio_analysis(shots):
         "timeline": " Then ".join(REVIEW_GATES),
         "budget": "No generation spend: every frame is rendered from code.",
         "kpis": [],
-        "open_questions": [f"{name}: {text}" for name, text in DECISIONS],
+        "open_questions": [f"{name}: {text}" for name, text, still_open in DECISIONS if still_open],
         "extends": {"brief_id": EXTENDS["brief"], "title": EXTENDS["title"]},
         "analysed_at": "2026-10-21T00:00:00Z",
         "model": "none: written from brief.json",
     }
 
 
+def first_sentence(text):
+    """A text's first sentence (a number's decimal point is not a sentence's end)."""
+    return re.split(r"(?<=[.!?])\s+(?=[A-Z(])", text, maxsplit=1)[0]
+
+
+def fitted_analysis(shots, limit=8000):
+    """The summary within what the agent is shown: where the whole would not fit, the longest keeps are cut to
+    their first sentence, longest first, until it does (the brief's pages have every one in full)."""
+    analysis = studio_analysis(shots)
+    shown = lambda: len(json.dumps({k: v for k, v in analysis.items() if k not in ("analysed_at", "model")},
+                                   ensure_ascii=False))
+    keeps = analysis["mandatories"] = list(analysis["mandatories"])
+    while shown() > limit:
+        longer = [i for i, keep in enumerate(keeps) if first_sentence(keep) != keep]
+        if not longer:
+            break
+        i = max(longer, key=lambda j: len(keeps[j]))
+        keeps[i] = first_sentence(keeps[i])
+    return analysis
+
+
 def studio_sql(shots):
     """The SQL that keeps the brief in the studio (insert, or update the same row)."""
     pages = studio_pages(shots)
     text = "\n\n".join(f"--- Page {n} ---\n{page}" for n, page in enumerate(pages, 1))
-    analysis = json.dumps(studio_analysis(shots), ensure_ascii=False, separators=(",", ":"))
+    analysis = json.dumps(fitted_analysis(shots), ensure_ascii=False, separators=(",", ":"))
     shown = {k: v for k, v in json.loads(analysis).items() if k not in ("analysed_at", "model")}
     if len(json.dumps(shown, ensure_ascii=False)) > 8000:
         raise SystemExit("The summary is longer than the 8,000 characters the agent is shown")
@@ -1036,7 +1058,8 @@ def write(folder):
              "new_pages": {k: {"name": n, "what": w, "from": f} for k, (n, w, f) in NEW_PAGES.items()},
              "screenshots": [{"screenshot": n, "shows": w, "built_into": i} for n, w, i in SCREENSHOTS],
              "shots": shots, "production": [{"step": a, "how": b} for a, b in PRODUCTION],
-             "review_gates": REVIEW_GATES, "decisions": [{"decision": a, "detail": b} for a, b in DECISIONS],
+             "review_gates": REVIEW_GATES,
+             "decisions": [{"decision": a, "detail": b, "open": c} for a, b, c in DECISIONS],
              "studio": {"brief_id": STUDIO_BRIEF_ID, "extends": EXTENDS["brief"]}}
     (folder / "brief.json").write_text(json.dumps(brief, indent=1, ensure_ascii=False) + "\n")
     (folder / "BRIEF.md").write_text(markdown(shots, DESIGN) + "\n")

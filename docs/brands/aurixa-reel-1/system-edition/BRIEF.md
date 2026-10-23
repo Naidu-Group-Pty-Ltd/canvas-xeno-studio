@@ -890,6 +890,6 @@ Not used in this edition: `PL-02A`, `PL-03A`, `PL-03B`, `PL-03C`, `PL-04B-a`, `P
 
 ## Decisions for the client
 
-- **The music's licence.** National Treasures is the client's choice (22 October 2026) and is in the film. Its licence for paid or public use is the client's to confirm before the film runs anywhere but review.
-- **Real product footage.** If the client can record the live Command Centre on the demo workspace, those recordings can replace any composition one for one. The code-built pages are the default because they are exact, fictional and ready now.
-- **The opening palette.** Blocks 01 to 03 are deliberately unbranded and light, so Block 04's turn to navy and gold reads as Aurixa arriving. The alternative is to open in the brand's navy and keep the problem in muted tones.
+- **The music's licence.** National Treasures is the client's choice (22 October 2026) and is in the approved film. Its licence for paid or public use is the client's to confirm before the film runs anywhere but review. The studio's rights ledger records it as owned by the brand (confirmed when it was uploaded on 10 October), while a released recording is normally licensed from its label and publishers, so that record is the client's to confirm too.
+- **Real product footage.** Decided on 23 October 2026: the code-built pages, as the approved third cut has them, because they are exact, fictional and ready. No recording of the live Command Centre is used.
+- **The opening palette.** Decided on 23 October 2026: Blocks 01 to 03 stay unbranded and light, so Block 04's turn to navy and gold reads as Aurixa arriving, as the approved third cut has them. The one exception is 03.1's waiting clock, in the brand's colours at the client's direction (23 October 2026), so that the wait reads as urgent.
