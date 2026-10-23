@@ -11,7 +11,7 @@ const M = require("./motion.cjs");
 const { PLATES } = require("../aurixa-reel-1/plates.cjs");
 const reportCharts = require("../aurixa-reel-1/pages/reportCharts.cjs");
 
-const { F } = M;
+const { F, r3 } = M;
 
 /** The window's page, in CSS px, and the scale its plates are drawn at (Reel 1's Command Centre scale). */
 const CSS = [1240, 1100];
@@ -220,4 +220,33 @@ const tiles = TILES.map((tile) => {
 const tileBakes = () =>
   tiles.map((t) => ({ name: t.file, width: t.size[0], height: t.size[1], html: t.html }));
 
-module.exports = { CSS, SCALE, ENTRIES, entry, tiles, tileBakes, MORE, TILE_CSS };
+/**
+ * Lights sidebar entry i, in each of the window's layers: a gold edge and glow on the entry itself, `v` of the way
+ * on (0 to 1), its glow `flash` times its resting strength.
+ */
+function lightEntry(st, i, v, flash = 1, layers = ["#W-0", "#W-1"]) {
+  for (const layer of layers)
+    st.set(
+      `${layer} .cside .grp a`,
+      {
+        "box-shadow": `inset 0 0 0 1px rgba(215,179,95,${r3(0.75 * v)}), 0 0 ${r3(16 * v * flash)}px rgba(215,179,95,${r3(0.38 * v)})`,
+        "background-color": `rgba(200,155,60,${r3(0.14 * v * flash)})`,
+      },
+      i,
+    );
+}
+/** Every entry 03.3 docks a part into, lit from then on. */
+const DOCKED = [...TILES.map((t) => t.dock), ...MORE];
+
+module.exports = {
+  CSS,
+  SCALE,
+  ENTRIES,
+  entry,
+  tiles,
+  tileBakes,
+  MORE,
+  TILE_CSS,
+  lightEntry,
+  DOCKED,
+};

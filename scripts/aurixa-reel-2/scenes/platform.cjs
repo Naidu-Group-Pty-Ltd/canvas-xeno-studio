@@ -234,17 +234,7 @@ function platformScene() {
     // tile lands and settling.
     const lit = landed.map((a) => (Number.isFinite(a) ? span(t, a, a + 0.15, EASE.linear) : 0));
     lit.forEach((v, i) => {
-      if (v <= 0) return;
-      const flash = 1 + 1.4 * Math.exp(-Math.max(0, t - landed[i]) / 0.3);
-      for (const layer of ["#W-0", "#W-1"])
-        st.set(
-          `${layer} .cside .grp a`,
-          {
-            "box-shadow": `inset 0 0 0 1px rgba(215,179,95,${r3(0.75 * v)}), 0 0 ${r3(16 * v * flash)}px rgba(215,179,95,${r3(0.38 * v)})`,
-            "background-color": `rgba(200,155,60,${r3(0.14 * v * flash)})`,
-          },
-          i,
-        );
+      if (v > 0) CC.lightEntry(st, i, v, 1 + 1.4 * Math.exp(-Math.max(0, t - landed[i]) / 0.3));
     });
 
     // The thread of light: down the sidebar from the first lit entry to the last, a traveller running it once.

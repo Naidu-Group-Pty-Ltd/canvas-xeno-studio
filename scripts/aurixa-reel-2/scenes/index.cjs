@@ -12,8 +12,8 @@ const ORDER = [
   "passport", // 04.1 to 04.3
   "consent", // 05.1
   "share", // 05.2
-  "network", // 05.3
-  "result", // 06.1, 06.2
+  "network", // 05.3, 06.1
+  "result", // 06.2
   "part", // 07.1
   "trial", // 07.2
   "statements", // 08.1
