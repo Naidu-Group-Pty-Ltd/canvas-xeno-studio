@@ -14,6 +14,7 @@ export type AppErrorCode =
   | "RATE_LIMITED"
   | "NOT_AUTHORIZED"
   | "BUDGET_EXCEEDED"
+  | "CONFLICT"
   | "UNKNOWN";
 
 export const ERROR_MESSAGES: Record<AppErrorCode, string> = {
@@ -34,6 +35,7 @@ export const ERROR_MESSAGES: Record<AppErrorCode, string> = {
   STORAGE_FAILED: "A file could not be stored.",
   RATE_LIMITED: "Higgsfield is rate limiting requests. Try again shortly.",
   NOT_AUTHORIZED: "You do not have permission to do that.",
+  CONFLICT: "Someone changed this since it was read. Read it again and retry.",
   UNKNOWN: "Something went wrong.",
 };
 

@@ -20,6 +20,9 @@ const INSTRUCTIONS = [
   "start_presenter_video for a presenter speaking a prepared voiceover (poll get_long_video; steer_clip or choose_take for weak clips);",
   "open_in_editor to lay it out as an edit, apply_brand_kit for the brand's look and end card, then render_edit (poll get_render).",
   "Generating spends real credits: give each request your own clientRequestId so a retry never runs twice.",
+  "Work that may outlast your session (most jobs of more than a few steps) is a work: list_works and claim_work to pick up one in progress (it answers with where it stands), or start_work;",
+  "then save_work after every meaningful step (what was done, what comes next, decisions, its files) and pass workId to the operations that make things.",
+  "A session can end at any moment: what was saved is where the next one starts.",
 ].join(" ");
 
 type Json = Record<string, unknown>;
@@ -49,6 +52,7 @@ export function errorMessage(error: unknown): { code: string; message: string } 
 export function statusFor(code: string): number {
   if (code === "NOT_AUTHORIZED") return 403;
   if (code === "INVALID_PARAMETERS" || code === "BUDGET_EXCEEDED") return 400;
+  if (code === "CONFLICT") return 409;
   if (code === "RATE_LIMITED") return 429;
   if (code === "PROVIDER_TIMEOUT") return 503;
   return 500;

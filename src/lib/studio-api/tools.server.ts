@@ -38,6 +38,7 @@ import type { ApiScope } from "./tokens";
 import type { ApiCaller } from "./tokens.server";
 import { PLANNING_TOOLS } from "./planning.server";
 import { COMPOSITION_TOOLS } from "./compositions.server";
+import { actorFor, WORK_TOOL_NAMES, WORK_TOOLS } from "./work.server";
 
 type Json = Record<string, unknown>;
 
@@ -2772,17 +2773,63 @@ export const STUDIO_TOOLS: StudioTool[] = [
   setAssetRights,
   ...PLANNING_TOOLS,
   ...COMPOSITION_TOOLS,
+  ...WORK_TOOLS,
 ];
 
 export function studioTool(name: string): StudioTool | null {
   return STUDIO_TOOLS.find((entry) => entry.name === name) ?? null;
 }
 
+/** Whether an operation makes or changes something, and so can be run for a work (workId). */
+export function takesWork(entry: StudioTool): boolean {
+  return entry.scope !== "read" && !WORK_TOOL_NAMES.has(entry.name);
+}
+
+const WORK_ID_SCHEMA = {
+  type: "string",
+  format: "uuid",
+  description:
+    "The work this is for (see start_work): what it makes is attached to the work, and goes in the work's project unless you name another.",
+};
+
 /** A tool's input as JSON Schema (what an MCP client is told). */
 export function toolInputSchema(entry: StudioTool): Json {
   const schema = z.toJSONSchema(entry.input, { io: "input", unrepresentable: "any" }) as Json;
   delete schema["$schema"];
+  if (takesWork(entry) && schema["type"] === "object")
+    schema["properties"] = { ...((schema["properties"] ?? {}) as Json), workId: WORK_ID_SCHEMA };
   return schema;
+}
+
+/**
+ * An operation run for a work: in the work's project unless the call names
+ * another, and what it made attached to the work (an entry in its journal).
+ * The answer says how many things were attached, or why none could be: the
+ * operation itself is never undone for it.
+ */
+export async function runForWork(
+  entry: StudioTool,
+  args: Json,
+  caller: ApiCaller,
+  workId: string,
+): Promise<unknown> {
+  const { workRef, recordCall } = await import("../work/service.server");
+  const work = await workRef(workId);
+  const input: Json = { ...args };
+  const properties = (toolInputSchema(entry)["properties"] ?? {}) as Json;
+  if ("projectId" in properties && input["projectId"] === undefined && work.project_id)
+    input["projectId"] = work.project_id;
+  const result = await entry.run(input, caller);
+  const recorded = await recordCall(work.id, actorFor(caller), entry, input, result);
+  if (!result || typeof result !== "object" || Array.isArray(result)) return result;
+  return {
+    ...(result as Json),
+    work: {
+      workId: work.id,
+      attached: recorded.linked.length,
+      ...(recorded.error ? { error: recorded.error } : {}),
+    },
+  };
 }
 
 /** Runs a tool for a caller, if their token allows it. */
@@ -2798,5 +2845,14 @@ export async function runStudioTool(
       "NOT_AUTHORIZED",
       `This token can't ${entry.scope === "read" ? "read" : entry.scope}: make one with the "${entry.scope}" scope`,
     );
+  if (takesWork(entry) && args && typeof args === "object" && !Array.isArray(args)) {
+    const { workId, ...rest } = args as Json;
+    if (workId !== undefined && workId !== null) {
+      if (typeof workId !== "string" || !/^[0-9a-f-]{36}$/i.test(workId))
+        throw new AppError("INVALID_PARAMETERS", "workId: a work's id (a UUID)");
+      return runForWork(entry, rest, caller, workId);
+    }
+    return entry.run(rest, caller);
+  }
   return entry.run(args, caller);
 }
