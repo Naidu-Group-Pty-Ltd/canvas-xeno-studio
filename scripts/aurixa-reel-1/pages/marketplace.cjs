@@ -5,11 +5,14 @@
 // band over the picture, market presence, the photo count and freshness on the image, the price as the headline,
 // the address under it, the specification row in its fixed order, then the enquiry.
 //
-// 14 Wattle Grove is the one listing with photographs (P) and carries the grade the Command Centre gave it (A+).
+// 14 Wattle Grove carries its photographs (P leads its six) and the grade the Command Centre gave it (A+).
 // Every other listing is the reel's own invention: addresses in neighbouring estates that name no real
-// property, no agent and no person, each drawn with the product's own cover for a listing whose photographs
-// have not landed (ListingCover: a wash by price band, the dot grid, the property glyph and the suburb), which
-// the product chose precisely because a page of blank tiles reads as broken.
+// property, no agent and no person, each with one listing photograph of its own (the spec's Stage 6, in the
+// assets folder as listing-<street>.png: `studio.py fetch`). With one photograph a card shows no count, as the
+// product counts only from two, and its freshness sits at the picture's foot. A listing whose file is not in the
+// assets folder is drawn with the product's own cover for a listing whose photographs have not landed
+// (ListingCover: a wash by price band, the dot grid, the property glyph and the suburb), which the product chose
+// precisely because a page of blank tiles reads as broken.
 //   const MK = require("./pages/marketplace.cjs");
 //   MK.plate()   // { html, css: [1536, 1360] } — the page in the Command Centre's shell
 //   MK.TARGET    // the index of 14 Wattle Grove's card in the grid (its id is mk-card-<index>)
@@ -90,6 +93,7 @@ const LISTINGS = [
   {
     price: 985000,
     address: "27 Hakea Street",
+    photo: "listing-hakea",
     locality: "Saltbush Vale NSW",
     beds: 4,
     baths: 2,
@@ -105,6 +109,7 @@ const LISTINGS = [
   {
     price: 1320000,
     address: "8 Wollemi Way",
+    photo: "listing-wollemi",
     locality: "Grevillea Heights NSW",
     beds: 5,
     baths: 3,
@@ -136,6 +141,7 @@ const LISTINGS = [
   {
     price: 899000,
     address: "3/41 Callistemon Avenue",
+    photo: "listing-callistemon",
     locality: "Banksia Rise NSW",
     beds: 3,
     baths: 2,
@@ -149,6 +155,7 @@ const LISTINGS = [
   {
     price: 1085000,
     address: "9 Ironbark Close",
+    photo: "listing-ironbark",
     locality: "Banksia Rise NSW",
     beds: 4,
     baths: 2,
@@ -164,6 +171,7 @@ const LISTINGS = [
   {
     price: 1640000,
     address: "15 Waratah Drive",
+    photo: "listing-waratah",
     locality: "Tallowwood Park NSW",
     beds: 5,
     baths: 3,
@@ -179,6 +187,7 @@ const LISTINGS = [
   {
     price: 695000,
     address: "Lot 22 Lomandra Street",
+    photo: "listing-lomandra",
     locality: "Saltbush Vale NSW",
     land: 375,
     type: "Land",
@@ -190,6 +199,7 @@ const LISTINGS = [
   {
     price: 1210000,
     address: "6 Boronia Place",
+    photo: "listing-boronia",
     locality: "Bottlebrush Hill NSW",
     beds: 4,
     baths: 2,
@@ -204,6 +214,7 @@ const LISTINGS = [
   {
     price: 925000,
     address: "12 Correa Lane",
+    photo: "listing-correa",
     locality: "Grevillea Heights NSW",
     beds: 4,
     baths: 2,
@@ -218,6 +229,7 @@ const LISTINGS = [
   {
     price: 1050000,
     address: "30 Acacia Terrace",
+    photo: "listing-acacia",
     locality: "Banksia Rise NSW",
     beds: 4,
     baths: 2,
@@ -232,6 +244,7 @@ const LISTINGS = [
   {
     price: 879000,
     address: "2/18 Melaleuca Road",
+    photo: "listing-melaleuca",
     locality: "Saltbush Vale NSW",
     beds: 3,
     baths: 2,
@@ -245,6 +258,7 @@ const LISTINGS = [
   {
     price: 1395000,
     address: "5 Kurrajong Crescent",
+    photo: "listing-kurrajong",
     locality: "Tallowwood Park NSW",
     beds: 5,
     baths: 2,
@@ -345,8 +359,11 @@ const CSS = `
 
 function card(l, i) {
   const [presence, bg, ink] = PRESENCE[l.presence];
-  const picture = l.target
-    ? `<div class="mk-photo" style="${F.asset("P.png") ? `background-image:url('${F.asset("P.png")}')` : ""}"></div>`
+  // The listing's own photograph where the assets folder has it (14 Wattle Grove's is P), else the product's cover.
+  const photo = F.asset(l.target ? "P.png" : `${l.photo}.png`);
+  const pictured = l.target || Boolean(photo);
+  const picture = pictured
+    ? `<div class="mk-photo" style="${photo ? `background-image:url('${photo}')` : ""}"></div>`
     : (() => {
         const [a, b] = WASH[band(l.price)];
         const where = l.locality.replace(/ \d{4}$/, "");
@@ -355,7 +372,8 @@ function card(l, i) {
       })();
   const photos = l.photos ? `<span class="mk-pill photos"><i style="background:${C.success}"></i>${l.photos} photos</span>` : "";
   const isNew = l.fresh === "New";
-  const fresh = `<span class="mk-pill fresh${isNew ? " new" : ""}" style="${l.photos ? "bottom:8px" : "top:36px"}">${isNew ? "<i></i>" : ""}${l.fresh}</span>`;
+  // At the picture's foot once there is a photograph, as the product sets it (ListingGalleryCard), else under the band.
+  const fresh = `<span class="mk-pill fresh${isNew ? " new" : ""}" style="${pictured ? "bottom:8px" : "top:36px"}">${isNew ? "<i></i>" : ""}${l.fresh}</span>`;
   const spec = [
     l.beds ? `<span>${lu("bed")}${l.beds}</span>` : "",
     l.baths ? `<span>${lu("bath")}${l.baths}</span>` : "",
