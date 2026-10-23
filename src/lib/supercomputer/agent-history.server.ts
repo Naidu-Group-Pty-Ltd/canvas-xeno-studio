@@ -27,6 +27,9 @@ export interface ContextKey {
   campaignId: string | null;
   briefId: string | null;
   brandKitId: string | null;
+  /** The work the conversation works on, and the last of its journal the conversation was told. */
+  workId?: string | null;
+  workSeen?: number | null;
 }
 
 /** An assistant message's agent state, as kept in its payload. */
@@ -262,8 +265,14 @@ export interface ContextFacts {
   attachments: { assetId: string; type: string; title: string | null }[];
   /** The web addresses the message names, in full (see addressesIn). */
   addresses?: string[];
+  /**
+   * The work the conversation works on (see ../work): its brief when it is new to the
+   * conversation, and otherwise what its journal says happened since the last message (written
+   * by another session, Claude Code or a person).
+   */
+  work?: { id: string; title: string; brief: string | null; since: string[] } | null;
   /** What changed since the last message (the brand and brief are given in full only then). */
-  changed: { brand: boolean; brief: boolean; first: boolean };
+  changed: { brand: boolean; brief: boolean; first: boolean; work?: boolean };
   now: Date;
 }
 
@@ -288,6 +297,11 @@ export function contextText(facts: ContextFacts): string {
     facts.brand
       ? `Brand kit: ${facts.brand.name} (brandKitId ${facts.brand.id}): generations in this conversation carry its look unless you pass brandKitId null.`
       : "Brand kit: none chosen",
+    ...(facts.work
+      ? [
+          `Work: ${facts.work.title} (workId ${facts.work.id}): what you make is kept with it, and each of your turns is written into its journal. Record decisions, the plan's progress and what comes next with save_work as you go.`,
+        ]
+      : []),
   ];
   if (facts.brand && (facts.changed.brand || facts.changed.first))
     lines.push("", facts.brand.block);
@@ -296,6 +310,14 @@ export function contextText(facts: ContextFacts): string {
       "",
       `Creative brief "${facts.brief.title}" (id ${facts.brief.id}):`,
       facts.brief.block,
+    );
+  if (facts.work?.brief)
+    lines.push("", "Where the work stands (its brief, from the studio):", facts.work.brief);
+  else if (facts.work?.since.length)
+    lines.push(
+      "",
+      "Since the last message, the work's journal says (written by other sessions or people):",
+      ...facts.work.since.map((line) => `- ${line}`),
     );
   if (facts.changed.first && facts.memories.length)
     lines.push(
