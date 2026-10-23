@@ -305,8 +305,12 @@ against its own lossless reference:
 - the voiceover's sync against the picture.
 
 The second cut measured SSIM 0.989 and PSNR 43.9 dB, with no frame below 39.2 dB, 99.7% of edge contrast kept, CIEDE2000
-0.41 on average, every cut on its frame and the voiceover 0 ms from the picture. `review_sheet.py` draws a contact sheet
-of every shot's beats for a person to look at.
+0.41 on average, every cut on its frame and the voiceover 0 ms from the picture. The third cut measured SSIM 0.989 and
+PSNR 43.8 dB, with no frame below 36.6 dB (a report page filling the frame, indistinguishable from its source at 100%),
+99.6% of edge contrast kept, CIEDE2000 0.46, every cut on its frame and the soundtrack 0 ms from the picture. The test
+flagged 12 caption frames, and each was looked at: a one-word line ("to") whose few edges fall under the film's
+threshold, and an empty panel over a grid. A flag is a frame to look at, never a verdict. `review_sheet.py` draws a
+contact sheet of every shot's beats for a person to look at.
 
 ### Deliver
 

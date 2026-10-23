@@ -17,7 +17,7 @@ const schema = z.object({
     .max(5)
     .default([
       "{{client.name}} | Approved the report for {{record.title}}",
-      "{{person.name}} | Shared the file with {{client.company}}",
+      "{{person.name}} | Shared the file with {{client.name}}",
       "{{record.reference}} | Status changed to {{record.status}}",
     ]),
   app: z.string().max(40).default(""),
@@ -26,7 +26,7 @@ const schema = z.object({
 
 export const notificationsTemplate = defineTemplate({
   id: "notifications",
-  version: 1,
+  version: 2,
   title: "Notifications",
   description:
     "Notifications drop in one after another, the newest on top, each from someone in the demo record; the last can be pressed.",

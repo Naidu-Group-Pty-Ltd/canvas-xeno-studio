@@ -7,7 +7,7 @@
  */
 import { z } from "zod";
 import { beatsAcross, groundHtml, riseState } from "../kit";
-import { demoValue } from "../demo";
+import { demoList, demoValue, type DemoRecord } from "../demo";
 import { CompositionState, escapeHtml, fade, px, r3, span } from "../state";
 import { defineTemplate } from "../types";
 
@@ -17,17 +17,33 @@ const schema = z.object({
   grade: z.string().max(40).default("{{record.grade}}"),
   score: z.string().max(40).default("{{record.score}}"),
   chartTitle: z.string().max(60).default("Scores by dimension"),
-  /** One bar a line: "Label: value" (values on one scale, e.g. out of 100). */
-  bars: z
-    .array(z.string().max(60))
-    .max(8)
-    .default(["Growth: 78", "Location: 92", "Yield: 64", "Demand: 85", "Risk: 71"]),
+  /**
+   * One bar a line: "Label: value" (values on one scale, e.g. out of 100).
+   * None: the demo record's `grade` list, so the bars are the record's own.
+   */
+  bars: z.array(z.string().max(60)).max(8).default([]),
   note: z.string().max(60).default("Illustrative example"),
 });
 
+/** Bars for a record with no `grade` list: plainly illustrative. */
+const ILLUSTRATIVE_BARS = ["Growth: 78", "Location: 92", "Yield: 64", "Demand: 85", "Risk: 71"];
+
+/**
+ * The record's grade as bars: each row's first column its label, and the
+ * first number in its second its value ("Capital growth", "86 / 100"), so a
+ * page never shows scores the record's grade wasn't reached from.
+ */
+export function gradeBars(demo: DemoRecord): string[] | null {
+  const rows = (demoList(demo, "grade")?.rows ?? []).flatMap((row) => {
+    const value = /-?\d+(?:\.\d+)?/.exec(row[1] ?? "")?.[0];
+    return row[0]?.trim() && value !== undefined ? [`${row[0].trim()}: ${value}`] : [];
+  });
+  return rows.length ? rows.slice(0, 8) : null;
+}
+
 export const reportTemplate = defineTemplate({
   id: "report-page",
-  version: 1,
+  version: 2,
   title: "Report page",
   description:
     "A page of the product's report: its grade in a ring, a bar chart growing bar by bar, and the illustrative-example label.",
@@ -39,7 +55,12 @@ export const reportTemplate = defineTemplate({
     { key: "grade", label: "Grade", kind: "text", max: 40 },
     { key: "score", label: "Score (0-100)", kind: "text", max: 40 },
     { key: "chartTitle", label: "Chart title", kind: "text", max: 60 },
-    { key: "bars", label: "Bars (Label: value, one a line)", kind: "lines", max: 8 },
+    {
+      key: "bars",
+      label: "Bars (Label: value, one a line; none: the demo record's grade)",
+      kind: "lines",
+      max: 8,
+    },
     { key: "note", label: "Note", kind: "text", max: 60 },
   ],
   duration: { default: 5, min: 2.5, max: 20 },
@@ -49,7 +70,8 @@ export const reportTemplate = defineTemplate({
     const pageH = pageW * 1.3;
     const pageX = (width - pageW) / 2;
     const pageY = (portrait ? height * 0.47 : height * 0.5) - pageH / 2;
-    const bars = params.bars
+    const lines = params.bars.length ? params.bars : (gradeBars(brand.demo) ?? ILLUSTRATIVE_BARS);
+    const bars = lines
       .map((line) => {
         const filled = fill(line);
         const split = filled.lastIndexOf(":");

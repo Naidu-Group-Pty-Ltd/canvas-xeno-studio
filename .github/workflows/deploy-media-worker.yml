@@ -17,6 +17,7 @@ on:
     paths:
       - "media-worker/**"
       - ".github/workflows/deploy-media-worker.yml"
+      - ".github/scripts/install-flyctl.sh"
   workflow_dispatch:
 
 # One deploy at a time: a newer one waits for the one rolling out.
@@ -70,7 +71,11 @@ jobs:
           jq --compact-output '.features' health.json > "$RUNNER_TEMP/features.json"
           echo "The image reports: $(cat "$RUNNER_TEMP/features.json")"
 
-      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # 1.6
+      - name: Install flyctl
+        # Fly's own release, checked against its checksums (see the script).
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash "$GITHUB_WORKSPACE/.github/scripts/install-flyctl.sh"
 
       - name: Deploy to Fly
         # The tested image itself, pushed to Fly's registry and rolled out on

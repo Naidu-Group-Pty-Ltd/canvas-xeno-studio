@@ -4,6 +4,7 @@
 # FFmpeg, Chromium and fonts), then it is started and its health checked:
 # the deploy's own checks (see deploy-media-worker.yml), so a change reaches
 # main already passing them, and a merge never stops at a failing deploy.
+# It installs the deploy's flyctl too, so the deploy's tools are checked.
 name: Test media worker
 
 on:
@@ -12,6 +13,7 @@ on:
     paths:
       - "media-worker/**"
       - ".github/workflows/test-media-worker.yml"
+      - ".github/scripts/install-flyctl.sh"
 
 # A newer push to the same branch replaces the run still going.
 concurrency:
@@ -54,3 +56,8 @@ jobs:
           docker rm --force worker
           jq --exit-status '.ok == true' health.json
           echo "The image reports: $(jq --compact-output '.features' health.json)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install flyctl as the deploy does
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash "$GITHUB_WORKSPACE/.github/scripts/install-flyctl.sh"
