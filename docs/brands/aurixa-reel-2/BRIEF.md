@@ -235,14 +235,14 @@ Times are on the film's clock (the voice´s own, before the film is paced to its
 - **On screen:** Passport & Partners; Partners on this matter; Shah Legal; Harbour Finance Group; Patel & Co Accountants; Send the Passport; SOLICITOR PASSPORT SHARED; SOLICITOR PORTAL; AML/CTF Compliance; Jordan Ellis.
 - **Notes:** The send is cut on the press: no email address is shown anywhere.
 
-| At       | Beat                                                                       |
-| -------- | -------------------------------------------------------------------------- |
-| 0:56.533 | Stage 9, Passport & Partners: the three partners on Jordan Ellis's matter. |
-| 0:57.833 | The pointer comes to Send the Passport on Shah Legal's row.                |
-| 0:58.467 | It presses; SOLICITOR PASSPORT SHARED strikes.                             |
-| 1:00.733 | Cut to Priya Shah's Solicitor Portal.                                      |
-| 1:02.000 | Click one: AML/CTF Compliance.                                             |
-| 1:02.233 | Click two: Jordan Ellis's matter, and the same Passport opens.             |
+| At       | Beat                                                                              |
+| -------- | --------------------------------------------------------------------------------- |
+| 0:56.533 | Stage 9, Passport & Partners: the three partners on Jordan Ellis's matter.        |
+| 0:57.833 | The camera moves in; the pointer comes to Send the Passport on Shah Legal's row.  |
+| 0:58.467 | It presses: Shah Legal's row turns live, and SOLICITOR PASSPORT SHARED is struck. |
+| 0:59.133 | Cut to Priya Shah's Solicitor Portal, her dashboard.                              |
+| 1:01.600 | Click one: AML/CTF Compliance.                                                    |
+| 1:02.233 | Click two: Jordan Ellis's matter, and the same Passport opens.                    |
 
 ### 05.3. Supporting legislative compliance, without the duplication
 
@@ -257,8 +257,8 @@ Times are on the film's clock (the voice´s own, before the film is paced to its
 | At       | Beat                                                                                    |
 | -------- | --------------------------------------------------------------------------------------- |
 | 1:02.933 | The camera pulls back; gold lines run from the Passport to the three partners' portals. |
+| 1:03.533 | The responsibility line comes up under it, and holds through 06.1.                      |
 | 1:05.033 | Ghosts of the earlier requests drift in and fold into the Passport.                     |
-| 1:06.567 | The responsibility line comes up under it and holds.                                    |
 
 ## 06. The result
 

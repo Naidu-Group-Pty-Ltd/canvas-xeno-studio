@@ -751,7 +751,7 @@
             "n": 0,
             "d": 0.0
           },
-          "do": "The pointer comes to Send the Passport on Shah Legal's row."
+          "do": "The camera moves in; the pointer comes to Send the Passport on Shah Legal's row."
         },
         {
           "at": 58.467,
@@ -760,21 +760,21 @@
             "n": 0,
             "d": 0.0
           },
-          "do": "It presses; SOLICITOR PASSPORT SHARED strikes."
+          "do": "It presses: Shah Legal's row turns live, and SOLICITOR PASSPORT SHARED is struck."
         },
         {
-          "at": 60.733,
+          "at": 59.133,
           "anchor": {
-            "word": "passport",
+            "word": "access",
             "n": 0,
             "d": 0.0
           },
-          "do": "Cut to Priya Shah's Solicitor Portal."
+          "do": "Cut to Priya Shah's Solicitor Portal, her dashboard."
         },
         {
-          "at": 62.0,
+          "at": 61.6,
           "anchor": {
-            "word": "few",
+            "word": "just",
             "n": 0,
             "d": 0.0
           },
@@ -822,6 +822,15 @@
           "do": "The camera pulls back; gold lines run from the Passport to the three partners' portals."
         },
         {
+          "at": 63.533,
+          "anchor": {
+            "word": "legislative",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "The responsibility line comes up under it, and holds through 06.1."
+        },
+        {
           "at": 65.033,
           "anchor": {
             "word": "eliminating",
@@ -829,15 +838,6 @@
             "d": 0.0
           },
           "do": "Ghosts of the earlier requests drift in and fold into the Passport."
-        },
-        {
-          "at": 66.567,
-          "anchor": {
-            "word": "duplication",
-            "n": 0,
-            "d": 0.0
-          },
-          "do": "The responsibility line comes up under it and holds."
         }
       ]
     },

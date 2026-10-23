@@ -422,11 +422,14 @@ SHOTS = {
             ),
             (
                 W("partners"),
-                "The pointer comes to Send the Passport on Shah Legal's row.",
+                "The camera moves in; the pointer comes to Send the Passport on Shah Legal's row.",
             ),
-            (W("securely"), "It presses; SOLICITOR PASSPORT SHARED strikes."),
-            (W("passport"), "Cut to Priya Shah's Solicitor Portal."),
-            (W("few"), "Click one: AML/CTF Compliance."),
+            (
+                W("securely"),
+                "It presses: Shah Legal's row turns live, and SOLICITOR PASSPORT SHARED is struck.",
+            ),
+            (W("access"), "Cut to Priya Shah's Solicitor Portal, her dashboard."),
+            (W("just"), "Click one: AML/CTF Compliance."),
             (
                 W("clicks"),
                 "Click two: Jordan Ellis's matter, and the same Passport opens.",
@@ -453,10 +456,13 @@ SHOTS = {
                 "The camera pulls back; gold lines run from the Passport to the three partners' portals.",
             ),
             (
+                W("legislative"),
+                "The responsibility line comes up under it, and holds through 06.1.",
+            ),
+            (
                 W("eliminating"),
                 "Ghosts of the earlier requests drift in and fold into the Passport.",
             ),
-            (W("duplication"), "The responsibility line comes up under it and holds."),
         ],
     },
     "06.1": {

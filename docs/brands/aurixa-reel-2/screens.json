@@ -3,29 +3,29 @@
   "screens": {
     "case-issued": {
       "file": "r2-case-issued.png",
-      "css": [1180, 622.8],
+      "css": [860, 711],
       "scale": 3,
       "regions": {
-        "region:roster": [22, 338.3, 1136, 260.5],
-        "row:Harbour Finance Group": [23, 388.3, 1134, 58],
-        "send:Harbour Finance Group": [967.4, 403.3, 145.6, 28],
-        "row:Patel & Co Accountants": [23, 446.3, 1134, 59],
-        "send:Patel & Co Accountants": [967.4, 462.3, 145.6, 28],
-        "row:Shah Legal": [23, 505.3, 1134, 59],
-        "send:Shah Legal": [967.4, 521.3, 145.6, 28]
+        "region:roster": [22, 410, 816, 277],
+        "row:Harbour Finance Group": [23, 460, 814, 58],
+        "send:Harbour Finance Group": [647.4, 475, 145.6, 28],
+        "row:Patel & Co Accountants": [23, 518, 814, 59],
+        "send:Patel & Co Accountants": [647.4, 534, 145.6, 28],
+        "row:Shah Legal": [23, 577, 814, 59],
+        "send:Shah Legal": [647.4, 593, 145.6, 28]
       }
     },
     "case-sent": {
       "file": "r2-case-sent.png",
-      "css": [1180, 622.8],
+      "css": [860, 711],
       "scale": 3,
       "regions": {
-        "region:roster": [22, 338.3, 1136, 260.5],
-        "row:Harbour Finance Group": [23, 388.3, 1134, 58],
-        "send:Harbour Finance Group": [967.4, 403.3, 145.6, 28],
-        "row:Patel & Co Accountants": [23, 446.3, 1134, 59],
-        "send:Patel & Co Accountants": [967.4, 462.3, 145.6, 28],
-        "row:Shah Legal": [23, 505.3, 1134, 59]
+        "region:roster": [22, 410, 816, 277],
+        "row:Harbour Finance Group": [23, 460, 814, 58],
+        "send:Harbour Finance Group": [647.4, 475, 145.6, 28],
+        "row:Patel & Co Accountants": [23, 518, 814, 59],
+        "send:Patel & Co Accountants": [647.4, 534, 145.6, 28],
+        "row:Shah Legal": [23, 577, 814, 59]
       }
     },
     "consent-open": {

@@ -28,6 +28,57 @@ const region = (key, name) => {
 };
 const centre = ([x, y, w, h]) => [x + w / 2, y + h / 2];
 
+/**
+ * A screen's own top bar, for a capture that is a part of a page (the Client Portal's consents, the Command
+ * Centre's case workspace): the portal's mark and name, the page, and its DEMO WORKSPACE label, as the product's
+ * top bars carry it, so every screen in the film carries the label.
+ */
+const BAR_H = 66;
+const barCss = `
+.r2-bar { position:absolute; left:0; right:0; top:0; height:${BAR_H}px; z-index:4; display:flex; align-items:center; gap:14px; padding:0 22px;
+  background:linear-gradient(180deg, #121a30, #0d1426); border-bottom:1px solid rgba(255,255,255,.08); font-family:var(--reel-sans); color:#fff; }
+.r2-bar .emb { width:36px; height:36px; flex:none; background:center/contain no-repeat; }
+.r2-bar .who { display:flex; flex-direction:column; gap:4px; }
+.r2-bar .who b { font-size:15px; font-weight:800; letter-spacing:.06em; }
+.r2-bar .who small { font-size:10px; font-weight:700; letter-spacing:.24em; color:#8d95a8; }
+.r2-bar .sep { width:1px; height:30px; background:rgba(255,255,255,.12); margin:0 6px; }
+.r2-bar .page { font-size:19px; font-weight:700; color:#e8ecf4; white-space:nowrap; }
+.r2-bar .demo { margin-left:auto; font-size:11px; letter-spacing:.16em; font-weight:800; color:#D7B35F; border:1px solid rgba(215,179,95,.5);
+  border-radius:999px; padding:7px 12px; white-space:nowrap; }
+`;
+const barHtml = ({ portal, page, emblem }) =>
+  `<div class="r2-bar"><div class="emb" style="background-image:url('${emblem}')"></div><div class="who"><b>AURIXA SYSTEMS</b><small>${portal}</small></div><div class="sep"></div><div class="page">${page}</div><span class="demo">DEMO WORKSPACE</span></div>`;
+
+/**
+ * A captured screen as a plate of Reel 1's G-WINDOW (../aurixa-reel-1/motion.cjs windowHtml), so a scene moves a
+ * camera over it as Reel 1 moves one over a plate: R2S-<key>[-<from>][-to<to>][-bar] in Reel 1's PLATES. The
+ * plate keeps the screen from CSS y `from` to `to`; `bar` ({ portal, page, emblem }) puts the screen's top bar
+ * above it. Returns the plate's name, its CSS size and `at`, which takes a region of the screen to where it is on
+ * the plate.
+ */
+function screenPlate(key, { bar = null, from = 0, to = null } = {}) {
+  const { PLATES } = require("../aurixa-reel-1/plates.cjs");
+  const s = screen(key);
+  const [w, full] = s.css;
+  const h = to ?? full;
+  const top = bar ? BAR_H : 0;
+  const css = [w, h - from + top];
+  const name = `R2S-${key}${from ? `-${from}` : ""}${to ? `-to${to}` : ""}${bar ? "-bar" : ""}`;
+  if (!PLATES[name])
+    PLATES[name] = {
+      size: css,
+      scale: 1,
+      html:
+        `<div style="position:absolute;left:0;top:${top}px;width:${w}px;height:${h - from}px;overflow:hidden"><img src="${s.src}" alt="" style="position:absolute;left:0;top:${-from}px;width:${w}px;height:${full}px"></div>` +
+        (bar ? barHtml(bar) : ""),
+    };
+  const at = (name2) => {
+    const [x, y, rw, rh] = region(key, name2);
+    return [x, y - from + top, rw, rh];
+  };
+  return { name, css, at };
+}
+
 // ------------------------------------------------------------------ G-PASSPORT
 /** The leaf's design size (passportBooklet.pure.ts, LEAF_W x LEAF_H): every leaf is drawn at it. */
 const LEAF = [470, 648];
@@ -214,6 +265,38 @@ const stampCss = `
 const stampHtml = (sid, src, size, z = 30) =>
   `<div class="st-flash" id="${sid}-flash" style="z-index:${z - 1};visibility:hidden"></div><div class="st-stamp" id="${sid}" style="width:${size[0]}px;height:${size[1]}px;z-index:${z};visibility:hidden"><img src="${src}" alt=""></div>`;
 /** A stamp struck at `at`, centred on [x, y], resting at `tilt` degrees; gone again (faded) from `out`. */
+/**
+ * An ink impression of one of the product's stamps (StampFace's own wording and layout: the issuer, the event, the
+ * diamond rule, the date and the person), for striking onto a dark screen, where the leaf's paper face would read
+ * as a pasted card: gold ink with the grain of a real impression, on nothing. Drawn once (scene.bake) at INK_SIZE.
+ */
+const INK_SIZE = [460, 268];
+function inkStamp({
+  title,
+  date,
+  name = "",
+  org = "AURIXA SYSTEMS · PROPERTY",
+  ink = "#E2BE6A",
+  size = 38,
+}) {
+  const [w, h] = INK_SIZE;
+  const grain = encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.75" numOctaves="3" seed="7"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 -3.2 2.55"/></filter><rect width="100%" height="100%" filter="url(#n)"/></svg>`,
+  );
+  // Single quotes: the mask sits inside a double-quoted style attribute.
+  const mask = `url('data:image/svg+xml,${grain}')`;
+  return `<div style="position:relative;width:${w}px;height:${h}px;color:${ink};-webkit-mask-image:${mask};mask-image:${mask}">
+    <div style="position:absolute;inset:8px;border:5px solid currentColor;border-radius:14px"></div>
+    <div style="position:absolute;inset:20px;border:1.5px solid currentColor;border-radius:8px"></div>
+    <div style="position:absolute;inset:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;text-align:center">
+      <div style="font:800 15px/1 var(--reel-sans);letter-spacing:.26em">${org}</div>
+      <div style="font:700 ${size}px/1.02 'Playfair Display', Georgia, serif;letter-spacing:.05em;text-transform:uppercase">${title}</div>
+      <div style="display:flex;align-items:center;gap:12px;width:70%"><i style="flex:1;height:1.5px;background:currentColor"></i><span style="font-size:13px">◆</span><i style="flex:1;height:1.5px;background:currentColor"></i></div>
+      <div style="font:700 21px/1 'Inconsolata', ui-monospace, monospace;letter-spacing:.14em">${date}</div>
+      ${name ? `<div style="font:600 17px/1 var(--reel-sans);letter-spacing:.04em;opacity:.92">${name}</div>` : ""}
+    </div></div>`;
+}
+
 function stampState(st, t, sid, { at, x, y, size, tilt = -6, out = Infinity, k = 1 }) {
   const u = span(t, at - 0.13, at, EASE.linear);
   const settle = span(t, at, at + 0.26, EASE.settle);
@@ -239,6 +322,10 @@ module.exports = {
   screen,
   region,
   centre,
+  screenPlate,
+  BAR_H,
+  barCss,
+  barHtml,
   LEAF,
   bookCss,
   bookHtml,
@@ -246,4 +333,6 @@ module.exports = {
   stampCss,
   stampHtml,
   stampState,
+  INK_SIZE,
+  inkStamp,
 };
