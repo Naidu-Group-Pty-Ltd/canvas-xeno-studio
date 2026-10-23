@@ -16,9 +16,10 @@ repo=superfly/flyctl
 tag=$(gh release view --repo "$repo" --json tagName --jq .tagName)
 assets=$(gh release view "$tag" --repo "$repo" --json assets --jq '.assets[].name')
 archive=$(grep -E '^flyctl_[0-9][0-9.]*_Linux_x86_64\.tar\.gz$' <<<"$assets" || true)
-sums=$(grep -E '^checksums\.txt$' <<<"$assets" || true)
+# GoReleaser's list: checksums.txt, or flyctl_<version>_checksums.txt.
+sums=$(grep -E '(^|_)checksums\.txt$' <<<"$assets" | head -n 1 || true)
 if [ -z "$archive" ] || [ -z "$sums" ]; then
-  echo "::error::flyctl $tag has no Linux x86_64 archive and checksums.txt to install from"
+  echo "::error::flyctl $tag has no Linux x86_64 archive and list of checksums to install from. Its files: $(tr '\n' ' ' <<<"$assets")"
   exit 1
 fi
 
