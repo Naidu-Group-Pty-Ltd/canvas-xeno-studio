@@ -91,6 +91,9 @@ function marketplaceScene() {
     pointer(st, t, { from: toFrame(tip), to: toFrame(tip), a: tIn, b: tIn + 1, show: tIn + 0.22, hide: tOut - 0.34 });
 
     // Each card in the first row lifts while the pointer is over it; 14 Wattle Grove's stays lifted, brightened.
+    // As it is chosen the rest of the page settles back a little: every listing is a photograph now, and the chosen
+    // card has to lead by its light as well as its ring (the drawn covers it was first set among sat back by themselves).
+    const chosen = span(t, tRest - 0.04, tRest + 0.4, EASE.settle);
     cards.forEach((c, i) => {
       const inRow = Math.abs(c[1] - target[1]) < 4;
       let lift = 0;
@@ -103,14 +106,14 @@ function marketplaceScene() {
           transform: `translateY(${px(-11 * lift)}) scale(${r3(1 + 0.028 * lift)})`,
           "box-shadow": `0 ${px(10 + 20 * lift)} ${px(30 + 34 * lift)} rgba(0,0,0,${r3(0.3 + 0.26 * lift)})`,
           "border-color": `rgba(255,255,255,${r3(0.1 + 0.2 * lift)})`,
-          filter: `brightness(${r3(1 + 0.1 * lift)})`,
+          filter: `brightness(${r3(1 + 0.1 * lift - 0.14 * chosen)})`,
         });
         return;
       }
       // 14 Wattle Grove: lifted further, and selected as the product selects a card (its border and ring in the
       // workspace's blue), with that light on the page around it.
       const held = Math.max(lift, span(t, tRest - 0.14, tRest + 0.32, EASE.settle));
-      const b = span(t, tRest - 0.04, tRest + 0.4, EASE.settle);
+      const b = chosen;
       st.set(`#mk-card-${i}`, {
         transform: `translateY(${px(-12 * held)}) scale(${r3(1 + 0.03 * held)})`,
         "box-shadow": `0 0 0 ${px(2 * b)} rgba(61,99,255,${r3(0.95 * b)}), 0 0 0 ${px(7 * b)} rgba(43,76,240,${r3(0.24 * b)}), 0 ${px(18 * b)} ${px(64 * b)} rgba(61,99,255,${r3(0.34 * b)}), 0 ${px(10 + 22 * held)} ${px(30 + 34 * held)} rgba(0,0,0,${r3(0.3 + 0.25 * held)})`,

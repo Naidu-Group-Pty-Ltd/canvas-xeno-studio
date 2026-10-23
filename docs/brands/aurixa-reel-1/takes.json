@@ -2441,5 +2441,126 @@
    "costUsd": 4.17,
    "error": "INSUFFICIENT_PROVIDER_BALANCE not_enough_credits"
   }
+ },
+ "listing-hakea": {
+  "take1": {
+   "generationId": "3e971652-54b4-41de-afea-55150ad027a3",
+   "status": "completed",
+   "assets": [
+    "cc710f0e-0aaa-45d7-86d9-4b5916199228"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "listing-wollemi": {
+  "take1": {
+   "generationId": "aa2cac3b-51bf-480b-bfa3-049d2cde0a20",
+   "status": "completed",
+   "assets": [
+    "a0fa67fc-7684-4c9a-9779-492b3a853087"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "listing-callistemon": {
+  "take1": {
+   "generationId": "c6b42cb7-2eb0-4843-a8c7-6a2bb7a8ee5e",
+   "status": "completed",
+   "assets": [
+    "ab4802d6-815f-43ba-ad1a-7729484f5cc8"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "listing-ironbark": {
+  "take1": {
+   "generationId": "1fd1946c-92da-4fbc-a7c1-f2fba10b8a4d",
+   "status": "completed",
+   "assets": [
+    "31d16d7e-d1f9-4d91-8710-918a00c75582"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "listing-waratah": {
+  "take1": {
+   "generationId": "46f34ef3-e2ab-4a57-9399-6d6238d5a40e",
+   "status": "completed",
+   "assets": [
+    "517b1a09-ca29-4052-aa53-5c33fcaab96b"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "listing-lomandra": {
+  "take1": {
+   "generationId": "0d213611-a8fb-4492-bc66-dd0a4a554b48",
+   "status": "completed",
+   "assets": [
+    "16c6027b-38f6-45c3-8d96-80d76f74e77d"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "listing-boronia": {
+  "take1": {
+   "generationId": "ea91ed75-b1ae-456c-afd4-95e43f4bb09c",
+   "status": "completed",
+   "assets": [
+    "e1a1278a-3977-4a26-82fe-c144035791a5"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "listing-correa": {
+  "take1": {
+   "generationId": "2dfe74ce-7f70-48b1-a551-abb378e0a959",
+   "status": "completed",
+   "assets": [
+    "3680d991-be8e-48cf-ba8c-7044c8da6af8"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "listing-acacia": {
+  "take1": {
+   "generationId": "7fdc5aaf-7633-4692-844c-becc76d4a8b3",
+   "status": "completed",
+   "assets": [
+    "b5ac0d93-e7c0-407e-8cca-67ff3ccdfcb6"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "listing-melaleuca": {
+  "take1": {
+   "generationId": "c7857481-6d51-488a-9e21-00f6d4daa59b",
+   "status": "completed",
+   "assets": [
+    "1cd82e9e-f094-4631-aa61-56785c856af8"
+   ],
+   "costUsd": null,
+   "error": null
+  }
+ },
+ "listing-kurrajong": {
+  "take1": {
+   "generationId": "796e4bfb-45a0-4b1d-9c49-44d62dac11df",
+   "status": "completed",
+   "assets": [
+    "c47b9803-7969-421a-ac24-c27ec08f8912"
+   ],
+   "costUsd": null,
+   "error": null
+  }
  }
 }

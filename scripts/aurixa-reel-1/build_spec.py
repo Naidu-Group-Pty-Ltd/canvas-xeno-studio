@@ -812,6 +812,79 @@ for row in shots_out:
     for p in row.get("plates", []):
         assert any(x["key"] == p for x in stage3), (row["shot"], p)
 
+# ------------------------------------------------------------------ stage 6: the marketplace's listing photographs
+# 12.1's Property Marketplace (pages/marketplace.cjs) lays out twelve listings. 14 Wattle Grove carries P; each of the
+# other eleven carries a photograph of its own, so the page reads as a marketplace of listings rather than a wall of
+# drawn covers. Each is what a listing photographer takes for a card, in the card's own 4:3, of the property its
+# listing describes; none names a real property, agent or person. At 1K: a card is drawn at most ~650 px wide.
+LISTING_PHOTO = (
+    "Photorealistic real-estate listing photograph, landscape 4:3, as a professional property photographer takes it for an "
+    "Australian listing: full-frame camera at human eye height, 24 mm lens, straight verticals, balanced natural daylight "
+    "exposure, crisp detail, true colour. Outer suburbs of Sydney, New South Wales. "
+)
+LISTING_NO_TEXT = (
+    " No people, no cars or vehicles, no house numbers, no letterbox lettering, no street signs, no for-sale or auction "
+    "boards, no agency logos, no watermarks, no prices and no text of any kind."
+)
+LISTING_PHOTOS = [
+    ("listing-hakea", "27 Hakea Street",
+     "A single-storey 1990s brick-veneer family home with a hipped terracotta tile roof, a double garage with a white panel "
+     "lift door closed, a neat green lawn, clipped hedges along the path and a young lemon-scented gum at the kerb. "
+     "Front three-quarter view from the footpath. Clear morning light, blue sky with a few high clouds."),
+    ("listing-wollemi", "8 Wollemi Way",
+     "A large contemporary two-storey family home in white render and charcoal Colorbond, a timber-battened entry portico, "
+     "a wide double garage with its door closed, a manicured front lawn edged with native grasses, and a mature spotted gum "
+     "to one side. Frontal view across the lawn. Soft late-morning sun."),
+    ("listing-callistemon", "3/41 Callistemon Avenue",
+     "A row of three new two-storey townhouses in pale brick and vertical timber cladding with black-framed windows, small "
+     "front courtyards behind low rendered walls, single garages with closed doors, and crepe myrtles on the verge. "
+     "Three-quarter view from across the street. Bright afternoon light."),
+    ("listing-ironbark", "9 Ironbark Close",
+     "A just-completed two-storey new build in a new housing estate: a facade of light grey brick, white render and a warm "
+     "timber-look feature panel, a dark Colorbond roof, a double garage with its door closed, fresh roll-on turf, newly "
+     "planted garden beds and a bright new concrete driveway. Frontal view from the street. Warm late-afternoon light."),
+    ("listing-waratah", "15 Waratah Drive",
+     "A substantial Hamptons-style two-storey family home with white weatherboard cladding, a grey roof, a deep front "
+     "verandah with white posts, a wide lawn bordered by clipped box hedges, and a jacaranda in flower to one side. "
+     "Three-quarter view from the lawn. Golden late-afternoon sun."),
+    ("listing-lomandra", "Lot 22 Lomandra Street",
+     "A vacant, freshly graded residential lot in a new housing estate: level bare earth with a few timber survey pegs, a "
+     "new concrete kerb and footpath along its front, a young street tree on the verge, and newly built single-storey "
+     "houses on both neighbouring lots. Wide view from across the street. Clear midday sky."),
+    ("listing-boronia", "6 Boronia Place",
+     "A renovated mid-century single-storey brick home with a low-pitched roof, broad eaves, a new timber front deck and a "
+     "charcoal front door, an established native garden with grevilleas and a mature paperbark tree. Three-quarter view "
+     "from the street. Soft, bright overcast morning light."),
+    ("listing-correa", "12 Correa Lane",
+     "A modern single-storey home with a light grey rendered facade, a skillion roof, a single garage with a dark "
+     "timber-look door closed, a small front lawn, a concrete path and a young lilly pilly hedge. Frontal view from the "
+     "footpath. Bright afternoon sun."),
+    ("listing-acacia", "30 Acacia Terrace",
+     "A brand-new single-storey home in a new estate with a feature front gable in vertical white cladding, dark face "
+     "brick, a double garage with its door closed, a new exposed-aggregate driveway, fresh turf and young plantings. "
+     "Three-quarter view from the street. Early morning light."),
+    ("listing-melaleuca", "2/18 Melaleuca Road",
+     "A pair of two-storey townhouses side by side in white render with dark timber battens on the upper floor, single "
+     "garages with closed doors, small native front gardens, and a paperbark melaleuca on the verge. Frontal view from "
+     "across the street. Even late-afternoon light."),
+    ("listing-kurrajong", "5 Kurrajong Crescent",
+     "A two-storey family home in recycled red brick and white weatherboard with a wraparound verandah and a corrugated "
+     "iron roof, a large front lawn, established trees and a low white picket fence. Three-quarter view from the street. "
+     "Warm late-afternoon light."),
+]
+stage6 = [
+    {
+        "key": key,
+        "title": f"{address}: listing photograph",
+        "model": "still",
+        "parameters": {**STILL, "resolution": "1k", "aspect_ratio": "4:3", "prompt": LISTING_PHOTO + body + LISTING_NO_TEXT},
+        "inputs": [],
+        "takes": 1,
+        "used_by": f"12.1, the Property Marketplace: {address}'s card",
+    }
+    for key, address, body in LISTING_PHOTOS
+]
+
 # ------------------------------------------------------------------ stage 7: captions and overlays from the measured words
 CAPTIONS = [
     (0.00, 1.14, "Somewhere in Australia,"), (1.68, 3.72, "a property opportunity has just appeared."),
@@ -933,6 +1006,8 @@ spec = {
         {"stage": 4, "name": "Shot frames", "gate": "Block by block, each first frame built from the approved frame before it.", "items": frames},
         {"stage": 5, "name": "Clips", "gate": "Cinema Studio 4.0 (the client's choice), one take of every clip first, reviewed as a draft edit in the Editor.",
          "model": "clip_cinema", "items": clips},
+        {"stage": 6, "name": "The marketplace's listing photographs", "gate": "Approve each listing's photograph, as its card draws it in 12.1.",
+         "items": stage6},
     ],
     "shots": shots_out,
     "edit": {"captions": captions, "overlays": overlays, "end_card": end_card,
@@ -946,12 +1021,13 @@ OUT.mkdir(parents=True, exist_ok=True)
 ledger_file = OUT / "assets.json"
 ledger = json.loads(ledger_file.read_text()) if ledger_file.exists() else {}
 keys = [i["key"] for i in stage1] + [i["key"] for i in stage2] + [r["key"] for r in spec["references"]] + [u["key"] for u in spec["uploads_needed"]] \
-    + [i["key"] for i in stage3] + [f["key"] for f in frames] + [c["key"] for c in clips]
+    + [i["key"] for i in stage3] + [f["key"] for f in frames] + [c["key"] for c in clips] + [i["key"] for i in stage6]
 for key in keys:
     ledger.setdefault(key, None)
 # Keys the spec no longer has (a plate split into its states) are dropped.
 ledger = {key: ledger[key] for key in keys}
 ledger_file.write_text(json.dumps(ledger, indent=1) + "\n")
-print("stills: stage1", sum(i["takes"] for i in stage1), "stage2", sum(i["takes"] for i in stage2), "frames", len(frames), "x2 =", 2 * len(frames))
+print("stills: stage1", sum(i["takes"] for i in stage1), "stage2", sum(i["takes"] for i in stage2), "frames", len(frames), "x2 =", 2 * len(frames),
+      "stage6", sum(i["takes"] for i in stage6))
 print("clips", len(clips), "source seconds", sum(c["seconds"] for c in clips))
 print("plates", len(stage3), "captions", len(captions))

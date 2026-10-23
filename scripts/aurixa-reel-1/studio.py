@@ -6,6 +6,7 @@
   python3 scripts/aurixa-reel-1/studio.py takes                             # the takes' state again, into takes.json
   python3 scripts/aurixa-reel-1/studio.py pick P=take1 C-MIA=r3-take1       # approved takes' files into assets.json
   python3 scripts/aurixa-reel-1/studio.py import REF-LOOK-OPS=ops.png       # a picture into the library, its id into assets.json
+  python3 scripts/aurixa-reel-1/studio.py fetch assets                      # the approved P, D and listing photographs into the assets folder (get_asset, a read)
 
 run prints what it would queue; only with --confirm does it queue (billed by the provider), then it
 waits and records every take in takes.json. A take's request id is its key and number (and the
@@ -266,6 +267,29 @@ def import_files(choices):
         save_ledger(ledger)
 
 
+def fetch(folder):
+    """Downloads the approved files the pages draw from the assets folder (get_asset, a read: nothing is made or
+    billed): P, D and the marketplace's listing photographs, each under the name the pages ask for. A file already
+    there at the library's size is kept."""
+    ledger = load("assets.json")
+    names = {"P": "P.png", "D": "D.png", **{key: f"{key}.png" for key in ledger if key.startswith("listing-")}}
+    out = Path(folder)
+    out.mkdir(parents=True, exist_ok=True)
+    for key, name in names.items():
+        if not ledger.get(key):
+            print(f"{key}: not approved yet, so nothing to fetch")
+            continue
+        record = call("get_asset", {"assetId": ledger[key]})
+        file = out / name
+        if file.exists() and file.stat().st_size == record["file_size"]:
+            print(f"{name}: already there")
+            continue
+        download = urllib.request.Request(record["url"], headers={"user-agent": "aurixa-reel-1/1.0 (studio API script)"})
+        with urllib.request.urlopen(download, timeout=300) as response:
+            file.write_bytes(response.read())
+        print(f"{name}: {key}, {ledger[key]} ({record['width']}x{record['height']})")
+
+
 def refused(take):
     """A take the provider turned away for its balance: nothing was made or billed, so it can be asked for again."""
     return take.get("status") == "failed" and str(take.get("error") or "").startswith("INSUFFICIENT_PROVIDER_BALANCE")
@@ -321,7 +345,7 @@ def run(stage_number, only=None, takes=None, confirm=False, model_key=None, retr
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(usage=__doc__)
-    parser.add_argument("command", choices=["import-plates", "import", "price", "run", "takes", "pick"])
+    parser.add_argument("command", choices=["import-plates", "import", "price", "run", "takes", "pick", "fetch"])
     parser.add_argument("target", nargs="*")
     parser.add_argument("--only", help="item keys, comma separated")
     parser.add_argument("--takes", type=int, help="takes per item (numbered from 1)")
@@ -340,5 +364,7 @@ if __name__ == "__main__":
         pick(args.target)
     elif args.command == "import":
         import_files(args.target)
+    elif args.command == "fetch":
+        fetch(args.target[0])
     else:
         settle(load_takes(), timeout=0)

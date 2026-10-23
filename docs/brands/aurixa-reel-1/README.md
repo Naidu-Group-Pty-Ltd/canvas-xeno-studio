@@ -315,6 +315,76 @@ Handoffs (the pack's transition ledger, by shot):
 - **14A**: Cut from the 13A take at the narration boundary.
 - **15A**: End on the complete stable closing frame through the final word and audio tail.
 
+## Stage 6: the marketplace's listing photographs
+
+Approve each listing's photograph, as its card draws it in 12.1. One take of each. 14 Wattle Grove's card carries P; these are the other eleven listings' own.
+
+### listing-hakea · 27 Hakea Street: listing photograph (4:3, 1K)
+
+Used by: 12.1, the Property Marketplace: 27 Hakea Street's card.
+
+> Photorealistic real-estate listing photograph, landscape 4:3, as a professional property photographer takes it for an Australian listing: full-frame camera at human eye height, 24 mm lens, straight verticals, balanced natural daylight exposure, crisp detail, true colour. Outer suburbs of Sydney, New South Wales. A single-storey 1990s brick-veneer family home with a hipped terracotta tile roof, a double garage with a white panel lift door closed, a neat green lawn, clipped hedges along the path and a young lemon-scented gum at the kerb. Front three-quarter view from the footpath. Clear morning light, blue sky with a few high clouds. No people, no cars or vehicles, no house numbers, no letterbox lettering, no street signs, no for-sale or auction boards, no agency logos, no watermarks, no prices and no text of any kind.
+
+### listing-wollemi · 8 Wollemi Way: listing photograph (4:3, 1K)
+
+Used by: 12.1, the Property Marketplace: 8 Wollemi Way's card.
+
+> Photorealistic real-estate listing photograph, landscape 4:3, as a professional property photographer takes it for an Australian listing: full-frame camera at human eye height, 24 mm lens, straight verticals, balanced natural daylight exposure, crisp detail, true colour. Outer suburbs of Sydney, New South Wales. A large contemporary two-storey family home in white render and charcoal Colorbond, a timber-battened entry portico, a wide double garage with its door closed, a manicured front lawn edged with native grasses, and a mature spotted gum to one side. Frontal view across the lawn. Soft late-morning sun. No people, no cars or vehicles, no house numbers, no letterbox lettering, no street signs, no for-sale or auction boards, no agency logos, no watermarks, no prices and no text of any kind.
+
+### listing-callistemon · 3/41 Callistemon Avenue: listing photograph (4:3, 1K)
+
+Used by: 12.1, the Property Marketplace: 3/41 Callistemon Avenue's card.
+
+> Photorealistic real-estate listing photograph, landscape 4:3, as a professional property photographer takes it for an Australian listing: full-frame camera at human eye height, 24 mm lens, straight verticals, balanced natural daylight exposure, crisp detail, true colour. Outer suburbs of Sydney, New South Wales. A row of three new two-storey townhouses in pale brick and vertical timber cladding with black-framed windows, small front courtyards behind low rendered walls, single garages with closed doors, and crepe myrtles on the verge. Three-quarter view from across the street. Bright afternoon light. No people, no cars or vehicles, no house numbers, no letterbox lettering, no street signs, no for-sale or auction boards, no agency logos, no watermarks, no prices and no text of any kind.
+
+### listing-ironbark · 9 Ironbark Close: listing photograph (4:3, 1K)
+
+Used by: 12.1, the Property Marketplace: 9 Ironbark Close's card.
+
+> Photorealistic real-estate listing photograph, landscape 4:3, as a professional property photographer takes it for an Australian listing: full-frame camera at human eye height, 24 mm lens, straight verticals, balanced natural daylight exposure, crisp detail, true colour. Outer suburbs of Sydney, New South Wales. A just-completed two-storey new build in a new housing estate: a facade of light grey brick, white render and a warm timber-look feature panel, a dark Colorbond roof, a double garage with its door closed, fresh roll-on turf, newly planted garden beds and a bright new concrete driveway. Frontal view from the street. Warm late-afternoon light. No people, no cars or vehicles, no house numbers, no letterbox lettering, no street signs, no for-sale or auction boards, no agency logos, no watermarks, no prices and no text of any kind.
+
+### listing-waratah · 15 Waratah Drive: listing photograph (4:3, 1K)
+
+Used by: 12.1, the Property Marketplace: 15 Waratah Drive's card.
+
+> Photorealistic real-estate listing photograph, landscape 4:3, as a professional property photographer takes it for an Australian listing: full-frame camera at human eye height, 24 mm lens, straight verticals, balanced natural daylight exposure, crisp detail, true colour. Outer suburbs of Sydney, New South Wales. A substantial Hamptons-style two-storey family home with white weatherboard cladding, a grey roof, a deep front verandah with white posts, a wide lawn bordered by clipped box hedges, and a jacaranda in flower to one side. Three-quarter view from the lawn. Golden late-afternoon sun. No people, no cars or vehicles, no house numbers, no letterbox lettering, no street signs, no for-sale or auction boards, no agency logos, no watermarks, no prices and no text of any kind.
+
+### listing-lomandra · Lot 22 Lomandra Street: listing photograph (4:3, 1K)
+
+Used by: 12.1, the Property Marketplace: Lot 22 Lomandra Street's card.
+
+> Photorealistic real-estate listing photograph, landscape 4:3, as a professional property photographer takes it for an Australian listing: full-frame camera at human eye height, 24 mm lens, straight verticals, balanced natural daylight exposure, crisp detail, true colour. Outer suburbs of Sydney, New South Wales. A vacant, freshly graded residential lot in a new housing estate: level bare earth with a few timber survey pegs, a new concrete kerb and footpath along its front, a young street tree on the verge, and newly built single-storey houses on both neighbouring lots. Wide view from across the street. Clear midday sky. No people, no cars or vehicles, no house numbers, no letterbox lettering, no street signs, no for-sale or auction boards, no agency logos, no watermarks, no prices and no text of any kind.
+
+### listing-boronia · 6 Boronia Place: listing photograph (4:3, 1K)
+
+Used by: 12.1, the Property Marketplace: 6 Boronia Place's card.
+
+> Photorealistic real-estate listing photograph, landscape 4:3, as a professional property photographer takes it for an Australian listing: full-frame camera at human eye height, 24 mm lens, straight verticals, balanced natural daylight exposure, crisp detail, true colour. Outer suburbs of Sydney, New South Wales. A renovated mid-century single-storey brick home with a low-pitched roof, broad eaves, a new timber front deck and a charcoal front door, an established native garden with grevilleas and a mature paperbark tree. Three-quarter view from the street. Soft, bright overcast morning light. No people, no cars or vehicles, no house numbers, no letterbox lettering, no street signs, no for-sale or auction boards, no agency logos, no watermarks, no prices and no text of any kind.
+
+### listing-correa · 12 Correa Lane: listing photograph (4:3, 1K)
+
+Used by: 12.1, the Property Marketplace: 12 Correa Lane's card.
+
+> Photorealistic real-estate listing photograph, landscape 4:3, as a professional property photographer takes it for an Australian listing: full-frame camera at human eye height, 24 mm lens, straight verticals, balanced natural daylight exposure, crisp detail, true colour. Outer suburbs of Sydney, New South Wales. A modern single-storey home with a light grey rendered facade, a skillion roof, a single garage with a dark timber-look door closed, a small front lawn, a concrete path and a young lilly pilly hedge. Frontal view from the footpath. Bright afternoon sun. No people, no cars or vehicles, no house numbers, no letterbox lettering, no street signs, no for-sale or auction boards, no agency logos, no watermarks, no prices and no text of any kind.
+
+### listing-acacia · 30 Acacia Terrace: listing photograph (4:3, 1K)
+
+Used by: 12.1, the Property Marketplace: 30 Acacia Terrace's card.
+
+> Photorealistic real-estate listing photograph, landscape 4:3, as a professional property photographer takes it for an Australian listing: full-frame camera at human eye height, 24 mm lens, straight verticals, balanced natural daylight exposure, crisp detail, true colour. Outer suburbs of Sydney, New South Wales. A brand-new single-storey home in a new estate with a feature front gable in vertical white cladding, dark face brick, a double garage with its door closed, a new exposed-aggregate driveway, fresh turf and young plantings. Three-quarter view from the street. Early morning light. No people, no cars or vehicles, no house numbers, no letterbox lettering, no street signs, no for-sale or auction boards, no agency logos, no watermarks, no prices and no text of any kind.
+
+### listing-melaleuca · 2/18 Melaleuca Road: listing photograph (4:3, 1K)
+
+Used by: 12.1, the Property Marketplace: 2/18 Melaleuca Road's card.
+
+> Photorealistic real-estate listing photograph, landscape 4:3, as a professional property photographer takes it for an Australian listing: full-frame camera at human eye height, 24 mm lens, straight verticals, balanced natural daylight exposure, crisp detail, true colour. Outer suburbs of Sydney, New South Wales. A pair of two-storey townhouses side by side in white render with dark timber battens on the upper floor, single garages with closed doors, small native front gardens, and a paperbark melaleuca on the verge. Frontal view from across the street. Even late-afternoon light. No people, no cars or vehicles, no house numbers, no letterbox lettering, no street signs, no for-sale or auction boards, no agency logos, no watermarks, no prices and no text of any kind.
+
+### listing-kurrajong · 5 Kurrajong Crescent: listing photograph (4:3, 1K)
+
+Used by: 12.1, the Property Marketplace: 5 Kurrajong Crescent's card.
+
+> Photorealistic real-estate listing photograph, landscape 4:3, as a professional property photographer takes it for an Australian listing: full-frame camera at human eye height, 24 mm lens, straight verticals, balanced natural daylight exposure, crisp detail, true colour. Outer suburbs of Sydney, New South Wales. A two-storey family home in recycled red brick and white weatherboard with a wraparound verandah and a corrugated iron roof, a large front lawn, established trees and a low white picket fence. Three-quarter view from the street. Warm late-afternoon light. No people, no cars or vehicles, no house numbers, no letterbox lettering, no street signs, no for-sale or auction boards, no agency logos, no watermarks, no prices and no text of any kind.
+
 ## The edit
 
 - The voiceover is the only spoken track and is never stretched.

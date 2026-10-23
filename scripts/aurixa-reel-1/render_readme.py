@@ -110,6 +110,19 @@ for s in spec["shots"]:
     w(f"- **{s['shot']}**: {s['handoff']}")
 w("")
 
+w("## Stage 6: the marketplace's listing photographs")
+w("")
+w(st[6]["gate"] + " One take of each. 14 Wattle Grove's card carries P; these are the other eleven listings' own.")
+w("")
+for item in st[6]["items"]:
+    p = item["parameters"]
+    w(f"### {item['key']} · {item['title']} ({p['aspect_ratio']}, {p['resolution'].upper()})")
+    w("")
+    w(f"Used by: {item['used_by']}.")
+    w("")
+    w("> " + p["prompt"])
+    w("")
+
 w("## The edit")
 w("")
 for rule in spec["edit"]["rules"]:
