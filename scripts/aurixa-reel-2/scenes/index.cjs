@@ -7,8 +7,8 @@ const path = require("path");
 const ORDER = [
   "switchboard", // 01.1, 01.2
   "requests", // 02.1 to 02.3
-  "brand", // 03.1
-  "platform", // 03.2 to 03.4
+  "brand", // 03.1, 03.2
+  "platform", // 03.3, 03.4
   "passport", // 04.1 to 04.3
   "consent", // 05.1
   "share", // 05.2

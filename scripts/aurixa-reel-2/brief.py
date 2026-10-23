@@ -123,7 +123,7 @@ SHOTS = {
         "palette": "before",
         "title": "The perfect property is found, and the requests begin",
         "sources": ["G-PILE", "KIT listing card (P)", "NEW-INBOX"],
-        "camera": "The property card lifts towards the top of the frame; the inbox rises under it.",
+        "camera": "The listing forward in the frame; it rises to the top as the inbox comes up under it.",
         "result": "The property found, and an inbox filling with requests to the client.",
         "on_screen": [
             "Found",
@@ -137,12 +137,12 @@ SHOTS = {
         "beats": [
             (
                 IN(),
-                "The switchboard falls away; the property card rises to the top of the frame.",
+                "The switchboard gives way to 14 Wattle Grove's listing, forward in the frame.",
             ),
-            (W("found"), "A green Found tick stamps onto the card."),
+            (W("found"), "A green Found stamps onto the card."),
             (
                 W("requests"),
-                "An unbranded inbox slides up under it and requests start landing, one after another, each from a different professional.",
+                "The card rises to the top and an unbranded inbox slides up under it; requests start landing, one after another, each from a different professional.",
             ),
             (W("coming"), "They keep coming; the unread count climbs."),
         ],
@@ -198,13 +198,17 @@ SHOTS = {
         "beats": [
             (
                 IN(),
-                "On the music's first drop a sweep of light lifts the pile away and the ground turns navy; the A rises out of the light.",
+                "On the music's first drop a sweep of light lifts the pile away, and the ground turns navy.",
             ),
             (
-                W("systems"),
-                "The lettering is exact: the art's own wordmark takes over from the footage.",
+                W("aurixa"),
+                "The A bursts out of the light, and AURIXA rises letter by letter.",
             ),
-            (W("experience"), "The logo settles and glows."),
+            (W("systems"), "SYSTEMS rises: the lettering is the art's own, exact."),
+            (
+                W("experience"),
+                "Light crosses the wordmark; the logo settles and glows.",
+            ),
         ],
     },
     "03.2": {
@@ -212,15 +216,15 @@ SHOTS = {
         "palette": "aurixa",
         "title": "Built by property professionals, for property professionals",
         "sources": ["G-WINDOW", "Command Centre (Alex Morgan)"],
-        "camera": "The logo rises to the top; the Command Centre's glass window draws below it.",
+        "camera": "The emblem flies to the sidebar's own mark; the Command Centre's glass window settles in around it.",
         "result": "The Command Centre, its sidebar filled.",
         "on_screen": ["AURIXA SYSTEMS", "COMMAND CENTRE", "Demo workspace"],
         "notes": "Every screen carries its Demo workspace label.",
         "beats": [
-            (IN(), "The logo lifts to the top of the frame as a lockup."),
+            (IN(), "The logo holds, drifting in."),
             (
                 W("professionals"),
-                "The Command Centre's glass window draws in below it, its Demo workspace label in the top bar.",
+                "The emblem lifts off the logo into the Command Centre's sidebar, and the glass window settles in around it, its DEMO WORKSPACE label in the top bar.",
             ),
             (W("for"), "Its sidebar fills, group by group."),
         ],
@@ -230,7 +234,7 @@ SHOTS = {
         "palette": "aurixa",
         "title": "Property intelligence, financial analysis, reporting, client management, communication and more",
         "sources": ["G-TILES", "G-WINDOW"],
-        "camera": "The window recedes; the tiles come forward one at a time, each on its word.",
+        "camera": "The window's page dims and steps back; each tile comes forward on its word and docks into its sidebar entry as the next arrives.",
         "result": "Every part of the platform docked into the Command Centre's navigation.",
         "on_screen": [
             "Property intelligence",
@@ -238,29 +242,42 @@ SHOTS = {
             "Reporting",
             "Client management",
             "Communication",
-            "Builders Network",
-            "Market News",
-            "Borrowing Capacity",
-            "Commercial & Industrial",
+            "Market News Feed",
+            "Property Marketplace",
+            "Commercial / Industrial",
+            "Calendar",
             "AML/CTF Compliance",
         ],
-        "notes": "The grade and the cash flow on the tiles are the demo's own, marked illustrative.",
+        "notes": "Each tile is a crop of a page the product draws (Reel 1's plates; the Financial Analysis pages); no email address is cropped in. The grade and the cash flow are the demo's own, marked illustrative. Every tile docks into an entry the product's sidebar really has.",
         "beats": [
+            (IN(), "The window's page dims and steps back."),
             (
                 W("intelligence"),
-                "A property intelligence tile arrives: 14 Wattle Grove's record card, its grade A+ 84 and STRONG BUY (illustrative).",
+                "Property intelligence comes forward: 14 Wattle Grove's record, its grade A+ and 84/100 (illustrative).",
             ),
-            (W("financial"), "A financial analysis tile: the ten-year cash flow."),
-            (W("reporting"), "A reporting tile: the client's report page."),
-            (W("client"), "A client management tile: Jordan Ellis's client file."),
-            (W("communication"), "A communication tile: the Message Hub."),
+            (
+                W("financial"),
+                "Financial analysis: the 10-year cash flow (illustrative); the first tile docks into Reports.",
+            ),
+            (
+                W("reporting"),
+                "Reporting: the Financial Analysis's cover and key figures; the cash flow docks into Cash Flow Analysis.",
+            ),
+            (
+                W("client"),
+                "Client management: Jordan Ellis's client file and its requests; the reports dock into Generated Reports.",
+            ),
+            (
+                W("communication"),
+                "Communication: the Message Hub; the client file docks into Clients.",
+            ),
             (
                 W("more"),
-                "And more: Builders Network, Market News, Borrowing Capacity, Commercial & Industrial and AML/CTF Compliance fan out.",
+                "And more: Market News Feed, Property Marketplace, Commercial / Industrial, Calendar and AML/CTF Compliance fan out; the Message Hub docks.",
             ),
             (
                 W("connected"),
-                "Every tile docks into the Command Centre's sidebar as its own entry.",
+                "The rest dock; a thread of light runs down the sidebar through every lit entry, and the page comes back up.",
             ),
         ],
     },

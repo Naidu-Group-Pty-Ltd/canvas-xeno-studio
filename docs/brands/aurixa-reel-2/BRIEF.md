@@ -45,17 +45,17 @@ Times are on the film's clock (the voice´s own, before the film is paced to its
 0:07.867 to 0:12.200 (4.333 s), graphic, before. Voiceover: "The perfect property is found, but the requests keep coming."
 
 - **Draws:** G-PILE, KIT listing card (P), NEW-INBOX.
-- **Camera:** The property card lifts towards the top of the frame; the inbox rises under it.
+- **Camera:** The listing forward in the frame; it rises to the top as the inbox comes up under it.
 - **Ends on:** The property found, and an inbox filling with requests to the client.
 - **On screen:** Found; Certified copy of your ID; Proof of residential address; Bank statements (last 3 months); Please verify your identity again; Which entity is buying?.
 - **Notes:** The inbox is today's unbranded tools, never Aurixa's.
 
-| At       | Beat                                                                                                                     |
-| -------- | ------------------------------------------------------------------------------------------------------------------------ |
-| 0:07.867 | The switchboard falls away; the property card rises to the top of the frame.                                             |
-| 0:09.367 | A green Found tick stamps onto the card.                                                                                 |
-| 0:10.233 | An unbranded inbox slides up under it and requests start landing, one after another, each from a different professional. |
-| 0:11.433 | They keep coming; the unread count climbs.                                                                               |
+| At       | Beat                                                                                                                                                |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0:07.867 | The switchboard gives way to 14 Wattle Grove's listing, forward in the frame.                                                                       |
+| 0:09.367 | A green Found stamps onto the card.                                                                                                                 |
+| 0:10.233 | The card rises to the top and an unbranded inbox slides up under it; requests start landing, one after another, each from a different professional. |
+| 0:11.433 | They keep coming; the unread count climbs.                                                                                                          |
 
 ### 02.2. Another identity check, another document, another explanation
 
@@ -100,47 +100,49 @@ Times are on the film's clock (the voice´s own, before the film is paced to its
 - **On screen:** AURIXA SYSTEMS.
 - **Notes:** Reel 1's footage, reused as decided. The lettering is the art's own, laid over the footage by Systems.
 
-| At       | Beat                                                                                                                    |
-| -------- | ----------------------------------------------------------------------------------------------------------------------- |
-| 0:20.200 | On the music's first drop a sweep of light lifts the pile away and the ground turns navy; the A rises out of the light. |
-| 0:21.533 | The lettering is exact: the art's own wordmark takes over from the footage.                                             |
-| 0:22.733 | The logo settles and glows.                                                                                             |
+| At       | Beat                                                                                       |
+| -------- | ------------------------------------------------------------------------------------------ |
+| 0:20.200 | On the music's first drop a sweep of light lifts the pile away, and the ground turns navy. |
+| 0:20.800 | The A bursts out of the light, and AURIXA rises letter by letter.                          |
+| 0:21.533 | SYSTEMS rises: the lettering is the art's own, exact.                                      |
+| 0:22.733 | Light crosses the wordmark; the logo settles and glows.                                    |
 
 ### 03.2. Built by property professionals, for property professionals
 
 0:23.733 to 0:27.500 (3.767 s), screen, aurixa. Voiceover: "Built by property professionals for property professionals,"
 
 - **Draws:** G-WINDOW, Command Centre (Alex Morgan).
-- **Camera:** The logo rises to the top; the Command Centre's glass window draws below it.
+- **Camera:** The emblem flies to the sidebar's own mark; the Command Centre's glass window settles in around it.
 - **Ends on:** The Command Centre, its sidebar filled.
 - **On screen:** AURIXA SYSTEMS; COMMAND CENTRE; Demo workspace.
 - **Notes:** Every screen carries its Demo workspace label.
 
-| At       | Beat                                                                                          |
-| -------- | --------------------------------------------------------------------------------------------- |
-| 0:23.733 | The logo lifts to the top of the frame as a lockup.                                           |
-| 0:24.967 | The Command Centre's glass window draws in below it, its Demo workspace label in the top bar. |
-| 0:25.833 | Its sidebar fills, group by group.                                                            |
+| At       | Beat                                                                                                                                                 |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0:23.733 | The logo holds, drifting in.                                                                                                                         |
+| 0:24.967 | The emblem lifts off the logo into the Command Centre's sidebar, and the glass window settles in around it, its DEMO WORKSPACE label in the top bar. |
+| 0:25.833 | Its sidebar fills, group by group.                                                                                                                   |
 
 ### 03.3. Property intelligence, financial analysis, reporting, client management, communication and more
 
 0:27.500 to 0:38.000 (10.500 s), screen, aurixa. Voiceover: "Aurixa brings property intelligence, financial analysis, reporting, client management, communication and more into one connected operating environment."
 
 - **Draws:** G-TILES, G-WINDOW.
-- **Camera:** The window recedes; the tiles come forward one at a time, each on its word.
+- **Camera:** The window's page dims and steps back; each tile comes forward on its word and docks into its sidebar entry as the next arrives.
 - **Ends on:** Every part of the platform docked into the Command Centre's navigation.
-- **On screen:** Property intelligence; Financial analysis; Reporting; Client management; Communication; Builders Network; Market News; Borrowing Capacity; Commercial & Industrial; AML/CTF Compliance.
-- **Notes:** The grade and the cash flow on the tiles are the demo's own, marked illustrative.
+- **On screen:** Property intelligence; Financial analysis; Reporting; Client management; Communication; Market News Feed; Property Marketplace; Commercial / Industrial; Calendar; AML/CTF Compliance.
+- **Notes:** Each tile is a crop of a page the product draws (Reel 1's plates; the Financial Analysis pages); no email address is cropped in. The grade and the cash flow are the demo's own, marked illustrative. Every tile docks into an entry the product's sidebar really has.
 
-| At       | Beat                                                                                                                 |
-| -------- | -------------------------------------------------------------------------------------------------------------------- |
-| 0:29.133 | A property intelligence tile arrives: 14 Wattle Grove's record card, its grade A+ 84 and STRONG BUY (illustrative).  |
-| 0:29.933 | A financial analysis tile: the ten-year cash flow.                                                                   |
-| 0:31.400 | A reporting tile: the client's report page.                                                                          |
-| 0:32.233 | A client management tile: Jordan Ellis's client file.                                                                |
-| 0:33.433 | A communication tile: the Message Hub.                                                                               |
-| 0:34.733 | And more: Builders Network, Market News, Borrowing Capacity, Commercial & Industrial and AML/CTF Compliance fan out. |
-| 0:35.833 | Every tile docks into the Command Centre's sidebar as its own entry.                                                 |
+| At       | Beat                                                                                                                                       |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 0:27.500 | The window's page dims and steps back.                                                                                                     |
+| 0:29.133 | Property intelligence comes forward: 14 Wattle Grove's record, its grade A+ and 84/100 (illustrative).                                     |
+| 0:29.933 | Financial analysis: the 10-year cash flow (illustrative); the first tile docks into Reports.                                               |
+| 0:31.400 | Reporting: the Financial Analysis's cover and key figures; the cash flow docks into Cash Flow Analysis.                                    |
+| 0:32.233 | Client management: Jordan Ellis's client file and its requests; the reports dock into Generated Reports.                                   |
+| 0:33.433 | Communication: the Message Hub; the client file docks into Clients.                                                                        |
+| 0:34.733 | And more: Market News Feed, Property Marketplace, Commercial / Industrial, Calendar and AML/CTF Compliance fan out; the Message Hub docks. |
+| 0:35.833 | The rest dock; a thread of light runs down the sidebar through every lit entry, and the page comes back up.                                |
 
 ### 03.4. And here's where it gets exciting
 
