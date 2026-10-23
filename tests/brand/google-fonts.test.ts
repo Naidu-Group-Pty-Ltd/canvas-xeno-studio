@@ -61,6 +61,15 @@ describe("the stylesheet address", () => {
       "https://fonts.googleapis.com/css2?family=Noto+Sans+%26+Co:wght@400&display=swap",
     );
   });
+
+  test("asks for a family's italic faces on the ital axis", () => {
+    expect(googleFontsCssUrl("Playfair Display", [500], { italic: true })).toBe(
+      "https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,500&display=swap",
+    );
+    expect(googleFontsCssUrl("Lora", [700, 400], { italic: true })).toBe(
+      "https://fonts.googleapis.com/css2?family=Lora:ital,wght@1,400;1,700&display=swap",
+    );
+  });
 });
 
 describe("reading Google's answer", () => {

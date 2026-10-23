@@ -191,9 +191,10 @@ function draftOf(
   // Code updates a kit's colours and type; its look, voice and rules stay as the kit has them.
   const fromCode = kind === "repos" && !!kit;
   const fonts: BrandFont[] = [];
+  // Each family's file, then its italic where one was installed (brand captions' emphasis).
   for (const font of proposal.fonts)
-    if (font.installed && !fonts.some((entry) => entry.path === font.installed!.path))
-      fonts.push(font.installed);
+    for (const file of [font.installed, font.italic])
+      if (file && !fonts.some((entry) => entry.path === file.path)) fonts.push(file);
   const familyFor = (role: "heading" | "body") =>
     proposal.fonts.find((font) => font.role === role)?.installed?.family ?? DEFAULT_FONT;
   return {

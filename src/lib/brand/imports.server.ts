@@ -268,7 +268,8 @@ async function signedLinks(images: StagedImage[]): Promise<{ image: StagedImage;
  * installed: the brand's own family from Google Fonts, else the close Google
  * font standing in for it. One file per family (the renderer sets a family
  * as drawn), so a family used for both is installed once, at the headings'
- * weight.
+ * weight; the headings' family has its italic too where Google has one, for
+ * the phrase brand captions set in it.
  */
 async function installFonts(typefaces: ReadTypeface[], notes: string[]): Promise<ProposedFont[]> {
   const heading = typefaces.find((face) => face.role === "heading") ?? typefaces[0];
@@ -291,6 +292,11 @@ async function installFonts(typefaces: ReadTypeface[], notes: string[]): Promise
     const own = !!installed;
     if (!installed && face.alternative && face.alternative !== face.family)
       installed = await installGoogleFont(face.alternative, weight);
+    const google = own ? face.family : face.alternative;
+    const italic =
+      installed && google && role === "heading"
+        ? await installGoogleFont(google, weight, "italic")
+        : null;
     if (!installed)
       notes.push(
         `${face.family} (${role === "heading" ? "titles" : "captions"}) couldn't be installed: Inter is used until its font file is uploaded to the kit.`,
@@ -307,6 +313,8 @@ async function installFonts(typefaces: ReadTypeface[], notes: string[]): Promise
       source: own ? "google" : face.source,
       alternative: own ? null : face.alternative,
       installed,
+      // The same family's italic, where it names itself so.
+      ...(italic && installed && italic.family === installed.family ? { italic } : {}),
     });
   }
   return out;
