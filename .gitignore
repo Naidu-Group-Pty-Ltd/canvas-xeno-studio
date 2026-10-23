@@ -34,3 +34,8 @@ dist-ssr
 # Python
 __pycache__/
 *.pyc
+
+# Work in progress, kept in the studio (scripts/studio-work/work.py): its local folder, and the
+# studio's copies pull sets beside a file changed on both sides.
+.xeno-work/
+*.studio-v*
