@@ -259,6 +259,12 @@ async function writeUserMessage(input: {
     brandKitId: settings.brandKitId,
   };
   const first = !input.earlier.some((row) => row.role === "user");
+  // The work the conversation works on: its brief when new to it, else what happened since.
+  const { threadWork, workContext } = await import("./work-turn.server");
+  const work = await threadWork(thread.id);
+  const workFacts = work ? await workContext(work, thread.id, before, first) : null;
+  key.workId = work?.id ?? null;
+  key.workSeen = workFacts?.seen ?? null;
   const [project, campaign, brand, brief, memories] = await Promise.all([
     thread.project_id
       ? db.from("projects").select("name,description").eq("id", thread.project_id).maybeSingle()
@@ -321,10 +327,12 @@ async function writeUserMessage(input: {
       title: item.title,
     })),
     addresses: addressesIn(input.text),
+    work: workFacts?.facts ?? null,
     changed: {
       first,
       brand: (before?.brandKitId ?? null) !== key.brandKitId,
       brief: (before?.briefId ?? null) !== key.briefId,
+      work: (before?.workId ?? null) !== (key.workId ?? null),
     },
     now: new Date(),
   });
@@ -614,6 +622,16 @@ async function runRequest(
   // and settled into its plan as the turn ends.
   const worker = start?.worker ?? (await sections.workerOfThread(thread.id, assistantId));
   if (worker && !start) await sections.markSectionWorking(worker.sectionId);
+  // A conversation working on a work holds it while the turn runs, and writes the turn into its
+  // journal as it ends.
+  const workTurn = await import("./work-turn.server");
+  const work = await workTurn.threadWork(thread.id);
+  const workActor = workTurn.threadActor({
+    userId,
+    threadId: thread.id,
+    threadTitle: thread.title,
+  });
+  if (work) await workTurn.holdForTurn(work, workActor);
   const context: AgentContext = {
     userId,
     threadId: thread.id,
@@ -622,6 +640,8 @@ async function runRequest(
     settings: worker ? threadSettingsOf(worker.settings) : settings,
     projectId: thread.project_id,
     campaignId: thread.campaign_id,
+    workId: work?.id ?? null,
+    threadTitle: thread.title,
     signal: ending.signal,
     ...(worker
       ? {
@@ -635,6 +655,7 @@ async function runRequest(
   };
   const base = rows.find((entry) => entry.id === assistantId)?.payload ?? { intent: "chat" };
   let ended: TurnState | null = null;
+  let failure: unknown = null;
   try {
     ended = await runTurn(
       {
@@ -661,9 +682,19 @@ async function runRequest(
       state,
       decisions,
     );
+  } catch (error) {
+    failure = error;
+    throw error;
   } finally {
     clearInterval(watch);
     signal.removeEventListener("abort", end);
+    // The work it was for (or the one it started) hears how the turn ended, however it ended.
+    const workNow = context.workId
+      ? work?.id === context.workId
+        ? work
+        : await workTurn.threadWork(thread.id)
+      : null;
+    if (workNow) await workTurn.recordTurn(workNow, workActor, ended?.display ?? null, failure);
   }
   if (worker && ended)
     await sections.settleWorkerTurn(worker, ended, userId).catch((error: unknown) =>

@@ -199,3 +199,20 @@ Built from docs/brands/aurixa-reel-1/HANDOVER.md, part 2, each proposal tested o
 - [x] A render recovered from storage keeps its stems, and `get_render` reports `public_use`, its `rights_check` and the `credit_lines` it owes
 - [x] An effect ducks under the voice only when told to, as before effects could (a timeline written through the API without a duck field had made it dip)
 - [ ] A brief per beat (H1's shape), for review sheets to describe each shot from; until then they come from the shots, drafts and image notes
+
+## Work kept as it goes, picked up from anywhere (docs/work.md)
+
+- [x] Why: Reel 1's working state lived only in its session's container (its assets, renders, references, film.json, soundtrack, uncommitted spec and takes, and the decisions behind them), and its generations were filed under no project, because the API had no project, job, checkpoint or file to keep them in. A session stopped by a usage limit would have left nothing saying where it stood
+- [x] A work: goal, plan, an append-only journal (what was done, what comes next, decisions and why, questions for a person, and who wrote it), a versioned record changed by merge patch, every version of its files (parts of 32 MiB, stored once a work by SHA-256 in the private work-files bucket), the code it ran on, what it made in the studio, and the session holding it (migration 0037_work_journal)
+- [x] Each save one transaction, kept once by its request id, never refused for another's hold; a heartbeat renews only its own hold
+- [x] Migration 0037 checked on a scratch Postgres 16 built as the live database is (tests/sql/work.sql: saves, conflicts, holds, heartbeats, files, links, who may read and write)
+- [x] The studio API: start_work, list_works, get_work, claim_work, release_work, save_work, upload_work_files (parts straight to storage), get_work_files, get_work_file_history, attach_to_work, create_project; and a workId on every operation that makes something, so what it makes is attached and never unassigned
+- [x] Supercomputer conversations on a work: told its brief first and what others wrote since, holding it for each turn, every turn's end in its journal, what they make attached
+- [x] Work pages: every work with who is on it; a work's journal (live), plan, notes, files and their versions, what it made, record and brief; Continue in Supercomputer, Copy for Claude Code, let go of a stuck hold
+- [x] Claude Code: scripts/studio-work/work.py and this repository's hooks, which take a checkout's work up as a session starts, keep its files and code every few minutes, save each turn's words as it ends, and when a usage limit or an error cuts a turn short say what it was asked, said last and used, then let the work go for the next session
+- [x] The code kept with every save: the commits no remote holds as a bundle, the changes not committed as a patch, put back by resume (or restore-code, or restore-code --here onto another branch)
+- [x] Words kept on the machine while the studio can't be reached, and sent first by the next save; files changed on both sides kept both ways
+- [x] Tested end to end: the script against the studio's own API code over HTTP, two checkouts for two machines, a work cut short by a usage limit and carried on elsewhere from exactly there (tests/work/cli.test.ts)
+- [ ] Apply migration 0037_work_journal to the live database
+- [ ] Deploy: merge to main and publish, so the live studio has the work operations and pages
+- [ ] Reel 1 as the first work: its records, its delivered master and its generations (adopted from unassigned) kept with it

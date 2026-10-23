@@ -46,6 +46,8 @@ import { Route as KatanaIndexRouteImport } from './routes/katana.index'
 import { Route as KatanaRunIdRouteImport } from './routes/katana.$runId'
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
+import { Route as WorkIndexRouteImport } from './routes/work.index'
+import { Route as WorkWorkIdRouteImport } from './routes/work.$workId'
 import { Route as ApiPublicAvatarHeygenWebhookRouteImport } from './routes/api/public/avatar-heygen-webhook'
 import { Route as ApiPublicAvatarReconcileRouteImport } from './routes/api/public/avatar-reconcile'
 import { Route as ApiPublicBrandDnaRouteImport } from './routes/api/public/brand-dna'
@@ -249,6 +251,16 @@ const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
   path: '/projects/$projectId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WorkIndexRoute = WorkIndexRouteImport.update({
+  id: '/work/',
+  path: '/work/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WorkWorkIdRoute = WorkWorkIdRouteImport.update({
+  id: '/work/$workId',
+  path: '/work/$workId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicAvatarHeygenWebhookRoute =
   ApiPublicAvatarHeygenWebhookRouteImport.update({
     id: '/api/public/avatar-heygen-webhook',
@@ -376,11 +388,13 @@ export interface FileRoutesByFullPath {
   '/editor/$sequenceId': typeof EditorSequenceIdRoute
   '/katana/$runId': typeof KatanaRunIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/work/$workId': typeof WorkWorkIdRoute
   '/avatar/': typeof AvatarIndexRoute
   '/characters/': typeof CharactersIndexRoute
   '/editor/': typeof EditorIndexRoute
   '/katana/': typeof KatanaIndexRoute
   '/projects/': typeof ProjectsIndexRoute
+  '/work/': typeof WorkIndexRoute
   '/api/public/avatar-heygen-webhook': typeof ApiPublicAvatarHeygenWebhookRoute
   '/api/public/avatar-reconcile': typeof ApiPublicAvatarReconcileRoute
   '/api/public/brand-dna': typeof ApiPublicBrandDnaRoute
@@ -431,11 +445,13 @@ export interface FileRoutesByTo {
   '/editor/$sequenceId': typeof EditorSequenceIdRoute
   '/katana/$runId': typeof KatanaRunIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/work/$workId': typeof WorkWorkIdRoute
   '/avatar': typeof AvatarIndexRoute
   '/characters': typeof CharactersIndexRoute
   '/editor': typeof EditorIndexRoute
   '/katana': typeof KatanaIndexRoute
   '/projects': typeof ProjectsIndexRoute
+  '/work': typeof WorkIndexRoute
   '/api/public/avatar-heygen-webhook': typeof ApiPublicAvatarHeygenWebhookRoute
   '/api/public/avatar-reconcile': typeof ApiPublicAvatarReconcileRoute
   '/api/public/brand-dna': typeof ApiPublicBrandDnaRoute
@@ -488,11 +504,13 @@ export interface FileRoutesById {
   '/editor/$sequenceId': typeof EditorSequenceIdRoute
   '/katana/$runId': typeof KatanaRunIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/work/$workId': typeof WorkWorkIdRoute
   '/avatar/': typeof AvatarIndexRoute
   '/characters/': typeof CharactersIndexRoute
   '/editor/': typeof EditorIndexRoute
   '/katana/': typeof KatanaIndexRoute
   '/projects/': typeof ProjectsIndexRoute
+  '/work/': typeof WorkIndexRoute
   '/api/public/avatar-heygen-webhook': typeof ApiPublicAvatarHeygenWebhookRoute
   '/api/public/avatar-reconcile': typeof ApiPublicAvatarReconcileRoute
   '/api/public/brand-dna': typeof ApiPublicBrandDnaRoute
@@ -546,11 +564,13 @@ export interface FileRouteTypes {
     | '/editor/$sequenceId'
     | '/katana/$runId'
     | '/projects/$projectId'
+    | '/work/$workId'
     | '/avatar/'
     | '/characters/'
     | '/editor/'
     | '/katana/'
     | '/projects/'
+    | '/work/'
     | '/api/public/avatar-heygen-webhook'
     | '/api/public/avatar-reconcile'
     | '/api/public/brand-dna'
@@ -601,11 +621,13 @@ export interface FileRouteTypes {
     | '/editor/$sequenceId'
     | '/katana/$runId'
     | '/projects/$projectId'
+    | '/work/$workId'
     | '/avatar'
     | '/characters'
     | '/editor'
     | '/katana'
     | '/projects'
+    | '/work'
     | '/api/public/avatar-heygen-webhook'
     | '/api/public/avatar-reconcile'
     | '/api/public/brand-dna'
@@ -657,11 +679,13 @@ export interface FileRouteTypes {
     | '/editor/$sequenceId'
     | '/katana/$runId'
     | '/projects/$projectId'
+    | '/work/$workId'
     | '/avatar/'
     | '/characters/'
     | '/editor/'
     | '/katana/'
     | '/projects/'
+    | '/work/'
     | '/api/public/avatar-heygen-webhook'
     | '/api/public/avatar-reconcile'
     | '/api/public/brand-dna'
@@ -706,10 +730,12 @@ export interface RootRouteChildren {
   EditorSequenceIdRoute: typeof EditorSequenceIdRoute
   KatanaRunIdRoute: typeof KatanaRunIdRoute
   ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
+  WorkWorkIdRoute: typeof WorkWorkIdRoute
   CharactersIndexRoute: typeof CharactersIndexRoute
   EditorIndexRoute: typeof EditorIndexRoute
   KatanaIndexRoute: typeof KatanaIndexRoute
   ProjectsIndexRoute: typeof ProjectsIndexRoute
+  WorkIndexRoute: typeof WorkIndexRoute
   ApiPublicAvatarHeygenWebhookRoute: typeof ApiPublicAvatarHeygenWebhookRoute
   ApiPublicAvatarReconcileRoute: typeof ApiPublicAvatarReconcileRoute
   ApiPublicBrandDnaRoute: typeof ApiPublicBrandDnaRoute
@@ -990,6 +1016,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsProjectIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/work/': {
+      id: '/work/'
+      path: '/work'
+      fullPath: '/work/'
+      preLoaderRoute: typeof WorkIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/work/$workId': {
+      id: '/work/$workId'
+      path: '/work/$workId'
+      fullPath: '/work/$workId'
+      preLoaderRoute: typeof WorkWorkIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/avatar-heygen-webhook': {
       id: '/api/public/avatar-heygen-webhook'
       path: '/api/public/avatar-heygen-webhook'
@@ -1164,10 +1204,12 @@ const rootRouteChildren: RootRouteChildren = {
   EditorSequenceIdRoute: EditorSequenceIdRoute,
   KatanaRunIdRoute: KatanaRunIdRoute,
   ProjectsProjectIdRoute: ProjectsProjectIdRoute,
+  WorkWorkIdRoute: WorkWorkIdRoute,
   CharactersIndexRoute: CharactersIndexRoute,
   EditorIndexRoute: EditorIndexRoute,
   KatanaIndexRoute: KatanaIndexRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,
+  WorkIndexRoute: WorkIndexRoute,
   ApiPublicAvatarHeygenWebhookRoute: ApiPublicAvatarHeygenWebhookRoute,
   ApiPublicAvatarReconcileRoute: ApiPublicAvatarReconcileRoute,
   ApiPublicBrandDnaRoute: ApiPublicBrandDnaRoute,

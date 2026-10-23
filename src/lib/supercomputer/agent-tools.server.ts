@@ -16,10 +16,13 @@ import { AppError } from "../higgsfield/errors";
 import type { ModelRegistryEntry } from "../model-schema";
 import {
   modelSummary,
+  runForWork,
   STUDIO_TOOLS,
+  takesWork,
   toolInputSchema,
   type StudioTool,
 } from "../studio-api/tools.server";
+import { WORK_TOOL_NAMES } from "../studio-api/work.server";
 import type { ApiCaller } from "../studio-api/tokens.server";
 import { formulaById } from "../brand/formulas";
 import { aboutUsd, type ApprovalRequest, type ToolUi } from "./agent-events";
@@ -37,6 +40,12 @@ export interface AgentContext {
   settings: AgentThreadSettings;
   projectId: string | null;
   campaignId: string | null;
+  /**
+   * The work the conversation works on (see ../work), if any: what its tools make is attached to
+   * it, and a work the agent starts becomes the conversation's for the rest of the turn.
+   */
+  workId?: string | null;
+  threadTitle?: string | null;
   signal: AbortSignal;
   /** The section this conversation is the worker for (see ./sections), if it is one. */
   section?: { planId: string; sectionId: string; position: number };
@@ -123,7 +132,19 @@ async function characterNames(ids: unknown): Promise<string[]> {
 
 /** Studio tools the agent doesn't use (its own versions, or nothing it needs). */
 // The agent has its own list_models and estimate_generation; pictures come to it as attachments.
-const LEFT_OUT = new Set(["whoami", "list_models", "estimate_generation", "import_image"]);
+// A work's files are bytes for a machine to send and fetch, and the studio itself holds a work
+// for the conversation while it runs, so neither is the agent's to do.
+const LEFT_OUT = new Set([
+  "whoami",
+  "list_models",
+  "estimate_generation",
+  "import_image",
+  "upload_work_files",
+  "get_work_files",
+  "get_work_file_history",
+  "claim_work",
+  "release_work",
+]);
 
 /** Which calls of a studio tool spend credits. */
 const SPENDS: Record<string, (input: Json) => boolean> = {
@@ -173,19 +194,33 @@ const LABELS: Record<string, (input: Json) => string> = {
   update_edit: () => "Changing the edit",
   apply_brand_kit: () => "Applying the brand kit",
   render_edit: () => "Rendering the edit",
+  create_project: () => "Making a project",
+  start_work: (input) => `Starting the work “${text(input["title"], 60)}”`,
+  list_works: () => "Looking at the work in progress",
+  get_work: () => "Reading where the work stands",
+  save_work: () => "Saving the work's progress",
+  attach_to_work: () => "Attaching things to the work",
 };
 
-/** A studio tool's schema as the agent sees it: request ids and projects are the studio's to fill in. */
+/**
+ * A studio tool's schema as the agent sees it: request ids, and the session a work is held as,
+ * are the studio's to fill in (a work's id too, where the conversation works on one).
+ */
 function agentSchema(entry: StudioTool): Json {
   const schema = toolInputSchema(entry);
   const properties = { ...((schema["properties"] ?? {}) as Json) };
   delete properties["clientRequestId"];
   delete properties["estimatedCostUsd"];
+  delete properties["session"];
+  const left = new Set(["clientRequestId", "estimatedCostUsd", "session", "workId"]);
   const required = Array.isArray(schema["required"])
-    ? (schema["required"] as string[]).filter(
-        (key) => key !== "clientRequestId" && key !== "estimatedCostUsd",
-      )
+    ? (schema["required"] as string[]).filter((key) => !left.has(key))
     : [];
+  if (WORK_TOOL_NAMES.has(entry.name) && properties["workId"])
+    properties["workId"] = {
+      ...(properties["workId"] as Json),
+      description: "The work (left out: the conversation's own work)",
+    };
   return { ...schema, properties, required };
 }
 
@@ -245,9 +280,16 @@ function studioUi(name: string, result: unknown, input: Json): ToolUi | null {
   return null;
 }
 
+/** What the conversation is called in a work's journal. */
+function workLabel(context: AgentContext): string {
+  return `Supercomputer · ${(context.threadTitle ?? "a conversation").slice(0, 120)}`;
+}
+
 function studioSummary(name: string, result: unknown): string {
   const item = (result ?? {}) as Json;
   if (Array.isArray(result)) return `${result.length} found`;
+  if (name === "save_work") return item["duplicate"] ? "Already saved" : "Saved";
+  if (name === "start_work") return item["created"] ? "Started" : "Already started";
   if (name === "queue_generation" || name === "make_soul_still")
     return item["status"] === "submission_uncertain"
       ? "Sent, but Higgsfield's answer was unclear: it won't be sent again"
@@ -368,10 +410,20 @@ function wrapStudioTool(entry: StudioTool): AgentTool {
     description: entry.description,
     inputSchema: schema,
     parse: (input) => {
-      // The studio fills in the request id itself; everything else is checked as given.
+      // The studio fills in the request id itself (and, for work's own tools, the session and the
+      // conversation's work, which run checks again); everything else is checked as given.
+      const given = (input ?? {}) as Json;
       const probe = {
-        ...((input ?? {}) as Json),
+        ...given,
         ...(takesRequestId ? { clientRequestId: "x".repeat(16) } : {}),
+        ...(WORK_TOOL_NAMES.has(entry.name)
+          ? {
+              session: { id: "supercomputer:probe" },
+              ...(given["workId"] === undefined
+                ? { workId: "00000000-0000-4000-8000-000000000000" }
+                : {}),
+            }
+          : {}),
       };
       const checked = entry.input.safeParse(probe);
       return checked.success
@@ -394,7 +446,37 @@ function wrapStudioTool(entry: StudioTool): AgentTool {
       // The conversation's brand, unless the call says otherwise (null: none).
       if (takesBrand && args["brandKitId"] === undefined && context.settings.brandKitId)
         args["brandKitId"] = context.settings.brandKitId;
-      const result = await entry.run(args, caller(context));
+      const isWorkTool = WORK_TOOL_NAMES.has(entry.name);
+      if (isWorkTool) {
+        // The conversation is the session; its work is the one meant unless another is named.
+        args["session"] = { id: `supercomputer:${context.threadId}`, label: workLabel(context) };
+        if (args["workId"] === undefined && context.workId && entry.name !== "start_work")
+          args["workId"] = context.workId;
+      }
+      const workId =
+        !isWorkTool && takesWork(entry)
+          ? typeof args["workId"] === "string"
+            ? (args["workId"] as string)
+            : (context.workId ?? null)
+          : null;
+      if (!isWorkTool) delete args["workId"];
+      const result = workId
+        ? await runForWork(entry, args, caller(context), workId)
+        : await entry.run(args, caller(context));
+      // A work the agent starts is the conversation's from now on.
+      if (entry.name === "start_work" && !context.workId) {
+        const started = (result ?? {}) as Json;
+        if (typeof started["workId"] === "string") {
+          context.workId = started["workId"];
+          const { setThreadWork } = await import("../work/service.server");
+          await setThreadWork(context.threadId, started["workId"], {
+            userId: context.userId,
+            kind: "supercomputer",
+            session: `supercomputer:${context.threadId}`,
+            label: workLabel(context),
+          }).catch(() => undefined);
+        }
+      }
       return {
         content: resultText(result),
         summary: studioSummary(entry.name, result),

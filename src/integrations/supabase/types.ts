@@ -7151,6 +7151,7 @@ export type Database = {
           settings: Json
           title: string
           updated_at: string
+          work_id: string | null
         }
         Insert: {
           brief_id?: string | null
@@ -7166,6 +7167,7 @@ export type Database = {
           settings?: Json
           title?: string
           updated_at?: string
+          work_id?: string | null
         }
         Update: {
           brief_id?: string | null
@@ -7181,6 +7183,7 @@ export type Database = {
           settings?: Json
           title?: string
           updated_at?: string
+          work_id?: string | null
         }
         Relationships: [
           {
@@ -7216,6 +7219,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supercomputer_threads_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "works"
             referencedColumns: ["id"]
           },
         ]
@@ -7472,6 +7482,281 @@ export type Database = {
           },
         ]
       }
+      work_blobs: {
+        Row: {
+          created_at: string
+          md5: string | null
+          sha256: string
+          size: number
+          status: string
+          storage_path: string
+          stored_at: string | null
+          work_id: string
+        }
+        Insert: {
+          created_at?: string
+          md5?: string | null
+          sha256: string
+          size: number
+          status?: string
+          storage_path: string
+          stored_at?: string | null
+          work_id: string
+        }
+        Update: {
+          created_at?: string
+          md5?: string | null
+          sha256?: string
+          size?: number
+          status?: string
+          storage_path?: string
+          stored_at?: string | null
+          work_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_blobs_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "works"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      work_files: {
+        Row: {
+          asset_id: string | null
+          chunks: Json
+          created_at: string
+          created_by: string | null
+          deleted: boolean
+          entry_id: string | null
+          executable: boolean
+          id: string
+          mime_type: string | null
+          modified_at: string | null
+          note: string | null
+          path: string
+          sha256: string | null
+          size: number | null
+          version: number
+          work_id: string
+        }
+        Insert: {
+          asset_id?: string | null
+          chunks?: Json
+          created_at?: string
+          created_by?: string | null
+          deleted?: boolean
+          entry_id?: string | null
+          executable?: boolean
+          id?: string
+          mime_type?: string | null
+          modified_at?: string | null
+          note?: string | null
+          path: string
+          sha256?: string | null
+          size?: number | null
+          version: number
+          work_id: string
+        }
+        Update: {
+          asset_id?: string | null
+          chunks?: Json
+          created_at?: string
+          created_by?: string | null
+          deleted?: boolean
+          entry_id?: string | null
+          executable?: boolean
+          id?: string
+          mime_type?: string | null
+          modified_at?: string | null
+          note?: string | null
+          path?: string
+          sha256?: string | null
+          size?: number | null
+          version?: number
+          work_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_files_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_files_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_files_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "work_journal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_files_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "works"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      work_journal: {
+        Row: {
+          actor_kind: string
+          actor_label: string | null
+          actor_session: string | null
+          changes: Json
+          client_request_id: string | null
+          code: Json | null
+          created_at: string
+          created_by: string | null
+          decisions: Json
+          files: Json
+          id: string
+          kind: string
+          links: Json
+          n: number
+          next_steps: Json
+          questions: Json
+          state_patch: Json | null
+          state_version: number | null
+          step_changes: Json
+          summary: string
+          work_id: string
+        }
+        Insert: {
+          actor_kind: string
+          actor_label?: string | null
+          actor_session?: string | null
+          changes?: Json
+          client_request_id?: string | null
+          code?: Json | null
+          created_at?: string
+          created_by?: string | null
+          decisions?: Json
+          files?: Json
+          id?: string
+          kind: string
+          links?: Json
+          n?: never
+          next_steps?: Json
+          questions?: Json
+          state_patch?: Json | null
+          state_version?: number | null
+          step_changes?: Json
+          summary?: string
+          work_id: string
+        }
+        Update: {
+          actor_kind?: string
+          actor_label?: string | null
+          actor_session?: string | null
+          changes?: Json
+          client_request_id?: string | null
+          code?: Json | null
+          created_at?: string
+          created_by?: string | null
+          decisions?: Json
+          files?: Json
+          id?: string
+          kind?: string
+          links?: Json
+          n?: never
+          next_steps?: Json
+          questions?: Json
+          state_patch?: Json | null
+          state_version?: number | null
+          step_changes?: Json
+          summary?: string
+          work_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_journal_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_journal_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "works"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      work_links: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          entry_id: string | null
+          id: string
+          kind: string
+          note: string | null
+          object_id: string
+          role: string | null
+          updated_at: string
+          work_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          entry_id?: string | null
+          id?: string
+          kind: string
+          note?: string | null
+          object_id: string
+          role?: string | null
+          updated_at?: string
+          work_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          entry_id?: string | null
+          id?: string
+          kind?: string
+          note?: string | null
+          object_id?: string
+          role?: string | null
+          updated_at?: string
+          work_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_links_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_links_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "work_journal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_links_work_id_fkey"
+            columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "works"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workflow_edges: {
         Row: {
           condition: Json | null
@@ -7656,6 +7941,138 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      works: {
+        Row: {
+          brand_kit_id: string | null
+          campaign_id: string | null
+          client_request_id: string | null
+          code: Json | null
+          created_at: string
+          created_by: string | null
+          entries: number
+          finished_at: string | null
+          goal: string
+          heard_at: string | null
+          held_since: string | null
+          holder: string | null
+          holder_kind: string | null
+          holder_label: string | null
+          id: string
+          last_entry_at: string | null
+          last_summary: string
+          lease_expires_at: string | null
+          next_steps: Json
+          parent_work_id: string | null
+          project_id: string | null
+          questions: Json
+          roots: Json
+          state: Json
+          state_version: number
+          status: string
+          steps: Json
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          brand_kit_id?: string | null
+          campaign_id?: string | null
+          client_request_id?: string | null
+          code?: Json | null
+          created_at?: string
+          created_by?: string | null
+          entries?: number
+          finished_at?: string | null
+          goal?: string
+          heard_at?: string | null
+          held_since?: string | null
+          holder?: string | null
+          holder_kind?: string | null
+          holder_label?: string | null
+          id?: string
+          last_entry_at?: string | null
+          last_summary?: string
+          lease_expires_at?: string | null
+          next_steps?: Json
+          parent_work_id?: string | null
+          project_id?: string | null
+          questions?: Json
+          roots?: Json
+          state?: Json
+          state_version?: number
+          status?: string
+          steps?: Json
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          brand_kit_id?: string | null
+          campaign_id?: string | null
+          client_request_id?: string | null
+          code?: Json | null
+          created_at?: string
+          created_by?: string | null
+          entries?: number
+          finished_at?: string | null
+          goal?: string
+          heard_at?: string | null
+          held_since?: string | null
+          holder?: string | null
+          holder_kind?: string | null
+          holder_label?: string | null
+          id?: string
+          last_entry_at?: string | null
+          last_summary?: string
+          lease_expires_at?: string | null
+          next_steps?: Json
+          parent_work_id?: string | null
+          project_id?: string | null
+          questions?: Json
+          roots?: Json
+          state?: Json
+          state_version?: number
+          status?: string
+          steps?: Json
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "works_brand_kit_id_fkey"
+            columns: ["brand_kit_id"]
+            isOneToOne: false
+            referencedRelation: "brand_kits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "works_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "works_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "works_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "works_parent_work_id_fkey"
+            columns: ["parent_work_id"]
+            isOneToOne: false
+            referencedRelation: "works"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -7927,6 +8344,81 @@ export type Database = {
           model_registry_id: string
           runs: number
         }[]
+      }
+      work_claim: {
+        Args: {
+          p_holder: string
+          p_kind: string
+          p_label: string
+          p_renew_only?: boolean
+          p_seconds?: number
+          p_take_over?: boolean
+          p_user: string
+          p_work_id: string
+        }
+        Returns: Json
+      }
+      work_files_now: {
+        Args: { p_work_id: string }
+        Returns: {
+          asset_id: string | null
+          chunks: Json
+          created_at: string
+          created_by: string | null
+          deleted: boolean
+          entry_id: string | null
+          executable: boolean
+          id: string
+          mime_type: string | null
+          modified_at: string | null
+          note: string | null
+          path: string
+          sha256: string | null
+          size: number | null
+          version: number
+          work_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "work_files"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      work_merge_patch: {
+        Args: { p_patch: Json; p_target: Json }
+        Returns: Json
+      }
+      work_merge_steps: {
+        Args: { p_changes: Json; p_steps: Json }
+        Returns: Json
+      }
+      work_release: {
+        Args: {
+          p_holder: string
+          p_kind: string
+          p_label: string
+          p_summary?: string
+          p_user: string
+          p_work_id: string
+        }
+        Returns: Json
+      }
+      work_save: {
+        Args: {
+          p_base_version?: number
+          p_changes?: Json
+          p_entry: Json
+          p_files?: Json
+          p_holder?: string
+          p_links?: Json
+          p_seconds?: number
+          p_state_patch?: Json
+          p_step_changes?: Json
+          p_user: string
+          p_work_id: string
+        }
+        Returns: Json
       }
     }
     Enums: {

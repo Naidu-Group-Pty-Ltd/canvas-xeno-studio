@@ -224,6 +224,7 @@ class Query implements PromiseLike<{ data: unknown; error: unknown; count?: numb
   private returning = false;
   private sort: { column: string; ascending: boolean }[] = [];
   private cap: number | null = null;
+  private skip = 0;
   private one: "single" | "maybe" | null = null;
   private upsertOptions: { onConflict?: string; ignoreDuplicates?: boolean } = {};
 
@@ -316,8 +317,29 @@ class Query implements PromiseLike<{ data: unknown; error: unknown; count?: numb
     this.filters.push((row) => Number(row[column]) > value);
     return this;
   }
-  gte(column: string, value: number) {
-    this.filters.push((row) => Number(row[column]) >= value);
+  gte(column: string, value: number | string) {
+    // A date (an ISO string) compares as written, as lt's does; a number as a number.
+    this.filters.push((row) =>
+      typeof value === "string" ? (row[column] as string) >= value : Number(row[column]) >= value,
+    );
+    return this;
+  }
+  /** PostgREST's ilike: % for any run of characters, case ignored. */
+  ilike(column: string, pattern: string) {
+    const regex = new RegExp(
+      `^${pattern
+        .split("%")
+        .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+        .join(".*")}$`,
+      "i",
+    );
+    this.filters.push((row) => typeof row[column] === "string" && regex.test(row[column]));
+    return this;
+  }
+  /** Rows from to to (inclusive), as PostgREST's range takes them. */
+  range(from: number, to: number) {
+    this.skip = from;
+    this.cap = to - from + 1;
     return this;
   }
   lt(column: string, value: number | string) {
@@ -353,7 +375,8 @@ class Query implements PromiseLike<{ data: unknown; error: unknown; count?: numb
         const y = b[column] as number | string;
         return (x < y ? -1 : x > y ? 1 : 0) * (ascending ? 1 : -1);
       });
-    if (this.cap !== null) out = out.slice(0, this.cap);
+    if (this.skip || this.cap !== null)
+      out = out.slice(this.skip, this.cap === null ? undefined : this.skip + this.cap);
     out = out.map(copy);
     if (this.one) {
       if (out.length > 1 && this.one === "maybe")

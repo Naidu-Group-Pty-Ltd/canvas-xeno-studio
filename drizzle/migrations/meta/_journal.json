@@ -260,6 +260,13 @@
       "when": 1791311545140,
       "tag": "0036_agent_sections",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1791311605140,
+      "tag": "0037_work_journal",
+      "breakpoints": true
     }
   ]
 }

@@ -347,7 +347,8 @@ function SupercomputerPage() {
       campaignId: handoff.campaignId ?? null,
       briefId: handoff.briefId ?? null,
     });
-    if (search.thread) void navigate({ search: {} });
+    // A conversation made for the hand-off (a work carried on) stays open.
+    if (search.thread && handoff.threadId !== search.thread) void navigate({ search: {} });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
