@@ -456,6 +456,13 @@ describe.skipIf(!TOOLS)("work.py, as a Claude Code session runs it", () => {
         frames,
       ),
     ).toBe(true);
+    // Where its own folder is, and the files only it holds listed first.
+    expect(resumed.stdout).toContain(
+      `Its own folder (the files under work/): ${join(repoB, ".xeno-work", workId, "files")}`,
+    );
+    expect(resumed.stdout).toContain(
+      `work → its own folder, outside git (on a machine, .xeno-work/${workId}/files`,
+    );
     // And where it stands.
     expect(resumed.stdout).toContain("# Work: Reel 2");
     expect(resumed.stdout).toContain("- [x] plates: Make the plates — 11 of 11");

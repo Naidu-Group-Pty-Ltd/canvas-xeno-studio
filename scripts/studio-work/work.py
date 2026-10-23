@@ -1447,6 +1447,7 @@ def cmd_resume(args):
             restore_code(cfg, automatic=True)
         note_code(cfg, quiet=True)
         pull(cfg, force=args.force)
+    print(f"Its own folder (the files under {WORK_ROOT}/): {resolve_root(cfg['roots'][WORK_ROOT])}")
     brief = call("get_work", {"workId": cfg["workId"], "entries": 20})["brief"]
     print()
     print(brief)

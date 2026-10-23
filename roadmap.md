@@ -213,6 +213,15 @@ Built from docs/brands/aurixa-reel-1/HANDOVER.md, part 2, each proposal tested o
 - [x] The code kept with every save: the commits no remote holds as a bundle, the changes not committed as a patch, put back by resume (or restore-code, or restore-code --here onto another branch)
 - [x] Words kept on the machine while the studio can't be reached, and sent first by the next save; files changed on both sides kept both ways
 - [x] Tested end to end: the script against the studio's own API code over HTTP, two checkouts for two machines, a work cut short by a usage limit and carried on elsewhere from exactly there (tests/work/cli.test.ts)
-- [ ] Apply migration 0037_work_journal to the live database
-- [ ] Deploy: merge to main and publish, so the live studio has the work operations and pages
-- [ ] Reel 1 as the first work: its records, its delivered master and its generations (adopted from unassigned) kept with it
+- [x] Migration 0037_work_journal applied to the live database (23 October 2026), in one transaction with its ledger row (38 entries). Its tables, columns, constraints, indexes, policies, triggers, grants, bucket and realtime publication match the same file built on a scratch Postgres 16
+- [x] Merged (#51) and published: the live studio lists the 11 work operations
+- [x] Reel 1 is the first work (e9b6fa24-2571-4cbb-83c8-18b7aabd2c9e, in its own project, Aurixa Reel 1). It keeps:
+  - its records and scripts;
+  - the third cut as delivered on 22 October and the revised master of 23 October;
+  - 12.1 and 03.1 drawn again, each with its lossless reference;
+  - the previews the client was sent;
+  - 633 MB in all, in 26 parts.
+
+  308 generations and 442 library files were adopted into its project from unassigned. They are the ledger's own, plus 65 superseded plates, the Soul ID retries and the logo attempts that were made beside it. The brand's looks, the music (uploaded before the reel began), the cast, both briefs, the storyboard and the draft edit are attached where they are. Nothing else moved. Its record says where each master is and how to splice in a shot drawn again. From a fresh clone, `work.py resume` put every file back byte for byte, the revised master included
+
+- [x] Found by registering Reel 1, and fixed: a brief now lists the files only the work holds first, says where its own folder is on a machine, and counts what it has in the studio by kind; `resume` prints the folder too

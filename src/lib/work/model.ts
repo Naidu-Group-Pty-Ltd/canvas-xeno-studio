@@ -98,6 +98,42 @@ export const LINK_KIND_LABELS: Record<LinkKind, string> = {
   work: "Work",
 };
 
+/** A count of a work's links of one kind, in words ("308 generations", "1 creative brief"). */
+const LINK_KIND_WORDS: Record<LinkKind, [string, string]> = {
+  generation: ["generation", "generations"],
+  asset: ["library file", "library files"],
+  edit: ["edit", "edits"],
+  render: ["render", "renders"],
+  long_video: ["long video", "long videos"],
+  review_gate: ["review gate", "review gates"],
+  storyboard: ["storyboard", "storyboards"],
+  brief: ["creative brief", "creative briefs"],
+  character: ["character", "characters"],
+  brand_kit: ["brand kit", "brand kits"],
+  composition: ["motion graphic", "motion graphics"],
+  thread: ["Supercomputer conversation", "Supercomputer conversations"],
+  section_plan: ["section plan", "section plans"],
+  work: ["work", "works"],
+};
+
+/** The order a brief lists links in: what shapes the work first, the many things it made last. */
+export const BRIEF_LINK_ORDER: LinkKind[] = [
+  "work",
+  "brief",
+  "storyboard",
+  "edit",
+  "render",
+  "long_video",
+  "review_gate",
+  "section_plan",
+  "thread",
+  "composition",
+  "character",
+  "brand_kit",
+  "asset",
+  "generation",
+];
+
 const MIB = 1024 * 1024;
 
 export const WORK_LIMITS = {
@@ -343,6 +379,12 @@ export function codeOf(value: unknown): CodeVersion | null {
     code.unpushed = value["unpushed"];
   return Object.keys(code).length ? code : null;
 }
+
+/**
+ * The root scripts/studio-work/work.py keeps a work's own files under: what doesn't belong in git (masters,
+ * renders, references), in `.xeno-work/<work id>/files` beside the checkout. They exist nowhere else.
+ */
+export const OWN_ROOT = "work";
 
 /** Where scripts/studio-work/work.py keeps the code with a work, in its own root: see snapshot_code there. */
 export const CODE_SNAPSHOT = {
@@ -808,14 +850,20 @@ export function resumeBrief(view: WorkView, options: BriefOptions = {}): string 
       `## Files (${files.length}, ${sizeLabel(total)})`,
       `Every version is kept. On a machine, \`python3 ${cli} pull\` puts them back (each checked against its SHA-256).`,
     );
-    const roots = rootsOf(work.roots);
-    if (Object.keys(roots).length)
-      out.push(
-        `Roots: ${Object.entries(roots)
-          .map(([name, path]) => `${name} → ${path}`)
-          .join(", ")}`,
+    const roots = Object.entries(rootsOf(work.roots)).map(([name, path]) => `${name} → ${path}`);
+    if (files.some((file) => rootOf(file.path) === OWN_ROOT))
+      roots.push(
+        `${OWN_ROOT} → its own folder, outside git (on a machine, .xeno-work/${work.id}/files beside the checkout)`,
       );
-    for (const file of files.slice(0, 60))
+    if (roots.length) out.push(`Roots: ${roots.join(", ")}`);
+    // Its own files first: they exist nowhere but here. The code kept with it is the Code section's.
+    const own = (path: string) =>
+      rootOf(path) === OWN_ROOT && !path.startsWith(`${OWN_ROOT}/code/`);
+    const listed = [
+      ...files.filter((file) => own(file.path)),
+      ...files.filter((file) => !own(file.path)),
+    ];
+    for (const file of listed.slice(0, 60))
       out.push(
         `- ${file.path} · ${sizeLabel(file.size)} · v${file.version}${file.note ? ` — ${clip(file.note, 120)}` : ""}`,
       );
@@ -824,7 +872,20 @@ export function resumeBrief(view: WorkView, options: BriefOptions = {}): string 
 
   if (links.length) {
     out.push("", `## In the studio (${links.length})`);
-    for (const link of links.slice(0, 60))
+    const count = new Map<LinkKind, number>();
+    for (const link of links) count.set(link.kind, (count.get(link.kind) ?? 0) + 1);
+    const kinds = BRIEF_LINK_ORDER.filter((kind) => count.has(kind));
+    if (kinds.length > 1)
+      out.push(
+        kinds
+          .map(
+            (kind) => `${count.get(kind)} ${LINK_KIND_WORDS[kind][count.get(kind) === 1 ? 0 : 1]}`,
+          )
+          .join(", "),
+      );
+    // What shapes the work before the many things it made; within a kind, as they came.
+    const listed = kinds.flatMap((kind) => links.filter((link) => link.kind === kind));
+    for (const link of listed.slice(0, 60))
       out.push(
         `- ${LINK_KIND_LABELS[link.kind]} ${link.object_id}${link.title ? ` · ${clip(link.title, 100)}` : ""}${link.status ? ` · ${link.status}` : ""}${link.role ? ` — ${clip(link.role, 120)}` : ""}`,
       );
