@@ -932,6 +932,23 @@ export function clipArgs(clip, plan, sourcePath, hasAudio, out, seam = null, sou
 }
 
 /**
+ * The first input of a cross (xfade), passed on so that its end reaches
+ * xfade only once xfade has used its last frame. FFmpeg 5.1's xfade (Debian
+ * bookworm's, so the worker's own image) takes that input's end for the end
+ * of the transition even while frames of it are still waiting, and times the
+ * next clip from one it had only looked at: a frame goes missing from the
+ * timeline, the next clip plays a frame late, and the encoder repeats one to
+ * fill the gap. A frame padded on, and dropped again when the input's length
+ * in `frames` is known, leaves its frames as they were: its end is reported
+ * when xfade asks for one more. (FFmpeg 6.1 waits for the end itself; its
+ * frames are the same either way.) With no length, the padded frame stays as
+ * the transition's last, which a fade draws as the next picture.
+ */
+export function crossInput(frames = null) {
+  return `tpad=stop_mode=clone:stop=1${frames === null ? "" : `,select=lt(n\\,${frames})`}`;
+}
+
+/**
  * Joins per-clip streams with each clip's transition. Every input is first
  * given the same frame rate, time base and sample format, which xfade and
  * acrossfade require. Returns the graph lines and the final label.
@@ -961,7 +978,8 @@ export function joinChain(plan, kind) {
       const duration = seconds(clip.transitionFrames / plan.fps);
       if (kind === "v") {
         const offset = seconds((lengthFrames - clip.transitionFrames) / plan.fps);
-        lines.push(`[${previous}][${next}]xfade=transition=${clip.transitionType}:duration=${duration}:offset=${offset}[${output}]`);
+        lines.push(`[${previous}]${crossInput(lengthFrames)}[${output}in]`);
+        lines.push(`[${output}in][${next}]xfade=transition=${clip.transitionType}:duration=${duration}:offset=${offset}[${output}]`);
       } else {
         lines.push(`[${previous}][${next}]acrossfade=d=${duration}:c1=tri:c2=tri[${output}]`);
       }

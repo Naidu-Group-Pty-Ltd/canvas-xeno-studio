@@ -887,6 +887,25 @@ async function finalPassByHand(work) {
   return { plan, sources, finalArgv: finalArgs(plan, intermediates, mix, ass, null, out, [logo], null), out };
 }
 
+await check("a cross leaves every frame of the edit in its place: none missing where it ends, the next clip on time", async () => {
+  const { joinChain } = await import("./sequence.js");
+  const work = await mkdtemp(join(dir, "cross-"));
+  const { plan } = await finalPassByHand(work);
+  const joined = joinChain(plan, "v");
+  const { stdout } = await ffmpeg([
+    ...plan.clips.flatMap((_, index) => ["-i", join(work, `clip-${index}.mkv`)]),
+    "-filter_complex", joined.lines.join(";"),
+    "-map", `[${joined.label}]`, "-fps_mode", "passthrough", "-f", "framemd5", "-",
+  ]);
+  // Each frame's time, as a frame of the edit (framemd5 gives it in its stream's time base).
+  const [num, den] = /#tb 0: (\d+)\/(\d+)/.exec(stdout).slice(1).map(Number);
+  const frames = stdout.split("\n").filter((line) => line && !line.startsWith("#"))
+    .map((line) => Math.round((Number(line.split(",")[2]) * num * plan.fps) / den));
+  const misplaced = frames.findIndex((frame, index) => frame !== index);
+  if (frames.length !== joined.lengthFrames || misplaced >= 0)
+    throw new Error(`the joined picture has ${frames.length} of ${joined.lengthFrames} frames${misplaced >= 0 ? `, its frame ${misplaced} at ${frames[misplaced]}` : ""}`);
+});
+
 await check("a render's reference made again is its final pass's picture, frame for frame", async () => {
   const { measureRender } = await import("./quality.js");
   const { parseLoudness } = await import("./sequence.js");

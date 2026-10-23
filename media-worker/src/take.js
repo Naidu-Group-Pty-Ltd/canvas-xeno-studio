@@ -8,6 +8,7 @@ import { fitIsPlausible, mapFromFit, mapReach, warpFilter } from "./joins.js";
 import { lutExpression } from "./seam.js";
 import { decodeThumbnails } from "./frames.js";
 import { bad, choice, even, num } from "./mask.js";
+import { crossInput } from "./sequence.js";
 
 /**
  * A take that must land on an exact picture (a logo's reveal ending on the
@@ -315,7 +316,9 @@ export async function alignTake({ sources, params, dir }) {
   const [first, second] = anchor === "last" ? ["t", "p"] : ["p", "t"];
   if (still > 0 && cross > 0) {
     const offset = anchor === "last" ? seconds - cross : hold;
-    lines.push(`[${first}][${second}]xfade=transition=fade:duration=${cross.toFixed(4)}:offset=${Math.max(0, offset).toFixed(4)}[v]`);
+    // The first ends only once the cross has used its frames (see crossInput in ./sequence.js).
+    lines.push(`[${first}]${crossInput()}[${first}in]`);
+    lines.push(`[${first}in][${second}]xfade=transition=fade:duration=${cross.toFixed(4)}:offset=${Math.max(0, offset).toFixed(4)}[v]`);
   } else if (still > 0) {
     lines.push(`[${first}][${second}]concat=n=2:v=1:a=0[v]`);
   } else {

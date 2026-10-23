@@ -87,7 +87,10 @@ frame. The app sends one source per distinct asset (role `video`, `image`,
   `focus_x` / `focus_y` (0–1, where a `cover` crop sits; the centre unless
   given), `motion` for stills (`zoom_in`, `zoom_out`, `pan_left`, `pan_right`,
   `pan_up`, `pan_down`), `transition` into the clip (`type` from the xfade
-  set or `cut`, `duration` up to 3 s; shortened when the clips are too short),
+  set or `cut`, `duration` up to 3 s; shortened when the clips are too short;
+  the clip before reports its end only once the transition has used its last
+  frame, since FFmpeg 5.1's xfade, the image's, otherwise ends early and
+  plays the next clip a frame late),
   `match_previous` and `join` (see below). A trim that falls on a frame is honoured to
   the frame: the seek starts a millisecond early so rounding never skips it
 - `audio[]`: `source_index`, `role` (`voiceover`, `music`, `sfx`), `start`,

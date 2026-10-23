@@ -134,7 +134,7 @@
 
 ## Aurixa Reel 1's handover, built into the studio (its 29 proposals)
 
-Built from docs/brands/aurixa-reel-1/HANDOVER.md, part 2, each proposal tested on Reel 1's own records where it has them. Nothing has been run against the live database, and no migration has been applied.
+Built from docs/brands/aurixa-reel-1/HANDOVER.md, part 2, each proposal tested on Reel 1's own records where it has them. Its migrations are applied to the live database; nothing has yet been run in a browser against it.
 
 - [x] A1. Motion graphics (compositions) in the Editor: a page in the brand's colours and type, moved by a function of time, previewed live in the Editor and drawn by the media worker's own browser; on the studio API as `list_motion_templates`, `draw_motion_graphic` and `get_motion_graphic` (docs/compositions.md; migration 0034_compositions)
 - [x] A2. Drawn as a camera would, as settings: at twice the frame's size, averaged over the shutter, kept as a lossless master with a BT.709 copy to play; a draft first, the final when asked
@@ -168,10 +168,12 @@ Built from docs/brands/aurixa-reel-1/HANDOVER.md, part 2, each proposal tested o
 - [x] Render colours in BT.709 (found by G1): pictures brought in by BT.709's matrix, colours drawn into the picture handed over to FFmpeg's own, every render tagged, and frames taken out read as a player shows them; brand colours within a CIEDE2000 of 0.75, where they were off by up to 8.6 (media-worker/README.md, Colour)
 - [x] Migrations 0027 to 0036 in the journal, with a test that keeps it in step with the files
 - [x] Migrations 0027 to 0036 run on a scratch Postgres 16 built as the live database was (Lovable's migrations, then 0000 to 0026, on stand-ins for Supabase's auth, storage, cron and net): each applies, alone or all ten in one transaction, and can run again; they only add to the tables the live app uses, so it runs on as it is; the 15 new tables have row security with nothing for the signed-out; the review gates' triggers and functions behave as members use them; and the generated types, the values the code writes and the functions it calls match what they make
-- [ ] Apply migrations 0027 to 0036, in order (until then each feature says it needs its update)
+- [x] Migrations 0027 to 0036 applied to the live database, in order, each in a transaction with its ledger entry (and 0026's, which the ledger lacked); what they made matches a database built from the files: every table, column, constraint, index, policy, trigger, grant, function and the storage bucket (the functions' grants as Supabase grants every function)
+- [x] Transitions keep every frame on the worker's own FFmpeg (5.1, Debian bookworm's; found when the production image was self-tested): its xfade ended a transition at the clip before's end with frames of it still waiting, so the next clip played a frame late and the encoder repeated one. The clip before now reports its end only once the transition has used its last frame, and the frames are FFmpeg 6.1's
+- [ ] slideup's first frame: FFmpeg's xfade reads its top row from past the picture (5.1 and 6.1 alike), a one-pixel line for a frame that a measured render can flag; drawn as slidedown upside down, it would read only the picture
 - [ ] Deploy the media worker with its browser (the image installs Chromium) and, for WebGL motion graphics, a worker on a GPU (`MEDIA_WORKER_GPU=1`, its address in `MEDIA_WORKER_GPU_URL`); the GPU path hasn't been run on a GPU
 - [ ] Check the new pages and panels signed in on the live app: none has been run in a browser against the live database
-- [ ] Set list prices for the models whose results carry no price (GPT Image's metered runs), once 0028 is applied
+- [ ] Set list prices for the models whose results carry no price (GPT Image's metered runs)
 - [x] The Editor asks a picture's privacy mark before it lays it on a timeline (a clip, the brand's logo, a picture over the video), and refuses a layout-only one as the render does
 - [ ] The Editor's preview shows an auto caption panel unmeasured (measuring needs pixel reads the browser's cross-origin rules allow)
 - [x] A brand imported from its site gets its headings' italic too, where Google has one, for brand captions' emphasis

@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { probe, ffmpeg } from "./ffmpeg.js";
 import { asImage, handedOverHex, matrixOver, matrixTag, padMatrix, rgbOf } from "./colour.js";
 import { TaskError } from "./net.js";
-import { renderSequence, SEQUENCE_LIMITS, stemRoles } from "./sequence.js";
+import { crossInput, renderSequence, SEQUENCE_LIMITS, stemRoles } from "./sequence.js";
 import { cameraMotion, decodeThumbnails, extractFrameByIndex, pickHandoffFrame } from "./frames.js";
 import { measureSync, prepareAudio } from "./voice.js";
 import { lipCheck, lipCheckAvailable } from "./lipcheck.js";
@@ -426,7 +426,9 @@ export const TASKS = {
         for (let index = 1; index < labels.length; index += 1) {
           const output = `x${index}`;
           const at = Math.max(0, offset - transition);
-          filters.push(`[${previous}][${labels[index]}]xfade=transition=fade:duration=${transition}:offset=${at.toFixed(3)}[${output}]`);
+          // The clip before ends only once the cross has used its frames (see crossInput in ./sequence.js).
+          filters.push(`[${previous}]${crossInput()}[${output}in]`);
+          filters.push(`[${output}in][${labels[index]}]xfade=transition=fade:duration=${transition}:offset=${at.toFixed(3)}[${output}]`);
           offset = at + (await clipDuration(clips[index], videoSources));
           previous = output;
         }
