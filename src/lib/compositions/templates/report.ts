@@ -1,9 +1,10 @@
 /**
  * A page of the product's report, from the brand's demo record: its heading,
  * the grade in a ring that draws round to the score, a bar chart growing bar
- * by bar, and its key figures. Reel 1 showed the client's report this way
- * (05.2, 08.2). Anything modelled carries the product's illustrative-example
- * label, as its guardrails require.
+ * by bar, and under it how the grade was reached, row by row, as the
+ * record's `grade` list sets it out (the Investment Compass's own page, which
+ * Reel 1 drew in 08.2). Anything modelled carries the product's
+ * illustrative-example label, as its guardrails require.
  */
 import { z } from "zod";
 import { beatsAcross, groundHtml, riseState } from "../kit";
@@ -22,11 +23,22 @@ const schema = z.object({
    * None: the demo record's `grade` list, so the bars are the record's own.
    */
   bars: z.array(z.string().max(60)).max(8).default([]),
+  /** Under the record's own bars, its `grade` list as a table: how the grade was reached. */
+  working: z.boolean().default(true),
   note: z.string().max(60).default("Illustrative example"),
 });
 
 /** Bars for a record with no `grade` list: plainly illustrative. */
 const ILLUSTRATIVE_BARS = ["Growth: 78", "Location: 92", "Yield: 64", "Demand: 85", "Risk: 71"];
+
+const NUMBER = /-?\d+(?:\.\d+)?/;
+
+/** The rows of the record's `grade` list a page draws: those with a label and a number for their score. */
+function gradeRows(demo: DemoRecord): string[][] {
+  return (demoList(demo, "grade")?.rows ?? [])
+    .filter((row) => row[0]?.trim() && NUMBER.test(row[1] ?? ""))
+    .slice(0, 8);
+}
 
 /**
  * The record's grade as bars: each row's first column its label, and the
@@ -34,19 +46,16 @@ const ILLUSTRATIVE_BARS = ["Growth: 78", "Location: 92", "Yield: 64", "Demand: 8
  * page never shows scores the record's grade wasn't reached from.
  */
 export function gradeBars(demo: DemoRecord): string[] | null {
-  const rows = (demoList(demo, "grade")?.rows ?? []).flatMap((row) => {
-    const value = /-?\d+(?:\.\d+)?/.exec(row[1] ?? "")?.[0];
-    return row[0]?.trim() && value !== undefined ? [`${row[0].trim()}: ${value}`] : [];
-  });
-  return rows.length ? rows.slice(0, 8) : null;
+  const rows = gradeRows(demo).map((row) => `${row[0]!.trim()}: ${NUMBER.exec(row[1]!)![0]}`);
+  return rows.length ? rows : null;
 }
 
 export const reportTemplate = defineTemplate({
   id: "report-page",
-  version: 2,
+  version: 3,
   title: "Report page",
   description:
-    "A page of the product's report: its grade in a ring, a bar chart growing bar by bar, and the illustrative-example label.",
+    "A page of the product's report: its grade in a ring, a bar chart growing bar by bar, how the grade was reached, and the illustrative-example label.",
   group: "product",
   schema,
   fields: [
@@ -60,6 +69,11 @@ export const reportTemplate = defineTemplate({
       label: "Bars (Label: value, one a line; none: the demo record's grade)",
       kind: "lines",
       max: 8,
+    },
+    {
+      key: "working",
+      label: "How the grade was reached (under the record's own bars)",
+      kind: "toggle",
     },
     { key: "note", label: "Note", kind: "text", max: 60 },
   ],
@@ -87,11 +101,45 @@ export const reportTemplate = defineTemplate({
     const score = Number.isFinite(scoreValue) ? Math.max(0, Math.min(100, scoreValue)) : 0;
     const ring = 2 * Math.PI * 80;
     const chartH = 300 * u;
-    const verdict = escapeHtml(demoValue(brand.demo, "record.verdict") ?? "");
+    const verdictText = demoValue(brand.demo, "record.verdict") ?? "";
+    const verdict = escapeHtml(verdictText);
+    // Inside the ring under the grade there are about 134 units across: a longer verdict ("STRONG
+    // BUY") is set smaller to keep 110 of them, clear of the ring, as upper case with its tracking
+    // runs about 0.71 em a letter.
+    const verdictSize = Math.min(19, 110 / (0.71 * Math.max(1, verdictText.length)));
+
+    // How the grade was reached, under the bars when they are the record's own: as many of its
+    // rows as the page has room for below the chart (its heading and chart estimated at their
+    // sizes, a long title wrapping), each at least 30 units high, or none.
+    const list = !params.bars.length && params.working ? demoList(brand.demo, "grade") : null;
+    const listRows = list ? gradeRows(brand.demo) : [];
+    const titleLines = Math.max(1, Math.ceil(fill(params.title).length / 22));
+    const subLines = Math.max(1, Math.ceil(fill(params.subtitle).length / 46));
+    const headH = Math.max(grade ? 180 : 0, titleLines * 55 + 10 + subLines * 31);
+    const room = pageH / u - (96 + 46 + headH + (bars.length ? 90 + 300 + 37 : 0)) - 80 - 107;
+    const fits = Math.min(listRows.length, Math.floor(room / 30));
+    const work =
+      list && bars.length && fits >= 2
+        ? {
+            label: list.label,
+            columns: list.columns.slice(0, 4),
+            rows: listRows.slice(0, fits).map((row) => row.slice(0, 4)),
+            rowH: Math.min(40, room / fits) * u,
+          }
+        : null;
 
     const rise = Math.min(0.65, duration * 0.15);
     const [gradeAt, barsAt] = beatsAcross(duration, [0, 0.35], rise, 1.1);
     const barAt = (k: number) => barsAt! + k * Math.min(0.18, 1 / Math.max(1, bars.length));
+    // Its rows come in after the last bar, one by one, done with at least 0.8 s left to read them.
+    const workAt = bars.length ? barAt(bars.length - 1) + 0.3 : 0;
+    const rowStep = work
+      ? Math.max(
+          0,
+          Math.min(0.1, (duration - 0.8 - workAt - 0.5) / Math.max(1, work.rows.length - 1)),
+        )
+      : 0;
+    const rowAt = (k: number) => workAt + 0.15 + k * rowStep;
 
     const css = `
 .rp-page { position:absolute; left:${px(pageX)}; top:${px(pageY)}; width:${px(pageW)}; height:${px(pageH)}; border-radius:${px(12 * u)};
@@ -107,7 +155,7 @@ export const reportTemplate = defineTemplate({
 .rp-grade svg { position:absolute; inset:0; width:100%; height:100%; transform:rotate(-90deg); }
 .rp-grade div { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
 .rp-grade b { font-family:var(--f-display); font-size:${px(64 * u)}; line-height:1; color:#111827; }
-.rp-grade span { font-size:${px(19 * u)}; color:#6b7280; margin-top:${px(4 * u)}; text-transform:uppercase; letter-spacing:.06em; }
+.rp-grade span { font-size:${px(verdictSize * u)}; color:#6b7280; margin-top:${px(4 * u)}; text-transform:uppercase; letter-spacing:.06em; white-space:nowrap; }
 .rp-chart-title { margin:${px(46 * u)} 0 ${px(18 * u)}; font-size:${px(22 * u)}; letter-spacing:.12em; text-transform:uppercase; color:#6b7280; }
 .rp-chart { position:relative; height:${px(chartH)}; display:flex; align-items:flex-end; gap:${px(22 * u)}; border-bottom:2px solid #e5e7eb; }
 .rp-bar { flex:1; position:relative; height:100%; display:flex; flex-direction:column; justify-content:flex-end; }
@@ -116,6 +164,14 @@ export const reportTemplate = defineTemplate({
 .rp-labels { display:flex; gap:${px(22 * u)}; margin-top:${px(12 * u)}; }
 .rp-labels span { flex:1; text-align:center; font-size:${px(19 * u)}; color:#6b7280; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .rp-note { position:absolute; left:${px(48 * u)}; right:${px(48 * u)}; bottom:${px(34 * u)}; font-size:${px(19 * u)}; color:#9ca3af; letter-spacing:.04em; }
+.rp-work { margin-top:${px(34 * u)}; }
+.rp-work-title { margin-bottom:${px(12 * u)}; font-size:${px(22 * u)}; letter-spacing:.12em; text-transform:uppercase; color:#6b7280; }
+.rp-row { display:grid; grid-template-columns:1.6fr${" 1fr".repeat(Math.max(0, (work?.columns.length ?? 1) - 1))}; align-items:center; gap:${px(16 * u)};
+  height:${px(work?.rowH ?? 0)}; border-bottom:1px solid #eef0f3; font-size:${px(20 * u)}; color:#111827; font-variant-numeric:tabular-nums; }
+.rp-row span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.rp-row span + span { text-align:right; }
+.rp-row-head { height:auto; padding-bottom:${px(8 * u)}; border-bottom:2px solid #e5e7eb; font-size:${px(16 * u)}; font-weight:600;
+  letter-spacing:.06em; text-transform:uppercase; color:#6b7280; }
 `;
     const html = [
       groundHtml(),
@@ -137,6 +193,17 @@ export const reportTemplate = defineTemplate({
             .join(
               "",
             )}</div><div class="rp-labels">${bars.map((bar) => `<span>${escapeHtml(bar.label)}</span>`).join("")}</div>`
+        : "",
+      work
+        ? `<div class="rp-work"><div class="rp-work-title" id="rp-work-title">${escapeHtml(work.label)}</div>` +
+          `<div class="rp-row rp-row-head" id="rp-row-head">${work.columns.map((column) => `<span>${escapeHtml(column)}</span>`).join("")}</div>` +
+          work.rows
+            .map(
+              (row, k) =>
+                `<div class="rp-row" id="rp-row-${k}">${work.columns.map((_column, i) => `<span>${escapeHtml(row[i] ?? "")}</span>`).join("")}</div>`,
+            )
+            .join("") +
+          `</div>`
         : "",
       `</div>`,
       params.note ? `<div class="rp-note" id="rp-note">${escapeHtml(fill(params.note))}</div>` : "",
@@ -170,6 +237,14 @@ export const reportTemplate = defineTemplate({
           ...fade(span(t, barAt(k) + 0.3, barAt(k) + 0.55, motion.linear)),
         });
       });
+      if (work) {
+        st.set("#rp-work-title", fade(span(t, workAt, workAt + 0.3, motion.linear)));
+        st.set("#rp-row-head", fade(span(t, workAt + 0.05, workAt + 0.35, motion.linear)));
+        work.rows.forEach((_row, k) => {
+          const p = span(t, rowAt(k), rowAt(k) + 0.35, motion.settle);
+          st.set(`#rp-row-${k}`, { transform: `translateY(${px((1 - p) * 10 * u)})`, ...fade(p) });
+        });
+      }
       if (params.note) st.set("#rp-note", fade(span(t, rise, rise + 0.4, motion.linear)));
       return st;
     };
@@ -183,6 +258,14 @@ export const reportTemplate = defineTemplate({
         ...(grade ? [{ at: gradeAt! + 1.0, label: "The grade is drawn" }] : []),
         ...(bars.length
           ? [{ at: barAt(bars.length - 1) + 0.55, label: "The chart is drawn" }]
+          : []),
+        ...(work
+          ? [
+              {
+                at: rowAt(work.rows.length - 1) + 0.35,
+                label: "How the grade was reached is shown",
+              },
+            ]
           : []),
       ],
     };

@@ -55,6 +55,7 @@ import {
 import { bezier, CompositionState, parseCubicBezier } from "../../src/lib/compositions/state";
 import { TEMPLATES, templateById } from "../../src/lib/compositions/templates";
 import { gradeBars } from "../../src/lib/compositions/templates/report";
+import { recordDocuments } from "../../src/lib/compositions/templates/file";
 
 const SCREEN = "11111111-1111-4111-8111-111111111111";
 const LOGO = "22222222-2222-4222-8222-222222222222";
@@ -388,23 +389,29 @@ describe("the templates", () => {
         }
       });
 
+  const reportPage = (
+    demo: DemoRecord,
+    params: Record<string, unknown> = {},
+    [width, height] = [1080, 1920],
+  ) =>
+    buildScene({
+      spec: spec("report-page", params),
+      brand: { ...brand, demo },
+      width,
+      height,
+      fps: 30,
+      imageInfo: sizes,
+      imageUrl: () => "",
+      fontUrl: () => "",
+    });
+
   test("a report page with no bars of its own draws the record's grade, and a record without one the illustrative bars", () => {
     const bars = (demo: DemoRecord, params: Record<string, unknown> = {}) => {
-      const scene = buildScene({
-        spec: spec("report-page", params),
-        brand: { ...brand, demo },
-        width: 1080,
-        height: 1920,
-        fps: 30,
-        imageInfo: sizes,
-        imageUrl: () => "",
-        fontUrl: () => "",
-      });
-      const values = [...scene.document.matchAll(/id="rp-val-\d+"[^>]*>([^<]*)</g)].map(
-        (m) => m[1],
-      );
-      const labels = [...scene.document.matchAll(/<span>([^<]*)<\/span>/g)].map((m) => m[1]);
-      return { values, labels: labels.slice(-values.length) };
+      const document = reportPage(demo, params).document;
+      const values = [...document.matchAll(/id="rp-val-\d+"[^>]*>([^<]*)</g)].map((m) => m[1]);
+      const row = /<div class="rp-labels">(.*?)<\/div>/.exec(document)?.[1] ?? "";
+      const labels = [...row.matchAll(/<span>([^<]*)<\/span>/g)].map((m) => m[1]);
+      return { values, labels };
     };
     const graded: DemoRecord = {
       ...DEFAULT_DEMO_RECORD,
@@ -432,6 +439,115 @@ describe("the templates", () => {
     expect(bars(graded, { bars: ["Risk: 40"] }).values).toEqual(["40"]);
     expect(gradeBars(DEFAULT_DEMO_RECORD)).toBeNull();
     expect(bars(DEFAULT_DEMO_RECORD).values).toEqual(["78", "92", "64", "85", "71"]);
+  });
+
+  test("under the record's own bars, a report page shows how the grade was reached, as many rows as it has room for", () => {
+    const grade = (rows: number) => ({
+      key: "grade",
+      label: "How the grade was reached",
+      columns: ["Dimension", "Score", "Weight", "Points", "Note"],
+      rows: Array.from({ length: rows }, (_, k) => [
+        `Dimension ${k + 1}`,
+        `${80 + k} / 100`,
+        "20%",
+        `${16 + k}.00`,
+        "x",
+      ]),
+    });
+    const working = (
+      demo: DemoRecord,
+      params: Record<string, unknown> = {},
+      size?: [number, number],
+    ) => {
+      const scene = reportPage(demo, params, size);
+      const html = scene.document;
+      const cells = (id: string) =>
+        [
+          ...(new RegExp(`id="${id}">(.*?)</div>`).exec(html)?.[1] ?? "").matchAll(
+            /<span>([^<]*)<\/span>/g,
+          ),
+        ].map((m) => m[1]);
+      const rows = [...html.matchAll(/id="rp-row-(\d+)"/g)].map((m) => cells(`rp-row-${m[1]}`));
+      return {
+        title: /id="rp-work-title">([^<]*)</.exec(html)?.[1] ?? null,
+        head: cells("rp-row-head"),
+        rows,
+        scene,
+      };
+    };
+    const five = { ...DEFAULT_DEMO_RECORD, lists: [grade(5)] };
+    // The record's own rows under its bars, in its own columns (at most four), each row arriving after the last bar.
+    const shown = working(five);
+    expect(shown.title).toBe("How the grade was reached");
+    expect(shown.head).toEqual(["Dimension", "Score", "Weight", "Points"]);
+    expect(shown.rows).toEqual(grade(5).rows.map((row) => row.slice(0, 4)));
+    const beats = shown.scene.scene.beats.map((beat) => beat.label);
+    expect(beats.indexOf("How the grade was reached is shown")).toBe(
+      beats.indexOf("The chart is drawn") + 1,
+    );
+    const lastBeat = shown.scene.scene.beats.at(-1)!;
+    expect(lastBeat.at).toBeLessThanOrEqual(5 - 0.8);
+    // None when it's turned off, when the bars are a person's own, or when the record has no grade list.
+    expect(working(five, { working: false }).rows).toEqual([]);
+    expect(working(five, { bars: ["Risk: 40", "Yield: 50"] }).rows).toEqual([]);
+    expect(working(DEFAULT_DEMO_RECORD).rows).toEqual([]);
+    // A page takes as many rows as it has room for, each at least 30 units high: five on a phone's page and on a
+    // landscape one, and of eight, more on a phone's than on the shorter landscape page.
+    const eight = { ...DEFAULT_DEMO_RECORD, lists: [grade(8)] };
+    expect(working(five, {}, [1920, 1080]).rows.length).toBe(5);
+    const wide = working(eight, {}, [1920, 1080]);
+    expect(working(eight).rows.length).toBeGreaterThan(wide.rows.length);
+    expect(wide.rows.length).toBeGreaterThanOrEqual(2);
+    for (const time of [0, 2.5, 5])
+      for (const [, , props] of wide.scene.scene.state(time).diff(new Map()))
+        for (const value of Object.values(props))
+          expect(value).not.toMatch(/NaN|undefined|Infinity/);
+  });
+
+  test("a client's file with no documents of its own lists the record's, and a record without any the illustrative three", () => {
+    const listed = (demo: DemoRecord, params: Record<string, unknown> = {}) => {
+      const document = buildScene({
+        spec: spec("client-file", params),
+        brand: { ...brand, demo },
+        width: 1080,
+        height: 1920,
+        fps: 30,
+        imageInfo: sizes,
+        imageUrl: () => "",
+        fontUrl: () => "",
+      }).document;
+      return [...document.matchAll(/id="fl-doc-\d+"><i><\/i>([^<]*)</g)].map((m) => m[1]);
+    };
+    const withDocuments: DemoRecord = {
+      ...DEFAULT_DEMO_RECORD,
+      lists: [
+        {
+          key: "documents",
+          label: "The matter's documents",
+          columns: ["Document", "From", "Status"],
+          rows: [
+            ["Contract of sale (draft)", "Other side", "Under review"],
+            ["", "Builder", "Accepted"],
+            ["Planning certificate", "Other side", "Requested"],
+          ],
+        },
+      ],
+    };
+    // The record's own papers by name, a row without one left out; a person's own list wins.
+    expect(listed(withDocuments)).toEqual(["Contract of sale (draft)", "Planning certificate"]);
+    expect(recordDocuments(withDocuments)).toEqual([
+      "Contract of sale (draft)",
+      "Planning certificate",
+    ]);
+    expect(listed(withDocuments, { documents: ["Deposit receipt.pdf"] })).toEqual([
+      "Deposit receipt.pdf",
+    ]);
+    expect(recordDocuments(DEFAULT_DEMO_RECORD)).toBeNull();
+    expect(listed(DEFAULT_DEMO_RECORD)).toEqual([
+      "Engagement letter.pdf",
+      "Project Aurora report.pdf",
+      "Signed approval.pdf",
+    ]);
   });
 
   test("settings a template can't take are refused, with which and why", () => {

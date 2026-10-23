@@ -906,6 +906,31 @@ await check("a cross leaves every frame of the edit in its place: none missing w
     throw new Error(`the joined picture has ${frames.length} of ${joined.lengthFrames} frames${misplaced >= 0 ? `, its frame ${misplaced} at ${frames[misplaced]}` : ""}`);
 });
 
+await check("slideup and slideleft draw only the picture: a cross's first frame is the first clip's own", async () => {
+  const { joinChain } = await import("./sequence.js");
+  const work = await mkdtemp(join(dir, "slides-"));
+  // Red then blue, 1080 wide as a reel is: each row of a plane has padding past the picture.
+  const clips = ["red", "blue"].map((colour, index) => join(work, `${index}-${colour}.mkv`));
+  for (const [index, colour] of ["red", "blue"].entries())
+    await ffmpeg(["-f", "lavfi", "-i", `color=c=${colour}:s=1080x96:r=30:d=1`, "-c:v", "ffv1", clips[index]]);
+  for (const transition of ["slideup", "slideleft", "slidedown", "slideright"]) {
+    const plan = {
+      fps: 30, width: 1080, height: 96,
+      clips: [{ durationFrames: 30 }, { durationFrames: 30, transitionFrames: 10, transitionType: transition }],
+    };
+    const joined = joinChain(plan, "v");
+    const { stdout } = await ffmpeg([
+      ...clips.flatMap((clip) => ["-i", clip]),
+      "-filter_complex", joined.lines.join(";"),
+      "-map", `[${joined.label}]`, "-fps_mode", "passthrough", "-f", "framemd5", "-",
+    ]);
+    // The cross starts at frame 20 with nothing yet moved: the first clip's picture, as at frame 19.
+    const md5 = stdout.split("\n").filter((line) => line && !line.startsWith("#")).map((line) => line.split(",").pop().trim());
+    if (md5.length !== joined.lengthFrames) throw new Error(`${transition}: ${md5.length} of ${joined.lengthFrames} frames`);
+    if (md5[20] !== md5[19]) throw new Error(`${transition}: the cross's first frame isn't the first clip's picture`);
+  }
+});
+
 await check("a render's reference made again is its final pass's picture, frame for frame", async () => {
   const { measureRender } = await import("./quality.js");
   const { parseLoudness } = await import("./sequence.js");
