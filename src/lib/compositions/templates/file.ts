@@ -6,7 +6,7 @@
  */
 import { z } from "zod";
 import { beatsAcross, groundHtml, pointerHtml, pointerState } from "../kit";
-import { demoValue } from "../demo";
+import { demoList, demoValue, type DemoRecord } from "../demo";
 import { CompositionState, escapeHtml, fade, lerp, px, span } from "../state";
 import { defineTemplate } from "../types";
 import { initialsOf, productShell } from "./product";
@@ -23,19 +23,35 @@ const schema = z.object({
       "Record: {{record.title}}",
       "Status: {{record.status}}",
     ]),
-  /** The documents, one a line. */
-  documents: z
-    .array(z.string().max(80))
-    .max(6)
-    .default(["Engagement letter.pdf", "{{record.title}} report.pdf", "Signed approval.pdf"]),
+  /** The documents, one a line. None: the demo record's `documents` list, so the file holds the record's own. */
+  documents: z.array(z.string().max(80)).max(6).default([]),
   open: z.boolean().default(true),
 });
 
 const TABS = ["Overview", "Documents", "Notes"];
 
+/** Documents for a record with no `documents` list: plainly illustrative. */
+const ILLUSTRATIVE_DOCUMENTS = [
+  "Engagement letter.pdf",
+  "{{record.title}} report.pdf",
+  "Signed approval.pdf",
+];
+
+/**
+ * The record's documents by name (each row's first column), so a client's
+ * file never lists papers the record doesn't hold: Aurixa's, for one, shows
+ * its contract and plans as the matter has them, not a signed approval.
+ */
+export function recordDocuments(demo: DemoRecord): string[] | null {
+  const names = (demoList(demo, "documents")?.rows ?? [])
+    .map((row) => row[0]?.trim() ?? "")
+    .filter(Boolean);
+  return names.length ? names.slice(0, 6) : null;
+}
+
 export const fileTemplate = defineTemplate({
   id: "client-file",
-  version: 1,
+  version: 2,
   title: "Client file",
   description:
     "A client's file from the demo record: who they are and the file's overview, then Documents is pressed and its files arrive.",
@@ -44,7 +60,12 @@ export const fileTemplate = defineTemplate({
   fields: [
     { key: "section", label: "Page title", kind: "text", max: 40 },
     { key: "overview", label: "Overview (Label: value, one a line)", kind: "lines", max: 6 },
-    { key: "documents", label: "Documents (one a line)", kind: "lines", max: 6 },
+    {
+      key: "documents",
+      label: "Documents (one a line; none: the demo record's documents)",
+      kind: "lines",
+      max: 6,
+    },
     { key: "open", label: "Open Documents", kind: "toggle" },
   ],
   duration: { default: 6, min: 3, max: 20 },
@@ -71,7 +92,13 @@ export const fileTemplate = defineTemplate({
           : null;
       })
       .filter((field): field is { label: string; value: string } => field !== null);
-    const documents = params.documents.map((doc) => fill(doc)).filter(Boolean);
+    const documents = (
+      params.documents.length
+        ? params.documents
+        : (recordDocuments(brand.demo) ?? ILLUSTRATIVE_DOCUMENTS)
+    )
+      .map((doc) => fill(doc))
+      .filter(Boolean);
     const headH = 130 * u;
     const tabsTop = headH + 20 * u;
     const tabW = 190 * u;
