@@ -1,0 +1,1466 @@
+{
+  "title": "Aurixa Reel 2: the AML/CTF Compliance Passport",
+  "plan": "docs/brands/aurixa-reel-2/PLAN.md",
+  "frame": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "voiceover": {
+    "file": "client-voiceover-2026-10-13.mp3 (the client's 'WhatsApp Audio 2026-10-13 at 19.15.15.mpeg'), 99.971 s, MP3 128 kbit/s mono 44.1 kHz, SHA-256 5c44653dcd986201a4bfd576c28e71351b01addfa483ba10fbe79623028faead",
+    "seconds": 99.971,
+    "studio": {
+      "asset": "fa540b53-8dd2-4312-97ec-bce2a5a48230",
+      "voiceover": "51736fd9-39bd-43cd-a109-07917bde4cd1",
+      "edit": "59ddc8b3-9cbd-43c4-97f9-fd473f89d8f9"
+    }
+  },
+  "paced": false,
+  "end": 99.971,
+  "shots": [
+    {
+      "id": "01.1",
+      "block": "01",
+      "block_title": "The messenger",
+      "kind": "graphic",
+      "palette": "before",
+      "title": "One property, six professionals, and the client in the middle",
+      "sources": ["G-SWITCHBOARD", "KIT listing card (P)"],
+      "camera": "Still; the frame is composed from its first frame (never faded in), and drifts in 3% across the shot.",
+      "result": "Six lit role chips round the property, the client in the middle, envelopes shuttling through them.",
+      "on_screen": [
+        "14 Wattle Grove, Banksia Rise NSW 2155",
+        "New build",
+        "Buyer's agent",
+        "Finance broker",
+        "Solicitor / conveyancer",
+        "Accountant",
+        "Builder",
+        "Developer",
+        "Jordan Ellis"
+      ],
+      "notes": "Six roles, as decided (the plan, decision 6). The client is initials on a chip: no face anywhere in the reel.",
+      "in": 0.0,
+      "out": 6.533,
+      "seconds": 6.533,
+      "voice_in": 0.0,
+      "voiceover": "One property, six property professionals, and somehow the client becomes the messenger.",
+      "beats": [
+        {
+          "at": 0.0,
+          "anchor": {
+            "in": 0.0
+          },
+          "do": "14 Wattle Grove's card (its photograph, address and New build) sits in the middle of today's paper desktop, ringed by six unlit role chips."
+        },
+        {
+          "at": 1.3,
+          "anchor": {
+            "word": "six",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "The six chips light in turn, about 0.18 s apart: Buyer's agent, Finance broker, Solicitor / conveyancer, Accountant, Builder, Developer."
+        },
+        {
+          "at": 4.633,
+          "anchor": {
+            "word": "client",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "Jordan Ellis's chip (JE, the client) drops into the middle, below the card, and every chip's line now runs through it."
+        },
+        {
+          "at": 5.667,
+          "anchor": {
+            "word": "messenger",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "Envelopes start shuttling along the lines, each one from a professional to the client and on to another."
+        }
+      ]
+    },
+    {
+      "id": "01.2",
+      "block": "01",
+      "block_title": "The messenger",
+      "kind": "graphic",
+      "palette": "before",
+      "title": "Sound familiar?",
+      "sources": ["G-SWITCHBOARD"],
+      "camera": "A slow push towards the client's chip.",
+      "result": "The switchboard frozen, the client's chip pulsing.",
+      "on_screen": ["Jordan Ellis"],
+      "notes": "",
+      "in": 6.533,
+      "out": 7.867,
+      "seconds": 1.334,
+      "voice_in": 6.533,
+      "voiceover": "Sound familiar?",
+      "beats": [
+        {
+          "at": 6.533,
+          "anchor": {
+            "in": 0.0
+          },
+          "do": "Everything freezes mid-flight: the envelopes stop where they are."
+        },
+        {
+          "at": 7.033,
+          "anchor": {
+            "word": "familiar",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "The client's chip pulses once, a ring going out from it."
+        }
+      ]
+    },
+    {
+      "id": "02.1",
+      "block": "02",
+      "block_title": "The requests",
+      "kind": "graphic",
+      "palette": "before",
+      "title": "The perfect property is found, and the requests begin",
+      "sources": ["G-PILE", "KIT listing card (P)", "NEW-INBOX"],
+      "camera": "The property card lifts towards the top of the frame; the inbox rises under it.",
+      "result": "The property found, and an inbox filling with requests to the client.",
+      "on_screen": [
+        "Found",
+        "Certified copy of your ID",
+        "Proof of residential address",
+        "Bank statements (last 3 months)",
+        "Please verify your identity again",
+        "Which entity is buying?"
+      ],
+      "notes": "The inbox is today's unbranded tools, never Aurixa's.",
+      "in": 7.867,
+      "out": 12.2,
+      "seconds": 4.333,
+      "voice_in": 7.867,
+      "voiceover": "The perfect property is found, but the requests keep coming.",
+      "beats": [
+        {
+          "at": 7.867,
+          "anchor": {
+            "in": 0.0
+          },
+          "do": "The switchboard falls away; the property card rises to the top of the frame."
+        },
+        {
+          "at": 9.367,
+          "anchor": {
+            "word": "found",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "A green Found tick stamps onto the card."
+        },
+        {
+          "at": 10.233,
+          "anchor": {
+            "word": "requests",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "An unbranded inbox slides up under it and requests start landing, one after another, each from a different professional."
+        },
+        {
+          "at": 11.433,
+          "anchor": {
+            "word": "coming",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "They keep coming; the unread count climbs."
+        }
+      ]
+    },
+    {
+      "id": "02.2",
+      "block": "02",
+      "block_title": "The requests",
+      "kind": "graphic",
+      "palette": "before",
+      "title": "Another identity check, another document, another explanation",
+      "sources": ["G-PILE"],
+      "camera": "Still; each card lands on the pile.",
+      "result": "Three more requests on top of the pile.",
+      "on_screen": [
+        "Verify your identity",
+        "Upload: bank statements",
+        "Can you explain the transfer on 2 October?"
+      ],
+      "notes": "A generic identity page with no document pictured.",
+      "in": 12.2,
+      "out": 16.833,
+      "seconds": 4.633,
+      "voice_in": 12.2,
+      "voiceover": "Another identity check, another document, another explanation.",
+      "beats": [
+        {
+          "at": 12.333,
+          "anchor": {
+            "word": "another",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "A generic Verify your identity page lands on the pile."
+        },
+        {
+          "at": 13.967,
+          "anchor": {
+            "word": "another",
+            "n": 1,
+            "d": 0.0
+          },
+          "do": "An Upload: bank statements request lands on top of it."
+        },
+        {
+          "at": 15.433,
+          "anchor": {
+            "word": "another",
+            "n": 2,
+            "d": 0.0
+          },
+          "do": "A message lands: Can you explain the transfer on 2 October?, with typing dots under it."
+        }
+      ]
+    },
+    {
+      "id": "02.3",
+      "block": "02",
+      "block_title": "The requests",
+      "kind": "graphic",
+      "palette": "before",
+      "title": "Suddenly, progress feels like paperwork",
+      "sources": ["G-PILE"],
+      "camera": "A slow pull back; the pile now covers the property.",
+      "result": "The pile over the property, its progress bar stalled, the frame gone cool.",
+      "on_screen": ["Purchase progress"],
+      "notes": "Holds before the brand's drop.",
+      "in": 16.833,
+      "out": 20.2,
+      "seconds": 3.367,
+      "voice_in": 16.833,
+      "voiceover": "Suddenly, progress feels like paperwork.",
+      "beats": [
+        {
+          "at": 17.267,
+          "anchor": {
+            "word": "suddenly",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "The pile spreads over the property; a Purchase progress bar appears under it and creeps."
+        },
+        {
+          "at": 19.133,
+          "anchor": {
+            "word": "paperwork",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "The bar stalls; the frame cools and holds."
+        }
+      ]
+    },
+    {
+      "id": "03.1",
+      "block": "03",
+      "block_title": "One connected system",
+      "kind": "logo",
+      "palette": "aurixa",
+      "title": "Aurixa Systems changes the experience",
+      "sources": ["Reel 1 logo take A (the A reveal)", "logo-clean", "logo-letters"],
+      "camera": "The logo's own footage, full frame.",
+      "result": "The Aurixa Systems logo, its lettering exact.",
+      "on_screen": ["AURIXA SYSTEMS"],
+      "notes": "Reel 1's footage, reused as decided. The lettering is the art's own, laid over the footage by Systems.",
+      "in": 20.2,
+      "out": 23.733,
+      "seconds": 3.533,
+      "voice_in": 20.2,
+      "voiceover": "That's where Aurixa Systems changes the experience.",
+      "beats": [
+        {
+          "at": 20.2,
+          "anchor": {
+            "in": 0.0
+          },
+          "do": "On the music's first drop a sweep of light lifts the pile away and the ground turns navy; the A rises out of the light."
+        },
+        {
+          "at": 21.533,
+          "anchor": {
+            "word": "systems",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "The lettering is exact: the art's own wordmark takes over from the footage."
+        },
+        {
+          "at": 22.733,
+          "anchor": {
+            "word": "experience",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "The logo settles and glows."
+        }
+      ]
+    },
+    {
+      "id": "03.2",
+      "block": "03",
+      "block_title": "One connected system",
+      "kind": "screen",
+      "palette": "aurixa",
+      "title": "Built by property professionals, for property professionals",
+      "sources": ["G-WINDOW", "Command Centre (Alex Morgan)"],
+      "camera": "The logo rises to the top; the Command Centre's glass window draws below it.",
+      "result": "The Command Centre, its sidebar filled.",
+      "on_screen": ["AURIXA SYSTEMS", "COMMAND CENTRE", "Demo workspace"],
+      "notes": "Every screen carries its Demo workspace label.",
+      "in": 23.733,
+      "out": 27.5,
+      "seconds": 3.767,
+      "voice_in": 23.733,
+      "voiceover": "Built by property professionals for property professionals,",
+      "beats": [
+        {
+          "at": 23.733,
+          "anchor": {
+            "in": 0.0
+          },
+          "do": "The logo lifts to the top of the frame as a lockup."
+        },
+        {
+          "at": 24.967,
+          "anchor": {
+            "word": "professionals",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "The Command Centre's glass window draws in below it, its Demo workspace label in the top bar."
+        },
+        {
+          "at": 25.833,
+          "anchor": {
+            "word": "for",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "Its sidebar fills, group by group."
+        }
+      ]
+    },
+    {
+      "id": "03.3",
+      "block": "03",
+      "block_title": "One connected system",
+      "kind": "screen",
+      "palette": "aurixa",
+      "title": "Property intelligence, financial analysis, reporting, client management, communication and more",
+      "sources": ["G-TILES", "G-WINDOW"],
+      "camera": "The window recedes; the tiles come forward one at a time, each on its word.",
+      "result": "Every part of the platform docked into the Command Centre's navigation.",
+      "on_screen": [
+        "Property intelligence",
+        "Financial analysis",
+        "Reporting",
+        "Client management",
+        "Communication",
+        "Builders Network",
+        "Market News",
+        "Borrowing Capacity",
+        "Commercial & Industrial",
+        "AML/CTF Compliance"
+      ],
+      "notes": "The grade and the cash flow on the tiles are the demo's own, marked illustrative.",
+      "in": 27.5,
+      "out": 38.0,
+      "seconds": 10.5,
+      "voice_in": 27.5,
+      "voiceover": "Aurixa brings property intelligence, financial analysis, reporting, client management, communication and more into one connected operating environment.",
+      "beats": [
+        {
+          "at": 29.133,
+          "anchor": {
+            "word": "intelligence",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "A property intelligence tile arrives: 14 Wattle Grove's record card, its grade A+ 84 and STRONG BUY (illustrative)."
+        },
+        {
+          "at": 29.933,
+          "anchor": {
+            "word": "financial",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "A financial analysis tile: the ten-year cash flow."
+        },
+        {
+          "at": 31.4,
+          "anchor": {
+            "word": "reporting",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "A reporting tile: the client's report page."
+        },
+        {
+          "at": 32.233,
+          "anchor": {
+            "word": "client",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "A client management tile: Jordan Ellis's client file."
+        },
+        {
+          "at": 33.433,
+          "anchor": {
+            "word": "communication",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "A communication tile: the Message Hub."
+        },
+        {
+          "at": 34.733,
+          "anchor": {
+            "word": "more",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "And more: Builders Network, Market News, Borrowing Capacity, Commercial & Industrial and AML/CTF Compliance fan out."
+        },
+        {
+          "at": 35.833,
+          "anchor": {
+            "word": "connected",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "Every tile docks into the Command Centre's sidebar as its own entry."
+        }
+      ]
+    },
+    {
+      "id": "03.4",
+      "block": "03",
+      "block_title": "One connected system",
+      "kind": "screen",
+      "palette": "aurixa",
+      "title": "And here's where it gets exciting",
+      "sources": ["G-WINDOW", "G-POINTER", "G-FOCUS"],
+      "camera": "The camera runs down the sidebar to AML/CTF Compliance.",
+      "result": "AML/CTF Compliance pressed; the frame dims.",
+      "on_screen": ["AML/CTF COMPLIANCE", "AML/CTF Compliance"],
+      "notes": "",
+      "in": 38.0,
+      "out": 40.067,
+      "seconds": 2.067,
+      "voice_in": 38.0,
+      "voiceover": "And here's where it gets exciting.",
+      "beats": [
+        {
+          "at": 38.0,
+          "anchor": {
+            "in": 0.0
+          },
+          "do": "The camera runs down the sidebar to the AML/CTF COMPLIANCE group."
+        },
+        {
+          "at": 39.133,
+          "anchor": {
+            "word": "exciting",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "The pointer presses AML/CTF Compliance (its cyan ring); the frame dims under a riser."
+        }
+      ]
+    },
+    {
+      "id": "04.1",
+      "block": "04",
+      "block_title": "The Passport",
+      "kind": "graphic",
+      "palette": "aurixa",
+      "title": "Introducing the Aurixa AML/CTF Compliance Passport",
+      "sources": ["G-PASSPORT (the product's own cover)"],
+      "camera": "The Passport rises in depth, turning to face the camera.",
+      "result": "The Passport, closed, face-on.",
+      "on_screen": ["AURIXA", "SYSTEMS", "AML/CTF COMPLIANCE PASSPORT", "Jordan Ellis"],
+      "notes": "Drawn by the product's own PassportBook from Jordan Ellis's fictional case.",
+      "in": 40.067,
+      "out": 44.6,
+      "seconds": 4.533,
+      "voice_in": 40.067,
+      "voiceover": "Introducing the Aurixa AML/CTF Compliance Passport.",
+      "beats": [
+        {
+          "at": 40.233,
+          "anchor": {
+            "word": "introducing",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "On the second drop the Passport rises out of the dark, turned away, and turns towards the camera."
+        },
+        {
+          "at": 43.033,
+          "anchor": {
+            "word": "compliance",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "A sweep of light crosses its cover."
+        },
+        {
+          "at": 43.767,
+          "anchor": {
+            "word": "passport",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "It settles face-on and holds."
+        }
+      ]
+    },
+    {
+      "id": "04.2",
+      "block": "04",
+      "block_title": "The Passport",
+      "kind": "graphic",
+      "palette": "aurixa",
+      "title": "One digital passport, one organised client record",
+      "sources": ["G-PASSPORT"],
+      "camera": "A slow push in as it opens.",
+      "result": "The Passport open at Client Identity.",
+      "on_screen": ["CLIENT IDENTITY", "Jordan Ellis", "AML-2026-0014", "AUX-AML-2026-0014-V1"],
+      "notes": "Framed above the leaf's banner.",
+      "in": 44.6,
+      "out": 48.3,
+      "seconds": 3.7,
+      "voice_in": 44.6,
+      "voiceover": "One digital passport, one organised client record,",
+      "beats": [
+        {
+          "at": 45.033,
+          "anchor": {
+            "word": "digital",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "The clasp releases."
+        },
+        {
+          "at": 46.8,
+          "anchor": {
+            "word": "organised",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "The cover opens to leaf I, Client Identity."
+        }
+      ]
+    },
+    {
+      "id": "04.3",
+      "block": "04",
+      "block_title": "The Passport",
+      "kind": "graphic",
+      "palette": "aurixa",
+      "title": "Identity verification, screening and due diligence, all in one place",
+      "sources": ["G-PASSPORT", "G-STAMP"],
+      "camera": "Still; the pages turn.",
+      "result": "The Certification Seals leaf, its earned seals struck.",
+      "on_screen": [
+        "IDENTITY VERIFICATION",
+        "SCREENING",
+        "FUNDING & DUE DILIGENCE",
+        "CERTIFICATION SEALS"
+      ],
+      "notes": "The seals are the product's own, struck on their leaf where they were earned, never on another page.",
+      "in": 48.3,
+      "out": 53.9,
+      "seconds": 5.6,
+      "voice_in": 48.3,
+      "voiceover": "identity verification, screening and due diligence, all in one place.",
+      "beats": [
+        {
+          "at": 48.633,
+          "anchor": {
+            "word": "identity",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "The page turns to Identity Verification."
+        },
+        {
+          "at": 50.233,
+          "anchor": {
+            "word": "screening",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "It turns to Screening."
+        },
+        {
+          "at": 51.433,
+          "anchor": {
+            "word": "diligence",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "It turns to Funding & Due Diligence."
+        },
+        {
+          "at": 52.233,
+          "anchor": {
+            "word": "all",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "The leaves riffle to Certification Seals and the seals strike in one after another."
+        }
+      ]
+    },
+    {
+      "id": "05.1",
+      "block": "05",
+      "block_title": "Shared, with consent",
+      "kind": "screen",
+      "palette": "aurixa",
+      "title": "With appropriate consent",
+      "sources": ["Client Portal (Jordan Ellis)", "G-POINTER", "G-STAMP"],
+      "camera": "The Client Portal's consent step, close.",
+      "result": "The client's consent recorded.",
+      "on_screen": [
+        "Identity & Compliance",
+        "Consents and disclosures",
+        "Sharing your completed verification with partner organisations",
+        "I have read this and I consent.",
+        "I confirm",
+        "CLIENT CONSENT RECORDED"
+      ],
+      "notes": "",
+      "in": 53.9,
+      "out": 56.533,
+      "seconds": 2.633,
+      "voice_in": 53.9,
+      "voiceover": "With appropriate consent and controlled access,",
+      "beats": [
+        {
+          "at": 53.9,
+          "anchor": {
+            "in": 0.0
+          },
+          "do": "The Client Portal's Identity & Compliance page, at its consents."
+        },
+        {
+          "at": 54.8,
+          "anchor": {
+            "word": "consent",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "The sharing consent is ticked and I confirm is pressed; CLIENT CONSENT RECORDED strikes beside it."
+        },
+        {
+          "at": 55.433,
+          "anchor": {
+            "word": "controlled",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "The page recedes."
+        }
+      ]
+    },
+    {
+      "id": "05.2",
+      "block": "05",
+      "block_title": "Shared, with consent",
+      "kind": "screen",
+      "palette": "aurixa",
+      "title": "Authorised partners open it in a few clicks",
+      "sources": [
+        "Command Centre: Stage 9, Passport & Partners",
+        "Solicitor Portal (Priya Shah)",
+        "G-PASSPORT",
+        "G-STAMP",
+        "G-POINTER"
+      ],
+      "camera": "The partners on the matter; then the solicitor's own portal.",
+      "result": "The same Passport, open in Shah Legal's portal.",
+      "on_screen": [
+        "Passport & Partners",
+        "Partners on this matter",
+        "Shah Legal",
+        "Harbour Finance Group",
+        "Patel & Co Accountants",
+        "Send the Passport",
+        "SOLICITOR PASSPORT SHARED",
+        "SOLICITOR PORTAL",
+        "AML/CTF Compliance",
+        "Jordan Ellis"
+      ],
+      "notes": "The send is cut on the press: no email address is shown anywhere.",
+      "in": 56.533,
+      "out": 62.933,
+      "seconds": 6.4,
+      "voice_in": 56.533,
+      "voiceover": "authorised property partners can securely access the client's Compliance Passport in just a few clicks,",
+      "beats": [
+        {
+          "at": 56.533,
+          "anchor": {
+            "in": 0.0
+          },
+          "do": "Stage 9, Passport & Partners: the three partners on Jordan Ellis's matter."
+        },
+        {
+          "at": 57.833,
+          "anchor": {
+            "word": "partners",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "The pointer comes to Send the Passport on Shah Legal's row."
+        },
+        {
+          "at": 58.467,
+          "anchor": {
+            "word": "securely",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "It presses; SOLICITOR PASSPORT SHARED strikes."
+        },
+        {
+          "at": 60.733,
+          "anchor": {
+            "word": "passport",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "Cut to Priya Shah's Solicitor Portal."
+        },
+        {
+          "at": 62.0,
+          "anchor": {
+            "word": "few",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "Click one: AML/CTF Compliance."
+        },
+        {
+          "at": 62.233,
+          "anchor": {
+            "word": "clicks",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "Click two: Jordan Ellis's matter, and the same Passport opens."
+        }
+      ]
+    },
+    {
+      "id": "05.3",
+      "block": "05",
+      "block_title": "Shared, with consent",
+      "kind": "graphic",
+      "palette": "aurixa",
+      "title": "Supporting legislative compliance, without the duplication",
+      "sources": ["G-PASSPORT", "G-SWITCHBOARD"],
+      "camera": "A pull back from the open Passport.",
+      "result": "One Passport, three partners' portals, the responsibility line.",
+      "on_screen": [
+        "SOLICITOR PORTAL",
+        "FINANCE PORTAL",
+        "ACCOUNTANT PORTAL",
+        "Your business remains responsible for its AML/CTF obligations."
+      ],
+      "notes": "The responsibility line, as decided, at least 22 px and on screen for 3 s or more.",
+      "in": 62.933,
+      "out": 67.767,
+      "seconds": 4.834,
+      "voice_in": 62.933,
+      "voiceover": "supporting legislative compliance while eliminating unnecessary duplication.",
+      "beats": [
+        {
+          "at": 62.933,
+          "anchor": {
+            "in": 0.0
+          },
+          "do": "The camera pulls back; gold lines run from the Passport to the three partners' portals."
+        },
+        {
+          "at": 65.033,
+          "anchor": {
+            "word": "eliminating",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "Ghosts of the earlier requests drift in and fold into the Passport."
+        },
+        {
+          "at": 66.567,
+          "anchor": {
+            "word": "duplication",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "The responsibility line comes up under it and holds."
+        }
+      ]
+    },
+    {
+      "id": "06.1",
+      "block": "06",
+      "block_title": "The result",
+      "kind": "graphic",
+      "palette": "aurixa",
+      "title": "The result?",
+      "sources": ["G-PASSPORT"],
+      "camera": "Still.",
+      "result": "The Passport alone, closed.",
+      "on_screen": [],
+      "notes": "The music's breakdown.",
+      "in": 67.767,
+      "out": 68.767,
+      "seconds": 1.0,
+      "voice_in": 67.767,
+      "voiceover": "The result?",
+      "beats": [
+        {
+          "at": 67.767,
+          "anchor": {
+            "in": 0.0
+          },
+          "do": "Everything else falls away: the Passport alone on the navy, closed."
+        }
+      ]
+    },
+    {
+      "id": "06.2",
+      "block": "06",
+      "block_title": "The result",
+      "kind": "graphic",
+      "palette": "aurixa",
+      "title": "Less paperwork, less repetition, better-connected professionals",
+      "sources": ["G-SWITCHBOARD", "the site's Instead of / Aurixa creates chains"],
+      "camera": "Still, with a slow drift.",
+      "result": "The six professionals connected through the Passport; the client calm.",
+      "on_screen": [
+        "Instead of",
+        "Aurixa creates",
+        "Invite",
+        "Verify",
+        "Review",
+        "Approve",
+        "Passport",
+        "Connect",
+        "Progress"
+      ],
+      "notes": "The chains are the website's own words.",
+      "in": 68.767,
+      "out": 79.0,
+      "seconds": 10.233,
+      "voice_in": 68.767,
+      "voiceover": "Less paperwork, less repetition, better-connected professionals and a smoother property journey, without clients constantly providing the same information.",
+      "beats": [
+        {
+          "at": 69.267,
+          "anchor": {
+            "word": "paperwork",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "The Instead of chain (the requests) comes up and starts to fall away."
+        },
+        {
+          "at": 70.4,
+          "anchor": {
+            "word": "repetition",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "It is gone."
+        },
+        {
+          "at": 71.567,
+          "anchor": {
+            "word": "better",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "The six chips return, each wired to the Passport rather than to the client."
+        },
+        {
+          "at": 73.833,
+          "anchor": {
+            "word": "smoother",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "The Aurixa creates chain lights, step by step: Invite, Verify, Review, Approve, Passport, Connect, Progress."
+        },
+        {
+          "at": 75.367,
+          "anchor": {
+            "word": "without",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "The client's chip, calm, beside the Passport."
+        }
+      ]
+    },
+    {
+      "id": "07.1",
+      "block": "07",
+      "block_title": "One part of Aurixa",
+      "kind": "screen",
+      "palette": "aurixa",
+      "title": "And that's just one part of Aurixa Systems",
+      "sources": ["G-TILES", "G-WINDOW"],
+      "camera": "The Passport flies back into its tile; a pull back to the Command Centre.",
+      "result": "The Command Centre, its parts around it.",
+      "on_screen": ["AML/CTF Compliance", "Demo workspace"],
+      "notes": "",
+      "in": 79.0,
+      "out": 81.533,
+      "seconds": 2.533,
+      "voice_in": 79.0,
+      "voiceover": "And that's just one part of Aurixa Systems.",
+      "beats": [
+        {
+          "at": 79.0,
+          "anchor": {
+            "in": 0.0
+          },
+          "do": "The Passport flies back into its AML/CTF Compliance tile."
+        },
+        {
+          "at": 80.0,
+          "anchor": {
+            "word": "part",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "The camera pulls back to the whole Command Centre and its parts."
+        }
+      ]
+    },
+    {
+      "id": "07.2",
+      "block": "07",
+      "block_title": "One part of Aurixa",
+      "kind": "graphic",
+      "palette": "aurixa",
+      "title": "Experience it yourself with a 14-day free trial",
+      "sources": ["G-CTA", "Reel 1 logo take B1", "G-POINTER"],
+      "camera": "Still, but alive.",
+      "result": "The trial pressed; the portals lighting.",
+      "on_screen": ["AURIXA SYSTEMS", "14-DAY FREE TRIAL", "START YOUR FREE TRIAL"],
+      "notes": "",
+      "in": 81.533,
+      "out": 88.633,
+      "seconds": 7.1,
+      "voice_in": 81.533,
+      "voiceover": "Experience it yourself with a 14-day free trial, and discover what a truly connected business can achieve.",
+      "beats": [
+        {
+          "at": 81.533,
+          "anchor": {
+            "in": 0.0
+          },
+          "do": "The living call to action: the logo, 14-DAY FREE TRIAL and START YOUR FREE TRIAL."
+        },
+        {
+          "at": 83.433,
+          "anchor": {
+            "word": "14day",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "The pointer presses START YOUR FREE TRIAL."
+        },
+        {
+          "at": 85.267,
+          "anchor": {
+            "word": "discover",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "The portals light one at a time around it."
+        }
+      ]
+    },
+    {
+      "id": "08.1",
+      "block": "08",
+      "block_title": "Your decision",
+      "kind": "graphic",
+      "palette": "aurixa",
+      "title": "Fourteen days. Your business. Your experience. Your decision.",
+      "sources": ["G-WALL"],
+      "camera": "The wall of the film's own screens drifts, dimmed.",
+      "result": "Your decision.",
+      "on_screen": ["Fourteen days.", "Your business.", "Your experience.", "Your decision."],
+      "notes": "No captions over the four statements: they are the type.",
+      "in": 88.633,
+      "out": 93.4,
+      "seconds": 4.767,
+      "voice_in": 88.633,
+      "voiceover": "Fourteen days. Your business. Your experience. Your decision.",
+      "beats": [
+        {
+          "at": 88.8,
+          "anchor": {
+            "word": "14",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "Fourteen days."
+        },
+        {
+          "at": 90.067,
+          "anchor": {
+            "word": "your",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "Your business."
+        },
+        {
+          "at": 91.1,
+          "anchor": {
+            "word": "your",
+            "n": 1,
+            "d": 0.0
+          },
+          "do": "Your experience."
+        },
+        {
+          "at": 92.367,
+          "anchor": {
+            "word": "your",
+            "n": 2,
+            "d": 0.0
+          },
+          "do": "Your decision."
+        }
+      ]
+    },
+    {
+      "id": "09.1",
+      "block": "09",
+      "block_title": "The closing card",
+      "kind": "graphic",
+      "palette": "aurixa",
+      "title": "Aurixa Systems, and the trial: the last word",
+      "sources": ["PL-15A", "G-CTA", "G-POINTER"],
+      "camera": "Still, but alive: the card's own light moves on the music's bars.",
+      "result": "The closing card, pressed on the last downbeat, held through the ring of the music.",
+      "on_screen": [
+        "AURIXA SYSTEMS",
+        "The operating system for modern property professionals.",
+        "14-DAY FREE TRIAL",
+        "START YOUR FREE TRIAL",
+        "aurixasystems.com.au"
+      ],
+      "notes": "Reel 1's closing card, the series' signature. No captions over it.",
+      "in": 93.4,
+      "out": 99.967,
+      "seconds": 6.567,
+      "voice_in": 93.4,
+      "voiceover": "Aurixa Systems. The operating system for modern property professionals. Start your free trial today.",
+      "beats": [
+        {
+          "at": 93.4,
+          "anchor": {
+            "in": 0.0
+          },
+          "do": "On the music's return the closing card slams in: a flash, the logo landing with its shock ring, the card's gold lines drawing out."
+        },
+        {
+          "at": 95.133,
+          "anchor": {
+            "word": "operating",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "Light runs round the card's edge; the line shimmers."
+        },
+        {
+          "at": 98.3,
+          "anchor": {
+            "word": "start",
+            "n": 0,
+            "d": 0.0
+          },
+          "do": "As Start your free trial today is said, the pointer arrives and the button rises under it."
+        },
+        {
+          "at": 99.933,
+          "anchor": {
+            "word": "today",
+            "n": 0,
+            "d": 0.6
+          },
+          "do": "The press: a burst from the button, a ring across the card; then everything holds."
+        }
+      ]
+    }
+  ],
+  "captions": [
+    {
+      "text": "One property,",
+      "emphasis": "One property,",
+      "start": 0.0,
+      "end": 0.968,
+      "voice_start": 0.0,
+      "voice_end": 0.968
+    },
+    {
+      "text": "six property professionals,",
+      "emphasis": "six",
+      "start": 1.302,
+      "end": 3.042,
+      "voice_start": 1.302,
+      "voice_end": 3.042
+    },
+    {
+      "text": "and somehow the client becomes the messenger.",
+      "emphasis": "the messenger.",
+      "start": 3.497,
+      "end": 6.294,
+      "voice_start": 3.497,
+      "voice_end": 6.294
+    },
+    {
+      "text": "Sound familiar?",
+      "emphasis": "familiar?",
+      "start": 6.691,
+      "end": 7.482,
+      "voice_start": 6.691,
+      "voice_end": 7.482
+    },
+    {
+      "text": "The perfect property is found,",
+      "emphasis": "perfect property",
+      "start": 8.03,
+      "end": 9.92,
+      "voice_start": 8.03,
+      "voice_end": 9.92
+    },
+    {
+      "text": "but the requests keep coming.",
+      "emphasis": "keep coming.",
+      "start": 9.92,
+      "end": 12.32,
+      "voice_start": 9.92,
+      "voice_end": 12.32
+    },
+    {
+      "text": "Another identity check,",
+      "emphasis": "identity check,",
+      "start": 12.32,
+      "end": 13.749,
+      "voice_start": 12.32,
+      "voice_end": 13.749
+    },
+    {
+      "text": "another document,",
+      "emphasis": "document,",
+      "start": 13.954,
+      "end": 15.44,
+      "voice_start": 13.954,
+      "voice_end": 15.44
+    },
+    {
+      "text": "another explanation.",
+      "emphasis": "explanation.",
+      "start": 15.44,
+      "end": 16.791,
+      "voice_start": 15.44,
+      "voice_end": 16.791
+    },
+    {
+      "text": "Suddenly, progress feels like paperwork.",
+      "emphasis": "paperwork.",
+      "start": 17.28,
+      "end": 19.88,
+      "voice_start": 17.28,
+      "voice_end": 19.88
+    },
+    {
+      "text": "That's where Aurixa Systems",
+      "emphasis": "Aurixa Systems",
+      "start": 20.372,
+      "end": 22.0,
+      "voice_start": 20.372,
+      "voice_end": 22.0
+    },
+    {
+      "text": "changes the experience.",
+      "emphasis": "the experience.",
+      "start": 22.0,
+      "end": 23.409,
+      "voice_start": 22.0,
+      "voice_end": 23.409
+    },
+    {
+      "text": "Built by property professionals",
+      "emphasis": "property professionals",
+      "start": 23.886,
+      "end": 25.68,
+      "voice_start": 23.886,
+      "voice_end": 25.68
+    },
+    {
+      "text": "for property professionals,",
+      "emphasis": "property professionals,",
+      "start": 25.84,
+      "end": 27.6,
+      "voice_start": 25.84,
+      "voice_end": 27.6
+    },
+    {
+      "text": "Aurixa brings property intelligence,",
+      "emphasis": "property intelligence,",
+      "start": 27.6,
+      "end": 29.92,
+      "voice_start": 27.6,
+      "voice_end": 29.92
+    },
+    {
+      "text": "financial analysis, reporting,",
+      "emphasis": "financial analysis,",
+      "start": 29.92,
+      "end": 32.24,
+      "voice_start": 29.92,
+      "voice_end": 32.24
+    },
+    {
+      "text": "client management, communication and more",
+      "emphasis": "communication",
+      "start": 32.24,
+      "end": 34.96,
+      "voice_start": 32.24,
+      "voice_end": 34.96
+    },
+    {
+      "text": "into one connected operating environment.",
+      "emphasis": "one connected",
+      "start": 35.2,
+      "end": 37.673,
+      "voice_start": 35.2,
+      "voice_end": 37.673
+    },
+    {
+      "text": "And here's where it gets exciting.",
+      "emphasis": "exciting.",
+      "start": 38.174,
+      "end": 39.714,
+      "voice_start": 38.174,
+      "voice_end": 39.714
+    },
+    {
+      "text": "Introducing the Aurixa AML/CTF Compliance Passport.",
+      "emphasis": "Compliance Passport.",
+      "start": 40.223,
+      "end": 44.222,
+      "voice_start": 40.223,
+      "voice_end": 44.222
+    },
+    {
+      "text": "One digital passport,",
+      "emphasis": "One digital passport,",
+      "start": 44.757,
+      "end": 46.094,
+      "voice_start": 44.757,
+      "voice_end": 46.094
+    },
+    {
+      "text": "one organised client record,",
+      "emphasis": "organised client record,",
+      "start": 46.392,
+      "end": 48.253,
+      "voice_start": 46.392,
+      "voice_end": 48.253
+    },
+    {
+      "text": "identity verification,",
+      "emphasis": "identity verification,",
+      "start": 48.64,
+      "end": 50.24,
+      "voice_start": 48.64,
+      "voice_end": 50.24
+    },
+    {
+      "text": "screening and due diligence,",
+      "emphasis": "due diligence,",
+      "start": 50.24,
+      "end": 52.0,
+      "voice_start": 50.24,
+      "voice_end": 52.0
+    },
+    {
+      "text": "all in one place.",
+      "emphasis": "one place.",
+      "start": 52.238,
+      "end": 53.546,
+      "voice_start": 52.238,
+      "voice_end": 53.546
+    },
+    {
+      "text": "With appropriate consent",
+      "emphasis": "consent",
+      "start": 54.063,
+      "end": 55.2,
+      "voice_start": 54.063,
+      "voice_end": 55.2
+    },
+    {
+      "text": "and controlled access,",
+      "emphasis": "controlled access,",
+      "start": 55.2,
+      "end": 56.589,
+      "voice_start": 55.2,
+      "voice_end": 56.589
+    },
+    {
+      "text": "authorised property partners",
+      "emphasis": "property partners",
+      "start": 56.64,
+      "end": 58.32,
+      "voice_start": 56.64,
+      "voice_end": 58.32
+    },
+    {
+      "text": "can securely access the client's Compliance Passport",
+      "emphasis": "Compliance Passport",
+      "start": 58.32,
+      "end": 61.36,
+      "voice_start": 58.32,
+      "voice_end": 61.36
+    },
+    {
+      "text": "in just a few clicks,",
+      "emphasis": "a few clicks,",
+      "start": 61.36,
+      "end": 63.04,
+      "voice_start": 61.36,
+      "voice_end": 63.04
+    },
+    {
+      "text": "supporting legislative compliance",
+      "emphasis": "supporting",
+      "start": 63.04,
+      "end": 64.8,
+      "voice_start": 63.04,
+      "voice_end": 64.8
+    },
+    {
+      "text": "while eliminating unnecessary duplication.",
+      "emphasis": "unnecessary duplication.",
+      "start": 64.8,
+      "end": 67.376,
+      "voice_start": 64.8,
+      "voice_end": 67.376
+    },
+    {
+      "text": "The result?",
+      "emphasis": "result?",
+      "start": 67.927,
+      "end": 68.531,
+      "voice_start": 67.927,
+      "voice_end": 68.531
+    },
+    {
+      "text": "Less paperwork,",
+      "emphasis": "paperwork,",
+      "start": 68.944,
+      "end": 69.939,
+      "voice_start": 68.944,
+      "voice_end": 69.939
+    },
+    {
+      "text": "less repetition,",
+      "emphasis": "repetition,",
+      "start": 70.137,
+      "end": 71.341,
+      "voice_start": 70.137,
+      "voice_end": 71.341
+    },
+    {
+      "text": "better-connected professionals",
+      "emphasis": "better-connected",
+      "start": 71.567,
+      "end": 73.52,
+      "voice_start": 71.567,
+      "voice_end": 73.52
+    },
+    {
+      "text": "and a smoother property journey,",
+      "emphasis": "smoother",
+      "start": 73.52,
+      "end": 75.121,
+      "voice_start": 73.52,
+      "voice_end": 75.121
+    },
+    {
+      "text": "without clients constantly providing the same information.",
+      "emphasis": "the same information.",
+      "start": 75.36,
+      "end": 78.676,
+      "voice_start": 75.36,
+      "voice_end": 78.676
+    },
+    {
+      "text": "And that's just one part of Aurixa Systems.",
+      "emphasis": "one part",
+      "start": 79.152,
+      "end": 81.452,
+      "voice_start": 79.152,
+      "voice_end": 81.452
+    },
+    {
+      "text": "Experience it yourself",
+      "emphasis": "Experience",
+      "start": 81.84,
+      "end": 83.12,
+      "voice_start": 81.84,
+      "voice_end": 83.12
+    },
+    {
+      "text": "with a 14-day free trial,",
+      "emphasis": "14-day free trial,",
+      "start": 83.12,
+      "end": 85.12,
+      "voice_start": 83.12,
+      "voice_end": 85.12
+    },
+    {
+      "text": "and discover what a truly connected business can achieve.",
+      "emphasis": "truly connected",
+      "start": 85.12,
+      "end": 88.204,
+      "voice_start": 85.12,
+      "voice_end": 88.204
+    }
+  ]
+}

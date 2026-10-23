@@ -1,0 +1,419 @@
+{
+  "label": "Demo workspace",
+  "entities": [
+    {
+      "key": "person",
+      "label": "The person using the product",
+      "fields": [
+        {
+          "key": "name",
+          "label": "Name",
+          "value": "Alex Morgan"
+        },
+        {
+          "key": "role",
+          "label": "Role",
+          "value": "Buyer's agent"
+        },
+        {
+          "key": "company",
+          "label": "Company",
+          "value": "Aurixa Systems · Property"
+        },
+        {
+          "key": "initials",
+          "label": "Initials",
+          "value": "AM"
+        }
+      ]
+    },
+    {
+      "key": "client",
+      "label": "Their client",
+      "fields": [
+        {
+          "key": "name",
+          "label": "Name",
+          "value": "Jordan Ellis"
+        },
+        {
+          "key": "company",
+          "label": "Company",
+          "value": "Private client"
+        },
+        {
+          "key": "location",
+          "label": "Location",
+          "value": "Sydney NSW"
+        },
+        {
+          "key": "initials",
+          "label": "Initials",
+          "value": "JE"
+        },
+        {
+          "key": "entity",
+          "label": "Purchasing entity",
+          "value": "Individual"
+        },
+        {
+          "key": "matter",
+          "label": "Matter",
+          "value": "Ellis: Purchase, 14 Wattle Grove"
+        },
+        {
+          "key": "question",
+          "label": "Their question",
+          "value": "Can we review whether this suits my plans?"
+        },
+        {
+          "key": "enquiry",
+          "label": "Their enquiry",
+          "value": "Any update on 14 Wattle Grove? EOIs close Friday."
+        }
+      ]
+    },
+    {
+      "key": "record",
+      "label": "The record on screen",
+      "fields": [
+        {
+          "key": "title",
+          "label": "Title",
+          "value": "14 Wattle Grove"
+        },
+        {
+          "key": "subtitle",
+          "label": "Subtitle",
+          "value": "Banksia Rise NSW 2155"
+        },
+        {
+          "key": "reference",
+          "label": "Reference",
+          "value": "WG-14"
+        },
+        {
+          "key": "status",
+          "label": "Status",
+          "value": "Evaluation"
+        },
+        {
+          "key": "grade",
+          "label": "Grade",
+          "value": "A+"
+        },
+        {
+          "key": "score",
+          "label": "Score",
+          "value": "84"
+        },
+        {
+          "key": "verdict",
+          "label": "Verdict",
+          "value": "STRONG BUY"
+        },
+        {
+          "key": "verdict_note",
+          "label": "Verdict, in full",
+          "value": "Excellent investment opportunity with strong fundamentals across all metrics"
+        },
+        {
+          "key": "grade_label",
+          "label": "Grade's name",
+          "value": "Investment Grade"
+        },
+        {
+          "key": "facts",
+          "label": "Facts",
+          "value": "4 bed · 2 bath · 2 car · 450 m² land"
+        },
+        {
+          "key": "type",
+          "label": "Type",
+          "value": "New build"
+        },
+        {
+          "key": "listing",
+          "label": "Listing",
+          "value": "New listing · just now"
+        },
+        {
+          "key": "builder",
+          "label": "Builder",
+          "value": "Reed Constructions"
+        },
+        {
+          "key": "illustrative",
+          "label": "Illustrative label",
+          "value": "Illustrative example only: hypothetical client, figures and assumptions. Not a credit assessment or financial advice."
+        }
+      ]
+    },
+    {
+      "key": "metrics",
+      "label": "Figures",
+      "fields": [
+        {
+          "key": "first",
+          "label": "First figure",
+          "value": "$1,150,000"
+        },
+        {
+          "key": "first_label",
+          "label": "First figure's label",
+          "value": "Purchase price"
+        },
+        {
+          "key": "second",
+          "label": "Second figure",
+          "value": "3.8%"
+        },
+        {
+          "key": "second_label",
+          "label": "Second figure's label",
+          "value": "Gross yield"
+        },
+        {
+          "key": "third",
+          "label": "Third figure",
+          "value": "+64%"
+        },
+        {
+          "key": "third_label",
+          "label": "Third figure's label",
+          "value": "10-year median growth"
+        },
+        {
+          "key": "rent",
+          "label": "Weekly rent",
+          "value": "$850"
+        },
+        {
+          "key": "loan",
+          "label": "Loan",
+          "value": "$920,000"
+        },
+        {
+          "key": "contract_deposit",
+          "label": "Contract deposit",
+          "value": "$115,000"
+        }
+      ]
+    },
+    {
+      "key": "finance",
+      "label": "The finance decision",
+      "fields": [
+        {
+          "key": "broker",
+          "label": "Broker",
+          "value": "Jamie Chen"
+        },
+        {
+          "key": "firm",
+          "label": "Firm",
+          "value": "Harbour Finance Group"
+        },
+        {
+          "key": "stage",
+          "label": "Stage",
+          "value": "Docs received · lender shortlist in progress"
+        },
+        {
+          "key": "decision",
+          "label": "Decision",
+          "value": "Subject to valuation"
+        }
+      ]
+    },
+    {
+      "key": "trial",
+      "label": "The trial",
+      "fields": [
+        {
+          "key": "offer",
+          "label": "Offer",
+          "value": "14-day free trial"
+        },
+        {
+          "key": "action",
+          "label": "Call to action",
+          "value": "START YOUR FREE TRIAL"
+        },
+        {
+          "key": "ready",
+          "label": "Ready",
+          "value": "Your 14-day trial is ready"
+        },
+        {
+          "key": "setup",
+          "label": "Set up",
+          "value": "Workspace created · Demo data loaded · Portals connected"
+        }
+      ]
+    },
+    {
+      "key": "passport",
+      "label": "The Compliance Passport",
+      "fields": [
+        {
+          "key": "title",
+          "label": "Title",
+          "value": "AML/CTF Compliance Passport"
+        },
+        {
+          "key": "holder",
+          "label": "Holder",
+          "value": "Jordan Ellis"
+        },
+        {
+          "key": "customer_type",
+          "label": "Customer type",
+          "value": "Individual"
+        },
+        {
+          "key": "case",
+          "label": "AML case",
+          "value": "AML-2026-0014"
+        },
+        {
+          "key": "credential",
+          "label": "Credential ID",
+          "value": "AUX-AML-2026-0014-V1"
+        },
+        {
+          "key": "version",
+          "label": "Version",
+          "value": "v1"
+        },
+        {
+          "key": "state",
+          "label": "Status",
+          "value": "Issued · Current"
+        },
+        {
+          "key": "issued",
+          "label": "Issue date",
+          "value": "8 Oct 2026"
+        },
+        {
+          "key": "fingerprint",
+          "label": "Fingerprint",
+          "value": "8F3C·B41D·9AE0·72CF"
+        },
+        {
+          "key": "officer",
+          "label": "Responsible compliance officer",
+          "value": "Alex Morgan"
+        },
+        {
+          "key": "issuer",
+          "label": "Issued by",
+          "value": "Aurixa Systems · Property"
+        },
+        {
+          "key": "document",
+          "label": "Identity document",
+          "value": "Australian passport"
+        },
+        {
+          "key": "portrait",
+          "label": "Portrait",
+          "value": "Photograph held by the verification provider"
+        },
+        {
+          "key": "matter",
+          "label": "Matter",
+          "value": "Ellis: Purchase, 14 Wattle Grove"
+        },
+        {
+          "key": "illustrative",
+          "label": "Illustrative label",
+          "value": "Illustrative example only: a fictional client and record."
+        }
+      ]
+    }
+  ],
+  "lists": [
+    {
+      "key": "items",
+      "label": "Properties",
+      "columns": ["Property", "Locality", "Price", "Status"],
+      "rows": [
+        ["27 Hakea Street", "Saltbush Vale NSW", "$985,000", "On market"],
+        ["8 Wollemi Way", "Grevillea Heights NSW", "$1,320,000", "Coming soon"],
+        ["14 Wattle Grove", "Banksia Rise NSW", "$1,150,000", "Off market"],
+        ["3/41 Callistemon Avenue", "Banksia Rise NSW", "$899,000", "Under offer"],
+        ["9 Ironbark Close", "Banksia Rise NSW", "$1,085,000", "Off market"],
+        ["15 Waratah Drive", "Tallowwood Park NSW", "$1,640,000", "On market"],
+        ["Lot 22 Lomandra Street", "Saltbush Vale NSW", "$695,000", "Off market"],
+        ["6 Boronia Place", "Bottlebrush Hill NSW", "$1,210,000", "Coming soon"],
+        ["12 Correa Lane", "Grevillea Heights NSW", "$925,000", "On market"],
+        ["30 Acacia Terrace", "Banksia Rise NSW", "$1,050,000", "Off market"],
+        ["2/18 Melaleuca Road", "Saltbush Vale NSW", "$879,000", "On market"],
+        ["5 Kurrajong Crescent", "Tallowwood Park NSW", "$1,395,000", "Coming soon"]
+      ]
+    },
+    {
+      "key": "team",
+      "label": "The property team",
+      "columns": ["Role", "Name", "Firm"],
+      "rows": [
+        ["Buyer's agent", "Alex Morgan", "Aurixa Systems · Property"],
+        ["Finance broker", "Jamie Chen", "Harbour Finance Group"],
+        ["Solicitor / conveyancer", "Priya Shah", "Shah Legal"],
+        ["Accountant", "Mia Patel", "Patel & Co Accountants"],
+        ["Builder / developer", "Daniel Reed", "Reed Constructions"]
+      ]
+    },
+    {
+      "key": "documents",
+      "label": "The matter's documents",
+      "columns": ["Document", "From", "Status"],
+      "rows": [
+        ["Contract of sale (draft)", "Other side", "Under review"],
+        ["Floor plan — 14 Wattle Grove", "Builder", "Under review"],
+        ["Building specification", "Builder", "Accepted"],
+        ["Planning certificate", "Other side", "Requested"]
+      ]
+    },
+    {
+      "key": "grade",
+      "label": "How the grade was reached",
+      "columns": ["Dimension", "Score", "Weight", "Points"],
+      "rows": [
+        ["Capital growth", "86 / 100", "40%", "34.40"],
+        ["Location", "90 / 100", "25%", "22.50"],
+        ["Rental yield", "72 / 100", "15%", "10.80"],
+        ["Demand", "84 / 100", "15%", "12.60"],
+        ["Property risk", "80 / 100", "5%", "4.00"]
+      ]
+    },
+    {
+      "key": "stamps",
+      "label": "The Passport's stamps",
+      "columns": ["Stamp", "Struck", "Portal"],
+      "rows": [
+        ["CLIENT CONSENT RECORDED", "6 OCT 2026 · 09:12", "Client Portal"],
+        ["IDENTITY VERIFIED", "6 OCT 2026 · 09:27", "Client Portal"],
+        ["DOCUMENTS VERIFIED", "7 OCT 2026 · 14:05", "Command Centre"],
+        ["SCREENING COMPLETED", "7 OCT 2026 · 14:40", "Command Centre"],
+        ["SOURCE OF FUNDS REVIEWED", "8 OCT 2026 · 11:18", "Command Centre"],
+        ["PASSPORT ISSUED", "8 OCT 2026 · 16:02", "Command Centre"],
+        ["SOLICITOR PASSPORT SHARED", "9 OCT 2026 · 10:15", "Command Centre"],
+        ["FINANCE PASSPORT SHARED", "9 OCT 2026 · 10:21", "Command Centre"],
+        ["ACCOUNTANT PASSPORT SHARED", "9 OCT 2026 · 10:26", "Command Centre"]
+      ]
+    },
+    {
+      "key": "partners",
+      "label": "Partners on the matter",
+      "columns": ["Partner", "Person", "Portal", "Access"],
+      "rows": [
+        ["Shah Legal", "Priya Shah", "Solicitor & Conveyancer Portal", "Live"],
+        ["Harbour Finance Group", "Jamie Chen", "Finance Portal", "Live"],
+        ["Patel & Co Accountants", "Mia Patel", "Accountant Portal", "Live"]
+      ]
+    }
+  ]
+}

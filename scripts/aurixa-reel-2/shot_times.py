@@ -163,8 +163,9 @@ def heard(text):
     ).split()
 
 
-def main():
-    data = json.loads(WORDS.read_text())
+def shots(data):
+    """Each shot on the voice's clock: (id, in, out, seconds, script, first word, word after its last), in order.
+    Exits if the script and the voice disagree."""
     words, silences, end = data["words"], data["silences"], data["seconds"]
     rows = []
     for shot, cue, near, _ in SHOTS:
@@ -201,12 +202,17 @@ def main():
         script = SHOTS[n][3]
         if heard(script) != said:
             wrong.append(f"{shot}: the script says {heard(script)}, the voice {said}")
-        out.append((shot, frame / FPS, nxt / FPS, (nxt - frame) / FPS, script))
+        out.append((shot, frame / FPS, nxt / FPS, (nxt - frame) / FPS, script, i, last))
     if wrong:
         sys.exit("The script and the voice disagree:\n" + "\n".join(wrong))
+    return out
+
+
+def main():
+    out = shots(json.loads(WORDS.read_text()))
     print("| Shot | Block | In | Out | Seconds | Words, as the script spells them |")
     print("| ---- | ----- | -- | --- | ------- | -------------------------------- |")
-    for shot, a, b, secs, script in out:
+    for shot, a, b, secs, script, _, _ in out:
         print(
             f"| {shot} | {BLOCKS[shot[:2]]} | {clock(a)} | {clock(b)} | {secs:.3f} | {script} |"
         )

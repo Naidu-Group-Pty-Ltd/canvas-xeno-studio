@@ -1,8 +1,12 @@
 {
-  "source": "local transcription (NVIDIA Parakeet TDT 0.6B v2, int8, in sherpa-onnx), word ends clipped to the audio's own silences (silencedetect -38 dB, 0.18 s)",
-  "provisional": true,
-  "note": "Provisional until the studio prepares the voice (import_audio). The recogniser's spellings (Arixa, organized, authorized) are its own; captions spell from the script.",
+  "source": "local transcription (NVIDIA Parakeet TDT 0.6B v2, int8, in sherpa-onnx), held to the audio's own silences (silencedetect -38 dB, 0.18 s): word ends clipped to where a silence starts, and a word just after a silence started where it ends",
+  "note": "The recogniser's spellings (Arixa, organized, authorized) are its own; captions spell from the script. The studio's own preparation (Storyboards, timing from the voice) isn't reachable through the studio API; it can check these times in the app.",
   "file": "client-voiceover-2026-10-13.mp3 (the client's 'WhatsApp Audio 2026-10-13 at 19.15.15.mpeg'), 99.971 s, MP3 128 kbit/s mono 44.1 kHz, SHA-256 5c44653dcd986201a4bfd576c28e71351b01addfa483ba10fbe79623028faead",
+  "studio": {
+    "asset": "fa540b53-8dd2-4312-97ec-bce2a5a48230",
+    "voiceover": "51736fd9-39bd-43cd-a109-07917bde4cd1",
+    "edit": "59ddc8b3-9cbd-43c4-97f9-fd473f89d8f9"
+  },
   "seconds": 99.971,
   "sentences": [
     {
@@ -10,10 +14,14 @@
       "start": 0.0,
       "end": 6.294
     },
-    { "text": "Sound familiar?", "start": 6.64, "end": 7.482 },
+    {
+      "text": "Sound familiar?",
+      "start": 6.691,
+      "end": 7.482
+    },
     {
       "text": "The perfect property is found, but the requests keep coming.",
-      "start": 7.92,
+      "start": 8.03,
       "end": 12.32
     },
     {
@@ -21,275 +29,1185 @@
       "start": 12.32,
       "end": 16.791
     },
-    { "text": "Suddenly, progress feels like paperwork.", "start": 17.28, "end": 19.88 },
-    { "text": "That's where Arixa Systems changes the experience.", "start": 20.32, "end": 23.409 },
+    {
+      "text": "Suddenly, progress feels like paperwork.",
+      "start": 17.28,
+      "end": 19.88
+    },
+    {
+      "text": "That's where Arixa Systems changes the experience.",
+      "start": 20.372,
+      "end": 23.409
+    },
     {
       "text": "Built by property professionals for property professionals, ARIXA brings property intelligence, financial analysis, reporting, client management, communication, and more into one connected operating environment.",
-      "start": 23.76,
+      "start": 23.886,
       "end": 37.673
     },
-    { "text": "And here's where it gets exciting.", "start": 38.16, "end": 39.714 },
-    { "text": "Introducing the ARIXA AML CTF compliance passport.", "start": 40.16, "end": 44.222 },
+    {
+      "text": "And here's where it gets exciting.",
+      "start": 38.174,
+      "end": 39.714
+    },
+    {
+      "text": "Introducing the ARIXA AML CTF compliance passport.",
+      "start": 40.223,
+      "end": 44.222
+    },
     {
       "text": "One digital passport, one organized client record, identity verification, screening and due diligence all in one place.",
-      "start": 44.72,
+      "start": 44.757,
       "end": 53.546
     },
     {
       "text": "With appropriate consent and controlled access, authorized property partners can securely access the client's compliance passport in just a few clicks, supporting legislative compliance while eliminating unnecessary duplication.",
-      "start": 53.92,
+      "start": 54.063,
       "end": 67.376
     },
-    { "text": "The result?", "start": 67.84, "end": 68.531 },
+    {
+      "text": "The result?",
+      "start": 67.927,
+      "end": 68.531
+    },
     {
       "text": "Less paperwork, less repetition, better connected professionals, and a smoother property journey without clients constantly providing the same information.",
-      "start": 68.88,
+      "start": 68.944,
       "end": 78.676
     },
-    { "text": "And that's just one part of Arixa Systems.", "start": 79.12, "end": 81.452 },
+    {
+      "text": "And that's just one part of Arixa Systems.",
+      "start": 79.152,
+      "end": 81.452
+    },
     {
       "text": "Experience it yourself with a 14-day free trial and discover what a truly connected business can achieve.",
       "start": 81.84,
       "end": 88.204
     },
-    { "text": "14 days.", "start": 88.72, "end": 89.72 },
-    { "text": "Your business, your experience, your decision.", "start": 90.08, "end": 93.218 },
+    {
+      "text": "14 days.",
+      "start": 88.79,
+      "end": 89.72
+    },
+    {
+      "text": "Your business, your experience, your decision.",
+      "start": 90.066,
+      "end": 93.218
+    },
     {
       "text": "ARIXA Systems, the operating system for modern property professionals.",
-      "start": 93.52,
+      "start": 93.58,
       "end": 97.977
     },
-    { "text": "Start your free trial today.", "start": 98.32, "end": 99.783 }
+    {
+      "text": "Start your free trial today.",
+      "start": 98.312,
+      "end": 99.783
+    }
   ],
   "silences": [
-    { "start": 0.968, "end": 1.302 },
-    { "start": 3.042, "end": 3.497 },
-    { "start": 6.294, "end": 6.691 },
-    { "start": 7.482, "end": 8.03 },
-    { "start": 13.749, "end": 13.954 },
-    { "start": 16.791, "end": 16.997 },
-    { "start": 19.88, "end": 20.372 },
-    { "start": 23.409, "end": 23.886 },
-    { "start": 31.233, "end": 31.414 },
-    { "start": 37.673, "end": 38.174 },
-    { "start": 39.714, "end": 39.998 },
-    { "start": 40.022, "end": 40.223 },
-    { "start": 44.222, "end": 44.757 },
-    { "start": 46.094, "end": 46.392 },
-    { "start": 48.253, "end": 48.455 },
-    { "start": 52.003, "end": 52.238 },
-    { "start": 53.546, "end": 54.063 },
-    { "start": 56.589, "end": 56.794 },
-    { "start": 67.376, "end": 67.927 },
-    { "start": 68.531, "end": 68.944 },
-    { "start": 69.939, "end": 70.137 },
-    { "start": 71.341, "end": 71.567 },
-    { "start": 75.121, "end": 75.304 },
-    { "start": 78.676, "end": 79.152 },
-    { "start": 81.452, "end": 81.685 },
-    { "start": 88.204, "end": 88.386 },
-    { "start": 88.577, "end": 88.79 },
-    { "start": 89.72, "end": 90.066 },
-    { "start": 90.872, "end": 91.09 },
-    { "start": 92.097, "end": 92.37 },
-    { "start": 93.218, "end": 93.58 },
-    { "start": 94.755, "end": 94.998 },
-    { "start": 97.977, "end": 98.312 },
-    { "start": 99.783, "end": 99.971 }
+    {
+      "start": 0.968,
+      "end": 1.302
+    },
+    {
+      "start": 3.042,
+      "end": 3.497
+    },
+    {
+      "start": 6.294,
+      "end": 6.691
+    },
+    {
+      "start": 7.482,
+      "end": 8.03
+    },
+    {
+      "start": 13.749,
+      "end": 13.954
+    },
+    {
+      "start": 16.791,
+      "end": 16.997
+    },
+    {
+      "start": 19.88,
+      "end": 20.372
+    },
+    {
+      "start": 23.409,
+      "end": 23.886
+    },
+    {
+      "start": 31.233,
+      "end": 31.414
+    },
+    {
+      "start": 37.673,
+      "end": 38.174
+    },
+    {
+      "start": 39.714,
+      "end": 39.998
+    },
+    {
+      "start": 40.022,
+      "end": 40.223
+    },
+    {
+      "start": 44.222,
+      "end": 44.757
+    },
+    {
+      "start": 46.094,
+      "end": 46.392
+    },
+    {
+      "start": 48.253,
+      "end": 48.455
+    },
+    {
+      "start": 52.003,
+      "end": 52.238
+    },
+    {
+      "start": 53.546,
+      "end": 54.063
+    },
+    {
+      "start": 56.589,
+      "end": 56.794
+    },
+    {
+      "start": 67.376,
+      "end": 67.927
+    },
+    {
+      "start": 68.531,
+      "end": 68.944
+    },
+    {
+      "start": 69.939,
+      "end": 70.137
+    },
+    {
+      "start": 71.341,
+      "end": 71.567
+    },
+    {
+      "start": 75.121,
+      "end": 75.304
+    },
+    {
+      "start": 78.676,
+      "end": 79.152
+    },
+    {
+      "start": 81.452,
+      "end": 81.685
+    },
+    {
+      "start": 88.204,
+      "end": 88.386
+    },
+    {
+      "start": 88.577,
+      "end": 88.79
+    },
+    {
+      "start": 89.72,
+      "end": 90.066
+    },
+    {
+      "start": 90.872,
+      "end": 91.09
+    },
+    {
+      "start": 92.097,
+      "end": 92.37
+    },
+    {
+      "start": 93.218,
+      "end": 93.58
+    },
+    {
+      "start": 94.755,
+      "end": 94.998
+    },
+    {
+      "start": 97.977,
+      "end": 98.312
+    },
+    {
+      "start": 99.783,
+      "end": 99.971
+    }
   ],
   "words": [
-    { "text": "One", "start": 0.0, "end": 0.32 },
-    { "text": "property,", "start": 0.48, "end": 0.968 },
-    { "text": "six", "start": 1.28, "end": 1.68 },
-    { "text": "property", "start": 1.68, "end": 2.24 },
-    { "text": "professionals,", "start": 2.24, "end": 3.042 },
-    { "text": "and", "start": 3.52, "end": 3.68 },
-    { "text": "somehow", "start": 3.68, "end": 4.32 },
-    { "text": "the", "start": 4.4, "end": 4.64 },
-    { "text": "client", "start": 4.64, "end": 5.2 },
-    { "text": "becomes", "start": 5.2, "end": 5.52 },
-    { "text": "the", "start": 5.52, "end": 5.68 },
-    { "text": "messenger.", "start": 5.68, "end": 6.294 },
-    { "text": "Sound", "start": 6.64, "end": 7.04 },
-    { "text": "familiar?", "start": 7.04, "end": 7.482 },
-    { "text": "The", "start": 7.92, "end": 8.16 },
-    { "text": "perfect", "start": 8.16, "end": 8.64 },
-    { "text": "property", "start": 8.64, "end": 9.2 },
-    { "text": "is", "start": 9.2, "end": 9.36 },
-    { "text": "found,", "start": 9.36, "end": 9.92 },
-    { "text": "but", "start": 9.92, "end": 10.08 },
-    { "text": "the", "start": 10.08, "end": 10.24 },
-    { "text": "requests", "start": 10.24, "end": 11.2 },
-    { "text": "keep", "start": 11.2, "end": 11.44 },
-    { "text": "coming.", "start": 11.44, "end": 12.32 },
-    { "text": "Another", "start": 12.32, "end": 12.72 },
-    { "text": "identity", "start": 12.72, "end": 13.36 },
-    { "text": "check,", "start": 13.36, "end": 13.749 },
-    { "text": "another", "start": 14.0, "end": 14.24 },
-    { "text": "document,", "start": 14.4, "end": 15.44 },
-    { "text": "another", "start": 15.44, "end": 15.68 },
-    { "text": "explanation.", "start": 15.92, "end": 16.791 },
-    { "text": "Suddenly,", "start": 17.28, "end": 18.08 },
-    { "text": "progress", "start": 18.08, "end": 18.64 },
-    { "text": "feels", "start": 18.64, "end": 18.96 },
-    { "text": "like", "start": 18.96, "end": 19.12 },
-    { "text": "paperwork.", "start": 19.12, "end": 19.88 },
-    { "text": "That's", "start": 20.32, "end": 20.56 },
-    { "text": "where", "start": 20.56, "end": 20.8 },
-    { "text": "Arixa", "start": 20.8, "end": 21.52 },
-    { "text": "Systems", "start": 21.52, "end": 22.0 },
-    { "text": "changes", "start": 22.0, "end": 22.48 },
-    { "text": "the", "start": 22.48, "end": 22.72 },
-    { "text": "experience.", "start": 22.72, "end": 23.409 },
-    { "text": "Built", "start": 23.76, "end": 24.24 },
-    { "text": "by", "start": 24.24, "end": 24.48 },
-    { "text": "property", "start": 24.48, "end": 24.96 },
-    { "text": "professionals", "start": 24.96, "end": 25.68 },
-    { "text": "for", "start": 25.84, "end": 26.16 },
-    { "text": "property", "start": 26.16, "end": 26.64 },
-    { "text": "professionals,", "start": 26.64, "end": 27.6 },
-    { "text": "ARIXA", "start": 27.6, "end": 28.4 },
-    { "text": "brings", "start": 28.4, "end": 28.64 },
-    { "text": "property", "start": 28.64, "end": 29.12 },
-    { "text": "intelligence,", "start": 29.12, "end": 29.92 },
-    { "text": "financial", "start": 29.92, "end": 30.48 },
-    { "text": "analysis,", "start": 30.48, "end": 31.233 },
-    { "text": "reporting,", "start": 31.36, "end": 32.24 },
-    { "text": "client", "start": 32.24, "end": 32.72 },
-    { "text": "management,", "start": 32.72, "end": 33.44 },
-    { "text": "communication,", "start": 33.44, "end": 34.4 },
-    { "text": "and", "start": 34.4, "end": 34.72 },
-    { "text": "more", "start": 34.72, "end": 34.96 },
-    { "text": "into", "start": 35.2, "end": 35.52 },
-    { "text": "one", "start": 35.52, "end": 35.84 },
-    { "text": "connected", "start": 35.84, "end": 36.56 },
-    { "text": "operating", "start": 36.56, "end": 37.12 },
-    { "text": "environment.", "start": 37.12, "end": 37.673 },
-    { "text": "And", "start": 38.16, "end": 38.32 },
-    { "text": "here's", "start": 38.32, "end": 38.56 },
-    { "text": "where", "start": 38.56, "end": 38.72 },
-    { "text": "it", "start": 38.72, "end": 38.88 },
-    { "text": "gets", "start": 38.88, "end": 39.12 },
-    { "text": "exciting.", "start": 39.12, "end": 39.714 },
-    { "text": "Introducing", "start": 40.16, "end": 40.88 },
-    { "text": "the", "start": 40.88, "end": 41.12 },
-    { "text": "ARIXA", "start": 41.12, "end": 41.84 },
-    { "text": "AML", "start": 41.84, "end": 42.32 },
-    { "text": "CTF", "start": 42.4, "end": 43.04 },
-    { "text": "compliance", "start": 43.04, "end": 43.76 },
-    { "text": "passport.", "start": 43.76, "end": 44.222 },
-    { "text": "One", "start": 44.72, "end": 45.04 },
-    { "text": "digital", "start": 45.04, "end": 45.52 },
-    { "text": "passport,", "start": 45.52, "end": 46.094 },
-    { "text": "one", "start": 46.4, "end": 46.64 },
-    { "text": "organized", "start": 46.8, "end": 47.44 },
-    { "text": "client", "start": 47.44, "end": 47.84 },
-    { "text": "record,", "start": 47.84, "end": 48.253 },
-    { "text": "identity", "start": 48.64, "end": 49.28 },
-    { "text": "verification,", "start": 49.28, "end": 50.24 },
-    { "text": "screening", "start": 50.24, "end": 50.8 },
-    { "text": "and", "start": 50.88, "end": 51.12 },
-    { "text": "due", "start": 51.12, "end": 51.44 },
-    { "text": "diligence", "start": 51.44, "end": 52.0 },
-    { "text": "all", "start": 52.24, "end": 52.48 },
-    { "text": "in", "start": 52.48, "end": 52.8 },
-    { "text": "one", "start": 52.8, "end": 53.12 },
-    { "text": "place.", "start": 53.28, "end": 53.546 },
-    { "text": "With", "start": 53.92, "end": 54.16 },
-    { "text": "appropriate", "start": 54.16, "end": 54.8 },
-    { "text": "consent", "start": 54.8, "end": 55.2 },
-    { "text": "and", "start": 55.2, "end": 55.44 },
-    { "text": "controlled", "start": 55.44, "end": 56.0 },
-    { "text": "access,", "start": 56.0, "end": 56.589 },
-    { "text": "authorized", "start": 56.64, "end": 57.36 },
-    { "text": "property", "start": 57.36, "end": 57.84 },
-    { "text": "partners", "start": 57.84, "end": 58.32 },
-    { "text": "can", "start": 58.32, "end": 58.48 },
-    { "text": "securely", "start": 58.48, "end": 59.12 },
-    { "text": "access", "start": 59.12, "end": 59.52 },
-    { "text": "the", "start": 59.52, "end": 59.68 },
-    { "text": "client's", "start": 59.68, "end": 60.16 },
-    { "text": "compliance", "start": 60.16, "end": 60.72 },
-    { "text": "passport", "start": 60.72, "end": 61.36 },
-    { "text": "in", "start": 61.36, "end": 61.6 },
-    { "text": "just", "start": 61.6, "end": 61.84 },
-    { "text": "a", "start": 61.84, "end": 62.0 },
-    { "text": "few", "start": 62.0, "end": 62.24 },
-    { "text": "clicks,", "start": 62.24, "end": 63.04 },
-    { "text": "supporting", "start": 63.04, "end": 63.52 },
-    { "text": "legislative", "start": 63.52, "end": 64.16 },
-    { "text": "compliance", "start": 64.16, "end": 64.8 },
-    { "text": "while", "start": 64.8, "end": 65.04 },
-    { "text": "eliminating", "start": 65.04, "end": 65.76 },
-    { "text": "unnecessary", "start": 65.76, "end": 66.56 },
-    { "text": "duplication.", "start": 66.56, "end": 67.376 },
-    { "text": "The", "start": 67.84, "end": 68.0 },
-    { "text": "result?", "start": 68.0, "end": 68.531 },
-    { "text": "Less", "start": 68.88, "end": 69.28 },
-    { "text": "paperwork,", "start": 69.28, "end": 69.939 },
-    { "text": "less", "start": 70.08, "end": 70.4 },
-    { "text": "repetition,", "start": 70.4, "end": 71.341 },
-    { "text": "better", "start": 71.44, "end": 71.68 },
-    { "text": "connected", "start": 71.84, "end": 72.4 },
-    { "text": "professionals,", "start": 72.4, "end": 73.52 },
-    { "text": "and", "start": 73.52, "end": 73.68 },
-    { "text": "a", "start": 73.68, "end": 73.84 },
-    { "text": "smoother", "start": 73.84, "end": 74.32 },
-    { "text": "property", "start": 74.32, "end": 74.8 },
-    { "text": "journey", "start": 74.8, "end": 75.121 },
-    { "text": "without", "start": 75.36, "end": 75.76 },
-    { "text": "clients", "start": 75.76, "end": 76.32 },
-    { "text": "constantly", "start": 76.32, "end": 76.88 },
-    { "text": "providing", "start": 76.88, "end": 77.44 },
-    { "text": "the", "start": 77.44, "end": 77.68 },
-    { "text": "same", "start": 77.68, "end": 78.0 },
-    { "text": "information.", "start": 78.0, "end": 78.676 },
-    { "text": "And", "start": 79.12, "end": 79.28 },
-    { "text": "that's", "start": 79.28, "end": 79.52 },
-    { "text": "just", "start": 79.52, "end": 79.76 },
-    { "text": "one", "start": 79.76, "end": 80.0 },
-    { "text": "part", "start": 80.0, "end": 80.16 },
-    { "text": "of", "start": 80.16, "end": 80.32 },
-    { "text": "Arixa", "start": 80.32, "end": 81.04 },
-    { "text": "Systems.", "start": 81.04, "end": 81.452 },
-    { "text": "Experience", "start": 81.84, "end": 82.48 },
-    { "text": "it", "start": 82.48, "end": 82.72 },
-    { "text": "yourself", "start": 82.72, "end": 83.12 },
-    { "text": "with", "start": 83.12, "end": 83.28 },
-    { "text": "a", "start": 83.28, "end": 83.44 },
-    { "text": "14-day", "start": 83.44, "end": 84.24 },
-    { "text": "free", "start": 84.24, "end": 84.64 },
-    { "text": "trial", "start": 84.64, "end": 85.12 },
-    { "text": "and", "start": 85.12, "end": 85.28 },
-    { "text": "discover", "start": 85.28, "end": 85.76 },
-    { "text": "what", "start": 85.76, "end": 85.92 },
-    { "text": "a", "start": 85.92, "end": 86.08 },
-    { "text": "truly", "start": 86.08, "end": 86.48 },
-    { "text": "connected", "start": 86.48, "end": 87.12 },
-    { "text": "business", "start": 87.12, "end": 87.52 },
-    { "text": "can", "start": 87.52, "end": 87.76 },
-    { "text": "achieve.", "start": 87.76, "end": 88.204 },
-    { "text": "14", "start": 88.72, "end": 89.36 },
-    { "text": "days.", "start": 89.36, "end": 89.72 },
-    { "text": "Your", "start": 90.08, "end": 90.32 },
-    { "text": "business,", "start": 90.32, "end": 90.872 },
-    { "text": "your", "start": 91.12, "end": 91.36 },
-    { "text": "experience,", "start": 91.36, "end": 92.097 },
-    { "text": "your", "start": 92.4, "end": 92.64 },
-    { "text": "decision.", "start": 92.64, "end": 93.218 },
-    { "text": "ARIXA", "start": 93.52, "end": 94.16 },
-    { "text": "Systems,", "start": 94.16, "end": 94.755 },
-    { "text": "the", "start": 94.96, "end": 95.12 },
-    { "text": "operating", "start": 95.12, "end": 95.76 },
-    { "text": "system", "start": 95.76, "end": 96.0 },
-    { "text": "for", "start": 96.08, "end": 96.32 },
-    { "text": "modern", "start": 96.32, "end": 96.8 },
-    { "text": "property", "start": 96.8, "end": 97.2 },
-    { "text": "professionals.", "start": 97.2, "end": 97.977 },
-    { "text": "Start", "start": 98.32, "end": 98.56 },
-    { "text": "your", "start": 98.56, "end": 98.72 },
-    { "text": "free", "start": 98.72, "end": 99.04 },
-    { "text": "trial", "start": 99.04, "end": 99.44 },
-    { "text": "today.", "start": 99.44, "end": 99.783 }
+    {
+      "text": "One",
+      "start": 0.0,
+      "end": 0.32
+    },
+    {
+      "text": "property,",
+      "start": 0.48,
+      "end": 0.968
+    },
+    {
+      "text": "six",
+      "start": 1.302,
+      "end": 1.68
+    },
+    {
+      "text": "property",
+      "start": 1.68,
+      "end": 2.24
+    },
+    {
+      "text": "professionals,",
+      "start": 2.24,
+      "end": 3.042
+    },
+    {
+      "text": "and",
+      "start": 3.497,
+      "end": 3.68
+    },
+    {
+      "text": "somehow",
+      "start": 3.68,
+      "end": 4.32
+    },
+    {
+      "text": "the",
+      "start": 4.4,
+      "end": 4.64
+    },
+    {
+      "text": "client",
+      "start": 4.64,
+      "end": 5.2
+    },
+    {
+      "text": "becomes",
+      "start": 5.2,
+      "end": 5.52
+    },
+    {
+      "text": "the",
+      "start": 5.52,
+      "end": 5.68
+    },
+    {
+      "text": "messenger.",
+      "start": 5.68,
+      "end": 6.294
+    },
+    {
+      "text": "Sound",
+      "start": 6.691,
+      "end": 7.04
+    },
+    {
+      "text": "familiar?",
+      "start": 7.04,
+      "end": 7.482
+    },
+    {
+      "text": "The",
+      "start": 8.03,
+      "end": 8.16
+    },
+    {
+      "text": "perfect",
+      "start": 8.16,
+      "end": 8.64
+    },
+    {
+      "text": "property",
+      "start": 8.64,
+      "end": 9.2
+    },
+    {
+      "text": "is",
+      "start": 9.2,
+      "end": 9.36
+    },
+    {
+      "text": "found,",
+      "start": 9.36,
+      "end": 9.92
+    },
+    {
+      "text": "but",
+      "start": 9.92,
+      "end": 10.08
+    },
+    {
+      "text": "the",
+      "start": 10.08,
+      "end": 10.24
+    },
+    {
+      "text": "requests",
+      "start": 10.24,
+      "end": 11.2
+    },
+    {
+      "text": "keep",
+      "start": 11.2,
+      "end": 11.44
+    },
+    {
+      "text": "coming.",
+      "start": 11.44,
+      "end": 12.32
+    },
+    {
+      "text": "Another",
+      "start": 12.32,
+      "end": 12.72
+    },
+    {
+      "text": "identity",
+      "start": 12.72,
+      "end": 13.36
+    },
+    {
+      "text": "check,",
+      "start": 13.36,
+      "end": 13.749
+    },
+    {
+      "text": "another",
+      "start": 13.954,
+      "end": 14.24
+    },
+    {
+      "text": "document,",
+      "start": 14.4,
+      "end": 15.44
+    },
+    {
+      "text": "another",
+      "start": 15.44,
+      "end": 15.68
+    },
+    {
+      "text": "explanation.",
+      "start": 15.92,
+      "end": 16.791
+    },
+    {
+      "text": "Suddenly,",
+      "start": 17.28,
+      "end": 18.08
+    },
+    {
+      "text": "progress",
+      "start": 18.08,
+      "end": 18.64
+    },
+    {
+      "text": "feels",
+      "start": 18.64,
+      "end": 18.96
+    },
+    {
+      "text": "like",
+      "start": 18.96,
+      "end": 19.12
+    },
+    {
+      "text": "paperwork.",
+      "start": 19.12,
+      "end": 19.88
+    },
+    {
+      "text": "That's",
+      "start": 20.372,
+      "end": 20.56
+    },
+    {
+      "text": "where",
+      "start": 20.56,
+      "end": 20.8
+    },
+    {
+      "text": "Arixa",
+      "start": 20.8,
+      "end": 21.52
+    },
+    {
+      "text": "Systems",
+      "start": 21.52,
+      "end": 22.0
+    },
+    {
+      "text": "changes",
+      "start": 22.0,
+      "end": 22.48
+    },
+    {
+      "text": "the",
+      "start": 22.48,
+      "end": 22.72
+    },
+    {
+      "text": "experience.",
+      "start": 22.72,
+      "end": 23.409
+    },
+    {
+      "text": "Built",
+      "start": 23.886,
+      "end": 24.24
+    },
+    {
+      "text": "by",
+      "start": 24.24,
+      "end": 24.48
+    },
+    {
+      "text": "property",
+      "start": 24.48,
+      "end": 24.96
+    },
+    {
+      "text": "professionals",
+      "start": 24.96,
+      "end": 25.68
+    },
+    {
+      "text": "for",
+      "start": 25.84,
+      "end": 26.16
+    },
+    {
+      "text": "property",
+      "start": 26.16,
+      "end": 26.64
+    },
+    {
+      "text": "professionals,",
+      "start": 26.64,
+      "end": 27.6
+    },
+    {
+      "text": "ARIXA",
+      "start": 27.6,
+      "end": 28.4
+    },
+    {
+      "text": "brings",
+      "start": 28.4,
+      "end": 28.64
+    },
+    {
+      "text": "property",
+      "start": 28.64,
+      "end": 29.12
+    },
+    {
+      "text": "intelligence,",
+      "start": 29.12,
+      "end": 29.92
+    },
+    {
+      "text": "financial",
+      "start": 29.92,
+      "end": 30.48
+    },
+    {
+      "text": "analysis,",
+      "start": 30.48,
+      "end": 31.233
+    },
+    {
+      "text": "reporting,",
+      "start": 31.414,
+      "end": 32.24
+    },
+    {
+      "text": "client",
+      "start": 32.24,
+      "end": 32.72
+    },
+    {
+      "text": "management,",
+      "start": 32.72,
+      "end": 33.44
+    },
+    {
+      "text": "communication,",
+      "start": 33.44,
+      "end": 34.4
+    },
+    {
+      "text": "and",
+      "start": 34.4,
+      "end": 34.72
+    },
+    {
+      "text": "more",
+      "start": 34.72,
+      "end": 34.96
+    },
+    {
+      "text": "into",
+      "start": 35.2,
+      "end": 35.52
+    },
+    {
+      "text": "one",
+      "start": 35.52,
+      "end": 35.84
+    },
+    {
+      "text": "connected",
+      "start": 35.84,
+      "end": 36.56
+    },
+    {
+      "text": "operating",
+      "start": 36.56,
+      "end": 37.12
+    },
+    {
+      "text": "environment.",
+      "start": 37.12,
+      "end": 37.673
+    },
+    {
+      "text": "And",
+      "start": 38.174,
+      "end": 38.32
+    },
+    {
+      "text": "here's",
+      "start": 38.32,
+      "end": 38.56
+    },
+    {
+      "text": "where",
+      "start": 38.56,
+      "end": 38.72
+    },
+    {
+      "text": "it",
+      "start": 38.72,
+      "end": 38.88
+    },
+    {
+      "text": "gets",
+      "start": 38.88,
+      "end": 39.12
+    },
+    {
+      "text": "exciting.",
+      "start": 39.12,
+      "end": 39.714
+    },
+    {
+      "text": "Introducing",
+      "start": 40.223,
+      "end": 40.88
+    },
+    {
+      "text": "the",
+      "start": 40.88,
+      "end": 41.12
+    },
+    {
+      "text": "ARIXA",
+      "start": 41.12,
+      "end": 41.84
+    },
+    {
+      "text": "AML",
+      "start": 41.84,
+      "end": 42.32
+    },
+    {
+      "text": "CTF",
+      "start": 42.4,
+      "end": 43.04
+    },
+    {
+      "text": "compliance",
+      "start": 43.04,
+      "end": 43.76
+    },
+    {
+      "text": "passport.",
+      "start": 43.76,
+      "end": 44.222
+    },
+    {
+      "text": "One",
+      "start": 44.757,
+      "end": 45.04
+    },
+    {
+      "text": "digital",
+      "start": 45.04,
+      "end": 45.52
+    },
+    {
+      "text": "passport,",
+      "start": 45.52,
+      "end": 46.094
+    },
+    {
+      "text": "one",
+      "start": 46.392,
+      "end": 46.64
+    },
+    {
+      "text": "organized",
+      "start": 46.8,
+      "end": 47.44
+    },
+    {
+      "text": "client",
+      "start": 47.44,
+      "end": 47.84
+    },
+    {
+      "text": "record,",
+      "start": 47.84,
+      "end": 48.253
+    },
+    {
+      "text": "identity",
+      "start": 48.64,
+      "end": 49.28
+    },
+    {
+      "text": "verification,",
+      "start": 49.28,
+      "end": 50.24
+    },
+    {
+      "text": "screening",
+      "start": 50.24,
+      "end": 50.8
+    },
+    {
+      "text": "and",
+      "start": 50.88,
+      "end": 51.12
+    },
+    {
+      "text": "due",
+      "start": 51.12,
+      "end": 51.44
+    },
+    {
+      "text": "diligence",
+      "start": 51.44,
+      "end": 52.0
+    },
+    {
+      "text": "all",
+      "start": 52.238,
+      "end": 52.48
+    },
+    {
+      "text": "in",
+      "start": 52.48,
+      "end": 52.8
+    },
+    {
+      "text": "one",
+      "start": 52.8,
+      "end": 53.12
+    },
+    {
+      "text": "place.",
+      "start": 53.28,
+      "end": 53.546
+    },
+    {
+      "text": "With",
+      "start": 54.063,
+      "end": 54.16
+    },
+    {
+      "text": "appropriate",
+      "start": 54.16,
+      "end": 54.8
+    },
+    {
+      "text": "consent",
+      "start": 54.8,
+      "end": 55.2
+    },
+    {
+      "text": "and",
+      "start": 55.2,
+      "end": 55.44
+    },
+    {
+      "text": "controlled",
+      "start": 55.44,
+      "end": 56.0
+    },
+    {
+      "text": "access,",
+      "start": 56.0,
+      "end": 56.589
+    },
+    {
+      "text": "authorized",
+      "start": 56.64,
+      "end": 57.36
+    },
+    {
+      "text": "property",
+      "start": 57.36,
+      "end": 57.84
+    },
+    {
+      "text": "partners",
+      "start": 57.84,
+      "end": 58.32
+    },
+    {
+      "text": "can",
+      "start": 58.32,
+      "end": 58.48
+    },
+    {
+      "text": "securely",
+      "start": 58.48,
+      "end": 59.12
+    },
+    {
+      "text": "access",
+      "start": 59.12,
+      "end": 59.52
+    },
+    {
+      "text": "the",
+      "start": 59.52,
+      "end": 59.68
+    },
+    {
+      "text": "client's",
+      "start": 59.68,
+      "end": 60.16
+    },
+    {
+      "text": "compliance",
+      "start": 60.16,
+      "end": 60.72
+    },
+    {
+      "text": "passport",
+      "start": 60.72,
+      "end": 61.36
+    },
+    {
+      "text": "in",
+      "start": 61.36,
+      "end": 61.6
+    },
+    {
+      "text": "just",
+      "start": 61.6,
+      "end": 61.84
+    },
+    {
+      "text": "a",
+      "start": 61.84,
+      "end": 62.0
+    },
+    {
+      "text": "few",
+      "start": 62.0,
+      "end": 62.24
+    },
+    {
+      "text": "clicks,",
+      "start": 62.24,
+      "end": 63.04
+    },
+    {
+      "text": "supporting",
+      "start": 63.04,
+      "end": 63.52
+    },
+    {
+      "text": "legislative",
+      "start": 63.52,
+      "end": 64.16
+    },
+    {
+      "text": "compliance",
+      "start": 64.16,
+      "end": 64.8
+    },
+    {
+      "text": "while",
+      "start": 64.8,
+      "end": 65.04
+    },
+    {
+      "text": "eliminating",
+      "start": 65.04,
+      "end": 65.76
+    },
+    {
+      "text": "unnecessary",
+      "start": 65.76,
+      "end": 66.56
+    },
+    {
+      "text": "duplication.",
+      "start": 66.56,
+      "end": 67.376
+    },
+    {
+      "text": "The",
+      "start": 67.927,
+      "end": 68.0
+    },
+    {
+      "text": "result?",
+      "start": 68.0,
+      "end": 68.531
+    },
+    {
+      "text": "Less",
+      "start": 68.944,
+      "end": 69.28
+    },
+    {
+      "text": "paperwork,",
+      "start": 69.28,
+      "end": 69.939
+    },
+    {
+      "text": "less",
+      "start": 70.137,
+      "end": 70.4
+    },
+    {
+      "text": "repetition,",
+      "start": 70.4,
+      "end": 71.341
+    },
+    {
+      "text": "better",
+      "start": 71.567,
+      "end": 71.68
+    },
+    {
+      "text": "connected",
+      "start": 71.84,
+      "end": 72.4
+    },
+    {
+      "text": "professionals,",
+      "start": 72.4,
+      "end": 73.52
+    },
+    {
+      "text": "and",
+      "start": 73.52,
+      "end": 73.68
+    },
+    {
+      "text": "a",
+      "start": 73.68,
+      "end": 73.84
+    },
+    {
+      "text": "smoother",
+      "start": 73.84,
+      "end": 74.32
+    },
+    {
+      "text": "property",
+      "start": 74.32,
+      "end": 74.8
+    },
+    {
+      "text": "journey",
+      "start": 74.8,
+      "end": 75.121
+    },
+    {
+      "text": "without",
+      "start": 75.36,
+      "end": 75.76
+    },
+    {
+      "text": "clients",
+      "start": 75.76,
+      "end": 76.32
+    },
+    {
+      "text": "constantly",
+      "start": 76.32,
+      "end": 76.88
+    },
+    {
+      "text": "providing",
+      "start": 76.88,
+      "end": 77.44
+    },
+    {
+      "text": "the",
+      "start": 77.44,
+      "end": 77.68
+    },
+    {
+      "text": "same",
+      "start": 77.68,
+      "end": 78.0
+    },
+    {
+      "text": "information.",
+      "start": 78.0,
+      "end": 78.676
+    },
+    {
+      "text": "And",
+      "start": 79.152,
+      "end": 79.28
+    },
+    {
+      "text": "that's",
+      "start": 79.28,
+      "end": 79.52
+    },
+    {
+      "text": "just",
+      "start": 79.52,
+      "end": 79.76
+    },
+    {
+      "text": "one",
+      "start": 79.76,
+      "end": 80.0
+    },
+    {
+      "text": "part",
+      "start": 80.0,
+      "end": 80.16
+    },
+    {
+      "text": "of",
+      "start": 80.16,
+      "end": 80.32
+    },
+    {
+      "text": "Arixa",
+      "start": 80.32,
+      "end": 81.04
+    },
+    {
+      "text": "Systems.",
+      "start": 81.04,
+      "end": 81.452
+    },
+    {
+      "text": "Experience",
+      "start": 81.84,
+      "end": 82.48
+    },
+    {
+      "text": "it",
+      "start": 82.48,
+      "end": 82.72
+    },
+    {
+      "text": "yourself",
+      "start": 82.72,
+      "end": 83.12
+    },
+    {
+      "text": "with",
+      "start": 83.12,
+      "end": 83.28
+    },
+    {
+      "text": "a",
+      "start": 83.28,
+      "end": 83.44
+    },
+    {
+      "text": "14-day",
+      "start": 83.44,
+      "end": 84.24
+    },
+    {
+      "text": "free",
+      "start": 84.24,
+      "end": 84.64
+    },
+    {
+      "text": "trial",
+      "start": 84.64,
+      "end": 85.12
+    },
+    {
+      "text": "and",
+      "start": 85.12,
+      "end": 85.28
+    },
+    {
+      "text": "discover",
+      "start": 85.28,
+      "end": 85.76
+    },
+    {
+      "text": "what",
+      "start": 85.76,
+      "end": 85.92
+    },
+    {
+      "text": "a",
+      "start": 85.92,
+      "end": 86.08
+    },
+    {
+      "text": "truly",
+      "start": 86.08,
+      "end": 86.48
+    },
+    {
+      "text": "connected",
+      "start": 86.48,
+      "end": 87.12
+    },
+    {
+      "text": "business",
+      "start": 87.12,
+      "end": 87.52
+    },
+    {
+      "text": "can",
+      "start": 87.52,
+      "end": 87.76
+    },
+    {
+      "text": "achieve.",
+      "start": 87.76,
+      "end": 88.204
+    },
+    {
+      "text": "14",
+      "start": 88.79,
+      "end": 89.36
+    },
+    {
+      "text": "days.",
+      "start": 89.36,
+      "end": 89.72
+    },
+    {
+      "text": "Your",
+      "start": 90.066,
+      "end": 90.32
+    },
+    {
+      "text": "business,",
+      "start": 90.32,
+      "end": 90.872
+    },
+    {
+      "text": "your",
+      "start": 91.09,
+      "end": 91.36
+    },
+    {
+      "text": "experience,",
+      "start": 91.36,
+      "end": 92.097
+    },
+    {
+      "text": "your",
+      "start": 92.37,
+      "end": 92.64
+    },
+    {
+      "text": "decision.",
+      "start": 92.64,
+      "end": 93.218
+    },
+    {
+      "text": "ARIXA",
+      "start": 93.58,
+      "end": 94.16
+    },
+    {
+      "text": "Systems,",
+      "start": 94.16,
+      "end": 94.755
+    },
+    {
+      "text": "the",
+      "start": 94.998,
+      "end": 95.12
+    },
+    {
+      "text": "operating",
+      "start": 95.12,
+      "end": 95.76
+    },
+    {
+      "text": "system",
+      "start": 95.76,
+      "end": 96.0
+    },
+    {
+      "text": "for",
+      "start": 96.08,
+      "end": 96.32
+    },
+    {
+      "text": "modern",
+      "start": 96.32,
+      "end": 96.8
+    },
+    {
+      "text": "property",
+      "start": 96.8,
+      "end": 97.2
+    },
+    {
+      "text": "professionals.",
+      "start": 97.2,
+      "end": 97.977
+    },
+    {
+      "text": "Start",
+      "start": 98.312,
+      "end": 98.56
+    },
+    {
+      "text": "your",
+      "start": 98.56,
+      "end": 98.72
+    },
+    {
+      "text": "free",
+      "start": 98.72,
+      "end": 99.04
+    },
+    {
+      "text": "trial",
+      "start": 99.04,
+      "end": 99.44
+    },
+    {
+      "text": "today.",
+      "start": 99.44,
+      "end": 99.783
+    }
   ]
 }

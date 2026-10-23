@@ -709,6 +709,8 @@ module.exports = {
   PLATES,
   KIT,
   ASSET_HOST,
+  // The portals' parts (./portals.cjs), for the reels that build their own pages in them.
+  parts: portals.parts,
   styles: async () => css(await fontFaces()) + portals.css,
 };
 

@@ -1,0 +1,170 @@
+[
+  {
+    "code": "privacy_notice",
+    "version": "2026.1",
+    "acknowledgement_type": "consent",
+    "title": "Collection notice and privacy consent",
+    "summary": "How we collect, use, store and disclose your personal information for anti-money laundering purposes.",
+    "body": "We are a reporting entity regulated by AUSTRAC (the Australian Transaction Reports and Analysis Centre). Before we can provide you with a designated service we are required by law to collect and verify personal information about you, and about any person who owns or controls an entity or trust you are purchasing through.\n\nThe information we collect includes your full name, date of birth, residential address, identity document details, the source of the funds and wealth used in your purchase, and details of the parties to the transaction. If you do not provide this information we may be unable to act for you.\n\nWe use this information only for anti-money laundering and counter-terrorism financing purposes and for directly related legal, audit and record-keeping purposes. We may disclose it to AUSTRAC, to identity verification and screening providers acting on our behalf, to our professional advisers, and to law enforcement or regulators where we are required or authorised by law to do so. Some of our verification and screening providers may store or process data outside Australia; where that occurs we take reasonable steps to ensure the recipient handles your information consistently with the Australian Privacy Principles.\n\nYou may request access to, or correction of, the personal information we hold about you, and you may complain to us or to the Office of the Australian Information Commissioner about how we have handled it. Some information cannot be released to you where doing so would disclose a report made to AUSTRAC.",
+    "statutory_basis": [
+      "Anti-Money Laundering and Counter-Terrorism Financing Act 2006 (Cth) — customer identification and verification",
+      "Privacy Act 1988 (Cth), Australian Privacy Principles 3 and 5 — collection and notification",
+      "Privacy Act 1988 (Cth), Australian Privacy Principles 6 and 8 — use, disclosure and cross-border disclosure",
+      "Privacy Act 1988 (Cth), Australian Privacy Principles 12 and 13 — access and correction"
+    ],
+    "reference_links": [
+      {
+        "label": "AUSTRAC privacy policy",
+        "url": "https://www.austrac.gov.au/about-us/privacy-policy"
+      },
+      {
+        "label": "Australian Privacy Principles (OAIC)",
+        "url": "https://www.oaic.gov.au/privacy/australian-privacy-principles"
+      }
+    ],
+    "required": true,
+    "sort_order": 10
+  },
+  {
+    "code": "identity_verification",
+    "version": "2026.1",
+    "acknowledgement_type": "consent",
+    "title": "Identity verification",
+    "summary": "Consent to verify your identity electronically or from certified documents.",
+    "body": "We must be reasonably satisfied that you are who you say you are before we provide a designated service, and we must identify and verify any beneficial owner — generally a person who ultimately owns or controls 25% or more of an entity, or who controls a trust.\n\nYou consent to us verifying your identity by electronic means, from reliable and independent sources, or from original or certified copies of identity documents. Electronic verification may include matching your name, date of birth and address against information held by a credit reporting body. A credit reporting body may prepare and provide us with an assessment of whether that information matches; this is an identity check only and is not a credit application, and it does not affect your credit rating. If you prefer, you may ask us to verify your identity from documents instead.\n\nWe may also carry out sanctions, politically exposed person and adverse media screening on you and on the other parties to your transaction. If we cannot verify your identity to the required standard we may be unable to proceed.",
+    "statutory_basis": [
+      "Anti-Money Laundering and Counter-Terrorism Financing Act 2006 (Cth) — applicable customer identification procedure",
+      "Anti-Money Laundering and Counter-Terrorism Financing Rules — customer identification and beneficial ownership",
+      "Privacy Act 1988 (Cth), Part IIIA — identity verification using credit reporting information, with your consent",
+      "Autonomous Sanctions Act 2011 (Cth) and Charter of the United Nations Act 1945 (Cth) — sanctions screening"
+    ],
+    "reference_links": [
+      {
+        "label": "AUSTRAC — customer identification and verification",
+        "url": "https://www.austrac.gov.au/business/core-guidance/customer-identification-and-verification"
+      },
+      {
+        "label": "AUSTRAC — beneficial ownership",
+        "url": "https://www.austrac.gov.au/business/core-guidance/customer-identification-and-verification/beneficial-ownership"
+      }
+    ],
+    "required": true,
+    "sort_order": 20
+  },
+  {
+    "code": "aml_ctf_program",
+    "version": "2026.1",
+    "acknowledgement_type": "consent",
+    "title": "Ongoing customer due diligence",
+    "summary": "Why we may come back to you for more information while we act for you.",
+    "body": "Our AML/CTF program requires us to keep customer information current and to monitor the business relationship for the life of that relationship, not only at the start.\n\nYou acknowledge that we may ask you for further information or documents at any time — for example if your circumstances change, if the structure or funding of your purchase changes, if a transaction does not match what we would expect, or if information from screening requires clarification. You agree to provide that information within a reasonable time.\n\nWhere a matter is assessed as higher risk we are required to apply enhanced due diligence, which may include additional verification of your source of funds and source of wealth, and senior management approval before we continue.",
+    "statutory_basis": [
+      "Anti-Money Laundering and Counter-Terrorism Financing Act 2006 (Cth) — ongoing customer due diligence",
+      "Anti-Money Laundering and Counter-Terrorism Financing Rules — enhanced customer due diligence and transaction monitoring"
+    ],
+    "reference_links": [
+      {
+        "label": "AUSTRAC — ongoing customer due diligence",
+        "url": "https://www.austrac.gov.au/business/core-guidance/ongoing-customer-due-diligence"
+      }
+    ],
+    "required": true,
+    "sort_order": 30
+  },
+  {
+    "code": "regulatory_reporting",
+    "version": "2026.1",
+    "acknowledgement_type": "notice",
+    "title": "Reporting to AUSTRAC",
+    "summary": "What we are required to report, and what we are not permitted to tell you.",
+    "body": "As a reporting entity we must give AUSTRAC certain reports. These include reports of transactions at or above the reporting threshold, reports of international funds transfer instructions, and suspicious matter reports.\n\nThe law prohibits us from telling you, or anyone else, that a suspicious matter report has been formed, made or is being considered, or from disclosing related information, except in the limited circumstances the law allows. If we are unable to answer a question about your matter, that limit may be the reason. This is a legal obligation on us and is not a comment on you.\n\nWe are also required to compare parties to your transaction against sanctions lists, and we may be required to decline or delay a service as a result.",
+    "statutory_basis": [
+      "Anti-Money Laundering and Counter-Terrorism Financing Act 2006 (Cth) — suspicious matter reports",
+      "Anti-Money Laundering and Counter-Terrorism Financing Act 2006 (Cth) — threshold transaction reports and international funds transfer instructions",
+      "Anti-Money Laundering and Counter-Terrorism Financing Act 2006 (Cth) — offence of tipping off"
+    ],
+    "reference_links": [
+      {
+        "label": "AUSTRAC — reporting obligations",
+        "url": "https://www.austrac.gov.au/business/how-comply-and-report-guidance-and-resources/reporting"
+      },
+      {
+        "label": "AUSTRAC — suspicious matter reports",
+        "url": "https://www.austrac.gov.au/business/how-comply-and-report-guidance-and-resources/reporting/suspicious-matter-reports-smr"
+      },
+      {
+        "label": "AUSTRAC Online (how we lodge reports)",
+        "url": "https://www.austrac.gov.au/business/austrac-online"
+      }
+    ],
+    "required": true,
+    "sort_order": 40
+  },
+  {
+    "code": "record_keeping",
+    "version": "2026.1",
+    "acknowledgement_type": "notice",
+    "title": "Record keeping and retention",
+    "summary": "How long we keep the information and documents you give us.",
+    "body": "We are required to keep records of the customer identification we carry out, the documents you provide, and the transactions we are involved in. Those records must be retained for at least seven years.\n\nThe retention period is measured from the relevant trigger event — for identification records, from the end of our business relationship with you; for transaction records, from the date of the transaction — not from the date you uploaded a document. Records are disposed of only after that period has run and only where no legal hold, investigation or reporting obligation still applies.",
+    "statutory_basis": [
+      "Anti-Money Laundering and Counter-Terrorism Financing Act 2006 (Cth) — record-keeping obligations (seven years)",
+      "Privacy Act 1988 (Cth), Australian Privacy Principle 11 — security and destruction of personal information"
+    ],
+    "reference_links": [
+      {
+        "label": "AUSTRAC — record keeping",
+        "url": "https://www.austrac.gov.au/business/core-guidance/record-keeping"
+      }
+    ],
+    "required": true,
+    "sort_order": 50
+  },
+  {
+    "code": "biometric_collection",
+    "version": "2026.2",
+    "acknowledgement_type": "consent",
+    "title": "Facial image and biometric verification",
+    "summary": "Consent to capture, check and retain a facial image so we can confirm you are the holder of your identity document.",
+    "body": "To confirm that you are the person shown on your identity document, we ask you to take a photograph of your face. We compare that photograph with the photograph on your document, and we run an automated check intended to confirm a real person is present rather than a photograph, screen or mask.\n\nA facial image, and the mathematical template derived from it, are biometric information. Australian privacy law treats this as sensitive information, which means we may only collect it with your consent. This consent is separate from the other consents for that reason.\n\nWe retain your facial image and the derived template as part of your compliance record. They are processed and stored on infrastructure we control — they are not sent to an overseas identity verification service. Access is restricted to compliance staff who need it, and every access is recorded in a tamper-evident log. They are kept for the record-keeping period required by anti-money laundering law, measured from the end of our business relationship with you, and are then destroyed.\n\nYou may have up to three attempts at the facial check. If the check does not succeed, that is not a finding against you — checks of this kind fail for ordinary reasons such as lighting or camera quality. A member of our staff will contact you to complete verification another way.\n\nYou do not have to consent to this. If you would prefer, you may ask us to verify your identity from original or certified copies of your identity documents instead, and we will arrange that.",
+    "statutory_basis": [
+      "Privacy Act 1988 (Cth), section 6 — biometric information is sensitive information",
+      "Privacy Act 1988 (Cth), Australian Privacy Principle 3.3 — consent is required to collect sensitive information",
+      "Privacy Act 1988 (Cth), Australian Privacy Principle 11 — security and destruction of personal information",
+      "Anti-Money Laundering and Counter-Terrorism Financing Act 2006 (Cth) — customer identification and verification",
+      "Anti-Money Laundering and Counter-Terrorism Financing Act 2006 (Cth) — record-keeping obligations (seven years)"
+    ],
+    "reference_links": [
+      {
+        "label": "OAIC — what is sensitive information",
+        "url": "https://www.oaic.gov.au/privacy/your-privacy-rights/your-personal-information/what-is-personal-information"
+      },
+      {
+        "label": "AUSTRAC — customer identification and verification",
+        "url": "https://www.austrac.gov.au/business/core-guidance/customer-identification-and-verification"
+      }
+    ],
+    "required": false,
+    "sort_order": 25
+  },
+  {
+    "code": "compliance_sharing",
+    "version": "2026.2",
+    "acknowledgement_type": "consent",
+    "title": "Sharing your completed verification with partner organisations",
+    "summary": "Let the other organisations working on your purchase reuse the identity checks you have already completed, so you are not asked to verify again.",
+    "body": "Several organisations are usually involved in a property purchase — a mortgage broker or lender, a builder or developer, and a solicitor or conveyancer. Many of them have their own legal obligation to verify your identity before they can act.\n\nAustralian anti-money laundering law allows one organisation to rely on the customer identification another has already carried out, under a written agreement between them. With your consent, we share with those partner organisations a record of the checks we have completed — what was verified, how, and when — and, where their own compliance requires it and the written agreement provides for it, copies of the identification records. Each partner remains responsible for its own compliance decisions.\n\nWe share this only with organisations that hold a current written agreement with us, every access is recorded, and we do not share our internal assessments or commentary about you.\n\nThis consent is optional. If you decline, nothing changes with us — but each partner organisation will need to contact you and verify your identity separately.",
+    "statutory_basis": [
+      "Anti-Money Laundering and Counter-Terrorism Financing Act 2006 (Cth), Part 2 Division 7 (ss 37A–38) — reliance on customer identification carried out by another reporting entity under a customer due diligence arrangement",
+      "Privacy Act 1988 (Cth), Australian Privacy Principle 6.1(a) — disclosure with consent"
+    ],
+    "reference_links": [
+      {
+        "label": "AUSTRAC — customer identification and verification",
+        "url": "https://www.austrac.gov.au/business/core-guidance/customer-identification-and-verification"
+      }
+    ],
+    "required": false,
+    "sort_order": 60
+  }
+]
