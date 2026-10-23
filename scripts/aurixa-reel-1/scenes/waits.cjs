@@ -189,7 +189,8 @@ function waitsScene() {
     // The clock runs from Monday 9:14 to Wednesday 4:52 PM, its words ticking ten times a second, and only between
     // frames (a tick inside a frame's shutter would print two times over each other); its hands and its ring run on
     // the overlays' own clock, so a hand that spins faster than the frame blurs as a camera would see it.
-    const u = Math.floor((Math.round(to * M.FPS) / M.FPS - tHold) * 10 + 1e-6) / 10 / (tDark - tHold);
+    const u =
+      Math.floor((Math.round(to * M.FPS) / M.FPS - tHold) * 10 + 1e-6) / 10 / (tDark - tHold);
     const parts = clockParts(u);
     st.set("#wt-clock-day", { $text: parts.day });
     st.set("#wt-clock-t", { $text: parts.hm });
@@ -199,7 +200,9 @@ function waitsScene() {
     const minutes = minutesAt(run);
     st.set("#wt-clk-h", { transform: `rotate(${r3(((minutes % 720) / 720) * 360)}deg)` });
     st.set("#wt-clk-m", { transform: `rotate(${r3(((minutes % 60) / 60) * 360)}deg)` });
-    st.set("#wt-clk-arc", { "stroke-dashoffset": `${r3(CLK.c * (1 - (minutes - FROM) / (TO - FROM)))}` });
+    st.set("#wt-clk-arc", {
+      "stroke-dashoffset": `${r3(CLK.c * (1 - (minutes - FROM) / (TO - FROM)))}`,
+    });
     // It arrives a little ahead of the room's own motion; its glow builds as the clock speeds up, and each new day
     // it flares and swells.
     const arrive = span(to, tHold, tHold + 0.35, EASE.settle);
@@ -217,7 +220,9 @@ function waitsScene() {
       ...fade(span(to, tHold, tHold + 0.3, EASE.linear) * away),
     });
     // The live dot beside the wait, beating twice a second.
-    st.set("#wt-clock-dot", { opacity: r3(0.35 + 0.65 * (0.5 + 0.5 * Math.cos(2 * Math.PI * 2 * Math.max(0, to - tHold)))) });
+    st.set("#wt-clock-dot", {
+      opacity: r3(0.35 + 0.65 * (0.5 + 0.5 * Math.cos(2 * Math.PI * 2 * Math.max(0, to - tHold)))),
+    });
     // The ticker: in from below, running, faster and faster.
     const tin = span(to, tHold, tHold + 0.45, EASE.settle);
     st.set("#wt-ticker", { transform: `translateY(${px((1 - tin) * 90 + 300 * drop)})`, ...fade(tin * away) });
