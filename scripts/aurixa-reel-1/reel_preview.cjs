@@ -145,8 +145,8 @@ ${SWATCHES.map(
     <div class="corners"></div>
     <div class="card">
       <div class="eyebrow"><span></span>Record</div>
-      <h2>Residence 014</h2>
-      <p>BK-014 · ready for the client</p>
+      <h2>14 Wattle Grove</h2>
+      <p>WG-14 · ready for the client</p>
     </div>
     <div class="rail"><div class="traveller"></div></div>
     <div class="pointer">

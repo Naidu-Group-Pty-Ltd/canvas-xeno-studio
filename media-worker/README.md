@@ -87,7 +87,10 @@ frame. The app sends one source per distinct asset (role `video`, `image`,
   `focus_x` / `focus_y` (0–1, where a `cover` crop sits; the centre unless
   given), `motion` for stills (`zoom_in`, `zoom_out`, `pan_left`, `pan_right`,
   `pan_up`, `pan_down`), `transition` into the clip (`type` from the xfade
-  set or `cut`, `duration` up to 3 s; shortened when the clips are too short),
+  set or `cut`, `duration` up to 3 s; shortened when the clips are too short;
+  the clip before reports its end only once the transition has used its last
+  frame, since FFmpeg 5.1's xfade, the image's, otherwise ends early and
+  plays the next clip a frame late),
   `match_previous` and `join` (see below). A trim that falls on a frame is honoured to
   the frame: the seek starts a millisecond early so rounding never skips it
 - `audio[]`: `source_index`, `role` (`voiceover`, `music`, `sfx`), `start`,
@@ -132,10 +135,92 @@ frame. The app sends one source per distinct asset (role `video`, `image`,
   (two-pass EBU R128 to `loudness_lufs`, default −14 LUFS). Loudness is
   evened out after the mix, so channel levels set the balance between the
   channels, not the final loudness
+- `quality` (feature `mastering`): `standard` (as before) or `master`. A
+  master keeps each clip lossless (x264 at QP 0) while the task's disk has
+  room for it, planned clip by clip beside everything else the render keeps,
+  and encodes the cut once: x264 High at CRF 12 on its slow preset, aq-mode 3
+  (strength 0.9), a 2 s GOP, BT.709 tagged, with AAC at 256 kb/s. A clip
+  that wouldn't fit losslessly is made the standard way (CRF 14).
+  `metadata.mastering` lists `lossless_clips` and `standard_clips` (numbered
+  from 1), with `needed_bytes` and `budget_bytes` when any clip was made the
+  standard way
+- `pass_through: true` (feature `mastering`): the app takes the edit to be one
+  finished video with nothing over it, and the worker makes sure: one clip of
+  the whole file at speed 1 and volume 1, with no fades, text, pictures, other
+  sound or sharp scaling; the file H.264 in 4:2:0 at the edit's size and rate,
+  square pixels, progressive and unrotated, with exactly the clip's frames, and
+  no sound or one AAC stream that runs with the picture; and, when loudness is
+  evened out, already within 0.5 LU of the target with its true peak at or
+  below −1 dBTP. Its streams are then copied into an MP4 laid out to play at
+  once (`+faststart`), with its poster, and `metadata.pass_through` is
+  `{"used": true}`. Otherwise the edit is rendered as usual, and
+  `pass_through` is `{"used": false, "reason": "…"}`
+- `measure` (feature `render_quality`): `{"brand_colours": ["#rrggbb", …]}`
+  (up to 12, may be empty). The render is measured against its own lossless
+  reference: the final pass's picture before its encode, made again from the
+  same inputs and filter graph (frame for frame what the encoder was given),
+  both decoded as a BT.709 player decodes them (`src/quality.js`). The report
+  is `metadata.quality`, a few kilobytes:
+  - `fidelity`: SSIM and PSNR (RGB) frame by frame, of every frame up to 1,800
+    and an even sample beyond (`every`), with the mean, the worst and the three
+    worst frames' times
+  - `pixels`, on about 90 full frames spread over the edit: the share of the
+    reference's strong edge contrast the master keeps (`edges`), CIEDE2000 on
+    the reference's flat fields (`colour`: mean, 99th percentile, largest, the
+    share below 1), each brand colour where it covers a flat patch (the
+    reference's and the master's colour, their difference and how far the edit
+    drew it from the kit's own value), and banding in gentle gradients (the
+    smoothed difference over 16 x 32 pixels, outside transitions and fades)
+  - `captions`: each caption on the frames it was planned for, from the text
+    edges in the caption band of a small grey copy of every frame, judged
+    against its own clip's frames without captions (`missed` lists any not
+    shown); `cuts`: each cut on its frame (`reads_as` `cut`, `carried_through`
+    for a join the picture runs through, or `missed` with `found_at`); `sync`:
+    each voiceover (the eight longest) where it was placed, matched with the
+    master's sound (`offset_ms`, positive when late); `loudness`: integrated,
+    range and true peak, against the target when loudness is evened out
+  - `checks`: each measure judged `pass`, `flag` or `info` against the
+    thresholds in `src/quality.js` (from Reel 1's own: SSIM 0.98, PSNR 40 dB
+    and no frame below 37 dB, edges 98% and no frame below 95%, CIEDE2000 and
+    brand colours below 1, banding below one code value, every caption and
+    cut, sync within 20 ms, loudness within 1 LU, true peak at most −1 dBTP),
+    with `passes` and `flags` counted. A master passed through is reported as
+    `status: "passed_through"` with its loudness; a render that couldn't be
+    measured as `status: "unmeasured"` (it stands all the same)
 
 Timings are snapped to the frame grid, so the output has exactly the planned
 number of frames. Clips are normalised one at a time, which keeps memory flat
 for long timelines.
+
+## Colour
+
+A render is BT.709 at limited range, and tagged so (its intermediates too), the
+way an HD player reads it. FFmpeg turns RGB into YUV with BT.601's weights
+unless told otherwise, and draws text, boxes and padding into a YUV picture
+with them whatever the picture is, so a render made that way plays back off:
+measured on a 720 × 1280 render, a brand's teal by a CIEDE2000 of 8.6, a red by
+5.7, a green by 6.7 and a gold by 2.2. `src/colour.js` puts that right, and the
+self-test measures it (each colour now within 0.75):
+
+- Pictures in RGB (stills, logos, a motion graphic's lossless master) are
+  turned into YUV by BT.709's matrix; a JPEG's or WebP's own YUV (BT.601) and a
+  video tagged BT.601 (or an untagged one below HD sizes) are converted to it.
+  An untagged HD video is taken as BT.709; HDR (BT.2020) is taken as it comes,
+  since it needs tone mapping, not a matrix.
+- Colours drawn into the picture (captions, titles and their boxes and panels,
+  a reframe's `background`) are handed over so that FFmpeg's own matrix lands
+  them on BT.709's values. Which matrix FFmpeg draws with is measured once per
+  process, by drawing a 16 × 16 teal box the way the render does (BT.601 in
+  every FFmpeg so far; a newer one may follow the script's `YCbCr Matrix:
+  TV.709`, which the script names). A render keeps its script as composed
+  (`text.ass`) and as drawn (`text.drawn.ass`).
+- Frames taken out of a video (thumbnails, frames, last frames, posters, review
+  sheet tiles) are read as a player shows them and written in their image
+  format's own colour (a JPEG's YUV is BT.601 at full range): a BT.709 video's
+  thumbnail was off by 9.1, now 0.7. The take and clean-plate recipes bring
+  their art into the take's own matrix before laying it over.
+
+`probe` reports a picture's `pix_fmt`, `color_space` and `color_range`.
 
 ## Long videos: true last frames and seamless joins
 
@@ -212,6 +297,22 @@ unless given); `blur_pad` shows it whole on a blurred copy of itself.
 `/health` lists `features` (`frame_focus`, `frame_background`) so the app only
 offers what the deployed worker can do.
 
+## Review sheets
+
+`review_sheet` (one `video` source, one JPEG output; feature `review_sheet`)
+lays a video's frames out as one picture, to review a render shot by shot.
+`tiles` lists the frames (at most 120), each `{"time": 1.5, "label": "…",
+"note": "…"}`: the frame shown at that time (a time past the end takes the last
+frame), scaled to `tile_width` (120–640 pixels, default 270) in the video's
+shape, over a band holding its label (one line, at most 80 characters) and its
+note (up to three lines, at most 200 characters, cut at a word). `columns`
+(1–8, default 4) sets how many go across, and `title` (at most 120 characters)
+heads the sheet; one that would be taller than 30,000 pixels takes more
+columns. The text is written into a subtitle file the worker makes and draws,
+never into an FFmpeg argument, without braces or backslashes (which could act
+as markup). `metadata` has `tiles`, `columns`, `rows`, `width`, `height`,
+`tile_width` and `tile_height`.
+
 ## Voiceovers that drive lip sync
 
 A clip generated from a voiceover (Wan's "driving audio") moves its lips to
@@ -275,6 +376,93 @@ SyncNet weights must match the checksum of the copy first deployed
 fetched or doesn't match, the build still succeeds without it and prints
 "lip_check could not be installed". A worker without its files doesn't list `lip_check`
 in its features, and the app makes clips without scores.
+
+## Motion graphics
+
+The app compiles a motion graphic (a composition, see `docs/compositions.md`)
+into a bundle: one HTML page in the brand's colours and type, and its track,
+the style changes each drawing makes. The worker never runs code from an edit:
+it loads the page in Chromium (driven over a pipe, every request answered by
+the worker from the task's own files, nothing let onto the network), applies
+each drawing's changes as data, captures it, and encodes.
+
+- **`render_composition`** (feature `compositions`) draws a bundle's frames.
+  At `final` quality each frame is drawn at twice its size eight times, spread
+  over a 180-degree shutter, averaged (FFmpeg's `tmix`) and scaled down
+  (`zscale`, Lanczos), so a fast move blurs as a camera's would and a still
+  frame stays exactly as sharp; a drawing whose state hasn't changed reuses the
+  one before. It writes the lossless master (FFV1, `bgr0`) the edit's render
+  reads, a playable H.264 copy (BT.709, dithered) and a poster. With
+  `output: "stretch"`, `from_frame` and `to_frame` it draws one stretch of a
+  long composition, master only, so stretches can be drawn on several workers
+  at once.
+- **`join_stretches`** joins a composition's stretches frame for frame (a
+  stream copy: nothing is encoded again) and makes its playable copy and poster.
+
+`COMPOSITION_BROWSERS` (2 with four or more CPUs, else 1) draws that many
+stretches of one task's frames side by side. Final drawings go ahead of drafts
+in the heavy lane (`priority`). A worker on a machine with a GPU, run with
+`MEDIA_WORKER_GPU=1`, draws WebGL on it (and offers `compositions_gpu`); the
+app sends compositions that draw with WebGL there when `MEDIA_WORKER_GPU_URL`
+names it. The image installs Debian's Chromium; build with
+`--build-arg COMPOSITIONS=0` to leave it out (the worker then doesn't offer
+`compositions`). `CHROMIUM_PATH` names another browser.
+
+## Takes that land on a picture, and a logo's clean plate
+
+A video model re-renders the picture it is given, so a take that must land on an exact
+picture (a logo's reveal ending on the logo) comes back a pixel or two off and a shade off
+in colour. And it garbles lettering, so a logo is moved without its letters and they are
+laid back over the footage. These tasks do both (the app runs them as its clean-plate
+recipe; Reel 1's logo was made this way).
+
+- `align_take` (sources: the take, as `video`, and the picture it must land on; one MP4)
+  registers the take's last frame on the picture (`anchor: "first"` for its first frame;
+  an affine fit, as a smart join is put in register), then fits a gain and offset on each
+  of the picture's planes (Y, U, V) from 24-pixel block averages of the two, never pixel
+  against pixel, since the take is softer than the picture. Both are made on every frame;
+  then the take crosses to the picture itself (`cross_seconds`, default 0.5, at most 3),
+  which holds for `hold_seconds` (at least a frame after a cross). The picture sets the
+  frame, so the take must be its shape (within 12%); `fps` re-times it; the take's sound is
+  left out. `metadata.alignment` has the likeness before and after, the framing it undid
+  (`scale_x`, `scale_y`, `shift_x`, `shift_y`), the colour match per plane, and how far the
+  anchor frame was from the picture in levels of light, `before` and `after`. A frame that
+  isn't the picture at all is left unmoved (`left: "different_pictures"`).
+- `clean_plate` (sources: the art, and for the plate its image edit as `edit`; a
+  transparent file of the lettering as `lettering`; one PNG) draws the lettering's mask
+  from `boxes` (`[{x, y, w, h}]` in the art's pixels) and from the lettering file's alpha
+  (placed at `lettering_rect`, the whole art unless given; alpha above `threshold`, 6),
+  grown by `grow` pixels and feathered over `feather` (each 2% of the art's shorter side
+  unless given). `output: "mask"` gives the mask; `"plate"` (the default) puts the edit in
+  register with the art (fitted only where the lettering isn't) and lays it into the art
+  only inside the mask, so every other pixel is the art's own, bit for bit. Its
+  `metadata` reports the registration and `kept_difference_levels`: how far the edit
+  strayed from the art where it was told to keep it.
+- `lay_lettering` (sources: the take, in the art's framing, as `video`; the art; the
+  lettering file as `lettering`; one MP4) lays the art's own letters back over every frame
+  (`letters: "art"`: the art's pixels inside a tighter mask of the same `boxes` or the
+  file's alpha) or the lettering file itself by its own alpha (`letters: "file"`), from
+  `start_seconds`, fading in over `fade_seconds`. The take's sound is kept.
+
+`/health` lists `align_take` and `clean_plate` (for both `clean_plate` and
+`lay_lettering`) among its features.
+
+## Screenshots with what they must not show blurred
+
+A screenshot supplied as a reference (a client's portal, say) can show real people's
+names, emails, phone numbers and addresses. The app finds them and a person checks the
+boxes; this task blurs them in a copy.
+
+- `redact_image` (source: the screenshot, PNG, JPEG or WebP, at most 8000 pixels a side;
+  one PNG, or `format: "jpg"`) blurs inside each of `boxes` (`[{x, y, w, h}]` in the
+  picture's pixels, at most 200): the picture there is broken into blocks most of the
+  tallest box's height (`metadata.redaction.block`, at least 12 pixels), then blurred, so
+  no letter survives to be read or recovered. Every pixel outside the boxes comes out
+  exactly as it was. The boxes are numbers only: the text they cover never reaches the
+  worker. `metadata.redaction.boxes` says how many were blurred.
+
+`/health` lists `redact_image` among its features. It is a quick task, so a screenshot
+isn't kept waiting behind a render.
 
 ## Configuration
 

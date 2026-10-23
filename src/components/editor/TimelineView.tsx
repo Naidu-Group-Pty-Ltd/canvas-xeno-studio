@@ -40,7 +40,9 @@ import {
   type TimelineAudio,
   type TimelineLayout,
 } from "@/lib/edit/timeline";
+import { musicPieces, trimPiecesHead, type MusicPiece } from "@/lib/edit/pieces";
 import { cn } from "@/lib/utils";
+import { MusicGrid } from "./MusicGrid";
 import { useClockTime, type PlaybackClock, type Selection } from "./state";
 
 const LABEL_WIDTH = 108;
@@ -73,7 +75,13 @@ type Drag =
       id: string;
       edge: "start" | "end";
       startX: number;
-      origin: { start: number; trimStart: number; duration: number };
+      origin: {
+        start: number;
+        trimStart: number;
+        duration: number;
+        pieces: MusicPiece[] | null;
+        fittedTo: number | undefined;
+      };
     }
   | { kind: "scrub" };
 
@@ -190,6 +198,23 @@ export function TimelineView(props: TimelineViewProps) {
                   ...item,
                   duration: Math.max(0.2, current.origin.duration + delta),
                 });
+              // Music in pieces is trimmed into its first piece (see trimPiecesHead), the rest staying put.
+              if (current.origin.pieces) {
+                const { pieces, trimmed } = trimPiecesHead(
+                  current.origin.pieces,
+                  Math.max(-current.origin.start, Math.min(delta, current.origin.duration - 0.2)),
+                );
+                return clampAudio({
+                  ...item,
+                  pieces,
+                  start: current.origin.start + trimmed,
+                  duration: current.origin.duration - trimmed,
+                  // Its end stays where the fit put it: so does what the fit was to.
+                  ...(current.origin.fittedTo !== undefined
+                    ? { fittedTo: Math.max(0.1, current.origin.fittedTo - trimmed) }
+                    : {}),
+                });
+              }
               const shift = Math.max(
                 -Math.min(current.origin.start, current.origin.trimStart),
                 Math.min(delta, current.origin.duration - 0.2),
@@ -279,7 +304,9 @@ export function TimelineView(props: TimelineViewProps) {
         origin: {
           start: item.start,
           trimStart: item.trimStart,
-          duration: item.duration ?? audioPlayLength(item, layout.total),
+          duration: item.duration ?? audioPlayLength(item, layout.total, timeline.fps),
+          pieces: musicPieces(item),
+          fittedTo: item.fittedTo,
         },
       };
     }
@@ -354,6 +381,13 @@ export function TimelineView(props: TimelineViewProps) {
             {...props}
             onPointerDown={startAudioDrag}
             onBackground={startScrub}
+          />
+          <MusicGrid
+            timeline={timeline}
+            layout={layout}
+            pixelsPerSecond={pps}
+            top={ROW.ruler + ROW.picture + ROW.audio}
+            height={ROW.audio}
           />
 
           <div
@@ -679,7 +713,11 @@ function AudioRow({
       onPointerDown={onBackground}
     >
       {items.map((item) => {
-        const length = audioPlayLength(item, Math.max(layout.total, item.start + 0.1));
+        const length = audioPlayLength(
+          item,
+          Math.max(layout.total, item.start + 0.1),
+          timeline.fps,
+        );
         const selected = selection?.kind === "audio" && selection.id === item.id;
         const asset = assets.get(item.assetId);
         const tone =

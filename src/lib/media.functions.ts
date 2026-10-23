@@ -180,6 +180,9 @@ export const submitMediaTask = createServerFn({ method: "POST" })
 
     const ordered = data.sourceAssetIds.map((id) => (assets ?? []).find((asset) => asset.id === id));
     if (ordered.some((asset) => !asset)) throw new AppError("INVALID_PARAMETERS", "One of the selected files is no longer available");
+    // A layout-only picture (a real client's screen, say) is never copied into another file.
+    const { assertPlaceable } = await import("./media/layout-only.server");
+    await assertPlaceable(data.sourceAssetIds, "copy");
 
     const primary = ordered[0]!;
     if (!definition.accepts.includes(primary.asset_type as MediaKind)) {

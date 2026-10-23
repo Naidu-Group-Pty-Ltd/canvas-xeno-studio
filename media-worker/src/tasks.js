@@ -1,10 +1,18 @@
 import { join } from "node:path";
 import { probe, ffmpeg } from "./ffmpeg.js";
+import { asImage, handedOverHex, matrixOver, matrixTag, padMatrix, rgbOf } from "./colour.js";
 import { TaskError } from "./net.js";
-import { renderSequence, SEQUENCE_LIMITS } from "./sequence.js";
+import { crossInput, renderSequence, SEQUENCE_LIMITS, stemRoles } from "./sequence.js";
 import { cameraMotion, decodeThumbnails, extractFrameByIndex, pickHandoffFrame } from "./frames.js";
 import { measureSync, prepareAudio } from "./voice.js";
 import { lipCheck, lipCheckAvailable } from "./lipcheck.js";
+import { chromiumAvailable } from "./chromium.js";
+import { COMPOSITION_LIMITS, joinStretches, renderComposition } from "./composition.js";
+import { config } from "./config.js";
+import { alignTake } from "./take.js";
+import { cleanPlate, layLettering } from "./plate.js";
+import { redactImage } from "./redact.js";
+import { reviewSheet } from "./review.js";
 
 /**
  * Task catalogue.
@@ -56,8 +64,24 @@ function pick(value, allowed, fallback, name) {
  * ("audio_sync"), the mixer's channel levels applied to each sound bus
  * ("channel_mix"), joins put in register: framing, colour, detail and
  * sound ("smart_join"), a title's height on the frame and what keeps it
- * readable ("overlay_layout"), and, where the image has it, a clip's lips
- * scored from its picture ("lip_check").
+ * readable ("overlay_layout"), up to twelve brand font files in a render,
+ * a family's italic and bold among them ("more_fonts"), captions set word
+ * by word in a brand's type, each word on its spoken time, on a panel
+ * ("brand_captions"), what is behind captions chosen: a panel following
+ * the picture measured behind them, a light card, a glass nearer opaque
+ * over light pictures, a solid one in the brand's colour, or none
+ * ("caption_panel"), and, where the image has it, a clip's lips scored
+ * from its picture ("lip_check"). A voiceover can be held open in its
+ * silences by whole frames ("voice_pauses"), every render reports the voice's
+ * margin over the music and the mix's loudness ("mix_report"), and a render
+ * can hand back its voiceover, music and effects buses as files ("stems").
+ * Music edited on its bars plays its pieces in order, crossfaded at each
+ * join ("music_pieces", see ./pieces.js).
+ * A render can also be a master, with lossless clips and one fine encode, or
+ * a finished master passed through as it is ("mastering"; see master.js),
+ * and measured against its own lossless reference ("render_quality"; see
+ * quality.js); and a video's frames laid out as one labelled picture
+ * ("review_sheet"; see review.js).
  */
 export const FEATURES = [
   "frame_focus",
@@ -73,7 +97,27 @@ export const FEATURES = [
   "frame_rate_conversion",
   "brand_text",
   "image_overlays",
+  "more_fonts",
+  "brand_captions",
+  "caption_panel",
+  "overlay_motion",
+  "voice_pauses",
+  "mix_report",
+  "stems",
+  "music_pieces",
+  // A take put on the exact picture it must land on (align_take), and a logo's
+  // lettering taken out of its art and laid back over a take (clean_plate,
+  // lay_lettering).
+  "align_take",
+  "clean_plate",
+  // A reference screenshot's private details blurred in a copy (redact_image).
+  "redact_image",
+  "mastering",
+  "render_quality",
+  "review_sheet",
   ...(lipCheckAvailable ? ["lip_check"] : []),
+  // Code-driven motion graphics drawn in Chromium ("compositions"), on a GPU here ("compositions_gpu").
+  ...(chromiumAvailable ? ["compositions", ...(config.gpu ? ["compositions_gpu"] : [])] : []),
 ];
 
 /** The point of the picture (0-1 across and down) a crop keeps in frame: the centre unless given. */
@@ -93,10 +137,24 @@ function padColour(value) {
 }
 
 /**
- * Builds the scale/pad filter for a target frame, without cropping the subject
- * away in "contain". "cover" crops around `focus`; "contain" pads in `background`.
+ * The colour around a video (padColour's), with the frame's tag to set before
+ * it is drawn: a YUV picture's colour is handed over to the matrix FFmpeg
+ * draws padding with, so it plays back as the colour asked for (see
+ * ./colour.js). An RGB picture's is drawn as it is.
  */
-function frameFilter(width, height, mode, { focus = { x: 0.5, y: 0.5 }, background = "black" } = {}) {
+async function videoPadding(colour, info) {
+  if (colour === "black" || rgbOf(info)) return { background: colour, tag: null };
+  const target = matrixOver(info);
+  const handed = handedOverHex(`#${colour.slice(2)}`, await padMatrix(target), target);
+  return { background: `0x${handed.slice(1)}`, tag: matrixTag(target) };
+}
+
+/**
+ * Builds the scale/pad filter for a target frame, without cropping the subject
+ * away in "contain". "cover" crops around `focus`; "contain" pads in
+ * `background`, the frame given `tag` first (see videoPadding).
+ */
+function frameFilter(width, height, mode, { focus = { x: 0.5, y: 0.5 }, background = "black", tag = null } = {}) {
   const w = even(width);
   const h = even(height);
   if (mode === "cover") {
@@ -110,7 +168,7 @@ function frameFilter(width, height, mode, { focus = { x: 0.5, y: 0.5 }, backgrou
       `[bgb][fgs]overlay=(W-w)/2:(H-h)/2`
     );
   }
-  return `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:color=${background}`;
+  return `scale=${w}:${h}:force_original_aspect_ratio=decrease,${tag ? `${tag},` : ""}pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:color=${background}`;
 }
 
 /**
@@ -152,9 +210,11 @@ export const TASKS = {
       const time = num(params.time_seconds, { min: 0, max: 86_400, fallback: 0, name: "time_seconds" });
       const format = pick(params.format, IMAGE_FORMATS, "jpg", "format");
       const out = join(dir, `thumbnail.${format}`);
+      // Its colour as a viewer sees the picture, in the image format's own (see ./colour.js).
+      const info = await probe(sources[0].path);
       const args = [];
       if (time > 0) args.push("-ss", String(time));
-      args.push("-i", sources[0].path, "-frames:v", "1", "-vf", `scale=${width}:-2`);
+      args.push("-i", sources[0].path, "-frames:v", "1", "-vf", `scale=${width}:-2:${asImage(info, format)}`);
       if (format === "jpg") args.push("-q:v", "3");
       args.push(out);
       await ffmpeg(args);
@@ -176,10 +236,11 @@ export const TASKS = {
       if (params.frame === "index") return frameAtIndex(sources[0].path, params, dir);
       const times = timestamps(params);
       const width = even(num(params.width, { min: 64, max: 3840, fallback: 960, name: "width" }));
+      const colour = asImage(await probe(sources[0].path), "jpg");
       const outputs = [];
       for (const [index, time] of times.entries()) {
         const out = join(dir, `frame-${String(index + 1).padStart(3, "0")}.jpg`);
-        await ffmpeg(["-ss", String(time), "-i", sources[0].path, "-frames:v", "1", "-vf", `scale=${width}:-2`, "-q:v", "3", out]);
+        await ffmpeg(["-ss", String(time), "-i", sources[0].path, "-frames:v", "1", "-vf", `scale=${width}:-2:${colour}`, "-q:v", "3", out]);
         outputs.push({ path: out, mime: "image/jpeg", kind: "image", timestamp_seconds: time });
       }
       return { outputs, metadata: { frame_times: times } };
@@ -243,8 +304,10 @@ export const TASKS = {
       const mode = pick(params.mode, SCALE_MODES, "cover", "mode");
       const format = pick(params.format, VIDEO_FORMATS, "mp4", "format");
       const crf = num(params.crf, { min: 14, max: 40, fallback: 20, name: "crf" });
-      const framing = { focus: focusOf(params), background: padColour(params.background) };
+      const focus = focusOf(params);
+      const colour = padColour(params.background);
       const probed = await probe(sources[0].path);
+      const framing = { focus, ...(await videoPadding(colour, probed)) };
       const out = join(dir, `reframed.${format}`);
       await ffmpeg([
         "-i", sources[0].path,
@@ -363,7 +426,9 @@ export const TASKS = {
         for (let index = 1; index < labels.length; index += 1) {
           const output = `x${index}`;
           const at = Math.max(0, offset - transition);
-          filters.push(`[${previous}][${labels[index]}]xfade=transition=fade:duration=${transition}:offset=${at.toFixed(3)}[${output}]`);
+          // The clip before ends only once the cross has used its frames (see crossInput in ./sequence.js).
+          filters.push(`[${previous}]${crossInput()}[${output}in]`);
+          filters.push(`[${output}in][${labels[index]}]xfade=transition=fade:duration=${transition}:offset=${at.toFixed(3)}[${output}]`);
           offset = at + (await clipDuration(clips[index], videoSources));
           previous = output;
         }
@@ -401,11 +466,12 @@ export const TASKS = {
    * An edited sequence rendered to a finished video: clips and stills with
    * trims, speed and motion, per-cut transitions, the clips' own sound,
    * voiceover, music ducked under the voice, captions, titles and loudness
-   * normalisation. Produces the video and a poster frame.
+   * normalisation. Produces the video and a poster frame, then any stems
+   * asked for (the voiceover, music and effects buses, in the order asked).
    */
   render_sequence: {
     sources: { min: 1, max: SEQUENCE_LIMITS.clips + SEQUENCE_LIMITS.audio + SEQUENCE_LIMITS.images + SEQUENCE_LIMITS.fonts },
-    outputs: () => 2,
+    outputs: (params) => 2 + stemRoles(params?.stems).length,
     run: renderSequence,
   },
 
@@ -421,6 +487,16 @@ export const TASKS = {
   },
 
   /**
+   * A video's frames at the times given, each labelled, as one JPEG: a
+   * render's review sheet, shot by shot (see review.js).
+   */
+  review_sheet: {
+    sources: { min: 1, max: 1 },
+    outputs: () => 1,
+    run: reviewSheet,
+  },
+
+  /**
    * Where a generated clip has the speech of the voiceover piece it was made
    * from, measured from the clip's own sound (see voice.js). Produces no file.
    */
@@ -428,6 +504,51 @@ export const TASKS = {
     sources: { min: 2, max: 2 },
     outputs: () => 0,
     run: measureSync,
+  },
+
+  /**
+   * A take that must land on an exact picture, put on it: registered and
+   * colour-matched to it on the frame that must equal it, then crossed to
+   * the picture itself (see take.js). Sources: the take and the picture.
+   */
+  align_take: {
+    sources: { min: 2, max: 2 },
+    outputs: () => 1,
+    run: alignTake,
+  },
+
+  /**
+   * A logo's lettering mask (from boxes, or a transparent file of the
+   * lettering), or its clean plate: an image edit with the lettering taken
+   * out, laid into the art only inside that mask (see plate.js). Sources: the
+   * art, its edit ("edit") and the lettering file ("lettering").
+   */
+  clean_plate: {
+    sources: { min: 1, max: 3 },
+    outputs: () => 1,
+    run: cleanPlate,
+  },
+
+  /**
+   * The lettering laid back over a take of the clean plate, exactly: the
+   * art's own letters, or the lettering file itself (see plate.js). Sources:
+   * the take, the art and the lettering file ("lettering").
+   */
+  lay_lettering: {
+    sources: { min: 2, max: 3 },
+    outputs: () => 1,
+    run: layLettering,
+  },
+
+  /**
+   * A screenshot with what it must not show (people's names, emails, phone
+   * numbers, addresses) blurred in the boxes given, and nothing else changed
+   * (see redact.js).
+   */
+  redact_image: {
+    sources: { min: 1, max: 1 },
+    outputs: () => 1,
+    run: redactImage,
   },
 
   /**
@@ -441,6 +562,28 @@ export const TASKS = {
           sources: { min: 1, max: 2 },
           outputs: () => 0,
           run: lipCheck,
+        },
+      }
+    : {}),
+
+  /**
+   * A composition (code-driven motion graphics; see composition.js) drawn as a
+   * camera would: its lossless master, a playable copy and a poster, or one
+   * lossless stretch of it. Its sources are its bundle, then its images and
+   * fonts. Only on a worker whose image has a browser.
+   */
+  ...(chromiumAvailable
+    ? {
+        render_composition: {
+          sources: { min: 1, max: 1 + 64 + 24 },
+          outputs: (params) => (params?.output === "stretch" ? 1 : 3),
+          run: renderComposition,
+        },
+        /** A composition's stretches joined frame for frame: its master, playable copy and poster. */
+        join_stretches: {
+          sources: { min: 1, max: COMPOSITION_LIMITS.stretches },
+          outputs: () => 3,
+          run: joinStretches,
         },
       }
     : {}),
@@ -470,7 +613,7 @@ async function lastFrame(path, params, dir) {
   const rate = info.fps && info.fps > 0 ? info.fps : info.duration_seconds ? thumbs.count / info.duration_seconds : null;
   const chosen = pickHandoffFrame(thumbs, rate ?? 0);
   const out = join(dir, `frame-last.${format}`);
-  await extractFrameByIndex(path, chosen.index, out, { width, sourceWidth: info.width, format });
+  await extractFrameByIndex(path, chosen.index, out, { width, sourceWidth: info.width, format, source: info });
   const image = await probe(out);
   const at = rate ? Number((chosen.index / rate).toFixed(6)) : null;
   return {
@@ -510,7 +653,7 @@ async function frameAtIndex(path, params, dir) {
   const rate = info.fps && info.fps > 0 ? info.fps : info.duration_seconds ? thumbs.count / info.duration_seconds : null;
   const index = Math.min(wanted, thumbs.count - 1);
   const out = join(dir, `frame-${index}.${format}`);
-  await extractFrameByIndex(path, index, out, { width, sourceWidth: info.width, format });
+  await extractFrameByIndex(path, index, out, { width, sourceWidth: info.width, format, source: info });
   const image = await probe(out);
   const at = rate ? Number((index / rate).toFixed(6)) : null;
   return {

@@ -82,6 +82,24 @@ export const Route = createFileRoute("/api/public/higgsfield-reconcile")({
             return 0;
           });
 
+          // Screenshots being redacted and clean-plate recipes move on here when
+          // no report did; a screenshot left unchecked for a week is cancelled
+          // and its original deleted (an original is kept only if a person asks).
+          const { sweepRedactions } = await import("@/lib/media/redaction.server");
+          const redactions = await sweepRedactions(10).catch((error: unknown) => {
+            console.error("redaction sweep failed", {
+              message: error instanceof Error ? error.message : String(error),
+            });
+            return 0;
+          });
+          const { sweepCleanPlates } = await import("@/lib/media/clean-plate.server");
+          const cleanPlates = await sweepCleanPlates(10).catch((error: unknown) => {
+            console.error("clean plate sweep failed", {
+              message: error instanceof Error ? error.message : String(error),
+            });
+            return 0;
+          });
+
           // Katana runs are followed by their own one-minute tick; this pass is
           // its fallback (a tick that didn't come), answering paid calls that
           // wait and saving finished videos.
@@ -118,6 +136,8 @@ export const Route = createFileRoute("/api/public/higgsfield-reconcile")({
               soulTrainings,
               mediaTasks,
               clipSyncs,
+              redactions,
+              cleanPlates,
               katanaRuns,
               musicUploads: await musicUploads,
             }),

@@ -21,12 +21,23 @@ import { clipPrompt, LONG_VIDEO_LIMITS } from "../long-video/plan";
 import { addEndCard, applyBrandKit, brandKitOf, SAFE_AREAS } from "../edit/brand";
 import { CHANNELS, EMPTY_DNA, GOALS } from "../brand/dna";
 import { GITHUB_TOKEN_PATTERN } from "../brand/import-request";
-import { parseTimeline, timelineSchema } from "../edit/timeline";
+import { layoutTimeline, parseTimeline, timelineSchema } from "../edit/timeline";
+import { qualityLines, qualitySummary, storedQualityOf } from "../edit/quality";
+import { renderStems } from "../edit/mix-report";
+import { fitMusicToLength } from "../music/fit";
+import { readStructure } from "../music/structure";
 import { textCheckOf } from "../media/text-check";
+import { ALIGN_ANCHORS, ALIGN_DEFAULTS, ALIGN_LIMITS } from "../media/align-take";
+import { PRIVACY_NEEDS_UPDATE } from "../media/layout-only";
+import { SCREENSHOT_TYPES } from "../media/redaction";
 import { CHARACTER_VIEWS } from "../characters/model";
+import { RIGHTS_SCOPES, type RightsScope } from "../music/catalog";
+import { DEFAULT_RETAKE_ALLOWANCE, STAGE_LIMITS } from "../stage-check";
 import type { ModelRegistryEntry } from "../model-schema";
 import type { ApiScope } from "./tokens";
 import type { ApiCaller } from "./tokens.server";
+import { PLANNING_TOOLS } from "./planning.server";
+import { COMPOSITION_TOOLS } from "./compositions.server";
 
 type Json = Record<string, unknown>;
 
@@ -246,7 +257,7 @@ const getAsset = tool({
   name: "get_asset",
   title: "Get a library file",
   description:
-    "One library file: what it is, a download link valid for an hour, and any text check kept with it.",
+    "One library file: what it is, a download link valid for an hour, any text check kept with it, and its privacy mark (layout only: never placed in a frame; or a redacted copy of a screenshot).",
   scope: "read",
   input: z.object({ assetId: id() }),
   run: async (args) => {
@@ -261,10 +272,13 @@ const getAsset = tool({
     if (!asset) throw new AppError("INVALID_PARAMETERS", "That file isn't in the library");
     const { storage_bucket: bucket, storage_path: path, metadata, ...rest } = asset;
     const measured = (metadata ?? {}) as Json;
+    const { privacyMarks } = await import("../media/layout-only.server");
     return {
       ...rest,
       fps: typeof measured["fps"] === "number" ? measured["fps"] : null,
       textCheck: textCheckOf(metadata),
+      // Layout only (never placed in a frame), or a redacted copy; null for neither.
+      privacy: (await privacyMarks([asset.id])).get(asset.id) ?? null,
       url: await signedLink(bucket, path),
     };
   },
@@ -274,14 +288,14 @@ const getGeneration = tool({
   name: "get_generation",
   title: "Get a generation",
   description:
-    "A generation's progress (local_queued, submitting, processing, completed, failed, ...), its cost and, once done, the library files it made.",
+    "A generation's progress (local_queued, submitting, processing, completed, failed, ...), its cost (actual_cost_usd, the charge Higgsfield reported, else estimated_cost_usd, with cost_source saying where the figure came from) and, once done, the library files it made.",
   scope: "read",
   input: z.object({ generationId: id() }),
   run: async (args) => {
     const { data: generation } = await db
       .from("generations")
       .select(
-        "id,status,model_path,operation,prompt,parameters,estimated_cost_usd,actual_cost_usd,error_code,error_message,project_id,campaign_id,client_request_id,auto_retries,retry_after,created_at,completed_at",
+        "id,status,model_path,operation,prompt,parameters,estimated_cost_usd,actual_cost_usd,cost_source,error_code,error_message,project_id,campaign_id,client_request_id,auto_retries,retry_after,created_at,completed_at",
       )
       .eq("id", args.generationId)
       .maybeSingle();
@@ -373,7 +387,7 @@ const getRender = tool({
   name: "get_render",
   title: "Get a render",
   description:
-    "A render's progress (0 to 1), its status, and once complete, the finished video's library id and a download link valid for an hour.",
+    "A render's progress (0 to 1), its status, whether it was made for public use (public_use; null before the rights ledger exists) with what was confirmed for it (rights_check) and the credit lines it owes (credit_lines), and once complete, the finished video's library id and a download link valid for an hour, how its sound sits (mix_report: the voice's margin over the music in the speech band, section by section, and the mix's loudness), its stems if asked for, and how it measured against its own lossless reference (quality: SSIM and PSNR, edge contrast kept, CIEDE2000 on flat fields and the brand's colours, banding, captions and cuts on their frames, the voiceover's sync and loudness, each a pass or a flag; qualityNotes says each in words), and its review sheet once one is asked for (reviewSheet: making, ready with its library id and a link, or failed).",
   scope: "read",
   input: z.object({ renderId: id() }),
   run: async (args) => {
@@ -388,17 +402,94 @@ const getRender = tool({
     const { data: asset } = render.asset_id
       ? await db
           .from("assets")
-          .select("storage_bucket,storage_path")
+          .select("storage_bucket,storage_path,metadata")
           .eq("id", render.asset_id)
           .is("deleted_at", null)
           .maybeSingle()
       : { data: null };
+    // Kept on the render since migration 0031_render_quality (before it, with the video's record).
+    const { data: extras } = await db
+      .from("sequence_renders")
+      .select("quality,review_sheet_task_id")
+      .eq("id", args.renderId)
+      .maybeSingle();
+    const quality = storedQualityOf(extras?.quality ?? null, asset?.metadata ?? null);
+    const { reviewSheetOf } = await import("../edit/review-sheet.server");
+    const reviewSheet = await reviewSheetOf(extras?.review_sheet_task_id);
     return {
       ...render,
+      ...(await renderRightsOf(args.renderId, asset?.metadata ?? null)),
       url: asset ? await signedLink(asset.storage_bucket, asset.storage_path) : null,
+      ...(await renderSound(args.renderId, asset?.metadata ?? null)),
+      quality: quality?.raw ?? null,
+      qualityNotes: quality
+        ? [
+            qualitySummary(quality.report),
+            ...qualityLines(quality.report).map((entry) => entry.text),
+          ]
+        : [],
+      reviewSheet,
     };
   },
 });
+
+/**
+ * Whether a render was made for public use and what was confirmed for it, as
+ * kept on it since migration 0027_asset_rights (before it, unknown, and the
+ * check as its video's own record carries it), with the credit lines owed.
+ */
+async function renderRightsOf(renderId: string, videoMetadata: unknown) {
+  const { data: kept, error } = await db
+    .from("sequence_renders")
+    .select("public_use,rights_check")
+    .eq("id", renderId)
+    .maybeSingle();
+  const video = (videoMetadata ?? {}) as { rights_check?: unknown; credit_lines?: unknown };
+  const lines = Array.isArray(video.credit_lines) ? video.credit_lines : [];
+  return {
+    public_use: !error && typeof kept?.public_use === "boolean" ? kept.public_use : null,
+    rights_check: (!error && kept?.rights_check) || video.rights_check || null,
+    credit_lines: lines.filter((line): line is string => typeof line === "string"),
+  };
+}
+
+/**
+ * How a render's sound sits, as kept on it (or, before migration
+ * 0032_mix_reports, with its video's own record), and its stems with links.
+ */
+async function renderSound(renderId: string, videoMetadata: unknown) {
+  const { data: kept, error } = await db
+    .from("sequence_renders")
+    .select("mix_report")
+    .eq("id", renderId)
+    .maybeSingle();
+  const probe = (videoMetadata as { probe?: { mix_report?: unknown } } | null)?.probe;
+  const report = (!error && kept?.mix_report) || probe?.mix_report || null;
+  const stems = renderStems(videoMetadata);
+  const { data: files } = stems.length
+    ? await db
+        .from("assets")
+        .select("id,storage_bucket,storage_path")
+        .in(
+          "id",
+          stems.map((stem) => stem.assetId),
+        )
+        .is("deleted_at", null)
+    : { data: [] };
+  return {
+    mix_report: report,
+    stems: await Promise.all(
+      stems.map(async (stem) => {
+        const stored = (files ?? []).find((entry) => entry.id === stem.assetId);
+        return {
+          role: stem.role,
+          assetId: stem.assetId,
+          url: stored ? await signedLink(stored.storage_bucket, stored.storage_path) : null,
+        };
+      }),
+    ),
+  };
+}
 
 const listBrandKits = tool({
   name: "list_brand_kits",
@@ -413,8 +504,11 @@ const listBrandKits = tool({
     const { brandStyleLine } = await import("../brand/design");
     return (data ?? []).map((row) => {
       // A kit's whole DNA and its formulas run to thousands of characters each: a list of kits
-      // says what kind of brand each is and names its formulas; get_brand_kit has the rest.
-      const { fonts, design, dna, ownFormulas, ...kit } = brandKitOf(row as unknown as Json);
+      // says what kind of brand each is and names its formulas; get_brand_kit has the rest
+      // (its production roles too).
+      const { fonts, design, dna, ownFormulas, production, demoRecord, ...kit } = brandKitOf(
+        row as unknown as Json,
+      );
       return {
         ...kit,
         fonts: fonts.map((font) => font.family),
@@ -441,9 +535,12 @@ const getBrandKit = tool({
   name: "get_brand_kit",
   title: "Get a brand kit",
   description:
-    "One brand kit's whole design system: palette (each colour's role and use), typefaces, the look of its imagery (mood, photography, lighting, grading, composition, motion), its voice (tone, sample lines, words it uses and avoids), its rules, the line generations carry and what they must not show, and its style reference images.",
+    "One brand kit's whole design system: palette (each colour's role and use), typefaces, the look of its imagery (mood, photography, lighting, grading, composition, motion), its voice (tone, sample lines, words it uses and avoids), its rules, the line generations carry and what they must not show, and its style reference images. Its `production` holds the roles its graphics are drawn in (ground, surfaces, glass, ink, accent, signature, lines; display, body and mono type; corners, shadows, blur) and its motion (move, settle, enter, exit and press curves and durations), each with the repository, file and line it is declared on; `productionChecks` says whether they pass, and with `includeCss` `productionCss` is them as one stylesheet of --brand-* custom properties.",
   scope: "read",
-  input: z.object({ brandKitId: id() }),
+  input: z.object({
+    brandKitId: id(),
+    includeCss: z.boolean().default(false),
+  }),
   run: async (args, caller) => {
     await roleOf(caller.userId);
     const { requireBrandKit } = await import("../brand/use.server");
@@ -469,9 +566,19 @@ const getBrandKit = tool({
         summary: formula.summary,
         audience: formula.own?.audience ?? null,
       })),
+      ...(await productionOutput(kit, args.includeCss)),
     };
   },
 });
+
+/** A kit's production checks, and its stylesheet when asked for (see ../brand/production). */
+async function productionOutput(kit: ReturnType<typeof brandKitOf>, includeCss: boolean) {
+  const { productionChecks, productionStylesheet } = await import("../brand/production");
+  return {
+    productionChecks: productionChecks(kit.production, { fonts: kit.fonts }).list,
+    ...(includeCss ? { productionCss: productionStylesheet(kit) } : {}),
+  };
+}
 
 const readBrandCode = tool({
   name: "read_brand_code",
@@ -771,6 +878,67 @@ const estimateGeneration = tool({
       parameters: cast.parameters,
       inputs: cast.inputs.map((input, position) => ({ ...input, position })),
     });
+  },
+});
+
+/** A stage: generations priced together, and queued all together or not at all (see ../stage-check). */
+const stageInput = z.object({
+  generations: z
+    .array(
+      generationSpec.extend({
+        takes: z
+          .number()
+          .int()
+          .min(1)
+          .max(STAGE_LIMITS.takes)
+          .default(1)
+          .describe("How many takes of it the stage makes"),
+        label: z.string().max(80).optional().describe("Your name for it in the answer (its shot)"),
+      }),
+    )
+    .min(1)
+    .max(STAGE_LIMITS.items),
+  retakeAllowance: z
+    .number()
+    .min(0)
+    .max(STAGE_LIMITS.allowance)
+    .default(DEFAULT_RETAKE_ALLOWANCE)
+    .describe("The share added to the total for retakes that may follow (0.2, a fifth again)"),
+  projectId: id().nullable().optional(),
+  campaignId: id().nullable().optional(),
+});
+
+const estimateStage = tool({
+  name: "estimate_stage",
+  title: "Price a stage",
+  description:
+    "Prices a list of generations together, each as estimate_generation prices it and every take of each, adds an allowance for retakes, and checks the total against what is left on the Higgsfield API balance and the spending limit that applies (the project's or campaign's, or your monthly cap). Says whether the stage fits, and if not, why. Nothing is billed.",
+  scope: "read",
+  input: stageInput,
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const { estimateStage: run } = await import("./stage.server");
+    return run(args, caller, { activeModel, asSent });
+  },
+});
+
+const queueStage = tool({
+  name: "queue_stage",
+  title: "Queue a stage",
+  description:
+    "Queues a list of generations all together or not at all. The stage is priced and checked as estimate_stage checks it, and refused with nothing queued when its total with the allowance for retakes would go past the Higgsfield API balance or a spending limit, when Higgsfield has turned work away for want of credits, when an item can't be sent, or when part of it can't be priced (unless allowUnpriced). Then every take is queued, each through the same checks as queue_generation; poll them with get_generation. The same clientRequestId returns the stage's generations (and queues any it didn't reach) instead of queuing it twice.",
+  scope: "generate",
+  readOnly: false,
+  input: stageInput.extend({
+    allowUnpriced: z
+      .boolean()
+      .default(false)
+      .describe("Queue it even though part of it can't be priced (the rest is still checked)"),
+    clientRequestId: requestId(),
+  }),
+  run: async (args, caller) => {
+    const { queueStage: run } = await import("./stage.server");
+    return run(args, caller, { activeModel, asSent });
   },
 });
 
@@ -1434,7 +1602,7 @@ const importImage = tool({
   name: "import_image",
   title: "Import a picture",
   description:
-    "Puts a picture into the studio's library, from its bytes (data, base64) or a public https address (url): a typeset screen plate, a logo, a reference someone supplied. PNG, JPEG, WebP or GIF, up to 15 MB. It can then be a generation's input, a character's image or an edit's overlay. The same clientRequestId returns the first import instead of a second copy.",
+    "Puts a picture into the studio's library, from its bytes (data, base64) or a public https address (url): a typeset screen plate, a logo, a reference someone supplied. PNG, JPEG, WebP or GIF, up to 15 MB. It can then be a generation's input, a character's image or an edit's overlay. The same clientRequestId returns the first import instead of a second copy. A screenshot of a real client's screen goes with reference: kept out of the library until its private details are blurred (get_redaction, apply_redaction), and marked layout only.",
   scope: "edit",
   readOnly: false,
   input: z.object({
@@ -1447,11 +1615,36 @@ const importImage = tool({
     url: z.string().max(2000).optional().describe("A public https address to read it from"),
     projectId: id().nullable().optional(),
     clientRequestId: requestId(),
+    reference: z
+      .object({
+        redact: z
+          .boolean()
+          .default(true)
+          .describe(
+            "Find names, emails, phone numbers and addresses and blur them in a copy (see apply_redaction); the original never joins the library",
+          ),
+        layoutOnly: z
+          .boolean()
+          .default(true)
+          .describe("Never placed in a frame: no generation or edit may use it"),
+        keepOriginal: z
+          .boolean()
+          .default(false)
+          .describe(
+            "With redact: keep the original once the copy is made, where only admins can open it",
+          ),
+      })
+      .optional()
+      .describe("A screenshot supplied as a reference, such as a client's screen"),
   }),
   run: async (args, caller) => {
     await roleOf(caller.userId);
     if (!args.data === !args.url)
       throw new AppError("INVALID_PARAMETERS", "Give the picture as data or as a url, not both");
+    if (args.reference?.layoutOnly || args.reference?.redact) {
+      const { privacyReady } = await import("../media/redaction.server");
+      if (!(await privacyReady())) throw new AppError("INVALID_PARAMETERS", PRIVACY_NEEDS_UPDATE);
+    }
     const { data: before } = await db
       .from("assets")
       .select("id,width,height,mime_type")
@@ -1460,6 +1653,10 @@ const importImage = tool({
       .is("deleted_at", null)
       .limit(1)
       .maybeSingle();
+    if (before && args.reference?.layoutOnly) {
+      const { setLayoutOnly } = await import("../media/layout-only.server");
+      await setLayoutOnly({ assetId: before.id, userId: caller.userId, layoutOnly: true });
+    }
     if (before)
       return {
         assetId: before.id,
@@ -1504,6 +1701,28 @@ const importImage = tool({
     if (!kind || !IMPORT_TYPES.has(kind.mime))
       throw new AppError("INVALID_PARAMETERS", "That isn't a PNG, JPEG, WebP or GIF picture");
     const size = imageSize(bytes);
+    if (args.reference?.redact) {
+      // Kept out of the library, read for its private details: apply_redaction makes the copy.
+      if (!SCREENSHOT_TYPES[kind.mime])
+        throw new AppError(
+          "INVALID_PARAMETERS",
+          "A screenshot to redact must be a PNG, JPEG or WebP",
+        );
+      const { importScreenshot } = await import("../media/redaction.server");
+      const redaction = await importScreenshot({
+        userId: caller.userId,
+        bytes,
+        mimeType: kind.mime,
+        title: args.title,
+        projectId: args.projectId ?? null,
+        choices: {
+          layoutOnly: args.reference.layoutOnly,
+          keepOriginal: args.reference.keepOriginal,
+        },
+        clientRequestId: args.clientRequestId,
+      });
+      return { assetId: null, redaction };
+    }
 
     // Where uploads from the app go (see storageScope in ../storage).
     const bucket = "generation-inputs";
@@ -1546,13 +1765,358 @@ const importImage = tool({
       await db.storage.from(bucket).remove([path]);
       throw new AppError("STORAGE_FAILED", "The picture couldn't be added to the library");
     }
+    if (args.reference?.layoutOnly) {
+      const { setLayoutOnly } = await import("../media/layout-only.server");
+      await setLayoutOnly({ assetId: row.id, userId: caller.userId, layoutOnly: true });
+    }
     return {
       assetId: row.id,
       imported: true,
+      ...(args.reference?.layoutOnly ? { layoutOnly: true } : {}),
       width: size?.width ?? null,
       height: size?.height ?? null,
       mimeType: kind.mime,
     };
+  },
+});
+
+const importAudio = tool({
+  name: "import_audio",
+  title: "Import audio",
+  description:
+    "Puts audio into the studio's library, from its bytes (data, base64) or a public https address (url): WAV, MP3, M4A (AAC) or FLAC, up to 40 MB from a url or 20 MB as data. It goes in as the app's own upload does. As music or a sound effect (use) it joins the music library with its licence: \"licensed\", with its rights (licensor, scopes and any reference, territories, expiresOn and notes), or \"owned\"; confirmed: true is your confirmation, as the token's owner, that the brand holds that licence. As a voiceover it becomes a take in an edit's Voice tab (sequenceId); confirmed: true confirms it was recorded by or for the brand, with the speaker's permission to use their voice. The same clientRequestId returns the first import instead of a second copy.",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({
+    title: z.string().min(1).max(200),
+    data: z
+      .string()
+      .max(28_000_000)
+      .optional()
+      .describe("The audio's bytes in base64 (a data: prefix is fine), up to 20 MB"),
+    url: z
+      .string()
+      .max(2000)
+      .optional()
+      .describe("A public https address to read it from, up to 40 MB"),
+    use: z
+      .enum(["music", "sound_effect", "voiceover"])
+      .describe("Music or a sound effect for the music library, or a voiceover for an edit"),
+    licence: z
+      .enum(["licensed", "owned"])
+      .optional()
+      .describe("Music and sound effects: what the brand holds for the recording"),
+    rights: z
+      .object({
+        licensor: z.string().min(2).max(200).describe("Who licensed it"),
+        scopes: z
+          .array(z.enum(RIGHTS_SCOPES.map((scope) => scope.id) as [RightsScope, ...RightsScope[]]))
+          .min(1)
+          .max(RIGHTS_SCOPES.length)
+          .describe("Where it may be used"),
+        reference: z.string().max(200).optional().describe("The licence's id or reference"),
+        territories: z.string().max(200).optional().describe('Where, e.g. "Worldwide"'),
+        expiresOn: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .nullable()
+          .optional()
+          .describe("The licence's last day (YYYY-MM-DD), if it runs out"),
+        notes: z
+          .string()
+          .max(1000)
+          .optional()
+          .describe("Its conditions (credit wording and the like)"),
+      })
+      .optional()
+      .describe("A \"licensed\" recording's terms, as the app's form records them"),
+    artist: z.string().max(300).nullable().optional(),
+    genres: z.array(z.string().max(40)).max(8).default([]),
+    moods: z.array(z.string().max(40)).max(8).default([]),
+    instrumental: z.boolean().nullable().optional(),
+    sequenceId: id().optional().describe("A voiceover's edit (its Voice tab keeps the take)"),
+    transcript: z.string().max(4000).nullable().optional().describe("A voiceover's words"),
+    projectId: id().nullable().optional().describe("Music: the project it belongs to"),
+    campaignId: id().nullable().optional().describe("Music: the campaign it belongs to"),
+    confirmed: z
+      .literal(true)
+      .describe(
+        "Your confirmation: of the licence as stated (music), or that the voiceover was recorded by or for the brand with the speaker's permission",
+      ),
+    clientRequestId: requestId(),
+  }),
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const { importAudio: run } = await import("./audio-import.server");
+    return run(args, caller);
+  },
+});
+
+/* ------------------------------------------------------------------ */
+/* Takes that land on a picture, logos' clean plates, private screens  */
+/* ------------------------------------------------------------------ */
+
+const alignTake = tool({
+  name: "align_take",
+  title: "Align a take to its picture",
+  description:
+    'Puts a take (a video) on the exact picture it must end on, or start on with anchor "first": the media service registers that frame on the picture, matches its colour, and crosses to the picture itself (crossSeconds), which then holds (holdSeconds) before anything else moves. The aligned take joins the library, with what was measured. Answers "processing" at first: ask again with the same clientRequestId to follow it.',
+  scope: "edit",
+  readOnly: false,
+  input: z.object({
+    takeAssetId: id(),
+    pictureAssetId: id().describe("The picture the take must land on, in the library"),
+    anchor: z
+      .enum(ALIGN_ANCHORS)
+      .default("last")
+      .describe("Which end of the take must be the picture"),
+    crossSeconds: z.number().min(0).max(ALIGN_LIMITS.cross).default(ALIGN_DEFAULTS.cross),
+    holdSeconds: z.number().min(0).max(ALIGN_LIMITS.hold).default(ALIGN_DEFAULTS.hold),
+    clientRequestId: requestId(),
+  }),
+  run: async (args, caller) => {
+    const { startAlignTake } = await import("../media/align-take.server");
+    const { clientRequestId, ...rest } = args;
+    return startAlignTake({
+      ...rest,
+      userId: caller.userId,
+      dedupeKey: `align-take:${caller.userId}:${clientRequestId}`,
+    });
+  },
+});
+
+/** A share of a picture's width or height (0-1), as boxes are given. */
+const share = () => z.number().min(0).max(1);
+
+const getRedaction = tool({
+  name: "get_redaction",
+  title: "Get a screenshot's redaction",
+  description:
+    "A reference screenshot imported with import_image's reference choice: where it stands (reading, review, applying, completed), the boxes to blur (as shares of the picture, each with its kind and a label that hides most of what it covers), and, once made, the redacted copy's library id. Only who imported it, or an admin, can read it.",
+  scope: "read",
+  input: z.object({ redactionId: id() }),
+  run: async (args, caller) => {
+    const { getRedaction: read } = await import("../media/redaction.server");
+    return read(args.redactionId, caller.userId);
+  },
+});
+
+const applyRedaction = tool({
+  name: "apply_redaction",
+  title: "Blur a screenshot's private details",
+  description:
+    "Blurs a reference screenshot's boxes in a copy, which joins the library marked layout only (unless layoutOnly is false): the boxes as proposed, or the ones you give (add any the reading missed, leave out any that aren't private). With no box at all the screenshot joins the library as it is. The original is then deleted, unless keepOriginal, when only admins can open it. Follow it with get_redaction.",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({
+    redactionId: id(),
+    boxes: z
+      .array(
+        z.object({
+          id: z.string().max(40).optional(),
+          x: share(),
+          y: share(),
+          w: share(),
+          h: share(),
+          kind: z.enum(["name", "email", "phone", "address", "drawn"]).optional(),
+          label: z.string().max(60).optional(),
+        }),
+      )
+      .max(200)
+      .optional()
+      .describe("The boxes to blur, as shares of the picture; leave out to blur those proposed"),
+    layoutOnly: z.boolean().optional(),
+    keepOriginal: z.boolean().optional(),
+  }),
+  run: async (args, caller) => {
+    const { applyRedaction: apply } = await import("../media/redaction.server");
+    return apply(args.redactionId, caller.userId, {
+      ...(args.boxes ? { boxes: args.boxes } : {}),
+      layoutOnly: args.layoutOnly,
+      keepOriginal: args.keepOriginal,
+    });
+  },
+});
+
+const cancelRedaction = tool({
+  name: "cancel_redaction",
+  title: "Drop a screenshot before it is redacted",
+  description:
+    "Drops a reference screenshot whose copy isn't made yet: its original is deleted and nothing joins the library.",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({ redactionId: id() }),
+  run: async (args, caller) => {
+    const { cancelRedaction: cancel } = await import("../media/redaction.server");
+    return cancel(args.redactionId, caller.userId);
+  },
+});
+
+const setLayoutOnly = tool({
+  name: "set_layout_only",
+  title: "Mark a picture layout only",
+  description:
+    "Marks a library file layout only (a reference for how a screen is laid out, never placed in a frame: no generation, edit, render or copy may use it), or lifts the mark, which only an admin may do.",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({
+    assetId: id(),
+    layoutOnly: z.boolean(),
+    note: z.string().max(500).nullable().optional().describe("Why, for whoever finds it"),
+  }),
+  run: async (args, caller) => {
+    const { setLayoutOnly: set } = await import("../media/layout-only.server");
+    return { assetId: args.assetId, privacy: await set({ ...args, userId: caller.userId }) };
+  },
+});
+
+const plateBox = () =>
+  z
+    .object({ x: share(), y: share(), w: share(), h: share() })
+    .describe("A box as shares of the art's width and height, from its top-left corner");
+const plateLettering = () =>
+  plateBox()
+    .extend({ assetId: id() })
+    .describe(
+      "A transparent file of the lettering (its alpha is the mask) and where it sits on the art",
+    );
+
+const startCleanPlate = tool({
+  name: "start_clean_plate",
+  title: "Start a clean-plate recipe",
+  description:
+    "Starts the recipe that moves a logo (or any lettering) with a video model without the model ever drawing a letter: mask, edit, blend, animate, align, overlay (see get_clean_plate). The lettering's mask is proposed from a transparent file of it (lettering), from boxes you give, or else from the studio's AI reading where the lettering is. Nothing is made or billed until set_clean_plate_mask uses the mask and queue_clean_plate_step makes the edit.",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({
+    artAssetId: id().describe("The picture with its lettering"),
+    lettering: plateBox()
+      .partial()
+      .extend({ assetId: id() })
+      .nullable()
+      .optional()
+      .describe(
+        "A transparent file of the lettering, and where it sits (the whole art if not given)",
+      ),
+    boxes: z.array(plateBox()).max(200).nullable().optional(),
+    letters: z
+      .enum(["art", "file"])
+      .optional()
+      .describe(
+        'Lay back the art\'s own letters ("art", the default) or the lettering file itself',
+      ),
+    projectId: id().nullable().optional(),
+    clientRequestId: requestId(),
+  }),
+  run: async (args, caller) => {
+    const { startCleanPlate: start } = await import("../media/clean-plate.server");
+    const { clientRequestId, ...rest } = args;
+    return start({
+      ...rest,
+      userId: caller.userId,
+      dedupeKey: `clean-plate:${caller.userId}:${clientRequestId}`,
+    });
+  },
+});
+
+const getCleanPlate = tool({
+  name: "get_clean_plate",
+  title: "Get a clean-plate recipe",
+  description:
+    "A clean-plate recipe and its six steps (mask, edit, blend, animate, align, overlay): each one's status, the library file it made, what was measured, and what happens next in words. Reading it moves it on: a finished job's file is taken up, and a step the media service does starts when its turn comes.",
+  scope: "read",
+  input: z.object({ recipeId: id() }),
+  run: async (args, caller) => {
+    const { getCleanPlate: read } = await import("../media/clean-plate.server");
+    return read(args.recipeId, caller.userId);
+  },
+});
+
+const setCleanPlateMask = tool({
+  name: "set_clean_plate_mask",
+  title: "Use a clean-plate mask",
+  description:
+    "Uses the lettering's mask, as proposed or changed: boxes over the lettering, a transparent file of it, how far past it the edit is laid in (grow) and how softly it fades into the art (feather), in the art's pixels. The mask is drawn into the library, and what was made from an older mask is made again.",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({
+    recipeId: id(),
+    boxes: z.array(plateBox()).max(200).optional(),
+    lettering: plateLettering().nullable().optional(),
+    grow: z.number().min(0).max(300).optional(),
+    feather: z.number().min(0).max(200).optional(),
+    letters: z.enum(["art", "file"]).optional(),
+  }),
+  run: async (args, caller) => {
+    const { setCleanPlateMask: set } = await import("../media/clean-plate.server");
+    const { recipeId, ...change } = args;
+    return set(recipeId, caller.userId, change);
+  },
+});
+
+const plateStep = () =>
+  z.object({
+    recipeId: id(),
+    step: z
+      .enum(["edit", "animate"])
+      .describe(
+        "edit: an image model takes the lettering out; animate: a video model moves the plate",
+      ),
+    modelId: id(),
+    parameters: z
+      .record(z.string(), z.unknown())
+      .default({})
+      .describe("The model's settings; the prompt has a sensible default for the edit"),
+    end: z
+      .enum(["last", "first", "both"])
+      .optional()
+      .describe("Animating: whether the take ends on the plate, starts on it, or both"),
+    crossSeconds: z.number().min(0).max(3).optional(),
+    holdSeconds: z.number().min(0).max(10).optional(),
+  });
+
+const estimateCleanPlateStep = tool({
+  name: "estimate_clean_plate_step",
+  title: "Price a clean-plate step",
+  description:
+    "The provider's price for a recipe's edit or take, as queue_clean_plate_step would send it (the art or the clean plate in the model's frames, the prompt as it will be). Nothing is billed.",
+  scope: "read",
+  input: plateStep(),
+  run: async (args, caller) => {
+    const { estimateCleanPlateStep: estimate } = await import("../media/clean-plate.server");
+    const { recipeId, step, ...request } = args;
+    return estimate(recipeId, caller.userId, step, request);
+  },
+});
+
+const queueCleanPlateStep = tool({
+  name: "queue_clean_plate_step",
+  title: "Make a clean-plate step",
+  description:
+    "Makes a recipe's edit (an image model takes the lettering out of the art) or its take (a video model moves the clean plate, told never to draw a letter), through the same spending checks as queue_generation, billed by the provider. The steps after it (blend, align, overlay) then run by themselves; follow them with get_clean_plate.",
+  scope: "generate",
+  readOnly: false,
+  input: plateStep().extend({
+    estimatedCostUsd: z.number().min(0).max(10_000).nullable().optional(),
+  }),
+  run: async (args, caller) => {
+    const { queueCleanPlateStep: queue } = await import("../media/clean-plate.server");
+    const { recipeId, step, ...request } = args;
+    return queue(recipeId, caller.userId, step, request);
+  },
+});
+
+const retryCleanPlateStep = tool({
+  name: "retry_clean_plate_step",
+  title: "Retry a clean-plate step",
+  description:
+    "Tries a recipe's failed mask, blend, align or overlay step again (the edit and the take are made again with queue_clean_plate_step).",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({ recipeId: id(), step: z.enum(["mask", "blend", "align", "overlay"]) }),
+  run: async (args, caller) => {
+    const { retryCleanPlateStep: retry } = await import("../media/clean-plate.server");
+    return retry(args.recipeId, caller.userId, args.step);
   },
 });
 
@@ -1621,6 +2185,20 @@ async function missingFiles(timeline: ReturnType<typeof timelineSchema.parse>): 
   return ids.filter((assetId) => !found.has(assetId));
 }
 
+/** Refuses a timeline that places a layout-only picture (a real client's screen) in a frame. */
+async function assertPlaceableTimeline(
+  timeline: ReturnType<typeof timelineSchema.parse>,
+): Promise<void> {
+  const { assertPlaceable } = await import("../media/layout-only.server");
+  await assertPlaceable(
+    [
+      ...timeline.clips.map((clip) => clip.assetId),
+      ...timeline.images.map((image) => image.assetId),
+    ],
+    "edit",
+  );
+}
+
 function validTimeline(value: unknown) {
   const parsed = timelineSchema.safeParse(value ?? {});
   if (!parsed.success)
@@ -1655,10 +2233,11 @@ const createEdit = tool({
   }),
   run: async (args, caller) => {
     await roleOf(caller.userId);
-    const timeline = validTimeline(args.timeline);
+    const { timeline, pauses } = await withSettledPauses(validTimeline(args.timeline));
     const missing = await missingFiles(timeline);
     if (missing.length)
       throw new AppError("INVALID_PARAMETERS", `Not in the library: ${missing.join(", ")}`);
+    await assertPlaceableTimeline(timeline);
     const { data, error } = await db
       .from("sequences")
       .insert({
@@ -1673,9 +2252,29 @@ const createEdit = tool({
       .select("id,version")
       .maybeSingle();
     if (error || !data) throw new AppError("UNKNOWN", "The edit couldn't be saved");
-    return { sequenceId: data.id, version: data.version };
+    return { sequenceId: data.id, version: data.version, ...pauses };
   },
 });
+
+/**
+ * A timeline's voiceover pauses held to the voices' measured silences: one
+ * just off a silence is moved into it, one nowhere near a silence refused.
+ * What was done is said in the answer: how many were moved, and which
+ * voiceovers (by item id) haven't been measured yet, so can't be rendered.
+ */
+async function withSettledPauses(timeline: ReturnType<typeof timelineSchema.parse>) {
+  if (!timeline.audio.some((item) => item.role === "voiceover" && item.pauses.length))
+    return { timeline, pauses: {} };
+  const { settleVoicePauses } = await import("../edit/voice-pauses.server");
+  const settled = await settleVoicePauses(timeline);
+  return {
+    timeline: settled.timeline,
+    pauses: {
+      ...(settled.snapped ? { pausesSnapped: settled.snapped } : {}),
+      ...(settled.unchecked.length ? { pausesUnmeasured: settled.unchecked } : {}),
+    },
+  };
+}
 
 /** Saves an edit's new timeline (or title) over the version given, as the Editor saves. */
 async function saveEdit(
@@ -1717,16 +2316,19 @@ const updateEdit = tool({
   }),
   run: async (args, caller) => {
     await roleOf(caller.userId);
-    const timeline = args.timeline ? validTimeline(args.timeline) : undefined;
+    const settled = args.timeline ? await withSettledPauses(validTimeline(args.timeline)) : null;
+    const timeline = settled?.timeline;
     if (timeline) {
       const missing = await missingFiles(timeline);
       if (missing.length)
         throw new AppError("INVALID_PARAMETERS", `Not in the library: ${missing.join(", ")}`);
+      await assertPlaceableTimeline(timeline);
     }
-    return saveEdit(args.sequenceId, args.expectedVersion, {
+    const saved = await saveEdit(args.sequenceId, args.expectedVersion, {
       ...(timeline ? { timeline } : {}),
       ...(args.title ? { title: args.title } : {}),
     });
+    return { ...saved, ...settled?.pauses };
   },
 });
 
@@ -1811,13 +2413,23 @@ const renderEdit = tool({
   name: "render_edit",
   title: "Render an edit",
   description:
-    "Renders an edit to a finished video with the media service, at the version given (from get_edit). Returns the render's id: follow it with get_render.",
+    "Renders an edit to a finished video with the media service, at the version given (from get_edit). Returns the render's id: follow it with get_render. Its credits (get_edit_credits) go with it. With publicUse it is held, and nothing starts, until every file it uses is cleared (set_asset_rights) or you confirm the exceptions (confirmExceptions: true, or their asset ids), recorded with who and when.",
   scope: "edit",
   readOnly: false,
   input: z.object({
     sequenceId: id(),
     expectedVersion: z.number().int().min(1),
     clientRequestId: requestId(),
+    publicUse: z
+      .boolean()
+      .default(false)
+      .describe("For publishing or public use: every file it uses must be cleared first"),
+    confirmExceptions: z
+      .union([z.boolean(), z.array(id()).max(500)])
+      .default(false)
+      .describe(
+        "For public use: confirm the files not cleared as exceptions (all, or by asset id)",
+      ),
   }),
   run: async (args, caller) => {
     const { startSequenceRender } = await import("../edit/render.server");
@@ -1826,7 +2438,281 @@ const renderEdit = tool({
       expectedVersion: args.expectedVersion,
       clientRequestId: args.clientRequestId,
       userId: caller.userId,
+      publicUse: args.publicUse,
+      confirmExceptions: args.confirmExceptions,
     });
+  },
+});
+
+const makeReviewSheet = tool({
+  name: "make_review_sheet",
+  title: "Make a render's review sheet",
+  description:
+    "Lays a finished render's every shot out as one JPEG, half a second in and on its last frame, each labelled with its clip's name and, for an edit made from a storyboard or a brief, the shot's description. The sheet is kept in the library and linked to the render: follow it with get_render (reviewSheet). Asking again returns the sheet being made or already made, unless again is set.",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({
+    renderId: id(),
+    clientRequestId: requestId(),
+    again: z.boolean().default(false).describe("Make the sheet afresh even if the render has one."),
+  }),
+  run: async (args, caller) => {
+    const { startReviewSheet } = await import("../edit/review-sheet.server");
+    return startReviewSheet({
+      renderId: args.renderId,
+      clientRequestId: args.clientRequestId,
+      again: args.again,
+      userId: caller.userId,
+    });
+  },
+});
+
+/* ------------------------------------------------------------------ */
+/* Music on its bars                                                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A library track's bars and sections as kept on it (they are found from
+ * its audio in the Editor's Music panel), or why they can't be had.
+ */
+async function keptStructure(assetId: string) {
+  const { data, error } = await db
+    .from("music_tracks")
+    .select("*")
+    .eq("asset_id", assetId)
+    .limit(5);
+  if (error) throw new AppError("UNKNOWN", "The music library couldn't be read just now");
+  const rows = (data ?? []) as unknown as Json[];
+  if (!rows.length)
+    throw new AppError("INVALID_PARAMETERS", "That file isn't in the music library");
+  if (!rows.some((row) => "structure" in row))
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      "Keeping a track's bars and sections needs a database update (migration 0033_music_structure). Ask an admin to apply it.",
+    );
+  for (const row of rows) {
+    const known = readStructure(row["structure"], row["bar_features"]);
+    if (known) return known;
+  }
+  throw new AppError(
+    "INVALID_PARAMETERS",
+    "This track's bars haven't been found yet. Open an edit with it in the Editor and press Find bars and sections in the Music panel (they're found from the audio, in the browser), then try again.",
+  );
+}
+
+const getMusicStructure = tool({
+  name: "get_music_structure",
+  title: "Get a track's bars and sections",
+  description:
+    "A music track's tempo, how many beats a bar, where each bar starts and its sections (intro, build, drop, breakdown, reentry, outro or section, each with its loudness from 0 to 1 against the track's others), in seconds on the track's own clock, as found from its audio in the Editor's Music panel. Pass the library file's assetId; includeBeats adds every beat. fit_music plans music on these bars, and lands sections (by their index here) on times.",
+  scope: "read",
+  input: z.object({ assetId: id(), includeBeats: z.boolean().default(false) }),
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const { structure } = await keptStructure(args.assetId);
+    return {
+      bpm: structure.bpm,
+      beatsPerBar: structure.beatsPerBar,
+      bars: structure.bars,
+      sections: structure.sections.map((section, index) => ({ index, ...section })),
+      confidence: structure.confidence,
+      ...(args.includeBeats ? { beats: structure.beats } : {}),
+    };
+  },
+});
+
+const fitMusic = tool({
+  name: "fit_music",
+  title: "Fit an edit's music on its bars",
+  description:
+    "Plans an edit's music to run a length on its bars: bars played again or left out (those most like what they meet, in whole phrases, never a section's first bar), each join 20 ms ahead of a bar line under a 30 ms crossfade, with sections (by index, from get_music_structure) landed on times on the edit's timeline. It runs to the end of the edit from where the music starts unless seconds is given, and ends on the track's own ending or (ending: bar) on the bar line nearest the length. With apply (the default) the plan goes on the music item, only if the edit is still at expectedVersion, and its new version comes back; without, it only says what it would do. To play the whole track again, update_edit with the item's pieces left out.",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({
+    sequenceId: id(),
+    expectedVersion: z.number().int().min(1),
+    itemId: z
+      .string()
+      .min(1)
+      .max(64)
+      .optional()
+      .describe(
+        "The music item's id in the timeline's audio; the edit's first music item unless given",
+      ),
+    seconds: z.number().min(1).max(600).optional(),
+    ending: z.enum(["track", "bar"]).default("track"),
+    landmarks: z
+      .array(
+        z.object({
+          section: z.number().int().min(0).max(63),
+          at: z
+            .number()
+            .min(0)
+            .max(600)
+            .describe("When the section should start, in seconds on the edit's timeline"),
+        }),
+      )
+      .max(8)
+      .default([]),
+    apply: z.boolean().default(true),
+  }),
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const { data: sequence } = await db
+      .from("sequences")
+      .select("timeline,version")
+      .eq("id", args.sequenceId)
+      .maybeSingle();
+    if (!sequence) throw new AppError("INVALID_PARAMETERS", "That edit doesn't exist");
+    if (sequence.version !== args.expectedVersion)
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        "The edit changed since that version: read it again",
+      );
+    const timeline = parseTimeline(sequence.timeline);
+    if (!timeline) throw new AppError("INVALID_PARAMETERS", "The edit's timeline can't be read");
+    const item = timeline.audio.find((entry) =>
+      args.itemId ? entry.id === args.itemId : entry.role === "music",
+    );
+    if (!item || item.role !== "music")
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        args.itemId ? "That item isn't music in this edit" : "This edit has no music",
+      );
+    const known = await keptStructure(item.assetId);
+    const target = args.seconds ?? layoutTimeline(timeline).total - item.start;
+    if (!(target > 0))
+      throw new AppError("INVALID_PARAMETERS", "The music starts after the edit ends");
+    const fit = fitMusicToLength(known.structure, known.features, target, {
+      ending: args.ending,
+      landmarks: args.landmarks.map((mark) => ({
+        section: mark.section,
+        at: mark.at - item.start,
+      })),
+    });
+    if (!fit)
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        "This track can't be fitted to that length on its bars: it would take more joins than a track may have. Ask for a length nearer its own, or loop it.",
+      );
+    const plan = {
+      seconds: fit.length,
+      pieces: fit.pieces,
+      edits: fit.edits,
+      landmarks: fit.landmarks.map((mark) => ({
+        section: mark.section,
+        asked: Number((mark.asked + item.start).toFixed(6)),
+        at: Number((mark.at + item.start).toFixed(6)),
+      })),
+    };
+    if (!args.apply) return { plan };
+    const next = {
+      ...timeline,
+      audio: timeline.audio.map((entry) =>
+        entry.id === item.id
+          ? // Fitted to the edit, it says to how long (see fitOutOfDate); to a length of its own, not.
+            {
+              ...entry,
+              pieces: fit.pieces,
+              duration: null,
+              fittedTo: args.seconds === undefined ? target : undefined,
+            }
+          : entry,
+      ),
+    };
+    return { ...(await saveEdit(args.sequenceId, args.expectedVersion, { timeline: next })), plan };
+  },
+});
+
+/* ------------------------------------------------------------------ */
+/* Rights and credits                                                  */
+/* ------------------------------------------------------------------ */
+
+const getAssetRights = tool({
+  name: "get_asset_rights",
+  title: "Get files' rights",
+  description:
+    "Library files' rights: where each came from, its licence and its status for public use (cleared, to_confirm or not_cleared), the credit line owed where there is one, and who set and confirmed it and when. Until someone records them they are worked out: music from the library takes its track's licence, what the studio made is under its provider's terms (said by name), what it rendered or cut follows what it was made from, and uploads and imports are to_confirm.",
+  scope: "read",
+  input: z.object({ assetIds: z.array(id()).min(1).max(100) }),
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const { rightsForAssets } = await import("../rights/service.server");
+    const rights = await rightsForAssets(args.assetIds);
+    return {
+      files: args.assetIds.flatMap((assetId) => rights.get(assetId) ?? []),
+      missing: args.assetIds.filter((assetId) => !rights.has(assetId)),
+    };
+  },
+});
+
+const setAssetRights = tool({
+  name: "set_asset_rights",
+  title: "Set a file's rights",
+  description:
+    "Records a library file's rights: its status (cleared, to_confirm or not_cleared) and, where it differs from what is worked out, its source, licence, licenceUrl, creditLine and notes. A field left out keeps what was recorded; null clears it. Who set it and who confirmed it (cleared or not_cleared) are recorded with when. A music library track's licence and credit stay the music library's: only its status and notes are set here. With clear: true, what was recorded is forgotten and its rights are worked out again.",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({
+    assetId: id(),
+    status: z.enum(["cleared", "to_confirm", "not_cleared"]).optional(),
+    source: z.string().max(300).nullable().optional().describe("Where it came from"),
+    licence: z.string().max(300).nullable().optional().describe('Its licence, e.g. "CC BY 4.0"'),
+    licenceUrl: z.string().max(500).nullable().optional(),
+    creditLine: z
+      .string()
+      .max(1000)
+      .nullable()
+      .optional()
+      .describe("The credit owed wherever it is published"),
+    notes: z.string().max(2000).nullable().optional(),
+    clear: z.boolean().default(false),
+  }),
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const rights = await import("../rights/service.server");
+    if (args.clear)
+      return rights.clearAssetRights({ userId: caller.userId, assetId: args.assetId });
+    if (!args.status)
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        "Give the file's status: cleared, to_confirm or not_cleared",
+      );
+    return rights.setAssetRights({
+      userId: caller.userId,
+      assetId: args.assetId,
+      change: {
+        status: args.status,
+        source: args.source,
+        licence: args.licence,
+        licenceUrl: args.licenceUrl,
+        creditLine: args.creditLine,
+        notes: args.notes,
+      },
+    });
+  },
+});
+
+const getEditCredits = tool({
+  name: "get_edit_credits",
+  title: "Get an edit's credits",
+  description:
+    "An edit's credits: every file it uses (its clips, the pictures over it and the sound heard), how it uses each, each one's source, licence and status, the credit lines owed, and which files aren't cleared (a render for public use is held until they are, or their exceptions are confirmed).",
+  scope: "read",
+  input: z.object({ sequenceId: id() }),
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const { data: sequence } = await db
+      .from("sequences")
+      .select("id,timeline")
+      .eq("id", args.sequenceId)
+      .maybeSingle();
+    if (!sequence) throw new AppError("INVALID_PARAMETERS", "That edit doesn't exist");
+    const timeline = parseTimeline(sequence.timeline);
+    if (!timeline) throw new AppError("INVALID_PARAMETERS", "The edit's timeline can't be read");
+    const { creditsForTimeline } = await import("../rights/service.server");
+    const credits = await creditsForTimeline(timeline);
+    return { ...credits, notCleared: credits.notCleared.map((file) => file.assetId) };
   },
 });
 
@@ -1840,6 +2726,7 @@ export const STUDIO_TOOLS: StudioTool[] = [
   getLongVideo,
   getEdit,
   getRender,
+  getMusicStructure,
   listBrandKits,
   getBrandKit,
   readBrandCode,
@@ -1848,7 +2735,9 @@ export const STUDIO_TOOLS: StudioTool[] = [
   listCharacters,
   getCharacter,
   estimateGeneration,
+  estimateStage,
   queueGeneration,
+  queueStage,
   makeSoulStill,
   trainSoul,
   startPresenterVideo,
@@ -1859,11 +2748,30 @@ export const STUDIO_TOOLS: StudioTool[] = [
   checkText,
   saveCharacter,
   importImage,
+  importAudio,
+  getRedaction,
+  applyRedaction,
+  cancelRedaction,
+  setLayoutOnly,
+  alignTake,
+  startCleanPlate,
+  getCleanPlate,
+  setCleanPlateMask,
+  estimateCleanPlateStep,
+  queueCleanPlateStep,
+  retryCleanPlateStep,
   openInEditor,
   createEdit,
   updateEdit,
   applyBrand,
+  fitMusic,
   renderEdit,
+  makeReviewSheet,
+  getAssetRights,
+  getEditCredits,
+  setAssetRights,
+  ...PLANNING_TOOLS,
+  ...COMPOSITION_TOOLS,
 ];
 
 export function studioTool(name: string): StudioTool | null {

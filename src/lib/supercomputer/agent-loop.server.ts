@@ -57,6 +57,28 @@ export interface TurnState {
   usage: AgentUsage;
   model: string;
   steps: number;
+  /** A held turn was told its limit is near (see TurnBudget): it is told once. */
+  warned?: boolean;
+}
+
+/**
+ * A turn held to fewer steps than a turn's own (a section's worker, see
+ * ./sections): it is warned as it nears its limit, and what it made is saved
+ * before it stops there, so nothing done is lost.
+ */
+export interface TurnBudget {
+  /** The most model calls the turn makes (never more than MAX_STEPS). */
+  maxSteps: number;
+  /** From this step on it is warned, once. */
+  warnAt: number;
+  /**
+   * As it is warned: saves what it made, and says what the model is told (in
+   * the next message it reads) and what people see. Without it, or if it
+   * fails, the studio's own words are used.
+   */
+  onWarning?: (state: TurnState) => Promise<{ note: string; notice: string } | null>;
+  /** As it stops at its limit: saves what it made, and says what people see. */
+  onLimit?: (state: TurnState) => Promise<string | null>;
 }
 
 export interface TurnIo {
@@ -71,6 +93,8 @@ export interface TurnIo {
   resolve: (messages: ApiMessage[]) => Promise<ApiMessage[]>;
   /** Opens a model call's stream (Claude's, unless a test gives its own). */
   openStream?: (params: Json, signal: AbortSignal) => StepStream;
+  /** Holds the turn to fewer steps than its own limit (a section's worker). */
+  budget?: TurnBudget;
 }
 
 /** What a model call's stream must offer: its events as they come, then the whole message. */
@@ -79,7 +103,7 @@ export interface StepStream extends AsyncIterable<Anthropic.Beta.Messages.BetaRa
 }
 
 /** The most model calls one turn makes before it stops to check in. */
-const MAX_STEPS = 32;
+export const MAX_STEPS = 32;
 const MAX_TOKENS = 32_000;
 
 const ZERO_USAGE: AgentUsage = {
@@ -257,8 +281,12 @@ export async function runTurn(
     }
 
     let jsonRetries = 0;
-    while (current.steps < MAX_STEPS) {
+    // A held turn (a section's worker) stops at its own limit, within a turn's.
+    const limit = Math.max(1, Math.min(MAX_STEPS, io.budget?.maxSteps ?? MAX_STEPS));
+    while (current.steps < limit) {
       if (context.signal.aborted) throw new Anthropic.APIUserAbortError();
+      if (io.budget && !current.warned && current.steps > 0 && current.steps >= io.budget.warnAt)
+        current = await warnNearLimit(io.budget, current, limit, emit);
       const step = current.steps;
       let message: Anthropic.Beta.Messages.BetaMessage;
       try {
@@ -364,14 +392,16 @@ export async function runTurn(
       }
       await save("step");
     }
-    if (current.steps >= MAX_STEPS)
+    if (current.steps >= limit)
       emit({
         type: "block",
         key: `${current.steps}:limit`,
         block: {
           kind: "notice",
           tone: "info",
-          text: "That was a long run of steps, so it paused here. Say “go on” to continue.",
+          text: io.budget
+            ? await reachedLimit(io.budget, current)
+            : "That was a long run of steps, so it paused here. Say “go on” to continue.",
         },
       });
     emit({ type: "status", status: "complete" });
@@ -387,6 +417,59 @@ export async function runTurn(
     await save("final").catch(() => undefined);
     return { ...current, display };
   }
+}
+
+/**
+ * Near a held turn's limit: what it made is saved, people are shown so, and
+ * the model is told how many steps are left in the next message it reads
+ * (the results of its last tool calls, not yet sent), so it saves what is
+ * right and finishes. A step paused part-way carries on its own message
+ * first, so the warning waits for the next.
+ */
+async function warnNearLimit(
+  budget: TurnBudget,
+  state: TurnState,
+  limit: number,
+  emit: (event: AgentEvent) => void,
+): Promise<TurnState> {
+  const last = state.transcript.at(-1);
+  if (last?.role !== "user" || !Array.isArray(last.content)) return state;
+  const left = limit - state.steps;
+  const steps = `${left} ${left === 1 ? "step is" : "steps are"} left of the ${limit} this turn may take`;
+  let warning: { note: string; notice: string } | null = null;
+  try {
+    warning = budget.onWarning ? await budget.onWarning(state) : null;
+  } catch {
+    // Saving what it made can fail; the warning still goes.
+  }
+  const note =
+    warning?.note ??
+    `[From the studio] ${steps}. Save what is right now, then finish, or say what is left: at the limit the studio stops here.`;
+  emit({
+    type: "block",
+    key: `${state.steps}:warning`,
+    block: {
+      kind: "notice",
+      tone: "info",
+      text: warning?.notice ?? `Near its step limit: ${steps}.`,
+    },
+  });
+  const transcript = [
+    ...state.transcript.slice(0, -1),
+    { ...last, content: [...last.content, { type: "text" as const, text: note }] },
+  ];
+  return { ...state, transcript, warned: true };
+}
+
+/** What people are told as a held turn stops at its limit, once what it made is saved. */
+async function reachedLimit(budget: TurnBudget, state: TurnState): Promise<string> {
+  try {
+    const said = budget.onLimit ? await budget.onLimit(state) : null;
+    if (said) return said;
+  } catch {
+    // Said in the studio's own words below.
+  }
+  return "It reached its step limit, so it stopped here. What it made is kept.";
 }
 
 /** What a tool call is shown as before its input has arrived. */

@@ -327,6 +327,21 @@ describe("a stored proposal", () => {
       references: [],
     });
     expect(proposalOf({})).toBeNull();
+
+    // A family's italic (for brand captions' emphasis) comes back with it, if it says it is one.
+    const italic = {
+      family: "Playfair Display",
+      bucket: "generation-inputs",
+      path: "brand-fonts/google/playfair-display-700-italic.ttf",
+      style: "bold_italic" as const,
+    };
+    const withItalic = { ...proposal, fonts: [{ ...proposal.fonts[0]!, italic }] };
+    expect(proposalOf(JSON.parse(JSON.stringify(withItalic)))!.fonts[0]!.italic).toEqual(italic);
+    const upright = {
+      ...withItalic,
+      fonts: [{ ...withItalic.fonts[0]!, italic: { ...italic, style: "bold" } }],
+    };
+    expect(proposalOf(JSON.parse(JSON.stringify(upright)))!.fonts[0]).not.toHaveProperty("italic");
   });
 });
 

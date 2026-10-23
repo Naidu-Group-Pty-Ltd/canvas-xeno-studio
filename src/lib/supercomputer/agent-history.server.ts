@@ -38,6 +38,8 @@ export interface StoredAgent {
   usage: TurnState["usage"];
   model: string;
   steps: number;
+  /** A held turn (a section's worker) was told its limit is near. */
+  warned?: boolean;
 }
 
 export interface MessageRow {
@@ -67,6 +69,7 @@ export function storedAgent(payload: unknown): StoredAgent | null {
     },
     model: typeof agent["model"] === "string" ? agent["model"] : "claude-opus-5-5",
     steps: typeof agent["steps"] === "number" ? agent["steps"] : 0,
+    ...(agent["warned"] === true ? { warned: true } : {}),
   };
 }
 
@@ -95,6 +98,7 @@ export function stateOf(payload: unknown): TurnState | null {
     usage: agent.usage,
     model: agent.model,
     steps: agent.steps,
+    ...(agent.warned ? { warned: true } : {}),
   };
 }
 

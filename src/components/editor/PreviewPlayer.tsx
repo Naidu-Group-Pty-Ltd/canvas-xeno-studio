@@ -21,6 +21,7 @@ import {
   editFadeLevel,
   frameSize,
   sourceTimeFor,
+  voicePosition,
   type LaidOutClip,
   type Timeline,
   type TimelineAudio,
@@ -30,6 +31,13 @@ import {
 import { useClockPlaying, useClockTime, type PlaybackClock } from "./state";
 import { useBrandFontFaces } from "@/hooks/useBrandKits";
 import { safeInsets, type SafeArea } from "@/lib/edit/brand";
+import { musicPieces } from "@/lib/edit/pieces";
+import { PiecesAudioLayer } from "./PiecesAudio";
+import { BrandCaptionLayer } from "./BrandCaptions";
+import { classicPanelLook } from "@/lib/edit/brand-caption-plan";
+import { overlayMotionState } from "@/lib/edit/overlay-motion";
+import type { Scene } from "@/lib/compositions/compile";
+import { CompositionPreview } from "./CompositionPreview";
 
 interface PreviewPlayerProps {
   timeline: Timeline;
@@ -37,6 +45,8 @@ interface PreviewPlayerProps {
   assets: Map<string, AssetRow>;
   media: Map<string, SignedMedia>;
   clock: PlaybackClock;
+  /** Motion graphics whose drawing no longer matches them, by clip: played live from their scenes. */
+  live?: Map<string, Scene> | undefined;
 }
 
 /**
@@ -44,7 +54,14 @@ interface PreviewPlayerProps {
  * transitions, motion, ducking and captions are close approximations of the
  * final video, which is produced by the media service.
  */
-export function PreviewPlayer({ timeline, layout, assets, media, clock }: PreviewPlayerProps) {
+export function PreviewPlayer({
+  timeline,
+  layout,
+  assets,
+  media,
+  clock,
+  live,
+}: PreviewPlayerProps) {
   // Brand fonts load into the page, so titles are set in them as the render sets them.
   useBrandFontFaces(timeline.fonts);
   const time = useClockTime(clock);
@@ -123,17 +140,21 @@ export function PreviewPlayer({ timeline, layout, assets, media, clock }: Previe
               transition={incoming?.transitionType ?? "cut"}
               fit={entry.clip.fit ?? timeline.fit}
               focus={entry.clip.focus}
+              live={live?.get(entry.clip.id) ?? null}
+              frameWidth={target.width}
+              frameHeight={target.height}
             />
           );
         })}
         {timeline.audio.map((item) => (
-          <AudioLayer
+          <SoundLayer
             key={item.id}
             item={item}
             url={media.get(item.assetId)?.url}
             time={time}
             playing={playing}
             total={layout.total}
+            fps={timeline.fps}
             voiceRanges={voiceRanges(timeline, layout.total)}
             channel={channelGain(timeline, channelOf(item.role))}
             level={level * fadeLevel}
@@ -164,7 +185,10 @@ export function PreviewPlayer({ timeline, layout, assets, media, clock }: Previe
 function voiceRanges(timeline: Timeline, total: number): [number, number][] {
   return timeline.audio
     .filter((item) => item.role === "voiceover" && audioGain(timeline, item) > 0)
-    .map((item) => [item.start, item.start + audioPlayLength(item, total)] as [number, number]);
+    .map(
+      (item) =>
+        [item.start, item.start + audioPlayLength(item, total, timeline.fps)] as [number, number],
+    );
 }
 
 /* ------------------------------------------------------------------ */
@@ -187,6 +211,10 @@ interface ClipLayerProps {
   fit: "cover" | "contain" | "blur_pad";
   /** Filling the frame: the point kept in it, as the render crops. */
   focus: { x: number; y: number } | null;
+  /** A motion graphic played live (its drawing is out of date), drawn at the edit's frame. */
+  live: Scene | null;
+  frameWidth: number;
+  frameHeight: number;
 }
 
 /** How the outgoing and incoming pictures look part-way through a transition. */
@@ -314,6 +342,9 @@ const ClipLayer = memo(function ClipLayer({
   transition,
   fit,
   focus,
+  live,
+  frameWidth,
+  frameHeight,
 }: ClipLayerProps) {
   const video = useRef<HTMLVideoElement>(null);
   const clip = entry.clip;
@@ -399,7 +430,20 @@ const ClipLayer = memo(function ClipLayer({
           draggable={false}
         />
       )}
-      {media && clip.kind === "video" && (
+      {live && clip.composition && (
+        <CompositionPreview
+          scene={live}
+          width={frameWidth}
+          height={frameHeight}
+          time={Math.min(
+            clip.composition.spec.duration,
+            sourceTimeFor(entry, Math.max(time, entry.start)),
+          )}
+          className="absolute inset-0"
+          label={clip.label ?? "Motion graphic"}
+        />
+      )}
+      {media && clip.kind === "video" && !live && (
         <video
           ref={video}
           src={media.url}
@@ -411,7 +455,7 @@ const ClipLayer = memo(function ClipLayer({
           muted
         />
       )}
-      {!media && (
+      {!media && !live && (
         <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
           {asset ? "Loading…" : "This file is no longer in the library"}
         </div>
@@ -442,6 +486,8 @@ interface AudioLayerProps {
   time: number;
   playing: boolean;
   total: number;
+  /** The edit's frame rate: a voiceover's pauses are whole frames of it. */
+  fps: number;
   voiceRanges: [number, number][];
   /** The gain of the mixer channel the item plays on. */
   channel: number;
@@ -464,6 +510,7 @@ const AudioLayer = memo(function AudioLayer({
   time,
   playing,
   total,
+  fps,
   voiceRanges,
   channel,
   level,
@@ -473,27 +520,35 @@ const AudioLayer = memo(function AudioLayer({
   useEffect(() => {
     const element = audio.current;
     if (!element) return;
-    const length = audioPlayLength(item, total);
+    const length = audioPlayLength(item, total, fps);
     const elapsed = time - item.start;
     const active = elapsed >= 0 && elapsed < length;
     if (!active || item.volume * channel === 0) {
       if (!element.paused) element.pause();
       return;
     }
-    const { fadeIn, fadeOut } = audioFades(item, total);
+    // A voiceover held open: silent through each pause, then on from where it stopped.
+    const held = voicePosition(item, elapsed, fps);
+    if (held.held) {
+      if (!element.paused) element.pause();
+      if (element.readyState >= 1 && Math.abs(element.currentTime - held.source) > 0.03)
+        element.currentTime = held.source;
+      return;
+    }
+    const { fadeIn, fadeOut } = audioFades(item, total, fps);
     let gain = item.volume * channel;
     if (fadeIn > 0 && elapsed < fadeIn) gain *= elapsed / fadeIn;
     if (fadeOut > 0 && elapsed > length - fadeOut)
       gain *= Math.max(0, (length - elapsed) / fadeOut);
     if (
-      item.role === "music" &&
+      item.role !== "voiceover" &&
       item.duck &&
       voiceRanges.some(([from, to]) => time >= from - 0.25 && time <= to + 0.45)
     ) {
       gain *= item.duckLevel;
     }
     element.volume = Math.max(0, Math.min(1, gain * level));
-    const expected = audioSourceTime(item, elapsed);
+    const expected = item.role === "voiceover" ? held.source : audioSourceTime(item, elapsed);
     if (playing) {
       followClock(element, expected, 1);
       if (element.paused) void element.play().catch(() => undefined);
@@ -503,7 +558,7 @@ const AudioLayer = memo(function AudioLayer({
       if (element.readyState >= 1 && Math.abs(element.currentTime - expected) > 0.03)
         element.currentTime = expected;
     }
-  }, [item, time, playing, total, voiceRanges, channel, level]);
+  }, [item, time, playing, total, fps, voiceRanges, channel, level]);
 
   useEffect(() => {
     const element = audio.current;
@@ -515,6 +570,11 @@ const AudioLayer = memo(function AudioLayer({
   if (!url) return null;
   return <audio ref={audio} src={url} preload="auto" loop={audioLoops(item)} />;
 });
+
+/** Music edited on its bars plays its pieces, as the render does (./PiecesAudio); any other sound as above. */
+function SoundLayer(props: AudioLayerProps) {
+  return musicPieces(props.item) ? <PiecesAudioLayer {...props} /> : <AudioLayer {...props} />;
+}
 
 /* ------------------------------------------------------------------ */
 /* Pictures over the edit, and the platform's clear area               */
@@ -638,12 +698,17 @@ function TextLayer({
   if (!scale) return null;
   const short = Math.min(frameWidth, frameHeight);
   const portrait = frameHeight > frameWidth;
-  const caption = timeline.captions.enabled
-    ? timeline.captions.segments.find((segment) => time >= segment.start && time < segment.end)
-    : undefined;
+  const brandCaptions = timeline.captions.enabled && timeline.captions.style === "brand";
+  const caption =
+    timeline.captions.enabled && !brandCaptions
+      ? timeline.captions.segments.find((segment) => time >= segment.start && time < segment.end)
+      : undefined;
   const overlays = timeline.overlays.filter(
     (overlay) => time >= overlay.start && time < overlay.end,
   );
+  // What is behind the words, where a panel is chosen: a box in its material, or none.
+  const panelBox = classicPanelLook(timeline.captions);
+  const boxed = panelBox ? panelBox.background !== null : timeline.captions.style === "boxed";
 
   const captionStyle = (): CSSProperties => {
     const { style, position, size, font, color, accent } = timeline.captions;
@@ -667,7 +732,7 @@ function TextLayer({
       base.transform = "translateY(-50%)";
     } else
       base.bottom = `${(position === "bottom" ? (portrait ? 0.12 : 0.07) : portrait ? 0.24 : 0.14) * 100}%`;
-    if (style === "boxed") return base;
+    if (boxed) return base;
     const outline = Math.max(1, fontSize * (style === "minimal" ? 0.04 : 0.08));
     base.textShadow = `0 0 ${outline}px #000, 0 0 ${outline}px #000, 0 ${outline / 2}px ${outline}px #000`;
     return base;
@@ -675,20 +740,37 @@ function TextLayer({
 
   return (
     <div className="pointer-events-none absolute inset-0 z-10">
+      {brandCaptions && (
+        // Word by word in the brand's type, moving as the render moves them.
+        <BrandCaptionLayer
+          timeline={timeline}
+          time={time}
+          frameWidth={frameWidth}
+          frameHeight={frameHeight}
+        />
+      )}
       {caption && (
         <div style={captionStyle()}>
           <span
             style={
-              timeline.captions.style === "boxed"
+              panelBox?.background
                 ? {
-                    background: timeline.captions.accent
-                      ? tint(timeline.captions.accent, 0.65)
-                      : "rgba(0,0,0,0.65)",
-                    padding: "0.1em 0.35em",
+                    background: panelBox.background,
+                    color: panelBox.color ?? undefined,
+                    padding: "0.25em 0.35em",
                     boxDecorationBreak: "clone",
                     WebkitBoxDecorationBreak: "clone",
                   }
-                : undefined
+                : boxed
+                  ? {
+                      background: timeline.captions.accent
+                        ? tint(timeline.captions.accent, 0.65)
+                        : "rgba(0,0,0,0.65)",
+                      padding: "0.1em 0.35em",
+                      boxDecorationBreak: "clone",
+                      WebkitBoxDecorationBreak: "clone",
+                    }
+                  : undefined
             }
           >
             {timeline.captions.uppercase ? caption.text.toUpperCase() : caption.text}
@@ -721,6 +803,12 @@ function TextLayer({
           style.top = "50%";
           style.transform = "translateY(-50%)";
         }
+        // How it comes in and goes, as the render draws it: a brand's motion, else the quarter-second
+        // fade. Its offset is a share of its own size, so in em.
+        const moving = overlayMotionState(overlay, time);
+        style.opacity = moving.opacity;
+        if (moving.offset)
+          style.transform = `${style.transform ?? ""} translateY(${moving.offset}em)`.trim();
         return (
           <div key={overlay.id} style={style}>
             {overlay.style === "cta" ? (

@@ -130,7 +130,7 @@ export function AddLicensedTrack({
 
   function pick(next: File | null) {
     if (next && !isUploadableAudio(next)) {
-      toast.error(`“${next.name}” isn't a WAV, MP3 or M4A file.`);
+      toast.error(`“${next.name}” isn't a WAV, MP3, M4A or FLAC file.`);
       return;
     }
     setFile(next);
@@ -254,7 +254,7 @@ export function AddLicensedTrack({
             </span>
           ) : (
             <span className="text-muted-foreground">
-              WAV, MP3 or M4A <span className="hidden md:inline">· or drag it here</span>
+              WAV, MP3, M4A or FLAC <span className="hidden md:inline">· or drag it here</span>
             </span>
           )}
           <input

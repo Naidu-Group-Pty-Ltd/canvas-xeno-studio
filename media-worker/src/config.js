@@ -37,6 +37,18 @@ export const config = {
    */
   clipParallelism: intEnv("CLIP_PARALLELISM", availableParallelism() >= 4 ? 2 : 1),
   /**
+   * How many browsers draw a composition's frames side by side (each takes
+   * every Nth frame). Two on a machine with four cores or more.
+   */
+  compositionBrowsers: intEnv("COMPOSITION_BROWSERS", availableParallelism() >= 4 ? 2 : 1),
+  /**
+   * This machine has a GPU for compositions' WebGL (MEDIA_WORKER_GPU=1): the
+   * browser draws on it. Without one, WebGL runs in software, which a heavy
+   * scene (Reel 1's globe) makes slow; the app sends those to a GPU worker
+   * when one is set up (MEDIA_WORKER_GPU_URL).
+   */
+  gpu: process.env["MEDIA_WORKER_GPU"] === "1",
+  /**
    * With nothing running, queued or still being reported for this long, the
    * worker exits, and so its Fly machine stops; Fly starts it again for the
    * next request. 0 (the default) keeps it running.

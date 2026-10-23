@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import type { SupercomputerDraft } from "@/lib/supercomputer/types";
+import { checkGenerationStage } from "@/lib/costs.functions";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,6 +28,8 @@ export function GenerateAllDialog({ open, onOpenChange, messageId, drafts, conte
   const [quotes, setQuotes] = useState<Map<number, DraftEstimate>>(new Map());
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(0);
+  /** Why the drafts weren't run: they don't fit the balance or the spending limit. */
+  const [refused, setRefused] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -71,6 +74,38 @@ export function GenerateAllDialog({ open, onOpenChange, messageId, drafts, conte
 
   async function runAll() {
     setRunning(true);
+    setRefused(null);
+    // The drafts are checked whole first, against the Higgsfield balance and
+    // the spending limit with an allowance for retakes, so they never stop part way.
+    try {
+      const verdict = await checkGenerationStage({
+        data: {
+          items: allowed.map((entry) => {
+            const quote = quotes.get(entry.index);
+            return {
+              label: entry.draft.title.trim().slice(0, 120) || `Draft ${entry.runNumber}`,
+              usd: quote?.kind === "ready" ? quote.costUsd : null,
+            };
+          }),
+          projectId: context.projectId,
+          campaignId: context.campaignId,
+          allowUnpriced: true,
+        },
+      });
+      if (!verdict.fits) {
+        setRefused(verdict.reasons[0] ?? "These drafts don't fit the balance or the limit.");
+        setRunning(false);
+        return;
+      }
+    } catch (error) {
+      setRefused(
+        error instanceof Error
+          ? error.message
+          : "The drafts couldn't be checked against the balance just now. Try again.",
+      );
+      setRunning(false);
+      return;
+    }
     for (const entry of allowed) {
       await runner.run({
         draft: entry.draft,
@@ -126,6 +161,14 @@ export function GenerateAllDialog({ open, onOpenChange, messageId, drafts, conte
                   ? " A long video's figure is approximate: it is worked out from its first clip, and each clip is quoted again before it is sent."
                   : ""}
               </p>
+              {refused && (
+                <p
+                  className="rounded-md bg-destructive/10 px-2 py-1.5 text-xs text-destructive"
+                  data-testid="generate-all-refused"
+                >
+                  {refused}
+                </p>
+              )}
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>

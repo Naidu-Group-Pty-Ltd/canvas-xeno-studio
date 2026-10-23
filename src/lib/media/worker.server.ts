@@ -49,6 +49,20 @@ export function mediaWorkerConfigured(): boolean {
   return Boolean(baseUrl() && secret().length >= 16);
 }
 
+/**
+ * A media worker with a GPU (the same service, run with MEDIA_WORKER_GPU=1 on
+ * a machine that has one), for compositions that draw with WebGL: in
+ * software, a heavy WebGL scene draws slowly (Reel 1's globe took 16 to 23 s a
+ * drawing before it was reworked). Optional; without it they go to the usual one.
+ */
+function gpuBaseUrl(): string {
+  return (process.env["MEDIA_WORKER_GPU_URL"] ?? "").replace(/\/$/, "");
+}
+
+export function gpuWorkerConfigured(): boolean {
+  return Boolean(gpuBaseUrl() && secret().length >= 16);
+}
+
 export function signPayload(rawBody: string, timestamp = Math.floor(Date.now() / 1000)) {
   const digest = createHmac("sha256", secret()).update(`${timestamp}.${rawBody}`).digest("hex");
   return { timestamp: String(timestamp), signature: `sha256=${digest}` };
@@ -82,8 +96,12 @@ export interface WorkerCall<T> {
   durationMs: number;
 }
 
-async function call<T>(path: string, init: { method: "GET" | "POST"; body?: string }): Promise<WorkerCall<T>> {
-  if (!mediaWorkerConfigured()) {
+async function call<T>(
+  path: string,
+  init: { method: "GET" | "POST"; body?: string },
+  base: string = baseUrl(),
+): Promise<WorkerCall<T>> {
+  if (!base || secret().length < 16) {
     return {
       ok: false,
       status: 0,
@@ -104,7 +122,7 @@ async function call<T>(path: string, init: { method: "GET" | "POST"; body?: stri
       headers["x-xeno-timestamp"] = signed.timestamp;
       headers["x-xeno-signature"] = signed.signature;
     }
-    const response = await fetch(`${baseUrl()}${path}`, {
+    const response = await fetch(`${base}${path}`, {
       method: init.method,
       headers,
       ...(init.body !== undefined ? { body: init.body } : {}),
@@ -288,5 +306,27 @@ export async function submitWorkerTask(
   }
   if (result.ok) await remember(result.data).catch(() => undefined);
   else if (result.status === 0 || result.status >= 500) await forget().catch(() => undefined);
+  return result;
+}
+
+/** The GPU worker's health (see gpuWorkerConfigured): what it can do, as workerHealth says. */
+export async function gpuWorkerHealth(): Promise<WorkerCall<WorkerHealth>> {
+  return call<WorkerHealth>("/health", { method: "GET" }, gpuBaseUrl());
+}
+
+/** Sends a task to the GPU worker, once more a few seconds later if it was caught restarting. */
+export async function submitGpuWorkerTask(
+  task: MediaWorkerTask,
+  waits: number[] = RESTART_WAITS_MS,
+): Promise<WorkerCall<{ accepted: boolean; task_id: string }>> {
+  const body = JSON.stringify(task);
+  const send = () =>
+    call<{ accepted: boolean; task_id: string }>("/tasks", { method: "POST", body }, gpuBaseUrl());
+  let result = await send();
+  for (const wait of waits) {
+    if (!restarting(result)) break;
+    await new Promise((resolve) => setTimeout(resolve, wait));
+    result = await send();
+  }
   return result;
 }

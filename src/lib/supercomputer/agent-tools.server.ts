@@ -24,6 +24,7 @@ import type { ApiCaller } from "../studio-api/tokens.server";
 import { formulaById } from "../brand/formulas";
 import { aboutUsd, type ApprovalRequest, type ToolUi } from "./agent-events";
 import type { AgentThreadSettings } from "./agent-settings";
+import { sectionTools } from "./section-tools.server";
 import type { SupercomputerPayload } from "./types";
 
 type Json = Record<string, unknown>;
@@ -37,6 +38,8 @@ export interface AgentContext {
   projectId: string | null;
   campaignId: string | null;
   signal: AbortSignal;
+  /** The section this conversation is the worker for (see ./sections), if it is one. */
+  section?: { planId: string; sectionId: string; position: number };
 }
 
 export type ToolResultContent = string | (Anthropic.TextBlockParam | Anthropic.ImageBlockParam)[];
@@ -405,7 +408,7 @@ function wrapStudioTool(entry: StudioTool): AgentTool {
 /* The agent's own                                                     */
 /* ------------------------------------------------------------------ */
 
-function ownTool<S extends z.ZodType>(definition: {
+export function ownTool<S extends z.ZodType>(definition: {
   name: string;
   description: string;
   input: S;
@@ -819,7 +822,11 @@ const readBrief = ownTool({
     const { briefExcerpt } = await import("../briefs/pages");
     const excerpt = briefExcerpt(
       data.extracted_text ?? "",
-      { fromPage: input.from_page, toPage: input.to_page, offset: input.offset },
+      {
+        ...(input.from_page !== undefined ? { fromPage: input.from_page } : {}),
+        ...(input.to_page !== undefined ? { toPage: input.to_page } : {}),
+        ...(input.offset !== undefined ? { offset: input.offset } : {}),
+      },
       BRIEF_READ_CHARS,
     );
     const where = excerpt.pages
@@ -1012,6 +1019,7 @@ export function agentTools(): AgentTool[] {
       importBrandCode,
       remember,
       forget,
+      ...sectionTools({ ownTool, resultText, assetUrl }),
     ];
   return tools;
 }

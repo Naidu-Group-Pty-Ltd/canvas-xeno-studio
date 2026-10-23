@@ -56,6 +56,7 @@ const AUDIO_EXTENSIONS: Record<string, string> = {
   wav: "audio/wav",
   mp3: "audio/mpeg",
   m4a: "audio/mp4",
+  flac: "audio/flac",
 };
 
 /**
@@ -71,9 +72,16 @@ export function uploadType(file: File): string {
 }
 
 /** The audio types taken from a device (what the server's staging takes). */
-const UPLOADABLE = new Set(["audio/wav", "audio/mpeg", "audio/mp4", "audio/x-m4a"]);
+const UPLOADABLE = new Set([
+  "audio/wav",
+  "audio/mpeg",
+  "audio/mp4",
+  "audio/x-m4a",
+  "audio/flac",
+  "audio/x-flac",
+]);
 
-/** Whether a dropped or picked file is audio the studio takes (WAV, MP3 or M4A), by its type or name. */
+/** Whether a dropped or picked file is audio the studio takes (WAV, MP3, M4A or FLAC), by its type or name. */
 export function isUploadableAudio(file: File): boolean {
   return UPLOADABLE.has(uploadType(file));
 }

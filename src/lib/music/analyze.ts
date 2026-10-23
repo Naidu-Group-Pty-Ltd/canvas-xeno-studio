@@ -1,5 +1,6 @@
 import { analyzeBeats, type BeatAnalysis } from "./beats";
 import { probeDuration, probeLayout, type ReadRange } from "./probe";
+import { analyzeStructure, type BarFeatures, type MusicStructure } from "./structure";
 
 const RATE = 22050;
 
@@ -63,6 +64,43 @@ export async function analyzeAudioUrl(
   url: string,
   knownDuration: number | null = null,
 ): Promise<(BeatAnalysis & { duration: number }) | null> {
+  const { mono, sampleRate, duration } = await decodeForAnalysis(url, knownDuration);
+  const analysis = analyzeBeats(mono, sampleRate);
+  return analysis ? { ...analysis, duration } : null;
+}
+
+/**
+ * A track's beats and its bars and sections (with the bars' features), from
+ * one decoding of its file, with the same limits as analyzeAudioUrl. The
+ * structure is null when the music has no steady beat to find bars in.
+ */
+export async function analyzeMusicUrl(
+  url: string,
+  knownDuration: number | null = null,
+): Promise<{
+  beats: BeatAnalysis | null;
+  structure: MusicStructure | null;
+  features: BarFeatures | null;
+  duration: number;
+}> {
+  const { mono, sampleRate, duration } = await decodeForAnalysis(url, knownDuration);
+  const beats = analyzeBeats(mono, sampleRate);
+  // Let the page paint between the two (each takes a moment on a long track).
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const found = beats ? analyzeStructure(mono, sampleRate, beats) : null;
+  return {
+    beats,
+    structure: found?.structure ?? null,
+    features: found?.features ?? null,
+    duration,
+  };
+}
+
+/** A recording decoded and mixed to mono at the analysis rate, within the limits above. */
+async function decodeForAnalysis(
+  url: string,
+  knownDuration: number | null,
+): Promise<{ mono: Float32Array; sampleRate: number; duration: number }> {
   const tooLong = () =>
     new Error(
       `This music is too long to find its beats here (over ${MAX_ANALYSIS_SECONDS / 60} minutes). Use a shorter edit of it.`,
@@ -139,6 +177,5 @@ export async function analyzeAudioUrl(
     }
     for (let index = 0; index < mono.length; index += 1) mono[index]! /= channels;
   }
-  const analysis = analyzeBeats(mono, decoded.sampleRate);
-  return analysis ? { ...analysis, duration: decoded.duration } : null;
+  return { mono, sampleRate: decoded.sampleRate, duration: decoded.duration };
 }

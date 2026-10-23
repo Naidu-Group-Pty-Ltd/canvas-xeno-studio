@@ -274,6 +274,11 @@ async function uploadStoredMedia(media: StoredMedia): Promise<{ url: string; mim
  */
 export async function providerMediaUrl(media: StoredMedia): Promise<string> {
   const assetId = media.assetId;
+  // The last guard, whatever sent it: no layout-only file reaches the provider.
+  if (assetId) {
+    const { assertPlaceable } = await import("./media/layout-only.server");
+    await assertPlaceable([assetId], "provider");
+  }
   if (!assetId) return (await uploadStoredMedia(media)).url;
   const key = `${assetId}:${media.bucket}/${media.path}`;
   const pending = uploadsInFlight.get(key);
@@ -499,7 +504,16 @@ export async function submitToProvider(generationId: string): Promise<{ status: 
           }))),
         })
       : null;
-  const quoted = serverCost ?? metered?.usd ?? null;
+  // A description that states a flat price (per image, request or second), or
+  // one this doesn't follow, priced then at the model's list price if an
+  // admin set one (see generation-costs.server). Never a figure made up.
+  const fallback =
+    serverCost === null && !metered && meteredPricing
+      ? await import("./generation-costs.server").then(({ fallbackQuote }) =>
+          fallbackQuote(model, params as Record<string, unknown>, meteredPricing),
+        )
+      : null;
+  const quoted = serverCost ?? metered?.usd ?? fallback?.usd ?? null;
 
   // Spending limits, against the authoritative figure: the record's own
   // earlier figure (the browser's, if any) is already counted, so only the
@@ -570,6 +584,12 @@ export async function submitToProvider(generationId: string): Promise<{ status: 
     await logEvent(generationId, "estimate_received", {
       estimated_cost_usd: metered.usd,
       metered,
+      pricing_description: meteredPricing,
+      provider_estimate: estimateCall.data as Json,
+    });
+  } else if (fallback) {
+    const { recordFallbackQuote } = await import("./generation-costs.server");
+    await recordFallbackQuote(generationId, fallback, {
       pricing_description: meteredPricing,
       provider_estimate: estimateCall.data as Json,
     });
@@ -863,6 +883,12 @@ export async function applyProviderPayload(
         billing_status: update["actual_cost_usd"] !== undefined ? "actual" : "estimated",
       })
       .eq("generation_id", generationId);
+    // No charge reported: its estimate stands as its cost. One with no estimate
+    // either takes its model's list price now, if an admin has set one.
+    if (update["actual_cost_usd"] === undefined)
+      await import("./generation-costs.server")
+        .then(({ priceUnpricedRun }) => priceUnpricedRun(generationId))
+        .catch(() => {});
   }
   return status;
 }

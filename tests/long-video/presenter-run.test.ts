@@ -148,6 +148,10 @@ mock.module(src("lip-sync/prepare.server.ts"), () => ({
     title: "Janice read",
   }),
   preparationById: async () => ({ ...preparation, id: preparation["id"] }),
+  // Not used by a presenter run, but a module mock stands for the whole module in
+  // every test file run after this one: a render's voiceover checks import these.
+  preparationForAsset: async () => null,
+  preparedFileOf: () => null,
   takeForEdit: async () => ({
     voiceoverId: "take",
     assetId: voicePrepared["id"],

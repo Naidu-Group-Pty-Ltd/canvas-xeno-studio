@@ -1,5 +1,16 @@
 import { useMemo, useRef, useState } from "react";
-import { Film, ImageIcon, Loader2, Mic, Music, Plus, Search, Upload, Waves } from "lucide-react";
+import {
+  Film,
+  ImageIcon,
+  Loader2,
+  Mic,
+  Music,
+  Plus,
+  Search,
+  Sparkles,
+  Upload,
+  Waves,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useAssets, type AssetRow } from "@/hooks/useStudioData";
 import { useAuth } from "@/hooks/useAuth";
@@ -40,10 +51,18 @@ interface MediaBinProps {
   usedAssetIds: Set<string>;
   onAddVisual: (asset: AssetRow) => void;
   onAddAudio: (asset: AssetRow, role: AudioRole) => void;
+  /** Opens the motion graphics templates, to add one to the edit. */
+  onAddMotion?: (() => void) | undefined;
 }
 
 /** The library, filtered for editing: drop footage, stills and sound onto the edit. */
-export function MediaBin({ projectId, usedAssetIds, onAddVisual, onAddAudio }: MediaBinProps) {
+export function MediaBin({
+  projectId,
+  usedAssetIds,
+  onAddVisual,
+  onAddAudio,
+  onAddMotion,
+}: MediaBinProps) {
   const { user } = useAuth();
   const [kind, setKind] = useState<Kind>("video");
   const [term, setTerm] = useState("");
@@ -77,8 +96,8 @@ export function MediaBin({ projectId, usedAssetIds, onAddVisual, onAddAudio }: M
     if (refused.length)
       toast.error(
         refused.length === 1
-          ? `“${refused[0]!.name}” isn't a file the library takes (MP4, MOV or WebM video; JPEG, PNG, WebP or GIF stills; WAV, MP3 or M4A audio).`
-          : `${refused.length} files aren't ones the library takes (MP4, MOV or WebM video; JPEG, PNG, WebP or GIF stills; WAV, MP3 or M4A audio).`,
+          ? `“${refused[0]!.name}” isn't a file the library takes (MP4, MOV or WebM video; JPEG, PNG, WebP or GIF stills; WAV, MP3, M4A or FLAC audio).`
+          : `${refused.length} files aren't ones the library takes (MP4, MOV or WebM video; JPEG, PNG, WebP or GIF stills; WAV, MP3, M4A or FLAC audio).`,
       );
     if (taken.length > 10) toast.message("Ten files at a time: the first ten were taken.");
     const batch = taken.slice(0, 10);
@@ -146,6 +165,19 @@ export function MediaBin({ projectId, usedAssetIds, onAddVisual, onAddAudio }: M
             </button>
           ))}
         </div>
+        {onAddMotion && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 w-full justify-start text-xs"
+            onClick={onAddMotion}
+            data-testid="add-motion-graphic"
+          >
+            <Sparkles className="mr-1.5 size-3.5 text-primary" />
+            Motion graphic
+            <span className="ml-auto text-[10px] text-muted-foreground">from a template</span>
+          </Button>
+        )}
         <div className="relative">
           <Search className="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input

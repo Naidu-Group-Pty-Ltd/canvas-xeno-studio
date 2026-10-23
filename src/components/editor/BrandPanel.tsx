@@ -26,6 +26,7 @@ import {
   type TimelineLayout,
 } from "@/lib/edit/timeline";
 import { LibraryPicker } from "@/components/studio/LibraryPicker";
+import { timelineRefusal } from "@/lib/media/layout-only-check";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -101,8 +102,13 @@ export function BrandSection({
   const applied = timeline.brandKitId === kit?.id;
   const area = timeline.safeArea as SafeArea;
 
-  const addLogo = () => {
+  const addLogo = async () => {
     if (!kit?.logoAssetId || layout.total < 0.2) return;
+    const refused = await timelineRefusal([{ id: kit.logoAssetId, title: "The logo" }]);
+    if (refused) {
+      toast.error(refused);
+      return;
+    }
     const insets = safeInsets(area, timeline.aspectRatio);
     const width = aspectQuotient(timeline.aspectRatio) < 1 ? 0.22 : 0.12;
     const logo: ImageOverlay = {
@@ -426,10 +432,16 @@ export function ImageOverlaysSection({
         accept={["image"]}
         max={1}
         title="A picture to lay over the video"
-        onConfirm={(chosen: AssetRow[]) => {
+        onConfirm={async (chosen: AssetRow[]) => {
           setPicking(false);
           const asset = chosen[0];
           if (!asset) return;
+          // A client's screen marked layout only is never laid over a frame.
+          const refused = await timelineRefusal([{ id: asset.id, title: asset.title }]);
+          if (refused) {
+            toast.error(refused);
+            return;
+          }
           onChange({
             ...timeline,
             images: [

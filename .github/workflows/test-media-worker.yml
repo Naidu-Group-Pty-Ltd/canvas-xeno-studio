@@ -1,0 +1,56 @@
+# Tests the media worker (media-worker/) as it would be deployed, without
+# deploying it: on every push to a branch other than main that changes it.
+# The image is built and its self-tests run inside it (the production
+# FFmpeg, Chromium and fonts), then it is started and its health checked:
+# the deploy's own checks (see deploy-media-worker.yml), so a change reaches
+# main already passing them, and a merge never stops at a failing deploy.
+name: Test media worker
+
+on:
+  push:
+    branches-ignore: [main]
+    paths:
+      - "media-worker/**"
+      - ".github/workflows/test-media-worker.yml"
+
+# A newer push to the same branch replaces the run still going.
+concurrency:
+  group: test-media-worker-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Build and self-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: media-worker
+    env:
+      IMAGE: media-worker-test:${{ github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build the image
+        run: docker build --tag "$IMAGE" .
+
+      - name: Self-test the image
+        run: docker run --rm --env MEDIA_WORKER_SHARED_SECRET=selftest-0123456789abcdef "$IMAGE" node src/selftest.js
+
+      - name: Check the image starts and answers
+        run: |
+          docker run --detach --name worker --publish 8080:8080 \
+            --env MEDIA_WORKER_SHARED_SECRET=selftest-0123456789abcdef "$IMAGE"
+          for _ in $(seq 1 30); do
+            if curl --fail --silent --show-error --max-time 5 http://127.0.0.1:8080/health > health.json; then
+              break
+            fi
+            sleep 1
+          done
+          docker logs worker
+          docker rm --force worker
+          jq --exit-status '.ok == true' health.json
+          echo "The image reports: $(jq --compact-output '.features' health.json)" >> "$GITHUB_STEP_SUMMARY"

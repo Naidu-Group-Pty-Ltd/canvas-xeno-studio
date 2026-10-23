@@ -11,7 +11,9 @@ import {
   BRAND_FONT_BUCKET,
   BRAND_FONT_PREFIX,
   FONT_FAMILY_PATTERN,
+  FONT_STYLES,
   isBrandFontFile,
+  type FontStyle,
 } from "./font-family";
 import {
   designOf,
@@ -24,12 +26,16 @@ import {
 import { dnaOf, type BrandDna } from "../brand/dna";
 import type { BrandFormula } from "../brand/formulas";
 import { ownFormulasOf } from "../brand/own-formulas";
+import { productionOf, type BrandProduction } from "../brand/production";
+import { demoRecordOf, type DemoRecord } from "../compositions/demo";
+import { kitOverlayMotion } from "./overlay-motion";
 import {
   aspectQuotient,
   layoutTimeline,
   LIMITS,
   newId,
   type AspectRatio,
+  type CaptionStyle,
   type ImageOverlay,
   type Overlay,
   type OverlayBacking,
@@ -47,7 +53,20 @@ export interface BrandFont {
   family: string;
   bucket: string;
   path: string;
+  /**
+   * The style it is drawn in, read from the file (see ./font-family): a
+   * family can have its regular, its italic and its bold. None on a font
+   * kept before styles were read, which is taken for the regular.
+   */
+  style?: FontStyle | undefined;
 }
+
+export const FONT_STYLE_LABELS: Record<FontStyle, string> = {
+  regular: "Regular",
+  italic: "Italic",
+  bold: "Bold",
+  bold_italic: "Bold italic",
+};
 
 /** The families a kit's text can be set in: Inter, then its own, each once. */
 export function fontChoices(fonts: readonly { family: string }[]): string[] {
@@ -87,6 +106,10 @@ export interface BrandKit {
   dna: BrandDna;
   /** The formulas written for this brand (see ../brand/own-formulas), first wherever it plans content. */
   ownFormulas: BrandFormula[];
+  /** The roles its graphics are drawn in and how they move, read from its code (see ../brand/production). */
+  production: BrandProduction;
+  /** The fictional record its product screens show (see ../compositions/demo); null: the studio's own. */
+  demoRecord: DemoRecord | null;
 }
 
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -100,10 +123,12 @@ export function brandFontsOf(value: unknown): BrandFont[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((entry) => {
     const record = (entry ?? {}) as Json;
-    const font = {
+    const style = record["style"];
+    const font: BrandFont = {
       family: text(record["family"]) ?? "",
       bucket: text(record["bucket"]) ?? "",
       path: text(record["path"]) ?? "",
+      ...((FONT_STYLES as readonly unknown[]).includes(style) ? { style: style as FontStyle } : {}),
     };
     return FONT_FAMILY_PATTERN.test(font.family) && isBrandFontFile(font) ? [font] : [];
   });
@@ -152,6 +177,10 @@ export function brandKitOf(row: Json): BrandKit {
     dna: dnaOf(row["dna"]),
     // And from before its own formulas (migration 0024), none.
     ownFormulas: ownFormulasOf(row["formulas"]),
+    // And from before production roles (migration 0029), none.
+    production: productionOf(row["production"]),
+    // And from before demo records (migration 0034), none.
+    demoRecord: demoRecordOf(row["demo_record"]),
   };
 }
 
@@ -241,15 +270,18 @@ export function safeInsets(area: SafeArea, aspect: AspectRatio): Insets {
 /* Applying a kit                                                      */
 /* ------------------------------------------------------------------ */
 
-/** A brand's look for one title, subtitle or call to action. */
+/** A brand's look for one title, subtitle or call to action, moving as the brand moves. */
 export function brandedOverlay(overlay: Overlay, kit: BrandKit): Overlay {
   const font = overlay.style === "subtitle" ? kit.bodyFont : kit.headingFont;
+  // Its enter and exit curves and durations (see ./overlay-motion); none keeps the studio's fade.
+  const motion = kitOverlayMotion(kit.production);
   if (overlay.style === "cta")
     return {
       ...overlay,
       font,
       accent: kit.accentColor,
       color: contrastOn(kit.accentColor),
+      motion,
     };
   return {
     ...overlay,
@@ -257,24 +289,43 @@ export function brandedOverlay(overlay: Overlay, kit: BrandKit): Overlay {
     color: kit.textColor,
     accent: kit.accentColor,
     backing: kit.titleBacking,
+    motion,
     text:
       kit.uppercaseTitles && overlay.style === "title" ? overlay.text.toUpperCase() : overlay.text,
   };
 }
 
-/** An edit in a brand's look: its titles, calls to action and captions in the kit's fonts and colours. */
+/** A kit's font files, each family's regular before its italic and bold (as kept, otherwise). */
+function regularFirst(fonts: BrandFont[]): BrandFont[] {
+  const rank = (font: BrandFont) => FONT_STYLES.indexOf(font.style ?? "regular");
+  return fonts
+    .map((font, index) => ({ font, index }))
+    .sort((a, b) => rank(a.font) - rank(b.font) || a.index - b.index)
+    .map(({ font }) => font);
+}
+
+/**
+ * An edit in a brand's look: its titles, calls to action and captions in the
+ * kit's fonts and colours. The files of the kit's heading and body families
+ * go with it, the display face's italic too.
+ */
 export function applyBrandKit(timeline: Timeline, kit: BrandKit): Timeline {
   const families = new Set([kit.headingFont, kit.bodyFont].filter(Boolean));
   return {
     ...timeline,
     brandKitId: kit.id,
-    fonts: kit.fonts.filter((font) => families.has(font.family)).slice(0, LIMITS.fonts),
+    fonts: regularFirst(kit.fonts.filter((font) => families.has(font.family))).slice(
+      0,
+      LIMITS.fonts,
+    ),
     overlays: timeline.overlays.map((overlay) => brandedOverlay(overlay, kit)),
     captions: {
       ...timeline.captions,
-      font: kit.bodyFont,
+      font: captionFamily(kit, timeline.captions.style),
       color: kit.textColor,
       accent: kit.accentColor,
+      // A solid panel behind them is in the brand's ground colour.
+      panelColor: kit.backgroundColor,
     },
   };
 }
@@ -290,8 +341,9 @@ export function clearBrand(timeline: Timeline): Timeline {
       font: null,
       color: null,
       accent: null,
+      motion: null,
     })),
-    captions: { ...timeline.captions, font: null, color: null, accent: null },
+    captions: { ...timeline.captions, font: null, color: null, accent: null, panelColor: null },
   };
 }
 
@@ -440,16 +492,41 @@ export function addEndCard(timeline: Timeline, kit: BrandKit, input: EndCardInpu
   );
 }
 
-/** Carries the kit's font files an edit's text now asks for. */
+/** Carries the kit's font files an edit's text now asks for (a family's italic too). */
 function applyFontsFor(timeline: Timeline, kit: BrandKit): Timeline {
-  const have = new Set(timeline.fonts.map((font) => font.family));
+  const have = new Set(timeline.fonts.map((font) => font.path));
   const wanted = new Set(
     [...timeline.overlays.map((overlay) => overlay.font), timeline.captions.font].filter(
-      (family): family is string => !!family && !have.has(family),
+      (family): family is string => !!family,
     ),
   );
-  const added = kit.fonts.filter((font) => wanted.has(font.family));
+  const added = regularFirst(
+    kit.fonts.filter((font) => wanted.has(font.family) && !have.has(font.path)),
+  );
   return added.length
     ? { ...timeline, fonts: [...timeline.fonts, ...added].slice(0, LIMITS.fonts) }
     : timeline;
+}
+
+/** The family a kit sets captions of a style in: the brand style its display face, the others its body face. */
+function captionFamily(kit: BrandKit, style: CaptionStyle): string | null {
+  return style === "brand" ? (kit.headingFont ?? kit.bodyFont) : kit.bodyFont;
+}
+
+/**
+ * An edit's captions in another style. In an edit styled from a kit, the
+ * brand style takes the kit's display face (with its italic, for the
+ * phrase each line leans on), the others its body face.
+ */
+export function withCaptionStyle(
+  timeline: Timeline,
+  style: CaptionStyle,
+  kit: BrandKit | null,
+): Timeline {
+  const captions = { ...timeline.captions, style };
+  if (!kit || timeline.brandKitId !== kit.id) return { ...timeline, captions };
+  return applyFontsFor(
+    { ...timeline, captions: { ...captions, font: captionFamily(kit, style) } },
+    kit,
+  );
 }

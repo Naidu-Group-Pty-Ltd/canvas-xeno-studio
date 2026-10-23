@@ -268,7 +268,8 @@ async function signedLinks(images: StagedImage[]): Promise<{ image: StagedImage;
  * installed: the brand's own family from Google Fonts, else the close Google
  * font standing in for it. One file per family (the renderer sets a family
  * as drawn), so a family used for both is installed once, at the headings'
- * weight.
+ * weight; the headings' family has its italic too where Google has one, for
+ * the phrase brand captions set in it.
  */
 async function installFonts(typefaces: ReadTypeface[], notes: string[]): Promise<ProposedFont[]> {
   const heading = typefaces.find((face) => face.role === "heading") ?? typefaces[0];
@@ -291,6 +292,11 @@ async function installFonts(typefaces: ReadTypeface[], notes: string[]): Promise
     const own = !!installed;
     if (!installed && face.alternative && face.alternative !== face.family)
       installed = await installGoogleFont(face.alternative, weight);
+    const google = own ? face.family : face.alternative;
+    const italic =
+      installed && google && role === "heading"
+        ? await installGoogleFont(google, weight, "italic")
+        : null;
     if (!installed)
       notes.push(
         `${face.family} (${role === "heading" ? "titles" : "captions"}) couldn't be installed: Inter is used until its font file is uploaded to the kit.`,
@@ -307,6 +313,8 @@ async function installFonts(typefaces: ReadTypeface[], notes: string[]): Promise
       source: own ? "google" : face.source,
       alternative: own ? null : face.alternative,
       installed,
+      // The same family's italic, where it names itself so.
+      ...(italic && installed && italic.family === installed.family ? { italic } : {}),
     });
   }
   return out;
@@ -962,7 +970,7 @@ async function keepStaged(
 export async function applyImport(
   userId: string,
   choices: ApplyChoices,
-): Promise<{ kitId: string }> {
+): Promise<{ kitId: string; note: string | null }> {
   const row = await loadImport(choices.importId);
   if (!row) throw new AppError("INVALID_PARAMETERS", "That import no longer exists");
   if (row.status === "applied")
@@ -1001,7 +1009,7 @@ export async function applyImport(
   }
 
   const design = designOf({ ...EMPTY_DESIGN, ...choices.kit.design });
-  const { id } = await writeBrandKit(userId, {
+  const { id, note } = await writeImportedKit(userId, {
     ...choices.kit,
     logoAssetId,
     referenceAssetIds,
@@ -1019,7 +1027,34 @@ export async function applyImport(
     .eq("id", choices.importId);
   // What wasn't kept is no longer needed (an applied import isn't reviewed again).
   await removeUnkeptFiles(choices.importId).catch(() => undefined);
-  return { kitId: id };
+  return { kitId: id, note };
+}
+
+/**
+ * Writes the kit an import is kept as. Before migration 0029 the production
+ * roles proposed from a brand's code can't be kept: rather than lose the
+ * import, the kit is kept without them, and the note says so (they are read
+ * again from the code once the migration is applied).
+ */
+async function writeImportedKit(
+  userId: string,
+  input: KitInput,
+): Promise<{ id: string; note: string | null }> {
+  try {
+    return { ...(await writeBrandKit(userId, input)), note: null };
+  } catch (error) {
+    if (
+      !input.production ||
+      !(error instanceof AppError) ||
+      !error.message.includes("0029_brand_production")
+    )
+      throw error;
+    const { production: _production, ...without } = input;
+    return {
+      ...(await writeBrandKit(userId, without)),
+      note: "Kept without its production roles: they need a database update (migration 0029_brand_production). Ask an admin to apply it, then re-read the brand's code.",
+    };
+  }
 }
 
 /**

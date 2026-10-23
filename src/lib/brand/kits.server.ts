@@ -6,10 +6,18 @@
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { AppError } from "../higgsfield/errors";
-import { FONT_FAMILY_PATTERN, fontFamily, isBrandFontFile } from "../edit/font-family";
+import {
+  FONT_FAMILY_PATTERN,
+  FONT_STYLES,
+  fontFamily,
+  fontStyle,
+  isBrandFontFile,
+  type FontStyle,
+} from "../edit/font-family";
 import { designOf, isEmptyDesign, paletteOf } from "./design";
 import { dnaOf, isEmptyDna } from "./dna";
 import { ownFormulasOf } from "./own-formulas";
+import { isEmptyProduction, productionOf } from "./production";
 import type { KitInput } from "./kit-input";
 
 /** The largest font file read. */
@@ -21,11 +29,18 @@ const isMissingColumn = (error: { code?: string; message?: string } | null) =>
     error.code === "PGRST204" ||
     /column .* does not exist|could not find the .* column/i.test(error.message ?? ""));
 
-/** Reads a font file from storage and gives the family it names itself by (null if it isn't a font). */
-async function familyOfStoredFont(font: { bucket: string; path: string }): Promise<string | null> {
+/**
+ * Reads a font file from storage: the family it names itself by and the
+ * style it is drawn in (null if it isn't a font).
+ */
+async function readStoredFont(font: {
+  bucket: string;
+  path: string;
+}): Promise<{ family: string | null; style: FontStyle | null } | null> {
   const { data, error } = await supabaseAdmin.storage.from(font.bucket).download(font.path);
   if (error || !data || data.size > FONT_MAX_BYTES) return null;
-  return fontFamily(new Uint8Array(await data.arrayBuffer()));
+  const bytes = new Uint8Array(await data.arrayBuffer());
+  return { family: fontFamily(bytes), style: fontStyle(bytes)?.style ?? null };
 }
 
 /** An active member's role; anyone else is refused. */
@@ -62,34 +77,44 @@ export async function writeBrandKit(userId: string, data: KitInput): Promise<{ i
     throw new AppError("INVALID_PARAMETERS", "That brand kit no longer exists");
 
   // Fonts already on the kit were read when they were added (and keep the
-  // family read then); new ones are read now.
+  // family and style read then); new ones are read now, as is the style of
+  // one kept before styles were read.
   const stored = Array.isArray(existing?.fonts)
-    ? (existing.fonts as { path?: unknown; family?: unknown }[])
+    ? (existing.fonts as { path?: unknown; family?: unknown; style?: unknown }[])
     : [];
-  const known = new Map(
+  const isStyle = (value: unknown): value is FontStyle =>
+    (FONT_STYLES as readonly unknown[]).includes(value);
+  const known = new Map<string, { family: string; style: FontStyle | null }>(
     stored.flatMap((font) =>
       typeof font.path === "string" && typeof font.family === "string"
-        ? [[font.path, font.family] as const]
+        ? [[font.path, { family: font.family, style: isStyle(font.style) ? font.style : null }]]
         : [],
     ),
   );
-  const fonts: { family: string; bucket: string; path: string }[] = [];
+  const fonts: { family: string; bucket: string; path: string; style?: FontStyle }[] = [];
   for (const font of data.fonts) {
     if (!isBrandFontFile(font))
       throw new AppError("INVALID_PARAMETERS", "A font must be uploaded as a brand font");
     if (fonts.some((entry) => entry.path === font.path)) continue;
+    // The family and style are the file's own, never what was sent.
+    const where = { bucket: font.bucket, path: font.path };
     const kept = known.get(font.path);
-    if (kept) {
-      fonts.push({ ...font, family: kept });
+    if (kept?.style) {
+      fonts.push({ ...where, family: kept.family, style: kept.style });
       continue;
     }
-    const family = await familyOfStoredFont(font);
-    if (!family || !FONT_FAMILY_PATTERN.test(family))
+    const read = await readStoredFont(font);
+    if (kept) {
+      // Kept before styles were read: its family stands, its style is read if it can be.
+      fonts.push({ ...where, family: kept.family, ...(read?.style ? { style: read.style } : {}) });
+      continue;
+    }
+    if (!read?.family || !FONT_FAMILY_PATTERN.test(read.family))
       throw new AppError(
         "INVALID_PARAMETERS",
         "A font file couldn't be read. Upload it as a TrueType (.ttf) or OpenType (.otf) file.",
       );
-    fonts.push({ ...font, family });
+    fonts.push({ ...where, family: read.family, ...(read.style ? { style: read.style } : {}) });
   }
   const families = new Set(["Inter", ...fonts.map((font) => font.family)]);
   for (const [which, family] of [
@@ -179,6 +204,7 @@ export async function writeBrandKit(userId: string, data: KitInput): Promise<{ i
           .maybeSingle();
   const dna = data.dna ? dnaOf(data.dna) : null;
   const formulas = data.formulas ? ownFormulasOf(data.formulas) : null;
+  const production = data.production ? productionOf(data.production) : null;
   // Newer parts go in only when sent. Before its migration a kit saves
   // without one, unless that would lose something.
   const later = [
@@ -201,6 +227,28 @@ export async function writeBrandKit(userId: string, data: KitInput): Promise<{ i
             empty: !formulas.length,
             needs: "A brand's own formulas need",
             migration: "0024_brand_formulas",
+          },
+        ]
+      : []),
+    ...(production
+      ? [
+          {
+            column: "production",
+            value: production,
+            empty: isEmptyProduction(production),
+            needs: "Production roles need",
+            migration: "0029_brand_production",
+          },
+        ]
+      : []),
+    ...(data.demoRecord !== undefined
+      ? [
+          {
+            column: "demo_record",
+            value: data.demoRecord,
+            empty: data.demoRecord === null,
+            needs: "A demo record needs",
+            migration: "0034_compositions",
           },
         ]
       : []),

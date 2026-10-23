@@ -19,7 +19,16 @@ import { getMediaWorkerStatus } from "@/lib/media.functions";
 import { recoverRender, renderSequence, resendRender } from "@/lib/edit.functions";
 import { keepAttempt, savedAttempt } from "@/lib/attempts";
 import { audibleAudio, formatTime, renderBlockers, type Timeline } from "@/lib/edit/timeline";
+import { compositionClips } from "@/lib/compositions/clips";
 import { joinSummary, readJoinReport } from "@/lib/edit/join-report";
+import {
+  mixReportOf,
+  mixSummary,
+  quietVoiceSections,
+  renderStems,
+  sectionMargin,
+  type MixReport,
+} from "@/lib/edit/mix-report";
 import { signedUrl } from "@/lib/storage";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -33,7 +42,16 @@ import {
   RENDER_UNCONFIRMED_STAGE,
   renderInProgress,
 } from "@/lib/edit/renders";
+import { QualitySetting, RenderReport } from "./RenderQuality";
+import { ReviewSheet } from "./ReviewSheet";
+import { useRenderExtras, type RenderExtras } from "@/hooks/useRenderExtras";
 import { useTracksForAssets } from "@/hooks/useMusicData";
+import {
+  EditCreditsList,
+  KeptRights,
+  PublicUseChoice,
+  type RenderRightsChoice,
+} from "@/components/editor/EditCredits";
 import { useStudioVoiceovers } from "@/hooks/useVoiceData";
 import {
   keptLicenceLine,
@@ -49,6 +67,8 @@ interface RenderPanelProps {
   timeline: Timeline;
   saveNow: () => Promise<number>;
   disabled: boolean;
+  /** Changes the edit's render settings (its quality); without it they are shown, not changed. */
+  onChange?: (timeline: Timeline) => void;
 }
 
 function newRequestId() {
@@ -58,9 +78,22 @@ function newRequestId() {
 }
 
 /** Render the final video and keep every version that was rendered. */
-export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: RenderPanelProps) {
+export function RenderPanel({
+  sequenceId,
+  title,
+  timeline,
+  saveNow,
+  disabled,
+  onChange,
+}: RenderPanelProps) {
   const [starting, setStarting] = useState(false);
   const [resending, setResending] = useState(false);
+  // For public use, and the exceptions confirmed (see EditCredits): sent with the render.
+  const [rightsChoice, setRightsChoice] = useState<RenderRightsChoice>({
+    publicUse: false,
+    confirmExceptions: [],
+  });
+  const [rightsHeld, setRightsHeld] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { data: renders = [] } = useSequenceRenders(sequenceId);
   const { data: worker } = useQuery({
@@ -69,6 +102,7 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
     staleTime: 60_000,
   });
   const blockers = renderBlockers(timeline);
+  const motionGraphics = compositionClips(timeline).length;
   const active = renders.find((render) => renderInProgress(render));
   const renderedIds = useMemo(
     () =>
@@ -78,6 +112,12 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
     [renders],
   );
   const { data: renderedFiles } = useAssetsByIds(renderedIds);
+  // Each finished render's quality report and review sheet (migration 0031_render_quality).
+  const finishedIds = useMemo(
+    () => renders.filter((render) => render.status === "completed").map((render) => render.id),
+    [renders],
+  );
+  const { data: extras } = useRenderExtras(sequenceId, finishedIds);
   // Only audio heard in the render needs a credit or a licence check.
   const audioIds = useMemo(() => audibleAudio(timeline).map((item) => item.assetId), [timeline]);
   const {
@@ -191,7 +231,15 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
       const key = `${sequenceId}:${version}`;
       const ask = (clientRequestId: string) => {
         keepAttempt("render", key, clientRequestId);
-        return renderSequence({ data: { sequenceId, expectedVersion: version, clientRequestId } });
+        return renderSequence({
+          data: {
+            sequenceId,
+            expectedVersion: version,
+            clientRequestId,
+            publicUse: rightsChoice.publicUse,
+            confirmExceptions: rightsChoice.confirmExceptions,
+          },
+        });
       };
       let started = await ask(savedAttempt("render", key) ?? newRequestId());
       // That request's render had already failed for good: this press is a new render.
@@ -257,6 +305,13 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
 
   return (
     <div className="space-y-3 p-3">
+      <PublicUseChoice
+        timeline={timeline}
+        choice={rightsChoice}
+        onChoice={setRightsChoice}
+        onHeld={setRightsHeld}
+      />
+      <QualitySetting timeline={timeline} onChange={onChange} disabled={disabled} />
       <Button
         className="w-full"
         disabled={
@@ -265,7 +320,8 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
           Boolean(active) ||
           blockers.length > 0 ||
           Boolean(workerProblem) ||
-          Boolean(licenceProblem)
+          Boolean(licenceProblem) ||
+          Boolean(rightsHeld)
         }
         onClick={() => void start()}
         data-testid="render-button"
@@ -286,6 +342,15 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
           data-testid="render-blocker"
         >
           {blockers[0] ?? licenceProblem ?? workerProblem}
+        </p>
+      )}
+
+      {motionGraphics > 0 && !active && (
+        <p className="text-[11px] text-muted-foreground" data-testid="render-motion-note">
+          {motionGraphics === 1
+            ? "Its motion graphic is drawn final first"
+            : `Its ${motionGraphics} motion graphics are drawn final first`}{" "}
+          (at the edit&apos;s frame, with motion blur); any drawn before are reused.
         </p>
       )}
 
@@ -385,6 +450,8 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
         </div>
       )}
 
+      <EditCreditsList timeline={timeline} />
+
       {renders.length > 0 && (
         <div className="space-y-1.5">
           <h3 className="label-eyebrow">Renders</h3>
@@ -395,6 +462,7 @@ export function RenderPanel({ sequenceId, title, timeline, saveNow, disabled }: 
                 render={render}
                 title={title}
                 file={render.asset_id ? renderedFiles?.get(render.asset_id) : undefined}
+                extras={extras?.byRender.get(render.id)}
               />
             ))}
           </ul>
@@ -420,11 +488,14 @@ function RenderItem({
   render,
   title,
   file,
+  extras,
 }: {
   render: RenderRow;
   title: string;
   /** The rendered video's library record, with its music credit and terms in its metadata. */
   file?: AssetRow | undefined;
+  /** Its quality report and review sheet, as kept on the render. */
+  extras?: RenderExtras | undefined;
 }) {
   const kept = file?.metadata;
   const [opening, setOpening] = useState(false);
@@ -432,6 +503,9 @@ function RenderItem({
   // may use other music by now).
   const music = keptMusic(kept);
   const joins = readJoinReport(kept);
+  // How its sound sits, and its stems, as kept with the rendered video.
+  const report = mixReportOf(null, kept);
+  const stems = renderStems(kept);
   const stalled =
     (render.status === "queued" || render.status === "rendering") && !renderInProgress(render);
   const when = new Date(render.created_at).toLocaleString(undefined, {
@@ -555,11 +629,20 @@ function RenderItem({
           {joinSummary(joins)}
         </p>
       )}
+      {render.status === "completed" && report && <MixReportView report={report} />}
+      {render.status === "completed" && stems.length > 0 && (
+        <StemDownloads stems={stems} title={title} />
+      )}
+      {render.status === "completed" && <RenderReport stored={extras?.quality} metadata={kept} />}
+      {render.status === "completed" && (
+        <ReviewSheet renderId={render.id} taskId={extras?.reviewSheetTaskId ?? null} />
+      )}
       {render.status === "completed" && music.terms.length > 0 && (
         <p className="mt-1 text-[11px] text-muted-foreground" data-testid="render-music-terms">
           Music terms: {music.terms.join(" · ")}
         </p>
       )}
+      {render.status === "completed" && <KeptRights metadata={kept} />}
       {render.status === "failed" && (
         <p className="mt-1 text-destructive">{render.error_message ?? "The render failed."}</p>
       )}
@@ -567,5 +650,104 @@ function RenderItem({
         <p className="mt-1 text-destructive">This render stopped responding. Render again.</p>
       )}
     </li>
+  );
+}
+
+/**
+ * How a render's sound sits: the voice's margin over the music in the speech
+ * band in each music section, and the finished mix's loudness. A section where
+ * the voice stands too little over the music is pointed out.
+ */
+function MixReportView({ report }: { report: MixReport }) {
+  const quiet = quietVoiceSections(report);
+  return (
+    <div className="mt-1.5 space-y-1" data-testid="render-mix-report">
+      <p className="text-[11px] text-muted-foreground">{mixSummary(report)}</p>
+      {report.sections.length > 1 && (
+        <ul className="space-y-0.5 text-[11px]">
+          {report.sections.map((section) => (
+            <li
+              key={`${section.index}-${section.from}`}
+              className={cn(
+                "flex justify-between tabular-nums",
+                quiet.includes(section) ? "text-warning" : "text-muted-foreground",
+              )}
+            >
+              <span>
+                Music {formatTime(section.from)}–{formatTime(section.to)}
+              </span>
+              <span>{sectionMargin(section)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {quiet.length > 0 && (
+        <p className="text-[11px] text-warning" data-testid="render-quiet-voice">
+          The voice may be hard to follow over the music in{" "}
+          {quiet.length === 1 ? "one section" : `${quiet.length} sections`}. Turn the music down
+          there, or let it dip further under the voice, then render again.
+        </p>
+      )}
+    </div>
+  );
+}
+
+const STEM_LABELS: Record<string, string> = {
+  voiceover: "Voiceover",
+  music: "Music",
+  sfx: "Effects",
+};
+
+/** A render's stems, each downloaded beside the video. */
+function StemDownloads({
+  stems,
+  title,
+}: {
+  stems: { role: string; assetId: string }[];
+  title: string;
+}) {
+  const [opening, setOpening] = useState<string | null>(null);
+  async function download(stem: { role: string; assetId: string }) {
+    setOpening(stem.assetId);
+    try {
+      const { data } = await supabase
+        .from("assets")
+        .select("storage_bucket,storage_path")
+        .eq("id", stem.assetId)
+        .maybeSingle();
+      const url = data ? await signedUrl(data.storage_bucket, data.storage_path) : null;
+      if (!url) throw new Error("The stem could not be opened");
+      const name = `${title.replace(/[^\w.-]+/g, "_") || "edit"}-${stem.role}.wav`;
+      const anchor = document.createElement("a");
+      anchor.href = `${url}${url.includes("?") ? "&" : "?"}download=${encodeURIComponent(name)}`;
+      anchor.click();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The stem could not be opened");
+    } finally {
+      setOpening(null);
+    }
+  }
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-1" data-testid="render-stems">
+      <span className="text-[11px] text-muted-foreground">Stems</span>
+      {stems.map((stem) => (
+        <Button
+          key={stem.assetId}
+          variant="ghost"
+          size="sm"
+          className="h-6 px-1.5 text-[11px]"
+          disabled={opening !== null}
+          onClick={() => void download(stem)}
+          aria-label={`Download the ${STEM_LABELS[stem.role] ?? stem.role} stem`}
+        >
+          {opening === stem.assetId ? (
+            <Loader2 className="mr-1 size-3 animate-spin" />
+          ) : (
+            <Download className="mr-1 size-3" />
+          )}
+          {STEM_LABELS[stem.role] ?? stem.role}
+        </Button>
+      ))}
+    </div>
   );
 }

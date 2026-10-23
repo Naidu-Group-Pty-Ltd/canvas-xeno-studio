@@ -58,6 +58,23 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
           return new Response(JSON.stringify({ received: true, duplicate: true }), { status: 200 });
         }
 
+        // A composition's tasks (its drawing, its stretches, their join) are
+        // recorded on the composition: see src/lib/compositions/callback.server.
+        const { isCompositionTask, recordCompositionReport } =
+          await import("@/lib/compositions/callback.server");
+        if (isCompositionTask(task.task_type)) {
+          const recorded = await recordCompositionReport(task, payload).catch((error: unknown) => {
+            console.error("composition callback not recorded", {
+              taskId: task.id,
+              message: error instanceof Error ? error.message : String(error),
+            });
+            return false;
+          });
+          return new Response(JSON.stringify({ received: recorded }), {
+            status: recorded ? 200 : 503,
+          });
+        }
+
         // Anything other than a final result (progress, heartbeat) never changes a
         // task's state, so one arriving late or out of order is harmless.
         if (status !== "completed" && status !== "failed") {
@@ -144,9 +161,24 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
         const forVoiceover = typeof taskInput["audio_preparation_id"] === "string";
         // ...and so does a single clip made to a voiceover whose sync was measured.
         const forClipSync = typeof taskInput["lip_sync_clip_asset_id"] === "string";
+        // ...and so does a clean-plate recipe, whose next step can start then,
+        // and a screenshot's redacted copy (it joins the library then, marked).
+        const forCleanPlate = typeof taskInput["clean_plate_recipe_id"] === "string";
+        const forRedaction = typeof taskInput["reference_redaction_id"] === "string";
         const moveLongVideoOn = async () => {
-          if (!forLongVideo && !forVoiceover && !forClipSync) return;
+          if (!forLongVideo && !forVoiceover && !forClipSync && !forCleanPlate && !forRedaction)
+            return;
           const { runAfterResponse } = await import("@/lib/generation-pipeline.server");
+          if (forRedaction) {
+            const { advanceForMediaTask: finishRedaction } =
+              await import("@/lib/media/redaction.server");
+            await runAfterResponse(request, () => finishRedaction(task.id));
+          }
+          if (forCleanPlate) {
+            const { advanceForMediaTask: advanceCleanPlate } =
+              await import("@/lib/media/clean-plate.server");
+            await runAfterResponse(request, () => advanceCleanPlate(task.id));
+          }
           if (forVoiceover) {
             const { finishAudioPreparation } = await import("@/lib/lip-sync/prepare.server");
             await runAfterResponse(request, () => finishAudioPreparation(task.id));

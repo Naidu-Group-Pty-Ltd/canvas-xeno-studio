@@ -50,6 +50,8 @@ export interface ProposedFont {
   alternative: string | null;
   /** The file installed for it (the brand's own family, or the alternative), if one could be. */
   installed: BrandFont | null;
+  /** That family's italic, installed for the headings where Google has one (none on older proposals). */
+  italic?: BrandFont | null;
 }
 
 /** A colour the scan found, with how much the brand uses it (0–1 of all colour use). */
@@ -157,6 +159,7 @@ function fontsOf(value: unknown): ProposedFont[] {
     const role = item["role"];
     if (!family || (role !== "heading" && role !== "body")) continue;
     const installed = record(item["installed"]);
+    const italic = record(item["italic"]);
     const face = designOf({ typography: [{ ...item, role }] }).typography[0];
     out.push({
       role,
@@ -171,6 +174,20 @@ function fontsOf(value: unknown): ProposedFont[] {
         typeof installed["path"] === "string"
           ? { family: installed["family"], bucket: installed["bucket"], path: installed["path"] }
           : null,
+      // Kept only where there is one, as older proposals have none.
+      ...(typeof italic["family"] === "string" &&
+      typeof italic["bucket"] === "string" &&
+      typeof italic["path"] === "string" &&
+      (italic["style"] === "italic" || italic["style"] === "bold_italic")
+        ? {
+            italic: {
+              family: italic["family"],
+              bucket: italic["bucket"],
+              path: italic["path"],
+              style: italic["style"],
+            },
+          }
+        : {}),
     });
     if (out.length >= 4) break;
   }

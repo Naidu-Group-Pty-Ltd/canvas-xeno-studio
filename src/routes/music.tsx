@@ -49,7 +49,7 @@ function MusicPage() {
     onFiles: (files) => {
       const audio = files.find(isUploadableAudio);
       if (!audio) {
-        toast.error("Drop a WAV, MP3 or M4A file to add it to the library.");
+        toast.error("Drop a WAV, MP3, M4A or FLAC file to add it to the library.");
         return;
       }
       if (files.length > 1) toast.message(`One track at a time: “${audio.name}” was taken.`);

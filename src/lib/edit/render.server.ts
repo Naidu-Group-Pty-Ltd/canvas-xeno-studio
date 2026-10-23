@@ -27,6 +27,7 @@ import {
 import { isMissingTableError } from "./errors";
 import {
   audibleAudio,
+  BASIC_FONT_FILES,
   buildRenderRequest,
   frameSize,
   layoutTimeline,
@@ -36,6 +37,8 @@ import {
   type Timeline,
 } from "./timeline";
 import { isBrandFontFile } from "./font-family";
+import { assertPausesRenderable } from "./voice-pauses.server";
+import { withRenderExtras } from "./render-extras.server";
 
 /**
  * The render request for a timeline. Channel levels are folded into the
@@ -72,7 +75,55 @@ async function renderRequestFor(timeline: Timeline) {
       message:
         "This edit's titles or captions use a brand's fonts or colours, which the media service can't set until it is updated. Render again once the service has been updated.",
     });
-  if (!needed.length) return request;
+  if (usesMusicPieces(request.params))
+    needed.push({
+      feature: "music_pieces",
+      message:
+        "This edit's music is edited on its bars, which the media service can't play until it is updated. Play the whole track again (in the Music panel), or render again once the service has been updated.",
+    });
+  const captions = (request.params["captions"] ?? null) as Record<string, unknown> | null;
+  if (captions?.["style"] === "brand")
+    needed.push({
+      feature: "brand_captions",
+      message:
+        "This edit's captions are set word by word in the brand's type, which the media service can't do until it is updated. Choose another caption style, or render again once the service has been updated.",
+    });
+  if (captions?.["panel"])
+    needed.push({
+      feature: "caption_panel",
+      message:
+        "This edit's captions have a panel chosen behind them, which the media service can't set until it is updated. Set the captions' panel back to the style's own, or render again once the service has been updated.",
+    });
+  if (request.fonts.length > BASIC_FONT_FILES)
+    needed.push({
+      feature: "more_fonts",
+      message: `This edit's text is set in ${request.fonts.length} brand font files, and the media service takes ${BASIC_FONT_FILES} until it is updated. Use fewer brand fonts, or render again once the service has been updated.`,
+    });
+  if (movesTitles(request.params))
+    needed.push({
+      feature: "overlay_motion",
+      message:
+        "This edit's titles move in a brand's own curves, which the media service can't draw until it is updated. Set their motion back to a plain fade in the Inspector, or render again once the service has been updated.",
+    });
+  if (Array.isArray(request.params["stems"]))
+    needed.push({
+      feature: "stems",
+      message:
+        "This edit asks for its stems (the voiceover, music and effects as files beside the video), which the media service can't make until it is updated. Turn stems off in the edit's Format settings, or render again once the service has been updated.",
+    });
+  if (usesVoicePauses(request.params))
+    needed.push({
+      feature: "voice_pauses",
+      message:
+        "This edit's voiceover is held open with pauses, which the media service can't do until it is updated. Take the pauses out, or render again once the service has been updated.",
+    });
+  if (request.params["quality"] === "master")
+    needed.push({
+      feature: "mastering",
+      message:
+        "This edit is set to render as a master, which the media service can't make until it is updated. Set its quality back to Standard in the Render panel, or render again once the service has been updated.",
+    });
+  if (!needed.length) return withRenderExtras(timeline, request);
   const health = await workerHealth();
   if (!health.ok)
     throw new AppError(
@@ -82,7 +133,31 @@ async function renderRequestFor(timeline: Timeline) {
   for (const { feature, message } of needed)
     if (!health.data?.features?.includes(feature))
       throw new AppError("INVALID_PARAMETERS", message);
-  return request;
+  return withRenderExtras(timeline, request, health.data?.features ?? []);
+}
+
+/** Whether a render request plays any music in pieces. */
+function usesMusicPieces(params: Record<string, unknown>): boolean {
+  const audio = params["audio"];
+  return Array.isArray(audio) && audio.some((item) => "pieces" in (item ?? {}));
+}
+
+/** Whether a render request has a title moving in a brand's motion (see ./overlay-motion). */
+function movesTitles(params: Record<string, unknown>): boolean {
+  return (
+    Array.isArray(params["overlays"]) &&
+    params["overlays"].some(
+      (overlay) => !!overlay && typeof overlay === "object" && "motion" in overlay,
+    )
+  );
+}
+
+/** Whether a render request holds a voiceover open with pauses. */
+function usesVoicePauses(params: Record<string, unknown>): boolean {
+  return (
+    Array.isArray(params["audio"]) &&
+    params["audio"].some((item) => Array.isArray((item as { pauses?: unknown })?.pauses))
+  );
 }
 
 /** Whether a render request asks for a brand's colours anywhere. */
@@ -107,6 +182,10 @@ interface RenderInput {
   expectedVersion: number;
   clientRequestId: string;
   userId: string;
+  /** For public use: held until every file it uses is cleared or its exceptions are confirmed. */
+  publicUse?: boolean | undefined;
+  /** The files not cleared that the person rendering confirms as exceptions (all of them, or by id). */
+  confirmExceptions?: boolean | string[] | undefined;
 }
 
 export interface RenderStarted {
@@ -347,6 +426,15 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
   if (blockers.length) throw new AppError("INVALID_PARAMETERS", blockers[0]);
 
   const assets = await resolveAssets(timeline);
+  // A layout-only picture (a real client's screen, say) is never rendered into a frame.
+  const { assertPlaceable } = await import("../media/layout-only.server");
+  await assertPlaceable(
+    [
+      ...timeline.clips.map((clip) => clip.assetId),
+      ...timeline.images.map((image) => image.assetId),
+    ],
+    "render",
+  );
   // Only audio that is heard in the render needs crediting or licence checks.
   const music = await musicRights(
     audibleAudio(timeline).map((item) => ({
@@ -356,7 +444,21 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
     })),
   );
   if (music.blocker) throw new AppError("INVALID_PARAMETERS", music.blocker);
+  // A voiceover held open with pauses: measured, and each pause in one of its silences.
+  await assertPausesRenderable(timeline, (assetId) => assets.get(assetId)?.title ?? null);
+  // The edit's credits go with the render; one for public use is held here
+  // until every file it uses is cleared or its exceptions are confirmed.
+  const { markPublicUse, renderRights } = await import("../rights/service.server");
+  const rights = await renderRights(timeline, {
+    userId: input.userId,
+    publicUse: input.publicUse === true,
+    confirmExceptions: input.confirmExceptions ?? false,
+  });
   const request = await renderRequestFor(timeline);
+  // Motion graphics are drawn at final quality first (reused when drawn before):
+  // the render waits for them (see ../compositions/sequence.server).
+  const { compositionsFor } = await import("../compositions/sequence.server");
+  const motion = await compositionsFor(timeline, input.userId, sequence.project_id);
 
   const renderId = crypto.randomUUID();
   const taskId = crypto.randomUUID();
@@ -365,6 +467,9 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
     : `unassigned/${input.userId}`;
   const videoPath = `${scope}/edits/${sequence.id}/${renderId}.mp4`;
   const posterPath = `${scope}/edits/${sequence.id}/${renderId}.jpg`;
+  // Each stem asked for goes beside the video, in the order the media service hands them back.
+  const stems = Array.isArray(request.params["stems"]) ? (request.params["stems"] as string[]) : [];
+  const stemPaths = stems.map((role) => `${scope}/edits/${sequence.id}/${renderId}-${role}.wav`);
 
   // Everything the render needs is recorded in one transaction (see the
   // start_sequence_render database function): stalled renders of the edit are
@@ -389,7 +494,8 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
         input_payload: {
           sequence_id: sequence.id,
           render_id: renderId,
-          storage_paths: [videoPath, posterPath],
+          storage_paths: [videoPath, posterPath, ...stemPaths],
+          ...(stems.length ? { stems } : {}),
           mime_type: "video/mp4",
           output_kind: "video",
           sources: request.sources.map((source) => source.assetId),
@@ -399,6 +505,14 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
             : {}),
           ...(music.credits.length ? { music_credits: music.credits } : {}),
           ...(music.licences.length ? { music_licences: music.licences } : {}),
+          ...(motion
+            ? {
+                composition_renders: motion.renders,
+                composition_files: motion.files,
+                composition_masters: motion.masters,
+              }
+            : {}),
+          ...rights.payload,
         },
       },
     } as never,
@@ -423,8 +537,37 @@ export async function startSequenceRender(input: RenderInput): Promise<RenderSta
     );
   if (outcome.outcome !== "started")
     throw new AppError("INVALID_PARAMETERS", "That edit no longer exists");
+  if (rights.check) await markPublicUse(renderId, rights.check);
 
-  return submitRender({ renderId, taskId, assets, request, videoPath, posterPath });
+  if (motion?.pending.length) {
+    // Recorded, and sent the moment its motion graphics are drawn.
+    await supabaseAdmin
+      .from("sequence_renders")
+      .update({
+        stage: `Drawing motion graphics (${motion.renders.length - motion.pending.length} of ${motion.renders.length} done)`,
+      } as never)
+      .eq("id", renderId)
+      .eq("status", "queued");
+    return { renderId, status: "queued", duplicate: false };
+  }
+  return submitRender({
+    renderId,
+    taskId,
+    assets,
+    request,
+    videoPath,
+    posterPath,
+    masters: motion?.masters ?? {},
+    stemPaths,
+  });
+}
+
+/**
+ * Sends an edit render that was waiting for its motion graphics, now that
+ * they are drawn (see ../compositions/sequence.server).
+ */
+export async function sendWaitingRender(renderId: string): Promise<RenderStarted> {
+  return resumed(renderId);
 }
 
 /**
@@ -439,6 +582,10 @@ async function submitRender(input: {
   request: ReturnType<typeof buildRenderRequest>;
   videoPath: string;
   posterPath: string;
+  /** Composition clips' lossless masters ("bucket/path"), read in place of the files they play. */
+  masters?: Record<string, string>;
+  /** Where the stems go, after the video and poster (feature stems). */
+  stemPaths?: string[];
 }): Promise<RenderStarted> {
   const { renderId, taskId, assets, request, videoPath, posterPath } = input;
   /**
@@ -457,13 +604,22 @@ async function submitRender(input: {
     throw new AppError(code as never, message);
   }
 
+  const { masterFor } = await import("../compositions/sequence.server");
   const sources: { role: string; url: string; mime?: string | null }[] = [];
   for (const source of request.sources) {
     const asset = assets.get(source.assetId)!;
-    const url = await signSource(asset);
+    // A motion graphic is read from its final drawing's lossless master.
+    const master = masterFor(input.masters, source.assetId);
+    const url = master
+      ? await signSource({ storage_bucket: master.bucket, storage_path: master.path })
+      : await signSource(asset);
     if (!url)
       await fail("STORAGE_FAILED", `"${asset.title ?? "A file"}" could not be read from storage`);
-    sources.push({ role: source.role, url: url!, mime: asset.mime_type });
+    sources.push({
+      role: source.role,
+      url: url!,
+      mime: master ? "video/x-matroska" : asset.mime_type,
+    });
   }
   for (const font of request.fonts) {
     const url = isBrandFontFile(font)
@@ -475,7 +631,7 @@ async function submitRender(input: {
   }
 
   const uploads: { url: string; method: "PUT"; storage_key: string }[] = [];
-  for (const path of [videoPath, posterPath]) {
+  for (const path of [videoPath, posterPath, ...(input.stemPaths ?? [])]) {
     const url = await signUpload(OUTPUT_BUCKET, path);
     if (!url)
       await fail("STORAGE_FAILED", "A destination for the rendered video could not be prepared");
@@ -608,10 +764,21 @@ export async function recoverSequenceRender(input: {
 
   const { data: task, error: taskError } = await supabaseAdmin
     .from("media_tasks")
-    .select("id,operation_id,project_id,created_by,input_payload,storage_bucket")
+    .select("id,status,operation_id,project_id,created_by,input_payload,storage_bucket")
     .eq("id", row.media_task_id)
     .maybeSingle();
   if (taskError || !task) throw unchecked();
+  // Never sent: waiting for its motion graphics, settled from their drawings.
+  if (
+    task.status === "submitting" &&
+    Array.isArray(
+      (task.input_payload as { composition_renders?: unknown } | null)?.composition_renders,
+    )
+  ) {
+    const { checkWaitingRender } = await import("../compositions/sequence.server");
+    const outcome = await checkWaitingRender(input.renderId, task);
+    return as(false, outcome === "sent" ? "queued" : outcome === "failed" ? "failed" : row.status);
+  }
   const paths = ((task.input_payload ?? {}) as { storage_paths?: unknown }).storage_paths;
   if (
     (task.storage_bucket ?? OUTPUT_BUCKET) !== OUTPUT_BUCKET ||
@@ -624,6 +791,11 @@ export async function recoverSequenceRender(input: {
   const [videoFile, posterFile] = await Promise.all([outputFile(video), outputFile(poster)]);
   // Not both there: it didn't finish (or is still uploading), so nothing to finish it from.
   if (!videoFile || !posterFile) return as(false);
+  // The stems asked for come after them (feature stems): each one that is there is kept.
+  const stemPaths: unknown[] = paths.slice(2);
+  const stemFiles = await Promise.all(
+    stemPaths.map((path) => (typeof path === "string" ? outputFile(path) : null)),
+  );
 
   const timeline = parseTimeline(row.timeline);
   const size = timeline ? frameSize(timeline.aspectRatio, timeline.resolution) : null;
@@ -651,6 +823,19 @@ export async function recoverSequenceRender(input: {
           bytes: bytes(posterFile),
           storage_key: poster,
         },
+        ...stemFiles.flatMap((file, position) =>
+          file
+            ? [
+                {
+                  index: 2 + position,
+                  kind: "audio",
+                  mime_type: "audio/wav",
+                  bytes: bytes(file),
+                  storage_key: stemPaths[position] as string,
+                },
+              ]
+            : [],
+        ),
       ],
       // What the render was asked for: the worker's own measurements didn't arrive.
       metadata: {
@@ -739,6 +924,24 @@ async function resumed(renderId: string): Promise<RenderStarted> {
     }
     throw problem;
   }
+  // One waiting for its motion graphics is sent once they are all drawn.
+  const { compositionsReady } = await import("../compositions/sequence.server");
+  let motion: Awaited<ReturnType<typeof compositionsReady>>;
+  try {
+    motion = await compositionsReady(task.id, task.input_payload);
+  } catch (problem) {
+    if (problem instanceof AppError)
+      await supabaseAdmin.rpc(
+        "fail_sequence_render" as never,
+        {
+          p_render_id: renderId,
+          p_error_code: "COMPOSITION_FAILED",
+          p_error_message: problem.message,
+        } as never,
+      );
+    throw problem;
+  }
+  if (motion === "waiting") return as(row.status);
   const sent = await submitRender({
     renderId,
     taskId: task.id,
@@ -746,6 +949,8 @@ async function resumed(renderId: string): Promise<RenderStarted> {
     request: await renderRequestFor(timeline),
     videoPath: paths[0],
     posterPath: paths[1],
+    masters: motion.masters,
+    stemPaths: paths.slice(2).filter((path): path is string => typeof path === "string"),
   });
   return { ...sent, duplicate: true };
 }
@@ -879,10 +1084,18 @@ export async function refreshRenderCredentials(
   if (assetError) return { status: 202 };
   const assets = new Map((rows ?? []).map((row) => [row.id, row]));
 
+  const { masterFor } = await import("../compositions/sequence.server");
+  const masters = (input["composition_masters"] ?? {}) as Record<string, unknown>;
   const sources: { url: string }[] = [];
   for (const id of ids) {
+    // A motion graphic's file is read from its final drawing's master, as first sent.
+    const master = masterFor(masters, id);
     const asset = assets.get(id);
-    const url = asset ? await signSource(asset) : null;
+    const url = master
+      ? await signSource({ storage_bucket: master.bucket, storage_path: master.path })
+      : asset
+        ? await signSource(asset)
+        : null;
     if (!url) return { status: 202 };
     sources.push({ url });
   }

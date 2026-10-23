@@ -22,8 +22,12 @@ export interface FontFaceRule {
   unicodeRange: string | null;
 }
 
-/** The css2 stylesheet for a family at some weights (sorted, once each). */
-export function googleFontsCssUrl(family: string, weights: number[] = [400, 700]): string {
+/** The css2 stylesheet for a family at some weights (sorted, once each), its italic faces when asked. */
+export function googleFontsCssUrl(
+  family: string,
+  weights: number[] = [400, 700],
+  options: { italic?: boolean } = {},
+): string {
   const name = encodeURIComponent(
     String(family ?? "")
       .trim()
@@ -36,7 +40,10 @@ export function googleFontsCssUrl(family: string, weights: number[] = [400, 700]
         .map((weight) => Math.round(Math.min(1000, Math.max(1, weight)))),
     ),
   ].sort((a, b) => a - b);
-  return `https://fonts.googleapis.com/css2?family=${name}:wght@${(list.length ? list : [400]).join(";")}&display=swap`;
+  const axes = (list.length ? list : [400]).map((weight) =>
+    options.italic ? `1,${weight}` : String(weight),
+  );
+  return `https://fonts.googleapis.com/css2?family=${name}:${options.italic ? "ital,wght" : "wght"}@${axes.join(";")}&display=swap`;
 }
 
 /** Splits on `separator` outside quotes and parentheses. */

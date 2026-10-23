@@ -1,0 +1,923 @@
+{
+  "source": "Reel 1's captions as scripts/aurixa-reel-1/captions.cjs scheduled them (third cut, on the film's clock): each line's time, the palette of the shot it starts in, its emphasis (word positions), its words' times as it took them from voiceover-words.json, and what it decided: when the line leaves and is gone, when it waits for the line before (appear), the palette cut that ends its run, its run's first line, and when that run's panel goes.",
+  "palette_cuts": [28.933, 79.467, 84.533],
+  "cues": [
+    {
+      "text": "Somewhere in Australia,",
+      "start": 0.866667,
+      "end": 2.496667,
+      "palette": "before",
+      "emphasis": [2, 3],
+      "words": [
+        { "text": "Somewhere", "at": 0.866667, "until": 1.266667 },
+        { "text": "in", "at": 1.266667, "until": 1.646667 },
+        { "text": "Australia,", "at": 1.646667, "until": 2.006667 }
+      ],
+      "leave": 2.326667,
+      "gone": 2.546667,
+      "appear": null,
+      "cut": null,
+      "first": 0,
+      "panel_gone": 28.933
+    },
+    {
+      "text": "a property opportunity has just appeared.",
+      "start": 2.546667,
+      "end": 5.486667,
+      "palette": "before",
+      "emphasis": [1, 3],
+      "words": [
+        { "text": "a", "at": 2.546667, "until": 2.646667 },
+        { "text": "property", "at": 2.646667, "until": 2.926667 },
+        { "text": "opportunity", "at": 2.926667, "until": 3.426667 },
+        { "text": "has", "at": 3.426667, "until": 3.826667 },
+        { "text": "just", "at": 3.826667, "until": 4.366667 },
+        { "text": "appeared.", "at": 4.366667, "until": 4.586667 }
+      ],
+      "leave": 5.486667,
+      "gone": 5.706667,
+      "appear": null,
+      "cut": null,
+      "first": 0,
+      "panel_gone": null
+    },
+    {
+      "text": "A client wants to know if it's right for them,",
+      "start": 5.706667,
+      "end": 7.836667,
+      "palette": "before",
+      "emphasis": [7, 10],
+      "words": [
+        { "text": "A", "at": 5.706667, "until": 5.746667 },
+        { "text": "client", "at": 5.746667, "until": 6.006667 },
+        { "text": "wants", "at": 6.006667, "until": 6.226667 },
+        { "text": "to", "at": 6.226667, "until": 6.466667 },
+        { "text": "know", "at": 6.466667, "until": 6.606667 },
+        { "text": "if", "at": 6.606667, "until": 6.806667 },
+        { "text": "it's", "at": 6.806667, "until": 6.946667 },
+        { "text": "right", "at": 6.946667, "until": 7.186667 },
+        { "text": "for", "at": 7.186667, "until": 7.406667 },
+        { "text": "them,", "at": 7.406667, "until": 7.506667 }
+      ],
+      "leave": 7.766667,
+      "gone": 7.886667,
+      "appear": null,
+      "cut": null,
+      "first": 0,
+      "panel_gone": null
+    },
+    {
+      "text": "while there's still time to act.",
+      "start": 7.886667,
+      "end": 10.183333,
+      "palette": "before",
+      "emphasis": [3, 6],
+      "words": [
+        { "text": "while", "at": 7.886667, "until": 8.026667 },
+        { "text": "there's", "at": 8.026667, "until": 8.206667 },
+        { "text": "still", "at": 8.206667, "until": 8.586667 },
+        { "text": "time", "at": 8.586667, "until": 8.786667 },
+        { "text": "to", "at": 8.786667, "until": 9.366667 },
+        { "text": "act.", "at": 9.366667, "until": 9.366667 }
+      ],
+      "leave": 10.013333,
+      "gone": 10.233333,
+      "appear": 7.886667,
+      "cut": null,
+      "first": 0,
+      "panel_gone": null
+    },
+    {
+      "text": "But before you can answer,",
+      "start": 10.233333,
+      "end": 12.103333,
+      "palette": "before",
+      "emphasis": null,
+      "words": [
+        { "text": "But", "at": 10.233333, "until": 10.393333 },
+        { "text": "before", "at": 10.393333, "until": 10.773333 },
+        { "text": "you", "at": 10.773333, "until": 10.953333 },
+        { "text": "can", "at": 10.953333, "until": 11.293333 },
+        { "text": "answer,", "at": 11.293333, "until": 11.433333 }
+      ],
+      "leave": 11.933333,
+      "gone": 12.153333,
+      "appear": null,
+      "cut": null,
+      "first": 0,
+      "panel_gone": null
+    },
+    {
+      "text": "the research is in one platform,",
+      "start": 12.153333,
+      "end": 14.103333,
+      "palette": "before",
+      "emphasis": [1, 2],
+      "words": [
+        { "text": "the", "at": 12.153333, "until": 12.173333 },
+        { "text": "research", "at": 12.173333, "until": 12.613333 },
+        { "text": "is", "at": 12.613333, "until": 12.813333 },
+        { "text": "in", "at": 12.813333, "until": 13.013333 },
+        { "text": "one", "at": 13.013333, "until": 13.213333 },
+        { "text": "platform,", "at": 13.213333, "until": 13.633333 }
+      ],
+      "leave": 13.933333,
+      "gone": 14.153333,
+      "appear": null,
+      "cut": null,
+      "first": 0,
+      "panel_gone": null
+    },
+    {
+      "text": "the numbers in another,",
+      "start": 14.153333,
+      "end": 15.523333,
+      "palette": "before",
+      "emphasis": [1, 2],
+      "words": [
+        { "text": "the", "at": 14.153333, "until": 14.333333 },
+        { "text": "numbers", "at": 14.333333, "until": 14.713333 },
+        { "text": "in", "at": 14.713333, "until": 14.973333 },
+        { "text": "another,", "at": 14.973333, "until": 15.153333 }
+      ],
+      "leave": 15.353333,
+      "gone": 15.573333,
+      "appear": null,
+      "cut": null,
+      "first": 0,
+      "panel_gone": null
+    },
+    {
+      "text": "the client details somewhere else,",
+      "start": 15.573333,
+      "end": 17.57,
+      "palette": "before",
+      "emphasis": [3, 5],
+      "words": [
+        { "text": "the", "at": 15.573333, "until": 15.98 },
+        { "text": "client", "at": 15.98, "until": 16.28 },
+        { "text": "details", "at": 16.28, "until": 16.68 },
+        { "text": "somewhere", "at": 16.68, "until": 17.1 },
+        { "text": "else,", "at": 17.1, "until": 17.46 }
+      ],
+      "leave": 17.4,
+      "gone": 17.62,
+      "appear": null,
+      "cut": null,
+      "first": 0,
+      "panel_gone": null
+    },
+    {
+      "text": "and the report hasn't even begun.",
+      "start": 17.62,
+      "end": 20.266667,
+      "palette": "before",
+      "emphasis": [3, 6],
+      "words": [
+        { "text": "and", "at": 17.62, "until": 17.86 },
+        { "text": "the", "at": 17.86, "until": 18.1 },
+        { "text": "report", "at": 18.1, "until": 18.36 },
+        { "text": "hasn't", "at": 18.36, "until": 18.74 },
+        { "text": "even", "at": 18.74, "until": 19.16 },
+        { "text": "begun.", "at": 19.16, "until": 19.4 }
+      ],
+      "leave": 20.226667,
+      "gone": 20.446667,
+      "appear": null,
+      "cut": null,
+      "first": 0,
+      "panel_gone": null
+    },
+    {
+      "text": "WHAT HAPPENS THEN –",
+      "start": 20.446667,
+      "end": 21.99,
+      "palette": "before",
+      "emphasis": null,
+      "words": [
+        { "text": "WHAT", "at": 20.446667, "until": 20.586667 },
+        { "text": "HAPPENS", "at": 20.586667, "until": 20.906667 },
+        { "text": "THEN", "at": 20.906667, "until": 21.406667 }
+      ],
+      "leave": 21.82,
+      "gone": 22.04,
+      "appear": null,
+      "cut": null,
+      "first": 0,
+      "panel_gone": null
+    },
+    {
+      "text": "The market keeps moving.",
+      "start": 22.04,
+      "end": 23.96,
+      "palette": "before",
+      "emphasis": [2, 4],
+      "words": [
+        { "text": "The", "at": 22.04, "until": 22.16 },
+        { "text": "market", "at": 22.16, "until": 22.56 },
+        { "text": "keeps", "at": 22.56, "until": 23.06 },
+        { "text": "moving.", "at": 23.06, "until": 23.46 }
+      ],
+      "leave": 23.8,
+      "gone": 24.02,
+      "appear": null,
+      "cut": null,
+      "first": 0,
+      "panel_gone": null
+    },
+    {
+      "text": "Your attention is pulled in every direction.",
+      "start": 24.02,
+      "end": 26.78,
+      "palette": "before",
+      "emphasis": [5, 7],
+      "words": [
+        { "text": "Your", "at": 24.02, "until": 24.2 },
+        { "text": "attention", "at": 24.2, "until": 24.54 },
+        { "text": "is", "at": 24.54, "until": 25.1 },
+        { "text": "pulled", "at": 25.1, "until": 25.1 },
+        { "text": "in", "at": 25.1, "until": 25.46 },
+        { "text": "every", "at": 25.46, "until": 25.84 },
+        { "text": "direction.", "at": 25.84, "until": 26.28 }
+      ],
+      "leave": 26.72,
+      "gone": 26.94,
+      "appear": null,
+      "cut": null,
+      "first": 0,
+      "panel_gone": null
+    },
+    {
+      "text": "And the client is waiting.",
+      "start": 26.94,
+      "end": 30.816667,
+      "palette": "before",
+      "emphasis": [4, 5],
+      "words": [
+        { "text": "And", "at": 26.94, "until": null },
+        { "text": "the", "at": 27.06, "until": 27.58 },
+        { "text": "client", "at": 27.58, "until": 27.58 },
+        { "text": "is", "at": 27.58, "until": 27.98 },
+        { "text": "waiting.", "at": 27.98, "until": 28.38 }
+      ],
+      "leave": 28.693,
+      "gone": 28.913,
+      "appear": null,
+      "cut": 28.933,
+      "first": 0,
+      "panel_gone": null
+    },
+    {
+      "text": "Aurixa Systems was built by property professionals",
+      "start": 30.866667,
+      "end": 33.616667,
+      "palette": "aurixa",
+      "emphasis": [5, 7],
+      "words": [
+        { "text": "Aurixa", "at": 30.866667, "until": 31.266667 },
+        { "text": "Systems", "at": 31.266667, "until": 31.786667 },
+        { "text": "was", "at": 31.786667, "until": 32.086667 },
+        { "text": "built", "at": 32.086667, "until": 32.306667 },
+        { "text": "by", "at": 32.306667, "until": 32.766667 },
+        { "text": "property", "at": 32.766667, "until": 33.046667 },
+        { "text": "professionals", "at": 33.046667, "until": 33.666667 }
+      ],
+      "leave": 33.446667,
+      "gone": 33.666667,
+      "appear": null,
+      "cut": null,
+      "first": 13,
+      "panel_gone": 79.467
+    },
+    {
+      "text": "for property professionals",
+      "start": 33.666667,
+      "end": 36.506667,
+      "palette": "aurixa",
+      "emphasis": [1, 3],
+      "words": [
+        { "text": "for", "at": 33.666667, "until": 34.286667 },
+        { "text": "property", "at": 34.286667, "until": 34.706667 },
+        { "text": "professionals", "at": 34.706667, "until": 35.306667 }
+      ],
+      "leave": 36.606667,
+      "gone": 36.826667,
+      "appear": null,
+      "cut": null,
+      "first": 13,
+      "panel_gone": null
+    },
+    {
+      "text": "We're here,",
+      "start": 36.826667,
+      "end": 38.443333,
+      "palette": "aurixa",
+      "emphasis": [1, 2],
+      "words": [
+        { "text": "We're", "at": 36.826667, "until": 36.866667 },
+        { "text": "here,", "at": 36.866667, "until": 37.226667 }
+      ],
+      "leave": 38.273333,
+      "gone": 38.493333,
+      "appear": null,
+      "cut": null,
+      "first": 13,
+      "panel_gone": null
+    },
+    {
+      "text": "with a connected operating environment",
+      "start": 38.493333,
+      "end": 40.203333,
+      "palette": "aurixa",
+      "emphasis": [2, 3],
+      "words": [
+        { "text": "with", "at": 38.493333, "until": 38.513333 },
+        { "text": "a", "at": 38.513333, "until": 38.653333 },
+        { "text": "connected", "at": 38.653333, "until": 39.113333 },
+        { "text": "operating", "at": 39.113333, "until": 39.713333 },
+        { "text": "environment", "at": 39.713333, "until": 40.253333 }
+      ],
+      "leave": 40.033333,
+      "gone": 40.253333,
+      "appear": null,
+      "cut": null,
+      "first": 13,
+      "panel_gone": null
+    },
+    {
+      "text": "designed around how property professionals actually work.",
+      "start": 40.253333,
+      "end": 45.456667,
+      "palette": "aurixa",
+      "emphasis": [5, 7],
+      "words": [
+        { "text": "designed", "at": 40.253333, "until": 41.493333 },
+        { "text": "around", "at": 41.493333, "until": 41.873333 },
+        { "text": "how", "at": 41.873333, "until": 42.213333 },
+        { "text": "property", "at": 42.213333, "until": 42.513333 },
+        { "text": "professionals", "at": 42.513333, "until": 43.053333 },
+        { "text": "actually", "at": 43.053333, "until": 43.853333 },
+        { "text": "work.", "at": 43.853333, "until": 44.473333 }
+      ],
+      "leave": 45.286667,
+      "gone": 45.506667,
+      "appear": null,
+      "cut": null,
+      "first": 13,
+      "panel_gone": null
+    },
+    {
+      "text": "Picture a property moving from research",
+      "start": 45.506667,
+      "end": 47.396667,
+      "palette": "aurixa",
+      "emphasis": [5, 6],
+      "words": [
+        { "text": "Picture", "at": 45.506667, "until": 45.586667 },
+        { "text": "a", "at": 45.586667, "until": 45.946667 },
+        { "text": "property", "at": 45.946667, "until": 46.146667 },
+        { "text": "moving", "at": 46.146667, "until": 46.546667 },
+        { "text": "from", "at": 46.546667, "until": 46.926667 },
+        { "text": "research", "at": 46.926667, "until": 47.446667 }
+      ],
+      "leave": 47.226667,
+      "gone": 47.446667,
+      "appear": null,
+      "cut": null,
+      "first": 13,
+      "panel_gone": null
+    },
+    {
+      "text": "into financial analysis,",
+      "start": 47.446667,
+      "end": 49.766667,
+      "palette": "aurixa",
+      "emphasis": [1, 3],
+      "words": [
+        { "text": "into", "at": 47.446667, "until": 47.846667 },
+        { "text": "financial", "at": 47.846667, "until": 48.426667 },
+        { "text": "analysis,", "at": 48.426667, "until": 48.866667 }
+      ],
+      "leave": 49.606667,
+      "gone": 49.826667,
+      "appear": null,
+      "cut": null,
+      "first": 13,
+      "panel_gone": null
+    },
+    {
+      "text": "then into a professional report",
+      "start": 49.826667,
+      "end": 51.496667,
+      "palette": "aurixa",
+      "emphasis": [3, 5],
+      "words": [
+        { "text": "then", "at": 49.826667, "until": 50.066667 },
+        { "text": "into", "at": 50.066667, "until": 50.406667 },
+        { "text": "a", "at": 50.406667, "until": 50.666667 },
+        { "text": "professional", "at": 50.666667, "until": 51.066667 },
+        { "text": "report", "at": 51.066667, "until": 51.546667 }
+      ],
+      "leave": 51.426667,
+      "gone": 51.546667,
+      "appear": null,
+      "cut": null,
+      "first": 13,
+      "panel_gone": null
+    },
+    {
+      "text": "your client can understand.",
+      "start": 51.546667,
+      "end": 54.406667,
+      "palette": "aurixa",
+      "emphasis": [3, 4],
+      "words": [
+        { "text": "your", "at": 51.546667, "until": 51.846667 },
+        { "text": "client", "at": 51.846667, "until": 52.106667 },
+        { "text": "can", "at": 52.106667, "until": 52.446667 },
+        { "text": "understand.", "at": 52.446667, "until": 53.006667 }
+      ],
+      "leave": 54.256667,
+      "gone": 54.476667,
+      "appear": 51.546667,
+      "cut": null,
+      "first": 13,
+      "panel_gone": null
+    },
+    {
+      "text": "Picture communication,",
+      "start": 54.476667,
+      "end": 56.633333,
+      "palette": "aurixa",
+      "emphasis": [1, 2],
+      "words": [
+        { "text": "Picture", "at": 54.746667, "until": 54.746667 },
+        { "text": "communication,", "at": 54.746667, "until": 55.566667 }
+      ],
+      "leave": 56.593333,
+      "gone": 56.813333,
+      "appear": null,
+      "cut": null,
+      "first": 13,
+      "panel_gone": null
+    },
+    {
+      "text": "client relationships and property partners",
+      "start": 56.813333,
+      "end": 58.863333,
+      "palette": "aurixa",
+      "emphasis": [3, 5],
+      "words": [
+        { "text": "client", "at": 56.813333, "until": 56.853333 },
+        { "text": "relationships", "at": 56.853333, "until": 57.573333 },
+        { "text": "and", "at": 57.853333, "until": 58.273333 },
+        { "text": "property", "at": 58.273333, "until": 58.453333 },
+        { "text": "partners", "at": 58.453333, "until": 58.913333 }
+      ],
+      "leave": 58.793333,
+      "gone": 58.913333,
+      "appear": null,
+      "cut": null,
+      "first": 13,
+      "panel_gone": null
+    },
+    {
+      "text": "connected to that journey,",
+      "start": 58.913333,
+      "end": 60.603333,
+      "palette": "aurixa",
+      "emphasis": [0, 1],
+      "words": [
+        { "text": "connected", "at": 58.913333, "until": 59.473333 },
+        { "text": "to", "at": 59.473333, "until": 59.733333 },
+        { "text": "that", "at": 59.733333, "until": 60.013333 },
+        { "text": "journey,", "at": 60.013333, "until": 60.233333 }
+      ],
+      "leave": 60.433333,
+      "gone": 60.653333,
+      "appear": 58.913333,
+      "cut": null,
+      "first": 13,
+      "panel_gone": null
+    },
+    {
+      "text": "with Aurixa Agent supporting the work behind it.",
+      "start": 60.653333,
+      "end": 64.453333,
+      "palette": "aurixa",
+      "emphasis": [1, 3],
+      "words": [
+        { "text": "with", "at": 60.813333, "until": 61.073333 },
+        { "text": "Aurixa", "at": 61.073333, "until": 61.393333 },
+        { "text": "Agent", "at": 61.393333, "until": 61.893333 },
+        { "text": "supporting", "at": 61.893333, "until": 62.393333 },
+        { "text": "the", "at": 62.393333, "until": 62.793333 },
+        { "text": "work", "at": 62.793333, "until": 62.853333 },
+        { "text": "behind", "at": 62.853333, "until": 63.253333 },
+        { "text": "it.", "at": 63.253333, "until": 64.153333 }
+      ],
+      "leave": 64.283333,
+      "gone": 64.503333,
+      "appear": null,
+      "cut": null,
+      "first": 13,
+      "panel_gone": null
+    },
+    {
+      "text": "Not to replace your judgement,",
+      "start": 64.503333,
+      "end": 66.303333,
+      "palette": "aurixa",
+      "emphasis": [4, 5],
+      "words": [
+        { "text": "Not", "at": 64.503333, "until": 64.673333 },
+        { "text": "to", "at": 64.673333, "until": 64.893333 },
+        { "text": "replace", "at": 64.893333, "until": 65.333333 },
+        { "text": "your", "at": 65.333333, "until": 65.673333 },
+        { "text": "judgement,", "at": 65.673333, "until": 65.913333 }
+      ],
+      "leave": 66.133333,
+      "gone": 66.353333,
+      "appear": null,
+      "cut": null,
+      "first": 13,
+      "panel_gone": null
+    },
+    {
+      "text": "but to give it room to lead.",
+      "start": 66.353333,
+      "end": 68.773333,
+      "palette": "aurixa",
+      "emphasis": [4, 7],
+      "words": [
+        { "text": "but", "at": 66.353333, "until": 66.413333 },
+        { "text": "to", "at": 66.413333, "until": 66.673333 },
+        { "text": "give", "at": 66.673333, "until": 66.753333 },
+        { "text": "it", "at": 66.753333, "until": 67.033333 },
+        { "text": "room", "at": 67.033333, "until": 67.173333 },
+        { "text": "to", "at": 67.173333, "until": 67.493333 },
+        { "text": "lead.", "at": 67.493333, "until": 68.713333 }
+      ],
+      "leave": 68.603333,
+      "gone": 68.823333,
+      "appear": null,
+      "cut": null,
+      "first": 13,
+      "panel_gone": null
+    },
+    {
+      "text": "Because clients don't pay you to manage software.",
+      "start": 68.823333,
+      "end": 72.326667,
+      "palette": "aurixa",
+      "emphasis": [6, 8],
+      "words": [
+        { "text": "Because", "at": 69.073333, "until": 69.073333 },
+        { "text": "clients", "at": 69.073333, "until": 69.473333 },
+        { "text": "don't", "at": 69.473333, "until": 69.793333 },
+        { "text": "pay", "at": 69.793333, "until": 70.073333 },
+        { "text": "you", "at": 70.073333, "until": 70.293333 },
+        { "text": "to", "at": 70.293333, "until": 70.593333 },
+        { "text": "manage", "at": 70.593333, "until": 70.813333 },
+        { "text": "software.", "at": 70.813333, "until": 71.293333 }
+      ],
+      "leave": 72.196667,
+      "gone": 72.416667,
+      "appear": null,
+      "cut": null,
+      "first": 13,
+      "panel_gone": null
+    },
+    {
+      "text": "They trust you to identify opportunities,",
+      "start": 72.416667,
+      "end": 75.363333,
+      "palette": "aurixa",
+      "emphasis": [5, 6],
+      "words": [
+        { "text": "They", "at": 72.486667, "until": 72.546667 },
+        { "text": "trust", "at": 72.546667, "until": 72.946667 },
+        { "text": "you", "at": 72.946667, "until": 73.226667 },
+        { "text": "to", "at": 73.226667, "until": 73.466667 },
+        { "text": "identify", "at": 73.466667, "until": 73.926667 },
+        { "text": "opportunities,", "at": 73.926667, "until": 74.746667 }
+      ],
+      "leave": 75.193333,
+      "gone": 75.413333,
+      "appear": null,
+      "cut": null,
+      "first": 13,
+      "panel_gone": null
+    },
+    {
+      "text": "make sense of complexity",
+      "start": 75.413333,
+      "end": 77.263333,
+      "palette": "aurixa",
+      "emphasis": [3, 4],
+      "words": [
+        { "text": "make", "at": 75.413333, "until": 75.513333 },
+        { "text": "sense", "at": 75.513333, "until": 75.833333 },
+        { "text": "of", "at": 75.833333, "until": 76.553333 },
+        { "text": "complexity", "at": 76.553333, "until": 76.553333 }
+      ],
+      "leave": 77.093333,
+      "gone": 77.313333,
+      "appear": null,
+      "cut": null,
+      "first": 13,
+      "panel_gone": null
+    },
+    {
+      "text": "and guide the next decision.",
+      "start": 77.313333,
+      "end": 80.173333,
+      "palette": "aurixa",
+      "emphasis": [3, 5],
+      "words": [
+        { "text": "and", "at": 77.313333, "until": 77.713333 },
+        { "text": "guide", "at": 77.713333, "until": 77.753333 },
+        { "text": "the", "at": 77.753333, "until": 77.973333 },
+        { "text": "next", "at": 77.973333, "until": 78.293333 },
+        { "text": "decision.", "at": 78.293333, "until": 78.713333 }
+      ],
+      "leave": 79.227,
+      "gone": 79.447,
+      "appear": null,
+      "cut": 79.467,
+      "first": 13,
+      "panel_gone": null
+    },
+    {
+      "text": "You can keep asking your team",
+      "start": 80.223333,
+      "end": 81.623333,
+      "palette": "before",
+      "emphasis": null,
+      "words": [
+        { "text": "You", "at": 80.293333, "until": 80.333333 },
+        { "text": "can", "at": 80.333333, "until": 80.553333 },
+        { "text": "keep", "at": 80.553333, "until": 80.813333 },
+        { "text": "asking", "at": 80.813333, "until": 81.073333 },
+        { "text": "your", "at": 81.073333, "until": 81.413333 },
+        { "text": "team", "at": 81.413333, "until": 81.673333 }
+      ],
+      "leave": 81.553333,
+      "gone": 81.673333,
+      "appear": null,
+      "cut": null,
+      "first": 32,
+      "panel_gone": 84.533
+    },
+    {
+      "text": "to bridge the gaps between disconnected systems.",
+      "start": 81.673333,
+      "end": 85.333333,
+      "palette": "before",
+      "emphasis": [5, 7],
+      "words": [
+        { "text": "to", "at": 81.673333, "until": 82.173333 },
+        { "text": "bridge", "at": 82.173333, "until": 82.173333 },
+        { "text": "the", "at": 82.173333, "until": 82.673333 },
+        { "text": "gaps", "at": 82.673333, "until": 82.673333 },
+        { "text": "between", "at": 82.673333, "until": 83.073333 },
+        { "text": "disconnected", "at": 83.073333, "until": 83.693333 },
+        { "text": "systems.", "at": 83.693333, "until": 84.213333 }
+      ],
+      "leave": 84.293,
+      "gone": 84.513,
+      "appear": 81.673333,
+      "cut": 84.533,
+      "first": 32,
+      "panel_gone": null
+    },
+    {
+      "text": "But why should they have to?",
+      "start": 85.383333,
+      "end": 87.633333,
+      "palette": "aurixa",
+      "emphasis": [1, 2],
+      "words": [
+        { "text": "But", "at": 85.413333, "until": 85.553333 },
+        { "text": "why", "at": 85.553333, "until": 85.893333 },
+        { "text": "should", "at": 85.893333, "until": 86.093333 },
+        { "text": "they", "at": 86.093333, "until": 86.293333 },
+        { "text": "have", "at": 86.293333, "until": 86.573333 },
+        { "text": "to?", "at": 86.573333, "until": 86.813333 }
+      ],
+      "leave": 87.463333,
+      "gone": 87.683333,
+      "appear": null,
+      "cut": null,
+      "first": 34,
+      "panel_gone": 115.506667
+    },
+    {
+      "text": "Aurixa Systems isn't on the horizon.",
+      "start": 87.683333,
+      "end": 90.963333,
+      "palette": "aurixa",
+      "emphasis": [3, 6],
+      "words": [
+        { "text": "Aurixa", "at": 87.753333, "until": 88.073333 },
+        { "text": "Systems", "at": 88.073333, "until": 88.573333 },
+        { "text": "isn't", "at": 88.573333, "until": 88.973333 },
+        { "text": "on", "at": 88.973333, "until": 89.193333 },
+        { "text": "the", "at": 89.193333, "until": 89.773333 },
+        { "text": "horizon.", "at": 89.773333, "until": 89.773333 }
+      ],
+      "leave": 90.793333,
+      "gone": 91.013333,
+      "appear": null,
+      "cut": null,
+      "first": 34,
+      "panel_gone": null
+    },
+    {
+      "text": "We've arrived, and the invitation is open.",
+      "start": 91.013333,
+      "end": 94.836667,
+      "palette": "aurixa",
+      "emphasis": [1, 2],
+      "words": [
+        { "text": "We've", "at": 91.033333, "until": 91.373333 },
+        { "text": "arrived,", "at": 91.373333, "until": 91.793333 },
+        { "text": "and", "at": 92.326667, "until": 92.506667 },
+        { "text": "the", "at": 92.506667, "until": 92.806667 },
+        { "text": "invitation", "at": 92.806667, "until": 93.146667 },
+        { "text": "is", "at": 93.146667, "until": 93.626667 },
+        { "text": "open.", "at": 93.626667, "until": 94.006667 }
+      ],
+      "leave": 94.666667,
+      "gone": 94.886667,
+      "appear": null,
+      "cut": null,
+      "first": 34,
+      "panel_gone": null
+    },
+    {
+      "text": "Experience what we've built",
+      "start": 94.886667,
+      "end": 96.076667,
+      "palette": "aurixa",
+      "emphasis": [0, 1],
+      "words": [
+        { "text": "Experience", "at": 95.066667, "until": 95.466667 },
+        { "text": "what", "at": 95.466667, "until": 95.686667 },
+        { "text": "we've", "at": 95.686667, "until": 96.126667 },
+        { "text": "built", "at": 95.976667, "until": 96.126667 }
+      ],
+      "leave": 96.106667,
+      "gone": 96.226667,
+      "appear": null,
+      "cut": null,
+      "first": 34,
+      "panel_gone": null
+    },
+    {
+      "text": "with a 14-day free trial.",
+      "start": 96.126667,
+      "end": 99.366667,
+      "palette": "aurixa",
+      "emphasis": [2, 5],
+      "words": [
+        { "text": "with", "at": 96.126667, "until": 96.546667 },
+        { "text": "a", "at": 96.546667, "until": 96.726667 },
+        { "text": "14-day", "at": 96.726667, "until": 97.426667 },
+        { "text": "free", "at": 97.426667, "until": 97.886667 },
+        { "text": "trial.", "at": 97.886667, "until": 98.166667 }
+      ],
+      "leave": 99.236667,
+      "gone": 99.456667,
+      "appear": 96.226667,
+      "cut": null,
+      "first": 34,
+      "panel_gone": null
+    },
+    {
+      "text": "Explore the platform,",
+      "start": 99.456667,
+      "end": 101.76,
+      "palette": "aurixa",
+      "emphasis": [0, 1],
+      "words": [
+        { "text": "Explore", "at": 99.506667, "until": 99.826667 },
+        { "text": "the", "at": 99.826667, "until": 100.026667 },
+        { "text": "platform,", "at": 100.026667, "until": 100.466667 }
+      ],
+      "leave": 101.59,
+      "gone": 101.81,
+      "appear": null,
+      "cut": null,
+      "first": 34,
+      "panel_gone": null
+    },
+    {
+      "text": "put it alongside the way you work today,",
+      "start": 101.81,
+      "end": 104.69,
+      "palette": "aurixa",
+      "emphasis": [3, 7],
+      "words": [
+        { "text": "put", "at": 101.94, "until": 101.96 },
+        { "text": "it", "at": 101.96, "until": 102.14 },
+        { "text": "alongside", "at": 102.14, "until": 102.58 },
+        { "text": "the", "at": 102.58, "until": 102.84 },
+        { "text": "way", "at": 102.84, "until": 103 },
+        { "text": "you", "at": 103, "until": 103.16 },
+        { "text": "work", "at": 103.16, "until": 103.4 },
+        { "text": "today,", "at": 103.4, "until": 103.8 }
+      ],
+      "leave": 104.52,
+      "gone": 104.74,
+      "appear": null,
+      "cut": null,
+      "first": 34,
+      "panel_gone": null
+    },
+    {
+      "text": "and discover what a more connected business",
+      "start": 104.74,
+      "end": 107.01,
+      "palette": "aurixa",
+      "emphasis": [4, 6],
+      "words": [
+        { "text": "and", "at": 104.9, "until": 105.54 },
+        { "text": "discover", "at": 105.54, "until": 105.54 },
+        { "text": "what", "at": 105.54, "until": 105.8 },
+        { "text": "a", "at": 105.8, "until": 105.98 },
+        { "text": "more", "at": 105.98, "until": 106.62 },
+        { "text": "connected", "at": 106.62, "until": 106.62 },
+        { "text": "business", "at": 106.62, "until": 107.06 }
+      ],
+      "leave": 106.94,
+      "gone": 107.06,
+      "appear": null,
+      "cut": null,
+      "first": 34,
+      "panel_gone": null
+    },
+    {
+      "text": "could feel like.",
+      "start": 107.06,
+      "end": 109.593333,
+      "palette": "aurixa",
+      "emphasis": null,
+      "words": [
+        { "text": "could", "at": 107.06, "until": 107.38 },
+        { "text": "feel", "at": 107.38, "until": 107.7 },
+        { "text": "like.", "at": 107.7, "until": 108.02 }
+      ],
+      "leave": 109.423333,
+      "gone": 109.643333,
+      "appear": 107.06,
+      "cut": null,
+      "first": 34,
+      "panel_gone": null
+    },
+    {
+      "text": "Don't just take our word for it.",
+      "start": 109.643333,
+      "end": 111.646667,
+      "palette": "aurixa",
+      "emphasis": [3, 5],
+      "words": [
+        { "text": "Don't", "at": 109.753333, "until": 109.833333 },
+        { "text": "just", "at": 109.833333, "until": 110.093333 },
+        { "text": "take", "at": 110.093333, "until": 110.253333 },
+        { "text": "our", "at": 110.253333, "until": 110.533333 },
+        { "text": "word", "at": 110.533333, "until": 110.733333 },
+        { "text": "for", "at": 110.733333, "until": 110.993333 },
+        { "text": "it.", "at": 110.993333, "until": 111.193333 }
+      ],
+      "leave": 111.476667,
+      "gone": 111.696667,
+      "appear": null,
+      "cut": null,
+      "first": 34,
+      "panel_gone": null
+    },
+    {
+      "text": "Let your own experience make the case.",
+      "start": 111.696667,
+      "end": 115.016667,
+      "palette": "aurixa",
+      "emphasis": [1, 4],
+      "words": [
+        { "text": "Let", "at": 111.806667, "until": 111.866667 },
+        { "text": "your", "at": 111.866667, "until": 112.066667 },
+        { "text": "own", "at": 112.066667, "until": 112.486667 },
+        { "text": "experience", "at": 112.486667, "until": 112.866667 },
+        { "text": "make", "at": 112.866667, "until": 113.106667 },
+        { "text": "the", "at": 113.106667, "until": 113.286667 },
+        { "text": "case.", "at": 113.286667, "until": 113.646667 }
+      ],
+      "leave": 115.166667,
+      "gone": 115.386667,
+      "appear": null,
+      "cut": null,
+      "first": 34,
+      "panel_gone": null
+    }
+  ]
+}
