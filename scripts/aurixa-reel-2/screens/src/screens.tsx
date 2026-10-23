@@ -41,6 +41,16 @@ import { SOLICITOR_WELCOME_SUBTITLE } from "@/lib/solicitorPortalCopy";
 import { buildPassportView } from "@/lib/aml/passport";
 import type { RosterFacts } from "@/lib/aml/passport/partnerRoster.pure";
 import type { MatterLinkInput } from "@/lib/aml/partnerMatterIndex";
+import { MemoryRouter } from "react-router-dom";
+import { AmlWorkspaceHeader } from "@/components/aml/workspace/AmlWorkspaceHeader";
+import { AmlJourneyRail } from "@/components/aml/workspace/AmlJourneyRail";
+import { AmlJourneyStageHeader } from "@/components/aml/workspace/AmlJourneyStageHeader";
+import {
+  JOURNEY_OWNER_LABELS,
+  type AmlJourney,
+  type AmlJourneyStage,
+} from "@/lib/aml/journeyModel";
+import type { AmlCase } from "@/lib/aml/amlCasesApi";
 import { caseInput } from "./fixture";
 import DOCS from "./consent-docs.json";
 
@@ -570,5 +580,168 @@ export function Solicitor({ state }: { state: "dashboard" | "compliance" | "matt
     <SolicitorLayout path="/solicitor/compliance">
       <SolicitorCompliance open={state === "matter"} />
     </SolicitorLayout>
+  );
+}
+
+/* ───────────────────────── Jordan Ellis's case, at Stage 9 (the case workspace's own header, rail and stage) ───── */
+// The stages as journeyModel.ts defines them (STAGE_DEFINITIONS: its labels and purposes, which it does not export).
+const STAGES: Array<[AmlJourneyStage["id"], string, string, string]> = [
+  [
+    "activation",
+    "Activation",
+    "Activation",
+    "The recorded trigger that opened this case, and the terms it opened under.",
+  ],
+  [
+    "intake",
+    "Client intake",
+    "Intake",
+    "Consents, the client's own information, and anything we have asked them for.",
+  ],
+  [
+    "identity",
+    "Identity verification",
+    "Identity",
+    "Verification of every party the case requires, and the evidence behind it.",
+  ],
+  [
+    "documents",
+    "Documents & evidence",
+    "Documents",
+    "What was required, what arrived, and what we accepted or sent back.",
+  ],
+  [
+    "screening",
+    "Screening & ownership",
+    "Screening",
+    "Sanctions, PEP and adverse screening, and who ultimately owns or controls the customer.",
+  ],
+  [
+    "funding",
+    "Funding & transaction",
+    "Funding",
+    "The matter, how it is funded, and the counterparties on the other side of it.",
+  ],
+  [
+    "submission",
+    "Submission review",
+    "Submission",
+    "Whether there is enough evidence to take this case into risk and decision.",
+  ],
+  [
+    "decision",
+    "Risk & MLRO decision",
+    "Decision",
+    "The risk position, the evidence behind it, and the recorded human decision.",
+  ],
+  [
+    "passport",
+    "Passport & Partners",
+    "Passport & Partners",
+    "The credential itself — issued, previewed, and shared with the partners entitled to rely on it.",
+  ],
+  [
+    "distribution",
+    "Ongoing CDD",
+    "Ongoing CDD",
+    "What keeps this case current once the service is under way: the review cycle, trigger reviews, screening refresh and the end of the relationship.",
+  ],
+];
+function journey(): AmlJourney {
+  const stages = STAGES.map(([id, label, shortLabel, purpose], i): AmlJourneyStage => {
+    const passport = id === "passport";
+    const done = i < 9;
+    return {
+      id,
+      number: i + 1,
+      label,
+      shortLabel,
+      purpose,
+      status: done ? "complete" : "in_progress",
+      owner: done ? "none" : "system",
+      ownerLabel: JOURNEY_OWNER_LABELS[done ? "none" : "system"],
+      attention: "none",
+      blocking: false,
+      aheadOfSequence: false,
+      // passportStage's own summary for a cleared case with the gate approved and the Passport in force at v1.
+      summary: passport ? "The service may proceed and the Passport is in force at v1." : "",
+      blockers: [],
+      warnings: [],
+      completedItems: passport
+        ? [
+            { key: "gate", label: "Service gate: Approved", attention: "steady" },
+            { key: "passport", label: "Passport issued · v1", attention: "steady" },
+          ]
+        : [],
+      outstandingItems: [],
+      primaryAction: null,
+      secondaryActions: [],
+      completedAt: null,
+      targetSection: "passport",
+      sections: ["passport"],
+      applicable: true,
+      notApplicableReason: null,
+      sourceFacts: [],
+      unavailableFacts: [],
+    } as AmlJourneyStage;
+  });
+  return {
+    stages,
+    currentStageId: "passport",
+    completeCount: 9,
+    applicableCount: 10,
+    attention: "none",
+  } as AmlJourney;
+}
+const CASE_ROW = {
+  id: "case-wg14",
+  case_reference: "AML-2026-0014",
+  client_id: "client-je",
+  purchase_file_id: null,
+  subject_type: "individual",
+  subject_display_name: "Jordan Ellis",
+  status: "cleared",
+  risk_rating: "low",
+  risk_score: 18,
+  assigned_analyst_id: "u-analyst",
+  assigned_mlro_id: "u-mlro",
+  opened_at: at(6, "08:55"),
+  closed_at: null,
+  metadata: {},
+  created_by: null,
+  created_at: at(6, "08:55"),
+  updated_at: new Date().toISOString(),
+  case_stage: "cleared",
+  service_gate_status: "approved",
+} as unknown as AmlCase;
+
+export function CaseStage({ sent }: { sent: string[] }) {
+  const j = journey();
+  const stage = j.stages[8];
+  const visible = new Set(j.stages.map((s) => s.id));
+  return (
+    <MemoryRouter>
+      <div className="space-y-5">
+        <AmlWorkspaceHeader
+          caseRow={CASE_ROW}
+          matterLabel="14 Wattle Grove, Banksia Rise NSW 2155"
+        />
+        <AmlJourneyRail
+          journey={j}
+          activeStageId="passport"
+          onSelectStage={noop}
+          visibleStages={visible}
+        />
+        <AmlJourneyStageHeader
+          stage={stage}
+          totalStages={10}
+          onOpenSection={noop}
+          deferToSurfaceBelow
+        />
+        <div data-region="roster">
+          <Roster sent={sent} />
+        </div>
+      </div>
+    </MemoryRouter>
   );
 }

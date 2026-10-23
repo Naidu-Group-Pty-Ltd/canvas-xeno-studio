@@ -9,6 +9,18 @@ const OUT = path.resolve(process.argv[2]);
 const URL = "http://localhost:5199/";
 fs.mkdirSync(OUT, { recursive: true });
 
+/** An element's box on the page, for a screenshot by clip (which never waits on the element's visibility). */
+const clipOf = (page, selector) =>
+  page.$eval(selector, (el) => {
+    const r = el.getBoundingClientRect();
+    return {
+      x: r.left + window.scrollX,
+      y: r.top + window.scrollY,
+      width: r.width,
+      height: r.height,
+    };
+  });
+
 async function waitFor(url, ms) {
   const end = Date.now() + ms;
   while (Date.now() < end) {
@@ -113,23 +125,23 @@ async function waitFor(url, ms) {
                 )
                 .join("\n"),
             });
-            await (
-              await page.$(leafSel)
-            ).screenshot({
+            await page.screenshot({
               path: path.join(OUT, `${audience}-${seals.shot}-unstruck.png`),
               omitBackground: true,
+              fullPage: true,
+              clip: await clipOf(page, leafSel),
             });
             await unstruck.evaluate((el) => el.remove());
             for (const s of earned) {
               const only = await page.addStyleTag({
-                content: `${leafSel}, ${leafSel} * { visibility: hidden !important; }
+                content: `html, body { background: transparent !important; } body * { visibility: hidden !important; }
                 ${leafSel} .passport-stamp-leaf__slot:nth-child(${s.n}), ${leafSel} .passport-stamp-leaf__slot:nth-child(${s.n}) * { visibility: visible !important; }`,
               });
-              await (
-                await page.$(leafSel)
-              ).screenshot({
+              await page.screenshot({
                 path: path.join(OUT, `${audience}-${seals.shot}-slot-${s.n}.png`),
                 omitBackground: true,
+                fullPage: true,
+                clip: await clipOf(page, leafSel),
               });
               await only.evaluate((el) => el.remove());
             }

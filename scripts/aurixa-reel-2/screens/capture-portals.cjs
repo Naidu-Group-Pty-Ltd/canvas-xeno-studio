@@ -42,6 +42,18 @@ const JOBS = [
     transparent: false,
   },
   {
+    query: "?screen=case&theme=dark&width=1180",
+    viewport: [1440, 1000],
+    scale: 3,
+    transparent: true,
+  },
+  {
+    query: "?screen=case&sent=org-shah&theme=dark&width=1180",
+    viewport: [1440, 1000],
+    scale: 3,
+    transparent: true,
+  },
+  {
     query: "?screen=roster&theme=dark&width=760",
     viewport: [1280, 800],
     scale: 4,

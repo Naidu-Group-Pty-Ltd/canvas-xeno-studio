@@ -17,7 +17,7 @@ import {
   type PassportAudience,
 } from "@/lib/aml/passport";
 import { caseInput, ISSUER, type Stage } from "./fixture";
-import { Consent, Roster, Solicitor } from "./screens";
+import { CaseStage, Consent, Roster, Solicitor } from "./screens";
 
 const q = new URLSearchParams(location.search);
 const screen = q.get("screen") ?? "booklet";
@@ -124,6 +124,17 @@ function Portal() {
     return (
       <div data-shot={`solicitor-${state}`} style={{ width }}>
         <Solicitor state={state} />
+      </div>
+    );
+  }
+  if (screen === "case") {
+    const sent = (q.get("sent") ?? "").split(",").filter(Boolean);
+    return (
+      <div
+        data-shot={`case-${sent.length ? "sent" : "issued"}`}
+        style={{ width, padding: "24px 22px" }}
+      >
+        <CaseStage sent={sent} />
       </div>
     );
   }
