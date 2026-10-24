@@ -5,6 +5,9 @@ module.exports = [
     screen: "bc-card",
     width: 760,
     scale: 3,
+    // The page's clock a moment after the engine's save (it stamps from 9:12:40), so "Last calculated" reads as the
+    // product says it a moment after the press: "less than a minute ago", never "in less than a minute".
+    clock: "2026-10-24T09:13:00+11:00",
     steps: [
       {
         shot: "bc-card-empty",

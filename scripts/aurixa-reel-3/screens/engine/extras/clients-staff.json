@@ -1,0 +1,31 @@
+{
+  "_note": "Alex Morgan, the buyer's agent the demo workspace's pages are opened by: the staff user custom-auth-verify-v2 reads (custom_users, user_roles) and the module grid admin-user-management's get_my_permissions reads (user_permissions joined to dashboard_modules, whose keys and names are the product's own migrations'). The id is the one engine/product.ts's sign-in check answers with. No password hash is held: nothing here signs anybody in.",
+  "custom_users": [
+    {
+      "id": "demo-staff",
+      "username": "Alex Morgan",
+      "email": null,
+      "role": "user",
+      "is_active": true,
+      "created_at": "2026-01-12T09:00:00+11:00",
+      "updated_at": "2026-10-24T09:00:00+11:00"
+    }
+  ],
+  "user_roles": [{ "id": "00000000-0000-4000-8000-0000000d0001", "user_id": "demo-staff", "role": "user" }],
+  "dashboard_modules": [
+    { "id": "00000000-0000-4000-8000-0000000d0101", "module_key": "client_management", "module_name": "Client Management", "is_active": true },
+    { "id": "00000000-0000-4000-8000-0000000d0102", "module_key": "client_tracker", "module_name": "Client Tracker", "is_active": true },
+    { "id": "00000000-0000-4000-8000-0000000d0103", "module_key": "borrowing_capacity", "module_name": "Borrowing Capacity", "is_active": true },
+    { "id": "00000000-0000-4000-8000-0000000d0104", "module_key": "deal_pipeline", "module_name": "Deal Pipeline", "is_active": true },
+    { "id": "00000000-0000-4000-8000-0000000d0105", "module_key": "reports", "module_name": "Reports", "is_active": true },
+    { "id": "00000000-0000-4000-8000-0000000d0106", "module_key": "finance_portal_admin", "module_name": "Finance Portal Access", "is_active": true }
+  ],
+  "user_permissions": [
+    { "id": "00000000-0000-4000-8000-0000000d0201", "user_id": "demo-staff", "module_id": "00000000-0000-4000-8000-0000000d0101", "can_view": true, "can_edit": true, "can_delete": true },
+    { "id": "00000000-0000-4000-8000-0000000d0202", "user_id": "demo-staff", "module_id": "00000000-0000-4000-8000-0000000d0102", "can_view": true, "can_edit": true, "can_delete": false },
+    { "id": "00000000-0000-4000-8000-0000000d0203", "user_id": "demo-staff", "module_id": "00000000-0000-4000-8000-0000000d0103", "can_view": true, "can_edit": true, "can_delete": false },
+    { "id": "00000000-0000-4000-8000-0000000d0204", "user_id": "demo-staff", "module_id": "00000000-0000-4000-8000-0000000d0104", "can_view": true, "can_edit": true, "can_delete": false },
+    { "id": "00000000-0000-4000-8000-0000000d0205", "user_id": "demo-staff", "module_id": "00000000-0000-4000-8000-0000000d0105", "can_view": true, "can_edit": true, "can_delete": false },
+    { "id": "00000000-0000-4000-8000-0000000d0206", "user_id": "demo-staff", "module_id": "00000000-0000-4000-8000-0000000d0106", "can_view": true, "can_edit": true, "can_delete": false }
+  ]
+}

@@ -1,0 +1,2398 @@
+{
+ "title": "Aurixa Reel 3: Borrowing Capacity",
+ "idea": "Can they afford it?, answered in the product: one questionnaire fills the client's record, and one click gives an indicative borrowing capacity assessment. The chosen property is modelled in scenarios and a report, and the assessment reaches the client's finance broker in their own portal, with nothing keyed in again.",
+ "plan": "docs/brands/aurixa-reel-3/PLAN.md",
+ "frame": {
+  "width": 1080,
+  "height": 1920,
+  "fps": 30
+ },
+ "delivery": {
+  "aspect_ratio": "9:16",
+  "size": "1080x1920",
+  "fps": 30,
+  "seconds": 147.167
+ },
+ "voiceover": {
+  "file": "client-voiceover-2026-10-13-2202.mp3 (the client's 'WhatsApp Audio 2026-10-13 at 22.02.10.mpeg'), 129.567 s, MP3 128 kbit/s mono 44.1 kHz, SHA-256 3a47f03f86fc9950024e4137737ac11e641bc2242e17a02c655d1784ea5abcd9",
+  "asset_id": "ed75f95d-89c6-40b6-a3c7-6d620fd2d88a",
+  "seconds": 129.567,
+  "speech_end": 129.52,
+  "timed_from": "voiceover-words.json: the words measured on this machine (transcribe.py, refine.py), held open in its silences by pacing.py",
+  "studio": {
+   "asset": "ed75f95d-89c6-40b6-a3c7-6d620fd2d88a",
+   "voiceover": "1cf5f7b1-d836-4888-bf51-1a08da66e4ca",
+   "edit": "54586130-e00d-4ac2-898c-6b8b5dc81575"
+  }
+ },
+ "blocks": [
+  {
+   "block": "01",
+   "title": "The question"
+  },
+  {
+   "block": "02",
+   "title": "The old way"
+  },
+  {
+   "block": "03",
+   "title": "Everything changes"
+  },
+  {
+   "block": "04",
+   "title": "The questionnaire"
+  },
+  {
+   "block": "05",
+   "title": "One click"
+  },
+  {
+   "block": "06",
+   "title": "The chosen property"
+  },
+  {
+   "block": "07",
+   "title": "The handover"
+  },
+  {
+   "block": "08",
+   "title": "What each gains"
+  },
+  {
+   "block": "09",
+   "title": "Just the beginning"
+  },
+  {
+   "block": "10",
+   "title": "What it means"
+  },
+  {
+   "block": "11",
+   "title": "Arrived"
+  },
+  {
+   "block": "12",
+   "title": "The free trial"
+  },
+  {
+   "block": "13",
+   "title": "Your decision"
+  },
+  {
+   "block": "14",
+   "title": "The closing card"
+  }
+ ],
+ "paced": true,
+ "end": 147.167,
+ "shots": [
+  {
+   "id": "01.1",
+   "block": "01",
+   "block_title": "The question",
+   "kind": "graphic",
+   "palette": "before",
+   "title": "Your client has found the property",
+   "sources": [
+    "G-QUESTION",
+    "Reel 1's 14 Wattle Grove photograph"
+   ],
+   "camera": "Composed from its first frame, which is the thumbnail (never faded in); a 3% drift in across the shot.",
+   "result": "14 Wattle Grove's card with a gold pin on it, Jordan Ellis's chip beside it.",
+   "on_screen": [
+    "14 Wattle Grove",
+    "Banksia Rise NSW 2155",
+    "$1,150,000",
+    "New build",
+    "4 bed · 2 bath · 2 car · 450 m² land",
+    "JE"
+   ],
+   "notes": "Frame 0 is the thumbnail: everything sits between y 240 and 1,680, inside a profile grid's centred 3:4 crop. Jordan is initials on a chip, no face.",
+   "in": 0.0,
+   "out": 2.767,
+   "seconds": 2.767,
+   "voice_in": 0.0,
+   "voiceover": [
+    "Your client has found the property."
+   ],
+   "beats": [
+    {
+     "at": 0.0,
+     "anchor": {
+      "in": 0.0
+     },
+     "do": "14 Wattle Grove's card, composed: Reel 1's photograph, the address, $1,150,000, New build, 4 bed · 2 bath · 2 car · 450 m² land; Jordan Ellis's chip (JE) beside it."
+    },
+    {
+     "at": 1.267,
+     "anchor": {
+      "word": "found",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "A gold pin drops and settles on the card."
+    }
+   ]
+  },
+  {
+   "id": "01.2",
+   "block": "01",
+   "block_title": "The question",
+   "kind": "graphic",
+   "palette": "before",
+   "title": "The big question",
+   "sources": [
+    "G-QUESTION"
+   ],
+   "camera": "A slow push towards the card.",
+   "result": "The card dimmed under a large question mark.",
+   "on_screen": [
+    "?"
+   ],
+   "notes": "",
+   "in": 2.767,
+   "out": 4.167,
+   "seconds": 1.4,
+   "voice_in": 2.1,
+   "voiceover": [
+    "The big question?"
+   ],
+   "beats": [
+    {
+     "at": 2.767,
+     "anchor": {
+      "in": 0.0
+     },
+     "do": "The card dims."
+    },
+    {
+     "at": 3.4,
+     "anchor": {
+      "word": "question",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "A large question mark draws in over it, in Playfair Display, stroke by stroke."
+    }
+   ]
+  },
+  {
+   "id": "01.3",
+   "block": "01",
+   "block_title": "The question",
+   "kind": "graphic",
+   "palette": "before",
+   "title": "Can they afford it?",
+   "sources": [
+    "G-QUESTION"
+   ],
+   "camera": "Still.",
+   "result": "The price beside an empty capacity bar whose figure is a question mark.",
+   "on_screen": [
+    "$1,150,000",
+    "Borrowing capacity",
+    "?"
+   ],
+   "notes": "",
+   "in": 4.167,
+   "out": 6.1,
+   "seconds": 1.933,
+   "voice_in": 3.2,
+   "voiceover": [
+    "Can they afford it?"
+   ],
+   "beats": [
+    {
+     "at": 4.167,
+     "anchor": {
+      "in": 0.0
+     },
+     "do": "The question mark folds into a line: the price, $1,150,000, beside an empty capacity bar."
+    },
+    {
+     "at": 4.8,
+     "anchor": {
+      "word": "afford",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "The bar's figure is a question mark; it pulses once."
+    }
+   ]
+  },
+  {
+   "id": "02.1",
+   "block": "02",
+   "block_title": "The old way",
+   "kind": "graphic",
+   "palette": "before",
+   "title": "Traditionally, answering that means chasing documents",
+   "sources": [
+    "G-OLDWAY"
+   ],
+   "camera": "Still; the inbox fills the frame's middle.",
+   "result": "An unbranded inbox of requests, each sent, unanswered and chased.",
+   "on_screen": [
+    "Payslips (last 3)",
+    "Bank statements (last 3 months)",
+    "Car loan statement",
+    "Credit card statement",
+    "ID",
+    "Following up…"
+   ],
+   "notes": "Today's unbranded tools, in their greys; no document is ever pictured.",
+   "in": 6.1,
+   "out": 9.3,
+   "seconds": 3.2,
+   "voice_in": 4.767,
+   "voiceover": [
+    "Traditionally, answering that means chasing documents,"
+   ],
+   "beats": [
+    {
+     "at": 6.1,
+     "anchor": {
+      "in": 0.0
+     },
+     "do": "An unbranded inbox: requests go out one after another, payslips, bank statements, the car loan and the credit card statements, ID."
+    },
+    {
+     "at": 8.2,
+     "anchor": {
+      "word": "chasing",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Each sits unanswered, then is chased: Following up…, again and again."
+    }
+   ]
+  },
+  {
+   "id": "02.2",
+   "block": "02",
+   "block_title": "The old way",
+   "kind": "graphic",
+   "palette": "before",
+   "title": "Juggling spreadsheets",
+   "sources": [
+    "G-OLDWAY"
+   ],
+   "camera": "Still; the windows cascade towards the camera.",
+   "result": "Three grey spreadsheet windows, one cell reading #REF!.",
+   "on_screen": [
+    "Income",
+    "Expenses",
+    "Capacity",
+    "#REF!"
+   ],
+   "notes": "The third window is Capacity, not the word the brand keeps out of its content.",
+   "in": 9.3,
+   "out": 10.833,
+   "seconds": 1.533,
+   "voice_in": 7.967,
+   "voiceover": [
+    "juggling spreadsheets,"
+   ],
+   "beats": [
+    {
+     "at": 9.4,
+     "anchor": {
+      "word": "juggling",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Three grey spreadsheet windows cascade in: Income, Expenses, Capacity."
+    },
+    {
+     "at": 10.067,
+     "anchor": {
+      "word": "spreadsheets",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "A cell in the last one reads #REF!."
+    }
+   ]
+  },
+  {
+   "id": "02.3",
+   "block": "02",
+   "block_title": "The old way",
+   "kind": "graphic",
+   "palette": "before",
+   "title": "And waiting on internal teams and external partners",
+   "sources": [
+    "G-OLDWAY"
+   ],
+   "camera": "A slow pull back as the frame cools.",
+   "result": "Messages waiting on answers, a clock sweeping, a progress bar stalled; the frame cool and still.",
+   "on_screen": [
+    "Internal team",
+    "Broker",
+    "Any update?"
+   ],
+   "notes": "Holds into the silence before the brand's drop.",
+   "in": 10.833,
+   "out": 14.9,
+   "seconds": 4.067,
+   "voice_in": 9.5,
+   "voiceover": [
+    "and waiting on internal teams and external partners."
+   ],
+   "beats": [
+    {
+     "at": 11.1,
+     "anchor": {
+      "word": "waiting",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Messages from Internal team and Broker: Any update?, typing dots that never resolve."
+    },
+    {
+     "at": 13.333,
+     "anchor": {
+      "word": "partners",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "A clock hand sweeps and a progress bar stalls; the frame cools and holds as the music falls silent."
+    }
+   ]
+  },
+  {
+   "id": "03.1",
+   "block": "03",
+   "block_title": "Everything changes",
+   "kind": "logo",
+   "palette": "aurixa",
+   "title": "With Aurixa Systems, everything changes",
+   "sources": [
+    "Reel 1 logo take A (the A reveal)",
+    "logo-clean",
+    "logo-letters"
+   ],
+   "camera": "The logo's own footage, full frame; it settles high.",
+   "result": "The Aurixa Systems logo, its lettering exact, high in the frame.",
+   "on_screen": [
+    "AURIXA SYSTEMS"
+   ],
+   "notes": "Reel 1's footage (A1), with the supplied lettering laid over it, as in Reel 2.",
+   "in": 14.9,
+   "out": 18.633,
+   "seconds": 3.733,
+   "voice_in": 12.7,
+   "voiceover": [
+    "With Aurixa Systems, everything changes."
+   ],
+   "beats": [
+    {
+     "at": 14.9,
+     "anchor": {
+      "in": 0.0
+     },
+     "do": "On the music's drop the old way sweeps away in a pass of light and the ground turns navy."
+    },
+    {
+     "at": 15.233,
+     "anchor": {
+      "word": "aurixa",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "The logo leaps out of the light: Reel 1's reveal, the lettering laid exact over it."
+    },
+    {
+     "at": 17.267,
+     "anchor": {
+      "word": "changes",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "It settles high, held for a breath."
+    }
+   ]
+  },
+  {
+   "id": "04.1",
+   "block": "04",
+   "block_title": "The questionnaire",
+   "kind": "screen",
+   "palette": "aurixa",
+   "title": "One simple client questionnaire captures and organises their information",
+   "sources": [
+    "G-FACTFIND",
+    "the fact find workbook (factfind.py)",
+    "Add New Client · Advanced · Excel Import (captures/20-clients.cjs)"
+   ],
+   "camera": "The workbook lands and drops into the import; then in on the import's count tiles.",
+   "result": "The import parsed: its seven tiles counted, no warnings.",
+   "on_screen": [
+    "Client Financial Position & Fact Find",
+    "Add New Client",
+    "Excel Import",
+    "Parse Excel Sheet",
+    "Applicants found",
+    "Liabilities populated",
+    "Living expenses populated"
+   ],
+   "notes": "The product's questionnaire is its white-label Client Fact Find workbook, imported in one go (PLAN.md 6.1).",
+   "in": 18.633,
+   "out": 23.167,
+   "seconds": 4.534,
+   "voice_in": 15.9,
+   "voiceover": [
+    "One simple client questionnaire captures and organises their information,"
+   ],
+   "beats": [
+    {
+     "at": 18.633,
+     "anchor": {
+      "in": 0.0
+     },
+     "do": "Jordan's fact find lands, filled in: the product's own workbook, Client Financial Position & Fact Find."
+    },
+    {
+     "at": 20.0,
+     "anchor": {
+      "word": "questionnaire",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "It drops into Add New Client, Advanced, on its Excel Import tab."
+    },
+    {
+     "at": 20.733,
+     "anchor": {
+      "word": "captures",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Parse Excel Sheet is pressed; the import's tiles count up one a beat."
+    },
+    {
+     "at": 21.467,
+     "anchor": {
+      "word": "organises",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "The last tiles land: Liabilities populated, Living expenses populated, Warning count 0."
+    }
+   ]
+  },
+  {
+   "id": "04.2",
+   "block": "04",
+   "block_title": "The questionnaire",
+   "kind": "screen",
+   "palette": "aurixa",
+   "title": "Seamlessly populating their client card",
+   "sources": [
+    "G-FACTFIND",
+    "Client Management and Jordan Ellis's client card (captures/20-clients.cjs)"
+   ],
+   "camera": "Create Client, then the card assembling; the figures fly from the workbook into it.",
+   "result": "Jordan Ellis's client card, complete.",
+   "on_screen": [
+    "Create Client",
+    "Jordan Ellis",
+    "Client Management"
+   ],
+   "notes": "",
+   "in": 23.167,
+   "out": 26.067,
+   "seconds": 2.9,
+   "voice_in": 20.433,
+   "voiceover": [
+    "seamlessly populating their client card."
+   ],
+   "beats": [
+    {
+     "at": 23.3,
+     "anchor": {
+      "word": "seamlessly",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Create Client is pressed and Jordan Ellis's client card assembles in Client Management."
+    },
+    {
+     "at": 24.0,
+     "anchor": {
+      "word": "populating",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "The fact find's figures fly into the record: the base salary, the car loan, the credit card, the rent, the living expenses."
+    },
+    {
+     "at": 25.2,
+     "anchor": {
+      "word": "card",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "The card settles, complete."
+    }
+   ]
+  },
+  {
+   "id": "05.1",
+   "block": "05",
+   "block_title": "One click",
+   "kind": "screen",
+   "palette": "aurixa",
+   "title": "Now, here's where speed meets opportunity",
+   "sources": [
+    "The client workspace's Borrowing Capacity tab (bc-card-empty)",
+    "KIT pointer"
+   ],
+   "camera": "In on the card; the pointer travels to its button and waits.",
+   "result": "The pointer resting on Calculate Capacity.",
+   "on_screen": [
+    "Borrowing Capacity",
+    "Calculate borrowing power based on income, expenses, and existing commitments.",
+    "Calculate Capacity"
+   ],
+   "notes": "The music falls away under the line; the pointer waits through the held pause before the drop.",
+   "in": 26.067,
+   "out": 29.767,
+   "seconds": 3.7,
+   "voice_in": 23.1,
+   "voiceover": [
+    "Now, here's where speed meets opportunity."
+   ],
+   "beats": [
+    {
+     "at": 26.067,
+     "anchor": {
+      "in": 0.0
+     },
+     "do": "Jordan's workspace, on its Borrowing Capacity tab: the card, with nothing calculated yet."
+    },
+    {
+     "at": 27.3,
+     "anchor": {
+      "word": "speed",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "The pointer travels to Calculate Capacity."
+    },
+    {
+     "at": 28.167,
+     "anchor": {
+      "word": "opportunity",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "It waits there, through the held pause."
+    }
+   ]
+  },
+  {
+   "id": "05.2",
+   "block": "05",
+   "block_title": "One click",
+   "kind": "screen",
+   "palette": "aurixa",
+   "title": "With just one click",
+   "sources": [
+    "bc-card-result",
+    "KIT big number",
+    "KIT pointer"
+   ],
+   "camera": "The press on the drop; the card resolves full frame.",
+   "result": "Maximum Borrowing Power $1,049,786, Strong Position, with its surplus, ratio and stress test.",
+   "on_screen": [
+    "Maximum Borrowing Power",
+    "$1,049,786",
+    "Strong Position",
+    "Monthly Surplus",
+    "DTI Ratio",
+    "Stress-Tested Capacity"
+   ],
+   "notes": "One click is literal for a client with no assessment yet (PLAN.md 6.2). The illustrative label sits under the figure.",
+   "in": 29.767,
+   "out": 34.3,
+   "seconds": 4.533,
+   "voice_in": 26.167,
+   "voiceover": [
+    "With just one click, Aurixa turns client information into magic,"
+   ],
+   "beats": [
+    {
+     "at": 30.633,
+     "anchor": {
+      "word": "click",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "The press lands on the music's drop: the card resolves and Maximum Borrowing Power counts up to $1,049,786."
+    },
+    {
+     "at": 31.133,
+     "anchor": {
+      "word": "aurixa",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Strong Position, Monthly Surplus $8,827, DTI Ratio 3.6x and Stress-Tested Capacity $964,993 with its bar land in turn."
+    },
+    {
+     "at": 33.433,
+     "anchor": {
+      "word": "magic",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "The figure holds, its illustrative label under it."
+    }
+   ]
+  },
+  {
+   "id": "05.3",
+   "block": "05",
+   "block_title": "One click",
+   "kind": "screen",
+   "palette": "aurixa",
+   "title": "An indicative borrowing capacity assessment",
+   "sources": [
+    "bc-page-calc (the Borrowing Capacity page)"
+   ],
+   "camera": "View Full Calculator opens the page; then in on the Results panel.",
+   "result": "BORROWING CAPACITY $1,049,786, Stress-tested: $964,993, the indicative line lit.",
+   "on_screen": [
+    "View Full Calculator",
+    "BORROWING CAPACITY",
+    "$1,049,786",
+    "Stress-tested: $964,993",
+    "This calculator is for indicative purposes only. We recommend a formal broker assessment for lending advice."
+   ],
+   "notes": "The proposed loan check's verdict and the Results panel's compliance wording stay out of frame (PLAN.md 5.1).",
+   "in": 34.3,
+   "out": 39.1,
+   "seconds": 4.8,
+   "voice_in": 30.7,
+   "voiceover": [
+    "where one aspect allows you to obtain an indicative borrowing capacity assessment,"
+   ],
+   "beats": [
+    {
+     "at": 34.967,
+     "anchor": {
+      "word": "aspect",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "View Full Calculator opens the Borrowing Capacity page."
+    },
+    {
+     "at": 36.733,
+     "anchor": {
+      "word": "indicative",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "The page's own line is lit: This calculator is for indicative purposes only."
+    },
+    {
+     "at": 38.333,
+     "anchor": {
+      "word": "assessment",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "BORROWING CAPACITY lands large, $1,049,786, Stress-tested: $964,993."
+    }
+   ]
+  },
+  {
+   "id": "05.4",
+   "block": "05",
+   "block_title": "One click",
+   "kind": "screen",
+   "palette": "aurixa",
+   "title": "Purchasing power, deposit requirements, financial commitments",
+   "sources": [
+    "bc-page-calc"
+   ],
+   "camera": "One beat for each thing the voice names, the camera moving to it on the page.",
+   "result": "Existing Liabilities and their Total Monthly Commitments of $820.",
+   "on_screen": [
+    "$1,049,786",
+    "Lenders Mortgage Insurance (LMI)",
+    "$1,150,000",
+    "$230,000",
+    "Loan-to-Value Ratio (LVR)",
+    "80.0%",
+    "No LMI Required",
+    "Car loan",
+    "Credit card",
+    "Total Monthly Commitments",
+    "$820"
+   ],
+   "notes": "The product computes no deposit requirement: given 14 Wattle Grove's value it gives the LVR and whether LMI applies, which is how a deposit is judged (PLAN.md 6.3).",
+   "in": 39.1,
+   "out": 44.2,
+   "seconds": 5.1,
+   "voice_in": 35.5,
+   "voiceover": [
+    "revealing estimated purchasing power, deposit requirements, financial commitments,"
+   ],
+   "beats": [
+    {
+     "at": 40.333,
+     "anchor": {
+      "word": "purchasing",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Estimated purchasing power: the capacity figure itself, $1,049,786."
+    },
+    {
+     "at": 41.533,
+     "anchor": {
+      "word": "deposit",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Deposit requirements: the LMI section on 14 Wattle Grove's $1,150,000, a $230,000 deposit, the LVR at 80.0%, No LMI Required."
+    },
+    {
+     "at": 43.533,
+     "anchor": {
+      "word": "commitments",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Financial commitments: Existing Liabilities, the car loan $520 and the credit card $300, Total Monthly Commitments $820."
+    }
+   ]
+  },
+  {
+   "id": "05.5",
+   "block": "05",
+   "block_title": "One click",
+   "kind": "screen",
+   "palette": "aurixa",
+   "title": "Key considerations tailored to their specific circumstances",
+   "sources": [
+    "bc-page-calc"
+   ],
+   "camera": "Along Assumptions Used, then the band.",
+   "result": "The band green, Strong borrowing position, over Jordan's own assumptions.",
+   "on_screen": [
+    "Assumptions Used",
+    "9.5%",
+    "30 years",
+    "HEM Benchmark",
+    "SERVICEABILITY BAND",
+    "Strong borrowing position"
+   ],
+   "notes": "The engine's Recommendations stay out of frame; the key considerations are the assessment's basis (PLAN.md 6.4).",
+   "in": 44.2,
+   "out": 49.3,
+   "seconds": 5.1,
+   "voice_in": 40.6,
+   "voiceover": [
+    "and key considerations tailored to their specific circumstances."
+   ],
+   "beats": [
+    {
+     "at": 44.867,
+     "anchor": {
+      "word": "considerations",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Assumptions Used, with Jordan's own figures: the 9.50% assessment rate, 30 years, the HEM benchmark of $3,780."
+    },
+    {
+     "at": 47.533,
+     "anchor": {
+      "word": "circumstances",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "His declared living costs of $6,447 a month, above the benchmark, are the ones used; the band reads green, Strong borrowing position."
+    }
+   ]
+  },
+  {
+   "id": "05.6",
+   "block": "05",
+   "block_title": "One click",
+   "kind": "graphic",
+   "palette": "aurixa",
+   "title": "From information to financial insight in moments",
+   "sources": [
+    "G-CHAIN",
+    "the workbook",
+    "bc-card-result",
+    "bc-page-calc"
+   ],
+   "camera": "A pull back along one line: the fact find, the card, the page.",
+   "result": "The three in a row, joined by one gold line.",
+   "on_screen": [],
+   "notes": "",
+   "in": 49.3,
+   "out": 53.233,
+   "seconds": 3.933,
+   "voice_in": 45.2,
+   "voiceover": [
+    "From information to financial insight in moments."
+   ],
+   "beats": [
+    {
+     "at": 49.3,
+     "anchor": {
+      "in": 0.0
+     },
+     "do": "The camera pulls back from the page; the card and the fact find come into frame beside it."
+    },
+    {
+     "at": 51.233,
+     "anchor": {
+      "word": "insight",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "A gold line draws from the fact find to the card to the page."
+    },
+    {
+     "at": 52.1,
+     "anchor": {
+      "word": "moments",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "It holds, the three joined."
+    }
+   ]
+  },
+  {
+   "id": "06.1",
+   "block": "06",
+   "block_title": "The chosen property",
+   "kind": "screen",
+   "palette": "aurixa",
+   "title": "And why stop there?",
+   "sources": [
+    "bc-calc-export (the page's tabs)",
+    "KIT pointer"
+   ],
+   "camera": "In on the page's tabs.",
+   "result": "Portfolio Scenario Modelling pressed.",
+   "on_screen": [
+    "Calculator",
+    "Portfolio Scenario Modelling",
+    "History"
+   ],
+   "notes": "",
+   "in": 53.233,
+   "out": 54.9,
+   "seconds": 1.667,
+   "voice_in": 48.867,
+   "voiceover": [
+    "And why stop there?"
+   ],
+   "beats": [
+    {
+     "at": 53.233,
+     "anchor": {
+      "in": 0.0
+     },
+     "do": "The page's tabs: Calculator, Portfolio Scenario Modelling, History."
+    },
+    {
+     "at": 53.733,
+     "anchor": {
+      "word": "stop",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "The pointer presses Portfolio Scenario Modelling."
+    }
+   ]
+  },
+  {
+   "id": "06.2",
+   "block": "06",
+   "block_title": "The chosen property",
+   "kind": "screen",
+   "palette": "aurixa",
+   "title": "Bring their chosen property into focus",
+   "sources": [
+    "bc-scen-purchase",
+    "bc-scen-head-purchase",
+    "KIT listing card (14 Wattle Grove)"
+   ],
+   "camera": "14 Wattle Grove's card slides in and docks into Model next purchase; then in on its answer.",
+   "result": "Effective purchase power $1,281,859, Target achievable.",
+   "on_screen": [
+    "Model next purchase",
+    "Adds stamp duty, LMI, cash-on-hand, and target-price feasibility to the scenario.",
+    "1150000",
+    "300000",
+    "NSW",
+    "Investor",
+    "New build",
+    "Effective purchase power",
+    "$1,281,859",
+    "Target achievable"
+   ],
+   "notes": "The product has no way to choose a property into a scenario; its path is Model next purchase with the property's price (PLAN.md 6.3). The section's Phase 2 badge stays out of frame.",
+   "in": 54.9,
+   "out": 57.667,
+   "seconds": 2.767,
+   "voice_in": 50.267,
+   "voiceover": [
+    "Bring their chosen property into focus."
+   ],
+   "beats": [
+    {
+     "at": 55.433,
+     "anchor": {
+      "word": "chosen",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "14 Wattle Grove's card slides in and docks into Model next purchase: its price, Jordan's $300,000 of savings, NSW, investor, new build."
+    },
+    {
+     "at": 56.633,
+     "anchor": {
+      "word": "focus",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Effective purchase power lands, $1,281,859, and the product's verdict beside it: Target achievable."
+    }
+   ]
+  },
+  {
+   "id": "06.3",
+   "block": "06",
+   "block_title": "The chosen property",
+   "kind": "screen",
+   "palette": "aurixa",
+   "title": "Adjust deposits, explore financial structures, model purchasing scenarios",
+   "sources": [
+    "bc-scen-purchase-250",
+    "bc-scen-debts-off",
+    "bc-scen-debts-on",
+    "bc-scen-head-carloan",
+    "bc-scen-rates",
+    "bc-scen-head-rates",
+    "bc-scen-naming",
+    "bc-scen-saved-2",
+    "bc-scen-saved-3",
+    "bc-scen-saved-4"
+   ],
+   "camera": "One beat for each phrase, cutting card to card on the page.",
+   "result": "Saved Scenarios (4): the base and three, each with its capacity.",
+   "on_screen": [
+    "Cash on hand",
+    "Debt Consolidation",
+    "Car loan",
+    "+$61,842",
+    "Interest Rate Adjustment",
+    "+1%",
+    "Save Scenario",
+    "Saved Scenarios (4)",
+    "14 Wattle Grove",
+    "14 Wattle Grove · car loan repaid",
+    "14 Wattle Grove · rates +1%"
+   ],
+   "notes": "The headline's line about a serviceable ceiling stays out of frame. The car loan is paid out of the cash on hand through the Capital Flow Canvas, the product's own path for a payoff.",
+   "in": 57.667,
+   "out": 62.867,
+   "seconds": 5.2,
+   "voice_in": 52.767,
+   "voiceover": [
+    "Adjust deposits, explore financial structures, model purchasing scenarios,"
+   ],
+   "beats": [
+    {
+     "at": 58.167,
+     "anchor": {
+      "word": "deposits",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Adjust deposits: the cash on hand moves from $300,000 to $250,000, and purchase power follows it, then back."
+    },
+    {
+     "at": 60.1,
+     "anchor": {
+      "word": "structures",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Explore financial structures: Debt Consolidation's switch flips on for the car loan, paid out of cash, and the scenario's capacity rises $61,842 to $1,111,628; then rates a point higher take it to $964,993."
+    },
+    {
+     "at": 62.033,
+     "anchor": {
+      "word": "scenarios",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Model purchasing scenarios: Save Scenario, three times, and Saved Scenarios (4) lists each with its capacity."
+    }
+   ]
+  },
+  {
+   "id": "06.4",
+   "block": "06",
+   "block_title": "The chosen property",
+   "kind": "screen",
+   "palette": "aurixa",
+   "title": "And generate professional reports",
+   "sources": [
+    "bc-calc-export (Export PDF)",
+    "the Borrowing Capacity Snapshot's pages (snapshot-scen)"
+   ],
+   "camera": "Export PDF pressed; the Snapshot's pages run past the camera, held where the voice lands.",
+   "result": "The Snapshot's Scenario comparison: the four scenarios side by side.",
+   "on_screen": [
+    "Export PDF",
+    "BORROWING CAPACITY SNAPSHOT",
+    "Jordan Ellis",
+    "Capacity at a glance",
+    "PROPOSED LOAN $920,000",
+    "$129,786 of headroom under the assessed capacity.",
+    "Scenario comparison"
+   ],
+   "notes": "Report pages as charts, from the client's notes on Reel 1. The Snapshot is the product's own, drawn by its route and render container from the request the page sends. The page 2 lede (what Jordan can borrow) and the Serviceability headings stay out of frame.",
+   "in": 62.867,
+   "out": 67.967,
+   "seconds": 5.1,
+   "voice_in": 57.967,
+   "voiceover": [
+    "and generate professional reports that turn numbers into meaningful decisions."
+   ],
+   "beats": [
+    {
+     "at": 63.133,
+     "anchor": {
+      "word": "generate",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Export PDF on the Results panel is pressed."
+    },
+    {
+     "at": 64.267,
+     "anchor": {
+      "word": "reports",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "The Borrowing Capacity Snapshot comes up: its cover, Jordan Ellis."
+    },
+    {
+     "at": 65.3,
+     "anchor": {
+      "word": "numbers",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Capacity at a glance: the $920,000 loan is the bar, the stress-tested and assessed limits named lines, the headroom written under it."
+    },
+    {
+     "at": 66.733,
+     "anchor": {
+      "word": "decisions",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Scenario comparison: the base and the three scenarios, side by side."
+    }
+   ]
+  },
+  {
+   "id": "07.1",
+   "block": "07",
+   "block_title": "The handover",
+   "kind": "screen",
+   "palette": "aurixa",
+   "title": "Ready for the next step?",
+   "sources": [
+    "Jordan's Overview: Team & Partners, Finance Partners (captures/20-clients.cjs)"
+   ],
+   "camera": "In on Team & Partners, then Finance.",
+   "result": "Jamie Chen of Harbour Finance Group, the finance partner with portal access to Jordan.",
+   "on_screen": [
+    "Team & Partners",
+    "Finance Partners",
+    "Finance officers with portal access to this client.",
+    "Jamie Chen",
+    "Harbour Finance Group"
+   ],
+   "notes": "",
+   "in": 67.967,
+   "out": 69.767,
+   "seconds": 1.8,
+   "voice_in": 62.767,
+   "voiceover": [
+    "Ready for the next step?"
+   ],
+   "beats": [
+    {
+     "at": 67.967,
+     "anchor": {
+      "in": 0.0
+     },
+     "do": "Jordan's Overview: Team & Partners."
+    },
+    {
+     "at": 68.867,
+     "anchor": {
+      "word": "step",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Finance: Jamie Chen of Harbour Finance Group, already his finance partner."
+    }
+   ]
+  },
+  {
+   "id": "07.2",
+   "block": "07",
+   "block_title": "The handover",
+   "kind": "screen",
+   "palette": "aurixa",
+   "title": "One click, one connected handover",
+   "sources": [
+    "bc-calc-scenario",
+    "bc-toast-saved",
+    "KIT pointer"
+   ],
+   "camera": "The calculator with the chosen scenario on it; the press, then the toast.",
+   "result": "Scenario \"14 Wattle Grove · car loan repaid\" saved as the current assessment.",
+   "on_screen": [
+    "Scenario Active: 14 Wattle Grove · car loan repaid",
+    "Save",
+    "Scenario \"14 Wattle Grove · car loan repaid\" saved as the current assessment"
+   ],
+   "notes": "The broker receives no send: an allocated finance partner sees every saved assessment in their portal, so this save is the handover (PLAN.md 6.5).",
+   "in": 69.767,
+   "out": 73.033,
+   "seconds": 3.266,
+   "voice_in": 64.267,
+   "voiceover": [
+    "One click, one connected handover."
+   ],
+   "beats": [
+    {
+     "at": 70.233,
+     "anchor": {
+      "word": "click",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "The calculator, the chosen scenario on it: Scenario Active: 14 Wattle Grove · car loan repaid. The pointer presses Save."
+    },
+    {
+     "at": 71.833,
+     "anchor": {
+      "word": "handover",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "The product's toast: Scenario \"14 Wattle Grove · car loan repaid\" saved as the current assessment."
+    }
+   ]
+  },
+  {
+   "id": "07.3",
+   "block": "07",
+   "block_title": "The handover",
+   "kind": "graphic",
+   "palette": "aurixa",
+   "title": "Share assessments and scenarios with yours or their allocated finance broker",
+   "sources": [
+    "G-HANDOVER",
+    "Finance Partners (Assign existing, Invite new)"
+   ],
+   "camera": "The line from the Command Centre to the Finance Portal, across the frame.",
+   "result": "The assessment arriving in Jamie's Finance Portal.",
+   "on_screen": [
+    "Assign existing",
+    "Invite new",
+    "Finance Portal"
+   ],
+   "notes": "Yours or theirs is the card's own two doors: Assign existing for your broker, Invite new for theirs.",
+   "in": 73.033,
+   "out": 78.267,
+   "seconds": 5.234,
+   "voice_in": 67.133,
+   "voiceover": [
+    "Share assessments and scenarios directly with yours or their allocated finance broker"
+   ],
+   "beats": [
+    {
+     "at": 73.2,
+     "anchor": {
+      "word": "share",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "The saved assessment lifts off the calculator and travels along a gold line out of the Command Centre."
+    },
+    {
+     "at": 75.833,
+     "anchor": {
+      "word": "yours",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Assign existing lights: your own broker."
+    },
+    {
+     "at": 76.533,
+     "anchor": {
+      "word": "their",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Invite new lights: theirs."
+    },
+    {
+     "at": 77.9,
+     "anchor": {
+      "word": "broker",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "The line reaches the Finance Portal."
+    }
+   ]
+  },
+  {
+   "id": "07.4",
+   "block": "07",
+   "block_title": "The handover",
+   "kind": "screen",
+   "palette": "aurixa",
+   "title": "Through Aurixa's partner portal, without repeating the process",
+   "sources": [
+    "Finance Portal: My Clients, Jordan Ellis, Borrowing Capacity (captures/30-portals.cjs)"
+   ],
+   "camera": "Down Jamie's path: My Clients, Jordan Ellis, the Borrowing Capacity tab; then in on the latest assessment.",
+   "result": "The latest assessment in Jamie's portal: Maximum borrowing $1,111,628, and the inputs used.",
+   "on_screen": [
+    "Finance Portal",
+    "Partner Access",
+    "My Clients",
+    "Jordan Ellis",
+    "Latest assessment",
+    "Maximum borrowing",
+    "$1,111,628",
+    "Inputs used"
+   ],
+   "notes": "One portal at a time. The panel's footer about compliant rules stays out of frame (PLAN.md 10.3).",
+   "in": 78.267,
+   "out": 85.1,
+   "seconds": 6.833,
+   "voice_in": 72.367,
+   "voiceover": [
+    "through Aurixa's partner portal, enabling professional review without repeating the entire process."
+   ],
+   "beats": [
+    {
+     "at": 79.667,
+     "anchor": {
+      "word": "portal",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Jamie's Finance Portal, Partner Access: My Clients, then Jordan Ellis."
+    },
+    {
+     "at": 81.567,
+     "anchor": {
+      "word": "review",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "The Borrowing Capacity tab: Latest assessment, Maximum borrowing $1,111,628, Monthly surplus, DTI ratio, Stress-tested."
+    },
+    {
+     "at": 82.467,
+     "anchor": {
+      "word": "repeating",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Inputs used: the same figures, nothing keyed in again."
+    }
+   ]
+  },
+  {
+   "id": "08.1",
+   "block": "08",
+   "block_title": "What each gains",
+   "kind": "screen",
+   "palette": "aurixa",
+   "title": "Your client gains clarity and transparency",
+   "sources": [
+    "Client Portal: Reports (captures/30-portals.cjs)"
+   ],
+   "camera": "Jordan's Client Portal, Reports; in on the Snapshot.",
+   "result": "The Snapshot open in Jordan's own portal, under its Borrowing Capacity label.",
+   "on_screen": [
+    "Reports",
+    "Borrowing Capacity",
+    "Borrowing Capacity Snapshot"
+   ],
+   "notes": "The portal's dashboard draws no capacity today (PLAN.md 10.2), so the client's clarity is their report.",
+   "in": 85.1,
+   "out": 87.8,
+   "seconds": 2.7,
+   "voice_in": 78.7,
+   "voiceover": [
+    "Your client gains clarity and transparency,"
+   ],
+   "beats": [
+    {
+     "at": 85.433,
+     "anchor": {
+      "word": "client",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Jordan's Client Portal, Reports: the Snapshot, published to him under its Borrowing Capacity label."
+    },
+    {
+     "at": 86.967,
+     "anchor": {
+      "word": "transparency",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "It opens."
+    }
+   ]
+  },
+  {
+   "id": "08.2",
+   "block": "08",
+   "block_title": "What each gains",
+   "kind": "screen",
+   "palette": "aurixa",
+   "title": "And the broker gains context",
+   "sources": [
+    "Finance Portal: Jordan Ellis's profile (captures/30-portals.cjs)",
+    "G-HANDOVER"
+   ],
+   "camera": "Back in Jamie's portal, on Jordan's profile.",
+   "result": "Jordan's profile in Jamie's portal: its tabs and the assessment's inputs.",
+   "on_screen": [
+    "Jordan Ellis",
+    "Documents",
+    "Borrowing Capacity",
+    "Message Hub",
+    "Inputs used"
+   ],
+   "notes": "",
+   "in": 87.8,
+   "out": 90.3,
+   "seconds": 2.5,
+   "voice_in": 81.4,
+   "voiceover": [
+    "and the broker gains context."
+   ],
+   "beats": [
+    {
+     "at": 88.333,
+     "anchor": {
+      "word": "broker",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Jamie's portal, Jordan's profile: the sections he may see, with tabs for Documents, Borrowing Capacity and Message Hub."
+    },
+    {
+     "at": 89.267,
+     "anchor": {
+      "word": "context",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "The assessment's Inputs used, the broker's context."
+    }
+   ]
+  },
+  {
+   "id": "08.3",
+   "block": "08",
+   "block_title": "What each gains",
+   "kind": "screen",
+   "palette": "aurixa",
+   "title": "Your business gains momentum",
+   "sources": [
+    "Jordan's Deals tab: the deal's journey (captures/20-clients.cjs)"
+   ],
+   "camera": "Along the deal's journey.",
+   "result": "The deal at Advisory: Strategy agreed before anything is committed.",
+   "on_screen": [
+    "Onboarding",
+    "Advisory",
+    "Strategy agreed before anything is committed."
+   ],
+   "notes": "The Client Tracker's pipeline is a third party's, so it stays out of shot.",
+   "in": 90.3,
+   "out": 93.033,
+   "seconds": 2.733,
+   "voice_in": 83.633,
+   "voiceover": [
+    "Your business gains momentum."
+   ],
+   "beats": [
+    {
+     "at": 90.667,
+     "anchor": {
+      "word": "business",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Jordan's Deals tab: the deal's journey, at Onboarding."
+    },
+    {
+     "at": 91.633,
+     "anchor": {
+      "word": "momentum",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "It moves on to Advisory: Strategy agreed before anything is committed."
+    }
+   ]
+  },
+  {
+   "id": "09.1",
+   "block": "09",
+   "block_title": "Just the beginning",
+   "kind": "graphic",
+   "palette": "aurixa",
+   "title": "And that's just the beginning",
+   "sources": [
+    "The Command Centre",
+    "G-TILES"
+   ],
+   "camera": "A pull back to the whole Command Centre, quiet; then a hold.",
+   "result": "The Command Centre, still.",
+   "on_screen": [],
+   "notes": "The breakdown: the longest hold in the film, after the line.",
+   "in": 93.033,
+   "out": 96.767,
+   "seconds": 3.734,
+   "voice_in": 85.967,
+   "voiceover": [
+    "And that's just the beginning."
+   ],
+   "beats": [
+    {
+     "at": 93.033,
+     "anchor": {
+      "in": 0.0
+     },
+     "do": "The camera pulls back to the whole Command Centre."
+    },
+    {
+     "at": 93.933,
+     "anchor": {
+      "word": "beginning",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "It holds, quiet."
+    }
+   ]
+  },
+  {
+   "id": "09.2",
+   "block": "09",
+   "block_title": "Just the beginning",
+   "kind": "graphic",
+   "palette": "aurixa",
+   "title": "Property intelligence, financial analysis, reporting, communication and collaboration, all connected",
+   "sources": [
+    "G-TILES",
+    "the sidebar's groups"
+   ],
+   "camera": "Still; tiles fly in and dock.",
+   "result": "Five tiles docked into the sidebar's groups, all lit.",
+   "on_screen": [
+    "Property Marketplace",
+    "Cash Flow Analysis",
+    "Generated Reports",
+    "Message Hub",
+    "Finance Portal",
+    "Solicitor Portal",
+    "Accountant Portal",
+    "Client Portal"
+   ],
+   "notes": "Each tile is new to this reel. The 10-year cash flow carries the illustrative label.",
+   "in": 96.767,
+   "out": 105.1,
+   "seconds": 8.333,
+   "voice_in": 87.7,
+   "voiceover": [
+    "Property intelligence, financial analysis, professional reporting, client communication and partner collaboration are all connected,"
+   ],
+   "beats": [
+    {
+     "at": 96.933,
+     "anchor": {
+      "word": "property",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Property intelligence: Property Marketplace flies in and docks."
+    },
+    {
+     "at": 98.2,
+     "anchor": {
+      "word": "financial",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Financial analysis: Cash Flow Analysis, its 10-year cash flow."
+    },
+    {
+     "at": 100.2,
+     "anchor": {
+      "word": "reporting",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Professional reporting: Generated Reports."
+    },
+    {
+     "at": 101.533,
+     "anchor": {
+      "word": "communication",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Client communication: Message Hub."
+    },
+    {
+     "at": 103.0,
+     "anchor": {
+      "word": "collaboration",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Partner collaboration: the Finance, Solicitor, Accountant and Client portals."
+    },
+    {
+     "at": 104.267,
+     "anchor": {
+      "word": "connected",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "All connected: the groups light together."
+    }
+   ]
+  },
+  {
+   "id": "09.3",
+   "block": "09",
+   "block_title": "Just the beginning",
+   "kind": "screen",
+   "palette": "aurixa",
+   "title": "With the Aurixa Agent in your arsenal",
+   "sources": [
+    "agent-launcher",
+    "agent-card",
+    "agent-approved (captures/40-agent.cjs)",
+    "KIT pointer"
+   ],
+   "camera": "The launcher, then the panel; in on the card; the press.",
+   "result": "The professional's go-ahead given; the act done.",
+   "on_screen": [
+    "Aurixa",
+    "Needs your go-ahead",
+    "Give a finance partner a client",
+    "Jamie Chen",
+    "Jordan Ellis",
+    "Approve",
+    "Aurixa may make mistakes"
+   ],
+   "notes": "The agent as the product shows it, and a person approves its act (guardrail 7). Aurixa may make mistakes stays in shot.",
+   "in": 105.1,
+   "out": 111.633,
+   "seconds": 6.533,
+   "voice_in": 96.033,
+   "voiceover": [
+    "with the Aurixa Agent in your arsenal supporting you wherever your business takes you."
+   ],
+   "beats": [
+    {
+     "at": 106.2,
+     "anchor": {
+      "word": "agent",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "The Aurixa Agent: the launcher, then the panel headed Aurixa."
+    },
+    {
+     "at": 106.9,
+     "anchor": {
+      "word": "arsenal",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Aurixa prepares the act and asks first: Needs your go-ahead, Give a finance partner a client, Jamie Chen and Jordan Ellis."
+    },
+    {
+     "at": 107.7,
+     "anchor": {
+      "word": "supporting",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "The professional presses Approve."
+    },
+    {
+     "at": 109.7,
+     "anchor": {
+      "word": "takes",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "The act's own words: Jamie Chen assigned with default permissions; Aurixa may make mistakes stays in shot."
+    }
+   ]
+  },
+  {
+   "id": "10.1",
+   "block": "10",
+   "block_title": "What it means",
+   "kind": "graphic",
+   "palette": "aurixa",
+   "title": "Less administration, faster answers, smarter collaboration, more opportunities",
+   "sources": [
+    "G-MEANS"
+   ],
+   "camera": "Still; each phrase arrives on its word, with its callback.",
+   "result": "The four phrases set, the keys building under them.",
+   "on_screen": [
+    "Less administration",
+    "Faster answers",
+    "Smarter collaboration",
+    "More opportunities to deliver results"
+   ],
+   "notes": "On the track's stop, its bass hit. No captions over the four phrases: they are the type.",
+   "in": 111.633,
+   "out": 120.933,
+   "seconds": 9.3,
+   "voice_in": 101.433,
+   "voiceover": [
+    "This means less administration, faster answers, smarter collaboration, more opportunities to deliver results."
+   ],
+   "beats": [
+    {
+     "at": 112.367,
+     "anchor": {
+      "word": "less",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Less administration, with the fact find behind it."
+    },
+    {
+     "at": 114.2,
+     "anchor": {
+      "word": "faster",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Faster answers, with the capacity figure."
+    },
+    {
+     "at": 115.733,
+     "anchor": {
+      "word": "smarter",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Smarter collaboration, with the Finance Portal."
+    },
+    {
+     "at": 117.6,
+     "anchor": {
+      "word": "more",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "More opportunities to deliver results, with the Snapshot."
+    }
+   ]
+  },
+  {
+   "id": "11.1",
+   "block": "11",
+   "block_title": "Arrived",
+   "kind": "logo",
+   "palette": "aurixa",
+   "title": "Aurixa Systems has arrived",
+   "sources": [
+    "Reel 1 logo take B (the living logo)",
+    "logo-clean",
+    "logo-letters"
+   ],
+   "camera": "The logo's own footage, full frame.",
+   "result": "The lockup, with Built by property professionals for property professionals under it.",
+   "on_screen": [
+    "AURIXA SYSTEMS",
+    "Built by property professionals for property professionals."
+   ],
+   "notes": "On the first bar of the track's biggest section. The line under the lockup is the type, so no captions.",
+   "in": 120.933,
+   "out": 127.933,
+   "seconds": 7.0,
+   "voice_in": 109.633,
+   "voiceover": [
+    "Aurixa Systems has arrived and has been built by property professionals for property professionals."
+   ],
+   "beats": [
+    {
+     "at": 121.1,
+     "anchor": {
+      "word": "aurixa",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "The logo arrives at the viewer: Reel 1's living logo footage, its lettering exact."
+    },
+    {
+     "at": 123.733,
+     "anchor": {
+      "word": "built",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Built by property professionals for property professionals settles under the lockup."
+    }
+   ]
+  },
+  {
+   "id": "12.1",
+   "block": "12",
+   "block_title": "The free trial",
+   "kind": "graphic",
+   "palette": "aurixa",
+   "title": "Experience the difference with a 14-day free trial",
+   "sources": [
+    "G-CTA",
+    "KIT pointer"
+   ],
+   "camera": "Still, but alive: the button's light breathes on the bars.",
+   "result": "START YOUR FREE TRIAL, pressed.",
+   "on_screen": [
+    "14-DAY FREE TRIAL",
+    "START YOUR FREE TRIAL"
+   ],
+   "notes": "Reel 1's living call to action.",
+   "in": 127.933,
+   "out": 132.0,
+   "seconds": 4.067,
+   "voice_in": 116.0,
+   "voiceover": [
+    "Experience the difference with a 14-day free trial."
+   ],
+   "beats": [
+    {
+     "at": 128.1,
+     "anchor": {
+      "word": "experience",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "The living call to action: 14-DAY FREE TRIAL, the button's gradient breathing on the bars."
+    },
+    {
+     "at": 129.6,
+     "anchor": {
+      "word": "14day",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "The pointer presses START YOUR FREE TRIAL."
+    }
+   ]
+  },
+  {
+   "id": "13.1",
+   "block": "13",
+   "block_title": "Your decision",
+   "kind": "graphic",
+   "palette": "aurixa",
+   "title": "Your business, your experience, your decision",
+   "sources": [
+    "the statements"
+   ],
+   "camera": "The film's own screens drift behind, dimmed.",
+   "result": "Your decision.",
+   "on_screen": [
+    "Your business.",
+    "Your experience.",
+    "Your decision."
+   ],
+   "notes": "Three statements, one to a hit, each alone in the frame. No captions over them: they are the type.",
+   "in": 132.0,
+   "out": 137.7,
+   "seconds": 5.7,
+   "voice_in": 119.433,
+   "voiceover": [
+    "Your business, your experience, your decision."
+   ],
+   "beats": [
+    {
+     "at": 132.167,
+     "anchor": {
+      "word": "your",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Your business."
+    },
+    {
+     "at": 134.0,
+     "anchor": {
+      "word": "your",
+      "n": 1,
+      "d": 0.0
+     },
+     "do": "Your experience."
+    },
+    {
+     "at": 135.867,
+     "anchor": {
+      "word": "your",
+      "n": 2,
+      "d": 0.0
+     },
+     "do": "Your decision."
+    }
+   ]
+  },
+  {
+   "id": "14.1",
+   "block": "14",
+   "block_title": "The closing card",
+   "kind": "graphic",
+   "palette": "aurixa",
+   "title": "Aurixa Systems, and the trial: the last word",
+   "sources": [
+    "PL-15A",
+    "G-CTA",
+    "KIT pointer"
+   ],
+   "camera": "Still, but alive: the card's own light moves on the music's bars.",
+   "result": "The closing card, pressed on the last hit, held through the music's ring.",
+   "on_screen": [
+    "AURIXA SYSTEMS",
+    "The operating system for modern property professionals.",
+    "14-DAY FREE TRIAL",
+    "START YOUR FREE TRIAL",
+    "aurixasystems.com.au"
+   ],
+   "notes": "Reel 1's closing card, the series' signature. No captions over it.",
+   "in": 137.7,
+   "out": 147.167,
+   "seconds": 9.467,
+   "voice_in": 123.1,
+   "voiceover": [
+    "Aurixa Systems, the operating system for modern property professionals. Start your free trial today."
+   ],
+   "beats": [
+    {
+     "at": 137.7,
+     "anchor": {
+      "in": 0.0
+     },
+     "do": "As the music returns the closing card slams in: a flash, the logo landing with its shock ring, the card's gold lines drawing out."
+    },
+    {
+     "at": 139.6,
+     "anchor": {
+      "word": "operating",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "Light runs round the card's edge; the line shimmers."
+    },
+    {
+     "at": 143.2,
+     "anchor": {
+      "word": "start",
+      "n": 0,
+      "d": 0.0
+     },
+     "do": "As Start your free trial today is said, the pointer arrives and the button rises under it."
+    },
+    {
+     "at": 144.933,
+     "anchor": {
+      "word": "today",
+      "n": 0,
+      "d": 0.6
+     },
+     "do": "The press: a burst from the button, a ring across the card; then everything holds through the ring."
+    }
+   ]
+  }
+ ],
+ "captions": [
+  {
+   "text": "Your client has found the property.",
+   "emphasis": "found the property.",
+   "start": 0.4,
+   "end": 2.236,
+   "voice_start": 0.0,
+   "voice_end": 1.836
+  },
+  {
+   "text": "The big question?",
+   "emphasis": "big question?",
+   "start": 2.925,
+   "end": 3.696,
+   "voice_start": 2.258,
+   "voice_end": 3.029
+  },
+  {
+   "text": "Can they afford it?",
+   "emphasis": "afford it?",
+   "start": 4.333,
+   "end": 5.482,
+   "voice_start": 3.366,
+   "voice_end": 4.515
+  },
+  {
+   "text": "Traditionally, answering that means",
+   "emphasis": "Traditionally,",
+   "start": 6.263,
+   "end": 8.213,
+   "voice_start": 4.93,
+   "voice_end": 6.88
+  },
+  {
+   "text": "chasing documents,",
+   "emphasis": "chasing documents,",
+   "start": 8.213,
+   "end": 9.413,
+   "voice_start": 6.88,
+   "voice_end": 8.08
+  },
+  {
+   "text": "juggling spreadsheets,",
+   "emphasis": "spreadsheets,",
+   "start": 9.413,
+   "end": 10.933,
+   "voice_start": 8.08,
+   "voice_end": 9.6
+  },
+  {
+   "text": "and waiting on internal teams",
+   "emphasis": "waiting",
+   "start": 10.933,
+   "end": 12.613,
+   "voice_start": 9.6,
+   "voice_end": 11.28
+  },
+  {
+   "text": "and external partners.",
+   "emphasis": "external partners.",
+   "start": 12.613,
+   "end": 13.89,
+   "voice_start": 11.28,
+   "voice_end": 12.557
+  },
+  {
+   "text": "With Aurixa Systems,",
+   "emphasis": "Aurixa Systems,",
+   "start": 15.0,
+   "end": 16.395,
+   "voice_start": 12.8,
+   "voice_end": 14.195
+  },
+  {
+   "text": "everything changes.",
+   "emphasis": "everything changes.",
+   "start": 16.96,
+   "end": 18.018,
+   "voice_start": 14.56,
+   "voice_end": 15.618
+  },
+  {
+   "text": "One simple client questionnaire",
+   "emphasis": "questionnaire",
+   "start": 18.784,
+   "end": 20.733,
+   "voice_start": 16.051,
+   "voice_end": 18.0
+  },
+  {
+   "text": "captures and organises their information,",
+   "emphasis": "captures and organises",
+   "start": 20.733,
+   "end": 23.293,
+   "voice_start": 18.0,
+   "voice_end": 20.56
+  },
+  {
+   "text": "seamlessly populating their client card.",
+   "emphasis": "client card.",
+   "start": 23.293,
+   "end": 25.524,
+   "voice_start": 20.56,
+   "voice_end": 22.791
+  },
+  {
+   "text": "Now, here's where speed meets opportunity.",
+   "emphasis": "speed meets opportunity.",
+   "start": 26.225,
+   "end": 28.853,
+   "voice_start": 23.258,
+   "voice_end": 25.886
+  },
+  {
+   "text": "With just one click,",
+   "emphasis": "one click,",
+   "start": 29.949,
+   "end": 31.12,
+   "voice_start": 26.349,
+   "voice_end": 27.52
+  },
+  {
+   "text": "Aurixa turns client information into magic,",
+   "emphasis": "magic,",
+   "start": 31.12,
+   "end": 34.074,
+   "voice_start": 27.52,
+   "voice_end": 30.474
+  },
+  {
+   "text": "where one aspect allows you to obtain",
+   "emphasis": "obtain",
+   "start": 34.467,
+   "end": 36.48,
+   "voice_start": 30.867,
+   "voice_end": 32.88
+  },
+  {
+   "text": "an indicative borrowing capacity assessment,",
+   "emphasis": "borrowing capacity",
+   "start": 36.48,
+   "end": 39.2,
+   "voice_start": 32.88,
+   "voice_end": 35.6
+  },
+  {
+   "text": "revealing estimated purchasing power,",
+   "emphasis": "purchasing power,",
+   "start": 39.2,
+   "end": 41.52,
+   "voice_start": 35.6,
+   "voice_end": 37.92
+  },
+  {
+   "text": "deposit requirements,",
+   "emphasis": "deposit requirements,",
+   "start": 41.52,
+   "end": 42.96,
+   "voice_start": 37.92,
+   "voice_end": 39.36
+  },
+  {
+   "text": "financial commitments,",
+   "emphasis": "financial commitments,",
+   "start": 42.96,
+   "end": 44.32,
+   "voice_start": 39.36,
+   "voice_end": 40.72
+  },
+  {
+   "text": "and key considerations",
+   "emphasis": "key considerations",
+   "start": 44.32,
+   "end": 45.864,
+   "voice_start": 40.72,
+   "voice_end": 42.264
+  },
+  {
+   "text": "tailored to their specific circumstances.",
+   "emphasis": "specific circumstances.",
+   "start": 46.048,
+   "end": 48.487,
+   "voice_start": 42.448,
+   "voice_end": 44.887
+  },
+  {
+   "text": "From information to financial insight",
+   "emphasis": "financial insight",
+   "start": 49.456,
+   "end": 51.86,
+   "voice_start": 45.356,
+   "voice_end": 47.76
+  },
+  {
+   "text": "in moments.",
+   "emphasis": "in moments.",
+   "start": 51.86,
+   "end": 52.684,
+   "voice_start": 47.76,
+   "voice_end": 48.584
+  },
+  {
+   "text": "And why stop there?",
+   "emphasis": "stop there?",
+   "start": 53.403,
+   "end": 54.362,
+   "voice_start": 49.036,
+   "voice_end": 49.995
+  },
+  {
+   "text": "Bring their chosen property into focus.",
+   "emphasis": "chosen property",
+   "start": 55.081,
+   "end": 57.142,
+   "voice_start": 50.448,
+   "voice_end": 52.509
+  },
+  {
+   "text": "Adjust deposits,",
+   "emphasis": "deposits,",
+   "start": 57.837,
+   "end": 59.06,
+   "voice_start": 52.937,
+   "voice_end": 54.16
+  },
+  {
+   "text": "explore financial structures,",
+   "emphasis": "financial structures,",
+   "start": 59.06,
+   "end": 60.9,
+   "voice_start": 54.16,
+   "voice_end": 56.0
+  },
+  {
+   "text": "model purchasing scenarios,",
+   "emphasis": "scenarios,",
+   "start": 60.9,
+   "end": 62.98,
+   "voice_start": 56.0,
+   "voice_end": 58.08
+  },
+  {
+   "text": "and generate professional reports",
+   "emphasis": "professional reports",
+   "start": 62.98,
+   "end": 64.74,
+   "voice_start": 58.08,
+   "voice_end": 59.84
+  },
+  {
+   "text": "that turn numbers into meaningful decisions.",
+   "emphasis": "meaningful decisions.",
+   "start": 64.74,
+   "end": 67.381,
+   "voice_start": 59.84,
+   "voice_end": 62.481
+  },
+  {
+   "text": "Ready for the next step?",
+   "emphasis": "next step?",
+   "start": 68.149,
+   "end": 69.222,
+   "voice_start": 62.949,
+   "voice_end": 64.022
+  },
+  {
+   "text": "One click,",
+   "emphasis": "One click,",
+   "start": 69.948,
+   "end": 70.653,
+   "voice_start": 64.448,
+   "voice_end": 65.153
+  },
+  {
+   "text": "one connected handover.",
+   "emphasis": "connected handover.",
+   "start": 70.906,
+   "end": 72.332,
+   "voice_start": 65.406,
+   "voice_end": 66.832
+  },
+  {
+   "text": "Share assessments and scenarios",
+   "emphasis": "assessments and scenarios",
+   "start": 73.2,
+   "end": 75.02,
+   "voice_start": 67.3,
+   "voice_end": 69.12
+  },
+  {
+   "text": "directly with yours or their",
+   "emphasis": "directly",
+   "start": 75.02,
+   "end": 76.78,
+   "voice_start": 69.12,
+   "voice_end": 70.88
+  },
+  {
+   "text": "allocated finance broker",
+   "emphasis": "finance broker",
+   "start": 76.78,
+   "end": 78.38,
+   "voice_start": 70.88,
+   "voice_end": 72.48
+  },
+  {
+   "text": "through Aurixa's partner portal,",
+   "emphasis": "partner portal,",
+   "start": 78.38,
+   "end": 80.38,
+   "voice_start": 72.48,
+   "voice_end": 74.48
+  },
+  {
+   "text": "enabling professional review",
+   "emphasis": "professional review",
+   "start": 80.38,
+   "end": 82.06,
+   "voice_start": 74.48,
+   "voice_end": 76.16
+  },
+  {
+   "text": "without repeating the entire process.",
+   "emphasis": "without repeating",
+   "start": 82.06,
+   "end": 84.326,
+   "voice_start": 76.16,
+   "voice_end": 78.426
+  },
+  {
+   "text": "Your client gains clarity and transparency,",
+   "emphasis": "clarity and transparency,",
+   "start": 85.272,
+   "end": 87.79,
+   "voice_start": 78.872,
+   "voice_end": 81.39
+  },
+  {
+   "text": "and the broker gains context.",
+   "emphasis": "context.",
+   "start": 88.08,
+   "end": 89.809,
+   "voice_start": 81.68,
+   "voice_end": 83.409
+  },
+  {
+   "text": "Your business gains momentum.",
+   "emphasis": "momentum.",
+   "start": 90.475,
+   "end": 92.303,
+   "voice_start": 83.808,
+   "voice_end": 85.636
+  },
+  {
+   "text": "And that's just the beginning.",
+   "emphasis": "the beginning.",
+   "start": 93.189,
+   "end": 94.467,
+   "voice_start": 86.122,
+   "voice_end": 87.4
+  },
+  {
+   "text": "Property intelligence,",
+   "emphasis": "Property intelligence,",
+   "start": 96.921,
+   "end": 98.187,
+   "voice_start": 87.854,
+   "voice_end": 89.12
+  },
+  {
+   "text": "financial analysis,",
+   "emphasis": "financial analysis,",
+   "start": 98.187,
+   "end": 99.547,
+   "voice_start": 89.12,
+   "voice_end": 90.48
+  },
+  {
+   "text": "professional reporting,",
+   "emphasis": "professional reporting,",
+   "start": 99.547,
+   "end": 100.987,
+   "voice_start": 90.48,
+   "voice_end": 91.92
+  },
+  {
+   "text": "client communication",
+   "emphasis": "client communication",
+   "start": 100.987,
+   "end": 102.187,
+   "voice_start": 91.92,
+   "voice_end": 93.12
+  },
+  {
+   "text": "and partner collaboration",
+   "emphasis": "partner collaboration",
+   "start": 102.347,
+   "end": 103.867,
+   "voice_start": 93.28,
+   "voice_end": 94.8
+  },
+  {
+   "text": "are all connected,",
+   "emphasis": "all connected,",
+   "start": 103.867,
+   "end": 105.227,
+   "voice_start": 94.8,
+   "voice_end": 96.16
+  },
+  {
+   "text": "with the Aurixa Agent in your arsenal",
+   "emphasis": "Aurixa Agent",
+   "start": 105.227,
+   "end": 107.707,
+   "voice_start": 96.16,
+   "voice_end": 98.64
+  },
+  {
+   "text": "supporting you wherever your business takes you.",
+   "emphasis": "wherever",
+   "start": 107.707,
+   "end": 110.161,
+   "voice_start": 98.64,
+   "voice_end": 101.094
+  },
+  {
+   "text": "Experience the difference",
+   "emphasis": "difference",
+   "start": 128.085,
+   "end": 129.293,
+   "voice_start": 116.152,
+   "voice_end": 117.36
+  },
+  {
+   "text": "with a 14-day free trial.",
+   "emphasis": "14-day free trial.",
+   "start": 129.293,
+   "end": 131.097,
+   "voice_start": 117.36,
+   "voice_end": 119.164
+  }
+ ]
+}

@@ -1,0 +1,9871 @@
+{
+ "note": "Written by scripts/aurixa-reel-3/assets.py from the screens harness's captures and the Snapshot's pages: each picture's file in the assets folder, its size in the product's CSS px (a Snapshot page's in PDF points), the device scale it was drawn at, and the regions measured on it.",
+ "avoid": [
+  {
+   "page": 2,
+   "word": "what someone can borrow",
+   "text": "has an estimated maximum borrowing capacity",
+   "pt": [
+    51.02,
+    197.92,
+    508.08,
+    227.92
+   ],
+   "frac": [
+    0.08571,
+    0.23509,
+    0.85352,
+    0.27072
+   ],
+   "px": [
+    212,
+    824,
+    2118,
+    950
+   ],
+   "in": "s01.p1",
+   "why": "states what the client can borrow (as an estimate); the plan's check says no line that says what someone can borrow",
+   "lines": [
+    {
+     "pt": [
+      361.41,
+      197.92,
+      508.08,
+      210.42
+     ],
+     "frac": [
+      0.60713,
+      0.23509,
+      0.85352,
+      0.24993
+     ],
+     "px": [
+      1505,
+      824,
+      2118,
+      877
+     ]
+    },
+    {
+     "pt": [
+      51.02,
+      215.42,
+      153.04,
+      227.92
+     ],
+     "frac": [
+      0.08571,
+      0.25587,
+      0.2571,
+      0.27072
+     ],
+     "px": [
+      212,
+      897,
+      638,
+      950
+     ]
+    }
+   ]
+  },
+  {
+   "page": 2,
+   "word": "Serviceability",
+   "text": "Serviceability",
+   "pt": [
+    261.79,
+    232.92,
+    334.88,
+    245.42
+   ],
+   "frac": [
+    0.43978,
+    0.27666,
+    0.56255,
+    0.29151
+   ],
+   "px": [
+    1090,
+    970,
+    1396,
+    1023
+   ],
+   "in": "s01.p1",
+   "why": "near the forbidden 'Serviceable' (same stem); the product's own term for the band, and a column header"
+  },
+  {
+   "page": 2,
+   "word": "what someone can borrow",
+   "text": "The proposed loan of $920,000 is 88% of the assessed capacity and falls within the limit.",
+   "pt": [
+    51.02,
+    250.42,
+    541.6,
+    280.42
+   ],
+   "frac": [
+    0.08571,
+    0.29745,
+    0.90984,
+    0.33308
+   ],
+   "px": [
+    212,
+    1043,
+    2257,
+    1169
+   ],
+   "in": "s01.p1",
+   "why": "says the proposed loan is within what the client can borrow",
+   "lines": [
+    {
+     "pt": [
+      162.81,
+      250.42,
+      541.6,
+      262.92
+     ],
+     "frac": [
+      0.2735,
+      0.29745,
+      0.90984,
+      0.31229
+     ],
+     "px": [
+      678,
+      1043,
+      2257,
+      1096
+     ]
+    },
+    {
+     "pt": [
+      51.02,
+      267.92,
+      136.25,
+      280.42
+     ],
+     "frac": [
+      0.08571,
+      0.31823,
+      0.22888,
+      0.33308
+     ],
+     "px": [
+      212,
+      1116,
+      568,
+      1169
+     ]
+    }
+   ]
+  },
+  {
+   "page": 2,
+   "word": "Serviceability",
+   "text": "SERVICEABILITY",
+   "pt": [
+    393.84,
+    314.74,
+    474.33,
+    322.24
+   ],
+   "frac": [
+    0.66161,
+    0.37384,
+    0.79682,
+    0.38275
+   ],
+   "px": [
+    1641,
+    1311,
+    1977,
+    1343
+   ],
+   "in": "s01.kpi.serviceability.label",
+   "why": "near the forbidden 'Serviceable' (same stem); the product's own term for the band, and a column header"
+  },
+  {
+   "page": 3,
+   "word": "employer name",
+   "text": "Primary Corrowen Engineering Pty Ltd",
+   "pt": [
+    51.02,
+    261.62,
+    224.71,
+    271.12
+   ],
+   "frac": [
+    0.08571,
+    0.31075,
+    0.37749,
+    0.32203
+   ],
+   "px": [
+    212,
+    1090,
+    937,
+    1130
+   ],
+   "in": "s02.t.income-before-and-after-shading.r0.c0",
+   "row": "s02.t.income-before-and-after-shading.r0",
+   "why": "a company name on screen: the fact find's employer (fictional; renamed from a real firm's name)"
+  },
+  {
+   "page": 4,
+   "word": "buying advice",
+   "text": "proceed towards a purchase",
+   "pt": [
+    228.48,
+    578.19,
+    356.74,
+    587.69
+   ],
+   "frac": [
+    0.38383,
+    0.68677,
+    0.59928,
+    0.69806
+   ],
+   "px": [
+    952,
+    2409,
+    1487,
+    2449
+   ],
+   "in": "s03.list1.item1",
+   "why": "tells the client to buy"
+  },
+  {
+   "page": 4,
+   "word": "buying advice",
+   "text": "plan a further acquisition",
+   "pt": [
+    269.06,
+    597.7,
+    380.65,
+    607.2
+   ],
+   "frac": [
+    0.45199,
+    0.70995,
+    0.63945,
+    0.72123
+   ],
+   "px": [
+    1121,
+    2490,
+    1587,
+    2530
+   ],
+   "in": "s03.list1.item2",
+   "why": "tells the client to buy again"
+  },
+  {
+   "page": 5,
+   "word": "employer name",
+   "text": "Primary Corrowen Engineering Pty Ltd",
+   "pt": [
+    51.02,
+    355.65,
+    139.65,
+    380.16
+   ],
+   "frac": [
+    0.08571,
+    0.42244,
+    0.2346,
+    0.45155
+   ],
+   "px": [
+    212,
+    1481,
+    582,
+    1584
+   ],
+   "in": "s04.t.audit-trail.r0.c0",
+   "row": "s04.t.audit-trail.r0",
+   "why": "a company name on screen: the fact find's employer (fictional; renamed from a real firm's name)",
+   "lines": [
+    {
+     "pt": [
+      51.02,
+      355.65,
+      133.55,
+      365.15
+     ],
+     "frac": [
+      0.08571,
+      0.42244,
+      0.22434,
+      0.43372
+     ],
+     "px": [
+      212,
+      1481,
+      557,
+      1522
+     ]
+    },
+    {
+     "pt": [
+      51.02,
+      370.66,
+      139.65,
+      380.16
+     ],
+     "frac": [
+      0.08571,
+      0.44027,
+      0.2346,
+      0.45155
+     ],
+     "px": [
+      212,
+      1544,
+      582,
+      1584
+     ]
+    }
+   ]
+  },
+  {
+   "page": 6,
+   "word": "APRA",
+   "text": "APRA",
+   "pt": [
+    413.55,
+    224.87,
+    438.84,
+    234.37
+   ],
+   "frac": [
+    0.69472,
+    0.2671,
+    0.73721,
+    0.27838
+   ],
+   "px": [
+    1723,
+    936,
+    1829,
+    977
+   ],
+   "in": "s05.t.on-what-basis.r0.c1",
+   "row": "s05.t.on-what-basis.r0",
+   "why": "names the regulator (the film shows no 'APRA')"
+  },
+  {
+   "page": 6,
+   "word": "Serviceability",
+   "text": "serviceability",
+   "pt": [
+    441.4,
+    224.87,
+    501.03,
+    234.37
+   ],
+   "frac": [
+    0.74151,
+    0.2671,
+    0.84167,
+    0.27838
+   ],
+   "px": [
+    1839,
+    936,
+    2088,
+    977
+   ],
+   "in": "s05.t.on-what-basis.r0.c1",
+   "row": "s05.t.on-what-basis.r0",
+   "why": "near the forbidden 'Serviceable' (same stem); the product's own term for the band, and a column header"
+  },
+  {
+   "page": 6,
+   "word": "Serviceability",
+   "text": "Serviceability",
+   "pt": [
+    51.02,
+    254.18,
+    112.89,
+    263.68
+   ],
+   "frac": [
+    0.08571,
+    0.30191,
+    0.18965,
+    0.3132
+   ],
+   "px": [
+    212,
+    1059,
+    471,
+    1099
+   ],
+   "in": "s05.t.on-what-basis.r1.c0",
+   "row": "s05.t.on-what-basis.r1",
+   "why": "near the forbidden 'Serviceable' (same stem); the product's own term for the band, and a column header"
+  },
+  {
+   "page": 7,
+   "word": "Serviceability",
+   "text": "SERVICEABILITY",
+   "pt": [
+    372.16,
+    234.72,
+    452.64,
+    242.22
+   ],
+   "frac": [
+    0.62518,
+    0.2788,
+    0.76039,
+    0.28771
+   ],
+   "px": [
+    1550,
+    977,
+    1887,
+    1010
+   ],
+   "in": "s06.t.modelled-scenarios.head.c3",
+   "why": "near the forbidden 'Serviceable' (same stem); the product's own term for the band, and a column header"
+  },
+  {
+   "page": 7,
+   "word": "what someone can buy",
+   "text": "up to $1,281,859, which clears the $1,150,000 target",
+   "pt": [
+    280.95,
+    468.02,
+    524.74,
+    477.52
+   ],
+   "frac": [
+    0.47196,
+    0.55591,
+    0.88151,
+    0.5672
+   ],
+   "px": [
+    1170,
+    1950,
+    2187,
+    1990
+   ],
+   "in": "s06.t.what-each-scenario-involves.r0.c2",
+   "row": "s06.t.what-each-scenario-involves.r0",
+   "why": "states the client's purchase power against the purchase target"
+  },
+  {
+   "page": 7,
+   "word": "what someone can buy",
+   "text": "up to $1,339,847, which clears the $1,150,000 target",
+   "pt": [
+    280.95,
+    615.28,
+    524.74,
+    624.78
+   ],
+   "frac": [
+    0.47196,
+    0.73083,
+    0.88151,
+    0.74211
+   ],
+   "px": [
+    1170,
+    2563,
+    2187,
+    2604
+   ],
+   "in": "s06.t.what-each-scenario-involves.r4.c2",
+   "row": "s06.t.what-each-scenario-involves.r4",
+   "why": "states the client's purchase power against the purchase target",
+   "note": "known product defect: this purchase power counts the $18,000 car loan payoff twice (being fixed elsewhere)"
+  },
+  {
+   "page": 8,
+   "word": "what someone can buy",
+   "text": "up to $1,212,641, which clears the $1,150,000 target",
+   "pt": [
+    280.95,
+    111.26,
+    524.74,
+    120.76
+   ],
+   "frac": [
+    0.47196,
+    0.13216,
+    0.88151,
+    0.14344
+   ],
+   "px": [
+    1170,
+    463,
+    2187,
+    504
+   ],
+   "in": "s06.t.what-each-scenario-involves.r8.c2",
+   "row": "s06.t.what-each-scenario-involves.r8",
+   "why": "states the client's purchase power against the purchase target"
+  },
+  {
+   "page": 9,
+   "word": "guarantee",
+   "text": "guaranteed",
+   "pt": [
+    62.36,
+    178.92,
+    519.61,
+    198.92
+   ],
+   "frac": [
+    0.10476,
+    0.21253,
+    0.8729,
+    0.23628
+   ],
+   "px": [
+    259,
+    745,
+    2166,
+    829
+   ],
+   "in": "closing.disclaimer",
+   "why": "guarantee word (here: accuracy cannot be guaranteed)",
+   "lines": [
+    {
+     "pt": [
+      493.27,
+      178.92,
+      519.61,
+      186.92
+     ],
+     "frac": [
+      0.82864,
+      0.21253,
+      0.8729,
+      0.22203
+     ],
+     "px": [
+      2055,
+      745,
+      2166,
+      779
+     ]
+    },
+    {
+     "pt": [
+      62.36,
+      190.92,
+      79.13,
+      198.92
+     ],
+     "frac": [
+      0.10476,
+      0.22678,
+      0.13293,
+      0.23628
+     ],
+     "px": [
+      259,
+      795,
+      330,
+      829
+     ]
+    }
+   ]
+  }
+ ],
+ "screens": {
+  "agent-approved": {
+   "file": "r3-agent-approved.png",
+   "css": [
+    1440,
+    1000
+   ],
+   "scale": 3,
+   "regions": {
+    "panel": [
+     980,
+     12,
+     448,
+     976
+    ],
+    "header": [
+     981,
+     13,
+     446,
+     63.88
+    ],
+    "title": [
+     1049.25,
+     27.06,
+     159.75,
+     18.75
+    ],
+    "status": [
+     1049.25,
+     45.81,
+     159.75,
+     16
+    ],
+    "composer": [
+     981,
+     846.5,
+     446,
+     140.5
+    ],
+    "placeholder": [
+     1041,
+     900,
+     259.33,
+     48
+    ],
+    "mistakes": [
+     1294.45,
+     960,
+     116.55,
+     15
+    ],
+    "presence": [
+     1005.13,
+     36.16,
+     22,
+     22
+    ],
+    "trace": [
+     1029,
+     121.88,
+     382,
+     24.03
+    ],
+    "reply": [
+     1029,
+     153.91,
+     382,
+     68.25
+    ],
+    "card": [
+     1029,
+     263.75,
+     382,
+     361.38
+    ],
+    "cardHeading": [
+     1064,
+     274.75,
+     68.92,
+     16.5
+    ],
+    "cardTitle": [
+     1076,
+     299.25,
+     322,
+     17.88
+    ],
+    "cardDetail": [
+     1076,
+     317.13,
+     322,
+     18
+    ],
+    "cardLines": [
+     1076,
+     339.13,
+     322,
+     234
+    ],
+    "jamieChen": [
+     1143.78,
+     318.13,
+     60.5,
+     16
+    ],
+    "jordanEllis": [
+     1076,
+     318.13,
+     58.63,
+     16
+    ],
+    "partnerLine": [
+     1076,
+     340.13,
+     115.2,
+     16
+    ],
+    "approvedFooter": [
+     1030,
+     591.13,
+     380,
+     33
+    ],
+    "resultTrace": [
+     1029,
+     641.13,
+     382,
+     24.03
+    ],
+    "result": [
+     1029,
+     673.16,
+     382,
+     45.5
+    ],
+    "followUps": [
+     1029,
+     762.25,
+     382,
+     68.38
+    ]
+   },
+   "from": "caps-agent"
+  },
+  "agent-approved-panel": {
+   "file": "r3-agent-approved-panel.png",
+   "css": [
+    448,
+    976
+   ],
+   "scale": 3,
+   "regions": {
+    "panel": [
+     0,
+     0,
+     448,
+     976
+    ],
+    "header": [
+     1,
+     1,
+     446,
+     63.88
+    ],
+    "title": [
+     69.25,
+     15.06,
+     159.75,
+     18.75
+    ],
+    "status": [
+     69.25,
+     33.81,
+     159.75,
+     16
+    ],
+    "composer": [
+     1,
+     834.5,
+     446,
+     140.5
+    ],
+    "placeholder": [
+     61,
+     888,
+     259.33,
+     48
+    ],
+    "mistakes": [
+     314.45,
+     948,
+     116.55,
+     15
+    ],
+    "presence": [
+     25.13,
+     24.16,
+     22,
+     22
+    ],
+    "trace": [
+     49,
+     109.88,
+     382,
+     24.03
+    ],
+    "reply": [
+     49,
+     141.91,
+     382,
+     68.25
+    ],
+    "card": [
+     49,
+     251.75,
+     382,
+     361.38
+    ],
+    "cardHeading": [
+     84,
+     262.75,
+     68.92,
+     16.5
+    ],
+    "cardTitle": [
+     96,
+     287.25,
+     322,
+     17.88
+    ],
+    "cardDetail": [
+     96,
+     305.13,
+     322,
+     18
+    ],
+    "cardLines": [
+     96,
+     327.13,
+     322,
+     234
+    ],
+    "jamieChen": [
+     163.78,
+     306.13,
+     60.5,
+     16
+    ],
+    "jordanEllis": [
+     96,
+     306.13,
+     58.63,
+     16
+    ],
+    "partnerLine": [
+     96,
+     328.13,
+     115.2,
+     16
+    ],
+    "approvedFooter": [
+     50,
+     579.13,
+     380,
+     33
+    ],
+    "resultTrace": [
+     49,
+     629.13,
+     382,
+     24.03
+    ],
+    "result": [
+     49,
+     661.16,
+     382,
+     45.5
+    ],
+    "followUps": [
+     49,
+     750.25,
+     382,
+     68.38
+    ]
+   },
+   "from": "caps-agent"
+  },
+  "agent-card": {
+   "file": "r3-agent-card.png",
+   "css": [
+    1440,
+    1000
+   ],
+   "scale": 3,
+   "regions": {
+    "panel": [
+     980,
+     12,
+     448,
+     976
+    ],
+    "header": [
+     981,
+     13,
+     446,
+     63.88
+    ],
+    "title": [
+     1049.25,
+     27.06,
+     159.75,
+     18.75
+    ],
+    "status": [
+     1049.25,
+     45.81,
+     159.75,
+     16
+    ],
+    "composer": [
+     981,
+     846.5,
+     446,
+     140.5
+    ],
+    "placeholder": [
+     1041,
+     900,
+     259.33,
+     48
+    ],
+    "mistakes": [
+     1294.45,
+     960,
+     116.55,
+     15
+    ],
+    "presence": [
+     1005.13,
+     36.16,
+     22,
+     22
+    ],
+    "ask": [
+     1046.69,
+     92.88,
+     364.31,
+     60
+    ],
+    "trace": [
+     1029,
+     168.88,
+     382,
+     24.03
+    ],
+    "reply": [
+     1029,
+     200.91,
+     382,
+     68.25
+    ],
+    "card": [
+     1029,
+     310.75,
+     382,
+     381.38
+    ],
+    "cardHeading": [
+     1064,
+     321.75,
+     156.05,
+     16.5
+    ],
+    "cardTitle": [
+     1076,
+     346.25,
+     322,
+     17.88
+    ],
+    "cardDetail": [
+     1076,
+     364.13,
+     322,
+     18
+    ],
+    "cardLines": [
+     1076,
+     386.13,
+     322,
+     234
+    ],
+    "jamieChen": [
+     1143.78,
+     365.13,
+     60.5,
+     16
+    ],
+    "jordanEllis": [
+     1076,
+     365.13,
+     58.63,
+     16
+    ],
+    "partnerLine": [
+     1076,
+     387.13,
+     115.2,
+     16
+    ],
+    "approve": [
+     1042,
+     649.13,
+     173,
+     32
+    ],
+    "cancel": [
+     1223,
+     649.13,
+     175,
+     32
+    ]
+   },
+   "from": "caps-agent"
+  },
+  "agent-card-panel": {
+   "file": "r3-agent-card-panel.png",
+   "css": [
+    448,
+    976
+   ],
+   "scale": 3,
+   "regions": {
+    "panel": [
+     0,
+     0,
+     448,
+     976
+    ],
+    "header": [
+     1,
+     1,
+     446,
+     63.88
+    ],
+    "title": [
+     69.25,
+     15.06,
+     159.75,
+     18.75
+    ],
+    "status": [
+     69.25,
+     33.81,
+     159.75,
+     16
+    ],
+    "composer": [
+     1,
+     834.5,
+     446,
+     140.5
+    ],
+    "placeholder": [
+     61,
+     888,
+     259.33,
+     48
+    ],
+    "mistakes": [
+     314.45,
+     948,
+     116.55,
+     15
+    ],
+    "presence": [
+     25.13,
+     24.16,
+     22,
+     22
+    ],
+    "ask": [
+     66.69,
+     80.88,
+     364.31,
+     60
+    ],
+    "trace": [
+     49,
+     156.88,
+     382,
+     24.03
+    ],
+    "reply": [
+     49,
+     188.91,
+     382,
+     68.25
+    ],
+    "card": [
+     49,
+     298.75,
+     382,
+     381.38
+    ],
+    "cardHeading": [
+     84,
+     309.75,
+     156.05,
+     16.5
+    ],
+    "cardTitle": [
+     96,
+     334.25,
+     322,
+     17.88
+    ],
+    "cardDetail": [
+     96,
+     352.13,
+     322,
+     18
+    ],
+    "cardLines": [
+     96,
+     374.13,
+     322,
+     234
+    ],
+    "jamieChen": [
+     163.78,
+     353.13,
+     60.5,
+     16
+    ],
+    "jordanEllis": [
+     96,
+     353.13,
+     58.63,
+     16
+    ],
+    "partnerLine": [
+     96,
+     375.13,
+     115.2,
+     16
+    ],
+    "approve": [
+     62,
+     637.13,
+     173,
+     32
+    ],
+    "cancel": [
+     243,
+     637.13,
+     175,
+     32
+    ]
+   },
+   "from": "caps-agent"
+  },
+  "agent-launcher": {
+   "file": "r3-agent-launcher.png",
+   "css": [
+    1440,
+    1000
+   ],
+   "scale": 3,
+   "regions": {
+    "launcher": [
+     1345.47,
+     915.52,
+     70.53,
+     60.48
+    ],
+    "launcherArt": [
+     1339.71,
+     908.44,
+     82.05,
+     82.05
+    ]
+   },
+   "from": "caps-agent"
+  },
+  "agent-panel-home": {
+   "file": "r3-agent-panel-home.png",
+   "css": [
+    1440,
+    1000
+   ],
+   "scale": 3,
+   "regions": {
+    "panel": [
+     980,
+     12,
+     448,
+     976
+    ],
+    "header": [
+     981,
+     13,
+     446,
+     63.88
+    ],
+    "title": [
+     1049.25,
+     27.06,
+     159.75,
+     18.75
+    ],
+    "status": [
+     1049.25,
+     45.81,
+     159.75,
+     16
+    ],
+    "composer": [
+     981,
+     846.5,
+     446,
+     140.5
+    ],
+    "placeholder": [
+     1041,
+     900,
+     259.33,
+     48
+    ],
+    "mistakes": [
+     1294.45,
+     960,
+     116.55,
+     15
+    ],
+    "greeting": [
+     1113.42,
+     252.97,
+     181.14,
+     32.39
+    ]
+   },
+   "from": "caps-agent"
+  },
+  "agent-panel-home-panel": {
+   "file": "r3-agent-panel-home-panel.png",
+   "css": [
+    448,
+    976
+   ],
+   "scale": 3,
+   "regions": {
+    "panel": [
+     0,
+     0,
+     448,
+     976
+    ],
+    "header": [
+     1,
+     1,
+     446,
+     63.88
+    ],
+    "title": [
+     69.25,
+     15.06,
+     159.75,
+     18.75
+    ],
+    "status": [
+     69.25,
+     33.81,
+     159.75,
+     16
+    ],
+    "composer": [
+     1,
+     834.5,
+     446,
+     140.5
+    ],
+    "placeholder": [
+     61,
+     888,
+     259.33,
+     48
+    ],
+    "mistakes": [
+     314.45,
+     948,
+     116.55,
+     15
+    ],
+    "greeting": [
+     133.42,
+     240.97,
+     181.14,
+     32.39
+    ]
+   },
+   "from": "caps-agent"
+  },
+  "agent-panel-typed": {
+   "file": "r3-agent-panel-typed.png",
+   "css": [
+    1440,
+    1000
+   ],
+   "scale": 3,
+   "regions": {
+    "panel": [
+     980,
+     12,
+     448,
+     976
+    ],
+    "header": [
+     981,
+     13,
+     446,
+     63.88
+    ],
+    "title": [
+     1049.25,
+     27.06,
+     159.75,
+     18.75
+    ],
+    "status": [
+     1049.25,
+     45.81,
+     159.75,
+     16
+    ],
+    "composer": [
+     981,
+     838.5,
+     446,
+     148.5
+    ],
+    "placeholder": [
+     1041,
+     892,
+     292,
+     56
+    ],
+    "mistakes": [
+     1294.45,
+     960,
+     116.55,
+     15
+    ],
+    "typed": [
+     1041,
+     892,
+     292,
+     56
+    ],
+    "send": [
+     1373,
+     912,
+     36,
+     36
+    ]
+   },
+   "from": "caps-agent"
+  },
+  "bc-calc-export": {
+   "file": "r3-bc-calc-export.png",
+   "css": [
+    1440,
+    4117
+   ],
+   "scale": 2,
+   "regions": {
+    "tabCalculator": [
+     16,
+     170,
+     109.91,
+     34
+    ],
+    "results": [
+     732,
+     242,
+     698,
+     1398.25
+    ],
+    "chooseTemplate": [
+     1081.08,
+     267,
+     159.03,
+     36
+    ],
+    "exportPdf": [
+     1248.11,
+     267,
+     123.89,
+     36
+    ],
+    "exportMenu": [
+     1372,
+     267,
+     33,
+     36
+    ],
+    "capacity": [
+     775,
+     537,
+     612,
+     40
+    ]
+   },
+   "from": "caps"
+  },
+  "bc-calc-saved": {
+   "file": "r3-bc-calc-saved.png",
+   "css": [
+    1440,
+    4175
+   ],
+   "scale": 2,
+   "regions": {
+    "banner": [
+     13,
+     249,
+     295.16,
+     16
+    ],
+    "save": [
+     1224.75,
+     169,
+     78.59,
+     36
+    ],
+    "lastSaved": [
+     72,
+     112,
+     271.78,
+     20
+    ]
+   },
+   "from": "caps"
+  },
+  "bc-calc-scenario": {
+   "file": "r3-bc-calc-scenario.png",
+   "css": [
+    1440,
+    4175
+   ],
+   "scale": 2,
+   "regions": {
+    "tabCalculator": [
+     16,
+     170,
+     109.91,
+     34
+    ],
+    "banner": [
+     13,
+     249,
+     295.16,
+     16
+    ],
+    "save": [
+     1224.75,
+     169,
+     78.59,
+     36
+    ]
+   },
+   "from": "caps"
+  },
+  "bc-card-empty": {
+   "file": "r3-bc-card-empty.png",
+   "css": [
+    760,
+    210
+   ],
+   "scale": 3,
+   "regions": {
+    "calculate": [
+     49,
+     117,
+     662,
+     44
+    ],
+    "title": [
+     49,
+     49,
+     662,
+     20
+    ]
+   },
+   "from": "caps"
+  },
+  "bc-card-ground": {
+   "file": "r3-bc-card-ground.png",
+   "css": [
+    760,
+    452
+   ],
+   "scale": 3,
+   "regions": {
+    "figure": [
+     49,
+     105,
+     662,
+     36
+    ],
+    "label": [
+     49,
+     145,
+     662,
+     16
+    ],
+    "band": [
+     49,
+     177,
+     662,
+     22
+    ],
+    "surplus": [
+     49,
+     215,
+     325,
+     52
+    ],
+    "dti": [
+     386,
+     215,
+     325,
+     52
+    ],
+    "stress": [
+     49,
+     283,
+     662,
+     28
+    ],
+    "calc": [
+     49,
+     327,
+     662,
+     16
+    ],
+    "full": [
+     49,
+     359,
+     662,
+     44
+    ]
+   },
+   "from": "caps-card"
+  },
+  "bc-card-result": {
+   "file": "r3-bc-card-result.png",
+   "css": [
+    760,
+    452
+   ],
+   "scale": 3,
+   "regions": {
+    "figure": [
+     49,
+     105,
+     662,
+     36
+    ],
+    "label": [
+     49,
+     145,
+     662,
+     16
+    ],
+    "band": [
+     318.45,
+     177,
+     123.09,
+     22
+    ],
+    "surplus": [
+     57,
+     239,
+     309,
+     20
+    ],
+    "dti": [
+     394,
+     239,
+     309,
+     20
+    ],
+    "stress": [
+     663.11,
+     283,
+     47.89,
+     16
+    ],
+    "stressBar": [
+     49,
+     303,
+     662,
+     8
+    ],
+    "calculated": [
+     49,
+     327,
+     662,
+     16
+    ],
+    "full": [
+     49,
+     359,
+     662,
+     44
+    ]
+   },
+   "from": "caps"
+  },
+  "bc-count-000": {
+   "file": "r3-bc-count-000.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-001": {
+   "file": "r3-bc-count-001.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-002": {
+   "file": "r3-bc-count-002.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-003": {
+   "file": "r3-bc-count-003.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-004": {
+   "file": "r3-bc-count-004.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-005": {
+   "file": "r3-bc-count-005.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-006": {
+   "file": "r3-bc-count-006.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-007": {
+   "file": "r3-bc-count-007.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-008": {
+   "file": "r3-bc-count-008.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-009": {
+   "file": "r3-bc-count-009.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-010": {
+   "file": "r3-bc-count-010.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-011": {
+   "file": "r3-bc-count-011.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-012": {
+   "file": "r3-bc-count-012.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-013": {
+   "file": "r3-bc-count-013.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-014": {
+   "file": "r3-bc-count-014.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-015": {
+   "file": "r3-bc-count-015.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-016": {
+   "file": "r3-bc-count-016.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-017": {
+   "file": "r3-bc-count-017.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-018": {
+   "file": "r3-bc-count-018.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-019": {
+   "file": "r3-bc-count-019.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-020": {
+   "file": "r3-bc-count-020.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-021": {
+   "file": "r3-bc-count-021.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-022": {
+   "file": "r3-bc-count-022.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-023": {
+   "file": "r3-bc-count-023.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-024": {
+   "file": "r3-bc-count-024.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-025": {
+   "file": "r3-bc-count-025.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-026": {
+   "file": "r3-bc-count-026.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-027": {
+   "file": "r3-bc-count-027.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-028": {
+   "file": "r3-bc-count-028.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-029": {
+   "file": "r3-bc-count-029.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-030": {
+   "file": "r3-bc-count-030.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-031": {
+   "file": "r3-bc-count-031.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-032": {
+   "file": "r3-bc-count-032.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-033": {
+   "file": "r3-bc-count-033.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-034": {
+   "file": "r3-bc-count-034.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-035": {
+   "file": "r3-bc-count-035.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-036": {
+   "file": "r3-bc-count-036.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-037": {
+   "file": "r3-bc-count-037.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-038": {
+   "file": "r3-bc-count-038.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-039": {
+   "file": "r3-bc-count-039.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-040": {
+   "file": "r3-bc-count-040.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-041": {
+   "file": "r3-bc-count-041.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-042": {
+   "file": "r3-bc-count-042.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-043": {
+   "file": "r3-bc-count-043.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-044": {
+   "file": "r3-bc-count-044.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-045": {
+   "file": "r3-bc-count-045.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-046": {
+   "file": "r3-bc-count-046.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-047": {
+   "file": "r3-bc-count-047.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-048": {
+   "file": "r3-bc-count-048.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-049": {
+   "file": "r3-bc-count-049.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-050": {
+   "file": "r3-bc-count-050.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-051": {
+   "file": "r3-bc-count-051.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-052": {
+   "file": "r3-bc-count-052.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-053": {
+   "file": "r3-bc-count-053.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-054": {
+   "file": "r3-bc-count-054.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-055": {
+   "file": "r3-bc-count-055.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-056": {
+   "file": "r3-bc-count-056.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-057": {
+   "file": "r3-bc-count-057.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-058": {
+   "file": "r3-bc-count-058.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-059": {
+   "file": "r3-bc-count-059.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-060": {
+   "file": "r3-bc-count-060.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-061": {
+   "file": "r3-bc-count-061.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-062": {
+   "file": "r3-bc-count-062.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-063": {
+   "file": "r3-bc-count-063.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-064": {
+   "file": "r3-bc-count-064.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-065": {
+   "file": "r3-bc-count-065.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-066": {
+   "file": "r3-bc-count-066.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-067": {
+   "file": "r3-bc-count-067.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-068": {
+   "file": "r3-bc-count-068.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-069": {
+   "file": "r3-bc-count-069.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-070": {
+   "file": "r3-bc-count-070.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-071": {
+   "file": "r3-bc-count-071.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-072": {
+   "file": "r3-bc-count-072.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-073": {
+   "file": "r3-bc-count-073.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-074": {
+   "file": "r3-bc-count-074.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-075": {
+   "file": "r3-bc-count-075.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-076": {
+   "file": "r3-bc-count-076.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-077": {
+   "file": "r3-bc-count-077.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-078": {
+   "file": "r3-bc-count-078.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-079": {
+   "file": "r3-bc-count-079.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-080": {
+   "file": "r3-bc-count-080.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-081": {
+   "file": "r3-bc-count-081.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-082": {
+   "file": "r3-bc-count-082.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-083": {
+   "file": "r3-bc-count-083.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-084": {
+   "file": "r3-bc-count-084.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-085": {
+   "file": "r3-bc-count-085.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-086": {
+   "file": "r3-bc-count-086.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-087": {
+   "file": "r3-bc-count-087.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-088": {
+   "file": "r3-bc-count-088.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-089": {
+   "file": "r3-bc-count-089.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-090": {
+   "file": "r3-bc-count-090.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-091": {
+   "file": "r3-bc-count-091.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-092": {
+   "file": "r3-bc-count-092.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-093": {
+   "file": "r3-bc-count-093.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-094": {
+   "file": "r3-bc-count-094.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-095": {
+   "file": "r3-bc-count-095.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-096": {
+   "file": "r3-bc-count-096.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-097": {
+   "file": "r3-bc-count-097.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-098": {
+   "file": "r3-bc-count-098.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-099": {
+   "file": "r3-bc-count-099.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-100": {
+   "file": "r3-bc-count-100.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-101": {
+   "file": "r3-bc-count-101.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-102": {
+   "file": "r3-bc-count-102.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-103": {
+   "file": "r3-bc-count-103.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-104": {
+   "file": "r3-bc-count-104.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-105": {
+   "file": "r3-bc-count-105.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-106": {
+   "file": "r3-bc-count-106.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-107": {
+   "file": "r3-bc-count-107.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-108": {
+   "file": "r3-bc-count-108.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-109": {
+   "file": "r3-bc-count-109.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-110": {
+   "file": "r3-bc-count-110.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-111": {
+   "file": "r3-bc-count-111.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-112": {
+   "file": "r3-bc-count-112.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-113": {
+   "file": "r3-bc-count-113.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-114": {
+   "file": "r3-bc-count-114.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-115": {
+   "file": "r3-bc-count-115.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-116": {
+   "file": "r3-bc-count-116.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-117": {
+   "file": "r3-bc-count-117.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-118": {
+   "file": "r3-bc-count-118.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-119": {
+   "file": "r3-bc-count-119.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-120": {
+   "file": "r3-bc-count-120.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-count-glyphs": {
+   "file": "r3-bc-count-glyphs.png",
+   "css": [
+    662,
+    36
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-count"
+  },
+  "bc-page-calc": {
+   "file": "r3-bc-page-calc.png",
+   "css": [
+    1440,
+    4117
+   ],
+   "scale": 2,
+   "regions": {
+    "back": [
+     36,
+     8,
+     117.58,
+     20
+    ],
+    "title": [
+     72,
+     72,
+     271.78,
+     36
+    ],
+    "saved": [
+     72,
+     112,
+     271.78,
+     20
+    ],
+    "tabCalculator": [
+     16,
+     170,
+     109.91,
+     34
+    ],
+    "tabScenarios": [
+     129.91,
+     171,
+     222.31,
+     32
+    ],
+    "tabHistory": [
+     356.22,
+     171,
+     89.86,
+     32
+    ],
+    "save": [
+     1224.75,
+     169,
+     78.59,
+     36
+    ],
+    "recalculate": [
+     1311.34,
+     169,
+     117.66,
+     36
+    ],
+    "income": [
+     0,
+     242,
+     708,
+     421
+    ],
+    "expenses": [
+     0,
+     679,
+     708,
+     695
+    ],
+    "hem": [
+     38,
+     917,
+     87.52,
+     16
+    ],
+    "declared": [
+     25,
+     1132,
+     145.67,
+     16
+    ],
+    "liabilities": [
+     0,
+     1390,
+     708,
+     637
+    ],
+    "carLoan": [
+     25,
+     1475,
+     658,
+     124
+    ],
+    "creditCard": [
+     25,
+     1615,
+     658,
+     148
+    ],
+    "commitments": [
+     25,
+     1798,
+     226.39,
+     16
+    ],
+    "commitmentsFigure": [
+     610.83,
+     1431,
+     44.17,
+     20
+    ],
+    "proposedLoan": [
+     0,
+     2043,
+     708,
+     812
+    ],
+    "apraBuffer": [
+     42,
+     2613,
+     149.94,
+     20
+    ],
+    "lmi": [
+     0,
+     2953,
+     708,
+     597
+    ],
+    "lvr": [
+     53,
+     3112,
+     160.06,
+     20
+    ],
+    "noLmi": [
+     54,
+     3426,
+     104.92,
+     20
+    ],
+    "results": [
+     732,
+     242,
+     698,
+     1398.25
+    ],
+    "loanCheck": [
+     757,
+     309,
+     648,
+     170
+    ],
+    "serviceableBadge": [
+     1284.48,
+     327,
+     102.52,
+     22
+    ],
+    "capacityCard": [
+     757,
+     495,
+     648,
+     152
+    ],
+    "capacityLabel": [
+     775,
+     513,
+     148.64,
+     20
+    ],
+    "capacityFigure": [
+     775,
+     537,
+     612,
+     40
+    ],
+    "stressTested": [
+     775,
+     609,
+     142.92,
+     20
+    ],
+    "audit": [
+     732,
+     242,
+     698,
+     1398.25
+    ],
+    "band": [
+     757,
+     1136.25,
+     648,
+     108
+    ],
+    "bandWords": [
+     834,
+     1207.25,
+     163.17,
+     20
+    ],
+    "assumptions": [
+     781,
+     1337.25,
+     114.3,
+     20
+    ],
+    "disclaimer": [
+     794,
+     1584.25,
+     576.14,
+     16
+    ]
+   },
+   "from": "caps"
+  },
+  "bc-pc-band": {
+   "file": "r3-bc-pc-band.png",
+   "css": [
+    662,
+    22
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-card"
+  },
+  "bc-pc-calc": {
+   "file": "r3-bc-pc-calc.png",
+   "css": [
+    662,
+    16
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-card"
+  },
+  "bc-pc-dti": {
+   "file": "r3-bc-pc-dti.png",
+   "css": [
+    325,
+    52
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-card"
+  },
+  "bc-pc-full": {
+   "file": "r3-bc-pc-full.png",
+   "css": [
+    662,
+    44
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-card"
+  },
+  "bc-pc-label": {
+   "file": "r3-bc-pc-label.png",
+   "css": [
+    662,
+    16
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-card"
+  },
+  "bc-pc-stress": {
+   "file": "r3-bc-pc-stress.png",
+   "css": [
+    662,
+    28
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-card"
+  },
+  "bc-pc-stress-empty": {
+   "file": "r3-bc-pc-stress-empty.png",
+   "css": [
+    662,
+    28
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-card"
+  },
+  "bc-pc-surplus": {
+   "file": "r3-bc-pc-surplus.png",
+   "css": [
+    325,
+    52
+   ],
+   "scale": 3,
+   "regions": {},
+   "from": "caps-card"
+  },
+  "bc-scen-actions": {
+   "file": "r3-bc-scen-actions.png",
+   "css": [
+    1388,
+    36
+   ],
+   "scale": 2,
+   "regions": {
+    "saveScenario": [
+     0,
+     0,
+     466.67,
+     36
+    ],
+    "apply": [
+     474.67,
+     0,
+     464.67,
+     36
+    ],
+    "exportPdf": [
+     1112.38,
+     0,
+     243.64,
+     36
+    ]
+   },
+   "from": "caps"
+  },
+  "bc-scen-canvas-carloan": {
+   "file": "r3-bc-scen-canvas-carloan.png",
+   "css": [
+    1440,
+    657.25
+   ],
+   "scale": 2,
+   "regions": {
+    "title": [
+     25,
+     25,
+     1390,
+     30
+    ],
+    "pool": [
+     25,
+     93,
+     1390,
+     133
+    ],
+    "allocation": [
+     25,
+     286,
+     1390,
+     302.25
+    ]
+   },
+   "from": "caps"
+  },
+  "bc-scen-debts-off": {
+   "file": "r3-bc-scen-debts-off.png",
+   "css": [
+    1440,
+    278
+   ],
+   "scale": 2,
+   "regions": {
+    "title": [
+     25,
+     13,
+     137,
+     20
+    ],
+    "carLoan": [
+     25,
+     73,
+     1390,
+     62
+    ],
+    "carLoanSwitch": [
+     38,
+     92,
+     44,
+     24
+    ],
+    "creditCard": [
+     25,
+     143,
+     1390,
+     62
+    ]
+   },
+   "from": "caps"
+  },
+  "bc-scen-debts-on": {
+   "file": "r3-bc-scen-debts-on.png",
+   "css": [
+    1440,
+    280
+   ],
+   "scale": 2,
+   "regions": {
+    "title": [
+     25,
+     14,
+     137,
+     20
+    ],
+    "selected": [
+     1313.95,
+     13,
+     77.05,
+     22
+    ],
+    "carLoan": [
+     25,
+     75,
+     1390,
+     62
+    ],
+    "carLoanSwitch": [
+     38,
+     94,
+     44,
+     24
+    ],
+    "creditCard": [
+     25,
+     145,
+     1390,
+     62
+    ]
+   },
+   "from": "caps"
+  },
+  "bc-scen-head-carloan": {
+   "file": "r3-bc-scen-head-carloan.png",
+   "css": [
+    1388,
+    311.5
+   ],
+   "scale": 2,
+   "regions": {
+    "label": [
+     26,
+     28.5,
+     232.05,
+     16
+    ],
+    "verdict": [
+     1190.36,
+     26,
+     171.64,
+     21
+    ],
+    "capacity": [
+     26,
+     55,
+     295.81,
+     40
+    ],
+    "ceilingLine": [
+     26,
+     101,
+     295.81,
+     16
+    ],
+    "power": [
+     26,
+     125,
+     295.81,
+     71
+    ],
+    "vsBase": [
+     1262.27,
+     138,
+     99.73,
+     58
+    ],
+    "change": [
+     1262.27,
+     153,
+     99.73,
+     28
+    ],
+    "progress": [
+     26,
+     208,
+     1336,
+     77.5
+    ]
+   },
+   "from": "caps"
+  },
+  "bc-scen-head-purchase": {
+   "file": "r3-bc-scen-head-purchase.png",
+   "css": [
+    1388,
+    311.5
+   ],
+   "scale": 2,
+   "regions": {
+    "label": [
+     26,
+     28.5,
+     232.05,
+     16
+    ],
+    "verdict": [
+     1190.36,
+     26,
+     171.64,
+     21
+    ],
+    "capacity": [
+     26,
+     55,
+     295.81,
+     40
+    ],
+    "ceilingLine": [
+     26,
+     101,
+     295.81,
+     16
+    ],
+    "power": [
+     26,
+     125,
+     295.81,
+     71
+    ],
+    "vsBase": [
+     1270.13,
+     153,
+     91.88,
+     43
+    ],
+    "change": [
+     1270.13,
+     168,
+     91.88,
+     28
+    ],
+    "progress": [
+     26,
+     208,
+     1336,
+     77.5
+    ]
+   },
+   "from": "caps"
+  },
+  "bc-scen-head-rates": {
+   "file": "r3-bc-scen-head-rates.png",
+   "css": [
+    1388,
+    311.5
+   ],
+   "scale": 2,
+   "regions": {
+    "label": [
+     26,
+     28.5,
+     232.05,
+     16
+    ],
+    "verdict": [
+     1190.36,
+     26,
+     171.64,
+     21
+    ],
+    "capacity": [
+     26,
+     55,
+     295.81,
+     40
+    ],
+    "ceilingLine": [
+     26,
+     101,
+     295.81,
+     16
+    ],
+    "power": [
+     26,
+     125,
+     295.81,
+     71
+    ],
+    "vsBase": [
+     1264.48,
+     138,
+     97.52,
+     58
+    ],
+    "change": [
+     1264.48,
+     153,
+     97.52,
+     28
+    ],
+    "progress": [
+     26,
+     208,
+     1336,
+     77.5
+    ]
+   },
+   "from": "caps"
+  },
+  "bc-scen-naming": {
+   "file": "r3-bc-scen-naming.png",
+   "css": [
+    1388,
+    40
+   ],
+   "scale": 2,
+   "regions": {
+    "input": [
+     0,
+     0,
+     1226.5,
+     40
+    ],
+    "save": [
+     1234.5,
+     0,
+     80.59,
+     36
+    ],
+    "cancel": [
+     1323.09,
+     0,
+     64.91,
+     36
+    ]
+   },
+   "from": "caps"
+  },
+  "bc-scen-page": {
+   "file": "r3-bc-scen-page.png",
+   "css": [
+    1440,
+    4876.25
+   ],
+   "scale": 2,
+   "regions": {
+    "tabs": [
+     11,
+     163,
+     440.08,
+     48
+    ],
+    "tabScenarios": [
+     127.91,
+     170,
+     224.31,
+     34
+    ],
+    "builder": [
+     0,
+     887,
+     236.31,
+     28
+    ],
+    "acquisition": [
+     0,
+     2440,
+     1440,
+     605.5
+    ],
+    "head": [
+     26,
+     3119.5,
+     1388,
+     311.5
+    ],
+    "saved": [
+     0,
+     4728.25,
+     1440,
+     148
+    ]
+   },
+   "from": "caps"
+  },
+  "bc-scen-purchase": {
+   "file": "r3-bc-scen-purchase.png",
+   "css": [
+    1440,
+    605.5
+   ],
+   "scale": 2,
+   "regions": {
+    "header": [
+     25,
+     13,
+     256.22,
+     26
+    ],
+    "phase": [
+     226.56,
+     13,
+     54.66,
+     26
+    ],
+    "targetMet": [
+     1308.44,
+     15,
+     82.56,
+     22
+    ],
+    "modelNext": [
+     25,
+     54,
+     129.61,
+     19
+    ],
+    "adds": [
+     25,
+     75,
+     424.34,
+     16
+    ],
+    "enable": [
+     1371,
+     59,
+     44,
+     24
+    ],
+    "target": [
+     25,
+     135,
+     689,
+     40
+    ],
+    "cash": [
+     726,
+     135,
+     689,
+     40
+    ],
+    "state": [
+     25,
+     219,
+     338.5,
+     40
+    ],
+    "intent": [
+     375.5,
+     219,
+     338.5,
+     40
+    ],
+    "property": [
+     726,
+     219,
+     338.5,
+     40
+    ],
+    "lmiTreatment": [
+     1076.5,
+     219,
+     338.5,
+     40
+    ],
+    "power": [
+     42,
+     358,
+     166.58,
+     48
+    ],
+    "powerFigure": [
+     42,
+     374,
+     166.58,
+     32
+    ],
+    "achievable": [
+     1278.92,
+     371,
+     119.08,
+     22
+    ],
+    "loanAvailable": [
+     42,
+     418,
+     333,
+     32
+    ],
+    "cashAvailable": [
+     383,
+     418,
+     333,
+     32
+    ],
+    "stampDuty": [
+     724,
+     418,
+     333,
+     32
+    ],
+    "lmi": [
+     1065,
+     418,
+     333,
+     32
+    ],
+    "loanRequired": [
+     42,
+     462,
+     674,
+     32
+    ],
+    "netCash": [
+     724,
+     462,
+     674,
+     32
+    ],
+    "notes": [
+     42,
+     506,
+     1356,
+     57.5
+    ]
+   },
+   "from": "caps"
+  },
+  "bc-scen-purchase-250": {
+   "file": "r3-bc-scen-purchase-250.png",
+   "css": [
+    1440,
+    605.5
+   ],
+   "scale": 2,
+   "regions": {
+    "header": [
+     25,
+     13,
+     256.22,
+     26
+    ],
+    "phase": [
+     226.56,
+     13,
+     54.66,
+     26
+    ],
+    "targetMet": [
+     1308.44,
+     15,
+     82.56,
+     22
+    ],
+    "modelNext": [
+     25,
+     54,
+     129.61,
+     19
+    ],
+    "adds": [
+     25,
+     75,
+     424.34,
+     16
+    ],
+    "enable": [
+     1371,
+     59,
+     44,
+     24
+    ],
+    "target": [
+     25,
+     135,
+     689,
+     40
+    ],
+    "cash": [
+     726,
+     135,
+     689,
+     40
+    ],
+    "state": [
+     25,
+     219,
+     338.5,
+     40
+    ],
+    "intent": [
+     375.5,
+     219,
+     338.5,
+     40
+    ],
+    "property": [
+     726,
+     219,
+     338.5,
+     40
+    ],
+    "lmiTreatment": [
+     1076.5,
+     219,
+     338.5,
+     40
+    ],
+    "power": [
+     42,
+     358,
+     166.58,
+     48
+    ],
+    "powerFigure": [
+     42,
+     374,
+     166.58,
+     32
+    ],
+    "achievable": [
+     1278.92,
+     371,
+     119.08,
+     22
+    ],
+    "loanAvailable": [
+     42,
+     418,
+     333,
+     32
+    ],
+    "cashAvailable": [
+     383,
+     418,
+     333,
+     32
+    ],
+    "stampDuty": [
+     724,
+     418,
+     333,
+     32
+    ],
+    "lmi": [
+     1065,
+     418,
+     333,
+     32
+    ],
+    "loanRequired": [
+     42,
+     462,
+     674,
+     32
+    ],
+    "netCash": [
+     724,
+     462,
+     674,
+     32
+    ],
+    "notes": [
+     42,
+     506,
+     1356,
+     57.5
+    ]
+   },
+   "from": "caps"
+  },
+  "bc-scen-rates": {
+   "file": "r3-bc-scen-rates.png",
+   "css": [
+    1440,
+    224
+   ],
+   "scale": 2,
+   "regions": {
+    "title": [
+     25,
+     14,
+     168.75,
+     20
+    ],
+    "badge": [
+     1327.27,
+     13,
+     63.73,
+     22
+    ],
+    "line": [
+     25,
+     79,
+     190.86,
+     20
+    ],
+    "slider": [
+     847,
+     109,
+     20,
+     20
+    ],
+    "chip": [
+     957,
+     171,
+     225,
+     28
+    ]
+   },
+   "from": "caps"
+  },
+  "bc-scen-rationale-carloan": {
+   "file": "r3-bc-scen-rationale-carloan.png",
+   "css": [
+    1388,
+    853.75
+   ],
+   "scale": 2,
+   "regions": {
+    "title": [
+     53,
+     25,
+     691.95,
+     30
+    ],
+    "finding": [
+     38,
+     100,
+     1312,
+     19.25
+    ],
+    "propose": [
+     49,
+     203.75,
+     171.05,
+     20
+    ],
+    "payout": [
+     39,
+     238.25,
+     224.3,
+     19.25
+    ]
+   },
+   "from": "caps"
+  },
+  "bc-scen-saved-2": {
+   "file": "r3-bc-scen-saved-2.png",
+   "css": [
+    1440,
+    223
+   ],
+   "scale": 2,
+   "regions": {
+    "title": [
+     25,
+     25,
+     1390,
+     20
+    ],
+    "base": [
+     25,
+     57,
+     1390,
+     66
+    ],
+    "s1": [
+     25,
+     131,
+     1390,
+     67
+    ]
+   },
+   "from": "caps"
+  },
+  "bc-scen-saved-3": {
+   "file": "r3-bc-scen-saved-3.png",
+   "css": [
+    1440,
+    298
+   ],
+   "scale": 2,
+   "regions": {
+    "title": [
+     25,
+     25,
+     1390,
+     20
+    ],
+    "s1": [
+     25,
+     131,
+     1390,
+     67
+    ],
+    "s2": [
+     25,
+     206,
+     1390,
+     67
+    ]
+   },
+   "from": "caps"
+  },
+  "bc-scen-saved-4": {
+   "file": "r3-bc-scen-saved-4.png",
+   "css": [
+    1440,
+    373
+   ],
+   "scale": 2,
+   "regions": {
+    "title": [
+     25,
+     25,
+     1390,
+     20
+    ],
+    "base": [
+     25,
+     57,
+     1390,
+     66
+    ],
+    "s1": [
+     25,
+     131,
+     1390,
+     67
+    ],
+    "s2": [
+     25,
+     206,
+     1390,
+     67
+    ],
+    "s3": [
+     25,
+     281,
+     1390,
+     67
+    ],
+    "load2": [
+     1304.14,
+     225.5,
+     51.86,
+     28
+    ]
+   },
+   "from": "caps"
+  },
+  "bc-toast-saved": {
+   "file": "r3-bc-toast-saved.png",
+   "css": [
+    404,
+    121
+   ],
+   "scale": 2,
+   "regions": {
+    "words": [
+     64,
+     41,
+     299,
+     39
+    ]
+   },
+   "from": "caps"
+  },
+  "clients-add-employment": {
+   "file": "r3-clients-add-employment.png",
+   "css": [
+    1382.39,
+    940
+   ],
+   "scale": 3,
+   "regions": {
+    "header": [
+     25,
+     25,
+     1332.39,
+     104
+    ],
+    "eyebrow": [
+     105,
+     47,
+     396.38,
+     15
+    ],
+    "title": [
+     105,
+     62,
+     396.38,
+     28
+    ],
+    "modeTabs": [
+     1077.39,
+     54.5,
+     256,
+     50
+    ],
+    "modeStandard": [
+     1082.39,
+     59.5,
+     123,
+     40
+    ],
+    "modeAdvanced": [
+     1205.39,
+     59.5,
+     123,
+     40
+    ],
+    "advancedTabs": [
+     25,
+     129,
+     1332.39,
+     91
+    ],
+    "tabExcel": [
+     50,
+     148,
+     314.59,
+     52
+    ],
+    "tabFactFind": [
+     372.59,
+     148,
+     314.59,
+     52
+    ],
+    "tabExpenses": [
+     695.19,
+     148,
+     314.59,
+     52
+    ],
+    "tabOutput": [
+     1017.78,
+     148,
+     314.61,
+     52
+    ],
+    "footer": [
+     25,
+     846,
+     1332.39,
+     69
+    ],
+    "createClient": [
+     1176.89,
+     859,
+     156.5,
+     44
+    ],
+    "sections": [
+     57,
+     248,
+     1258.39,
+     60
+    ],
+    "sectionEmployment": [
+     564.16,
+     255,
+     244.08,
+     46
+    ],
+    "snapshot": [
+     57,
+     320,
+     1258.39,
+     109
+    ],
+    "salaryTile": [
+     58,
+     353,
+     251.27,
+     75
+    ],
+    "salary": [
+     74,
+     386,
+     219.27,
+     28
+    ],
+    "employmentHeader": [
+     59,
+     446,
+     616.19,
+     86
+    ],
+    "annualIncome": [
+     531.8,
+     460,
+     123.39,
+     57
+    ],
+    "employmentType": [
+     79,
+     574.5,
+     278.09,
+     40
+    ],
+    "employer": [
+     377.09,
+     574.5,
+     278.09,
+     40
+    ],
+    "role": [
+     79,
+     653,
+     278.09,
+     40
+    ],
+    "startDate": [
+     79,
+     731.5,
+     278.09,
+     40
+    ],
+    "baseSalaryLabel": [
+     388.09,
+     720,
+     256.09,
+     16.5
+    ],
+    "baseSalary": [
+     388.09,
+     742.5,
+     256.09,
+     40
+    ]
+   },
+   "from": "caps-clients"
+  },
+  "clients-add-empty": {
+   "file": "r3-clients-add-empty.png",
+   "css": [
+    1382.39,
+    940
+   ],
+   "scale": 3,
+   "regions": {
+    "header": [
+     25,
+     25,
+     1332.39,
+     104
+    ],
+    "eyebrow": [
+     105,
+     47,
+     396.38,
+     15
+    ],
+    "title": [
+     105,
+     62,
+     396.38,
+     28
+    ],
+    "modeTabs": [
+     1077.39,
+     54.5,
+     256,
+     50
+    ],
+    "modeStandard": [
+     1082.39,
+     59.5,
+     123,
+     40
+    ],
+    "modeAdvanced": [
+     1205.39,
+     59.5,
+     123,
+     40
+    ],
+    "advancedTabs": [
+     25,
+     129,
+     1332.39,
+     91
+    ],
+    "tabExcel": [
+     50,
+     148,
+     314.59,
+     52
+    ],
+    "tabFactFind": [
+     372.59,
+     148,
+     314.59,
+     52
+    ],
+    "tabExpenses": [
+     695.19,
+     148,
+     314.59,
+     52
+    ],
+    "tabOutput": [
+     1017.78,
+     148,
+     314.61,
+     52
+    ],
+    "footer": [
+     25,
+     846,
+     1332.39,
+     69
+    ],
+    "createClient": [
+     1176.89,
+     859,
+     156.5,
+     44
+    ],
+    "importCard": [
+     57,
+     244,
+     1258.39,
+     362
+    ],
+    "template": [
+     1100,
+     275,
+     190.39,
+     44
+    ],
+    "dropzone": [
+     82,
+     363,
+     1208.39,
+     218
+    ],
+    "dropzoneWords": [
+     543.13,
+     452,
+     286.13,
+     24
+    ],
+    "dropzoneRules": [
+     568.03,
+     480,
+     236.33,
+     20
+    ],
+    "browse": [
+     631.59,
+     516,
+     109.2,
+     44
+    ]
+   },
+   "from": "caps-clients"
+  },
+  "clients-add-parsed": {
+   "file": "r3-clients-add-parsed.png",
+   "css": [
+    1382.39,
+    940
+   ],
+   "scale": 3,
+   "regions": {
+    "header": [
+     25,
+     25,
+     1332.39,
+     104
+    ],
+    "eyebrow": [
+     105,
+     47,
+     396.38,
+     15
+    ],
+    "title": [
+     105,
+     62,
+     396.38,
+     28
+    ],
+    "modeTabs": [
+     1077.39,
+     54.5,
+     256,
+     50
+    ],
+    "modeStandard": [
+     1082.39,
+     59.5,
+     123,
+     40
+    ],
+    "modeAdvanced": [
+     1205.39,
+     59.5,
+     123,
+     40
+    ],
+    "advancedTabs": [
+     25,
+     129,
+     1332.39,
+     91
+    ],
+    "tabExcel": [
+     50,
+     148,
+     314.59,
+     52
+    ],
+    "tabFactFind": [
+     372.59,
+     148,
+     314.59,
+     52
+    ],
+    "tabExpenses": [
+     695.19,
+     148,
+     314.59,
+     52
+    ],
+    "tabOutput": [
+     1017.78,
+     148,
+     314.61,
+     52
+    ],
+    "footer": [
+     25,
+     846,
+     1332.39,
+     69
+    ],
+    "createClient": [
+     1176.89,
+     859,
+     156.5,
+     44
+    ],
+    "dropzone": [
+     82,
+     256,
+     1208.39,
+     218
+    ],
+    "fileCard": [
+     57,
+     515,
+     1258.39,
+     307
+    ],
+    "success": [
+     134,
+     540,
+     371,
+     24
+    ],
+    "fileName": [
+     144.23,
+     586,
+     201.55,
+     19
+    ],
+    "tileApplicantsFound": [
+     82,
+     655,
+     165.77,
+     86
+    ],
+    "labelApplicantsFound": [
+     93,
+     666,
+     143.77,
+     16
+    ],
+    "valueApplicantsFound": [
+     93,
+     686,
+     143.77,
+     28
+    ],
+    "tileAddressRecordsFound": [
+     255.77,
+     655,
+     165.77,
+     86
+    ],
+    "labelAddressRecordsFound": [
+     266.77,
+     666,
+     143.77,
+     16
+    ],
+    "valueAddressRecordsFound": [
+     266.77,
+     686,
+     143.77,
+     28
+    ],
+    "tileEmploymentRecordsFound": [
+     429.53,
+     655,
+     165.77,
+     86
+    ],
+    "labelEmploymentRecordsFound": [
+     440.53,
+     666,
+     143.77,
+     32
+    ],
+    "valueEmploymentRecordsFound": [
+     440.53,
+     702,
+     143.77,
+     28
+    ],
+    "tileAssetsPopulated": [
+     603.3,
+     655,
+     165.78,
+     86
+    ],
+    "labelAssetsPopulated": [
+     614.3,
+     666,
+     143.78,
+     16
+    ],
+    "valueAssetsPopulated": [
+     614.3,
+     686,
+     143.78,
+     28
+    ],
+    "tileLiabilitiesPopulated": [
+     777.08,
+     655,
+     165.77,
+     86
+    ],
+    "labelLiabilitiesPopulated": [
+     788.08,
+     666,
+     143.77,
+     16
+    ],
+    "valueLiabilitiesPopulated": [
+     788.08,
+     686,
+     143.77,
+     28
+    ],
+    "tileLivingExpensesPopulated": [
+     950.84,
+     655,
+     165.77,
+     86
+    ],
+    "labelLivingExpensesPopulated": [
+     961.84,
+     666,
+     143.77,
+     16
+    ],
+    "valueLivingExpensesPopulated": [
+     961.84,
+     686,
+     143.77,
+     28
+    ],
+    "tileWarningCount": [
+     1124.61,
+     655,
+     165.78,
+     86
+    ],
+    "labelWarningCount": [
+     1135.61,
+     666,
+     143.78,
+     16
+    ],
+    "valueWarningCount": [
+     1135.61,
+     686,
+     143.78,
+     28
+    ],
+    "clearFile": [
+     844.48,
+     757,
+     122.16,
+     40
+    ],
+    "parseAgain": [
+     974.64,
+     757,
+     106.64,
+     40
+    ],
+    "review": [
+     1089.28,
+     757,
+     201.11,
+     40
+    ]
+   },
+   "from": "caps-clients"
+  },
+  "clients-add-parsed-top": {
+   "file": "r3-clients-add-parsed-top.png",
+   "css": [
+    1382.39,
+    940
+   ],
+   "scale": 3,
+   "regions": {
+    "header": [
+     25,
+     25,
+     1332.39,
+     104
+    ],
+    "eyebrow": [
+     105,
+     47,
+     396.38,
+     15
+    ],
+    "title": [
+     105,
+     62,
+     396.38,
+     28
+    ],
+    "modeTabs": [
+     1077.39,
+     54.5,
+     256,
+     50
+    ],
+    "modeStandard": [
+     1082.39,
+     59.5,
+     123,
+     40
+    ],
+    "modeAdvanced": [
+     1205.39,
+     59.5,
+     123,
+     40
+    ],
+    "advancedTabs": [
+     25,
+     129,
+     1332.39,
+     91
+    ],
+    "tabExcel": [
+     50,
+     148,
+     314.59,
+     52
+    ],
+    "tabFactFind": [
+     372.59,
+     148,
+     314.59,
+     52
+    ],
+    "tabExpenses": [
+     695.19,
+     148,
+     314.59,
+     52
+    ],
+    "tabOutput": [
+     1017.78,
+     148,
+     314.61,
+     52
+    ],
+    "footer": [
+     25,
+     846,
+     1332.39,
+     69
+    ],
+    "createClient": [
+     1176.89,
+     859,
+     156.5,
+     44
+    ],
+    "importCard": [
+     57,
+     244,
+     1258.39,
+     362
+    ],
+    "dropzone": [
+     82,
+     363,
+     1208.39,
+     218
+    ],
+    "success": [
+     134,
+     647,
+     371,
+     24
+    ],
+    "fileName": [
+     144.23,
+     693,
+     201.55,
+     19
+    ],
+    "tileApplicantsFound": [
+     82,
+     762,
+     165.77,
+     86
+    ],
+    "labelApplicantsFound": [
+     93,
+     773,
+     143.77,
+     16
+    ],
+    "valueApplicantsFound": [
+     93,
+     793,
+     143.77,
+     28
+    ],
+    "tileAddressRecordsFound": [
+     255.77,
+     762,
+     165.77,
+     86
+    ],
+    "labelAddressRecordsFound": [
+     266.77,
+     773,
+     143.77,
+     16
+    ],
+    "valueAddressRecordsFound": [
+     266.77,
+     793,
+     143.77,
+     28
+    ],
+    "tileEmploymentRecordsFound": [
+     429.53,
+     762,
+     165.77,
+     86
+    ],
+    "labelEmploymentRecordsFound": [
+     440.53,
+     773,
+     143.77,
+     32
+    ],
+    "valueEmploymentRecordsFound": [
+     440.53,
+     809,
+     143.77,
+     28
+    ],
+    "tileAssetsPopulated": [
+     603.3,
+     762,
+     165.78,
+     86
+    ],
+    "labelAssetsPopulated": [
+     614.3,
+     773,
+     143.78,
+     16
+    ],
+    "valueAssetsPopulated": [
+     614.3,
+     793,
+     143.78,
+     28
+    ],
+    "tileLiabilitiesPopulated": [
+     777.08,
+     762,
+     165.77,
+     86
+    ],
+    "labelLiabilitiesPopulated": [
+     788.08,
+     773,
+     143.77,
+     16
+    ],
+    "valueLiabilitiesPopulated": [
+     788.08,
+     793,
+     143.77,
+     28
+    ],
+    "tileLivingExpensesPopulated": [
+     950.84,
+     762,
+     165.77,
+     86
+    ],
+    "labelLivingExpensesPopulated": [
+     961.84,
+     773,
+     143.77,
+     16
+    ],
+    "valueLivingExpensesPopulated": [
+     961.84,
+     793,
+     143.77,
+     28
+    ],
+    "tileWarningCount": [
+     1124.61,
+     762,
+     165.78,
+     86
+    ],
+    "labelWarningCount": [
+     1135.61,
+     773,
+     143.78,
+     16
+    ],
+    "valueWarningCount": [
+     1135.61,
+     793,
+     143.78,
+     28
+    ]
+   },
+   "from": "caps-clients"
+  },
+  "clients-add-review": {
+   "file": "r3-clients-add-review.png",
+   "css": [
+    1382.39,
+    940
+   ],
+   "scale": 3,
+   "regions": {
+    "header": [
+     25,
+     25,
+     1332.39,
+     104
+    ],
+    "eyebrow": [
+     105,
+     47,
+     396.38,
+     15
+    ],
+    "title": [
+     105,
+     62,
+     396.38,
+     28
+    ],
+    "modeTabs": [
+     1077.39,
+     54.5,
+     256,
+     50
+    ],
+    "modeStandard": [
+     1082.39,
+     59.5,
+     123,
+     40
+    ],
+    "modeAdvanced": [
+     1205.39,
+     59.5,
+     123,
+     40
+    ],
+    "advancedTabs": [
+     25,
+     129,
+     1332.39,
+     91
+    ],
+    "tabExcel": [
+     50,
+     148,
+     314.59,
+     52
+    ],
+    "tabFactFind": [
+     372.59,
+     148,
+     314.59,
+     52
+    ],
+    "tabExpenses": [
+     695.19,
+     148,
+     314.59,
+     52
+    ],
+    "tabOutput": [
+     1017.78,
+     148,
+     314.61,
+     52
+    ],
+    "footer": [
+     25,
+     846,
+     1332.39,
+     69
+    ],
+    "createClient": [
+     1176.89,
+     859,
+     156.5,
+     44
+    ],
+    "sections": [
+     57,
+     248,
+     1258.39,
+     60
+    ],
+    "sectionApplicants": [
+     64,
+     255,
+     244.08,
+     46
+    ],
+    "snapshot": [
+     57,
+     320,
+     1258.39,
+     109
+    ],
+    "salaryTile": [
+     58,
+     353,
+     251.27,
+     75
+    ],
+    "salary": [
+     74,
+     386,
+     219.27,
+     28
+    ],
+    "assetsTile": [
+     560.55,
+     353,
+     251.28,
+     75
+    ],
+    "debtTile": [
+     811.83,
+     353,
+     251.28,
+     75
+    ],
+    "netTile": [
+     1063.11,
+     353,
+     251.27,
+     75
+    ],
+    "applicantHeader": [
+     59,
+     446,
+     616.19,
+     71
+    ],
+    "firstNameLabel": [
+     377.09,
+     537,
+     278.09,
+     16.5
+    ],
+    "firstName": [
+     377.09,
+     559.5,
+     278.09,
+     40
+    ],
+    "surnameLabel": [
+     377.09,
+     629.33,
+     278.09,
+     16.5
+    ],
+    "surname": [
+     377.09,
+     651.83,
+     278.09,
+     40
+    ],
+    "dateOfBirth": [
+     79,
+     742.16,
+     278.09,
+     40
+    ]
+   },
+   "from": "caps-clients"
+  },
+  "clients-add-selected": {
+   "file": "r3-clients-add-selected.png",
+   "css": [
+    1382.39,
+    940
+   ],
+   "scale": 3,
+   "regions": {
+    "header": [
+     25,
+     25,
+     1332.39,
+     104
+    ],
+    "eyebrow": [
+     105,
+     47,
+     396.38,
+     15
+    ],
+    "title": [
+     105,
+     62,
+     396.38,
+     28
+    ],
+    "modeTabs": [
+     1077.39,
+     54.5,
+     256,
+     50
+    ],
+    "modeStandard": [
+     1082.39,
+     59.5,
+     123,
+     40
+    ],
+    "modeAdvanced": [
+     1205.39,
+     59.5,
+     123,
+     40
+    ],
+    "advancedTabs": [
+     25,
+     129,
+     1332.39,
+     91
+    ],
+    "tabExcel": [
+     50,
+     148,
+     314.59,
+     52
+    ],
+    "tabFactFind": [
+     372.59,
+     148,
+     314.59,
+     52
+    ],
+    "tabExpenses": [
+     695.19,
+     148,
+     314.59,
+     52
+    ],
+    "tabOutput": [
+     1017.78,
+     148,
+     314.61,
+     52
+    ],
+    "footer": [
+     25,
+     846,
+     1332.39,
+     69
+    ],
+    "createClient": [
+     1176.89,
+     859,
+     156.5,
+     44
+    ],
+    "dropzone": [
+     82,
+     363,
+     1208.39,
+     218
+    ],
+    "fileCard": [
+     57,
+     622,
+     1258.39,
+     205
+    ],
+    "fileTitle": [
+     134,
+     647,
+     371,
+     24
+    ],
+    "fileName": [
+     144.23,
+     693,
+     201.55,
+     19
+    ],
+    "fileSize": [
+     136.64,
+     717,
+     45.67,
+     19
+    ],
+    "clearFile": [
+     1022.03,
+     762,
+     122.16,
+     40
+    ],
+    "parse": [
+     1152.19,
+     762,
+     138.2,
+     40
+    ]
+   },
+   "from": "caps-clients"
+  },
+  "clients-card": {
+   "file": "r3-clients-card.png",
+   "css": [
+    477.33,
+    368.5
+   ],
+   "scale": 3,
+   "regions": {
+    "card": [
+     12,
+     12,
+     453.33,
+     344.5
+    ],
+    "initials": [
+     61,
+     33,
+     44,
+     44
+    ],
+    "name": [
+     117,
+     33,
+     72.67,
+     18.75
+    ],
+    "star": [
+     348.33,
+     33,
+     32,
+     32
+    ],
+    "contact": [
+     33,
+     93,
+     411.33,
+     60
+    ],
+    "noEmail": [
+     68,
+     104,
+     84.08,
+     16
+    ],
+    "noPhone": [
+     68,
+     126,
+     89.48,
+     16
+    ],
+    "tileProperties": [
+     33,
+     169,
+     131.77,
+     59
+    ],
+    "tilePortfolio": [
+     172.77,
+     169,
+     131.78,
+     59
+    ],
+    "tileCashFlow": [
+     312.55,
+     169,
+     131.78,
+     59
+    ],
+    "viewDetails": [
+     33,
+     261,
+     411.33,
+     36
+    ],
+    "ghlChip": [
+     340.09,
+     309,
+     104.23,
+     26.5
+    ]
+   },
+   "from": "caps-clients"
+  },
+  "clients-management": {
+   "file": "r3-clients-management.png",
+   "css": [
+    1440,
+    930.5
+   ],
+   "scale": 3,
+   "regions": {
+    "hero": [
+     24,
+     24,
+     1392,
+     174.5
+    ],
+    "eyebrow": [
+     53,
+     53,
+     339.92,
+     16.5
+    ],
+    "title": [
+     53,
+     77.5,
+     339.92,
+     36
+    ],
+    "addClient": [
+     1212.2,
+     53,
+     126.8,
+     40
+    ],
+    "kpiClients": [
+     24,
+     218.5,
+     339,
+     150
+    ],
+    "kpiProperties": [
+     375,
+     218.5,
+     339,
+     150
+    ],
+    "kpiPortfolio": [
+     726,
+     218.5,
+     339,
+     150
+    ],
+    "tabs": [
+     24,
+     388.5,
+     429.16,
+     47.5
+    ],
+    "tabClients": [
+     29,
+     395.5,
+     74.09,
+     33.5
+    ],
+    "search": [
+     33,
+     465,
+     448,
+     40
+    ],
+    "showing": [
+     24,
+     530,
+     1392,
+     16
+    ],
+    "card": [
+     24,
+     562,
+     453.33,
+     344.5
+    ],
+    "initials": [
+     73,
+     583,
+     44,
+     44
+    ],
+    "name": [
+     129,
+     583,
+     72.67,
+     18.75
+    ],
+    "star": [
+     360.33,
+     583,
+     32,
+     32
+    ],
+    "contact": [
+     45,
+     643,
+     411.33,
+     60
+    ],
+    "noEmail": [
+     80,
+     654,
+     84.08,
+     16
+    ],
+    "noPhone": [
+     80,
+     676,
+     89.48,
+     16
+    ],
+    "tileProperties": [
+     45,
+     719,
+     131.77,
+     59
+    ],
+    "tilePortfolio": [
+     184.77,
+     719,
+     131.78,
+     59
+    ],
+    "tileCashFlow": [
+     324.55,
+     719,
+     131.78,
+     59
+    ],
+    "viewDetails": [
+     45,
+     811,
+     411.33,
+     36
+    ],
+    "ghlChip": [
+     352.09,
+     859,
+     104.23,
+     26.5
+    ],
+    "ghlSubtitle": [
+     53,
+     121.5,
+     339.92,
+     24
+    ],
+    "ghlImport": [
+     923.48,
+     53,
+     169.16,
+     40
+    ],
+    "ghlAutoSync": [
+     781.63,
+     53,
+     133.86,
+     40
+    ],
+    "ghlLastSync": [
+     53,
+     153.5,
+     339.92,
+     16
+    ],
+    "ghlPending": [
+     1077,
+     218.5,
+     339,
+     150
+    ]
+   },
+   "from": "caps-clients"
+  },
+  "clients-ws-bc-empty": {
+   "file": "r3-clients-ws-bc-empty.png",
+   "css": [
+    1368,
+    900
+   ],
+   "scale": 3,
+   "regions": {
+    "header": [
+     25,
+     25,
+     1270,
+     24.5
+    ],
+    "name": [
+     57,
+     25,
+     87.23,
+     22.5
+    ],
+    "toolbar": [
+     25,
+     65.5,
+     1278,
+     80
+    ],
+    "tabBar": [
+     25,
+     154.5,
+     1318,
+     86
+    ],
+    "tabOverview": [
+     36.34,
+     161.5,
+     80.98,
+     32
+    ],
+    "tabDeals": [
+     318.5,
+     161.5,
+     57.59,
+     32
+    ],
+    "tabBorrowing": [
+     711.69,
+     199.5,
+     146.2,
+     34
+    ],
+    "legacySendToFinance": [
+     946.2,
+     65.5,
+     248.13,
+     36
+    ],
+    "legacyDownload": [
+     29,
+     109.5,
+     210.63,
+     36
+    ],
+    "card": [
+     25,
+     260.5,
+     1308,
+     154
+    ],
+    "cardTitle": [
+     50,
+     285.5,
+     1258,
+     20
+    ],
+    "cardWords": [
+     50,
+     317.5,
+     1258,
+     20
+    ],
+    "calculate": [
+     50,
+     353.5,
+     1258,
+     36
+    ]
+   },
+   "from": "caps-clients"
+  },
+  "clients-ws-bc-result": {
+   "file": "r3-clients-ws-bc-result.png",
+   "css": [
+    1368,
+    900
+   ],
+   "scale": 3,
+   "regions": {
+    "header": [
+     25,
+     25,
+     1270,
+     24.5
+    ],
+    "name": [
+     57,
+     25,
+     87.23,
+     22.5
+    ],
+    "toolbar": [
+     25,
+     65.5,
+     1278,
+     80
+    ],
+    "tabBar": [
+     25,
+     154.5,
+     1318,
+     86
+    ],
+    "tabOverview": [
+     36.34,
+     161.5,
+     80.98,
+     32
+    ],
+    "tabDeals": [
+     318.5,
+     161.5,
+     57.59,
+     32
+    ],
+    "tabBorrowing": [
+     711.69,
+     199.5,
+     146.2,
+     34
+    ],
+    "legacySendToFinance": [
+     946.2,
+     65.5,
+     248.13,
+     36
+    ],
+    "legacyDownload": [
+     29,
+     109.5,
+     210.63,
+     36
+    ],
+    "card": [
+     25,
+     260.5,
+     1308,
+     384
+    ],
+    "figure": [
+     50,
+     329.5,
+     1258,
+     36
+    ],
+    "label": [
+     50,
+     369.5,
+     1258,
+     16
+    ],
+    "band": [
+     617.45,
+     401.5,
+     123.09,
+     22
+    ],
+    "surplus": [
+     58,
+     463.5,
+     607,
+     20
+    ],
+    "dti": [
+     693,
+     463.5,
+     607,
+     20
+    ],
+    "stressLabel": [
+     50,
+     507.5,
+     135.25,
+     16
+    ],
+    "stress": [
+     1260.11,
+     507.5,
+     47.89,
+     16
+    ],
+    "stressBar": [
+     50,
+     527.5,
+     1258,
+     8
+    ],
+    "calculated": [
+     50,
+     551.5,
+     1258,
+     16
+    ],
+    "full": [
+     50,
+     583.5,
+     1258,
+     36
+    ]
+   },
+   "from": "caps-clients"
+  },
+  "clients-ws-deal-advisory-journey": {
+   "file": "r3-clients-ws-deal-advisory-journey.png",
+   "css": [
+    1368,
+    900
+   ],
+   "scale": 3,
+   "regions": {
+    "header": [
+     25,
+     25,
+     1270,
+     24.5
+    ],
+    "name": [
+     57,
+     25,
+     87.23,
+     22.5
+    ],
+    "toolbar": [
+     25,
+     65.5,
+     1278,
+     80
+    ],
+    "tabBar": [
+     25,
+     154.5,
+     1318,
+     86
+    ],
+    "tabOverview": [
+     35.34,
+     162.5,
+     80.98,
+     32
+    ],
+    "tabDeals": [
+     317.5,
+     161.5,
+     59.59,
+     34
+    ],
+    "tabBorrowing": [
+     712.69,
+     201.5,
+     144.2,
+     32
+    ],
+    "legacySendToFinance": [
+     946.2,
+     65.5,
+     248.13,
+     36
+    ],
+    "legacyDownload": [
+     29,
+     109.5,
+     210.63,
+     36
+    ],
+    "back": [
+     63,
+     298.5,
+     123.61,
+     32
+    ],
+    "caseFile": [
+     123,
+     342.5,
+     421.56,
+     15
+    ],
+    "dealTitle": [
+     123,
+     361.5,
+     421.56,
+     36
+    ],
+    "stageBadge": [
+     123,
+     405.5,
+     149.27,
+     22
+    ],
+    "addressBadge": [
+     280.27,
+     405.5,
+     264.3,
+     22
+    ],
+    "where": [
+     46,
+     460.5,
+     1266,
+     248
+    ],
+    "whereTitle": [
+     111,
+     473.5,
+     292.05,
+     20
+    ],
+    "journey": [
+     63,
+     540.5,
+     1232,
+     28
+    ],
+    "pillOnboarding": [
+     63,
+     540.5,
+     98.7,
+     28
+    ],
+    "pillAdvisory": [
+     177.7,
+     540.5,
+     86.98,
+     28
+    ],
+    "pillAcquisition": [
+     280.69,
+     540.5,
+     96.92,
+     28
+    ],
+    "pillFinance": [
+     393.61,
+     540.5,
+     79.91,
+     28
+    ],
+    "pillLegal": [
+     489.52,
+     540.5,
+     68.66,
+     28
+    ],
+    "pillFinalised": [
+     574.17,
+     540.5,
+     85.08,
+     28
+    ],
+    "now": [
+     63,
+     580.5,
+     302,
+     83
+    ],
+    "nextStep": [
+     373,
+     580.5,
+     302,
+     83
+    ],
+    "clientDoes": [
+     683,
+     580.5,
+     302,
+     83
+    ],
+    "keyDate": [
+     993,
+     580.5,
+     302,
+     83
+    ],
+    "then": [
+     63,
+     675.5,
+     1232,
+     16
+    ]
+   },
+   "from": "caps-clients"
+  },
+  "clients-ws-deal-advisory-list": {
+   "file": "r3-clients-ws-deal-advisory-list.png",
+   "css": [
+    1368,
+    900
+   ],
+   "scale": 3,
+   "regions": {
+    "header": [
+     25,
+     25,
+     1270,
+     24.5
+    ],
+    "name": [
+     57,
+     25,
+     87.23,
+     22.5
+    ],
+    "toolbar": [
+     25,
+     65.5,
+     1278,
+     80
+    ],
+    "tabBar": [
+     25,
+     154.5,
+     1318,
+     86
+    ],
+    "tabOverview": [
+     35.34,
+     162.5,
+     80.98,
+     32
+    ],
+    "tabDeals": [
+     317.5,
+     161.5,
+     59.59,
+     34
+    ],
+    "tabBorrowing": [
+     712.69,
+     201.5,
+     144.2,
+     32
+    ],
+    "legacySendToFinance": [
+     946.2,
+     65.5,
+     248.13,
+     36
+    ],
+    "legacyDownload": [
+     29,
+     109.5,
+     210.63,
+     36
+    ],
+    "tracker": [
+     25,
+     264.5,
+     130.77,
+     28
+    ],
+    "newDeal": [
+     1219.59,
+     260.5,
+     113.41,
+     36
+    ],
+    "dealCard": [
+     25,
+     312.5,
+     1308,
+     131
+    ],
+    "dealAddress": [
+     66,
+     330,
+     250.94,
+     20
+    ],
+    "stageBadge": [
+     324.94,
+     329.5,
+     33.11,
+     21
+    ],
+    "risk": [
+     1237.83,
+     329.5,
+     78.17,
+     21
+    ],
+    "stage": [
+     42,
+     358.5,
+     120.16,
+     20
+    ],
+    "phase": [
+     168.16,
+     358.5,
+     76.45,
+     20
+    ],
+    "progress": [
+     42,
+     391.5,
+     1244.38,
+     6
+    ]
+   },
+   "from": "caps-clients"
+  },
+  "clients-ws-deal-onboarding-journey": {
+   "file": "r3-clients-ws-deal-onboarding-journey.png",
+   "css": [
+    1368,
+    900
+   ],
+   "scale": 3,
+   "regions": {
+    "header": [
+     25,
+     25,
+     1270,
+     24.5
+    ],
+    "name": [
+     57,
+     25,
+     87.23,
+     22.5
+    ],
+    "toolbar": [
+     25,
+     65.5,
+     1278,
+     80
+    ],
+    "tabBar": [
+     25,
+     154.5,
+     1318,
+     86
+    ],
+    "tabOverview": [
+     35.34,
+     162.5,
+     80.98,
+     32
+    ],
+    "tabDeals": [
+     317.5,
+     161.5,
+     59.59,
+     34
+    ],
+    "tabBorrowing": [
+     712.69,
+     201.5,
+     144.2,
+     32
+    ],
+    "legacySendToFinance": [
+     946.2,
+     65.5,
+     248.13,
+     36
+    ],
+    "legacyDownload": [
+     29,
+     109.5,
+     210.63,
+     36
+    ],
+    "back": [
+     63,
+     298.5,
+     123.61,
+     32
+    ],
+    "caseFile": [
+     123,
+     342.5,
+     439.56,
+     15
+    ],
+    "dealTitle": [
+     123,
+     361.5,
+     439.56,
+     36
+    ],
+    "stageBadge": [
+     123,
+     405.5,
+     167.27,
+     22
+    ],
+    "addressBadge": [
+     298.27,
+     405.5,
+     264.3,
+     22
+    ],
+    "where": [
+     46,
+     460.5,
+     1266,
+     248
+    ],
+    "whereTitle": [
+     111,
+     473.5,
+     292.05,
+     20
+    ],
+    "journey": [
+     63,
+     540.5,
+     1232,
+     28
+    ],
+    "pillOnboarding": [
+     63,
+     540.5,
+     103.81,
+     28
+    ],
+    "pillAdvisory": [
+     182.81,
+     540.5,
+     84.75,
+     28
+    ],
+    "pillAcquisition": [
+     283.56,
+     540.5,
+     96.92,
+     28
+    ],
+    "pillFinance": [
+     396.48,
+     540.5,
+     79.91,
+     28
+    ],
+    "pillLegal": [
+     492.39,
+     540.5,
+     68.66,
+     28
+    ],
+    "pillFinalised": [
+     577.05,
+     540.5,
+     85.08,
+     28
+    ],
+    "now": [
+     63,
+     580.5,
+     302,
+     83
+    ],
+    "nextStep": [
+     373,
+     580.5,
+     302,
+     83
+    ],
+    "clientDoes": [
+     683,
+     580.5,
+     302,
+     83
+    ],
+    "keyDate": [
+     993,
+     580.5,
+     302,
+     83
+    ],
+    "then": [
+     63,
+     675.5,
+     1232,
+     16
+    ]
+   },
+   "from": "caps-clients"
+  },
+  "clients-ws-deal-onboarding-list": {
+   "file": "r3-clients-ws-deal-onboarding-list.png",
+   "css": [
+    1368,
+    900
+   ],
+   "scale": 3,
+   "regions": {
+    "header": [
+     25,
+     25,
+     1270,
+     24.5
+    ],
+    "name": [
+     57,
+     25,
+     87.23,
+     22.5
+    ],
+    "toolbar": [
+     25,
+     65.5,
+     1278,
+     80
+    ],
+    "tabBar": [
+     25,
+     154.5,
+     1318,
+     86
+    ],
+    "tabOverview": [
+     35.34,
+     162.5,
+     80.98,
+     32
+    ],
+    "tabDeals": [
+     317.5,
+     161.5,
+     59.59,
+     34
+    ],
+    "tabBorrowing": [
+     712.69,
+     201.5,
+     144.2,
+     32
+    ],
+    "legacySendToFinance": [
+     946.2,
+     65.5,
+     248.13,
+     36
+    ],
+    "legacyDownload": [
+     29,
+     109.5,
+     210.63,
+     36
+    ],
+    "tracker": [
+     25,
+     264.5,
+     130.77,
+     28
+    ],
+    "newDeal": [
+     1219.59,
+     260.5,
+     113.41,
+     36
+    ],
+    "dealCard": [
+     25,
+     312.5,
+     1308,
+     131
+    ],
+    "dealAddress": [
+     66,
+     330,
+     250.94,
+     20
+    ],
+    "stageBadge": [
+     324.94,
+     329.5,
+     33.11,
+     21
+    ],
+    "risk": [
+     1237.83,
+     329.5,
+     78.17,
+     21
+    ],
+    "stage": [
+     42,
+     358.5,
+     140.33,
+     20
+    ],
+    "phase": [
+     188.33,
+     358.5,
+     91.84,
+     20
+    ],
+    "progress": [
+     42,
+     391.5,
+     1244.38,
+     6
+    ]
+   },
+   "from": "caps-clients"
+  },
+  "clients-ws-finance": {
+   "file": "r3-clients-ws-finance.png",
+   "css": [
+    1368,
+    900
+   ],
+   "scale": 3,
+   "regions": {
+    "header": [
+     25,
+     25,
+     1270,
+     24.5
+    ],
+    "name": [
+     57,
+     25,
+     87.23,
+     22.5
+    ],
+    "toolbar": [
+     25,
+     65.5,
+     1278,
+     80
+    ],
+    "tabBar": [
+     25,
+     154.5,
+     1318,
+     86
+    ],
+    "tabOverview": [
+     35.34,
+     161.5,
+     82.98,
+     34
+    ],
+    "tabDeals": [
+     319.5,
+     162.5,
+     57.59,
+     32
+    ],
+    "tabBorrowing": [
+     712.69,
+     201.5,
+     144.2,
+     32
+    ],
+    "legacySendToFinance": [
+     946.2,
+     65.5,
+     248.13,
+     36
+    ],
+    "legacyDownload": [
+     29,
+     109.5,
+     210.63,
+     36
+    ],
+    "team": [
+     25,
+     511.5,
+     1308,
+     364
+    ],
+    "teamTitle": [
+     50,
+     536.5,
+     1258,
+     32
+    ],
+    "rolesFilled": [
+     219.14,
+     542.5,
+     83.89,
+     20
+    ],
+    "tileCommandCenter": [
+     51,
+     613.5,
+     244.8,
+     78
+    ],
+    "tileFinance": [
+     303.8,
+     613.5,
+     244.8,
+     78
+    ],
+    "tileSolicitor": [
+     556.59,
+     613.5,
+     244.8,
+     78
+    ],
+    "tileAccountant": [
+     809.39,
+     613.5,
+     244.8,
+     78
+    ],
+    "tileBuilder": [
+     1062.19,
+     613.5,
+     244.81,
+     78
+    ],
+    "roles": [
+     50,
+     606.5,
+     1258,
+     92
+    ],
+    "finance": [
+     50,
+     718.5,
+     1258,
+     132
+    ],
+    "financeTitle": [
+     50,
+     718.5,
+     247.69,
+     20
+    ],
+    "financeWords": [
+     50,
+     740.5,
+     247.69,
+     16
+    ],
+    "inviteNew": [
+     1075.39,
+     724.5,
+     100.02,
+     28
+    ],
+    "assignExisting": [
+     1181.41,
+     724.5,
+     126.59,
+     28
+    ],
+    "jamie": [
+     50,
+     768.5,
+     1258,
+     58
+    ],
+    "jamieName": [
+     111,
+     787.5,
+     70.56,
+     20
+    ],
+    "jamieSections": [
+     189.56,
+     787.5,
+     80.41,
+     20
+    ],
+    "makePrimary": [
+     1106.03,
+     781.5,
+     116.97,
+     32
+    ],
+    "noPrimary": [
+     50,
+     834.5,
+     1258,
+     16
+    ]
+   },
+   "from": "caps-clients"
+  },
+  "clients-ws-team": {
+   "file": "r3-clients-ws-team.png",
+   "css": [
+    1368,
+    900
+   ],
+   "scale": 3,
+   "regions": {
+    "header": [
+     25,
+     25,
+     1270,
+     24.5
+    ],
+    "name": [
+     57,
+     25,
+     87.23,
+     22.5
+    ],
+    "toolbar": [
+     25,
+     65.5,
+     1278,
+     80
+    ],
+    "tabBar": [
+     25,
+     154.5,
+     1318,
+     86
+    ],
+    "tabOverview": [
+     35.34,
+     161.5,
+     82.98,
+     34
+    ],
+    "tabDeals": [
+     319.5,
+     162.5,
+     57.59,
+     32
+    ],
+    "tabBorrowing": [
+     712.69,
+     201.5,
+     144.2,
+     32
+    ],
+    "legacySendToFinance": [
+     946.2,
+     65.5,
+     248.13,
+     36
+    ],
+    "legacyDownload": [
+     29,
+     109.5,
+     210.63,
+     36
+    ],
+    "teamHeader": [
+     26,
+     676.5,
+     1306,
+     94
+    ],
+    "roles": [
+     50,
+     770.5,
+     1258,
+     92
+    ],
+    "teamTitle": [
+     50,
+     700.5,
+     1258,
+     32
+    ],
+    "rolesFilled": [
+     219.14,
+     706.5,
+     83.89,
+     20
+    ],
+    "tileCommandCenter": [
+     51,
+     776.5,
+     244.8,
+     78
+    ],
+    "tileFinance": [
+     303.8,
+     777.5,
+     244.8,
+     78
+    ],
+    "tileSolicitor": [
+     556.59,
+     777.5,
+     244.8,
+     78
+    ],
+    "tileAccountant": [
+     809.39,
+     777.5,
+     244.8,
+     78
+    ],
+    "tileBuilder": [
+     1062.19,
+     777.5,
+     244.81,
+     78
+    ]
+   },
+   "from": "caps-clients"
+  },
+  "cp-report-card": {
+   "file": "r3-cp-report-card.png",
+   "css": [
+    1072,
+    131
+   ],
+   "scale": 3,
+   "regions": {
+    "icon": [
+     21,
+     21,
+     42,
+     42
+    ],
+    "reportTitle": [
+     79,
+     21,
+     260.91,
+     20
+    ],
+    "newBadge": [
+     347.91,
+     22.5,
+     34.75,
+     17
+    ],
+    "label": [
+     79,
+     45,
+     111.88,
+     21
+    ],
+    "published": [
+     986.95,
+     21,
+     64.05,
+     16
+    ],
+    "publishedAgo": [
+     986.95,
+     39,
+     64.05,
+     15
+    ],
+    "download": [
+     79,
+     78,
+     149.09,
+     32
+    ]
+   },
+   "from": "caps-portals"
+  },
+  "cp-reports": {
+   "file": "r3-cp-reports.png",
+   "css": [
+    1440,
+    1110
+   ],
+   "scale": 3,
+   "regions": {
+    "sidebar": [
+     0,
+     0,
+     288,
+     1110
+    ],
+    "brand": [
+     76,
+     24,
+     109.31,
+     24
+    ],
+    "secureAccess": [
+     76,
+     50,
+     109.31,
+     15
+    ],
+    "bell": [
+     227,
+     26.5,
+     36,
+     36
+    ],
+    "userName": [
+     81,
+     113,
+     177,
+     20
+    ],
+    "avoidEmail": [
+     81,
+     133,
+     177,
+     16
+    ],
+    "navReports": [
+     12,
+     716,
+     263,
+     44
+    ],
+    "header": [
+     328,
+     40,
+     1072,
+     126
+    ],
+    "title": [
+     361,
+     73,
+     273.63,
+     32
+    ],
+    "subtitle": [
+     361,
+     109,
+     273.63,
+     24
+    ],
+    "requestReport": [
+     1209.55,
+     73,
+     157.45,
+     40
+    ],
+    "tabMyReports": [
+     333,
+     197,
+     116.88,
+     34
+    ],
+    "search": [
+     328,
+     254,
+     1072,
+     40
+    ],
+    "filterBorrowingCapacity": [
+     589.98,
+     306,
+     129.03,
+     36
+    ],
+    "card": [
+     328,
+     358,
+     1072,
+     131
+    ],
+    "icon": [
+     349,
+     379,
+     42,
+     42
+    ],
+    "reportTitle": [
+     407,
+     379,
+     260.91,
+     20
+    ],
+    "newBadge": [
+     675.91,
+     380.5,
+     34.75,
+     17
+    ],
+    "label": [
+     407,
+     403,
+     111.88,
+     21
+    ],
+    "published": [
+     1314.95,
+     379,
+     64.05,
+     16
+    ],
+    "publishedAgo": [
+     1314.95,
+     397,
+     64.05,
+     15
+    ],
+    "download": [
+     407,
+     436,
+     149.09,
+     32
+    ],
+    "showing": [
+     328,
+     505,
+     1072,
+     16
+    ]
+   },
+   "from": "caps-portals"
+  },
+  "fp-bc-panel": {
+   "file": "r3-fp-bc-panel.png",
+   "css": [
+    1104,
+    759
+   ],
+   "scale": 3,
+   "regions": {
+    "hero": [
+     0,
+     0,
+     1104,
+     285
+    ],
+    "panelTitle": [
+     25,
+     25,
+     217.69,
+     24
+    ],
+    "latest": [
+     25,
+     53,
+     217.69,
+     16
+    ],
+    "avoidServiceability": [
+     915.2,
+     25,
+     163.8,
+     22
+    ],
+    "maximumLabel": [
+     46,
+     102,
+     1012,
+     16
+    ],
+    "maximum": [
+     46,
+     122,
+     1012,
+     36
+    ],
+    "surplus": [
+     25,
+     195,
+     254.5,
+     65
+    ],
+    "dti": [
+     291.5,
+     195,
+     254.5,
+     65
+    ],
+    "stress": [
+     558,
+     195,
+     254.5,
+     65
+    ],
+    "term": [
+     824.5,
+     195,
+     254.5,
+     65
+    ],
+    "inputs": [
+     0,
+     301,
+     1104,
+     280
+    ],
+    "inputsTitle": [
+     25,
+     326,
+     1054,
+     20
+    ],
+    "grossIncome": [
+     25,
+     380,
+     515,
+     29
+    ],
+    "livingExpenses": [
+     25,
+     417,
+     515,
+     29
+    ],
+    "commitments": [
+     564,
+     417,
+     515,
+     29
+    ],
+    "assessmentRate": [
+     25,
+     491,
+     515,
+     29
+    ],
+    "avoidBufferApra": [
+     564,
+     454,
+     515,
+     29
+    ],
+    "avoidRecommendations": [
+     0,
+     597,
+     1104,
+     130
+    ],
+    "avoidApraFooter": [
+     0,
+     743,
+     1104,
+     16
+    ],
+    "quickAdd": [
+     1056,
+     721,
+     64,
+     56
+    ]
+   },
+   "from": "caps-portals"
+  },
+  "fp-clients": {
+   "file": "r3-fp-clients.png",
+   "css": [
+    1440,
+    1000
+   ],
+   "scale": 3,
+   "regions": {
+    "sidebar": [
+     0,
+     0,
+     256,
+     1000
+    ],
+    "portalName": [
+     72,
+     23.75,
+     93.06,
+     20
+    ],
+    "partnerAccess": [
+     72,
+     43.75,
+     93.06,
+     12.5
+    ],
+    "userCard": [
+     12,
+     93,
+     231,
+     62.5
+    ],
+    "navMyClients": [
+     12,
+     351.5,
+     231,
+     40
+    ],
+    "topBar": [
+     256,
+     0,
+     1184,
+     57
+    ],
+    "topBarName": [
+     1337.44,
+     18,
+     70.56,
+     20
+    ],
+    "quickAdd": [
+     1352,
+     928,
+     64,
+     56
+    ],
+    "title": [
+     296,
+     81,
+     188.11,
+     36
+    ],
+    "count": [
+     338,
+     123,
+     146.11,
+     20
+    ],
+    "search": [
+     297,
+     164,
+     223,
+     40
+    ],
+    "jordanRow": [
+     296,
+     225,
+     1104,
+     78
+    ],
+    "jordanName": [
+     373,
+     253,
+     72.03,
+     20
+    ],
+    "jordanStatus": [
+     461.03,
+     255.5,
+     42.41,
+     17
+    ],
+    "jordanSections": [
+     563.44,
+     256.5,
+     25.47,
+     15
+    ],
+    "governed": [
+     758.89,
+     331,
+     196.2,
+     15
+    ]
+   },
+   "from": "caps-portals"
+  },
+  "fp-profile-bc": {
+   "file": "r3-fp-profile-bc.png",
+   "css": [
+    1440,
+    1690
+   ],
+   "scale": 3,
+   "regions": {
+    "sidebar": [
+     0,
+     0,
+     256,
+     1690
+    ],
+    "portalName": [
+     72,
+     23.75,
+     93.06,
+     20
+    ],
+    "partnerAccess": [
+     72,
+     43.75,
+     93.06,
+     12.5
+    ],
+    "userCard": [
+     12,
+     93,
+     231,
+     62.5
+    ],
+    "navMyClients": [
+     12,
+     351.5,
+     231,
+     40
+    ],
+    "topBar": [
+     256,
+     0,
+     1184,
+     57
+    ],
+    "topBarName": [
+     1337.44,
+     18,
+     70.56,
+     20
+    ],
+    "quickAdd": [
+     1352,
+     1618,
+     64,
+     56
+    ],
+    "back": [
+     288,
+     81,
+     134.38,
+     36
+    ],
+    "header": [
+     296,
+     141,
+     1104,
+     130
+    ],
+    "name": [
+     421,
+     170,
+     127.63,
+     32
+    ],
+    "status": [
+     560.63,
+     175,
+     56.08,
+     22
+    ],
+    "sections": [
+     441,
+     214,
+     145.42,
+     16
+    ],
+    "mirror": [
+     296,
+     295,
+     1104,
+     168
+    ],
+    "avoidEmailMirror": [
+     369,
+     339,
+     320.61,
+     16
+    ],
+    "team": [
+     296,
+     487,
+     1104,
+     316
+    ],
+    "teamBroker": [
+     854,
+     580,
+     521,
+     102
+    ],
+    "tabRow": [
+     336,
+     827,
+     1024,
+     46
+    ],
+    "tabPrev": [
+     296,
+     832,
+     36,
+     36
+    ],
+    "tabNext": [
+     1364,
+     832,
+     36,
+     36
+    ],
+    "tabDocuments": [
+     914.73,
+     827,
+     132.34,
+     38
+    ],
+    "tabBorrowingCapacity": [
+     1053.08,
+     827,
+     155.03,
+     38
+    ],
+    "tabMessageHub": [
+     1214.11,
+     827,
+     144.34,
+     38
+    ],
+    "tabPurchaseFiles": [
+     762.91,
+     827,
+     145.83,
+     38
+    ],
+    "panel": [
+     296,
+     897,
+     1104,
+     759
+    ],
+    "hero": [
+     296,
+     897,
+     1104,
+     285
+    ],
+    "panelTitle": [
+     321,
+     922,
+     217.69,
+     24
+    ],
+    "latest": [
+     321,
+     950,
+     217.69,
+     16
+    ],
+    "avoidServiceability": [
+     1211.2,
+     922,
+     163.8,
+     22
+    ],
+    "maximumLabel": [
+     342,
+     999,
+     1012,
+     16
+    ],
+    "maximum": [
+     342,
+     1019,
+     1012,
+     36
+    ],
+    "surplus": [
+     321,
+     1092,
+     254.5,
+     65
+    ],
+    "dti": [
+     587.5,
+     1092,
+     254.5,
+     65
+    ],
+    "stress": [
+     854,
+     1092,
+     254.5,
+     65
+    ],
+    "term": [
+     1120.5,
+     1092,
+     254.5,
+     65
+    ],
+    "inputs": [
+     296,
+     1198,
+     1104,
+     280
+    ],
+    "inputsTitle": [
+     321,
+     1223,
+     1054,
+     20
+    ],
+    "grossIncome": [
+     321,
+     1277,
+     515,
+     29
+    ],
+    "livingExpenses": [
+     321,
+     1314,
+     515,
+     29
+    ],
+    "commitments": [
+     860,
+     1314,
+     515,
+     29
+    ],
+    "assessmentRate": [
+     321,
+     1388,
+     515,
+     29
+    ],
+    "avoidBufferApra": [
+     860,
+     1351,
+     515,
+     29
+    ],
+    "avoidRecommendations": [
+     296,
+     1494,
+     1104,
+     130
+    ],
+    "avoidApraFooter": [
+     296,
+     1640,
+     1104,
+     16
+    ]
+   },
+   "from": "caps-portals"
+  },
+  "fp-profile-header": {
+   "file": "r3-fp-profile-header.png",
+   "css": [
+    1104,
+    130
+   ],
+   "scale": 3,
+   "regions": {
+    "avatar": [
+     25,
+     29,
+     80,
+     80
+    ],
+    "name": [
+     125,
+     29,
+     127.63,
+     32
+    ],
+    "status": [
+     264.63,
+     34,
+     56.08,
+     22
+    ],
+    "sections": [
+     145,
+     73,
+     145.42,
+     16
+    ]
+   },
+   "from": "caps-portals"
+  },
+  "fp-profile-opened": {
+   "file": "r3-fp-profile-opened.png",
+   "css": [
+    1440,
+    1160
+   ],
+   "scale": 3,
+   "regions": {
+    "sidebar": [
+     0,
+     0,
+     256,
+     1160
+    ],
+    "portalName": [
+     72,
+     23.75,
+     93.06,
+     20
+    ],
+    "partnerAccess": [
+     72,
+     43.75,
+     93.06,
+     12.5
+    ],
+    "userCard": [
+     12,
+     93,
+     231,
+     62.5
+    ],
+    "navMyClients": [
+     12,
+     351.5,
+     231,
+     40
+    ],
+    "topBar": [
+     256,
+     0,
+     1184,
+     57
+    ],
+    "topBarName": [
+     1337.44,
+     18,
+     70.56,
+     20
+    ],
+    "quickAdd": [
+     1352,
+     1088,
+     64,
+     56
+    ],
+    "back": [
+     288,
+     81,
+     134.38,
+     36
+    ],
+    "header": [
+     296,
+     141,
+     1104,
+     130
+    ],
+    "name": [
+     421,
+     170,
+     127.63,
+     32
+    ],
+    "status": [
+     560.63,
+     175,
+     56.08,
+     22
+    ],
+    "sections": [
+     441,
+     214,
+     145.42,
+     16
+    ],
+    "mirror": [
+     296,
+     295,
+     1104,
+     168
+    ],
+    "avoidEmailMirror": [
+     369,
+     339,
+     320.61,
+     16
+    ],
+    "team": [
+     296,
+     487,
+     1104,
+     316
+    ],
+    "teamBroker": [
+     854,
+     580,
+     521,
+     102
+    ],
+    "tabRow": [
+     336,
+     827,
+     1024,
+     46
+    ],
+    "tabPrev": [
+     296,
+     832,
+     36,
+     36
+    ],
+    "tabNext": [
+     1364,
+     832,
+     36,
+     36
+    ],
+    "tabProperties": [
+     338,
+     827,
+     105.77,
+     38
+    ],
+    "openedPanel": [
+     296,
+     897,
+     1104,
+     236
+    ]
+   },
+   "from": "caps-portals"
+  },
+  "fp-profile-tabs": {
+   "file": "r3-fp-profile-tabs.png",
+   "css": [
+    1440,
+    1160
+   ],
+   "scale": 3,
+   "regions": {
+    "sidebar": [
+     0,
+     0,
+     256,
+     1160
+    ],
+    "portalName": [
+     72,
+     23.75,
+     93.06,
+     20
+    ],
+    "partnerAccess": [
+     72,
+     43.75,
+     93.06,
+     12.5
+    ],
+    "userCard": [
+     12,
+     93,
+     231,
+     62.5
+    ],
+    "navMyClients": [
+     12,
+     351.5,
+     231,
+     40
+    ],
+    "topBar": [
+     256,
+     0,
+     1184,
+     57
+    ],
+    "topBarName": [
+     1337.44,
+     18,
+     70.56,
+     20
+    ],
+    "quickAdd": [
+     1352,
+     1088,
+     64,
+     56
+    ],
+    "back": [
+     288,
+     81,
+     134.38,
+     36
+    ],
+    "header": [
+     296,
+     141,
+     1104,
+     130
+    ],
+    "name": [
+     421,
+     170,
+     127.63,
+     32
+    ],
+    "status": [
+     560.63,
+     175,
+     56.08,
+     22
+    ],
+    "sections": [
+     441,
+     214,
+     145.42,
+     16
+    ],
+    "mirror": [
+     296,
+     295,
+     1104,
+     168
+    ],
+    "avoidEmailMirror": [
+     369,
+     339,
+     320.61,
+     16
+    ],
+    "team": [
+     296,
+     487,
+     1104,
+     316
+    ],
+    "teamBroker": [
+     854,
+     580,
+     521,
+     102
+    ],
+    "tabRow": [
+     336,
+     827,
+     1024,
+     46
+    ],
+    "tabPrev": [
+     296,
+     832,
+     36,
+     36
+    ],
+    "tabNext": [
+     1364,
+     832,
+     36,
+     36
+    ],
+    "tabDocuments": [
+     894.73,
+     827,
+     132.34,
+     38
+    ],
+    "tabBorrowingCapacity": [
+     1033.08,
+     827,
+     175.03,
+     38
+    ],
+    "tabMessageHub": [
+     1214.11,
+     827,
+     144.34,
+     38
+    ],
+    "tabPurchaseFiles": [
+     742.91,
+     827,
+     145.83,
+     38
+    ]
+   },
+   "from": "caps-portals"
+  },
+  "snap-p1": {
+   "file": "r3-snap-p1.png",
+   "css": [
+    595.2,
+    841.92
+   ],
+   "scale": 4.166667,
+   "regions": {
+    "cover.issuer": [
+     62.36,
+     65.88,
+     185.12,
+     8.0
+    ],
+    "cover.title": [
+     62.36,
+     511.36,
+     228.62,
+     8.5
+    ],
+    "cover.client_name": [
+     62.36,
+     571.04,
+     353.83,
+     56.0
+    ],
+    "cover.meta.assessment-date": [
+     62.36,
+     680.69,
+     103.13,
+     31.7
+    ],
+    "cover.meta.assessment-date.label": [
+     62.36,
+     680.69,
+     103.13,
+     7.5
+    ],
+    "cover.meta.assessment-date.value": [
+     62.36,
+     701.89,
+     85.64,
+     10.5
+    ],
+    "cover.meta.assessment-rate": [
+     187.95,
+     680.69,
+     103.13,
+     31.7
+    ],
+    "cover.meta.assessment-rate.label": [
+     187.95,
+     680.69,
+     103.13,
+     7.5
+    ],
+    "cover.meta.assessment-rate.value": [
+     187.95,
+     701.89,
+     33.11,
+     10.5
+    ],
+    "cover.meta.loan-term": [
+     313.53,
+     680.69,
+     60.88,
+     31.7
+    ],
+    "cover.meta.loan-term.label": [
+     313.53,
+     680.69,
+     60.88,
+     7.5
+    ],
+    "cover.meta.loan-term.value": [
+     313.53,
+     701.89,
+     43.98,
+     10.5
+    ],
+    "cover.footer.confidentiality": [
+     62.36,
+     793.65,
+     166.52,
+     7.5
+    ],
+    "cover.footer.reference": [
+     476.52,
+     793.65,
+     53.83,
+     7.5
+    ],
+    "cover.rule1": [
+     62.36,
+     85.04,
+     79.37,
+     1.0
+    ]
+   },
+   "ground": "#251F18",
+   "role": "cover",
+   "section": null,
+   "from": "snapshot",
+   "units": "PDF points"
+  },
+  "snap-p2": {
+   "file": "r3-snap-p2.png",
+   "css": [
+    595.2,
+    841.92
+   ],
+   "scale": 4.166667,
+   "regions": {
+    "s01.eyebrow": [
+     51.02,
+     86.31,
+     76.98,
+     8.5
+    ],
+    "s01.heading": [
+     51.02,
+     106.16,
+     181.88,
+     21.08
+    ],
+    "s01.dek": [
+     51.02,
+     144.62,
+     307.4,
+     14.0
+    ],
+    "s01.p1": [
+     51.02,
+     197.92,
+     490.58,
+     82.5
+    ],
+    "s01.kpi.borrowing-capacity": [
+     65.02,
+     314.74,
+     123.95,
+     54.16
+    ],
+    "s01.kpi.borrowing-capacity.label": [
+     65.02,
+     314.74,
+     103.86,
+     7.5
+    ],
+    "s01.kpi.borrowing-capacity.value": [
+     65.02,
+     333.83,
+     103.05,
+     22.0
+    ],
+    "s01.kpi.borrowing-capacity.foot": [
+     65.02,
+     360.4,
+     123.95,
+     8.5
+    ],
+    "s01.kpi.monthly-surplus": [
+     229.43,
+     314.74,
+     108.26,
+     54.16
+    ],
+    "s01.kpi.monthly-surplus.label": [
+     229.43,
+     314.74,
+     86.33,
+     7.5
+    ],
+    "s01.kpi.monthly-surplus.value": [
+     229.43,
+     333.83,
+     102.17,
+     22.0
+    ],
+    "s01.kpi.monthly-surplus.foot": [
+     229.43,
+     360.4,
+     108.26,
+     8.5
+    ],
+    "s01.kpi.serviceability": [
+     393.84,
+     314.74,
+     80.49,
+     54.16
+    ],
+    "s01.kpi.serviceability.label": [
+     393.84,
+     314.74,
+     80.49,
+     7.5
+    ],
+    "s01.kpi.serviceability.value": [
+     393.84,
+     333.83,
+     65.63,
+     22.0
+    ],
+    "s01.kpi.serviceability.foot": [
+     393.84,
+     360.4,
+     33.25,
+     8.5
+    ],
+    "s01.chart.capacity-and-headroom": [
+     64.0,
+     411.57,
+     467.27,
+     79.92
+    ],
+    "s01.chart.capacity-and-headroom.track": [
+     64.0,
+     436.23,
+     467.27,
+     16.87
+    ],
+    "s01.chart.capacity-and-headroom.bar": [
+     64.0,
+     436.23,
+     214.95,
+     16.87
+    ],
+    "s01.chart.capacity-and-headroom.bar-label": [
+     67.9,
+     439.47,
+     133.3,
+     10.39
+    ],
+    "s01.chart.capacity-and-headroom.limit.new-loan-at-10-50": [
+     187.26,
+     411.57,
+     102.2,
+     45.42
+    ],
+    "s01.chart.capacity-and-headroom.limit.assessed-capacity": [
+     309.25,
+     411.57,
+     98.92,
+     45.42
+    ],
+    "s01.chart.capacity-and-headroom.axis": [
+     64.0,
+     453.1,
+     467.27,
+     12.19
+    ],
+    "s01.chart.capacity-and-headroom.statement1": [
+     64.33,
+     471.31,
+     227.02,
+     8.5
+    ],
+    "s01.chart.capacity-and-headroom.statement2": [
+     64.33,
+     482.99,
+     244.67,
+     8.5
+    ],
+    "s01.caption": [
+     51.02,
+     505.23,
+     121.39,
+     7.5
+    ],
+    "s01.t.assessment-terms": [
+     51.02,
+     535.08,
+     483.22,
+     149.18
+    ],
+    "s01.t.assessment-terms.caption": [
+     51.02,
+     535.08,
+     92.17,
+     7.5
+    ],
+    "s01.t.assessment-terms.head": [
+     51.02,
+     559.93,
+     481.88,
+     7.5
+    ],
+    "s01.t.assessment-terms.head.c0": [
+     51.02,
+     559.93,
+     22.06,
+     7.5
+    ],
+    "s01.t.assessment-terms.head.c1": [
+     505.0,
+     559.93,
+     27.9,
+     7.5
+    ],
+    "s01.t.assessment-terms.r0": [
+     51.02,
+     586.83,
+     483.22,
+     9.5
+    ],
+    "s01.t.assessment-terms.r0.c0": [
+     51.02,
+     586.83,
+     54.74,
+     9.5
+    ],
+    "s01.t.assessment-terms.r0.c1": [
+     503.89,
+     586.83,
+     30.35,
+     9.5
+    ],
+    "s01.t.assessment-terms.r1": [
+     51.02,
+     616.14,
+     483.22,
+     9.5
+    ],
+    "s01.t.assessment-terms.r1.c0": [
+     51.02,
+     616.14,
+     72.84,
+     9.5
+    ],
+    "s01.t.assessment-terms.r1.c1": [
+     503.89,
+     616.14,
+     30.35,
+     9.5
+    ],
+    "s01.t.assessment-terms.r2": [
+     51.02,
+     645.45,
+     483.22,
+     9.5
+    ],
+    "s01.t.assessment-terms.r2.c0": [
+     51.02,
+     645.45,
+     76.02,
+     9.5
+    ],
+    "s01.t.assessment-terms.r2.c1": [
+     503.89,
+     645.45,
+     30.35,
+     9.5
+    ],
+    "s01.t.assessment-terms.r3": [
+     51.02,
+     674.76,
+     483.22,
+     9.5
+    ],
+    "s01.t.assessment-terms.r3.c0": [
+     51.02,
+     674.76,
+     45.79,
+     9.5
+    ],
+    "s01.t.assessment-terms.r3.c1": [
+     494.67,
+     674.76,
+     39.57,
+     9.5
+    ],
+    "running.head.document": [
+     51.02,
+     28.56,
+     187.65,
+     7.5
+    ],
+    "running.head.section": [
+     470.74,
+     28.35,
+     73.51,
+     8.5
+    ],
+    "running.foot.issuer": [
+     51.02,
+     808.08,
+     173.56,
+     7.5
+    ],
+    "running.foot.folio": [
+     505.4,
+     808.08,
+     37.8,
+     7.5
+    ],
+    "s01.kpi-strip": [
+     65.02,
+     314.74,
+     409.31,
+     54.16
+    ]
+   },
+   "ground": "#FAF7EF",
+   "role": "body",
+   "section": "Capacity at a glance",
+   "from": "snapshot",
+   "units": "PDF points"
+  },
+  "snap-p3": {
+   "file": "r3-snap-p3.png",
+   "css": [
+    595.2,
+    841.92
+   ],
+   "scale": 4.166667,
+   "regions": {
+    "s02.eyebrow": [
+     51.02,
+     80.65,
+     76.98,
+     8.5
+    ],
+    "s02.heading": [
+     51.02,
+     100.49,
+     243.26,
+     21.08
+    ],
+    "s02.dek": [
+     51.02,
+     138.95,
+     392.76,
+     32.9
+    ],
+    "s02.t.income-before-and-after-shading": [
+     51.02,
+     209.87,
+     483.23,
+     90.86
+    ],
+    "s02.t.income-before-and-after-shading.caption": [
+     51.02,
+     209.87,
+     185.67,
+     7.5
+    ],
+    "s02.t.income-before-and-after-shading.head": [
+     51.02,
+     234.72,
+     481.8,
+     7.5
+    ],
+    "s02.t.income-before-and-after-shading.head.c0": [
+     51.02,
+     234.72,
+     92.17,
+     7.5
+    ],
+    "s02.t.income-before-and-after-shading.head.c1": [
+     255.01,
+     234.72,
+     80.48,
+     7.5
+    ],
+    "s02.t.income-before-and-after-shading.head.c2": [
+     352.39,
+     234.72,
+     62.95,
+     7.5
+    ],
+    "s02.t.income-before-and-after-shading.head.c3": [
+     434.8,
+     234.72,
+     98.02,
+     7.5
+    ],
+    "s02.t.income-before-and-after-shading.r0": [
+     51.02,
+     261.62,
+     483.22,
+     9.5
+    ],
+    "s02.t.income-before-and-after-shading.r0.c0": [
+     51.02,
+     261.62,
+     173.69,
+     9.5
+    ],
+    "s02.t.income-before-and-after-shading.r0.c1": [
+     291.3,
+     261.62,
+     45.59,
+     9.5
+    ],
+    "s02.t.income-before-and-after-shading.r0.c2": [
+     388.93,
+     261.62,
+     27.79,
+     9.5
+    ],
+    "s02.t.income-before-and-after-shading.r0.c3": [
+     488.65,
+     261.62,
+     45.59,
+     9.5
+    ],
+    "s02.t.income-before-and-after-shading.r1": [
+     51.02,
+     291.23,
+     483.23,
+     9.5
+    ],
+    "s02.t.income-before-and-after-shading.r1.c0": [
+     51.02,
+     291.23,
+     22.66,
+     9.5
+    ],
+    "s02.t.income-before-and-after-shading.r1.c1": [
+     291.3,
+     291.23,
+     45.61,
+     9.5
+    ],
+    "s02.t.income-before-and-after-shading.r1.c3": [
+     488.65,
+     291.23,
+     45.6,
+     9.5
+    ],
+    "s02.subhead.expenses-and-commitments": [
+     51.02,
+     337.87,
+     170.68,
+     14.0
+    ],
+    "s02.kpi.living-expenses": [
+     65.02,
+     385.19,
+     102.13,
+     54.16
+    ],
+    "s02.kpi.living-expenses.label": [
+     65.02,
+     385.19,
+     86.33,
+     7.5
+    ],
+    "s02.kpi.living-expenses.value": [
+     65.02,
+     404.28,
+     102.13,
+     22.0
+    ],
+    "s02.kpi.living-expenses.foot": [
+     65.02,
+     430.85,
+     90.55,
+     8.5
+    ],
+    "s02.kpi.commitments": [
+     311.64,
+     385.19,
+     87.95,
+     41.09
+    ],
+    "s02.kpi.commitments.label": [
+     311.64,
+     385.19,
+     62.95,
+     7.5
+    ],
+    "s02.kpi.commitments.value": [
+     311.64,
+     404.28,
+     87.95,
+     22.0
+    ],
+    "s02.t.existing-liabilities": [
+     51.02,
+     478.83,
+     483.23,
+     120.17
+    ],
+    "s02.t.existing-liabilities.caption": [
+     51.02,
+     478.83,
+     115.55,
+     7.5
+    ],
+    "s02.t.existing-liabilities.head": [
+     51.02,
+     503.68,
+     481.79,
+     7.5
+    ],
+    "s02.t.existing-liabilities.head.c0": [
+     51.02,
+     503.68,
+     51.27,
+     7.5
+    ],
+    "s02.t.existing-liabilities.head.c1": [
+     202.91,
+     503.68,
+     39.58,
+     7.5
+    ],
+    "s02.t.existing-liabilities.head.c2": [
+     298.78,
+     503.68,
+     27.89,
+     7.5
+    ],
+    "s02.t.existing-liabilities.head.c3": [
+     423.1,
+     503.68,
+     109.71,
+     7.5
+    ],
+    "s02.t.existing-liabilities.r0": [
+     51.02,
+     530.58,
+     483.22,
+     9.5
+    ],
+    "s02.t.existing-liabilities.r0.c0": [
+     51.02,
+     530.58,
+     58.21,
+     9.5
+    ],
+    "s02.t.existing-liabilities.r0.c1": [
+     204.42,
+     530.58,
+     39.43,
+     9.5
+    ],
+    "s02.t.existing-liabilities.r0.c2": [
+     318.53,
+     530.58,
+     9.5,
+     9.5
+    ],
+    "s02.t.existing-liabilities.r0.c3": [
+     509.68,
+     530.58,
+     24.56,
+     9.5
+    ],
+    "s02.t.existing-liabilities.r1": [
+     51.02,
+     559.89,
+     483.22,
+     9.5
+    ],
+    "s02.t.existing-liabilities.r1.c0": [
+     51.02,
+     559.89,
+     51.79,
+     9.5
+    ],
+    "s02.t.existing-liabilities.r1.c1": [
+     210.58,
+     559.89,
+     33.27,
+     9.5
+    ],
+    "s02.t.existing-liabilities.r1.c2": [
+     288.58,
+     559.89,
+     39.44,
+     9.5
+    ],
+    "s02.t.existing-liabilities.r1.c3": [
+     509.68,
+     559.89,
+     24.56,
+     9.5
+    ],
+    "s02.t.existing-liabilities.r2": [
+     51.02,
+     589.5,
+     483.23,
+     9.5
+    ],
+    "s02.t.existing-liabilities.r2.c0": [
+     51.02,
+     589.5,
+     22.66,
+     9.5
+    ],
+    "s02.t.existing-liabilities.r2.c3": [
+     509.64,
+     589.5,
+     24.61,
+     9.5
+    ],
+    "running.head.document": [
+     51.02,
+     28.56,
+     187.65,
+     7.5
+    ],
+    "running.head.section": [
+     451.32,
+     28.35,
+     92.93,
+     8.5
+    ],
+    "running.foot.issuer": [
+     51.02,
+     808.08,
+     173.56,
+     7.5
+    ],
+    "running.foot.folio": [
+     505.4,
+     808.08,
+     37.8,
+     7.5
+    ],
+    "s02.kpi-strip": [
+     65.02,
+     385.19,
+     334.57,
+     54.16
+    ]
+   },
+   "ground": "#FAF7EF",
+   "role": "body",
+   "section": "Income and commitments",
+   "from": "snapshot",
+   "units": "PDF points"
+  },
+  "snap-p4": {
+   "file": "r3-snap-p4.png",
+   "css": [
+    595.2,
+    841.92
+   ],
+   "scale": 4.166667,
+   "regions": {
+    "s03.eyebrow": [
+     51.02,
+     80.65,
+     76.98,
+     8.5
+    ],
+    "s03.heading": [
+     51.02,
+     100.49,
+     224.69,
+     21.08
+    ],
+    "s03.dek": [
+     51.02,
+     138.95,
+     335.21,
+     14.0
+    ],
+    "s03.t.monthly-working": [
+     51.02,
+     197.97,
+     483.24,
+     212.56
+    ],
+    "s03.t.monthly-working.head": [
+     51.02,
+     197.97,
+     481.87,
+     7.5
+    ],
+    "s03.t.monthly-working.head.c0": [
+     51.02,
+     197.97,
+     86.33,
+     7.5
+    ],
+    "s03.t.monthly-working.head.c1": [
+     499.15,
+     197.97,
+     33.74,
+     7.5
+    ],
+    "s03.t.monthly-working.r0": [
+     51.02,
+     224.87,
+     483.22,
+     9.5
+    ],
+    "s03.t.monthly-working.r0.c0": [
+     51.02,
+     224.87,
+     122.2,
+     9.5
+    ],
+    "s03.t.monthly-working.r0.c1": [
+     477.37,
+     224.87,
+     56.87,
+     9.5
+    ],
+    "s03.t.monthly-working.r1": [
+     51.02,
+     254.18,
+     483.22,
+     9.5
+    ],
+    "s03.t.monthly-working.r1.c0": [
+     51.02,
+     254.18,
+     159.43,
+     9.5
+    ],
+    "s03.t.monthly-working.r1.c1": [
+     477.37,
+     254.18,
+     56.87,
+     9.5
+    ],
+    "s03.t.monthly-working.r2": [
+     51.02,
+     283.49,
+     483.22,
+     9.5
+    ],
+    "s03.t.monthly-working.r2.c0": [
+     51.02,
+     283.49,
+     76.26,
+     9.5
+    ],
+    "s03.t.monthly-working.r2.c1": [
+     477.37,
+     283.49,
+     56.87,
+     9.5
+    ],
+    "s03.t.monthly-working.r3": [
+     51.02,
+     312.8,
+     483.22,
+     9.5
+    ],
+    "s03.t.monthly-working.r3.c0": [
+     51.02,
+     312.8,
+     94.16,
+     9.5
+    ],
+    "s03.t.monthly-working.r3.c1": [
+     477.37,
+     312.8,
+     56.87,
+     9.5
+    ],
+    "s03.t.monthly-working.r4": [
+     51.02,
+     342.11,
+     483.22,
+     9.5
+    ],
+    "s03.t.monthly-working.r4.c0": [
+     51.02,
+     342.11,
+     123.39,
+     9.5
+    ],
+    "s03.t.monthly-working.r4.c1": [
+     486.08,
+     342.11,
+     48.16,
+     9.5
+    ],
+    "s03.t.monthly-working.r5": [
+     51.02,
+     371.42,
+     483.22,
+     9.5
+    ],
+    "s03.t.monthly-working.r5.c0": [
+     51.02,
+     371.42,
+     73.27,
+     9.5
+    ],
+    "s03.t.monthly-working.r5.c1": [
+     483.53,
+     371.42,
+     50.71,
+     9.5
+    ],
+    "s03.t.monthly-working.r6": [
+     51.02,
+     401.03,
+     483.24,
+     9.5
+    ],
+    "s03.t.monthly-working.r6.c0": [
+     51.02,
+     401.03,
+     341.42,
+     9.5
+    ],
+    "s03.t.monthly-working.r6.c1": [
+     479.95,
+     401.03,
+     54.31,
+     9.5
+    ],
+    "s03.label.the-debt-to-income-ratio": [
+     67.02,
+     452.59,
+     138.92,
+     7.5
+    ],
+    "s03.p1": [
+     67.02,
+     468.21,
+     463.19,
+     38.0
+    ],
+    "s03.label.what-would-move-this": [
+     67.02,
+     561.89,
+     115.55,
+     7.5
+    ],
+    "s03.list1": [
+     73.13,
+     578.19,
+     310.25,
+     29.01
+    ],
+    "s03.list1.item1": [
+     73.13,
+     578.19,
+     286.34,
+     9.5
+    ],
+    "s03.list1.item2": [
+     73.13,
+     597.7,
+     310.25,
+     9.5
+    ],
+    "running.head.document": [
+     51.02,
+     28.56,
+     187.65,
+     7.5
+    ],
+    "running.head.section": [
+     455.16,
+     28.35,
+     89.09,
+     8.5
+    ],
+    "running.foot.issuer": [
+     51.02,
+     808.08,
+     173.56,
+     7.5
+    ],
+    "running.foot.folio": [
+     505.4,
+     808.08,
+     37.8,
+     7.5
+    ],
+    "s03.callout.the-debt-to-income-ratio": [
+     67.02,
+     452.59,
+     463.19,
+     53.62
+    ],
+    "s03.callout.what-would-move-this": [
+     67.02,
+     561.89,
+     316.36,
+     45.31
+    ]
+   },
+   "ground": "#FAF7EF",
+   "role": "body",
+   "section": "How the capacity is built",
+   "from": "snapshot",
+   "units": "PDF points"
+  },
+  "snap-p5": {
+   "file": "r3-snap-p5.png",
+   "css": [
+    595.2,
+    841.92
+   ],
+   "scale": 4.166667,
+   "regions": {
+    "s04.eyebrow": [
+     51.02,
+     80.65,
+     76.98,
+     8.5
+    ],
+    "s04.heading": [
+     51.02,
+     100.49,
+     93.43,
+     21.08
+    ],
+    "s04.dek": [
+     51.02,
+     138.95,
+     376.8,
+     32.9
+    ],
+    "s04.label.reading-this-table": [
+     67.02,
+     221.87,
+     103.86,
+     7.5
+    ],
+    "s04.p1": [
+     67.02,
+     238.17,
+     463.08,
+     39.52
+    ],
+    "s04.t.audit-trail": [
+     51.02,
+     328.75,
+     478.27,
+     360.94
+    ],
+    "s04.t.audit-trail.head": [
+     51.02,
+     328.75,
+     398.85,
+     7.5
+    ],
+    "s04.t.audit-trail.head.c0": [
+     51.02,
+     328.75,
+     22.06,
+     7.5
+    ],
+    "s04.t.audit-trail.head.c1": [
+     177.14,
+     328.75,
+     45.42,
+     7.5
+    ],
+    "s04.t.audit-trail.head.c2": [
+     246.54,
+     328.75,
+     45.42,
+     7.5
+    ],
+    "s04.t.audit-trail.head.c3": [
+     333.8,
+     328.75,
+     33.73,
+     7.5
+    ],
+    "s04.t.audit-trail.head.c4": [
+     378.89,
+     328.75,
+     33.74,
+     7.5
+    ],
+    "s04.t.audit-trail.head.c5": [
+     427.82,
+     328.75,
+     22.05,
+     7.5
+    ],
+    "s04.t.audit-trail.r0": [
+     51.02,
+     355.65,
+     443.88,
+     24.51
+    ],
+    "s04.t.audit-trail.r0.c0": [
+     51.02,
+     355.65,
+     88.63,
+     24.51
+    ],
+    "s04.t.audit-trail.r0.c1": [
+     164.54,
+     363.15,
+     59.38,
+     9.5
+    ],
+    "s04.t.audit-trail.r0.c2": [
+     233.94,
+     363.15,
+     59.38,
+     9.5
+    ],
+    "s04.t.audit-trail.r0.c3": [
+     359.39,
+     363.15,
+     9.5,
+     9.5
+    ],
+    "s04.t.audit-trail.r0.c4": [
+     378.89,
+     363.15,
+     9.5,
+     9.5
+    ],
+    "s04.t.audit-trail.r0.c5": [
+     427.82,
+     363.15,
+     67.08,
+     9.5
+    ],
+    "s04.t.audit-trail.r1": [
+     51.02,
+     399.97,
+     471.39,
+     24.51
+    ],
+    "s04.t.audit-trail.r1.c0": [
+     51.02,
+     399.97,
+     93.16,
+     24.51
+    ],
+    "s04.t.audit-trail.r1.c1": [
+     164.54,
+     407.47,
+     59.38,
+     9.5
+    ],
+    "s04.t.audit-trail.r1.c2": [
+     233.94,
+     407.47,
+     59.38,
+     9.5
+    ],
+    "s04.t.audit-trail.r1.c3": [
+     303.34,
+     407.47,
+     65.53,
+     9.5
+    ],
+    "s04.t.audit-trail.r1.c4": [
+     378.89,
+     407.47,
+     38.92,
+     9.5
+    ],
+    "s04.t.audit-trail.r1.c5": [
+     427.82,
+     399.97,
+     94.59,
+     24.51
+    ],
+    "s04.t.audit-trail.r2": [
+     51.02,
+     444.29,
+     456.32,
+     24.51
+    ],
+    "s04.t.audit-trail.r2.c0": [
+     51.02,
+     444.29,
+     96.08,
+     24.51
+    ],
+    "s04.t.audit-trail.r2.c1": [
+     197.89,
+     451.79,
+     26.04,
+     9.5
+    ],
+    "s04.t.audit-trail.r2.c2": [
+     246.26,
+     451.79,
+     47.07,
+     9.5
+    ],
+    "s04.t.audit-trail.r2.c3": [
+     315.65,
+     451.79,
+     53.23,
+     9.5
+    ],
+    "s04.t.audit-trail.r2.c4": [
+     378.89,
+     451.79,
+     38.92,
+     9.5
+    ],
+    "s04.t.audit-trail.r2.c5": [
+     427.82,
+     444.29,
+     79.52,
+     24.51
+    ],
+    "s04.t.audit-trail.r3": [
+     51.02,
+     488.61,
+     478.27,
+     9.5
+    ],
+    "s04.t.audit-trail.r3.c0": [
+     51.02,
+     488.61,
+     73.42,
+     9.5
+    ],
+    "s04.t.audit-trail.r3.c1": [
+     173.21,
+     488.61,
+     50.72,
+     9.5
+    ],
+    "s04.t.audit-trail.r3.c2": [
+     242.61,
+     488.61,
+     50.72,
+     9.5
+    ],
+    "s04.t.audit-trail.r3.c3": [
+     359.39,
+     488.61,
+     9.5,
+     9.5
+    ],
+    "s04.t.audit-trail.r3.c4": [
+     378.89,
+     488.61,
+     9.5,
+     9.5
+    ],
+    "s04.t.audit-trail.r3.c5": [
+     427.82,
+     488.61,
+     101.47,
+     9.5
+    ],
+    "s04.t.audit-trail.r4": [
+     51.02,
+     517.92,
+     470.85,
+     9.5
+    ],
+    "s04.t.audit-trail.r4.c0": [
+     51.02,
+     517.92,
+     58.21,
+     9.5
+    ],
+    "s04.t.audit-trail.r4.c1": [
+     184.49,
+     517.92,
+     39.43,
+     9.5
+    ],
+    "s04.t.audit-trail.r4.c2": [
+     251.32,
+     517.92,
+     42.01,
+     9.5
+    ],
+    "s04.t.audit-trail.r4.c3": [
+     359.39,
+     517.92,
+     9.5,
+     9.5
+    ],
+    "s04.t.audit-trail.r4.c4": [
+     378.89,
+     517.92,
+     38.92,
+     9.5
+    ],
+    "s04.t.audit-trail.r4.c5": [
+     427.82,
+     517.92,
+     94.05,
+     9.5
+    ],
+    "s04.t.audit-trail.r5": [
+     51.02,
+     547.23,
+     469.9,
+     24.51
+    ],
+    "s04.t.audit-trail.r5.c0": [
+     51.02,
+     554.73,
+     51.79,
+     9.5
+    ],
+    "s04.t.audit-trail.r5.c1": [
+     190.65,
+     554.73,
+     33.28,
+     9.5
+    ],
+    "s04.t.audit-trail.r5.c2": [
+     251.32,
+     554.73,
+     42.01,
+     9.5
+    ],
+    "s04.t.audit-trail.r5.c3": [
+     359.39,
+     554.73,
+     9.5,
+     9.5
+    ],
+    "s04.t.audit-trail.r5.c4": [
+     378.89,
+     554.73,
+     38.92,
+     9.5
+    ],
+    "s04.t.audit-trail.r5.c5": [
+     427.82,
+     547.23,
+     93.1,
+     24.51
+    ],
+    "s04.t.audit-trail.r6": [
+     51.02,
+     591.55,
+     471.63,
+     39.52
+    ],
+    "s04.t.audit-trail.r6.c0": [
+     51.02,
+     606.56,
+     48.29,
+     9.5
+    ],
+    "s04.t.audit-trail.r6.c1": [
+     169.62,
+     606.56,
+     54.3,
+     9.5
+    ],
+    "s04.t.audit-trail.r6.c2": [
+     247.73,
+     606.56,
+     45.59,
+     9.5
+    ],
+    "s04.t.audit-trail.r6.c3": [
+     323.29,
+     606.56,
+     45.59,
+     9.5
+    ],
+    "s04.t.audit-trail.r6.c4": [
+     378.89,
+     606.56,
+     9.5,
+     9.5
+    ],
+    "s04.t.audit-trail.r6.c5": [
+     427.82,
+     591.55,
+     94.83,
+     39.52
+    ],
+    "s04.t.audit-trail.r7": [
+     51.02,
+     650.88,
+     457.39,
+     9.5
+    ],
+    "s04.t.audit-trail.r7.c0": [
+     51.02,
+     650.88,
+     54.74,
+     9.5
+    ],
+    "s04.t.audit-trail.r7.c1": [
+     193.58,
+     650.88,
+     30.35,
+     9.5
+    ],
+    "s04.t.audit-trail.r7.c2": [
+     262.98,
+     650.88,
+     30.35,
+     9.5
+    ],
+    "s04.t.audit-trail.r7.c3": [
+     359.39,
+     650.88,
+     9.5,
+     9.5
+    ],
+    "s04.t.audit-trail.r7.c4": [
+     378.89,
+     650.88,
+     9.5,
+     9.5
+    ],
+    "s04.t.audit-trail.r7.c5": [
+     427.82,
+     650.88,
+     80.59,
+     9.5
+    ],
+    "s04.t.audit-trail.r8": [
+     51.02,
+     680.19,
+     457.39,
+     9.5
+    ],
+    "s04.t.audit-trail.r8.c0": [
+     51.02,
+     680.19,
+     72.84,
+     9.5
+    ],
+    "s04.t.audit-trail.r8.c1": [
+     193.58,
+     680.19,
+     30.35,
+     9.5
+    ],
+    "s04.t.audit-trail.r8.c2": [
+     262.98,
+     680.19,
+     30.35,
+     9.5
+    ],
+    "s04.t.audit-trail.r8.c3": [
+     359.39,
+     680.19,
+     9.5,
+     9.5
+    ],
+    "s04.t.audit-trail.r8.c4": [
+     378.89,
+     680.19,
+     9.5,
+     9.5
+    ],
+    "s04.t.audit-trail.r8.c5": [
+     427.82,
+     680.19,
+     80.59,
+     9.5
+    ],
+    "running.head.document": [
+     51.02,
+     28.56,
+     187.65,
+     7.5
+    ],
+    "running.head.section": [
+     506.08,
+     28.35,
+     38.18,
+     8.5
+    ],
+    "running.foot.issuer": [
+     51.02,
+     808.08,
+     173.56,
+     7.5
+    ],
+    "running.foot.folio": [
+     505.4,
+     808.08,
+     37.8,
+     7.5
+    ],
+    "s04.callout.reading-this-table": [
+     67.02,
+     221.87,
+     463.08,
+     55.82
+    ]
+   },
+   "ground": "#FAF7EF",
+   "role": "body",
+   "section": "Audit trail",
+   "from": "snapshot",
+   "units": "PDF points"
+  },
+  "snap-p6": {
+   "file": "r3-snap-p6.png",
+   "css": [
+    595.2,
+    841.92
+   ],
+   "scale": 4.166667,
+   "regions": {
+    "s05.eyebrow": [
+     51.02,
+     80.65,
+     76.98,
+     8.5
+    ],
+    "s05.heading": [
+     51.02,
+     100.49,
+     129.04,
+     21.08
+    ],
+    "s05.dek": [
+     51.02,
+     138.95,
+     364.59,
+     14.0
+    ],
+    "s05.t.on-what-basis": [
+     51.02,
+     197.97,
+     483.25,
+     300.19
+    ],
+    "s05.t.on-what-basis.head": [
+     51.02,
+     197.97,
+     481.85,
+     7.5
+    ],
+    "s05.t.on-what-basis.head.c0": [
+     51.02,
+     197.97,
+     39.59,
+     7.5
+    ],
+    "s05.t.on-what-basis.head.c1": [
+     475.75,
+     197.97,
+     57.12,
+     7.5
+    ],
+    "s05.t.on-what-basis.r0": [
+     51.02,
+     224.87,
+     483.2,
+     9.5
+    ],
+    "s05.t.on-what-basis.r0.c0": [
+     51.02,
+     224.87,
+     61.49,
+     9.5
+    ],
+    "s05.t.on-what-basis.r0.c1": [
+     366.71,
+     224.87,
+     167.51,
+     9.5
+    ],
+    "s05.t.on-what-basis.r1": [
+     51.02,
+     254.18,
+     483.25,
+     9.5
+    ],
+    "s05.t.on-what-basis.r1.c0": [
+     51.02,
+     254.18,
+     61.87,
+     9.5
+    ],
+    "s05.t.on-what-basis.r1.c1": [
+     355.73,
+     254.18,
+     178.54,
+     9.5
+    ],
+    "s05.t.on-what-basis.r2": [
+     51.02,
+     283.49,
+     483.25,
+     9.5
+    ],
+    "s05.t.on-what-basis.r2.c0": [
+     51.02,
+     283.49,
+     145.05,
+     9.5
+    ],
+    "s05.t.on-what-basis.r2.c1": [
+     380.84,
+     283.49,
+     153.43,
+     9.5
+    ],
+    "s05.t.on-what-basis.r3": [
+     51.02,
+     312.8,
+     483.23,
+     9.5
+    ],
+    "s05.t.on-what-basis.r3.c0": [
+     51.02,
+     312.8,
+     114.78,
+     9.5
+    ],
+    "s05.t.on-what-basis.r3.c1": [
+     439.86,
+     312.8,
+     94.39,
+     9.5
+    ],
+    "s05.t.on-what-basis.r4": [
+     51.02,
+     342.11,
+     483.25,
+     9.5
+    ],
+    "s05.t.on-what-basis.r4.c0": [
+     51.02,
+     342.11,
+     201.67,
+     9.5
+    ],
+    "s05.t.on-what-basis.r4.c1": [
+     426.1,
+     342.11,
+     108.17,
+     9.5
+    ],
+    "s05.t.on-what-basis.r5": [
+     51.02,
+     371.42,
+     483.2,
+     9.5
+    ],
+    "s05.t.on-what-basis.r5.c0": [
+     51.02,
+     371.42,
+     41.61,
+     9.5
+    ],
+    "s05.t.on-what-basis.r5.c1": [
+     346.29,
+     371.42,
+     187.93,
+     9.5
+    ],
+    "s05.t.on-what-basis.r6": [
+     51.02,
+     400.73,
+     483.21,
+     9.5
+    ],
+    "s05.t.on-what-basis.r6.c0": [
+     51.02,
+     400.73,
+     187.58,
+     9.5
+    ],
+    "s05.t.on-what-basis.r6.c1": [
+     458.52,
+     400.73,
+     75.71,
+     9.5
+    ],
+    "s05.t.on-what-basis.r7": [
+     51.02,
+     430.04,
+     483.22,
+     9.5
+    ],
+    "s05.t.on-what-basis.r7.c0": [
+     51.02,
+     430.04,
+     76.15,
+     9.5
+    ],
+    "s05.t.on-what-basis.r7.c1": [
+     512.6,
+     430.04,
+     21.64,
+     9.5
+    ],
+    "s05.t.on-what-basis.r8": [
+     51.02,
+     459.35,
+     483.24,
+     9.5
+    ],
+    "s05.t.on-what-basis.r8.c0": [
+     51.02,
+     459.35,
+     48.29,
+     9.5
+    ],
+    "s05.t.on-what-basis.r8.c1": [
+     397.58,
+     459.35,
+     136.68,
+     9.5
+    ],
+    "s05.t.on-what-basis.r9": [
+     51.02,
+     488.66,
+     483.24,
+     9.5
+    ],
+    "s05.t.on-what-basis.r9.c0": [
+     51.02,
+     488.66,
+     108.52,
+     9.5
+    ],
+    "s05.t.on-what-basis.r9.c1": [
+     419.25,
+     488.66,
+     115.01,
+     9.5
+    ],
+    "running.head.document": [
+     51.02,
+     28.56,
+     187.65,
+     7.5
+    ],
+    "running.head.section": [
+     493.37,
+     28.35,
+     50.88,
+     8.5
+    ],
+    "running.foot.issuer": [
+     51.02,
+     808.08,
+     173.56,
+     7.5
+    ],
+    "running.foot.folio": [
+     505.4,
+     808.08,
+     37.8,
+     7.5
+    ]
+   },
+   "ground": "#FAF7EF",
+   "role": "body",
+   "section": "On what basis",
+   "from": "snapshot",
+   "units": "PDF points"
+  },
+  "snap-p7": {
+   "file": "r3-snap-p7.png",
+   "css": [
+    595.2,
+    841.92
+   ],
+   "scale": 4.166667,
+   "regions": {
+    "s06.eyebrow": [
+     51.02,
+     80.65,
+     76.98,
+     8.5
+    ],
+    "s06.heading": [
+     51.02,
+     100.49,
+     197.02,
+     21.08
+    ],
+    "s06.dek": [
+     51.02,
+     138.95,
+     373.62,
+     32.9
+    ],
+    "s06.t.modelled-scenarios": [
+     51.02,
+     209.87,
+     483.23,
+     164.19
+    ],
+    "s06.t.modelled-scenarios.caption": [
+     51.02,
+     209.87,
+     103.86,
+     7.5
+    ],
+    "s06.t.modelled-scenarios.head": [
+     51.02,
+     234.72,
+     481.83,
+     7.5
+    ],
+    "s06.t.modelled-scenarios.head.c0": [
+     51.02,
+     234.72,
+     45.43,
+     7.5
+    ],
+    "s06.t.modelled-scenarios.head.c1": [
+     205.91,
+     234.72,
+     45.42,
+     7.5
+    ],
+    "s06.t.modelled-scenarios.head.c2": [
+     262.71,
+     234.72,
+     98.01,
+     7.5
+    ],
+    "s06.t.modelled-scenarios.head.c3": [
+     372.16,
+     234.72,
+     80.48,
+     7.5
+    ],
+    "s06.t.modelled-scenarios.head.c4": [
+     464.05,
+     234.72,
+     68.8,
+     7.5
+    ],
+    "s06.t.modelled-scenarios.r0": [
+     51.02,
+     261.62,
+     483.23,
+     9.5
+    ],
+    "s06.t.modelled-scenarios.r0.c0": [
+     51.02,
+     261.62,
+     67.15,
+     9.5
+    ],
+    "s06.t.modelled-scenarios.r0.c1": [
+     198.39,
+     261.62,
+     54.3,
+     9.5
+    ],
+    "s06.t.modelled-scenarios.r0.c2": [
+     328.87,
+     261.62,
+     33.28,
+     9.5
+    ],
+    "s06.t.modelled-scenarios.r0.c3": [
+     372.16,
+     261.62,
+     29.76,
+     9.5
+    ],
+    "s06.t.modelled-scenarios.r0.c4": [
+     524.75,
+     261.62,
+     9.5,
+     9.5
+    ],
+    "s06.t.modelled-scenarios.r1": [
+     51.02,
+     290.93,
+     483.23,
+     9.5
+    ],
+    "s06.t.modelled-scenarios.r1.c0": [
+     51.02,
+     290.93,
+     70.87,
+     9.5
+    ],
+    "s06.t.modelled-scenarios.r1.c1": [
+     198.39,
+     290.93,
+     54.3,
+     9.5
+    ],
+    "s06.t.modelled-scenarios.r1.c2": [
+     328.87,
+     290.93,
+     33.28,
+     9.5
+    ],
+    "s06.t.modelled-scenarios.r1.c3": [
+     372.16,
+     290.93,
+     29.76,
+     9.5
+    ],
+    "s06.t.modelled-scenarios.r1.c4": [
+     524.75,
+     290.93,
+     9.5,
+     9.5
+    ],
+    "s06.t.modelled-scenarios.r2": [
+     51.02,
+     320.24,
+     483.22,
+     24.51
+    ],
+    "s06.t.modelled-scenarios.r2.c0": [
+     51.02,
+     320.24,
+     115.33,
+     24.51
+    ],
+    "s06.t.modelled-scenarios.r2.c1": [
+     198.39,
+     327.74,
+     54.3,
+     9.5
+    ],
+    "s06.t.modelled-scenarios.r2.c2": [
+     328.87,
+     327.74,
+     33.28,
+     9.5
+    ],
+    "s06.t.modelled-scenarios.r2.c3": [
+     372.16,
+     327.74,
+     29.76,
+     9.5
+    ],
+    "s06.t.modelled-scenarios.r2.c4": [
+     488.65,
+     327.74,
+     45.59,
+     9.5
+    ],
+    "s06.t.modelled-scenarios.r3": [
+     51.02,
+     364.56,
+     483.22,
+     9.5
+    ],
+    "s06.t.modelled-scenarios.r3.c0": [
+     51.02,
+     364.56,
+     123.94,
+     9.5
+    ],
+    "s06.t.modelled-scenarios.r3.c1": [
+     207.1,
+     364.56,
+     45.59,
+     9.5
+    ],
+    "s06.t.modelled-scenarios.r3.c2": [
+     328.87,
+     364.56,
+     33.28,
+     9.5
+    ],
+    "s06.t.modelled-scenarios.r3.c3": [
+     372.16,
+     364.56,
+     29.76,
+     9.5
+    ],
+    "s06.t.modelled-scenarios.r3.c4": [
+     488.65,
+     364.56,
+     45.59,
+     9.5
+    ],
+    "s06.t.what-each-scenario-involves": [
+     51.02,
+     404.42,
+     473.72,
+     323.3
+    ],
+    "s06.t.what-each-scenario-involves.caption": [
+     51.02,
+     404.42,
+     156.45,
+     7.5
+    ],
+    "s06.t.what-each-scenario-involves.head": [
+     51.02,
+     429.27,
+     263.66,
+     19.35
+    ],
+    "s06.t.what-each-scenario-involves.head.c0": [
+     51.02,
+     435.19,
+     45.43,
+     7.5
+    ],
+    "s06.t.what-each-scenario-involves.head.c1": [
+     187.0,
+     429.27,
+     45.42,
+     19.35
+    ],
+    "s06.t.what-each-scenario-involves.head.c2": [
+     280.95,
+     435.19,
+     33.73,
+     7.5
+    ],
+    "s06.t.what-each-scenario-involves.r0": [
+     51.02,
+     468.02,
+     473.72,
+     9.5
+    ],
+    "s06.t.what-each-scenario-involves.r0.c0": [
+     51.02,
+     468.02,
+     70.87,
+     9.5
+    ],
+    "s06.t.what-each-scenario-involves.r0.c1": [
+     187.0,
+     468.02,
+     72.64,
+     9.5
+    ],
+    "s06.t.what-each-scenario-involves.r0.c2": [
+     280.95,
+     468.02,
+     243.79,
+     9.5
+    ],
+    "s06.t.what-each-scenario-involves.r1": [
+     187.0,
+     497.33,
+     326.29,
+     24.51
+    ],
+    "s06.t.what-each-scenario-involves.r1.c1": [
+     187.0,
+     504.83,
+     31.16,
+     9.5
+    ],
+    "s06.t.what-each-scenario-involves.r1.c2": [
+     280.95,
+     497.33,
+     232.34,
+     24.51
+    ],
+    "s06.t.what-each-scenario-involves.r2": [
+     51.02,
+     541.65,
+     342.85,
+     24.51
+    ],
+    "s06.t.what-each-scenario-involves.r2.c0": [
+     51.02,
+     541.65,
+     115.33,
+     24.51
+    ],
+    "s06.t.what-each-scenario-involves.r2.c1": [
+     187.0,
+     549.15,
+     64.32,
+     9.5
+    ],
+    "s06.t.what-each-scenario-involves.r2.c2": [
+     280.95,
+     549.15,
+     112.92,
+     9.5
+    ],
+    "s06.t.what-each-scenario-involves.r3": [
+     187.0,
+     585.97,
+     296.88,
+     9.5
+    ],
+    "s06.t.what-each-scenario-involves.r3.c1": [
+     187.0,
+     585.97,
+     72.87,
+     9.5
+    ],
+    "s06.t.what-each-scenario-involves.r3.c2": [
+     280.95,
+     585.97,
+     202.93,
+     9.5
+    ],
+    "s06.t.what-each-scenario-involves.r4": [
+     187.0,
+     615.28,
+     337.74,
+     9.5
+    ],
+    "s06.t.what-each-scenario-involves.r4.c1": [
+     187.0,
+     615.28,
+     72.64,
+     9.5
+    ],
+    "s06.t.what-each-scenario-involves.r4.c2": [
+     280.95,
+     615.28,
+     243.79,
+     9.5
+    ],
+    "s06.t.what-each-scenario-involves.r5": [
+     187.0,
+     644.59,
+     337.11,
+     24.51
+    ],
+    "s06.t.what-each-scenario-involves.r5.c1": [
+     187.0,
+     652.09,
+     31.16,
+     9.5
+    ],
+    "s06.t.what-each-scenario-involves.r5.c2": [
+     280.95,
+     644.59,
+     243.16,
+     24.51
+    ],
+    "s06.t.what-each-scenario-involves.r6": [
+     187.0,
+     688.91,
+     219.8,
+     9.5
+    ],
+    "s06.t.what-each-scenario-involves.r6.c1": [
+     187.0,
+     688.91,
+     70.76,
+     9.5
+    ],
+    "s06.t.what-each-scenario-involves.r6.c2": [
+     280.95,
+     688.91,
+     125.85,
+     9.5
+    ],
+    "s06.t.what-each-scenario-involves.r7": [
+     51.02,
+     718.22,
+     361.18,
+     9.5
+    ],
+    "s06.t.what-each-scenario-involves.r7.c0": [
+     51.02,
+     718.22,
+     123.94,
+     9.5
+    ],
+    "s06.t.what-each-scenario-involves.r7.c1": [
+     187.0,
+     718.22,
+     64.32,
+     9.5
+    ],
+    "s06.t.what-each-scenario-involves.r7.c2": [
+     280.95,
+     718.22,
+     131.25,
+     9.5
+    ],
+    "running.head.document": [
+     51.02,
+     28.56,
+     187.65,
+     7.5
+    ],
+    "running.head.section": [
+     468.04,
+     28.35,
+     76.21,
+     8.5
+    ],
+    "running.foot.issuer": [
+     51.02,
+     808.08,
+     173.56,
+     7.5
+    ],
+    "running.foot.folio": [
+     505.4,
+     808.08,
+     37.8,
+     7.5
+    ]
+   },
+   "ground": "#FAF7EF",
+   "role": "body",
+   "section": "Scenario comparison",
+   "from": "snapshot",
+   "units": "PDF points"
+  },
+  "snap-p8": {
+   "file": "r3-snap-p8.png",
+   "css": [
+    595.2,
+    841.92
+   ],
+   "scale": 4.166667,
+   "regions": {
+    "s06.t.what-each-scenario-involves": [
+     51.02,
+     72.66,
+     473.72,
+     92.42
+    ],
+    "s06.t.what-each-scenario-involves.head": [
+     51.02,
+     72.66,
+     263.66,
+     19.35
+    ],
+    "s06.t.what-each-scenario-involves.head.c0": [
+     51.02,
+     78.59,
+     45.43,
+     7.5
+    ],
+    "s06.t.what-each-scenario-involves.head.c1": [
+     187.0,
+     72.66,
+     45.42,
+     19.35
+    ],
+    "s06.t.what-each-scenario-involves.head.c2": [
+     280.95,
+     78.59,
+     33.73,
+     7.5
+    ],
+    "s06.t.what-each-scenario-involves.r8": [
+     187.0,
+     111.26,
+     337.74,
+     9.5
+    ],
+    "s06.t.what-each-scenario-involves.r8.c1": [
+     187.0,
+     111.26,
+     72.64,
+     9.5
+    ],
+    "s06.t.what-each-scenario-involves.r8.c2": [
+     280.95,
+     111.26,
+     243.79,
+     9.5
+    ],
+    "s06.t.what-each-scenario-involves.r9": [
+     187.0,
+     140.57,
+     326.29,
+     24.51
+    ],
+    "s06.t.what-each-scenario-involves.r9.c1": [
+     187.0,
+     148.08,
+     31.16,
+     9.5
+    ],
+    "s06.t.what-each-scenario-involves.r9.c2": [
+     280.95,
+     140.57,
+     232.34,
+     24.51
+    ],
+    "s06.label.these-are-models": [
+     67.02,
+     207.44,
+     92.17,
+     7.5
+    ],
+    "s06.p1": [
+     67.02,
+     223.74,
+     463.09,
+     24.51
+    ],
+    "running.head.document": [
+     51.02,
+     28.56,
+     187.65,
+     7.5
+    ],
+    "running.head.section": [
+     468.04,
+     28.35,
+     76.21,
+     8.5
+    ],
+    "running.foot.issuer": [
+     51.02,
+     808.08,
+     173.56,
+     7.5
+    ],
+    "running.foot.folio": [
+     505.4,
+     808.08,
+     37.8,
+     7.5
+    ],
+    "s06.callout.these-are-models": [
+     67.02,
+     207.44,
+     463.09,
+     40.81
+    ]
+   },
+   "ground": "#FAF7EF",
+   "role": "body",
+   "section": "Scenario comparison",
+   "from": "snapshot",
+   "units": "PDF points"
+  },
+  "snap-p9": {
+   "file": "r3-snap-p9.png",
+   "css": [
+    595.2,
+    841.92
+   ],
+   "scale": 4.166667,
+   "regions": {
+    "closing.lockup": [
+     62.36,
+     74.0,
+     267.41,
+     49.31
+    ],
+    "closing.lockup.lead": [
+     62.36,
+     74.0,
+     267.41,
+     30.0
+    ],
+    "closing.lockup.tail": [
+     62.36,
+     110.31,
+     93.31,
+     13.0
+    ],
+    "closing.disclaimer": [
+     62.36,
+     166.92,
+     468.17,
+     32.0
+    ],
+    "closing.rule1": [
+     62.36,
+     145.69,
+     470.55,
+     0.4
+    ]
+   },
+   "ground": "#251F18",
+   "role": "closing",
+   "section": null,
+   "from": "snapshot",
+   "units": "PDF points"
+  }
+ }
+}

@@ -1,0 +1,29 @@
+{
+ "_note": "The demo workspace's switches the Finance Portal reads (feature_flags, as the product's table holds them; the descriptions are the migrations' own): the partner compliance workspace, its Finance Portal surface and the Passport inside it are on, as Reels 1 and 2 drew the portals (the Finance Portal's \"AML/CTF Compliance\" entry). The Message Hub's switch (messaging_hub) is not set, so the Hub answers that it is off.",
+ "feature_flags": [
+  {
+   "key": "aml_partner_compliance_workspace",
+   "value": true,
+   "description": "AML partner domain Phase 4: master switch for the session-authenticated partner compliance workspace operations on aml-reliance. Off = the operations answer 404 and nothing changes.",
+   "created_at": "2026-09-01T00:00:00+10:00",
+   "updated_at": "2026-10-05T09:00:00+11:00",
+   "updated_by": "demo-staff"
+  },
+  {
+   "key": "aml_partner_workspace_finance",
+   "value": true,
+   "description": "AML partner domain Phase 5: mount the shared partner compliance workspace in the Finance Portal. Requires the master workspace flag.",
+   "created_at": "2026-09-01T00:00:00+10:00",
+   "updated_at": "2026-10-05T09:00:00+11:00",
+   "updated_by": "demo-staff"
+  },
+  {
+   "key": "aml_partner_passport_view",
+   "value": true,
+   "description": "Compliance Passport: serve the partner-audience Passport document inside the partner's own portal compliance page (get_partner_compliance_workspace on aml-reliance). The SAME buildCasePassportView(..., \"partner\") projection the emailed one-time link serves — one assembler, so the partner's copy and the Command Centre's cannot drift. Turning this ON narrows the compliance page to the Passport alone unless aml_partner_workspace_full is also on. Off = no Passport is returned and the page behaves exactly as before. Requires aml_partner_compliance_workspace and the per-surface flag.",
+   "created_at": "2026-09-01T00:00:00+10:00",
+   "updated_at": "2026-10-05T09:00:00+11:00",
+   "updated_by": "demo-staff"
+  }
+ ]
+}
