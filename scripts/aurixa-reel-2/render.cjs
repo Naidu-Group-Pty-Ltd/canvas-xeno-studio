@@ -58,8 +58,10 @@ function launchArgs() {
  * painted, even with every compositor stage run before drawing: as the camera pushed in on the Passport's closed
  * cover (04.2), the proof's drawings caught the leaves beneath through the cover in hard-edged rectangles in
  * about half of fifty frames, and once a caption word a step behind. Which drawings it hits changes from run to
- * run, so a drawing is captured again until two captures in a row agree. RENDER_SETTLE=0 keeps the first capture
- * (for a quick look only).
+ * run, so a drawing is captured again until two captures in a row agree. Back to back, two captures can agree on
+ * a stale tile (the caption's sweeping light was caught a step behind, in one push-in frame of 21), so the page
+ * is given two of its own frames between them, for the painting to catch up. RENDER_SETTLE=0 keeps the first
+ * capture (for a quick look only).
  */
 const SETTLE = process.env.RENDER_SETTLE !== "0";
 const SETTLE_TRIES = 6;
@@ -77,7 +79,10 @@ const settleReport = () => ({
   captures: SETTLED.captures,
   capture_ms_mean: SETTLED.captures ? Math.round(SETTLED.ms / SETTLED.captures) : null,
 });
-async function settle(capture) {
+/** Two of the page's own frames, before a drawing is captured again. */
+const twoFrames = (tab) =>
+  tab.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+async function settle(capture, pause) {
   const timed = async () => {
     const t0 = Date.now();
     const data = await capture();
@@ -88,6 +93,7 @@ async function settle(capture) {
   let a = await timed();
   if (!SETTLE) return { png: Buffer.from(a, "base64"), retries: 0, settled: true };
   for (let retries = 0; retries < SETTLE_TRIES; retries++) {
+    await pause();
     const b = await timed();
     if (a === b) return { png: Buffer.from(a, "base64"), retries, settled: true };
     a = b;
@@ -210,10 +216,12 @@ async function bake(browser, scenes, css) {
         await Promise.all([...document.images].map((i) => i.decode().catch(() => null)));
       });
       // Kept once settled, as every drawing is (see `settle`).
-      const { png, settled } = await settle(async () =>
-        (
-          await tab.screenshot({ omitBackground: true, clip: { x: 0, y: 0, width, height } })
-        ).toString("base64"),
+      const { png, settled } = await settle(
+        async () =>
+          (
+            await tab.screenshot({ omitBackground: true, clip: { x: 0, y: 0, width, height } })
+          ).toString("base64"),
+        () => twoFrames(tab),
       );
       if (!settled)
         throw new Error(`${name} was still changing after ${SETTLE_TRIES + 1} captures`);
@@ -307,7 +315,7 @@ async function draw(frames, sink) {
           continue;
         }
         await tab.evaluate((u) => window.__apply(u), updates);
-        const { png, retries, settled } = await settle(capture);
+        const { png, retries, settled } = await settle(capture, () => twoFrames(tab));
         if (retries) retried.set(f, (retried.get(f) ?? 0) + retries);
         if (!settled) {
           unsettled.add(f);
