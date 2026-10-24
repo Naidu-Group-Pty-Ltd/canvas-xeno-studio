@@ -63,22 +63,35 @@ function launchArgs() {
  * is given two of its own frames between them, for the painting to catch up. And a drawing can come to rest
  * alternating between two paintings (a thin rotated line in 03.1, Chromium switching between two scales of it on
  * alternate frames, never more than 9 code values apart): a capture that repeats the one before last is a steady
- * state too, which a race, being a one-off, never makes. RENDER_SETTLE=0 keeps the first capture (for a quick
- * look only).
+ * state too, which a race, being a one-off, never makes. Nor need it ever repeat: on some of the drop's drawings
+ * the same line jittered on every capture, never more than 16 code values. So two captures no pixel of which is
+ * more than JITTER apart are one drawing; a race is tens to hundreds of code values out, on a hole or a word.
+ * RENDER_SETTLE=0 keeps the first capture (for a quick look only).
  */
 const SETTLE = process.env.RENDER_SETTLE !== "0";
 const SETTLE_TRIES = 6;
+const JITTER = 16;
+/** Whether two captures (base64 PNG) are one drawing within a hairline's jitter. */
+function withinJitter(a, b) {
+  const { PNG } = require("playwright-core/lib/utilsBundle");
+  const x = PNG.sync.read(Buffer.from(a, "base64")).data;
+  const y = PNG.sync.read(Buffer.from(b, "base64")).data;
+  if (x.length !== y.length) return false;
+  for (let i = 0; i < x.length; i++) if (Math.abs(x[i] - y[i]) > JITTER) return false;
+  return true;
+}
 /**
  * Frames whose drawings had to be captured again before they settled (how many times), any that never did, and
  * every capture's time (the checks included), to say what settling costs.
  */
-const SETTLED = { retried: new Map(), unsettled: new Set(), captures: 0, ms: 0 };
+const SETTLED = { retried: new Map(), unsettled: new Set(), captures: 0, ms: 0, jitter: 0 };
 /** What settling took, for film.json and the log (integer keys come out of an object in order). */
 const settleReport = () => ({
   on: SETTLE,
   frames_retried: SETTLED.retried.size,
   retried: Object.fromEntries(SETTLED.retried),
   unsettled: [...SETTLED.unsettled].sort((a, b) => a - b),
+  settled_within_jitter: SETTLED.jitter,
   captures: SETTLED.captures,
   capture_ms_mean: SETTLED.captures ? Math.round(SETTLED.ms / SETTLED.captures) : null,
 });
@@ -101,6 +114,10 @@ async function settle(capture, pause) {
     const b = await timed();
     if (a === b || b === seen.at(-2))
       return { png: Buffer.from(b, "base64"), retries, settled: true };
+    if (withinJitter(a, b)) {
+      SETTLED.jitter++;
+      return { png: Buffer.from(b, "base64"), retries, settled: true };
+    }
     a = b;
     seen.push(b);
   }
