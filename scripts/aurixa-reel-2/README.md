@@ -116,3 +116,32 @@ RENDER_FRAMES=1500,1520 NODE_PATH=/opt/node-tools/node_modules node scripts/auri
 
 Most of a drawing's time is Chromium's software compositor, and the check adds a capture to each: on a 4-CPU
 machine the Passport scene, the heaviest, draws at about 12 s a frame.
+
+`RENDER_WORKERS` (default 3) browsers draw side by side, and each is started again every `RENDER_RECYCLE`
+(default 40) of its frames. In the platform scene's tilt (03.3) a browser grows to 4.4 GB, and one left to
+run was ended for memory part-way through the scene.
+
+### Verifying a run
+
+The check makes a capture race unlikely; agreement shows a run is free of one. `verify_run.py pick` names
+every frame the check had to capture again, its neighbours and a seeded sample of the rest, to be drawn
+again independently. `settle` puts each of them to the vote, and replaces a frame only where two draws
+agree and the run is not one of them. Two sound draws differ at most where Chromium painted a scaled page
+at a different scale: letter and image edges, measured at up to 708 pixels off by more than 12 code values.
+A caption word a step behind measured over a thousand, and a hole over 175,000, so `verify_run.py` draws
+the line at 900.
+
+```sh
+python3 -I scripts/aurixa-reel-2/verify_run.py pick <run dir>
+RENDER_FRAMES=<those frames> NODE_PATH=/opt/node-tools/node_modules node scripts/aurixa-reel-2/render.cjs <redraw dir> <assets dir> none <first> <last>
+python3 -I scripts/aurixa-reel-2/verify_run.py settle <run dir> - 0 <redraw dir> [<another redraw dir> ...]
+```
+
+### On more than one machine
+
+Another session in the same environment can draw a run. It pulls the render assets from the work
+(`work.py pull --work <id> --only work/reel2-assets`; it never resumes the work), draws and verifies its
+run, and keeps it in a work of its own (`work.py start ... --parent <id>`). The session that joins the
+film pulls it back from there. The helper also draws three frames of a run already drawn here, and
+`verify_run.py compare <run dir> <png dir>` holds them against that run, so the film is shown to be drawn
+by one renderer whichever machine drew each scene.
