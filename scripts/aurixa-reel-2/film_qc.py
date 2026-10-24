@@ -22,8 +22,11 @@ Writes qc.json and the crops it names into <outDir>/qc.
 """
 import json
 import math
+import multiprocessing
+import os
 import subprocess
 import sys
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from pathlib import Path
 
 import numpy as np
@@ -164,11 +167,13 @@ DE_BIN = 0.001
 DE_BINS = 30000
 
 
-def colour(test, ref, decode_test, every=10):
+def colour_part(job):
+    """One process's share of colour(): every `every`-th frame from `start`, as sums to be added together."""
+    test, ref, decode_test, every, start = job
     hist = np.zeros(DE_BINS + 1, np.int64)
     total, below_1, de_max = 0.0, 0, 0.0
     sw = {k: [[], []] for k in SWATCHES}
-    for (i, t), (j, r) in zip(frames(test, decode_test, every), frames(ref, "format=rgb24", every)):
+    for (i, t), (j, r) in zip(frames(test, decode_test, every, start), frames(ref, "format=rgb24", every, start)):
         assert i == j
         m = flat_mask(r)
         if not m.any():
@@ -184,6 +189,22 @@ def colour(test, ref, decode_test, every=10):
             if hit.sum() >= 50:
                 sw[name][0].append(r[hit].astype(float).mean(0))
                 sw[name][1].append(t[hit].astype(float).mean(0))
+    return hist, total, below_1, de_max, sw
+
+
+def colour(test, ref, decode_test, every=10):
+    """CIEDE2000 between master and reference on every flat field of every `every`-th frame, and on the brand's
+    swatches. The frames are shared among one process per CPU (each takes every `every * n`-th frame from its
+    own start), and their sums added: the same frames and the same sums as one process taking them all."""
+    n = max(1, min(os.cpu_count() or 1, 8))
+    jobs = [(str(test), str(ref), decode_test, every * n, every * k) for k in range(n)]
+    with ProcessPoolExecutor(n, mp_context=multiprocessing.get_context("spawn")) as pool:
+        parts = list(pool.map(colour_part, jobs))
+    hist = sum(p[0] for p in parts)
+    total = sum(p[1] for p in parts)
+    below_1 = sum(p[2] for p in parts)
+    de_max = max(p[3] for p in parts)
+    sw = {k: [[a for p in parts for a in p[4][k][0]], [b for p in parts for b in p[4][k][1]]] for k in SWATCHES}
     count = int(hist.sum())
     p99 = (int(np.searchsorted(np.cumsum(hist), 0.99 * count)) + 0.5) * DE_BIN
     swatches = {}
@@ -403,6 +424,14 @@ def main():
         (moment("09.1", 1, 0.8), (80, 600, 920, 1100), "closing-card-09.1"),
     ] if f is not None and inside(f)]
 
+    # The studio's export is encoded (and its fidelity measured) beside the master's own measures.
+    exporting = None
+    pool = ThreadPoolExecutor(1)
+    if "--export" in sys.argv:
+        def export_chain():
+            final = worker_export(film, qc)
+            return final, ssim_psnr(final, ref, TO_RGB)
+        exporting = pool.submit(export_chain)
     p = probe(film)
     v = next(s for s in p["streams"] if s["codec_type"] == "video")
     a = next((s for s in p["streams"] if s["codec_type"] == "audio"), None)
@@ -423,14 +452,15 @@ def main():
     }
     if voiceover:
         report["sound"] = sound(film, voiceover, log["from"] / fps, (log["to"] - log["from"]) / fps)
-    if "--export" in sys.argv:
-        final = worker_export(film, qc)
+    if exporting is not None:
+        final, final_fidelity = exporting.result()
         report["export"] = {
             "settings": "the Editor's export (media-worker/src/sequence.js): intermediate x264 superfast CRF 14, final x264 veryfast CRF 17, High, 4:2:0",
-            "fidelity": ssim_psnr(final, ref, TO_RGB),
+            "fidelity": final_fidelity,
             "colour": colour(final, ref, TO_RGB),
             "size_mb": round(final.stat().st_size / 1e6, 2),
         }
+    pool.shutdown()
     (qc / "qc.json").write_text(json.dumps(report, indent=1) + "\n")
     print(json.dumps(report, indent=1))
 
