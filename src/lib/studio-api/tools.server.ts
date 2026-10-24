@@ -31,7 +31,14 @@ import { ALIGN_ANCHORS, ALIGN_DEFAULTS, ALIGN_LIMITS } from "../media/align-take
 import { PRIVACY_NEEDS_UPDATE } from "../media/layout-only";
 import { SCREENSHOT_TYPES } from "../media/redaction";
 import { CHARACTER_VIEWS } from "../characters/model";
-import { RIGHTS_SCOPES, type RightsScope } from "../music/catalog";
+import {
+  MUSIC_LENGTH,
+  MUSIC_MODELS,
+  RIGHTS_SCOPES,
+  type MusicModel,
+  type RightsScope,
+} from "../music/catalog";
+import { musicPlanSchema } from "../music/plan";
 import { DEFAULT_RETAKE_ALLOWANCE, STAGE_LIMITS } from "../stage-check";
 import type { ModelRegistryEntry } from "../model-schema";
 import type { ApiScope } from "./tokens";
@@ -39,6 +46,11 @@ import type { ApiCaller } from "./tokens.server";
 import { PLANNING_TOOLS } from "./planning.server";
 import { COMPOSITION_TOOLS } from "./compositions.server";
 import { actorFor, WORK_TOOL_NAMES, WORK_TOOLS } from "./work.server";
+import {
+  VIDEO_IMPORT_LIMITS,
+  VIDEO_IMPORT_TYPES,
+  type VideoImportType,
+} from "./video-import.server";
 
 type Json = Record<string, unknown>;
 
@@ -1853,6 +1865,152 @@ const importAudio = tool({
   },
 });
 
+const generateMusic = tool({
+  name: "generate_music",
+  title: "Make music",
+  description:
+    "Makes a track with Eleven Music into the music library, as the Music page does, and waits for it (a minute or two; up to five): from a prompt, with its length in seconds (instrumental rules out vocals), or from a composition plan, the song as chunks of fixed lengths (3 to 120 s each, up to 10 minutes in all), each with its styles and its text (\"[Intro]\", then any lyrics), which fixes where every part starts, as a film needs its drops on its cuts. A plan needs Eleven Music v2 or v2.5, takes a seed, and keeps the prompt as the track's description. Billed in the account's ElevenLabs credits, and recorded before it is asked for: the same clientRequestId returns the first track (made, failed or uncertain) instead of making and paying for another, and a track whose answer was lost is never made again by itself. Its licence is the library's AI music licence. Returns the track: its library asset, status, length and ElevenLabs' song id.",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({
+    title: z.string().trim().min(1).max(200),
+    prompt: z
+      .string()
+      .trim()
+      .min(10)
+      .max(2000)
+      .describe(
+        "What the music is: sent as it is without a plan, kept as the track's description with one",
+      ),
+    plan: musicPlanSchema
+      .optional()
+      .describe(
+        "A composition plan: the song as chunks of fixed lengths (Eleven Music v2 and v2.5)",
+      ),
+    seconds: z
+      .number()
+      .min(MUSIC_LENGTH.min)
+      .max(MUSIC_LENGTH.max)
+      .optional()
+      .describe("Its length, without a plan (a plan's chunks set it)"),
+    model: z
+      .enum(MUSIC_MODELS.map((model) => model.id) as [MusicModel, ...MusicModel[]])
+      .optional()
+      .describe("Eleven Music v2.5 unless named"),
+    instrumental: z
+      .boolean()
+      .default(true)
+      .describe(
+        'No vocals. A prompt is held to it; a plan says it in its chunks: no lyrics, and "vocals" among their negative styles',
+      ),
+    genres: z.array(z.string().max(40)).max(8).default([]),
+    moods: z.array(z.string().max(40)).max(8).default([]),
+    bpm: z
+      .number()
+      .min(40)
+      .max(250)
+      .nullable()
+      .optional()
+      .describe("Its tempo, as the library notes it"),
+    seed: z
+      .number()
+      .int()
+      .min(0)
+      .max(2_147_483_647)
+      .optional()
+      .describe("A plan's seed: the same plan and seed come out much the same"),
+    projectId: id().nullable().optional(),
+    campaignId: id().nullable().optional(),
+    clientRequestId: requestId(),
+  }),
+  run: async (args, caller) => {
+    if (!args.plan && args.seconds === undefined)
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        "Give the music's length (seconds), or a plan that sets it",
+      );
+    if (args.plan && args.seconds !== undefined)
+      throw new AppError("INVALID_PARAMETERS", "A plan's chunks set its length: leave seconds out");
+    if (!args.plan && args.seed !== undefined)
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        "A seed goes with a plan only: Eleven Music refuses one alongside a prompt",
+      );
+    if (args.projectId) {
+      const { data: project } = await db
+        .from("projects")
+        .select("id")
+        .eq("id", args.projectId)
+        .maybeSingle();
+      if (!project) throw new AppError("INVALID_PARAMETERS", "That project doesn't exist");
+    }
+    const { generateMusic: make } = await import("../music/service.server");
+    const { track, duplicate } = await make({
+      userId: caller.userId,
+      prompt: args.prompt,
+      title: args.title,
+      seconds: args.seconds ?? 0,
+      model: args.model ?? null,
+      instrumental: args.instrumental,
+      genres: args.genres,
+      moods: args.moods,
+      bpm: args.bpm ?? null,
+      projectId: args.projectId ?? null,
+      campaignId: args.campaignId ?? null,
+      clientRequestId: args.clientRequestId,
+      plan: args.plan ?? null,
+      seed: args.seed ?? null,
+    });
+    const text = (key: string) => (typeof track[key] === "string" ? (track[key] as string) : null);
+    return {
+      trackId: track.id,
+      assetId: text("asset_id"),
+      title: text("title"),
+      status: text("status"),
+      errorMessage: text("error_message"),
+      durationSeconds: track["duration_seconds"] == null ? null : Number(track["duration_seconds"]),
+      model: text("model"),
+      songId: text("provider_request_id"),
+      /** True when this request had made it (or started it) already: that track is returned. */
+      duplicate,
+    };
+  },
+});
+
+const importVideo = tool({
+  name: "import_video",
+  title: "Import a video",
+  description: `Puts a finished video into the studio's library (an animatic, a proof or a film made elsewhere), so a review gate can hold it (add_review_version) and the Editor can place it: MP4, QuickTime or WebM, up to ${VIDEO_IMPORT_LIMITS.bytes / 1024 / 1024} MB (one upload to storage; send a review copy of a larger master). Two calls with the same clientRequestId: the first says where to PUT the file (status "upload": its address and headers, good for two hours); once it is there, the next checks it is a video of the size declared and adds it to the library (status "imported", with its assetId), and the media service measures its length, size and frame rate. Asking again returns the first import instead of a second copy.`,
+  scope: "edit",
+  readOnly: false,
+  input: z.object({
+    title: z.string().min(1).max(200),
+    mimeType: z.enum(Object.keys(VIDEO_IMPORT_TYPES) as [VideoImportType, ...VideoImportType[]]),
+    byteSize: z
+      .number()
+      .int()
+      .min(1)
+      .max(VIDEO_IMPORT_LIMITS.bytes)
+      .describe("The file's exact size in bytes; the stored file must match it"),
+    sha256: z
+      .string()
+      .regex(/^[0-9a-f]{64}$/)
+      .optional()
+      .describe("Its SHA-256, kept with it as given"),
+    width: z.number().int().min(16).max(8192).optional(),
+    height: z.number().int().min(16).max(8192).optional(),
+    durationSeconds: z.number().positive().max(36_000).optional(),
+    fps: z.number().positive().max(240).optional(),
+    projectId: id().nullable().optional(),
+    clientRequestId: requestId(),
+  }),
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const { importVideo: run } = await import("./video-import.server");
+    return run(args, caller);
+  },
+});
+
 /* ------------------------------------------------------------------ */
 /* Takes that land on a picture, logos' clean plates, private screens  */
 /* ------------------------------------------------------------------ */
@@ -2750,6 +2908,8 @@ export const STUDIO_TOOLS: StudioTool[] = [
   saveCharacter,
   importImage,
   importAudio,
+  importVideo,
+  generateMusic,
   getRedaction,
   applyRedaction,
   cancelRedaction,

@@ -14,6 +14,7 @@
 import { unzipSync } from "fflate";
 import { fetchPublic } from "../net/public-url.server";
 import { SAFE_OPENVERSE_LICENSES, isSafeOpenverseLicense } from "./catalog";
+import { planBody, type MusicPlan } from "./plan";
 import { PROBED_MIME, probeBytes } from "./probe";
 import {
   eleven,
@@ -435,14 +436,18 @@ export { elevenLabsConfigured as elevenMusicConfigured };
 const MUSIC_TIMEOUT_MS = 300_000;
 
 /**
- * One billable generation from a prompt: a finished track in MP3. No seed is
- * sent: the API refuses one alongside a prompt (seeds are for composition plans).
+ * One billable generation: a finished track in MP3, from a prompt or from a
+ * composition plan (./plan). A prompt goes with its length and whether it
+ * must be instrumental; a plan carries its own lengths, takes neither, and
+ * may take a seed, which the API refuses alongside a prompt.
  */
 export async function composeMusic(input: {
   prompt: string;
   seconds: number;
   model: string;
   instrumental: boolean;
+  plan?: MusicPlan | null;
+  seed?: number | null;
 }): Promise<
   { ok: true; audio: Uint8Array; mime: string; songId: string | null } | ProviderFailure
 > {
@@ -453,12 +458,18 @@ export async function composeMusic(input: {
       message: "ElevenLabs is not connected. Add ELEVENLABS_API_KEY to the backend secrets.",
       uncertain: false,
     };
-  const body: Record<string, unknown> = {
-    prompt: input.prompt,
-    music_length_ms: Math.round(input.seconds * 1000),
-    model_id: input.model,
-    force_instrumental: input.instrumental,
-  };
+  const body: Record<string, unknown> = input.plan
+    ? {
+        composition_plan: planBody(input.plan),
+        model_id: input.model,
+        ...(input.seed === null || input.seed === undefined ? {} : { seed: input.seed }),
+      }
+    : {
+        prompt: input.prompt,
+        music_length_ms: Math.round(input.seconds * 1000),
+        model_id: input.model,
+        force_instrumental: input.instrumental,
+      };
   let response: Response;
   try {
     response = await eleven(
