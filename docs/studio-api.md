@@ -117,6 +117,8 @@ curl -X POST https://<your studio>/api/public/studio/list_models \
 | `cancel_redaction`            | Drops a screenshot whose copy isn't made yet: its original is deleted and nothing joins the library.                                                                                                                                                                                                                                                                                                     |
 | `set_layout_only`             | Marks a library file layout only: no generation, estimate, edit, render or copy may place it in a frame, and each refusal says why. Only an admin may lift the mark (`layoutOnly: false`).                                                                                                                                                                                                               |
 | `import_audio`                | Puts a WAV, MP3, M4A or FLAC into the library as music, a sound effect or an edit's voiceover (see "Importing audio").                                                                                                                                                                                                                                                                                   |
+| `import_video`                | Puts an MP4, QuickTime or WebM (up to 50 MB) into the library, its bytes sent straight to storage, so a review gate can hold it (see "Importing a video").                                                                                                                                                                                                                                               |
+| `generate_music`              | Makes a track with Eleven Music into the music library, from a prompt or from a composition plan that fixes where each part falls (see "Making music").                                                                                                                                                                                                                                                  |
 | `open_in_editor`              | Lays a long video out as an edit. Takes captions from the script, titles on the voiceover's clock, music, and the brand kit's look.                                                                                                                                                                                                                                                                      |
 | `create_edit` / `update_edit` | Makes an edit from a timeline, or changes one. An update is accepted only at the version you read. Pauses: below.                                                                                                                                                                                                                                                                                        |
 | `apply_brand_kit`             | Applies a kit's fonts, colours and title motion to the edit's text, and can add its end card inside a platform's safe area.                                                                                                                                                                                                                                                                              |
@@ -205,6 +207,50 @@ file's structure is checked before anything is recorded, and its length is read 
 The answer has the file's `assetId`, its `trackId` or `voiceoverId`, its `mimeType` and
 `durationSeconds`, and `imported: false` when the same `clientRequestId` had imported it already.
 
+## Importing a video
+
+`import_video` puts a finished video (an animatic, a proof, a film made elsewhere) into the
+library, so a review gate can hold it (`add_review_version`) and the Editor can place it. MP4,
+QuickTime and WebM are taken, up to 50 MB: the file goes to storage in one upload, so a longer
+master goes in as a review copy and stays with the work.
+
+It takes two calls with the same `clientRequestId`:
+
+1. The first, with the file's `title`, `mimeType` and exact `byteSize` (and any `width`,
+   `height`, `durationSeconds`, `fps` and `sha256`), answers `status: "upload"`: an address to
+   `PUT` the whole file to, with its headers, good for two hours.
+2. Once the file is there, the next answers `status: "imported"` with its `assetId`. The stored
+   file must be a video of the size declared. One that isn't is removed, and the next call
+   offers the upload again. The media service then measures its length, size and frame rate
+   (`measuring: true`), which replace the figures given.
+
+Asked again, it returns the first import (`imported: false`). Like every upload, it is
+`to_confirm` for public use until its rights are recorded.
+
+## Making music
+
+`generate_music` makes a track with Eleven Music into the music library, as the Music page does,
+and waits for it (a minute or two; up to five). It is billed in the account's ElevenLabs
+credits and recorded before it is asked for. The same `clientRequestId` returns the first track
+(made, failed or uncertain) instead of paying again. A track whose answer was lost is settled as
+uncertain and never made again by itself.
+
+- **From a prompt**: `prompt` with its length in `seconds`. `instrumental` (on by default) rules
+  out vocals.
+- **From a composition plan** (`plan`, Eleven Music v2 and v2.5): the song as `chunks` of fixed
+  lengths, 3 to 120 s each and up to 10 minutes in all. Each chunk has its `text` (its section's
+  name in square brackets, then any lyrics), its `positiveStyles` and any `negativeStyles` and
+  `contextAdherence`. The plan fixes where each part starts, which is how a film's drops are made
+  to land on its cuts. It takes a `seed`, and the `prompt` is kept as the track's description,
+  with the plan's outline (each part and where it falls) and a fingerprint, so another plan or
+  seed is never taken for the same music. The whole plan is kept with the track's file. For an
+  instrumental, give no lyrics and put `vocals` among the negative styles.
+
+The answer has the track's `trackId` and `assetId`, its `status`, `durationSeconds`, `model`,
+ElevenLabs' `songId`, and `duplicate: true` when the request had made it already. Its licence is
+the library's AI music licence. Its bars are found in the Editor's Music panel, and then
+`get_music_structure` and `fit_music` work on it.
+
 ## Costs and stages
 
 Every generation has a price. It is the charge Higgsfield reported (`actual_cost_usd`, with
@@ -238,7 +284,7 @@ or `not_cleared`, with the credit line owed where there is one. Until someone re
   generation or a Katana video, ElevenLabs' for a voiceover made in the Voice tab), and is
   `to_confirm` when a file it was made from isn't cleared;
 - what the studio rendered or cut from a file follows what it was made from;
-- uploads and imports (`import_image`, `import_audio`) are `to_confirm`.
+- uploads and imports (`import_image`, `import_audio`, `import_video`) are `to_confirm`.
 
 What is recorded stands instead, with who set it and when, and who confirmed it (`cleared` or
 `not_cleared`) and when. A music track's licence and credit stay the music library's: only its

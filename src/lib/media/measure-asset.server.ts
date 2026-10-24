@@ -17,6 +17,49 @@ export { measurementOf };
 
 type Json = Record<string, unknown>;
 
+/** A library file, as much of it as measuring needs. */
+export interface MeasurableAsset {
+  id: string;
+  asset_type: string;
+  storage_bucket: string;
+  storage_path: string;
+  mime_type: string | null;
+  width: number | null;
+  height: number | null;
+  project_id: string | null;
+  uploaded_by: string | null;
+}
+
+/**
+ * Asks the media service to measure one file, if it needs it (every video,
+ * and an image without a size). True when it was asked; false without the
+ * media service, or when it can't be asked now.
+ */
+export async function measureAsset(asset: MeasurableAsset): Promise<boolean> {
+  if (!mediaWorkerConfigured()) return false;
+  const wanted =
+    asset.asset_type === "video" ||
+    (asset.asset_type === "image" && (!asset.width || !asset.height));
+  if (!wanted) return false;
+  const result = await enqueueInternalMediaTask({
+    createdBy: asset.uploaded_by,
+    projectId: asset.project_id,
+    taskType: "probe",
+    source: {
+      assetId: asset.id,
+      assetType: asset.asset_type as "video" | "image",
+      bucket: asset.storage_bucket,
+      path: asset.storage_path,
+      mimeType: asset.mime_type,
+    },
+    params: {},
+    dedupeKey: `asset-measure:${asset.id}`,
+    output: { count: 0, ext: "json", mime: "application/json", kind: "image" },
+    context: { measure_asset_id: asset.id },
+  }).catch(() => null);
+  return result?.ok === true;
+}
+
 /** Asks the media service to measure a generation's saved files that need it. */
 export async function measureGeneratedAssets(generationId: string): Promise<number> {
   if (!mediaWorkerConfigured()) return 0;
@@ -29,29 +72,7 @@ export async function measureGeneratedAssets(generationId: string): Promise<numb
     .is("deleted_at", null);
   if (error) return 0;
   let asked = 0;
-  for (const asset of assets ?? []) {
-    const wanted =
-      asset.asset_type === "video" ||
-      (asset.asset_type === "image" && (!asset.width || !asset.height));
-    if (!wanted) continue;
-    const result = await enqueueInternalMediaTask({
-      createdBy: asset.uploaded_by,
-      projectId: asset.project_id,
-      taskType: "probe",
-      source: {
-        assetId: asset.id,
-        assetType: asset.asset_type as "video" | "image",
-        bucket: asset.storage_bucket,
-        path: asset.storage_path,
-        mimeType: asset.mime_type,
-      },
-      params: {},
-      dedupeKey: `asset-measure:${asset.id}`,
-      output: { count: 0, ext: "json", mime: "application/json", kind: "image" },
-      context: { measure_asset_id: asset.id },
-    }).catch(() => null);
-    if (result?.ok) asked += 1;
-  }
+  for (const asset of assets ?? []) if (await measureAsset(asset as MeasurableAsset)) asked += 1;
   return asked;
 }
 

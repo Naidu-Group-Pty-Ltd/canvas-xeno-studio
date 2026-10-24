@@ -1,0 +1,491 @@
+{
+  "note": "Written by scripts/aurixa-reel-2/assets.py from the screens harness's captures: each picture's file in the assets folder, its size in the product's CSS px, the device scale it was drawn at, and the regions measured on it.",
+  "screens": {
+    "case-issued": {
+      "file": "r2-case-issued.png",
+      "css": [860, 711],
+      "scale": 3,
+      "regions": {
+        "region:roster": [22, 410, 816, 277],
+        "row:Harbour Finance Group": [23, 460, 814, 58],
+        "send:Harbour Finance Group": [647.4, 475, 145.6, 28],
+        "row:Patel & Co Accountants": [23, 518, 814, 59],
+        "send:Patel & Co Accountants": [647.4, 534, 145.6, 28],
+        "row:Shah Legal": [23, 577, 814, 59],
+        "send:Shah Legal": [647.4, 593, 145.6, 28]
+      }
+    },
+    "case-sent": {
+      "file": "r2-case-sent.png",
+      "css": [860, 711],
+      "scale": 3,
+      "regions": {
+        "region:roster": [22, 410, 816, 277],
+        "row:Harbour Finance Group": [23, 460, 814, 58],
+        "send:Harbour Finance Group": [647.4, 475, 145.6, 28],
+        "row:Patel & Co Accountants": [23, 518, 814, 59],
+        "send:Patel & Co Accountants": [647.4, 534, 145.6, 28],
+        "row:Shah Legal": [23, 577, 814, 59]
+      }
+    },
+    "consent-open": {
+      "file": "r2-consent-open.png",
+      "css": [720, 1400],
+      "scale": 4,
+      "regions": {
+        "doc:regulatory_reporting": [27, -66.5, 666, 470],
+        "doc:record_keeping": [27, 419.5, 666, 376.5],
+        "doc:compliance_sharing": [27, 812.0, 666, 472.5],
+        "tick:regulatory_reporting": [44, 368.5, 632, 18],
+        "tick:record_keeping": [44, 761.0, 632, 18],
+        "tick:compliance_sharing": [44, 1249.5, 632, 18],
+        "confirm:true": [502.6, 1333.0, 190.4, 40]
+      },
+      "cropped_from": 3609.5
+    },
+    "consent-ticked": {
+      "file": "r2-consent-ticked.png",
+      "css": [720, 1400],
+      "scale": 4,
+      "regions": {
+        "doc:regulatory_reporting": [27, -66.5, 666, 470],
+        "doc:record_keeping": [27, 419.5, 666, 376.5],
+        "doc:compliance_sharing": [27, 812.0, 666, 472.5],
+        "tick:regulatory_reporting": [44, 368.5, 632, 18],
+        "tick:record_keeping": [44, 761.0, 632, 18],
+        "tick:compliance_sharing": [44, 1249.5, 632, 18],
+        "confirm:true": [502.6, 1333.0, 190.4, 40]
+      },
+      "cropped_from": 3609.5
+    },
+    "pending-reliance_accepted_accountant": {
+      "file": "r2-pending-reliance_accepted_accountant.png",
+      "css": [200, 200],
+      "scale": 5,
+      "regions": {}
+    },
+    "pending-reliance_accepted_finance": {
+      "file": "r2-pending-reliance_accepted_finance.png",
+      "css": [200, 200],
+      "scale": 5,
+      "regions": {}
+    },
+    "pending-reliance_accepted_solicitor": {
+      "file": "r2-pending-reliance_accepted_solicitor.png",
+      "css": [200, 200],
+      "scale": 5,
+      "regions": {}
+    },
+    "pending-transaction_completed": {
+      "file": "r2-pending-transaction_completed.png",
+      "css": [200, 200],
+      "scale": 5,
+      "regions": {}
+    },
+    "pp-cmd-completion": {
+      "file": "r2-pp-cmd-completion.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {}
+    },
+    "pp-cmd-cover": {
+      "file": "r2-pp-cmd-cover.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {}
+    },
+    "pp-cmd-evidence": {
+      "file": "r2-pp-cmd-evidence.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {}
+    },
+    "pp-cmd-funding": {
+      "file": "r2-pp-cmd-funding.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {}
+    },
+    "pp-cmd-identity": {
+      "file": "r2-pp-cmd-identity.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {}
+    },
+    "pp-cmd-journey": {
+      "file": "r2-pp-cmd-journey.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {}
+    },
+    "pp-cmd-partners": {
+      "file": "r2-pp-cmd-partners.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {}
+    },
+    "pp-cmd-renewal": {
+      "file": "r2-pp-cmd-renewal.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {}
+    },
+    "pp-cmd-screening": {
+      "file": "r2-pp-cmd-screening.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {}
+    },
+    "pp-cmd-seals": {
+      "file": "r2-pp-cmd-seals.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {}
+    },
+    "pp-cmd-seals-unstruck": {
+      "file": "r2-pp-cmd-seals-unstruck.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {},
+      "seals": [
+        {
+          "file": "r2-pp-cmd-seal-1.png",
+          "die": [41.02, 131.49, 110.61, 75.51],
+          "caption": "Client Portal"
+        },
+        {
+          "file": "r2-pp-cmd-seal-2.png",
+          "die": [183.01, 119.26, 99.96, 99.96],
+          "caption": "Command Centre"
+        },
+        {
+          "file": "r2-pp-cmd-seal-3.png",
+          "die": [316.1, 134.52, 107.12, 69.44],
+          "caption": "Command Centre"
+        },
+        {
+          "file": "r2-pp-cmd-seal-4.png",
+          "die": [41.74, 237.55, 109.16, 72.94],
+          "caption": "System"
+        },
+        {
+          "file": "r2-pp-cmd-seal-5.png",
+          "die": [178.66, 237.99, 108.67, 72.08],
+          "caption": "Command Centre"
+        },
+        {
+          "file": "r2-pp-cmd-seal-6.png",
+          "die": [314.36, 236.27, 110.61, 75.51],
+          "caption": "Command Centre"
+        },
+        {
+          "file": "r2-pp-cmd-seal-7.png",
+          "die": [46.34, 328.83, 99.96, 99.96],
+          "caption": "Command Centre"
+        }
+      ],
+      "pending": [
+        {
+          "die": [185.44, 331.25, 95.11, 95.11],
+          "caption": "Outstanding"
+        }
+      ]
+    },
+    "pp-cmd-summary": {
+      "file": "r2-pp-cmd-summary.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {}
+    },
+    "pp-cmd-transaction": {
+      "file": "r2-pp-cmd-transaction.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {}
+    },
+    "pp-cmd-verification": {
+      "file": "r2-pp-cmd-verification.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {}
+    },
+    "pp-cmd-versions": {
+      "file": "r2-pp-cmd-versions.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {}
+    },
+    "pp-par-completion": {
+      "file": "r2-pp-par-completion.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {}
+    },
+    "pp-par-cover": {
+      "file": "r2-pp-par-cover.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {}
+    },
+    "pp-par-evidence": {
+      "file": "r2-pp-par-evidence.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {}
+    },
+    "pp-par-funding": {
+      "file": "r2-pp-par-funding.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {}
+    },
+    "pp-par-identity": {
+      "file": "r2-pp-par-identity.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {}
+    },
+    "pp-par-journey": {
+      "file": "r2-pp-par-journey.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {}
+    },
+    "pp-par-renewal": {
+      "file": "r2-pp-par-renewal.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {}
+    },
+    "pp-par-screening": {
+      "file": "r2-pp-par-screening.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {}
+    },
+    "pp-par-seals": {
+      "file": "r2-pp-par-seals.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {}
+    },
+    "pp-par-seals-unstruck": {
+      "file": "r2-pp-par-seals-unstruck.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {},
+      "seals": [
+        {
+          "file": "r2-pp-par-seal-1.png",
+          "die": [41.02, 131.49, 110.61, 75.51],
+          "caption": "Client Portal"
+        },
+        {
+          "file": "r2-pp-par-seal-2.png",
+          "die": [183.01, 119.26, 99.96, 99.96],
+          "caption": "Command Centre"
+        },
+        {
+          "file": "r2-pp-par-seal-3.png",
+          "die": [316.1, 134.52, 107.12, 69.44],
+          "caption": "Command Centre"
+        },
+        {
+          "file": "r2-pp-par-seal-4.png",
+          "die": [41.74, 237.55, 109.16, 72.94],
+          "caption": "System"
+        },
+        {
+          "file": "r2-pp-par-seal-5.png",
+          "die": [178.66, 237.99, 108.67, 72.08],
+          "caption": "Command Centre"
+        },
+        {
+          "file": "r2-pp-par-seal-6.png",
+          "die": [314.36, 236.27, 110.61, 75.51],
+          "caption": "Command Centre"
+        },
+        {
+          "file": "r2-pp-par-seal-7.png",
+          "die": [46.34, 328.83, 99.96, 99.96],
+          "caption": "Command Centre"
+        },
+        {
+          "file": "r2-pp-par-seal-8.png",
+          "die": [179.43, 344.08, 107.12, 69.44],
+          "caption": "Solicitor Portal"
+        }
+      ],
+      "pending": [
+        {
+          "die": [322.11, 331.25, 95.11, 95.11],
+          "caption": "Outstanding"
+        },
+        {
+          "die": [48.77, 451.11, 95.11, 95.11],
+          "caption": "Outstanding"
+        }
+      ]
+    },
+    "pp-par-summary": {
+      "file": "r2-pp-par-summary.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {}
+    },
+    "pp-par-transaction": {
+      "file": "r2-pp-par-transaction.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {}
+    },
+    "pp-par-verification": {
+      "file": "r2-pp-par-verification.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {}
+    },
+    "pp-par-versions": {
+      "file": "r2-pp-par-versions.png",
+      "css": [470, 648],
+      "scale": 5,
+      "regions": {}
+    },
+    "roster-issued": {
+      "file": "r2-roster-issued.png",
+      "css": [760, 281],
+      "scale": 4,
+      "regions": {
+        "row:Harbour Finance Group": [3, 52, 754, 58],
+        "send:Harbour Finance Group": [567.4, 67, 145.6, 28],
+        "row:Patel & Co Accountants": [3, 110, 754, 59],
+        "send:Patel & Co Accountants": [567.4, 126, 145.6, 28],
+        "row:Shah Legal": [3, 169, 754, 59],
+        "send:Shah Legal": [567.4, 185, 145.6, 28]
+      }
+    },
+    "roster-sent": {
+      "file": "r2-roster-sent.png",
+      "css": [760, 281],
+      "scale": 4,
+      "regions": {
+        "row:Harbour Finance Group": [3, 52, 754, 58],
+        "send:Harbour Finance Group": [567.4, 67, 145.6, 28],
+        "row:Patel & Co Accountants": [3, 110, 754, 59],
+        "send:Patel & Co Accountants": [567.4, 126, 145.6, 28],
+        "row:Shah Legal": [3, 169, 754, 59]
+      }
+    },
+    "solicitor-compliance": {
+      "file": "r2-solicitor-compliance.png",
+      "css": [1440, 960],
+      "scale": 3,
+      "regions": {
+        "nav:Dashboard": [12, 187, 263, 44],
+        "nav:AML/CTF Compliance": [12, 235, 263, 44],
+        "nav:Matters": [12, 283, 263, 44],
+        "nav:Pipeline": [12, 331, 263, 44],
+        "nav:Message Hub": [12, 379, 263, 44],
+        "nav:Settings": [12, 427, 263, 44],
+        "region:matters": [352, 161, 272, 164],
+        "region:document": [640, 161, 736, 354],
+        "demo:true": [1109.3, 16.3, 126.4, 23.5],
+        "matter:Jordan Ellis": [353, 210, 270, 56.5],
+        "matter:Matter …8e21f0": [353, 267.5, 270, 56.5]
+      }
+    },
+    "solicitor-dashboard": {
+      "file": "r2-solicitor-dashboard.png",
+      "css": [1440, 960],
+      "scale": 3,
+      "regions": {
+        "nav:Dashboard": [12, 187, 263, 44],
+        "nav:AML/CTF Compliance": [12, 235, 263, 44],
+        "nav:Matters": [12, 283, 263, 44],
+        "nav:Pipeline": [12, 331, 263, 44],
+        "nav:Message Hub": [12, 379, 263, 44],
+        "nav:Settings": [12, 427, 263, 44],
+        "demo:true": [1109.3, 16.3, 126.4, 23.5]
+      }
+    },
+    "solicitor-matter": {
+      "file": "r2-solicitor-matter.png",
+      "css": [1440, 1151.4],
+      "scale": 3,
+      "regions": {
+        "nav:Dashboard": [12, 187, 263, 44],
+        "nav:AML/CTF Compliance": [12, 235, 263, 44],
+        "nav:Matters": [12, 283, 263, 44],
+        "nav:Pipeline": [12, 331, 263, 44],
+        "nav:Message Hub": [12, 379, 263, 44],
+        "nav:Settings": [12, 427, 263, 44],
+        "region:matters": [352, 161, 272, 164],
+        "region:document": [640, 161, 736, 926.4],
+        "demo:true": [1109.3, 16.3, 126.4, 23.5],
+        "matter:Jordan Ellis": [353, 210, 270, 56.5],
+        "matter:Matter …8e21f0": [353, 267.5, 270, 56.5],
+        "passport:board": [641, 280, 734, 806.4]
+      }
+    },
+    "stamp-client_consent_recorded": {
+      "file": "r2-stamp-client_consent_recorded.png",
+      "css": [216, 200],
+      "scale": 5,
+      "regions": {}
+    },
+    "stamp-documents_verified": {
+      "file": "r2-stamp-documents_verified.png",
+      "css": [216, 200],
+      "scale": 5,
+      "regions": {}
+    },
+    "stamp-identity_verified": {
+      "file": "r2-stamp-identity_verified.png",
+      "css": [200, 200],
+      "scale": 5,
+      "regions": {}
+    },
+    "stamp-passport_issued": {
+      "file": "r2-stamp-passport_issued.png",
+      "css": [200, 200],
+      "scale": 5,
+      "regions": {}
+    },
+    "stamp-passport_shared_accountant": {
+      "file": "r2-stamp-passport_shared_accountant.png",
+      "css": [216, 200],
+      "scale": 5,
+      "regions": {}
+    },
+    "stamp-passport_shared_finance": {
+      "file": "r2-stamp-passport_shared_finance.png",
+      "css": [216, 200],
+      "scale": 5,
+      "regions": {}
+    },
+    "stamp-passport_shared_solicitor": {
+      "file": "r2-stamp-passport_shared_solicitor.png",
+      "css": [216, 200],
+      "scale": 5,
+      "regions": {}
+    },
+    "stamp-screening_completed": {
+      "file": "r2-stamp-screening_completed.png",
+      "css": [216, 200],
+      "scale": 5,
+      "regions": {}
+    },
+    "stamp-source_of_funds_reviewed": {
+      "file": "r2-stamp-source_of_funds_reviewed.png",
+      "css": [216, 200],
+      "scale": 5,
+      "regions": {}
+    },
+    "stamp-source_of_wealth_reviewed": {
+      "file": "r2-stamp-source_of_wealth_reviewed.png",
+      "css": [216, 200],
+      "scale": 5,
+      "regions": {}
+    }
+  }
+}

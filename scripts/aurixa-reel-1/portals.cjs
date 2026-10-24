@@ -2609,5 +2609,28 @@ module.exports = function portals({ P, D, EMBLEM, MASCOT, BN_MARK }) {
     "NEW-CLIENT-REPORTS-a": { size: L, scale: 2, html: clientReports },
     "NEW-CLIENT-REPORTS-b": { size: L, scale: 2, html: clientAppointments },
   };
-  return { css: CSS, plates };
+  // The parts the plates are built from, for the reels that follow (Reel 2 builds its own pages in them).
+  const parts = {
+    shell,
+    nav,
+    cc,
+    ccGroups,
+    banner,
+    svg,
+    icon,
+    ic,
+    emb,
+    pimg,
+    dimg,
+    TEAM,
+    cliItems,
+    cli,
+    solItems,
+    sol,
+    finItems,
+    fin,
+    accItems,
+    messageHub,
+  };
+  return { css: CSS, plates, parts };
 };

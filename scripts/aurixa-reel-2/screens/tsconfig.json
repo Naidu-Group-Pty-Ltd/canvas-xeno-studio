@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "types": [],
+    "baseUrl": ".",
+    "paths": { "@/*": ["../../../../npc-client-dashboard/src/*"] },
+    "typeRoots": ["./node_modules/@types"]
+  },
+  "include": ["src/fixture.ts"]
+}

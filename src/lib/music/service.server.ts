@@ -20,6 +20,7 @@ import {
   type MusicLicense,
 } from "./catalog";
 import { PROBED_MIME, probeAudio, probeDuration, type ProbedAudio, type ReadRange } from "./probe";
+import { isPlanModel, planBody, planMilliseconds, planSummary, type MusicPlan } from "./plan";
 import type { BarFeatures, MusicStructure } from "./structure";
 import {
   audioExtension,
@@ -654,14 +655,34 @@ export async function generateMusic(input: {
   projectId: string | null;
   campaignId: string | null;
   clientRequestId: string;
+  /**
+   * A composition plan (./plan): the song as chunks of fixed lengths, which
+   * sets its length; the prompt is then the track's description, kept with
+   * the plan's outline, and is not sent.
+   */
+  plan?: MusicPlan | null;
+  /** A plan's seed (the API takes one only with a plan). */
+  seed?: number | null;
 }): Promise<{ track: TrackRow; duplicate: boolean }> {
   await requireActiveMember(input.userId);
   await settleInterrupted();
   const repeat = await existingByKey(input.clientRequestId);
   if (repeat) return { track: await relinked(repeat), duplicate: true };
-  const seconds = Math.max(MUSIC_LENGTH.min, Math.min(MUSIC_LENGTH.max, input.seconds));
-  const prompt = input.prompt.slice(0, 4000);
+  const plan = input.plan ?? null;
+  const seed = plan ? (input.seed ?? null) : null;
   const model = input.model ?? DEFAULT_MUSIC_MODEL;
+  if (plan && !isPlanModel(model))
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      "A composition plan is for Eleven Music v2 or v2.5: leave the model unset or choose one of those.",
+    );
+  const seconds = plan
+    ? planMilliseconds(plan) / 1000
+    : Math.max(MUSIC_LENGTH.min, Math.min(MUSIC_LENGTH.max, input.seconds));
+  // The same plan is the same music; another plan (or seed) never is.
+  const prompt = plan
+    ? `${input.prompt.slice(0, 2000)}\n\n${await planSummary(plan, seed)}`.slice(0, 4000)
+    : input.prompt.slice(0, 4000);
   // The same music in the same place: a project's, or outside one this member's
   // own (stored under their name), never another member's.
   const sameMusic = () =>
@@ -716,6 +737,8 @@ export async function generateMusic(input: {
     seconds,
     model,
     instrumental: input.instrumental,
+    plan,
+    seed,
   });
   if (!made.ok) {
     return settle({
@@ -738,6 +761,7 @@ export async function generateMusic(input: {
       ai_generated_music: true,
       provider: "elevenlabs",
       prompt: input.prompt.slice(0, 500),
+      ...(plan ? { composition_plan: planBody(plan), seed } : {}),
     },
   });
   // Made, and charged, but not kept: never answered as a failure to simply try

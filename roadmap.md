@@ -234,3 +234,13 @@ Built from docs/brands/aurixa-reel-1/HANDOVER.md, part 2, each proposal tested o
   308 generations and 442 library files were adopted into its project from unassigned. They are the ledger's own, plus 65 superseded plates, the Soul ID retries and the logo attempts that were made beside it. The brand's looks, the music (uploaded before the reel began), the cast, both briefs, the storyboard and the draft edit are attached where they are. Nothing else moved. Its record says where each master is and how to splice in a shot drawn again. From a fresh clone, `work.py resume` put every file back byte for byte, the revised master included
 
 - [x] Found by registering Reel 1, and fixed: a brief now lists the files only the work holds first, says where its own folder is on a machine, and counts what it has in the studio by kind; `resume` prints the folder too
+
+## Aurixa Reel 2 (the AML/CTF Compliance Passport)
+
+- [x] Started as a work (29ad590c-1f57-4a84-92de-f2652b78f3a3, in its own project, Aurixa Reel 2), with eleven steps from the voice to delivery
+- [x] The client's voiceover timed (99.97 s, 193 words in 19 sentences), each word's end clipped to the pauses measured in the audio. Measured as Reel 1's voice: speaker embeddings score the same across the two recordings as within each
+- [x] The script checked against the voice word for word, shot by shot (`scripts/aurixa-reel-2/shot_times.py`), in the brand's Australian spelling
+- [x] The plan (`docs/brands/aurixa-reel-2/PLAN.md`): 21 shots in nine blocks. Every screen is built from the product's code (the Passport, the Command Centre's Stage 9, the Client Portal's consent, the Solicitor & Conveyancer Portal). There is no generated video, and the music is made in the studio
+- [ ] The client's decisions (the plan's section 8): the voice's consent statement, the music, the responsibility line, the captions, the demo record's additions, the six roles, the free trial and the close
+- [ ] The voiceover imported into the studio and its words measured there; the shots timed again from them
+- [ ] The brief as data, the pages and graphics, Gate 1, Gate 2, the music and pacing, Gate 3, the film, and delivery

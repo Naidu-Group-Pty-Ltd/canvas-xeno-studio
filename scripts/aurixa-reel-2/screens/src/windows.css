@@ -1,0 +1,76 @@
+/*
+ * The product as the client's team sees it: on Windows. The product sets system stacks, so the faces are the
+ * reader's machine's: Segoe UI for its sans (drawn in Selawik, Microsoft's open stand-in, as Reel 1 drew the
+ * portals), Consolas for its mono (drawn in Inconsolata, as Reel 1 did) and Georgia for the Passport's serif
+ * (drawn in Gelasio, which is metric-compatible with Georgia). On Linux Chromium the stacks would otherwise
+ * resolve to system-ui and DejaVu, which no reader of the product sees.
+ */
+@font-face {
+  font-family: "Segoe UI";
+  font-weight: 400;
+  src: url("./fonts/Selawik-400.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Segoe UI";
+  font-weight: 600;
+  src: url("./fonts/Selawik-600.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Segoe UI";
+  font-weight: 700;
+  src: url("./fonts/Selawik-700.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Georgia";
+  font-weight: 400;
+  src: url("./fonts/Gelasio-400.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Georgia";
+  font-weight: 400;
+  font-style: italic;
+  src: url("./fonts/Gelasio-400-italic.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Georgia";
+  font-weight: 500;
+  src: url("./fonts/Gelasio-500.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Georgia";
+  font-weight: 600;
+  src: url("./fonts/Gelasio-600.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Georgia";
+  font-weight: 700;
+  src: url("./fonts/Gelasio-700.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Consolas";
+  font-weight: 400;
+  src: url("./fonts/Inconsolata-400.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Consolas";
+  font-weight: 600;
+  src: url("./fonts/Inconsolata-600.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Consolas";
+  font-weight: 700;
+  src: url("./fonts/Inconsolata-700.ttf") format("truetype");
+}
+:root,
+.dark,
+[data-palette],
+.passport-scope {
+  --font-sans: "Segoe UI", sans-serif;
+  --font-heading: "Segoe UI", sans-serif;
+  --font-mono: Consolas, monospace;
+  --passport-font-display: Georgia, serif;
+}
+html,
+body {
+  font-family: "Segoe UI", sans-serif;
+}
