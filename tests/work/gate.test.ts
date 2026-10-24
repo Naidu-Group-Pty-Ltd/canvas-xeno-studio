@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, setDefaultTimeout, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -14,6 +14,7 @@ setDefaultTimeout(120_000);
 const TOOLS = !!Bun.which("python3") && !!Bun.which("ffmpeg") && !!Bun.which("ffprobe");
 const WORK_PY = join(import.meta.dir, "../../scripts/studio-work/work.py");
 const PROJECT = "11111111-2222-4333-8444-555555555555";
+const WORK = "29ad590c-1f57-4a84-92de-f2652b78f3a3";
 
 type Row = Record<string, unknown>;
 const gates: { id: string; name: string; status: string; versions: Row[] }[] = [];
@@ -41,6 +42,15 @@ function answer(op: string, args: Row, base: string): unknown {
           versions: [...gate.versions].reverse(),
         })),
       };
+    case "get_work": {
+      // As the studio's API takes it: one entry at the fewest, two hundred at most.
+      const entries = Number(args["entries"] ?? 20);
+      if (!Number.isInteger(entries) || entries < 1 || entries > 200)
+        throw Object.assign(new Error("entries: Invalid input"), { code: "INVALID_PARAMETERS" });
+      if (args["workId"] !== WORK)
+        throw Object.assign(new Error("No such work"), { code: "NOT_FOUND" });
+      return { id: WORK, title: "Reel 2", project: { id: PROJECT, name: "Aurixa Reel 2" } };
+    }
     case "add_review_gate": {
       const gate = { id: id(), name: String(args["name"]), status: "open", versions: [] };
       gates.push(gate);
@@ -305,5 +315,23 @@ describe.skipIf(!TOOLS)("work.py gate", () => {
       "The project has no gate called 'Proof': Film (--add makes it)",
     );
     expect(readFileSync(join(dir, "note.txt"), "utf8")).toBe("The film, version 1.\n");
+  });
+
+  test("on a checkout attached to a work, the gates are its project's, without naming it", async () => {
+    // The work as this machine keeps it once taken up (start or resume).
+    const kept = join(dir, ".xeno-work", WORK);
+    mkdirSync(kept, { recursive: true });
+    writeFileSync(
+      join(kept, "work.json"),
+      JSON.stringify({ workId: WORK, title: "Reel 2", attached: true }),
+    );
+    try {
+      const listed = await work(["gate", "list"]);
+      expect(listed.stderr).toBe("");
+      expect(listed.code).toBe(0);
+      expect(listed.stdout).toContain("Film · Approved");
+    } finally {
+      rmSync(join(dir, ".xeno-work"), { recursive: true, force: true });
+    }
   });
 });

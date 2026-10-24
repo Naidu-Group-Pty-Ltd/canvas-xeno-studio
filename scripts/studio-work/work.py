@@ -1728,7 +1728,9 @@ def cmd_gate(args):
         cfg = None
     project = args.project
     if not project and cfg:
-        project = (call("get_work", {"workId": cfg["workId"], "entries": 0, "brief": False}).get("project") or {}).get("id")
+        # The fewest entries get_work gives is one (none is refused): only the work's project is wanted here.
+        work = call("get_work", {"workId": cfg["workId"], "entries": 1, "includeState": False, "brief": False})
+        project = (work.get("project") or {}).get("id")
     if not project:
         sys.exit("Name the project (--project), or run it on a work that is in one")
     gates = call("list_review_gates", {"projectId": project})["gates"]
