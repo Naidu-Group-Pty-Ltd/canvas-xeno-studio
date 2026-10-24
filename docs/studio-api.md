@@ -271,6 +271,30 @@ and anchor stayed on its beat.
 - Past about 12% a change of tempo can be heard, and the answer's `note` says so.
 - Find its bars in the Editor's Music panel before `fit_music` plans it on them.
 
+### How a fitted piece comes in
+
+`fit_music` joins its pieces 20 ms ahead of a bar line, under a 30 ms crossfade centred on the
+join. Where the music runs on through the join, the crossfade is the blend. It plays the last
+35 ms of the bar before the new piece's own, though, and a piece cut out of quiet onto a bar its
+track is already loud in (a stop's bass hit, the middle of the biggest section) then arrives 35
+ms early. Reel 2's four statements, each cut onto a bass hit, were measured 35 to 40 ms ahead of
+their cuts, and so were the score's stabs.
+
+So such a piece comes in on its bar line instead. Its `enter` says how far past its start the
+bar line is (20 ms for a fit's splice). The piece before fades out over the 30 ms ending on that
+bar line, and this one comes in over the last 3 ms of it, whole on the bar. A fit chooses it from
+the level either side of each bar line, measured when a track's bars are found:
+
+- the piece's track is more than 6 dB louder over the 35 ms before its bar line than the piece
+  before it is over its own;
+- and those 35 ms are within 12 dB of the bar's first 100 ms (music, not the quiet before an
+  attack).
+
+A track whose bars were found before these levels were measured is fitted under crossfades as
+before; find its bars again in the Music panel to have them. A media service older than this
+plays such a join as an ordinary crossfade (its health lists `music_pieces_on_the_bar` when it
+can do it).
+
 ## Costs and stages
 
 Every generation has a price. It is the charge Higgsfield reported (`actual_cost_usd`, with

@@ -509,6 +509,19 @@ function FitProposal({
             </span>
           </li>
         ))}
+        {fit.pieces.some((piece) => piece.enter !== undefined) && (
+          <li>
+            {(() => {
+              const count = fit.pieces.filter((piece) => piece.enter !== undefined).length;
+              return count === 1
+                ? "One piece comes in on its bar line, out of the quiet before it"
+                : `${count} pieces come in on their bar lines, out of the quiet before them`;
+            })()}{" "}
+            <span className="text-muted-foreground">
+              (not under a crossfade, so they don't arrive early)
+            </span>
+          </li>
+        )}
         {fit.landmarks.map((mark) => {
           const kind = structure.sections[mark.section]?.kind ?? "section";
           const off = Math.abs(mark.at - mark.asked) > 0.05;

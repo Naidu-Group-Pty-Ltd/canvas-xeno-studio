@@ -106,6 +106,8 @@ export const FEATURES = [
   "mix_report",
   "stems",
   "music_pieces",
+  // A piece of music that comes in on its bar line, not under a centred crossfade (a piece's enter).
+  "music_pieces_on_the_bar",
   // A recording at another tempo, its pitch kept (stretch_audio).
   "audio_stretch",
   // A take put on the exact picture it must land on (align_take), and a logo's

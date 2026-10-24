@@ -96,7 +96,7 @@ const ItemGrid = memo(function ItemGrid({
     const plays = audioPlayLength(shown, total);
     return pieceJoins(pieces)
       .filter((join) => join.at < plays)
-      .map((join) => shown.start + join.at);
+      .map((join) => ({ time: shown.start + join.at, onItsBar: join.enter !== undefined }));
   }, [shown, total]);
   if (!known && !joins.length) return null;
   const beatPixels = known ? (60 / known.structure.bpm) * pps : 0;
@@ -108,7 +108,7 @@ const ItemGrid = memo(function ItemGrid({
       data-testid="music-grid"
       aria-hidden
     >
-      {joins.map((time) => (
+      {joins.map(({ time, onItsBar }) => (
         <div
           key={`j${time}`}
           className={cn(
@@ -116,7 +116,9 @@ const ItemGrid = memo(function ItemGrid({
             proposal ? "border-warning" : "border-primary/70",
           )}
           style={{ left: time * pps }}
-          title={proposal ? "A join in the fit proposed" : "Where the music is joined on its bars"}
+          title={`${proposal ? "A join in the fit proposed" : "Where the music is joined on its bars"}${
+            onItsBar ? ": the piece after comes in on its bar line" : ""
+          }`}
         />
       ))}
       {proposal && (

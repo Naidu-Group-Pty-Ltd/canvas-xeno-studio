@@ -91,6 +91,15 @@ export interface BarFeatures {
   chroma: number[][];
   /** How strongly each eighth of the bar is struck, 0 (not at all) to about 1 (the track's strongest). */
   rhythm: number[][];
+  /**
+   * How loud the sound is either side of each bar line, dB below full scale:
+   * over the 35 ms before it (what a join's crossfade, centred 20 ms ahead of
+   * the bar line, plays of the bar before) and over the bar's first 100 ms.
+   * The fit uses them to bring a piece in on its bar line where a crossfade
+   * would let it in early (src/lib/music/fit). Absent on a track's bars found
+   * before they were measured, which are fitted under crossfades as before.
+   */
+  edges?: { before: number[]; after: number[] } | undefined;
 }
 
 const seconds = z.number().finite().min(0).max(36_000);
@@ -121,12 +130,18 @@ export const barFeaturesSchema = z
     bands: z.array(z.array(db).length(6)).max(LIMITS.bars),
     chroma: z.array(z.array(z.number().finite().min(0).max(1)).length(12)).max(LIMITS.bars),
     rhythm: z.array(z.array(z.number().finite().min(0).max(4)).min(2).max(16)).max(LIMITS.bars),
+    edges: z
+      .object({ before: z.array(db).max(LIMITS.bars), after: z.array(db).max(LIMITS.bars) })
+      .optional(),
   })
   .refine(
     (value) =>
       value.bands.length === value.loudness.length &&
       value.chroma.length === value.loudness.length &&
-      value.rhythm.length === value.loudness.length,
+      value.rhythm.length === value.loudness.length &&
+      (!value.edges ||
+        (value.edges.before.length === value.loudness.length &&
+          value.edges.after.length === value.loudness.length)),
     "Every bar needs each of its features",
   );
 
@@ -737,6 +752,29 @@ function barFeatures(
   return { version: STRUCTURE_VERSION, loudness, bands, chroma, rhythm };
 }
 
+/** The stretches either side of a bar line that BarFeatures.edges measures, in seconds. */
+const EDGE_BEFORE = 0.035;
+const EDGE_AFTER = 0.1;
+
+/** BarFeatures.edges, from the samples themselves: a crossfade is shorter than any spectrum frame. */
+function barEdges(
+  samples: Float32Array,
+  sampleRate: number,
+  bars: number[],
+): NonNullable<BarFeatures["edges"]> {
+  const level = (from: number, to: number) => {
+    const first = Math.max(0, Math.round(from * sampleRate));
+    const last = Math.min(samples.length, Math.round(to * sampleRate));
+    let sum = 0;
+    for (let index = first; index < last; index += 1) sum += samples[index]! ** 2;
+    return Number(decibels(last > first ? sum / (last - first) : 0).toFixed(1));
+  };
+  return {
+    before: bars.map((start) => level(start - EDGE_BEFORE, start)),
+    after: bars.map((start) => level(start, start + EDGE_AFTER)),
+  };
+}
+
 /* ------------------------------------------------------------------ */
 /* Sections                                                            */
 /* ------------------------------------------------------------------ */
@@ -943,7 +981,10 @@ export function analyzeStructure(
       bars.push(start);
   }
   if (bars.length < 2) return null;
-  const barFeatureSet = barFeatures(bars, barLength, beatsPerBar, spec, strikes);
+  const barFeatureSet = {
+    ...barFeatures(bars, barLength, beatsPerBar, spec, strikes),
+    edges: barEdges(samples, sampleRate, bars),
+  };
 
   // Sections from the bars: where they start, and how loud each is.
   const starts = sectionStarts(barNovelty(barFeatureSet));

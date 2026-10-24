@@ -1700,7 +1700,16 @@ export function buildRenderRequest(
 /** A music item's pieces as the media service takes them (feature music_pieces), when it has any. */
 function piecesParam(item: TimelineAudio): { pieces?: Array<{ from: number; to: number }> } {
   const pieces = musicPieces(item);
-  return pieces ? { pieces: pieces.map(({ from, to }) => ({ from, to })) } : {};
+  return pieces
+    ? {
+        pieces: pieces.map(({ from, to, enter }) => ({
+          from,
+          to,
+          // On its bar line, not under a centred crossfade (a media service older than this plays the crossfade).
+          ...(enter === undefined ? {} : { enter }),
+        })),
+      }
+    : {};
 }
 
 /** What is behind the captions, as the media service takes it: the panel chosen, and a solid one's colour. */

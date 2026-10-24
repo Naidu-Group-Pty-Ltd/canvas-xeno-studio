@@ -310,6 +310,33 @@ await check("music in pieces crossfades each join over 30 ms, centred on it, and
   if (!(tail < -60) || !(last > full - 1)) throw new Error(`the last piece should end at 6 s (${last} dB before, ${tail} dB after)`);
 });
 
+await check("music in pieces comes in on its bar line where a piece says so: silent until 3 ms before it, whole on it", async () => {
+  const silent = join(dir, "pieces-bar-picture.wav");
+  await ffmpeg(["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo", "-t", "5", "-c:a", "pcm_f32le", silent]);
+  const mixOf = async (pieces, name) => {
+    const plan = planSequence(
+      { width: 320, height: 240, fps: 25, clips: [{ source_index: 0, kind: "image", duration: 5 }], audio: [{ source_index: 1, role: "music", duck: false, pieces }] },
+      [{ role: "image", path: silent }, { role: "audio", path: piecesTrack }],
+    );
+    const mix = join(dir, name);
+    await ffmpeg(mixArgs(plan, [silent], [piecesTrack], mix));
+    return mix;
+  };
+  // Out of silence onto the tone, its bar line 20 ms past the join at 2 s.
+  const into = await mixOf([{ from: 3.5, to: 5.5 }, { from: 0.5, to: 2.5, enter: 0.02 }], "pieces-bar-into.wav");
+  const full = await meanLevel(into, 2.1, 0.5);
+  const early = await meanLevel(into, 1.99, 0.026);
+  const whole = await meanLevel(into, 2.0205, 0.008);
+  if (!(early < -60)) throw new Error(`the tone came in before its bar line (${early} dB from 1.990 to 2.016 s)`);
+  if (!(Math.abs(whole - full) < 0.5)) throw new Error(`the tone wasn't whole on its bar line (${whole} dB, against ${full} dB)`);
+  // Out of the tone onto silence that comes in on its bar line: the tone fades out over the 30 ms ending there.
+  const outOf = await mixOf([{ from: 0.5, to: 2.5 }, { from: 3.5, to: 5.5, enter: 0.02 }], "pieces-bar-out.wav");
+  const held = await meanLevel(outOf, 1.98, 0.008);
+  const gone = await meanLevel(outOf, 2.0205, 0.02);
+  if (!(Math.abs(held - full) < 0.5)) throw new Error(`the tone should play on whole until 10 ms before the join (${held} dB)`);
+  if (!(gone < -60)) throw new Error(`the tone should be gone by the bar line (${gone} dB)`);
+});
+
 /** A float WAV's left channel, sample by sample (the mix pass writes 32-bit float stereo). */
 async function leftChannel(path) {
   const bytes = await readFile(path);

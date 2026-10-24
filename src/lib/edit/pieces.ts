@@ -14,6 +14,14 @@
  * beginning of its track to start early has its crossfade a little later
  * instead, still the same length.
  *
+ * A piece can instead come in on its bar line (`enter`, how far past its
+ * start the bar line is): the piece before fades out over the crossfade
+ * ending on that bar line, and this one comes in over the last 3 ms of it,
+ * so it is whole on the bar. That is for a piece that comes in out of quiet
+ * onto a bar its track is already playing: a crossfade centred ahead of the
+ * bar plays the last 35 ms of the bar before it, so it arrives that early
+ * (Reel 2's statements, each on a track's bass hit, were 35 to 40 ms early).
+ *
  * This module has no imports from the timeline, which builds on it.
  */
 import { z } from "zod";
@@ -29,12 +37,19 @@ export const PIECES = {
   minSeconds: 0.5,
   /** Each join's crossfade. */
   crossfade: 0.03,
+  /** How long a piece coming in on its bar line takes to come in. */
+  entry: 0.003,
 } as const;
 
 export const pieceSchema = z
   .object({
     from: z.number().finite().min(0).max(86_400),
     to: z.number().finite().min(0).max(86_400),
+    /**
+     * It comes in on its bar line, this many seconds past its start, rather
+     * than under a crossfade centred on its join (see the module's note).
+     */
+    enter: z.number().finite().min(PIECES.entry).max(PIECES.crossfade).optional(),
   })
   .refine(
     (piece) => piece.to - piece.from >= PIECES.minSeconds - 1e-9,
@@ -135,18 +150,26 @@ export function pieceOffsets(pieces: readonly MusicPiece[]): number[] {
  * Each join's crossfade, in seconds from the start of the item's playing:
  * join k is between piece k and piece k + 1, at `at` (where piece k + 1
  * starts), and its crossfade runs over [start, start + crossfade). `lead` is
- * how far before the join it starts: half the crossfade, or less when piece
- * k + 1 starts nearer the beginning of its track than that.
+ * how far before the join it starts: half the crossfade, or for a piece that
+ * comes in on its bar line, what leaves it ending there; less when piece
+ * k + 1 starts nearer the beginning of its track than that. `enter` is where
+ * such a piece's bar line is, after the join.
  */
 export function pieceJoins(
   pieces: readonly MusicPiece[],
-): Array<{ at: number; start: number; lead: number }> {
+): Array<{ at: number; start: number; lead: number; enter?: number }> {
   const offsets = pieceOffsets(pieces);
   const half = PIECES.crossfade / 2;
   return pieces.slice(1).map((piece, index) => {
-    const lead = Math.min(half, piece.from);
+    const wanted = piece.enter === undefined ? half : PIECES.crossfade - piece.enter;
+    const lead = Math.min(wanted, piece.from);
     const at = offsets[index + 1]!;
-    return { at, start: at - lead, lead };
+    return {
+      at,
+      start: at - lead,
+      lead,
+      ...(piece.enter === undefined ? {} : { enter: piece.enter }),
+    };
   });
 }
 
@@ -169,6 +192,14 @@ export function piecesSounding(
       const progress = (elapsed - join.start) / fade;
       const before = pieces[index]!;
       const after = pieces[index + 1]!;
+      // A piece coming in on its bar line is silent until just before it, and whole on it.
+      const entering =
+        join.enter === undefined
+          ? Math.sin((progress * Math.PI) / 2)
+          : Math.max(
+              0,
+              Math.min(1, (elapsed - (join.at + join.enter - PIECES.entry)) / PIECES.entry),
+            );
       return [
         {
           index,
@@ -178,7 +209,7 @@ export function piecesSounding(
         {
           index: index + 1,
           source: after.from + (elapsed - join.at),
-          gain: Math.sin((progress * Math.PI) / 2),
+          gain: entering,
         },
       ];
     }
