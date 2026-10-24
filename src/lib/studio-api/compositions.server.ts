@@ -142,7 +142,7 @@ const getMotionGraphic = tool({
   name: "get_motion_graphic",
   title: "Get a motion graphic's drawing",
   description:
-    "A motion graphic's drawing: its status (queued, drawing, joining, completed or failed), progress, stage, about how long it takes, the demo record fields its text names but the record lacks, and once completed the library video (assetId) an edit's clip plays. Also what was drawn: its spec, brand kit, frame and rate, and the hash that keeps it.",
+    "A motion graphic's drawing: its status (queued, drawing, joining, completed or failed), progress, stage, about how long it takes, the demo record fields its text names but the record lacks, and once completed the library video (assetId) an edit's clip plays, with how its frames were checked (checks and checksSummary: every drawing is kept once two captures of it agree, and a final drawing has a share of its frames drawn again by a browser of its own and put to the vote; recaptured, unsettled, voted, disagreed, replaced and unresolved). Also what was drawn: its spec, brand kit, frame and rate, and the hash that keeps it.",
   scope: "read",
   input: z.object({ renderId: id() }),
   run: async (args, caller) => {

@@ -42,6 +42,14 @@ export const config = {
    */
   compositionBrowsers: intEnv("COMPOSITION_BROWSERS", availableParallelism() >= 4 ? 2 : 1),
   /**
+   * Each of those browsers is started again after this many of its frames, the
+   * page brought up to its frame from the track: in Reel 2's 3D tilt one
+   * browser grew past 4 GB over about 120 frames and was ended for memory,
+   * which ended the run. "never" never starts one again.
+   */
+  compositionRecycleFrames:
+    process.env["COMPOSITION_RECYCLE_FRAMES"] === "never" ? Infinity : intEnv("COMPOSITION_RECYCLE_FRAMES", 40),
+  /**
    * This machine has a GPU for compositions' WebGL (MEDIA_WORKER_GPU=1): the
    * browser draws on it. Without one, WebGL runs in software, which a heavy
    * scene (Reel 1's globe) makes slow; the app sends those to a GPU worker

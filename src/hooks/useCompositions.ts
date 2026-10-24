@@ -355,6 +355,20 @@ export function useCompositionRenders(renderIds: string[]) {
   });
 }
 
+/** One composition render, followed until it settles: its checks once it is drawn (see ../lib/compositions/checks). */
+export function useCompositionRender(renderId: string | null) {
+  return useQuery({
+    queryKey: ["composition-render", renderId],
+    queryFn: () => getCompositionRender({ data: { renderId: renderId! } }),
+    enabled: Boolean(renderId),
+    refetchInterval: (query) => {
+      const status = (query.state.data as { status?: string } | undefined)?.status;
+      return status && SETTLED.has(status) ? false : 2500;
+    },
+    retry: 1,
+  });
+}
+
 /** What one drawing has been measured to take at each quality, for estimates (null: not measured yet). */
 export function useCompositionCosts() {
   return useQuery({

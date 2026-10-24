@@ -1671,6 +1671,10 @@ if (TASKS.render_composition) {
     const counts = result.metadata.composition;
     // The box moves from frame 0 to 6 and holds: 7 drawn, 5 reused.
     if (counts.drawings_captured !== 7 || counts.drawings_reused !== 5) throw new Error(`drew ${counts.drawings_captured}, reused ${counts.drawings_reused}`);
+    // Each drawing is kept once two captures of it agree; a draft isn't put to the vote.
+    if (!counts.settle || counts.settle.unsettled.length || counts.settle.captures < 2 * counts.drawings_captured)
+      throw new Error(`the drawings didn't settle: ${JSON.stringify(counts.settle)}`);
+    if (counts.verified !== null) throw new Error("a draft was put to the vote");
     const info = await probe(proxy);
     if (info.width !== 160 || info.height !== 96) throw new Error(`playable copy is ${info.width}x${info.height}`);
     const sums = await frameSums(master);
@@ -1698,6 +1702,30 @@ if (TASKS.render_composition) {
     const counts = result.metadata.composition;
     if (counts.drawings_captured + counts.drawings_reused !== 80) throw new Error(`took ${counts.drawings_captured + counts.drawings_reused} drawings, not 80`);
     if (counts.drawings_reused < 20) throw new Error(`reused only ${counts.drawings_reused} of the still frames' drawings`);
+    // A final drawing is put to the vote: a share of its frames drawn again by a browser of its own, all agreeing.
+    const verified = counts.verified;
+    if (!verified || verified.frames < 1 || verified.unresolved.length || verified.replaced_by_agreement.length)
+      throw new Error(`the vote: ${JSON.stringify(verified)}`);
+  });
+
+  await check("a browser started again every few frames draws what one drawing throughout does, and the vote agrees", async () => {
+    if (!wholeMaster) throw new Error("the draft wasn't drawn");
+    const source = await bundleFile("box-recycled", boxBundle({ frames: 12, settings: DRAFT }));
+    const work = await mkdtemp(join(dir, "comp-"));
+    const [browsers, recycle] = [config.compositionBrowsers, config.compositionRecycleFrames];
+    config.compositionBrowsers = 1;
+    config.compositionRecycleFrames = 3;
+    const result = await TASKS.render_composition
+      .run({ sources: [source], params: { output: "full", priority: "draft", verify: 0.5 }, dir: work })
+      .finally(() => {
+        config.compositionBrowsers = browsers;
+        config.compositionRecycleFrames = recycle;
+      });
+    const counts = result.metadata.composition;
+    if (counts.browser_launches !== 4) throw new Error(`started ${counts.browser_launches} browsers for 12 frames, 3 each`);
+    if (!(counts.verified?.frames >= 6) || counts.verified.disagreed.length) throw new Error(`the vote: ${JSON.stringify(counts.verified)}`);
+    const [whole, recycled] = await Promise.all([frameSums(wholeMaster), frameSums(result.outputs[1].path)]);
+    if (whole.join() !== recycled.join()) throw new Error("the frames drawn by browsers started again differ");
   });
 
   await check("a composition's stretches, drawn apart and joined, match it drawn whole, frame for frame", async () => {

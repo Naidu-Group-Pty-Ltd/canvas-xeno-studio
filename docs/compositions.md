@@ -88,6 +88,43 @@ Each drawing keeps a lossless master (FFV1, `bgr0`) beside a playable copy (H.26
 dithered from the master). The Editor plays the copy; an edit's render reads the master, so the
 motion graphic's frames are encoded once, in the render's own final pass.
 
+## Every drawing kept only once it has settled
+
+Reel 2 found that Chromium can hand back a capture a moment before every tile in it is painted,
+even with every compositor stage run before it draws. As the camera pushed in on the Passport's
+closed cover, about half of fifty frames caught the leaves beneath it through the cover in
+hard-edged rectangles, and one caught a caption word a step behind. Which drawings it hits changes
+from run to run, and a larger tile budget did not stop it. So the media worker
+(`media-worker/src/settle.js`) captures every drawing again, after two of the page's own frames,
+until two captures in a row agree. Agreeing means one of three things:
+
+- the same bytes;
+- the capture before last again: a drawing at rest between two paintings, as a thin rotated line
+  was, drawn at two scales on alternate frames;
+- no value more than 16 apart: a hairline that jitters on every capture.
+
+A race is tens to hundreds of values out, on a hole or a word.
+
+Two more things the reel taught:
+
+- **Browsers are started again.** Each one is started again every `COMPOSITION_RECYCLE_FRAMES`
+  (default 40) of its frames, its page brought up to its frame from the track. In the reel's 3D
+  tilt one browser grew past 4 GB and was ended for memory.
+- **A final drawing is shown free of a race by agreement.** Its frames are put to the vote: every
+  frame the check had to capture again, its neighbours, and a seeded 5% of the rest (`verify`, 0
+  to 0.5). Each is drawn again by a browser of its own, and both draws are made into frames by the
+  master's own filter. Two sound draws differ at most at letter and image edges: up to 708 pixels
+  of a 1080 x 1920 frame off by more than 12, where a word a step behind is 1,113 or more and a
+  hole 175,000 or more. So frames within 2 everywhere, or off by more than 12 on no more than 900
+  pixels of a 1080 x 1920 frame (in proportion for other sizes), are one answer. Where two
+  disagree, a third browser draws it, and the drawings two agree on are the ones kept.
+
+A drawing's metadata says how it went: `settle` (the frames captured again and how many times,
+any that never settled, every capture and its mean time), `verified` (the frames put to the vote,
+those that disagreed, replaced or unresolved, and the votes) and `browser_launches`. The settle
+check's second capture is in the time a drawing is measured to take, so the Editor's estimate
+includes it.
+
 ## Never drawn twice, and long ones in stretches (A3)
 
 The server compiles a composition into a bundle: its page (one HTML document) and its track (each

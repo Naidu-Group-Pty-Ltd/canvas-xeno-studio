@@ -1,5 +1,5 @@
 import { Loader2, RefreshCw, Sparkles, Wand2 } from "lucide-react";
-import type { ClipDrawing } from "@/hooks/useCompositions";
+import { useCompositionRender, type ClipDrawing } from "@/hooks/useCompositions";
 import { Button } from "@/components/ui/button";
 import type { RenderQuality } from "@/lib/compositions/settings";
 import type { CompositionClip } from "@/lib/compositions/spec";
@@ -32,6 +32,10 @@ export function CompositionSection({
   const state = controls.states.get(clip.id);
   const drawing = controls.drawing.has(clip.id);
   const stale = state?.stale ?? null;
+  // How its frames were checked, once its drawing is current: each drawing kept once two captures agreed, and a
+  // final drawing's sample drawn again and put to the vote (media-worker/src/settle.js).
+  const render = useCompositionRender(stale === false && !drawing ? composition.renderId : null);
+  const checks = render.data?.status === "completed" ? render.data.checksSummary : null;
   const status = drawing
     ? "Being drawn: the clip takes the new drawing when it's done."
     : stale === null
@@ -67,6 +71,11 @@ export function CompositionSection({
         {drawing && <Loader2 className="mr-1 inline size-3 animate-spin" />}
         {status}
       </p>
+      {checks && (
+        <p className="text-xs text-muted-foreground" data-testid="composition-checks">
+          Checked: {checks}
+        </p>
+      )}
       <div className="grid grid-cols-2 gap-1.5">
         <Button
           variant="outline"
