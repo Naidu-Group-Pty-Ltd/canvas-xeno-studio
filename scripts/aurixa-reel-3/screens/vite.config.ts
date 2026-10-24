@@ -3,6 +3,7 @@ import type { AcceptedPlugin, AtRule, Root } from "postcss";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "tailwindcss";
 import autoprefixer from "autoprefixer";
+import fs from "node:fs";
 import path from "node:path";
 
 // The product's checkout: AURIXA_PRODUCT, or npc-client-dashboard beside this repository.
@@ -27,6 +28,12 @@ const unwrapStandaloneTailwindLayers: AcceptedPlugin = {
 const STUBS: Record<string, string> = {
   [path.join(PRODUCT, "src/lib/secureInvoke.ts")]: path.join(__dirname, "src/stubs/secureInvoke.ts"),
 };
+// Each group's own stand-ins: src/stubs/<group>.stubs.json, { "<file under the product's src/>": "<file under src/stubs/>" }.
+for (const f of fs.readdirSync(path.join(__dirname, "src/stubs")).filter((x) => x.endsWith(".stubs.json")))
+  for (const [product, stub] of Object.entries(
+    JSON.parse(fs.readFileSync(path.join(__dirname, "src/stubs", f), "utf8")) as Record<string, string>,
+  ))
+    STUBS[path.join(PRODUCT, "src", product)] = path.join(__dirname, "src/stubs", stub);
 const productStubs: Plugin = {
   name: "product-stubs",
   enforce: "pre",
@@ -74,5 +81,9 @@ export default defineConfig({
     },
   },
   server: { port: Number(process.env.REEL_HARNESS_PORT ?? 5198), strictPort: true, fs: { allow: [PRODUCT, __dirname] } },
+  // A harness started with REEL_VITE_CACHE (a folder under this one, e.g. node_modules/.vite-clients) keeps its own
+  // optimised dependencies: Vite rewrites its cache in place whenever a server finds a new dependency, so harnesses
+  // sharing node_modules/.vite fail each other's page loads (504 Outdated Optimize Dep). Unset, Vite's default.
+  cacheDir: process.env.REEL_VITE_CACHE || undefined,
   logLevel: "warn",
 });

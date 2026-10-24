@@ -75,8 +75,12 @@ async function step(page, s) {
 async function shoot(page, cap, s, manifest) {
   const root = page.locator(s.of ?? `[data-shot="${cap.screen}"]`).first();
   await root.scrollIntoViewIfNeeded().catch(() => null);
-  const box = await root.boundingBox();
-  if (!box) throw new Error(`${s.shot}: nothing to draw`);
+  const tight = await root.boundingBox();
+  if (!tight) throw new Error(`${s.shot}: nothing to draw`);
+  // `pad` widens the picture past the element's box on every side (a toast's close button sits on its corner, and its
+  // shadow outside it); the picture is then taken of the page there, so pad only where nothing else is drawn.
+  const pad = s.pad ?? 0;
+  const box = { x: tight.x - pad, y: tight.y - pad, width: tight.width + 2 * pad, height: tight.height + 2 * pad };
   const regions = {};
   for (const [name, t] of Object.entries(s.regions ?? {})) {
     const l = locate(page, t);
@@ -87,11 +91,19 @@ async function shoot(page, cap, s, manifest) {
     );
   }
   const file = path.join(OUT, `${s.shot}.png`);
-  await root.screenshot({
-    path: file,
-    omitBackground: Boolean(s.transparent),
-    animations: "disabled",
-  });
+  if (pad)
+    await page.screenshot({
+      path: file,
+      clip: box,
+      omitBackground: Boolean(s.transparent),
+      animations: "disabled",
+    });
+  else
+    await root.screenshot({
+      path: file,
+      omitBackground: Boolean(s.transparent),
+      animations: "disabled",
+    });
   manifest[s.shot] = {
     file: path.basename(file),
     css: [Math.round(box.width * 100) / 100, Math.round(box.height * 100) / 100],

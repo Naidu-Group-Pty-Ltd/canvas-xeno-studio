@@ -5,6 +5,7 @@
  */
 import { BorrowingCapacityCard } from "@/components/borrowing-capacity/BorrowingCapacityCard";
 import { BorrowingCapacityWorkspace } from "@/components/borrowing-capacity/BorrowingCapacityWorkspace";
+import { Toaster as Sonner } from "@/components/ui/sonner";
 import { CLIENT, CLIENT_NAME, type Screen } from "../record";
 
 export const SCREENS: Record<string, Screen> = {
@@ -20,6 +21,13 @@ export const SCREENS: Record<string, Screen> = {
   },
   "bc-page": {
     route: `/clients/${CLIENT}/borrowing-capacity`,
-    render: () => <BorrowingCapacityWorkspace clientId={CLIENT} />,
+    // The page's toasts ("Scenario "…" saved as the current assessment") are the product's own Sonner toaster, as App.tsx
+    // mounts it.
+    render: () => (
+      <>
+        <BorrowingCapacityWorkspace clientId={CLIENT} />
+        <Sonner />
+      </>
+    ),
   },
 };

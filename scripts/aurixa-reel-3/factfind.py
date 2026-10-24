@@ -44,7 +44,7 @@ APPLICANT = {
     "C20": "Renting",
     "C21": dt.date(2022, 2, 1),
     "C27": "Full-time",
-    "C28": "Brightwater Engineering Pty Ltd",
+    "C28": "Corrowen Engineering Pty Ltd",
     "C29": "Engineering Manager",
     "C31": dt.date(2019, 7, 1),
     "C32": 300000,

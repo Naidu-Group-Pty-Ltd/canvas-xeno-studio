@@ -2,14 +2,14 @@
  "_note": "The assessment Calculate Capacity saves for Jordan: calculate-borrowing-capacity's own row (run_capacity.ts, saved.json), as the Finance Portal, the Snapshot and the card read it.",
  "borrowing_capacity_assessments": [
   {
-   "id": "00000000-0000-4000-8000-0000000a0002",
-   "created_at": "2026-10-24T09:12:20+11:00",
+   "id": "a0671160-2c44-4249-9f5c-f964f2825abb",
+   "created_at": "2026-10-23T22:12:20.000Z",
    "client_id": "00000000-0000-4000-8000-00000000e115",
    "gross_annual_income": 300000,
    "shaded_annual_income": 300000,
    "income_breakdown": [
     {
-     "component": "Primary Brightwater Engineering Pty Ltd",
+     "component": "Primary Corrowen Engineering Pty Ltd",
      "grossAmount": 300000,
      "shadingRate": 1,
      "shadedAmount": 300000
@@ -167,7 +167,7 @@
       "seq": 1,
       "category": "income",
       "action": "shading_applied",
-      "label": "Primary Brightwater Engineering Pty Ltd",
+      "label": "Primary Corrowen Engineering Pty Ltd",
       "rawValue": 300000,
       "assessedValue": 300000,
       "rule": "100% shading",
@@ -207,7 +207,7 @@
       "rule": "Method: Declared Higher",
       "delta": 0,
       "impact": "neutral",
-      "note": "Single household \u2014 HEM $3,780/mo vs Declared $6,447/mo"
+      "note": "Single household — HEM $3,780/mo vs Declared $6,447/mo"
      },
      {
       "seq": 5,
@@ -261,10 +261,10 @@
      "hasOverrides": false,
      "hasConstraints": true
     },
-    "generatedAt": "2026-10-24T21:15:20.794Z"
+    "generatedAt": "2026-10-23T22:12:20.000Z"
    },
    "explanation": {
-    "headline": "Borrowing capacity of $1,049,786 on $300,000 gross income \u2014 GREEN serviceability.",
+    "headline": "Borrowing capacity of $1,049,786 on $300,000 gross income — GREEN serviceability.",
     "steps": [
      {
       "step": 1,
@@ -333,7 +333,7 @@
      {
       "step": 5,
       "title": "Capacity Derivation",
-      "narrative": "Surplus = $16,094 \u2212 $6,447 \u2212 $820 = $8,827/mo. At 9.50% over 30yr \u2192 max loan $1,049,786.",
+      "narrative": "Surplus = $16,094 − $6,447 − $820 = $8,827/mo. At 9.50% over 30yr → max loan $1,049,786.",
       "figures": [
        {
         "label": "Surplus",
@@ -361,7 +361,7 @@
      {
       "step": 7,
       "title": "Stress Test",
-      "narrative": "At +1% (10.50%), stressed capacity is $964,993 (\u2212$84,793).",
+      "narrative": "At +1% (10.50%), stressed capacity is $964,993 (−$84,793).",
       "figures": [
        {
         "label": "Stressed",
@@ -383,8 +383,8 @@
       "icon": "band"
      }
     ],
-    "executiveSummary": "On $300,000 gross ($300,000 shaded), after-tax $193,130, expenses $6,447/mo, commitments $820/mo \u2192 capacity $1,049,786 at 9.50% over 30yr. DTI 3.6x. Band: GREEN.",
-    "generatedAt": "2026-10-24T21:15:20.796Z"
+    "executiveSummary": "On $300,000 gross ($300,000 shaded), after-tax $193,130, expenses $6,447/mo, commitments $820/mo → capacity $1,049,786 at 9.50% over 30yr. DTI 3.6x. Band: GREEN.",
+    "generatedAt": "2026-10-23T22:12:20.000Z"
    }
   }
  ]

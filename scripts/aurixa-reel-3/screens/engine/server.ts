@@ -30,12 +30,13 @@ function withExtras(db: Record<string, any[]>, names: string[] = []) {
   return db;
 }
 const DB = withExtras(buildRecord(PARSED));
-// The demo's clock: the assessment is made on Saturday 24 October 2026, mid-morning in Sydney.
-let tick = 0;
+// The demo's clock: Saturday 24 October 2026, mid-morning in Sydney. It runs at the real clock's pace from 9:12:40 am
+// (a moment after the assessment Calculate Capacity saves, extras/assessment.json) whenever the record is reset, so
+// what a page saves a few minutes into a capture is stamped a few minutes after it.
+let since = Date.now();
 const scenarios: any[] = [];
 const seen: string[] = [];
-const clock = () =>
-  new Date(Date.parse("2026-10-24T09:12:00+11:00") + 60_000 * tick++).toISOString();
+const clock = () => new Date(Date.parse("2026-10-24T09:12:40+11:00") + (Date.now() - since)).toISOString();
 installRuntime(DB, clock);
 const quiet = console.log;
 console.log = () => undefined;
@@ -82,6 +83,21 @@ const INCLUDES: Record<string, string> = {
 const of = (table: string) =>
   (DB[table] ?? []).filter((r) => !r.client_id || r.client_id === CLIENT);
 function clientData(body: any) {
+  // List mode (Client Management's list): every client row, each with its properties' ids when the list asks for the
+  // count (`client_properties(id)`), as the function's list branch answers.
+  if (body.listMode && !body.listOptions?.table) {
+    const clients = (DB.clients ?? []).map((c) =>
+      body.listOptions?.includePropertyCount
+        ? {
+            ...c,
+            client_properties: (DB.client_properties ?? [])
+              .filter((p) => p.client_id === c.id)
+              .map((p) => ({ id: p.id })),
+          }
+        : c,
+    );
+    return { success: true, clients, count: clients.length };
+  }
   const include = body.include ?? {};
   const out: Record<string, unknown> = { success: true, client: DB.clients[0] };
   for (const [flag, table] of Object.entries(INCLUDES)) {
@@ -114,7 +130,8 @@ Bun.serve({
       Object.assign(DB, fresh);
       scenarios.length = 0;
       seen.length = 0;
-      tick = 0;
+      since = Date.now();
+      (globalThis as any).__REEL_DB.restartIds?.();
       return json({ reset: true });
     }
     if (HANDLERS[name]) {

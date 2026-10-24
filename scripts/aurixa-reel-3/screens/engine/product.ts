@@ -4,7 +4,10 @@
 // the work is replaced, and in the copy of index.ts alone: the sign-in check, the workspace's entitlement, the
 // client-access check and the cross-site guard each answer yes, and the database is the record the fact find import
 // writes (the rows manage-client-data creates from mapAdvancedToViewClient, and the income source its employment sync
-// adds). Nothing reaches the network. The calculation, the policy, the tax tables and the response are the product's.
+// adds). A shared module that makes its own database client (meteredFetch's usage log) is given the same database, and
+// the database's storage keeps what is uploaded to it. Nothing reaches the network but what a run points the function
+// at. The calculation, the policy, the tax tables and the response are the product's.
+import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
@@ -41,13 +44,21 @@ export const canAccessClient = async () => true;
 export const enforceCsrf = () => ({ ok: true });
 export const csrfDenied = () => new Response("csrf", { status: 403 });
 export const checkPermission = async () => ({ allowed: true });
+// render-borrowing-capacity-pdf's two: its sign-in check (the same one, which also takes a native user) and the
+// Borrowing Capacity tab's rule (the workspace bought the module). Its fallback for client access, the Clients
+// module's permission (authz.ts), is left real: canAccessClient answers yes, so it is never asked.
+export const verifyAuthOrNativeUser = verifyAuth;
+export const borrowingCapacityAccess = async () => ({ shown: true });
 export { createClient } from "../__db.ts";
 `;
 // The four checks and the database client, wherever the function's index.ts imports them from.
+const DB_CLIENT = /from\s*["'](?:https:\/\/esm\.sh\/|jsr:|npm:)@supabase\/supabase-js@[^"']+["']/g;
 const STUBBED = [
-  /from\s*["']https:\/\/esm\.sh\/@supabase\/supabase-js@[^"']+["']/g,
-  /from\s*["']\.\.\/_shared\/(?:auth|entitlements|clientAccess|csrfGuard|permissions)\.ts["']/g,
+  DB_CLIENT,
+  /from\s*["']\.\.\/_shared\/(?:auth|entitlements|clientAccess|csrfGuard|permissions|borrowingCapacityAccess)\.ts["']/g,
 ];
+// Deno's type declarations for the edge runtime, imported for their types alone: nothing to load.
+const TYPES_ONLY = /^\s*import\s*["']jsr:@supabase\/functions-js\/edge-runtime\.d\.ts["'];?[^\S\r\n]*$/m;
 
 /** Copies the function `name` into `mirror`, its checks and database replaced in its index.ts; returns its files. */
 export function mirrorFunction(name: string, mirror: string) {
@@ -71,8 +82,20 @@ export function mirrorFunction(name: string, mirror: string) {
   );
   writeFileSync(path.join(mirror, "__db.ts"), DB_SRC);
   writeFileSync(path.join(mirror, name, "__stubs.ts"), STUBS);
+  // A shared module that makes its own database client (meteredFetch's usage log) is given the same database.
+  for (const file of files) {
+    if (file === entry) continue;
+    const to = path.join(mirror, path.relative(FUNCTIONS, file));
+    const src = readFileSync(to, "utf8");
+    const db = path.relative(path.dirname(to), path.join(mirror, "__db.ts"));
+    const swappedDb = src.replace(DB_CLIENT, () => `from "${db.startsWith(".") ? db : `./${db}`}"`);
+    if (swappedDb !== src) writeFileSync(to, swappedDb);
+  }
   const indexFile = path.join(mirror, name, "index.ts");
-  let index = readFileSync(indexFile, "utf8");
+  let index = readFileSync(indexFile, "utf8").replace(
+    TYPES_ONLY,
+    "// (edge-runtime.d.ts: the edge runtime's types, nothing at run time)",
+  );
   let swapped = 0;
   for (const re of STUBBED)
     index = index.replace(re, () => {
@@ -112,7 +135,17 @@ class Q {
   }
   then(resolve, reject) { try { resolve(this.run()); } catch (e) { reject(e); } }
 }
-export const createClient = () => ({ from: (t) => new Q(t), rpc: async () => ({ data: null, error: null }), auth: { getUser: async () => ({ data: { user: null } }) } });
+const kept = (name) => (state[name] ??= []);
+export const createClient = () => ({
+  from: (t) => new Q(t),
+  rpc: async (fn, args) => { kept("rpcs").push({ fn, args }); return { data: null, error: null }; },
+  auth: { getUser: async () => ({ data: { user: null } }) },
+  // Storage keeps what it is sent (state.uploads) and signs a link nothing can open.
+  storage: { from: (bucket) => ({
+    upload: async (path, body, options) => { kept("uploads").push({ bucket, path, body, options }); return { data: { path }, error: null }; },
+    createSignedUrl: async (path, expiresIn) => ({ data: { signedUrl: "http://demo.invalid/storage/v1/object/sign/" + bucket + "/" + path + "?expires=" + expiresIn }, error: null }),
+  }) },
+});
 `;
 
 export const CLIENT = "00000000-0000-4000-8000-00000000e115"; // Jordan Ellis (fictional)
@@ -186,6 +219,13 @@ export function buildRecord(mapped: any) {
   } as Record<string, any[]>;
 }
 
+/** A version 4 UUID that is the same every run for the same `seed`. */
+export function demoUuid(seed: string) {
+  const h = createHash("sha256").update(`aurixa-reel-3:${seed}`).digest("hex");
+  const variant = ((parseInt(h[16], 16) & 0x3) | 0x8).toString(16);
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-${variant}${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+
 /** Installs the database and the Deno globals a function reads, and returns where writes are kept. */
 export function installRuntime(db: Record<string, any[]>, clock: () => string = () => AT) {
   const g = globalThis as any;
@@ -195,7 +235,14 @@ export function installRuntime(db: Record<string, any[]>, clock: () => string = 
     db,
     written,
     now: clock,
-    nextId: () => `00000000-0000-4000-8000-0000000a${String(++k).padStart(4, "0")}`,
+    // A row the function writes gets an id that reads like a real one (a version 4 UUID), derived from its place in
+    // the run so every run gives the same ids: an assessment's id is printed (the Snapshot's cover reference is its
+    // first eight characters), and a run of zeros reads as a placeholder.
+    nextId: () => demoUuid(`row-${++k}`),
+    // A reset of the record starts the ids again, so a capture gets the same ids whatever ran before it.
+    restartIds: () => {
+      k = 0;
+    },
   };
   g.Deno = {
     env: {

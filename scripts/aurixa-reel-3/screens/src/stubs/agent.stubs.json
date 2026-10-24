@@ -1,0 +1,5 @@
+{
+  "hooks/useAuth.tsx": "agent-useAuth.tsx",
+  "lib/streamSecureFunction.ts": "agent-streamSecureFunction.ts",
+  "lib/internalMessagingBus.ts": "agent-internalMessagingBus.ts"
+}
