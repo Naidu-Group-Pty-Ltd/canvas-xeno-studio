@@ -516,6 +516,12 @@ step behind, which an early form of the check had passed. At the owner's request
 were drawn by four more sessions, each on a machine of its own and each verifying its own scene. Three frames that
 each of them drew of the opening agree with this machine's to within 3 code values, identically on all four.
 
+Measured against its own lossless reference, the film holds SSIM 0.988 and PSNR 43.0 dB, its colour within
+ΔE2000 0.45 on average with the brand's grounds exact, every cut on its frame and the sound in sync to the
+millisecond. The caption check flags 64 frames, all of them pauses between phrases where the picture itself reaches
+into the caption zone. Through the Editor's own export settings it holds SSIM 0.984. It went to the Film gate on 24
+October 2026.
+
 ## Where things are
 
 | What                                                         | Where                                                                                                                                 |
