@@ -77,6 +77,29 @@ await check("extract_audio", async () => {
   if ((await stat(result.outputs[0].path)).size < 1000) throw new Error("audio too small");
 });
 
+await check("stretch_audio slows a recording to a tempo with its pitch kept, and says how", async () => {
+  // Two seconds of a 440 Hz tone, then at 0.8 of its speed: 2.5 s long, still 440 Hz.
+  const tone = join(dir, "tone.wav");
+  await ffmpeg(["-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=2", "-ac", "2", tone]);
+  const result = await TASKS.stretch_audio.run({ sources: [{ path: tone, role: "audio" }], params: { tempo: 0.8 }, dir });
+  const stretched = result.outputs[0];
+  if (stretched.mime !== "audio/flac") throw new Error(`made ${stretched.mime}`);
+  const { stretch, duration_seconds: seconds } = result.metadata;
+  if (Math.abs(seconds - 2.5) > 0.06) throw new Error(`2 s at 0.8 of its speed came out ${seconds} s`);
+  if (stretch.tempo !== 0.8 || stretch.pitch !== "kept" || !["rubberband", "atempo"].includes(stretch.tool)) throw new Error(JSON.stringify(stretch));
+  // Its pitch, from the zero crossings of its middle second.
+  const raw = join(dir, "tone-stretched.f32");
+  await ffmpeg(["-i", stretched.path, "-ss", "0.75", "-t", "1", "-ac", "1", "-f", "f32le", raw]);
+  const bytes = await readFile(raw);
+  const samples = new Float32Array(bytes.buffer, bytes.byteOffset, Math.floor(bytes.length / 4));
+  let crossings = 0;
+  for (let i = 1; i < samples.length; i += 1) if (samples[i - 1] < 0 && samples[i] >= 0) crossings += 1;
+  if (Math.abs(crossings - 440) > 6) throw new Error(`its pitch moved: ${crossings} Hz, not 440 (${stretch.tool})`);
+  const refused = await TASKS.stretch_audio.run({ sources: [{ path: tone, role: "audio" }], params: { tempo: 3 }, dir }).then(() => null, (error) => error);
+  if (refused?.code !== "INVALID_PARAMETERS") throw new Error("a tempo of 3 wasn't refused");
+  console.log(`       (${stretch.tool})`);
+});
+
 await check("assemble_video (concat)", async () => {
   const result = await TASKS.assemble_video.run({
     sources: [{ path: clipA, role: "source" }, { path: clipB, role: "source" }],
@@ -285,6 +308,33 @@ await check("music in pieces crossfades each join over 30 ms, centred on it, and
   const tail = await meanLevel(mix, 6.001, 0.5);
   const last = await meanLevel(mix, 5.9, 0.09);
   if (!(tail < -60) || !(last > full - 1)) throw new Error(`the last piece should end at 6 s (${last} dB before, ${tail} dB after)`);
+});
+
+await check("music in pieces comes in on its bar line where a piece says so: silent until 3 ms before it, whole on it", async () => {
+  const silent = join(dir, "pieces-bar-picture.wav");
+  await ffmpeg(["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo", "-t", "5", "-c:a", "pcm_f32le", silent]);
+  const mixOf = async (pieces, name) => {
+    const plan = planSequence(
+      { width: 320, height: 240, fps: 25, clips: [{ source_index: 0, kind: "image", duration: 5 }], audio: [{ source_index: 1, role: "music", duck: false, pieces }] },
+      [{ role: "image", path: silent }, { role: "audio", path: piecesTrack }],
+    );
+    const mix = join(dir, name);
+    await ffmpeg(mixArgs(plan, [silent], [piecesTrack], mix));
+    return mix;
+  };
+  // Out of silence onto the tone, its bar line 20 ms past the join at 2 s.
+  const into = await mixOf([{ from: 3.5, to: 5.5 }, { from: 0.5, to: 2.5, enter: 0.02 }], "pieces-bar-into.wav");
+  const full = await meanLevel(into, 2.1, 0.5);
+  const early = await meanLevel(into, 1.99, 0.026);
+  const whole = await meanLevel(into, 2.0205, 0.008);
+  if (!(early < -60)) throw new Error(`the tone came in before its bar line (${early} dB from 1.990 to 2.016 s)`);
+  if (!(Math.abs(whole - full) < 0.5)) throw new Error(`the tone wasn't whole on its bar line (${whole} dB, against ${full} dB)`);
+  // Out of the tone onto silence that comes in on its bar line: the tone fades out over the 30 ms ending there.
+  const outOf = await mixOf([{ from: 0.5, to: 2.5 }, { from: 3.5, to: 5.5, enter: 0.02 }], "pieces-bar-out.wav");
+  const held = await meanLevel(outOf, 1.98, 0.008);
+  const gone = await meanLevel(outOf, 2.0205, 0.02);
+  if (!(Math.abs(held - full) < 0.5)) throw new Error(`the tone should play on whole until 10 ms before the join (${held} dB)`);
+  if (!(gone < -60)) throw new Error(`the tone should be gone by the bar line (${gone} dB)`);
 });
 
 /** A float WAV's left channel, sample by sample (the mix pass writes 32-bit float stereo). */
@@ -999,6 +1049,36 @@ await check("render_sequence measures a render: fidelity, colour, captions, cuts
   if (!white?.found || report.pixels.brand_colours.find((brand) => brand.hex === "#0832de")?.found) throw new Error(`the brand colours: ${JSON.stringify(report.pixels.brand_colours)}`);
 });
 
+await check("a measured render reads the music's attack at a cut on its beat: 35 ms early under a crossfade, on it on its bar line", async () => {
+  // Out of the track's silence into its tone (its bar line 20 ms past the join at 1.98 s), on the cut at 2 s.
+  const measured = async (enter) => {
+    // A render's directory is its own: it takes its sources with it.
+    const work = await mkdtemp(join(dir, "music-cuts-"));
+    const still = join(work, "still.jpg");
+    await ffmpeg(["-f", "lavfi", "-i", "testsrc2=s=320x240:d=1", "-frames:v", "1", still]);
+    const music = join(work, "music.wav");
+    await copyFile(piecesTrack, music);
+    const result = await TASKS.render_sequence.run({
+      sources: [{ path: still, role: "image" }, { path: music, role: "audio" }],
+      params: {
+        width: 320, height: 240, fps: 25, normalize_loudness: false,
+        clips: [{ source_index: 0, kind: "image", duration: 2 }, { source_index: 0, kind: "image", duration: 2 }],
+        audio: [{ source_index: 1, role: "music", duck: false, pieces: [{ from: 3.5, to: 5.48 }, { from: 0.98, to: 2.98, ...(enter ? { enter } : {}) }] }],
+        measure: { music_beats: [1, 2, 3] },
+      },
+      dir: work,
+    });
+    const report = result.metadata.quality;
+    const cut = report?.music?.cuts?.[0];
+    if (report?.music?.status !== "measured" || report.music.cuts.length !== 1 || cut.status !== "measured") throw new Error(`the music at the cut: ${JSON.stringify(report?.music)}`);
+    return { cut, check: report.checks.find((entry) => entry.id === "music_cuts") };
+  };
+  const early = await measured(null);
+  if (!(early.cut.offset_ms < -25 && early.cut.offset_ms > -40) || early.check?.result !== "flag") throw new Error(`under the crossfade: ${JSON.stringify(early)}`);
+  const onIt = await measured(0.02);
+  if (!(Math.abs(onIt.cut.offset_ms) <= 5) || onIt.check?.result !== "pass") throw new Error(`on its bar line: ${JSON.stringify(onIt)}`);
+});
+
 await check("a caption the render dropped is flagged, and a cut a frame late is found", async () => {
   const { judgeCaptions, judgeCuts, plannedCaptions, plannedCuts, TimingMeter, timingScale } = await import("./quality.js");
   const { planSequence } = await import("./sequence.js");
@@ -1671,6 +1751,10 @@ if (TASKS.render_composition) {
     const counts = result.metadata.composition;
     // The box moves from frame 0 to 6 and holds: 7 drawn, 5 reused.
     if (counts.drawings_captured !== 7 || counts.drawings_reused !== 5) throw new Error(`drew ${counts.drawings_captured}, reused ${counts.drawings_reused}`);
+    // Each drawing is kept once two captures of it agree; a draft isn't put to the vote.
+    if (!counts.settle || counts.settle.unsettled.length || counts.settle.captures < 2 * counts.drawings_captured)
+      throw new Error(`the drawings didn't settle: ${JSON.stringify(counts.settle)}`);
+    if (counts.verified !== null) throw new Error("a draft was put to the vote");
     const info = await probe(proxy);
     if (info.width !== 160 || info.height !== 96) throw new Error(`playable copy is ${info.width}x${info.height}`);
     const sums = await frameSums(master);
@@ -1698,6 +1782,30 @@ if (TASKS.render_composition) {
     const counts = result.metadata.composition;
     if (counts.drawings_captured + counts.drawings_reused !== 80) throw new Error(`took ${counts.drawings_captured + counts.drawings_reused} drawings, not 80`);
     if (counts.drawings_reused < 20) throw new Error(`reused only ${counts.drawings_reused} of the still frames' drawings`);
+    // A final drawing is put to the vote: a share of its frames drawn again by a browser of its own, all agreeing.
+    const verified = counts.verified;
+    if (!verified || verified.frames < 1 || verified.unresolved.length || verified.replaced_by_agreement.length)
+      throw new Error(`the vote: ${JSON.stringify(verified)}`);
+  });
+
+  await check("a browser started again every few frames draws what one drawing throughout does, and the vote agrees", async () => {
+    if (!wholeMaster) throw new Error("the draft wasn't drawn");
+    const source = await bundleFile("box-recycled", boxBundle({ frames: 12, settings: DRAFT }));
+    const work = await mkdtemp(join(dir, "comp-"));
+    const [browsers, recycle] = [config.compositionBrowsers, config.compositionRecycleFrames];
+    config.compositionBrowsers = 1;
+    config.compositionRecycleFrames = 3;
+    const result = await TASKS.render_composition
+      .run({ sources: [source], params: { output: "full", priority: "draft", verify: 0.5 }, dir: work })
+      .finally(() => {
+        config.compositionBrowsers = browsers;
+        config.compositionRecycleFrames = recycle;
+      });
+    const counts = result.metadata.composition;
+    if (counts.browser_launches !== 4) throw new Error(`started ${counts.browser_launches} browsers for 12 frames, 3 each`);
+    if (!(counts.verified?.frames >= 6) || counts.verified.disagreed.length) throw new Error(`the vote: ${JSON.stringify(counts.verified)}`);
+    const [whole, recycled] = await Promise.all([frameSums(wholeMaster), frameSums(result.outputs[1].path)]);
+    if (whole.join() !== recycled.join()) throw new Error("the frames drawn by browsers started again differ");
   });
 
   await check("a composition's stretches, drawn apart and joined, match it drawn whole, frame for frame", async () => {

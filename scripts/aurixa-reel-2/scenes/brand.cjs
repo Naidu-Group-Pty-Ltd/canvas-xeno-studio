@@ -151,8 +151,10 @@ function brandScene() {
   /** The hero drifts in, slowly, from the burst to the lift. */
   const heroScale = (t) => 1 + 0.05 * smooth(Math.min(1, Math.max(0, (t - TA) / (TL - TA))));
   const BURST = [EM.left + EM.w / 2, EM.top + EM.h * 0.56];
-  /** The sweep's leading edge (frame y) at t: from below the frame to above it. */
-  const SWEEP = [T0, T0 + 0.62];
+  /** The sweep's leading edge (frame y) at t: from below the frame to above it. It sets off a frame before the cut,
+   * so its edge is in the picture on the frame after the drop's attack (the cut's first frame holds the attack,
+   * and the curve's first frame barely moves): started on the cut, the light came in 40 to 70 ms behind the drop. */
+  const SWEEP = [T0 - 1 / FPS, T0 - 1 / FPS + 0.62];
   const sweepY = (t) => lerp(2060, -160, span(t, SWEEP[0], SWEEP[1], EASE.move));
 
   const html = () => {

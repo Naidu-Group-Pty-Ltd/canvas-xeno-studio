@@ -200,6 +200,24 @@ describe("Reel 1's track, as pacing.py measured it", () => {
     });
   });
 
+  test("measures the level either side of each bar line: the drop out of the intro's silence, the groove's own", () => {
+    const { structure, features } = reelOne()!;
+    const edges = features.edges!;
+    expect(edges.before).toHaveLength(structure.bars.length);
+    expect(edges.after).toHaveLength(structure.bars.length);
+    // The intro falls silent from 21.0 s, so the 35 ms before the drop are silence, and the drop is loud.
+    const drop = barAt(structure, reelOneBar(0) + 0.1);
+    expect(edges.before[drop]!).toBeLessThan(-80);
+    expect(edges.after[drop]!).toBeGreaterThan(-35);
+    // In the groove the music runs on through each bar line, every line alike, the downbeat a little louder.
+    const groove = barAt(structure, reelOneBar(8) + 0.1);
+    expect(Math.abs(edges.before[groove]! - edges.before[groove + 4]!)).toBeLessThan(3);
+    expect(edges.after[groove]! - edges.before[groove]!).toBeLessThan(12);
+    // The re-entry comes out of the breakdown's quiet pad.
+    const reentry = barAt(structure, reelOneBar(48) + 0.1);
+    expect(edges.after[reentry]! - edges.before[reentry]!).toBeGreaterThan(10);
+  });
+
   test("the breakdown's bars two apart are more alike than its bars one apart (its two-bar figure)", () => {
     const { structure, features } = reelOne()!;
     const first = barAt(structure, reelOneBar(40) + 0.1);

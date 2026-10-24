@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { PIECES, piecesLength } from "../../src/lib/edit/pieces";
-import { editSimilarity, fitMusicToLength, SPLICE_LEAD } from "../../src/lib/music/fit";
+import {
+  editSimilarity,
+  ENTRY,
+  entersOnItsBar,
+  fitMusicToLength,
+  SPLICE_LEAD,
+} from "../../src/lib/music/fit";
 import {
   analyzeStructure,
   barSeconds,
@@ -201,5 +207,72 @@ describe("which bars", () => {
     expect(Math.abs(Math.abs(fit.landmarks[0]!.at - asked) - barSeconds(structure))).toBeLessThan(
       0.002,
     );
+  });
+});
+
+describe("how a piece comes in", () => {
+  /** madeUp()'s bars with the level either side of each bar line: `before` and `after` by bar, -10 dB unless given. */
+  function withEdges(before: Record<number, number>, after: Record<number, number> = {}) {
+    const { structure, features } = madeUp();
+    const level = (given: Record<number, number>) =>
+      features.loudness.map((_, bar) => given[bar] ?? -10);
+    return {
+      structure,
+      features: { ...features, edges: { before: level(before), after: level(after) } },
+    };
+  }
+
+  test("out of quiet onto a bar its track is already loud in: on its bar line", () => {
+    // Bars 8 to 11 play twice: the join runs from bar 12's line, quiet, back to bar 8, loud before its line.
+    const { structure, features } = withEdges({ 8: -10, 12: -30 });
+    const fit = fitMusicToLength(structure, features, structure.sections[0]!.end + 8)!;
+    expect(fit.pieces).toEqual([
+      { from: 0, to: 25 - SPLICE_LEAD },
+      { from: 17 - SPLICE_LEAD, to: structure.sections[0]!.end, enter: SPLICE_LEAD },
+    ]);
+  });
+
+  test("where the music runs on through the join, under the crossfade", () => {
+    // As loud before bar 12's line as before bar 8's: the crossfade is the blend.
+    const runsOn = withEdges({ 8: -10, 12: -12 });
+    const fit = fitMusicToLength(
+      runsOn.structure,
+      runsOn.features,
+      runsOn.structure.sections[0]!.end + 8,
+    )!;
+    expect(fit.pieces.every((piece) => piece.enter === undefined)).toBe(true);
+    // Quiet before bar 8's own line too (the quiet before an attack): nothing would arrive early.
+    const quiet = withEdges({ 8: -40, 12: -50 }, { 8: -10 });
+    expect(entersOnItsBar(quiet.features, 12, 8)).toBe(false);
+    // Bars found before their edges were measured: under the crossfade, as before.
+    const { structure, features } = madeUp();
+    const old = fitMusicToLength(structure, features, structure.sections[0]!.end + 8)!;
+    expect(old.pieces.every((piece) => piece.enter === undefined)).toBe(true);
+  });
+
+  test("the rule's lines: more than 6 dB louder than the piece before, within 12 dB of its bar", () => {
+    expect(ENTRY).toEqual({ earlyDb: 6, musicDb: 12 });
+    const at = (early: number, quiet: number, own: number) =>
+      entersOnItsBar(withEdges({ 8: early, 12: quiet }, { 8: own }).features, 12, 8);
+    expect(at(-10, -16.1, -10)).toBe(true);
+    expect(at(-10, -15.9, -10)).toBe(false);
+    expect(at(-10, -30, -0.1)).toBe(true);
+    expect(at(-10, -30, 2.1)).toBe(false);
+    // A bar line past the last bar has no edge: under the crossfade.
+    expect(entersOnItsBar(withEdges({}).features, 24, 8)).toBe(false);
+  });
+
+  test("Reel 1's track runs on through every join, so every join crossfades", () => {
+    const { structure, features } = reelOne()!;
+    expect(features.edges?.before).toHaveLength(structure.bars.length);
+    const fit = fitMusicToLength(structure, features, FILM.end, {
+      landmarks: [
+        { section: 1, at: FILM.drop },
+        { section: 3, at: FILM.breakdown },
+        { section: 4, at: FILM.reentry },
+      ],
+      ending: "bar",
+    })!;
+    expect(fit.pieces.every((piece) => piece.enter === undefined)).toBe(true);
   });
 });

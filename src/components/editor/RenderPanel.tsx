@@ -42,6 +42,7 @@ import {
   RENDER_UNCONFIRMED_STAGE,
   renderInProgress,
 } from "@/lib/edit/renders";
+import { CoverCheck } from "./CoverCheck";
 import { QualitySetting, RenderReport } from "./RenderQuality";
 import { ReviewSheet } from "./ReviewSheet";
 import { useRenderExtras, type RenderExtras } from "@/hooks/useRenderExtras";
@@ -484,6 +485,17 @@ function keptMusic(metadata: unknown): { credits: string[]; terms: string[] } {
   return { credits, terms };
 }
 
+/** A rendered video's frame rate, as the media service measured it (30 where it didn't). */
+function renderFps(metadata: unknown): number {
+  const probe =
+    metadata && typeof metadata === "object"
+      ? (metadata as Record<string, unknown>)["probe"]
+      : undefined;
+  const fps =
+    probe && typeof probe === "object" ? (probe as Record<string, unknown>)["fps"] : undefined;
+  return typeof fps === "number" && fps > 0 && fps <= 240 ? fps : 30;
+}
+
 function RenderItem({
   render,
   title,
@@ -636,6 +648,14 @@ function RenderItem({
       {render.status === "completed" && <RenderReport stored={extras?.quality} metadata={kept} />}
       {render.status === "completed" && (
         <ReviewSheet renderId={render.id} taskId={extras?.reviewSheetTaskId ?? null} />
+      )}
+      {render.status === "completed" && render.asset_id && Number(render.duration_seconds) > 0 && (
+        <CoverCheck
+          assetId={render.asset_id}
+          duration={Number(render.duration_seconds)}
+          fps={renderFps(kept)}
+          title={title}
+        />
       )}
       {render.status === "completed" && music.terms.length > 0 && (
         <p className="mt-1 text-[11px] text-muted-foreground" data-testid="render-music-terms">

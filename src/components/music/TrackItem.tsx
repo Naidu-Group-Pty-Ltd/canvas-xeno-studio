@@ -95,7 +95,10 @@ export function TrackItem({
     track.artist,
     track.duration_seconds ? formatTime(Number(track.duration_seconds), false) : null,
     track.bpm ? `${Math.round(Number(track.bpm))} BPM` : null,
-    SOURCE_LABEL[track.source] + (track.provider ? ` · ${track.provider}` : ""),
+    // A track the studio made at another tempo is marked by its provider (an instrumental keeps its original's).
+    track.source === "derived" && track.provider === "tempo"
+      ? "Tempo changed"
+      : SOURCE_LABEL[track.source] + (track.provider ? ` · ${track.provider}` : ""),
   ].filter(Boolean);
 
   return (

@@ -119,6 +119,7 @@ curl -X POST https://<your studio>/api/public/studio/list_models \
 | `import_audio`                | Puts a WAV, MP3, M4A or FLAC into the library as music, a sound effect or an edit's voiceover (see "Importing audio").                                                                                                                                                                                                                                                                                   |
 | `import_video`                | Puts an MP4, QuickTime or WebM (up to 50 MB) into the library, its bytes sent straight to storage, so a review gate can hold it (see "Importing a video").                                                                                                                                                                                                                                               |
 | `generate_music`              | Makes a track with Eleven Music into the music library, from a prompt or from a composition plan that fixes where each part falls (see "Making music").                                                                                                                                                                                                                                                  |
+| `change_music_tempo`          | Makes a library track again at another tempo, its pitch kept, as a new track with its licence, for a cut paced to another beat (see "A track at another tempo").                                                                                                                                                                                                                                         |
 | `open_in_editor`              | Lays a long video out as an edit. Takes captions from the script, titles on the voiceover's clock, music, and the brand kit's look.                                                                                                                                                                                                                                                                      |
 | `create_edit` / `update_edit` | Makes an edit from a timeline, or changes one. An update is accepted only at the version you read. Pauses: below.                                                                                                                                                                                                                                                                                        |
 | `apply_brand_kit`             | Applies a kit's fonts, colours and title motion to the edit's text, and can add its end card inside a platform's safe area.                                                                                                                                                                                                                                                                              |
@@ -250,6 +251,49 @@ The answer has the track's `trackId` and `assetId`, its `status`, `durationSecon
 ElevenLabs' `songId`, and `duplicate: true` when the request had made it already. Its licence is
 the library's AI music licence. Its bars are found in the Editor's Music panel, and then
 `get_music_structure` and `fit_music` work on it.
+
+### A track at another tempo
+
+`change_music_tempo` makes a library track again at another tempo, its pitch kept, as a new
+track in the music library (the Music page's **Change tempo**). It is for a track whose tempo
+isn't the cut's: Reel 2's cut was paced to a 120 BPM score and approved, then put under Reel 1's
+track, which runs at 129. That track was slowed 7.0% and cut on its own bar lines, and every cut
+and anchor stayed on its beat.
+
+- `bpm` is the tempo it is to play at. `fromBpm` is the tempo it plays at now: the track's own
+  (from its bars) unless given.
+- Name the track by `trackId`, or by its library file (`assetId`).
+- The media service makes it with Rubber Band (or FFmpeg's `atempo` where Rubber Band is
+  missing), as lossless FLAC. Nothing is billed.
+- The call waits for it, a minute or so. The same `clientRequestId` returns the same track.
+- The new track keeps the original's licence, credit and rights, and its notes say how far its
+  tempo was moved. A tempo can be halved or doubled at most.
+- Past about 12% a change of tempo can be heard, and the answer's `note` says so.
+- Find its bars in the Editor's Music panel before `fit_music` plans it on them.
+
+### How a fitted piece comes in
+
+`fit_music` joins its pieces 20 ms ahead of a bar line, under a 30 ms crossfade centred on the
+join. Where the music runs on through the join, the crossfade is the blend. It plays the last
+35 ms of the bar before the new piece's own, though, and a piece cut out of quiet onto a bar its
+track is already loud in (a stop's bass hit, the middle of the biggest section) then arrives 35
+ms early. Reel 2's four statements, each cut onto a bass hit, were measured 35 to 40 ms ahead of
+their cuts, and so were the score's stabs.
+
+So such a piece comes in on its bar line instead. Its `enter` says how far past its start the
+bar line is (20 ms for a fit's splice). The piece before fades out over the 30 ms ending on that
+bar line, and this one comes in over the last 3 ms of it, whole on the bar. A fit chooses it from
+the level either side of each bar line, measured when a track's bars are found:
+
+- the piece's track is more than 6 dB louder over the 35 ms before its bar line than the piece
+  before it is over its own;
+- and those 35 ms are within 12 dB of the bar's first 100 ms (music, not the quiet before an
+  attack).
+
+A track whose bars were found before these levels were measured is fitted under crossfades as
+before; find its bars again in the Music panel to have them. A media service older than this
+plays such a join as an ordinary crossfade (its health lists `music_pieces_on_the_bar` when it
+can do it).
 
 ## Costs and stages
 

@@ -36,7 +36,9 @@ export interface InternalTaskRequest {
     | "align_take"
     | "clean_plate"
     | "lay_lettering"
-    | "redact_image";
+    | "redact_image"
+    // A music track at another tempo, its pitch kept.
+    | "stretch_audio";
   source: InternalTaskSource;
   /** More sources after the first, each in its role (measure_sync's voiceover piece, as "audio"). */
   extraSources?: (InternalTaskSource & { role: string })[];

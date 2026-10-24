@@ -69,7 +69,28 @@ merged["frames"] = [f for log in logs for f in log["frames"]]
 merged["shots"] = [s for log in logs for s in log["shots"]]
 merged["measures"] = {k: v for log in logs for k, v in log.get("measures", {}).items()}
 merged["drawings"] = sum(log.get("drawings", 0) for log in logs)
-merged["assembled"] = [{"dir": str(p), "from": log["from"], "to": log["to"], "shots": log["shots"]} for p, log in zip(parts, logs)]
+# Reel 2's renderer records how its drawings settled; the film's record is every stretch's.
+if any("settle" in log for log in logs):
+    settles = [log.get("settle", {}) for log in logs]
+    captures = sum(s.get("captures") or 0 for s in settles)
+    merged["settle"] = {
+        "on": all(s.get("on", False) for s in settles),
+        "frames_retried": sum(s.get("frames_retried", 0) for s in settles),
+        "retried": {k: v for s in settles for k, v in s.get("retried", {}).items()},
+        "unsettled": [f for s in settles for f in s.get("unsettled", [])],
+        "captures": captures,
+        "capture_ms_mean": round(sum((s.get("captures") or 0) * (s.get("capture_ms_mean") or 0) for s in settles) / captures)
+        if captures else None,
+    }
+# Reel 2's stretches are each verified by agreement (verify_run.py), and some drawn by another session's machine.
+if any("verified" in log for log in logs):
+    merged["verified"] = [{"from": log["from"], "to": log["to"],
+                           **{k: log["verified"].get(k) for k in ("against", "disagreed", "run_stands",
+                                                                  "replaced_by_agreement", "unresolved")}}
+                          for log in logs if "verified" in log]
+merged.pop("drawn_by", None)
+merged["assembled"] = [{"dir": str(p), "from": log["from"], "to": log["to"], "shots": log["shots"],
+                        **({"drawn_by": log["drawn_by"]} if "drawn_by" in log else {})} for p, log in zip(parts, logs)]
 merged["soundtrack"] = str(soundtrack)
 (out / "film.json").write_text(json.dumps(merged) + "\n")
 print(f"{len(parts)} stretches, frames {start} to {total} ({(total - start) / FPS:.3f} s) -> {out / 'film.mp4'}")

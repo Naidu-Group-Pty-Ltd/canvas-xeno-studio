@@ -1685,6 +1685,11 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
     stems: Object.fromEntries(plan.stems.map((role) => [role, join(dir, `stem-${role}.wav`)])),
     ...(measuresMix(plan) ? { bands: { voiceover: join(dir, "band-voice.wav"), music: join(dir, "band-music.wav") } } : {}),
   };
+  // The music bus on its own as well, for its attack at the cuts (see ./quality.js), when it is measured.
+  const measuredMusic =
+    plan.measure?.musicBeats?.length && plan.audio.some((item) => item.role === "music") && (plan.mix?.music ?? 1) > 0
+      ? (taps.stems.music ??= join(dir, "measure-music.wav"))
+      : null;
   await ffmpeg(mixArgs(plan, intermediates, plan.audio.map((item) => sources[item.source].path), mixPath, voiceActivity, taps), watched);
   // A report that can't be measured is left out: it is never worth a failed render.
   const margins = taps.bands ? await measureBands(plan, taps.bands, voiceActivity).catch(() => null) : null;
@@ -1751,10 +1756,11 @@ export async function renderSequence({ sources, params, dir, progress = () => {}
   });
   // Measured against the same graph's picture made again, while its inputs are still here (feature render_quality; see ./quality.js).
   const quality = plan.measure
-    ? await measureRender({ plan, finalArgv, master: out, sources, dir, progress, parseLoudness, mastering: planner?.report() ?? null }).catch(unmeasuredQuality)
+    ? await measureRender({ plan, finalArgv, master: out, sources, dir, progress, parseLoudness, mastering: planner?.report() ?? null, music: measuredMusic }).catch(unmeasuredQuality)
     : null;
   // Only the finished cut is kept from here (and the stems asked for).
-  for (const path of [...intermediates, mixPath, ...Object.values(taps.bands ?? {})]) await rm(path, { force: true });
+  const measuredOnly = measuredMusic && !plan.stems.includes("music") ? [measuredMusic] : [];
+  for (const path of [...intermediates, mixPath, ...Object.values(taps.bands ?? {}), ...measuredOnly]) await rm(path, { force: true });
   // The finished mix's own loudness, as a player measures it.
   const master = await ffmpeg(["-i", out, "-vn", "-af", "loudnorm=print_format=json", "-f", "null", "-"], limit)
     .then(({ stderr }) => parseLoudness(stderr))

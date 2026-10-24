@@ -20,13 +20,40 @@
  * like the bars they now meet. Fewer joins are better than more.
  *
  * Each join is a splice 20 ms ahead of a bar line, so the bar's notes begin
- * in the new piece, under a 30 ms crossfade (PIECES.crossfade).
+ * in the new piece, under a 30 ms crossfade (PIECES.crossfade). A piece cut
+ * out of quiet onto a bar its track is already loud in comes in on its bar
+ * line instead (ENTRY), so it doesn't arrive early.
  */
 import { PIECES, type MusicPiece } from "@/lib/edit/pieces";
 import { barSeconds, barSimilarity, type BarFeatures, type MusicStructure } from "./structure";
 
 /** How far ahead of its bar line a splice sits, before the bar's notes begin. */
 export const SPLICE_LEAD = 0.02;
+
+/**
+ * When a piece comes in on its bar line (MusicPiece.enter) rather than under
+ * its join's crossfade, which starts 35 ms ahead of the bar line: when its
+ * track is more than `earlyDb` louder over those 35 ms (BarFeatures.edges)
+ * than the piece before it is over its own, and they are within `musicDb` of
+ * the bar's first 100 ms (music, not the quiet before an attack). Under the
+ * crossfade such a piece arrives 35 ms early: Reel 2's four statements, each
+ * cut out of quiet onto a bass hit, were measured 35 to 40 ms ahead of their
+ * cuts. Where the music runs on through a join, the crossfade is the blend.
+ */
+export const ENTRY = { earlyDb: 6, musicDb: 12 } as const;
+
+/**
+ * Whether a piece starting on bar `incoming`, after one that played up to
+ * bar line `outgoing` (the bar after its last), comes in on its bar line
+ * (see ENTRY). Never on bars found before their edges were measured.
+ */
+export function entersOnItsBar(features: BarFeatures, outgoing: number, incoming: number): boolean {
+  const early = features.edges?.before[incoming];
+  const own = features.edges?.after[incoming];
+  const quiet = features.edges?.before[outgoing];
+  if (early === undefined || own === undefined || quiet === undefined) return false;
+  return early - quiet > ENTRY.earlyDb && own - early < ENTRY.musicDb;
+}
 
 export interface FitLandmark {
   /** The section (an index into structure.sections) whose start is to land... */
@@ -301,10 +328,18 @@ export function fitMusicToLength(
   if (!runs.length || runs.length > PIECES.max) return null;
   const splice = (bar: number) => Math.max(0, barTime(bar) - SPLICE_LEAD);
   const pieces: MusicPiece[] = runs.map(([low, high], index) => {
-    const pieceFrom = index === 0 ? start : splice(low);
+    const pieceFrom = Number((index === 0 ? start : splice(low)).toFixed(6));
     const ends = index === runs.length - 1 && ending === "track" && high === count - 1;
     const pieceTo = ends ? duration : splice(high + 1);
-    return { from: Number(pieceFrom.toFixed(6)), to: Number(pieceTo.toFixed(6)) };
+    const piece: MusicPiece = { from: pieceFrom, to: Number(pieceTo.toFixed(6)) };
+    // Out of quiet onto a bar its track is already loud in: on its bar line (ENTRY).
+    const enter = Number((barTime(low) - pieceFrom).toFixed(6));
+    const onItsBar =
+      index > 0 &&
+      enter >= PIECES.entry &&
+      enter <= PIECES.crossfade &&
+      entersOnItsBar(features, runs[index - 1]![1] + 1, low);
+    return onItsBar ? { ...piece, enter } : piece;
   });
   if (pieces.some((piece) => piece.to - piece.from < PIECES.minSeconds - 1e-9)) return null;
 

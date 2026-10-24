@@ -99,6 +99,79 @@ describe("music in pieces", () => {
     expect(piecesSounding(pieces, 5)[0]!.source).toBeCloseTo(1.005, 9);
   });
 
+  test("a piece can come in on its bar line: silent until 3 ms before it, whole on it", () => {
+    // The second piece's bar line is 20 ms past its start, as a fit's splices are.
+    const pieces: MusicPiece[] = [
+      { from: 10, to: 14 },
+      { from: 30, to: 34, enter: 0.02 },
+    ];
+    const [join] = pieceJoins(pieces);
+    // The crossfade ends on that bar line: 10 ms before the join to 20 ms after it.
+    expect(join!.lead).toBeCloseTo(PIECES.crossfade - 0.02, 9);
+    expect(join!.start + PIECES.crossfade).toBeCloseTo(4.02, 9);
+    expect(join!.enter).toBe(0.02);
+    // The piece before fades out over it as at any join; the piece itself is silent...
+    for (const at of [3.991, 4, 4.01, 4.0165]) {
+      const sounding = piecesSounding(pieces, at);
+      expect(sounding.map((piece) => piece.index)).toEqual([0, 1]);
+      expect(sounding[1]!.gain).toBe(0);
+      expect(sounding[0]!.source).toBeCloseTo(14 + at - 4, 9);
+    }
+    // ...until 3 ms before its bar line, half in 1.5 ms before it, on its own clock throughout,
+    const half = piecesSounding(pieces, 4.0185);
+    expect(half[1]!.gain).toBeCloseTo(0.5, 6);
+    expect(half[1]!.source).toBeCloseTo(30.0185, 9);
+    // and whole after it.
+    const after = piecesSounding(pieces, 4.021);
+    expect(after).toHaveLength(1);
+    expect(after[0]!.index).toBe(1);
+    expect(after[0]!.gain).toBe(1);
+    expect(after[0]!.source).toBeCloseTo(30.021, 9);
+    // Cut as the media worker cuts it: the piece before plays on to the bar line.
+    const cuts = pieceCuts(pieces);
+    expect(cuts[0]!.to).toBeCloseTo(14.02, 9);
+    expect(cuts[1]!.from).toBeCloseTo(29.99, 9);
+    // Near its track's start, its crossfade starts later and still holds its bar line.
+    const early: MusicPiece[] = [
+      { from: 10, to: 14 },
+      { from: 0.004, to: 4, enter: 0.02 },
+    ];
+    const [late] = pieceJoins(early);
+    expect(late!.lead).toBeCloseTo(0.004, 9);
+    expect(piecesSounding(early, 4.016)[1]!.gain).toBe(0);
+    expect(piecesSounding(early, 4.022)[1]!.gain).toBe(1);
+  });
+
+  test("an edit's pieces keep where each comes in, and the render request carries it", () => {
+    const pieces = [
+      { from: 10, to: 14 },
+      { from: 30, to: 34, enter: 0.02 },
+    ];
+    const item = edit({ pieces }, 8).audio[0]!;
+    expect(item.pieces).toEqual(pieces);
+    const sent = buildRenderRequest(edit({ pieces }, 8)).params["audio"] as Array<
+      Record<string, unknown>
+    >;
+    expect(sent[0]!["pieces"]).toEqual(pieces);
+    // Nowhere but 3 to 30 ms past its start.
+    for (const enter of [0.001, 0.05, -0.02])
+      expect(
+        parseTimeline({
+          audio: [
+            {
+              id: "m",
+              assetId: MUSIC,
+              role: "music",
+              pieces: [
+                { from: 0, to: 4 },
+                { from: 8, to: 12, enter },
+              ],
+            },
+          ],
+        }),
+      ).toBeNull();
+  });
+
   test("cuts each piece from half a crossfade before its start to half after its end", () => {
     const cuts = pieceCuts(REEL_PIECES);
     const half = PIECES.crossfade / 2;

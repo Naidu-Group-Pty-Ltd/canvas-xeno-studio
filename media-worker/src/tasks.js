@@ -13,6 +13,7 @@ import { alignTake } from "./take.js";
 import { cleanPlate, layLettering } from "./plate.js";
 import { redactImage } from "./redact.js";
 import { reviewSheet } from "./review.js";
+import { stretchAudio } from "./stretch.js";
 
 /**
  * Task catalogue.
@@ -105,6 +106,10 @@ export const FEATURES = [
   "mix_report",
   "stems",
   "music_pieces",
+  // A piece of music that comes in on its bar line, not under a centred crossfade (a piece's enter).
+  "music_pieces_on_the_bar",
+  // A recording at another tempo, its pitch kept (stretch_audio).
+  "audio_stretch",
   // A take put on the exact picture it must land on (align_take), and a logo's
   // lettering taken out of its art and laid back over a take (clean_plate,
   // lay_lettering).
@@ -114,6 +119,8 @@ export const FEATURES = [
   "redact_image",
   "mastering",
   "render_quality",
+  // The music's attack at each cut on one of its beats, in a measured render (measure.music_beats).
+  "music_at_cuts",
   "review_sheet",
   ...(lipCheckAvailable ? ["lip_check"] : []),
   // Code-driven motion graphics drawn in Chromium ("compositions"), on a GPU here ("compositions_gpu").
@@ -484,6 +491,16 @@ export const TASKS = {
     sources: { min: 1, max: 1 },
     outputs: () => 2,
     run: prepareAudio,
+  },
+
+  /**
+   * A recording at another tempo, its pitch kept (Rubber Band where FFmpeg has
+   * it): a track slowed or sped to the beat a cut is paced to (see stretch.js).
+   */
+  stretch_audio: {
+    sources: { min: 1, max: 1 },
+    outputs: () => 1,
+    run: stretchAudio,
   },
 
   /**

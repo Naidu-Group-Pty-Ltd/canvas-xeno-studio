@@ -30,6 +30,8 @@ const state = {
     background_color: "#0b0c15",
     palette: [{ hex: "#0832de" }, { hex: "#c9a227" }],
   },
+  /** The music library's rows for a track, with its bars as found. */
+  music: [] as Record<string, unknown>[],
   updates: [] as { table: string; row: Record<string, unknown> }[],
   updateError: null as { code?: string; message: string } | null,
 };
@@ -42,6 +44,7 @@ mock.module("@/integrations/supabase/client.server", () => ({
             data: table === "assets" ? state.asset : table === "brand_kits" ? state.kit : null,
             error: null,
           }),
+          limit: async () => ({ data: table === "music_tracks" ? state.music : [], error: null }),
         }),
       }),
       update: (row: Record<string, unknown>) => ({
@@ -58,6 +61,7 @@ const { recordRenderQuality } = await import("../../src/lib/edit/quality.server"
 
 const ASSET = "11111111-1111-4111-8111-111111111111";
 const KIT = "22222222-2222-4222-8222-222222222222";
+const MUSIC = "33333333-3333-4333-8333-333333333333";
 state.asset.id = ASSET;
 
 /** A measured report as the media service writes it, its checks judged by its own thresholds. */
@@ -159,6 +163,34 @@ describe("a render's quality report", () => {
       `Measured every frame (300): 3 flags, ${report.passes} passed.`,
     );
     expect(referenceNote(report)).toContain("render as Master");
+  });
+
+  test("the music's attack at the cuts on its beats, in words", () => {
+    const music = (cuts: Array<Record<string, unknown>>, status = "measured") =>
+      readQualityReport(workerReport({ music: { status, cuts } }))!;
+    const early = qualityLines(
+      music([
+        { clip: 2, time: 2, beat: 2, status: "measured", offset_ms: -1.5, from_cut_ms: -1.5 },
+        { clip: 5, time: 22.04, beat: 22.03, status: "measured", offset_ms: -37, from_cut_ms: -47 },
+        { clip: 6, time: 24, beat: 24, status: "measured", offset_ms: 26 },
+      ]),
+    );
+    expect(early).toContainEqual({
+      result: "flag",
+      text: "The music's attack at the cut (at 0:22.0) comes 37 ms ahead of its beat (20 ms at most), and off its beat at 1 more cut.",
+    });
+    const on = qualityLines(
+      music([{ clip: 2, time: 2, beat: 2, status: "measured", offset_ms: -1.5 }]),
+    ).map((entry) => entry.text);
+    expect(on).toContain("The music's attack on its beat at 1 cut (within 2 ms).");
+    const none = qualityLines(music([], "no_cut_on_a_beat")).map((entry) => entry.text);
+    expect(none).toContain("No cut falls on the music's beat, so its attack wasn't judged at any.");
+    const runsOn = qualityLines(
+      music([{ clip: 2, time: 2, beat: 2, status: "unclear", rise_db: 3 }]),
+    ).map((entry) => entry.text);
+    expect(runsOn).toContain(
+      "The music runs on through the cuts on its beats, with no clear attack to judge at them.",
+    );
   });
 
   test("a sampled, a passed-through and an unmeasured render say so", () => {
@@ -274,6 +306,57 @@ describe("what a render asks of the media service", () => {
     expect(request.params["measure"]).toEqual({
       brand_colours: ["#ffffff", "#0832de", "#0b0c15", "#c9a227"],
     });
+  });
+
+  test("where the music's beats fall, when the service can judge its attack at the cuts on them", async () => {
+    // A track whose bars were found: 120 BPM, a beat every half second from 0.25 s.
+    const beats = Array.from({ length: 40 }, (_, index) => 0.25 + index * 0.5);
+    const bars = beats.filter((_, index) => index % 4 === 0);
+    state.music = [
+      {
+        asset_id: MUSIC,
+        structure: {
+          bpm: 120,
+          beats,
+          beatsPerBar: 4,
+          downbeats: bars,
+          bars: bars.slice(0, -1),
+          sections: [{ start: 0, end: 20, kind: "section", energy: 1 }],
+          confidence: 1,
+        },
+        bar_features: {
+          version: 1,
+          loudness: bars.slice(0, -1).map(() => -12),
+          bands: bars.slice(0, -1).map(() => [-20, -20, -20, -20, -20, -20]),
+          chroma: bars.slice(0, -1).map(() => Array.from({ length: 12 }, (_, pc) => (pc ? 0 : 1))),
+          rhythm: bars.slice(0, -1).map(() => [1, 0, 0.5, 0, 1, 0, 0.5, 0]),
+        },
+      },
+    ];
+    // Its music starts a second into the edit, from 0.5 s into the track: its beats from 0.75 s on.
+    const timeline = edit({
+      audio: [{ id: "m1", assetId: MUSIC, role: "music", start: 1, trimStart: 0.5 }],
+    });
+    const request = await withRenderExtras(timeline, buildRenderRequest(timeline), [
+      "render_quality",
+      "music_at_cuts",
+    ]);
+    const measure = request.params["measure"] as { music_beats: number[] };
+    expect(measure.music_beats.slice(0, 3)).toEqual([1.25, 1.75, 2.25]);
+    expect(measure.music_beats.every((beat) => beat <= 10)).toBe(true);
+    // Not asked of a service that can't, nor for music whose bars haven't been found.
+    const older = await withRenderExtras(timeline, buildRenderRequest(timeline), [
+      "render_quality",
+    ]);
+    expect(older.params["measure"]).toEqual({
+      brand_colours: ["#ffffff", "#0832de", "#0b0c15", "#c9a227"],
+    });
+    state.music = [];
+    const unfound = await withRenderExtras(timeline, buildRenderRequest(timeline), [
+      "render_quality",
+      "music_at_cuts",
+    ]);
+    expect((unfound.params["measure"] as Record<string, unknown>)["music_beats"]).toBeUndefined();
   });
 
   test("an edit over its clip is only measured; a service without either is asked for neither", async () => {

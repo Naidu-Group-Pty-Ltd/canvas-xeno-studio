@@ -44,8 +44,11 @@ export const chromiumAvailable = chromiumPath !== null;
 /**
  * Flags for drawing a frame exactly: images decoded before a frame is drawn
  * (never filled in a frame later), every compositor stage run before a frame
- * is captured (a busy machine can't capture a tile still unpainted), colours
- * in sRGB, and nothing from outside. With a GPU, WebGL runs on it; without,
+ * is captured, colours in sRGB, and nothing from outside. Running every stage
+ * first does not stop a capture coming back a moment before every tile in it
+ * is painted (Reel 2 caught it on about half of fifty frames of a push-in), so
+ * each drawing is also kept only once two captures of it agree (./settle.js).
+ * With a GPU, WebGL runs on it; without,
  * in software (SwiftShader), which is slow for heavy WebGL (see
  * docs/compositions.md for how Reel 1's globe was made to draw quickly there).
  */
@@ -333,6 +336,10 @@ export async function openPage(browser, { width, height, scale, origin, serve, t
         clip: { x: 0, y: 0, width, height, scale: 1 },
       });
       return Buffer.from(data, "base64");
+    },
+    /** Two of the page's own frames: time for its painting to catch up before a drawing is captured again. */
+    async nextFrames() {
+      await evaluate("new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
     },
     async close() {
       stopServing();

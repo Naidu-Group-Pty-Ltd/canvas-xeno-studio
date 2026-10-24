@@ -28,10 +28,10 @@ holds no database access, no provider credentials and no user session.
 
 ## Endpoints
 
-| Method | Path     | Purpose                                                  |
-| ------ | -------- | -------------------------------------------------------- |
-| GET    | `/health`| Liveness, FFmpeg version, task catalogue, queue depth     |
-| POST   | `/tasks` | Submit a signed task; returns `202` immediately           |
+| Method | Path      | Purpose                                               |
+| ------ | --------- | ----------------------------------------------------- |
+| GET    | `/health` | Liveness, FFmpeg version, task catalogue, queue depth |
+| POST   | `/tasks`  | Submit a signed task; returns `202` immediately       |
 
 Results are reported to the `callback.url` supplied in the task, signed with the
 same scheme. A task that sets `"report_progress": true` also receives
@@ -96,7 +96,11 @@ frame. The app sends one source per distinct asset (role `video`, `image`,
 - `audio[]`: `source_index`, `role` (`voiceover`, `music`, `sfx`), `start`,
   `trim_start`, `duration`, `volume`, `fade_in`, `fade_out`, and for music
   `loop` and `duck` / `duck_level` (music dips wherever the voiceover actually
-  speaks, found with silence detection)
+  speaks, found with silence detection), and `pieces` (feature `music_pieces`:
+  stretches of its file played in order, `{from, to}` in the file's seconds,
+  each join under a 30 ms crossfade centred on it; a piece can give `enter`,
+  3 to 30 ms, where its bar line is past its start, and then comes in on that
+  bar line instead, over its last 3 ms, feature `music_pieces_on_the_bar`)
 - `captions` (`segments[]` of `start`/`end`/`text`, `style`, `position`,
   `size`, `uppercase`) and `overlays[]` (titles, subtitles, call-to-action
   badges), burned in with the Inter typeface; text is written to an ASS file
@@ -155,8 +159,10 @@ frame. The app sends one source per distinct asset (role `video`, `image`,
   once (`+faststart`), with its poster, and `metadata.pass_through` is
   `{"used": true}`. Otherwise the edit is rendered as usual, and
   `pass_through` is `{"used": false, "reason": "…"}`
-- `measure` (feature `render_quality`): `{"brand_colours": ["#rrggbb", …]}`
-  (up to 12, may be empty). The render is measured against its own lossless
+- `measure` (feature `render_quality`): `{"brand_colours": ["#rrggbb", …],
+  "music_beats": [seconds, …]}` (up to 12 colours, may be empty; up to 4,000
+  beats, where the music's beats fall on the timeline, feature
+  `music_at_cuts`). The render is measured against its own lossless
   reference: the final pass's picture before its encode, made again from the
   same inputs and filter graph (frame for frame what the encoder was given),
   both decoded as a BT.709 player decodes them (`src/quality.js`). The report
@@ -177,13 +183,22 @@ frame. The app sends one source per distinct asset (role `video`, `image`,
     shown); `cuts`: each cut on its frame (`reads_as` `cut`, `carried_through`
     for a join the picture runs through, or `missed` with `found_at`); `sync`:
     each voiceover (the eight longest) where it was placed, matched with the
-    master's sound (`offset_ms`, positive when late); `loudness`: integrated,
-    range and true peak, against the target when loudness is evened out
+    master's sound (`offset_ms`, positive when late); `music`: at each cut
+    with one of `music_beats` within half a frame of it, the music bus's
+    attack there (where its peak-held level first climbs halfway, in dB, from
+    the quiet before to its peak, looked for from 45 ms before the beat to
+    40 ms after), as `offset_ms` from the beat (negative when early) and
+    `from_cut_ms` from the cut; a beat the music runs on through, with no
+    clear rise, is `unclear`. Reel 2's early stabs (35 to 40 ms ahead of their
+    cuts, under crossfades that let in the bar before) are what it finds;
+    `loudness`: integrated, range and true peak, against the target when
+    loudness is evened out
   - `checks`: each measure judged `pass`, `flag` or `info` against the
     thresholds in `src/quality.js` (from Reel 1's own: SSIM 0.98, PSNR 40 dB
     and no frame below 37 dB, edges 98% and no frame below 95%, CIEDE2000 and
     brand colours below 1, banding below one code value, every caption and
-    cut, sync within 20 ms, loudness within 1 LU, true peak at most −1 dBTP),
+    cut, sync within 20 ms, the music's attack within 20 ms of its beat,
+    loudness within 1 LU, true peak at most −1 dBTP),
     with `passes` and `flags` counted. A master passed through is reported as
     `status: "passed_through"` with its loudness; a render that couldn't be
     measured as `status: "unmeasured"` (it stands all the same)
@@ -212,7 +227,7 @@ self-test measures it (each colour now within 0.75):
   them on BT.709's values. Which matrix FFmpeg draws with is measured once per
   process, by drawing a 16 × 16 teal box the way the render does (BT.601 in
   every FFmpeg so far; a newer one may follow the script's `YCbCr Matrix:
-  TV.709`, which the script names). A render keeps its script as composed
+TV.709`, which the script names). A render keeps its script as composed
   (`text.ass`) and as drawn (`text.drawn.ass`).
 - Frames taken out of a video (thumbnails, frames, last frames, posters, review
   sheet tiles) are read as a player shows them and written in their image
@@ -399,8 +414,18 @@ each drawing's changes as data, captures it, and encodes.
 - **`join_stretches`** joins a composition's stretches frame for frame (a
   stream copy: nothing is encoded again) and makes its playable copy and poster.
 
+Every drawing is kept only once two captures of it agree (`src/settle.js`):
+Chromium can hand back a capture a moment before every tile in it is painted,
+even with every compositor stage run first. A final drawing is also put to the
+vote: the frames the check captured again, their neighbours and 5% of the rest
+(`verify`, 0 to 0.5) are drawn again by a browser of their own and compared
+frame by frame, a third voting where two disagree. `metadata.composition`
+reports `settle`, `verified` and `browser_launches`.
+
 `COMPOSITION_BROWSERS` (2 with four or more CPUs, else 1) draws that many
-stretches of one task's frames side by side. Final drawings go ahead of drafts
+stretches of one task's frames side by side, each browser started again every
+`COMPOSITION_RECYCLE_FRAMES` (40) of its frames, its page brought up to its
+frame from the track (`never` keeps one browser throughout). Final drawings go ahead of drafts
 in the heavy lane (`priority`). A worker on a machine with a GPU, run with
 `MEDIA_WORKER_GPU=1`, draws WebGL on it (and offers `compositions_gpu`); the
 app sends compositions that draw with WebGL there when `MEDIA_WORKER_GPU_URL`

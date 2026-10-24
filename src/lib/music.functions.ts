@@ -167,6 +167,28 @@ export const makeInstrumentalTrack = createServerFn({ method: "POST" })
   });
 
 /**
+ * A track at another tempo, its pitch kept: a new track the media service
+ * makes (see changeTempo), ready in a minute or so.
+ */
+export const changeTrackTempo = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        trackId: z.string().uuid(),
+        bpm: z.number().min(30).max(300),
+        fromBpm: z.number().min(30).max(300).optional(),
+        clientRequestId: z.string().min(8).max(64),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    const { changeTempo } = await import("./music/service.server");
+    const result = await changeTempo({ ...data, userId: context.userId });
+    return { ...summary(result), note: result.note };
+  });
+
+/**
  * Starts uploading a recording for its licence: the server records the upload
  * and picks where the file goes, and the browser uploads it there.
  */

@@ -27,13 +27,16 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
         }
 
         const taskId = typeof payload["task_id"] === "string" ? payload["task_id"] : null;
-        if (!taskId) return new Response(JSON.stringify({ error: "Missing task id" }), { status: 400 });
+        if (!taskId)
+          return new Response(JSON.stringify({ error: "Missing task id" }), { status: 400 });
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
         const { data: task, error: lookupError } = await supabaseAdmin
           .from("media_tasks")
-          .select("id,status,error_code,task_type,operation_id,project_id,created_by,source_asset_id,input_payload,storage_bucket")
+          .select(
+            "id,status,error_code,task_type,operation_id,project_id,created_by,source_asset_id,input_payload,storage_bucket",
+          )
           .eq("id", taskId)
           .maybeSingle();
         // A lookup that failed isn't an unknown task: answered 503, so the worker repeats the report.
@@ -44,7 +47,8 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
           });
           return new Response(JSON.stringify({ received: false }), { status: 503 });
         }
-        if (!task) return new Response(JSON.stringify({ received: true, matched: false }), { status: 200 });
+        if (!task)
+          return new Response(JSON.stringify({ received: true, matched: false }), { status: 200 });
 
         const status = payload["status"];
         // A render presumed lost (no word for a while), or a task the worker
@@ -165,10 +169,25 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
         // and a screenshot's redacted copy (it joins the library then, marked).
         const forCleanPlate = typeof taskInput["clean_plate_recipe_id"] === "string";
         const forRedaction = typeof taskInput["reference_redaction_id"] === "string";
+        // ...and a music track made at another tempo, which is ready once its recording is in.
+        const forTempo = typeof taskInput["tempo_track_id"] === "string";
         const moveLongVideoOn = async () => {
-          if (!forLongVideo && !forVoiceover && !forClipSync && !forCleanPlate && !forRedaction)
+          if (
+            !forLongVideo &&
+            !forVoiceover &&
+            !forClipSync &&
+            !forCleanPlate &&
+            !forRedaction &&
+            !forTempo
+          )
             return;
           const { runAfterResponse } = await import("@/lib/generation-pipeline.server");
+          if (forTempo) {
+            const { finishTempoChange } = await import("@/lib/music/service.server");
+            await runAfterResponse(request, () =>
+              finishTempoChange(String(taskInput["tempo_track_id"])),
+            );
+          }
           if (forRedaction) {
             const { advanceForMediaTask: finishRedaction } =
               await import("@/lib/media/redaction.server");
@@ -195,27 +214,48 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
 
         const settingsUpdate =
           status === "completed"
-            ? supabaseAdmin.from("app_settings").update({ value: now as never }).eq("key", "media_worker_last_success_at")
+            ? supabaseAdmin
+                .from("app_settings")
+                .update({ value: now as never })
+                .eq("key", "media_worker_last_success_at")
             : supabaseAdmin
                 .from("app_settings")
-                .update({ value: { at: now, message: String(payload["error_message"] ?? "unknown") } as never })
+                .update({
+                  value: {
+                    at: now,
+                    message: String(payload["error_message"] ?? "unknown"),
+                  } as never,
+                })
                 .eq("key", "media_worker_last_error");
         await settingsUpdate;
 
         if (status !== "completed") {
-          const errorCode = typeof payload["error_code"] === "string" ? payload["error_code"] : "RENDER_FAILED";
+          const errorCode =
+            typeof payload["error_code"] === "string" ? payload["error_code"] : "RENDER_FAILED";
           const errorMessage =
-            typeof payload["error_message"] === "string" ? payload["error_message"] : "The media task failed";
+            typeof payload["error_message"] === "string"
+              ? payload["error_message"]
+              : "The media task failed";
           if (task.operation_id) {
             const { error } = await supabaseAdmin
               .from("operations")
-              .update({ status: "failed", error_code: errorCode, error_message: errorMessage, failed_at: now })
+              .update({
+                status: "failed",
+                error_code: errorCode,
+                error_message: errorMessage,
+                failed_at: now,
+              })
               .eq("id", task.operation_id);
             if (error) return notRecorded("operation", error.message);
           }
           const { error } = await supabaseAdmin
             .from("media_tasks")
-            .update({ status: "failed", error_code: errorCode, error_message: errorMessage, completed_at: now })
+            .update({
+              status: "failed",
+              error_code: errorCode,
+              error_message: errorMessage,
+              completed_at: now,
+            })
             .eq("id", task.id);
           if (error) return notRecorded("media task", error.message);
           await moveLongVideoOn();
@@ -223,10 +263,16 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
         }
 
         const input = (task.input_payload ?? {}) as Record<string, unknown>;
-        const storagePaths = Array.isArray(input["storage_paths"]) ? (input["storage_paths"] as string[]) : [];
-        const mimeType = typeof input["mime_type"] === "string" ? input["mime_type"] : "application/octet-stream";
-        const outputKind = typeof input["output_kind"] === "string" ? input["output_kind"] : "image";
-        const outputs = Array.isArray(payload["outputs"]) ? (payload["outputs"] as Record<string, unknown>[]) : [];
+        const storagePaths = Array.isArray(input["storage_paths"])
+          ? (input["storage_paths"] as string[])
+          : [];
+        const mimeType =
+          typeof input["mime_type"] === "string" ? input["mime_type"] : "application/octet-stream";
+        const outputKind =
+          typeof input["output_kind"] === "string" ? input["output_kind"] : "image";
+        const outputs = Array.isArray(payload["outputs"])
+          ? (payload["outputs"] as Record<string, unknown>[])
+          : [];
         const metadata = (payload["metadata"] ?? null) as Record<string, unknown> | null;
         const bucket = task.storage_bucket ?? "generated-assets";
 
@@ -236,7 +282,10 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
         const files: { bucket: string; path: string; timestamp_seconds: unknown }[] = [];
         const assetIds: string[] = [];
         for (const [index, output] of outputs.entries()) {
-          const path = (typeof output["storage_key"] === "string" ? output["storage_key"] : storagePaths[index]) ?? null;
+          const path =
+            (typeof output["storage_key"] === "string"
+              ? output["storage_key"]
+              : storagePaths[index]) ?? null;
           if (!path) continue;
           if (!registered) {
             files.push({ bucket, path, timestamp_seconds: output["timestamp_seconds"] ?? null });
@@ -271,10 +320,16 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
               storage_path: path,
               mime_type: typeof output["mime_type"] === "string" ? output["mime_type"] : mimeType,
               file_size: typeof output["bytes"] === "number" ? output["bytes"] : null,
-              width: typeof probe["width"] === "number" && outputs.length === 1 ? probe["width"] : null,
-              height: typeof probe["height"] === "number" && outputs.length === 1 ? probe["height"] : null,
+              width:
+                typeof probe["width"] === "number" && outputs.length === 1 ? probe["width"] : null,
+              height:
+                typeof probe["height"] === "number" && outputs.length === 1
+                  ? probe["height"]
+                  : null,
               duration_seconds:
-                typeof probe["duration_seconds"] === "number" && outputs.length === 1 ? probe["duration_seconds"] : null,
+                typeof probe["duration_seconds"] === "number" && outputs.length === 1
+                  ? probe["duration_seconds"]
+                  : null,
               source_type: "generated",
               title:
                 typeof input["output_title"] === "string" && outputs.length === 1
@@ -285,7 +340,9 @@ export const Route = createFileRoute("/api/public/media-worker-callback")({
                 media_task_id: task.id,
                 task_type: task.task_type,
                 derived_from_asset_id: task.source_asset_id,
-                ...(output["timestamp_seconds"] !== undefined ? { timestamp_seconds: output["timestamp_seconds"] } : {}),
+                ...(output["timestamp_seconds"] !== undefined
+                  ? { timestamp_seconds: output["timestamp_seconds"] }
+                  : {}),
                 ...(metadata ? { probe: metadata } : {}),
               } as never,
             })

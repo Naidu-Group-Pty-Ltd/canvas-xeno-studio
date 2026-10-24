@@ -7,6 +7,7 @@ import { fitAudioToSources, mixArgs, planSequence } from "../../media-worker/src
 import {
   MIN_PIECE_SECONDS,
   PIECE_CROSSFADE,
+  PIECE_ENTRY,
   PIECES_LIMIT,
   pieceParts,
   piecesReadEnd,
@@ -52,10 +53,12 @@ function plan(audio: Array<Record<string, unknown>>, seconds = 140) {
 describe("the media worker plays music in pieces", () => {
   test("it says so", () => {
     expect(FEATURES).toContain("music_pieces");
+    expect(FEATURES).toContain("music_pieces_on_the_bar");
     // The app and the worker agree on the limits.
     expect(PIECES_LIMIT).toBe(PIECES.max);
     expect(MIN_PIECE_SECONDS).toBe(PIECES.minSeconds);
     expect(PIECE_CROSSFADE).toBe(PIECES.crossfade);
+    expect(PIECE_ENTRY).toBe(PIECES.entry);
   });
 
   test("a track in pieces plays them in place of its trim and loop, as long as they run", () => {
@@ -166,6 +169,87 @@ describe("the media worker plays music in pieces", () => {
       PIECES_REEL.reduce((sum, piece) => sum + piece.to - piece.from, 0),
       9,
     );
+  });
+
+  test("a piece that comes in on its bar line is cut and comes in where the app's preview has it", () => {
+    // Reel 2's statements: out of quiet onto a bar the track is loud in; one near its file's start too.
+    const pieces = [
+      { from: 10, to: 14 },
+      { from: 30, to: 34, enter: 0.02 },
+      { from: 0.004, to: 4, enter: 0.02 },
+      { from: 50, to: 54 },
+    ];
+    const parts = pieceParts(pieces) as Array<{
+      kind: string;
+      from?: number;
+      to?: number;
+      out?: { from: number; to: number };
+      in?: { from: number; to: number };
+      enters?: number;
+    }>;
+    const cuts = pieceCuts(pieces);
+    const joins = pieceJoins(pieces);
+    const crossfades = parts.filter((part) => part.kind === "join");
+    crossfades.forEach((part, index) => {
+      expect(part.out!.to).toBeCloseTo(cuts[index]!.to, 9);
+      expect(part.in!.from).toBeCloseTo(cuts[index + 1]!.from, 9);
+      const next = pieces[index + 1]!;
+      if (next.enter === undefined) return expect(part.enters).toBeUndefined();
+      // It comes in at the moment of its track the preview brings it in at: 3 ms before its bar line.
+      expect(part.in!.from + part.enters!).toBeCloseTo(next.from + next.enter - PIECES.entry, 9);
+      expect(joins[index]!.start + part.enters! + PIECES.entry).toBeLessThanOrEqual(
+        joins[index]!.start + PIECES.crossfade + 1e-9,
+      );
+    });
+    const total = parts.reduce(
+      (sum, part) => sum + (part.kind === "alone" ? part.to! - part.from! : PIECE_CROSSFADE),
+      0,
+    );
+    expect(total).toBeCloseTo(
+      pieces.reduce((sum, piece) => sum + piece.to - piece.from, 0),
+      9,
+    );
+    // In the graph: silent until then, in over 3 ms, where the other joins crossfade.
+    const graph = (
+      mixArgs(
+        plan([{ source_index: 1, role: "music", pieces }], 20),
+        ["/tmp/clip.mkv"],
+        ["/tmp/music.wav"],
+        "/tmp/mix.wav",
+      ) as string[]
+    ).find((arg) => arg.includes("concat="))!;
+    expect(graph).toContain("afade=t=in:st=0.027000:d=0.003000[pc0p1i]");
+    expect(graph).toContain("afade=t=in:st=0.021000:d=0.003000[pc0p3i]");
+    expect(graph.match(/afade=t=in:st=0:d=0.030000:curve=qsin/g)).toHaveLength(1);
+  });
+
+  test("where a piece comes in is checked: 3 to 30 ms past its start, and not on the first piece", () => {
+    const refused = (pieces: unknown) => () => plan([{ source_index: 1, role: "music", pieces }]);
+    const two = (enter: unknown) => [
+      { from: 0, to: 4 },
+      { from: 8, to: 12, enter },
+    ];
+    for (const enter of [0.001, 0.05, "x", -1]) expect(refused(two(enter))).toThrow("enter");
+    const kept = plan([{ source_index: 1, role: "music", pieces: two(0.02) }]).audio[0]!;
+    expect(kept.pieces).toEqual([
+      { from: 0, to: 4 },
+      { from: 8, to: 12, enter: 0.02 },
+    ]);
+    // The first piece has no join to come in by.
+    const first = plan([
+      {
+        source_index: 1,
+        role: "music",
+        pieces: [
+          { from: 0, to: 4, enter: 0.02 },
+          { from: 8, to: 12 },
+        ],
+      },
+    ]).audio[0]!;
+    expect(first.pieces).toEqual([
+      { from: 0, to: 4 },
+      { from: 8, to: 12 },
+    ]);
   });
 
   test("a piece outside its file is refused once the file has been measured", async () => {

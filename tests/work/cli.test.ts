@@ -774,6 +774,39 @@ describe.skipIf(!TOOLS)("work.py, as a Claude Code session runs it", () => {
     expect(db.find("generations", generation["id"])!["project_id"]).toBe(theWork()["project_id"]);
   });
 
+  test("a long job is held for the work: its hold renewed while it runs, its files kept, and the journal told how it ended", async () => {
+    const heard = String(theWork()["heard_at"]);
+    const job = [
+      "python3",
+      "-c",
+      "import pathlib, sys, time; time.sleep(1.5); pathlib.Path('refs/frame-1.txt').write_text('drawn'); time.sleep(2.5); sys.exit(3)",
+    ];
+    const ran = await work(
+      repoG(),
+      G,
+      ["run", "-m", "Drawing the proof", "--keep-every", "1", "--", ...job],
+      undefined,
+      {
+        XENO_WORK_RENEW_SECONDS: "1",
+      },
+    );
+    // The job's own exit code, and its words in the journal.
+    expect(ran.code).toBe(3);
+    const last = journal().at(-1)!;
+    expect(last["kind"]).toBe("save");
+    expect(String(last["summary"])).toMatch(
+      /^Ran Drawing the proof: failed \(exit code 3\) after \d+ s\.$/,
+    );
+    // Renewed while it ran: the session was heard from after it started.
+    expect(String(theWork()["heard_at"]) > heard).toBe(true);
+    expect(theWork()["holder"]).toBe(`claude-code:${G}`);
+    // What it wrote into a tracked folder was kept.
+    expect(db.filesNow(workId).has("refs/frame-1.txt")).toBe(true);
+    const refused = await work(repoG(), G, ["run"]);
+    expect(refused.code).not.toBe(0);
+    expect(refused.stderr).toContain("Say what to run");
+  });
+
   test("a checkout moving on to another work lets go of the one it was on", async () => {
     const repoD = join(root, "d");
     const moved = await work(repoD, "eeeeeeee-5555-4555-8555-555555555555", [

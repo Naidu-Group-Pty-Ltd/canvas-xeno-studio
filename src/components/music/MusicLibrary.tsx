@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Archive,
   ArchiveRestore,
+  Gauge,
   Loader2,
   MoreHorizontal,
   Search,
@@ -30,7 +31,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useKatanaEnabled, useSendToKatana } from "@/hooks/useKatana";
 import { supabase } from "@/integrations/supabase/client";
 import { useMusicStatus, useMusicTracks } from "@/hooks/useMusicData";
-import { makeInstrumentalTrack, setMusicArchived } from "@/lib/music.functions";
+import { changeTrackTempo, makeInstrumentalTrack, setMusicArchived } from "@/lib/music.functions";
 import { keepAttempt, savedAttempt } from "@/lib/attempts";
 import { licenceBlocker, licenceTerms, type MusicTrackRow } from "@/lib/music/catalog";
 import { cn } from "@/lib/utils";
@@ -53,6 +54,8 @@ export function MusicLibrary({
   const sendToKatana = useSendToKatana();
   // A recorded track whose licence's terms are being updated (say renewed once run out).
   const [renewing, setRenewing] = useState<MusicTrackRow | null>(null);
+  // A track being made again at another tempo.
+  const [retiming, setRetiming] = useState<MusicTrackRow | null>(null);
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [searched, setSearched] = useState("");
@@ -187,6 +190,7 @@ export function MusicLibrary({
   return (
     <div className="space-y-2.5" data-testid="music-library">
       <RenewLicence track={renewing} onClose={() => setRenewing(null)} />
+      <ChangeTempo track={retiming} onClose={() => setRetiming(null)} />
       <div className="flex gap-1.5">
         <div className="relative flex-1">
           <Search className="absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -238,6 +242,9 @@ export function MusicLibrary({
             track.instrumental !== true &&
             track.asset_id &&
             !licenceBlocker(track);
+          // A track it may use at another tempo: one whose licence still runs.
+          const canRetime =
+            !onAdd && track.status === "ready" && !!track.asset_id && !licenceBlocker(track);
           // Katana cuts to a track it may use (one whose licence still runs).
           const canKatana =
             !onAdd &&
@@ -253,7 +260,7 @@ export function MusicLibrary({
               onAdd={onAdd}
               added={!!track.asset_id && !!addedAssetIds?.has(track.asset_id)}
               actions={
-                !onAdd && (canChange || canSplit || canKatana) ? (
+                !onAdd && (canChange || canSplit || canKatana || canRetime) ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -287,6 +294,14 @@ export function MusicLibrary({
                           data-testid="track-to-katana"
                         >
                           <Sword className="mr-2 size-4" /> Cut to it in Katana
+                        </DropdownMenuItem>
+                      )}
+                      {canRetime && (
+                        <DropdownMenuItem
+                          onClick={() => setRetiming(track)}
+                          data-testid="track-change-tempo"
+                        >
+                          <Gauge className="mr-2 size-4" /> Change tempo…
                         </DropdownMenuItem>
                       )}
                       {canSplit && !heldSplits.has(track.id) && !madeSplits.has(track.id) && (
@@ -410,6 +425,134 @@ export function RenewLicence({
         ) : (
           original && <AddLicensedTrack key={original.id} renewing={original} onAdded={onClose} />
         )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** The most a tempo is changed without saying it can be heard (TEMPO_CHANGE.gentle on the server). */
+const GENTLE_TEMPO = 0.12;
+
+/**
+ * Makes a track again at another tempo, its pitch kept: a new track, with this
+ * one's licence and credit, for a cut paced to another beat (Reel 2 slowed
+ * Reel 1's track 7%, 129 to 120 BPM). Its bars are found again before it is
+ * fitted to the cut.
+ */
+export function ChangeTempo({
+  track,
+  onClose,
+}: {
+  track: MusicTrackRow | null;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    setFrom(track?.bpm ? String(Math.round(Number(track.bpm) * 100) / 100) : "");
+    setTo("");
+  }, [track?.id, track?.bpm]);
+  const fromBpm = Number(from);
+  const toBpm = Number(to);
+  const ratio = fromBpm > 0 && toBpm > 0 ? toBpm / fromBpm : null;
+  const inRange = (bpm: number) => bpm >= 30 && bpm <= 300;
+  const valid =
+    ratio !== null &&
+    inRange(fromBpm) &&
+    inRange(toBpm) &&
+    ratio >= 0.5 &&
+    ratio <= 2 &&
+    Math.abs(ratio - 1) >= 0.0005;
+  const change = valid ? (ratio - 1) * 100 : null;
+  async function make() {
+    if (!track || !valid) return;
+    setBusy(true);
+    try {
+      const made = await changeTrackTempo({
+        data: { trackId: track.id, bpm: toBpm, fromBpm, clientRequestId: crypto.randomUUID() },
+      });
+      if (made.status === "failed")
+        toast.error(made.errorMessage ?? "Its tempo couldn't be changed");
+      else
+        toast.success(`Making “${made.title}”`, {
+          description:
+            made.note ??
+            "It joins the library in a minute or so. Find its bars before fitting it to a cut.",
+        });
+      await queryClient.invalidateQueries({ queryKey: ["music_tracks"] });
+      onClose();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Its tempo couldn't be changed");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Dialog open={track !== null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-md" data-testid="change-tempo">
+        <DialogHeader>
+          <DialogTitle>Change its tempo</DialogTitle>
+          <DialogDescription>
+            A new track at another tempo, its pitch kept, for a cut paced to another beat. It keeps
+            this track&apos;s licence and credit. Find its bars again before fitting it to a cut.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="space-y-1 text-xs">
+            <span className="text-muted-foreground">It plays at (BPM)</span>
+            <Input
+              inputMode="decimal"
+              value={from}
+              onChange={(event) => setFrom(event.target.value)}
+              placeholder={track?.bpm ? undefined : "Its tempo"}
+            />
+          </label>
+          <label className="space-y-1 text-xs">
+            <span className="text-muted-foreground">To play at (BPM)</span>
+            <Input
+              inputMode="decimal"
+              value={to}
+              onChange={(event) => setTo(event.target.value)}
+              placeholder="The cut's tempo"
+              autoFocus
+            />
+          </label>
+        </div>
+        {change !== null ? (
+          <p
+            className={cn(
+              "text-xs",
+              Math.abs(change) / 100 > GENTLE_TEMPO ? "text-warning" : "text-muted-foreground",
+            )}
+          >
+            {change < 0 ? "Slower" : "Faster"} by {Math.abs(change).toFixed(1)}%
+            {Math.abs(change) / 100 > GENTLE_TEMPO
+              ? `: past about ${GENTLE_TEMPO * 100}% a change of tempo can be heard. Listen to it before using it.`
+              : "."}
+          </p>
+        ) : (
+          ratio !== null &&
+          (ratio < 0.5 || ratio > 2) && (
+            <p className="text-xs text-warning">A tempo can be halved or doubled at most.</p>
+          )
+        )}
+        {!track?.bpm && (
+          <p className="text-xs text-muted-foreground">
+            Its tempo isn&apos;t known yet: find its bars and sections in the Editor&apos;s Music
+            panel, or say it here.
+          </p>
+        )}
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button size="sm" disabled={!valid || busy} onClick={() => void make()}>
+            {busy && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
+            Make it
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

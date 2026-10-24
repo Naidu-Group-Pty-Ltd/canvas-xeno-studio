@@ -25,6 +25,7 @@ import {
   type MediaWorkerTask,
 } from "../media/worker.server";
 import { compositionBrandOf } from "./brand";
+import { describeChecks, drawingChecksOf, type DrawingChecks } from "./checks";
 import {
   compileComposition,
   compositionFiles,
@@ -72,6 +73,13 @@ export interface CompositionRenderView {
   fps: number;
   /** The hash of everything that decides its frames (see compositionIdentity). */
   hash: string;
+  /**
+   * Once completed, how its frames were checked (./checks): the drawings
+   * captured again to settle, any that never did, and the vote of a final
+   * drawing. Only `compositionRender` reads them.
+   */
+  checks?: DrawingChecks | null;
+  checksSummary?: string | null;
 }
 
 type RenderRow = {
@@ -298,7 +306,42 @@ export async function compositionRender(renderId: string): Promise<CompositionRe
   let row = await renderRow(renderId);
   if (!row) throw new AppError("INVALID_PARAMETERS", "That motion graphic render doesn't exist");
   if (await settleLost(row)) row = (await renderRow(renderId)) ?? row;
-  return viewOf(row, false, await measuredSecondsPerDrawing(row.quality));
+  const view = viewOf(row, false, await measuredSecondsPerDrawing(row.quality));
+  if (row.status !== "completed") return view;
+  const checks = await checksOf(row);
+  return { ...view, checks, checksSummary: describeChecks(checks) };
+}
+
+/**
+ * A completed drawing's checks, from the tasks that drew its frames: its own
+ * task, or for one drawn in stretches, each stretch's.
+ */
+async function checksOf(row: RenderRow): Promise<DrawingChecks | null> {
+  let taskIds: string[] = [];
+  if (row.stretches?.length) {
+    const { data } = await supabaseAdmin
+      .from("composition_stretches" as never)
+      .select("media_task_id")
+      .in(
+        "id",
+        row.stretches.map((stretch) => stretch.stretch_id),
+      );
+    taskIds = ((data ?? []) as { media_task_id: string | null }[])
+      .map((stretch) => stretch.media_task_id)
+      .filter((id): id is string => Boolean(id));
+  } else if (row.media_task_id) taskIds = [row.media_task_id];
+  if (!taskIds.length) return null;
+  const { data, error } = await supabaseAdmin
+    .from("media_tasks")
+    .select("output_payload")
+    .in("id", taskIds);
+  if (error) return null;
+  return drawingChecksOf(
+    ((data ?? []) as { output_payload: unknown }[]).map((task) => {
+      const payload = (task.output_payload ?? {}) as { metadata?: { composition?: unknown } };
+      return payload.metadata?.composition ?? null;
+    }),
+  );
 }
 
 /**
