@@ -82,7 +82,15 @@ if any("settle" in log for log in logs):
         "capture_ms_mean": round(sum((s.get("captures") or 0) * (s.get("capture_ms_mean") or 0) for s in settles) / captures)
         if captures else None,
     }
-merged["assembled"] = [{"dir": str(p), "from": log["from"], "to": log["to"], "shots": log["shots"]} for p, log in zip(parts, logs)]
+# Reel 2's stretches are each verified by agreement (verify_run.py), and some drawn by another session's machine.
+if any("verified" in log for log in logs):
+    merged["verified"] = [{"from": log["from"], "to": log["to"],
+                           **{k: log["verified"].get(k) for k in ("against", "disagreed", "run_stands",
+                                                                  "replaced_by_agreement", "unresolved")}}
+                          for log in logs if "verified" in log]
+merged.pop("drawn_by", None)
+merged["assembled"] = [{"dir": str(p), "from": log["from"], "to": log["to"], "shots": log["shots"],
+                        **({"drawn_by": log["drawn_by"]} if "drawn_by" in log else {})} for p, log in zip(parts, logs)]
 merged["soundtrack"] = str(soundtrack)
 (out / "film.json").write_text(json.dumps(merged) + "\n")
 print(f"{len(parts)} stretches, frames {start} to {total} ({(total - start) / FPS:.3f} s) -> {out / 'film.mp4'}")

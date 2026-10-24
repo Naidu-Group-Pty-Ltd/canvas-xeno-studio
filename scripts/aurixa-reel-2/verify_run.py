@@ -17,6 +17,10 @@
   python3 -I verify_run.py settle <run dir> - 0 <extra dir> [...]
       as above with no old draw ("-"): the run and the extra draws vote
 
+  python3 -I verify_run.py compare <run dir> <png dir>
+      each frame-NNNNN.png in <png dir> (render.cjs RENDER_FRAMES, drawn on another machine) against the run's
+      reference, by the same rule: whether that machine draws what this one drew (exits 1 if any frame differs)
+
 The renderer is deterministic: two independent draws that agree on a frame have drawn it right, because a
 capture race lands on different drawings each run and two races never make the same wrong frame.
 """
@@ -85,6 +89,27 @@ if sys.argv[1] == "pick":
     print(f"{len(picked)} frames to draw again ({len(near)} at or beside the {len(retried)} the check re-captured, "
           f"{len(sample)} sampled): {','.join(map(str, picked))}")
     sys.exit(0)
+
+if sys.argv[1] == "compare":
+    run, pngs = Path(sys.argv[2]), Path(sys.argv[3])
+    log, lo, hi = run_range(run)
+    files = sorted(pngs.glob("frame-*.png"))
+    if not files:
+        raise SystemExit(f"{pngs} holds no frame-NNNNN.png")
+    agree = 0
+    for p in files:
+        f = int(p.stem.split("-")[1])
+        if not lo <= f < hi:
+            raise SystemExit(f"{p.name}: frame {f} is not in the run ({lo} to {hi - 1})")
+        a = read(run / "reference.mkv", lo, f, f + 1)[0]
+        b = np.asarray(Image.open(p).convert("RGB"))
+        d = np.abs(a.astype(np.int16) - b.astype(np.int16)).max(axis=2)
+        ok = same(a, b)
+        agree += ok
+        print(f"frame {f}: {'agrees' if ok else 'DIFFERS'} (largest difference {int(d.max())}; "
+              f"{int((d > TOLERANCE).sum())} pixels over {TOLERANCE}, {int((d > 12).sum())} over 12)")
+    print(f"{agree} of {len(files)} frames from {pngs} agree with {run / 'reference.mkv'}")
+    sys.exit(0 if agree == len(files) else 1)
 
 cmd, run, old, old_first = sys.argv[1], Path(sys.argv[2]), sys.argv[3], int(sys.argv[4])
 old = None if old == "-" else Path(old)
