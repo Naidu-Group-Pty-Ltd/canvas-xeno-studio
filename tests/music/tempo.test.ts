@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import { FakeDb } from "../long-video/fake-db";
 
@@ -29,6 +30,14 @@ const env = {
   secret: process.env["MEDIA_WORKER_SHARED_SECRET"],
 };
 const worker = { features: ["audio_stretch"], sent: [] as Record<string, unknown>[] };
+// Other files stand in for these two, and a module stood in for stays so for the rest of the run:
+// this one asks the real ones (a module imported with a query string is loaded afresh).
+for (const name of ["media/worker-feature.server.ts", "media/enqueue.server.ts"]) {
+  const path = join(import.meta.dir, "../../src/lib", name);
+  // As a plain copy of its exports: a module's own namespace given back doesn't replace a stand-in.
+  const real = (await import(`${path}?real`)) as Record<string, unknown>;
+  mock.module(path, () => ({ ...real }));
+}
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input);
   if (url.endsWith("/health"))

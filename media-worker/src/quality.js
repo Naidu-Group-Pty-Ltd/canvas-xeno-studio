@@ -27,6 +27,7 @@ import { enterWorkspace } from "./workspace.js";
  *   banding    gentle gradients, as their smoothed difference
  *   captions   each caption on the frames it was planned for
  *   cuts       each cut on its frame
+ *   music      the music's attack at each cut on one of its beats
  *   sync       each voiceover where it was placed, against the picture
  *   loudness   integrated, range and true peak
  *
@@ -73,6 +74,13 @@ export const THRESHOLDS = {
   truePeakMax: -1,
   /** A voiceover's offset from where it was placed (ms): Reel 1's was 0; 20 ms is about half a frame, and under what people notice. */
   syncMs: 20,
+  /**
+   * The music's attack at a cut on its beat, from the beat (ms): Reel 2's
+   * four statements came in 35 to 40 ms ahead of theirs, under crossfades
+   * that let in the bar before, and it was heard; fixed, they measured
+   * within 3 ms. 20 ms, as for the voice.
+   */
+  musicAttackMs: 20,
 };
 
 /** Frames compared for SSIM and PSNR: every frame up to this many (a minute at 30 fps), an even sample beyond. */
@@ -81,14 +89,18 @@ export const FIDELITY_FRAMES = 1800;
 export const PIXEL_FRAMES = 90;
 /** Brand colours checked at most. */
 export const BRAND_COLOURS = 12;
+/** The music's beats on the timeline the app sends at most (ten minutes at 400 BPM). */
+export const MUSIC_BEATS = 4000;
 
 function bad(message) {
   return new TaskError("INVALID_PARAMETERS", message);
 }
 
 /**
- * The render's `measure` parameter: measure it, and the brand kit's colours
- * to look for (each #rrggbb). Null when the app doesn't ask.
+ * The render's `measure` parameter: measure it, the brand kit's colours to
+ * look for (each #rrggbb), and where the music's beats fall on the timeline
+ * (`music_beats`, seconds), for its attack at the cuts on them. Null when the
+ * app doesn't ask.
  */
 export function planMeasurement(params) {
   const p = params && typeof params === "object" ? params : {};
@@ -106,7 +118,13 @@ export function planMeasurement(params) {
     const hex = colour.toLowerCase();
     if (!brandColours.includes(hex)) brandColours.push(hex);
   }
-  return { measure: { brandColours } };
+  const beats = value.music_beats ?? [];
+  if (!Array.isArray(beats) || beats.length > MUSIC_BEATS)
+    throw bad(`measure music_beats must be a list of at most ${MUSIC_BEATS} times`);
+  if (beats.some((beat) => typeof beat !== "number" || !Number.isFinite(beat) || beat < 0 || beat > 86_400))
+    throw bad("measure music_beats must be times in seconds");
+  const musicBeats = [...new Set(beats)].sort((a, b) => a - b);
+  return { measure: { brandColours, ...(musicBeats.length ? { musicBeats } : {}) } };
 }
 
 /* ------------------------------------------------------------------ */
@@ -1142,6 +1160,25 @@ export function qualityChecks(report) {
         ? verdict("cuts", cuts.missed ? "flag" : "pass", cuts.missed, 0)
         : verdict("cuts", "info"),
     );
+  const music = report.music;
+  if (music) {
+    const measured = music.cuts.filter((cut) => cut.status === "measured");
+    const worst = measured.reduce(
+      (most, cut) => (most === null || Math.abs(cut.offset_ms) > Math.abs(most.offset_ms) ? cut : most),
+      null,
+    );
+    checks.push(
+      worst
+        ? verdict(
+            "music_cuts",
+            Math.abs(worst.offset_ms) <= t.musicAttackMs ? "pass" : "flag",
+            worst.offset_ms,
+            t.musicAttackMs,
+            { time: worst.time },
+          )
+        : verdict("music_cuts", "info", null, null, { status: music.status === "measured" ? "unclear" : music.status }),
+    );
+  }
   const sync = report.sync;
   if (sync) {
     const measured = sync.items.filter((item) => item.status === "measured");
@@ -1433,6 +1470,112 @@ async function decodeMono(path, rate, out, { start = null, seconds = null } = {}
   return samples;
 }
 
+/* ------------------------------------------------------------------ */
+/* The music at the cuts                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Reel 2's four statements, each cut onto a bass hit, came in 35 to 40 ms
+ * ahead of their cuts: the crossfade into each played the last 35 ms of the
+ * bar before. Nobody could see it, and a measurement of the music's attack
+ * at each cut found it. So each cut on one of the music's beats (the app
+ * sends where they fall on the timeline) has the music bus's attack there
+ * measured, as the analysis puts a beat on its attack (src/lib/music/structure):
+ * a level held from each peak, where it first climbs halfway from the quiet
+ * before the beat to its peak around it, halfway in decibels so a quiet
+ * sound arriving early reads as it is heard. It is looked for from 45 ms
+ * before the beat to 40 ms after it, against the quiet of the 35 ms before
+ * that; a beat with no clear attack (one rising less than ATTACK_CLEAR_DB
+ * over that quiet: the music running on, a held chord) isn't judged.
+ */
+const ATTACK_RATE = 16_000;
+/** As the analysis holds a level: falling to a third over 15 ms. */
+const ATTACK_HOLD = 0.015;
+const ATTACK_QUIET = [-0.08, -0.045];
+const ATTACK_SPAN = [-0.045, 0.04];
+const ATTACK_CLEAR_DB = 10;
+/** Below this the music is silent there. */
+const ATTACK_SILENT_DB = -60;
+
+/** The peak-held level of a signal, in dB, a millisecond at a time. */
+export function attackEnvelope(samples, rate) {
+  const hold = Math.exp(-1 / (ATTACK_HOLD * rate));
+  const step = rate / 1000;
+  const out = new Float32Array(Math.floor(samples.length / step));
+  let held = 0;
+  let index = 0;
+  for (let ms = 0; ms < out.length; ms += 1) {
+    const end = Math.min(samples.length, Math.round((ms + 1) * step));
+    let peak = held * hold;
+    for (; index < end; index += 1) {
+      held = Math.max(Math.abs(samples[index]), held * hold);
+      peak = Math.max(peak, held);
+    }
+    out[ms] = 20 * Math.log10(Math.max(peak, 1e-7));
+  }
+  return out;
+}
+
+/**
+ * The music's attack at a beat (seconds) on a millisecond envelope: where it
+ * climbs halfway from the quiet before to its peak, as `offset_ms` from the
+ * beat (negative: early), or why there is none to read.
+ */
+export function attackAt(envelope, beat) {
+  const ms = (seconds) => Math.round(seconds * 1000);
+  const centre = beat * 1000;
+  const [quietFrom, quietTo] = ATTACK_QUIET.map((offset) => ms(beat + offset));
+  const [spanFrom, spanTo] = ATTACK_SPAN.map((offset) => ms(beat + offset));
+  if (quietFrom < 0 || spanTo >= envelope.length) return { status: "edge" };
+  let quiet = Infinity;
+  for (let at = quietFrom; at < quietTo; at += 1) quiet = Math.min(quiet, envelope[at]);
+  let peak = -Infinity;
+  for (let at = spanFrom; at <= spanTo; at += 1) peak = Math.max(peak, envelope[at]);
+  const rise = Number((peak - quiet).toFixed(1));
+  if (peak < ATTACK_SILENT_DB) return { status: "silent" };
+  if (!(peak - quiet >= ATTACK_CLEAR_DB)) return { status: "unclear", rise_db: rise };
+  const half = (quiet + peak) / 2;
+  let at = spanFrom;
+  while (at < spanTo && envelope[at] < half) at += 1;
+  return { status: "measured", offset_ms: Number((at - centre).toFixed(1)), rise_db: rise };
+}
+
+/** The cuts on one of the music's beats: each planned cut with a beat within half a frame of it. */
+export function cutsOnBeats(plan, beats) {
+  const near = 0.5 / plan.fps + 0.002;
+  const matched = [];
+  for (const { clip, frame } of plannedCuts(plan)) {
+    const time = frame / plan.fps;
+    let best = null;
+    for (const beat of beats) if (Math.abs(beat - time) <= near && (best === null || Math.abs(beat - time) < Math.abs(best - time))) best = beat;
+    if (best !== null) matched.push({ clip, time, beat: best });
+  }
+  return matched;
+}
+
+/** The music's attack at each cut on one of its beats, from the music bus as mixed (`music`, a file). */
+async function measureMusicAtCuts(plan, music, dir) {
+  const beats = plan.measure?.musicBeats ?? [];
+  if (!beats.length || !music) return null;
+  const matched = cutsOnBeats(plan, beats);
+  if (!matched.length) return { status: "no_cut_on_a_beat", cuts: [] };
+  const envelope = attackEnvelope(await decodeMono(music, ATTACK_RATE, join(dir, "quality-music.f32")), ATTACK_RATE);
+  return {
+    status: "measured",
+    cuts: matched.map(({ clip, time, beat }) => {
+      const found = attackAt(envelope, beat);
+      return {
+        clip,
+        time: round3(time),
+        beat: round3(beat),
+        ...found,
+        // And from the cut itself, which a frame's grid puts up to half a frame off the beat.
+        ...(found.status === "measured" ? { from_cut_ms: Number((found.offset_ms + (beat - time) * 1000).toFixed(1)) } : {}),
+      };
+    }),
+  };
+}
+
 /** Voiceovers measured for sync at most: the longest. */
 const SYNC_ITEMS = 8;
 const SYNC_RATE = 16_000;
@@ -1488,7 +1631,8 @@ async function measureSync(plan, sources, master, dir) {
 /**
  * Measures a finished render against its reference (see the top of this
  * file): `finalArgv` is the final pass's argument list as it ran, `master`
- * the file it made, and the final pass's inputs still on disk.
+ * the file it made, and the final pass's inputs still on disk; `music`, the
+ * music bus as the mix pass wrote it, when the music at the cuts is measured.
  */
 export async function measureRender({
   plan,
@@ -1499,6 +1643,7 @@ export async function measureRender({
   progress = () => {},
   parseLoudness,
   mastering = null,
+  music = null,
 }) {
   const started = Date.now();
   const sampling = samplingPlan(plan.totalFrames);
@@ -1539,8 +1684,10 @@ export async function measureRender({
   );
   const cuts = plannedCuts(plan);
 
-  progress(0.97, "Measuring the voiceover's sync");
+  progress(0.97, "Measuring the voiceover's sync and the music at the cuts");
   const sync = await measureSync(plan, sources, master, dir);
+  // Never worth the rest of the report: a music bus that can't be read leaves this out.
+  const musicAtCuts = await measureMusicAtCuts(plan, music, dir).catch(() => null);
   const lossless = mastering?.lossless_clips?.length ?? 0;
   const standard = mastering?.standard_clips?.length ?? plan.clips.length;
   const report = {
@@ -1556,6 +1703,7 @@ export async function measureRender({
     pixels: { every: sampling.pixel, ...pixels.summary(plan.fps) },
     captions: plan.captions ? judgeCaptions(plan, plannedCaptions(plan), timing.text) : null,
     cuts: cuts.length ? judgeCuts(cuts, timing.change, plan.fps) : null,
+    ...(musicAtCuts ? { music: musicAtCuts } : {}),
     sync,
     loudness: loudnessReport(sound ? parseLoudness(stderr) : null, plan),
   };

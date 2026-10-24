@@ -3,14 +3,18 @@
  * the service can do it: a finished master passed through untouched (feature
  * "mastering"; see ./master), and the render measured against its own
  * lossless reference, with the brand kit's colours to look for (feature
- * "render_quality"; see ./quality). An older service is simply not asked, and
- * renders the edit as it always has, so nothing here can stop a render.
+ * "render_quality"; see ./quality) and where the music's beats fall, for its
+ * attack at the cuts on them (feature "music_at_cuts"). An older service is
+ * simply not asked, and renders the edit as it always has, so nothing here
+ * can stop a render.
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { rememberedWorker, workerHealth } from "../media/worker.server";
+import { musicGridOnTimeline } from "../music/on-timeline";
+import { readStructure } from "../music/structure";
 import { passThroughCandidate, untouchedClip } from "./master";
 import { brandColoursOf } from "./quality";
-import type { buildRenderRequest, Timeline } from "./timeline";
+import { layoutTimeline, type buildRenderRequest, type Timeline } from "./timeline";
 
 type RenderRequest = ReturnType<typeof buildRenderRequest>;
 
@@ -62,6 +66,37 @@ async function kitColours(brandKitId: string | null): Promise<string[]> {
   return error || !data ? [] : brandColoursOf(data as unknown as Record<string, unknown>);
 }
 
+/** The music's beats sent at most, as the media service takes them (ten minutes at 400 BPM). */
+const MUSIC_BEATS = 4000;
+
+/**
+ * Where the edit's music's beats fall on its timeline, each music item's
+ * track through its trim, loop or pieces (src/lib/music/on-timeline); none
+ * for music whose bars haven't been found, or that can't be read just now.
+ */
+async function musicBeats(timeline: Timeline): Promise<number[]> {
+  const music = timeline.audio.filter((item) => item.role === "music" && item.volume > 0);
+  if (!music.length) return [];
+  const { total } = layoutTimeline(timeline);
+  const beats = new Set<number>();
+  for (const item of music) {
+    const { data, error } = await supabaseAdmin
+      .from("music_tracks")
+      .select("*")
+      .eq("asset_id", item.assetId)
+      .limit(5);
+    if (error || !data) continue;
+    for (const row of data as unknown as Array<Record<string, unknown>>) {
+      const known = readStructure(row["structure"], row["bar_features"]);
+      if (!known) continue;
+      for (const beat of musicGridOnTimeline(item, known.structure, total).beats)
+        if (beat >= 0 && beat <= total) beats.add(beat);
+      break;
+    }
+  }
+  return [...beats].sort((a, b) => a - b).slice(0, MUSIC_BEATS);
+}
+
 /**
  * The render request with what the service can add to it. `features` is what
  * the service said just now, when the render asked it already.
@@ -78,7 +113,15 @@ export async function withRenderExtras(
     passThroughCandidate(timeline, await passThroughSource(timeline))
   )
     params = { ...params, pass_through: true };
-  if (can.includes("render_quality"))
-    params = { ...params, measure: { brand_colours: await kitColours(timeline.brandKitId) } };
+  if (can.includes("render_quality")) {
+    const beats = can.includes("music_at_cuts") ? await musicBeats(timeline).catch(() => []) : [];
+    params = {
+      ...params,
+      measure: {
+        brand_colours: await kitColours(timeline.brandKitId),
+        ...(beats.length ? { music_beats: beats } : {}),
+      },
+    };
+  }
   return params === request.params ? request : { ...request, params };
 }

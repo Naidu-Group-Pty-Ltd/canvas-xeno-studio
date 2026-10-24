@@ -90,6 +90,26 @@ const reportSchema = z.object({
     })
     .nullable()
     .optional(),
+  music: z
+    .object({
+      status: z.string().max(40),
+      cuts: z
+        .array(
+          z.object({
+            clip: number,
+            time: number,
+            beat: number,
+            status: z.string().max(40),
+            offset_ms: number.optional(),
+            from_cut_ms: number.optional(),
+            rise_db: number.optional(),
+          }),
+        )
+        .max(4000)
+        .default([]),
+    })
+    .nullable()
+    .optional(),
   sync: z
     .object({
       items: z.array(
@@ -233,6 +253,18 @@ function line(check: QualityCheck, report: QualityReport): string {
       return first
         ? `The cut into clip ${first.clip} (at ${formatTime(first.time)}) lands ${plural(Math.abs(off), "frame")} ${off > 0 ? "late" : "early"}${missed.length > 1 ? `, and ${plural(missed.length - 1, "more cut")} off ${missed.length > 2 ? "their" : "its"} frame` : ""}.`
         : `${plural(v ?? 0, "cut")} off ${(v ?? 0) === 1 ? "its" : "their"} frame.`;
+    }
+    case "music_cuts": {
+      if (check.result === "info")
+        return check.status === "no_cut_on_a_beat"
+          ? "No cut falls on the music's beat, so its attack wasn't judged at any."
+          : "The music runs on through the cuts on its beats, with no clear attack to judge at them.";
+      const measured = (report.music?.cuts ?? []).filter((cut) => cut.status === "measured");
+      const off = measured.filter((cut) => Math.abs(cut.offset_ms ?? 0) > (limit ?? 0));
+      const ms = Math.round(Math.abs(v ?? 0));
+      return flagged
+        ? `The music's attack at the cut${when(check.time)} comes ${ms} ms ${(v ?? 0) < 0 ? "ahead of" : "after"} its beat (${limit} ms at most)${off.length > 1 ? `, and off its beat at ${plural(off.length - 1, "more cut")}` : ""}.`
+        : `The music's attack on its beat at ${plural(measured.length, "cut")} (within ${ms} ms).`;
     }
     case "sync":
       if (check.result === "info") return "The voiceover's sync couldn't be measured clearly.";

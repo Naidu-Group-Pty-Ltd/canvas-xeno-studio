@@ -96,7 +96,11 @@ frame. The app sends one source per distinct asset (role `video`, `image`,
 - `audio[]`: `source_index`, `role` (`voiceover`, `music`, `sfx`), `start`,
   `trim_start`, `duration`, `volume`, `fade_in`, `fade_out`, and for music
   `loop` and `duck` / `duck_level` (music dips wherever the voiceover actually
-  speaks, found with silence detection)
+  speaks, found with silence detection), and `pieces` (feature `music_pieces`:
+  stretches of its file played in order, `{from, to}` in the file's seconds,
+  each join under a 30 ms crossfade centred on it; a piece can give `enter`,
+  3 to 30 ms, where its bar line is past its start, and then comes in on that
+  bar line instead, over its last 3 ms, feature `music_pieces_on_the_bar`)
 - `captions` (`segments[]` of `start`/`end`/`text`, `style`, `position`,
   `size`, `uppercase`) and `overlays[]` (titles, subtitles, call-to-action
   badges), burned in with the Inter typeface; text is written to an ASS file
@@ -155,8 +159,10 @@ frame. The app sends one source per distinct asset (role `video`, `image`,
   once (`+faststart`), with its poster, and `metadata.pass_through` is
   `{"used": true}`. Otherwise the edit is rendered as usual, and
   `pass_through` is `{"used": false, "reason": "…"}`
-- `measure` (feature `render_quality`): `{"brand_colours": ["#rrggbb", …]}`
-  (up to 12, may be empty). The render is measured against its own lossless
+- `measure` (feature `render_quality`): `{"brand_colours": ["#rrggbb", …],
+  "music_beats": [seconds, …]}` (up to 12 colours, may be empty; up to 4,000
+  beats, where the music's beats fall on the timeline, feature
+  `music_at_cuts`). The render is measured against its own lossless
   reference: the final pass's picture before its encode, made again from the
   same inputs and filter graph (frame for frame what the encoder was given),
   both decoded as a BT.709 player decodes them (`src/quality.js`). The report
@@ -177,13 +183,22 @@ frame. The app sends one source per distinct asset (role `video`, `image`,
     shown); `cuts`: each cut on its frame (`reads_as` `cut`, `carried_through`
     for a join the picture runs through, or `missed` with `found_at`); `sync`:
     each voiceover (the eight longest) where it was placed, matched with the
-    master's sound (`offset_ms`, positive when late); `loudness`: integrated,
-    range and true peak, against the target when loudness is evened out
+    master's sound (`offset_ms`, positive when late); `music`: at each cut
+    with one of `music_beats` within half a frame of it, the music bus's
+    attack there (where its peak-held level first climbs halfway, in dB, from
+    the quiet before to its peak, looked for from 45 ms before the beat to
+    40 ms after), as `offset_ms` from the beat (negative when early) and
+    `from_cut_ms` from the cut; a beat the music runs on through, with no
+    clear rise, is `unclear`. Reel 2's early stabs (35 to 40 ms ahead of their
+    cuts, under crossfades that let in the bar before) are what it finds;
+    `loudness`: integrated, range and true peak, against the target when
+    loudness is evened out
   - `checks`: each measure judged `pass`, `flag` or `info` against the
     thresholds in `src/quality.js` (from Reel 1's own: SSIM 0.98, PSNR 40 dB
     and no frame below 37 dB, edges 98% and no frame below 95%, CIEDE2000 and
     brand colours below 1, banding below one code value, every caption and
-    cut, sync within 20 ms, loudness within 1 LU, true peak at most −1 dBTP),
+    cut, sync within 20 ms, the music's attack within 20 ms of its beat,
+    loudness within 1 LU, true peak at most −1 dBTP),
     with `passes` and `flags` counted. A master passed through is reported as
     `status: "passed_through"` with its loudness; a render that couldn't be
     measured as `status: "unmeasured"` (it stands all the same)

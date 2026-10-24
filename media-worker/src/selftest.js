@@ -1049,6 +1049,36 @@ await check("render_sequence measures a render: fidelity, colour, captions, cuts
   if (!white?.found || report.pixels.brand_colours.find((brand) => brand.hex === "#0832de")?.found) throw new Error(`the brand colours: ${JSON.stringify(report.pixels.brand_colours)}`);
 });
 
+await check("a measured render reads the music's attack at a cut on its beat: 35 ms early under a crossfade, on it on its bar line", async () => {
+  // Out of the track's silence into its tone (its bar line 20 ms past the join at 1.98 s), on the cut at 2 s.
+  const measured = async (enter) => {
+    // A render's directory is its own: it takes its sources with it.
+    const work = await mkdtemp(join(dir, "music-cuts-"));
+    const still = join(work, "still.jpg");
+    await ffmpeg(["-f", "lavfi", "-i", "testsrc2=s=320x240:d=1", "-frames:v", "1", still]);
+    const music = join(work, "music.wav");
+    await copyFile(piecesTrack, music);
+    const result = await TASKS.render_sequence.run({
+      sources: [{ path: still, role: "image" }, { path: music, role: "audio" }],
+      params: {
+        width: 320, height: 240, fps: 25, normalize_loudness: false,
+        clips: [{ source_index: 0, kind: "image", duration: 2 }, { source_index: 0, kind: "image", duration: 2 }],
+        audio: [{ source_index: 1, role: "music", duck: false, pieces: [{ from: 3.5, to: 5.48 }, { from: 0.98, to: 2.98, ...(enter ? { enter } : {}) }] }],
+        measure: { music_beats: [1, 2, 3] },
+      },
+      dir: work,
+    });
+    const report = result.metadata.quality;
+    const cut = report?.music?.cuts?.[0];
+    if (report?.music?.status !== "measured" || report.music.cuts.length !== 1 || cut.status !== "measured") throw new Error(`the music at the cut: ${JSON.stringify(report?.music)}`);
+    return { cut, check: report.checks.find((entry) => entry.id === "music_cuts") };
+  };
+  const early = await measured(null);
+  if (!(early.cut.offset_ms < -25 && early.cut.offset_ms > -40) || early.check?.result !== "flag") throw new Error(`under the crossfade: ${JSON.stringify(early)}`);
+  const onIt = await measured(0.02);
+  if (!(Math.abs(onIt.cut.offset_ms) <= 5) || onIt.check?.result !== "pass") throw new Error(`on its bar line: ${JSON.stringify(onIt)}`);
+});
+
 await check("a caption the render dropped is flagged, and a cut a frame late is found", async () => {
   const { judgeCaptions, judgeCuts, plannedCaptions, plannedCuts, TimingMeter, timingScale } = await import("./quality.js");
   const { planSequence } = await import("./sequence.js");

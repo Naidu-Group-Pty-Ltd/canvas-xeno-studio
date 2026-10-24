@@ -119,6 +119,8 @@ export const FEATURES = [
   "redact_image",
   "mastering",
   "render_quality",
+  // The music's attack at each cut on one of its beats, in a measured render (measure.music_beats).
+  "music_at_cuts",
   "review_sheet",
   ...(lipCheckAvailable ? ["lip_check"] : []),
   // Code-driven motion graphics drawn in Chromium ("compositions"), on a GPU here ("compositions_gpu").
