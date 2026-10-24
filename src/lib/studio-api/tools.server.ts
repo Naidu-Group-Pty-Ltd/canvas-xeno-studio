@@ -1977,6 +1977,75 @@ const generateMusic = tool({
   },
 });
 
+const changeMusicTempo = tool({
+  name: "change_music_tempo",
+  title: "Change a track's tempo",
+  description:
+    "Makes a library track play at another tempo, its pitch kept, as a new track in the music library (as the Music page's Change tempo does): to put a track under a cut paced to another's beat. Reel 2 slowed Reel 1's track 7.0%, 129 to 120 BPM, and every cut stayed on its beat. bpm is the tempo it is to play at; fromBpm the tempo it plays at now, the track's own (its bars, get_music_structure) unless given. Name the track by trackId, or by its library file (assetId). The media service makes it (Rubber Band, nothing billed) and this waits for it, a minute or so; the same clientRequestId returns the same track. The new track keeps the original's licence, credit and rights. Find its bars again in the Editor's Music panel before fit_music plans it. Past about 12% a change of tempo can be heard, and the answer's note says so.",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({
+    trackId: id().optional(),
+    assetId: id().optional().describe("The track's library file, instead of its trackId"),
+    bpm: z.number().min(30).max(300).describe("The tempo it is to play at"),
+    fromBpm: z
+      .number()
+      .min(30)
+      .max(300)
+      .optional()
+      .describe("The tempo it plays at now: the track's own unless given"),
+    clientRequestId: requestId(),
+  }),
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    let trackId = args.trackId ?? null;
+    if (!trackId && args.assetId) {
+      const { data } = await db
+        .from("music_tracks")
+        .select("id")
+        .eq("asset_id", args.assetId)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      trackId = (data as { id: string } | null)?.id ?? null;
+    }
+    if (!trackId)
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        args.assetId
+          ? "That file isn't a track in the music library"
+          : "Name the track (trackId or assetId)",
+      );
+    const music = await import("../music/service.server");
+    const started = await music.changeTempo({
+      userId: caller.userId,
+      trackId,
+      bpm: args.bpm,
+      fromBpm: args.fromBpm,
+      clientRequestId: args.clientRequestId,
+    });
+    let track = started.track;
+    // The media service makes it in a minute or so: waited for, up to four.
+    for (let waited = 0; track["status"] === "generating" && waited < 240_000; waited += 3000) {
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      track = (await music.tempoChangeTrack(track.id)) ?? track;
+    }
+    const text = (key: string) => (typeof track[key] === "string" ? (track[key] as string) : null);
+    return {
+      trackId: track.id,
+      assetId: text("asset_id"),
+      title: text("title"),
+      status: text("status"),
+      errorMessage: text("error_message"),
+      durationSeconds: track["duration_seconds"] == null ? null : Number(track["duration_seconds"]),
+      bpm: track["bpm"] == null ? null : Number(track["bpm"]),
+      tempo: started.tempo,
+      note: started.note,
+      duplicate: started.duplicate,
+    };
+  },
+});
+
 const importVideo = tool({
   name: "import_video",
   title: "Import a video",
@@ -2910,6 +2979,7 @@ export const STUDIO_TOOLS: StudioTool[] = [
   importAudio,
   importVideo,
   generateMusic,
+  changeMusicTempo,
   getRedaction,
   applyRedaction,
   cancelRedaction,

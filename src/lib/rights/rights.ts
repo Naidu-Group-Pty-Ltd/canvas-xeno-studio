@@ -160,7 +160,10 @@ function trackSource(track: NonNullable<RightsFacts["track"]>): string {
   if (track.source === "openverse")
     return `Found through Openverse${track.provider ? ` (${track.provider})` : ""}${track.artist ? `, by ${track.artist}` : ""}`;
   if (track.source === "elevenlabs") return "Made in the studio with Eleven Music (ElevenLabs)";
-  if (track.source === "derived") return "An instrumental the studio made of a library track";
+  if (track.source === "derived")
+    return track.provider === "tempo"
+      ? "A library track the studio changed the tempo of, its pitch kept"
+      : "An instrumental the studio made of a library track";
   const licensor = text(track.rights?.["licensor"]);
   return `Uploaded to the music library${licensor ? `, licensed from ${licensor}` : ""}`;
 }

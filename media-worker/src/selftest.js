@@ -77,6 +77,29 @@ await check("extract_audio", async () => {
   if ((await stat(result.outputs[0].path)).size < 1000) throw new Error("audio too small");
 });
 
+await check("stretch_audio slows a recording to a tempo with its pitch kept, and says how", async () => {
+  // Two seconds of a 440 Hz tone, then at 0.8 of its speed: 2.5 s long, still 440 Hz.
+  const tone = join(dir, "tone.wav");
+  await ffmpeg(["-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=2", "-ac", "2", tone]);
+  const result = await TASKS.stretch_audio.run({ sources: [{ path: tone, role: "audio" }], params: { tempo: 0.8 }, dir });
+  const stretched = result.outputs[0];
+  if (stretched.mime !== "audio/flac") throw new Error(`made ${stretched.mime}`);
+  const { stretch, duration_seconds: seconds } = result.metadata;
+  if (Math.abs(seconds - 2.5) > 0.06) throw new Error(`2 s at 0.8 of its speed came out ${seconds} s`);
+  if (stretch.tempo !== 0.8 || stretch.pitch !== "kept" || !["rubberband", "atempo"].includes(stretch.tool)) throw new Error(JSON.stringify(stretch));
+  // Its pitch, from the zero crossings of its middle second.
+  const raw = join(dir, "tone-stretched.f32");
+  await ffmpeg(["-i", stretched.path, "-ss", "0.75", "-t", "1", "-ac", "1", "-f", "f32le", raw]);
+  const bytes = await readFile(raw);
+  const samples = new Float32Array(bytes.buffer, bytes.byteOffset, Math.floor(bytes.length / 4));
+  let crossings = 0;
+  for (let i = 1; i < samples.length; i += 1) if (samples[i - 1] < 0 && samples[i] >= 0) crossings += 1;
+  if (Math.abs(crossings - 440) > 6) throw new Error(`its pitch moved: ${crossings} Hz, not 440 (${stretch.tool})`);
+  const refused = await TASKS.stretch_audio.run({ sources: [{ path: tone, role: "audio" }], params: { tempo: 3 }, dir }).then(() => null, (error) => error);
+  if (refused?.code !== "INVALID_PARAMETERS") throw new Error("a tempo of 3 wasn't refused");
+  console.log(`       (${stretch.tool})`);
+});
+
 await check("assemble_video (concat)", async () => {
   const result = await TASKS.assemble_video.run({
     sources: [{ path: clipA, role: "source" }, { path: clipB, role: "source" }],

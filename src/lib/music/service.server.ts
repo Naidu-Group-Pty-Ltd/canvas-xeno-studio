@@ -323,17 +323,30 @@ async function settleInterrupted(): Promise<void> {
         throw interruptedUnchecked();
       }
       if (current["status"] !== "generating") continue;
+      // A tempo change bills nothing: one the media service finished is taken up, and one it lost fails.
+      const tempo = row["source"] === "derived" && row["provider"] === TEMPO_PROVIDER;
+      if (tempo && (await finishTempoChange(row.id))) continue;
       let settled = false;
       for (let attempt = 0; attempt < 2 && !settled; attempt += 1) {
         const { error: settleError } = await supabaseAdmin
           .from("music_tracks")
-          .update({
-            status: "submission_uncertain",
-            error_code: "INTERRUPTED",
-            error_message:
-              "This was interrupted before it was saved. It may still have been billed, so it was not retried.",
-            completed_at: new Date().toISOString(),
-          } as never)
+          .update(
+            (tempo
+              ? {
+                  status: "failed",
+                  error_code: "INTERRUPTED",
+                  error_message:
+                    "The media service didn't finish changing its tempo. Nothing was billed: try again.",
+                  completed_at: new Date().toISOString(),
+                }
+              : {
+                  status: "submission_uncertain",
+                  error_code: "INTERRUPTED",
+                  error_message:
+                    "This was interrupted before it was saved. It may still have been billed, so it was not retried.",
+                  completed_at: new Date().toISOString(),
+                }) as never,
+          )
           .eq("id", row.id)
           .eq("status", "generating");
         settled = !settleError;
@@ -1013,6 +1026,219 @@ export async function makeInstrumental(input: {
     duration_seconds: stored.durationSeconds ?? parent["duration_seconds"] ?? null,
   });
   return { track: ready, duplicate: false };
+}
+
+/* ------------------------------------------------------------------ */
+/* At another tempo                                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * How far a track's tempo may be changed: the media service's range. Within
+ * about 12% Rubber Band keeps a track sounding as it did (Reel 2 slowed Reel
+ * 1's track 7.0% under a cut paced to another's beat); further, it is said.
+ */
+export const TEMPO_CHANGE = { min: 0.5, max: 2, gentle: 0.12 } as const;
+/**
+ * A track at another tempo is a derived track marked by its provider, kept
+ * apart from an instrumental of the same track (which keeps its parent's
+ * provider and its parent_track_id).
+ */
+export const TEMPO_PROVIDER = "tempo";
+const tempoTaskKey = (trackId: string) => `tempo:${trackId}`;
+const bpmWords = (bpm: number) => (Number.isInteger(bpm) ? String(bpm) : bpm.toFixed(2));
+
+/**
+ * A new track: this one at another tempo, its pitch kept (the media
+ * service's stretch_audio, nothing billed). `bpm` is the tempo it is to play
+ * at; `fromBpm` the tempo it plays at now, the track's own unless given. The
+ * new track keeps the original's licence, credit and rights, and is ready
+ * once the media service has made it (finishTempoChange); find its bars and
+ * sections again, then fit it to the cut on them.
+ */
+export async function changeTempo(input: {
+  userId: string;
+  trackId: string;
+  bpm: number;
+  fromBpm?: number | undefined;
+  clientRequestId: string;
+}): Promise<{ track: TrackRow; duplicate: boolean; tempo: number | null; note: string | null }> {
+  await requireActiveMember(input.userId);
+  const repeat = await existingByKey(input.clientRequestId);
+  if (repeat) return { track: repeat, duplicate: true, tempo: null, note: null };
+  const parent = await loadTrack(input.trackId);
+  if (!parent || parent["status"] !== "ready" || !parent["asset_id"])
+    throw new AppError("INVALID_PARAMETERS", "That track isn't ready.");
+  const from = input.fromBpm ?? Number(parent["bpm"]);
+  if (!Number.isFinite(from) || from <= 0)
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      "This track's tempo isn't known yet: find its bars and sections first (the Music panel), or say the tempo it plays at.",
+    );
+  if (!Number.isFinite(input.bpm) || input.bpm <= 0)
+    throw new AppError("INVALID_PARAMETERS", "Say the tempo it is to play at, in beats a minute.");
+  const tempo = input.bpm / from;
+  if (tempo < TEMPO_CHANGE.min || tempo > TEMPO_CHANGE.max)
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      `From ${bpmWords(from)} to ${bpmWords(input.bpm)} BPM is too far: a track's tempo can be halved or doubled at most.`,
+    );
+  if (Math.abs(tempo - 1) < 0.0005)
+    throw new AppError("INVALID_PARAMETERS", `It already plays at ${bpmWords(from)} BPM.`);
+  const terms = licenceTerms(parent as never);
+  if (terms?.expired)
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      `The licence for “${String(parent["title"])}” ran out on ${terms.expiresOn}, so it couldn't be used at another tempo either. Renew the licence first.`,
+    );
+  const { requireWorkerFeature } = await import("../media/worker-feature.server");
+  await requireWorkerFeature("audio_stretch", "Changing a track's tempo");
+  const { data: asset, error: assetError } = await supabaseAdmin
+    .from("assets")
+    .select("storage_bucket,storage_path,mime_type,project_id")
+    .eq("id", parent["asset_id"] as string)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (assetError) throw trackUnchecked();
+  if (!asset)
+    throw new AppError("INVALID_PARAMETERS", "The track's audio is no longer in the library.");
+
+  const percent = Math.abs(1 - tempo) * 100;
+  const change = `${tempo < 1 ? "Slowed" : "Sped up"} ${percent.toFixed(1)}% from ${bpmWords(from)} to ${bpmWords(input.bpm)} BPM, its pitch kept.`;
+  const title = `${String(parent["title"])} (at ${bpmWords(input.bpm)} BPM)`.slice(0, 300);
+  const trackId = crypto.randomUUID();
+  const projectId = (parent["project_id"] as string | null) ?? asset.project_id ?? null;
+  const { error: insertError } = await supabaseAdmin.from("music_tracks").insert({
+    id: trackId,
+    title,
+    artist: parent["artist"] ?? null,
+    kind: parent["kind"] ?? "music",
+    source: "derived",
+    // The original, by id: not as its parent, which is an instrumental's place.
+    source_id: parent.id,
+    source_url: parent["source_url"] ?? null,
+    provider: TEMPO_PROVIDER,
+    license: parent["license"],
+    license_version: parent["license_version"] ?? null,
+    license_url: parent["license_url"] ?? null,
+    attribution:
+      typeof parent["attribution"] === "string" && parent["attribution"]
+        ? `${parent["attribution"]} Tempo changed.`.slice(0, 1000)
+        : null,
+    usage_notes:
+      [parent["usage_notes"], change]
+        .filter((part) => typeof part === "string" && part)
+        .join(" ")
+        .slice(0, 2000) || null,
+    rights: parent["rights"] ?? {},
+    parent_track_id: null,
+    genres: parent["genres"] ?? [],
+    moods: parent["moods"] ?? [],
+    tags: parent["tags"] ?? [],
+    bpm: input.bpm,
+    beats: null,
+    instrumental: parent["instrumental"] ?? null,
+    status: "generating",
+    dedupe_key: input.clientRequestId,
+    project_id: projectId,
+    campaign_id: parent["campaign_id"] ?? null,
+    created_by: input.userId,
+  } as never);
+  if (insertError) {
+    if (insertError.code === "23505") {
+      const winner = await existingByKey(input.clientRequestId);
+      if (winner) return { track: winner, duplicate: true, tempo, note: null };
+    }
+    throw new AppError("UNKNOWN", "The new track could not be recorded.");
+  }
+  const { enqueueInternalMediaTask } = await import("../media/enqueue.server");
+  const queued = await enqueueInternalMediaTask({
+    createdBy: input.userId,
+    projectId,
+    taskType: "stretch_audio",
+    source: {
+      assetId: parent["asset_id"] as string,
+      assetType: "audio",
+      bucket: asset.storage_bucket,
+      path: asset.storage_path,
+      mimeType: asset.mime_type,
+    },
+    params: { tempo },
+    dedupeKey: tempoTaskKey(trackId),
+    output: { count: 1, ext: "flac", mime: "audio/flac", kind: "audio" },
+    context: { tempo_track_id: trackId, output_title: title },
+    notConfiguredMessage:
+      "Changing a track's tempo needs the media service. An admin needs to set MEDIA_WORKER_URL and MEDIA_WORKER_SHARED_SECRET.",
+  });
+  const note =
+    percent / 100 > TEMPO_CHANGE.gentle
+      ? `That is ${percent.toFixed(0)}%: past about ${TEMPO_CHANGE.gentle * 100}%, a change of tempo can be heard. Listen to it before using it.`
+      : null;
+  if (!queued.ok) {
+    const { track } = await settleTrack(trackId, {
+      status: "failed",
+      error_code: queued.code,
+      error_message: queued.message,
+      completed_at: new Date().toISOString(),
+    });
+    return { track, duplicate: false, tempo, note };
+  }
+  return { track: (await loadTrack(trackId)) ?? parent, duplicate: false, tempo, note };
+}
+
+/** A tempo change's track as it stands, taken up from its media task where that has finished. */
+export async function tempoChangeTrack(trackId: string): Promise<TrackRow | null> {
+  const track = await loadTrack(trackId);
+  if (!track || track["status"] !== "generating") return track;
+  return (await finishTempoChange(trackId)) ? loadTrack(trackId) : track;
+}
+
+/**
+ * The track a tempo change makes, once the media service has finished it:
+ * ready with the new recording, or failed saying why. Called when the media
+ * service reports (and again by the library's own tidying, so a report whose
+ * follow-up was cut short is still taken up). Returns whether it settled.
+ */
+export async function finishTempoChange(trackId: string): Promise<boolean> {
+  const { data: task, error } = await supabaseAdmin
+    .from("media_tasks")
+    .select("status,result_asset_id,error_message,output_payload")
+    .eq("dedupe_key", tempoTaskKey(trackId))
+    .maybeSingle();
+  if (error || !task) return false;
+  const now = new Date().toISOString();
+  if (task.status === "completed" && task.result_asset_id) {
+    const metadata =
+      ((task.output_payload ?? {}) as { metadata?: Record<string, unknown> }).metadata ?? {};
+    const seconds = Number(metadata["duration_seconds"]);
+    const { error: readyError } = await supabaseAdmin
+      .from("music_tracks")
+      .update({
+        asset_id: task.result_asset_id,
+        duration_seconds: Number.isFinite(seconds) ? seconds : null,
+        status: "ready",
+        completed_at: now,
+        error_code: null,
+        error_message: null,
+      } as never)
+      .eq("id", trackId)
+      .eq("status", "generating");
+    return !readyError;
+  }
+  if (task.status === "failed" || task.status === "cancelled") {
+    const { error: failError } = await supabaseAdmin
+      .from("music_tracks")
+      .update({
+        status: "failed",
+        error_code: "TEMPO_FAILED",
+        error_message:
+          task.error_message ?? "The media service couldn't change its tempo. Try again.",
+        completed_at: now,
+      } as never)
+      .eq("id", trackId)
+      .eq("status", "generating");
+    return !failError;
+  }
+  return false;
 }
 
 /* ------------------------------------------------------------------ */
