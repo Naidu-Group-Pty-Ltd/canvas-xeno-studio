@@ -60,8 +60,11 @@ function launchArgs() {
  * about half of fifty frames, and once a caption word a step behind. Which drawings it hits changes from run to
  * run, so a drawing is captured again until two captures in a row agree. Back to back, two captures can agree on
  * a stale tile (the caption's sweeping light was caught a step behind, in one push-in frame of 21), so the page
- * is given two of its own frames between them, for the painting to catch up. RENDER_SETTLE=0 keeps the first
- * capture (for a quick look only).
+ * is given two of its own frames between them, for the painting to catch up. And a drawing can come to rest
+ * alternating between two paintings (a thin rotated line in 03.1, Chromium switching between two scales of it on
+ * alternate frames, never more than 9 code values apart): a capture that repeats the one before last is a steady
+ * state too, which a race, being a one-off, never makes. RENDER_SETTLE=0 keeps the first capture (for a quick
+ * look only).
  */
 const SETTLE = process.env.RENDER_SETTLE !== "0";
 const SETTLE_TRIES = 6;
@@ -96,7 +99,8 @@ async function settle(capture, pause) {
   for (let retries = 0; retries < SETTLE_TRIES; retries++) {
     await pause();
     const b = await timed();
-    if (a === b) return { png: Buffer.from(a, "base64"), retries, settled: true };
+    if (a === b || b === seen.at(-2))
+      return { png: Buffer.from(b, "base64"), retries, settled: true };
     a = b;
     seen.push(b);
   }
