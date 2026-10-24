@@ -147,6 +147,38 @@ their files and words but leave the work's code as it was, and say so.
 Every part and every file is checked against its SHA-256 on the way back, and storage checks each
 part's size (and MD5 where it gives one) before a save may name it.
 
+### Long jobs, other machines, and review gates
+
+What Reel 2 taught about keeping a work while it waits on something long:
+
+- **A long job is run under the work.** While a session waits on a job it runs no tool and so no
+  hook, and Reel 2's renders outlived the 30-minute hold several times.
+  `work.py run -m "Drawing the film" -- <command>` does three things:
+  - it renews the hold every ten minutes while the job runs;
+  - it keeps the work's files every few minutes, so what the job writes into the work's folder is
+    kept as it goes;
+  - when the job ends, it saves a journal entry saying what ran and how it ended.
+
+  Its exit code is the job's. Run it in the background like the job itself.
+
+- **Another machine can draw a part.** A helper session never resumes the work. It pulls only what
+  it needs (`work.py pull --work <id> --only work/assets`) and keeps its part in a work of its own
+  (`work.py start "<part>" --parent <id>`). The session that joins the parts pulls them back from
+  there, and the helper marks its work done (`work.py save --work <its id> --status done`), so it
+  leaves the list of work in progress. Reel 2's four helpers each also drew three frames already
+  drawn here. Their frames agreed with this machine's to within 3 code values, so one renderer
+  drew the whole film, whichever machine drew each scene.
+- **A review gate is posted from here.**
+  - `work.py gate post <gate> --note-file note.txt "Title=file" ...` imports each picture and
+    video into the project's library and adds them as the gate's next version. `--add` makes the
+    gate if the project has none of that name.
+  - A video over the library's 50 MB upload goes as a review copy that fits (two-pass x264,
+    BT.709, AAC), made once and kept in the work's folder. Reel 2's 147 MB master went to its Film
+    gate as a 46 MB copy.
+  - `work.py gate decide <gate> approved|changes_requested --note ...` records a decision on the
+    latest version, and `work.py gate list` shows each gate and its versions.
+  - Each request is named by what it sends, so running one again returns the first answer.
+
 ### Local state
 
 `.xeno-work/<id>/` holds `work.json` (the work's roots and whether this checkout is on it),
@@ -161,6 +193,7 @@ part's size (and MD5 where it gives one) before a save may name it.
 | `XENO_WORK_CODE`             | `1`; `0` keeps no code with saves                             |
 | `XENO_WORK_AUTOSAVE_SECONDS` | `180`: the most often a tool's use starts an automatic save   |
 | `XENO_WORK_MAX_FILE_BYTES`   | 20 GB: larger files are named and left out                    |
+| `XENO_WORK_RENEW_SECONDS`    | `600`: how often `run` renews the hold while its job runs     |
 
 ## The Supercomputer
 
@@ -211,4 +244,6 @@ the Supercomputer, or copy what to tell Claude Code. A project's page lists its 
 - `tests/work/cli.test.ts` runs the script against the studio's own API code over HTTP, with two
   checkouts standing for two machines: a work started, saved, cut short by a usage limit, and
   carried on elsewhere from exactly there, its unpushed commit and its changes not committed
-  included.
+  included; and a long job run under the work, its hold renewed and its files kept as it runs.
+- `tests/work/gate.test.ts` posts a version to a review gate, a video over the upload limit as a
+  review copy the real ffmpeg makes, then decides on it and lists the gates.

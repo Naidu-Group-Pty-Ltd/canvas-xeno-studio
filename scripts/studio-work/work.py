@@ -12,6 +12,8 @@ straight to storage in parts. This puts a machine's side of it there and back:
   python3 scripts/studio-work/work.py status | pull | push | note -m ... | link <kind> <id> | track name=folder
   python3 scripts/studio-work/work.py restore-code [--here]       # the code as the work last left it
   python3 scripts/studio-work/work.py release                     # stop working on it here, for the next session
+  python3 scripts/studio-work/work.py run -m "Drawing the film" -- <command>   # a long job, the work held while it runs
+  python3 scripts/studio-work/work.py gate post Film --note-file note.txt "The film=film.mp4" "The cover=cover.jpg"
 
 A work's files sit under its roots: names for folders (records=docs/brands/aurixa-reel-2), and "work", a folder
 of its own (.xeno-work/<id>/files) for what doesn't belong in git (frames, renders, references). Every save sends
@@ -32,17 +34,20 @@ XENO_STUDIO_TOKEN (Settings, API access, with the read and edit scopes), or one 
 from __future__ import annotations
 
 import argparse
+import base64
 import calendar
 import fnmatch
 import hashlib
 import json
 import os
 import re
+import shlex
 import shutil
 import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -1574,6 +1579,199 @@ def cmd_release(args):
           else f"Not held by this session ({result.get('holderLabel') or 'nobody'} holds it); this checkout has stopped working on it.")
 
 
+# ---------------------------------------------------------------- long jobs, and review gates ----------------------------------------------------------------
+
+# How often a long job's hold is renewed: well inside the hold, so a missed renewal or two never lets it lapse.
+RENEW_EVERY = int(os.environ.get("XENO_WORK_RENEW_SECONDS", str(HOLD_SECONDS // 3)))
+# The largest video the studio's library takes in one upload (VIDEO_IMPORT_LIMITS, src/lib/studio-api/video-import.server.ts).
+VIDEO_IMPORT_BYTES = 50 * 1024 * 1024
+VIDEO_TYPES = {".mp4": "video/mp4", ".mov": "video/quicktime", ".webm": "video/webm"}
+
+
+def took(seconds: float) -> str:
+    seconds = round(seconds)
+    hours, rest = divmod(seconds, 3600)
+    minutes, seconds = divmod(rest, 60)
+    return f"{hours} h {minutes} min" if hours else f"{minutes} min {seconds} s" if minutes else f"{seconds} s"
+
+
+def cmd_run(args):
+    """A long job held for the work. A session waiting on a job runs no tool and so no hook, and Reel 2's render
+    outlived its 30-minute hold several times: here the hold is renewed every ten minutes while the job runs, the
+    work's files are kept every few minutes (what the job writes into the work's folder is kept as it goes), and
+    when it ends the journal says what ran and how it ended. Its exit code is this command's."""
+    command = args.command[1:] if args.command[:1] == ["--"] else args.command
+    if not command:
+        sys.exit("Say what to run: work.py run [-m \"what it is\"] -- <command> [its arguments]")
+    cfg = known_here(find_work(args.work))
+    renew(cfg)
+    started = time.time()
+    try:
+        child = subprocess.Popen(command)
+    except OSError as failure:
+        sys.exit(f"Couldn't run {command[0]}: {failure}")
+    renewed = kept = started
+    keeping = None
+    try:
+        while True:
+            try:
+                child.wait(timeout=5)
+                break
+            except subprocess.TimeoutExpired:
+                pass
+            now = time.time()
+            if now - renewed >= RENEW_EVERY:
+                renew(cfg)
+                renewed = now
+            if args.keep_every and now - kept >= args.keep_every and (keeping is None or not keeping.is_alive()):
+                # In a thread of its own, so the job is never waited on; a save under way is never started twice.
+                keeping = threading.Thread(
+                    target=lambda: save(cfg, kind="auto", automatic=True, quiet=True, wait=5.0), daemon=True)
+                keeping.start()
+                kept = now
+    except KeyboardInterrupt:
+        child.terminate()
+        try:
+            child.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            child.kill()
+    if keeping is not None:
+        keeping.join(timeout=300)
+    code = child.returncode
+    what = args.message or f"`{shlex.join(command)[:300]}`"
+    ended = "finished" if code == 0 else f"stopped by signal {-code}" if code < 0 else f"failed (exit code {code})"
+    if not args.no_save:
+        try:
+            save(cfg, kind="save", summary=f"Ran {what}: {ended} after {took(time.time() - started)}.", wait=120.0)
+        except StudioError as failure:
+            print(f"Not saved: {failure.message} ({failure.code})", file=sys.stderr)
+    sys.exit(code if code >= 0 else 128 - code)
+
+
+def review_copy(path: Path, out: Path, max_bytes: int) -> Path:
+    """A copy of a video that fits the library's one upload: two passes of x264 at the rate that fills `max_bytes`
+    with room (Reel 2's Film gate: 3 Mbit/s of picture and 128 kbit/s of sound for a 118 s film), its sound in AAC,
+    its colour tags kept as BT.709."""
+    if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
+        sys.exit(f"{path.name} is over the studio's {max_bytes // (1024 * 1024)} MB, and a review copy needs ffmpeg here")
+    probe = json.loads(subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration:stream=codec_type", "-of", "json", str(path)],
+        capture_output=True, text=True, check=True).stdout)
+    seconds = float(probe["format"]["duration"])
+    sound = any(stream.get("codec_type") == "audio" for stream in probe.get("streams", []))
+    audio_kbps = 128 if sound else 0
+    # 94% of the limit for the streams; the rest for the container and the rate control's overshoot.
+    video_kbps = int((max_bytes * 0.94 * 8 / 1000) / seconds) - audio_kbps
+    if video_kbps < 300:
+        sys.exit(f"{path.name} runs {seconds:.0f} s: no review copy of it fits {max_bytes // (1024 * 1024)} MB at a watchable rate")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    log = out.with_suffix(".passlog")
+    common = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(path), "-c:v", "libx264", "-preset", "slow",
+              "-b:v", f"{video_kbps}k", "-passlogfile", str(log)]
+    subprocess.run([*common, "-pass", "1", "-an", "-f", "mp4", os.devnull], check=True)
+    subprocess.run([*common, "-pass", "2", "-profile:v", "high", "-pix_fmt", "yuv420p", "-color_range", "tv",
+                    "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709",
+                    *(["-c:a", "aac", "-b:a", f"{audio_kbps}k"] if sound else ["-an"]),
+                    "-movflags", "+faststart", str(out)], check=True)
+    for leftover in out.parent.glob(f"{log.name}*"):
+        remove(leftover)
+    if out.stat().st_size > max_bytes:
+        sys.exit(f"The review copy of {path.name} came out at {out.stat().st_size:,} bytes, over {max_bytes:,}")
+    return out
+
+
+def gate_file(cfg: dict | None, project: str, title: str, path: Path, max_bytes: int) -> str:
+    """A file into the studio's library for a review gate, once: a video by its signed upload (a review copy where it
+    is over the library's one upload), a picture by import_image. The request is named by what it sends, so asking
+    again returns the first import. Returns the library's id."""
+    if not path.is_file():
+        sys.exit(f"{path} is not a file")
+    kind = VIDEO_TYPES.get(path.suffix.lower())
+    if kind and path.stat().st_size > max_bytes:
+        copies = (work_dir(cfg["workId"]) if cfg else Path(tempfile.gettempdir()) / "xeno-review-copies") / "review-copies"
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()[:16]
+        copy = copies / f"{path.stem}-{digest}-review.mp4"
+        if not copy.exists():
+            print(f"{path.name}: {path.stat().st_size:,} bytes is over the studio's {max_bytes // (1024 * 1024)} MB; making a review copy")
+            review_copy(path, copy, max_bytes)
+        print(f"{path.name}: sending the review copy, {copy.stat().st_size:,} bytes")
+        path, kind = copy, "video/mp4"
+    data = path.read_bytes()
+    digest = hashlib.sha256(data).hexdigest()
+    work = {"workId": cfg["workId"]} if cfg else {}
+    if kind:
+        ask = {"title": title, "mimeType": kind, "byteSize": len(data), "sha256": digest, "projectId": project, **work,
+               "clientRequestId": "gate-video-" + hashlib.sha256(f"{title}\0{digest}".encode()).hexdigest()[:40]}
+        out = call("import_video", ask, timeout=120)
+        if out.get("status") == "upload":
+            print(f"{title}: sending {len(data):,} bytes to storage")
+            transfer(out["upload"]["url"], data, out["upload"].get("headers"), timeout=1800)
+            out = call("import_video", ask, timeout=120)
+        if out.get("status") != "imported":
+            sys.exit(f"{title}: not imported ({json.dumps(out)[:300]})")
+    else:
+        out = call("import_image", {"title": title, "data": base64.b64encode(data).decode(), "projectId": project, **work,
+                                    "clientRequestId": "gate-image-" + hashlib.sha256(f"{title}\0{digest}".encode()).hexdigest()[:40]},
+                   timeout=300)
+    print(f"{title}: {out['assetId']}")
+    return out["assetId"]
+
+
+def cmd_gate(args):
+    """A project's review gates, from here: what each holds, a version of files (pictures and videos, a review copy
+    made of a video over the library's one upload), and a decision on the latest version, recorded as the token's
+    owner's with what it says."""
+    cfg = None
+    try:
+        cfg = known_here(find_work(args.work)) if (args.work or attached_works()) else None
+    except SystemExit:
+        cfg = None
+    project = args.project
+    if not project and cfg:
+        project = (call("get_work", {"workId": cfg["workId"], "entries": 0, "brief": False}).get("project") or {}).get("id")
+    if not project:
+        sys.exit("Name the project (--project), or run it on a work that is in one")
+    gates = call("list_review_gates", {"projectId": project})["gates"]
+    if args.gate_command == "list":
+        for gate in gates:
+            print(f"{gate['name']} · {gate.get('statusLabel') or gate['status']}"
+                  + (f" · last approved v{gate['lastApprovedVersion']}" if gate.get("lastApprovedVersion") else ""))
+            for version in gate.get("versions", [])[: args.versions]:
+                decision = (version.get("decision") or {}).get("decision")
+                print(f"    v{version['number']} {version['addedAt'][:16]} · {version.get('label') or ''}"
+                      + (f" · {decision}" if decision else " · in review"))
+        return
+    gate = next((g for g in gates if g["name"].lower() == args.gate.lower()), None)
+    if gate is None and args.gate_command == "post" and args.add:
+        call("add_review_gate", {"projectId": project, "name": args.gate})
+        gate = next(g for g in call("list_review_gates", {"projectId": project})["gates"] if g["name"] == args.gate)
+    if gate is None:
+        sys.exit(f"The project has no gate called {args.gate!r}: {', '.join(g['name'] for g in gates) or 'none yet'}"
+                 + (" (--add makes it)" if args.gate_command == "post" else ""))
+    note = Path(args.note_file).read_text().strip() if args.note_file else (args.note or "").strip()
+    if args.gate_command == "decide":
+        if not gate.get("versions"):
+            sys.exit(f"{gate['name']} has no version to decide on")
+        latest = gate["versions"][0]
+        out = call("decide_review", {"versionId": latest["id"], "decision": args.decision, "note": note,
+                                     "clientRequestId": "gate-decide-" + hashlib.sha256(
+                                         f"{latest['id']}\0{args.decision}\0{note}".encode()).hexdigest()[:40]})
+        print(f"{gate['name']} v{latest['number']}: {args.decision}" + (" (already recorded)" if out.get("duplicate") else ""))
+        return
+    if not args.files:
+        sys.exit("Name the files: title=path (more than one, in the order the reviewer sees them)")
+    ids = []
+    for pair in args.files:
+        title, sep, file = pair.partition("=")
+        if not sep:
+            title, file = Path(pair).stem, pair
+        ids.append(gate_file(cfg, project, title, Path(file).expanduser(), args.max_bytes))
+    version = call("add_review_version", {
+        "gateId": gate["id"], "assetIds": ids, "note": note, **({"workId": cfg["workId"]} if cfg else {}),
+        "clientRequestId": "gate-version-" + hashlib.sha256("\0".join([gate["id"], *ids, note]).encode()).hexdigest()[:40]})
+    print(f"{gate['name']}: version {version['number']}" + (" (already posted)" if version.get("duplicate") else ""))
+
+
 # ---------------------------------------------------------------- Claude Code's hooks ----------------------------------------------------------------
 
 
@@ -1808,7 +2006,7 @@ def hook(event: str):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0], formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__.split("\n\n", 1)[1])
     sub = parser.add_subparsers(dest="command", required=True,
-                                metavar="{list,start,resume,status,save,push,pull,restore-code,note,link,track,release}")
+                                metavar="{list,start,resume,status,save,push,pull,restore-code,note,link,track,release,run,gate}")
 
     p = sub.add_parser("list", help="work in progress")
     p.add_argument("--all", action="store_true", help="finished work too")
@@ -1902,6 +2100,34 @@ def main():
     p.add_argument("-m", "--message", help="what to say (\"Stopping here: the animatic is next\")")
     p.add_argument("--no-save", action="store_true")
     p.set_defaults(run=cmd_release)
+
+    p = sub.add_parser("run", help="run a long job held for the work: its hold renewed and its files kept while it runs, then saved")
+    p.add_argument("--work")
+    p.add_argument("-m", "--message", help="what the job is (\"Drawing 04.1 to 05.2\")")
+    p.add_argument("--keep-every", type=int, default=AUTO_EVERY, help="seconds between keeping the work's files while it runs (0: at the end only)")
+    p.add_argument("--no-save", action="store_true", help="no save when it ends")
+    p.add_argument("command", nargs=argparse.REMAINDER, help="-- then the command and its arguments")
+    p.set_defaults(run=cmd_run)
+
+    p = sub.add_parser("gate", help="a project's review gates: list them, post a version, or decide on the latest")
+    gate_sub = p.add_subparsers(dest="gate_command", required=True)
+    for name in ("list", "post", "decide"):
+        g = gate_sub.add_parser(name)
+        g.add_argument("--work")
+        g.add_argument("--project", help="the project's id (else the work's)")
+        if name == "list":
+            g.add_argument("--versions", type=int, default=3)
+        else:
+            g.add_argument("gate", help="the gate's name (\"Film\")")
+            g.add_argument("--note", help="what it says")
+            g.add_argument("--note-file")
+        if name == "post":
+            g.add_argument("files", nargs="*", help="title=path, pictures and videos, in the order the reviewer sees them")
+            g.add_argument("--add", action="store_true", help="make the gate if the project has none of that name")
+            g.add_argument("--max-bytes", type=int, default=VIDEO_IMPORT_BYTES, help=argparse.SUPPRESS)
+        if name == "decide":
+            g.add_argument("decision", choices=["approved", "changes_requested"])
+    p.set_defaults(run=cmd_gate)
 
     p = sub.add_parser("hook")  # Claude Code's hooks (.claude/settings.json), not for people
     p.add_argument("event", choices=["session-start", "post-tool", "stop", "stop-failure", "pre-compact", "session-end"])
