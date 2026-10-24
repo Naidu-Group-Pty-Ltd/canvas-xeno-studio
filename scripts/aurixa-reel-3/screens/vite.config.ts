@@ -20,6 +20,24 @@ const unwrapStandaloneTailwindLayers: AcceptedPlugin = {
   },
 };
 
+/**
+ * The product's network layer is the harness's (src/stubs): a module the product resolves to one of these files is
+ * served the stand-in instead, however it is imported (an alias or a relative path).
+ */
+const STUBS: Record<string, string> = {
+  [path.join(PRODUCT, "src/lib/secureInvoke.ts")]: path.join(__dirname, "src/stubs/secureInvoke.ts"),
+};
+const productStubs: Plugin = {
+  name: "product-stubs",
+  enforce: "pre",
+  async resolveId(source, importer, options) {
+    if (source.startsWith("\0") || !importer) return null;
+    const r = await this.resolve(source, importer, { ...options, skipSelf: true });
+    if (r && STUBS[r.id]) return STUBS[r.id];
+    return null;
+  },
+};
+
 /** A bare import from the product's own files resolves as if this harness made it: the product has no node_modules here. */
 const productDeps: Plugin = {
   name: "product-deps-from-harness",
@@ -44,7 +62,7 @@ const productDeps: Plugin = {
 export default defineConfig({
   root: __dirname,
   publicDir: path.join(PRODUCT, "public"),
-  plugins: [productDeps, react()],
+  plugins: [productStubs, productDeps, react()],
   resolve: { alias: { "@": path.join(PRODUCT, "src") } },
   css: {
     postcss: {
@@ -55,6 +73,6 @@ export default defineConfig({
       ],
     },
   },
-  server: { port: 5199, strictPort: true, fs: { allow: [PRODUCT, __dirname] } },
+  server: { port: Number(process.env.REEL_HARNESS_PORT ?? 5198), strictPort: true, fs: { allow: [PRODUCT, __dirname] } },
   logLevel: "warn",
 });

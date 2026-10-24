@@ -1,0 +1,391 @@
+{
+ "_note": "The assessment Calculate Capacity saves for Jordan: calculate-borrowing-capacity's own row (run_capacity.ts, saved.json), as the Finance Portal, the Snapshot and the card read it.",
+ "borrowing_capacity_assessments": [
+  {
+   "id": "00000000-0000-4000-8000-0000000a0002",
+   "created_at": "2026-10-24T09:12:20+11:00",
+   "client_id": "00000000-0000-4000-8000-00000000e115",
+   "gross_annual_income": 300000,
+   "shaded_annual_income": 300000,
+   "income_breakdown": [
+    {
+     "component": "Primary Brightwater Engineering Pty Ltd",
+     "grossAmount": 300000,
+     "shadingRate": 1,
+     "shadedAmount": 300000
+    }
+   ],
+   "living_expenses_monthly": 6447,
+   "expense_method": "declared_higher",
+   "expense_breakdown": {
+    "hemBenchmark": 3780,
+    "declaredExpenses": 6447
+   },
+   "existing_commitments_monthly": 820,
+   "liability_breakdown": [
+    {
+     "type": "Vehicle Loan",
+     "balance": 18000,
+     "monthlyServicing": 520
+    },
+    {
+     "type": "Credit Card",
+     "balance": 1200,
+     "limit": 10000,
+     "monthlyServicing": 300
+    }
+   ],
+   "interest_rate_used": 6.5,
+   "buffer_rate": 3,
+   "loan_term_years": 30,
+   "proposed_loan_amount": null,
+   "proposed_lvr": 80,
+   "borrowing_capacity": 1049786,
+   "monthly_surplus": 8827,
+   "serviceability_band": "green",
+   "stress_tested_capacity": 964993,
+   "dti_ratio": 3.56,
+   "recommendations": [
+    "Strong borrowing position - ready for property acquisition",
+    "Consider accelerating portfolio growth while rates are favorable"
+   ],
+   "warnings": [],
+   "assumptions": {
+    "items": [
+     {
+      "key": "Policy Profile",
+      "value": "Default APRA"
+     },
+     {
+      "key": "Serviceability Basis",
+      "value": "After-Tax of SHADED (assessable) income"
+     },
+     {
+      "key": "Buffer Rate",
+      "value": "3%"
+     },
+     {
+      "key": "Assessment Rate",
+      "value": "9.5%"
+     },
+     {
+      "key": "Loan Term",
+      "value": "30 years"
+     },
+     {
+      "key": "HEM Benchmark",
+      "value": "$3,780/mo (income-scaled)"
+     },
+     {
+      "key": "Repayment Type",
+      "value": "Principal & Interest"
+     },
+     {
+      "key": "Rental Expense Ratio",
+      "value": "20%"
+     },
+     {
+      "key": "Existing Loans",
+      "value": "At recorded repayments (remaining term not recorded)"
+     },
+     {
+      "key": "Tax Year",
+      "value": "2026-27 (incl. 2% Medicare Levy)"
+     },
+     {
+      "key": "Assessable Income (Shaded)",
+      "value": "$300,000/yr"
+     },
+     {
+      "key": "DTI Denominator (APS 220)",
+      "value": "$300,000/yr"
+     },
+     {
+      "key": "After-Tax Income Used",
+      "value": "$193,130/yr (on shaded income)"
+     },
+     {
+      "key": "Marginal Tax Rate",
+      "value": "47%"
+     },
+     {
+      "key": "Stress Test Increment",
+      "value": "+1%"
+     },
+     {
+      "key": "Credit Card Servicing",
+      "value": "3.0% of limit"
+     },
+     {
+      "key": "Conservative Surplus Floor",
+      "value": "$1,000/mo (zeroed below)"
+     }
+    ],
+    "expenseMethod": null,
+    "calculationMode": "bank",
+    "dtiCapEnabled": false,
+    "dtiCapLimit": 6,
+    "selectedLenderName": null,
+    "lmiMode": "none",
+    "lmiPropertyValue": null,
+    "lmiDepositAmount": null,
+    "isFirstHomeBuyer": false,
+    "proposedRentalIncome": null,
+    "_segmentReconciliation": {
+     "enabled": false,
+     "triggered": false,
+     "segmentBreakdown": [],
+     "totals": {
+      "additionalAnnualNoi": 0,
+      "additionalAnnualDebtService": 0,
+      "additionalHeadroom": 0
+     },
+     "overlays": {
+      "extraMonthlyCommitments": 0,
+      "extraShadedAnnualIncome": 0,
+      "extraDtiDenominator": 0,
+      "portfolioCapacityDelta": 0
+     },
+     "warnings": []
+    },
+    "_portfolioCapacity": 1049786,
+    "householdEvidence": {
+     "version": 1,
+     "status": "complete",
+     "findings": []
+    }
+   },
+   "lmi_amount": 0,
+   "lmi_mode": "none",
+   "lmi_lvr_trigger": null,
+   "property_value_estimate": null,
+   "deposit_amount": null,
+   "net_purchase_capacity": null,
+   "audit_trail": {
+    "entries": [
+     {
+      "seq": 1,
+      "category": "income",
+      "action": "shading_applied",
+      "label": "Primary Brightwater Engineering Pty Ltd",
+      "rawValue": 300000,
+      "assessedValue": 300000,
+      "rule": "100% shading",
+      "delta": 0,
+      "impact": "neutral"
+     },
+     {
+      "seq": 2,
+      "category": "tax",
+      "action": "tax_calculated",
+      "label": "Income Tax",
+      "rawValue": 300000,
+      "assessedValue": 193130,
+      "rule": "35.6% effective rate",
+      "delta": -106870,
+      "impact": "decrease",
+      "note": "Tax: $106870"
+     },
+     {
+      "seq": 3,
+      "category": "tax",
+      "action": "medicare_levy_applied",
+      "label": "Medicare Levy",
+      "rawValue": 0,
+      "assessedValue": 6000,
+      "rule": "2% of taxed income",
+      "delta": 6000,
+      "impact": "increase"
+     },
+     {
+      "seq": 4,
+      "category": "expense",
+      "action": "declared_expenses_used",
+      "label": "Living Expenses",
+      "rawValue": 6447,
+      "assessedValue": 6447,
+      "rule": "Method: Declared Higher",
+      "delta": 0,
+      "impact": "neutral",
+      "note": "Single household \u2014 HEM $3,780/mo vs Declared $6,447/mo"
+     },
+     {
+      "seq": 5,
+      "category": "liability",
+      "action": "assessment_rate_applied",
+      "label": "Vehicle Loan",
+      "rawValue": 18000,
+      "assessedValue": 520,
+      "rule": "$520/mo servicing",
+      "delta": -17480,
+      "impact": "decrease"
+     },
+     {
+      "seq": 6,
+      "category": "liability",
+      "action": "credit_card_limit_rate",
+      "label": "Credit Card",
+      "rawValue": 1200,
+      "assessedValue": 300,
+      "rule": "$300/mo servicing",
+      "delta": -900,
+      "impact": "decrease"
+     },
+     {
+      "seq": 7,
+      "category": "constraint",
+      "action": "stress_test_applied",
+      "label": "Stress Test",
+      "rawValue": 1049786,
+      "assessedValue": 964993,
+      "rule": "+1% above assessment",
+      "delta": -84793,
+      "impact": "decrease"
+     }
+    ],
+    "summary": {
+     "totalTransformations": 7,
+     "byCategory": {
+      "income": 1,
+      "expense": 1,
+      "liability": 2,
+      "property": 0,
+      "tax": 2,
+      "policy": 0,
+      "constraint": 1
+     },
+     "totalIncomeShading": 0,
+     "totalExpenseAdjustments": 0,
+     "totalLiabilityAdjustments": 18380,
+     "totalTaxImpact": 112870,
+     "hasOverrides": false,
+     "hasConstraints": true
+    },
+    "generatedAt": "2026-10-24T21:15:20.794Z"
+   },
+   "explanation": {
+    "headline": "Borrowing capacity of $1,049,786 on $300,000 gross income \u2014 GREEN serviceability.",
+    "steps": [
+     {
+      "step": 1,
+      "title": "Income Assessment",
+      "narrative": "Gross income of $300,000 from 1 source(s) assessed at $300,000 after APRA shading.",
+      "figures": [
+       {
+        "label": "Gross",
+        "value": "$300,000"
+       },
+       {
+        "label": "Shaded",
+        "value": "$300,000"
+       }
+      ],
+      "icon": "income"
+     },
+     {
+      "step": 2,
+      "title": "Tax & After-Tax Income",
+      "narrative": "Tax of $106,870 calculated (35.6% effective, 47.0% marginal). After-tax income: $193,130/yr ($16,094/mo).",
+      "figures": [
+       {
+        "label": "Tax",
+        "value": "$106,870"
+       },
+       {
+        "label": "After-Tax",
+        "value": "$193,130"
+       }
+      ],
+      "icon": "tax"
+     },
+     {
+      "step": 3,
+      "title": "Living Expenses",
+      "narrative": "Declared expenses of $6,447/mo used (exceeds HEM $3,780/mo).",
+      "figures": [
+       {
+        "label": "Base",
+        "value": "$6,447/mo"
+       },
+       {
+        "label": "Total",
+        "value": "$6,447/mo"
+       }
+      ],
+      "icon": "expense"
+     },
+     {
+      "step": 4,
+      "title": "Existing Commitments",
+      "narrative": "2 commitment(s) at $820/mo. Total debt: $19,200.",
+      "figures": [
+       {
+        "label": "Monthly",
+        "value": "$820/mo"
+       },
+       {
+        "label": "Debt",
+        "value": "$19,200"
+       }
+      ],
+      "icon": "liability"
+     },
+     {
+      "step": 5,
+      "title": "Capacity Derivation",
+      "narrative": "Surplus = $16,094 \u2212 $6,447 \u2212 $820 = $8,827/mo. At 9.50% over 30yr \u2192 max loan $1,049,786.",
+      "figures": [
+       {
+        "label": "Surplus",
+        "value": "$8,827/mo"
+       },
+       {
+        "label": "Capacity",
+        "value": "$1,049,786"
+       }
+      ],
+      "icon": "capacity"
+     },
+     {
+      "step": 6,
+      "title": "DTI Ratio",
+      "narrative": "DTI = ($19,200 + $1,049,786) / $300,000 = 3.6x.",
+      "figures": [
+       {
+        "label": "DTI",
+        "value": "3.6x"
+       }
+      ],
+      "icon": "dti"
+     },
+     {
+      "step": 7,
+      "title": "Stress Test",
+      "narrative": "At +1% (10.50%), stressed capacity is $964,993 (\u2212$84,793).",
+      "figures": [
+       {
+        "label": "Stressed",
+        "value": "$964,993"
+       }
+      ],
+      "icon": "stress"
+     },
+     {
+      "step": 8,
+      "title": "Serviceability Band",
+      "narrative": "GREEN band. Strong position.",
+      "figures": [
+       {
+        "label": "Band",
+        "value": "GREEN"
+       }
+      ],
+      "icon": "band"
+     }
+    ],
+    "executiveSummary": "On $300,000 gross ($300,000 shaded), after-tax $193,130, expenses $6,447/mo, commitments $820/mo \u2192 capacity $1,049,786 at 9.50% over 30yr. DTI 3.6x. Band: GREEN.",
+    "generatedAt": "2026-10-24T21:15:20.796Z"
+   }
+  }
+ ]
+}
