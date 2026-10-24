@@ -497,6 +497,25 @@ applies, plus three for this reel:
 - **The two clicks.** 05.2 shows the partner's real path in the product: AML/CTF Compliance, then the matter.
 - **The record.** Every stamp, state and date on screen is one the demo record holds.
 
+**As made (24 October 2026).** The proof's first draw showed a fault none of the measures was looking for. As
+the camera pushed in on the Passport's closed cover (04.2), about half of fifty frames caught the leaves beneath it
+through the cover in hard-edged rectangles, and one caught a caption word a step behind. Chromium was handing back a
+capture a moment before every tile in it was painted, though every compositor stage runs before it draws. Which
+drawings it hit changed from run to run, and a larger tile budget did not stop it. So the renderer keeps a drawing
+only once two captures of it agree, and the whole film was drawn again with that check, one scene's run at a time;
+79 of its 3,541 frames had a drawing captured again before it settled. In the platform scene's tilt a browser grew
+past 4 GB and one was ended for memory, so each browser is now started again every 40 frames. The frames already
+drawn were kept, and 50 of them were put to the vote.
+
+Each run was then verified by agreement. The proof's stretch (04.1 to 05.2) was compared frame by frame with the
+first proof's independent draw. Elsewhere a sample was drawn a second time, independently: every frame whose
+drawings the check had captured again, its neighbours, and one frame in twenty of the rest. Where two draws
+disagreed, further draws voted. Of 992 frames compared, two were replaced by the vote, none was left unresolved, and
+the film carries the approved proof byte for byte. The two were 1514 and 1537, in the Passport's push-in: a caption a
+step behind, which an early form of the check had passed. At the owner's request, the last four scenes (06.2 to 09.1)
+were drawn by four more sessions, each on a machine of its own and each verifying its own scene. Three frames that
+each of them drew of the opening agree with this machine's to within 3 code values, identically on all four.
+
 ## Where things are
 
 | What                                                         | Where                                                                                                                                 |
