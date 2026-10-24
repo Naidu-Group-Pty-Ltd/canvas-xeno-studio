@@ -10,7 +10,8 @@
 // spread over the half of its 1/30 s the shutter is open, so a fast pointer smears rather than jumps, and a still
 // frame (all its drawings identical) stays exactly as sharp.
 // Every drawing is kept only once two captures of it in a row agree (see `settle`).
-// RENDER_WORKERS (default 3) browsers draw frames side by side; RENDER_SUBFRAMES (default 8);
+// RENDER_WORKERS (default 3) browsers draw frames side by side, each relaunched every RENDER_RECYCLE (default 40)
+// of its frames; RENDER_SUBFRAMES (default 8);
 // RENDER_FRAMES=900,1100 draws just those frames to PNG, to look at.
 const fs = require("fs");
 const path = require("path");
@@ -28,6 +29,7 @@ const SUPERSAMPLE = 2;
 const WIDTH = KIT.FRAME.width;
 const HEIGHT = KIT.FRAME.height;
 const WORKERS = Number(process.env.RENDER_WORKERS || 3);
+const RECYCLE = Number(process.env.RENDER_RECYCLE || 40);
 const SUBFRAMES = Number(process.env.RENDER_SUBFRAMES || 8);
 const SHUTTER = 0.5; // 180 degrees: open for half of each frame
 /** The times a frame is drawn at: SUBFRAMES of them, evenly over the open shutter, centred on the frame. */
@@ -314,26 +316,40 @@ async function draw(frames, sink) {
   let captures = 0;
   const { retried, unsettled } = SETTLED;
   const worker = async (k) => {
-    const browser = await chromium.launch(launchArgs());
-    const ctx = await browser.newContext({
-      viewport: { width: WIDTH, height: HEIGHT },
-      deviceScaleFactor: SUPERSAMPLE,
-    });
-    const tab = await ctx.newPage();
-    await F.routeAssets(tab);
-    await routeBaked(tab);
-    const cdp = await ctx.newCDPSession(tab);
-    const capture = async () =>
-      (
-        await cdp.send("Page.captureScreenshot", {
-          format: "png",
-          optimizeForSpeed: true,
-          clip: { x: 0, y: 0, width: WIDTH, height: HEIGHT, scale: SUPERSAMPLE },
-        })
-      ).data;
+    // A browser is relaunched every RECYCLE of its frames: one drawing the platform scene's 3D tilt grew to 3.9 GB
+    // over about 120 of its frames and was killed for memory, which ended the run.
+    const open = async () => {
+      const browser = await chromium.launch(launchArgs());
+      const ctx = await browser.newContext({
+        viewport: { width: WIDTH, height: HEIGHT },
+        deviceScaleFactor: SUPERSAMPLE,
+      });
+      const tab = await ctx.newPage();
+      await F.routeAssets(tab);
+      await routeBaked(tab);
+      const cdp = await ctx.newCDPSession(tab);
+      const capture = async () =>
+        (
+          await cdp.send("Page.captureScreenshot", {
+            format: "png",
+            optimizeForSpeed: true,
+            clip: { x: 0, y: 0, width: WIDTH, height: HEIGHT, scale: SUPERSAMPLE },
+          })
+        ).data;
+      return { browser, tab, capture };
+    };
+    let session = await open();
+    let drawn = 0;
     let loaded = null;
     let last = new Map();
     for (let i = k; i < frames.length; i += WORKERS) {
+      if (drawn > 0 && drawn % RECYCLE === 0) {
+        await session.browser.close();
+        session = await open();
+        loaded = null;
+      }
+      drawn++;
+      const { tab, capture } = session;
       const f = frames[i];
       const scene = sceneAt(f);
       if (loaded !== scene) {
@@ -369,7 +385,7 @@ async function draw(frames, sink) {
       // Not too far ahead of the frame the encoder waits for (never the worker drawing that frame).
       while (i + WORKERS - next > WORKERS * 6) await new Promise((r) => setTimeout(r, 20));
     }
-    await browser.close();
+    await session.browser.close();
   };
   let finished = 0;
   const pump = (async () => {
