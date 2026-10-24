@@ -92,13 +92,28 @@ async function settle(capture, pause) {
   };
   let a = await timed();
   if (!SETTLE) return { png: Buffer.from(a, "base64"), retries: 0, settled: true };
+  const seen = [a];
   for (let retries = 0; retries < SETTLE_TRIES; retries++) {
     await pause();
     const b = await timed();
     if (a === b) return { png: Buffer.from(a, "base64"), retries, settled: true };
     a = b;
+    seen.push(b);
   }
-  return { png: Buffer.from(a, "base64"), retries: SETTLE_TRIES, settled: false };
+  // RENDER_SETTLE_DEBUG=<dir> keeps every capture of a drawing that never settled, to see what kept changing.
+  return { png: Buffer.from(a, "base64"), retries: SETTLE_TRIES, settled: false, seen };
+}
+const SETTLE_DEBUG = process.env.RENDER_SETTLE_DEBUG;
+function keepUnsettled(f, seen) {
+  if (!SETTLE_DEBUG || !seen) return;
+  fs.mkdirSync(SETTLE_DEBUG, { recursive: true });
+  const stamp = Date.now();
+  seen.forEach((data, i) =>
+    fs.writeFileSync(
+      path.join(SETTLE_DEBUG, `f${f}-${stamp}-${i}.png`),
+      Buffer.from(data, "base64"),
+    ),
+  );
 }
 /** A scene's page: the frame (.fk) with the scene's layers; each scene draws its own ground, to fade it. */
 const page = (scene, css) =>
@@ -315,10 +330,11 @@ async function draw(frames, sink) {
           continue;
         }
         await tab.evaluate((u) => window.__apply(u), updates);
-        const { png, retries, settled } = await settle(capture, () => twoFrames(tab));
+        const { png, retries, settled, seen } = await settle(capture, () => twoFrames(tab));
         if (retries) retried.set(f, (retried.get(f) ?? 0) + retries);
         if (!settled) {
           unsettled.add(f);
+          keepUnsettled(f, seen);
           console.error(
             `frame ${f}: a drawing was still changing after ${SETTLE_TRIES + 1} captures`,
           );
