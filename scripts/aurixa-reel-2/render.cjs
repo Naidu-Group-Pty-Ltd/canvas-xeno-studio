@@ -9,6 +9,7 @@
 // Motion is blurred as a camera's 180-degree shutter blurs it: each frame is the average of SUBFRAMES drawings
 // spread over the half of its 1/30 s the shutter is open, so a fast pointer smears rather than jumps, and a still
 // frame (all its drawings identical) stays exactly as sharp.
+// Every drawing is kept only once two captures of it in a row agree (see `settle`).
 // RENDER_WORKERS (default 3) browsers draw frames side by side; RENDER_SUBFRAMES (default 8);
 // RENDER_FRAMES=900,1100 draws just those frames to PNG, to look at.
 const fs = require("fs");
@@ -18,7 +19,9 @@ const M = require("./motion.cjs");
 const { F, KIT, CAP, BRIEF, FPS, frameOf, shotOf, RENDER_CSS } = M;
 
 const OUT = path.resolve(process.argv[2] || "reel-2-film");
-const VOICEOVER = process.argv[4] ? path.resolve(process.argv[4]) : null;
+// "none" draws without sound (a stretch to look at, or a run of frames).
+const VOICEOVER =
+  process.argv[4] && process.argv[4] !== "none" ? path.resolve(process.argv[4]) : null;
 const FIRST = process.argv[5] || "01.1";
 const LAST = process.argv[6] || FIRST;
 const SUPERSAMPLE = 2;
@@ -49,6 +52,47 @@ function launchArgs() {
       "--run-all-compositor-stages-before-draw",
     ],
   };
+}
+/**
+ * A drawing, kept once it has settled. Chromium can hand back a capture a moment before every tile in it is
+ * painted, even with every compositor stage run before drawing: as the camera pushed in on the Passport's closed
+ * cover (04.2), the proof's drawings caught the leaves beneath through the cover in hard-edged rectangles in
+ * about half of fifty frames, and once a caption word a step behind. Which drawings it hits changes from run to
+ * run, so a drawing is captured again until two captures in a row agree. RENDER_SETTLE=0 keeps the first capture
+ * (for a quick look only).
+ */
+const SETTLE = process.env.RENDER_SETTLE !== "0";
+const SETTLE_TRIES = 6;
+/**
+ * Frames whose drawings had to be captured again before they settled (how many times), any that never did, and
+ * every capture's time (the checks included), to say what settling costs.
+ */
+const SETTLED = { retried: new Map(), unsettled: new Set(), captures: 0, ms: 0 };
+/** What settling took, for film.json and the log (integer keys come out of an object in order). */
+const settleReport = () => ({
+  on: SETTLE,
+  frames_retried: SETTLED.retried.size,
+  retried: Object.fromEntries(SETTLED.retried),
+  unsettled: [...SETTLED.unsettled].sort((a, b) => a - b),
+  captures: SETTLED.captures,
+  capture_ms_mean: SETTLED.captures ? Math.round(SETTLED.ms / SETTLED.captures) : null,
+});
+async function settle(capture) {
+  const timed = async () => {
+    const t0 = Date.now();
+    const data = await capture();
+    SETTLED.captures++;
+    SETTLED.ms += Date.now() - t0;
+    return data;
+  };
+  let a = await timed();
+  if (!SETTLE) return { png: Buffer.from(a, "base64"), retries: 0, settled: true };
+  for (let retries = 0; retries < SETTLE_TRIES; retries++) {
+    const b = await timed();
+    if (a === b) return { png: Buffer.from(a, "base64"), retries, settled: true };
+    a = b;
+  }
+  return { png: Buffer.from(a, "base64"), retries: SETTLE_TRIES, settled: false };
 }
 /** A scene's page: the frame (.fk) with the scene's layers; each scene draws its own ground, to fade it. */
 const page = (scene, css) =>
@@ -165,11 +209,15 @@ async function bake(browser, scenes, css) {
         await document.fonts.ready;
         await Promise.all([...document.images].map((i) => i.decode().catch(() => null)));
       });
-      await tab.screenshot({
-        path: file,
-        omitBackground: true,
-        clip: { x: 0, y: 0, width, height },
-      });
+      // Kept once settled, as every drawing is (see `settle`).
+      const { png, settled } = await settle(async () =>
+        (
+          await tab.screenshot({ omitBackground: true, clip: { x: 0, y: 0, width, height } })
+        ).toString("base64"),
+      );
+      if (!settled)
+        throw new Error(`${name} was still changing after ${SETTLE_TRIES + 1} captures`);
+      fs.writeFileSync(file, png);
       await ctx.close();
       console.log(`baked ${name}`);
     }
@@ -220,6 +268,7 @@ async function draw(frames, sink) {
     }
   };
   let captures = 0;
+  const { retried, unsettled } = SETTLED;
   const worker = async (k) => {
     const browser = await chromium.launch(launchArgs());
     const ctx = await browser.newContext({
@@ -230,6 +279,14 @@ async function draw(frames, sink) {
     await F.routeAssets(tab);
     await routeBaked(tab);
     const cdp = await ctx.newCDPSession(tab);
+    const capture = async () =>
+      (
+        await cdp.send("Page.captureScreenshot", {
+          format: "png",
+          optimizeForSpeed: true,
+          clip: { x: 0, y: 0, width: WIDTH, height: HEIGHT, scale: SUPERSAMPLE },
+        })
+      ).data;
     let loaded = null;
     let last = new Map();
     for (let i = k; i < frames.length; i += WORKERS) {
@@ -250,12 +307,15 @@ async function draw(frames, sink) {
           continue;
         }
         await tab.evaluate((u) => window.__apply(u), updates);
-        const { data } = await cdp.send("Page.captureScreenshot", {
-          format: "png",
-          optimizeForSpeed: true,
-          clip: { x: 0, y: 0, width: WIDTH, height: HEIGHT, scale: SUPERSAMPLE },
-        });
-        previous = Buffer.from(data, "base64");
+        const { png, retries, settled } = await settle(capture);
+        if (retries) retried.set(f, (retried.get(f) ?? 0) + retries);
+        if (!settled) {
+          unsettled.add(f);
+          console.error(
+            `frame ${f}: a drawing was still changing after ${SETTLE_TRIES + 1} captures`,
+          );
+        }
+        previous = png;
         pngs.push(previous);
         captures++;
       }
@@ -430,6 +490,7 @@ function encoder(film, reference, audio) {
     });
     console.log(
       `${only.length} frames → ${OUT} (${((Date.now() - started) / 1000).toFixed(1)} s)`,
+      JSON.stringify(settleReport()),
       JSON.stringify(measures),
     );
     return;
@@ -447,7 +508,7 @@ function encoder(film, reference, audio) {
     count++;
     if (count % 60 === 0)
       console.log(
-        `${count}/${frames.length} frames, ${((Date.now() - started) / 1000).toFixed(0)} s`,
+        `${count}/${frames.length} frames, ${((Date.now() - started) / 1000).toFixed(0)} s, ${SETTLED.retried.size} captured again to settle`,
       );
   });
   await enc.end();
@@ -464,10 +525,11 @@ function encoder(film, reference, audio) {
   });
   fs.writeFileSync(
     path.join(OUT, "film.json"),
-    `${JSON.stringify({ fps: FPS, from, to, supersample: SUPERSAMPLE, subframes: SUBFRAMES, shutter: SHUTTER, drawings: captures, shots: shots.slice(i0, i1 + 1).map((s) => s.id), measures, frames: log }, null, 1)}\n`,
+    `${JSON.stringify({ fps: FPS, from, to, supersample: SUPERSAMPLE, subframes: SUBFRAMES, shutter: SHUTTER, drawings: captures, settle: settleReport(), shots: shots.slice(i0, i1 + 1).map((s) => s.id), measures, frames: log }, null, 1)}\n`,
   );
+  const settled = settleReport();
   console.log(
-    `${frames.length} frames (${FIRST} to ${LAST}), ${captures} drawings → ${film} in ${((Date.now() - started) / 1000).toFixed(0)} s`,
+    `${frames.length} frames (${FIRST} to ${LAST}), ${captures} drawings → ${film} in ${((Date.now() - started) / 1000).toFixed(0)} s; ${settled.frames_retried} frames captured again to settle, ${settled.unsettled.length} never settled`,
   );
 })().catch((err) => {
   console.error(err);
