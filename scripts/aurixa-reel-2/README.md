@@ -4,21 +4,22 @@ The scripts behind [Reel 2's plan](../../docs/brands/aurixa-reel-2/PLAN.md). Ree
 ([`scripts/aurixa-reel-1`](../aurixa-reel-1/README.md)) are copied in here as the reel's pages,
 scenes and render are built.
 
-| Script            | What it does                                                                                                                                                                                                                         |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `shot_times.py`   | The shots on the voice's clock: each cut from the voiceover's words, by Reel 1's rule, with each shot's words as the script spells them. Fails if the script and the voice disagree                                                  |
-| `transcribe.py`   | The voiceover's words and times, from NVIDIA's Parakeet TDT 0.6B v2 (int8) in sherpa-onnx, run locally                                                                                                                               |
-| `refine.py`       | Each word's end clipped to the silence measured in the audio, and the sentences; writes `voiceover-words.json`                                                                                                                       |
-| `same_voice.py`   | Whether two recordings are one voice: speaker embeddings (WeSpeaker ResNet34, VoxCeleb) of 10-second windows, compared across the two files and within each                                                                          |
-| `score.py`        | The score's bars, and the composition plans that ask Eleven Music for them; makes a take through the studio's `generate_music`, and measures how a take keeps the plan's bars                                                        |
-| `structure.ts`    | A take's beats, bars and sections, found by the Editor's own analysis (`src/lib/music/structure.ts`, the Music panel's "Find bars and sections")                                                                                     |
-| `pacing.py`       | The voiceover held open in its silences so the cuts land on the score's beats and its anchors on their bars; writes `pacing.json`, and the paced voiceover                                                                           |
-| `soundtrack.ts`   | The soundtrack, laid out as a studio edit's audio and mixed by the media worker's own code to -14 LUFS, with the studio's own mix report; writes `soundtrack.json`                                                                   |
-| `render.cjs`      | The film, a run of shots at a time: each frame drawn eight times over a 180-degree shutter at twice its size, each drawing kept once two captures of it agree; writes the master, a lossless reference and `film.json`               |
-| `render_queue.sh` | The whole film through `render.cjs`, one scene's run at a time, carrying on after a restart                                                                                                                                          |
-| `verify_run.py`   | A run settled by agreement: frames drawn again independently, further draws voting where two disagree, the run's lossless reference rewritten where a vote replaces a frame; `compare` checks another machine's frames against a run |
-| `film_qc.py`      | A rendered stretch measured against its own lossless reference: streams, SSIM and PSNR, colour (CIEDE2000), sharpness, banding, caption and cut timing, the sound's offset; Reel 1's, on Reel 2's brief                              |
-| `review_sheet.py` | Contact sheets of a render, one row a shot: each beat half a second in, and the shot's last frame                                                                                                                                    |
+| Script                  | What it does                                                                                                                                                                                                                             |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shot_times.py`         | The shots on the voice's clock: each cut from the voiceover's words, by Reel 1's rule, with each shot's words as the script spells them. Fails if the script and the voice disagree                                                      |
+| `transcribe.py`         | The voiceover's words and times, from NVIDIA's Parakeet TDT 0.6B v2 (int8) in sherpa-onnx, run locally                                                                                                                                   |
+| `refine.py`             | Each word's end clipped to the silence measured in the audio, and the sentences; writes `voiceover-words.json`                                                                                                                           |
+| `same_voice.py`         | Whether two recordings are one voice: speaker embeddings (WeSpeaker ResNet34, VoxCeleb) of 10-second windows, compared across the two files and within each                                                                              |
+| `score.py`              | The score's bars, and the composition plans that ask Eleven Music for them; makes a take through the studio's `generate_music`, and measures how a take keeps the plan's bars                                                            |
+| `structure.ts`          | A take's beats, bars and sections, found by the Editor's own analysis (`src/lib/music/structure.ts`, the Music panel's "Find bars and sections")                                                                                         |
+| `pacing.py`             | The voiceover held open in its silences so the cuts land on the score's beats and its anchors on their bars; writes `pacing.json`, and the paced voiceover                                                                               |
+| `soundtrack.ts`         | The soundtrack, laid out as a studio edit's audio and mixed by the media worker's own code to -14 LUFS, with the studio's own mix report; writes `soundtrack.json`                                                                       |
+| `national_treasures.py` | Reel 1's _National Treasures_ fitted under the approved cut: slowed to the cut's beat by Rubber Band, its attacks checked where it is cut, and how each piece enters; writes `music-national-treasures.json` for `soundtrack.ts --music` |
+| `render.cjs`            | The film, a run of shots at a time: each frame drawn eight times over a 180-degree shutter at twice its size, each drawing kept once two captures of it agree; writes the master, a lossless reference and `film.json`                   |
+| `render_queue.sh`       | The whole film through `render.cjs`, one scene's run at a time, carrying on after a restart                                                                                                                                              |
+| `verify_run.py`         | A run settled by agreement: frames drawn again independently, further draws voting where two disagree, the run's lossless reference rewritten where a vote replaces a frame; `compare` checks another machine's frames against a run     |
+| `film_qc.py`            | A rendered stretch measured against its own lossless reference: streams, SSIM and PSNR, colour (CIEDE2000), sharpness, banding, caption and cut timing, the sound's offset; Reel 1's, on Reel 2's brief                                  |
+| `review_sheet.py`       | Contact sheets of a render, one row a shot: each beat half a second in, and the shot's last frame                                                                                                                                        |
 
 ## Running them
 
@@ -81,6 +82,21 @@ bun scripts/aurixa-reel-2/soundtrack.ts <dir>                 # soundtrack.wav, 
 ```
 
 The voiceover is decoded from the client's MP3 by ffmpeg, as it was for its word times.
+
+The final is under _National Treasures_ instead, at the client's request, with the picture as approved. The track
+runs at 129 BPM against the cut's 120, so it is slowed 7.0% to the cut's beat, its pitch kept, and cut on its own bar
+lines in nine pieces. Its record gives the pieces and how each stretch sits under the voice:
+
+```sh
+python3 -I scripts/aurixa-reel-2/national_treasures.py <National Treasures.mp3> <dir>   # <dir>/music.wav and the record
+bun scripts/aurixa-reel-2/soundtrack.ts <dir> --music docs/brands/aurixa-reel-2/music-national-treasures.json
+```
+
+A mix item plays its file straight on from its trim, so `soundtrack.ts` lays a stretch the edit jumps through as one
+item a piece. Each join is a 30 ms crossfade centred 20 ms ahead of the bar line. Where a piece comes in out of quiet
+onto a bar the track is already playing, a crossfade would sound the bar before it 35 ms early, as the score's stabs
+did. So a piece whose 35 ms before its bar is more than 6 dB louder than what the film plays there, and is music
+rather than the quiet before an attack, enters on its bar line, led in by 3 ms.
 
 ## Rendering the film
 

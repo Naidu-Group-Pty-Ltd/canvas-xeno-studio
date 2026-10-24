@@ -4,6 +4,10 @@
 //   ffmpeg -i <take-seed-33.mp3> -ar 48000 -ac 2 -c:a pcm_f32le <dir>/music.wav
 //   bun scripts/aurixa-reel-2/soundtrack.ts <dir>
 //
+// Or with another track fitted to the same cut, its fit read from a music record instead of pacing.json's score
+// (national_treasures.py writes <dir>/music.wav and the record):
+//   bun scripts/aurixa-reel-2/soundtrack.ts <dir> --music docs/brands/aurixa-reel-2/music-national-treasures.json
+//
 // Reel 1's route (scripts/aurixa-reel-1/soundtrack.ts): the sound is laid out as a studio edit's audio, in the
 // timeline schema the Editor saves (src/lib/edit/timeline.ts): the voiceover held open in its silences on its own
 // channel, the score in items on Music & FX, each with its gain, its fades and how far it ducks under speech. The
@@ -18,7 +22,7 @@
 // then from bar 54 to the stop on bar 58 and its ring. The items split it where it sits differently under the voice.
 import { execFileSync, spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildRenderRequest, timelineSchema } from "../../src/lib/edit/timeline";
 // @ts-expect-error: the media worker is plain JavaScript
@@ -33,18 +37,24 @@ import {
 import { mixReport } from "../../media-worker/src/mixreport.js";
 
 const dir = process.argv[2];
-if (!dir) throw new Error("Usage: bun scripts/aurixa-reel-2/soundtrack.ts <dir>");
+if (!dir)
+  throw new Error("Usage: bun scripts/aurixa-reel-2/soundtrack.ts <dir> [--music <music record>]");
 const DOCS = join(dirname(fileURLToPath(import.meta.url)), "../../docs/brands/aurixa-reel-2");
 const PACING = JSON.parse(readFileSync(join(DOCS, "pacing.json"), "utf8"));
+const at = process.argv.indexOf("--music");
+// A track fitted to the cut by its own record (its asset, its pieces, how each stretch sits under the voice), or
+// the score as pacing.json edits it.
+const RECORD = at > 0 ? JSON.parse(readFileSync(process.argv[at + 1]!, "utf8")) : null;
 const LIBRARY = {
   voiceover: "fa540b53-8dd2-4312-97ec-bce2a5a48230", // the client's voiceover, 99.971 s
-  music: "011c69cb-a255-45c1-a869-8f919decd179", // Aurixa Reel 2 score, seed 33 (Eleven Music v2.5), 119.04 s
+  music: RECORD?.asset ?? "011c69cb-a255-45c1-a869-8f919decd179", // or Aurixa Reel 2 score, seed 33 (Eleven Music v2.5), 119.04 s
   still: "00477de9-a68e-4625-af9c-31f293c41aeb", // style frame 01: stands in for the picture (render.cjs)
 };
 const END: number = PACING.end;
-const MUSIC = PACING.music;
+const MUSIC = RECORD ?? PACING.music;
 const XF: number = MUSIC.crossfade;
 const LEAD: number = MUSIC.splice_lead;
+const ENTRY: number = MUSIC.entry_lead ?? 0;
 const BARS = MUSIC.bars;
 const bar = (b: number) => MUSIC.first_downbeat + 4 * b * MUSIC.period; // the film's bar b: the take's, unedited
 const join_ = (b: number) => bar(b) - LEAD; // an edit point: just ahead of the bar's notes
@@ -66,30 +76,72 @@ const fileAt = (film: number) => {
 // so it hits with its word, and its ring is the bed between the statements; the return ducks under the closing
 // card's lines and is free for the stop, which rings out.
 type Section = [string, number, number, number, number | null];
-const stabs = BARS.statements as number[];
-const hit = (MUSIC.pieces as { why: string; file_from: number; file_to: number }[]).find((p) =>
-  p.why.endsWith("its hit"),
-)!;
-const HIT = hit.file_to - hit.file_from - LEAD; // how long a stab's hit plays after its bar line
-// Each stab as loud as it can be while its hit leaves the voice 8 dB clear in the speech band (the studio's
-// LOW_MARGIN_DB): the client says the last "your decision." softest of all, so its stab is the quietest, falling
-// away into the full return.
-const STAB_LEVELS = [0.18, 0.18, 0.18, 0.11];
-const sections: Section[] = [
-  ["The intro and the stall", 0, join_(11), 0.55, 0.2],
-  ["The drop, the build, the second drop and the groove", join_(11), join_(37), 0.5, 0.22],
-  ["The breakdown", join_(37), join_(39), 0.2, null],
-  ["The groove returns", join_(39), join_(50), 0.5, 0.17],
-  ...stabs.flatMap((t, i): Section[] => [
-    [`Stab ${i + 1}`, t - LEAD, t + HIT, STAB_LEVELS[i]!, null],
-    [`Stab ${i + 1}, its ring`, t + HIT, t - LEAD + 4 * MUSIC.period, STAB_LEVELS[i]!, null],
-  ]),
-  ["The full return, the stop and the ring", join_(54), END, 0.6, 0.22],
-];
+const scoreSections = (): Section[] => {
+  const stabs = BARS.statements as number[];
+  const hit = (MUSIC.pieces as { why: string; file_from: number; file_to: number }[]).find((p) =>
+    p.why.endsWith("its hit"),
+  )!;
+  const HIT = hit.file_to - hit.file_from - LEAD; // how long a stab's hit plays after its bar line
+  // Each stab as loud as it can be while its hit leaves the voice 8 dB clear in the speech band (the studio's
+  // LOW_MARGIN_DB): the client says the last "your decision." softest of all, so its stab is the quietest, falling
+  // away into the full return.
+  const STAB_LEVELS = [0.18, 0.18, 0.18, 0.11];
+  return [
+    ["The intro and the stall", 0, join_(11), 0.55, 0.2],
+    ["The drop, the build, the second drop and the groove", join_(11), join_(37), 0.5, 0.22],
+    ["The breakdown", join_(37), join_(39), 0.2, null],
+    ["The groove returns", join_(39), join_(50), 0.5, 0.17],
+    ...stabs.flatMap((t, i): Section[] => [
+      [`Stab ${i + 1}`, t - LEAD, t + HIT, STAB_LEVELS[i]!, null],
+      [`Stab ${i + 1}, its ring`, t + HIT, t - LEAD + 4 * MUSIC.period, STAB_LEVELS[i]!, null],
+    ]),
+    ["The full return, the stop and the ring", join_(54), END, 0.6, 0.22],
+  ];
+};
+// A fitted track's record gives its sections in the film's bars (from 0 and to the end as null).
+type RecordSection = {
+  label: string;
+  from_bar: number;
+  to_bar: number | null;
+  volume: number;
+  duck: number | null;
+};
+const sections: Section[] = RECORD
+  ? (RECORD.sections as RecordSection[]).map((s) => [
+      s.label,
+      s.from_bar === 0 ? 0 : join_(s.from_bar),
+      s.to_bar === null ? END : join_(s.to_bar),
+      s.volume,
+      s.duck,
+    ])
+  : scoreSections();
 if (Math.abs(sections[1]![1] - (BARS.drop - LEAD)) > 1e-6)
   throw new Error("The drop is not where pacing.json puts it");
 if (Math.abs(sections.at(-1)![1] - (BARS.reentry - LEAD)) > 1e-6)
   throw new Error("The return is not where pacing.json puts it");
+// An item plays its file straight on from its trim, so a section the edit jumps through is laid as one item a
+// piece: each from its own place in the file, at the section's level, crossfaded into the next as every join is.
+// The score's sections each sit inside one piece; a fitted track's run across its jumps (national_treasures.py).
+const pieceStarts = (MUSIC.pieces as { film_at: number }[]).map((p) => p.film_at);
+// A piece that comes in out of quiet onto a bar its track reaches already sounding enters on its bar line, led in by
+// ENTRY and faded in over it (national_treasures.py): a crossfade ahead of the bar would sound the bar before it.
+const entersOnItsBar = (film: number) =>
+  (MUSIC.pieces as { film_at: number; entry?: string }[]).some(
+    (p) => p.entry === "bar" && Math.abs(p.film_at - film) < 1e-4,
+  );
+const parts: Section[] = sections.flatMap(([label, from, to, volume, duck]) => {
+  const cuts = pieceStarts.filter((t) => t > from + 1e-4 && t < to - 1e-4);
+  const edges = [from, ...cuts, to];
+  return edges
+    .slice(0, -1)
+    .map((a, i): Section => [
+      cuts.length ? `${label} (${i + 1} of ${edges.length - 1})` : label,
+      a,
+      edges[i + 1]!,
+      volume,
+      duck,
+    ]);
+});
 
 const audio = [
   {
@@ -103,10 +155,11 @@ const audio = [
     duck: false,
     label: "The voiceover, held open in its silences (pacing.py)",
   },
-  ...sections.map(([label, from, to, volume, duck], i) => {
+  ...parts.map(([label, from, to, volume, duck], i) => {
     const first = i === 0;
-    const last = i === sections.length - 1;
-    const start = first ? from : from - XF / 2;
+    const last = i === parts.length - 1;
+    const onItsBar = !first && entersOnItsBar(from);
+    const start = first ? from : onItsBar ? from + LEAD - ENTRY : from - XF / 2;
     const end = last ? to : to + XF / 2;
     return {
       id: `music-${i + 1}`,
@@ -116,7 +169,7 @@ const audio = [
       trimStart: Number(fileAt(from).toFixed(6)) - (from - start),
       duration: Number((end - start).toFixed(6)),
       volume,
-      fadeIn: first ? 0 : XF,
+      fadeIn: first ? 0 : onItsBar ? ENTRY : XF,
       // The last item rings out: its own decay for a second after the stop, then a fade to the film's last frame.
       fadeOut: last ? Number((END - (BARS.final + 1.0)).toFixed(3)) : XF,
       loop: false,
@@ -246,7 +299,14 @@ const report = mixReport({ margins: margins ?? [], master, mixed });
 
 const record = {
   written: "2026-10-24",
-  note: "Reel 2's soundtrack as a studio edit's audio (src/lib/edit/timeline.ts), mixed by the media worker's code (media-worker/src/sequence.js), measured by its mix report (media-worker/src/mixreport.js). The voiceover item is the client's recording held open in its silences by pacing.py, prepared as one track; the music items play take 33 of the score as pacing.json edits it.",
+  note: `Reel 2's soundtrack as a studio edit's audio (src/lib/edit/timeline.ts), mixed by the media worker's code (media-worker/src/sequence.js), measured by its mix report (media-worker/src/mixreport.js). The voiceover item is the client's recording held open in its silences by pacing.py, prepared as one track; ${
+    RECORD
+      ? `the music items play ${RECORD.note}`
+      : "the music items play take 33 of the score as pacing.json edits it."
+  }`,
+  ...(RECORD
+    ? { music: { record: process.argv[at + 1], asset: RECORD.asset, file: RECORD.file } }
+    : {}),
   timeline: {
     audio: timeline.audio,
     mix: timeline.mix,
@@ -256,13 +316,17 @@ const record = {
   speech: voiceActivity.map(([a, b]) => [Number(a.toFixed(3)), Number(b.toFixed(3))]),
   mix_report: report,
 };
-writeFileSync(join(DOCS, "soundtrack.json"), `${JSON.stringify(record, null, 1)}\n`);
+// A fitted track's mix is kept beside the score's: music-national-treasures.json mixes to soundtrack-national-treasures.json.
+const recordName = RECORD
+  ? `soundtrack-${basename(process.argv[at + 1]!, ".json").replace(/^music-/, "")}.json`
+  : "soundtrack.json";
+writeFileSync(join(DOCS, recordName), `${JSON.stringify(record, null, 1)}\n`);
 console.log(
   `${plan.audio.length} items; mixed at ${mixed.input_i} LUFS, mastered to ${plan.loudness} LUFS; ${out}`,
 );
 for (const s of report.sections)
   console.log(
-    `  ${String(sections[s.index - 1]?.[0] ?? s.index).padEnd(52)} ${s.from.toFixed(2).padStart(7)} to ${s.to
+    `  ${String(parts[s.index - 1]?.[0] ?? s.index).padEnd(60)} ${s.from.toFixed(2).padStart(7)} to ${s.to
       .toFixed(2)
       .padStart(
         7,

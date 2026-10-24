@@ -1,0 +1,443 @@
+{
+ "written": "2026-10-24",
+ "note": "National Treasures, the client's track (Reel 1's), under Reel 2's approved cut: slowed 7.0% to the cut's beat by Rubber Band, its pitch kept, and cut on its own bar lines (national_treasures.py).",
+ "asset": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+ "file": "Drake – National Treasures (Instrumental).mp3, 272.254 s, SHA-256 b22fc04d38b20007488cbd8669b2fe38352f81b29e2af46364d473af6e46d863",
+ "native": {
+  "period": 0.46514101885610903,
+  "bpm": 128.993,
+  "drop": 22.254852
+ },
+ "stretch": {
+  "tool": "Rubber Band (ffmpeg rubberband: pitchq=quality, channels=together, transients=crisp)",
+  "tempo": 0.930322972,
+  "slower_by": "6.97%",
+  "bpm": 120.005,
+  "seconds": 292.645,
+  "drop": 23.905,
+  "drop_rise_db": 20.6
+ },
+ "beat_checked": {
+  "bars": [
+   {
+    "bar": -11,
+    "expected": 1.906,
+    "onset": 1.96,
+    "off_ms": 54.0,
+    "rise_db": 1.8
+   },
+   {
+    "bar": -10,
+    "expected": 3.9059,
+    "onset": 3.945,
+    "off_ms": 39.1,
+    "rise_db": 2.1
+   },
+   {
+    "bar": -2,
+    "expected": 19.9052,
+    "onset": 19.945,
+    "off_ms": 39.8,
+    "rise_db": 3.9
+   },
+   {
+    "bar": -1,
+    "expected": 21.9051,
+    "onset": 21.945,
+    "off_ms": 39.9,
+    "rise_db": 2.8
+   },
+   {
+    "bar": 0,
+    "expected": 23.905,
+    "onset": 23.905,
+    "off_ms": 0.0,
+    "rise_db": 20.6
+   },
+   {
+    "bar": 1,
+    "expected": 25.9049,
+    "onset": 25.875,
+    "off_ms": -29.9,
+    "rise_db": 2.1
+   },
+   {
+    "bar": 9,
+    "expected": 41.9042,
+    "onset": 41.875,
+    "off_ms": -29.2,
+    "rise_db": 2.1
+   },
+   {
+    "bar": 10,
+    "expected": 43.9041,
+    "onset": 43.905,
+    "off_ms": 0.9,
+    "rise_db": 6.3
+   },
+   {
+    "bar": 13,
+    "expected": 49.9039,
+    "onset": 49.885,
+    "off_ms": -18.9,
+    "rise_db": 2.7
+   },
+   {
+    "bar": 14,
+    "expected": 51.9038,
+    "onset": 51.895,
+    "off_ms": -8.8,
+    "rise_db": 4.4
+   },
+   {
+    "bar": 38,
+    "expected": 99.9017,
+    "onset": 99.9,
+    "off_ms": -1.7,
+    "rise_db": 4.7
+   },
+   {
+    "bar": 39,
+    "expected": 101.9016,
+    "onset": 101.895,
+    "off_ms": -6.6,
+    "rise_db": 3.3
+   },
+   {
+    "bar": 40,
+    "expected": 103.9015,
+    "onset": 103.91,
+    "off_ms": 8.5,
+    "rise_db": 4.4
+   },
+   {
+    "bar": 41,
+    "expected": 105.9014,
+    "onset": 105.9,
+    "off_ms": -1.4,
+    "rise_db": 5.7
+   },
+   {
+    "bar": 42,
+    "expected": 107.9013,
+    "onset": 107.895,
+    "off_ms": -6.3,
+    "rise_db": 8.2
+   },
+   {
+    "bar": 47,
+    "expected": 117.9009,
+    "onset": 117.905,
+    "off_ms": 4.1,
+    "rise_db": 7.3
+   },
+   {
+    "bar": 48,
+    "expected": 119.9008,
+    "onset": 119.9,
+    "off_ms": -0.8,
+    "rise_db": 11.9
+   },
+   {
+    "bar": 58,
+    "expected": 139.8999,
+    "onset": 139.9,
+    "off_ms": 0.1,
+    "rise_db": 6.8
+   },
+   {
+    "bar": 59,
+    "expected": 141.8998,
+    "onset": 141.905,
+    "off_ms": 5.2,
+    "rise_db": 6.4
+   },
+   {
+    "bar": 71,
+    "expected": 165.8988,
+    "onset": 165.86,
+    "off_ms": -38.8,
+    "rise_db": 2.1
+   },
+   {
+    "bar": 72,
+    "expected": 167.8987,
+    "onset": 167.9,
+    "off_ms": 1.3,
+    "rise_db": 10.7
+   },
+   {
+    "bar": 90,
+    "expected": 203.8971,
+    "onset": 203.895,
+    "off_ms": -2.1,
+    "rise_db": 18.1
+   },
+   {
+    "bar": 91,
+    "expected": 205.897,
+    "onset": 205.835,
+    "off_ms": -62.0,
+    "rise_db": 2.6
+   },
+   {
+    "bar": 95,
+    "expected": 213.8966,
+    "onset": 213.895,
+    "off_ms": -1.6,
+    "rise_db": 3.8
+   },
+   {
+    "bar": 96,
+    "expected": 215.8966,
+    "onset": 215.89,
+    "off_ms": -6.6,
+    "rise_db": 0.3
+   }
+  ],
+  "worst_clear_ms": 6.3
+ },
+ "period": 0.499978,
+ "first_downbeat": 0.03007,
+ "splice_lead": 0.02,
+ "crossfade": 0.03,
+ "entry_lead": 0.003,
+ "bars": {
+  "drop": 22.029102,
+  "drop2": 44.028134,
+  "breakdown": 74.026814,
+  "return": 78.026638,
+  "statements": [
+   100.02567,
+   102.025582,
+   104.025494,
+   106.025406
+  ],
+  "reentry": 108.025318,
+  "operating": 110.02523,
+  "start": 114.025054,
+  "final": 116.024966
+ },
+ "ring": 2.0,
+ "pieces": [
+  {
+   "film_bar": 0,
+   "bars": [
+    -11,
+    10
+   ],
+   "file_from": 1.875898,
+   "file_to": 43.88412,
+   "film_at": 0.0,
+   "why": "the intro, falling silent in its last bar, then the drop on the brand's cut and its groove"
+  },
+  {
+   "film_bar": 21,
+   "bars": [
+    -1,
+    14
+   ],
+   "file_from": 21.885088,
+   "file_to": 51.883768,
+   "film_at": 42.008222,
+   "why": "the fall to silence again, then the drop again on the Passport's cut and its groove",
+   "entry": "crossfade",
+   "entry_levels_db": {
+    "before_its_bar": -27.9,
+    "the_film_there": -16.2,
+    "its_bar": -26.4
+   }
+  },
+  {
+   "film_bar": 36,
+   "bars": [
+    39,
+    42
+   ],
+   "file_from": 101.881568,
+   "file_to": 107.881304,
+   "film_at": 72.006902,
+   "why": "the bar that leads the track into its breakdown, then the breakdown's first phrase",
+   "entry": "crossfade",
+   "entry_levels_db": {
+    "before_its_bar": -25.1,
+    "the_film_there": -17.7,
+    "its_bar": -20.1
+   }
+  },
+  {
+   "film_bar": 39,
+   "bars": [
+    48,
+    59
+   ],
+   "file_from": 119.880776,
+   "file_to": 141.879808,
+   "film_at": 78.006638,
+   "why": "the groove's return, lighter",
+   "entry": "crossfade",
+   "entry_levels_db": {
+    "before_its_bar": -55.9,
+    "the_film_there": -61.6,
+    "its_bar": -13.0
+   }
+  },
+  {
+   "film_bar": 50,
+   "bars": [
+    71,
+    72
+   ],
+   "file_from": 165.878752,
+   "file_to": 167.878664,
+   "film_at": 100.00567,
+   "why": "statement 1: the track's bass hit and its ring",
+   "entry": "bar",
+   "entry_levels_db": {
+    "before_its_bar": -9.5,
+    "the_film_there": -28.2,
+    "its_bar": -13.7
+   }
+  },
+  {
+   "film_bar": 51,
+   "bars": [
+    71,
+    72
+   ],
+   "file_from": 165.878752,
+   "file_to": 167.878664,
+   "film_at": 102.005582,
+   "why": "statement 2: the bass hit again",
+   "entry": "bar",
+   "entry_levels_db": {
+    "before_its_bar": -9.5,
+    "the_film_there": -51.7,
+    "its_bar": -13.7
+   }
+  },
+  {
+   "film_bar": 52,
+   "bars": [
+    71,
+    72
+   ],
+   "file_from": 165.878752,
+   "file_to": 167.878664,
+   "film_at": 104.005494,
+   "why": "statement 3: the bass hit again",
+   "entry": "bar",
+   "entry_levels_db": {
+    "before_its_bar": -9.5,
+    "the_film_there": -51.7,
+    "its_bar": -13.7
+   }
+  },
+  {
+   "film_bar": 53,
+   "bars": [
+    71,
+    72
+   ],
+   "file_from": 165.878752,
+   "file_to": 167.878664,
+   "film_at": 106.005406,
+   "why": "statement 4: the bass hit again",
+   "entry": "bar",
+   "entry_levels_db": {
+    "before_its_bar": -12.5,
+    "the_film_there": -51.7,
+    "its_bar": -16.6
+   }
+  },
+  {
+   "film_bar": 54,
+   "bars": [
+    91,
+    null
+   ],
+   "file_from": 205.876992,
+   "file_to": null,
+   "film_at": 108.005318,
+   "why": "the full return: the last bars of the track's biggest section, then its closing hit and ring",
+   "entry": "bar",
+   "entry_levels_db": {
+    "before_its_bar": -12.1,
+    "the_film_there": -54.6,
+    "its_bar": -5.2
+   }
+  }
+ ],
+ "sections": [
+  {
+   "label": "The intro and the stall",
+   "from_bar": 0,
+   "to_bar": 11,
+   "volume": 0.6,
+   "duck": 0.25
+  },
+  {
+   "label": "The drop, the groove, the stall, the second drop and the groove",
+   "from_bar": 11,
+   "to_bar": 36,
+   "volume": 0.5,
+   "duck": 0.22
+  },
+  {
+   "label": "The bar that leads into the breakdown, under the line's last words",
+   "from_bar": 36,
+   "to_bar": 37,
+   "volume": 0.5,
+   "duck": 0.15
+  },
+  {
+   "label": "The breakdown",
+   "from_bar": 37,
+   "to_bar": 39,
+   "volume": 0.7,
+   "duck": null
+  },
+  {
+   "label": "The groove returns, lighter",
+   "from_bar": 39,
+   "to_bar": 50,
+   "volume": 0.5,
+   "duck": 0.22
+  },
+  {
+   "label": "Statement 1, on the bass hit",
+   "from_bar": 50,
+   "to_bar": 51,
+   "volume": 0.7,
+   "duck": null
+  },
+  {
+   "label": "Statement 2, on the bass hit",
+   "from_bar": 51,
+   "to_bar": 52,
+   "volume": 0.7,
+   "duck": null
+  },
+  {
+   "label": "Statement 3, on the bass hit",
+   "from_bar": 52,
+   "to_bar": 53,
+   "volume": 0.7,
+   "duck": null
+  },
+  {
+   "label": "Statement 4, on the bass hit",
+   "from_bar": 53,
+   "to_bar": 54,
+   "volume": 0.5,
+   "duck": null
+  },
+  {
+   "label": "The full return, the closing hit and its ring",
+   "from_bar": 54,
+   "to_bar": null,
+   "volume": 0.6,
+   "duck": 0.3
+  }
+ ]
+}
