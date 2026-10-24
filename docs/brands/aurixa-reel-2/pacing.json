@@ -1,0 +1,303 @@
+{
+  "fps": 30,
+  "sample_rate": 44100,
+  "voiceover": {
+    "seconds": 99.971,
+    "speech_end": 99.783
+  },
+  "end": 118.03333333333333,
+  "pauses": [
+    {
+      "at": 0.0,
+      "frames": 13,
+      "seconds": 0.4333,
+      "why": "the switchboard, before 'One property'",
+      "group": "open"
+    },
+    {
+      "at": 3.27,
+      "frames": 3,
+      "seconds": 0.1,
+      "why": "after 'six property professionals,'",
+      "group": "open"
+    },
+    {
+      "at": 6.533,
+      "frames": 12,
+      "seconds": 0.4,
+      "why": "the freeze, before 'Sound familiar?'",
+      "group": "open"
+    },
+    {
+      "at": 7.7,
+      "frames": 6,
+      "seconds": 0.2,
+      "why": "after 'Sound familiar?': the client's chip pulses",
+      "group": "open"
+    },
+    {
+      "at": 16.9,
+      "frames": 5,
+      "seconds": 0.1667,
+      "why": "after 'another explanation.'",
+      "group": "open"
+    },
+    {
+      "at": 20.05,
+      "frames": 15,
+      "seconds": 0.5,
+      "why": "after 'paperwork.': the bar stalled, held before the drop",
+      "group": "open"
+    },
+    {
+      "at": 20.2,
+      "frames": 11,
+      "seconds": 0.3667,
+      "why": "the drop, before 'That's where'",
+      "group": "brand"
+    },
+    {
+      "at": 23.6,
+      "frames": 10,
+      "seconds": 0.3333,
+      "why": "the logo, glowing, held",
+      "group": "brand"
+    },
+    {
+      "at": 37.85,
+      "frames": 15,
+      "seconds": 0.5,
+      "why": "the connected system, held",
+      "group": "brand"
+    },
+    {
+      "at": 39.85,
+      "frames": 28,
+      "seconds": 0.9333,
+      "why": "the press and the build, before 'Introducing'",
+      "group": "brand"
+    },
+    {
+      "at": 44.45,
+      "frames": 14,
+      "seconds": 0.4667,
+      "why": "the Passport, face-on, held",
+      "group": "passport"
+    },
+    {
+      "at": 46.24,
+      "frames": 9,
+      "seconds": 0.3,
+      "why": "after 'One digital passport,'",
+      "group": "passport"
+    },
+    {
+      "at": 48.38,
+      "frames": 6,
+      "seconds": 0.2,
+      "why": "after 'one organised client record,'",
+      "group": "passport"
+    },
+    {
+      "at": 53.8,
+      "frames": 16,
+      "seconds": 0.5333,
+      "why": "'all in one place.', held",
+      "group": "passport"
+    },
+    {
+      "at": 56.69,
+      "frames": 9,
+      "seconds": 0.3,
+      "why": "after 'controlled access,'",
+      "group": "passport"
+    },
+    {
+      "at": 67.55,
+      "frames": 15,
+      "seconds": 0.5,
+      "why": "after 'duplication.'",
+      "group": "passport"
+    },
+    {
+      "at": 67.767,
+      "frames": 48,
+      "seconds": 1.6,
+      "why": "the Passport alone, before 'The result?'",
+      "group": "breakdown"
+    },
+    {
+      "at": 68.65,
+      "frames": 42,
+      "seconds": 1.4,
+      "why": "the question, held",
+      "group": "breakdown"
+    },
+    {
+      "at": 70.04,
+      "frames": 5,
+      "seconds": 0.1667,
+      "why": "after 'Less paperwork,'",
+      "group": "result"
+    },
+    {
+      "at": 71.45,
+      "frames": 4,
+      "seconds": 0.1333,
+      "why": "after 'less repetition,'",
+      "group": "result"
+    },
+    {
+      "at": 78.9,
+      "frames": 13,
+      "seconds": 0.4333,
+      "why": "the journey, held",
+      "group": "result"
+    },
+    {
+      "at": 81.6,
+      "frames": 18,
+      "seconds": 0.6,
+      "why": "the call to action, before 'Experience it yourself'",
+      "group": "result"
+    },
+    {
+      "at": 88.3,
+      "frames": 17,
+      "seconds": 0.5667,
+      "why": "after 'what a truly connected business can achieve.'",
+      "group": "result"
+    },
+    {
+      "at": 89.89,
+      "frames": 16,
+      "seconds": 0.5333,
+      "why": "'Your business' on its stab",
+      "group": "close"
+    },
+    {
+      "at": 90.98,
+      "frames": 27,
+      "seconds": 0.9,
+      "why": "'your experience' on its stab",
+      "group": "close"
+    },
+    {
+      "at": 92.23,
+      "frames": 23,
+      "seconds": 0.7667,
+      "why": "'your decision' on its stab",
+      "group": "close"
+    },
+    {
+      "at": 93.3,
+      "frames": 38,
+      "seconds": 1.2667,
+      "why": "held before the closing card",
+      "group": "close"
+    },
+    {
+      "at": 94.87,
+      "frames": 9,
+      "seconds": 0.3,
+      "why": "'the operating system' on its downbeat",
+      "group": "close"
+    },
+    {
+      "at": 98.14,
+      "frames": 21,
+      "seconds": 0.7,
+      "why": "'Start your free trial today.' on its downbeat",
+      "group": "close"
+    }
+  ],
+  "music": {
+    "take": {
+      "seed": 33,
+      "plan": "b",
+      "title": "Aurixa Reel 2 score, seed 33",
+      "model": "music_v2_5",
+      "file": "take-seed-33.mp3, 119.040 s, MP3 128 kbit/s, 44.1 kHz stereo",
+      "measured": "24 October 2026: the Editor's bar finder (structure.ts) finds 120.01 BPM, 4 beats a bar, confidence 0.89; one grid through its 239 beats, rms 0.3 ms, worst 1 ms"
+    },
+    "period": 0.499978,
+    "first_downbeat": 0.03007,
+    "splice_lead": 0.02,
+    "crossfade": 0.03,
+    "pieces": [
+      {
+        "file_from": 0.0,
+        "file_to": 100.00567,
+        "why": "the take as made: the intro, the stall, both drops, the breakdown and the groove's return",
+        "film_at": 0.0
+      },
+      {
+        "file_from": 115.504988,
+        "file_to": 115.734988,
+        "why": "stab 1 on bar 50: the take's last beat, its hit",
+        "film_at": 100.00567
+      },
+      {
+        "file_from": 116.044966,
+        "file_to": 117.814878,
+        "why": "stab 1: the ring after the take's stop, to the next bar",
+        "film_at": 100.23567
+      },
+      {
+        "file_from": 115.504988,
+        "file_to": 115.734988,
+        "why": "stab 2 on bar 51: the take's last beat, its hit",
+        "film_at": 102.005582
+      },
+      {
+        "file_from": 116.044966,
+        "file_to": 117.814878,
+        "why": "stab 2: the ring after the take's stop, to the next bar",
+        "film_at": 102.235582
+      },
+      {
+        "file_from": 115.504988,
+        "file_to": 115.734988,
+        "why": "stab 3 on bar 52: the take's last beat, its hit",
+        "film_at": 104.005494
+      },
+      {
+        "file_from": 116.044966,
+        "file_to": 117.814878,
+        "why": "stab 3: the ring after the take's stop, to the next bar",
+        "film_at": 104.235494
+      },
+      {
+        "file_from": 115.504988,
+        "file_to": 115.734988,
+        "why": "stab 4 on bar 53: the take's last beat, its hit",
+        "film_at": 106.005406
+      },
+      {
+        "file_from": 116.044966,
+        "file_to": 117.814878,
+        "why": "stab 4: the ring after the take's stop, to the next bar",
+        "film_at": 106.235406
+      },
+      {
+        "file_from": 108.005318,
+        "file_to": null,
+        "why": "the full return from bar 54, the stop on bar 58 and its ring",
+        "film_at": 108.005318
+      }
+    ],
+    "film_drop": 22.029102,
+    "bars": {
+      "drop": 22.029102,
+      "drop2": 44.028134,
+      "breakdown": 74.026814,
+      "return": 78.026638,
+      "statements": [100.02567, 102.025582, 104.025494, 106.025406],
+      "reentry": 108.025318,
+      "operating": 110.02523,
+      "start": 114.025054,
+      "final": 116.024966
+    },
+    "ring": 2.0
+  }
+}

@@ -416,6 +416,13 @@ A prompt places its sections only roughly, so each take is read in the app for i
 next step is ElevenLabs' composition plan, which fixes each section's length. The studio sends only a prompt today,
 so using a composition plan would need a small change to the studio.
 
+**As made (24 October 2026).** The client chose the composition plan, and the studio's API gained `generate_music`
+to send one. The score was designed with the pacing: eleven sections of whole bars at 120 BPM, each starting on
+the bar a cut or a statement needs (`scripts/aurixa-reel-2/score.py`). Three takes were made and measured with
+the Editor's own bar finder. Take 33 is the score: 120.005 BPM, every section on its bar, the first drop on the
+brand's cut and the second on the Passport's. No take played the four stabs, so each is the take's own last hit,
+gated into the ring after its final stop. The film is 1:58.0.
+
 ## 7. Sound, pace and length
 
 - **The voice is never stretched.** It is held open in its own silences, in whole frames, so that the cuts land on bars
@@ -431,6 +438,13 @@ so using a composition plan would need a small change to the studio.
   - the music is ducked under speech section by section, but never in the breakdown;
   - the film is mastered to -14 LUFS, with a true peak of -1 dBTP or lower;
   - a mix report gives the voice's margin over the music in the speech band.
+
+**As made (24 October 2026).** `pacing.py` holds the voice open with 29 pauses (15.6 s), and the film runs
+118.03 s. Every anchor lands within a frame of its bar: both drops, "The result?" in the breakdown, each statement
+on its stab, the closing card on the full return, and the press on the final stop. The client says "experience"
+7 dB and "decision" 10 dB below the rest of the voiceover, so each statement meets its stab on its first word,
+"your", as its words appear on screen; on its stressed syllable, the stab covered it. The mix measures -14.1 LUFS,
+true peak -1.5 dBTP. Its report (`soundtrack.json`) has the voice 8.0 to 17.8 dB over the music in every section.
 
 ## 8. What the client decides
 

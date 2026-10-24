@@ -1,0 +1,417 @@
+{
+  "written": "2026-10-24",
+  "note": "Reel 2's soundtrack as a studio edit's audio (src/lib/edit/timeline.ts), mixed by the media worker's code (media-worker/src/sequence.js), measured by its mix report (media-worker/src/mixreport.js). The voiceover item is the client's recording held open in its silences by pacing.py, prepared as one track; the music items play take 33 of the score as pacing.json edits it.",
+  "timeline": {
+    "audio": [
+      {
+        "id": "voiceover",
+        "assetId": "fa540b53-8dd2-4312-97ec-bce2a5a48230",
+        "role": "voiceover",
+        "start": 0,
+        "trimStart": 0,
+        "duration": 118.03333333333333,
+        "volume": 1,
+        "fadeIn": 0,
+        "fadeOut": 0,
+        "loop": false,
+        "duck": false,
+        "duckLevel": 0.25,
+        "label": "The voiceover, held open in its silences (pacing.py)",
+        "pauses": []
+      },
+      {
+        "id": "music-1",
+        "assetId": "011c69cb-a255-45c1-a869-8f919decd179",
+        "role": "music",
+        "start": 0,
+        "trimStart": 0,
+        "duration": 22.024102,
+        "volume": 0.55,
+        "fadeIn": 0,
+        "fadeOut": 0.03,
+        "loop": false,
+        "duck": true,
+        "duckLevel": 0.2,
+        "label": "The intro and the stall",
+        "pauses": []
+      },
+      {
+        "id": "music-2",
+        "assetId": "011c69cb-a255-45c1-a869-8f919decd179",
+        "role": "music",
+        "start": 21.994102,
+        "trimStart": 21.994102,
+        "duration": 52.027712,
+        "volume": 0.5,
+        "fadeIn": 0.03,
+        "fadeOut": 0.03,
+        "loop": false,
+        "duck": true,
+        "duckLevel": 0.22,
+        "label": "The drop, the build, the second drop and the groove",
+        "pauses": []
+      },
+      {
+        "id": "music-3",
+        "assetId": "011c69cb-a255-45c1-a869-8f919decd179",
+        "role": "music",
+        "start": 73.991814,
+        "trimStart": 73.991814,
+        "duration": 4.029824,
+        "volume": 0.2,
+        "fadeIn": 0.03,
+        "fadeOut": 0.03,
+        "loop": false,
+        "duck": false,
+        "duckLevel": 1,
+        "label": "The breakdown",
+        "pauses": []
+      },
+      {
+        "id": "music-4",
+        "assetId": "011c69cb-a255-45c1-a869-8f919decd179",
+        "role": "music",
+        "start": 77.991638,
+        "trimStart": 77.991638,
+        "duration": 22.029032,
+        "volume": 0.5,
+        "fadeIn": 0.03,
+        "fadeOut": 0.03,
+        "loop": false,
+        "duck": true,
+        "duckLevel": 0.17,
+        "label": "The groove returns",
+        "pauses": []
+      },
+      {
+        "id": "music-5",
+        "assetId": "011c69cb-a255-45c1-a869-8f919decd179",
+        "role": "music",
+        "start": 99.99067,
+        "trimStart": 115.489988,
+        "duration": 0.26,
+        "volume": 0.18,
+        "fadeIn": 0.03,
+        "fadeOut": 0.03,
+        "loop": false,
+        "duck": false,
+        "duckLevel": 1,
+        "label": "Stab 1",
+        "pauses": []
+      },
+      {
+        "id": "music-6",
+        "assetId": "011c69cb-a255-45c1-a869-8f919decd179",
+        "role": "music",
+        "start": 100.22067,
+        "trimStart": 116.029966,
+        "duration": 1.799912,
+        "volume": 0.18,
+        "fadeIn": 0.03,
+        "fadeOut": 0.03,
+        "loop": false,
+        "duck": false,
+        "duckLevel": 1,
+        "label": "Stab 1, its ring",
+        "pauses": []
+      },
+      {
+        "id": "music-7",
+        "assetId": "011c69cb-a255-45c1-a869-8f919decd179",
+        "role": "music",
+        "start": 101.990582,
+        "trimStart": 115.489988,
+        "duration": 0.26,
+        "volume": 0.18,
+        "fadeIn": 0.03,
+        "fadeOut": 0.03,
+        "loop": false,
+        "duck": false,
+        "duckLevel": 1,
+        "label": "Stab 2",
+        "pauses": []
+      },
+      {
+        "id": "music-8",
+        "assetId": "011c69cb-a255-45c1-a869-8f919decd179",
+        "role": "music",
+        "start": 102.220582,
+        "trimStart": 116.029966,
+        "duration": 1.799912,
+        "volume": 0.18,
+        "fadeIn": 0.03,
+        "fadeOut": 0.03,
+        "loop": false,
+        "duck": false,
+        "duckLevel": 1,
+        "label": "Stab 2, its ring",
+        "pauses": []
+      },
+      {
+        "id": "music-9",
+        "assetId": "011c69cb-a255-45c1-a869-8f919decd179",
+        "role": "music",
+        "start": 103.990494,
+        "trimStart": 115.489988,
+        "duration": 0.26,
+        "volume": 0.18,
+        "fadeIn": 0.03,
+        "fadeOut": 0.03,
+        "loop": false,
+        "duck": false,
+        "duckLevel": 1,
+        "label": "Stab 3",
+        "pauses": []
+      },
+      {
+        "id": "music-10",
+        "assetId": "011c69cb-a255-45c1-a869-8f919decd179",
+        "role": "music",
+        "start": 104.220494,
+        "trimStart": 116.029966,
+        "duration": 1.799912,
+        "volume": 0.18,
+        "fadeIn": 0.03,
+        "fadeOut": 0.03,
+        "loop": false,
+        "duck": false,
+        "duckLevel": 1,
+        "label": "Stab 3, its ring",
+        "pauses": []
+      },
+      {
+        "id": "music-11",
+        "assetId": "011c69cb-a255-45c1-a869-8f919decd179",
+        "role": "music",
+        "start": 105.990406,
+        "trimStart": 115.489988,
+        "duration": 0.26,
+        "volume": 0.11,
+        "fadeIn": 0.03,
+        "fadeOut": 0.03,
+        "loop": false,
+        "duck": false,
+        "duckLevel": 1,
+        "label": "Stab 4",
+        "pauses": []
+      },
+      {
+        "id": "music-12",
+        "assetId": "011c69cb-a255-45c1-a869-8f919decd179",
+        "role": "music",
+        "start": 106.220406,
+        "trimStart": 116.029966,
+        "duration": 1.799912,
+        "volume": 0.11,
+        "fadeIn": 0.03,
+        "fadeOut": 0.03,
+        "loop": false,
+        "duck": false,
+        "duckLevel": 1,
+        "label": "Stab 4, its ring",
+        "pauses": []
+      },
+      {
+        "id": "music-13",
+        "assetId": "011c69cb-a255-45c1-a869-8f919decd179",
+        "role": "music",
+        "start": 107.990318,
+        "trimStart": 107.990318,
+        "duration": 10.043015,
+        "volume": 0.6,
+        "fadeIn": 0.03,
+        "fadeOut": 1.008,
+        "loop": false,
+        "duck": true,
+        "duckLevel": 0.22,
+        "label": "The full return, the stop and the ring",
+        "pauses": []
+      }
+    ],
+    "mix": {
+      "picture": {
+        "level": 1,
+        "muted": true
+      },
+      "voiceover": {
+        "level": 1,
+        "muted": false
+      },
+      "audio": {
+        "level": 1,
+        "muted": false
+      }
+    },
+    "normalizeLoudness": true
+  },
+  "plan": {
+    "total": 118.03333333333333,
+    "loudness": -14,
+    "mix": {
+      "picture": 0,
+      "voiceover": 1,
+      "music": 1,
+      "sfx": 1
+    }
+  },
+  "speech": [
+    [0.506, 3.499],
+    [4.03, 6.828],
+    [7.625, 8.415],
+    [9.163, 17.925],
+    [18.297, 21.18],
+    [22.539, 25.584],
+    [26.386, 40.173],
+    [41.174, 42.789],
+    [43.932, 48.156],
+    [49.157, 50.493],
+    [51.092, 52.953],
+    [53.355, 58.449],
+    [59.496, 62.022],
+    [62.527, 73.109],
+    [75.76, 76.368],
+    [78.178, 79.172],
+    [79.537, 88.209],
+    [89.119, 91.434],
+    [92.248, 98.771],
+    [99.519, 100.857],
+    [102.031, 102.842],
+    [104.024, 105.042],
+    [106.036, 106.884],
+    [108.18, 109.355],
+    [109.898, 112.877],
+    [113.91, 115.383]
+  ],
+  "mix_report": {
+    "band_hz": [300, 4000],
+    "sections": [
+      {
+        "index": 1,
+        "from": 0,
+        "to": 22.024,
+        "speech_seconds": 18.23,
+        "voice_db": -29.3,
+        "music_db": -41.1,
+        "margin_db": 11.8
+      },
+      {
+        "index": 2,
+        "from": 21.994,
+        "to": 74.022,
+        "speech_seconds": 44.07,
+        "voice_db": -27.9,
+        "music_db": -40,
+        "margin_db": 12.1
+      },
+      {
+        "index": 3,
+        "from": 73.992,
+        "to": 78.022,
+        "speech_seconds": 0.61,
+        "voice_db": -27,
+        "music_db": -37.3,
+        "margin_db": 10.3
+      },
+      {
+        "index": 4,
+        "from": 77.992,
+        "to": 100.021,
+        "speech_seconds": 19.01,
+        "voice_db": -29.9,
+        "music_db": -41.1,
+        "margin_db": 11.2
+      },
+      {
+        "index": 5,
+        "from": 99.991,
+        "to": 100.251,
+        "speech_seconds": 0.26,
+        "voice_db": -21.7,
+        "music_db": -35,
+        "margin_db": 13.3
+      },
+      {
+        "index": 6,
+        "from": 100.221,
+        "to": 102.021,
+        "speech_seconds": 0.64,
+        "voice_db": -32.7,
+        "music_db": -47,
+        "margin_db": 14.3
+      },
+      {
+        "index": 7,
+        "from": 101.991,
+        "to": 102.251,
+        "speech_seconds": 0.22,
+        "voice_db": -23.6,
+        "music_db": -35.2,
+        "margin_db": 11.6
+      },
+      {
+        "index": 8,
+        "from": 102.221,
+        "to": 104.02,
+        "speech_seconds": 0.62,
+        "voice_db": -29.1,
+        "music_db": -46.9,
+        "margin_db": 17.8
+      },
+      {
+        "index": 9,
+        "from": 103.99,
+        "to": 104.25,
+        "speech_seconds": 0.23,
+        "voice_db": -26.5,
+        "music_db": -34.6,
+        "margin_db": 8.1
+      },
+      {
+        "index": 10,
+        "from": 104.22,
+        "to": 106.02,
+        "speech_seconds": 0.82,
+        "voice_db": -32.4,
+        "music_db": -48,
+        "margin_db": 15.6
+      },
+      {
+        "index": 11,
+        "from": 105.99,
+        "to": 106.25,
+        "speech_seconds": 0.21,
+        "voice_db": -32,
+        "music_db": -40,
+        "margin_db": 8
+      },
+      {
+        "index": 12,
+        "from": 106.22,
+        "to": 108.02,
+        "speech_seconds": 0.66,
+        "voice_db": -36.9,
+        "music_db": -51.5,
+        "margin_db": 14.6
+      },
+      {
+        "index": 13,
+        "from": 107.99,
+        "to": 118.033,
+        "speech_seconds": 5.63,
+        "voice_db": -27,
+        "music_db": -36.5,
+        "margin_db": 9.5
+      }
+    ],
+    "margin_db": {
+      "min": 8,
+      "max": 17.8
+    },
+    "loudness": {
+      "integrated_lufs": -14.1,
+      "range_lu": 4.5,
+      "true_peak_dbtp": -1.5
+    },
+    "mixed_lufs": -21.1
+  }
+}
