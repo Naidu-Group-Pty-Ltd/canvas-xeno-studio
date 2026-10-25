@@ -20,8 +20,17 @@ don't compress it first. Each platform encodes it once on upload, and every enco
 Every word is captioned in the picture. Where a platform offers its own automatic captions, leave them off, or the
 words appear twice.
 
-The master's measures against its lossless reference (`scripts/aurixa-reel-3/film_qc.py`) are being taken, and
-are added here when they finish.
+The final was measured against its lossless reference before delivery (`scripts/aurixa-reel-3/film_qc.py`):
+
+- SSIM 0.989 and PSNR 43.7 dB, with no frame below 38.8 dB, and 99.8% of edge contrast kept on the frames that hold
+  still;
+- CIEDE2000 0.46 on average on flat fields. The four colours it checks by name (the brand's ground #040B16, the
+  Snapshot's ivory paper and its cover's field, and the caption white) are each within 0.23 of their source, and the
+  ground's glow shows no banding;
+- every cut on its frame, and the soundtrack 0 ms from the picture;
+- every caption where the cut puts it. The check also reads two stretches that carry no caption as carrying one:
+  09.1's pause, where the ground's dot grid reaches into the caption zone, and the brand card in 11.1, whose tagline
+  sits there. Both are the composition's own.
 
 ## The picture
 
