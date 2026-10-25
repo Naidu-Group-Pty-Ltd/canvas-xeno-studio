@@ -726,9 +726,12 @@ These are the product's own, outside this reel. They are recorded here for the p
 5. **The fact find workbook** reads "Replace this area with your logo in Orixa" on its White Label Setup sheet.
 6. **Two spellings.** "Command Center" (Team & Partners) and "Command Centre" (elsewhere); "Modelling" (the tab) and
    "Modeling" (a lever).
-7. **A payoff counted twice.** Cash on hand that the Capital Flow Canvas routes to paying out a debt is still counted
-   as purchase cash. In the car loan scenario, $18,000 is counted twice in its effective purchase power. Recorded for
-   the product's team and not built, because it changes the engine's figures.
+7. **A payoff counted twice.** Cash on hand that the Capital Flow Canvas routed to paying out a debt was still counted
+   as purchase cash. In the car loan scenario, $18,000 was counted twice in its effective purchase power. Fixed at the
+   owner's request in npc-client-dashboard #422 (`66bcb02`), in both engine copies: that scenario's purchase cash is
+   now $282,000, and its effective purchase power $1,322,791 (it was $1,339,847). No figure the film shows changes.
+   The film draws the base scenario's purchase power ($1,281,859), before the payoff, and only the scenario's
+   capacity and surplus after it.
 8. **The Snapshot's date is UTC.** A Snapshot exported at 9:13 am AEDT on 24 October 2026 is dated "23 October 2026"
    on its cover. The film keeps that row out of frame.
 9. **A capacity with a sign.** Portfolio Scenario Modelling prints the scenario's borrowing capacity as "+$964,993",
