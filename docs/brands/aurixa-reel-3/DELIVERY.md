@@ -44,7 +44,9 @@ Two things were drawn again after that, and spliced in only where two separate d
   - on the Aurixa Agent's card once the act is done (09.3): "✓ Approved", at the frame's top edge.
 - **Five short stretches where one of a machine's three browsers had drawn its frames at a slightly different
   raster scale.** In motion that cannot be seen; where the picture holds still it reads as a shimmer. The stretches
-  were in 07.1, 07.4 and 08.1 to 08.3.
+  were in 07.1, 07.4 and 08.1 to 08.3. A scan of every frame of the film for the pattern (`flicker_check.py`) now
+  finds no stretch drawn apart. It singles out two single frames in motion, 306 in 02.2 and 2439 in 07.4, and two
+  separate draws of each match the film's frame to within one code value, so both are the motion's own.
 
 ## The music
 
@@ -124,8 +126,8 @@ The studio keeps all of it with the work _Aurixa Reel 3_ (`8cf0b42c-6866-499b-8c
 - the final, its covers and its review copy, under `work/delivery/`;
 - the soundtrack, under `work/sound/`;
 - the six stretches drawn or spliced here (05.3 to 05.5, 05.6, 07.1 to 07.3, 07.4, 08.1 to 08.3 and 09.3), each with
-  its lossless reference and its record, under `work/runs/`, and the frames this machine drew for the splices, under
-  `work/covers/`. The other thirteen stretches, and the run each spliced stretch started from, are kept with the
+  its lossless reference and its record, under `work/runs/`, and the frames this machine drew for the splices and to
+  check frame 306, under `work/covers/`. The other thirteen stretches, and the run each spliced stretch started from, are kept with the
   helper works that drew them, which are this work's children;
 - the joined film's record, its measures and its review sheets, under `work/film/`;
 - these records.
