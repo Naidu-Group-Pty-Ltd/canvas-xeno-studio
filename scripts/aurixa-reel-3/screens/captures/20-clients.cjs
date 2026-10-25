@@ -13,10 +13,15 @@
 //
 // Run with the browser in Australian English (LANG=en_AU.UTF-8 LANGUAGE=en_AU:en LC_ALL=en_AU.UTF-8 in capture.cjs's
 // environment, which Chromium inherits), so a date field reads 14/05/1989 as it does for the client's team, not in
-// the US order the browser defaults to. Jordan's workbook is REEL_FACTFIND_XLSX, or the data folder's copy.
+// the US order the browser defaults to. Jordan's workbook is REEL_FACTFIND_XLSX, or the work's own copy, which
+// factfind.py writes and `work.py resume` puts back.
 const WORKBOOK =
   process.env.REEL_FACTFIND_XLSX ??
-  "/tmp/claude-0/-home-user/0467c194-592b-542b-9c40-975738e514e0/scratchpad/r3-data/Jordan Ellis - Client Fact Find.xlsx";
+  require("path").resolve(
+    __dirname,
+    "../../../..",
+    ".xeno-work/8cf0b42c-6866-499b-8ce6-1035c66a4417/files/factfind/Jordan Ellis - Client Fact Find.xlsx",
+  );
 
 const DIALOG = '[role="dialog"]';
 /** An element inside the open dialog whose own text is `words` (the page behind it draws some of the same words). */

@@ -102,3 +102,13 @@ against the run with `compare`, which shows the change reached nothing else.
 The covers were spliced in this way. They hide the words the brand keeps out of frame and the car loan's raw type key
 (`scenes/page.cjs` COVERS), and the agent card's "✓ Approved" (`scenes/platform.cjs`). `ground_fit.py` fits each
 one to the screen's own ground.
+
+### A flicker in a hold
+
+A run's three browsers each paint a scaled page at a raster scale that depends on what they painted before. Now and
+then one of them draws its frames a fraction of a pixel apart from the other two. In motion that can't be seen, but in
+a hold its frames stand out from their neighbours, every third frame, and the text shimmers. A run's own vote samples
+too few frames to catch every one. `flicker_check.py <run dir> ...` tests every frame for the two patterns it leaves:
+one frame unlike two neighbours that agree, and frames three apart that match each other better than the frames
+between them. A stretch it finds is drawn again, twice, and spliced in where the draws agree. A frame the two draws
+still single out is the scene's own, such as a pointer's press or an ease's overshoot.

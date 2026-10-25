@@ -201,10 +201,15 @@ const STYLES = {
   },
 };
 
-/** The file the screens harness imported (captures/20-clients.cjs reads the same). */
+/** The file the screens harness imported (captures/20-clients.cjs reads the same): REEL_FACTFIND_XLSX, or the
+ * work's own copy, which factfind.py writes and `work.py resume` puts back. */
 const WORKBOOK_FILE =
   process.env.REEL_FACTFIND_XLSX ??
-  "/tmp/claude-0/-home-user/0467c194-592b-542b-9c40-975738e514e0/scratchpad/r3-data/Jordan Ellis - Client Fact Find.xlsx";
+  path.resolve(
+    __dirname,
+    "../..",
+    ".xeno-work/8cf0b42c-6866-499b-8ce6-1035c66a4417/files/factfind/Jordan Ellis - Client Fact Find.xlsx",
+  );
 /** The file's cells, read with openpyxl into WORKBOOK's and FIGURES' shapes. */
 const READ_WORKBOOK = String.raw`
 import datetime, json, sys

@@ -59,7 +59,9 @@ ASSETS = [
 ]
 
 # Rows 53 to 60: Liability Type, Lender, Account / Description, Owner, Limit / Original Amount, Current Balance,
-# Monthly Repayment, Interest Rate, Remaining Term, Notes. No lender is named: the film names no third party.
+# Monthly Repayment, Interest Rate, Remaining Term, Notes. No lender is named: the film names no third party. The
+# Interest Rate cells are formatted as percentages, so a rate is kept as Excel keeps one typed into them: 7.9% is
+# 0.079, which a spreadsheet shows as 7.90% and the parser reads back as 7.9 (excelImport.ts, percentage).
 LIABILITIES = [
     [
         "Car loan",
@@ -69,7 +71,7 @@ LIABILITIES = [
         32000,
         18000,
         520,
-        7.9,
+        0.079,
         "3 years",
         None,
     ],
@@ -81,7 +83,7 @@ LIABILITIES = [
         10000,
         1200,
         0,
-        20.99,
+        0.2099,
         None,
         None,
     ],
