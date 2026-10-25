@@ -711,7 +711,8 @@ These are the product's own, outside this reel. They are recorded here for the p
      always minus the duty, costs and deducted LMI, wherever the LVR cap doesn't bind.
    - So `meetsTarget` is false for every target, and the panel reads "Short by $0" in red.
    - The tests that use it state `meetsTarget` in their fixtures rather than compute it.
-   - The fix: count the duty, the costs and any deducted LMI in the loan required.
+   - The fix: count the duty, the costs and any deducted LMI in the loan required. Made in npc-client-dashboard #421
+     (`2433f3a`).
 2. **The Client Portal's dashboard loads the client's borrowing capacity and never draws it**
    (`pages/portal/PortalDashboard.tsx`, line 58).
 3. **Compliance words in two panels.** "Borrowing capacity assessments are calculated using APRA-compliant
@@ -751,6 +752,17 @@ These are the product's own, outside this reel. They are recorded here for the p
     $1,099,214, reads "met, $0" while the settled loan is $1,100,081, over the capacity. Not built: no approval covers
     it. The film's own case needs no LMI: its loan, $899,517, is 78.2% of the $1,150,000 price, so the loop settles on
     its first pass and nothing in frame is affected.
+
+All thirteen are in the prime as well. Checked on 25 October 2026: npc-property-dashbord's copies of these files were
+byte-identical to npc-client-dashboard's before #421 and #422. Both fixes were ported there in #3384 (`bd366c9`), and
+Mission Control's cascade carried them on. preflight-property-group (#256) and npc-test-76b3b3 (#254) merged them
+byte-identical to the prime's, and npc-client-dashboard already held them. The independent CRM line
+(npc-crm-independent-6505dc) has them in its cascade pull request, #121, still open, on three checks the fix does not
+touch:
+
+- the dependency audit, on three advisories that first failed the prime's own scheduled run on 24 October;
+- the security inventory, which the cascade's other test files change;
+- the version-pin spec, which the cascade wrote over with the prime's copy.
 
 ## Where things are
 
