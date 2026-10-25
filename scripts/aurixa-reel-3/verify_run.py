@@ -21,6 +21,14 @@
       each frame-NNNNN.png in <png dir> (render.cjs RENDER_FRAMES, drawn on another machine) against the run's
       reference, by the same rule: whether that machine draws what this one drew (exits 1 if any frame differs)
 
+  python3 -I verify_run.py splice <run dir> <first>-<last> <why> <draw dir> <draw dir> [...]
+      a change to a scene that reaches only frames first to last of a run drawn before it (a cover over words the
+      brand keeps out of frame): those frames drawn again two or more times, each draw its own render (RENDER_FRAMES
+      PNGs). For each frame the draws vote by the rule above, and the answer two or more of them give replaces the
+      run's frame; a frame they give no answer on stops the splice before anything is written. The reference is
+      rewritten (the one before kept as reference.before-splice-<n>.mkv), checked to differ from it nowhere but in
+      those frames, and the splice recorded in film.json under `spliced`, with the commit it was drawn at.
+
 The renderer is deterministic: two independent draws that agree on a frame have drawn it right, because a
 capture race lands on different drawings each run and two races never make the same wrong frame.
 """
@@ -110,6 +118,76 @@ if sys.argv[1] == "compare":
               f"{int((d > TOLERANCE).sum())} pixels over {TOLERANCE}, {int((d > 12).sum())} over 12)")
     print(f"{agree} of {len(files)} frames from {pngs} agree with {run / 'reference.mkv'}")
     sys.exit(0 if agree == len(files) else 1)
+
+
+def encode(ref, source, lo, hi, frames):
+    """Writes `ref`: the frames of `source` (a reference whose first frame is lo) with `frames` ({f: image}) in place."""
+    enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}",
+                            "-r", "30", "-i", "-", "-vf", "format=gbrp", "-c:v", "ffv1", "-level", "3", "-g", "1",
+                            "-r", "30", str(ref)], stdin=subprocess.PIPE)
+    for a in range(lo, hi, 60):
+        b = min(hi, a + 60)
+        block = read(source, lo, a, b).copy()
+        for f, img in frames.items():
+            if a <= f < b:
+                block[f - a] = img
+        enc.stdin.write(block.tobytes())
+    enc.stdin.close()
+    if enc.wait() != 0:
+        raise SystemExit("ffmpeg failed to write the reference")
+    changed = []
+    for a in range(lo, hi, 60):
+        b = min(hi, a + 60)
+        x, y = read(ref, lo, a, b), read(source, lo, a, b)
+        if len(x) != b - a:
+            raise SystemExit(f"the new reference holds {len(x)} of frames {a} to {b - 1}")
+        changed += [a + k for k in range(b - a) if not np.array_equal(x[k], y[k])]
+    return changed
+
+
+if sys.argv[1] == "splice":
+    run, (first, last), why = Path(sys.argv[2]), map(int, sys.argv[3].split("-")), sys.argv[4]
+    dirs = [Path(p) for p in sys.argv[5:]]
+    log, lo, hi = run_range(run)
+    if len(dirs) < 2:
+        raise SystemExit("a splice needs two draws or more of its frames")
+    if not lo <= first <= last < hi:
+        raise SystemExit(f"frames {first} to {last} are not all in the run ({lo} to {hi - 1})")
+    new = {}
+    for f in range(first, last + 1):
+        groups = []
+        for d in dirs:
+            p = d / f"frame-{f:05d}.png"
+            if not p.exists():
+                raise SystemExit(f"{p} is missing; nothing written")
+            img = np.asarray(Image.open(p).convert("RGB"))
+            for g in groups:
+                if same(g[0], img):
+                    g.append(img)
+                    break
+            else:
+                groups.append([img])
+        groups.sort(key=len, reverse=True)
+        if len(groups[0]) < 2 or (len(groups) > 1 and len(groups[1]) == len(groups[0])):
+            raise SystemExit(f"frame {f}: no two draws agree; nothing written")
+        new[f] = groups[0][0]
+    n = 1
+    while (run / f"reference.before-splice-{n}.mkv").exists():
+        n += 1
+    before = run / f"reference.before-splice-{n}.mkv"
+    (run / "reference.mkv").rename(before)
+    changed = encode(run / "reference.mkv", before, lo, hi, new)
+    if any(not first <= f <= last for f in changed):
+        raise SystemExit(f"the new reference differs from the one before outside {first} to {last}: {changed}")
+    commit = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True,
+                            cwd=Path(__file__).parent).stdout.strip()
+    log.setdefault("spliced", []).append({"frames": [first, last], "why": why, "commit": commit,
+                                          "draws": [str(d) for d in dirs], "changed": len(changed),
+                                          "kept": before.name})
+    (run / "film.json").write_text(json.dumps(log, indent=1) + "\n")
+    print(f"frames {first} to {last} spliced in, each the answer two or more of {len(dirs)} draws gave ({len(changed)} "
+          f"differ from the run's); the run before kept as {before.name}")
+    sys.exit(0)
 
 cmd, run, old, old_first = sys.argv[1], Path(sys.argv[2]), sys.argv[3], int(sys.argv[4])
 old = None if old == "-" else Path(old)

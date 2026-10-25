@@ -13,7 +13,9 @@
 //         declared $6,447 that is used, being the higher, and the band: GREEN, Strong borrowing position.
 // What the page draws that the film doesn't say stays in the page out of focus (the proposed loan check's
 // "Serviceable", the band's heading, the Recommendations, the Results panel's compliance wording, the employer): no
-// lift-out includes any of it. The illustrative label holds through all three shots.
+// lift-out includes any of it. When the page comes into focus at the end of 05.5, for 05.6 to pull back from, the
+// words the brand keeps out of frame are under covers of the page's own ground (COVERS). The illustrative label holds
+// through all three shots.
 const M = require("../motion.cjs");
 const K3 = require("../kit3.cjs");
 const click = require("./click.cjs");
@@ -52,6 +54,69 @@ const BG_AT = [BG_RECT[0] + BG_RECT[2] / 2, BG_RECT[1] + BG_RECT[3] / 2];
 /** Where the page behind ends 05.5, sharp: 05.6 pulls back from exactly here. */
 const BG_END_Y = 1220;
 const SHARP = K3.screenPlate(PAGE);
+/**
+ * The words on the page the brand keeps out of frame, each under a cover of the page's own ground (the page's CSS px):
+ * the proposed loan check's "Serviceable", the employer, the audit's line on serviceability, the band's heading and the
+ * Recommendations row. Fitted by ../ground_fit.py to the rows just above and below each one, to within a code value,
+ * blending from the one to the other down the cover where they differ.
+ */
+const COVERS = {
+  badge: { box: [1281, 323, 110, 30], top: ["#1d252a", "#1c2529"], bottom: ["#1c2428", "#1c2428"] },
+  employer: {
+    box: [22, 331, 210, 20],
+    top: ["#1e1e22", "#1c1d20", "#19191e"],
+    bottom: ["#1c1c20", "#1a1b1f", "#17181d"],
+  },
+  audit: {
+    box: [768, 826, 626, 38],
+    top: [
+      "#1e1f24",
+      "#1d1e22",
+      "#1a1c20",
+      "#181a1f",
+      "#16171d",
+      "#13151b",
+      "#121319",
+      "#0f1117",
+      "#0d0f15",
+      "#0d0f16",
+      "#0d0f17",
+    ],
+    bottom: [
+      "#1b1d21",
+      "#191a1f",
+      "#17181e",
+      "#14161b",
+      "#13141a",
+      "#0f1117",
+      "#0d0f15",
+      "#0d0f16",
+      "#0d0f17",
+      "#0d1018",
+      "#0d101a",
+    ],
+  },
+  band: { box: [771, 1153, 125, 18], top: ["#122223", "#122223"] },
+  recommendations: { box: [752, 1288, 656, 30], top: ["#0c0f18", "#0c101c"] },
+};
+/** A cover (see COVERS) as markup on a plate. */
+const coverHtml = ({ box: [x, y, w, h], top, bottom }) =>
+  `<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;background:linear-gradient(90deg, ${top.join(", ")})">` +
+  (bottom
+    ? `<div style="position:absolute;inset:0;background:linear-gradient(90deg, ${bottom.join(", ")});-webkit-mask-image:linear-gradient(180deg, transparent, #000);mask-image:linear-gradient(180deg, transparent, #000)"></div>`
+    : "") +
+  `</div>`;
+/** The page in focus, as the film shows it: the sharp page under its covers. */
+const SAFE = (() => {
+  const { PLATES } = require("../../aurixa-reel-1/plates.cjs");
+  const name = `${SHARP.name}-covered`;
+  if (!PLATES[name])
+    PLATES[name] = {
+      ...PLATES[SHARP.name],
+      html: PLATES[SHARP.name].html + Object.values(COVERS).map(coverHtml).join(""),
+    };
+  return { ...SHARP, name };
+})();
 
 // ------------------------------------------------------------------ the page behind, out of focus
 const BG_BAKE = "page-bg.png";
@@ -187,7 +252,7 @@ function pageScene() {
       `<style>${K3.barCss}${K3.labelCss}${K3.demoCss}${css}</style>`,
       CARD.html(),
       `<div class="fk-layer" style="z-index:0"><div class="fk-field"></div><div class="fk-glow"></div></div>`,
-      windowHtml("BG", [BG_PLATE, SHARP.name], 2),
+      windowHtml("BG", [BG_PLATE, SAFE.name], 2),
       windowHtml("CW", [CARD.PLATE], 6),
       ...NAMES.map((n, i) => windowHtml(`L${i}`, [LIFTS[n].plate.name], 8 + i)),
       `<div class="pg-glow" id="pg-glow" style="visibility:hidden"></div>`,
@@ -336,9 +401,9 @@ function pageScene() {
 }
 
 module.exports = pageScene;
-/** The page's window as 05.5 leaves it (sharp, its veil at 0.1): 05.6 starts here. */
+/** The page's window as 05.5 leaves it (sharp under its covers, its veil at 0.1): 05.6 starts here. */
 module.exports.pageEnd = {
-  plate: SHARP,
+  plate: SAFE,
   framing: { rect: BG_RECT, zoom: BGZ, focus: [PAGE_CSS[0] / 2, BG_END_Y], at: BG_AT },
   veil: 0.1,
 };

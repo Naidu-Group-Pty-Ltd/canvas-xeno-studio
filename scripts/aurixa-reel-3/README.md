@@ -89,3 +89,15 @@ The fonts are the six web fonts plates.cjs caches in `os.tmpdir()`. `draw_runs.s
 cache, so every machine sets the type from the same files. The joining session pulls each helper's runs back. It
 then draws three frames of each run itself and holds them against that run with `verify_run.py compare <run dir>
 <png dir>`. That shows one renderer drew the film, whichever machine drew each run.
+
+### A change after a run was drawn
+
+A change that reaches only some frames of a run already drawn is spliced in rather than drawn again whole. Those
+frames are drawn two or more times on one machine, each draw its own render (`RENDER_FRAMES`), and
+`verify_run.py splice <run dir> <first>-<last> <why> <draw dir> <draw dir>` replaces the run's frames with the answer
+the draws agree on. It writes nothing unless every frame has one, keeps the run as it was beside the new reference,
+and records the splice and its commit in the run's `film.json`. The frames either side of the splice are held
+against the run with `compare`, which shows the change reached nothing else.
+
+The covers over words the brand keeps out of frame (`scenes/page.cjs` COVERS, the agent card's "✓ Approved" in
+`scenes/platform.cjs`) were spliced in this way. `ground_fit.py` fits each one to the screen's own ground.

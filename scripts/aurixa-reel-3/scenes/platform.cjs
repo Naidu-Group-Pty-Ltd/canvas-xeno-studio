@@ -173,11 +173,15 @@ const SHOW = [720, 770];
 
 function platformScene() {
   // The window: the Command Centre's one page. The panel's partner line carries the product's empty brackets (no
-  // email is on Jamie's record): each state's are covered with the card's own ground.
+  // email is on Jamie's record): each state's are covered with the card's own ground. Once the act is done, the card's
+  // foot reads "✓ Approved", a word the brand keeps out of frame (in a lending film it reads as a lender's decision),
+  // and it stays at the frame's top edge while the camera holds on the act's words: it is covered too, fitted by
+  // ../ground_fit.py to the card's ground just above and below it.
   const MASKS = [
     [203, 375.6],
     [203, 328.6],
   ];
+  const DONE = { box: [60, 588, 74, 20], ground: ["#131417", "#131317"] };
   let win = windowHtml("W", [CC.PLATE], 5);
   MASKS.forEach(([x, y], n) => {
     const tag = `<img id="agp-${n}"`;
@@ -186,6 +190,12 @@ function platformScene() {
     const close = win.indexOf(">", i) + 1;
     win = `${win.slice(0, close)}<i class="pf-mask" id="agm-${n}" style="left:${x}px;top:${y}px;width:10px;height:15px${n ? ";visibility:hidden;opacity:0" : ""}"></i>${win.slice(close)}`;
   });
+  {
+    const i = win.indexOf(`<img id="agp-1"`);
+    const close = win.indexOf(">", i) + 1;
+    const [x, y, w, h] = DONE.box;
+    win = `${win.slice(0, close)}<i class="pf-mask" id="agm-done" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;background:linear-gradient(90deg, ${DONE.ground.join(", ")});visibility:hidden;opacity:0"></i>${win.slice(close)}`;
+  }
 
   const html = () =>
     [
@@ -427,6 +437,7 @@ function platformScene() {
     const done = span(t, MOVES[9][3] - 0.2, MOVES[9][3] - 0.02, EASE.linear);
     st.set("#W-0 #agp-1", fade(done));
     st.set("#W-0 #agm-1", fade(done));
+    st.set("#W-0 #agm-done", fade(done));
     const sweep = span(t, T_TAKES - 0.05, T_TAKES + 0.95, EASE.move);
     st.set("#W-0 #agp-sheen", {
       "background-position": `${r3(130 - sweep * 160)}% 0`,
