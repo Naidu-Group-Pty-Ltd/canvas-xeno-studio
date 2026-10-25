@@ -32,9 +32,20 @@ const WORKERS = Number(process.env.RENDER_WORKERS || 3);
 const RECYCLE = Number(process.env.RENDER_RECYCLE || 40);
 const SUBFRAMES = Number(process.env.RENDER_SUBFRAMES || 8);
 const SHUTTER = 0.5; // 180 degrees: open for half of each frame
-/** The times a frame is drawn at: SUBFRAMES of them, evenly over the open shutter, centred on the frame. */
-const subframeTimes = (f) =>
-  Array.from({ length: SUBFRAMES }, (_, j) => (f + ((j + 0.5) / SUBFRAMES - 0.5) * SHUTTER) / FPS);
+/**
+ * The times a frame is drawn at: SUBFRAMES of them, evenly over the open shutter, centred on the frame. A cut falls
+ * between two frames, so a shot's first frame belongs wholly to it. The brief puts every shot's `in` on a frame, and a
+ * shutter centred there opens a quarter of a frame before the cut. Those drawings are taken at the cut instead. That
+ * way nothing of the shot before, or of a scene's state before it starts (the illustrative label, held through the cut,
+ * was caught at half strength), is blended into a shot's first frame.
+ */
+const SHOT_STARTS = new Map(BRIEF.shots.map((s) => [frameOf(s.in), s.in]));
+const subframeTimes = (f) => {
+  const cut = SHOT_STARTS.get(f) ?? -Infinity;
+  return Array.from({ length: SUBFRAMES }, (_, j) =>
+    Math.max(cut, (f + ((j + 0.5) / SUBFRAMES - 0.5) * SHUTTER) / FPS),
+  );
+};
 
 const SCENES = require("./scenes/index.cjs").map((scene) => {
   const shots = scene.shots.map(shotOf);
