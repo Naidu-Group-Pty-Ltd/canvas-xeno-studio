@@ -740,6 +740,14 @@ These are the product's own, outside this reel. They are recorded here for the p
 12. **A type key on the page.** The Borrowing Capacity page's liabilities print each one's type beside its name. The
     credit card's reads "Credit Card", and the car loan's reads the key `vehicle_loan`, so a type with no name falls
     back to the key. The film covers both chips (`scenes/page.cjs` COVERS).
+13. **A target met on a loan that has not settled.** The Borrowing Capacity page settles the loan a target needs
+    against its LMI in at most three passes (`src/utils/scenarioDeltaEngine.ts`, `computeAcquisitionCapacity`). Where
+    the loan crosses an LMI tier, three passes can stop before it settles, and the verdict is read from the unsettled
+    loan. The session that fixed finding 1 on the server (npc-client-dashboard #421, which settles it there) found it
+    on the page: an NSW owner-occupier buying a new build at $1,200,000, with $201,200 in cash and a capacity of
+    $1,099,214, reads "met, $0" while the settled loan is $1,100,081, over the capacity. Not built: no approval covers
+    it. The film's own case needs no LMI: its loan, $899,517, is 78.2% of the $1,150,000 price, so the loop settles on
+    its first pass and nothing in frame is affected.
 
 ## Where things are
 
