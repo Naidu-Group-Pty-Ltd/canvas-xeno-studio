@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Measures a rendered stretch of Reel 2 (render.cjs) against the frames it was made from (Reel 1's film_qc.py,
-with Reel 2's brief, swatches and close-ups).
+"""Measures a rendered stretch of Reel 3 (render.cjs) against the frames it was made from (Reel 2's film_qc.py,
+with Reel 3's brief, swatches and close-ups).
 
 render.cjs writes the master (film.mp4: H.264, 4:2:0, BT.709) and, from the same frames, a lossless RGB
 reference (reference.mkv). Everything the master loses is the difference between the two, so this decodes
@@ -136,11 +136,11 @@ def ciede2000(lab1, lab2):
 _check = ciede2000(np.array([50, 2.6772, -79.7751]), np.array([50, 0.0, -82.7485]))
 assert abs(float(_check) - 2.0425) < 1e-3, _check
 
-# The colours the frames draw flat (aurixa-reel.css, ../cc.cjs).
+# The colours the frames draw flat (aurixa-reel.css; the Snapshot's own, reportDesign tokens via reportCharts.cjs).
 SWATCHES = {
     "ground #040B16 (the site's base-950)": "040B16",
-    "the before desktop #F3F4F6 (chrome-100)": "F3F4F6",
-    "Command Centre page #0B0C15": "0B0C15",
+    "the Snapshot's paper #FAF7EF (its ivory)": "FAF7EF",
+    "the Snapshot cover's field #251F18": "251F18",
     "caption white #FFFFFF": "FFFFFF",
 }
 
@@ -319,15 +319,16 @@ def banding(test, ref, decode_test, index, out):
     """The ground's glow on one frame: a 12x contrast stretch of both, and the smoothed profiles' worst gap."""
     t = next(frames(test, decode_test, 1, index))[1]
     r = next(frames(ref, "format=rgb24", 1, index))[1]
-    # Above the logo, inside the ground's radial glow: the film's smoothest gradient, and its darkest.
-    box = (slice(120, 480), slice(0, W))
+    # Above the action zone (it starts at 360), inside the ground's radial glow: the film's smoothest gradient, and
+    # its darkest.
+    box = (slice(120, 340), slice(0, W))
     yt, yr = luma(t[box]), luma(r[box])
     prof_t, prof_r = yt.mean(1), yr.mean(1)
     lo = min(yr.min(), yt.min())
     stretch = lambda y: np.clip((y - lo) * 12, 0, 255).astype(np.uint8)
     both = np.concatenate([stretch(yr), np.full((8, W), 255, np.uint8), stretch(yt)], 0)
     Image.fromarray(both).save(out / "banding-glow-x12.png")
-    return {"frame_index": index, "rows": "120-480", "profile_max_gap_code_values": round(float(np.abs(prof_t - prof_r).max()), 3),
+    return {"frame_index": index, "rows": "120-340", "profile_max_gap_code_values": round(float(np.abs(prof_t - prof_r).max()), 3),
             "crop": "banding-glow-x12.png"}
 
 
@@ -406,22 +407,26 @@ def main():
     def moment(shot, beat, after):
         s = by_id.get(shot)
         return None if s is None else round((s["beats"][beat]["at"] + after) * fps)
-    # The navy's glow where nothing stands on it: the Passport alone (06.1), else the closing card's sky (09.1).
-    glow = next((f for f in (moment("06.1", 0, 2.0), moment("09.1", 0, 3.0)) if f is not None and inside(f)), log["from"])
+    # The navy's glow above the action, where nothing stands on it: 06.1 (its bar at y 376), else the close (14.1).
+    glow = next((f for f in (moment("06.1", 1, 0.6), moment("14.1", 1, 0.5)) if f is not None and inside(f)), log["from"])
     picks = [(f - log["from"], box, label) for f, box, label in [
-        (moment("01.1", 1, 0.8), (60, 300, 960, 1000), "switchboard-01.1"),
-        (moment("02.2", 2, 0.6), (60, 300, 960, 1000), "requests-02.2"),
-        (moment("03.1", 3, 0.5), (150, 370, 780, 840), "logo-03.1"),
-        (moment("03.3", 3, 0.6), (60, 300, 960, 1000), "tiles-03.3"),
-        (moment("04.2", 1, 0.8), (60, 300, 960, 1100), "passport-leaf-04.2"),
-        (moment("04.3", 3, 0.8), (60, 300, 960, 1100), "seals-04.3"),
-        (moment("05.1", 1, 0.8), (60, 300, 960, 1000), "consent-05.1"),
-        (moment("05.2", 2, 0.8), (60, 300, 960, 1000), "partners-05.2"),
-        (moment("05.3", 2, 1.0), (40, 1080, 1000, 160), "responsibility-line-05.3"),
-        (moment("06.2", 3, 0.8), (60, 300, 960, 1100), "chain-06.2"),
-        (moment("07.2", 1, 0.6), (60, 700, 960, 800), "cta-07.2"),
-        (moment("08.1", 1, 0.8), (60, 1000, 960, 400), "statement-08.1"),
-        (moment("09.1", 1, 0.8), (80, 600, 920, 1100), "closing-card-09.1"),
+        (moment("01.2", 1, 0.3), (60, 300, 960, 1000), "question-01.2"),
+        (moment("02.2", 1, 0.5), (60, 300, 960, 1000), "spreadsheets-02.2"),
+        (moment("03.1", 2, 0.8), (150, 370, 780, 840), "logo-03.1"),
+        (moment("04.2", 2, 0.5), (60, 300, 960, 1000), "client-card-04.2"),
+        (moment("05.2", 1, 0.8), (60, 360, 960, 900), "capacity-card-05.2"),
+        (moment("05.4", 1, 0.8), (40, 360, 1000, 900), "lift-outs-05.4"),
+        (moment("05.6", 2, 0.6), (40, 360, 1000, 860), "chain-05.6"),
+        (moment("06.2", 1, 0.4), (20, 500, 1040, 700), "purchase-06.2"),
+        (moment("06.4", 2, 0.6), (40, 360, 1000, 600), "capacity-at-a-glance-06.4"),
+        (moment("07.3", 3, 0.0), (60, 360, 960, 820), "handover-07.3"),
+        (moment("08.1", 1, 0.5), (60, 340, 960, 860), "client-report-08.1"),
+        (moment("09.2", 1, 0.8), (60, 240, 960, 960), "cash-flow-09.2"),
+        (moment("09.3", 2, 0.3), (120, 300, 860, 900), "agent-09.3"),
+        (moment("10.1", 3, 1.5), (40, 280, 1000, 900), "this-means-10.1"),
+        (moment("11.1", 1, 1.0), (60, 300, 960, 1000), "arrived-11.1"),
+        (moment("13.1", 2, 0.8), (60, 300, 960, 1000), "statements-13.1"),
+        (moment("14.1", 3, 1.0), (60, 300, 960, 1200), "close-14.1"),
     ] if f is not None and inside(f)]
 
     # The studio's export is encoded (and its fidelity measured) beside the master's own measures.
