@@ -61,3 +61,31 @@ biggest section, the three statements on the stop's bass hit, the closing card a
 press. Each edit point sits 20 ms ahead of its bar's attack, and every clear attack where the fit
 cuts the track is within 18.4 ms of the grid. Where a piece comes in out of quiet onto a bar the track
 is already sounding, it enters on its bar line (the studio's `enter`), as Reel 2 learned.
+
+## Rendering the film
+
+`render.cjs` is Reel 2's renderer, unchanged except for its brief and scenes (`scenes/index.cjs`, in film order).
+Each frame is drawn eight times over a 180-degree shutter at twice its size, and each drawing is kept once two
+captures of it agree. `render_queue.sh` draws the film one scene's run at a time. `draw_runs.sh` draws the runs it is
+given, then puts a sample of each run's frames to the vote. The sample is every frame the check captured again,
+its neighbours and 5% of the rest, drawn again independently (`verify_run.py pick`, then `settle`), and drawn once
+more where a vote is unresolved:
+
+```sh
+scripts/aurixa-reel-3/draw_runs.sh <runs dir> <assets dir> <fonts dir> 05.1:05.2 05.3:05.5
+python3 scripts/aurixa-reel-1/assemble.py <film dir> <soundtrack.wav> <runs dir>/*/
+```
+
+### On more than one machine
+
+A helper session in the same environment can draw a share of the film:
+
+1. It pulls the render assets and the fonts from the work, without resuming it:
+   `work.py pull --work <id> --only work/assets --only work/fonts`.
+2. It starts a work of its own with `work.py start ... --parent <id>`.
+3. It draws its runs into that work's folder with `draw_runs.sh`, under `work.py run`, and saves the work as done.
+
+The fonts are the six web fonts plates.cjs caches in `os.tmpdir()`. `draw_runs.sh` copies them into the helper's
+cache, so every machine sets the type from the same files. The joining session pulls each helper's runs back. It
+then draws three frames of each run itself and holds them against that run with `verify_run.py compare <run dir>
+<png dir>`. That shows one renderer drew the film, whichever machine drew each run.
