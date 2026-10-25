@@ -99,5 +99,6 @@ the draws agree on. It writes nothing unless every frame has one, keeps the run 
 and records the splice and its commit in the run's `film.json`. The frames either side of the splice are held
 against the run with `compare`, which shows the change reached nothing else.
 
-The covers over words the brand keeps out of frame (`scenes/page.cjs` COVERS, the agent card's "✓ Approved" in
-`scenes/platform.cjs`) were spliced in this way. `ground_fit.py` fits each one to the screen's own ground.
+The covers were spliced in this way. They hide the words the brand keeps out of frame and the car loan's raw type key
+(`scenes/page.cjs` COVERS), and the agent card's "✓ Approved" (`scenes/platform.cjs`). `ground_fit.py` fits each
+one to the screen's own ground.

@@ -55,10 +55,12 @@ const BG_AT = [BG_RECT[0] + BG_RECT[2] / 2, BG_RECT[1] + BG_RECT[3] / 2];
 const BG_END_Y = 1220;
 const SHARP = K3.screenPlate(PAGE);
 /**
- * The words on the page the brand keeps out of frame, each under a cover of the page's own ground (the page's CSS px):
- * the proposed loan check's "Serviceable", the employer, the audit's line on serviceability, the band's heading and the
- * Recommendations row. Fitted by ../ground_fit.py to the rows just above and below each one, to within a code value,
- * blending from the one to the other down the cover where they differ.
+ * What the film keeps off the page, each under a cover of the page's own ground (the page's CSS px). These are the words
+ * the brand keeps out of frame: the proposed loan check's "Serviceable", the employer, the audit's line on
+ * serviceability, the band's heading and the Recommendations row. Also covered are the two liabilities' type chips,
+ * because the car loan's prints the engine's own key, "vehicle_loan", where the credit card's prints a name. Each is
+ * fitted by ../ground_fit.py to the rows just above and below it, to within a code value, blending from the one to the
+ * other down the cover where they differ. A lift-out carries every cover inside its rect, so the two never disagree.
  */
 const COVERS = {
   badge: { box: [1281, 323, 110, 30], top: ["#1d252a", "#1c2529"], bottom: ["#1c2428", "#1c2428"] },
@@ -98,10 +100,20 @@ const COVERS = {
   },
   band: { box: [771, 1153, 125, 18], top: ["#122223", "#122223"] },
   recommendations: { box: [752, 1288, 656, 30], top: ["#0c0f18", "#0c101c"] },
+  carLoanType: {
+    box: [119, 1486, 93, 26],
+    top: ["#1a1b21", "#181920"],
+    bottom: ["#181920", "#18181f"],
+  },
+  creditCardType: {
+    box: [136, 1626, 88, 26],
+    top: ["#14151c", "#14141b"],
+    bottom: ["#14141b", "#12131a"],
+  },
 };
-/** A cover (see COVERS) as markup on a plate. */
-const coverHtml = ({ box: [x, y, w, h], top, bottom }) =>
-  `<div style="position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;background:linear-gradient(90deg, ${top.join(", ")})">` +
+/** A cover (see COVERS) as markup on a plate whose top left is the page's point [ox, oy]. */
+const coverHtml = ({ box: [x, y, w, h], top, bottom }, [ox, oy] = [0, 0]) =>
+  `<div style="position:absolute;left:${x - ox}px;top:${y - oy}px;width:${w}px;height:${h}px;background:linear-gradient(90deg, ${top.join(", ")})">` +
   (bottom
     ? `<div style="position:absolute;inset:0;background:linear-gradient(90deg, ${bottom.join(", ")});-webkit-mask-image:linear-gradient(180deg, transparent, #000);mask-image:linear-gradient(180deg, transparent, #000)"></div>`
     : "") +
@@ -113,7 +125,11 @@ const SAFE = (() => {
   if (!PLATES[name])
     PLATES[name] = {
       ...PLATES[SHARP.name],
-      html: PLATES[SHARP.name].html + Object.values(COVERS).map(coverHtml).join(""),
+      html:
+        PLATES[SHARP.name].html +
+        Object.values(COVERS)
+          .map((c) => coverHtml(c))
+          .join(""),
     };
   return { ...SHARP, name };
 })();
@@ -129,16 +145,22 @@ const BG_PLATE = "R3P-page-bg";
     html: `<img src="https://reel-bake.local/${BG_BAKE}" alt="" style="position:absolute;left:0;top:0;width:${PAGE_CSS[0]}px;height:${PAGE_CSS[1]}px">`,
   };
 })();
-/** A part of a screen as a plate of its own: the screen's rect [x, y, w, h] (CSS px), nothing around it. */
+/**
+ * A part of a screen as a plate of its own: the screen's rect [x, y, w, h] (CSS px), nothing around it. A part of the
+ * page carries every cover that falls in it.
+ */
 function cutPlate(key, [x, y, w, h]) {
   const { PLATES } = require("../../aurixa-reel-1/plates.cjs");
   const s = K3.screen(key);
-  const name = `R3C-${key}-${x}-${y}-${w}-${h}`;
+  const inside = (key === PAGE ? Object.values(COVERS) : []).filter(
+    ({ box: [cx, cy, cw, ch] }) => cx < x + w && cx + cw > x && cy < y + h && cy + ch > y,
+  );
+  const name = `R3C-${key}-${x}-${y}-${w}-${h}${inside.length ? "-covered" : ""}`;
   if (!PLATES[name])
     PLATES[name] = {
       size: [w, h],
       scale: 1,
-      html: `<div style="position:absolute;left:0;top:0;width:${w}px;height:${h}px;overflow:hidden"><img src="${s.src}" alt="" style="position:absolute;left:${-x}px;top:${-y}px;width:${s.css[0]}px;height:${s.css[1]}px"></div>`,
+      html: `<div style="position:absolute;left:0;top:0;width:${w}px;height:${h}px;overflow:hidden"><img src="${s.src}" alt="" style="position:absolute;left:${-x}px;top:${-y}px;width:${s.css[0]}px;height:${s.css[1]}px">${inside.map((c) => coverHtml(c, [x, y])).join("")}</div>`,
     };
   return { name, css: [w, h], rect: [x, y, w, h] };
 }

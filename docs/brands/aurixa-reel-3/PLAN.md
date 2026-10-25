@@ -737,6 +737,9 @@ These are the product's own, outside this reel. They are recorded here for the p
     band's colour, not its name.
 11. **Two counts of one access.** Team & Partners shows Jamie Chen with "11/12 sections"; the Finance Portal says
     "11 of 13 sections accessible".
+12. **A type key on the page.** The Borrowing Capacity page's liabilities print each one's type beside its name. The
+    credit card's reads "Credit Card", and the car loan's reads the key `vehicle_loan`, so a type with no name falls
+    back to the key. The film covers both chips (`scenes/page.cjs` COVERS).
 
 ## Where things are
 
