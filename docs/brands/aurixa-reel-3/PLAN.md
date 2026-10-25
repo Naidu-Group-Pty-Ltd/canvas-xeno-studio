@@ -221,10 +221,10 @@ What the product calls this questionnaire, and why the film shows it this way, i
     based on income, expenses, and existing commitments."
   - The pointer travels to "Calculate Capacity" and waits there through the held pause.
 - **05.2.** The press lands on the second drop, "With just one click". The card resolves: "Maximum Borrowing Power"
-  counts up to $1,031,947. Then "Strong Position", "Monthly Surplus", "DTI Ratio" and "Stress-Tested Capacity" with its
+  counts up to $1,049,786 (as built; section 5.3). Then "Strong Position", "Monthly Surplus", "DTI Ratio" and "Stress-Tested Capacity" with its
   bar. For a client with no assessment yet, as Jordan is, this really is one click (section 6.2).
 - **05.3.** "View Full Calculator" opens the Borrowing Capacity page.
-  - The Results panel's "BORROWING CAPACITY" lands large, with "Stress-tested: $948,595".
+  - The Results panel's "BORROWING CAPACITY" lands large, with "Stress-tested: $964,993".
   - On "indicative", the product's own line is lit: "This calculator is for indicative purposes only. We recommend a
     formal broker assessment for lending advice."
   - The illustrative label sits under every figure.
@@ -252,8 +252,9 @@ What the product calls this questionnaire, and why the film shows it this way, i
 - **06.2.** 14 Wattle Grove's card slides in and docks into "Model next purchase", which "Adds stamp duty, LMI,
   cash-on-hand, and target-price feasibility to the scenario."
   - The inputs read: Target purchase price $1,150,000, Cash on hand $300,000, NSW, Investor and New build.
-  - "Effective purchase power" lands: Loan $1,031,947 + Cash $300,000 − Costs, $1,276,703.
-  - The target verdict beside it is the one the product gets wrong today (section 6.3).
+  - "Effective purchase power" lands at $1,281,859 (as built).
+  - Beside it, the product's own "Target $1,150,000 achievable". The page's engine was right already; the server's
+    copy of it, which gets the verdict wrong (section 6.3), was fixed in npc-client-dashboard's PR #421.
 - **06.3.** One beat for each phrase:
   - **"Adjust deposits":** the cash and deposit move.
   - **"Explore financial structures":** the Strategy Scenario Builder's levers turn on and off: "Debt Consolidation" on
@@ -471,7 +472,21 @@ its calculation unchanged. The policy is the default:
 | Effective purchase power ($300,000 cash) | $1,276,703                                                                                                                            |
 
 So the $920,000 loan sits $111,947 under the assessed capacity and $28,595 under the stress-tested one. The scenarios'
-figures (06.3) come from the same engine when the pages are built. Every figure on screen carries the label
+figures (06.3) come from the same engine when the pages are built.
+
+**As built (24 October 2026).** The fact find went in through the product's own parser. The product's workbook puts
+rent in living expenses, so the engine used the declared $6,447 a month over HEM's $3,780, and commitments of $820.
+The film's figures are the product's answer on that record:
+
+| Figure                                   | As built                                                                          |
+| ---------------------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------- |
+| Maximum Borrowing Power                  | $1,049,786, stress-tested $964,993                                                |
+| Monthly Surplus, DTI, band               | $8,827, 3.6x, Strong Position                                                     |
+| Effective purchase power ($300,000 cash) | $1,281,859: Target $1,150,000 achievable                                          |
+| The scenario taken to the broker (06.3)  | 14 Wattle Grove · car loan repaid: $1,111,628, stress-tested $1,021,839           |
+| Its surplus and DTI                      | $9,347, 3.71x; saved as the current assessment at 9:15 am, shown in 07.4 and 08.1 |
+| The Snapshot exported in 06.4            | The base assessment, with the $920,000 loan's chart and the scenario comparison   | Every figure on screen carries the label |
+
 "Illustrative example only: hypothetical client, figures and assumptions. Not a credit assessment or financial advice."
 (guardrail 2).
 
@@ -711,14 +726,29 @@ These are the product's own, outside this reel. They are recorded here for the p
 5. **The fact find workbook** reads "Replace this area with your logo in Orixa" on its White Label Setup sheet.
 6. **Two spellings.** "Command Center" (Team & Partners) and "Command Centre" (elsewhere); "Modelling" (the tab) and
    "Modeling" (a lever).
+7. **A payoff counted twice.** Cash on hand that the Capital Flow Canvas routes to paying out a debt is still counted
+   as purchase cash. In the car loan scenario, $18,000 is counted twice in its effective purchase power. Recorded for
+   the product's team and not built, because it changes the engine's figures.
+8. **The Snapshot's date is UTC.** A Snapshot exported at 9:13 am AEDT on 24 October 2026 is dated "23 October 2026"
+   on its cover. The film keeps that row out of frame.
+9. **A capacity with a sign.** Portfolio Scenario Modelling prints the scenario's borrowing capacity as "+$964,993",
+   formatted as a change, beside its own change against the base.
+10. **A colour in a title.** The Client Portal lists the report as "Borrowing Capacity – $1,111,628 (green)": the
+    band's colour, not its name.
+11. **Two counts of one access.** Team & Partners shows Jamie Chen with "11/12 sections"; the Finance Portal says
+    "11 of 13 sections accessible".
 
 ## Where things are
 
-| What                                                         | Where                                                                                                                                                      |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| This plan                                                    | `docs/brands/aurixa-reel-3/PLAN.md`                                                                                                                        |
-| The voiceover's provisional words, and the second reading    | `docs/brands/aurixa-reel-3/voiceover-words.json`                                                                                                           |
-| The cut times, and the check of the script against the voice | `scripts/aurixa-reel-3/shot_times.py`                                                                                                                      |
-| The pacing on _National Treasures_                           | `scripts/aurixa-reel-3/pacing.py`, with `docs/brands/aurixa-reel-3/pacing.json` (provisional until the studio measures the voice)                          |
-| How the words were timed and the voice compared              | `scripts/aurixa-reel-3/transcribe.py`, `refine.py`, `second_opinion.py` and `same_voice.py`, with their [README](../../../scripts/aurixa-reel-3/README.md) |
-| The voiceover                                                | The work's own folder: `voiceover/client-voiceover-2026-10-13-2202.mp3`                                                                                    |
+| What                                                         | Where                                                                                                                                                       |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| This plan                                                    | `docs/brands/aurixa-reel-3/PLAN.md`                                                                                                                         |
+| The voiceover's provisional words, and the second reading    | `docs/brands/aurixa-reel-3/voiceover-words.json`                                                                                                            |
+| The cut times, and the check of the script against the voice | `scripts/aurixa-reel-3/shot_times.py`                                                                                                                       |
+| The pacing on _National Treasures_                           | `scripts/aurixa-reel-3/pacing.py`, with `docs/brands/aurixa-reel-3/pacing.json` (provisional until the studio measures the voice)                           |
+| How the words were timed and the voice compared              | `scripts/aurixa-reel-3/transcribe.py`, `refine.py`, `second_opinion.py` and `same_voice.py`, with their [README](../../../scripts/aurixa-reel-3/README.md)  |
+| The voiceover                                                | The work's own folder: `voiceover/client-voiceover-2026-10-13-2202.mp3`                                                                                     |
+| The scenes and the renderer                                  | `scripts/aurixa-reel-3/scenes/` (in film order, `scenes/index.cjs`) and `render.cjs`, with the README's "Rendering the film"                                |
+| The film drawn across machines                               | `scripts/aurixa-reel-3/draw_runs.sh` on each helper (a work of its own, with this one as its parent); `verify_run.py compare` against this machine's frames |
+| The render assets and fonts                                  | The work's own folder: `assets/` (from `assets.py`) and `fonts/`                                                                                            |
+| The soundtrack                                               | The work's own folder: `sound/soundtrack.wav` (`soundtrack.ts`), with its record `docs/brands/aurixa-reel-3/soundtrack.json`                                |
