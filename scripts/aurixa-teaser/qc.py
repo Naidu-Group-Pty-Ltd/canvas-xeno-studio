@@ -19,10 +19,15 @@
   black      any frame with nothing in it (FFmpeg's blackdetect)
 Prints the summary and writes it whole to out.json; exits 1 if a measure is out of bounds.
 
+Frames are paired by index, never by time stamp: the lossless reference (FFV1 in Matroska) keeps its time stamps in
+milliseconds (0.033, 0.067, ...) where the master keeps them exact, and a comparison that pairs by time pairs some
+frames with a neighbour, which reads as a large loss wherever the picture moves fast (As One read 0.946 at 12.27 s
+paired by time; paired by index, none of its frames is below 0.994). Reel 2 taught the studio's own measures the same.
+
 The picture is bounded on the encoder (SSIM 0.98 of the picture it was given) and on the colour tags, not on the
 master against the RGB reference. The conversion to 8-bit 4:2:0 costs a dark film several hundredths there before any
 encoder touches it: SSIM reads a change of a code value or two, in a colour channel near zero, as lost structure. As
-One's ceiling is 0.961 (its red 0.897), where Three Questions' master scored 0.979.
+One's ceiling is 0.958 (its red 0.890), where Three Questions' master scored 0.979.
 """
 import json
 import re
@@ -36,6 +41,9 @@ import numpy as np
 MASTER, REF, OUT = sys.argv[1], sys.argv[2], sys.argv[3]
 FRAMES = int(sys.argv[4]) if len(sys.argv) > 4 else 1125
 W, H = 540, 960
+FPS = 30
+# Each input's frames numbered, so the comparing filters pair frame N with frame N.
+BY_INDEX = f"settb=1/{FPS},setpts=N"
 TO_RGB = "zscale=rangein=limited:matrixin=709:primariesin=709:transferin=709:range=full:primaries=709:transfer=709:filter=bilinear,format=gbrp"
 # What the encoder is given: encode.sh's own conversion, read out of encode.sh so the two cannot drift apart.
 TO_YUV = re.search(r'"\[0:v\](.+?)\[v\]"', (Path(__file__).resolve().parent / "encode.sh").read_text()).group(1)
@@ -73,8 +81,8 @@ streams = {
 
 STATS = "ssim=stats_file=/dev/stdout"
 GRAPHS = {
-    "encoder": ([MASTER, REF], f"[1:v]{TO_YUV}[c];[0:v]format=yuv420p[m];[m][c]{STATS}"),
-    "master": ([MASTER, REF], f"[0:v]{TO_RGB},split[m][m2];[1:v]format=gbrp,split[r][r2];[m][r]{STATS};[m2][r2]psnr"),
+    "encoder": ([MASTER, REF], f"[1:v]{BY_INDEX},{TO_YUV}[c];[0:v]{BY_INDEX},format=yuv420p[m];[m][c]{STATS}"),
+    "master": ([MASTER, REF], f"[0:v]{BY_INDEX},{TO_RGB},split[m][m2];[1:v]{BY_INDEX},format=gbrp,split[r][r2];[m][r]{STATS};[m2][r2]psnr"),
     "ceiling": ([REF], f"[0:v]format=gbrp,split[a][b];[a]{TO_YUV},{TO_RGB}[c];[c][b]{STATS}"),
 }
 with ThreadPoolExecutor(len(GRAPHS)) as pool:

@@ -30,13 +30,14 @@ automatic captions, leave them off, or the words appear twice.
 
 The final was measured against its lossless reference before delivery (`scripts/aurixa-teaser/qc.py`):
 
-- **The encode keeps 0.994 of the picture it was given**: SSIM against the reference as the encoder received it,
-  converted to BT.709 4:2:0, in that format (Y 0.994, U and V 0.995). Its lowest frame is at 12.27 s, where the
-  dashboards turn edge-on at speed: 0.946 there, and 1.1 code values from the reference on average. Side by side at
-  full size, and brightened, the two can't be told apart.
-- **Against the RGB reference, the master scores SSIM 0.927 and PSNR 41.8 dB.** That is under the 0.97 _Three
+- **The encode keeps 0.995 of the picture it was given**: SSIM against the reference as the encoder received it,
+  converted to BT.709 4:2:0, in that format (Y, U and V 0.995). Its lowest frame, at 34.1 s, keeps 0.994. Frames
+  are compared by index. A first measurement paired them by time stamp, and as the lossless reference keeps its
+  time stamps in milliseconds, it paired some fast-moving frames with a neighbour and read a false low of 0.946 at
+  12.27 s.
+- **Against the RGB reference, the master scores SSIM 0.929 and PSNR 45.0 dB.** That is under the 0.97 _Three
   Questions_ was held to, and the reason is the format, not the encode. The same picture converted to 8-bit 4:2:0 with
-  no encoder at all scores 0.958. The loss is in the red of the near-black hall (red 0.804; green 0.992, blue 0.986):
+  no encoder at all scores 0.958. The loss is in the red of the near-black hall (red 0.806; green 0.993, blue 0.987):
   where red is 0 to 3, a change of a code value or two is invisible, but SSIM reads it as lost structure. In the fog
   of the opening, the master differs from the reference by 0.9 code values on average. The check now holds the
   encode to the picture it was given, and the colour tags to BT.709, and reports all three figures.
