@@ -6,19 +6,30 @@
 [frames] is how many the film has: Three Questions' 1,125 unless given (As One's are 1,365).
 
   streams    what the file is: codec, profile, size, rate, colour tags, frame count, length, sound
-  fidelity   SSIM and PSNR of the master, decoded as a player decodes it, against the reference: whole film and
-             its worst frame
+  fidelity   the picture three ways, each over the film and at its worst frame:
+               encoder  the master against the picture the encoder was given (the reference through encode.sh's own
+                        conversion to BT.709 4:2:0 in the TV range), in that format: SSIM of Y, U and V
+               master   the master decoded as a player decodes it, against the reference: SSIM of R, G and B, and PSNR
+               ceiling  the reference through the same conversion and back, with no encoder: the most a master in
+                        this format can score on the measure above
   sound      the master's loudness (EBU R128: integrated, range, true peak) as a player hears it, after AAC
   flicker    frames drawn apart from both neighbours (Reel 3's odd-one-out test: a frame that differs from each
              neighbour by more than 1.5 times what the neighbours differ by from each other, plus 200 pixels, at
              half size in grey, counting pixels that move more than 4 code values)
   black      any frame with nothing in it (FFmpeg's blackdetect)
 Prints the summary and writes it whole to out.json; exits 1 if a measure is out of bounds.
+
+The picture is bounded on the encoder (SSIM 0.98 of the picture it was given) and on the colour tags, not on the
+master against the RGB reference. The conversion to 8-bit 4:2:0 costs a dark film several hundredths there before any
+encoder touches it: SSIM reads a change of a code value or two, in a colour channel near zero, as lost structure. As
+One's ceiling is 0.961 (its red 0.897), where Three Questions' master scored 0.979.
 """
 import json
 import re
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 import numpy as np
 
@@ -26,10 +37,27 @@ MASTER, REF, OUT = sys.argv[1], sys.argv[2], sys.argv[3]
 FRAMES = int(sys.argv[4]) if len(sys.argv) > 4 else 1125
 W, H = 540, 960
 TO_RGB = "zscale=rangein=limited:matrixin=709:primariesin=709:transferin=709:range=full:primaries=709:transfer=709:filter=bilinear,format=gbrp"
+# What the encoder is given: encode.sh's own conversion, read out of encode.sh so the two cannot drift apart.
+TO_YUV = re.search(r'"\[0:v\](.+?)\[v\]"', (Path(__file__).resolve().parent / "encode.sh").read_text()).group(1)
 
 
 def run(args):
     return subprocess.run(args, capture_output=True, text=True)
+
+
+def compare(inputs, graph):
+    """SSIM by plane over the film (FFmpeg's summary) and each frame's (its stats on stdout), for a graph whose ssim
+    writes its stats to /dev/stdout; with PSNR's average where the graph has one."""
+    r = run(["ffmpeg", "-hide_banner", "-nostats", *[a for i in inputs for a in ("-i", i)], "-filter_complex", graph,
+             "-f", "null", "-"])
+    planes = {k: float(v) for k, v in re.findall(r"(\w+):([\d.]+) \(", re.search(r"SSIM (.+)", r.stderr).group(1))}
+    each = [float(x) for x in re.findall(r"n:\d+ .*?All:([\d.]+)", r.stdout)]
+    worst = int(np.argmin(each))
+    out = {"ssim": planes.pop("All"), "planes": planes, "worst_frame": worst, "worst_ssim": each[worst], "frames": len(each)}
+    psnr = re.search(r"PSNR .*average:([\d.inf]+)", r.stderr)
+    if psnr:
+        out["psnr_db"] = float(psnr.group(1))
+    return out
 
 
 probe = json.loads(run(["ffprobe", "-v", "error", "-count_frames", "-show_streams", "-show_format", "-of", "json", MASTER]).stdout)
@@ -43,15 +71,14 @@ streams = {
     "bytes": int(probe["format"]["size"]),
 }
 
-err = run(["ffmpeg", "-hide_banner", "-nostats", "-i", MASTER, "-i", REF, "-filter_complex",
-           f"[0:v]{TO_RGB}[m];[1:v]format=gbrp[r];[m][r]ssim=stats_file=-;[0:v]{TO_RGB}[m2];[1:v]format=gbrp[r2];[m2][r2]psnr",
-           "-f", "null", "-"]).stderr
-ssim_all = float(re.search(r"SSIM .*All:([\d.]+)", err).group(1))
-psnr_avg = float(re.search(r"PSNR .*average:([\d.inf]+)", err).group(1))
-per_frame = [float(x) for x in re.findall(r"n:\d+ .*?All:([\d.]+)", run(["ffmpeg", "-hide_banner", "-nostats", "-i", MASTER, "-i", REF,
-             "-filter_complex", f"[0:v]{TO_RGB}[m];[1:v]format=gbrp[r];[m][r]ssim=stats_file=/dev/stdout", "-f", "null", "-"]).stdout)]
-worst = int(np.argmin(per_frame)) if per_frame else None
-fidelity = {"ssim": ssim_all, "psnr_db": psnr_avg, "worst_frame": worst, "worst_ssim": per_frame[worst] if per_frame else None}
+STATS = "ssim=stats_file=/dev/stdout"
+GRAPHS = {
+    "encoder": ([MASTER, REF], f"[1:v]{TO_YUV}[c];[0:v]format=yuv420p[m];[m][c]{STATS}"),
+    "master": ([MASTER, REF], f"[0:v]{TO_RGB},split[m][m2];[1:v]format=gbrp,split[r][r2];[m][r]{STATS};[m2][r2]psnr"),
+    "ceiling": ([REF], f"[0:v]format=gbrp,split[a][b];[a]{TO_YUV},{TO_RGB}[c];[c][b]{STATS}"),
+}
+with ThreadPoolExecutor(len(GRAPHS)) as pool:
+    fidelity = dict(zip(GRAPHS, pool.map(lambda g: compare(*g), GRAPHS.values())))
 
 summary = run(["ffmpeg", "-hide_banner", "-nostats", "-i", MASTER, "-af", "ebur128=peak=true", "-f", "null", "-"]).stderr
 summary = summary[summary.rindex("Summary:"):]
@@ -75,8 +102,11 @@ if abs(sound["integrated_lufs"] + 14) > 0.5:
     problems.append(f"loudness {sound['integrated_lufs']} LUFS")
 if sound["true_peak_dbtp"] > -0.9:
     problems.append(f"true peak {sound['true_peak_dbtp']} dBTP")
-if fidelity["ssim"] < 0.97:
-    problems.append(f"SSIM {fidelity['ssim']}")
+if fidelity["encoder"]["ssim"] < 0.98:
+    problems.append(f"the encoder kept SSIM {fidelity['encoder']['ssim']} of its picture")
+tags = [streams["video"][k] for k in ("color_range", "color_space", "color_primaries", "color_transfer")]
+if tags != ["tv", "bt709", "bt709", "bt709"]:
+    problems.append(f"colour tags {tags}")
 if black:
     problems.append(f"black stretches {black}")
 report["problems"] = problems

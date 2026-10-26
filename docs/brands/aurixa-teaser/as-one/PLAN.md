@@ -126,14 +126,18 @@ The voice's times are where the words sound in the mix (`sound.py`'s `cues.json`
 
 ## How it is drawn
 
-Everything is drawn in code in Chromium, frame by frame, at twice the frame's size, with motion blur from drawings spread
-over a 180-degree shutter. These are _Three Questions_' renderer and measures (`scripts/aurixa-teaser/`).
+Everything is drawn in code in Chromium, frame by frame, in WebGL2 (on SwiftShader, so no GPU is needed). Each frame is
+the average of four to eight drawings spread over a 180-degree shutter, each moved by a fraction of a pixel, so it is
+blurred as it moves and smooth at its edges. The words are type over the drawing, set at twice the frame's size and
+scaled down. _Three Questions_' master, encode and measures are used as they are (`scripts/aurixa-teaser/`).
 
 - **The world is 3D.** One camera, in metres, projects it.
-- **Every flat thing is a plane placed in perspective by a projective transform.** That covers the floor, the panes,
-  the glass, the plinths, the tags and the logo.
+- **Every flat thing is a plane in that world.** That covers the floor, the panes, the glass, the plinths, the tags and
+  the logo.
 - **Every line is drawn sharp in the screen's own pixels.** That covers the beam's core, the glass edges, the holograms'
   wireframes and the gold light.
 - **The reflections are the same world mirrored in the floor.** They are drawn under the marble, softened and darkened.
+- **The light is drawn in high dynamic range**, with bloom and a filmic tone map, so the beam and the gold can burn
+  without clipping.
 
 The scripts are in `scripts/aurixa-teaser/as-one/`, and their README says what each does.
