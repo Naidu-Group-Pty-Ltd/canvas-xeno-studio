@@ -4,6 +4,10 @@ The second teaser, rendered on 27 October 2026 from the client's reference video
 its script word for word in the brand voice, dry, under _National Treasures_ exactly as the reference uses it, over a
 picture of its own ([`PLAN.md`](./PLAN.md)). This is the final, and how it goes to the platforms.
 
+It was revised the same day at the client's note on the first delivery: the beam's line ran through the middle of the
+end card and fought the logo. Now, as the emblem forms, the beam is drawn into the emblem's orb, and its light circles
+inside the A until the orb keeps it, so no line crosses the logo. Everything before 40.1 s is as first delivered.
+
 ## The final
 
 Upload this file as it is: `aurixa-teaser-as-one-1080x1920.mp4`. Don't export it again from an editor, and don't
@@ -53,8 +57,10 @@ thing that happens is what the line over it says.
   and the client's and the property's tags follow it (the brand kit's demo record, Jordan Ellis and 14 Wattle Grove,
   as the reels show it). On "one", on the bar, all five light at once.
 - **The system.** "The next tool" is a sixth case, apart and empty, and its light goes out. The five draw together
-  into the emblem's triangle, which becomes the emblem over the beam. Its lettering rises letter by letter, and the
-  line rises under it.
+  into the emblem's triangle, which becomes the emblem over the beam. As it forms, the beam is drawn into the orb at
+  its centre: both its ends close on the orb, and the line is gone from the frame by 41.3 s. Its light circles inside
+  the A in three rings, each quicker as it tightens, and the orb takes them in one by one, at 42.7, 43.1 and 43.5 s,
+  and keeps the light, breathing, to the end. The lettering rises letter by letter, and the line rises under it.
 
 From the reference it takes the beam rising in fog, the glass cases on black marble with holograms in them, the gold
 lines between them, the serif line with its turn in gold, and the emblem standing at the end. The reference shows
@@ -73,7 +79,8 @@ first try.
 The film was drawn on five machines, as Reels 2 and 3 were. This session drew frames 0 to 921, and four helper
 sessions drew 922 to 991, 992 to 1101, 1102 to 1233 and 1234 to 1364, each in a work of its own under _Aurixa Teaser_.
 Two frames of each helper's share were drawn here as well and matched to the bit, and the joined film holds them in
-their places, again to the bit.
+their places, again to the bit. For the revision, this session redrew the end card, frames 1203 to 1364, with the
+same renderer and spliced it onto the first 1203 frames, which are unchanged.
 
 ## The sound
 
@@ -110,12 +117,12 @@ their places, again to the bit.
 
 ## Where things are
 
-| What                                   | Where                                                                                                                                                                        |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The final, cover and QC                | The studio work _Aurixa Teaser_ (`9dd41db4-0e2f-4f25-8a6f-0f7eb0c6a6a5`), `files/delivery`                                                                                   |
-| The soundtrack                         | The same work, `files/sound-as-one`: the take, the stems, the mix, the master and `cues.json`                                                                                |
-| The page and its textures              | The same work, `files/film-as-one` and `files/textures-as-one`                                                                                                               |
-| The lossless film                      | This session's three runs, frames 0 to 921, in the same work under `files/runs-as-one` with the order to join them; the helpers' shares in their own works, `files/frames-*` |
-| The helpers' works                     | Children of _Aurixa Teaser_: `80c9cfb3…`, `0f968b6e…`, `2e7eedd6…` and `b1910b14…`                                                                                           |
-| The plan, the reference and its script | `docs/brands/aurixa-teaser/as-one/PLAN.md`, `docs/brands/aurixa-teaser/REFERENCE.md`, `reference-words.json`                                                                 |
-| The renderers                          | `scripts/aurixa-teaser/as-one/`; its README says what each does                                                                                                              |
+| What                                   | Where                                                                                                                                                                                                                        |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The final, cover and QC                | The studio work _Aurixa Teaser_ (`9dd41db4-0e2f-4f25-8a6f-0f7eb0c6a6a5`), `files/delivery`                                                                                                                                   |
+| The soundtrack                         | The same work, `files/sound-as-one`: the take, the stems, the mix, the master and `cues.json`                                                                                                                                |
+| The page and its textures              | The same work, `files/film-as-one` and `files/textures-as-one`                                                                                                                                                               |
+| The lossless film                      | This session's runs, frames 0 to 921 and the redrawn end card (1203 to 1364), in the same work under `files/runs-as-one`, with `join.json`, the order to join them; the helpers' shares in their own works, `files/frames-*` |
+| The helpers' works                     | Children of _Aurixa Teaser_: `80c9cfb3…`, `0f968b6e…`, `2e7eedd6…` and `b1910b14…`                                                                                                                                           |
+| The plan, the reference and its script | `docs/brands/aurixa-teaser/as-one/PLAN.md`, `docs/brands/aurixa-teaser/REFERENCE.md`, `reference-words.json`                                                                                                                 |
+| The renderers                          | `scripts/aurixa-teaser/as-one/`; its README says what each does                                                                                                                                                              |
