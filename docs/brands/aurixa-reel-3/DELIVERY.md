@@ -111,6 +111,16 @@ Checked against: [Kontentino](https://www.kontentino.com/q-and-a/how-long-can-in
 [Brandwatch](https://www.brandwatch.com/blog/linkedin-video-specs/) (LinkedIn); [Postfast](https://postfa.st/sizes/x/video)
 (X).
 
+## The review
+
+All four of the studio's review gates are approved, each on its latest version:
+
+- the style frames, version 2 (34 stills), on 25 October, approved by the client in the chat;
+- the animatic, the proof and the film, each version 1, on 26 October, approved by Claude Code at the client's
+  instruction ("Approve it yourself and complete the job"), each after its files were checked against its note.
+
+The film gate holds the review copy, under the studio's 50 MB. The file to upload is the final above.
+
 ## Before it runs publicly
 
 - **A compliance review.** This reel shows modelled borrowing figures: a borrowing capacity, a stress-tested capacity,
