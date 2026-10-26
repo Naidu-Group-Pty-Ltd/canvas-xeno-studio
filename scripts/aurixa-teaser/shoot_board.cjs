@@ -1,4 +1,4 @@
-// Photographs the storyboard page (frames/board.html) whole, at 1500 px wide.
+// Photographs the storyboard page (frames/board.html) whole, at 2500 px wide.
 //   node shoot_board.cjs <frames dir> <out.png>
 const { chromium } = require("playwright");
 const path = require("path");
@@ -7,7 +7,7 @@ const path = require("path");
   const dir = path.resolve(process.argv[2]);
   const browser = await chromium.launch({ args: ["--allow-file-access-from-files"] });
   const tab = await browser.newPage({
-    viewport: { width: 1500, height: 1200 },
+    viewport: { width: 2500, height: 1400 },
     deviceScaleFactor: 1,
   });
   await tab.goto("file://" + path.join(dir, "board.html"));

@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""The teaser's nine style frames, as pages (1080 x 1920) for shoot.cjs to photograph.
+"""The teaser's ten style frames, as pages (1080 x 1920) for shoot.cjs to photograph.
 
   python3 -I scripts/aurixa-teaser/frames.py <render dir> <assets dir> <fonts dir>
 
 The render dir holds orbit.py's and city.py's renders in final/ (each at 2160 wide, with its points in a .json); the
-pages go to frames/. The assets dir holds the films' own pieces: D.png (14 Wattle Grove's floor plan, as Film 1
-draws it), r2-pp-cmd-cover.png (the Compliance Passport's cover, Film 2), r3-bc-card-empty.png (the Borrowing
-Capacity card, Film 3), and the supplied logo art, logo-clean.png and logo-art.png. The fonts dir holds the
-films' Playfair Display and Inconsolata. The logo is placed and blended, never redrawn; everything else (the
-pin, the lines, the windows, the type) is drawn here."""
+pages go to frames/. The assets dir holds the product's pieces the windows show: D.png (14 Wattle Grove's floor
+plan), r2-pp-cmd-cover.png (the Compliance Passport's cover, shown only below its maker's name so the brand stays
+back for the end), r3-bc-card-empty.png (the Borrowing Capacity card), and the supplied logo art, logo-clean.png and
+logo-art.png. The fonts dir holds Playfair Display and Inconsolata. The logo is placed and blended, never redrawn;
+everything else (the pin, the lines, the windows, the type) is drawn here."""
 import json
 import sys
 from pathlib import Path
@@ -117,7 +117,7 @@ html, body { margin:0; width:1080px; height:1920px; background:#040B16; overflow
 .pin.office .core { left:-5px; top:-5px; width:10px; height:10px; }
 .pin.dim { opacity:.55; }
 .beam { position:absolute; width:2px; margin-left:-1px; background:linear-gradient(0deg, rgba(245,209,122,.95), rgba(245,209,122,0)); }
-/* A window lit in the night: the films' object behind glass, in a gold hairline. */
+/* A window lit in the night: a piece of the product behind glass, in a gold hairline. */
 .win { position:absolute; border-radius:22px; overflow:hidden;
   background:linear-gradient(180deg, rgba(16,35,61,.90), rgba(4,11,22,.94));
   border:1.5px solid rgba(215,179,95,.62);
@@ -234,7 +234,7 @@ O = [cityq["offices"][k] for k in OFF]
 BULGE = (-0.16, 0.16, 0.10)
 
 
-def question_frame(name, n, film, line, win_html, win_box, tether_x, size=80):
+def question_frame(name, n, asker, line, win_html, win_box, tether_x, size=80):
     spokes = "".join(arc(P, O[i], BULGE[i], 3.0 if i == n else 2.2, 1.0 if i == n else 0.45) for i in range(n + 1))
     x, y, w, h = win_box
     tether = seg((O[n][0], O[n][1] - 16), (tether_x, y + h), 2.0, 0.9, "glow")
@@ -253,43 +253,61 @@ def question_frame(name, n, film, line, win_html, win_box, tether_x, size=80):
 {pin(*P)}
 <div class="label" style="left:{P[0] + 30}px;top:{P[1] - 34}px;font-size:16px">14 Wattle Grove</div>
 <div class="win" style="left:{x}px;top:{y}px;width:{w}px;height:{h}px">{win_html}</div>
-{eyebrow(1306, film)}
+{eyebrow(1306, asker)}
 {say(say_top, words(line), size)}
 """
     page(name, body)
 
 
-# SF2: Film 1. The floor plan of 14 Wattle Grove, as Film 1 draws it, in gold.
+# SF2: the adviser's question. 14 Wattle Grove's floor plan, in gold.
 w1 = (O[0][0] - 2, 300, 540, 470)
 question_frame(
-    "sf2", 0, "Film 1 · The system", "Is it *right* for them?",
+    "sf2", 0, "The adviser's question", "Is it *right* for them?",
     f"""<div class="cap">14 Wattle Grove</div><div class="cap" style="left:auto;right:26px">Floor plan</div><div class="rule"></div>
 <img src="{url(OUT / 'plan-gold.png')}" style="position:absolute;left:{(540 - 380) // 2}px;top:72px;width:380px;height:380px;opacity:.95">""",
     w1, w1[0] + 2)
 
-# SF3: Film 2. The Compliance Passport's cover.
-pw, ph = 300, 414
-w2 = (O[1][0] - 360 + 2, 280, 360, 500)
+# SF3: the compliance question. The Compliance Passport, closed, seen close: the cover from below its maker's name
+# (58.5% of the way down) to its clasp, so the brand waits for the end. Cropped, never altered.
+pw = 480
+ph_full = 3240 * pw / 2350
+ph = 268
+w2 = (O[1][0] - 540 + 2, 330, 540, 72 + ph + 30)
 question_frame(
-    "sf3", 1, "Film 2 · The Compliance Passport", "Are they *who they say*<br> they are?",
+    "sf3", 1, "The compliance question", "Are they *who they say*<br> they are?",
     f"""<div class="cap">Passport</div><div class="tag">Demo workspace</div><div class="rule"></div>
-<img src="{url(A / 'r2-pp-cmd-cover.png')}"
-  style="position:absolute;left:{(360 - pw) // 2}px;top:70px;width:{pw}px;height:{ph}px;border-radius:10px;box-shadow:0 14px 40px rgba(0,0,0,.6)">""",
+<div style="position:absolute;left:30px;top:72px;width:{pw}px;height:{ph}px;overflow:hidden;border-radius:10px;box-shadow:0 14px 40px rgba(0,0,0,.6)">
+<img src="{url(A / 'r2-pp-cmd-cover.png')}" style="position:absolute;left:0;top:{-0.585 * ph_full:.1f}px;width:{pw}px;height:{ph_full:.1f}px"></div>""",
     w2, w2[0] + w2[2] - 2, 76)
 
-# SF4: Film 3. The Borrowing Capacity card, the pointer waiting on Calculate Capacity.
+# SF4: the broker's question. The Borrowing Capacity card, the pointer waiting on Calculate Capacity.
 cw = 820
 ch = round(cw * 630 / 2280)
 w3 = (round(O[2][0] - 440), 400, 880, 340)
 bx = 30 + cw * 1290 / 2280  # the pointer's tip: on the button's label (card px 1290, 425)
 by_ = 84 + ch * 425 / 630
 question_frame(
-    "sf4", 2, "Film 3 · Borrowing Capacity", "Can they *afford* it?",
+    "sf4", 2, "The broker's question", "Can they *afford* it?",
     f"""<div class="cap">Jordan Ellis</div><div class="tag">Demo workspace</div><div class="rule"></div>
 <img src="{url(A / 'r3-bc-card-empty.png')}" style="position:absolute;left:30px;top:84px;width:{cw}px;height:{ch}px;border-radius:12px">
 <svg style="position:absolute;left:{bx:.0f}px;top:{by_:.0f}px" width="30" height="40" viewBox="0 0 30 40"><path d="M2 2 L2 30 L9 23 L14 35 L19 33 L14 21 L24 21 Z" fill="#fff" stroke="#0b1424" stroke-width="2" stroke-linejoin="round"/></svg>
 """,
     w3, w3[0] + w3[2] // 2)
+
+
+# ------------------------------------------------------------------ SF4b · the gap: each answered somewhere else
+dashes = "".join(arc(P, O[i], BULGE[i], 2.0, 0.42).replace('stroke-linecap="round"', 'stroke-dasharray="3 14" stroke-linecap="round"')
+                 for i in range(3))
+body = f"""
+<img class="bg" src="{url(S / 'final/city-q-1080.png')}" style="filter:brightness(.55) saturate(.85)">
+{text_band(1240, 1660, 0.85)}
+{svg(dashes)}
+{"".join(pin(*o, "office") for o in O)}
+{"".join(f'<div class="num" style="left:{o[0] + (22 if i != 0 else -52)}px;top:{o[1] + 10}px">0{i + 1}</div>' for i, o in enumerate(O))}
+{pin(*P, "dim")}
+{say(1316, words("Until now, each one was<br> answered *somewhere else.*"), 72)}
+"""
+page("sf4b", body)
 
 # ------------------------------------------------------------------ SF5 · the shape
 P5 = city["property"]
@@ -307,10 +325,12 @@ body = f"""
 {"".join(f'<div class="num" style="font-size:22px;left:{o[0] + (24 if i != 0 else -62)}px;top:{o[1] + 14}px">0{i + 1}</div>' for i, o in enumerate(O5))}
 <div class="beam" style="left:{P5[0]}px;top:{P5[1] - 150}px;height:150px"></div>
 {pin(*P5)}
+{text_band(1270, 1640, 0.8)}
+{say(1352, words("We've been building *the answer.*"), 76)}
 """
 page("sf5", body)
 
-# ------------------------------------------------------------------ SF6–SF8 · the answer, the titles, the brand
+# ------------------------------------------------------------------ SF6–SF8 · the answer, the name, soon
 K6 = 1.0
 OX6, OY6 = 540 - EM_APEX[0] * K6, 430 - EM_APEX[1] * K6
 
@@ -344,27 +364,28 @@ body = f"""
 """
 page("sf6", body)
 
+# SF7: the name. The supplied art with its lettering, and the one line the teaser ends on.
+K7 = 0.78
+OX7, OY7 = 540 - EM_APEX[0] * K7, 390 - EM_APEX[1] * K7
+wm_bottom = OY7 + (WORDMARK[1] + WORDMARK[3]) * K7
 body = f"""
-{ground.replace('opacity:.9', 'opacity:.55')}
-{art(A / 'logo-clean.png', K6, OX6, OY6, 'opacity:.58')}
-{text_band(1150, 1700, 0.72)}
-{say(1196, words("Three *questions.*"), 84)}
-{say(1300, words("Three *films.*"), 84)}
-{say(1404, words("One *system.*"), 84)}
+{ground.replace('opacity:.9', 'opacity:.38')}
+{art(A / 'logo-art.png', K7, OX7, OY7)}
+{text_band(int(wm_bottom) - 10, 1640, 0.7)}
+<div class="say" style="top:{wm_bottom + 80:.0f}px;font-size:54px;line-height:1.2">{words("Built for the people<br> who *ask them.*")}</div>
 """
 page("sf7", body)
 
-K8 = 0.78
-OX8, OY8 = 540 - EM_APEX[0] * K8, 390 - EM_APEX[1] * K8
-wm_bottom = OY8 + (WORDMARK[1] + WORDMARK[3]) * K8
+# SF8: Soon. Everything gone but the orb's light, alone in the dark, as the teaser began with one.
+o8 = (round(OX7 + EM_ORB[0] * K7), round(OY7 + EM_ORB[1] * K7))  # the emblem's own orb, under the light
 body = f"""
-{ground.replace('opacity:.9', 'opacity:.38')}
-{art(A / 'logo-art.png', K8, OX8, OY8)}
-{text_band(int(wm_bottom) - 10, 1640, 0.7)}
-<div class="say" style="top:{wm_bottom + 70:.0f}px;font-size:46px;line-height:1.25">{words("The operating system for<br> modern property professionals.")}</div>
-<div class="abs" style="left:484px;top:{wm_bottom + 222:.0f}px;width:112px;height:2px;background:linear-gradient(90deg, rgba(200,155,60,0), #c89b3c 22%, #d7b35f 50%, #c89b3c 78%, rgba(200,155,60,0))"></div>
-{eyebrow(int(wm_bottom + 262), "Three films · Watch now")}
-<div class="abs" style="left:0;right:0;top:{wm_bottom + 330:.0f}px;text-align:center;font:400 26px/1 'INTER';color:#9fb0c6;letter-spacing:.02em">aurixasystems.com.au</div>
+{art(A / 'logo-clean.png', K7, OX7, OY7, 'opacity:.12;filter:blur(2px)')}
+<div class="abs" style="left:{o8[0] - 170}px;top:{o8[1] - 170}px;width:340px;height:340px;border-radius:50%;
+  background:radial-gradient(circle, rgba(255,250,235,.95) 0%, rgba(245,209,122,.55) 9%, rgba(200,155,60,.16) 30%, rgba(200,155,60,0) 62%)"></div>
+<div class="abs" style="left:{o8[0] - 9}px;top:{o8[1] - 9}px;width:18px;height:18px;border-radius:50%;
+  background:radial-gradient(circle, #fffaf0 0%, #f5d17a 60%, #c89b3c 100%);box-shadow:0 0 18px 6px rgba(245,209,122,.8)"></div>
+<div class="say" style="top:1010px;font-size:150px;line-height:1">{words("*Soon.*")}</div>
+<div class="abs" style="left:0;right:0;top:1236px;text-align:center;font:400 26px/1 'INTER';color:#9fb0c6;letter-spacing:.02em">aurixasystems.com.au</div>
 """
 page("sf8", body)
 print("pages written:", sorted(p.name for p in OUT.glob("sf*.html")))

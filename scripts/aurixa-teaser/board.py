@@ -54,13 +54,13 @@ page = f"""<!doctype html><html><head><meta charset="utf-8"><style>
 @font-face {{ font-family:"INTER"; src:url('{url("/usr/share/fonts/opentype/inter/Inter-Regular.otf")}'); font-weight:400; }}
 @font-face {{ font-family:"INTER"; src:url('{url("/usr/share/fonts/opentype/inter/Inter-SemiBold.otf")}'); font-weight:600; }}
 * {{ box-sizing:border-box; }}
-html, body {{ margin:0; background:#040B16; color:#dfe6ef; width:1500px; }}
+html, body {{ margin:0; background:#040B16; color:#dfe6ef; width:2500px; }}
 .sheet {{ padding:56px 54px 60px; }}
 .eyebrow {{ font:700 20px/1 "MONO"; letter-spacing:.28em; color:#D7B35F; text-transform:uppercase; }}
 h1 {{ font:500 64px/1.1 "PF"; margin:14px 0 10px; color:#fff; letter-spacing:-.01em; }}
 h1 em {{ color:#E2BE6A; }}
-.sub {{ font:400 21px/1.5 "INTER"; color:#9fb0c6; max-width:1250px; }}
-.grid {{ display:grid; grid-template-columns:repeat(3, 1fr); gap:40px 36px; margin-top:44px; }}
+.sub {{ font:400 23px/1.5 "INTER"; color:#9fb0c6; max-width:1700px; }}
+.grid {{ display:grid; grid-template-columns:repeat(5, 1fr); gap:44px 34px; margin-top:44px; }}
 .cell img {{ width:100%; aspect-ratio:9/16; display:block; border-radius:14px; border:1px solid rgba(215,179,95,.35); }}
 .head {{ display:flex; align-items:baseline; gap:12px; margin:16px 0 8px; flex-wrap:wrap; }}
 .n {{ font:700 20px/1 "MONO"; color:#F5D17A; letter-spacing:.12em; }}
@@ -76,14 +76,14 @@ em {{ font-family:"PF"; font-style:italic; color:#E2BE6A; }}
 </style></head><body><div class="sheet">
 <div class="eyebrow">Aurixa Systems · Teaser · Storyboard · 26 October 2026</div>
 <h1>Three <em>Questions</em></h1>
-<div class="sub">35 seconds, 9:16. One property, three questions, three films, one system. Each question is one of the films; the
-answer is the brand. The style frames are drawn in code: the night views from public map data, the windows from the films' own
-objects, the logo the supplied art. Nothing here is generated yet.</div>
+<div class="sub">37.5 seconds, 9:16. A teaser for what's coming: the three questions every property raises, the people who ask
+them, and an answer held back until the last seconds. The style frames are drawn in code: the night views from public map data,
+the windows from the product's own screens, the logo the supplied art. Nothing here is generated yet.</div>
 <div class="grid">{''.join(cells)}</div>
 <div class="foot">Map data: GeoNames (CC BY 4.0) for where people live; GSHHG shorelines (Wessel and Smith); NASA Blue Marble,
 Natural Earth relief and NOAA GLOBE land mask (public domain) for the Earth from orbit. The streets are drawn from where people
-live, not traced from any map, and no street or suburb is named on screen except the films' own fictional address. Product
-screens carry DEMO WORKSPACE, as in the films.</div>
+live, not traced from any map, and no street or suburb is named on screen except the fictional address. Product screens carry
+DEMO WORKSPACE.</div>
 </div></body></html>"""
 (S / "frames" / "board.html").write_text(page)
 print("board.html written")
