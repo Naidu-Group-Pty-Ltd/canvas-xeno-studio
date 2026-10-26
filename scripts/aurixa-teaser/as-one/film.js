@@ -170,15 +170,20 @@
     } else if (mode == 1) {                // the beam: core, glow, haze, in fog
       float x = (vUv.x - 0.5) * 2.0;        // -1..1 across the quad
       float w = vExtra.z;                   // the quad's half-width in metres
+      float L = vExtra.w;                   // its length in metres
+      float full = vCol.a;                  // 1 while it stands; under 1 as it is drawn into the orb
+      bool standing = full > 0.9995;
       float xm = x * w;
       float core = exp(-pow(xm / 0.010, 2.0));
       float glow = exp(-pow(xm / 0.09, 2.0));
-      float haze = exp(-pow(xm / 0.55, 2.0));
+      float haze = exp(-pow(xm / 0.55, 2.0)) * (standing ? 1.0 : full);
       float f = texture(uFog, vec2(vPos.x * 0.2 + vPos.z * 0.2 + uTime * 0.01, vPos.y * 0.09 - uTime * 0.04)).r;
       float y = vPos.y;
-      float along = exp(-y * vExtra.w) * (0.7 + 0.3 * exp(-y * 2.5));
-      float tip = 1.0 - smoothstep(0.8, 1.0, vUv.y); // the tip of the beam softens as it grows
-      rgb = vCol.rgb * along * (core * 2.4 + glow * 0.55 + haze * 0.16 * (0.35 + 1.3 * f)) * tip;
+      float along = exp(-y * 0.09) * (0.7 + 0.3 * exp(-y * 2.5));
+      // the tip of the beam softens as it grows; drawn in, both its ends are soft over their last 0.35 m
+      float tip = standing ? 1.0 - smoothstep(0.8, 1.0, vUv.y) : smoothstep(0.0, 0.35, (1.0 - vUv.y) * L);
+      float foot = standing ? 1.0 : mix(smoothstep(0.0, 0.35, vUv.y * L), 1.0, full);
+      rgb = vCol.rgb * along * (core * 2.4 + glow * 0.55 + haze * 0.16 * (0.35 + 1.3 * f)) * tip * foot;
       a = 1.0;
     } else if (mode == 2) {                // a soft round glow
       vec2 q = vUv * 2.0 - 1.0; float r2 = dot(q, q);
@@ -759,6 +764,13 @@
     // ---- the beam
     const grow = easeOut(lin(t, 0.05, 2.4));
     const beamTop = 0.02 + grow * 16;
+    // As the emblem forms, the beam is drawn into its orb: both ends close on the orb, and its light circles there
+    // (below, with the emblem). While it stands, yBot and yTop are the floor and its tip.
+    const ORB = artToWorld(...ART.orb);
+    const gather = easeInOut(lin(t, T.aurixa - 0.1, T.aurixa + 1.05));
+    const yBot = ORB[1] * gather;
+    const yTop = gather > 0 ? ORB[1] + 3.2 * (1 - gather) : beamTop;
+    const full = gather > 0 ? Math.min(0.999, 1 - ss(gather, 0.0, 0.45)) : 1;
     let beamK = 0.25 + 0.75 * ss(t, 0.0, 1.8);
     beamK *= 1 - 0.55 * ss(t, T.powerful - 0.2, T.powerful + 0.6) * (1 - ss(t, DROP - 0.02, DROP + 0.25));
     beamK *= 1 + 1.6 * flash(t, DROP, 0.02, 0.35) + 1.2 * flash(t, T.one, 0.02, 0.4) + 1.1 * flash(t, T.aurixa + 0.05, 0.18, 0.9);
@@ -766,13 +778,16 @@
     beamK *= 1 - 0.55 * ss(t, T.systems + 0.5, T.coming - 0.6);
     beamK *= 1 - 0.22 * ss(t, DROP + 0.5, DROP + 1.6) * (1 - ss(t, T.ask - 0.4, T.ask + 0.6));
     {
-      const hw = 1.3;
-      const q = board([0, beamTop / 2, 0], hw, beamTop / 2, true);
-      W.quads.push({ p: q, uv: [0, 0, 1, 1], col: [...v3.mul([0.62, 0.84, 1.0], beamK * 1.25), 1], ex: [1, 0, hw, 0.09] });
-      // its base on the floor, and a halo about it
-      W.quads.push({ p: board([0, 0.05, 0], 0.26, 0.26), col: [...v3.mul([0.6, 0.82, 1.0], 0.9 * beamK), 1], ex: [2, 0, 3.5, 0] });
-      W.lights.push([[0, 0.25, 0], 2.2 * beamK, [0.55, 0.78, 1.0], 2.6]);
-      W.lights.push([[0, 2.2, 0], 1.6 * beamK * grow, [0.5, 0.72, 1.0], 0.55]);
+      const hw = 1.3, len = yTop - yBot;
+      if (len > 0.002) {
+        const q = board([0, (yBot + yTop) / 2, 0], hw, len / 2, true);
+        W.quads.push({ p: q, uv: [0, 0, 1, 1], col: [...v3.mul([0.62, 0.84, 1.0], beamK * 1.25), full], ex: [1, 0, hw, len] });
+      }
+      // its base on the floor, and a halo about it, gone as it leaves the floor
+      const onFloor = 1 - ss(gather, 0.0, 0.3);
+      W.quads.push({ p: board([0, 0.05, 0], 0.26, 0.26), col: [...v3.mul([0.6, 0.82, 1.0], 0.9 * beamK * onFloor), 1], ex: [2, 0, 3.5, 0] });
+      W.lights.push([[0, 0.25, 0], 2.2 * beamK * (1 - ss(gather, 0.0, 0.35)), [0.55, 0.78, 1.0], 2.6]);
+      W.lights.push([[0, 2.2, 0], 1.6 * beamK * grow * (1 - 0.6 * gather), [0.5, 0.72, 1.0], 0.55]);
     }
     // ---- fog sheets about the beam, and dust in it
     for (let i = 0; i < 4; i++) {
@@ -784,7 +799,8 @@
       const a = hash(i * 1.7) * Math.PI * 2, rr_ = Math.pow(hash(i * 3.1), 1.6) * 1.1;
       const y = (hash(i * 5.3) * 6 + t * (0.05 + 0.08 * hash(i * 9.1))) % 6;
       const c = [Math.cos(a) * rr_ + 0.08 * noise1(t * 0.3 + i), y, Math.sin(a) * rr_ + 0.08 * noise1(t * 0.27 + i * 2)];
-      const lit = Math.exp(-Math.pow(rr_ / 0.32, 2)) * (y < beamTop ? 1 : 0) * beamK * (0.4 + 0.6 * hash(i * 2.9));
+      const inBeam = gather > 0 ? ss(y, yBot - 0.15, yBot + 0.15) * (1 - ss(y, yTop - 0.15, yTop + 0.15)) : y < beamTop ? 1 : 0;
+      const lit = Math.exp(-Math.pow(rr_ / 0.32, 2)) * inBeam * beamK * (0.4 + 0.6 * hash(i * 2.9));
       if (lit < 0.03) continue;
       const s = pxAt(c, 1.6 + hash(i * 7.7) * 1.8);
       W.quads.push({ p: board(c, s, s), col: [...v3.mul([0.8, 0.9, 1.0], 1.1 * lit), 1], ex: [2, 0, 4.0, 0] });
@@ -1084,6 +1100,51 @@
           W.emblem.push({ q, tex: TEX.letters, uv: [L.l / ART.w, L.y1 / ART.h, L.r / ART.w, L.y0 / ART.h], k: f, letter: true });
         });
       }
+    }
+    // ---- the beam's light in the orb. Three rings circle inside the A, each faster as it tightens (as a skater's
+    // spin), and close on the orb one after another; the orb takes each in and keeps the light, breathing.
+    if (gather > 0.4) {
+      const O = artToWorld(...ART.orb, -0.03);
+      const OR = 0.19; // the orb's radius (about 74 px of the art)
+      const RINGS = [
+        { r0: 0.37, born: T.aurixa + 0.62, close: T.aurixa + 2.45, dir: 1, ph: 1.9 },
+        { r0: 0.31, born: T.aurixa + 0.8, close: T.aurixa + 2.85, dir: -1, ph: 4.3 },
+        { r0: 0.255, born: T.aurixa + 0.98, close: T.aurixa + 3.25, dir: 1, ph: 0.4 },
+      ];
+      const COL = [0.72, 0.88, 1.0];
+      const radius = (Rg, tt) => mix(Rg.r0, OR * 1.04, easeInOut(lin(tt, Rg.born, Rg.close)));
+      // its angle at t: a half turn a second at first, quickening as (r0 / r)^2, summed from its birth
+      const angle = (Rg) => {
+        const n = 48, span = Math.max(0, t - Rg.born), dt = span / n;
+        let a = 0;
+        for (let i = 0; i < n; i++) a += Math.PI * Math.pow(Rg.r0 / radius(Rg, Rg.born + (i + 0.5) * dt), 2) * dt;
+        return Rg.ph + Rg.dir * a;
+      };
+      const ring = (r, head, dir, k, tail, base) => {
+        const N = 80;
+        const at = (phi) => [O[0] + r * Math.cos(phi), O[1] + r * Math.sin(phi), O[2]];
+        for (let i = 0; i < N; i++) {
+          const p0 = (i / N) * 2 * Math.PI, p1 = ((i + 1) / N) * 2 * Math.PI, pm = (p0 + p1) / 2;
+          let d = dir > 0 ? head - pm : pm - head; // how far behind the head, along its way
+          d = ((d % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+          W.lines.push([at(p0), at(p1), COL, k * (base + Math.exp(-d / tail)), 1.15, 7]);
+        }
+        W.quads.push({ p: board(at(head), 0.045, 0.045), col: [...v3.mul([0.9, 0.96, 1.0], 1.6 * k), 1], ex: [2, 0, 5, 0] });
+      };
+      let taken = 0;
+      for (const Rg of RINGS) {
+        const k = ss(t, Rg.born, Rg.born + 0.3) * (1 - ss(t, Rg.close - 0.1, Rg.close + 0.4));
+        taken += flash(t, Rg.close + 0.05, 0.2, 0.7);
+        if (k > 0.002) ring(radius(Rg, t), angle(Rg), Rg.dir, 2.8 * k, 0.9, 0.1);
+      }
+      // the light kept: the orb's glow, and one faint ring turning slowly at its rim
+      const kept = ss(t, RINGS[2].close - 0.3, RINGS[2].close + 0.8);
+      const arrive = ss(gather, 0.55, 1.0);
+      const breath = 0.88 + 0.12 * Math.sin((t - T.aurixa) * 2.2);
+      const orbK = 0.42 * arrive * (1 - 0.45 * kept) + 0.3 * taken + 0.3 * kept * breath;
+      W.quads.push({ p: board(O, OR * 1.7, OR * 1.7), col: [...v3.mul([0.62, 0.84, 1.0], orbK), 1], ex: [2, 0, 3.2, 0] });
+      W.lights.push([O, 0.8 * orbK, [0.6, 0.82, 1.0], 1.5]);
+      if (kept > 0.002) ring(OR * 1.07, 0.6 + (t - RINGS[2].close) * 1.3, 1, 0.55 * kept * breath, 1.4, 0.18);
     }
     return W;
   }
