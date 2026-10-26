@@ -2,6 +2,7 @@
 //   node scripts/aurixa-teaser/as-one/render.cjs <film dir> <out dir>
 //   RENDER_FRAMES=0,600,1200 node ... <film dir> <out dir>      # those frames, to PNG
 //   RENDER_SCALE=1 RENDER_N=1 RENDER_SETTLE=0 node ...           # a quick look at all of it
+//   RENDER_RANGE=600:760 node ... <film dir> <out dir>            # frames 600 to 759 only (a helper's share)
 // The world is drawn by WebGL at the frame's size; each frame is the average of its samples spread over a
 // 180-degree shutter, each sample moved by a fraction of a pixel (film.js's setT), so its motion is blurred and its
 // edges smoothed in the one drawing. The words are drawn by the page at twice the frame's size (RENDER_SCALE), and the
@@ -168,16 +169,16 @@ async function stills(filmHtml, out, only) {
   });
 }
 
-async function full(filmHtml, out) {
-  const cost = Array.from({ length: FRAMES }, (_, f) => samplesAt(f) + 2);
+async function full(filmHtml, out, from = 0, to = FRAMES) {
+  const cost = Array.from({ length: to - from }, (_, i) => samplesAt(from + i) + 2);
   const total = cost.reduce((a, b) => a + b, 0);
-  const bounds = [0];
+  const bounds = [from];
   let sum = 0;
-  for (let f = 0; f < FRAMES; f++) {
-    sum += cost[f];
-    if (bounds.length < WORKERS && sum >= (total * bounds.length) / WORKERS) bounds.push(f + 1);
+  for (let i = 0; i < cost.length; i++) {
+    sum += cost[i];
+    if (bounds.length < WORKERS && sum >= (total * bounds.length) / WORKERS) bounds.push(from + i + 1);
   }
-  bounds.push(FRAMES);
+  bounds.push(to);
   const started = Date.now();
   await Promise.all(bounds.slice(0, -1).map((first, k) => new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [__filename, "--part", String(k), String(first), String(bounds[k + 1]), filmHtml, out], { stdio: "inherit" });
@@ -190,11 +191,11 @@ async function full(filmHtml, out) {
     ff.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`ffmpeg concat exited ${code}`))));
   });
   const parts = bounds.slice(0, -1).map((_, k) => JSON.parse(fs.readFileSync(path.join(out, `part-${k}.json`), "utf8")));
-  const report = { fps: FPS, frames: FRAMES, scale: SS, shutter: SHUTTER, samples: cost.reduce((a, b) => a + b - 2, 0), parts,
+  const report = { fps: FPS, frames: to - from, from, to, scale: SS, shutter: SHUTTER, samples: cost.reduce((a, b) => a + b - 2, 0), parts,
     seconds: Math.round((Date.now() - started) / 1000) };
   fs.writeFileSync(path.join(out, "render.json"), JSON.stringify(report, null, 1));
   for (const k of bounds.slice(0, -1).keys()) fs.rmSync(path.join(out, `part-${k}.mkv`));
-  console.log(`${FRAMES} frames → ${path.join(out, "reference.mkv")} in ${report.seconds} s`);
+  console.log(`${to - from} frames (${from} to ${to - 1}) → ${path.join(out, "reference.mkv")} in ${report.seconds} s`);
 }
 
 (async () => {
@@ -208,7 +209,9 @@ async function full(filmHtml, out) {
   const out = path.resolve(argv[1]);
   fs.mkdirSync(out, { recursive: true });
   const only = process.env.RENDER_FRAMES?.split(",").filter(Boolean).map(Number);
+  const range = process.env.RENDER_RANGE?.split(":").map(Number);
   if (only) await stills(filmHtml, out, only);
+  else if (range) await full(filmHtml, out, range[0], range[1]);
   else await full(filmHtml, out);
 })().catch((err) => {
   console.error(err);
