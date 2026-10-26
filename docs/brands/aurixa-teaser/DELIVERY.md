@@ -1,22 +1,25 @@
 # Aurixa Systems · Teaser · _Three Questions_ · delivery
 
 The teaser as rendered on 26 October 2026 from the approved script (v3), with its eight lines spoken in the brand
-voice and "Soon." at the end. This is the final, and how it goes to the platforms.
+voice and "Soon." at the end, under the synthwave score the client asked for in place of the first, ambient one. This
+is the final, and how it goes to the platforms.
 
 ## The final
 
-Upload this file as it is: `aurixa-teaser-three-questions-1080x1920.mp4`. Don't export it again from an editor, and
-don't compress it first. Each platform encodes it once on upload, and every encode before that softens it.
+Upload this file as it is: `aurixa-teaser-three-questions-synthwave-1080x1920.mp4`. Don't export it again from an
+editor, and don't compress it first. Each platform encodes it once on upload, and every encode before that softens it.
 
 |           |                                                                                                          |
 | --------- | -------------------------------------------------------------------------------------------------------- |
-| File      | 31,544,508 bytes, SHA-256 `3a9cca1a2c2c869b9d1ccc5a04aa089075516631935905598b05465ea296f311`             |
+| File      | 31,563,036 bytes, SHA-256 `9821d4a0359bc5d6705f44dcec8ed5a85a64514542923d79bf6e12d0f2e281d7`             |
 | Picture   | 1080 x 1920 (9:16), 30 fps, 1,125 frames, 37.5 s; H.264 High, level 4.2, progressive, BT.709, 6.5 Mbit/s |
-| Sound     | AAC-LC, 48 kHz stereo, 257 kbit/s; -14.1 LUFS integrated, loudness range 4.9 LU, true peak -1.2 dBTP     |
+| Sound     | AAC-LC, 48 kHz stereo, 261 kbit/s; -14.0 LUFS integrated, loudness range 3.5 LU, true peak -1.2 dBTP     |
 | Container | MP4 with its index at the front, so an upload page can read it while it is still arriving                |
 | Cover     | `cover-34.6s.jpg`, the name and its line, for platforms that take a cover image                          |
 
-Both are in the studio work _Aurixa Teaser_, under `files/delivery`, with `qc.json`.
+Both are in the studio work _Aurixa Teaser_, under `files/delivery`, with `qc-synthwave.json`. The first delivery,
+the same picture under the ambient score (`aurixa-teaser-three-questions-1080x1920.mp4`), is kept beside it; it is
+superseded.
 
 Every spoken word is on screen as it is said, so the teaser reads with the sound off. Where a platform offers its own
 automatic captions, leave them off, or the words appear twice.
@@ -27,7 +30,9 @@ The final was measured against its lossless reference before delivery (`scripts/
   at once; the lowest, at 7.07 s, differs from its reference by 1.25 code values on average, and an encode at three
   times the size scores the same there. SSIM reads small differences in a frame that dark as structure;
 - no frame drawn apart from its neighbours, and no black frame;
-- 1,125 frames, 37.5 s, the sound on the same clock as the picture from frame 0.
+- 1,125 frames, 37.5 s, the sound on the same clock as the picture from frame 0. Decoded from the file itself, the
+  score's first drop rises 24 ms after the first question's frame (7.5 s), the breath before the answer is silent
+  (-69 dB), and the answer's hit rises at 30.000 s.
 
 ## The picture
 
@@ -51,11 +56,29 @@ once two captures of each agreed, and every one agreed at the first try.
 
 - **The voice.** The eight lines spoken by the studio's brand voice, Gabby (ElevenLabs, _Soft Young Australian_),
   through Xeno Studio's `generate_voiceover`, each placed on its beat and timed word by word.
-- **The score.** An original score made in the studio with Eleven Music to the plan's composition (96 BPM, D major)
-  as the bed up to the held breath at 29.4 s. The three-note motif (D, F sharp, A: one note a question), the gap's
-  unresolved notes, the riser, the hit and the chord that answers them are drawn on their exact frames.
+- **The score.** Dark synthwave in the spirit of the reels' _National Treasures_, made in the studio with Eleven
+  Music (`score_plan.py`, seed 2155). _National Treasures_ was measured first: B flat minor, a quiet intro of keys, then
+  a drop about 15 dB louder whose weight is nearly all sub-bass. The score is in the same key at 96 BPM, so its bar is
+  the picture's 2.5 s, and it was made long, in clear sections, then cut on its own bar lines under the picture as
+  the reels cut _National Treasures_, nothing stretched:
+
+  | Teaser         | The score                                                                                                                    |
+  | -------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+  | 0 to 22.5 s    | 12.5 to 35 s: the intro's build and riser, its drop (20 s) on the first question, its groove                                 |
+  | 22.5 to 27.5 s | 40.625 s: the breakdown, under the gap                                                                                       |
+  | 27.5 to 35 s   | 48.125 s: the second build's peak, its beat of silence as the held breath, the biggest drop (50.625 s) on the answer at 30 s |
+  | 35 to 37.5 s   | 70 s: the beat stopped dead, its tail, under "Soon."                                                                         |
+
+  Each join is a 30 ms crossfade ending 5 ms before its bar line, so each bar's attack is whole. The intro's build is
+  3 dB nearer than the score has it, as the opening is the hook. Under each spoken line the score steps back, its mids
+  10 dB and its bass 4, so the voice stays 10 to 19 dB clear of it where speech is heard.
+
+- **The motif and the hits**, drawn on their frames in synthwave's own voice, with no bells: a pluck through a ping-pong
+  echo as the pin's beam pulses; the three questions' notes as plucks as each line lands (B flat, D flat, F: the B flat
+  minor chord, one note a question); a fall as the groove cuts out for the gap; gated stabs climbing as the triangle
+  closes; an 808 hit on each drop; the chord struck on the answer; and the chord left ringing dark under "Soon.".
 - **The master.** -14 LUFS integrated with its true peak at -1 dBTP: gain, and a look-ahead limiter at four times the
-  sample rate that touches only the peaks of a few spoken consonants and bell strikes.
+  sample rate that touches only the peaks of a few spoken consonants and the hits.
 
 ## Before it runs publicly
 
