@@ -1065,6 +1065,16 @@ await check("measure_voice reads a voice's pitch, pace and phrase ends, and hold
   const held = await run(higher, dry);
   if (Math.abs(held.compared.pitch_semitones - 2) > 0.15) throw new Error(`224.5 Hz is 2 semitones over 200: ${JSON.stringify(held.compared)}`);
   if (Math.abs(held.compared.pace_ratio - 1) > 0.1) throw new Error(`the same pace should compare as 1: ${JSON.stringify(held.compared)}`);
+  // Silence is no speech: every frame of it is within 30 dB of its loudest, and none is a voice.
+  const { measureSamples } = await import("./voicemeter.js");
+  for (const [what, samples] of [
+    ["digital silence", new Float32Array(32_000)],
+    ["a faint hiss", Float32Array.from({ length: 32_000 }, (_, i) => 1e-5 * Math.sin(i * 1.7) * Math.sin(i * 0.31))],
+  ]) {
+    const reading = measureSamples(samples);
+    if (reading.status !== "no_speech" || reading.phrases !== 0)
+      throw new Error(`${what} should read as no speech: ${reading.status}, ${reading.phrases} phrases, ${reading.speech_seconds} s`);
+  }
 });
 
 await check("a dark render encoded cleanly passes its fidelity: SSIM on its luma, in the encoder's own planes", async () => {

@@ -9,7 +9,8 @@
  * fits the transcription service's 25 MB (an hour). OpenAI then hears it,
  * prompted with the brand's names, and the names are put right. The
  * transcript is kept with the media task, so asking again with the same key
- * reads it and pays nothing more.
+ * reads it and pays nothing more. One call hears it: the first to claim it,
+ * and a call that overlaps it follows it rather than paying again.
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { AppError, type AppErrorCode } from "../higgsfield/errors";
@@ -22,7 +23,8 @@ import { spellTranscript, termsPrompt, type SpellingCorrection } from "./transcr
 
 export interface TranscriptionState {
   taskId: string;
-  status: "extracting" | "completed" | "failed";
+  /** extracting: the speech copy is being made; transcribing: another call with the same key is hearing it. */
+  status: "extracting" | "transcribing" | "completed" | "failed";
   /** The transcript, punctuated, in the brand's spellings. */
   text: string | null;
   words: TimedWord[];
@@ -45,13 +47,21 @@ interface TaskRow {
   output_payload: unknown;
   input_payload: unknown;
   error_message: string | null;
+  /** Set by the database on every change: a claim is written only on the row as it was read. */
+  updated_at: string;
 }
 
-const TASK_COLUMNS = "id,status,output_payload,input_payload,error_message";
+const TASK_COLUMNS = "id,status,output_payload,input_payload,error_message,updated_at";
 /** How long a call waits for the speech copy before answering "extracting". */
 export const TRANSCRIBE_WAIT_MS = 40_000;
 const POLL_MS = 1_000;
 const MAX_TERMS = 60;
+/**
+ * How long a transcription stays with the call that claimed it before another
+ * may take it up: past OpenAI's own two minutes and the copy's download, so
+ * only a call that died leaves its claim to run out.
+ */
+export const HEARING_MS = 4 * 60_000;
 
 async function taskByKey(dedupeKey: string): Promise<TaskRow | null> {
   const { data } = await supabaseAdmin
@@ -122,6 +132,45 @@ function kept(task: TaskRow): TranscriptionState | null {
   });
 }
 
+/** The task's payload with these changes, and without these keys. */
+function payloadWith(task: TaskRow, changes: Json, without: string[] = []): Json {
+  const payload: Json = { ...asRecord(task.output_payload), ...changes };
+  for (const key of without) delete payload[key];
+  return payload;
+}
+
+/** Whether another call is hearing it now: its claim, written less than HEARING_MS ago. */
+function beingHeard(task: TaskRow): boolean {
+  const at = asRecord(asRecord(task.output_payload)["hearing"])["at"];
+  return typeof at === "string" && Date.now() - Date.parse(at) < HEARING_MS;
+}
+
+/**
+ * Claims the transcription for this call, on the row only as it was read (its
+ * updated_at, which every change moves on): of two calls that read it at
+ * once, one claims it and the other follows. Null when another got there first.
+ */
+async function claim(task: TaskRow): Promise<TaskRow | null> {
+  const hearing = { token: crypto.randomUUID(), at: new Date().toISOString() };
+  const { data, error } = await supabaseAdmin
+    .from("media_tasks")
+    .update({ output_payload: payloadWith(task, { hearing }) as never })
+    .eq("id", task.id)
+    .eq("updated_at", task.updated_at)
+    .select(TASK_COLUMNS);
+  if (error) throw new AppError("UNKNOWN", "The transcription couldn't be started. Try again.");
+  return ((data as TaskRow[] | null) ?? [])[0] ?? null;
+}
+
+/** Lets a claim go, if nothing has changed since it was written, so the next call can hear it. */
+async function release(claimed: TaskRow): Promise<void> {
+  await supabaseAdmin
+    .from("media_tasks")
+    .update({ output_payload: payloadWith(claimed, {}, ["hearing"]) as never })
+    .eq("id", claimed.id)
+    .eq("updated_at", claimed.updated_at);
+}
+
 /** What a failed transcription says, as the studio's own codes. */
 const HEARD_CODES = new Set<string>([
   "PROVIDER_NOT_CONFIGURED",
@@ -131,8 +180,24 @@ const HEARD_CODES = new Set<string>([
   "PROVIDER_REJECTED",
 ]);
 
-/** Hears the speech copy, spells it as the brand does, and keeps the transcript with its task. */
+/**
+ * Hears the speech copy for the call that claimed it, spells it as the brand
+ * does, and keeps the transcript with its task; on a failure, lets the claim go.
+ */
 async function hear(
+  task: TaskRow,
+  terms: string[],
+  language: string | null,
+): Promise<TranscriptionState> {
+  try {
+    return await heard(task, terms, language);
+  } catch (error) {
+    await release(task).catch(() => undefined);
+    throw error;
+  }
+}
+
+async function heard(
   task: TaskRow,
   terms: string[],
   language: string | null,
@@ -170,7 +235,7 @@ async function hear(
   };
   const { error: keepError } = await supabaseAdmin
     .from("media_tasks")
-    .update({ output_payload: { ...asRecord(task.output_payload), transcript } as never })
+    .update({ output_payload: payloadWith(task, { transcript }, ["hearing"]) as never })
     .eq("id", task.id);
   // The speech copy was taken only to be heard: once its transcript is kept, it goes.
   if (!keepError)
@@ -279,5 +344,17 @@ export async function transcribeAudio(input: TranscribeRequest): Promise<Transcr
       message: `${(task.error_message ?? "Its speech couldn't be taken out").replace(/[.\s]+$/, "")}. Ask again with a new clientRequestId.`,
     });
   if (task.status !== "completed") return state(task, {});
-  return hear(task, terms, language);
+  // One call hears it, the first to claim it; one that overlaps it waits for its transcript.
+  const until = Date.now() + waitMs;
+  for (;;) {
+    const done = kept(task);
+    if (done) return done;
+    if (!beingHeard(task)) {
+      const claimed = await claim(task);
+      if (claimed) return hear(claimed, terms, language);
+    }
+    if (Date.now() + POLL_MS > until) return state(task, { status: "transcribing" });
+    await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+    task = (await taskByKey(input.dedupeKey)) ?? task;
+  }
 }

@@ -289,7 +289,10 @@ and any `terms` given. `language` (two letters, ISO 639-1: `"en"`) saves it gues
 The media service first takes the speech out (mono at 16 kHz, kept out of the library), then
 OpenAI hears it (whisper-1), billed to the studio's OpenAI account at its price a minute. A
 recording of up to about an hour fits. When taking the speech out takes longer than the call waits
-(40 seconds), it answers `"extracting"`: ask again with the same `clientRequestId`. Once heard,
+(40 seconds), it answers `"extracting"`: ask again with the same `clientRequestId`. One call
+hears it: a call made while another with the same `clientRequestId` is being heard waits for that
+transcript (answering `"transcribing"` if it isn't ready in time), so overlapping calls pay once.
+Once heard,
 the transcript is kept with its task, so the same `clientRequestId` reads it again instead of
 paying for another (with the names and language it was first asked with). A refusal from OpenAI
 says why and keeps nothing, and the same `clientRequestId` asks it again. The studio needs

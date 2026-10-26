@@ -15,8 +15,9 @@ import { parseLoudness } from "./sequence.js";
  * this is).
  *
  *   phrases   where it speaks: 10 ms frames of the 250 Hz to 3.5 kHz band,
- *             speech within 30 dB of its loudest (the 99th percentile), gaps
- *             under 180 ms closed and blips under 80 ms dropped
+ *             speech within 30 dB of its loudest (the 99th percentile) and
+ *             above silence (SILENCE_DB), gaps under 180 ms closed and blips
+ *             under 80 ms dropped
  *   pace      syllable nuclei a second of speech: peaks of that band's level,
  *             smoothed to 12 Hz, 4 dB prominent and 100 ms apart
  *   pitch     each 40 ms of speech's autocorrelation peak between 75 and 450
@@ -131,12 +132,22 @@ export function percentile(values, p) {
   return sorted[low] + (sorted[high] - sorted[low]) * (at - low);
 }
 
-/** Phrases as [start, end) frame spans: speech within 30 dB of its loudest, gaps under 180 ms closed, blips under 80 ms dropped. */
+/**
+ * The quietest a frame of speech can be, in dB of full scale in the speech
+ * band: below it is silence, however quiet the rest of the recording is.
+ * Without it every frame of a silent recording (all -120 dB) is within 30 dB
+ * of its loudest, and reads as speech. A voice's quietest phrases sit 40 dB
+ * above it and more.
+ */
+export const SILENCE_DB = -70;
+
+/** Phrases as [start, end) frame spans: speech within 30 dB of its loudest (and above SILENCE_DB), gaps under 180 ms closed, blips under 80 ms dropped. */
 export function phrasesOf(db) {
   const loudest = percentile(db, 99);
   if (loudest === null) return { active: new Uint8Array(0), spans: [] };
+  const floor = Math.max(loudest - 30, SILENCE_DB);
   const active = new Uint8Array(db.length);
-  for (let f = 0; f < db.length; f += 1) active[f] = db[f] > loudest - 30 ? 1 : 0;
+  for (let f = 0; f < db.length; f += 1) active[f] = db[f] > floor ? 1 : 0;
   const runs = [];
   let start = -1;
   for (let f = 0; f <= db.length; f += 1) {

@@ -83,8 +83,8 @@ db.add("brand_kits", {
 
 /** What OpenAI was asked, in order: the form's fields and the file's size. */
 const asked: { fields: Record<string, string>; bytes: number }[] = [];
-/** OpenAI's next answers, first first; a transcript when none is set. */
-const answers: Response[] = [];
+/** OpenAI's next answers, first first (one may be still to come); a transcript when none is set. */
+const answers: (Response | Promise<Response>)[] = [];
 const realFetch = globalThis.fetch;
 const realKey = process.env["OPENAI_API_KEY"];
 
@@ -131,6 +131,8 @@ function extracted(dedupeKey: string, bytes = 4096) {
   const path = `internal/${task["id"]}/audio.mp3`;
   db.files.set(`generated-assets/${path}`, new Uint8Array(bytes).fill(7));
   task["status"] = "completed";
+  // As the callback's write left it, a while ago: a claim moves it on.
+  task["updated_at"] = "2026-10-26T00:00:00.000Z";
   task["output_payload"] = {
     asset_ids: [],
     files: [{ bucket: "generated-assets", path, timestamp_seconds: null }],
@@ -256,12 +258,64 @@ describe("transcribe_audio", () => {
     }).catch((error: unknown) => error as { code: string; message: string });
     expect(refused).toMatchObject({ code: "RATE_LIMITED" });
     expect((task["output_payload"] as Record<string, unknown>)["transcript"]).toBeUndefined();
-    // The speech copy stays, to be heard again.
+    // The claim is let go, so asking again hears it at once; the speech copy stays to be heard.
+    expect((task["output_payload"] as Record<string, unknown>)["hearing"]).toBeUndefined();
     const [copy] = (task["output_payload"] as { files: { bucket: string; path: string }[] }).files;
     expect(db.files.has(`${copy!.bucket}/${copy!.path}`)).toBe(true);
     const heard = await transcribeAudio({ userId: "u", assetId: TAKE, dedupeKey: key, waitMs: 0 });
     expect(heard.status).toBe("completed");
     expect(queued.filter((request) => request["dedupeKey"] === key)).toHaveLength(1);
+  });
+
+  test("two calls with the same key at once: one hears it, the other follows it and pays nothing", async () => {
+    const key = "transcribe:u:at-once";
+    await transcribeAudio({ userId: "u", assetId: TAKE, dedupeKey: key, waitMs: 0 });
+    const task = extracted(key);
+    let answer!: (response: Response) => void;
+    answers.push(new Promise<Response>((resolve) => (answer = resolve)));
+    const before = asked.length;
+    const first = transcribeAudio({ userId: "u", assetId: TAKE, dedupeKey: key, waitMs: 0 });
+    // The first has claimed it and waits on OpenAI; the second reads the claim and follows.
+    while (!(task["output_payload"] as Record<string, unknown>)["hearing"]) await Bun.sleep(2);
+    const second = transcribeAudio({ userId: "u", assetId: TAKE, dedupeKey: key, waitMs: 5_000 });
+    await Bun.sleep(20);
+    expect(asked).toHaveLength(before + 1);
+    answer(new Response(JSON.stringify(HEARD), { status: 200 }));
+    const [heard, followed] = await Promise.all([first, second]);
+    expect(asked).toHaveLength(before + 1);
+    expect(heard.status).toBe("completed");
+    expect(followed).toEqual(heard);
+    expect((task["output_payload"] as Record<string, unknown>)["hearing"]).toBeUndefined();
+    // Asked with no time to wait while it is heard, it says so.
+    const key2 = "transcribe:u:at-once-impatient";
+    await transcribeAudio({ userId: "u", assetId: TAKE, dedupeKey: key2, waitMs: 0 });
+    const held = extracted(key2);
+    held["output_payload"] = {
+      ...(held["output_payload"] as object),
+      hearing: { token: "another", at: new Date().toISOString() },
+    };
+    const waiting = await transcribeAudio({
+      userId: "u",
+      assetId: TAKE,
+      dedupeKey: key2,
+      waitMs: 0,
+    });
+    expect(waiting.status).toBe("transcribing");
+    expect(asked).toHaveLength(before + 1);
+  });
+
+  test("a claim whose call died runs out, and the next call hears it", async () => {
+    const key = "transcribe:u:died";
+    await transcribeAudio({ userId: "u", assetId: TAKE, dedupeKey: key, waitMs: 0 });
+    const task = extracted(key);
+    task["output_payload"] = {
+      ...(task["output_payload"] as object),
+      hearing: { token: "gone", at: new Date(Date.now() - 5 * 60_000).toISOString() },
+    };
+    const before = asked.length;
+    const heard = await transcribeAudio({ userId: "u", assetId: TAKE, dedupeKey: key, waitMs: 0 });
+    expect(heard.status).toBe("completed");
+    expect(asked).toHaveLength(before + 1);
   });
 
   test("a speech copy that couldn't be made says why", async () => {

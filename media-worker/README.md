@@ -374,7 +374,8 @@ Three things make that exact rather than close:
   `reference`; no output) measures how a recording's voice speaks
   (`src/voicemeter.js`, a port of the measures the teasers were judged by).
   In the speech band (250 Hz to 3.5 kHz) it finds the phrases against the
-  recording's own peak (`phrases`, `phrase_spans`), counts syllable nuclei for
+  recording's own peak and above silence, -70 dB (`phrases`, `phrase_spans`;
+  a recording with none reads `no_speech`), counts syllable nuclei for
   the pace (`syllables_per_second`), reads the pitch by autocorrelation
   between 75 and 450 Hz (`pitch_hz`: median and middle half), and measures how
   far each phrase end falls in the 40 to 90 ms after it, where 300 ms of quiet
