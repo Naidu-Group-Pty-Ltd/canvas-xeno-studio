@@ -15,14 +15,15 @@ compress it first. Each platform encodes it once on upload, and every encode bef
 
 |           |                                                                                                                      |
 | --------- | -------------------------------------------------------------------------------------------------------------------- |
-| File      | 35,113,820 bytes, SHA-256 `305f01cdb5986cb183cfeeaa63b14a5b3076ef1c41a85113247bedf39bb0f903`                         |
-| Picture   | 1080 x 1920 (9:16), 30 fps, 1,365 frames, 45.5 s; H.264 High, level 4.2, progressive, BT.709, 5.9 Mbit/s             |
+| File      | 35,444,939 bytes, SHA-256 `24462f5fd4c22031e4ece8a4f8f1302797cbe78cc8dbbb4c2831a7991076a688`                         |
+| Picture   | 1080 x 1920 (9:16), 30 fps, 1,365 frames, 45.5 s; H.264 High, level 4.2, progressive, BT.709, 6.0 Mbit/s             |
 | Sound     | AAC-LC, 48 kHz stereo, 257 kbit/s; -14.0 LUFS integrated, loudness range 3.7 LU, true peak -2.3 dBTP                 |
 | Container | MP4 with its index at the front, so an upload page can read it while it is still arriving                            |
 | Cover     | `cover-as-one-44.5s.jpg`, the emblem, the name and its line; the emblem and the name hold in a 3:4 and a square crop |
 
 Both are in the studio work _Aurixa Teaser_, under `files/delivery`, with `qc-as-one.json`, beside _Three Questions_'
-files.
+files. The first delivery, with the beam through the logo, is kept beside them with `-v1` in its names; it is
+superseded.
 
 Every spoken word is on screen as it is said, so the teaser reads with the sound off. Where a platform offers its own
 automatic captions, leave them off, or the words appear twice.
@@ -33,13 +34,13 @@ The final was measured against its lossless reference before delivery (`scripts/
   converted to BT.709 4:2:0, in that format (Y 0.994, U and V 0.995). Its lowest frame is at 12.27 s, where the
   dashboards turn edge-on at speed: 0.946 there, and 1.1 code values from the reference on average. Side by side at
   full size, and brightened, the two can't be told apart.
-- **Against the RGB reference, the master scores SSIM 0.931 and PSNR 41.9 dB.** That is under the 0.97 _Three
+- **Against the RGB reference, the master scores SSIM 0.927 and PSNR 41.8 dB.** That is under the 0.97 _Three
   Questions_ was held to, and the reason is the format, not the encode. The same picture converted to 8-bit 4:2:0 with
-  no encoder at all scores 0.961. The loss is in the red of the near-black hall (red 0.815; green 0.992, blue 0.986):
+  no encoder at all scores 0.958. The loss is in the red of the near-black hall (red 0.804; green 0.992, blue 0.986):
   where red is 0 to 3, a change of a code value or two is invisible, but SSIM reads it as lost structure. In the fog
   of the opening, the master differs from the reference by 0.9 code values on average. The check now holds the
   encode to the picture it was given, and the colour tags to BT.709, and reports all three figures.
-- No frame is drawn apart from its neighbours, and no frame is black.
+- No frame is drawn apart from its neighbours, the splice at 40.1 s included, and no frame is black.
 - 1,365 frames, 45.5 s. Decoded from the file, the sound lines up with the mastered sound to the sample: at the
   first word (0.56 s), at the drop (22.25 s) and on "one".
 
