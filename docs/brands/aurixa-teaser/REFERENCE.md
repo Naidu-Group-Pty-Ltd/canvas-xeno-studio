@@ -31,31 +31,31 @@ The reference: 45.5 s, 478 x 850 (9:16), 30 fps, H.264, with AAC at 48 kHz stere
     12% wet).
   - The client heard that reverb as too wet. The new teaser's voice has none, like the reels.
 
-| #   | From (s) | To (s) | Length (s) | Syllables (approx.) | What is known of it                                       |
-| --- | -------- | ------ | ---------- | ------------------- | --------------------------------------------------------- |
-| 1   | 0.02     | 2.72   | 2.70       | 10                  |                                                           |
-| 2   | 2.91     | 4.29   | 1.38       | 6                   |                                                           |
-| 3   | 4.84     | 6.72   | 1.88       | 7                   |                                                           |
-| 4   | 6.90     | 7.02   | 0.12       | 1                   |                                                           |
-| 5   | 7.25     | 9.14   | 1.89       | 8                   |                                                           |
-| 6   | 9.52     | 11.83  | 2.31       | 10                  |                                                           |
-| 7   | 12.41    | 14.22  | 1.81       | 7                   | "At a certain level of ambition," (on screen, 12.5 s)     |
-| 8   | 14.42    | 15.56  | 1.14       | 4                   | "the question changes." (on screen, 14.5 s)               |
-| 9   | 16.29    | 17.02  | 0.73       | 3                   |                                                           |
-| 10  | 17.35    | 17.99  | 0.64       | 4                   |                                                           |
-| 11  | 18.27    | 18.71  | 0.44       | 2                   |                                                           |
-| 12  | 19.28    | 19.99  | 0.71       | 2                   |                                                           |
-| 13  | 20.31    | 21.19  | 0.88       | 3                   |                                                           |
-| 14  | 21.59    | 22.90  | 1.31       | 3                   |                                                           |
-| 15  | 23.42    | 27.03  | 3.61       | 16                  |                                                           |
-| 16  | 27.48    | 29.36  | 1.88       | 5                   |                                                           |
-| 17  | 29.69    | 31.28  | 1.59       | 7                   |                                                           |
-| 18  | 31.76    | 33.76  | 2.00       | 8                   |                                                           |
-| 19  | 34.35    | 36.47  | 2.12       | 7                   | begins as "NOT ANOTHER TOOL" appears (34.5 s)             |
-| 20  | 36.78    | 38.53  | 1.75       | 7                   | begins as "BUILT FOR WHAT COMES NEXT." appears (37.3 s)   |
-| 21  | 38.73    | 39.96  | 1.23       | 6                   |                                                           |
-| 22  | 40.32    | 41.42  | 1.10       | 5                   | "Aurixa Systems." (on screen, 40.4 s)                     |
-| 23  | 41.79    | 44.10  | 2.31       | 8                   | "A new operating standard is coming." (on screen, 41.9 s) |
+| #   | From (s) | To (s) | Length (s) | Syllables (approx.) | What it says                                                      |
+| --- | -------- | ------ | ---------- | ------------------- | ----------------------------------------------------------------- |
+| 1   | 0.02     | 2.72   | 2.70       | 10                  | The next generation of property professionals                     |
+| 2   | 2.91     | 4.29   | 1.38       | 6                   | will operate differently.                                         |
+| 3   | 4.84     | 6.72   | 1.88       | 7                   | Not because they'll use more software,                            |
+| 4   | 6.90     | 7.02   | 0.12       | 1                   | (the end of "software")                                           |
+| 5   | 7.25     | 9.14   | 1.89       | 8                   | not because they'll have more dashboards,                         |
+| 6   | 9.52     | 11.83  | 2.31       | 10                  | and not because AI became another tab.                            |
+| 7   | 12.41    | 14.22  | 1.81       | 7                   | At a certain level of ambition,                                   |
+| 8   | 14.42    | 15.56  | 1.14       | 4                   | the question changes.                                             |
+| 9   | 16.29    | 17.02  | 0.73       | 3                   | Research,                                                         |
+| 10  | 17.35    | 17.99  | 0.64       | 4                   | clients,                                                          |
+| 11  | 18.27    | 18.71  | 0.44       | 2                   | reports,                                                          |
+| 12  | 19.28    | 19.99  | 0.71       | 2                   | finance,                                                          |
+| 13  | 20.31    | 21.19  | 0.88       | 3                   | communication.                                                    |
+| 14  | 21.59    | 22.90  | 1.31       | 3                   | Powerful on their own.                                            |
+| 15  | 23.42    | 27.03  | 3.61       | 16                  | More valuable when they stop behaving like separate destinations. |
+| 16  | 27.48    | 29.36  | 1.88       | 5                   | When intelligence can move,                                       |
+| 17  | 29.69    | 31.28  | 1.59       | 7                   | when context can follow,                                          |
+| 18  | 31.76    | 33.76  | 2.00       | 8                   | when the business can act as one.                                 |
+| 19  | 34.35    | 36.47  | 2.12       | 7                   | So don't ask what the next tool is.                               |
+| 20  | 36.78    | 38.53  | 1.75       | 7                   | Ask what happens when the business                                |
+| 21  | 38.73    | 39.96  | 1.23       | 6                   | becomes the system.                                               |
+| 22  | 40.32    | 41.42  | 1.10       | 5                   | Aurixa Systems.                                                   |
+| 23  | 41.79    | 44.10  | 2.31       | 8                   | A new operating standard is coming.                               |
 
 Syllables are counted as peaks in the speech band's level, which runs a little under the true count.
 
@@ -88,13 +88,20 @@ end card from 37.3 s.
 | 34.5 to 37 s   | "NOT ANOTHER TOOL" in the dark; a beam, and the emblem rising                                                                         |
 | 37.5 to 45.5 s | the end card: the emblem on a pedestal before a city of light, the words above and below it                                           |
 
-## What is still needed
+## Its script, word for word
 
-The spoken script, word for word. Only phrases 7, 8, 22 and 23 are certain from the screen, and 19 and 20 begin with
-the words that appear as they are spoken. The other 17 phrases, roughly 85 words, can only be taken from the sound. The
-reels' voiceovers were transcribed on this machine with NVIDIA's Parakeet in sherpa-onnx
-(`scripts/aurixa-reel-3/transcribe.py`). This time, installing it was refused as code from outside the project, so the
-script waits on either:
+Transcribed on this machine, with the client's word, as the reels' voiceovers were: NVIDIA's Parakeet TDT 0.6B v2 in
+sherpa-onnx (`scripts/aurixa-reel-3/transcribe.py`), on the reference as mixed and on the voice separated from the music.
+Both readings are the same 95 words. OpenAI's Whisper small.en, sentence by sentence (`second_opinion.py`), agrees on
+every word but the name, which both recognisers spell their own way ("Arixa", "Erixus") and the screen spells "Aurixa
+Systems." Its words and their times are in `reference-words.json`.
 
-- the client's word to install it again; or
-- the script's text from the client.
+> The next generation of property professionals will operate differently. Not because they'll use more software, not
+> because they'll have more dashboards, and not because AI became another tab. At a certain level of ambition, the
+> question changes. Research, clients, reports, finance, communication. Powerful on their own. More valuable when they
+> stop behaving like separate destinations. When intelligence can move, when context can follow, when the business can
+> act as one. So don't ask what the next tool is. Ask what happens when the business becomes the system. Aurixa
+> Systems. A new operating standard is coming.
+
+"NOT ANOTHER TOOL", "BUILT FOR WHAT COMES NEXT." and "The operating system for modern property professionals." are on
+the screen only; the voice never says them.
