@@ -45,5 +45,18 @@ scripts/aurixa-teaser/film.sh <work files dir> <living logo take dir> <scratch d
 | `render.cjs`    | Draws every frame at twice its size in Chromium on four processes, each a run of frames, with motion blur from drawings spread over a 180-degree shutter (eight through the dive, one at a hold); keeps a drawing once two captures agree. Joins the runs into a lossless reference                                                                                                                                                                       |
 | `encode.sh`     | The delivery master from the reference and the mastered sound: H.264 High, BT.709 4:2:0 with error-diffusion dither, AAC 256 kb/s                                                                                                                                                                                                                                                                                                                         |
 
+## The client's reference
+
+`reference/` measures the reference teaser the client sent on 27 October 2026 (`docs/brands/aurixa-teaser/REFERENCE.md`
+records what it found). Give them a Python with numpy, scipy and soundfile; `ocr_ref.py` also needs RapidOCR.
+
+| Script                  | What it does                                                                                                                                                                                     |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `reference/separate.py` | Cancels _National Treasures_ out of the reference bin by bin in the STFT, with a complex gain fitted over a sliding 0.3 s, so the track's EQ, level and codec are followed and the voice is left |
+| `reference/phrases.py`  | The voice's phrases, its pace in syllables a second, its pitch, and how fast each phrase's end dies away (a dry voice falls about 20 dB in tens of milliseconds; a reverb holds it up)           |
+| `reference/ntgain.py`   | The reference's gain on _National Treasures_ by band, every half second: how the track is set, ducked or equalised                                                                               |
+| `reference/ocr_ref.py`  | Reads every word on screen, every Nth frame at twice its size                                                                                                                                    |
+| `reference/specimg.py`  | Spectrogram rows of the separated voice, 5 s a row, to see where it speaks                                                                                                                       |
+
 Every script that reads downloaded data reads it as data: the packages' code is never run, and Python runs with
 `-I`.
