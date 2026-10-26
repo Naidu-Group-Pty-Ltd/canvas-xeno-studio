@@ -1,0 +1,556 @@
+{
+ "written": "2026-10-24",
+ "note": "Reel 3's soundtrack as a studio edit's audio (src/lib/edit/timeline.ts), mixed by the media worker's code (media-worker/src/sequence.js), measured by its mix report (media-worker/src/mixreport.js). The voiceover item is the client's recording held open in its silences by pacing.py, prepared as one track; the music items play National Treasures, the client's track (Reel 1's), under Reel 3's cut at its own tempo, cut on its own bar lines as pacing.py lays it out (music.py): nothing stretched.",
+ "music": {
+  "record": "docs/brands/aurixa-reel-3/music-national-treasures.json",
+  "asset": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+  "file": "Drake – National Treasures (Instrumental).mp3, 272.254 s, SHA-256 b22fc04d38b20007488cbd8669b2fe38352f81b29e2af46364d473af6e46d863"
+ },
+ "timeline": {
+  "audio": [
+   {
+    "id": "voiceover",
+    "assetId": "ed75f95d-89c6-40b6-a3c7-6d620fd2d88a",
+    "role": "voiceover",
+    "start": 0,
+    "trimStart": 0,
+    "duration": 147.16666666666666,
+    "volume": 1,
+    "fadeIn": 0,
+    "fadeOut": 0,
+    "loop": false,
+    "duck": false,
+    "duckLevel": 0.25,
+    "label": "The voiceover, held open in its silences (pacing.py)",
+    "pauses": []
+   },
+   {
+    "id": "music-1",
+    "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+    "role": "music",
+    "start": 0,
+    "trimStart": 7.340339,
+    "duration": 14.909513,
+    "volume": 0.6,
+    "fadeIn": 0,
+    "fadeOut": 0.03,
+    "loop": false,
+    "duck": true,
+    "duckLevel": 0.25,
+    "label": "The intro's last eight bars, falling silent into the drop",
+    "pauses": []
+   },
+   {
+    "id": "music-2",
+    "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+    "role": "music",
+    "start": 14.879513,
+    "trimStart": 22.219852,
+    "duration": 11.193384,
+    "volume": 0.5,
+    "fadeIn": 0.03,
+    "fadeOut": 0.03,
+    "loop": false,
+    "duck": true,
+    "duckLevel": 0.22,
+    "label": "The drop and the groove, under the brand and the questionnaire",
+    "pauses": []
+   },
+   {
+    "id": "music-3",
+    "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+    "role": "music",
+    "start": 26.042897,
+    "trimStart": 18.498723,
+    "duration": 3.751128,
+    "volume": 0.6,
+    "fadeIn": 0.03,
+    "fadeOut": 0.03,
+    "loop": false,
+    "duck": true,
+    "duckLevel": 0.25,
+    "label": "The intro's last two bars again, falling away under 'here's where speed meets opportunity'",
+    "pauses": []
+   },
+   {
+    "id": "music-4",
+    "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+    "role": "music",
+    "start": 29.764025,
+    "trimStart": 22.219851,
+    "duration": 48.404666,
+    "volume": 0.5,
+    "fadeIn": 0.03,
+    "fadeOut": 0.03,
+    "loop": false,
+    "duck": true,
+    "duckLevel": 0.22,
+    "label": "The drop again on 'With just one click', the groove under the assessment and the handover",
+    "pauses": []
+   },
+   {
+    "id": "music-5",
+    "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+    "role": "music",
+    "start": 78.138691,
+    "trimStart": 81.757902,
+    "duration": 14.914513,
+    "volume": 0.5,
+    "fadeIn": 0.03,
+    "fadeOut": 0.03,
+    "loop": false,
+    "duck": true,
+    "duckLevel": 0.22,
+    "label": "The groove thinned, under the partner portal and what each gains",
+    "pauses": []
+   },
+   {
+    "id": "music-6",
+    "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+    "role": "music",
+    "start": 93.023204,
+    "trimStart": 96.642415,
+    "duration": 3.751128,
+    "volume": 0.7,
+    "fadeIn": 0.03,
+    "fadeOut": 0.03,
+    "loop": false,
+    "duck": false,
+    "duckLevel": 1,
+    "label": "The breakdown's first phrase, under 'And that's just the beginning.'",
+    "pauses": []
+   },
+   {
+    "id": "music-7",
+    "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+    "role": "music",
+    "start": 96.744332,
+    "trimStart": 111.526927,
+    "duration": 14.914513,
+    "volume": 0.5,
+    "fadeIn": 0.03,
+    "fadeOut": 0.03,
+    "loop": false,
+    "duck": true,
+    "duckLevel": 0.22,
+    "label": "The groove's return, lighter, under the platform and the Aurixa Agent",
+    "pauses": []
+   },
+   {
+    "id": "music-8",
+    "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+    "role": "music",
+    "start": 111.660845,
+    "trimStart": 154.351901,
+    "duration": 1.858564,
+    "volume": 0.7,
+    "fadeIn": 0.003,
+    "fadeOut": 0.03,
+    "loop": false,
+    "duck": false,
+    "duckLevel": 1,
+    "label": "The stop's bass hit on 'This means', and its quiet",
+    "pauses": []
+   },
+   {
+    "id": "music-9",
+    "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+    "role": "music",
+    "start": 113.521409,
+    "trimStart": 163.654721,
+    "duration": 7.440256,
+    "volume": 0.38,
+    "fadeIn": 0.003,
+    "fadeOut": 0.03,
+    "loop": false,
+    "duck": true,
+    "duckLevel": 0.14,
+    "label": "The keys building, under what it means",
+    "pauses": []
+   },
+   {
+    "id": "music-10",
+    "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+    "role": "music",
+    "start": 120.931665,
+    "trimStart": 171.064977,
+    "duration": 11.193384,
+    "volume": 0.6,
+    "fadeIn": 0.03,
+    "fadeOut": 0.03,
+    "loop": false,
+    "duck": true,
+    "duckLevel": 0.25,
+    "label": "The biggest section, under 'Aurixa Systems has arrived' and the free trial",
+    "pauses": []
+   },
+   {
+    "id": "music-11",
+    "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+    "role": "music",
+    "start": 132.127049,
+    "trimStart": 154.351901,
+    "duration": 1.858564,
+    "volume": 0.7,
+    "fadeIn": 0.003,
+    "fadeOut": 0.03,
+    "loop": false,
+    "duck": false,
+    "duckLevel": 1,
+    "label": "Statement 1, on the bass hit",
+    "pauses": []
+   },
+   {
+    "id": "music-12",
+    "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+    "role": "music",
+    "start": 133.987613,
+    "trimStart": 154.351901,
+    "duration": 1.858564,
+    "volume": 0.6,
+    "fadeIn": 0.003,
+    "fadeOut": 0.03,
+    "loop": false,
+    "duck": false,
+    "duckLevel": 1,
+    "label": "Statement 2, on the bass hit",
+    "pauses": []
+   },
+   {
+    "id": "music-13",
+    "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+    "role": "music",
+    "start": 135.848178,
+    "trimStart": 154.351901,
+    "duration": 1.858564,
+    "volume": 0.5,
+    "fadeIn": 0.003,
+    "fadeOut": 0.03,
+    "loop": false,
+    "duck": false,
+    "duckLevel": 1,
+    "label": "Statement 3, on the bass hit",
+    "pauses": []
+   },
+   {
+    "id": "music-14",
+    "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+    "role": "music",
+    "start": 137.708742,
+    "trimStart": 191.563182,
+    "duration": 9.457925,
+    "volume": 0.6,
+    "fadeIn": 0.003,
+    "fadeOut": 1.013,
+    "loop": false,
+    "duck": true,
+    "duckLevel": 0.3,
+    "label": "The full return, the closing hit and its ring",
+    "pauses": []
+   }
+  ],
+  "mix": {
+   "picture": {
+    "level": 1,
+    "muted": true
+   },
+   "voiceover": {
+    "level": 1,
+    "muted": false
+   },
+   "audio": {
+    "level": 1,
+    "muted": false
+   }
+  },
+  "normalizeLoudness": true
+ },
+ "plan": {
+  "total": 147.16666666666666,
+  "loudness": -14,
+  "mix": {
+   "picture": 0,
+   "voiceover": 1,
+   "music": 1,
+   "sfx": 1
+  }
+ },
+ "speech": [
+  [
+   0.464,
+   2.236
+  ],
+  [
+   2.847,
+   3.695
+  ],
+  [
+   4.331,
+   5.482
+  ],
+  [
+   6.263,
+   13.892
+  ],
+  [
+   15.233,
+   16.405
+  ],
+  [
+   16.848,
+   18.018
+  ],
+  [
+   18.785,
+   25.528
+  ],
+  [
+   26.224,
+   28.853
+  ],
+  [
+   29.948,
+   34.074
+  ],
+  [
+   34.467,
+   48.493
+  ],
+  [
+   49.441,
+   52.685
+  ],
+  [
+   53.402,
+   54.361
+  ],
+  [
+   55.081,
+   57.147
+  ],
+  [
+   57.837,
+   67.381
+  ],
+  [
+   68.149,
+   69.222
+  ],
+  [
+   69.947,
+   72.332
+  ],
+  [
+   73.196,
+   84.331
+  ],
+  [
+   85.27,
+   89.809
+  ],
+  [
+   90.475,
+   92.304
+  ],
+  [
+   93.188,
+   94.467
+  ],
+  [
+   96.92,
+   110.161
+  ],
+  [
+   111.793,
+   113.71
+  ],
+  [
+   114.187,
+   115.348
+  ],
+  [
+   115.746,
+   119.979
+  ],
+  [
+   121.11,
+   122.902
+  ],
+  [
+   123.302,
+   127.214
+  ],
+  [
+   128.085,
+   131.097
+  ],
+  [
+   132.169,
+   133.012
+  ],
+  [
+   134.003,
+   135.052
+  ],
+  [
+   135.863,
+   136.748
+  ],
+  [
+   137.864,
+   139.034
+  ],
+  [
+   139.457,
+   142.329
+  ],
+  [
+   143.202,
+   144.715
+  ]
+ ],
+ "mix_report": {
+  "band_hz": [
+   300,
+   4000
+  ],
+  "sections": [
+   {
+    "index": 1,
+    "from": 0,
+    "to": 14.91,
+    "speech_seconds": 11.4,
+    "voice_db": -26.9,
+    "music_db": -40.6,
+    "margin_db": 13.7
+   },
+   {
+    "index": 2,
+    "from": 14.88,
+    "to": 26.073,
+    "speech_seconds": 9.08,
+    "voice_db": -28.1,
+    "music_db": -43.3,
+    "margin_db": 15.2
+   },
+   {
+    "index": 3,
+    "from": 26.043,
+    "to": 29.794,
+    "speech_seconds": 2.63,
+    "voice_db": -28.2,
+    "music_db": -41.5,
+    "margin_db": 13.3
+   },
+   {
+    "index": 4,
+    "from": 29.764,
+    "to": 78.169,
+    "speech_seconds": 42.39,
+    "voice_db": -28.6,
+    "music_db": -43.9,
+    "margin_db": 15.3
+   },
+   {
+    "index": 5,
+    "from": 78.139,
+    "to": 93.053,
+    "speech_seconds": 12.56,
+    "voice_db": -29.7,
+    "music_db": -42.6,
+    "margin_db": 12.9
+   },
+   {
+    "index": 6,
+    "from": 93.023,
+    "to": 96.774,
+    "speech_seconds": 1.28,
+    "voice_db": -27.3,
+    "music_db": -40.4,
+    "margin_db": 13.1
+   },
+   {
+    "index": 7,
+    "from": 96.744,
+    "to": 111.659,
+    "speech_seconds": 13.24,
+    "voice_db": -29.1,
+    "music_db": -46.8,
+    "margin_db": 17.7
+   },
+   {
+    "index": 8,
+    "from": 111.661,
+    "to": 113.519,
+    "speech_seconds": 1.73,
+    "voice_db": -28,
+    "music_db": -48.1,
+    "margin_db": 20.1
+   },
+   {
+    "index": 9,
+    "from": 113.521,
+    "to": 120.962,
+    "speech_seconds": 5.58,
+    "voice_db": -31.6,
+    "music_db": -42.8,
+    "margin_db": 11.2
+   },
+   {
+    "index": 10,
+    "from": 120.932,
+    "to": 132.125,
+    "speech_seconds": 8.72,
+    "voice_db": -29,
+    "music_db": -40.2,
+    "margin_db": 11.2
+   },
+   {
+    "index": 11,
+    "from": 132.127,
+    "to": 133.986,
+    "speech_seconds": 0.84,
+    "voice_db": -25.6,
+    "music_db": -44.9,
+    "margin_db": 19.3
+   },
+   {
+    "index": 12,
+    "from": 133.988,
+    "to": 135.846,
+    "speech_seconds": 1.05,
+    "voice_db": -31.3,
+    "music_db": -46.1,
+    "margin_db": 14.8
+   },
+   {
+    "index": 13,
+    "from": 135.848,
+    "to": 137.707,
+    "speech_seconds": 0.88,
+    "voice_db": -36.7,
+    "music_db": -47,
+    "margin_db": 10.3
+   },
+   {
+    "index": 14,
+    "from": 137.709,
+    "to": 147.167,
+    "speech_seconds": 5.56,
+    "voice_db": -26.4,
+    "music_db": -38.3,
+    "margin_db": 11.9
+   }
+  ],
+  "margin_db": {
+   "min": 10.3,
+   "max": 20.1
+  },
+  "loudness": {
+   "integrated_lufs": -14.1,
+   "range_lu": 3.8,
+   "true_peak_dbtp": -1.5
+  },
+  "mixed_lufs": -20.5
+ }
+}

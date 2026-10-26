@@ -1,0 +1,39 @@
+{
+ "_note": "The Borrowing Capacity Snapshot published to Jordan's Client Portal at 9:19:05 am from the assessment in assessment-scenario.json (saved 2026-10-23T22:15:04.638Z), by the paper-plane on its row on his Reports tab (publishReportToPortal): the row the product's portalReportRow builds over the inventory's entry, pointed at the path render-borrowing-capacity-pdf stores the Snapshot at, and the notification manage-client-data writes for a published report. Use one publication with portals-client.json.",
+ "client_portal_reports": [
+  {
+   "id": "00000000-0000-4000-8000-0000000c1202",
+   "client_id": "00000000-0000-4000-8000-00000000e115",
+   "report_title": "Borrowing Capacity – $1,111,628 (green)",
+   "report_type": "borrowing_capacity",
+   "storage_path": "borrowing-capacity/00000000-0000-4000-8000-00000000e115/2026-10-23/b41d7c09-2e6f-4a83-9c15-7e3a0f8d62b4-Borrowing_Capacity_Snapshot_-_Jordan_Ellis_-_23_Oct_2026.pdf",
+   "notes": null,
+   "published_at": "2026-10-23T22:19:05.000Z",
+   "report_tier": null,
+   "file_size_bytes": null,
+   "is_read": false,
+   "read_at": null,
+   "client_visible_notes": null,
+   "published_by": "demo-staff",
+   "source_report_id": null,
+   "created_at": "2026-10-23T22:19:05.000Z",
+   "updated_at": "2026-10-23T22:19:05.000Z"
+  }
+ ],
+ "client_portal_notifications": [
+  {
+   "id": "00000000-0000-4000-8000-0000000c1302",
+   "client_id": "00000000-0000-4000-8000-00000000e115",
+   "title": "New Report Available",
+   "message": "Your advisor has published \"Borrowing Capacity – $1,111,628 (green)\" to your portal.",
+   "type": "info",
+   "category": "document",
+   "action_url": "/client/reports",
+   "is_read": false,
+   "read_at": null,
+   "metadata": null,
+   "integration_event_id": null,
+   "created_at": "2026-10-23T22:19:05.000Z"
+  }
+ ]
+}

@@ -400,7 +400,7 @@ const getRender = tool({
   name: "get_render",
   title: "Get a render",
   description:
-    "A render's progress (0 to 1), its status, whether it was made for public use (public_use; null before the rights ledger exists) with what was confirmed for it (rights_check) and the credit lines it owes (credit_lines), and once complete, the finished video's library id and a download link valid for an hour, how its sound sits (mix_report: the voice's margin over the music in the speech band, section by section, and the mix's loudness), its stems if asked for, and how it measured against its own lossless reference (quality: SSIM and PSNR, edge contrast kept, CIEDE2000 on flat fields and the brand's colours, banding, captions and cuts on their frames, the voiceover's sync and loudness, each a pass or a flag; qualityNotes says each in words), and its review sheet once one is asked for (reviewSheet: making, ready with its library id and a link, or failed).",
+    "A render's progress (0 to 1), its status, whether it was made for public use (public_use; null before the rights ledger exists) with what was confirmed for it (rights_check) and the credit lines it owes (credit_lines), and once complete, the finished video's library id and a download link valid for an hour, how its sound sits (mix_report: the voice's margin over the music in the speech band, section by section, and the mix's loudness), its stems if asked for, and how it measured against its own lossless reference (quality: SSIM of the picture's luma as the encoder was given it, PSNR, edge contrast kept, CIEDE2000 on flat fields and the brand's colours, banding, captions and cuts on their frames, the voiceover's sync and loudness, each a pass or a flag; qualityNotes says each in words), and its review sheet once one is asked for (reviewSheet: making, ready with its library id and a link, or failed).",
   scope: "read",
   input: z.object({ renderId: id() }),
   run: async (args) => {
@@ -2196,6 +2196,76 @@ const alignTake = tool({
   },
 });
 
+/* ------------------------------------------------------------------ */
+/* A voice measured, and held against a reference                      */
+/* ------------------------------------------------------------------ */
+
+const seconds = () => z.number().min(0).max(86_400);
+
+const measureVoiceTool = tool({
+  name: "measure_voice",
+  title: "Measure a voice",
+  description:
+    'How a recording\'s voice speaks, from its sound (an audio file or a video in the library), measured by the media service: where it speaks (its phrases), its pace in syllables a second, its pitch (median and middle half), how far its phrase ends fall in the 40 to 90 ms after them (dry, some_room or wet: a reverb or a live room holds them up), and its loudness. With referenceAssetId the reference is measured the same way and they are compared: pitch in semitones, pace as a ratio, the fall and the loudness as differences, so a take can be held against the voice it must match before anyone hears it. start and end (referenceStart and referenceEnd for the reference) measure a stretch, in seconds. summary says it all in words. Nothing is billed. Answers "measuring" while the media service works on a long file: ask again with the same clientRequestId.',
+  scope: "read",
+  input: z.object({
+    assetId: id().describe("The recording: an audio file or a video in the library"),
+    referenceAssetId: id()
+      .optional()
+      .describe("What it must sound like: another recording or video in the library"),
+    start: seconds().optional(),
+    end: seconds().optional(),
+    referenceStart: seconds().optional(),
+    referenceEnd: seconds().optional(),
+    clientRequestId: requestId(),
+  }),
+  run: async (args, caller) => {
+    const { measureVoice } = await import("../voice/measure.server");
+    const { clientRequestId, ...rest } = args;
+    return measureVoice({
+      ...rest,
+      userId: caller.userId,
+      dedupeKey: `voice-measure:${caller.userId}:${clientRequestId}`,
+    });
+  },
+});
+
+const transcribeAudioTool = tool({
+  name: "transcribe_audio",
+  title: "Transcribe a recording",
+  description:
+    'A recording\'s words, as said, from its sound (an audio file or a video in the library): the text, punctuated, and every word\'s start and end in seconds, with the brand\'s names spelt as the brand spells them. A recogniser hears a name as words it knows (the two that read As One\'s reference spelt the client\'s name "Arixa" and "Erixus"), so it is told the names to listen for, and a word it hears within a couple of letters of a name is put right, in the words and where it stands in the text: corrections says what was heard, what is written and when. The names are the brand kit\'s terms (brandKitId, else the studio\'s default kit) and any terms given. language (ISO 639-1, "en") saves it guessing. The media service first takes the speech out (mono, 16 kHz, kept out of the library), then OpenAI hears it, billed to the studio\'s OpenAI account at its per-minute price; a recording of up to about an hour fits. Answers "extracting" while the media service works on a long file: ask again with the same clientRequestId, which reads the transcript once made instead of paying for another. A call made while another with the same clientRequestId is being heard waits for it ("transcribing" if it isn\'t ready in time), so overlapping calls pay once.',
+  scope: "generate",
+  readOnly: false,
+  input: z.object({
+    assetId: id().describe("The recording: an audio file or a video in the library"),
+    language: z
+      .string()
+      .trim()
+      .regex(/^[a-zA-Z]{2}$/)
+      .optional()
+      .describe('Its language, two letters (ISO 639-1): "en"'),
+    terms: z
+      .array(z.string().trim().min(1).max(80))
+      .max(50)
+      .optional()
+      .describe("Names to spell as given, beside the brand kit's own"),
+    brandKitId: id()
+      .optional()
+      .describe("The brand kit whose names it spells; else the default kit"),
+    clientRequestId: requestId(),
+  }),
+  run: async (args, caller) => {
+    const { transcribeAudio } = await import("../voice/transcribe.server");
+    const { clientRequestId, ...rest } = args;
+    return transcribeAudio({
+      ...rest,
+      userId: caller.userId,
+      dedupeKey: `transcribe:${caller.userId}:${clientRequestId}`,
+    });
+  },
+});
+
 /** A share of a picture's width or height (0-1), as boxes are given. */
 const share = () => z.number().min(0).max(1);
 
@@ -3065,6 +3135,8 @@ export const STUDIO_TOOLS: StudioTool[] = [
   generateMusic,
   changeMusicTempo,
   generateVoiceover,
+  measureVoiceTool,
+  transcribeAudioTool,
   getRedaction,
   applyRedaction,
   cancelRedaction,

@@ -685,14 +685,20 @@ function matches(
   return true;
 }
 
+/**
+ * Parts checked in storage, recorded as stored: 300 at a time, as blobRows reads them. The filter travels in the
+ * request's URL, and a save naming 667 new parts (Reel 3's assets) was refused whole with no reason given.
+ */
 async function markStored(workId: string, shas: string[]) {
-  if (!shas.length) return;
-  const { error } = await db
-    .from("work_blobs")
-    .update({ status: "stored", stored_at: new Date().toISOString() })
-    .eq("work_id", workId)
-    .in("sha256", shas);
-  if (error) throw failure(error, "The work's files couldn't be recorded");
+  const storedAt = new Date().toISOString();
+  for (let at = 0; at < shas.length; at += 300) {
+    const { error } = await db
+      .from("work_blobs")
+      .update({ status: "stored", stored_at: storedAt })
+      .eq("work_id", workId)
+      .in("sha256", shas.slice(at, at + 300));
+    if (error) throw failure(error, "The work's files couldn't be recorded");
+  }
 }
 
 /** In parallel, a few at a time. */

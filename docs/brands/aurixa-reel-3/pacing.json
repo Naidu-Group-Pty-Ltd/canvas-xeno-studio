@@ -1,0 +1,403 @@
+{
+ "provisional": "Paced on the voiceover's local word times (voiceover-words.json). Solved again once the studio has measured the imported voiceover.",
+ "fps": 30,
+ "sample_rate": 44100,
+ "voiceover": {
+  "seconds": 129.567,
+  "speech_end": 129.52
+ },
+ "end": 147.16666666666666,
+ "pauses": [
+  {
+   "at": 0.0,
+   "frames": 12,
+   "seconds": 0.4,
+   "why": "the property, composed, before 'Your client'",
+   "group": "open"
+  },
+  {
+   "at": 2.0,
+   "frames": 8,
+   "seconds": 0.2667,
+   "why": "'the property.' held, before 'The big question?'",
+   "group": "open"
+  },
+  {
+   "at": 3.1,
+   "frames": 9,
+   "seconds": 0.3,
+   "why": "the question, held",
+   "group": "open"
+  },
+  {
+   "at": 4.6,
+   "frames": 11,
+   "seconds": 0.3667,
+   "why": "'Can they afford it?' held",
+   "group": "open"
+  },
+  {
+   "at": 12.6,
+   "frames": 26,
+   "seconds": 0.8667,
+   "why": "after 'partners.': the old way stalls as the music falls silent",
+   "group": "open"
+  },
+  {
+   "at": 14.3,
+   "frames": 6,
+   "seconds": 0.2,
+   "why": "after 'With Aurixa Systems,': the logo, at the viewer",
+   "group": "brand"
+  },
+  {
+   "at": 15.75,
+   "frames": 10,
+   "seconds": 0.3333,
+   "why": "the logo settles, before the questionnaire",
+   "group": "brand"
+  },
+  {
+   "at": 22.9,
+   "frames": 7,
+   "seconds": 0.2333,
+   "why": "the client card, filled, held",
+   "group": "brand"
+  },
+  {
+   "at": 26.0,
+   "frames": 19,
+   "seconds": 0.6333,
+   "why": "after 'opportunity.': the pointer over the button, before the click",
+   "group": "brand"
+  },
+  {
+   "at": 45.0,
+   "frames": 15,
+   "seconds": 0.5,
+   "why": "the assessment, whole, held",
+   "group": "click"
+  },
+  {
+   "at": 48.7,
+   "frames": 8,
+   "seconds": 0.2667,
+   "why": "after 'in moments.'",
+   "group": "click"
+  },
+  {
+   "at": 50.2,
+   "frames": 8,
+   "seconds": 0.2667,
+   "why": "after 'And why stop there?'",
+   "group": "click"
+  },
+  {
+   "at": 52.6,
+   "frames": 8,
+   "seconds": 0.2667,
+   "why": "the property, in focus",
+   "group": "click"
+  },
+  {
+   "at": 62.6,
+   "frames": 9,
+   "seconds": 0.3,
+   "why": "the report, held",
+   "group": "click"
+  },
+  {
+   "at": 64.2,
+   "frames": 9,
+   "seconds": 0.3,
+   "why": "after 'Ready for the next step?'",
+   "group": "click"
+  },
+  {
+   "at": 67.0,
+   "frames": 12,
+   "seconds": 0.4,
+   "why": "the handover, sent",
+   "group": "click"
+  },
+  {
+   "at": 78.6,
+   "frames": 15,
+   "seconds": 0.5,
+   "why": "the broker's portal, held",
+   "group": "click"
+  },
+  {
+   "at": 83.5,
+   "frames": 8,
+   "seconds": 0.2667,
+   "why": "after 'the broker gains context.'",
+   "group": "click"
+  },
+  {
+   "at": 85.8,
+   "frames": 12,
+   "seconds": 0.4,
+   "why": "after 'momentum.'",
+   "group": "click"
+  },
+  {
+   "at": 87.5,
+   "frames": 60,
+   "seconds": 2.0,
+   "why": "after 'just the beginning.': the breakdown, held",
+   "group": "beginning"
+  },
+  {
+   "at": 101.2,
+   "frames": 34,
+   "seconds": 1.1333,
+   "why": "the agent's card, approved, held",
+   "group": "platform"
+  },
+  {
+   "at": 103.6,
+   "frames": 7,
+   "seconds": 0.2333,
+   "why": "after 'less administration,'",
+   "group": "means"
+  },
+  {
+   "at": 105.0,
+   "frames": 6,
+   "seconds": 0.2,
+   "why": "after 'faster answers,'",
+   "group": "means"
+  },
+  {
+   "at": 109.4,
+   "frames": 20,
+   "seconds": 0.6667,
+   "why": "after 'deliver results.': the build, before the brand arrives",
+   "group": "means"
+  },
+  {
+   "at": 111.7,
+   "frames": 6,
+   "seconds": 0.2,
+   "why": "after 'has arrived'",
+   "group": "arrived"
+  },
+  {
+   "at": 115.9,
+   "frames": 13,
+   "seconds": 0.4333,
+   "why": "the logo, before the free trial",
+   "group": "arrived"
+  },
+  {
+   "at": 119.3,
+   "frames": 19,
+   "seconds": 0.6333,
+   "why": "the call to action, pressed, before the statements",
+   "group": "arrived"
+  },
+  {
+   "at": 120.55,
+   "frames": 22,
+   "seconds": 0.7333,
+   "why": "'your experience,' on its hit",
+   "group": "close"
+  },
+  {
+   "at": 121.85,
+   "frames": 16,
+   "seconds": 0.5333,
+   "why": "'your decision.' on its hit",
+   "group": "close"
+  },
+  {
+   "at": 123.05,
+   "frames": 23,
+   "seconds": 0.7667,
+   "why": "held before the closing card",
+   "group": "close"
+  },
+  {
+   "at": 124.5,
+   "frames": 6,
+   "seconds": 0.2,
+   "why": "'the operating system' on its downbeat",
+   "group": "close"
+  },
+  {
+   "at": 127.7,
+   "frames": 15,
+   "seconds": 0.5,
+   "why": "'Start your free trial today.' on its downbeat",
+   "group": "close"
+  }
+ ],
+ "music": {
+  "track": {
+   "title": "Drake, National Treasures (instrumental)",
+   "asset": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+   "file": "Drake – National Treasures (Instrumental).mp3, 272.300 s, 44.1 kHz stereo",
+   "sha256": "b22fc04d38b20007488cbd8669b2fe38352f81b29e2af46364d473af6e46d863"
+  },
+  "period": 0.46514101885610903,
+  "bpm": 128.993,
+  "drop": 22.254852,
+  "first_downbeat": 0.03,
+  "splice_lead": 0.02,
+  "crossfade": 0.03,
+  "pieces": [
+   {
+    "film_bar": 0,
+    "bars": [
+     -8,
+     6
+    ],
+    "file_from": 7.340339,
+    "file_to": 33.398236,
+    "film_at": 0.0,
+    "why": "the intro's last eight bars, falling silent into the drop on the brand's cut, and six bars of its groove under the questionnaire"
+   },
+   {
+    "film_bar": 14,
+    "bars": [
+     -2,
+     26
+    ],
+    "file_from": 18.513723,
+    "file_to": 70.609518,
+    "film_at": 26.057897,
+    "why": "the intro's last two bars again, so the groove falls away under 'here's where speed meets opportunity', then the drop again on 'With just one click', and its groove through the assessment and the handover"
+   },
+   {
+    "film_bar": 42,
+    "bars": [
+     32,
+     42
+    ],
+    "file_from": 81.772902,
+    "file_to": 100.378543,
+    "film_at": 78.153691,
+    "why": "the groove thinned, under the partner portal and what each gains, its last bar leading into the breakdown's first phrase, under 'And that's just the beginning.'"
+   },
+   {
+    "film_bar": 52,
+    "bars": [
+     48,
+     56
+    ],
+    "file_from": 111.541927,
+    "file_to": 126.42644,
+    "film_at": 96.759332,
+    "why": "the groove's return, lighter, under the platform and the Aurixa Agent"
+   },
+   {
+    "film_bar": 60,
+    "bars": [
+     71,
+     72
+    ],
+    "file_from": 154.334901,
+    "file_to": 156.195465,
+    "film_at": 111.643845,
+    "why": "the stop's bass hit, on 'This means', and its quiet"
+   },
+   {
+    "film_bar": 61,
+    "bars": [
+     76,
+     86
+    ],
+    "file_from": 163.637721,
+    "file_to": 182.243362,
+    "film_at": 113.504409,
+    "why": "the keys building into the biggest section, which lands on 'Aurixa Systems has arrived' and runs through the free trial"
+   },
+   {
+    "film_bar": 71,
+    "bars": [
+     71,
+     72
+    ],
+    "file_from": 154.334901,
+    "file_to": 156.195465,
+    "film_at": 132.110049,
+    "why": "statement 1: the stop's bass hit and its ring"
+   },
+   {
+    "film_bar": 72,
+    "bars": [
+     71,
+     72
+    ],
+    "file_from": 154.334901,
+    "file_to": 156.195465,
+    "film_at": 133.970613,
+    "why": "statement 2: the bass hit again"
+   },
+   {
+    "film_bar": 73,
+    "bars": [
+     71,
+     72
+    ],
+    "file_from": 154.334901,
+    "file_to": 156.195465,
+    "film_at": 135.831178,
+    "why": "statement 3: the bass hit again"
+   },
+   {
+    "film_bar": 74,
+    "bars": [
+     91,
+     null
+    ],
+    "file_from": 191.546182,
+    "file_to": null,
+    "film_at": 137.691742,
+    "why": "the full return: the last bars of the biggest section, its closing hit on the final press, and the ring"
+   }
+  ],
+  "film_bars": {
+   "drop": 8,
+   "stall": 14,
+   "drop2": 16,
+   "thin": 42,
+   "breakdown": 50,
+   "return": 52,
+   "stop": 60,
+   "build": 61,
+   "biggest": 65,
+   "statements": [
+    71,
+    72,
+    73
+   ],
+   "reentry": 74,
+   "operating": 75,
+   "start": 77,
+   "final": 78
+  },
+  "bars": {
+   "drop": 14.914513,
+   "stall": 26.077897,
+   "drop2": 29.799025,
+   "thin": 78.173691,
+   "breakdown": 93.058204,
+   "return": 96.779332,
+   "stop": 111.663845,
+   "build": 113.524409,
+   "biggest": 120.966665,
+   "statements": [
+    132.130049,
+    133.990613,
+    135.851178
+   ],
+   "reentry": 137.711742,
+   "operating": 139.572306,
+   "start": 143.293434,
+   "final": 145.153998
+  },
+  "ring": 2.0
+ }
+}

@@ -1,0 +1,415 @@
+{
+ "written": "2026-10-24",
+ "note": "The music's attack at each cut on a beat and at each anchor, on the music bus as mixed (soundtrack.ts), measured as the studio's quality pass measures a render (media-worker/src/quality.js). offset_ms is from the beat (negative: early); a beat the music runs on through, with no clear attack, is 'unclear'. A cut is paired with its beat as the studio pairs them ('half_frame') or as pacing.py places them ('first_frames': the beat's attack in the cut's first or second frame).",
+ "limit_ms": 20,
+ "worst_ms": 44.8,
+ "verdict": "flag",
+ "worst_at_joins_and_anchors_ms": 13.2,
+ "verdict_at_joins_and_anchors": "pass",
+ "anchors": [
+  {
+   "anchor": "drop",
+   "time": 14.915,
+   "status": "measured",
+   "offset_ms": 0.5,
+   "rise_db": 39.7
+  },
+  {
+   "anchor": "stall",
+   "time": 26.078,
+   "status": "unclear",
+   "rise_db": 6.5
+  },
+  {
+   "anchor": "drop2",
+   "time": 29.799,
+   "status": "measured",
+   "offset_ms": 0,
+   "rise_db": 39.1
+  },
+  {
+   "anchor": "thin",
+   "time": 78.174,
+   "status": "measured",
+   "offset_ms": -1.7,
+   "rise_db": 12.1
+  },
+  {
+   "anchor": "breakdown",
+   "time": 93.058,
+   "status": "measured",
+   "offset_ms": -13.2,
+   "rise_db": 25.9
+  },
+  {
+   "anchor": "return",
+   "time": 96.779,
+   "status": "measured",
+   "offset_ms": 2.7,
+   "rise_db": 45.8
+  },
+  {
+   "anchor": "stop",
+   "time": 111.664,
+   "status": "measured",
+   "offset_ms": -1.8,
+   "rise_db": 20.1
+  },
+  {
+   "anchor": "build",
+   "time": 113.524,
+   "status": "measured",
+   "offset_ms": 4.6,
+   "rise_db": 25.4
+  },
+  {
+   "anchor": "biggest",
+   "time": 120.967,
+   "status": "measured",
+   "offset_ms": -6.7,
+   "rise_db": 23.9
+  },
+  {
+   "anchor": "statements 1",
+   "time": 132.13,
+   "status": "measured",
+   "offset_ms": -3,
+   "rise_db": 57.2
+  },
+  {
+   "anchor": "statements 2",
+   "time": 133.991,
+   "status": "measured",
+   "offset_ms": -2.6,
+   "rise_db": 44.9
+  },
+  {
+   "anchor": "statements 3",
+   "time": 135.851,
+   "status": "measured",
+   "offset_ms": -3.2,
+   "rise_db": 44.9
+  },
+  {
+   "anchor": "reentry",
+   "time": 137.712,
+   "status": "measured",
+   "offset_ms": -2.7,
+   "rise_db": 41.6
+  },
+  {
+   "anchor": "operating",
+   "time": 139.572,
+   "status": "measured",
+   "offset_ms": -3.3,
+   "rise_db": 39.8
+  },
+  {
+   "anchor": "start",
+   "time": 143.293,
+   "status": "measured",
+   "offset_ms": -11.4,
+   "rise_db": 46.7
+  },
+  {
+   "anchor": "final",
+   "time": 145.154,
+   "status": "unclear",
+   "rise_db": 9.5
+  }
+ ],
+ "cuts": [
+  {
+   "shot": "01.2",
+   "time": 2.767,
+   "music": "running",
+   "beat": 2.821,
+   "paired": "first_frames",
+   "status": "unclear",
+   "rise_db": 1.2
+  },
+  {
+   "shot": "01.3",
+   "time": 4.167,
+   "music": "running",
+   "beat": 4.216,
+   "paired": "first_frames",
+   "status": "unclear",
+   "rise_db": 5.2
+  },
+  {
+   "shot": "02.1",
+   "time": 6.1,
+   "music": "running",
+   "status": "off_the_beat"
+  },
+  {
+   "shot": "02.2",
+   "time": 9.3,
+   "music": "running",
+   "beat": 9.333,
+   "paired": "first_frames",
+   "status": "unclear",
+   "rise_db": 6
+  },
+  {
+   "shot": "02.3",
+   "time": 10.833,
+   "music": "running",
+   "status": "off_the_beat"
+  },
+  {
+   "shot": "03.1",
+   "time": 14.9,
+   "music": "running",
+   "beat": 14.915,
+   "paired": "half_frame",
+   "status": "measured",
+   "offset_ms": 0.5,
+   "rise_db": 39.7,
+   "from_cut_ms": 15
+  },
+  {
+   "shot": "04.1",
+   "time": 18.633,
+   "music": "running",
+   "beat": 18.636,
+   "paired": "half_frame",
+   "status": "measured",
+   "offset_ms": 1.4,
+   "rise_db": 11.1,
+   "from_cut_ms": 4
+  },
+  {
+   "shot": "04.2",
+   "time": 23.167,
+   "music": "running",
+   "status": "off_the_beat"
+  },
+  {
+   "shot": "05.1",
+   "time": 26.067,
+   "music": "join",
+   "beat": 26.078,
+   "paired": "half_frame",
+   "status": "unclear",
+   "rise_db": 6.5
+  },
+  {
+   "shot": "05.2",
+   "time": 29.767,
+   "music": "running",
+   "beat": 29.799,
+   "paired": "first_frames",
+   "status": "measured",
+   "offset_ms": 0,
+   "rise_db": 39.1,
+   "from_cut_ms": 32
+  },
+  {
+   "shot": "05.3",
+   "time": 34.3,
+   "music": "running",
+   "status": "off_the_beat"
+  },
+  {
+   "shot": "05.4",
+   "time": 39.1,
+   "music": "running",
+   "beat": 39.102,
+   "paired": "half_frame",
+   "status": "measured",
+   "offset_ms": -44.8,
+   "rise_db": 10.2,
+   "from_cut_ms": -43
+  },
+  {
+   "shot": "05.5",
+   "time": 44.2,
+   "music": "running",
+   "beat": 44.218,
+   "paired": "half_frame",
+   "status": "unclear",
+   "rise_db": 8.6
+  },
+  {
+   "shot": "05.6",
+   "time": 49.3,
+   "music": "running",
+   "beat": 49.335,
+   "paired": "first_frames",
+   "status": "measured",
+   "offset_ms": 0.1,
+   "rise_db": 15.8,
+   "from_cut_ms": 35
+  },
+  {
+   "shot": "06.1",
+   "time": 53.233,
+   "music": "running",
+   "status": "off_the_beat"
+  },
+  {
+   "shot": "06.2",
+   "time": 54.9,
+   "music": "running",
+   "beat": 54.917,
+   "paired": "half_frame",
+   "status": "measured",
+   "offset_ms": 0.4,
+   "rise_db": 11.7,
+   "from_cut_ms": 17
+  },
+  {
+   "shot": "06.3",
+   "time": 57.667,
+   "music": "running",
+   "beat": 57.707,
+   "paired": "first_frames",
+   "status": "unclear",
+   "rise_db": 8.6
+  },
+  {
+   "shot": "06.4",
+   "time": 62.867,
+   "music": "running",
+   "status": "off_the_beat"
+  },
+  {
+   "shot": "07.1",
+   "time": 67.967,
+   "music": "running",
+   "status": "off_the_beat"
+  },
+  {
+   "shot": "07.2",
+   "time": 69.767,
+   "music": "running",
+   "beat": 69.801,
+   "paired": "first_frames",
+   "status": "measured",
+   "offset_ms": -0.2,
+   "rise_db": 11.1,
+   "from_cut_ms": 34
+  },
+  {
+   "shot": "07.3",
+   "time": 73.033,
+   "music": "running",
+   "beat": 73.057,
+   "paired": "first_frames",
+   "status": "unclear",
+   "rise_db": 9.5
+  },
+  {
+   "shot": "07.4",
+   "time": 78.267,
+   "music": "running",
+   "status": "off_the_beat"
+  },
+  {
+   "shot": "08.1",
+   "time": 85.1,
+   "music": "running",
+   "beat": 85.151,
+   "paired": "first_frames",
+   "status": "measured",
+   "offset_ms": -35.8,
+   "rise_db": 10,
+   "from_cut_ms": 15
+  },
+  {
+   "shot": "08.2",
+   "time": 87.8,
+   "music": "running",
+   "status": "off_the_beat"
+  },
+  {
+   "shot": "08.3",
+   "time": 90.3,
+   "music": "running",
+   "status": "off_the_beat"
+  },
+  {
+   "shot": "09.1",
+   "time": 93.033,
+   "music": "running",
+   "beat": 93.058,
+   "paired": "first_frames",
+   "status": "measured",
+   "offset_ms": -13.2,
+   "rise_db": 25.9,
+   "from_cut_ms": 12
+  },
+  {
+   "shot": "09.2",
+   "time": 96.767,
+   "music": "join",
+   "beat": 96.779,
+   "paired": "half_frame",
+   "status": "measured",
+   "offset_ms": 2.7,
+   "rise_db": 45.8,
+   "from_cut_ms": 15
+  },
+  {
+   "shot": "09.3",
+   "time": 105.1,
+   "music": "running",
+   "beat": 105.152,
+   "paired": "first_frames",
+   "status": "unclear",
+   "rise_db": 3.9
+  },
+  {
+   "shot": "10.1",
+   "time": 111.633,
+   "music": "join",
+   "beat": 111.664,
+   "paired": "first_frames",
+   "status": "measured",
+   "offset_ms": -1.8,
+   "rise_db": 20.1,
+   "from_cut_ms": 29
+  },
+  {
+   "shot": "11.1",
+   "time": 120.933,
+   "music": "running",
+   "beat": 120.967,
+   "paired": "first_frames",
+   "status": "measured",
+   "offset_ms": -6.7,
+   "rise_db": 23.9,
+   "from_cut_ms": 27
+  },
+  {
+   "shot": "12.1",
+   "time": 127.933,
+   "music": "running",
+   "beat": 127.944,
+   "paired": "half_frame",
+   "status": "measured",
+   "offset_ms": 0.2,
+   "rise_db": 24.1,
+   "from_cut_ms": 11
+  },
+  {
+   "shot": "13.1",
+   "time": 132,
+   "music": "running",
+   "status": "off_the_beat"
+  },
+  {
+   "shot": "14.1",
+   "time": 137.7,
+   "music": "join",
+   "beat": 137.712,
+   "paired": "half_frame",
+   "status": "measured",
+   "offset_ms": -2.7,
+   "rise_db": 41.6,
+   "from_cut_ms": 9
+  }
+ ]
+}

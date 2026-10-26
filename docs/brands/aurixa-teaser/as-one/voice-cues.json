@@ -1,0 +1,587 @@
+{
+  "length": 45.5,
+  "drop": 22.2549,
+  "bar": 1.8605640754244361,
+  "bars": [
+    1.7887, 3.6493, 5.5098, 7.3704, 9.231, 11.0915, 12.9521, 14.8126, 16.6732, 18.5338, 20.3943,
+    22.2549, 24.1155, 25.976, 27.8366, 29.6972, 31.5577, 33.4183, 35.2788, 37.1394, 39.0, 40.8605,
+    42.7211, 44.5817
+  ],
+  "voice_gain_db": 5.0,
+  "lines": [
+    {
+      "key": "s1",
+      "shift": 0.5627,
+      "start": 0.563,
+      "sound": [0.632, 4.394],
+      "text": "The next generation of property professionals will operate differently.",
+      "words": [
+        {
+          "text": "The",
+          "start": 0.563,
+          "end": 0.723
+        },
+        {
+          "text": "next",
+          "start": 0.843,
+          "end": 0.963
+        },
+        {
+          "text": "generation",
+          "start": 1.043,
+          "end": 1.523
+        },
+        {
+          "text": "of",
+          "start": 1.603,
+          "end": 1.683
+        },
+        {
+          "text": "property",
+          "start": 1.763,
+          "end": 2.083
+        },
+        {
+          "text": "professionals",
+          "start": 2.163,
+          "end": 2.883
+        },
+        {
+          "text": "will",
+          "start": 3.003,
+          "end": 3.123
+        },
+        {
+          "text": "operate",
+          "start": 3.203,
+          "end": 3.603
+        },
+        {
+          "text": "differently.",
+          "start": 3.683,
+          "end": 4.323
+        }
+      ]
+    },
+    {
+      "key": "s2",
+      "shift": 0.5627,
+      "start": 4.883,
+      "sound": [4.497, 11.753],
+      "text": "Not because they'll use more software, not because they'll have more dashboards, and not because AI became another tab.",
+      "words": [
+        {
+          "text": "Not",
+          "start": 4.883,
+          "end": 5.043
+        },
+        {
+          "text": "because",
+          "start": 5.203,
+          "end": 5.363
+        },
+        {
+          "text": "they'll",
+          "start": 5.403,
+          "end": 5.603
+        },
+        {
+          "text": "use",
+          "start": 5.683,
+          "end": 5.763
+        },
+        {
+          "text": "more",
+          "start": 5.843,
+          "end": 6.003
+        },
+        {
+          "text": "software,",
+          "start": 6.083,
+          "end": 7.043
+        },
+        {
+          "text": "not",
+          "start": 7.123,
+          "end": 7.283
+        },
+        {
+          "text": "because",
+          "start": 7.363,
+          "end": 7.603
+        },
+        {
+          "text": "they'll",
+          "start": 7.643,
+          "end": 7.763
+        },
+        {
+          "text": "have",
+          "start": 7.843,
+          "end": 8.003
+        },
+        {
+          "text": "more",
+          "start": 8.083,
+          "end": 8.163
+        },
+        {
+          "text": "dashboards,",
+          "start": 8.243,
+          "end": 9.283
+        },
+        {
+          "text": "and",
+          "start": 9.363,
+          "end": 9.523
+        },
+        {
+          "text": "not",
+          "start": 9.603,
+          "end": 9.763
+        },
+        {
+          "text": "because",
+          "start": 9.843,
+          "end": 10.083
+        },
+        {
+          "text": "AI",
+          "start": 10.243,
+          "end": 10.563
+        },
+        {
+          "text": "became",
+          "start": 10.643,
+          "end": 10.883
+        },
+        {
+          "text": "another",
+          "start": 11.043,
+          "end": 11.203
+        },
+        {
+          "text": "tab.",
+          "start": 11.283,
+          "end": 11.923
+        }
+      ]
+    },
+    {
+      "key": "s3",
+      "shift": 0.5627,
+      "start": 12.163,
+      "sound": [12.182, 15.459],
+      "text": "At a certain level of ambition, the question changes.",
+      "words": [
+        {
+          "text": "At",
+          "start": 12.163,
+          "end": 12.243
+        },
+        {
+          "text": "a",
+          "start": 12.323,
+          "end": 12.403
+        },
+        {
+          "text": "certain",
+          "start": 12.483,
+          "end": 12.723
+        },
+        {
+          "text": "level",
+          "start": 12.803,
+          "end": 13.043
+        },
+        {
+          "text": "of",
+          "start": 13.123,
+          "end": 13.203
+        },
+        {
+          "text": "ambition,",
+          "start": 13.323,
+          "end": 14.083
+        },
+        {
+          "text": "the",
+          "start": 14.123,
+          "end": 14.163
+        },
+        {
+          "text": "question",
+          "start": 14.243,
+          "end": 14.643
+        },
+        {
+          "text": "changes.",
+          "start": 14.723,
+          "end": 15.603
+        }
+      ]
+    },
+    {
+      "key": "s4",
+      "shift": 0.5627,
+      "start": 15.843,
+      "sound": [15.843, 20.611],
+      "text": "Research, clients, reports, finance, communication.",
+      "words": [
+        {
+          "text": "Research,",
+          "start": 15.843,
+          "end": 16.643
+        },
+        {
+          "text": "clients,",
+          "start": 16.723,
+          "end": 17.523
+        },
+        {
+          "text": "reports,",
+          "start": 17.843,
+          "end": 18.483
+        },
+        {
+          "text": "finance,",
+          "start": 18.803,
+          "end": 19.363
+        },
+        {
+          "text": "communication.",
+          "start": 19.763,
+          "end": 20.243
+        }
+      ]
+    },
+    {
+      "key": "s5",
+      "shift": 0.5627,
+      "start": 20.723,
+      "sound": [20.733, 22.055],
+      "text": "Powerful on their own.",
+      "words": [
+        {
+          "text": "Powerful",
+          "start": 20.723,
+          "end": 21.283
+        },
+        {
+          "text": "on",
+          "start": 21.363,
+          "end": 21.443
+        },
+        {
+          "text": "their",
+          "start": 21.523,
+          "end": 21.683
+        },
+        {
+          "text": "own.",
+          "start": 21.843,
+          "end": 22.083
+        }
+      ]
+    },
+    {
+      "key": "s6",
+      "shift": 0.9549,
+      "start": 22.955,
+      "sound": [22.55, 27.164],
+      "text": "More valuable when they stop behaving like separate destinations.",
+      "words": [
+        {
+          "text": "More",
+          "start": 22.955,
+          "end": 23.115
+        },
+        {
+          "text": "valuable",
+          "start": 23.195,
+          "end": 23.755
+        },
+        {
+          "text": "when",
+          "start": 23.835,
+          "end": 23.995
+        },
+        {
+          "text": "they",
+          "start": 24.075,
+          "end": 24.155
+        },
+        {
+          "text": "stop",
+          "start": 24.235,
+          "end": 24.475
+        },
+        {
+          "text": "behaving",
+          "start": 24.595,
+          "end": 24.955
+        },
+        {
+          "text": "like",
+          "start": 25.035,
+          "end": 25.195
+        },
+        {
+          "text": "separate",
+          "start": 25.275,
+          "end": 25.675
+        },
+        {
+          "text": "destinations.",
+          "start": 25.795,
+          "end": 26.635
+        }
+      ]
+    },
+    {
+      "key": "s7",
+      "shift": 1.4476,
+      "start": 27.688,
+      "sound": [27.723, 33.807],
+      "text": "When intelligence can move, when context can follow, when the business can act as one.",
+      "words": [
+        {
+          "text": "When",
+          "start": 27.688,
+          "end": 27.768
+        },
+        {
+          "text": "intelligence",
+          "start": 27.848,
+          "end": 28.488
+        },
+        {
+          "text": "can",
+          "start": 28.568,
+          "end": 28.728
+        },
+        {
+          "text": "move,",
+          "start": 28.808,
+          "end": 29.608
+        },
+        {
+          "text": "when",
+          "start": 29.688,
+          "end": 29.768
+        },
+        {
+          "text": "context",
+          "start": 29.848,
+          "end": 30.488
+        },
+        {
+          "text": "can",
+          "start": 30.568,
+          "end": 30.648
+        },
+        {
+          "text": "follow,",
+          "start": 30.808,
+          "end": 31.688
+        },
+        {
+          "text": "when",
+          "start": 31.768,
+          "end": 31.848
+        },
+        {
+          "text": "the",
+          "start": 31.888,
+          "end": 31.928
+        },
+        {
+          "text": "business",
+          "start": 32.008,
+          "end": 32.488
+        },
+        {
+          "text": "can",
+          "start": 32.568,
+          "end": 32.728
+        },
+        {
+          "text": "act",
+          "start": 32.808,
+          "end": 33.048
+        },
+        {
+          "text": "as",
+          "start": 33.128,
+          "end": 33.288
+        },
+        {
+          "text": "one.",
+          "start": 33.448,
+          "end": 33.768
+        }
+      ]
+    },
+    {
+      "key": "s8",
+      "shift": 1.4476,
+      "start": 34.248,
+      "sound": [34.237, 36.333],
+      "text": "So don't ask what the next tool is.",
+      "words": [
+        {
+          "text": "So",
+          "start": 34.248,
+          "end": 34.408
+        },
+        {
+          "text": "don't",
+          "start": 34.488,
+          "end": 34.648
+        },
+        {
+          "text": "ask",
+          "start": 34.728,
+          "end": 34.968
+        },
+        {
+          "text": "what",
+          "start": 35.048,
+          "end": 35.128
+        },
+        {
+          "text": "the",
+          "start": 35.168,
+          "end": 35.208
+        },
+        {
+          "text": "next",
+          "start": 35.288,
+          "end": 35.528
+        },
+        {
+          "text": "tool",
+          "start": 35.688,
+          "end": 35.848
+        },
+        {
+          "text": "is.",
+          "start": 35.928,
+          "end": 36.248
+        }
+      ]
+    },
+    {
+      "key": "s9",
+      "shift": 1.4476,
+      "start": 36.728,
+      "sound": [36.576, 39.749],
+      "text": "Ask what happens when the business becomes the system.",
+      "words": [
+        {
+          "text": "Ask",
+          "start": 36.728,
+          "end": 36.968
+        },
+        {
+          "text": "what",
+          "start": 37.048,
+          "end": 37.128
+        },
+        {
+          "text": "happens",
+          "start": 37.208,
+          "end": 37.608
+        },
+        {
+          "text": "when",
+          "start": 37.688,
+          "end": 37.768
+        },
+        {
+          "text": "the",
+          "start": 37.808,
+          "end": 37.848
+        },
+        {
+          "text": "business",
+          "start": 38.008,
+          "end": 38.408
+        },
+        {
+          "text": "becomes",
+          "start": 38.568,
+          "end": 38.968
+        },
+        {
+          "text": "the",
+          "start": 39.048,
+          "end": 39.128
+        },
+        {
+          "text": "system.",
+          "start": 39.208,
+          "end": 39.688
+        }
+      ]
+    },
+    {
+      "key": "s10",
+      "shift": 1.4476,
+      "start": 40.248,
+      "sound": [40.252, 41.473],
+      "text": "Aurixa Systems.",
+      "words": [
+        {
+          "text": "Aurixa",
+          "start": 40.248,
+          "end": 40.728
+        },
+        {
+          "text": "Systems.",
+          "start": 40.808,
+          "end": 41.448
+        }
+      ]
+    },
+    {
+      "key": "s11",
+      "shift": 1.4476,
+      "start": 41.848,
+      "sound": [41.836, 44.004],
+      "text": "A new operating standard is coming.",
+      "words": [
+        {
+          "text": "A",
+          "start": 41.848,
+          "end": 41.928
+        },
+        {
+          "text": "new",
+          "start": 42.008,
+          "end": 42.168
+        },
+        {
+          "text": "operating",
+          "start": 42.248,
+          "end": 42.728
+        },
+        {
+          "text": "standard",
+          "start": 42.808,
+          "end": 43.208
+        },
+        {
+          "text": "is",
+          "start": 43.368,
+          "end": 43.448
+        },
+        {
+          "text": "coming.",
+          "start": 43.528,
+          "end": 44.248
+        }
+      ]
+    }
+  ]
+}

@@ -167,9 +167,14 @@ frame. The app sends one source per distinct asset (role `video`, `image`,
   same inputs and filter graph (frame for frame what the encoder was given),
   both decoded as a BT.709 player decodes them (`src/quality.js`). The report
   is `metadata.quality`, a few kilobytes:
-  - `fidelity`: SSIM and PSNR (RGB) frame by frame, of every frame up to 1,800
-    and an even sample beyond (`every`), with the mean, the worst and the three
-    worst frames' times
+  - `fidelity`: SSIM of the picture's luma, in the encoder's own planes (the
+    4:2:0 picture it was given against the master decoded; `ssim_measure` is
+    `luma`, and `ssim_planes` has each plane's mean), and PSNR (RGB), frame by
+    frame, of every frame up to 1,800 and an even sample beyond (`every`), with
+    the mean, the worst and the three worst frames' times. SSIM was measured in
+    RGB until As One, whose clean master read 0.956 there and 0.995 on its luma:
+    in a near-black picture SSIM reads a code value's change in a channel near
+    zero as lost structure, and RGB's black is 0 where the encoder's is 16
   - `pixels`, on about 90 full frames spread over the edit: the share of the
     reference's strong edge contrast the master keeps (`edges`), CIEDE2000 on
     the reference's flat fields (`colour`: mean, 99th percentile, largest, the
@@ -194,7 +199,9 @@ frame. The app sends one source per distinct asset (role `video`, `image`,
     `loudness`: integrated, range and true peak, against the target when
     loudness is evened out
   - `checks`: each measure judged `pass`, `flag` or `info` against the
-    thresholds in `src/quality.js` (from Reel 1's own: SSIM 0.98, PSNR 40 dB
+    thresholds in `src/quality.js` (the luma's SSIM 0.992, from clean and
+    softened encodes of dark film frames and bright product pages; from Reel
+    1's own: PSNR 40 dB
     and no frame below 37 dB, edges 98% and no frame below 95%, CIEDE2000 and
     brand colours below 1, banding below one code value, every caption and
     cut, sync within 20 ms, the music's attack within 20 ms of its beat,
@@ -360,6 +367,32 @@ Three things make that exact rather than close:
   have come next.
 
 `/health` lists them as `audio_prepare`, `audio_sync` and `frame_index`.
+
+## How a voice speaks, and its words
+
+- `measure_voice` (one source, or two with the second in the role
+  `reference`; no output) measures how a recording's voice speaks
+  (`src/voicemeter.js`, a port of the measures the teasers were judged by).
+  In the speech band (250 Hz to 3.5 kHz) it finds the phrases against the
+  recording's own peak and above silence, -70 dB (`phrases`, `phrase_spans`;
+  a recording with none reads `no_speech`), counts syllable nuclei for
+  the pace (`syllables_per_second`), reads the pitch by autocorrelation
+  between 75 and 450 Hz (`pitch_hz`: median and middle half), and measures how
+  far each phrase end falls in the 40 to 90 ms after it, where 300 ms of quiet
+  follows (`phrase_end_drop_db`). That fall is how dry it is (`dryness`): 13 dB
+  or more `dry`, 9 to 13 `some_room`, less `wet`, `unknown` with fewer than
+  three such ends. Three Questions' voice, a reverb put on it after its take,
+  fell 8 dB; As One's dry voice 16. `loudness` is EBU R128's. With a reference
+  both are measured and compared (`compared`): pitch in semitones (positive
+  when the voice is higher), pace as a ratio, the fall and the loudness as
+  differences. `start` and `end` (`reference_start`, `reference_end`) measure a
+  stretch; at most 20 minutes of each is read. `/health` lists
+  `voice_measure`.
+- `extract_audio` with `speech: true` makes a copy for speech to be read
+  from: mono at 16 kHz, an MP3 at 48 kb/s (AAC 64), so an hour fits a
+  transcription service's 25 MB where a full copy at 192 kb/s fits 18 minutes.
+  `/health` lists `speech_audio`; the app transcribes only on a worker that
+  does.
 
 ## Lip scores
 

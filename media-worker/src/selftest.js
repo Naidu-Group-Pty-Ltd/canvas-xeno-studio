@@ -77,6 +77,17 @@ await check("extract_audio", async () => {
   if ((await stat(result.outputs[0].path)).size < 1000) throw new Error("audio too small");
 });
 
+await check("extract_audio's copy for speech is mono at 16 kHz, small enough for an hour to be heard", async () => {
+  // A transcription service takes 25 MB: at 48 kb/s that is 72 minutes, where a stereo copy at 192 kb/s is 18.
+  if (!FEATURES.includes("speech_audio")) throw new Error("speech_audio isn't advertised");
+  const result = await TASKS.extract_audio.run({ sources: [{ path: clipA }], params: { format: "mp3", speech: true }, dir });
+  const [sound] = streamsOf(result.outputs[0].path);
+  if (sound.channels !== 1 || Number(sound.sample_rate) !== 16000)
+    throw new Error(`a speech copy should be mono at 16 kHz: ${sound.channels} channels at ${sound.sample_rate} Hz`);
+  const bitsPerSecond = ((await stat(result.outputs[0].path)).size * 8) / result.metadata.duration_seconds;
+  if (bitsPerSecond > 56_000) throw new Error(`a speech copy should be about 48 kb/s, is ${Math.round(bitsPerSecond / 1000)}`);
+});
+
 await check("stretch_audio slows a recording to a tempo with its pitch kept, and says how", async () => {
   // Two seconds of a 440 Hz tone, then at 0.8 of its speed: 2.5 s long, still 440 Hz.
   const tone = join(dir, "tone.wav");
@@ -1016,6 +1027,104 @@ await check("a measured render flags a stretch of its master softened after the 
     if (!flagged(report).includes(id)) throw new Error(`${id} should be flagged: ${JSON.stringify(report.checks)}`);
   const worst = [report.fidelity.ssim.worst[0].frame, report.fidelity.psnr_db.worst[0].frame, report.pixels.edges.worst.frame];
   if (worst.some((frame) => frame < 75)) throw new Error(`the worst frames (${worst.join(", ")}) should be in the softened clip`);
+});
+
+await check("measure_voice reads a voice's pitch, pace and phrase ends, and holds it against a reference", async () => {
+  // A voice as the generator makes one: harmonics on 200 Hz, four syllables a second, 1.5 s phrases with 1.2 s
+  // between, over a recording's quiet floor. Wet, it is that voice in a room: a tail falling 60 dB in 0.9 s, as
+  // the reverb on Three Questions' voice did (its stem measured 8 dB at its phrase ends; As One's dry stem 16).
+  const work = await mkdtemp(join(dir, "voice-"));
+  const voice = (hz) =>
+    `aevalsrc='(sin(2*PI*${hz}*t)+0.6*sin(2*PI*${2 * hz}*t)+0.45*sin(2*PI*${3 * hz}*t)+0.3*sin(2*PI*${4 * hz}*t)+0.2*sin(2*PI*${6 * hz}*t))` +
+    "*0.12*(0.55+0.45*sin(2*PI*4*t))*lt(mod(t\\,2.7)\\,1.5)':s=48000:d=13.5";
+  const floor = "anoisesrc=d=13.5:c=pink:r=48000:a=0.0003:seed=11";
+  const delays = [47, 83, 121, 163, 197, 239, 281, 317, 359, 401, 443, 487, 521, 563, 607, 647, 691, 733, 779, 821];
+  const room = `aecho=1:0.7:${delays.join("|")}:${delays.map((ms) => (0.5 * Math.exp(-ms / 1000 / 0.13)).toFixed(4)).join("|")}`;
+  const make = async (name, hz, wet) => {
+    const path = join(work, `${name}.wav`);
+    await ffmpeg(["-f", "lavfi", "-i", voice(hz), "-f", "lavfi", "-i", floor, "-filter_complex",
+      `[0:a]${wet ? room : "anull"}[v];[v][1:a]amix=inputs=2:normalize=0`, "-c:a", "pcm_s16le", path]);
+    return path;
+  };
+  const dry = await make("dry", 200, false);
+  const wet = await make("wet", 200, true);
+  const higher = await make("higher", 224.5, false);
+  const run = async (path, reference) =>
+    (await TASKS.measure_voice.run({
+      sources: [{ path, role: "source" }, ...(reference ? [{ path: reference, role: "reference" }] : [])],
+      params: {},
+      dir: work,
+    })).metadata;
+  const alone = (await run(dry)).voice;
+  if (alone.dryness !== "dry") throw new Error(`the dry voice should read dry: ${JSON.stringify(alone.phrase_end_drop_db)}`);
+  if (Math.abs(alone.pitch_hz.median - 200) > 4) throw new Error(`its pitch should be 200 Hz: ${JSON.stringify(alone.pitch_hz)}`);
+  if (!(alone.syllables_per_second > 3.2 && alone.syllables_per_second < 4.8)) throw new Error(`its pace should be about 4 a second: ${alone.syllables_per_second}`);
+  if (alone.phrases !== 5) throw new Error(`it has 5 phrases, read ${alone.phrases}`);
+  const roomy = (await run(wet)).voice;
+  if (roomy.dryness !== "wet") throw new Error(`the voice in a room should read wet: ${JSON.stringify(roomy.phrase_end_drop_db)}`);
+  const held = await run(higher, dry);
+  if (Math.abs(held.compared.pitch_semitones - 2) > 0.15) throw new Error(`224.5 Hz is 2 semitones over 200: ${JSON.stringify(held.compared)}`);
+  if (Math.abs(held.compared.pace_ratio - 1) > 0.1) throw new Error(`the same pace should compare as 1: ${JSON.stringify(held.compared)}`);
+  // Silence is no speech: every frame of it is within 30 dB of its loudest, and none is a voice.
+  const { measureSamples } = await import("./voicemeter.js");
+  for (const [what, samples] of [
+    ["digital silence", new Float32Array(32_000)],
+    ["a faint hiss", Float32Array.from({ length: 32_000 }, (_, i) => 1e-5 * Math.sin(i * 1.7) * Math.sin(i * 0.31))],
+  ]) {
+    const reading = measureSamples(samples);
+    if (reading.status !== "no_speech" || reading.phrases !== 0)
+      throw new Error(`${what} should read as no speech: ${reading.status}, ${reading.phrases} phrases, ${reading.speech_seconds} s`);
+  }
+});
+
+await check("a dark render encoded cleanly passes its fidelity: SSIM on its luma, in the encoder's own planes", async () => {
+  // As One's hall: near black, dithered by a code value. Its clean master read SSIM 0.956 in RGB, where SSIM reads a
+  // code value's change in a channel near zero as lost structure (RGB's black is 0, the encoder's 16); its luma 0.995.
+  // The gradient's ends and both seeds are fixed: left to chance, the picture changes from run to run, and so does its
+  // RGB reading (0.96 to 0.99).
+  const { measureRender } = await import("./quality.js");
+  const { buildSubtitles, clipArgs, finalArgs, FINAL_ENCODING, parseLoudness } = await import("./sequence.js");
+  const work = await mkdtemp(join(dir, "dark-"));
+  const source = join(work, "dark.mkv");
+  await ffmpeg([
+    "-f", "lavfi", "-i", "gradients=s=360x640:r=25:d=3:c0=0x000000:c1=0x060f1e:x0=0:y0=640:x1=360:y1=0:seed=1:speed=0.02,format=yuv420p,noise=c0s=1:c1s=1:c2s=1:allf=t:all_seed=7",
+    "-f", "lavfi", "-i", "sine=frequency=440:duration=3,volume=0.5",
+    "-c:v", "ffv1", "-c:a", "pcm_s16le", "-shortest", source,
+  ]);
+  // The picture is the case: encoded as a render's final pass encodes, RGB SSIM reads it as soft and its luma doesn't.
+  const encoded = join(work, "encoded.mp4");
+  await ffmpeg(["-i", source, "-an", "-c:v", "libx264", ...FINAL_ENCODING, "-pix_fmt", "yuv420p", encoded]);
+  const ssimOf = async (filters) => {
+    const { stderr } = await ffmpeg(["-i", encoded, "-i", source, "-filter_complex", filters, "-f", "null", "-"]);
+    return Number(/All:([\d.]+)/.exec(stderr)?.[1]);
+  };
+  const byIndex = "settb=1/25,setpts=N";
+  const rgb = "scale=in_color_matrix=bt709:in_range=tv:out_range=pc:flags=bilinear+accurate_rnd+full_chroma_int,format=gbrp";
+  const inRgb = await ssimOf(`[0:v]${byIndex},${rgb}[m];[1:v]${byIndex},${rgb}[r];[m][r]ssim`);
+  if (!(inRgb < 0.98)) throw new Error(`the dark picture should read as soft in RGB (${inRgb}), or it tests nothing`);
+  const sources = [{ path: source, role: "video" }];
+  const plan = planSequence({ width: 360, height: 640, fps: 25, normalize_loudness: false, measure: {}, clips: [{ source_index: 0, duration: 2.8 }] }, sources);
+  const intermediates = [];
+  for (const [index, clip] of plan.clips.entries()) {
+    const out = join(work, `clip-${index}.mkv`);
+    await ffmpeg(clipArgs(clip, plan, sources[clip.source].path, true, out, null, 25));
+    intermediates.push(out);
+  }
+  const mix = join(work, "mix.wav");
+  await ffmpeg(mixArgs(plan, intermediates, [], mix, []));
+  const subtitles = buildSubtitles(plan);
+  const ass = subtitles ? join(work, "text.ass") : null;
+  if (ass) await writeFile(ass, subtitles);
+  const out = join(work, "dark.mp4");
+  const finalArgv = finalArgs(plan, intermediates, mix, ass, null, out, [], null);
+  await ffmpeg(finalArgv);
+  const report = await measureRender({ plan, finalArgv, master: out, sources, dir: work, parseLoudness });
+  const { fidelity } = report;
+  if (fidelity.ssim_measure !== "luma" || !(fidelity.ssim_planes?.u > 0.9) || !(fidelity.ssim_planes?.v > 0.9))
+    throw new Error(`the SSIM should be the luma's, with each plane's: ${JSON.stringify(fidelity)}`);
+  const flags = report.checks.filter((entry) => entry.result === "flag").map((entry) => entry.id);
+  if (flags.includes("ssim") || flags.includes("psnr"))
+    throw new Error(`a clean dark render should pass (RGB read it ${inRgb}): ${JSON.stringify(fidelity)}`);
 });
 
 await check("render_sequence measures a render: fidelity, colour, captions, cuts, the voice's sync and loudness all pass", async () => {

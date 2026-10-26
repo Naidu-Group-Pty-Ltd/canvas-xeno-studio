@@ -56,17 +56,21 @@ const LOAN = 920000;
 const RATE = 0.061;
 const GROW = 0.05;
 const YIELD = (RENT * 52) / PRICE; // 3.84 percent
-const monthly = RATE / 12;
-const PAYMENT = (LOAN * monthly) / (1 - (1 + monthly) ** -360);
-const balance = (years) => {
-  const g = (1 + monthly) ** (years * 12);
-  return LOAN * g - (PAYMENT * (g - 1)) / monthly;
+/** Each year's value, loan and equity with the loan at `rate`, principal and interest over 30 years. */
+const positionAt = (rate) => {
+  const monthly = rate / 12;
+  const payment = (LOAN * monthly) / (1 - (1 + monthly) ** -360);
+  const balance = (years) => {
+    const g = (1 + monthly) ** (years * 12);
+    return LOAN * g - (payment * (g - 1)) / monthly;
+  };
+  return Array.from({ length: 11 }, (_, y) => {
+    const value = PRICE * (1 + GROW) ** y;
+    const loan = y === 0 ? LOAN : balance(y);
+    return { year: y, value, loan, equity: value - loan };
+  });
 };
-const POSITION = Array.from({ length: 11 }, (_, y) => {
-  const value = PRICE * (1 + GROW) ** y;
-  const loan = y === 0 ? LOAN : balance(y);
-  return { year: y, value, loan, equity: value - loan };
-});
+const POSITION = positionAt(RATE);
 // The council area's median house price, the year to June, as its publisher's series records it ($k).
 const GROWTH = [
   [2016, 760],
@@ -353,8 +357,12 @@ function capitalGrowth() {
   );
 }
 
-/** The 10-year cash flow's value, debt and equity: each year's value as a column, the loan beneath, the equity above it. */
-function cashFlow() {
+/**
+ * The 10-year cash flow's value, debt and equity: each year's value as a column, the loan beneath, the equity above it.
+ * The loan at `rate` (Reel 1's record: 6.1 percent).
+ */
+function cashFlow(rate = RATE) {
+  const position = rate === RATE ? POSITION : positionAt(rate);
   const T = "Financial Analysis";
   const X0 = 74;
   const X1 = 536;
@@ -362,7 +370,7 @@ function cashFlow() {
   const TOP = 388;
   const max = 2000000;
   const yOf = (v) => BASE - (v / max) * (BASE - TOP);
-  const n = POSITION.length;
+  const n = position.length;
   const slot = (X1 - X0) / n;
   const colW = slot * 0.62;
   const grid = [0, 500000, 1000000, 1500000, 2000000]
@@ -371,30 +379,32 @@ function cashFlow() {
         `<line x1="${X0}" x2="${X1}" y1="${f2(yOf(v))}" y2="${f2(yOf(v))}" stroke="${v ? DOC.hair : DOC.field}" stroke-width="${v ? 0.7 : 1}"/><text x="${X0 - 9}" y="${f2(yOf(v) + 4)}" text-anchor="end" font-size="10.5" fill="${DOC.muted}">${v ? `$${(v / 1e6).toFixed(1)}m` : "$0"}</text>`,
     )
     .join("");
-  const cols = POSITION.map((p, i) => {
-    const cx = X0 + slot * i + (slot - colW) / 2;
-    const loanTop = yOf(p.loan);
-    const valueTop = yOf(p.value);
-    const label = short(p.equity);
-    return `<g class="rc-cf-col" id="rc-cf-col-${i}" style="transform-origin:${f2(cx + colW / 2)}px ${BASE}px">
+  const cols = position
+    .map((p, i) => {
+      const cx = X0 + slot * i + (slot - colW) / 2;
+      const loanTop = yOf(p.loan);
+      const valueTop = yOf(p.value);
+      const label = short(p.equity);
+      return `<g class="rc-cf-col" id="rc-cf-col-${i}" style="transform-origin:${f2(cx + colW / 2)}px ${BASE}px">
         <rect x="${f2(cx)}" y="${f2(loanTop)}" width="${f2(colW)}" height="${f2(BASE - loanTop)}" fill="${DOC.field}" fill-opacity="0.86"/>
         <rect x="${f2(cx)}" y="${f2(valueTop)}" width="${f2(colW)}" height="${f2(loanTop - valueTop)}" fill="${DOC.gold}"/>
       </g><text id="rc-cf-lab-${i}" x="${f2(cx + colW / 2)}" y="${f2(valueTop - 7)}" text-anchor="middle" font-size="${i === n - 1 ? 12 : 9.5}" font-weight="700" fill="${i === n - 1 ? DOC.goldInk : DOC.field}">${label}</text>
       <text x="${f2(cx + colW / 2)}" y="${BASE + 18}" text-anchor="middle" font-size="10.5" fill="${DOC.muted}">${i === 0 ? "Now" : `Y${i}`}</text>`;
-  }).join("");
-  const last = POSITION.at(-1);
+    })
+    .join("");
+  const last = position.at(-1);
   return sheet(
     `${furniture(T, 17)}${opening("9 · Ten years", "10-year cash flow")}
     ${set(48, 176, 9, "EQUITY IN YEAR 10", { color: DOC.muted, bold: true, track: 1.4 })}
     ${set(48, 226, 52, short(last.equity), { bold: true, color: DOC.goldInk, id: "rc-cf-hero" })}
-    ${set(48 + W(short(last.equity), 52, true) + 18, 202, 13, `from ${short(POSITION[0].equity)} at settlement`, { bold: true, color: DOC.field })}
+    ${set(48 + W(short(last.equity), 52, true) + 18, 202, 13, `from ${short(position[0].equity)} at settlement`, { bold: true, color: DOC.field })}
     ${set(48 + W(short(last.equity), 52, true) + 18, 222, 13, `value ${short(last.value)} · loan ${short(last.loan)}`, { color: DOC.prose })}
     <div class="rc-key" style="left:48px;top:346px"><i style="background:${DOC.gold}"></i>Equity<i style="background:${DOC.field};opacity:.86;margin-left:16px"></i>Loan</div>
     ${set(547.5, 357, 9, "VALUE, DEBT AND EQUITY", { color: DOC.muted, bold: true, track: 1.2, end: true })}
     <svg class="rc-svg" style="left:0;top:0;width:595.5px;height:842.25px;font-family:${SANS}" viewBox="0 0 595.5 842.25">${grid}${cols}</svg>
     <div class="rc-grid">
       ${tile(48, 246, 158, 82, "DEPOSIT", "$230k", null, { valueSize: 22 })}
-      ${tile(218.75, 246, 158, 82, "LOAN · 6.1% P&amp;I", "$920k", null, { valueSize: 22 })}
+      ${tile(218.75, 246, 158, 82, `LOAN · ${(rate * 100).toFixed(1)}% P&amp;I`, "$920k", null, { valueSize: 22 })}
       ${tile(389.5, 246, 158, 82, "VALUE GROWTH", "5.0% a year", null, { valueSize: 22 })}
     </div>
     ${set(48, 676, 8.5, "Modelled: the loan repaid principal and interest over 30 years; the value at 5.0% a year, under the council area's 5.1% of the last ten.", { color: DOC.muted })}`,
@@ -636,7 +646,7 @@ const CSS = `
  * The pages: each { html, doc, page, title } at 595.5 x 842.25 CSS px. `P` and `EMBLEM` are the asset URLs
  * (frames.cjs's asset()); without them the photograph and the mark are drawn as placeholders.
  */
-module.exports = function reportCharts({ P = null, EMBLEM = null } = {}) {
+module.exports = function reportCharts({ P = null, EMBLEM = null, rate = RATE } = {}) {
   return {
     A4,
     DOC,
@@ -674,7 +684,7 @@ module.exports = function reportCharts({ P = null, EMBLEM = null } = {}) {
         title: "Capital growth",
       },
       cashFlow: {
-        html: cashFlow(),
+        html: cashFlow(rate),
         doc: "Financial Analysis",
         page: 17,
         title: "10-year cash flow",

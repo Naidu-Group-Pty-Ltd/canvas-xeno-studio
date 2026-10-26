@@ -1,0 +1,621 @@
+{
+  "source": "local transcription (NVIDIA Parakeet TDT 0.6B v2, int8, in sherpa-onnx), held to the audio's own silences (silencedetect -38 dB, 0.18 s): word ends clipped to where a silence starts, and a word just after a silence started where it ends",
+  "note": "The reference teaser's voiceover (the client's, 27 Oct 2026), read from the reference as mixed. Parakeet's reading of the separated voice is the same 95 words, and Whisper small.en agrees on every word but the name: both recognisers spell it their own way (Arixa, Erixus) and the screen spells it Aurixa Systems, as here.",
+  "seconds": 45.504,
+  "silences": [
+    {
+      "start": 4.329,
+      "end": 4.822
+    },
+    {
+      "start": 9.179,
+      "end": 9.425
+    },
+    {
+      "start": 11.88,
+      "end": 12.4
+    },
+    {
+      "start": 15.829,
+      "end": 16.298
+    },
+    {
+      "start": 17.043,
+      "end": 17.333
+    },
+    {
+      "start": 18.013,
+      "end": 18.237
+    },
+    {
+      "start": 18.982,
+      "end": 19.259
+    },
+    {
+      "start": 19.993,
+      "end": 20.294
+    },
+    {
+      "start": 21.206,
+      "end": 21.561
+    },
+    {
+      "start": 22.985,
+      "end": 23.176
+    },
+    {
+      "start": 27.167,
+      "end": 27.389
+    },
+    {
+      "start": 29.49,
+      "end": 29.692
+    },
+    {
+      "start": 31.367,
+      "end": 31.739
+    },
+    {
+      "start": 33.783,
+      "end": 34.119
+    },
+    {
+      "start": 40.074,
+      "end": 40.327
+    },
+    {
+      "start": 41.598,
+      "end": 41.783
+    },
+    {
+      "start": 44.133,
+      "end": 44.377
+    },
+    {
+      "start": 44.383,
+      "end": 44.602
+    },
+    {
+      "start": 44.612,
+      "end": 45.307
+    },
+    {
+      "start": 45.307,
+      "end": 45.504
+    }
+  ],
+  "sentences": [
+    {
+      "text": "The next generation of property professionals will operate differently.",
+      "start": 0.0,
+      "end": 4.329
+    },
+    {
+      "text": "Not because they'll use more software, not because they'll have more dashboards, and not because AI became another tab.",
+      "start": 4.88,
+      "end": 11.88
+    },
+    {
+      "text": "At a certain level of ambition, the question changes.",
+      "start": 12.4,
+      "end": 15.829
+    },
+    {
+      "text": "Research, clients, reports, finance, communication.",
+      "start": 16.298,
+      "end": 21.206
+    },
+    {
+      "text": "Powerful on their own.",
+      "start": 21.561,
+      "end": 22.985
+    },
+    {
+      "text": "More valuable when they stop behaving like separate destinations.",
+      "start": 23.36,
+      "end": 27.167
+    },
+    {
+      "text": "When intelligence can move, when context can follow, when the business can act as one.",
+      "start": 27.52,
+      "end": 33.783
+    },
+    {
+      "text": "So don't ask what the next tool is.",
+      "start": 34.24,
+      "end": 36.72
+    },
+    {
+      "text": "Ask what happens when the business becomes the system.",
+      "start": 36.72,
+      "end": 40.074
+    },
+    {
+      "text": "Aurixa Systems.",
+      "start": 40.327,
+      "end": 41.598
+    },
+    {
+      "text": "A new operating standard is coming.",
+      "start": 41.92,
+      "end": 44.133
+    }
+  ],
+  "words": [
+    {
+      "text": "The",
+      "start": 0.0,
+      "end": 0.24
+    },
+    {
+      "text": "next",
+      "start": 0.24,
+      "end": 0.48
+    },
+    {
+      "text": "generation",
+      "start": 0.64,
+      "end": 1.12
+    },
+    {
+      "text": "of",
+      "start": 1.12,
+      "end": 1.36
+    },
+    {
+      "text": "property",
+      "start": 1.36,
+      "end": 1.92
+    },
+    {
+      "text": "professionals",
+      "start": 1.92,
+      "end": 2.88
+    },
+    {
+      "text": "will",
+      "start": 2.88,
+      "end": 3.12
+    },
+    {
+      "text": "operate",
+      "start": 3.12,
+      "end": 3.92
+    },
+    {
+      "text": "differently.",
+      "start": 3.92,
+      "end": 4.329
+    },
+    {
+      "text": "Not",
+      "start": 4.88,
+      "end": 5.12
+    },
+    {
+      "text": "because",
+      "start": 5.12,
+      "end": 5.36
+    },
+    {
+      "text": "they'll",
+      "start": 5.36,
+      "end": 5.68
+    },
+    {
+      "text": "use",
+      "start": 5.68,
+      "end": 5.84
+    },
+    {
+      "text": "more",
+      "start": 5.84,
+      "end": 6.08
+    },
+    {
+      "text": "software,",
+      "start": 6.08,
+      "end": 7.2
+    },
+    {
+      "text": "not",
+      "start": 7.2,
+      "end": 7.44
+    },
+    {
+      "text": "because",
+      "start": 7.44,
+      "end": 7.68
+    },
+    {
+      "text": "they'll",
+      "start": 7.68,
+      "end": 8.0
+    },
+    {
+      "text": "have",
+      "start": 8.0,
+      "end": 8.16
+    },
+    {
+      "text": "more",
+      "start": 8.16,
+      "end": 8.32
+    },
+    {
+      "text": "dashboards,",
+      "start": 8.32,
+      "end": 9.179
+    },
+    {
+      "text": "and",
+      "start": 9.52,
+      "end": 9.68
+    },
+    {
+      "text": "not",
+      "start": 9.68,
+      "end": 9.92
+    },
+    {
+      "text": "because",
+      "start": 9.92,
+      "end": 10.24
+    },
+    {
+      "text": "AI",
+      "start": 10.24,
+      "end": 10.72
+    },
+    {
+      "text": "became",
+      "start": 10.8,
+      "end": 11.2
+    },
+    {
+      "text": "another",
+      "start": 11.2,
+      "end": 11.36
+    },
+    {
+      "text": "tab.",
+      "start": 11.52,
+      "end": 11.88
+    },
+    {
+      "text": "At",
+      "start": 12.4,
+      "end": 12.56
+    },
+    {
+      "text": "a",
+      "start": 12.56,
+      "end": 12.72
+    },
+    {
+      "text": "certain",
+      "start": 12.72,
+      "end": 13.04
+    },
+    {
+      "text": "level",
+      "start": 13.04,
+      "end": 13.36
+    },
+    {
+      "text": "of",
+      "start": 13.36,
+      "end": 13.52
+    },
+    {
+      "text": "ambition,",
+      "start": 13.52,
+      "end": 14.4
+    },
+    {
+      "text": "the",
+      "start": 14.4,
+      "end": 14.72
+    },
+    {
+      "text": "question",
+      "start": 14.72,
+      "end": 15.04
+    },
+    {
+      "text": "changes.",
+      "start": 15.04,
+      "end": 15.829
+    },
+    {
+      "text": "Research,",
+      "start": 16.298,
+      "end": 17.043
+    },
+    {
+      "text": "clients,",
+      "start": 17.333,
+      "end": 18.013
+    },
+    {
+      "text": "reports,",
+      "start": 18.237,
+      "end": 18.982
+    },
+    {
+      "text": "finance,",
+      "start": 19.259,
+      "end": 19.993
+    },
+    {
+      "text": "communication.",
+      "start": 20.294,
+      "end": 21.206
+    },
+    {
+      "text": "Powerful",
+      "start": 21.561,
+      "end": 22.16
+    },
+    {
+      "text": "on",
+      "start": 22.16,
+      "end": 22.4
+    },
+    {
+      "text": "their",
+      "start": 22.4,
+      "end": 22.72
+    },
+    {
+      "text": "own.",
+      "start": 22.72,
+      "end": 22.985
+    },
+    {
+      "text": "More",
+      "start": 23.36,
+      "end": 23.6
+    },
+    {
+      "text": "valuable",
+      "start": 23.6,
+      "end": 24.24
+    },
+    {
+      "text": "when",
+      "start": 24.24,
+      "end": 24.48
+    },
+    {
+      "text": "they",
+      "start": 24.48,
+      "end": 24.64
+    },
+    {
+      "text": "stop",
+      "start": 24.64,
+      "end": 25.04
+    },
+    {
+      "text": "behaving",
+      "start": 25.04,
+      "end": 25.52
+    },
+    {
+      "text": "like",
+      "start": 25.52,
+      "end": 25.76
+    },
+    {
+      "text": "separate",
+      "start": 25.76,
+      "end": 26.24
+    },
+    {
+      "text": "destinations.",
+      "start": 26.24,
+      "end": 27.167
+    },
+    {
+      "text": "When",
+      "start": 27.52,
+      "end": 27.76
+    },
+    {
+      "text": "intelligence",
+      "start": 27.76,
+      "end": 28.48
+    },
+    {
+      "text": "can",
+      "start": 28.48,
+      "end": 28.72
+    },
+    {
+      "text": "move,",
+      "start": 28.72,
+      "end": 29.49
+    },
+    {
+      "text": "when",
+      "start": 29.692,
+      "end": 29.92
+    },
+    {
+      "text": "context",
+      "start": 29.92,
+      "end": 30.56
+    },
+    {
+      "text": "can",
+      "start": 30.56,
+      "end": 30.8
+    },
+    {
+      "text": "follow,",
+      "start": 30.88,
+      "end": 31.367
+    },
+    {
+      "text": "when",
+      "start": 31.739,
+      "end": 31.92
+    },
+    {
+      "text": "the",
+      "start": 31.92,
+      "end": 32.08
+    },
+    {
+      "text": "business",
+      "start": 32.08,
+      "end": 32.64
+    },
+    {
+      "text": "can",
+      "start": 32.64,
+      "end": 32.88
+    },
+    {
+      "text": "act",
+      "start": 32.88,
+      "end": 33.2
+    },
+    {
+      "text": "as",
+      "start": 33.2,
+      "end": 33.52
+    },
+    {
+      "text": "one.",
+      "start": 33.52,
+      "end": 33.783
+    },
+    {
+      "text": "So",
+      "start": 34.24,
+      "end": 34.4
+    },
+    {
+      "text": "don't",
+      "start": 34.48,
+      "end": 34.8
+    },
+    {
+      "text": "ask",
+      "start": 34.8,
+      "end": 35.04
+    },
+    {
+      "text": "what",
+      "start": 35.04,
+      "end": 35.2
+    },
+    {
+      "text": "the",
+      "start": 35.2,
+      "end": 35.36
+    },
+    {
+      "text": "next",
+      "start": 35.36,
+      "end": 35.6
+    },
+    {
+      "text": "tool",
+      "start": 35.6,
+      "end": 36.08
+    },
+    {
+      "text": "is.",
+      "start": 36.08,
+      "end": 36.72
+    },
+    {
+      "text": "Ask",
+      "start": 36.72,
+      "end": 37.12
+    },
+    {
+      "text": "what",
+      "start": 37.12,
+      "end": 37.36
+    },
+    {
+      "text": "happens",
+      "start": 37.36,
+      "end": 37.76
+    },
+    {
+      "text": "when",
+      "start": 37.76,
+      "end": 38.0
+    },
+    {
+      "text": "the",
+      "start": 38.0,
+      "end": 38.16
+    },
+    {
+      "text": "business",
+      "start": 38.16,
+      "end": 38.72
+    },
+    {
+      "text": "becomes",
+      "start": 38.72,
+      "end": 39.36
+    },
+    {
+      "text": "the",
+      "start": 39.36,
+      "end": 39.68
+    },
+    {
+      "text": "system.",
+      "start": 39.68,
+      "end": 40.074
+    },
+    {
+      "text": "Aurixa",
+      "start": 40.327,
+      "end": 41.04
+    },
+    {
+      "text": "Systems.",
+      "start": 41.04,
+      "end": 41.598
+    },
+    {
+      "text": "A",
+      "start": 41.92,
+      "end": 42.08
+    },
+    {
+      "text": "new",
+      "start": 42.08,
+      "end": 42.32
+    },
+    {
+      "text": "operating",
+      "start": 42.4,
+      "end": 42.96
+    },
+    {
+      "text": "standard",
+      "start": 42.96,
+      "end": 43.6
+    },
+    {
+      "text": "is",
+      "start": 43.6,
+      "end": 43.92
+    },
+    {
+      "text": "coming.",
+      "start": 43.92,
+      "end": 44.133
+    }
+  ]
+}

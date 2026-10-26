@@ -1,0 +1,128 @@
+{
+  "title": "Three Questions",
+  "length": 37.5,
+  "bpm": 96,
+  "bar": 2.5,
+  "beats": [
+    {
+      "n": 1,
+      "frame": "sf1",
+      "name": "The night",
+      "start": 0.0,
+      "end": 5.0,
+      "bars": "1–2",
+      "picture": "The Earth's night side from low orbit, looking up Australia's east coast: the thin line of airglow on the horizon, the stars, the coast's towns as light. A gold light at 14 Wattle Grove sends a beam up. The camera drifts forward.",
+      "voice": [["Every property comes with three questions.", 0.8]],
+      "screen": "Every property comes with *three questions.* (from frame 0), and the pin's label: 14 WATTLE GROVE",
+      "sound": "A low pad and a glassy shimmer of stars. A soft bell as the beam pulses (0:00.4)."
+    },
+    {
+      "n": 2,
+      "frame": "sf1b",
+      "name": "The dive",
+      "start": 5.0,
+      "end": 7.5,
+      "bars": "3",
+      "picture": "The camera falls toward the pin. The haze parts and Sydney resolves into streets of light, the harbour dark between them. It settles top-down, the pin at the centre.",
+      "voice": [],
+      "screen": "14 WATTLE GROVE · BANKSIA RISE NSW 2155",
+      "sound": "Air rushing, the pad opening, a swell in the sub."
+    },
+    {
+      "n": 3,
+      "frame": "sf2",
+      "name": "The first question",
+      "start": 7.5,
+      "end": 12.5,
+      "bars": "4–5",
+      "picture": "A spark leaves the pin and draws a gold line across the suburbs to a light (01). The light opens: a window rises above it with 14 Wattle Grove's floor plan, drawn in gold.",
+      "voice": [["Is it right for them?", 8.6]],
+      "screen": "THE ADVISER'S QUESTION, over: Is it *right* for them?",
+      "sound": "A slow pulse begins. The first note (D) as the line lands (0:08.3)."
+    },
+    {
+      "n": 4,
+      "frame": "sf3",
+      "name": "The second question",
+      "start": 12.5,
+      "end": 17.5,
+      "bars": "6–7",
+      "picture": "The window folds back into its light. A second line runs across the city (02), and a window rises with a closed Compliance Passport, seen close, a light crossing it. Its maker's name stays out of frame.",
+      "voice": [["Are they who they say they are?", 13.6]],
+      "screen": "THE COMPLIANCE QUESTION, over: Are they *who they say* they are?",
+      "sound": "The second note (F♯) at 0:13.3. An arpeggio joins."
+    },
+    {
+      "n": 5,
+      "frame": "sf4",
+      "name": "The third question",
+      "start": 17.5,
+      "end": 22.5,
+      "bars": "8–9",
+      "picture": "A third line climbs toward the harbour (03). Its window holds a Borrowing Capacity card; the pointer arrives on Calculate Capacity and waits. Nothing is pressed.",
+      "voice": [["Can they afford it?", 18.6]],
+      "screen": "THE BROKER'S QUESTION, over: Can they *afford* it?",
+      "sound": "The third note (A) at 0:18.3. Strings join."
+    },
+    {
+      "n": 6,
+      "frame": "sf4b",
+      "name": "The gap",
+      "start": 22.5,
+      "end": 27.5,
+      "bars": "10–11",
+      "picture": "The windows go dark. Three lights, far apart, each burning on its own; the lines between them and the property break into dashes and fade.",
+      "voice": [["Until now, each one was answered somewhere else.", 23.0]],
+      "screen": "Until now, each one was answered *somewhere else.*",
+      "sound": "The pulse stops. The three notes sound apart, unresolved, over a low drone."
+    },
+    {
+      "n": 7,
+      "frame": "sf5",
+      "name": "The shape",
+      "start": 27.5,
+      "end": 30.0,
+      "bars": "12",
+      "picture": "The camera draws in. The three lights reach for each other, edge by edge, until a triangle of light closes around 14 Wattle Grove.",
+      "voice": [["We've been building the answer.", 27.6]],
+      "screen": "We've been building *the answer.*",
+      "sound": "The three notes climb in a riser, then silence from 0:29.4."
+    },
+    {
+      "n": 8,
+      "frame": "sf6",
+      "name": "The answer",
+      "start": 30.0,
+      "end": 32.5,
+      "bars": "13",
+      "picture": "The camera tilts toward the horizon. The triangle stands up off the map and settles into the Aurixa emblem over the city, and the property's light rises into its orb.",
+      "voice": [],
+      "screen": "The supplied logo, for the first time",
+      "sound": "D, F♯ and A together, the chord, on a deep hit."
+    },
+    {
+      "n": 9,
+      "frame": "sf7",
+      "name": "The name",
+      "start": 32.5,
+      "end": 35.0,
+      "bars": "14",
+      "picture": "The supplied lettering rises under the emblem, and one line under that.",
+      "voice": [["Aurixa Systems.", 32.8]],
+      "screen": "AURIXA SYSTEMS, then: Built for the people who *ask them.*",
+      "sound": "The chord holds and shimmers."
+    },
+    {
+      "n": 10,
+      "frame": "sf8",
+      "name": "Soon",
+      "start": 35.0,
+      "end": 37.5,
+      "bars": "15",
+      "picture": "Everything falls away but the orb's light, alone in the dark, as the teaser began.",
+      "voice": [["Soon.", 35.6]],
+      "screen": "*Soon.*, and aurixasystems.com.au (or a date: decision 4)",
+      "sound": "The chord drops away to one note. The bell, once (0:36.25). Silence at 0:37.5."
+    }
+  ]
+}

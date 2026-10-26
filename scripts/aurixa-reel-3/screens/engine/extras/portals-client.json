@@ -1,0 +1,47 @@
+{
+ "_note": "Jordan Ellis' Client Portal account (fictional): invited by Alex at an address Jordan gave (the record holds none), activated with a password, the consent wall and the tour behind him, and the session his sign-in issued at 9:19:50 (24 hours, client-portal-login). What is published to the portal is in portals-snapshot.json or portals-snapshot-scenario.json.",
+ "client_portal_users": [
+  {
+   "id": "00000000-0000-4000-8000-0000000c1001",
+   "client_id": "00000000-0000-4000-8000-00000000e115",
+   "email": "jordan.ellis@example.com",
+   "password_hash": "$2b$10$e9/LGuUQo.lfxtwr4qs2hOcrDVVw8.DHmfZ6eG/p2mdLWnQC3Avxe",
+   "status": "active",
+   "invite_token": null,
+   "invite_expires_at": null,
+   "has_accepted_terms": true,
+   "terms_accepted_at": "2026-10-23T22:14:20.000Z",
+   "has_completed_onboarding": true,
+   "last_login_at": "2026-10-23T22:19:50.000Z",
+   "failed_login_attempts": 0,
+   "locked_until": null,
+   "password_reset_token": null,
+   "password_reset_expires_at": null,
+   "password_reset_attempts": 0,
+   "created_at": "2026-10-23T22:12:40.000Z",
+   "updated_at": "2026-10-23T22:19:50.000Z"
+  }
+ ],
+ "client_portal_sessions": [
+  {
+   "id": "00000000-0000-4000-8000-0000000c1101",
+   "user_id": "00000000-0000-4000-8000-0000000c1001",
+   "session_token": "8d2f6a41-93c7-4e5b-b1a8-6f0e4c27d913",
+   "token_hash": null,
+   "expires_at": "2026-10-24T22:19:50.000Z",
+   "idle_expires_at": null,
+   "last_used_at": "2026-10-23T22:19:50.000Z",
+   "revoked_at": null,
+   "revocation_reason": null,
+   "rotated_from_session_id": null,
+   "portal_scope": "client_portal",
+   "is_readonly": false,
+   "impersonator_staff_user_id": null,
+   "impersonator_finance_user_id": null,
+   "impersonator_finance_contact_id": null,
+   "ip_address": null,
+   "user_agent": null,
+   "created_at": "2026-10-23T22:19:50.000Z"
+  }
+ ]
+}

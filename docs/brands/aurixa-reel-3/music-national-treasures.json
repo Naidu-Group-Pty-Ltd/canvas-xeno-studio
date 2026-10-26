@@ -1,0 +1,707 @@
+{
+ "written": "2026-10-24",
+ "note": "National Treasures, the client's track (Reel 1's), under Reel 3's cut at its own tempo, cut on its own bar lines as pacing.py lays it out (music.py): nothing stretched.",
+ "asset": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+ "file": "Drake – National Treasures (Instrumental).mp3, 272.254 s, SHA-256 b22fc04d38b20007488cbd8669b2fe38352f81b29e2af46364d473af6e46d863",
+ "beat_checked": {
+  "bars": [
+   {
+    "bar": -9,
+    "expected": 5.5098,
+    "onset": 5.5549,
+    "off_ms": 45.1,
+    "rise_db": 0.5,
+    "attack_begins": null,
+    "after_splice_ms": null,
+    "quiet_before_db": -22.0
+   },
+   {
+    "bar": -8,
+    "expected": 7.3703,
+    "onset": 7.3149,
+    "off_ms": -55.5,
+    "rise_db": 0.4,
+    "attack_begins": null,
+    "after_splice_ms": null,
+    "quiet_before_db": -18.3
+   },
+   {
+    "bar": -7,
+    "expected": 9.2309,
+    "onset": 9.2749,
+    "off_ms": 43.9,
+    "rise_db": 3.8,
+    "attack_begins": null,
+    "after_splice_ms": null,
+    "quiet_before_db": -28.3
+   },
+   {
+    "bar": -3,
+    "expected": 16.6732,
+    "onset": 16.7149,
+    "off_ms": 41.7,
+    "rise_db": 2.9,
+    "attack_begins": null,
+    "after_splice_ms": null,
+    "quiet_before_db": -22.6
+   },
+   {
+    "bar": -2,
+    "expected": 18.5337,
+    "onset": 18.5849,
+    "off_ms": 51.1,
+    "rise_db": 2.6,
+    "attack_begins": null,
+    "after_splice_ms": null,
+    "quiet_before_db": -22.6
+   },
+   {
+    "bar": -1,
+    "expected": 20.3943,
+    "onset": 20.4449,
+    "off_ms": 50.6,
+    "rise_db": 2.2,
+    "attack_begins": null,
+    "after_splice_ms": null,
+    "quiet_before_db": -22.6
+   },
+   {
+    "bar": 0,
+    "expected": 22.2549,
+    "onset": 22.2549,
+    "off_ms": 0.0,
+    "rise_db": 25.5,
+    "attack_begins": 22.2509,
+    "after_splice_ms": 16.0,
+    "quiet_before_db": -42.1
+   },
+   {
+    "bar": 5,
+    "expected": 31.5577,
+    "onset": 31.5249,
+    "off_ms": -32.8,
+    "rise_db": 1.1,
+    "attack_begins": null,
+    "after_splice_ms": null,
+    "quiet_before_db": -12.3
+   },
+   {
+    "bar": 6,
+    "expected": 33.4182,
+    "onset": 33.4199,
+    "off_ms": 1.6,
+    "rise_db": 4.3,
+    "attack_begins": null,
+    "after_splice_ms": null,
+    "quiet_before_db": -9.3
+   },
+   {
+    "bar": 7,
+    "expected": 35.2788,
+    "onset": 35.2149,
+    "off_ms": -63.9,
+    "rise_db": 1.2,
+    "attack_begins": null,
+    "after_splice_ms": null,
+    "quiet_before_db": -11.2
+   },
+   {
+    "bar": 25,
+    "expected": 68.769,
+    "onset": 68.7849,
+    "off_ms": 15.9,
+    "rise_db": 1.1,
+    "attack_begins": null,
+    "after_splice_ms": null,
+    "quiet_before_db": -10.4
+   },
+   {
+    "bar": 26,
+    "expected": 70.6295,
+    "onset": 70.6299,
+    "off_ms": 0.3,
+    "rise_db": 4.3,
+    "attack_begins": null,
+    "after_splice_ms": null,
+    "quiet_before_db": -8.5
+   },
+   {
+    "bar": 27,
+    "expected": 72.4901,
+    "onset": 72.4549,
+    "off_ms": -35.2,
+    "rise_db": 1.1,
+    "attack_begins": null,
+    "after_splice_ms": null,
+    "quiet_before_db": -11.0
+   },
+   {
+    "bar": 31,
+    "expected": 79.9323,
+    "onset": 79.9449,
+    "off_ms": 12.5,
+    "rise_db": 1.1,
+    "attack_begins": null,
+    "after_splice_ms": null,
+    "quiet_before_db": -10.1
+   },
+   {
+    "bar": 32,
+    "expected": 81.7929,
+    "onset": 81.7899,
+    "off_ms": -3.1,
+    "rise_db": 3.9,
+    "attack_begins": null,
+    "after_splice_ms": null,
+    "quiet_before_db": -10.6
+   },
+   {
+    "bar": 33,
+    "expected": 83.6535,
+    "onset": 83.6549,
+    "off_ms": 1.4,
+    "rise_db": 0.8,
+    "attack_begins": null,
+    "after_splice_ms": null,
+    "quiet_before_db": -13.3
+   },
+   {
+    "bar": 41,
+    "expected": 98.538,
+    "onset": 98.5449,
+    "off_ms": 6.9,
+    "rise_db": 5.3,
+    "attack_begins": 98.539,
+    "after_splice_ms": 21.0,
+    "quiet_before_db": -43.8
+   },
+   {
+    "bar": 42,
+    "expected": 100.3985,
+    "onset": 100.3999,
+    "off_ms": 1.3,
+    "rise_db": 9.1,
+    "attack_begins": 100.3945,
+    "after_splice_ms": 16.0,
+    "quiet_before_db": -56.3
+   },
+   {
+    "bar": 43,
+    "expected": 102.2591,
+    "onset": 102.2649,
+    "off_ms": 5.7,
+    "rise_db": 3.5,
+    "attack_begins": 102.2631,
+    "after_splice_ms": 24.0,
+    "quiet_before_db": -47.9
+   },
+   {
+    "bar": 47,
+    "expected": 109.7014,
+    "onset": 109.7049,
+    "off_ms": 3.5,
+    "rise_db": 8.1,
+    "attack_begins": 109.6904,
+    "after_splice_ms": 9.0,
+    "quiet_before_db": -49.6
+   },
+   {
+    "bar": 48,
+    "expected": 111.5619,
+    "onset": 111.5649,
+    "off_ms": 2.9,
+    "rise_db": 17.3,
+    "attack_begins": 111.5559,
+    "after_splice_ms": 14.0,
+    "quiet_before_db": -47.2
+   },
+   {
+    "bar": 49,
+    "expected": 113.4225,
+    "onset": 113.4649,
+    "off_ms": 42.4,
+    "rise_db": 1.6,
+    "attack_begins": null,
+    "after_splice_ms": null,
+    "quiet_before_db": -6.6
+   },
+   {
+    "bar": 55,
+    "expected": 124.5859,
+    "onset": 124.5849,
+    "off_ms": -1.0,
+    "rise_db": 2.6,
+    "attack_begins": null,
+    "after_splice_ms": null,
+    "quiet_before_db": -9.7
+   },
+   {
+    "bar": 56,
+    "expected": 126.4464,
+    "onset": 126.4449,
+    "off_ms": -1.6,
+    "rise_db": 6.9,
+    "attack_begins": 126.4454,
+    "after_splice_ms": 19.0,
+    "quiet_before_db": -38.4
+   },
+   {
+    "bar": 57,
+    "expected": 128.307,
+    "onset": 128.3149,
+    "off_ms": 7.8,
+    "rise_db": 5.3,
+    "attack_begins": null,
+    "after_splice_ms": null,
+    "quiet_before_db": -23.7
+   },
+   {
+    "bar": 70,
+    "expected": 152.4943,
+    "onset": 152.4899,
+    "off_ms": -4.5,
+    "rise_db": 8.5,
+    "attack_begins": 152.4863,
+    "after_splice_ms": 12.0,
+    "quiet_before_db": -42.4
+   },
+   {
+    "bar": 71,
+    "expected": 154.3549,
+    "onset": 154.3399,
+    "off_ms": -15.0,
+    "rise_db": 2.4,
+    "attack_begins": null,
+    "after_splice_ms": null,
+    "quiet_before_db": -9.8
+   },
+   {
+    "bar": 72,
+    "expected": 156.2155,
+    "onset": 156.2149,
+    "off_ms": -0.6,
+    "rise_db": 9.8,
+    "attack_begins": 156.2065,
+    "after_splice_ms": 11.0,
+    "quiet_before_db": -45.3
+   },
+   {
+    "bar": 73,
+    "expected": 158.076,
+    "onset": 158.0799,
+    "off_ms": 3.8,
+    "rise_db": 2.5,
+    "attack_begins": null,
+    "after_splice_ms": null,
+    "quiet_before_db": -19.4
+   },
+   {
+    "bar": 75,
+    "expected": 161.7972,
+    "onset": 161.7999,
+    "off_ms": 2.7,
+    "rise_db": 3.7,
+    "attack_begins": null,
+    "after_splice_ms": null,
+    "quiet_before_db": -20.9
+   },
+   {
+    "bar": 76,
+    "expected": 163.6577,
+    "onset": 163.6699,
+    "off_ms": 12.1,
+    "rise_db": 4.4,
+    "attack_begins": null,
+    "after_splice_ms": null,
+    "quiet_before_db": -22.1
+   },
+   {
+    "bar": 77,
+    "expected": 165.5183,
+    "onset": 165.5249,
+    "off_ms": 6.6,
+    "rise_db": 1.9,
+    "attack_begins": null,
+    "after_splice_ms": null,
+    "quiet_before_db": -21.0
+   },
+   {
+    "bar": 85,
+    "expected": 180.4028,
+    "onset": 180.4049,
+    "off_ms": 2.1,
+    "rise_db": 1.8,
+    "attack_begins": null,
+    "after_splice_ms": null,
+    "quiet_before_db": -7.0
+   },
+   {
+    "bar": 86,
+    "expected": 182.2634,
+    "onset": 182.2599,
+    "off_ms": -3.5,
+    "rise_db": 22.9,
+    "attack_begins": 182.2534,
+    "after_splice_ms": 10.0,
+    "quiet_before_db": -43.8
+   },
+   {
+    "bar": 87,
+    "expected": 184.1239,
+    "onset": 184.0799,
+    "off_ms": -44.1,
+    "rise_db": 2.0,
+    "attack_begins": null,
+    "after_splice_ms": null,
+    "quiet_before_db": -8.7
+   },
+   {
+    "bar": 90,
+    "expected": 189.7056,
+    "onset": 189.6999,
+    "off_ms": -5.8,
+    "rise_db": 18.4,
+    "attack_begins": 189.7026,
+    "after_splice_ms": 17.0,
+    "quiet_before_db": -41.5
+   },
+   {
+    "bar": 91,
+    "expected": 191.5662,
+    "onset": 191.5199,
+    "off_ms": -46.3,
+    "rise_db": 2.5,
+    "attack_begins": null,
+    "after_splice_ms": null,
+    "quiet_before_db": -7.8
+   },
+   {
+    "bar": 92,
+    "expected": 193.4267,
+    "onset": 193.4199,
+    "off_ms": -6.9,
+    "rise_db": 17.4,
+    "attack_begins": 193.4217,
+    "after_splice_ms": 15.0,
+    "quiet_before_db": -42.3
+   }
+  ],
+  "worst_clear_ms": 6.9,
+  "drop_found": 22.24,
+  "drop_rise_db": 25.5,
+  "detector_bias_ms": -14.9,
+  "least_after_splice_ms": 9.0
+ },
+ "period": 0.46514101885610903,
+ "first_downbeat": 0.03,
+ "splice_lead": 0.02,
+ "crossfade": 0.03,
+ "entry_lead": 0.003,
+ "bars": {
+  "drop": 14.914513,
+  "stall": 26.077897,
+  "drop2": 29.799025,
+  "thin": 78.173691,
+  "breakdown": 93.058204,
+  "return": 96.779332,
+  "stop": 111.663845,
+  "build": 113.524409,
+  "biggest": 120.966665,
+  "statements": [
+   132.130049,
+   133.990613,
+   135.851178
+  ],
+  "reentry": 137.711742,
+  "operating": 139.572306,
+  "start": 143.293434,
+  "final": 145.153998
+ },
+ "film_bars": {
+  "drop": 8,
+  "stall": 14,
+  "drop2": 16,
+  "thin": 42,
+  "breakdown": 50,
+  "return": 52,
+  "stop": 60,
+  "build": 61,
+  "biggest": 65,
+  "statements": [
+   71,
+   72,
+   73
+  ],
+  "reentry": 74,
+  "operating": 75,
+  "start": 77,
+  "final": 78
+ },
+ "ring": 2.0,
+ "pieces": [
+  {
+   "film_bar": 0,
+   "bars": [
+    -8,
+    6
+   ],
+   "file_from": 7.340339,
+   "file_to": 33.398236,
+   "film_at": 0.0,
+   "why": "the intro's last eight bars, falling silent into the drop on the brand's cut, and six bars of its groove under the questionnaire"
+  },
+  {
+   "film_bar": 14,
+   "bars": [
+    -2,
+    26
+   ],
+   "file_from": 18.513723,
+   "file_to": 70.609518,
+   "film_at": 26.057897,
+   "why": "the intro's last two bars again, so the groove falls away under 'here's where speed meets opportunity', then the drop again on 'With just one click', and its groove through the assessment and the handover",
+   "entry": "crossfade",
+   "entry_levels_db": {
+    "before_its_bar": -26.2,
+    "the_film_there": -15.0,
+    "its_bar": -23.6
+   }
+  },
+  {
+   "film_bar": 42,
+   "bars": [
+    32,
+    42
+   ],
+   "file_from": 81.772902,
+   "file_to": 100.378543,
+   "film_at": 78.153691,
+   "why": "the groove thinned, under the partner portal and what each gains, its last bar leading into the breakdown's first phrase, under 'And that's just the beginning.'",
+   "entry": "crossfade",
+   "entry_levels_db": {
+    "before_its_bar": -16.2,
+    "the_film_there": -14.9,
+    "its_bar": -7.2
+   }
+  },
+  {
+   "film_bar": 52,
+   "bars": [
+    48,
+    56
+   ],
+   "file_from": 111.541927,
+   "file_to": 126.42644,
+   "film_at": 96.759332,
+   "why": "the groove's return, lighter, under the platform and the Aurixa Agent",
+   "entry": "crossfade",
+   "entry_levels_db": {
+    "before_its_bar": -47.3,
+    "the_film_there": -51.0,
+    "its_bar": -12.0
+   }
+  },
+  {
+   "film_bar": 60,
+   "bars": [
+    71,
+    72
+   ],
+   "file_from": 154.334901,
+   "file_to": 156.195465,
+   "film_at": 111.643845,
+   "why": "the stop's bass hit, on 'This means', and its quiet",
+   "entry": "bar",
+   "entry_levels_db": {
+    "before_its_bar": -8.8,
+    "the_film_there": -38.2,
+    "its_bar": -15.8
+   }
+  },
+  {
+   "film_bar": 61,
+   "bars": [
+    76,
+    86
+   ],
+   "file_from": 163.637721,
+   "file_to": 182.243362,
+   "film_at": 113.504409,
+   "why": "the keys building into the biggest section, which lands on 'Aurixa Systems has arrived' and runs through the free trial",
+   "entry": "bar",
+   "entry_levels_db": {
+    "before_its_bar": -29.8,
+    "the_film_there": -39.7,
+    "its_bar": -19.9
+   }
+  },
+  {
+   "film_bar": 71,
+   "bars": [
+    71,
+    72
+   ],
+   "file_from": 154.334901,
+   "file_to": 156.195465,
+   "film_at": 132.110049,
+   "why": "statement 1: the stop's bass hit and its ring",
+   "entry": "bar",
+   "entry_levels_db": {
+    "before_its_bar": -8.8,
+    "the_film_there": -24.0,
+    "its_bar": -15.8
+   }
+  },
+  {
+   "film_bar": 72,
+   "bars": [
+    71,
+    72
+   ],
+   "file_from": 154.334901,
+   "file_to": 156.195465,
+   "film_at": 133.970613,
+   "why": "statement 2: the bass hit again",
+   "entry": "bar",
+   "entry_levels_db": {
+    "before_its_bar": -10.2,
+    "the_film_there": -39.7,
+    "its_bar": -17.1
+   }
+  },
+  {
+   "film_bar": 73,
+   "bars": [
+    71,
+    72
+   ],
+   "file_from": 154.334901,
+   "file_to": 156.195465,
+   "film_at": 135.831178,
+   "why": "statement 3: the bass hit again",
+   "entry": "bar",
+   "entry_levels_db": {
+    "before_its_bar": -11.8,
+    "the_film_there": -41.0,
+    "its_bar": -18.7
+   }
+  },
+  {
+   "film_bar": 74,
+   "bars": [
+    91,
+    null
+   ],
+   "file_from": 191.546182,
+   "file_to": null,
+   "film_at": 137.691742,
+   "why": "the full return: the last bars of the biggest section, its closing hit on the final press, and the ring",
+   "entry": "bar",
+   "entry_levels_db": {
+    "before_its_bar": -9.4,
+    "the_film_there": -42.6,
+    "its_bar": -4.6
+   }
+  }
+ ],
+ "sections": [
+  {
+   "label": "The intro's last eight bars, falling silent into the drop",
+   "from_bar": 0,
+   "to_bar": 8,
+   "volume": 0.6,
+   "duck": 0.25
+  },
+  {
+   "label": "The drop and the groove, under the brand and the questionnaire",
+   "from_bar": 8,
+   "to_bar": 14,
+   "volume": 0.5,
+   "duck": 0.22
+  },
+  {
+   "label": "The intro's last two bars again, falling away under 'here's where speed meets opportunity'",
+   "from_bar": 14,
+   "to_bar": 16,
+   "volume": 0.6,
+   "duck": 0.25
+  },
+  {
+   "label": "The drop again on 'With just one click', the groove under the assessment and the handover",
+   "from_bar": 16,
+   "to_bar": 42,
+   "volume": 0.5,
+   "duck": 0.22
+  },
+  {
+   "label": "The groove thinned, under the partner portal and what each gains",
+   "from_bar": 42,
+   "to_bar": 50,
+   "volume": 0.5,
+   "duck": 0.22
+  },
+  {
+   "label": "The breakdown's first phrase, under 'And that's just the beginning.'",
+   "from_bar": 50,
+   "to_bar": 52,
+   "volume": 0.7,
+   "duck": null
+  },
+  {
+   "label": "The groove's return, lighter, under the platform and the Aurixa Agent",
+   "from_bar": 52,
+   "to_bar": 60,
+   "volume": 0.5,
+   "duck": 0.22
+  },
+  {
+   "label": "The stop's bass hit on 'This means', and its quiet",
+   "from_bar": 60,
+   "to_bar": 61,
+   "volume": 0.7,
+   "duck": null
+  },
+  {
+   "label": "The keys building, under what it means",
+   "from_bar": 61,
+   "to_bar": 65,
+   "volume": 0.38,
+   "duck": 0.14
+  },
+  {
+   "label": "The biggest section, under 'Aurixa Systems has arrived' and the free trial",
+   "from_bar": 65,
+   "to_bar": 71,
+   "volume": 0.6,
+   "duck": 0.25
+  },
+  {
+   "label": "Statement 1, on the bass hit",
+   "from_bar": 71,
+   "to_bar": 72,
+   "volume": 0.7,
+   "duck": null
+  },
+  {
+   "label": "Statement 2, on the bass hit",
+   "from_bar": 72,
+   "to_bar": 73,
+   "volume": 0.6,
+   "duck": null
+  },
+  {
+   "label": "Statement 3, on the bass hit",
+   "from_bar": 73,
+   "to_bar": 74,
+   "volume": 0.5,
+   "duck": null
+  },
+  {
+   "label": "The full return, the closing hit and its ring",
+   "from_bar": 74,
+   "to_bar": null,
+   "volume": 0.6,
+   "duck": 0.3
+  }
+ ]
+}

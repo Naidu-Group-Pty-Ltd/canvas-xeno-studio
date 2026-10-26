@@ -1,0 +1,28 @@
+/*
+ * The demo workspace's own colours, as the client's screenshots of it show them (Reel 1's portal plates measured
+ * them): the product's dark theme under the tenant's blue brand. BrandProvider applies a tenant's tokens at run
+ * time from its white-label settings; the harness has no tenant, so it states them.
+ */
+.dark {
+  --background: 234 29% 6%;
+  --foreground: 240 6% 93%;
+  --card: 230 17% 7%;
+  --card-foreground: 240 6% 93%;
+  --popover: 230 17% 7%;
+  --popover-foreground: 240 6% 93%;
+  --muted: 230 12% 12%;
+  --muted-foreground: 222 12% 61%;
+  --primary: 229 93% 45%;
+  --primary-foreground: 0 0% 100%;
+  --primary-hover: 229 93% 40%;
+  --accent: 229 93% 45%;
+  --accent-foreground: 0 0% 100%;
+  --secondary: 230 12% 12%;
+  --secondary-foreground: 240 6% 93%;
+  --border: 228 14% 18%;
+  --input: 228 14% 18%;
+  --ring: 229 93% 55%;
+  --success: 149 63% 55%;
+  --warning: 42 61% 61%;
+  --brand: 229 93% 45%;
+}

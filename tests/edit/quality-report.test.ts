@@ -76,11 +76,13 @@ function workerReport(overrides: Record<string, unknown> = {}) {
     fidelity: {
       frames_measured: 300,
       every: 1,
+      ssim_measure: "luma",
       ssim: {
-        mean: 0.9893,
-        min: 0.981,
-        worst: [{ frame: 120, time: 4, ssim: 0.981, psnr_db: 41 }],
+        mean: 0.9963,
+        min: 0.9931,
+        worst: [{ frame: 120, time: 4, ssim: 0.9931, psnr_db: 41 }],
       },
+      ssim_planes: { y: 0.9963, u: 0.9978, v: 0.9975, all: 0.9968 },
       psnr_db: { mean: 44.6, min: 41, worst: [{ frame: 120, time: 4, ssim: 0.981, psnr_db: 41 }] },
     },
     pixels: {
@@ -150,7 +152,7 @@ describe("a render's quality report", () => {
     );
     expect(text).toContain("1 caption not on its planned frames: 0:02.6 to 0:04.2.");
     expect(text).toContain("The cut into clip 3 (at 0:05.0) lands 1 frame late.");
-    expect(text).toContain("SSIM 0.9893 against its own reference (0.98 or more).");
+    expect(text).toContain("SSIM of its luma 0.9963 against its own reference (0.992 or more).");
     expect(text).toContain(
       "The brand's #0832de kept: CIEDE2000 0.21. The edit draws it CIEDE2000 1.78 from the kit's own value.",
     );
@@ -191,6 +193,29 @@ describe("a render's quality report", () => {
     expect(runsOn).toContain(
       "The music runs on through the cuts on its beats, with no clear attack to judge at them.",
     );
+  });
+
+  test("a report measured before the luma reads as it was written: SSIM in RGB, on its own line", () => {
+    // Kept on renders made before SSIM moved to the luma: its check carries its own limit (0.98).
+    const older = readQualityReport({
+      version: 1,
+      status: "measured",
+      frames: 300,
+      fps: 30,
+      fidelity: {
+        frames_measured: 300,
+        every: 1,
+        ssim: { mean: 0.9893, min: 0.981 },
+        psnr_db: { mean: 44.6, min: 41 },
+      },
+      checks: [{ id: "ssim", result: "pass", value: 0.9893, limit: 0.98 }],
+      passes: 1,
+      flags: 0,
+    })!;
+    expect(older.fidelity?.ssim_measure).toBeUndefined();
+    expect(qualityLines(older).map((entry) => entry.text)).toEqual([
+      "SSIM 0.9893 against its own reference (0.98 or more).",
+    ]);
   });
 
   test("a sampled, a passed-through and an unmeasured render say so", () => {

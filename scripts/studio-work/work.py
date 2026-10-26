@@ -78,6 +78,8 @@ FILES_PER_SAVE = int(os.environ.get("XENO_WORK_FILES_PER_SAVE", "400"))
 PARTS_PER_OFFER = int(os.environ.get("XENO_WORK_PARTS_PER_OFFER", "200"))
 FILES_PER_PAGE = int(os.environ.get("XENO_WORK_FILES_PER_PAGE", "200"))
 WIDTH = 4
+# How many of a page's files a pull fetches at once.
+PULL_WIDTH = int(os.environ.get("XENO_WORK_PULL_WIDTH", "8"))
 WORK_ROOT = "work"
 CODE = "code"
 STEP_STATUSES = ("todo", "doing", "done", "blocked", "skipped")
@@ -1183,6 +1185,7 @@ def pull(cfg: dict, *, force=False, only=None, quiet=False) -> dict:
     present: set[str] = set()
     while True:
         page = call("get_work_files", {"workId": cfg["workId"], **({"after": after} if after else {}), "limit": FILES_PER_PAGE})
+        jobs: list[tuple[dict, Path, bool]] = []  # each file to fetch: where it goes, and whether it is set aside
         for file in page["files"]:
             present.add(file["path"])
             if only and not under(file["path"], only):
@@ -1209,17 +1212,22 @@ def pull(cfg: dict, *, force=False, only=None, quiet=False) -> dict:
                 committed_copy = bool(saved_on) and head == saved_on and git_tracked_clean(target)
                 derived = file["path"].startswith(f"{WORK_ROOT}/{CODE}/")
                 if not (force or unchanged_here or committed_copy or derived):
-                    aside = target.with_name(f"{target.name}.studio-v{file['version']}")
-                    fetch_file(file, aside)
-                    set_aside += 1
-                    say(f"  {file['path']}: changed here and in the studio: kept this one, the studio's is beside it as {aside.name}", quiet=quiet)
+                    jobs.append((file, target.with_name(f"{target.name}.studio-v{file['version']}"), True))
                     continue
-            fetch_file(file, target)
-            info = target.stat()
-            index["files"][file["path"]] = {"size": info.st_size, "mtime_ns": info.st_mtime_ns, "sha256": file["sha256"],
-                                            "parts": None, "saved_sha": file["sha256"]}
-            fetched += 1
-            code_came = code_came or file["path"].startswith(f"{WORK_ROOT}/{CODE}/")
+            jobs.append((file, target, False))
+        # The page's files come PULL_WIDTH at a time: a small file is mostly the round trips to storage (about 0.7 s
+        # each, measured), so one at a time a helper spent ten minutes fetching Reel 3's 672 render assets.
+        with ThreadPoolExecutor(PULL_WIDTH) as pool:
+            for (file, dest, aside), _ in zip(jobs, pool.map(lambda job: fetch_file(job[0], job[1]), jobs)):
+                if aside:
+                    set_aside += 1
+                    say(f"  {file['path']}: changed here and in the studio: kept this one, the studio's is beside it as {dest.name}", quiet=quiet)
+                    continue
+                info = dest.stat()
+                index["files"][file["path"]] = {"size": info.st_size, "mtime_ns": info.st_mtime_ns, "sha256": file["sha256"],
+                                                "parts": None, "saved_sha": file["sha256"]}
+                fetched += 1
+                code_came = code_came or file["path"].startswith(f"{WORK_ROOT}/{CODE}/")
         save_index(cfg, index)
         if not page.get("more"):
             break
