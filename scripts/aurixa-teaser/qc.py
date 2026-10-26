@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Measures the teaser's delivery master (encode.sh) against the lossless reference it was made from (render.cjs).
 
-  python3 -I scripts/aurixa-teaser/qc.py <master.mp4> <reference.mkv> <out.json>
+  python3 -I scripts/aurixa-teaser/qc.py <master.mp4> <reference.mkv> <out.json> [frames]
+
+[frames] is how many the film has: Three Questions' 1,125 unless given (As One's are 1,365).
 
   streams    what the file is: codec, profile, size, rate, colour tags, frame count, length, sound
   fidelity   SSIM and PSNR of the master, decoded as a player decodes it, against the reference: whole film and
@@ -21,6 +23,7 @@ import sys
 import numpy as np
 
 MASTER, REF, OUT = sys.argv[1], sys.argv[2], sys.argv[3]
+FRAMES = int(sys.argv[4]) if len(sys.argv) > 4 else 1125
 W, H = 540, 960
 TO_RGB = "zscale=rangein=limited:matrixin=709:primariesin=709:transferin=709:range=full:primaries=709:transfer=709:filter=bilinear,format=gbrp"
 
@@ -66,8 +69,8 @@ black = re.findall(r"black_start:([\d.]+) black_end:([\d.]+)", run(["ffmpeg", "-
 
 report = {"streams": streams, "fidelity": fidelity, "sound": sound, "flicker_odd_frames": odd, "black": black}
 problems = []
-if streams["video"]["nb_read_frames"] != "1125":
-    problems.append(f"{streams['video']['nb_read_frames']} frames, not 1125")
+if streams["video"]["nb_read_frames"] != str(FRAMES):
+    problems.append(f"{streams['video']['nb_read_frames']} frames, not {FRAMES}")
 if abs(sound["integrated_lufs"] + 14) > 0.5:
     problems.append(f"loudness {sound['integrated_lufs']} LUFS")
 if sound["true_peak_dbtp"] > -0.9:
