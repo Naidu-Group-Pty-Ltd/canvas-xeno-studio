@@ -15,6 +15,9 @@ Drawn from those, as no real street is named or traced:
   - the lights: every street lit in proportion to the people around it, a scatter of house lights, the tall
     centres bright and cool, a few industrial estates floodlit in sodium orange, and the shore's lights reflected
     in the water.
+Every random pattern (the warps, the seeds, the street grids, the sparkle, the centres' towers) is anchored to
+the ground in kilometres, not to the picture, so a view at any scale draws the same city: the teaser's dive zooms
+from the whole basin to the suburbs through renders at several scales without the streets changing under it.
 Prints the screen points (at 1080 wide) of the property, the three offices and the CBD."""
 import json
 import sys
@@ -60,23 +63,38 @@ E, N = cd.px_to_km(v, xx, yy)
 E, N = E.astype(np.float32), N.astype(np.float32)
 
 
-def noise(scale_km, seed, octaves=1):
-    """Smooth noise in the plane, about unit amplitude, its features `scale_km` across."""
+WORLD = 400.0  # km from the property that the ground's patterns are laid over
+
+
+def noise_at(e, n_, scale_km, seed, octaves=1):
+    """Smooth noise on the ground, about unit amplitude, its features `scale_km` across, at (e, n) km: the same
+    values wherever, and at whatever scale, it is drawn."""
     r = np.random.default_rng(seed)
-    out = np.zeros((H, W), np.float32)
+    out = np.zeros(e.shape, np.float32)
     amp = 1.0
     for o in range(octaves):
         sc = scale_km / 2 ** o
-        n = max(4, int(max(H, W) * px_km / sc) + 4)
+        n = int(2 * WORLD / sc) + 4
         g = ndimage.gaussian_filter(r.normal(0, 1, (n, n)).astype(np.float32), 1.2)
         g /= g.std() + 1e-6
-        e0, n0 = E.min(), N.min()
-        span = max(E.max() - e0, N.max() - n0) + 1e-3
-        gi = (N - n0) / span * (n - 3) + 1
-        gj = (E - e0) / span * (n - 3) + 1
-        out += amp * ndimage.map_coordinates(g, [gi.ravel(), gj.ravel()], order=1).reshape(H, W)
+        gi = (n_ + WORLD) / (2 * WORLD) * (n - 3) + 1
+        gj = (e + WORLD) / (2 * WORLD) * (n - 3) + 1
+        out += amp * ndimage.map_coordinates(g, [gi.ravel(), gj.ravel()], order=1).reshape(e.shape)
         amp *= 0.5
     return out
+
+
+def noise(scale_km, seed, octaves=1):
+    return noise_at(E, N, scale_km, seed, octaves)
+
+
+def hash01(e, n_, cell_km, salt):
+    """A value in [0, 1) for each cell of `cell_km` on the ground: fixed to the ground, not to the picture."""
+    ci = np.floor(e / cell_km).astype(np.int64)
+    cj = np.floor(n_ / cell_km).astype(np.int64)
+    h = (ci * 73856093) ^ (cj * 19349663) ^ (salt * 83492791)
+    h = (h ^ (h >> 13)) * 1274126177
+    return ((h ^ (h >> 16)) & 0xFFFFFF).astype(np.float32) / float(0x1000000)
 
 
 warp_e = noise(3.2, 11, 2) * 0.32
@@ -88,20 +106,25 @@ dens = dens_raw * np.clip(0.72 + 0.55 * noise(1.1, 13, 2), 0.05, 1.6)
 # ------------------------------------------------------------------ the seeds of the road network
 lit = np.clip(dens / 2500.0, 0, 1.6)
 seeds = [(p["e"], p["nn"], p["p"]) for p in pl]
-# More seeds where people are densest: one about every 3,000 people, laid by the density field.
-flat = (dens * land).ravel().astype(np.float64)
-total = flat.sum() * px_km ** 2
+# More seeds where people are densest, one about every 5,200 people, laid by a density field on the ground
+# itself (north up, 0.5 km a cell, 200 km each way), so every view gets the same seeds.
+gw = dict(cx=400.0, cy=400.0, up=0.0, s=2.0, w=800, h=800)
+g_land = cd.land(gw, WHL, ss=2)
+gy, gx = np.mgrid[0:800, 0:800].astype(np.float32) + 0.5
+g_e, g_n = cd.px_to_km(gw, gx, gy)
+g_dens = cd.density(gw, pl, g_land) * np.clip(0.72 + 0.55 * noise_at(g_e, g_n, 1.1, 13, 2), 0.05, 1.6)
+flat = (g_dens * g_land).ravel().astype(np.float64)
+total = flat.sum() * 0.25
+rs = np.random.default_rng(2155)
 n_extra = int(min(total / 5200.0, 6000))
 if n_extra:
-    pick = rng.choice(flat.size, n_extra, p=flat / flat.sum())
+    pick = rs.choice(flat.size, n_extra, p=flat / flat.sum())
     for k in pick:
-        seeds.append((float(E.ravel()[k]) + rng.normal(0, 0.2), float(N.ravel()[k]) + rng.normal(0, 0.2), 2000))
+        seeds.append((float(g_e.ravel()[k]) + rs.normal(0, 0.2), float(g_n.ravel()[k]) + rs.normal(0, 0.2), 2000))
 # A sparse field of seeds everywhere, so the cells in the bush stay bounded (their roads stay dark).
-box_e = (E.min() - 4, E.max() + 4)
-box_n = (N.min() - 4, N.max() + 4)
-n_rural = int((box_e[1] - box_e[0]) * (box_n[1] - box_n[0]) / 12.0)
+n_rural = int((2 * 200.0) ** 2 / 12.0)
 for _ in range(n_rural):
-    seeds.append((rng.uniform(*box_e), rng.uniform(*box_n), 300))
+    seeds.append((rs.uniform(-200, 200), rs.uniform(-200, 200), 300))
 seeds = np.array(seeds, np.float64)
 tree = cKDTree(seeds[:, :2])
 q = np.stack([We.ravel(), Wn.ravel()], -1)
@@ -124,11 +147,12 @@ del q, d, idx, db, ib
 
 # ------------------------------------------------------------------ the streets in each cell
 ncell = len(seeds)
-theta = rng.uniform(0, np.pi, ncell).astype(np.float32)
-spacing = rng.uniform(0.085, 0.14, ncell).astype(np.float32)  # km between parallel streets
-block = rng.uniform(2.0, 3.2, ncell).astype(np.float32)  # the cross streets are this many times further apart
+rc = np.random.default_rng(1234)
+theta = rc.uniform(0, np.pi, ncell).astype(np.float32)
+spacing = rc.uniform(0.085, 0.14, ncell).astype(np.float32)  # km between parallel streets
+block = rc.uniform(2.0, 3.2, ncell).astype(np.float32)  # the cross streets are this many times further apart
 far_out = np.hypot(seeds[:, 0] - 27.1, seeds[:, 1] + 19.1) > 30  # beyond 30 km of the CBD: the newer suburbs
-curl = np.where(far_out, rng.uniform(0.6, 1.4, ncell), rng.uniform(0.0, 0.35, ncell)).astype(np.float32)
+curl = np.where(far_out, rc.uniform(0.6, 1.4, ncell), rc.uniform(0.0, 0.35, ncell)).astype(np.float32)
 th, sp, bl, cu = theta[cell], spacing[cell], block[cell], curl[cell]
 ce, cn = seeds[cell, 0].astype(np.float32), seeds[cell, 1].astype(np.float32)
 le, ln = We - ce, Wn - cn
@@ -157,9 +181,10 @@ wide = ndimage.gaussian_filter(dens, 2.0 / px_km)  # the metro's extent, kilomet
 in_metro = np.clip((wide - 250.0) / 900.0, 0, 1)
 vary = 0.5 + 0.5 * np.clip(noise(0.7, 31) * 0.5 + 0.5, 0, 1)  # roads brighter and dimmer along their length
 L_art = art * np.clip((dens - 250.0) / 1600.0, 0, 1) ** 0.8 * vary * 0.62
-L_maj = major * keep_major * (0.06 + 0.94 * in_metro) * (0.55 + 0.45 * vary) * 1.05
+L_maj = major * keep_major * in_metro * (0.55 + 0.45 * vary) * 1.05
 L_res = street * np.clip(pop_here, 0, 1.2) ** 1.25 * 0.46 * (0.7 + 0.3 * vary)
-sparkle = (rng.random((H, W)) < 0.009 * np.clip(pop_here, 0.004, 1.2)).astype(np.float32) * rng.uniform(0.5, 2.0, (H, W)).astype(np.float32)
+sparkle = ((hash01(E, N, 0.035, 1) < 0.009 * np.clip(pop_here, 0.004, 1.2)).astype(np.float32)
+           * (0.5 + 1.5 * hash01(E, N, 0.035, 2)))
 SODIUM = np.array([1.0, 0.66, 0.30], np.float32)
 WARM = np.array([1.0, 0.84, 0.58], np.float32)
 WHITE = np.array([1.0, 0.95, 0.88], np.float32)
@@ -179,17 +204,19 @@ for name, k in CENTRES.items():
     if not p:
         continue
     x, y = cd.km_to_px(v, p["e"], p["nn"])
-    n = int(260 * k * K * K)
-    sig = 0.20 * np.sqrt(k) / px_km
-    qx, qy = rng.normal(x, sig, n), rng.normal(y, sig, n)
+    rt = np.random.default_rng(abs(hash(name)) % (2 ** 31))
+    n = int(1040 * k)
+    te, tn = rt.normal(p["e"], 0.20 * np.sqrt(k), n), rt.normal(p["nn"], 0.20 * np.sqrt(k), n)
+    amp = rt.uniform(0.2, 1.3, n) * (K * K / 4) * (v["s"] / (36.0 * K)) ** 0  # each tower's light, as drawn at 2160
+    qx, qy = cd.km_to_px(v, te, tn)
     ok = (qx >= 0) & (qx < W) & (qy >= 0) & (qy < H)
-    np.add.at(cent, (qy[ok].astype(int), qx[ok].astype(int)), rng.uniform(0.2, 1.3, ok.sum()))
+    np.add.at(cent, (qy[ok].astype(int), qx[ok].astype(int)), amp[ok])
 cent *= on_land
 light += cent[..., None] * (COOL * 0.35 + WHITE * 0.65)
 # Industrial estates: some cells floodlit, in sodium orange.
 ind_cells = rng.random(ncell) < 0.06
 ind = ind_cells[cell] & (dens > 400) & (dens < 3200)
-flood = (ind & (rng.random((H, W)) < 0.02)).astype(np.float32) * rng.uniform(0.6, 2.4, (H, W)).astype(np.float32)
+flood = (ind & (hash01(E, N, 0.03, 3) < 0.02)).astype(np.float32) * (0.6 + 1.8 * hash01(E, N, 0.03, 4))
 light += flood[..., None] * SODIUM
 light *= on_land[..., None]
 

@@ -23,51 +23,40 @@ from PIL import Image
 from scipy import ndimage
 
 Image.MAX_IMAGE_PIXELS = None
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import orbitcam  # noqa: E402
+
 S = Path(sys.argv[1])
 OUT = Path(sys.argv[2])
 W = int(sys.argv[3])
 H = W * 16 // 9
 ARGS = dict(a.split("=") for a in sys.argv[4:])
+# padx, pady (frame px at 1080 wide) widen the picture past the frame on every side, with the same camera: the
+# film's dive turns the picture as it falls, and its corners must never show. The frame inside is the one drawn
+# without them, but for the lights just past its edge now glowing into it.
 P = {k: float(ARGS.get(k, v)) for k, v in dict(
     lat=-41.6, lon=147.2, alt=900.0, heading=24.0, pitch=-44.0, vfov=62.0, roll=0.0, glow=1.0, seed=14,
-    moon_az=72.0, moon_el=16.0, sheen=1.0, stars=1.0).items()}
-RE = 6371.0
+    moon_az=72.0, moon_el=16.0, sheen=1.0, stars=1.0, padx=0.0, pady=0.0).items()}
+RE = orbitcam.RE
 PROPERTY = (150.915, -33.692)  # Reel 1's gold pin: 14 Wattle Grove, Banksia Rise NSW 2155 (a suburb that does not exist)
 rng = np.random.default_rng(int(P["seed"]))
-
-
-def unit(lat, lon):
-    la, lo = np.radians(lat), np.radians(lon)
-    return np.stack([np.cos(la) * np.cos(lo), np.cos(la) * np.sin(lo), np.sin(la)], -1)
-
+sc = W / 1080
+PX, PY = int(round(P["padx"] * sc)), int(round(P["pady"] * sc))
+CW, CH = W + 2 * PX, H + 2 * PY  # the picture, the frame and its margins
+unit = orbitcam.unit
 
 # ------------------------------------------------------------------ the camera
-up0 = unit(P["lat"], P["lon"])
-east = np.array([-np.sin(np.radians(P["lon"])), np.cos(np.radians(P["lon"])), 0.0])
-north = np.cross(up0, east)
-cam = up0 * (RE + P["alt"])
-hd, pt = np.radians(P["heading"]), np.radians(P["pitch"])
-fwd = np.cos(pt) * (np.cos(hd) * north + np.sin(hd) * east) + np.sin(pt) * up0
-right = np.cross(fwd, up0)
-right /= np.linalg.norm(right)
-cup = np.cross(right, fwd)
-rl = np.radians(P["roll"])
-right, cup = np.cos(rl) * right + np.sin(rl) * cup, -np.sin(rl) * right + np.cos(rl) * cup
-ty = np.tan(np.radians(P["vfov"]) / 2)
-tx = ty * W / H
+CAM = orbitcam.camera(P, W, H)
+cam, fwd, right, cup, tx, ty = (CAM[k] for k in ("cam", "fwd", "right", "cup", "tx", "ty"))
 
 
 def to_screen(pts):
-    """World points (n, 3) to screen (x, y) and whether each faces the camera and is in front of it."""
-    v = pts - cam
-    z = v @ fwd
-    x = (v @ right) / np.maximum(z, 1e-6) / tx
-    y = (v @ cup) / np.maximum(z, 1e-6) / ty
-    facing = np.einsum("ij,ij->i", pts / np.linalg.norm(pts, axis=1, keepdims=True), -v) > 0
-    return (x + 1) * W / 2, (1 - y) * H / 2, (z > 0) & facing
+    """World points (n, 3) to the picture's (x, y), margins included, and whether each is seen."""
+    x, y, seen = orbitcam.to_screen(CAM, pts)
+    return x + PX, y + PY, seen
 
 
-jj, ii = np.meshgrid((np.arange(W) + 0.5) / W * 2 - 1, 1 - (np.arange(H) + 0.5) / H * 2)
+jj, ii = np.meshgrid((np.arange(CW) + 0.5 - PX) / W * 2 - 1, 1 - (np.arange(CH) + 0.5 - PY) / H * 2)
 d = fwd[None, None] + jj[..., None] * tx * right + ii[..., None] * ty * cup
 d /= np.linalg.norm(d, axis=-1, keepdims=True)
 b = d @ cam
@@ -132,7 +121,7 @@ half_v = -d + moon_dir[None, None]
 half_v /= np.linalg.norm(half_v, axis=-1, keepdims=True)
 nh = np.clip(np.einsum("ijk,ijk->ij", Nrm, half_v), 0, 1)
 waves = ndimage.gaussian_filter(rng.normal(0, 1, (H, W)).astype(np.float32), 2.2 * W / 1080)
-waves = np.clip(0.5 + waves / (waves.std() + 1e-6) * 0.25, 0, 1)
+waves = np.pad(np.clip(0.5 + waves / (waves.std() + 1e-6) * 0.25, 0, 1), ((PY, PY), (PX, PX)), mode="reflect")
 sheen = (nh ** 900 * 0.22 + nh ** 140 * 0.07 * (0.5 + waves)) * sea * hit
 img += sheen[..., None] * np.array([0.62, 0.74, 0.95], np.float32) * P["sheen"]
 # Limb darkening on the ground, then the haze of the air the ray crosses near the edge.
@@ -149,10 +138,17 @@ glow_line = np.exp(-((hmin - 92.0) / 7.0) ** 2) * sky
 haze = np.exp(-np.maximum(hmin, 0) / 16.0) * sky
 img += glow_line[..., None] * np.array([0.10, 0.62, 0.66], np.float32) * 0.55 * P["glow"]
 img += haze[..., None] * haze_col * 0.55 * P["glow"]
-stars = np.zeros((H, W), np.float32)
+stars = np.zeros((CH, CW), np.float32)
 n_st = int(W * H / 1500 * P["stars"])
-sx, sy = rng.integers(0, W, n_st), rng.integers(0, H, n_st)
+sx, sy = rng.integers(0, W, n_st) + PX, rng.integers(0, H, n_st) + PY
 mag = rng.pareto(2.6, n_st) * 0.10 + 0.04
+if PX or PY:  # the margins' own stars, drawn apart so the frame's stay where they were
+    r2 = np.random.default_rng(int(P["seed"]) + 1)
+    n2 = int(CW * CH / 1500 * P["stars"])
+    x2, y2 = r2.integers(0, CW, n2), r2.integers(0, CH, n2)
+    out = (x2 < PX) | (x2 >= PX + W) | (y2 < PY) | (y2 >= PY + H)
+    sx, sy = np.concatenate([sx, x2[out]]), np.concatenate([sy, y2[out]])
+    mag = np.concatenate([mag, r2.pareto(2.6, n2)[out] * 0.10 + 0.04])
 ok = sky[sy, sx] & (hmin[sy, sx] > 140)
 np.add.at(stars, (sy[ok], sx[ok]), np.minimum(mag[ok], 1.4))
 stars = ndimage.gaussian_filter(stars, 0.6 * W / 1080) * (W / 1080) ** 2 * 1.6
@@ -179,21 +175,38 @@ for p in places:
     cols.append(WARM[rng.choice(4, n, p=[0.44, 0.30, 0.20, 0.06])])
 pts, amps, cols = np.concatenate(pts), np.concatenate(amps), np.concatenate(cols)
 lx, ly, vis = to_screen(pts)
-k = vis & (lx >= 0) & (lx < W) & (ly >= 0) & (ly < H)
-light = np.zeros((H, W, 3), np.float32)
+k = vis & (lx >= 0) & (lx < CW) & (ly >= 0) & (ly < CH)
+light = np.zeros((CH, CW, 3), np.float32)
 np.add.at(light, (ly[k].astype(int), lx[k].astype(int)), cols[k] * amps[k, None])
-sc = W / 1080
+
+
+def blur(a, sigma):
+    """A Gaussian blur. A wide one is taken at a fraction of the size and brought back up: a glow that wide has
+    nothing in it the smaller picture loses, and it takes seconds where the full one takes minutes."""
+    f = int(sigma // 4)
+    if f < 3:
+        return ndimage.gaussian_filter(a, sigma)
+    h, w = a.shape
+    hp, wp = -(-h // f) * f, -(-w // f) * f
+    small = np.pad(a, ((0, hp - h), (0, wp - w)), mode="edge").reshape(hp // f, f, wp // f, f).mean(axis=(1, 3))
+    small = ndimage.gaussian_filter(small, sigma / f)
+    big = Image.fromarray(small.astype(np.float32), mode="F").resize((wp, hp), Image.BILINEAR)
+    return np.asarray(big)[:h, :w]
+
+
 bloom = np.zeros_like(light)
 for s, w in ((0.7, 1.0), (2.2, 0.55), (7, 0.32), (24, 0.16), (70, 0.08)):
-    bloom += w * np.stack([ndimage.gaussian_filter(light[..., ch], s * sc) for ch in range(3)], -1)
+    bloom += w * np.stack([blur(light[..., ch], s * sc) for ch in range(3)], -1)
 img += bloom * 1.35
 
 # ------------------------------------------------------------------ tone, vignette, grain
-yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
-vig = 1 - 0.35 * (((xx / W - 0.5) * 1.3) ** 2 + ((yy / H - 0.52) * 0.9) ** 2)
-img *= vig[..., None]
+yy, xx = np.mgrid[0:CH, 0:CW].astype(np.float32)
+vig = 1 - 0.35 * ((((xx - PX) / W - 0.5) * 1.3) ** 2 + (((yy - PY) / H - 0.52) * 0.9) ** 2)
+img *= np.maximum(vig, 0.2)[..., None]
 img = 1 - np.exp(-img * 1.6)  # a soft shoulder, so the brightest cities never clip flat
 img += rng.normal(0, 0.006, img.shape).astype(np.float32)
 Image.fromarray(np.clip(img * 255 + 0.5, 0, 255).astype(np.uint8)).save(OUT)
 px, py, pv = to_screen(unit(PROPERTY[1], PROPERTY[0])[None] * RE)
-print(json.dumps({"property": [float(px[0]) / sc, float(py[0]) / sc], "visible": bool(pv[0]), "params": P}))
+# The pin in the frame's own px at 1080 wide (the margins, frame px, around it).
+print(json.dumps({"property": [float(px[0] - PX) / sc, float(py[0] - PY) / sc], "visible": bool(pv[0]),
+                  "pad": [PX / sc, PY / sc], "params": P}))
