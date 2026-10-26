@@ -1,0 +1,120 @@
+{
+  "title": "Three Questions",
+  "length": 35.0,
+  "bpm": 96,
+  "bar": 2.5,
+  "beats": [
+    {
+      "n": 1,
+      "frame": "sf1",
+      "name": "The night",
+      "start": 0.0,
+      "end": 5.0,
+      "bars": "1–2",
+      "picture": "The Earth's night side from low orbit, looking up Australia's east coast: the thin line of airglow on the horizon, the stars, the coast's towns as light. Melbourne at the foot of the frame, Sydney right of centre, Brisbane toward the horizon. A gold light at 14 Wattle Grove sends a beam up. The camera drifts forward.",
+      "voice": [["Every property comes with three questions.", 0.8]],
+      "screen": "Every property comes with *three questions.* (from frame 0), and the pin's label: 14 WATTLE GROVE",
+      "sound": "A low pad and a glassy shimmer of stars. A soft bell as the beam pulses (0:00.4)."
+    },
+    {
+      "n": 2,
+      "frame": "sf1b",
+      "name": "The dive",
+      "start": 5.0,
+      "end": 7.5,
+      "bars": "3",
+      "picture": "The camera falls toward the pin. The coast grows, the haze parts, and Sydney resolves into streets of light with the harbour dark between them. It settles top-down over the north-west, the pin at the centre.",
+      "voice": [],
+      "screen": "14 WATTLE GROVE · BANKSIA RISE NSW 2155",
+      "sound": "Air rushing, the pad opening, a swell in the sub."
+    },
+    {
+      "n": 3,
+      "frame": "sf2",
+      "name": "Question one",
+      "start": 7.5,
+      "end": 12.5,
+      "bars": "4–5",
+      "picture": "A spark leaves the pin and draws a gold line across the suburbs to a light at the lower left (01). The light opens and a lit window rises above it: 14 Wattle Grove's floor plan, drawn in gold, as Film 1 draws it.",
+      "voice": [["Is it right for them?", 8.6]],
+      "screen": "FILM 1 · THE SYSTEM, over: Is it *right* for them?",
+      "sound": "A slow pulse begins. The motif's first note (D) as the line lands (0:08.3)."
+    },
+    {
+      "n": 4,
+      "frame": "sf3",
+      "name": "Question two",
+      "start": 12.5,
+      "end": 17.5,
+      "bars": "6–7",
+      "picture": "The window folds back into its light. A second line runs to the lower right (02), and a window rises with the Compliance Passport's cover as a light crosses it.",
+      "voice": [["Are they who they say they are?", 13.6]],
+      "screen": "FILM 2 · THE COMPLIANCE PASSPORT, over: Are they *who they say* they are?",
+      "sound": "The second note (F♯) at 0:13.3. An arpeggio joins."
+    },
+    {
+      "n": 5,
+      "frame": "sf4",
+      "name": "Question three",
+      "start": 17.5,
+      "end": 22.5,
+      "bars": "8–9",
+      "picture": "A third line climbs to the top of the triangle (03), toward the harbour. The window holds Jordan Ellis's Borrowing Capacity card, and the pointer arrives on Calculate Capacity and waits there.",
+      "voice": [["Can they afford it?", 18.6]],
+      "screen": "FILM 3 · BORROWING CAPACITY, over: Can they *afford* it?",
+      "sound": "The third note (A) at 0:18.3. Strings join."
+    },
+    {
+      "n": 6,
+      "frame": "sf5",
+      "name": "The shape",
+      "start": 22.5,
+      "end": 25.0,
+      "bars": "10",
+      "picture": "The windows close. The camera rises, and the three lights join edge by edge into a triangle of light with 14 Wattle Grove at its heart. The city dims beneath it.",
+      "voice": [],
+      "screen": "Only the numbers 01, 02 and 03 at the corners",
+      "sound": "The three notes climb in a riser, then silence from 0:23.75."
+    },
+    {
+      "n": 7,
+      "frame": "sf6",
+      "name": "The answer",
+      "start": 25.0,
+      "end": 27.5,
+      "bars": "11",
+      "picture": "The camera tilts toward the horizon. The triangle stands up off the map and settles into the Aurixa emblem over the city, and the pin rises into its orb. The city's lights become the logo's skyline.",
+      "voice": [],
+      "screen": "The supplied logo",
+      "sound": "The three notes as one chord (D major) on a deep hit."
+    },
+    {
+      "n": 8,
+      "frame": "sf7",
+      "name": "The titles",
+      "start": 27.5,
+      "end": 31.25,
+      "bars": "12–13",
+      "picture": "Under the emblem, one line arrives on each hit.",
+      "voice": [
+        ["Three questions.", 27.5],
+        ["Three films.", 28.75],
+        ["One system.", 30.0]
+      ],
+      "screen": "Three *questions.* Three *films.* One *system.*",
+      "sound": "A soft hit under each line."
+    },
+    {
+      "n": 9,
+      "frame": "sf8",
+      "name": "The brand",
+      "start": 31.25,
+      "end": 35.0,
+      "bars": "13–14",
+      "picture": "The supplied lettering rises under the emblem, then the line, the release line and the address.",
+      "voice": [["Aurixa Systems.", 31.5]],
+      "screen": "AURIXA SYSTEMS; The operating system for modern property professionals; THREE FILMS · WATCH NOW (decision 4); aurixasystems.com.au",
+      "sound": "The chord rings out, the bell sounds once more (0:33.75), and silence falls at 0:35."
+    }
+  ]
+}
