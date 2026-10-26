@@ -40,7 +40,13 @@ const q = quality as {
   judgeCuts: (cuts: { clip: number; frame: number }[], change: Float32Array, fps: number) => Report;
   parseStats: (text: string, key: string) => number[];
   psnrOf: (mse: number) => number;
-  fidelitySummary: (ssim: number[], mse: number[], every: number, fps: number) => Report | null;
+  fidelitySummary: (
+    ssim: number[],
+    mse: number[],
+    every: number,
+    fps: number,
+    planes?: { y: number[]; u: number[]; v: number[]; all: number[] },
+  ) => Report | null;
   samplingPlan: (frames: number) => { fidelity: number; pixel: number; offset: number };
   qualityChecks: (report: Report) => Check[];
   loudnessReport: (measured: unknown, plan: Plan) => Report;
@@ -428,6 +434,11 @@ describe("SSIM and PSNR, frame by frame", () => {
     const psnr =
       "n:1 mse_avg:4.00 mse_r:4 mse_g:4 mse_b:4 psnr_avg:42.11 psnr_r:42.11\nn:2 mse_avg:0.00 psnr_avg:inf\n";
     expect(q.parseStats(ssim, "All")).toEqual([0.98, 1]);
+    // In the encoder's own planes, the luma is read by its key.
+    const yuv =
+      "n:1 Y:0.996 U:0.998 V:0.997 All:0.996500 (24.5)\nn:2 Y:1 U:1 V:1 All:1.000000 (inf)\n";
+    expect(q.parseStats(yuv, "Y")).toEqual([0.996, 1]);
+    expect(q.parseStats(yuv, "V")).toEqual([0.997, 1]);
     expect(q.parseStats(psnr, "mse_avg")).toEqual([4, 0]);
     expect(q.parseStats(psnr, "psnr_avg")).toEqual([42.11, Number.POSITIVE_INFINITY]);
     expect(q.psnrOf(0)).toBe(100);
@@ -447,6 +458,18 @@ describe("SSIM and PSNR, frame by frame", () => {
     expect(summary.psnr_db.mean).toBeCloseTo(q.psnrOf(19 / 3), 2);
     expect(summary.psnr_db.min).toBeCloseTo(q.psnrOf(16), 2);
     expect(q.fidelitySummary([], [], 1, 30)).toBeNull();
+  });
+
+  test("the summary says its SSIM is the luma's, with each plane's mean", () => {
+    const summary = q.fidelitySummary([0.996, 1], [1, 0], 1, 30, {
+      y: [0.996, 1],
+      u: [0.998, 1],
+      v: [0.997, 1],
+      all: [0.9965, 1],
+    }) as { ssim_measure: string; ssim: { mean: number }; ssim_planes: Record<string, number> };
+    expect(summary.ssim_measure).toBe("luma");
+    expect(summary.ssim.mean).toBeCloseTo(0.998, 4);
+    expect(summary.ssim_planes).toEqual({ y: 0.998, u: 0.999, v: 0.9985, all: 0.9983 });
   });
 
   test("short edits are measured frame by frame, long ones by an even sample", () => {
@@ -492,9 +515,20 @@ describe("SSIM and PSNR, frame by frame", () => {
     );
     expect(graph).toContain("[2:v]settb=1/30,setpts=N,select=not(mod(pts\\,2))");
     expect(graph).toContain("ssim=stats_file=s.log:shortest=1");
+    // SSIM in the encoder's own planes (both 4:2:0, nothing converted); PSNR and the pixels in RGB.
+    expect(graph).toContain(
+      "[vout]settb=1/30,setpts=N,select=not(mod(pts\\,2)),format=yuv420p,split=2[qry][qrc]",
+    );
+    expect(graph).toContain("[qmy][qry]ssim=stats_file=s.log:shortest=1[qs]");
+    expect(graph).toMatch(
+      /\[qrc\]scale=in_color_matrix=bt709[^;]*format=gbrp,split=2\[qr2\]\[qr3\]/,
+    );
+    expect(graph).toContain("[qm1][qr2]psnr=stats_file=p.log:shortest=1[qp]");
     expect(graph).toContain("select=eq(mod(pts\\,10)\\,4)");
     // The graph's sound goes to the null output with SSIM and PSNR's.
-    expect(args.join(" ")).toContain("-map [qp] -map [aout] -fps_mode passthrough -f null -");
+    expect(args.join(" ")).toContain(
+      "-map [qp] -map [qs] -map [aout] -fps_mode passthrough -f null -",
+    );
   });
 });
 

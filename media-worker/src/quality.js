@@ -20,8 +20,9 @@ import { enterWorkspace } from "./workspace.js";
  * At standard quality the clips were encoded once before that picture, which
  * this doesn't count; a master's lossless clips leave nothing uncounted.
  *
- *   fidelity   SSIM and PSNR (RGB), frame by frame: every frame of an edit up
- *              to FIDELITY_FRAMES, an even sample of a longer one
+ *   fidelity   SSIM on the picture's luma, in the encoder's own planes, and
+ *              PSNR (RGB), frame by frame: every frame of an edit up to
+ *              FIDELITY_FRAMES, an even sample of a longer one
  *   edges      the share of the reference's edge contrast the master keeps
  *   colour     CIEDE2000 on flat fields, and on the brand kit's own colours
  *   banding    gentle gradients, as their smoothed difference
@@ -44,8 +45,19 @@ import { enterWorkspace } from "./workspace.js";
  * and its numbers (HANDOVER.md 1.4 step 16 and 1.5):
  */
 export const THRESHOLDS = {
-  /** SSIM, mean: Reel 1's master measured 0.989 to 0.990 and the Editor's double encode 0.988; a picture visibly softer than its reference falls below 0.98. */
-  ssimMean: 0.98,
+  /**
+   * SSIM, mean, of the picture's luma (Y) as the encoder was given it and as
+   * the master holds it. Measured on dark film frames (As One's hall, its end
+   * card) and on bright product pages (Reel 1's): clean encodes, the master's
+   * and the standard double encode's, kept 0.9948 to 0.9990; pictures visibly
+   * softer, a one-pixel blur or CRF 28, 0.9727 to 0.9900. It was measured in
+   * RGB until As One: there the same clean encodes of the dark hall read 0.955
+   * to 0.979, the master's among them, and every frame but one of its clean
+   * master read under 0.98. SSIM reads a change of a code value or two in a
+   * channel near zero as lost structure, and RGB's black is 0 where the
+   * encoder's is 16; the bright pages read 0.985 to 0.998 either way.
+   */
+  ssimMean: 0.992,
   /** PSNR, mean (dB): the master 43.9 to 44.3, the double encode 42.6; below 40 the loss starts to show in fine detail. */
   psnrMean: 40,
   /** PSNR, worst frame (dB): no frame of the master went below 39.2; a frame below 37 is one where the loss can be seen on a still. */
@@ -977,7 +989,7 @@ export function judgeCuts(cuts, change, fps) {
 /* Fidelity: SSIM and PSNR, frame by frame                             */
 /* ------------------------------------------------------------------ */
 
-/** Frame by frame values from an ssim or psnr stats file, by key: SSIM's "All", PSNR's "mse_avg". */
+/** Frame by frame values from an ssim or psnr stats file, by key: SSIM's "Y" (or "U", "V", "All"), PSNR's "mse_avg". */
 export function parseStats(text, key) {
   const pattern = new RegExp(`(?:^|\\s)${key}:(\\S+)`);
   const values = [];
@@ -996,11 +1008,13 @@ export function psnrOf(mse) {
 }
 
 /**
- * The fidelity summary: SSIM's mean and worst, PSNR's (of the mean squared
- * error, as FFmpeg's average is) and worst frame, and the worst frames'
- * times. `every` is how far apart the frames compared are.
+ * The fidelity summary: SSIM's mean and worst (of the luma, see
+ * THRESHOLDS.ssimMean), PSNR's (of the mean squared error, as FFmpeg's
+ * average is) and worst frame, and the worst frames' times. `every` is how
+ * far apart the frames compared are. `planes`, each plane's SSIM frame by
+ * frame, adds their means (`ssim_planes`).
  */
-export function fidelitySummary(ssim, mse, every, fps) {
+export function fidelitySummary(ssim, mse, every, fps, planes = null) {
   const count = Math.min(ssim.length, mse.length);
   if (!count) return null;
   const frames = Array.from({ length: count }, (_, index) => ({
@@ -1018,14 +1032,19 @@ export function fidelitySummary(ssim, mse, every, fps) {
   });
   const bySsim = [...frames].sort((a, b) => a.ssim - b.ssim);
   const byPsnr = [...frames].sort((a, b) => a.psnr - b.psnr);
+  const meanOf = (values) =>
+    values?.length ? round4(values.slice(0, count).reduce((sum, value) => sum + value, 0) / Math.min(count, values.length)) : null;
   return {
     frames_measured: count,
     every,
+    // What `ssim` is: the luma's, in the encoder's own planes (reports before this measured it in RGB).
+    ssim_measure: "luma",
     ssim: {
       mean: round4(meanSsim),
       min: round4(bySsim[0].ssim),
       worst: bySsim.slice(0, 3).map(entry),
     },
+    ...(planes ? { ssim_planes: { y: meanOf(planes.y), u: meanOf(planes.u), v: meanOf(planes.v), all: meanOf(planes.all) } } : {}),
     psnr_db: {
       mean: Number(psnrOf(meanMse).toFixed(2)),
       min: Number(byPsnr[0].psnr.toFixed(2)),
@@ -1359,12 +1378,16 @@ export function fidelityArgs(finalArgv, master, plan, { ssimPath, psnrPath, samp
   const pace = `settb=1/${plan.fps},setpts=N`;
   const compared = sampling.fidelity > 1 ? `,select=not(mod(pts\\,${sampling.fidelity}))` : "";
   const looked = `select=eq(mod(pts\\,${sampling.pixel})\\,${sampling.offset})`;
+  // SSIM in the encoder's own planes (the picture is 4:2:0 as the encoder takes it, and the
+  // master is decoded as it was made); PSNR and the pixel measures as a player shows it, in RGB.
   const lines = [
     graph,
-    `${picture}${pace}${compared},${TO_RGB},split=3[qr1][qr2][qr3]`,
-    `[${masterInput}:v]${pace}${compared},${TO_RGB},split=2[qm1][qm2]`,
-    `[qm1][qr1]ssim=stats_file=${ssimPath}:shortest=1[qs]`,
-    `[qs][qr2]psnr=stats_file=${psnrPath}:shortest=1[qp]`,
+    `${picture}${pace}${compared},format=yuv420p,split=2[qry][qrc]`,
+    `[qrc]${TO_RGB},split=2[qr2][qr3]`,
+    `[${masterInput}:v]${pace}${compared},format=yuv420p,split=2[qmy][qmc]`,
+    `[qmc]${TO_RGB},split=2[qm1][qm2]`,
+    `[qmy][qry]ssim=stats_file=${ssimPath}:shortest=1[qs]`,
+    `[qm1][qr2]psnr=stats_file=${psnrPath}:shortest=1[qp]`,
     `[qr3]${looked}[qrs]`,
     `[qm2]${looked}[qms]`,
     `[qrs][qms]hstack=inputs=2:shortest=1,format=rgb24[qpair]`,
@@ -1386,6 +1409,8 @@ export function fidelityArgs(finalArgv, master, plan, { ssimPath, psnrPath, samp
     "pipe:1",
     "-map",
     "[qp]",
+    "-map",
+    "[qs]",
     ...others.flatMap((label) => ["-map", label]),
     "-fps_mode",
     "passthrough",
@@ -1662,11 +1687,13 @@ export async function measureRender({
     plan.width * 2 * plan.height * 3,
     (bytes, index) => pixels.add(bytes, sampling.offset + index * sampling.pixel),
   );
+  const ssimText = await readFile(ssimPath, "utf8");
   const fidelity = fidelitySummary(
-    parseStats(await readFile(ssimPath, "utf8"), "All"),
+    parseStats(ssimText, "Y"),
     parseStats(await readFile(psnrPath, "utf8"), "mse_avg"),
     sampling.fidelity,
     plan.fps,
+    { y: parseStats(ssimText, "Y"), u: parseStats(ssimText, "U"), v: parseStats(ssimText, "V"), all: parseStats(ssimText, "All") },
   );
   await rm(ssimPath, { force: true });
   await rm(psnrPath, { force: true });

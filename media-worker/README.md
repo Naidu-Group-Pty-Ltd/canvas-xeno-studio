@@ -167,9 +167,14 @@ frame. The app sends one source per distinct asset (role `video`, `image`,
   same inputs and filter graph (frame for frame what the encoder was given),
   both decoded as a BT.709 player decodes them (`src/quality.js`). The report
   is `metadata.quality`, a few kilobytes:
-  - `fidelity`: SSIM and PSNR (RGB) frame by frame, of every frame up to 1,800
-    and an even sample beyond (`every`), with the mean, the worst and the three
-    worst frames' times
+  - `fidelity`: SSIM of the picture's luma, in the encoder's own planes (the
+    4:2:0 picture it was given against the master decoded; `ssim_measure` is
+    `luma`, and `ssim_planes` has each plane's mean), and PSNR (RGB), frame by
+    frame, of every frame up to 1,800 and an even sample beyond (`every`), with
+    the mean, the worst and the three worst frames' times. SSIM was measured in
+    RGB until As One, whose clean master read 0.956 there and 0.995 on its luma:
+    in a near-black picture SSIM reads a code value's change in a channel near
+    zero as lost structure, and RGB's black is 0 where the encoder's is 16
   - `pixels`, on about 90 full frames spread over the edit: the share of the
     reference's strong edge contrast the master keeps (`edges`), CIEDE2000 on
     the reference's flat fields (`colour`: mean, 99th percentile, largest, the
@@ -194,7 +199,9 @@ frame. The app sends one source per distinct asset (role `video`, `image`,
     `loudness`: integrated, range and true peak, against the target when
     loudness is evened out
   - `checks`: each measure judged `pass`, `flag` or `info` against the
-    thresholds in `src/quality.js` (from Reel 1's own: SSIM 0.98, PSNR 40 dB
+    thresholds in `src/quality.js` (the luma's SSIM 0.992, from clean and
+    softened encodes of dark film frames and bright product pages; from Reel
+    1's own: PSNR 40 dB
     and no frame below 37 dB, edges 98% and no frame below 95%, CIEDE2000 and
     brand colours below 1, banding below one code value, every caption and
     cut, sync within 20 ms, the music's attack within 20 ms of its beat,

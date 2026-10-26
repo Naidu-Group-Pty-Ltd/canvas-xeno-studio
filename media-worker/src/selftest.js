@@ -1018,6 +1018,56 @@ await check("a measured render flags a stretch of its master softened after the 
   if (worst.some((frame) => frame < 75)) throw new Error(`the worst frames (${worst.join(", ")}) should be in the softened clip`);
 });
 
+await check("a dark render encoded cleanly passes its fidelity: SSIM on its luma, in the encoder's own planes", async () => {
+  // As One's hall: near black, dithered by a code value. Its clean master read SSIM 0.956 in RGB, where SSIM reads a
+  // code value's change in a channel near zero as lost structure (RGB's black is 0, the encoder's 16); its luma 0.995.
+  // The gradient's ends and both seeds are fixed: left to chance, the picture changes from run to run, and so does its
+  // RGB reading (0.96 to 0.99).
+  const { measureRender } = await import("./quality.js");
+  const { buildSubtitles, clipArgs, finalArgs, FINAL_ENCODING, parseLoudness } = await import("./sequence.js");
+  const work = await mkdtemp(join(dir, "dark-"));
+  const source = join(work, "dark.mkv");
+  await ffmpeg([
+    "-f", "lavfi", "-i", "gradients=s=360x640:r=25:d=3:c0=0x000000:c1=0x060f1e:x0=0:y0=640:x1=360:y1=0:seed=1:speed=0.02,format=yuv420p,noise=c0s=1:c1s=1:c2s=1:allf=t:all_seed=7",
+    "-f", "lavfi", "-i", "sine=frequency=440:duration=3,volume=0.5",
+    "-c:v", "ffv1", "-c:a", "pcm_s16le", "-shortest", source,
+  ]);
+  // The picture is the case: encoded as a render's final pass encodes, RGB SSIM reads it as soft and its luma doesn't.
+  const encoded = join(work, "encoded.mp4");
+  await ffmpeg(["-i", source, "-an", "-c:v", "libx264", ...FINAL_ENCODING, "-pix_fmt", "yuv420p", encoded]);
+  const ssimOf = async (filters) => {
+    const { stderr } = await ffmpeg(["-i", encoded, "-i", source, "-filter_complex", filters, "-f", "null", "-"]);
+    return Number(/All:([\d.]+)/.exec(stderr)?.[1]);
+  };
+  const byIndex = "settb=1/25,setpts=N";
+  const rgb = "scale=in_color_matrix=bt709:in_range=tv:out_range=pc:flags=bilinear+accurate_rnd+full_chroma_int,format=gbrp";
+  const inRgb = await ssimOf(`[0:v]${byIndex},${rgb}[m];[1:v]${byIndex},${rgb}[r];[m][r]ssim`);
+  if (!(inRgb < 0.98)) throw new Error(`the dark picture should read as soft in RGB (${inRgb}), or it tests nothing`);
+  const sources = [{ path: source, role: "video" }];
+  const plan = planSequence({ width: 360, height: 640, fps: 25, normalize_loudness: false, measure: {}, clips: [{ source_index: 0, duration: 2.8 }] }, sources);
+  const intermediates = [];
+  for (const [index, clip] of plan.clips.entries()) {
+    const out = join(work, `clip-${index}.mkv`);
+    await ffmpeg(clipArgs(clip, plan, sources[clip.source].path, true, out, null, 25));
+    intermediates.push(out);
+  }
+  const mix = join(work, "mix.wav");
+  await ffmpeg(mixArgs(plan, intermediates, [], mix, []));
+  const subtitles = buildSubtitles(plan);
+  const ass = subtitles ? join(work, "text.ass") : null;
+  if (ass) await writeFile(ass, subtitles);
+  const out = join(work, "dark.mp4");
+  const finalArgv = finalArgs(plan, intermediates, mix, ass, null, out, [], null);
+  await ffmpeg(finalArgv);
+  const report = await measureRender({ plan, finalArgv, master: out, sources, dir: work, parseLoudness });
+  const { fidelity } = report;
+  if (fidelity.ssim_measure !== "luma" || !(fidelity.ssim_planes?.u > 0.9) || !(fidelity.ssim_planes?.v > 0.9))
+    throw new Error(`the SSIM should be the luma's, with each plane's: ${JSON.stringify(fidelity)}`);
+  const flags = report.checks.filter((entry) => entry.result === "flag").map((entry) => entry.id);
+  if (flags.includes("ssim") || flags.includes("psnr"))
+    throw new Error(`a clean dark render should pass (RGB read it ${inRgb}): ${JSON.stringify(fidelity)}`);
+});
+
 await check("render_sequence measures a render: fidelity, colour, captions, cuts, the voice's sync and loudness all pass", async () => {
   const work = await mkdtemp(join(dir, "measured-"));
   const first = await finishedMaster(join(work, "first.mp4"));

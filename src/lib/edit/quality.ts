@@ -34,7 +34,17 @@ const reportSchema = z.object({
     .object({
       frames_measured: number,
       every: number,
+      // "luma": SSIM of the picture's luma in the encoder's own planes (reports before it measured RGB).
+      ssim_measure: z.enum(["luma"]).optional(),
       ssim: z.object({ mean: number, min: number }),
+      ssim_planes: z
+        .object({
+          y: number.nullable(),
+          u: number.nullable(),
+          v: number.nullable(),
+          all: number.nullable(),
+        })
+        .optional(),
       psnr_db: z.object({ mean: number, min: number }),
     })
     .nullable()
@@ -186,10 +196,13 @@ function line(check: QualityCheck, report: QualityReport): string {
   const limit = check.limit ?? null;
   const flagged = check.result === "flag";
   switch (check.id) {
-    case "ssim":
+    case "ssim": {
+      // Measured on the luma as the encoder was given it, where a dark picture reads true; RGB before.
+      const what = report.fidelity?.ssim_measure === "luma" ? "SSIM of its luma" : "SSIM";
       return flagged
-        ? `Softer than its reference: SSIM ${v?.toFixed(4)} (${limit} or more expected).`
-        : `SSIM ${v?.toFixed(4)} against its own reference (${limit} or more).`;
+        ? `Softer than its reference: ${what} ${v?.toFixed(4)} (${limit} or more expected).`
+        : `${what} ${v?.toFixed(4)} against its own reference (${limit} or more).`;
+    }
     case "psnr":
       return flagged
         ? `PSNR ${v?.toFixed(1)} dB, below ${limit} dB: fine detail is lost.`
