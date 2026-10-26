@@ -14,6 +14,7 @@ import { cleanPlate, layLettering } from "./plate.js";
 import { redactImage } from "./redact.js";
 import { reviewSheet } from "./review.js";
 import { stretchAudio } from "./stretch.js";
+import { measureVoice } from "./voicemeter.js";
 
 /**
  * Task catalogue.
@@ -121,6 +122,10 @@ export const FEATURES = [
   "render_quality",
   // The music's attack at each cut on one of its beats, in a measured render (measure.music_beats).
   "music_at_cuts",
+  // A voice measured, alone or against a reference: its phrases, pace, pitch, how dry its phrase ends are, and its loudness (measure_voice).
+  "voice_measure",
+  // A recording's speech taken out small for a transcription service: mono, 16 kHz (extract_audio's speech: true).
+  "speech_audio",
   "review_sheet",
   ...(lipCheckAvailable ? ["lip_check"] : []),
   // Code-driven motion graphics drawn in Chromium ("compositions"), on a GPU here ("compositions_gpu").
@@ -351,8 +356,12 @@ export const TASKS = {
       const probed = await probe(sources[0].path);
       if (!probed.has_audio) throw new TaskError("INVALID_PARAMETERS", "That video has no audio track");
       const out = join(dir, `audio.${format}`);
-      const codec = format === "wav" ? ["-c:a", "pcm_s16le"] : format === "mp3" ? ["-c:a", "libmp3lame", "-b:a", "192k"] : ["-c:a", "aac", "-b:a", "192k"];
-      await ffmpeg(["-i", sources[0].path, "-vn", ...codec, out]);
+      // A copy for speech to be read from (speech: true): mono at 16 kHz, plenty for words, and as an MP3 at
+      // 48 kb/s an hour fits a transcription service's 25 MB.
+      const speech = params.speech === true;
+      const shape = speech ? ["-ac", "1", "-ar", "16000"] : [];
+      const codec = format === "wav" ? ["-c:a", "pcm_s16le"] : format === "mp3" ? ["-c:a", "libmp3lame", "-b:a", speech ? "48k" : "192k"] : ["-c:a", "aac", "-b:a", speech ? "64k" : "192k"];
+      await ffmpeg(["-i", sources[0].path, "-vn", ...shape, ...codec, out]);
       return { outputs: [{ path: out, mime: AUDIO_FORMATS[format], kind: "audio" }], metadata: await probe(out) };
     },
   },
@@ -521,6 +530,18 @@ export const TASKS = {
     sources: { min: 2, max: 2 },
     outputs: () => 0,
     run: measureSync,
+  },
+
+  /**
+   * How a recording's voice speaks (see voicemeter.js): its phrases, pace,
+   * pitch, how far its phrase ends fall (dry, some room or wet) and its
+   * loudness, and with a second source in the role "reference", how it
+   * compares. Produces no file.
+   */
+  measure_voice: {
+    sources: { min: 1, max: 2 },
+    outputs: () => 0,
+    run: measureVoice,
   },
 
   /**

@@ -155,6 +155,21 @@ export async function openAISpeech(input: {
   };
 }
 
+/** The timed words of an OpenAI transcription (verbose_json, word timestamps). */
+function timedWordsOf(
+  words: { word?: string; start?: number; end?: number }[] | undefined,
+): TimedWord[] {
+  return (words ?? [])
+    .filter(
+      (word) =>
+        typeof word.word === "string" &&
+        typeof word.start === "number" &&
+        typeof word.end === "number",
+    )
+    .map((word) => ({ text: word.word!.trim(), start: word.start!, end: word.end! }))
+    .filter((word) => word.text);
+}
+
 /**
  * Word timings for finished speech, from OpenAI's transcription (whisper-1 is
  * the model that returns word timestamps). Best effort: null on any failure.
@@ -183,19 +198,124 @@ export async function openAIWordTimings(
       duration?: number;
       words?: { word?: string; start?: number; end?: number }[];
     };
-    const words = (data.words ?? [])
-      .filter(
-        (word) =>
-          typeof word.word === "string" &&
-          typeof word.start === "number" &&
-          typeof word.end === "number",
-      )
-      .map((word) => ({ text: word.word!.trim(), start: word.start!, end: word.end! }))
-      .filter((word) => word.text);
-    return { words, duration: typeof data.duration === "number" ? data.duration : null };
+    return {
+      words: timedWordsOf(data.words),
+      duration: typeof data.duration === "number" ? data.duration : null,
+    };
   } catch {
     return null;
   }
+}
+
+/** A recording's words as OpenAI's transcription hears them, with its own text (punctuated) and language. */
+export type TranscriptResult =
+  | {
+      ok: true;
+      text: string;
+      words: TimedWord[];
+      duration: number | null;
+      language: string | null;
+    }
+  | ProviderFailure;
+
+/**
+ * A recording transcribed by OpenAI (whisper-1, the model that times every
+ * word), for a reference's script read word for word. `prompt` carries the
+ * names it should spell as the brand does (it biases the words heard, it
+ * guarantees nothing; correctSpellings does the rest), and `language` (ISO
+ * 639-1) saves it guessing. A failure says why, and nothing is kept of it: a
+ * transcription makes nothing, so it can be asked again.
+ */
+export async function openAITranscript(
+  audio: Uint8Array,
+  file: { mime: string; name: string },
+  options: { prompt?: string | null; language?: string | null } = {},
+): Promise<TranscriptResult> {
+  const key = process.env["OPENAI_API_KEY"]?.trim();
+  if (!key)
+    return {
+      ok: false,
+      code: "PROVIDER_NOT_CONFIGURED",
+      message: "Transcription needs OpenAI, and the studio's OPENAI_API_KEY isn't set.",
+      uncertain: false,
+    };
+  if (audio.byteLength > 25 * 1024 * 1024)
+    return {
+      ok: false,
+      code: "INVALID_PARAMETERS",
+      message: "The recording's sound is over the transcription service's 25 MB.",
+      uncertain: false,
+    };
+  let response: Response;
+  try {
+    const form = new FormData();
+    form.append("file", new Blob([new Uint8Array(audio)], { type: file.mime }), file.name);
+    form.append("model", "whisper-1");
+    form.append("response_format", "verbose_json");
+    form.append("timestamp_granularities[]", "word");
+    if (options.prompt?.trim()) form.append("prompt", options.prompt.trim().slice(0, 800));
+    if (options.language?.trim()) form.append("language", options.language.trim());
+    response = await timed(
+      "https://api.openai.com/v1/audio/transcriptions",
+      { method: "POST", headers: { Authorization: `Bearer ${key}` }, body: form },
+      120_000,
+    );
+  } catch (error) {
+    const aborted = error instanceof Error && error.name === "AbortError";
+    return {
+      ok: false,
+      code: "PROVIDER_TIMEOUT",
+      message: aborted
+        ? "OpenAI didn't finish the transcription in time. Ask again."
+        : "The connection to OpenAI dropped. Ask again.",
+      uncertain: false,
+    };
+  }
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    let detail = "";
+    try {
+      detail = String((JSON.parse(body) as { error?: { message?: string } }).error?.message ?? "");
+    } catch {
+      detail = "";
+    }
+    return {
+      ok: false,
+      code: response.status === 429 ? "RATE_LIMITED" : "PROVIDER_REJECTED",
+      message:
+        response.status === 401
+          ? "OpenAI rejected the API key."
+          : response.status === 429
+            ? "OpenAI is rate limiting or the account is out of credit. Try again shortly."
+            : detail || `OpenAI could not transcribe it (HTTP ${response.status}).`,
+      uncertain: false,
+    };
+  }
+  let data: {
+    text?: string;
+    duration?: number;
+    language?: string;
+    words?: { word?: string; start?: number; end?: number }[];
+  };
+  try {
+    data = (await response.json()) as typeof data;
+  } catch {
+    return {
+      ok: false,
+      code: "PROVIDER_REJECTED",
+      message: "OpenAI's transcription couldn't be read.",
+      uncertain: false,
+    };
+  }
+  const words = timedWordsOf(data.words);
+  return {
+    ok: true,
+    text:
+      typeof data.text === "string" ? data.text.trim() : words.map((word) => word.text).join(" "),
+    words,
+    duration: typeof data.duration === "number" ? data.duration : null,
+    language: typeof data.language === "string" ? data.language : null,
+  };
 }
 
 /* ------------------------------------------------------------------ */

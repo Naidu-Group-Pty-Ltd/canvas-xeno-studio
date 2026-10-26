@@ -77,6 +77,17 @@ await check("extract_audio", async () => {
   if ((await stat(result.outputs[0].path)).size < 1000) throw new Error("audio too small");
 });
 
+await check("extract_audio's copy for speech is mono at 16 kHz, small enough for an hour to be heard", async () => {
+  // A transcription service takes 25 MB: at 48 kb/s that is 72 minutes, where a stereo copy at 192 kb/s is 18.
+  if (!FEATURES.includes("speech_audio")) throw new Error("speech_audio isn't advertised");
+  const result = await TASKS.extract_audio.run({ sources: [{ path: clipA }], params: { format: "mp3", speech: true }, dir });
+  const [sound] = streamsOf(result.outputs[0].path);
+  if (sound.channels !== 1 || Number(sound.sample_rate) !== 16000)
+    throw new Error(`a speech copy should be mono at 16 kHz: ${sound.channels} channels at ${sound.sample_rate} Hz`);
+  const bitsPerSecond = ((await stat(result.outputs[0].path)).size * 8) / result.metadata.duration_seconds;
+  if (bitsPerSecond > 56_000) throw new Error(`a speech copy should be about 48 kb/s, is ${Math.round(bitsPerSecond / 1000)}`);
+});
+
 await check("stretch_audio slows a recording to a tempo with its pitch kept, and says how", async () => {
   // Two seconds of a 440 Hz tone, then at 0.8 of its speed: 2.5 s long, still 440 Hz.
   const tone = join(dir, "tone.wav");
@@ -1016,6 +1027,44 @@ await check("a measured render flags a stretch of its master softened after the 
     if (!flagged(report).includes(id)) throw new Error(`${id} should be flagged: ${JSON.stringify(report.checks)}`);
   const worst = [report.fidelity.ssim.worst[0].frame, report.fidelity.psnr_db.worst[0].frame, report.pixels.edges.worst.frame];
   if (worst.some((frame) => frame < 75)) throw new Error(`the worst frames (${worst.join(", ")}) should be in the softened clip`);
+});
+
+await check("measure_voice reads a voice's pitch, pace and phrase ends, and holds it against a reference", async () => {
+  // A voice as the generator makes one: harmonics on 200 Hz, four syllables a second, 1.5 s phrases with 1.2 s
+  // between, over a recording's quiet floor. Wet, it is that voice in a room: a tail falling 60 dB in 0.9 s, as
+  // the reverb on Three Questions' voice did (its stem measured 8 dB at its phrase ends; As One's dry stem 16).
+  const work = await mkdtemp(join(dir, "voice-"));
+  const voice = (hz) =>
+    `aevalsrc='(sin(2*PI*${hz}*t)+0.6*sin(2*PI*${2 * hz}*t)+0.45*sin(2*PI*${3 * hz}*t)+0.3*sin(2*PI*${4 * hz}*t)+0.2*sin(2*PI*${6 * hz}*t))` +
+    "*0.12*(0.55+0.45*sin(2*PI*4*t))*lt(mod(t\\,2.7)\\,1.5)':s=48000:d=13.5";
+  const floor = "anoisesrc=d=13.5:c=pink:r=48000:a=0.0003:seed=11";
+  const delays = [47, 83, 121, 163, 197, 239, 281, 317, 359, 401, 443, 487, 521, 563, 607, 647, 691, 733, 779, 821];
+  const room = `aecho=1:0.7:${delays.join("|")}:${delays.map((ms) => (0.5 * Math.exp(-ms / 1000 / 0.13)).toFixed(4)).join("|")}`;
+  const make = async (name, hz, wet) => {
+    const path = join(work, `${name}.wav`);
+    await ffmpeg(["-f", "lavfi", "-i", voice(hz), "-f", "lavfi", "-i", floor, "-filter_complex",
+      `[0:a]${wet ? room : "anull"}[v];[v][1:a]amix=inputs=2:normalize=0`, "-c:a", "pcm_s16le", path]);
+    return path;
+  };
+  const dry = await make("dry", 200, false);
+  const wet = await make("wet", 200, true);
+  const higher = await make("higher", 224.5, false);
+  const run = async (path, reference) =>
+    (await TASKS.measure_voice.run({
+      sources: [{ path, role: "source" }, ...(reference ? [{ path: reference, role: "reference" }] : [])],
+      params: {},
+      dir: work,
+    })).metadata;
+  const alone = (await run(dry)).voice;
+  if (alone.dryness !== "dry") throw new Error(`the dry voice should read dry: ${JSON.stringify(alone.phrase_end_drop_db)}`);
+  if (Math.abs(alone.pitch_hz.median - 200) > 4) throw new Error(`its pitch should be 200 Hz: ${JSON.stringify(alone.pitch_hz)}`);
+  if (!(alone.syllables_per_second > 3.2 && alone.syllables_per_second < 4.8)) throw new Error(`its pace should be about 4 a second: ${alone.syllables_per_second}`);
+  if (alone.phrases !== 5) throw new Error(`it has 5 phrases, read ${alone.phrases}`);
+  const roomy = (await run(wet)).voice;
+  if (roomy.dryness !== "wet") throw new Error(`the voice in a room should read wet: ${JSON.stringify(roomy.phrase_end_drop_db)}`);
+  const held = await run(higher, dry);
+  if (Math.abs(held.compared.pitch_semitones - 2) > 0.15) throw new Error(`224.5 Hz is 2 semitones over 200: ${JSON.stringify(held.compared)}`);
+  if (Math.abs(held.compared.pace_ratio - 1) > 0.1) throw new Error(`the same pace should compare as 1: ${JSON.stringify(held.compared)}`);
 });
 
 await check("a dark render encoded cleanly passes its fidelity: SSIM on its luma, in the encoder's own planes", async () => {

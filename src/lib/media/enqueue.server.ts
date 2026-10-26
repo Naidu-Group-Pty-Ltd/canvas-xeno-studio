@@ -30,6 +30,8 @@ export interface InternalTaskRequest {
     | "trim_video"
     | "resize_image"
     | "prepare_audio"
+    // A recording's speech, mono at 16 kHz, for transcription.
+    | "extract_audio"
     | "measure_sync"
     | "lip_check"
     // A take aligned to its picture, a logo's clean plate and lettering, a screenshot redacted.
@@ -38,7 +40,9 @@ export interface InternalTaskRequest {
     | "lay_lettering"
     | "redact_image"
     // A music track at another tempo, its pitch kept.
-    | "stretch_audio";
+    | "stretch_audio"
+    // A voice measured: its phrases, pace, pitch, how dry it is, its loudness (against a reference).
+    | "measure_voice";
   source: InternalTaskSource;
   /** More sources after the first, each in its role (measure_sync's voiceover piece, as "audio"). */
   extraSources?: (InternalTaskSource & { role: string })[];

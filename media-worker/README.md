@@ -368,6 +368,31 @@ Three things make that exact rather than close:
 
 `/health` lists them as `audio_prepare`, `audio_sync` and `frame_index`.
 
+## How a voice speaks, and its words
+
+- `measure_voice` (one source, or two with the second in the role
+  `reference`; no output) measures how a recording's voice speaks
+  (`src/voicemeter.js`, a port of the measures the teasers were judged by).
+  In the speech band (250 Hz to 3.5 kHz) it finds the phrases against the
+  recording's own peak (`phrases`, `phrase_spans`), counts syllable nuclei for
+  the pace (`syllables_per_second`), reads the pitch by autocorrelation
+  between 75 and 450 Hz (`pitch_hz`: median and middle half), and measures how
+  far each phrase end falls in the 40 to 90 ms after it, where 300 ms of quiet
+  follows (`phrase_end_drop_db`). That fall is how dry it is (`dryness`): 13 dB
+  or more `dry`, 9 to 13 `some_room`, less `wet`, `unknown` with fewer than
+  three such ends. Three Questions' voice, a reverb put on it after its take,
+  fell 8 dB; As One's dry voice 16. `loudness` is EBU R128's. With a reference
+  both are measured and compared (`compared`): pitch in semitones (positive
+  when the voice is higher), pace as a ratio, the fall and the loudness as
+  differences. `start` and `end` (`reference_start`, `reference_end`) measure a
+  stretch; at most 20 minutes of each is read. `/health` lists
+  `voice_measure`.
+- `extract_audio` with `speech: true` makes a copy for speech to be read
+  from: mono at 16 kHz, an MP3 at 48 kb/s (AAC 64), so an hour fits a
+  transcription service's 25 MB where a full copy at 192 kb/s fits 18 minutes.
+  `/health` lists `speech_audio`; the app transcribes only on a worker that
+  does.
+
 ## Lip scores
 
 `lip_check` (a `video` source and, optionally, the `audio` piece it was made
