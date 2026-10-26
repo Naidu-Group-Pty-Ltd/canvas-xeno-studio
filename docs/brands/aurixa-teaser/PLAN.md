@@ -192,11 +192,12 @@ the voice, and the mix is measured to -14 LUFS.
 
 ## Where things are
 
-| What                | Where                                                                                                    |
-| ------------------- | -------------------------------------------------------------------------------------------------------- |
-| This plan           | `docs/brands/aurixa-teaser/PLAN.md`                                                                      |
-| The script, as data | `docs/brands/aurixa-teaser/script.json`                                                                  |
-| The storyboard      | `docs/brands/aurixa-teaser/storyboard.jpg`                                                               |
-| The style frames    | `docs/brands/aurixa-teaser/style-frames/` (01 to 10, 1080 x 1920)                                        |
-| The renderers       | `scripts/aurixa-teaser/` (`style_frames.sh` runs them all; its README says what each does)               |
-| The work            | The studio work _Aurixa Teaser_ (`9dd41db4-0e2f-4f25-8a6f-0f7eb0c6a6a5`), in the project _Aurixa Teaser_ |
+| What                | Where                                                                                                               |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| This plan           | `docs/brands/aurixa-teaser/PLAN.md`                                                                                 |
+| The script, as data | `docs/brands/aurixa-teaser/script.json`                                                                             |
+| The storyboard      | `docs/brands/aurixa-teaser/storyboard.jpg`                                                                          |
+| The style frames    | `docs/brands/aurixa-teaser/style-frames/` (01 to 10, 1080 x 1920)                                                   |
+| The renderers       | `scripts/aurixa-teaser/` (`style_frames.sh` for the frames, `film.sh` for the film; its README says what each does) |
+| The final           | `docs/brands/aurixa-teaser/DELIVERY.md`: the delivered film, how it was made and measured                           |
+| The work            | The studio work _Aurixa Teaser_ (`9dd41db4-0e2f-4f25-8a6f-0f7eb0c6a6a5`), in the project _Aurixa Teaser_            |
