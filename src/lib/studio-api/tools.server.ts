@@ -1977,6 +1977,89 @@ const generateMusic = tool({
   },
 });
 
+/* ------------------------------------------------------------------ */
+/* Voice                                                               */
+/* ------------------------------------------------------------------ */
+
+const listBrandVoices = tool({
+  name: "list_brand_voices",
+  title: "List brand voices",
+  description:
+    "The studio's brand voices, as Brand voices lists them: each one's id, name and description, its provider and model, the project it is kept for (null: it speaks for any project), whether it is the studio default, and its script guidelines. generate_voiceover speaks in one of them. Archived voices are left out; give projectId for only those that may speak for that project's work.",
+  scope: "read",
+  input: z.object({
+    projectId: id()
+      .nullable()
+      .optional()
+      .describe(
+        "Only the voices that may speak for this project's work (null: work outside any project)",
+      ),
+  }),
+  run: async (args, caller) => {
+    await roleOf(caller.userId);
+    const { data, error } = await db
+      .from("brand_voices")
+      .select("id,name,description,provider,model,language,project_id,is_default,script_guidelines")
+      .eq("is_archived", false)
+      .order("name");
+    if (error)
+      throw new AppError("UNKNOWN", "The brand voices couldn't be read. Try again in a moment.");
+    const rows = (data ?? []) as unknown as {
+      id: string;
+      name: string;
+      description: string | null;
+      provider: string;
+      model: string;
+      language: string | null;
+      project_id: string | null;
+      is_default: boolean;
+      script_guidelines: string | null;
+    }[];
+    return rows
+      .filter(
+        (voice) =>
+          args.projectId === undefined ||
+          !voice.project_id ||
+          voice.project_id === (args.projectId ?? null),
+      )
+      .map((voice) => ({
+        id: voice.id,
+        name: voice.name,
+        description: voice.description,
+        provider: voice.provider,
+        model: voice.model,
+        language: voice.language,
+        projectId: voice.project_id,
+        isDefault: voice.is_default,
+        scriptGuidelines: voice.script_guidelines,
+      }));
+  },
+});
+
+const generateVoiceover = tool({
+  name: "generate_voiceover",
+  title: "Speak a script in a brand voice",
+  description:
+    "Speaks a script in one of the studio's brand voices into the library, as the Voice tab's Generate does: the voice's own provider voice, model, settings and pronunciations every time, so it sounds the same from take to take. Name the voice (voiceId, from list_brand_voices), or let the work's voice speak: the campaign's, then the project's, then the studio default. With an edit (sequenceId) the take joins its Voice tab and its project; otherwise it is kept in the project named, or with no project. Waits for the take (seconds; a long script a minute or so) and returns it: its library file (assetId, for get_asset), its length and every word's start and end as spoken. Billed in the account's provider credits, and recorded before it is asked for: the same clientRequestId returns the first take instead of paying for another, and a take whose answer was lost is never made again by itself (submission_uncertain). A take is an AI voice: its file says so (ai_generated_voice).",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({
+    script: z.string().trim().min(1).max(4000).describe("What is said, up to 4,000 characters"),
+    voiceId: id()
+      .nullable()
+      .optional()
+      .describe("The brand voice that speaks (list_brand_voices); otherwise the work's voice"),
+    sequenceId: id().nullable().optional().describe("An edit whose Voice tab keeps the take"),
+    projectId: id().nullable().optional(),
+    campaignId: id().nullable().optional(),
+    clientRequestId: requestId(),
+  }),
+  run: async (args, caller) => {
+    const { generateVoiceover: speak } = await import("../voice/service.server");
+    return speak({ ...args, userId: caller.userId });
+  },
+});
+
 const changeMusicTempo = tool({
   name: "change_music_tempo",
   title: "Change a track's tempo",
@@ -2955,6 +3038,7 @@ export const STUDIO_TOOLS: StudioTool[] = [
   getEdit,
   getRender,
   getMusicStructure,
+  listBrandVoices,
   listBrandKits,
   getBrandKit,
   readBrandCode,
@@ -2980,6 +3064,7 @@ export const STUDIO_TOOLS: StudioTool[] = [
   importVideo,
   generateMusic,
   changeMusicTempo,
+  generateVoiceover,
   getRedaction,
   applyRedaction,
   cancelRedaction,
