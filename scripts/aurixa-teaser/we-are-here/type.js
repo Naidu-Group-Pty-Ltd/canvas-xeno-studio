@@ -1,6 +1,6 @@
 // We Are Here's words at any instant, from the time alone (type.py's page). window.setT(t) shows t and resolves once
 // it is drawn. Each word rises into place as it is heard (As One's motion: up a fifth of its height, out of a blur,
-// in a quarter of a second); each line goes as the next is about to be heard; the gold phrase's hairline draws under
+// in a quarter of a second); each line goes as the next is about to be heard; the cyan phrase's hairline draws under
 // it as its last word is spoken. The shade behind the words comes and goes with them. The five tiers' names ride on
 // their rings (type/labels.json, from comp.py): each comes in on its word, its letters settling, and all five go as
 // "Powerful on their own" begins.

@@ -86,12 +86,9 @@ def lin_to_srgb(x):
     return np.where(x <= 0.0031308, x * 12.92, 1.055 * np.power(x, 1 / 2.4) - 0.055).astype(np.float32)
 
 
-# Light's colours, in linear light (As One's gold and warm, and the scan's cyan).
-GOLD = (1.0, 0.72, 0.32)
-WARM = (1.0, 0.86, 0.62)
-ICE = (0.62, 0.84, 1.0)
-CYAN = (0.30, 0.82, 1.0)
-WHITE = (1.0, 1.0, 1.0)
+# Light's colours, in linear light: the system's electric cyan (its glow and its core), the emblem's ice (the core and
+# the orb) and white, as space.py has them.
+CYAN, CYAN_HOT, ICE, WHITE = (tuple(float(c) for c in v) for v in (space.CYAN, space.CYAN_HOT, space.ICE, space.WHITE))
 
 # ------------------------------------------------------------------ light
 
@@ -433,8 +430,8 @@ class Panes:
             if p["tab"] == 3:
                 rim += 1.4 * flash(t, self.T["ai"] + 0.04, 0.04, 0.4) + 1.2 * flash(t, self.T["tab"] + 0.02, 0.04, 0.5)
             loop = np.vstack([dst, dst[:1]])
-            L.path(loop, 0.55 * rim * k, ICE, 1.0)
-            L.path(loop, 0.12 * rim * k, ICE, 4.0)
+            L.path(loop, 0.55 * rim * k, CYAN_HOT, 1.0)
+            L.path(loop, 0.12 * rim * k, CYAN, 4.0)
 
     def _glass(self, p, t, lay, alp, L):
         prem, a = self.tex[p["name"]]
@@ -468,8 +465,8 @@ class Panes:
             if L is not None:
                 glint = (0.12 + 2.6 * spec) * near
                 loop = np.vstack([dst, dst[:1]])
-                L.path(loop, 0.45 * glint, ICE, 0.9)
-                L.path(loop, 0.07 * glint, ICE, 4.0)
+                L.path(loop, 0.45 * glint, CYAN_HOT, 0.9)
+                L.path(loop, 0.07 * glint, CYAN, 4.0)
 
 
 
@@ -527,15 +524,15 @@ class Tool:
                 img += lay
                 loop = np.vstack([dst, dst[:1]])
                 rim = 0.25 + 1.2 * flash(t, T["so"] + 0.2, 0.06, 0.4) + 1.5 * flash(t, T["tool"] + 0.05, 0.05, 0.35)
-                L.path(loop, 0.55 * rim * show, ICE, 1.0)
-                L.path(loop, 0.1 * rim * show, ICE, 4.0)
+                L.path(loop, 0.55 * rim * show, CYAN_HOT, 1.0)
+                L.path(loop, 0.1 * rim * show, CYAN, 4.0)
         tau = t - T["is_"]
         if 0 < tau < 2.2:
             go = np.clip((tau - self.lag) / 0.08, 0, 1)
             pull = ease_in_out(clamp((tau - 0.12) / 1.5))
             P = self.P0 + self.vel * tau + (np.zeros(3) - self.P0) * (0.92 * pull)
             k = self.k * go * (0.35 + 2.2 * np.exp(-tau / 0.22)) * (1 - lin(tau, 1.3, 2.2))
-            col = space.ICE * (1 - pull) + space.GOLD * pull
+            col = space.CYAN_HOT * (1 - pull) + space.CYAN * pull
             pt = space.Painter(L, self.world.pose(t))
             pt.points(P, k, col, 0.8)
 
@@ -688,7 +685,7 @@ class Film:
             X1, Y1 = self.art_to_film(x1, y1)
             self.paste_light(img, self.emblem, (X0, Y0, X1, Y1),
                              0.9 * e * (1 + 0.6 * flash(t, T["aurixa"] + 0.35, 0.1, 0.8) + 0.32 * beat))
-            L.glow(ox, oy, 220, WARM, (0.04 + 0.025 * beat) * e)
+            L.glow(ox, oy, 220, CYAN_HOT, (0.04 + 0.025 * beat) * e)
         # Its lettering, letter by letter: AURIXA on "Aurixa", SYSTEMS on "Systems".
         for i, Lr in enumerate(self.letters):
             first = i < 6
@@ -727,11 +724,11 @@ class Film:
                 pts = np.stack([ox + r * np.cos(phis), oy - r * np.sin(phis)], 1)
                 order = np.argsort(phis)
                 pts, kk = np.vstack([pts[order], pts[order][:1]]), np.concatenate([kk[order], kk[order][:1]])
-                L.path(pts, kk, ICE, 1.15)
-                L.path(pts, 0.15 * kk, ICE, 5.0)
+                L.path(pts, kk, CYAN_HOT, 1.15)
+                L.path(pts, 0.15 * kk, CYAN, 5.0)
                 hx, hy = ox + r * math.cos(ang), oy - r * math.sin(ang)
                 L.point(hx, hy, 3.5 * k, WHITE, 1.6)
-                L.glow(hx, hy, 12, ICE, 0.3 * k)
+                L.glow(hx, hy, 12, CYAN, 0.3 * k)
             kept = ss(t, rings[2][2] - 0.3, rings[2][2] + 0.8)
             arrive = ss(gather, 0.55, 1.0)
             breath = 0.88 + 0.12 * math.sin((t - T["aurixa"]) * 2.2)
@@ -744,7 +741,7 @@ class Film:
                 phis = np.linspace(0, 2 * math.pi, 120)
                 behind = np.mod(a0 - phis, 2 * math.pi)
                 kk = 0.55 * kept * breath * (0.18 + np.exp(-behind / 1.4))
-                L.path(np.stack([ox + rr * np.cos(phis), oy - rr * np.sin(phis)], 1), kk, ICE, 1.15)
+                L.path(np.stack([ox + rr * np.cos(phis), oy - rr * np.sin(phis)], 1), kk, CYAN_HOT, 1.15)
 
     def paste_light(self, img, pic, box, k):
         """A picture's light, added (As One's emblem): its colour times its own alpha, scaled into box."""

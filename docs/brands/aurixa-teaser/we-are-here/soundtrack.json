@@ -1,0 +1,222 @@
+{
+ "written": "2026-10-27",
+ "note": "We Are Here's soundtrack: As One's two stems (scripts/aurixa-teaser/as-one/sound.py) as a studio edit's audio (src/lib/edit/timeline.ts), the music dipped under the voice and mixed by the media worker's code (media-worker/src/sequence.js), measured by its mix report (media-worker/src/mixreport.js). The voice keeps every word where As One placed it (sound-as-one/cues.json); the music runs from its first sample.",
+ "stems": {
+  "voice": {
+   "file": "sound-as-one/stems/voice.wav",
+   "asset": "e2a6be68-4f01-43c1-987e-06e4a5de7f9d"
+  },
+  "music": {
+   "file": "sound-as-one/stems/music.wav",
+   "asset": "221832d4-8d43-4302-b7a4-9fb517e80c5f"
+  }
+ },
+ "timeline": {
+  "audio": [
+   {
+    "id": "voiceover",
+    "assetId": "e2a6be68-4f01-43c1-987e-06e4a5de7f9d",
+    "role": "voiceover",
+    "start": 0,
+    "trimStart": 0,
+    "duration": 45.5,
+    "volume": 1,
+    "fadeIn": 0,
+    "fadeOut": 0,
+    "loop": false,
+    "duck": false,
+    "duckLevel": 0.25,
+    "label": "The voice: the brand voice's take in its eleven sentences, as As One placed them",
+    "pauses": []
+   },
+   {
+    "id": "music-1",
+    "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+    "role": "music",
+    "start": 0,
+    "trimStart": 0,
+    "duration": 22.2499,
+    "volume": 1,
+    "fadeIn": 0,
+    "fadeOut": 0.03,
+    "loop": false,
+    "duck": true,
+    "duckLevel": 0.42,
+    "label": "The intro and its silent bar, under the first five lines",
+    "pauses": []
+   },
+   {
+    "id": "music-2",
+    "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+    "role": "music",
+    "start": 22.2199,
+    "trimStart": 22.2199,
+    "duration": 0.3301,
+    "volume": 0.65,
+    "fadeIn": 0.03,
+    "fadeOut": 0.15,
+    "loop": false,
+    "duck": false,
+    "duckLevel": 1,
+    "label": "The drop's first hit, before the voice comes back",
+    "pauses": []
+   },
+   {
+    "id": "music-3",
+    "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+    "role": "music",
+    "start": 22.4,
+    "trimStart": 22.4,
+    "duration": 23.1,
+    "volume": 1,
+    "fadeIn": 0.15,
+    "fadeOut": 0,
+    "loop": false,
+    "duck": true,
+    "duckLevel": 0.47,
+    "label": "The groove, under 'More valuable' to 'A new operating standard is coming'",
+    "pauses": []
+   }
+  ],
+  "mix": {
+   "picture": {
+    "level": 1,
+    "muted": true
+   },
+   "voiceover": {
+    "level": 1,
+    "muted": false
+   },
+   "audio": {
+    "level": 1,
+    "muted": false
+   }
+  },
+  "normalizeLoudness": true
+ },
+ "plan": {
+  "total": 45.5,
+  "loudness": -14,
+  "mix": {
+   "picture": 0,
+   "voiceover": 1,
+   "music": 1,
+   "sfx": 1
+  }
+ },
+ "speech": [
+  [
+   0.637,
+   11.748
+  ],
+  [
+   12.185,
+   15.442
+  ],
+  [
+   15.849,
+   22.03
+  ],
+  [
+   22.57,
+   27.15
+  ],
+  [
+   27.728,
+   33.743
+  ],
+  [
+   34.252,
+   39.714
+  ],
+  [
+   40.256,
+   41.456
+  ],
+  [
+   41.841,
+   43.97
+  ]
+ ],
+ "mix_report": {
+  "band_hz": [
+   300,
+   4000
+  ],
+  "sections": [
+   {
+    "index": 1,
+    "from": 0,
+    "to": 22.25,
+    "speech_seconds": 20.55,
+    "voice_db": -20,
+    "music_db": -32.5,
+    "margin_db": 12.5
+   },
+   {
+    "index": 2,
+    "from": 22.22,
+    "to": 22.55,
+    "speech_seconds": 0,
+    "voice_db": null,
+    "music_db": null,
+    "margin_db": null
+   },
+   {
+    "index": 3,
+    "from": 22.4,
+    "to": 45.5,
+    "speech_seconds": 19.39,
+    "voice_db": -21.3,
+    "music_db": -34,
+    "margin_db": 12.7
+   }
+  ],
+  "margin_db": {
+   "min": 12.5,
+   "max": 12.7
+  },
+  "loudness": {
+   "integrated_lufs": -14.2,
+   "range_lu": 3.2,
+   "true_peak_dbtp": -1.5
+  },
+  "mixed_lufs": -12.8
+ },
+ "as_one": {
+  "note": "As One's own balance (nothing ducked, every item at its full level), measured the same way.",
+  "margin_db": {
+   "min": 5,
+   "max": 6.1
+  },
+  "sections": [
+   {
+    "index": 1,
+    "from": 0,
+    "to": 22.25,
+    "speech_seconds": 20.55,
+    "voice_db": -20,
+    "music_db": -25,
+    "margin_db": 5
+   },
+   {
+    "index": 2,
+    "from": 22.22,
+    "to": 22.55,
+    "speech_seconds": 0,
+    "voice_db": null,
+    "music_db": null,
+    "margin_db": null
+   },
+   {
+    "index": 3,
+    "from": 22.4,
+    "to": 45.5,
+    "speech_seconds": 19.39,
+    "voice_db": -21.3,
+    "music_db": -27.4,
+    "margin_db": 6.1
+   }
+  ]
+ }
+}

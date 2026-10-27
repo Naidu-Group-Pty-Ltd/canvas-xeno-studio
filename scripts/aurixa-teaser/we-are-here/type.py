@@ -5,12 +5,13 @@ lay over the picture (type.js: window.setT(seconds) shows that instant).
   python3 -I scripts/aurixa-teaser/we-are-here/type.py <work files dir>      # writes we-are-here/type/type.html
 
 Every spoken word rises as it is heard, so the teaser reads with the sound off: As One's lines, word for word, in its
-styles (Playfair Display, the turn of each line in gold italic with its hairline), set low in the frame over a soft
-shade, where a phone's own buttons do not reach. One line is not set low: "Research, clients, reports, finance,
-communication." Each of those five words is set where its tier is, on its ring about the core, as it is said
-(comp.py --labels writes where, frame by frame, to type/labels.json; run it first).
+styles (Playfair Display, the turn of each line in italic with its hairline), set low in the frame over a soft shade,
+where a phone's own buttons do not reach. The turn and the tiers' names are in the system's electric cyan (space.CYAN,
+#00E7FF), which stands out over the gold land where the brand's gold did not. One line is not set low: "Research,
+clients, reports, finance, communication." Each of those five words is set where its tier is, on its ring about the
+core, as it is said (comp.py --labels writes where, frame by frame, to type/labels.json; run it first).
 
-Nothing in the film is a generated scene, so it carries no label for one: the space, the city and the light are drawn
+Nothing in the film is a generated scene, so it carries no label for one: the space, the land and the light are drawn
 in code, and the emblem is the supplied art.
 """
 import json
@@ -48,26 +49,26 @@ html, body { margin:0; width:1080px; height:1920px; background:transparent; over
 .say .w { display:inline-block; color:transparent; -webkit-background-clip:text; background-clip:text;
   background-image:linear-gradient(180deg, #ffffff 8%, #c6cedb 68%, #ffffff); padding:.06em .1em .14em; margin:-.06em -.1em -.14em; opacity:0; }
 .say .em { position:relative; display:inline-block; white-space:nowrap; }
-.say .em .w { font-style:italic; background-image:linear-gradient(180deg, #f5d17a 6%, #d7b35f 52%, #c89b3c 82%, #e6c36e 100%); }
+.say .em .w { font-style:italic; background-image:linear-gradient(180deg, #adf9ff 6%, #3ce6ff 52%, #00bde8 82%, #6febff 100%); }
 .say .ul { position:absolute; left:.06em; right:.06em; bottom:.04em; height:2px; transform-origin:0 50%; transform:scaleX(0);
-  background:linear-gradient(90deg, #c89b3c, #d7b35f 60%, rgba(215,179,95,.15)); }
+  background:linear-gradient(90deg, #00bde8, #3ce6ff 60%, rgba(60,230,255,.15)); }
 .tier { position:absolute; left:0; top:0; opacity:0; will-change:transform; }
-.tier .dot { position:absolute; left:-5px; top:-5px; width:10px; height:10px; border-radius:50%; background:#fbe7b5;
-  box-shadow:0 0 10px 3px rgba(245,209,122,.55); }
-.tier .rule { position:absolute; height:1px; background:linear-gradient(90deg, rgba(245,209,122,.95), rgba(245,209,122,.25)); }
-.tier .name { position:absolute; white-space:nowrap; font:700 30px/1 "MONO", monospace; color:#f5d17a;
+.tier .dot { position:absolute; left:-5px; top:-5px; width:10px; height:10px; border-radius:50%; background:#c8fbff;
+  box-shadow:0 0 10px 3px rgba(0,231,255,.55); }
+.tier .rule { position:absolute; height:1px; background:linear-gradient(90deg, rgba(0,231,255,.95), rgba(0,231,255,.25)); }
+.tier .name { position:absolute; white-space:nowrap; font:700 30px/1 "MONO", monospace; color:#3ce6ff;
   text-shadow:0 1px 12px rgba(2,6,14,.95), 0 0 2px rgba(2,6,14,.8); }
 .tier.left .rule { left:-56px; top:0; width:50px; transform:scaleX(-1); }
 .tier.left .name { right:66px; top:-15px; text-align:right; }
 .tier.right .rule { left:6px; top:0; width:50px; }
 .tier.right .name { left:66px; top:-15px; }
-.tier.down .rule { left:0; top:6px; width:1px; height:40px; background:linear-gradient(180deg, rgba(245,209,122,.95), rgba(245,209,122,.25)); }
+.tier.down .rule { left:0; top:6px; width:1px; height:40px; background:linear-gradient(180deg, rgba(0,231,255,.95), rgba(0,231,255,.25)); }
 .tier.down .name { left:0; top:56px; transform:translateX(-50%); }
 """
 
 
 def words_html(line_text, block_id, start_k=0):
-    """The words of a line, each its own span (block_id-w<i>); *phrase* is the gold italic one, with its hairline."""
+    """The words of a line, each its own span (block_id-w<i>); *phrase* is the cyan italic one, with its hairline."""
     out, inside, k = [], False, start_k
     for part in line_text.split("*"):
         if part:

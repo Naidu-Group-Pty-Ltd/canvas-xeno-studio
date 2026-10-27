@@ -575,11 +575,12 @@ class Earth:
 
     # -------------------------------------------------------------- the towns' lights, as points of the space
 
-    def lights(self, pt, gr, k, gold=None, cols=None, t=0.0, gain=None):
+    def lights(self, pt, gr, k, reached=None, cols=None, t=0.0, gain=None):
         """Every town's lights through the painter: a pale gold, a great city's heart warm-white and a few in ice,
-        each turning the brand's full gold, and brighter, by its share of `gold` (per light: where the system has
-        reached), and `gain` times as bright (per light, or none). Those over the horizon are left out, and those
-        near the limb dimmed by the long way through the air. cols: the warm, the ice and the gold, linear."""
+        each turning the system's colour, and brighter, by its share of `reached` (per light: where the system has
+        reached it), and `gain` times as bright (per light, or none). Those over the horizon are left out, and those
+        near the limb dimmed by the long way through the air. cols: the warm, the ice, the gold and the system's
+        colour, linear."""
         cam = pt.p.pos
         P = gr.world(self.light_g)
         to = P - cam
@@ -592,14 +593,14 @@ class Earth:
         air = np.clip(facing[vis] / 0.3, 0, 1) ** 0.7
         flick = 0.88 + 0.12 * np.sin(t * 1.3 + self.light_ph[vis])
         kk = self.light_k[vis] * k * air * flick
-        warm, ice, gcol = (np.asarray(c, np.float64) for c in cols)
+        warm, ice, gcol, scol = (np.asarray(c, np.float64) for c in cols)
         hw = self.light_heart[vis][:, None]
         col = (0.5 * warm + 0.5 * gcol) * (1 - hw) + warm * hw
         col = np.where((self.light_warm[vis] > 0.94)[:, None], ice, col)
-        if gold is not None:
-            gk = gold[vis][:, None]
-            col = col * (1 - gk) + gcol * gk
-            kk = kk * (1 + 1.4 * gold[vis])
+        if reached is not None:
+            rk = reached[vis][:, None]
+            col = col * (1 - rk) + scol * rk
+            kk = kk * (1 + 1.4 * reached[vis])
         if gain is not None:
             kk = kk * gain[vis]
         # Each light stands for a patch of a town's lamps. From orbit the patches are finer than a pixel and a city

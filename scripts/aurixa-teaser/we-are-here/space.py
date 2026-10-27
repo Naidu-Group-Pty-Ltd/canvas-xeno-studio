@@ -1,10 +1,11 @@
 """We Are Here's world: the system's own space, in which the whole film is one continuous move of one camera.
 
-The space is the emblem's own: navy, gold and ice. A core of ice light (the emblem's orb), the five tiers of the
-platform as five rings about it (research, clients, reports, finance, communication), the threads that join them to
-the country, and below, from the first frame to the last, Australia (earth.py): its land in relief, its coast and its
-seas, every town's lights. comp.py draws every frame of it through the camera here, and lays the panes, the tags, the
-emblem and the words over it.
+The space is the emblem's own, navy with its ice, and the system's light in it is electric cyan, set off against
+the gold land below. A core of ice light (the emblem's orb), the five tiers of the platform as five rings about it
+(research, clients, reports, finance, communication), the threads that join them to the country, and below, from the
+first frame to the last, Australia (earth.py): its land in relief, its coast and its seas, every town's lights.
+comp.py draws every frame of it through the camera here, and lays the panes, the tags, the emblem and the words over
+it.
 
 The system stays where it is and the Earth moves under it, on keys of its own (World._beats): how high the system
 stands over the country, over which place, and which way the camera looks. It opens on the whole continent from
@@ -48,6 +49,13 @@ GOLD = np.array([1.0, 0.72, 0.32], np.float32)
 WARM = np.array([1.0, 0.86, 0.62], np.float32)
 ICE = np.array([0.62, 0.84, 1.0], np.float32)
 WHITE = np.array([1.0, 1.0, 1.0], np.float32)
+# The system's light is electric cyan (the client's note 10: gold light did not stand out over the gold land): CYAN is
+# its glow and its fine lines, electric cyan itself (#0FF0FC), CYAN_HOT its core, a pale cyan that goes to white as it
+# passes the top. A dim cyan line reads as teal where a dim gold one read as gold, so CYAN carries 1.6 times the light
+# the gold did. Everything the system draws is in these; the land, the towns' own lights, the sky and its dust, the
+# core's ice and the supplied logo keep their own.
+CYAN = np.array([0.005, 0.87, 0.97], np.float32) * 1.6
+CYAN_HOT = np.array([0.43, 0.97, 1.0], np.float32)
 # The brand's navy in linear light (#081629).
 NAVY = np.array([0.0024, 0.0080, 0.0222], np.float32)
 
@@ -550,7 +558,7 @@ class World:
         la, lo, br, km = self.chase_frame
         geo.append([T["destinations"] + 1.1, la, lo, br, math.log(km), True])
         geo.append([T["follow"] + 0.2, la, lo, br, math.log(km), True])
-        # "Act as one": the system rises over the whole country again, the gold crossing it.
+        # "Act as one": the system rises over the whole country again, its light crossing it.
         beat(T["business"], orbit(30, 38, 22, (0, -5, -3)), (-30.0, 147.0, 30, 24), F=1500, blur=2.5)
         beat(T["one"], orbit(14, 66, 34, (0, -8, 0)), (-31.2, 136.5, 0, 62), F=1550, blur=2.0)
         # "So don't ask": stillness, one pane before the core, the Earth below turning east.
@@ -616,8 +624,8 @@ class World:
 
     def _falls(self):
         """When each thread falls (a sweep round the system by where each place lies about it as they begin); and,
-        for each of the Earth's lights, its nearest reached place and when the gold reaches it, and how far it is
-        from the points the waves of "one" and of the end run out from."""
+        for each of the Earth's lights, its nearest reached place and when the system's light reaches it, and how far
+        it is from the points the waves of "one" and of the end run out from."""
         T = self.T
         E = self.earth
         n = len(PLACES)
@@ -629,7 +637,7 @@ class World:
         self.dest_t = np.empty(n)
         self.dest_t[order] = t0 + span * np.arange(n) / (n - 1)
         self.dest_fly = 0.85
-        # the gold spreads from each reached place over its own lights, about 100 km a second, to 80 km out
+        # the light spreads from each reached place over its own lights, about 100 km a second, to 80 km out
         cos_d = np.clip(E.light_g @ self.dest_g.T, -1, 1)
         near = np.argmax(cos_d, 1)
         self.e_near = np.arccos(cos_d[np.arange(len(near)), near]) * geo_earth.RE
@@ -646,9 +654,9 @@ class World:
 
     def _network(self):
         """The places joined across the country: each to its neighbours (a Delaunay mesh of where they lie, its
-        longest crossings left out), each link a fine arc of gold over the ground; and the routes the system's pulses
-        run along the links, from one state or territory to another (ROUTES), so the whole reads as one network. Each
-        link runs out, fast, from whichever of its two places the system reaches first to the other once both are
+        longest crossings left out), each link a fine arc of cyan light over the ground; and the routes the system's
+        pulses run along the links, from one state or territory to another (ROUTES), so the whole reads as one network.
+        Each link runs out, fast, from whichever of its two places the system reaches first to the other once both are
         reached; a route's pulses run once all its links are there."""
         ll = self.dest_ll
         nodes = [j for j, n in enumerate(PLACES) if n != "Banksia Rise"]  # Sydney's lights stand for it
@@ -766,11 +774,11 @@ class World:
                 tip = seg[j] + (seg[min(j + 1, len(seg) - 1)] - seg[j]) * (m - j)
                 seg, kk = np.vstack([seg[:j + 1], tip]), np.append(kk[:j + 1], kk[j])
                 pt.points(tip[None], 2.6, WHITE, 1.1, occlude=True)
-                pt.points(tip[None], 0.3, GOLD, 3.0, occlude=True)
-            pt.polyline(seg, kk, WARM, 0.85, occlude=True)
-            pt.polyline(seg, 0.09 * kk, GOLD, 3.2, occlude=True)
+                pt.points(tip[None], 0.3, CYAN, 3.0, occlude=True)
+            pt.polyline(seg, kk, CYAN_HOT, 0.85, occlude=True)
+            pt.polyline(seg, 0.09 * kk, CYAN, 3.2, occlude=True)
         # the pulses, each running a route from one state or territory to another, faster than the eye can follow
-        # the land under it, a short tail of gold behind it
+        # the land under it, a short tail of light behind it
         run = 1 - ss(t, T["ask"], T["becomes"])
         if run <= 0:
             return
@@ -784,11 +792,11 @@ class World:
                 g = q[:, :3] / np.linalg.norm(q[:, :3], axis=1, keepdims=True)
                 P = gr.C + (gr.R + q[:, 3] / gr.km)[:, None] * (g @ gr.M.T)
                 ramp = np.linspace(0, 1, len(P)) ** 1.5
-                pt.polyline(P, (0.2 + 2.0 * ramp) * run, WARM, 1.0, occlude=True)
-                pt.polyline(P, (0.02 + 0.16 * ramp) * run, GOLD, 4.0, occlude=True)
+                pt.polyline(P, (0.2 + 2.0 * ramp) * run, CYAN_HOT, 1.0, occlude=True)
+                pt.polyline(P, (0.02 + 0.16 * ramp) * run, CYAN, 4.0, occlude=True)
                 if head <= r["km"][-1]:
                     pt.points(P[-1:], 4.5 * run, WHITE, 1.2, occlude=True)
-                    pt.points(P[-1:], 0.5 * run, GOLD, 3.5, occlude=True)
+                    pt.points(P[-1:], 0.5 * run, CYAN, 3.5, occlude=True)
 
     # -------------------------------------------------------------- the threads to the country
 
@@ -955,8 +963,8 @@ class World:
         climb = ease_out(lin(t, T["operate"] + 0.2, T["differently"] + 0.8)) * (1 - ss(t, T["changes"], T["changes"] + 0.4))
         if climb > 0:
             top = 2.0 + climb * 60
-            pt.segments([[0, 0.25, 0]], [[0, top, 0]], np.array([[1.6, 0.3]]) * ck, WARM, 0.9)
-            pt.segments([[0, 0.25, 0]], [[0, top, 0]], np.array([[0.25, 0.04]]) * ck, GOLD, 3.0)
+            pt.segments([[0, 0.25, 0]], [[0, top, 0]], np.array([[1.6, 0.3]]) * ck, CYAN_HOT, 0.9)
+            pt.segments([[0, 0.25, 0]], [[0, top, 0]], np.array([[0.25, 0.04]]) * ck, CYAN, 3.0)
         # the tiers
         self._tiers(pt, t, apart, stand, spread)
         # the national network over the ground, the threads to the country and their pulses
@@ -984,26 +992,26 @@ class World:
     # -------------------------------------------------------------- the parts
 
     def _earth_lights(self, pt, g, t):
-        """The Earth's lights: every town's, each turning gold as the system reaches its place, all of them in the
+        """The Earth's lights: every town's, each turning cyan as the system reaches its place, all of them in the
         wave before "one" and on it, and at the end answering every pulse of the emblem as it runs out over the
         country from under the core."""
         T, d = self.T, self.drop
         reach = np.clip((t - self.e_reach) / 0.5, 0, 1) * (self.e_near < 80.0) * (t > d)
         sweep = self.sweep(t)
         wave = np.clip((sweep - self.e_wave) / 150.0, 0, 1) * (t > T["business"] - 0.2)
-        gold = np.maximum(reach, wave)
+        reached = np.maximum(reach, wave)
         one = flash(t, T["one"], 0.03, 0.45)
         settle = 1 - 0.55 * ss(t, T["ask"], T["becomes"] + 0.5)
         k = 0.06 * (0.85 + 1.4 * one) * settle * (1 + 0.5 * self.beat(t))
         gain = self._pulse_gain(t)
         if T["business"] - 0.2 < t < T["one"] + 0.1:
-            # the wave's front: each town flares as it reaches it, so the gold is seen crossing the country
+            # the wave's front: each town flares as it reaches it, so the light is seen crossing the country
             front = 1 + 2.2 * np.exp(-((sweep - self.e_wave) / 180.0) ** 2)
             gain = front if gain is None else gain * front
-        self.earth.lights(pt, g, k, gold, (WARM, ICE, GOLD), t, gain)
+        self.earth.lights(pt, g, k, reached, (WARM, ICE, GOLD, CYAN_HOT), t, gain)
 
     def sweep(self, t):
-        """How far the gold wave before "one" has crossed the country from under the core, in km."""
+        """How far the wave of light before "one" has crossed the country from under the core, in km."""
         return 4500.0 * ease_in_out(lin(t, self.T["business"] - 0.2, self.T["one"]))
 
     def _pulse_gain(self, t, dist=None):
@@ -1037,7 +1045,7 @@ class World:
         if fl > 0.02:
             X, Y, z = pose.project(O)
             if z[0] > 0.2:
-                L.streak(float(X[0]), float(Y[0]), 260 * (0.4 + min(fl, 2.0)), tuple(0.6 * GOLD + 0.4 * ICE), 0.7 * min(fl, 2.0) * pt.w)
+                L.streak(float(X[0]), float(Y[0]), 260 * (0.4 + min(fl, 2.0)), tuple(0.6 * CYAN + 0.4 * ICE), 0.7 * min(fl, 2.0) * pt.w)
 
     def _tiers(self, pt, t, apart, stand, spread):
         T, d = self.T, self.drop
@@ -1059,10 +1067,11 @@ class World:
             rings.append((R, phi, r, a))
             if ghost <= 0:
                 continue
-            col = GOLD * a + ICE * (1 - a)
-            k_ring = (0.06 * ghost + (0.26 + 0.2 * bt) * a) * end
+            col = CYAN * a + ICE * (1 - a)
+            k_ring = (0.06 * ghost + (0.36 + 0.2 * bt) * a) * end
             P = tr.ring(R, 0.0, r, th)
             pt.polyline(P, k_ring, col, 0.9)
+            pt.polyline(P, 0.05 * k_ring * a, col, 3.5)  # a named ring's soft glow: the cyan reads as light, not teal
             if a <= 0 or elem <= 0:
                 continue
             ka = a * elem
@@ -1072,19 +1081,20 @@ class World:
                 lag = np.mod(head - (tr.rs_th + phi), 2 * math.pi)
                 kk = (0.06 + 1.1 * np.exp(-lag / 0.55)) * tr.rs_k * ka
                 P = tr.ring(R, phi, r, tr.rs_th, tr.rs_dy, tr.rs_dr)
-                pt.points(P, kk, ICE, 0.85)
+                pt.points(P, kk, CYAN_HOT, 0.85)
                 arc = np.linspace(head - 0.7, head, 40)
                 Pa = tr.ring(R, 0.0, r, arc)
-                pt.polyline(Pa, np.linspace(0, 1.5, 40) * ka, GOLD, 1.0)
-                pt.segments([[0, 0, 0]], [tr.ring(R, 0.0, r, np.array([head]))[0]], np.array([[0.05, 0.35]]) * ka, ICE, 0.8)
+                pt.polyline(Pa, np.linspace(0, 1.5, 40) * ka, CYAN, 1.0)
+                pt.segments([[0, 0, 0]], [tr.ring(R, 0.0, r, np.array([head]))[0]], np.array([[0.05, 0.35]]) * ka,
+                            CYAN_HOT, 0.8)
             elif i == 1:  # clients: points of light, joined
                 P = tr.ring(R, phi, r, tr.cl_th)
                 on = np.clip((age - np.arange(12) * 0.03) / 0.2, 0, 1)
                 pulse = 0.8 + 0.2 * np.sin(t * 2.4 + tr.cl_ph)
-                pt.points(P, 1.8 * on * pulse * ka, WARM, 1.0)
-                pt.points(P, 0.22 * on * ka, GOLD, 3.0)
+                pt.points(P, 1.8 * on * pulse * ka, CYAN_HOT, 1.0)
+                pt.points(P, 0.22 * on * ka, CYAN, 3.0)
                 j2 = (np.arange(12) + 2) % 12
-                pt.segments(P, P[j2], np.minimum(on, on[j2]) * 0.12 * ka, ICE, 0.8)
+                pt.segments(P, P[j2], np.minimum(on, on[j2]) * 0.12 * ka, CYAN_HOT, 0.8)
             elif i == 2:  # reports: pages gathering on the ring
                 for j, a0 in enumerate(tr.rp_th):
                     f = ease_out(clamp((age - j * 0.045) / 0.45))
@@ -1100,11 +1110,11 @@ class World:
                     corners = np.array([c - tan * w2 - up * h2, c + tan * w2 - up * h2, c + tan * w2 + up * h2,
                                         c - tan * w2 + up * h2]) @ R.T
                     kk = 0.55 * f * ka
-                    pt.polyline(corners, kk, ICE, 0.8, closed=True)
+                    pt.polyline(corners, kk, CYAN_HOT, 0.8, closed=True)
                     for yy in (0.45, 0.1, -0.25):
                         a1 = c - tan * w2 * 0.7 + up * h2 * yy
                         b1 = c + tan * w2 * (0.7 if yy < 0.4 else 0.2) + up * h2 * yy
-                        pt.segments((a1 @ R.T)[None], (b1 @ R.T)[None], 0.18 * kk, ICE, 0.75)
+                        pt.segments((a1 @ R.T)[None], (b1 @ R.T)[None], 0.18 * kk, CYAN_HOT, 0.75)
                     del out
             elif i == 3:  # finance: a rise of light around the ring, and its flow
                 base = tr.ring(R, phi, r, tr.fi_th)
@@ -1112,17 +1122,17 @@ class World:
                 h = tr.fi_h * grow * (1 + 0.15 * bt)
                 upv = R @ np.array([0.0, 1.0, 0.0])
                 tops = base + upv[None, :] * h[:, None]
-                pt.segments(base, tops, np.stack([0.1 * np.ones(30), 0.7 * np.ones(30)], 1) * ka, GOLD, 0.85)
-                pt.points(tops, 0.9 * ka, WARM, 0.9)
+                pt.segments(base, tops, np.stack([0.1 * np.ones(30), 0.7 * np.ones(30)], 1) * ka, CYAN, 0.85)
+                pt.points(tops, 0.9 * ka, CYAN_HOT, 0.9)
                 ang = tr.fi_p + tr.fi_v * age * 1.6
                 P = tr.ring(R, phi, r, ang, tr.fi_y * 0.15)
-                pt.points(P, 0.45 * ka, GOLD, 0.8)
+                pt.points(P, 0.45 * ka, CYAN, 0.8)
             else:  # communication: pulses running the ring
                 for j, a0 in enumerate(tr.cm_th):
                     hd = a0 + phi + 2.3 * age
                     arc = np.linspace(hd - 0.5, hd, 24)
                     Pa = tr.ring(R, 0.0, r, arc)
-                    pt.polyline(Pa, np.linspace(0, 1.4, 24) * ka, WARM, 1.0)
+                    pt.polyline(Pa, np.linspace(0, 1.4, 24) * ka, CYAN_HOT, 1.0)
                     pt.points(Pa[-1:], 2.2 * ka, WHITE, 1.2)
         # the spokes: every ring joined to the core as it comes in, and on "communication" all of them to each other
         comm = ss(t, T["names"][4] - 0.05, T["names"][4] + 0.45) * (1 - 0.85 * sep) * elem
@@ -1133,16 +1143,16 @@ class World:
             for j in range(3):
                 ang = tr.ph0[i] * 0.5 + j * 2 * math.pi / 3 + 0.3 * i
                 p = tr.ring(R, phi, r, np.array([ang]))[0]
-                pt.segments([[0, 0, 0]], [p], np.array([[k_sp * 0.4, k_sp]]), GOLD, 0.8)
+                pt.segments([[0, 0, 0]], [p], np.array([[k_sp * 0.4, k_sp]]), CYAN, 0.8)
                 # a pulse out along it, and back
                 u = (t * 0.7 + 0.31 * j + 0.17 * i) % 1.0
-                pt.points([p * u], 1.2 * k_sp / 0.16 * a, WARM, 1.0)
+                pt.points([p * u], 1.2 * k_sp / 0.16 * a, CYAN_HOT, 1.0)
         if comm > 0:
             for s in range(5):
                 ang = s * 2 * math.pi / 5 + 0.2 * t
                 P = np.stack([tr.ring(R, 0.0, r, np.array([ang]))[0] for (R, phi, r, a) in rings])
                 P = np.vstack([np.zeros((1, 3)), P])
-                pt.polyline(P, 0.22 * comm * (1 + bt), GOLD, 0.85)
+                pt.polyline(P, 0.22 * comm * (1 + bt), CYAN, 0.85)
                 # a pulse running out through all five, and one running in
                 for u0, sgn in ((0.0, 1), (0.5, -1)):
                     u = (t * 0.9 + u0 + s * 0.13) % 1.0
@@ -1184,11 +1194,11 @@ class World:
             if len(seg) < 2:
                 continue
             k = (0.3 + 0.8 * flare + 0.3 * bt) * fine * near[j] * np.linspace(1.0, 0.6, len(seg))
-            pt.polyline(seg, k, GOLD, 0.8, occlude=occ)
-            pt.polyline(seg, 0.05 * k, GOLD, 3.0, occlude=occ)
+            pt.polyline(seg, k, CYAN, 0.8, occlude=occ)
+            pt.polyline(seg, 0.05 * k, CYAN, 3.0, occlude=occ)
             if g < 1:
                 pt.points(seg[-1:], 3.0, WHITE, 1.2, occlude=occ)
-                pt.points(seg[-1:], 0.4, GOLD, 3.5, occlude=occ)
+                pt.points(seg[-1:], 0.4, CYAN, 3.5, occlude=occ)
             else:
                 arrive = flash(t, self.dest_t[j] + self.dest_fly, 0.03, 0.6)
                 if arrive > 0.01:
@@ -1197,15 +1207,15 @@ class World:
                     rr = (6.0 + 80.0 * (1 - arrive)) / gr.km  # out to 86 km on the ground
                     # laid on the Earth about the place
                     P = gr.bend(F[j] + np.stack([rr * np.cos(ring), np.full(72, 0.05), rr * np.sin(ring)], 1))
-                    pt.polyline(P, 0.7 * arrive, GOLD, 0.85, closed=True, occlude=occ)
-                pt.points(dest[j:j + 1], 0.9 * (1 + flare), WARM, 1.0, occlude=occ)
+                    pt.polyline(P, 0.7 * arrive, CYAN, 0.85, closed=True, occlude=occ)
+                pt.points(dest[j:j + 1], 0.9 * (1 + flare), CYAN_HOT, 1.0, occlude=occ)
                 # pulses down each thread on the beat
                 if t < T["ask"]:
                     for u0 in (0.0, 0.5):
                         u = ((t - self.dest_t[j]) * 0.55 + u0 + j * 0.071) % 1.0
                         if lo < u < hi:
                             i = int(u * 63)
-                            pt.points(C[i:i + 1], 1.6, WARM, 1.0, occlude=occ)
+                            pt.points(C[i:i + 1], 1.6, CYAN_HOT, 1.0, occlude=occ)
 
     def _chase_draw(self, pt, t):
         a, b = self.chase_t
@@ -1218,12 +1228,12 @@ class World:
         tail = [self.pulse_at(max(a, min(b, t - s))) for s in np.linspace(0.5, 0.0, 30)]
         tail = np.array([q for q in tail if q is not None])
         if len(tail) > 1:
-            pt.polyline(tail, np.linspace(0, 1.8, len(tail)) * fade, WARM, 1.0)
-            pt.polyline(tail, np.linspace(0, 0.25, len(tail)) * fade, GOLD, 4.0)
+            pt.polyline(tail, np.linspace(0, 1.8, len(tail)) * fade, CYAN_HOT, 1.0)
+            pt.polyline(tail, np.linspace(0, 0.25, len(tail)) * fade, CYAN, 4.0)
         pt.points([p], 16.0 * fade, WHITE, 1.4)
-        pt.points([p], 2.0 * fade, WARM, 3.5)
-        pt.glow(p, 0.35, 0.22 * fade, WARM)
-        # the ground it runs lights behind it, and stays lit: a line of the towns' lights turned gold
+        pt.points([p], 2.0 * fade, CYAN_HOT, 3.5)
+        pt.glow(p, 0.35, 0.22 * fade, CYAN_HOT)
+        # the ground it runs lights behind it, and stays lit: a line of the towns' lights turned cyan
         pts, sv, t0, t1 = self.legs[1]
         if t > t0:
             gr = self.ground(t)
@@ -1232,7 +1242,7 @@ class World:
             passed = t0 + (t1 - t0) * u
             on = np.clip((t - passed) / 0.12, 0, 1) * (t > passed)
             k = on * (0.55 + 1.6 * np.exp(-(t - passed) / 0.35)) * (1 - ss(t, self.T["ask"], self.T["becomes"]))
-            pt.points(wake, k, GOLD * 0.6 + WARM * 0.4, 1.2, occlude=True)
+            pt.points(wake, k, CYAN * 0.6 + CYAN_HOT * 0.4, 1.2, occlude=True)
             reach = clamp((t - t0) / (t1 - t0))
             kl = 0.6 * (1 - ss(t, self.T["ask"], self.T["becomes"]))
             if reach > 0:
@@ -1243,8 +1253,8 @@ class World:
                 line = np.vstack([run[:m], run[max(m - 1, 0)] + (run[min(m, len(run) - 1)] - run[max(m - 1, 0)])
                                   * ((reach - s[max(m - 1, 0)]) / max(s[1], 1e-9))])
                 kk = np.linspace(0.5 * kl, kl, len(line))
-                pt.polyline(line, kk, GOLD, 1.0, occlude=True)
-                pt.polyline(line, kk * 0.08, GOLD, 6.0, occlude=True)
+                pt.polyline(line, kk, CYAN, 1.0, occlude=True)
+                pt.polyline(line, kk * 0.08, CYAN, 6.0, occlude=True)
 
     def _waves(self, pt, L, pose, t):
         T, d = self.T, self.drop
@@ -1253,9 +1263,10 @@ class World:
             return
         x, y, zz = float(X[0]), float(Y[0]), float(z[0])
         s = pose.F / zz  # px per world unit at the core
-        for at, life, rmax, k, col in ((T["operate"] + 0.05, 1.0, 9.0, 0.7, GOLD), (T["changes"], 0.9, 30.0, 0.9, mixc_np(ICE, GOLD, 0.3)),
-                                       (d, 0.8, 40.0, 1.3, mixc_np(WARM, ICE, 0.2)), (T["one"], 0.9, 40.0, 0.8, GOLD),
-                                       (T["system"], 0.9, 30.0, 0.9, mixc_np(ICE, GOLD, 0.4))):
+        for at, life, rmax, k, col in ((T["operate"] + 0.05, 1.0, 9.0, 0.7, CYAN), (T["changes"], 0.9, 30.0, 0.9, mixc_np(ICE, CYAN, 0.3)),
+                                       (d, 0.8, 40.0, 1.3, mixc_np(CYAN_HOT, ICE, 0.2)),
+                                       (T["one"], 0.9, 40.0, 0.8, CYAN),
+                                       (T["system"], 0.9, 30.0, 0.9, mixc_np(ICE, CYAN, 0.4))):
             g = lin(t, at, at + life)
             if 0 < g < 1:
                 r = (0.4 + rmax * ease_out(g)) * s
@@ -1263,17 +1274,17 @@ class World:
                     L.ring(x, y, r, tuple(col), k * (1 - g) ** 1.5 * pt.w, 1.3)
                     L.ring(x, y, r, tuple(col), 0.08 * k * (1 - g) ** 1.5 * pt.w, 14.0)
         # the ground's ring on "one": the whole country answering at once; the wave before it has its front drawn
-        # too, a faint line of gold crossing the land
+        # too, a faint line of light crossing the land
         g = lin(t, T["one"], T["one"] + 1.2)
         gr = self.ground(t)
         if T["business"] - 0.2 < t < T["one"] + 0.05:
             kf = 0.4 * ss(t, T["business"] - 0.2, T["business"] + 0.15) * (1 - ss(t, T["one"] - 0.2, T["one"] + 0.05))
             if kf > 0.002 and self.sweep(t) > 1.0:
                 q = geo_earth.circle(self.one_g, self.sweep(t) / geo_earth.RE, 720)
-                pt.polyline(gr.world(q, 0.1), kf, GOLD, 1.0, closed=True, occlude=True)
+                pt.polyline(gr.world(q, 0.1), kf, CYAN, 1.0, closed=True, occlude=True)
         if 0 < g < 1:
             q = geo_earth.circle(self.one_g, (40.0 + 3000.0 * ease_out(g)) / geo_earth.RE, 720)
-            pt.polyline(gr.world(q, 0.1), 0.9 * (1 - g) ** 1.4, GOLD, 1.0, closed=True, occlude=True)
+            pt.polyline(gr.world(q, 0.1), 0.9 * (1 - g) ** 1.4, CYAN, 1.0, closed=True, occlude=True)
         # the emblem's pulses, from the orb, on "Aurixa", on "Systems" and on the bars after (the beats after the
         # first a little stronger: the logo's beat is the film's last word), each with a fine echo just behind it, as
         # a beat carries; each also runs out over the country from under the core, its towns and its network
@@ -1283,16 +1294,16 @@ class World:
             if 0 < g < 1:
                 r = (0.6 + 24.0 * ease_out(g)) * s
                 kk = (1.0 if at == T["aurixa"] else 0.875) * (1 - g) ** 1.7
-                L.ring(x, y, r, tuple(mixc_np(ICE, GOLD, 0.35)), 1.1 * kk * pt.w, 1.2)
-                L.ring(x, y, r, tuple(mixc_np(ICE, GOLD, 0.35)), 0.1 * kk * pt.w, 12.0)
+                L.ring(x, y, r, tuple(mixc_np(ICE, CYAN, 0.35)), 1.1 * kk * pt.w, 1.2)
+                L.ring(x, y, r, tuple(mixc_np(ICE, CYAN, 0.35)), 0.1 * kk * pt.w, 12.0)
                 ge = lin(t, at + 0.14, at + 1.6)
                 if 0 < ge < 1:
-                    L.ring(x, y, (0.6 + 21.0 * ease_out(ge)) * s, tuple(mixc_np(ICE, GOLD, 0.6)),
+                    L.ring(x, y, (0.6 + 21.0 * ease_out(ge)) * s, tuple(mixc_np(ICE, CYAN, 0.6)),
                            0.45 * kk * pt.w, 1.0)
                 q = geo_earth.circle(self.end_g, (60.0 + 3400.0 * ease_out(g)) / geo_earth.RE, 900)
                 kg = 0.7 * (1.0 if at == T["aurixa"] else 0.75) * (1 - g) ** 1.2
-                pt.polyline(gr.world(q, 0.08), kg, GOLD, 1.0, closed=True, occlude=True)
-                pt.polyline(gr.world(q, 0.08), 0.06 * kg, GOLD, 5.0, closed=True, occlude=True)
+                pt.polyline(gr.world(q, 0.08), kg, CYAN, 1.0, closed=True, occlude=True)
+                pt.polyline(gr.world(q, 0.08), 0.06 * kg, CYAN, 5.0, closed=True, occlude=True)
 
     # The emblem's triangle (the art's apex and lower corners, as the end card places them on the frame) carried back
     # into the space through the camera's last pose: 27.5 from the core, 1663 px of focal length, its axis at y 710.5.
@@ -1313,8 +1324,8 @@ class World:
                 continue
             e = p + (q - p) * g
             kk = (1.6 + 2.5 * lock) * k
-            pt.segments([p], [e], kk, WARM, 1.1)
-            pt.segments([p], [e], 0.16 * kk, GOLD, 5.0)
+            pt.segments([p], [e], kk, CYAN_HOT, 1.1)
+            pt.segments([p], [e], 0.16 * kk, CYAN, 5.0)
             if g < 1:
                 pt.points([e], 4.0 * k, WHITE, 1.4)
 
