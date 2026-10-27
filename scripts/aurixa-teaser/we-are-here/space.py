@@ -650,6 +650,7 @@ class World:
         key(d - 0.02, p, l, 1663, blur=4.0)
         p, l = orbit(76, 14, 19.0, (0.0, -3.0, 0.0))
         key(d + 0.45, p, l, 1663, blur=3.0)
+        key(d + 1.15, (-3.5, 7.0, 21.0), (0.0, -3.0, -3.0), 1640, blur=2.8)
         key(T["stop"], (-7.0, 9.0, 24.0), (0.0, -6.0, -8.0), 1620, blur=2.6)
         key(T["destinations"], (-12.0, 16.0, 30.0), (0.0, -13.0, -18.0), 1600, blur=2.2)
         # the chase, from beside it: the camera runs alongside the pulse, a little above and behind, and keeps to
@@ -810,7 +811,8 @@ class World:
         if k <= 0:
             return
         O = np.zeros((1, 3))
-        hot = k * (1 + fl + 1.5 * gather)
+        # bounded: a hotter core only blooms wider, and the bloom would veil the navy
+        hot = k * min(3.2, 1 + fl + 1.5 * gather)
         pt.points(O, 7.0 * hot, WHITE, 1.3)
         pt.points(O, 1.3 * hot, ICE, 4.0)
         pt.glow(O[0], 0.42, 0.22 * k * (1 + 0.6 * min(fl, 2.0)), ICE)
@@ -825,6 +827,8 @@ class World:
         tr = self.tiers
         ghost = ss(t, T["changes"] + 0.05, T["changes"] + 0.6)
         elem = 1 - ss(t, T["ask"], T["becomes"])
+        # as the rings are drawn into the core before the drop their details go, and they come back after the burst
+        elem *= 1 - (ss(t, d - 0.42, d - 0.14) if t < d else 1 - ss(t, d + 0.18, d + 0.6))
         end = 1 - 0.75 * ss(t, T["aurixa"] + 0.15, T["aurixa"] + 1.1)
         sep = ss(t, T["powerful"], T["own"]) * (t < d)  # the silent bar: each on its own
         bt = self.beat(t)

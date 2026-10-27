@@ -478,11 +478,9 @@ class Tool:
         self.prem, self.a = tex
         self.th, self.tw = self.a.shape
         self.T, self.world = T, world
-        pose = world.pose(T["so"] + 0.6)
         w = 3.3
         self.w, self.h = w, w * self.th / self.tw
-        self.c = pose.pos + np.array([0.0, -0.45, 7.6]) @ pose.R
-        self.r, self.u = pose.R[0], pose.R[1]
+        self.at = np.array([0.0, 0.25, 7.6])  # where it holds in the camera's frame: ahead, clear of the words
         lum = self.prem @ np.array([0.2126, 0.7152, 0.0722], np.float32)
         wgt = (lum * self.a).ravel().astype(np.float64)
         wgt /= wgt.sum()
@@ -491,18 +489,23 @@ class Tool:
         py, px = np.divmod(idx, self.tw)
         top = float(np.percentile(lum[self.a > 0.5], 99))
         self.k = np.clip(lum.ravel()[idx] / max(top, 1e-4), 0.08, 1.0)
-        u = (px + rng.random(n)) / self.tw - 0.5
-        v = (py + rng.random(n)) / self.th - 0.5
-        self.P0 = self.c + np.outer(u * self.w, self.r) - np.outer(v * self.h, self.u)
-        self.vel = rng.normal(0, 0.16, (n, 3)) + self.u * 0.06
+        self.uv = np.stack([(px + rng.random(n)) / self.tw - 0.5, (py + rng.random(n)) / self.th - 0.5], 1)
+        # what it comes apart into starts where it is on "is", in the space
+        c, r, u = self.frame(T["is_"])
+        self.P0 = c + np.outer(self.uv[:, 0] * self.w, r) - np.outer(self.uv[:, 1] * self.h, u)
+        self.vel = rng.normal(0, 0.16, (n, 3)) + u * 0.06
         self.lag = rng.random(n) * 0.25
 
+    def frame(self, t):
+        """The pane's centre and its right and up, at t: held before the camera, rising a little as it waits."""
+        pose = self.world.pose(t)
+        c = pose.pos + (self.at + np.array([0.0, 0.05 * (t - self.T["so"]), 0.0])) @ pose.R
+        return c, pose.R[0], pose.R[1]
+
     def corners(self, t):
-        drift = self.u * 0.06 * (t - self.T["so"])
+        c, r, u = self.frame(t)
         hw, hh = self.w / 2, self.h / 2
-        c = self.c + drift
-        return np.array([c - self.r * hw + self.u * hh, c + self.r * hw + self.u * hh,
-                         c + self.r * hw - self.u * hh, c - self.r * hw - self.u * hh])
+        return np.array([c - r * hw + u * hh, c + r * hw + u * hh, c + r * hw - u * hh, c - r * hw - u * hh])
 
     def draw(self, panes, img, L, t):
         """The pane over img (linear, in place) while it holds; its motes into L once it comes apart."""
@@ -609,10 +612,16 @@ class Film:
             x, y, z = anc
             prem, a = self.tags[key]
             th, tw = a.shape
-            s = clamp(pose.F * 3.0 / z / tw, 0.14, 0.4)
+            s = clamp(pose.F * 3.0 / z / tw, 0.18, 0.36)
             k = ease_out(lin(tt, 0, 0.25)) * (1 - ss(t, end - 0.2, end + 0.2))
             rise = (1 - ease_out(lin(tt, 0, 0.3))) * 18
-            cx, cy = x + 40 * s / 0.3, y - (95 + i * 86) * s / 0.3 + rise
+            # on the side of the pulse the frame has room for, as it was when the context came in
+            first = self.world.tag_anchor(a0 + 0.02, 0.16)
+            left = first is not None and first[0] > W / 2
+            cx = x - 40 * s / 0.3 - tw * s if left else x + 40 * s / 0.3
+            cy = y - (95 + i * 86) * s / 0.3 + rise
+            cx = clamp(cx, 28, W - 28 - tw * s)
+            cy = clamp(cy, 200 + th * s / 2, 1120 - th * s / 2)
             dst = np.array([[cx, cy - th * s / 2], [cx + tw * s, cy - th * s / 2],
                             [cx + tw * s, cy + th * s / 2], [cx, cy + th * s / 2]])
             self.panes._quad_warp(prem * 1.15, a, np.array([[0, 0], [tw, 0], [tw, th], [0, th]], np.float64), dst,
@@ -749,10 +758,17 @@ class Film:
             self.card(img, front, t)
         if front.used:
             img += front.resolve()
-        # the drop: the frame takes the light, for a moment
+        # the drop: a burst of white light at the core, and the frame lifted with it for a moment
         fl = flash(t, self.drop, 0.02, 0.16)
         if fl > 0.001:
-            img = img * (1 + 1.1 * fl) + 0.02 * fl
+            X, Y, z = pose.project(np.zeros((1, 3)))
+            burst = Light()
+            if z[0] > 0.3:
+                burst.glow(float(X[0]), float(Y[0]), 150, WHITE, 0.7 * fl)
+                burst.glow(float(X[0]), float(Y[0]), 420, ICE, 0.07 * fl)
+            img *= 1 + 0.5 * fl
+            if burst.used:
+                img += burst.resolve()
         return self.jolt(img, t)
 
     def jolt(self, img, t):

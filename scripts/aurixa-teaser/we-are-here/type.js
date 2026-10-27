@@ -21,11 +21,12 @@
     at: wt("s3", 0), names: [0, 1, 2, 3, 4].map((i) => wt("s4", i)), powerful: wt("s5", 0), when: wt("s7", 0),
     grid: wt("s7", 8), so: wt("s8", 0), ask: wt("s9", 0), aurixa: wt("s10", 0),
   };
-  // When each block goes (it fades over 0.28 s from then); b5 is cut by the drop.
+  // When each block goes (it fades over 0.28 s from then); b5 is cut by the drop. b7a and b7b are gone before b7c's
+  // first word, which is set between them.
   const GO = {
     b1: wt("s2", 0) - 0.3, b2a: wt("s2", 6) - 0.12, b2b: wt("s2", 12) - 0.12, b2c: T.at - 0.15,
     b3: T.names[0] - 0.25, b5: D.dropFrame, b6: T.when - 0.25,
-    b7a: T.grid - 0.18, b7b: T.grid - 0.18, b7c: T.so - 0.3,
+    b7a: T.grid - 0.34, b7b: T.grid - 0.34, b7c: T.so - 0.3,
     b8: T.ask - 0.2, b9: T.aurixa - 0.1, b11: 99,
   };
 
