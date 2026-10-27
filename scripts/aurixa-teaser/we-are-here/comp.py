@@ -811,18 +811,19 @@ class Film:
             return vx + (bx - vx) / D, vy + (by - vy) / D
 
         def pulse_at(t0, tt):
-            return math.exp(1.9 * max(0.0, tt - t0)) * 0.92
+            # It leaves the camera behind, slower than its own speed looks: it is chased, not lost.
+            return math.exp(1.25 * max(0.0, tt - t0)) * 0.92
 
         for t0, k in ((T["intelligence"], 1.0), (T["move"], 0.8), (T["context"], 0.9)):
-            if t < t0 - 0.02 or t > t0 + 2.2:
+            if t < t0 - 0.02 or t > t0 + 2.6:
                 continue
             D = pulse_at(t0, t)
             hx, hy = on_road(D)
-            # its tail: where it was over the last third of a second
-            ts = np.linspace(max(t0, t - 0.32), t, 40)
+            # its tail: where it was over the last half second
+            ts = np.linspace(max(t0, t - 0.5), t, 56)
             tail = np.array([on_road(pulse_at(t0, s)) for s in ts])
-            w = 1.0 / D
-            fade = 1 - lin(t, t0 + 1.4, t0 + 2.2)
+            w = max(1.0 / D, 0.22)
+            fade = 1 - lin(t, t0 + 1.8, t0 + 2.6)
             kk = np.linspace(0.0, 1.0, len(tail)) ** 1.5 * k * fade
             L.path(tail, 1.8 * kk, WARM, max(0.9, 3.6 * w))
             L.path(tail, 0.4 * kk, GOLD, max(2.5, 13 * w))
@@ -880,7 +881,7 @@ class Film:
         after = ss(t, T["one"], T["one"] + 0.3)
         gold = np.array(GOLD, np.float32)
         img += (st * (0.55 * lit + 1.4 * front))[..., None] * gold
-        img += ((st * 1.6 + li * 2.2) * one + (st * 0.5 + li * 0.6) * after)[..., None] * gold * (0.6 + 0.4 * img)
+        img += ((st * 1.1 + li * 1.4) * one + (st * 0.3 + li * 0.35) * after)[..., None] * gold * (0.6 + 0.4 * img)
         cx, cy, _, _ = self.src.at("grid", "centre", n)
         g = lin(t, T["one"], T["one"] + 0.9)
         if 0 < g < 1:
@@ -1291,11 +1292,12 @@ class Film:
         out *= self.vignette[..., None]
         for c, (mx, my) in self.ca.items():
             out[..., c] = cv2.remap(np.ascontiguousarray(out[..., c]), mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
-        # the opening comes out of black
-        out *= ease_in_out(lin(t, 0.0, 0.75))
+        # the opening comes up out of the dark (its first frame is never black: it may be the one a feed shows)
+        out *= 0.3 + 0.7 * ease_in_out(lin(t, 0.0, 0.75))
         srgb = lin_to_srgb(out)
         luma = srgb @ np.array([0.2126, 0.7152, 0.0722], np.float32)
-        amt = 0.011 * (0.35 + 0.65 * (1 - np.abs(2 * luma - 1)))
+        # fine, and light: a platform encodes the film again, and heavy grain comes out of that as blocks
+        amt = 0.0055 * (0.35 + 0.65 * (1 - np.abs(2 * luma - 1)))
         g = np.roll(self.grain[n % 6], (n * 37) % H, axis=0)
         srgb = srgb + (g * amt)[..., None]
         return np.clip(srgb, 0, 1)

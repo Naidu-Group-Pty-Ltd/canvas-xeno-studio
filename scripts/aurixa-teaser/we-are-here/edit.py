@@ -61,7 +61,7 @@ RISE_NODES = dict(n1=(0.36, 0.40), n2=(0.12, 0.43), n3=(0.25, 0.52), n4=(0.47, 0
                   n11=(0.58, 0.66), n12=(0.30, 0.87), n13=(0.66, 0.50), n14=(0.42, 0.47))
 SHOTS = [
     dict(key="open", a=CUT["open"], b=CUT["office"],
-         move=dict(zoom=(1.0, 1.06), cx=(0.5, 0.5), cy=(0.52, 0.5)),
+         move=dict(zoom=(1.0, 1.14), cx=(0.5, 0.5), cy=(0.52, 0.48)),
          take=dict(start=0.2, speed=1.0),
          look=dict(exposure=-0.15, contrast=1.08, saturation=0.95)),
     dict(key="office", a=CUT["office"], b=CUT["air"] + 6,

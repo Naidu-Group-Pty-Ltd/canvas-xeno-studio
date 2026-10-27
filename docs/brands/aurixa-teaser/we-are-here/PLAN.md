@@ -78,11 +78,17 @@ every 1.861 s; bar 0 is the drop, at 22.255 s.
   - Each keyframe is set in motion as a 4K take (2160 x 3840, 24 fps) with Kling 3.0 4K (image to video).
   - Both run through the studio's API (`scripts/aurixa-teaser/we-are-here/gen.py`, `shots.json`). Each request is asked
     for once and kept with the work, in its project.
+  - Higgsfield's API credit ran out after the first two takes (the opening and the sunrise). The other shots are their
+    keyframes moved by a camera through their depth (`depth.py`, `camera.py`, `plates.py`): a push, a turn, a dolly
+    or an orbit, with parallax, so the film is whole without them. Each take, when it comes, takes its keyframe's
+    place: `edit.py` uses a shot's take wherever there is one.
 - **Nothing generated carries a word, a figure or a logo.** Every keyframe was read for text before it was set in
   motion, and every take is read again. The panes, the labels, the tags, the words and the emblem are drawn in code,
   exactly.
-- **The light is placed on the footage.** It is anchored where the footage moves, by tracking the frames: the tower's
-  crown, the road, the city's centre.
+- **The light is placed on the footage.** It is anchored where the footage moves: tracked through the takes (the
+  tower's crown, five places across the city), and carried through the keyframes' cameras (the road, the lots, the
+  city's nodes). Where the light acts on the picture, it acts on the picture's own windows, streets and trails, found
+  in each keyframe (`masks.py`).
 - **Assembled in three layers.**
   - The plates are graded to one look and cut on the voice's words.
   - The light and the type are drawn by Chromium as transparent frames.
