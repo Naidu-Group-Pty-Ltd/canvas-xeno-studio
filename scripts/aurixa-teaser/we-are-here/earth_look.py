@@ -4,8 +4,9 @@ it: the plate, the towns' lights, the finish. A tool for the Australia version, 
   $PY -I earth_look.py <work files dir> <out dir> '[{"t": 25.8, "lat": -34.4, "lon": 149.3, "bearing": 29, "km": 20, "name": "b"}]'
 
 Each view: t (the film's time: its camera), the point under the core (lat, lon), the bearing the camera's -z faces
-(degrees), km a unit; optional moon_az and moon_el (degrees, at that point), dawn (0 to 1) with sun_dep and sun_az
-(degrees below the horizontal and right of -z), detail (0 to 1), k (the lights' brightness). Writes <name>.png
+(degrees), km a unit; optional moon_az and moon_el (degrees, seen from Canberra: the film's moon is fixed to the
+Earth at 60 and 30), dawn (0 to 1) with sun_dep and sun_az (degrees below the horizontal and right of -z), detail
+(0 to 1), k (the lights' brightness), gold (0 to 1: every light as the system's reach turns it). Writes <name>.png
 and sheet.png. The map data is read from the work's cache (<work>/../cache, ../fetch.py)."""
 import sys, time, json, math
 from pathlib import Path
@@ -23,7 +24,7 @@ for v in views:
     t = v['t']
     pose = film.world.pose(t)
     gr = earth.Ground(v['lat'], v['lon'], v['bearing'], v['km'])
-    ml = earth.toward(v['lat'], v['lon'], v.get('moon_az', 40.0), (90 - v.get('moon_el', 35.0)) * 111.2)
+    ml = earth.toward(-35.28, 149.13, v.get('moon_az', 60.0), (90 - v.get('moon_el', 30.0)) * 111.2)
     moon = gr.direction(earth.geo(*ml))
     e = math.radians(v.get('sun_dep', 26.0)); a = math.radians(v.get('sun_az', 0.0))
     sun = np.array([math.sin(a) * math.cos(e), -math.sin(e), -math.cos(a) * math.cos(e)])
@@ -33,7 +34,8 @@ for v in views:
     t2 = time.time()
     L = comp.Light()
     pt = space.Painter(L, pose)
-    E.lights(pt, gr, v.get('k', 0.05), cols=(space.WARM, space.ICE, space.GOLD), t=t)
+    gold = np.full(len(E.light_k), float(v['gold'])) if 'gold' in v else None
+    E.lights(pt, gr, v.get('k', 0.05), gold=gold, cols=(space.WARM, space.ICE, space.GOLD), t=t)
     if L.used: img = img + L.resolve()
     t3 = time.time()
     n = int(round(t * 24))

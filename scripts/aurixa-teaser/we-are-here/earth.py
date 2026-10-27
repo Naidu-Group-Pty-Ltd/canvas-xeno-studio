@@ -33,6 +33,9 @@ ORB = 30.0  # how far below the core the ground lies, in units: the city's groun
 # The part of the globe every map here is cut to: Australia, New Zealand and the seas between.
 NORTH, SOUTH, WEST, EAST = 0.0, -50.0, 100.0, 180.0
 
+# The land under the moon: the emblem's ice deepened toward the navy, so the ground reads navy, not grey.
+MOONLIT = np.array([0.36, 0.60, 1.0], np.float32)
+
 
 def geo(lat, lon):
     """Unit vectors from the Earth's centre (x toward 0 E on the equator, z toward the north pole)."""
@@ -177,11 +180,12 @@ class Earth:
         rel, at = self._cut(rl.astype(np.float32) / 255)
         rel -= float(np.median(rel))
         self.relief = Mips(rel, *at, 5, 0.0)
-        # the sea's swell, slow and wide (a few tens of km): it breaks the moon's path on the water into a sheen
+        # the sea's swell, from a few hundred km down to a few: it breaks the moon's path on the water into a sheen,
+        # and is read at each pixel's footprint like the maps, so it neither shimmers far off nor smears near
         rng = np.random.default_rng(seed)
-        sw = sum(cv2.resize(rng.normal(0, 1, (8 * 2 ** i, 13 * 2 ** i)).astype(np.float32), (832, 512),
-                            interpolation=cv2.INTER_CUBIC) / 2 ** (i * 0.6) for i in range(5))
-        self.swell = (sw / sw.std()).astype(np.float32)
+        sw = sum(cv2.resize(rng.normal(0, 1, (8 * 2 ** i, 13 * 2 ** i)).astype(np.float32), (1664, 1024),
+                            interpolation=cv2.INTER_CUBIC) / 2 ** (i * 0.45) for i in range(8))
+        self.swell = Mips((sw / sw.std()).astype(np.float32), NORTH, WEST, (NORTH - SOUTH) / 1024, 5)
         self._places(cache, seed)
 
     @staticmethod
@@ -199,7 +203,7 @@ class Earth:
         metropolitan figure, which its suburbs already carry, so it is taken as its centre only."""
         rng = np.random.default_rng(seed)
         self.places = json.loads((cache / "data/region-places.json").read_text())
-        pts, amp, warm, home = [], [], [], []
+        pts, amp, warm, home, heart = [], [], [], [], []
         for i, p in enumerate(self.places):
             pop = max(p["p"], 1000)
             if pop > 500000:
@@ -212,9 +216,12 @@ class Earth:
             lon = p["lon"] + r * np.sin(a) / (111.32 * math.cos(math.radians(p["lat"])))
             pts.append(np.stack([lat, lon], 1))
             total = 2.4 * (pop / 1000) ** 0.72  # a town's light grows slower than its people
-            amp.append(np.full(n, total / n) * rng.uniform(0.35, 1.65, n) * (1 + 1.5 * np.exp(-2 * (r / sig) ** 2)))
+            core = np.exp(-2 * (r / sig) ** 2)
+            amp.append(np.full(n, total / n) * rng.uniform(0.35, 1.65, n) * (1 + 1.5 * core))
             warm.append(rng.random(n))
             home.append(np.full(n, i))
+            # how much of a light is a city's heart: only a large place's middle burns warm-white, the rest is gold
+            heart.append(core * float(np.clip((math.log10(pop / 1000) - 1.0) / 1.4, 0, 1)))
         ll = np.concatenate(pts)
         on = self.land.sample(ll[:, 0], ll[:, 1], np.zeros(len(ll))) > 127  # no light falls in the sea
         self.light_ll = ll[on]
@@ -222,6 +229,7 @@ class Earth:
         self.light_k = np.concatenate(amp)[on]
         self.light_warm = np.concatenate(warm)[on]
         self.light_home = np.concatenate(home)[on]
+        self.light_heart = np.concatenate(heart)[on]
         self.light_ph = rng.uniform(0, 2 * math.pi, len(self.light_k))
 
     def place(self, name, country="AU"):
@@ -258,22 +266,31 @@ class Earth:
         sky = navy * (0.3 + 0.7 * np.exp(-up / 0.3))[..., None]
         band = np.exp(-(alpha / 0.14) ** 2) * 0.7 + np.exp(-(alpha / 0.04) ** 2) * 0.3
         cool = np.array([0.0030, 0.0065, 0.0130], np.float32)
-        hot = np.array([0.0110, 0.0075, 0.0040], np.float32)
-        sky += band[..., None] * (cool * (1 - dawn) + hot * dawn * 1.6) * haze
+        sky += band[..., None] * cool * haze
         h_km = gr.height(pose.pos)
+        px = 1.0 / (gr.km * dist_c)  # radians a km of height at the limb
         orbit = det * float(np.clip((h_km - 100) / 150, 0, 1))
         if orbit > 0:  # above the air: its thin bright edge on the limb, and the airglow's line 92 km over it
-            px = 1.0 / (gr.km * dist_c)  # radians a km of height at the limb
             rho_a = math.asin(min(1.0, (gr.R + 92.0 / gr.km) / dist_c))
             line = np.exp(-((alpha - (rho_a - rho)) / (6.0 * px)) ** 2)
             edge = np.exp(-np.clip(alpha, 0, None) / (18.0 * px)) * (alpha > -2 / pose.F)
             sky += (line * 0.020 + edge * 0.012)[..., None] * ice * haze * orbit
-        if dawn > 0:  # the sun below the limb: its light gathering in the air toward it, and its first rim
+        if dawn > 0:
+            # The sun below the limb lights the air over it from behind, in layers as it is seen from orbit: the
+            # lowest air a thin gold rim, cooler air over that in ice, strongest toward the sun and gone a little
+            # way along the limb from it. A dawn spread wide over the sky lies on the navy as a brown veil.
             s = np.asarray(look["sun"], np.float64)
             ts = ((vx[None, :] * (r @ s) + vy[:, None] * (u @ s) + f @ s) * inv).astype(np.float32)
-            glow = np.exp(-(1 - ts) / 0.25) * np.exp(-np.clip(alpha, 0, None) / 0.06)
-            rim = np.exp(-(1 - ts) / 0.05) * np.exp(-np.abs(alpha) * pose.F / 3.0)
-            sky += (glow * 0.05)[..., None] * (0.6 * gold + 0.4 * warm) * dawn + (rim * 0.4)[..., None] * warm * dawn
+            along = np.exp(-(1 - ts) / 0.1)
+            hk = np.clip(alpha, 0, None) / px  # km over the limb, along the sight line
+            lit = along * (alpha > -1.5 / pose.F)
+            sky += ((np.exp(-hk / 9.0) * 0.07 * lit)[..., None] * (0.7 * gold + 0.3 * warm)
+                    + (np.exp(-hk / 45.0) * 0.022 * lit)[..., None] * ice) * dawn
+            # the sun's own place, just under the limb: its light gathered there, and the limb's edge brightest
+            near = np.exp(-(1 - ts) / 0.012)
+            rim = np.exp(-np.abs(alpha) * pose.F / 1.6)
+            sky += ((near * np.exp(-hk / 60.0) * 0.06)[..., None] * gold
+                    + (rim * (0.25 * along + 0.9 * near))[..., None] * (0.5 * gold + 0.5 * warm)) * dawn
         img = sky.reshape(-1, 3)
 
         # ---- the ground, where a ray meets it (and on the limb's last pixel, where it nearly does)
@@ -301,18 +318,18 @@ class Earth:
             sharp = np.clip((14.0 - self.relief.texel / np.maximum(km_px, 1e-6)) / 9.0, 0, 1)
             moon = np.asarray(look["moon"], np.float64)
             lam = np.clip(n @ moon, 0, 1).astype(np.float32)
-            # the land in moonlight: its own brightness and its relief, in the emblem's ice
-            tex = alb ** 0.85 * np.clip(1.0 + 2.4 * rel * sharp, 0.1, 2.6)
+            # the land in moonlight: its own brightness and its relief, in the emblem's ice deepened to navy
+            tex = alb ** 0.85 * np.clip(1.0 + 3.0 * rel * sharp, 0.1, 3.0)
             ground = navy * (0.28 + 0.4 * np.exp(-cos_inc / 0.1))[:, None]
-            lit = (0.004 + 0.042 * lam) * tex
-            land_c = ground * (1 - det) + det * (navy * 0.45 + ice * lit[:, None])
+            lit = (0.003 + 0.05 * lam) * tex
+            land_c = ground * (1 - det) + det * (navy * 0.55 + MOONLIT * lit[:, None])
             # the sea: darker, and the moon's path on it, a broad sheen broken by the swell
             hv = moon[None, :] - D
             hv /= np.linalg.norm(hv, axis=1, keepdims=True)
             nh = np.clip(np.einsum("ij,ij->i", n, hv), 0, 1)
-            sw = _grid_sample(self.swell, lat, lon, NORTH, WEST, (NORTH - SOUTH) / 512)
+            sw = self.swell.sample(lat, lon, km_px)
             rough = np.exp(0.35 * sw)
-            sheen = (nh ** (900 / rough) * 0.05 + nh ** (120 / rough) * 0.012) * (0.75 + 0.25 * sw.clip(-2, 2))
+            sheen = (nh ** (260 / rough) * 0.03 + nh ** (45 / rough) * 0.007) * (0.7 + 0.3 * sw.clip(-2, 2))
             sea_c = ground * (1 - det) + det * (navy * (0.22 + 0.12 * cos_inc)[:, None] + sheen[:, None] * ice)
             surf = land_c * land[:, None] + sea_c * (1 - land)[:, None]
             # the air along the limb over the ground: it lifts toward the edge as the sight crosses more of it
@@ -328,9 +345,10 @@ class Earth:
     # -------------------------------------------------------------- the towns' lights, as points of the space
 
     def lights(self, pt, gr, k, gold=None, cols=None, t=0.0):
-        """Every town's lights through the painter: warm, a few in ice, each turning gold by its share of `gold`
-        (per light). Those over the horizon are left out, and those near the limb dimmed by the long way through
-        the air. cols: the warm, the ice and the gold, linear."""
+        """Every town's lights through the painter: a pale gold, a great city's heart warm-white and a few in ice,
+        each turning the brand's full gold, and brighter, by its share of `gold` (per light: where the system has
+        reached). Those over the horizon are left out, and those near the limb dimmed by the long way through the
+        air. cols: the warm, the ice and the gold, linear."""
         cam = pt.p.pos
         P = gr.world(self.light_g)
         to = P - cam
@@ -343,10 +361,12 @@ class Earth:
         air = np.clip(facing[vis] / 0.3, 0, 1) ** 0.7
         flick = 0.88 + 0.12 * np.sin(t * 1.3 + self.light_ph[vis])
         kk = self.light_k[vis] * k * air * flick
-        warm, ice, gcol = cols
-        col = np.where((self.light_warm[vis] < 0.86)[:, None], warm, ice)
+        warm, ice, gcol = (np.asarray(c, np.float64) for c in cols)
+        hw = self.light_heart[vis][:, None]
+        col = (0.5 * warm + 0.5 * gcol) * (1 - hw) + warm * hw
+        col = np.where((self.light_warm[vis] > 0.94)[:, None], ice, col)
         if gold is not None:
             gk = gold[vis][:, None]
             col = col * (1 - gk) + gcol * gk
-            kk = kk * (1 + 1.2 * gold[vis])
+            kk = kk * (1 + 1.4 * gold[vis])
         pt.points(P[vis], kk, col, 0.75, max_sigma=6.0, fog=False)
