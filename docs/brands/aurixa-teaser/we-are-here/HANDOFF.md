@@ -171,7 +171,7 @@ Australia view needs.
 | `docs/brands/aurixa-teaser/we-are-here/{PLAN.md,DELIVERY.md}` | The plan and the delivery note of the version delivered. Both need the Australia version written in (9.10) |
 | `scripts/aurixa-teaser/we-are-here/README.md` | The scripts and their order. Needs `earth.py`, `earth_look.py` and the cache step added (9.10) |
 
-Commits on the branch, newest first: this handoff's commit; `3927209` (delivered: the final measured and its
+Commits on the branch, newest first: `5fd9027` (this handoff, `earth.py`, the end card's fix); `3927209` (delivered: the final measured and its
 delivery note); `f28cc65` (the review's fixes to the final); `4b951c7` (the final, one continuous move);
 `4ff2c35` (the connected platform with its digital twin; the photographic versions' scripts are in its tree).
 
@@ -248,7 +248,8 @@ intelligence 27.85, move 28.81, context 29.85, follow 30.81, business 32.01, one
 is 35.93; Ask 36.73, becomes 38.57, system 39.21; Aurixa 40.25, Systems 40.81; coming 43.53. Length 45.5.
 
 What the picture does from 21 s (PLAN.md has it all): the silent bar draws the five rings into the core; the drop
-bursts and the five come out as one; threads fall to thirty places (22.95 to 25.05) and flare on "destinations";
+bursts and the five come out as one; threads leave for thirty places one after another (from 23.10 to 25.05, each
+landing 0.85 s after it leaves) and flare on "destinations";
 the chase (a pulse down thread 0, along the ground, up thread 1 with the two tags, in to the core: 27.85 to 31.91,
 legs at 28.86, 29.80, 30.96); on "one" everything lights, a gold wave having crossed the ground from 31.81; the
 tool (34.25 to 36.7); the rings stand up and the system draws the emblem's triangle (38.52 to 39.26); the emblem
@@ -496,7 +497,8 @@ $PY -I scripts/aurixa-teaser/we-are-here/earth_look.py <work> /tmp/look '[{"t":2
 
 ## 10. State at the moment of this handoff
 
-- **Git**: everything above is committed and pushed in this handoff's commit on `claude/eager-bell-1y7y1m`.
+- **Git**: everything above is committed and pushed on `claude/eager-bell-1y7y1m` (`5fd9027`, and the commit that
+  adds this line).
 - **The studio**: the work was saved with this handoff as its next step, and with the words, textures and opening
   runs added to its files. If `work.py resume` brings back no `we-are-here/type/frames`, the upload had not
   finished; draw them again as section 4.4 says.
