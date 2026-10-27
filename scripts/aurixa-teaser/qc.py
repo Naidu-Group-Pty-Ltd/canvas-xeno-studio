@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Measures the teaser's delivery master (encode.sh) against the lossless reference it was made from (render.cjs).
 
-  python3 -I scripts/aurixa-teaser/qc.py <master.mp4> <reference.mkv> <out.json> [frames]
+  python3 -I scripts/aurixa-teaser/qc.py <master.mp4> <reference.mkv> <out.json> [frames] [fps]
 
-[frames] is how many the film has: Three Questions' 1,125 unless given (As One's are 1,365).
+[frames] is how many the film has: Three Questions' 1,125 unless given (As One's are 1,365, We Are Here's 1,092).
+[fps] is its rate: 30 unless given (We Are Here's is 24).
 
   streams    what the file is: codec, profile, size, rate, colour tags, frame count, length, sound
   fidelity   the picture three ways, each over the film and at its worst frame:
@@ -41,7 +42,7 @@ import numpy as np
 MASTER, REF, OUT = sys.argv[1], sys.argv[2], sys.argv[3]
 FRAMES = int(sys.argv[4]) if len(sys.argv) > 4 else 1125
 W, H = 540, 960
-FPS = 30
+FPS = int(sys.argv[5]) if len(sys.argv) > 5 else 30
 # Each input's frames numbered, so the comparing filters pair frame N with frame N.
 BY_INDEX = f"settb=1/{FPS},setpts=N"
 TO_RGB = "zscale=rangein=limited:matrixin=709:primariesin=709:transferin=709:range=full:primaries=709:transfer=709:filter=bilinear,format=gbrp"

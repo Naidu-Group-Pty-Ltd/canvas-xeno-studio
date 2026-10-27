@@ -1,0 +1,160 @@
+{
+  "note": "We Are Here's generated shots: each one's keyframe still and its moving take. The look is the brand's (deep navy and blue-black, metallic gold, selective cyan, high contrast); no people, no lettering, no logos and no real landmark in any generated picture. The light, words, labels and the emblem are drawn over them in code. See docs/brands/aurixa-teaser/we-are-here/PLAN.md.",
+  "style": "Photorealistic, shot on a large-format digital cinema camera with anamorphic lenses: high dynamic range, crisp fine detail, natural fine film grain. Colour grade: deep navy and blue-black shadows, warm metallic gold highlights, selective cyan accents, high contrast, premium and controlled. Vertical 9:16 composition. No text, no lettering, no signage, no logos, no people, no famous landmarks, no Opera House, no harbour bridge, no watermark.",
+  "shots": [
+    {
+      "key": "open",
+      "still": {
+        "prompt": "Cinematic aerial photograph from very high above a vast fictional modern Australian harbour city at night, in the deep blue hour before dawn. A sea of low drifting cloud lies over the city; through gaps in it, glittering grids of warm streetlights and clusters of glass towers glow, and dark harbour water winds between headlands reflecting the lights. One slender supertall glass tower stands at the city's centre, its crown rising just above the cloud. The upper third of the frame is calm dark navy sky with a faint line of the horizon."
+      },
+      "clip": {
+        "start": "open:still:1",
+        "duration": 6,
+        "prompt": "Slow, majestic descent through drifting clouds toward the city at night. The clouds part and slide past the lens, the city lights twinkle far below, gentle parallax between cloud layers and city. Smooth helicopter camera, no cuts, no shake."
+      }
+    },
+    {
+      "key": "office",
+      "still": {
+        "prompt": "Cinematic photograph inside a dark, empty executive office on a high floor at night. A wall of floor-to-ceiling glass looks out over a glittering city skyline, with one slender supertall tower in the distance at the centre. In the foreground, a black stone desk with three slim monitors glowing with soft, blurred cool light, their screens unreadable and out of focus. Faint reflections of the screens on the window glass, a thin warm gold strip light along the ceiling edge, deep navy shadows, low-key lighting, quiet and premium. Camera low behind the desk, looking toward the window, 35mm anamorphic lens, shallow depth of field. The top quarter of the frame is dark ceiling."
+      },
+      "clip": {
+        "start": "office:still:1",
+        "duration": 10,
+        "prompt": "A slow, steady dolly forward past the glowing monitors toward the window wall and the city beyond. The monitors' soft light flickers faintly, reflections slide across the glass, the city lights twinkle. Smooth cinematic camera move, no cuts, no people."
+      }
+    },
+    {
+      "key": "night-air",
+      "still": {
+        "prompt": "Cinematic aerial photograph at the height of a skyscraper's upper floors, flying out over a vast fictional modern Australian city at night in the deep blue hour: an avenue of lit glass towers falls away below, streets glow gold, and ahead, at the centre of the frame, one slender supertall tower rises with a faint gold light at its crown. Thin mist over the city, the dark navy sky above with the first faint cool glow low on the horizon."
+      },
+      "clip": {
+        "start": "night-air:still:1",
+        "duration": 5,
+        "prompt": "The camera glides forward fast and smoothly over the city toward the supertall tower, the towers below sliding past with strong parallax, mist drifting. Exhilarating, smooth drone flight, no cuts."
+      }
+    },
+    {
+      "key": "research",
+      "still": {
+        "prompt": "Top-down aerial photograph, looking straight down at a dense, orderly Australian suburb at blue hour: a crisp grid of rooftops, curving streets, driveways, gardens and a few swimming pools, warm porch lights and streetlights glowing gold, deep navy shadows, every roof and lot sharply defined like a map. Fine detail, very sharp."
+      },
+      "clip": {
+        "start": "research:still:1",
+        "duration": 7,
+        "prompt": "Very slow top-down drift and gentle rotation over the suburb, streetlights flickering softly, a car's headlights moving along a street. Calm, precise, smooth drone camera, no cuts."
+      }
+    },
+    {
+      "key": "clients",
+      "still": {
+        "prompt": "Cinematic photograph of a beautiful contemporary Australian family home at blue hour: clean architectural lines, timber and stone, large windows glowing with warm golden interior light, a front door lit by a soft warm wall light, a wet driveway reflecting the glow, dark navy sky, quiet and inviting. Camera at eye level from across the street, centred on the home, 40mm lens."
+      },
+      "clip": {
+        "start": "clients:still:1",
+        "duration": 7,
+        "prompt": "A slow, smooth push in toward the home's glowing front entrance, the warm window light gently brightening, a soft breeze in the garden plants. Cinematic, steady, no cuts, no people."
+      }
+    },
+    {
+      "key": "reports",
+      "still": {
+        "prompt": "Cinematic close-up photograph of a detailed white architectural scale model of a residential tower and its landscaped grounds, standing on a polished black stone table in a dark boardroom at night. A warm gold rim light grazes the model's edges; cool blue city lights glow out of focus through the window behind. Shallow depth of field, rich shadows, precise and premium."
+      },
+      "clip": {
+        "start": "reports:still:1",
+        "duration": 7,
+        "prompt": "A slow, smooth orbit around the architectural model, the gold rim light sliding across its edges, the city bokeh drifting behind. Cinematic, steady, no cuts."
+      }
+    },
+    {
+      "key": "finance",
+      "still": {
+        "prompt": "Cinematic photograph looking straight up between soaring glass skyscrapers in a financial district at night, strong converging perspective, the towers' grids of office windows glowing warm gold and cool white, glass facades reflecting each other, a deep navy sky at the top of the frame, subtle anamorphic flare."
+      },
+      "clip": {
+        "start": "finance:still:1",
+        "duration": 7,
+        "prompt": "A slow upward tilt and gentle rotation looking up between the towers; office windows switch on floor by floor in a rising wave of warm gold light, climbing the facades. Smooth cinematic camera, no cuts."
+      }
+    },
+    {
+      "key": "comms",
+      "still": {
+        "prompt": "Cinematic long-exposure aerial photograph of a city motorway interchange at night: ribbons of light trails flowing along curving ramps and overpasses like streams of data, warm gold streaks and a few cool cyan ones, deep navy surroundings, the city glowing beyond. Graphic, elegant curves, very sharp."
+      },
+      "clip": {
+        "start": "comms:still:1",
+        "duration": 7,
+        "prompt": "Slow aerial drift over the motorway interchange; streams of gold and cyan light flow continuously along the curving ramps like data, smooth and hypnotic. Steady drone camera, no cuts."
+      }
+    },
+    {
+      "key": "sunrise",
+      "still": {
+        "prompt": "Epic cinematic aerial photograph at the moment of sunrise over a vast fictional modern Australian harbour city: the first golden sunlight breaks over the horizon and strikes the tops of the glass towers, a slender supertall tower at the centre blazing gold, morning mist lying over the harbour and the suburbs, long shadows, deep blue sky above fading to gold at the horizon, warm lens flare."
+      },
+      "clip": {
+        "start": "sunrise:still:1",
+        "duration": 6,
+        "prompt": "A powerful, fast forward drone flight over the city toward the rising sun, the towers sliding below with strong parallax, golden light flooding across the city, mist glowing, lens flares. Exhilarating and smooth, no cuts."
+      }
+    },
+    {
+      "key": "pulse",
+      "still": {
+        "prompt": "Cinematic low aerial photograph at dawn following a wide, straight city avenue lined with glass towers and trees, the road wet and reflective; far ahead a brilliant streak of golden light races along the avenue's centre line like an electric pulse; warm first light on the tower tops, deep blue shadows in the street."
+      },
+      "clip": {
+        "start": "pulse:still:1",
+        "duration": 5,
+        "prompt": "The camera races low along the avenue at high speed chasing a brilliant streak of golden light that travels ahead along the road like an electric pulse, the towers whipping past on both sides with motion blur. Exhilarating, smooth, no cuts."
+      }
+    },
+    {
+      "key": "grid",
+      "still": {
+        "prompt": "Top-down aerial photograph high above a dense city centre at sunrise: the street grid, rooftops and towers in crisp detail, long golden morning shadows, fine threads of golden light running along the streets and linking the rooftops like a luminous circuit across the whole city, deep navy shade between the buildings."
+      },
+      "clip": {
+        "start": "grid:still:1",
+        "duration": 5,
+        "prompt": "A slow top-down descent and rotation over the city at sunrise; threads of golden light spread along the streets and connect every building like a glowing circuit, brightening steadily. Smooth drone camera, no cuts."
+      }
+    },
+    {
+      "key": "device",
+      "still": {
+        "prompt": "Cinematic macro photograph of a sleek black smartphone lying face up on a polished black marble table in a dark room, its screen glowing an even soft blue-white light with nothing on it, the glow reflecting on the stone; extremely shallow depth of field, deep blue-black darkness all around, a faint gold rim on the phone's edge."
+      },
+      "clip": {
+        "start": "device:still:1",
+        "duration": 5,
+        "prompt": "A very slow push in toward the phone on the marble; the screen's glow fades gently to black, leaving only a faint gold reflection on its edge. Still, quiet, cinematic, no cuts."
+      }
+    },
+    {
+      "key": "rise",
+      "still": {
+        "prompt": "Cinematic aerial photograph above a vast fictional modern Australian harbour city just after sunrise, seen from high in the sky through thin clouds, the slender supertall tower at the centre catching the golden light, the whole city spread out below in morning haze, the sky above deep blue."
+      },
+      "clip": {
+        "start": "rise:still:1",
+        "duration": 5,
+        "prompt": "A majestic aerial pull back and rise straight up into the sky, the city shrinking below as thin clouds slide past the lens, golden morning light. Smooth, no cuts."
+      }
+    },
+    {
+      "key": "sky",
+      "still": {
+        "prompt": "Cinematic photograph above a vast sea of clouds at sunrise: the upper two thirds of the frame a deep navy-blue sky with the last faint stars, deepening to rich gold and amber at the horizon in the lower third, where the sun is just about to rise behind the clouds. Clean, open, majestic space in the centre of the sky."
+      },
+      "clip": {
+        "start": "sky:still:1",
+        "duration": 7,
+        "prompt": "Very slow forward drift over the sea of clouds at sunrise; the golden glow on the horizon swells gently, the clouds catch the light. Calm, majestic, smooth, no cuts."
+      }
+    }
+  ]
+}
