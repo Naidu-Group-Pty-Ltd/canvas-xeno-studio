@@ -25,9 +25,9 @@ don't compress it first. Each platform encodes it once on upload, and every enco
 
 |           |                                                                                                                                                                                       |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| File      | {{SIZE}} bytes, SHA-256 `{{SHA}}`                                                                                                                                                      |
-| Picture   | 1080 x 1920 (9:16), 24 fps, 1,092 frames, 45.5 s; H.264 High, level 4.2, progressive, BT.709, {{RATE}} Mbit/s                                                                         |
-| Sound     | AAC-LC, 48 kHz stereo, {{ABR}} kbit/s; {{LUFS}} LUFS integrated, loudness range {{LRA}} LU, true peak {{TP}} dBTP                                                                    |
+| File      | 92,251,594 bytes, SHA-256 `cc79bc8f3214482e8f0d0ab3b7db7ccd0c581ab91ece367ccec66eb17cd56950`                                                                                          |
+| Picture   | 1080 x 1920 (9:16), 24 fps, 1,092 frames, 45.5 s; H.264 High, level 4.2, progressive, BT.709, 16.0 Mbit/s                                                                             |
+| Sound     | AAC-LC, 48 kHz stereo, 256 kbit/s; -14.0 LUFS integrated, loudness range 3.2 LU, true peak -1.5 dBTP                                                                                  |
 | Container | MP4 with its index at the front, so an upload page can read it while it is still arriving                                                                                             |
 | Cover     | `cover-we-are-here-v4-44.5s.jpg`, the emblem and its name over the dawn on the limb, with its line and Australia below; the emblem, its name and the line hold in a 3:4 crop          |
 
@@ -41,7 +41,18 @@ automatic captions, leave them off, or the words appear twice.
 
 The final was measured against its lossless reference before delivery (`scripts/aurixa-teaser/qc.py`):
 
-{{MEASURES}}
+- **The encode keeps 0.991 of the picture it was given**: SSIM against the reference as the encoder received it,
+  converted to BT.709 4:2:0, in that format (Y 0.991, U 0.993, V 0.993), as the third version's did. Its lowest frame,
+  at 26.3 s (the rush up to New South Wales under the network), keeps 0.988.
+- **Against the RGB reference, the master scores SSIM 0.972 and PSNR 40.6 dB.** The same picture converted to 8-bit
+  4:2:0 with no encoder at all scores 0.984, the most this format allows on the measure (the third version's was
+  0.989). 4:2:0 carries colour at half the resolution each way, and the system's fine cyan lines over the gold land
+  are a colour against its opposite, so their edges keep a little less of their colour, mostly in red (red 0.959,
+  green 0.986, blue 0.970). Side by side with its reference, the lowest frame (26.5 s, 0.951) shows it only as a
+  slightly softer edge to the cyan.
+- No frame is drawn apart from its neighbours, and no frame is black.
+- 1,092 frames, 45.5 s. Decoded from the file, the sound lines up with the soundtrack to the sample: at the start of
+  each of the eleven sentences, at the drop (22.25 s), on "one" (33.45 s) and on "Aurixa" (40.25 s).
 
 ## The picture
 
@@ -149,10 +160,11 @@ listens to the voice for speech, dips the music under it, and brings the mix to 
 - **Every word is where it was**, to the sample at the start of each of the eleven sentences, so every move, light
   and pulse stays on its words and bars (`sound-as-one/cues.json`): "Powerful on their own." and the rise in the
   silent bar, the drop at 22.25 s, "one" on the bar, and the logo's beats on the bars at the end.
-- **Its loudness is the studio's own pass**: -14.2 LUFS integrated, true peak -1.5 dBTP. With the music dipped, the
-  mix's peaks (the voice's) stand 14.6 dB over its loudness, more than one even gain can bring to -14 LUFS under that
-  peak, so the pass holds those few peaks and rides the gain gently, as a studio render of this mix would: within
-  about 0.9 dB through the film, the first three seconds about 1.2 dB lower.
+- **Its loudness is the studio's own pass**: -14.0 LUFS integrated on FFmpeg's EBU R128 meter (the studio's report,
+  on its loudness filter's own estimate, reads -14.2), true peak -1.5 dBTP. With the music dipped, the mix's peaks
+  (the voice's) stand 14.6 dB over its loudness, more than one even gain can bring to -14 LUFS under that peak, so
+  the pass holds those few peaks and rides the gain gently, as a studio render of this mix would: within about 0.9 dB
+  through the film, the first three seconds about 1.2 dB lower.
 
 ## Before it runs publicly
 
