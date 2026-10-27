@@ -17,8 +17,8 @@ import comp, space, earth
 work = Path(sys.argv[1]).resolve()
 cache = work.parent / 'cache'
 out = Path(sys.argv[2]); out.mkdir(parents=True, exist_ok=True)
-film = comp.Film(work)
-t0 = time.time(); E = earth.Earth(cache); print('earth load', round(time.time()-t0, 1), 's', len(E.light_k), 'lights')
+t0 = time.time(); film = comp.Film(work, cache); E = film.earth
+print('film and earth load', round(time.time()-t0, 1), 's', len(E.light_k), 'lights')
 views = json.loads(sys.argv[3])
 for v in views:
     t = v['t']

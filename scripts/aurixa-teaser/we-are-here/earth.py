@@ -112,6 +112,86 @@ class Ground:
         """The camera's height over the ground, in km."""
         return (math.sqrt(float(self._c(cam)) + self.R ** 2) - self.R) * self.km
 
+    def meet(self, o, d):
+        """Where rays from o along unit directions d (N x 3) first meet the ground (NaN where they miss it)."""
+        d = np.asarray(d, np.float64).reshape(-1, 3)
+        b = d @ (np.asarray(o, np.float64) - self.C)
+        c = float(self._c(o))
+        disc = b * b - c
+        t = np.where((disc > 0) & (b < 0), c / np.maximum(-b + np.sqrt(np.maximum(disc, 0)), 1e-30), np.nan)
+        return np.asarray(o, np.float64) + t[:, None] * d
+
+    def blocks(self, d, cam):
+        """Which directions d (unit, N x 3) from a camera at `cam` meet the Earth: the stars it hides."""
+        d = np.asarray(d, np.float64).reshape(-1, 3)
+        b = d @ (np.asarray(cam, np.float64) - self.C)
+        return (b < 0) & (b * b > float(self._c(cam)))
+
+    # The city's ground was flat, and the space's paths on it (the threads, the chase's run, the rings on the
+    # ground) were drawn on it. On the Earth they are drawn the same way in its flat picture about the point under
+    # the core (each place at its distance along the ground, on its bearing: the azimuthal equidistant projection)
+    # and bent onto the sphere, each point keeping its height over the ground. Near the core the two are one.
+
+    def flat(self, g):
+        """The Earth's unit vectors g (N x 3) in the flat picture: world x and z, y on the ground (-ORB)."""
+        g = np.asarray(g, np.float64).reshape(-1, 3)
+        up = self.M[1]
+        c = g @ up
+        side = g - c[:, None] * up[None, :]
+        sn = np.linalg.norm(side, axis=1)
+        th = np.arctan2(sn, c)
+        e = (side / np.maximum(sn, 1e-300)[:, None]) @ self.M.T  # the world's horizontal direction to it
+        s = self.R * th
+        return np.stack([s * e[:, 0], np.full(len(g), -ORB), s * e[:, 2]], 1)
+
+    def bend(self, F):
+        """Points of the flat picture (N x 3, y their height with the ground at -ORB) onto the sphere: exact, and
+        without the loss of subtracting large numbers while the radius is huge (the rise)."""
+        F = np.asarray(F, np.float64).reshape(-1, 3)
+        s = np.hypot(F[:, 0], F[:, 2])
+        h = F[:, 1] + ORB
+        th = s / self.R
+        k = np.where(s > 1e-12, (self.R + h) * np.sin(th) / np.maximum(s, 1e-300), 1.0 + h / self.R)
+        y = -ORB + h * np.cos(th) - 2 * self.R * np.sin(th / 2) ** 2
+        return np.stack([F[:, 0] * k, y, F[:, 2] * k], 1)
+
+
+def circle(q, ang, n=200):
+    """A small circle on the Earth: n unit vectors `ang` radians about the unit vector q."""
+    q = np.asarray(q, np.float64)
+    a = np.array([0.0, 0.0, 1.0]) if abs(q[2]) < 0.9 else np.array([1.0, 0.0, 0.0])
+    e1 = np.cross(q, a)
+    e1 /= np.linalg.norm(e1)
+    e2 = np.cross(q, e1)
+    phi = np.linspace(0, 2 * math.pi, n)
+    return (math.cos(ang) * q[None, :] + math.sin(ang) * (np.cos(phi)[:, None] * e1[None, :]
+                                                            + np.sin(phi)[:, None] * e2[None, :]))
+
+
+def frame_for(places, targets, guess):
+    """The point under the core, the bearing and the km a unit that put two places (lat, lon) at two points of the
+    flat picture (world x, z): Gauss-Newton from a guess (lat, lon, bearing, km)."""
+
+    def resid(p):
+        lat, lon, brg, km = p
+        out = []
+        for (la, lo), (x, z) in zip(places, targets):
+            b, dist = course(lat, lon, la, lo)
+            dl = math.radians(b - brg)
+            s = dist / km
+            out += [s * math.sin(dl) - x, -s * math.cos(dl) - z]
+        return np.array(out)
+
+    p = np.array(guess, np.float64)
+    for _ in range(30):
+        r0 = resid(p)
+        J = np.stack([(resid(p + dp) - r0) / 1e-6 for dp in np.eye(4) * 1e-6], 1)
+        step = np.linalg.lstsq(J, -r0, rcond=None)[0]
+        p += step
+        if np.abs(step).max() < 1e-10:
+            break
+    return tuple(float(v) for v in p)
+
 
 def _grid_sample(img, lat, lon, lat0, lon0, step, border=0.0):
     """Bilinear samples of a map whose row 0 is at lat0 and column 0 at lon0, `step` degrees a cell."""
@@ -284,12 +364,12 @@ class Earth:
             along = np.exp(-(1 - ts) / 0.1)
             hk = np.clip(alpha, 0, None) / px  # km over the limb, along the sight line
             lit = along * (alpha > -1.5 / pose.F)
-            sky += ((np.exp(-hk / 9.0) * 0.07 * lit)[..., None] * (0.7 * gold + 0.3 * warm)
+            sky += ((np.exp(-hk / 9.0) * 0.10 * lit)[..., None] * (0.7 * gold + 0.3 * warm)
                     + (np.exp(-hk / 45.0) * 0.022 * lit)[..., None] * ice) * dawn
             # the sun's own place, just under the limb: its light gathered there, and the limb's edge brightest
-            near = np.exp(-(1 - ts) / 0.012)
+            near = np.exp(-(1 - ts) / 0.02)
             rim = np.exp(-np.abs(alpha) * pose.F / 1.6)
-            sky += ((near * np.exp(-hk / 60.0) * 0.06)[..., None] * gold
+            sky += ((near * np.exp(-hk / 60.0) * 0.12)[..., None] * gold
                     + (rim * (0.25 * along + 0.9 * near))[..., None] * (0.5 * gold + 0.5 * warm)) * dawn
         img = sky.reshape(-1, 3)
 
@@ -321,7 +401,7 @@ class Earth:
             # the land in moonlight: its own brightness and its relief, in the emblem's ice deepened to navy
             tex = alb ** 0.85 * np.clip(1.0 + 3.0 * rel * sharp, 0.1, 3.0)
             ground = navy * (0.28 + 0.4 * np.exp(-cos_inc / 0.1))[:, None]
-            lit = (0.003 + 0.05 * lam) * tex
+            lit = (0.004 + 0.08 * lam) * tex
             land_c = ground * (1 - det) + det * (navy * 0.55 + MOONLIT * lit[:, None])
             # the sea: darker, and the moon's path on it, a broad sheen broken by the swell
             hv = moon[None, :] - D
@@ -332,8 +412,10 @@ class Earth:
             sheen = (nh ** (260 / rough) * 0.03 + nh ** (45 / rough) * 0.007) * (0.7 + 0.3 * sw.clip(-2, 2))
             sea_c = ground * (1 - det) + det * (navy * (0.22 + 0.12 * cos_inc)[:, None] + sheen[:, None] * ice)
             surf = land_c * land[:, None] + sea_c * (1 - land)[:, None]
-            # the air along the limb over the ground: it lifts toward the edge as the sight crosses more of it
-            surf += np.exp(-cos_inc * 7.0)[:, None] * cool * 1.1 * haze * det
+            # the air along the limb over the ground: it lifts toward the edge as the sight crosses more of it; with
+            # no detail yet (the city's own ground) it is the city's haze, about the horizon on both sides of it as
+            # space.backdrop drew it, so the plate takes the backdrop's place without a seam
+            surf += (np.exp(-cos_inc * 7.0) * 1.1 * det + band.ravel()[idx] * (1 - det))[:, None] * cool * haze
             if dawn > 0:  # the first light on the ground, where the sun is up
                 s = np.asarray(look["sun"], np.float64)
                 day = np.clip(n @ s + 0.03, 0, None).astype(np.float32) * dawn
@@ -344,11 +426,11 @@ class Earth:
 
     # -------------------------------------------------------------- the towns' lights, as points of the space
 
-    def lights(self, pt, gr, k, gold=None, cols=None, t=0.0):
+    def lights(self, pt, gr, k, gold=None, cols=None, t=0.0, gain=None):
         """Every town's lights through the painter: a pale gold, a great city's heart warm-white and a few in ice,
         each turning the brand's full gold, and brighter, by its share of `gold` (per light: where the system has
-        reached). Those over the horizon are left out, and those near the limb dimmed by the long way through the
-        air. cols: the warm, the ice and the gold, linear."""
+        reached), and `gain` times as bright (per light, or none). Those over the horizon are left out, and those
+        near the limb dimmed by the long way through the air. cols: the warm, the ice and the gold, linear."""
         cam = pt.p.pos
         P = gr.world(self.light_g)
         to = P - cam
@@ -369,4 +451,11 @@ class Earth:
             gk = gold[vis][:, None]
             col = col * (1 - gk) + gcol * gk
             kk = kk * (1 + 1.4 * gold[vis])
-        pt.points(P[vis], kk, col, 0.75, max_sigma=6.0, fog=False)
+        if gain is not None:
+            kk = kk * gain[vis]
+        # Each light stands for a patch of a town's lamps. From orbit the patches are finer than a pixel and a city
+        # is their sum; nearer, a point of fixed size would leave the city as faint dots far apart. So a light
+        # grows as the camera nears it, inside 600 km, its peak the same and its light as the distance's square:
+        # the town keeps its brightness on the frame at every height, as a lit city does.
+        sig = 0.75 * np.clip(600.0 / np.maximum(dist[vis] * gr.km, 1e-6), 1.0, 7.0)
+        pt.points(P[vis], kk, col, sig, max_sigma=8.0, fog=False)

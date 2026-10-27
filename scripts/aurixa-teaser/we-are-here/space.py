@@ -6,6 +6,10 @@ the world, and far below, as little as the property world needs to be there: a c
 light, with a few towers at its heart. comp.py draws every frame of it through the camera here, and lays the panes,
 the tags, the emblem and the words over it.
 
+From 21 s the world below is Australia at night (earth.py): in the silent bar the system rises out of the city into
+orbit, and from the drop its threads reach thirty places across the country while the land flows under it. The core,
+the rings, the threads' behaviour, the camera's path and the words are the city's; only the ground they reach changes.
+
 Everything is light, drawn in linear light and high range (comp.Light): a point is a Gaussian of its own width,
 a line is points a fraction of a pixel apart. The camera is a lens: what is off its focus spreads (its circle of
 confusion), and the light keeps its energy as it spreads, so a near mote is a large faint disc and a far one a fine
@@ -16,7 +20,23 @@ import math
 import cv2
 import numpy as np
 
+import earth as geo_earth
+
 W, H, FPS = 1080, 1920, 24
+
+# Australia takes the city's place from 21 s, frame 504: every frame before it is the film as delivered. It starts a
+# quarter of a frame early so that every moment of frame 504's shutter is drawn the same way.
+EARTH_T = 21.0
+EARTH_FROM = EARTH_T - 0.25 / FPS
+
+# The thirty places the threads reach: the chase's two first (its run is from Dubbo, a regional city, 269 km over the
+# ranges into Sydney to the demo property's pin, Banksia Rise, a suburb that does not exist, where Reel 1 put it),
+# then the capitals and the regional cities, across the country.
+PLACES = ["Dubbo", "Banksia Rise", "Sydney", "Melbourne", "Brisbane", "Adelaide", "Hobart", "Canberra",
+          "Newcastle", "Wollongong", "Gold Coast", "Geelong", "Ballarat", "Bendigo", "Albury", "Wagga Wagga",
+          "Orange", "Bathurst", "Tamworth", "Port Macquarie", "Coffs Harbour", "Toowoomba", "Launceston", "Mildura",
+          "Broken Hill", "Mount Gambier", "Rockhampton", "Townsville", "Alice Springs", "Cairns"]
+BANKSIA_RISE = (-33.692, 150.915)
 
 GOLD = np.array([1.0, 0.72, 0.32], np.float32)
 WARM = np.array([1.0, 0.86, 0.62], np.float32)
@@ -160,13 +180,18 @@ class Pose:
 
 class Painter:
     """Draws points and lines of the space into a comp.Light through one pose, `weight` of the frame's light (the
-    moments of a shutter share it)."""
+    moments of a shutter share it). With a `ground` (earth.Ground), what is drawn with `occlude` is hidden where the
+    Earth stands between it and the camera: the threads and the rings on the ground, over the limb."""
 
-    def __init__(self, L, pose, weight=1.0, air=160.0):
-        self.L, self.p, self.w, self.air = L, pose, weight, air
+    def __init__(self, L, pose, weight=1.0, air=160.0, ground=None):
+        self.L, self.p, self.w, self.air, self.ground = L, pose, weight, air, ground
 
     def _fog(self, z):
         return np.exp(-np.maximum(z, 0) / self.air)
+
+    def _seen(self, C):
+        """Which points (in the camera's frame) the Earth leaves in sight."""
+        return ~self.ground.hidden(self.p.pos + C @ self.p.R, self.p.pos)
 
     def _deposit(self, X, Y, sig, wr, wg, wb):
         b = np.digitize(sig, _EDGES)
@@ -174,9 +199,10 @@ class Painter:
             sel = b == i
             self.L._add(float(SIGMAS[i]), X[sel], Y[sel], wr[sel], wg[sel], wb[sel])
 
-    def points(self, P, k, rgb, sigma=0.8, max_sigma=22.0, fog=True):
+    def points(self, P, k, rgb, sigma=0.8, max_sigma=22.0, fog=True, occlude=False):
         """Points of light: in focus each peaks at k; off focus it spreads and keeps its energy (and the air dims it
-        by its distance, unless `fog` is off: the Earth's lights are dimmed by the Earth's own air)."""
+        by its distance, unless `fog` is off: the Earth's lights are dimmed by the Earth's own air). sigma is one
+        width for all, or one a point."""
         P = np.asarray(P, np.float64).reshape(-1, 3)
         if not len(P):
             return
@@ -184,20 +210,26 @@ class Painter:
         z = C[:, 2]
         k = np.broadcast_to(np.asarray(k, np.float64), (len(P),))
         rgb = np.broadcast_to(np.asarray(rgb, np.float64).reshape(-1, 3), (len(P), 3))
+        each = np.ndim(sigma) > 0
         ok = (z > 0.08) & (k > 0)
+        if occlude and self.ground is not None and ok.any():
+            ok[ok] = self._seen(C[ok])
         if not ok.any():
             return
         C, z, k, rgb = C[ok], z[ok], k[ok], rgb[ok]
+        if each:
+            sigma = np.asarray(sigma, np.float64)[ok]
         X, Y = self.p.screen(C)
         sig = np.minimum(np.sqrt(sigma ** 2 + self.p.defocus(z) ** 2), max_sigma)
         m = 3 * sig + 2
         ok = (X > -m) & (X < W + m) & (Y > -m) & (Y < H + m)
         if not ok.any():
             return
-        e = k[ok] * (2 * math.pi * sigma * sigma) * (self._fog(z[ok]) if fog else 1.0) * self.w
+        s0 = sigma[ok] if each else sigma
+        e = k[ok] * (2 * math.pi * s0 * s0) * (self._fog(z[ok]) if fog else 1.0) * self.w
         self._deposit(X[ok], Y[ok], sig[ok], e * rgb[ok, 0], e * rgb[ok, 1], e * rgb[ok, 2])
 
-    def segments(self, A, B, k, rgb, sigma=0.9, spacing=0.6, max_sigma=22.0):
+    def segments(self, A, B, k, rgb, sigma=0.9, spacing=0.6, max_sigma=22.0, occlude=False):
         """Straight lines A -> B (M x 3 each): k is each line's brightness (M), or its brightness at each end (M x 2).
         Each is cut at the lens's near plane, drawn as points `spacing` px apart, and spread by its own focus."""
         A = np.asarray(A, np.float64).reshape(-1, 3)
@@ -248,6 +280,11 @@ class Painter:
         sig = np.minimum(np.sqrt(sigma ** 2 + self.p.defocus(z) ** 2), max_sigma)
         m = 3 * sig + 2
         ok = (X > -m) & (X < W + m) & (Y > -m) & (Y < H + m) & (kk > 0)
+        if occlude and self.ground is not None and ok.any():
+            # each drawn point back into the camera's frame, and those behind the Earth left out
+            zo = z[ok]
+            ok[ok] = self._seen(np.stack([(X[ok] - self.p.cx) * zo / self.p.F, -(Y[ok] - self.p.cy) * zo / self.p.F,
+                                          zo], 1))
         if not ok.any():
             return
         step = (Ls / (n - 1))[idx]
@@ -256,7 +293,7 @@ class Painter:
         e, X, Y, sig, c = e[ok], X[ok], Y[ok], sig[ok], rgb[idx][ok]
         self._deposit(X, Y, sig, e * c[:, 0], e * c[:, 1], e * c[:, 2])
 
-    def polyline(self, P, k, rgb, sigma=0.9, closed=False):
+    def polyline(self, P, k, rgb, sigma=0.9, closed=False, occlude=False):
         """A line through the points P (N x 3), k per point (N) or one for all."""
         P = np.asarray(P, np.float64).reshape(-1, 3)
         if len(P) < 2:
@@ -265,7 +302,7 @@ class Painter:
         if closed:
             P = np.vstack([P, P[:1]])
             k = np.concatenate([k, k[:1]])
-        self.segments(P[:-1], P[1:], np.stack([k[:-1], k[1:]], 1), rgb, sigma)
+        self.segments(P[:-1], P[1:], np.stack([k[:-1], k[1:]], 1), rgb, sigma, occlude=occlude)
 
     def glow(self, P, r, k, rgb):
         """A wide round glow about a world point: r is its radius (world units), so it shrinks with distance."""
@@ -347,20 +384,29 @@ class Dust:
 
 
 class Stars:
-    """The far sky's points: fixed, as far as the camera ever goes."""
+    """The far sky's points: fixed, as far as the camera ever goes. Over the city they are all above the horizontal;
+    in orbit the Earth's limb lies well under it, and a second set (`below`) fills the sky down to the limb."""
 
-    def __init__(self, n=2200, seed=4, r=900.0):
+    def __init__(self, n=2200, seed=4, r=900.0, below=False):
         rng = np.random.default_rng(seed)
         d = rng.normal(0, 1, (n, 3))
         d /= np.linalg.norm(d, axis=1, keepdims=True)
         d[:, 1] = np.abs(d[:, 1]) * 0.9 + 0.02
+        if below:
+            d[:, 1] = -d[:, 1]
         d /= np.linalg.norm(d, axis=1, keepdims=True)
         self.P = d * r
         self.k = 0.02 + 0.2 * rng.random(n) ** 6
         self.rgb = np.where(rng.random(n)[:, None] < 0.8, ICE, WHITE)
 
-    def draw(self, pt, k=1.0):
-        pt.points(self.P + pt.p.pos * 0.98, self.k * k, self.rgb, 0.7, max_sigma=1.4)
+    def draw(self, pt, k=1.0, ground=None):
+        if ground is None:
+            pt.points(self.P + pt.p.pos * 0.98, self.k * k, self.rgb, 0.7, max_sigma=1.4)
+            return
+        P = self.P + pt.p.pos * 0.98
+        d = P - pt.p.pos
+        seen = ~ground.blocks(d / np.linalg.norm(d, axis=1, keepdims=True), pt.p.pos)
+        pt.points(P[seen], self.k[seen] * k, self.rgb[seen], 0.7, max_sigma=1.4)
 
 
 class City:
@@ -511,14 +557,162 @@ class Tiers:
 
 class World:
     """The film's one world, at any moment: what is lit, where it is, and the camera's path through it (PLAN.md has
-    the story, comp.py draws it)."""
+    the story, comp.py draws it). With an `earth` (earth.Earth), Australia is the world below from 21 s; without
+    one, the city stays to the end."""
 
-    def __init__(self, T, drop, bars):
+    def __init__(self, T, drop, bars, earth=None):
         self.T, self.drop, self.bars = T, drop, bars
         self.dust, self.stars, self.city, self.tiers = Dust(), Stars(), City(), Tiers()
+        self.earth = earth
         self._destinations()
+        if earth is not None:
+            self.low_stars = Stars(seed=6, below=True)
+            self._journey()
+            self._places()
         self._chase()
         self._camera()
+        if earth is not None:
+            self._turn()
+            self._falls()
+
+    # -------------------------------------------------------------- Australia under the system, from 21 s
+
+    def _journey(self):
+        """Where the Earth is under the system from 21 s: the point under the core, the bearing the camera's -z faces
+        there, and km a unit (the system's height is 30 of them), on keys of their own. In the silent bar the system
+        rises out of the city over Canberra into orbit; from the drop it travels north up the east coast, the land
+        flowing toward the camera, and comes a little lower for the chase, holding there while the pulse runs (the
+        frame that puts Dubbo and Banksia Rise where the city's two places were, so the camera's run beside it is
+        the one delivered); it rises again for "one", and turns east for the end, over the northern coast's towns
+        toward the dawn."""
+        T, d = self.T, self.drop
+        E = self.earth
+        self.chase_frame = geo_earth.frame_for(
+            [E.place("Dubbo"), BANKSIA_RISE],
+            [(26.0 * math.cos(a), 26.0 * math.sin(a)) if i == 0 else (30.0 * math.cos(a), 30.0 * math.sin(a))
+             for i, a in enumerate((1.35, 0.78))], (-29.23, 151.47, 51.2, 16.6))
+        la, lo, br, km = self.chase_frame
+        ln = math.log
+        self.journey = Track([
+            (EARTH_T, (-35.28, 149.13, 29.0, ln(0.03)), "hold"),
+            (d, (-35.0, 149.2, 29.0, ln(20.0)), "hold"),
+            (T["destinations"], (-33.0, 150.0, 36.0, ln(20.0))),
+            (T["when"] - 0.1, (la, lo, br, ln(km)), "hold"),
+            (T["follow"] + 0.2, (la, lo, br, ln(km)), "hold"),
+            (T["one"], (-28.9, 151.6, 58.0, ln(22.0))),
+            (T["ask"], (-28.8, 150.6, 78.0, ln(20.0))),
+            # the end looks east over the northern coast's towns (at the frame's foot, under the words) and the
+            # Tasman to the limb, where the dawn comes up behind the emblem
+            (T["system"], (-28.7, 149.6, 95.0, ln(20.0)), "hold"),
+            (45.5, (-28.7, 149.6, 95.0, ln(20.0))),
+        ])
+        # the rise: from the city's own scale (its streets about 100 m apart, 3 units) to orbit, slow, then fast,
+        # then settling into orbit as the drop lands
+        self.rise_km = (0.03, 20.0)
+        self._g = {}
+        self.turn = None  # the Earth's turn under the camera's swing about the core (_turn)
+        # the moon, fixed to the Earth: 60 degrees round from north and 30 up, seen from Canberra (its sheen then
+        # lies on the Tasman in the wide views, earth_look.py)
+        self.moon_g = geo_earth.geo(*geo_earth.toward(-35.28, 149.13, 60.0, 60.0 * 111.2))
+
+    def ground(self, t):
+        """The Earth's place at t (earth.Ground), or None before 21 s (and with no Earth)."""
+        if self.earth is None or t < EARTH_FROM:
+            return None
+        g = self._g.get(t)
+        if g is None:
+            lat, lon, brg, lk = self.journey(t)
+            if t < self.drop:
+                a, b = (math.log(v) for v in self.rise_km)
+                lk = a + (b - a) * smooth(lin(t, EARTH_T, self.drop))
+            if self.turn is not None:
+                tt, off, t1 = self.turn
+                brg += float(np.interp(min(t, t1), tt, off)) * (1 - ss(t, t1, self.T["destinations"]))
+            g = geo_earth.Ground(lat, lon, brg, math.exp(lk))
+            if len(self._g) > 64:
+                self._g.clear()
+            self._g[t] = g
+        return g
+
+    def look(self, t):
+        """How the Earth's plate is lit at t (earth.Earth.plate): its own detail coming in as the system rises
+        (none until 2 km a unit, all by 6), the air's haze (lifting on "one"), the moon, and the dawn of the end, the
+        sun just under the limb straight ahead and nearing it."""
+        T = self.T
+        g = self.ground(t)
+        haze, _ = self.sky(t)
+        det = ss(math.log(g.km), math.log(2.0), math.log(6.0))
+        dawn = ss(t, T["aurixa"] - 0.6, 45.5)
+        return dict(detail=det, moon=g.direction(self.moon_g), sun=self.sun(t, g), dawn=dawn, haze=haze,
+                    navy=NAVY, ice=ICE, gold=GOLD, warm=WARM)
+
+    def sun(self, t, g):
+        """The sun at the end: straight ahead of the camera, under the limb by 3 degrees as the emblem lands and by
+        0.6 at the last frame."""
+        pos = self.pose(t).pos
+        lo, hi = 0.0, math.pi / 2  # the limb's depression straight ahead, by bisection on the tangent ray
+        for _ in range(40):
+            e = (lo + hi) / 2
+            dvec = np.array([0.0, -math.sin(e), -math.cos(e)])
+            if g.blocks(dvec, pos)[0]:
+                hi = e
+            else:
+                lo = e
+        e = lo + math.radians(3.0 - 2.4 * ss(t, self.T["aurixa"] - 0.6, 45.5))
+        return np.array([0.0, -math.sin(e), -math.cos(e)])
+
+    def _places(self):
+        """The thirty places the threads reach (PLACES), held as the Earth's own unit vectors so they travel with
+        it, and the tier each thread leaves from."""
+        E = self.earth
+        ll = np.array([BANKSIA_RISE if n == "Banksia Rise" else E.place(n) for n in PLACES])
+        self.dest_g = geo_earth.geo(ll[:, 0], ll[:, 1])
+        n = len(PLACES)
+        self.dest_tier = np.arange(n) % 5
+        self.dest_tier[0], self.dest_tier[1] = 4, 1
+
+    def _turn(self):
+        """The Earth's turn under the camera, from the rise to the end of the drop's move. The camera's path about
+        the core looks west-north-west in the rise, then swings a quarter turn round the core after the drop; over
+        the city that was all one dark grid. Over the Earth, the Earth turns against the camera's swing so the view
+        holds north-east, over Canberra to Sydney's lights, the coast and the moon on the Tasman, all through the
+        rise and the drop; then it eases to the journey's own bearing by "destinations"."""
+        t1 = self.drop + 1.15  # the drop's move ends: the camera looks along -z from here
+        tt = np.linspace(EARTH_FROM, t1, 160)
+        look = [self.c_look(t) - self.c_pos(t) for t in tt]
+        az = np.degrees(np.unwrap([math.atan2(v[0], -v[2]) for v in look]))  # from -z toward +x
+        view = 48.0  # the compass bearing the camera keeps looking toward: Sydney, from Canberra
+        # added to the journey's own bearing
+        self.turn = (tt, view - az - np.array([self.journey(t)[2] for t in tt]), t1)
+        self._g.clear()
+
+    def _falls(self):
+        """When each thread falls (a sweep round the system by where each place lies about it as they begin); and,
+        for each of the Earth's lights, its nearest reached place and when the gold reaches it, and how far it is
+        from the points the waves of "one" and of the end run out from."""
+        T = self.T
+        E = self.earth
+        n = len(PLACES)
+        F = self.ground(T["more"]).flat(self.dest_g)
+        th = np.arctan2(F[:, 2], F[:, 0])
+        order = np.argsort(np.mod(th - 2.2, 2 * math.pi))
+        t0 = T["more"] + 0.15
+        span = T["destinations"] - 0.75 - t0
+        self.dest_t = np.empty(n)
+        self.dest_t[order] = t0 + span * np.arange(n) / (n - 1)
+        self.dest_fly = 0.85
+        # the gold spreads from each reached place over its own lights, about 100 km a second, to 80 km out
+        cos_d = np.clip(E.light_g @ self.dest_g.T, -1, 1)
+        near = np.argmax(cos_d, 1)
+        self.e_near = np.arccos(cos_d[np.arange(len(near)), near]) * geo_earth.RE
+        self.e_reach = self.dest_t[near] + self.dest_fly + self.e_near / 100.0
+        # the wave before "one" and its ring run out from the point under the core on "one"; the end's pulses from
+        # the point under it as the emblem lands
+        self.one_g = self.ground(T["one"]).M[1].copy()
+        self.e_wave = np.arccos(np.clip(E.light_g @ self.one_g, -1, 1)) * geo_earth.RE
+        self.end_g = self.ground(T["aurixa"]).M[1].copy()
+        self.e_end = np.arccos(np.clip(E.light_g @ self.end_g, -1, 1)) * geo_earth.RE
+        self.end_pulses = (T["aurixa"], T["systems"] + 0.05, self.bars[22], self.bars[23])
 
     # -------------------------------------------------------------- the threads to the city
 
@@ -561,19 +755,31 @@ class World:
         self.light_reach = self.dest_t[near] + self.dest_fly + d[np.arange(len(L)), near] / 14.0
         self.light_near = d[np.arange(len(L)), near]
 
-    def thread(self, j, t, apart, stand, spread):
-        """Thread j's curve (64 x 3) from its ring to its place: a fine line of light with a gentle outward bow."""
+    def thread(self, j, t, apart, stand, spread, g=None, F=None):
+        """Thread j's curve (64 x 3) from its ring to its place: a fine line of light with a gentle outward bow. Over
+        the Earth it is drawn so in the flat picture about the point under the core and bent onto the sphere (from
+        none of it at the ring to all of it at the place), so it leaves its ring as it did, keeps its height over the
+        ground all the way, and comes down on its town even over the horizon. F: the places' flat points at t."""
         i = self.dest_tier[j]
         r = BASE_R[i] * spread
+        if self.earth is None:
+            th = self.dest_th[j]
+            p3 = self.dest[j]
+        else:
+            g = g if g is not None else self.ground(t)
+            p3 = (F if F is not None else g.flat(self.dest_g))[j]
+            th = math.atan2(p3[2], p3[0])
         # the ring's point that faces the place, whatever the ring's turn
-        p0 = (np.array([r * math.cos(self.dest_th[j]), 0.0, r * math.sin(self.dest_th[j])])) @ \
+        p0 = (np.array([r * math.cos(th), 0.0, r * math.sin(th)])) @ \
             axis_angle([1, 0, 0], math.pi / 2 * stand).T
-        p3 = self.dest[j]
-        out = np.array([math.cos(self.dest_th[j]), 0.0, math.sin(self.dest_th[j])])
+        out = np.array([math.cos(th), 0.0, math.sin(th)])
         span = float(np.linalg.norm(p3 - p0))
         c = (p0 + p3) / 2 + out * (0.08 * span)
         u = np.linspace(0, 1, 64)[:, None]
-        return (1 - u) ** 2 * p0 + 2 * (1 - u) * u * c + u ** 2 * p3
+        B = (1 - u) ** 2 * p0 + 2 * (1 - u) * u * c + u ** 2 * p3
+        if self.earth is None:
+            return B
+        return B + (g.bend(B) - B) * (u * u * (3 - 2 * u))
 
     # -------------------------------------------------------------- the pulse the camera chases
 
@@ -588,8 +794,17 @@ class World:
         down = self.thread(j1, ta, 0.0, 0.0, 1.0)
         up = self.thread(j2, ta, 0.0, 0.0, 1.0)[::-1]
         a, b = down[-1], up[0]
-        ground = np.stack([a + (b - a) * u for u in np.linspace(0, 1, 40)])
-        ground[:, 1] = self.city.ground + 0.15
+        if self.earth is None:
+            ground = np.stack([a + (b - a) * u for u in np.linspace(0, 1, 40)])
+            ground[:, 1] = self.city.ground + 0.15
+        else:
+            # along the ground from Bathurst to Banksia Rise: the great circle, 0.15 over it (the Earth holds still
+            # while the pulse runs: World._journey)
+            gr = self.ground(ta)
+            fa, fb = gr.flat(self.dest_g[[j1, j2]])
+            G = np.stack([fa + (fb - fa) * u for u in np.linspace(0, 1, 40)])
+            G[:, 1] = -geo_earth.ORB + 0.15
+            ground = gr.bend(G)
         spoke = np.stack([up[-1] * (1 - u) for u in np.linspace(0, 0.94, 30)])
         legs = [(down, ta, T["move"] + 0.05), (ground, T["move"] + 0.05, T["context"] - 0.05),
                 (up, T["context"] - 0.05, T["follow"] + 0.15), (spoke, T["follow"] + 0.15, T["business"] - 0.1)]
@@ -599,6 +814,8 @@ class World:
             self.legs.append((pts, s / s[-1], t0, t1))
         self.chase_t = (ta, T["business"] - 0.1)
         rng = np.random.default_rng(41)
+        if self.earth is not None:
+            a, b = fa, fb  # the wake is laid out in the flat picture, then bent onto the sphere
         seg = np.linalg.norm(b - a)
         n = max(8, int(seg / 0.5))
         u = np.linspace(0, 1, n)
@@ -608,6 +825,10 @@ class World:
         w[:, 1] = self.city.ground + 0.05
         order = np.argsort(np.concatenate([u, u]))
         self.wake = w[order]
+        if self.earth is not None:
+            # the wake and the run's line of gold stay on the ground as the Earth moves again: kept in its own axes
+            self.wake_g = gr.to_geo(gr.bend(self.wake))
+            self.run_g = gr.to_geo(ground)
 
     def pulse_at(self, t):
         """Where the chased pulse is at t (None before it leaves or after it arrives)."""
@@ -722,24 +943,48 @@ class World:
         gather = ss(t, T["own"] - 0.2, d) * (t < d)
         return k, fl, gather
 
-    def draw(self, L, t, weight=1.0):
+    def draw_lights(self, L, t, n, shutter):
+        """The Earth's lights alone, at n moments of the shutter about t: over the Earth the camera's moves carry
+        thousands of points across the frame, which drawn at the space's few moments would leave dotted trails
+        (World.draw with lights=False draws the rest)."""
+        for j in range(n):
+            ts = t if n == 1 else t + ((j + 0.5) / n - 0.5) * shutter
+            g = self.ground(ts)
+            if g is not None:
+                self._earth_lights(Painter(L, self.pose(ts), 1.0 / n, ground=g), g, ts)
+
+    def draw(self, L, t, weight=1.0, lights=True):
         T, d = self.T, self.drop
         pose = self.pose(t)
-        pt = Painter(L, pose, weight)
+        g = self.ground(t)
+        pt = Painter(L, pose, weight, ground=g)
         apart, stand, spread = self.state(t)
         # the far sky and the air
-        self.stars.draw(pt, 1.0 - 0.6 * ss(t, T["intelligence"], T["move"]) + 0.6 * ss(t, T["business"], T["one"]))
+        k_sky = 1.0 - 0.6 * ss(t, T["intelligence"], T["move"]) + 0.6 * ss(t, T["business"], T["one"])
+        self.stars.draw(pt, k_sky)
+        if g is not None:
+            self.low_stars.draw(pt, k_sky, ground=g)
         self.dust.draw(pt, t, 1.0)
-        # the city: there from the first frame, reached by the system after the drop, all of it as one on "one"
-        reach = np.clip((t - self.light_reach) / 0.5, 0, 1) * (self.light_near < 16) * (t > d)
-        sweep_r = 260 * ease_in_out(lin(t, T["business"] - 0.2, T["one"]))
-        cdist = np.hypot(self.city.lights[:, 0] - self.city.centre[0], self.city.lights[:, 2] - self.city.centre[1])
-        wave = np.clip((sweep_r - cdist) / 18.0, 0, 1) * (t > T["business"] - 0.2)
-        lit = np.maximum(reach, wave)
-        one = flash(t, T["one"], 0.03, 0.45)
-        settle = 1 - 0.55 * ss(t, T["ask"], T["becomes"] + 0.5)
-        city_k = (0.85 + 1.4 * one) * settle * (1 + 0.5 * self.beat(t))
-        self._city(pt, t, lit, city_k, one)
+        if g is None:
+            # the city: there from the first frame, reached by the system after the drop, all of it as one on "one"
+            reach = np.clip((t - self.light_reach) / 0.5, 0, 1) * (self.light_near < 16) * (t > d)
+            sweep_r = 260 * ease_in_out(lin(t, T["business"] - 0.2, T["one"]))
+            cdist = np.hypot(self.city.lights[:, 0] - self.city.centre[0],
+                             self.city.lights[:, 2] - self.city.centre[1])
+            wave = np.clip((sweep_r - cdist) / 18.0, 0, 1) * (t > T["business"] - 0.2)
+            lit = np.maximum(reach, wave)
+            one = flash(t, T["one"], 0.03, 0.45)
+            settle = 1 - 0.55 * ss(t, T["ask"], T["becomes"] + 0.5)
+            city_k = (0.85 + 1.4 * one) * settle * (1 + 0.5 * self.beat(t))
+            self._city(pt, t, lit, city_k, one)
+        else:
+            # the rise: the city drawn ever smaller about the point under the core as the Earth grows under it, gone
+            # as it becomes one cluster of the Earth's lights (the silent bar has no reach, wave or beat in it yet)
+            fade = 1 - ss(math.log(g.km), math.log(0.3), math.log(1.5))
+            if fade > 0:
+                self._city(pt, t, np.zeros(len(self.city.lights)), 0.85 * fade, 0.0, scale=self.rise_km[0] / g.km)
+            if lights:
+                self._earth_lights(pt, g, t)
         # the core, and the thread that rises from it on "operate"
         ck, fl, gather = self.core_light(t)
         self._core(pt, L, pose, t, ck, fl, gather)
@@ -778,34 +1023,82 @@ class World:
 
     # -------------------------------------------------------------- the parts
 
-    def _city(self, pt, t, lit, k, one):
+    def _city(self, pt, t, lit, k, one, scale=1.0):
+        """The city's lights, streets, roads and towers; `scale` draws it smaller about the point under the core
+        (the rise into orbit)."""
         c = self.city
+        if scale == 1.0:
+            S = lambda P: P  # noqa: E731
+        else:
+            off = np.array([0.0, c.ground * (1 - scale), 0.0])
+            S = lambda P: np.asarray(P, np.float64) * scale + off  # noqa: E731
         warm = np.where(c.lwarm[:, None], WARM, ICE)
         col = warm * (1 - lit[:, None]) + GOLD * lit[:, None]
         flick = 0.8 + 0.2 * np.sin(t * 1.7 + c.lph)
-        pt.points(c.lights, c.lk * k * flick * (1 + 1.3 * lit), col, 0.75)
-        pt.segments(c.sa, c.sb, 0.022 * k, WARM * 0.5 + ICE * 0.5, 0.7)
+        pt.points(S(c.lights), c.lk * k * flick * (1 + 1.3 * lit), col, 0.75)
+        pt.segments(S(c.sa), S(c.sb), 0.022 * k, WARM * 0.5 + ICE * 0.5, 0.7)
         for rd in c.roads:
             P = np.column_stack([rd[:, 0], np.full(len(rd), c.ground), rd[:, 1]])
-            pt.polyline(P[::6], 0.03 * k, WARM, 0.8)
+            pt.polyline(S(P[::6]), 0.03 * k, WARM, 0.8)
         for i, u0, v in c.cars:
             rd = c.roads[i]
             u = np.mod(u0 + v * t, 1.0)
             j = np.clip((u * (len(rd) - 1)).astype(int), 0, len(rd) - 1)
             P = np.column_stack([rd[j, 0], np.full(len(j), c.ground + 0.05), rd[j, 1]])
-            pt.points(P, 0.3 * k, np.where((v > 0)[:, None], WARM, ICE), 0.8)
+            pt.points(S(P), 0.3 * k, np.where((v > 0)[:, None], WARM, ICE), 0.8)
         n = len(c.tx)
         base = np.stack([c.tx, np.full(n, c.ground), c.tz], 1)
         top = c.tops()
         tl = float(np.clip((t - self.drop - 1.0) / 1.5, 0, 1)) * (t > self.drop)
         tl = max(tl, one)
         tcol = ICE * (1 - tl) + GOLD * tl
-        pt.segments(base, top, np.stack([np.full(n, 0.012), np.full(n, 0.05)], 1) * k * (1 + tl), tcol, 0.8)
-        pt.points(top, 0.6 * k * (1 + tl), tcol, 0.85)
+        pt.segments(S(base), S(top), np.stack([np.full(n, 0.012), np.full(n, 0.05)], 1) * k * (1 + tl), tcol, 0.8)
+        pt.points(S(top), 0.6 * k * (1 + tl), tcol, 0.85)
         if len(c.floors):
             i = c.floors[:, 0].astype(int)
             P = np.stack([c.tx[i], c.ground + c.floors[:, 1], c.tz[i]], 1)
-            pt.points(P, 0.24 * k * (1 + 1.2 * tl), WARM * (1 - tl) + GOLD * tl, 0.75)
+            pt.points(S(P), 0.24 * k * (1 + 1.2 * tl), WARM * (1 - tl) + GOLD * tl, 0.75)
+
+    def _earth_lights(self, pt, g, t):
+        """The Earth's lights: in from 0.3 km a unit to 1 as the system rises, each turning gold as the system
+        reaches its place, all of them in the wave before "one" and on it, and at the end answering every pulse of
+        the emblem as it runs out over the country from under the core."""
+        T, d = self.T, self.drop
+        fade = ss(math.log(g.km), math.log(0.3), math.log(1.0))
+        if fade <= 0:
+            return
+        reach = np.clip((t - self.e_reach) / 0.5, 0, 1) * (self.e_near < 80.0) * (t > d)
+        sweep = self.sweep(t)
+        wave = np.clip((sweep - self.e_wave) / 150.0, 0, 1) * (t > T["business"] - 0.2)
+        gold = np.maximum(reach, wave)
+        one = flash(t, T["one"], 0.03, 0.45)
+        settle = 1 - 0.55 * ss(t, T["ask"], T["becomes"] + 0.5)
+        k = 0.06 * fade * (0.85 + 1.4 * one) * settle * (1 + 0.5 * self.beat(t))
+        gain = self._pulse_gain(t)
+        if T["business"] - 0.2 < t < T["one"] + 0.1:
+            # the wave's front: each town flares as it reaches it, so the gold is seen crossing the country
+            front = 1 + 2.2 * np.exp(-((sweep - self.e_wave) / 180.0) ** 2)
+            gain = front if gain is None else gain * front
+        self.earth.lights(pt, g, k, gold, (WARM, ICE, GOLD), t, gain)
+
+    def sweep(self, t):
+        """How far the gold wave before "one" has crossed the country from under the core, in km."""
+        return 4500.0 * ease_in_out(lin(t, self.T["business"] - 0.2, self.T["one"]))
+
+    def _pulse_gain(self, t):
+        """How much brighter each of the Earth's lights is as the end's pulses pass it (None while none runs): each
+        pulse of the emblem runs out over the country from the point under the core, 3,400 km in its 1.6 s."""
+        if self.earth is None or t < self.T["aurixa"]:
+            return None
+        gain = None
+        for at in self.end_pulses:
+            u = lin(t, at, at + 1.6)
+            if 0 < u < 1:
+                r = 3400.0 * ease_out(u)
+                a = (1.0 if at == self.T["aurixa"] else 0.75) * (1 - u) ** 1.2
+                bump = 2.5 * a * np.exp(-((self.e_end - r) / 140.0) ** 2)
+                gain = 1 + bump if gain is None else gain + bump
+        return gain
 
 
     def _core(self, pt, L, pose, t, k, fl, gather):
@@ -943,11 +1236,15 @@ class World:
         retract = ss(t, T["ask"] + 0.1, T["becomes"] + 0.1)
         flare = flash(t, T["destinations"], 0.05, 0.5) + 1.2 * flash(t, T["one"], 0.03, 0.45)
         bt = self.beat(t)
-        for j in range(len(self.dest)):
+        gr = self.ground(t)
+        F = None if gr is None else gr.flat(self.dest_g)
+        dest = self.dest if gr is None else gr.world(self.dest_g)
+        occ = gr is not None
+        for j in range(len(dest)):
             g = ease_in_out(lin(t, self.dest_t[j], self.dest_t[j] + self.dest_fly))
             if g <= 0:
                 continue
-            C = self.thread(j, t, apart, stand, spread)
+            C = self.thread(j, t, apart, stand, spread, gr, F)
             lo = retract
             hi = g * (1 - retract)
             if hi <= lo + 0.005:
@@ -958,27 +1255,30 @@ class World:
             if len(seg) < 2:
                 continue
             k = (0.3 + 0.8 * flare + 0.3 * bt) * np.linspace(1.0, 0.6, len(seg))
-            pt.polyline(seg, k, GOLD, 0.8)
-            pt.polyline(seg, 0.05 * k, GOLD, 3.0)
+            pt.polyline(seg, k, GOLD, 0.8, occlude=occ)
+            pt.polyline(seg, 0.05 * k, GOLD, 3.0, occlude=occ)
             if g < 1:
-                pt.points(seg[-1:], 3.0, WHITE, 1.2)
-                pt.points(seg[-1:], 0.4, GOLD, 3.5)
+                pt.points(seg[-1:], 3.0, WHITE, 1.2, occlude=occ)
+                pt.points(seg[-1:], 0.4, GOLD, 3.5, occlude=occ)
             else:
                 arrive = flash(t, self.dest_t[j] + self.dest_fly, 0.03, 0.6)
                 if arrive > 0.01:
-                    pt.points(self.dest[j:j + 1], 4.0 * arrive, WHITE, 1.2)
+                    pt.points(dest[j:j + 1], 4.0 * arrive, WHITE, 1.2, occlude=occ)
                     ring = np.linspace(0, 2 * math.pi, 72)
                     rr = 0.3 + 4.0 * (1 - arrive)
-                    P = self.dest[j] + np.stack([rr * np.cos(ring), np.zeros(72), rr * np.sin(ring)], 1)
-                    pt.polyline(P, 0.7 * arrive, GOLD, 0.85, closed=True)
-                pt.points(self.dest[j:j + 1], 0.9 * (1 + flare), WARM, 1.0)
+                    if gr is None:
+                        P = dest[j] + np.stack([rr * np.cos(ring), np.zeros(72), rr * np.sin(ring)], 1)
+                    else:  # laid on the Earth about the place
+                        P = gr.bend(F[j] + np.stack([rr * np.cos(ring), np.full(72, 0.05), rr * np.sin(ring)], 1))
+                    pt.polyline(P, 0.7 * arrive, GOLD, 0.85, closed=True, occlude=occ)
+                pt.points(dest[j:j + 1], 0.9 * (1 + flare), WARM, 1.0, occlude=occ)
                 # pulses down each thread on the beat
                 if t < T["ask"]:
                     for u0 in (0.0, 0.5):
                         u = ((t - self.dest_t[j]) * 0.55 + u0 + j * 0.071) % 1.0
                         if lo < u < hi:
                             i = int(u * 63)
-                            pt.points(C[i:i + 1], 1.6, WARM, 1.0)
+                            pt.points(C[i:i + 1], 1.6, WARM, 1.0, occlude=occ)
 
     def _chase_draw(self, pt, t):
         a, b = self.chase_t
@@ -999,17 +1299,30 @@ class World:
         # the street it runs lights behind it, and stays lit: a line of the city's lights turned gold
         pts, sv, t0, t1 = self.legs[1]
         if t > t0:
-            u = np.clip((np.linspace(0, 1, len(self.wake)) - 0.0), 0, 1)
+            gr = self.ground(t)
+            wake = self.wake if gr is None else gr.world(self.wake_g, 0.05)
+            u = np.clip((np.linspace(0, 1, len(wake)) - 0.0), 0, 1)
             passed = t0 + (t1 - t0) * u
             on = np.clip((t - passed) / 0.12, 0, 1) * (t > passed)
             k = on * (0.55 + 1.6 * np.exp(-(t - passed) / 0.35)) * (1 - ss(t, self.T["ask"], self.T["becomes"]))
-            pt.points(self.wake, k, GOLD * 0.6 + WARM * 0.4, 1.2)
-            a0, b0 = pts[0], pts[-1]
+            pt.points(wake, k, GOLD * 0.6 + WARM * 0.4, 1.2, occlude=gr is not None)
             reach = clamp((t - t0) / (t1 - t0))
-            e = a0 + (b0 - a0) * reach
             kl = 0.6 * (1 - ss(t, self.T["ask"], self.T["becomes"]))
-            pt.segments([a0], [e], np.array([[0.5 * kl, kl]]), GOLD, 1.0)
-            pt.segments([a0], [e], np.array([[0.04 * kl, 0.08 * kl]]), GOLD, 6.0)
+            if gr is None:
+                a0, b0 = pts[0], pts[-1]
+                e = a0 + (b0 - a0) * reach
+                pt.segments([a0], [e], np.array([[0.5 * kl, kl]]), GOLD, 1.0)
+                pt.segments([a0], [e], np.array([[0.04 * kl, 0.08 * kl]]), GOLD, 6.0)
+            elif reach > 0:
+                # the run's line along the ground, as far as the pulse has come, where the ground now is
+                run = gr.world(self.run_g, 0.15)
+                s = np.linspace(0, 1, len(run))
+                m = int(np.searchsorted(s, reach))
+                line = np.vstack([run[:m], run[max(m - 1, 0)] + (run[min(m, len(run) - 1)] - run[max(m - 1, 0)])
+                                  * ((reach - s[max(m - 1, 0)]) / max(s[1], 1e-9))])
+                kk = np.linspace(0.5 * kl, kl, len(line))
+                pt.polyline(line, kk, GOLD, 1.0, occlude=True)
+                pt.polyline(line, kk * 0.08, GOLD, 6.0, occlude=True)
 
     def _waves(self, pt, L, pose, t):
         T, d = self.T, self.drop
@@ -1027,22 +1340,48 @@ class World:
                 if r < 2600:
                     L.ring(x, y, r, tuple(col), k * (1 - g) ** 1.5 * pt.w, 1.3)
                     L.ring(x, y, r, tuple(col), 0.08 * k * (1 - g) ** 1.5 * pt.w, 14.0)
-        # the ground's ring on "one": the whole city answering at once
+        # the ground's ring on "one": the whole city answering at once (over the Earth, the whole country); over the
+        # Earth the wave before it has its front drawn too, a faint line of gold crossing the land
         g = lin(t, T["one"], T["one"] + 1.2)
+        gr = self.ground(t)
+        if gr is not None and T["business"] - 0.2 < t < T["one"] + 0.05:
+            kf = 0.4 * ss(t, T["business"] - 0.2, T["business"] + 0.15) * (1 - ss(t, T["one"] - 0.2, T["one"] + 0.05))
+            if kf > 0.002 and self.sweep(t) > 1.0:
+                q = geo_earth.circle(self.one_g, self.sweep(t) / geo_earth.RE, 720)
+                pt.polyline(gr.world(q, 0.1), kf, GOLD, 1.0, closed=True, occlude=True)
         if 0 < g < 1:
-            c = self.city
-            rr = 5 + 260 * ease_out(g)
-            ring = np.linspace(0, 2 * math.pi, 400)
-            P = np.stack([c.centre[0] + rr * np.cos(ring), np.full(400, c.ground + 0.1), c.centre[1] + rr * np.sin(ring)], 1)
-            pt.polyline(P, 0.9 * (1 - g) ** 1.4, GOLD, 1.0, closed=True)
-        # the emblem's pulses, from the orb, on "Aurixa", on "Systems" and on the bars after
+            if gr is None:
+                c = self.city
+                rr = 5 + 260 * ease_out(g)
+                ring = np.linspace(0, 2 * math.pi, 400)
+                P = np.stack([c.centre[0] + rr * np.cos(ring), np.full(400, c.ground + 0.1),
+                              c.centre[1] + rr * np.sin(ring)], 1)
+                pt.polyline(P, 0.9 * (1 - g) ** 1.4, GOLD, 1.0, closed=True)
+            else:
+                q = geo_earth.circle(self.one_g, (40.0 + 3000.0 * ease_out(g)) / geo_earth.RE, 720)
+                pt.polyline(gr.world(q, 0.1), 0.9 * (1 - g) ** 1.4, GOLD, 1.0, closed=True, occlude=True)
+        # the emblem's pulses, from the orb, on "Aurixa", on "Systems" and on the bars after; over the Earth each
+        # also runs out over the country from under the core, its towns answering as it passes (_pulse_gain)
         for at in (T["aurixa"], T["systems"] + 0.05, self.bars[22], self.bars[23]):
             g = lin(t, at, at + 1.6)
             if 0 < g < 1:
                 r = (0.6 + 24.0 * ease_out(g)) * s
                 kk = (1.0 if at == T["aurixa"] else 0.7) * (1 - g) ** 1.7
+                if gr is not None and at != T["aurixa"]:
+                    kk *= 1.25  # over the Earth the logo's beat is the film's last word: a little stronger
                 L.ring(x, y, r, tuple(mixc_np(ICE, GOLD, 0.35)), 1.1 * kk * pt.w, 1.2)
                 L.ring(x, y, r, tuple(mixc_np(ICE, GOLD, 0.35)), 0.1 * kk * pt.w, 12.0)
+                if gr is not None:
+                    # and a fine echo just behind it, as a beat carries
+                    ge = lin(t, at + 0.14, at + 1.6)
+                    if 0 < ge < 1:
+                        L.ring(x, y, (0.6 + 21.0 * ease_out(ge)) * s, tuple(mixc_np(ICE, GOLD, 0.6)),
+                               0.45 * kk * pt.w, 1.0)
+                if gr is not None:
+                    q = geo_earth.circle(self.end_g, (60.0 + 3400.0 * ease_out(g)) / geo_earth.RE, 900)
+                    kg = 0.7 * (1.0 if at == T["aurixa"] else 0.75) * (1 - g) ** 1.2
+                    pt.polyline(gr.world(q, 0.08), kg, GOLD, 1.0, closed=True, occlude=True)
+                    pt.polyline(gr.world(q, 0.08), 0.06 * kg, GOLD, 5.0, closed=True, occlude=True)
 
     # The emblem's triangle (the art's apex and lower corners, as the end card places them on the frame) carried back
     # into the space through the camera's last pose: 27.5 from the core, 1663 px of focal length, its axis at y 710.5.
