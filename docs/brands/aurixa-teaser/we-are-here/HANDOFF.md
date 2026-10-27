@@ -202,7 +202,7 @@ https://canvas-xeno-studio.lovable.app. Its roots: `records` = `docs/brands/auri
 
 Until this handoff the work kept no words, textures or film runs (its `.xenoignore` listed them, as they are drawn
 again from code). This handoff changed `<work>/.xenoignore` so the studio keeps the words, the textures and runs
-`part-00000`, `part-00290` and `part-00490`, and saved the work (section 10 says whether the upload finished).
+`part-00000`, `part-00290` and `part-00490`, and they are all kept now (section 10).
 
 ### 4.4 If something is missing after `resume`
 
@@ -499,9 +499,11 @@ $PY -I scripts/aurixa-teaser/we-are-here/earth_look.py <work> /tmp/look '[{"t":2
 
 - **Git**: everything above is committed and pushed on `claude/eager-bell-1y7y1m` (`5fd9027`, and the commit that
   adds this line).
-- **The studio**: the work was saved with this handoff as its next step, and with the words, textures and opening
-  runs added to its files. If `work.py resume` brings back no `we-are-here/type/frames`, the upload had not
-  finished; draw them again as section 4.4 says.
+- **The studio**: the work is saved with this handoff as its next step (journal entries 403 and 412), and it now
+  keeps 1,309 files (2.2 GB), among them all 1,092 frames of the words, `type/labels.json`, the 16 textures, the
+  opening's runs `part-00000`, `part-00290` and `part-00490`, and the 9 files of `we-are-here/australia/`. The last
+  save found nothing left to send. (One upload failed on the way with the storage's error 520 and went through in
+  smaller batches: `XENO_WORK_FILES_PER_SAVE=150 XENO_WORK_PARTS_PER_OFFER=60 work.py push`.)
 - **Nothing is running.** No render was left half done; the delivered film and its files are untouched.
 
 ---
