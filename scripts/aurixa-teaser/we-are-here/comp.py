@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
-"""We Are Here, put together frame by frame: the plates (plates.py), the light drawn on them, the panes of software and
-the glass they break into, the five bands, the drop, the end card, and over all of it the words (type.cjs).
+"""We Are Here, put together frame by frame: the system's space (space.py) drawn through its one camera, with the
+panes of software and the glass they break into, the one tool that comes apart, the client's context following the
+pulse, the emblem and its pulse at the end, and over all of it the words (type.cjs).
 
   python3 -I comp.py <work files dir> [first:last] [--frames n,n,...] [--out path]      # (needs numpy and OpenCV)
+  python3 -I comp.py <work files dir> --labels       # where the five tiers' names are, frame by frame, for type.py
 
 Writes we-are-here/film/part-<first>.mkv (x264 at CRF 4, 4:4:4) for a run of frames, or PNGs of single frames
 (--frames, into --out). film.sh joins the runs and lays them on master.wav.
 
-The light is drawn where the picture puts its points (plates/<shot>.json, from the stills' camera and the takes'
-tracking), in linear light and in high range, as the thread of PLAN.md: a point of gold at the tower's crown, a
-filament, the five worlds' own light (a scan, windows, a rim of light, floors, the traffic), the lines that join them
-at the drop, the pulse and the client's context, the city's circuit, and the line that becomes the emblem's orb. Lines
-are drawn as points along them, a fraction of a pixel apart, each spread by its own Gaussian, so a line of any width
-lands where its points are to a fraction of a pixel. The whole is bloomed, given a soft shoulder (a light's core goes
-to white as it passes the top), vignetted and grained, then the words are laid over it.
+The space is drawn in linear light and in high range: points and lines of light (space.Painter), each spread by its
+own Gaussian and by the lens's focus, through as many moments of a half-frame shutter as the camera's speed needs.
+The panes are glass, laid over the light they stand in front of. The whole is bloomed, given a soft shoulder (a
+light's core goes to white as it passes the top), its colours parted a little toward the frame's edges as a lens's
+are, vignetted and grained; then the words are laid over it.
 """
 import json
 import math
@@ -24,9 +24,10 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))  # run with -I: camera.py is beside it
-from camera import FPS, H, W, StillCamera  # noqa: E402
-from twin import Twin  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # run with -I: space.py is beside it
+import space  # noqa: E402
+
+W, H, FPS = space.W, space.H, space.FPS
 
 # ------------------------------------------------------------------ helpers
 
@@ -79,11 +80,6 @@ def srgb_to_lin(x):
 def lin_to_srgb(x):
     x = np.clip(x, 0, None)
     return np.where(x <= 0.0031308, x * 12.92, 1.055 * np.power(x, 1 / 2.4) - 0.055).astype(np.float32)
-
-
-def hsh(n):
-    s = math.sin(n * 127.1 + 311.7) * 43758.5453
-    return s - math.floor(s)
 
 
 # Light's colours, in linear light (As One's gold and warm, and the scan's cyan).
@@ -189,115 +185,6 @@ class Light:
         return out
 
 
-def bezier(p0, p1, p2, n=64):
-    u = np.linspace(0, 1, n)[:, None]
-    return (1 - u) ** 2 * np.asarray(p0) + 2 * (1 - u) * u * np.asarray(p1) + u ** 2 * np.asarray(p2)
-
-
-def beacon(L, x, y, k, flare=0.0):
-    """The thread's point of light: a hot core, its halo, a wide glow, and as it flares, an anamorphic streak."""
-    if k <= 0:
-        return
-    L.point(x, y, 7.0 * k * (1 + flare), WARM, 1.4)
-    L.point(x, y, 1.1 * k * (1 + 0.5 * flare), GOLD, 5.0)
-    L.glow(x, y, 34, GOLD, 0.16 * k * (1 + 1.5 * flare))
-    if flare > 0.02:
-        L.streak(x, y, 230 * (0.4 + flare), mixc(GOLD, ICE, 0.35), 0.8 * flare)
-        L.glow(x, y, 120, GOLD, 0.08 * flare)
-
-
-def filament(L, x, y, top, k, head=True):
-    """A fine line of light from (x, y) up to height `top` (film px), brightest at its root, with a bright head."""
-    if k <= 0 or top >= y:
-        return
-    ys = np.linspace(y, top, max(8, int((y - top) / 6)))
-    h = y - ys
-    kk = k * (0.35 + 0.65 * np.exp(-h / 380.0)) * np.clip((ys - top) / 40.0 + 0.15, 0, 1) ** 0.5
-    pts = np.stack([np.full_like(ys, x), ys], 1)
-    L.path(pts, 1.8 * kk, WARM, 0.9)
-    L.path(pts, 0.35 * kk, GOLD, 3.5)
-    if head:
-        L.point(x, top, 2.5 * k, WARM, 1.6)
-        L.glow(x, top, 14, GOLD, 0.2 * k)
-
-
-# ------------------------------------------------------------------ sources
-
-
-class Reader:
-    """A plate (or one of its masks) read frame by frame from where it is first asked for."""
-
-    def __init__(self, path, first, gray=False):
-        self.path, self.first, self.gray = str(path), first, gray
-        self.proc, self.pos, self.cur = None, None, None
-        self.size = W * H * (2 if gray else 3)
-
-    def _open(self, i):
-        if self.proc:
-            self.proc.kill()
-        # Seek half a frame early: Matroska keeps its times in milliseconds, so frame i may sit just before i / 24.
-        ss = max(0.0, (i - 0.5) / FPS)
-        fmt = "gray16le" if self.gray else "rgb24"
-        self.proc = subprocess.Popen(["ffmpeg", "-v", "error", "-ss", f"{ss:.6f}", "-i", self.path, "-f", "rawvideo",
-                                      "-pix_fmt", fmt, "-"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-        self.pos = i - 1
-
-    def get(self, n):
-        i = n - self.first
-        if self.pos is not None and i == self.pos and self.cur is not None:
-            return self.cur
-        if self.proc is None or i <= self.pos or i > self.pos + 36:
-            self._open(i)
-        while self.pos < i:
-            buf = self.proc.stdout.read(self.size)
-            if len(buf) < self.size:
-                raise RuntimeError(f"{self.path}: no frame {i}")
-            self.pos += 1
-            if self.pos == i:
-                if self.gray:
-                    self.cur = np.frombuffer(buf, np.uint16).reshape(H, W).astype(np.float32) / 65535
-                else:
-                    self.cur = srgb_to_lin(np.frombuffer(buf, np.uint8).reshape(H, W, 3).astype(np.float32) / 255)
-        return self.cur
-
-
-class Sources:
-    def __init__(self, root, edit):
-        self.root = root
-        self.shots = {s["key"]: s for s in edit["shots"]}
-        self.readers = {}
-        self.meta = {}
-
-    def _meta(self, key):
-        if key not in self.meta:
-            self.meta[key] = json.loads((self.root / "plates" / f"{key}.json").read_text())
-        return self.meta[key]
-
-    def plate(self, key, n):
-        s = self.shots[key]
-        n = min(max(n, s["a"]), s["b"] - 1)
-        r = self.readers.get(key) or self.readers.setdefault(key, Reader(self.root / "plates" / f"{key}.mkv", s["a"]))
-        return r.get(n).copy()
-
-    def mask(self, key, name, n):
-        s = self.shots[key]
-        n = min(max(n, s["a"]), s["b"] - 1)
-        k = f"{key}-{name}"
-        r = self.readers.get(k) or self.readers.setdefault(k, Reader(self.root / "plates" / f"{k}.mkv", s["a"], gray=True))
-        return r.get(n)
-
-    def at(self, key, name, n):
-        """A point's place at frame n (fractional n between frames): x, y, followed, scale."""
-        s = self.shots[key]
-        rows = self._meta(key)["anchors"][name]
-        f = min(max(n - s["a"], 0), len(rows) - 1)
-        i0 = int(math.floor(f))
-        i1 = min(i0 + 1, len(rows) - 1)
-        u = f - i0
-        a, b = rows[i0], rows[i1]
-        return a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, bool(a[2]), a[3] + (b[3] - a[3]) * u
-
-
 def load_rgba(path, premul=True):
     """A picture with transparency: linear light, premultiplied, and its alpha."""
     im = cv2.imread(str(path), cv2.IMREAD_UNCHANGED)
@@ -383,19 +270,22 @@ def axis_angle(axis, ang):
                      [z * x * C - y * s, z * y * C + x * s, c + z * z * C]])
 
 
-class Noise:
-    """The panes that crowd the office, each on a word, and the glass they break into on "ambition"."""
+class Panes:
+    """The panes that crowd the space before the core as the voice names them, and the glass they break into on
+    "ambition" (As One's panes). They are set out in the camera's frame of one moment (x right, y down, z ahead) and
+    stay where they are put in the space, so the camera's slow approach carries past them, the near ones faster."""
 
-    F0 = 1500.0  # the panes' focal length in film px at the office's first frame
+    S = 5.5  # As One's room's metres, in the space's units
 
-    def __init__(self, tex_dir, T, office):
-        self.T = T
-        self.office = office  # the office shot (its zoom)
+    def __init__(self, tex_dir, T, world):
+        self.T, self.world = T, world
+        ref = world.pose(T["use"])
+        self.ref_pos, self.ref_R, self.F_ref = ref.pos, ref.R, ref.F
         tex = {}
         for p in sorted(tex_dir.glob("*.png")):
             prem, a = load_rgba(p)
             if p.stem.startswith(("pane", "tab")):
-                # Glass: the dark fill lets the city through, the drawing on it stays, and light lies across it.
+                # Glass: the dark fill lets the space through, the drawing on it stays, and light lies across it.
                 lum = prem @ np.array([0.2126, 0.7152, 0.0722], np.float32)
                 drawn = np.clip(lum / max(1e-4, float(np.percentile(lum[a > 0.5], 99))), 0, 1) ** 0.5
                 a2 = a * (0.5 + 0.5 * drawn)
@@ -411,15 +301,15 @@ class Noise:
         rng = np.random.default_rng(7)
         # (texture, appears at, screen centre at appearance (px), depth (m), width (m), yaw (deg))
         P = [
-            ("pane-window-0", T["not_"], (300, 560), 2.6, 0.62, 13),
-            ("pane-window-1", T["use"], (780, 830), 2.2, 0.6, -11),
-            ("pane-window-2", T["software"], (560, 455), 3.0, 0.66, 4),
-            ("pane-dash-0", T["not2"], (250, 990), 2.0, 0.6, 15),
-            ("pane-dash-1", T["have"], (830, 540), 2.8, 0.64, -14),
-            ("pane-dash-2", T["dashboards"], (520, 730), 1.8, 0.56, -5),
-            ("pane-window-3", T["certain"], (150, 300), 2.5, 0.6, 18),
-            ("pane-dash-3", T["level"], (930, 1010), 2.1, 0.6, -16),
-            ("pane-window-4", T["level"] + 0.32, (470, 1080), 1.6, 0.52, 6),
+            ("pane-window-0", T["not_"], (290, 760), 2.6, 0.62, 13),
+            ("pane-window-1", T["use"], (790, 1120), 2.2, 0.6, -11),
+            ("pane-window-2", T["software"], (560, 700), 3.0, 0.66, 4),
+            ("pane-dash-0", T["not2"], (260, 1230), 2.0, 0.6, 15),
+            ("pane-dash-1", T["have"], (830, 780), 2.8, 0.64, -14),
+            ("pane-dash-2", T["dashboards"], (520, 990), 1.8, 0.56, -5),
+            ("pane-window-3", T["certain"], (170, 520), 2.5, 0.6, 18),
+            ("pane-dash-3", T["level"], (920, 1290), 2.1, 0.6, -16),
+            ("pane-window-4", T["level"] + 0.32, (480, 1350), 1.6, 0.52, 6),
         ]
         tabs = [T["and_"], T["not3"], T["because3"], T["ai"], T["became"], T["another"]]
         self.panes = []
@@ -427,7 +317,7 @@ class Noise:
             self.panes.append(self._pane(name, t0, sx, sy, z, wm, yaw, rng, shards=14))
         for i, t0 in enumerate(tabs):
             sx = 120 + i * 178
-            self.panes.append(self._pane("tab-ai" if i == 3 else "tab", t0, sx, 975 + 6 * math.sin(i * 1.7), 1.75,
+            self.panes.append(self._pane("tab-ai" if i == 3 else "tab", t0, sx, 1100 + 6 * math.sin(i * 1.7), 1.75,
                                          0.235, -6 + 2 * i, rng, shards=3, tab=i))
         # Break order: the nearest first, a few hundredths apart.
         order = sorted(range(len(self.panes)), key=lambda i: self.panes[i]["z"])
@@ -437,12 +327,11 @@ class Noise:
     def _pane(self, name, t0, sx, sy, z, wm, yaw, rng, shards, tab=None):
         prem, a = self.tex[name]
         th, tw = a.shape
+        z, wm = z * self.S, wm * self.S
         hm = wm * th / tw
-        f = self.F0 * self.zoom(t0)
-        cz = self.cam_z(t0)
         Z = z
-        X = (sx - W / 2) * (Z - cz) / f
-        Y = (sy - H / 2) * (Z - cz) / f
+        X = (sx - W / 2) * Z / self.F_ref
+        Y = (sy - H / 2) * Z / self.F_ref
         cells = voronoi_cells(tw, th, shards, rng)
         sh = []
         for c in cells:
@@ -450,34 +339,25 @@ class Noise:
             out = np.array([(cen[0] / tw - 0.5) * wm, (cen[1] / th - 0.5) * hm])
             d = out / (np.linalg.norm(out) + 1e-6)
             sh.append(dict(poly=c, cen=cen,
-                           v=np.array([d[0] * rng.uniform(0.5, 1.4) + rng.normal(0, 0.2),
-                                       d[1] * rng.uniform(0.5, 1.4) + rng.normal(0, 0.2) - 0.15,
-                                       -rng.uniform(2.6, 5.2)]),
+                           v=self.S * np.array([d[0] * rng.uniform(0.5, 1.4) + rng.normal(0, 0.2),
+                                                d[1] * rng.uniform(0.5, 1.4) + rng.normal(0, 0.2) - 0.15,
+                                                -rng.uniform(2.6, 5.2)]),
                            axis=rng.normal(0, 1, 3), w=rng.uniform(3.0, 9.0) * rng.choice([-1, 1]),
                            glint=rng.uniform(0, 6.28)))
         return dict(name=name, t0=t0, X=X, Y=Y, z=Z, wm=wm, hm=hm, tw=tw, th=th, yaw=math.radians(yaw),
-                    drift=np.array([rng.normal(0, 0.012), rng.normal(0, 0.01)]), spin=rng.normal(0, 0.03),
+                    drift=self.S * np.array([rng.normal(0, 0.012), rng.normal(0, 0.01)]), spin=rng.normal(0, 0.03),
                     shards=sh, tab=tab, seed=rng.uniform(0, 100))
 
-    def zoom(self, t):
-        s = self.office
-        p = clamp((t * FPS - s["a"]) / max(1, (s["b"] - s["a"] - 1)))
-        p = p * p * (3 - 2 * p)
-        z = s["move"]["zoom"]
-        return z[0] + (z[1] - z[0]) * p
-
-    def cam_z(self, t):
-        return 0.45 * ss(t, self.office["a"] / FPS, 14.0)
-
     def project(self, P, t):
-        f = self.F0 * self.zoom(t)
-        Z = P[:, 2] - self.cam_z(t)
-        return np.stack([W / 2 + f * P[:, 0] / Z, H / 2 + f * P[:, 1] / Z], 1), Z
+        """Points in the panes' frame (x right, y down, z ahead) to the film's frame at t, and their distance."""
+        Pw = self.ref_pos + (np.asarray(P, np.float64) * [1.0, -1.0, 1.0]) @ self.ref_R
+        X, Y, z = self.world.pose(t).project(Pw)
+        return np.stack([X, Y], 1), z
 
     def _pose(self, p, t):
         """A pane's centre and turn at t (before it breaks): drifting, and as ambition grows, trembling."""
         age = t - p["t0"]
-        tremble = ss(t, self.T["at"], self.T["ambition"]) * 0.006
+        tremble = ss(t, self.T["at"], self.T["ambition"]) * 0.006 * self.S
         c = np.array([p["X"] + p["drift"][0] * age + tremble * math.sin(t * 47 + p["seed"]),
                       p["Y"] + p["drift"][1] * age + tremble * math.cos(t * 41 + p["seed"]), p["z"]])
         r = rot(p["yaw"] + p["spin"] * age, 0.04 * math.sin(p["seed"]), 0.02 * math.cos(p["seed"]))
@@ -560,14 +440,14 @@ class Noise:
         sx, sy = p["wm"] / tw, p["hm"] / th
         for sh in p["shards"]:
             cen_local = np.array([(sh["cen"][0] - tw / 2) * sx, (sh["cen"][1] - th / 2) * sy, 0.0])
-            cen = c0 + r0 @ cen_local + sh["v"] * tau + np.array([0, 0.35, 0]) * tau * tau
+            cen = c0 + r0 @ cen_local + sh["v"] * tau + np.array([0, 0.35 * self.S, 0]) * tau * tau
             rr = axis_angle(sh["axis"], sh["w"] * tau) @ r0
             local = np.column_stack([(sh["poly"][:, 0] - sh["cen"][0]) * sx, (sh["poly"][:, 1] - sh["cen"][1]) * sy,
                                      np.zeros(len(sh["poly"]))])
             pts3 = local @ rr.T + cen
-            if (pts3[:, 2] - self.cam_z(t) < 0.16).any():
-                continue
             dst, Z = self.project(pts3, t)
+            if (Z < 0.16 * self.S).any():
+                continue
             if np.abs(dst).max() > 6000:
                 continue
             # The shard's plane through four of its texture's points, for the warp.
@@ -575,7 +455,7 @@ class Noise:
             src = sh["cen"] + q
             q3 = np.column_stack([q[:, 0] * sx, q[:, 1] * sy, np.zeros(4)]) @ rr.T + cen
             qd, _ = self.project(q3, t)
-            near = clamp((min(Z) - 0.16) / 0.3)
+            near = clamp((min(Z) - 0.16 * self.S) / (0.3 * self.S))
             nrm = rr @ np.array([0, 0, 1.0])
             h = np.array([0.0, -0.35, -1.0])
             h /= np.linalg.norm(h)
@@ -588,6 +468,71 @@ class Noise:
                 L.path(loop, 0.07 * glint, ICE, 4.0)
 
 
+
+
+class Tool:
+    """The next tool: one pane before the core while the question is asked ("So don't ask what the next tool is"),
+    which comes apart on "is" into motes of its own light that drift into the system."""
+
+    def __init__(self, tex, world, T, n=7000, seed=17):
+        self.prem, self.a = tex
+        self.th, self.tw = self.a.shape
+        self.T, self.world = T, world
+        pose = world.pose(T["so"] + 0.6)
+        w = 3.3
+        self.w, self.h = w, w * self.th / self.tw
+        self.c = pose.pos + np.array([0.0, -0.45, 7.6]) @ pose.R
+        self.r, self.u = pose.R[0], pose.R[1]
+        lum = self.prem @ np.array([0.2126, 0.7152, 0.0722], np.float32)
+        wgt = (lum * self.a).ravel().astype(np.float64)
+        wgt /= wgt.sum()
+        rng = np.random.default_rng(seed)
+        idx = rng.choice(len(wgt), n, p=wgt)
+        py, px = np.divmod(idx, self.tw)
+        top = float(np.percentile(lum[self.a > 0.5], 99))
+        self.k = np.clip(lum.ravel()[idx] / max(top, 1e-4), 0.08, 1.0)
+        u = (px + rng.random(n)) / self.tw - 0.5
+        v = (py + rng.random(n)) / self.th - 0.5
+        self.P0 = self.c + np.outer(u * self.w, self.r) - np.outer(v * self.h, self.u)
+        self.vel = rng.normal(0, 0.16, (n, 3)) + self.u * 0.06
+        self.lag = rng.random(n) * 0.25
+
+    def corners(self, t):
+        drift = self.u * 0.06 * (t - self.T["so"])
+        hw, hh = self.w / 2, self.h / 2
+        c = self.c + drift
+        return np.array([c - self.r * hw + self.u * hh, c + self.r * hw + self.u * hh,
+                         c + self.r * hw - self.u * hh, c - self.r * hw - self.u * hh])
+
+    def draw(self, panes, img, L, t):
+        """The pane over img (linear, in place) while it holds; its motes into L once it comes apart."""
+        T = self.T
+        show = ss(t, T["so"] + 0.1, T["so"] + 0.55) * (1 - lin(t, T["is_"], T["is_"] + 0.12))
+        if show > 0.002:
+            X, Y, z = self.world.pose(t).project(self.corners(t))
+            if (z > 0.3).all():
+                lay = np.zeros((H, W, 3), np.float32)
+                alp = np.zeros((H, W), np.float32)
+                src = np.array([[0, 0], [self.tw, 0], [self.tw, self.th], [0, self.th]], np.float64)
+                dst = np.stack([X, Y], 1)
+                panes._quad_warp(self.prem * 1.35, self.a, src, dst, lay, alp, 0.94 * show)
+                img *= (1 - alp)[..., None]
+                img += lay
+                loop = np.vstack([dst, dst[:1]])
+                rim = 0.25 + 1.2 * flash(t, T["so"] + 0.2, 0.06, 0.4) + 1.5 * flash(t, T["tool"] + 0.05, 0.05, 0.35)
+                L.path(loop, 0.55 * rim * show, ICE, 1.0)
+                L.path(loop, 0.1 * rim * show, ICE, 4.0)
+        tau = t - T["is_"]
+        if 0 < tau < 2.2:
+            go = np.clip((tau - self.lag) / 0.08, 0, 1)
+            pull = ease_in_out(clamp((tau - 0.12) / 1.5))
+            P = self.P0 + self.vel * tau + (np.zeros(3) - self.P0) * (0.92 * pull)
+            k = self.k * go * (0.35 + 2.2 * np.exp(-tau / 0.22)) * (1 - lin(tau, 1.3, 2.2))
+            col = space.ICE * (1 - pull) + space.GOLD * pull
+            pt = space.Painter(L, self.world.pose(t))
+            pt.points(P, k, col, 0.8)
+
+
 # ------------------------------------------------------------------ the film
 
 
@@ -595,13 +540,15 @@ class Film:
     def __init__(self, work):
         self.work = work
         self.root = work / "we-are-here"
-        self.edit = json.loads((self.root / "edit.json").read_text())
-        self.cut = self.edit["cut"]
-        self.src = Sources(self.root, self.edit)
-        self.clock = Clock(self.edit["cues"])
-        self.T = self.clock.T
-        office = self.src.shots["office"]
-        self.noise = Noise(self.root / "textures", self.T, office)
+        cues = json.loads((work / "sound-as-one" / "cues.json").read_text())
+        self.clock = Clock(cues)
+        self.T = dict(self.clock.T)
+        self.drop = self.clock.drop
+        self.bars = cues["bars"]
+        self.frames = int(round(cues["length"] * FPS))
+        self.world = space.World(self.T, self.drop, self.bars)
+        self.panes = Panes(self.root / "textures", self.T, self.world)
+        self.tool = Tool(self.panes.tex["pane-window-2"], self.world, self.T)
         self.tags = {k: load_rgba(self.root / "textures" / f"tag-{k}.png") for k in ("client", "property")}
         self.type_dir = self.root / "type" / "frames"
         art = json.loads((work / "film-as-one" / "data.json").read_text())
@@ -612,497 +559,87 @@ class Film:
         self.grain = [cv2.GaussianBlur(rng.normal(0, 1, (H, W)).astype(np.float32), (0, 0), 0.7) for _ in range(6)]
         yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
         self.vignette = (1 - 0.2 * (((xx - W / 2) / (W / 2)) ** 2 * 0.7 + ((yy - H / 2) / (H / 2)) ** 2)).clip(0, 1)
-        self.xx, self.yy = xx, yy
         # A real lens parts its colours a little toward the frame's edges: red out, blue in, half a pixel at most.
         self.ca = {}
         for c, k in ((0, 1.00045), (2, 0.99955)):
             self.ca[c] = ((W / 2 + (xx - W / 2) / k).astype(np.float32), (H / 2 + (yy - H / 2) / k).astype(np.float32))
-        # The end card: the supplied art's emblem and lettering, the triangle's apex at (540, 382), 0.9 px a pixel.
+        # The end card: the supplied art's emblem and lettering, the triangle's apex at (540, 382), 0.9 px a pixel; the
+        # camera's last pose puts the core on the art's orb.
         self.card_s = 0.9
         self.card_o = (540.0, 382.0)
-        tr = {tuple(x["pair"]): x for x in self.edit["transitions"]}[("rise", "sky")]
-        self.dissolve = (tr["a"], tr["b"])
-        self.twins = {}
-
-    # ---------------------------------------------------------------- the digital twin and the platform's marks
-
-    def twin(self, key):
-        """A shot's digital twin (twin.py), built the first time it is wanted."""
-        if key not in self.twins:
-            shot = self.src.shots[key]
-            self.twins[key] = Twin(shot, StillCamera(shot), seed=len(self.twins) + 5)
-        return self.twins[key]
-
-    def turn(self, img, L, key, n, cx, cy, R, extra=0.0, dim=0.9, soft=160.0, ring=1.0, scan=None, k=1.0):
-        """The physical picture turned into its digital twin behind a wave of light going out from (cx, cy) to radius
-        R: the picture dims behind the wave (by `dim`), the twin is drawn there, and the wave's front is a ring."""
-        if R <= 0:
-            return img
-        dist = np.hypot(self.xx - cx, self.yy - cy)
-        m = np.clip((R - dist) / soft, 0, 1)
-        img *= (1 - dim * m)[..., None]
-
-        def reveal(pos):
-            return np.clip((R - np.hypot(pos[:, 0] - cx, pos[:, 1] - cy)) / soft, 0, 1)
-
-        self.twin(key).draw(L, n, extra=extra, reveal=reveal, k=k, scan=scan)
-        if ring > 0 and R < 2600:
-            L.ring(cx, cy, R, mixc(ICE, GOLD, 0.25), 0.9 * ring, 1.4)
-            L.ring(cx, cy, R, mixc(ICE, GOLD, 0.25), 0.1 * ring, 14.0)
-        return img
-
-    def layer(self, img, L, key, n, t0, t1, k=0.85):
-        """The platform's layer laid over a world: a scan crosses the frame from top to bottom between t0 and t1, and
-        behind it the world's twin lies over its picture, which stays, a little darker. The scan line is cyan."""
-        t = self.t_of(n)
-        p = lin(t, t0, t1)
-        ys = -80 + ease_in_out(p) * (H + 160)
-        yy = self.yy[:, :1]
-        m = np.clip((ys - yy) / 120.0, 0, 1)
-        img *= (1 - 0.42 * m)[..., None]
-        self.twin(key).draw(L, n, reveal=lambda pos: np.clip((ys - pos[:, 1]) / 120.0, 0, 1), k=k, links=0.25)
-        if 0 < p < 1:
-            L.path([[-10, ys], [W + 10, ys]], 1.3, CYAN, 1.2)
-            L.path([[-10, ys], [W + 10, ys]], 0.16, CYAN, 10.0)
-        return img
-
-    MODULES = ["research", "clients", "reports", "finance", "communication"]
-
-    def glyph(self, L, i, x, y, k, r=26.0):
-        """A module's mark, in gold line: research a scan of a lot, clients a home, reports a page, finance a rise,
-        communication a signal; each in its ring."""
-        if k <= 0.01:
-            return
-        g = GOLD
-        L.ring(x, y, r, g, 1.0 * k, 1.0)
-        L.ring(x, y, r, g, 0.12 * k, 5.0)
-        L.glow(x, y, r * 1.3, g, 0.05 * k)
-        s = r * 0.52
-
-        def line(*pts):
-            L.path(np.array(pts, np.float64) * s + [x, y], 1.2 * k, WARM, 0.9)
-
-        if i == 0:
-            line((-1, -1), (1, -1), (1, 1), (-1, 1), (-1, -1))
-            line((-0.5, 0), (0.5, 0))
-            line((0, -0.5), (0, 0.5))
-        elif i == 1:
-            line((-0.9, 0.85), (-0.9, -0.1), (0, -0.95), (0.9, -0.1), (0.9, 0.85), (-0.9, 0.85))
-            line((-0.25, 0.85), (-0.25, 0.3), (0.25, 0.3), (0.25, 0.85))
-        elif i == 2:
-            line((-0.7, -1), (0.35, -1), (0.75, -0.6), (0.75, 1), (-0.7, 1), (-0.7, -1))
-            for yy in (-0.35, 0.05, 0.45):
-                line((-0.42, yy), (0.45, yy))
-        elif i == 3:
-            for j, hh in enumerate((0.55, 1.0, 1.5)):
-                xx = -0.7 + j * 0.6
-                line((xx, 0.9), (xx, 0.9 - hh), (xx + 0.32, 0.9 - hh), (xx + 0.32, 0.9))
-            line((-0.85, 0.15), (-0.2, -0.3), (0.3, -0.15), (0.9, -0.85))
-        else:
-            L.point(x - 0.55 * s, y + 0.55 * s, 2.0 * k, WARM, 1.4)
-            for j, rr in enumerate((0.55, 1.0, 1.45)):
-                a = np.linspace(-1.35, -0.2, 16)
-                line(*[(-0.55 + rr * math.cos(v), 0.55 + rr * math.sin(v)) for v in a])
-
-    # ---------------------------------------------------------------- the five worlds and the shots' own light
 
     def t_of(self, n):
         return n / FPS
 
-    def open_(self, n, L):
-        T, t = self.T, self.t_of(n)
-        img = self.src.plate("open", n)
-        x, y, ok, _ = self.src.at("open", "crown", n)
-        kindle = ss(t, T["operate"] - 0.1, T["operate"] + 0.15)
-        k = 0.05 + 0.95 * kindle
-        beacon(L, x, y, k * (1 + 0.06 * math.sin(t * 5.1)), flare=0.9 * flash(t, T["operate"] + 0.1, 0.08, 0.6))
-        # A ring of light goes out from it as it kindles.
-        g = lin(t, T["operate"] + 0.05, T["operate"] + 1.0)
-        if 0 < g < 1:
-            L.ring(x, y, 6 + 150 * ease_out(g), GOLD, 0.7 * (1 - g) ** 1.5, 1.1)
-        # The filament climbs into the sky.
-        climb = ease_out(lin(t, T["operate"] + 0.25, T["differently"] + 0.75))
-        if climb > 0:
-            filament(L, x, y - 3, y - 3 - climb * (y + 40), 0.85 * k)
-        return img
+    # ---------------------------------------------------------------- how many moments a frame needs
 
-    def office(self, n, L, front):
-        T, t = self.T, self.t_of(n)
-        img = self.src.plate("office", n)
-        x, y, _, _ = self.src.at("office", "crown", n)
-        # The point at the crown, out across the city, lost behind the panes as they come.
-        k = 0.9 + 0.08 * math.sin(t * 4.3)
-        back = Light()
-        beacon(back, x, y, k)
-        filament(back, x, y - 3, y - 3 - 210, 0.5 * k, head=False)
-        if back.used:
-            img += back.resolve()
-        self.noise.draw(img, front, t, samples=3)
-        return img
+    def samples(self, t):
+        """The moments of a half-frame shutter a frame is drawn at: one while the camera is slow, up to four where it
+        moves fast, by how far points ahead of it move across the frame in the shutter's time."""
+        a, b = self.world.pose(t - 0.25 / FPS), self.world.pose(t + 0.25 / FPS)
+        look = self.world.c_look(t)
+        ring = np.array([[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1], [0, 0, 0]]) * 6.0 + look
+        Xa, Ya, za = a.project(ring)
+        Xb, Yb, zb = b.project(ring)
+        ok = (za > 0.5) & (zb > 0.5)
+        if not ok.any():
+            return 3
+        d = float(np.max(np.hypot(Xb - Xa, Yb - Ya)[ok]))
+        return 1 if d < 1.0 else 2 if d < 3.0 else 3 if d < 8.0 else 4
 
-    def air(self, n, L):
-        T, t = self.T, self.t_of(n)
-        img = self.src.plate("night-air", n)
-        x, y, _, _ = self.src.at("night-air", "glow", n)
-        tx, ty, _, _ = self.src.at("night-air", "crown", n)
-        surge = flash(t, T["changes"], 0.12, 0.7)
-        beacon(L, tx, ty, 1.1, flare=1.2 * surge)
-        L.glow(x, y, 26, GOLD, 0.25 + 0.4 * surge)
-        g = lin(t, T["changes"], T["changes"] + 0.9)
-        if 0 < g < 1:
-            L.ring(tx, ty, 8 + 260 * ease_out(g), GOLD, 0.9 * (1 - g) ** 1.4, 1.2)
-        # Free: the filament runs up from the crown out of the frame.
-        climb = ease_out(lin(t, T["question"] - 0.1, T["changes"] + 0.45))
-        filament(L, tx, ty - 3, ty - 3 - (0.12 + 0.88 * climb) * (ty + 60), 1.1 + 0.8 * surge)
-        # On "changes" the question changes the world: the city turns into its digital twin from the crown out, and
-        # the camera flies on into it, a plane of light passing through it ahead of the camera.
-        a = T["changes"] - 0.02
-        if t > a:
-            R = 2400 * ease_out(lin(t, a, a + 0.6))
-            end = self.cut["research"] / FPS
-            fly = 0.92 * ease_in_out(lin(t, a + 0.05, end + 0.05))
-            sweep = 0.95 - 0.9 * lin(t, a + 0.1, end)
-            img = self.turn(img, L, "night-air", n, tx, ty, R, extra=fly, dim=0.9, scan=(sweep, 2.5))
-        return img
+    # ---------------------------------------------------------------- the client's context
 
-    def research(self, n, L):
-        T, t = self.T, self.t_of(n)
-        img = self.src.plate("research", n)
-        e = self.src.mask("research", "edges", n)
-        a = T["names"][0]
-        # The platform reads the suburb: its scan crosses the frame, its layer lies on the lots behind it, and the lots'
-        # lit edges answer in cyan.
-        img = self.layer(img, L, "research", n, a + 0.02, a + 0.8)
-        p = lin(t, a + 0.02, a + 0.8)
-        ys = -80 + ease_in_out(p) * (H + 160)
-        near = np.exp(-((self.yy[:, :1] - ys) / 26.0) ** 2)
-        img += (e * (1.6 * near * (0 < p < 1) + 0.25 * (self.yy[:, :1] < ys)))[..., None] * np.array(CYAN, np.float32) * 0.8
-        # Then the one lot: four corners of gold drawn about it.
-        sel = ease_out(lin(t, a + 0.5, a + 0.95))
-        if sel > 0:
-            cs = [np.array(self.src.at("research", f"lot{i}", n)[:2]) for i in range(4)]
-            for i in range(4):
-                c, nx, pv = cs[i], cs[(i + 1) % 4], cs[(i - 1) % 4]
-                arm = 0.28 * sel
-                L.path([c + (nx - c) * arm, c, c + (pv - c) * arm], 1.6 * sel, GOLD, 1.0)
-                L.path([c + (nx - c) * arm, c, c + (pv - c) * arm], 0.25 * sel, GOLD, 4.0)
-            m = np.mean(cs, axis=0)
-            L.glow(m[0], m[1], 60, GOLD, 0.05 * sel)
-        return img
-
-    def clients(self, n, L):
-        T, t = self.T, self.t_of(n)
-        img = self.src.plate("clients", n)
-        win = self.src.mask("clients", "windows", n)
-        a = T["names"][1]
-        img = self.layer(img, L, "clients", n, a + 0.02, a + 0.9)
-        up = ss(t, a - 0.05, a + 0.7)
-        img += (win * (0.35 + 0.9 * up))[..., None] * img * 1.0
-        x, y, _, _ = self.src.at("clients", "door", n)
-        L.glow(x, y, 48, WARM, 0.12 + 0.2 * up)
-        return img
-
-    def reports(self, n, L):
-        T, t = self.T, self.t_of(n)
-        img = self.src.plate("reports", n)
-        m = self.src.mask("reports", "model", n)
-        a = T["names"][2]
-        img = self.layer(img, L, "reports", n, a + 0.02, a + 0.85)
-        # A rim of gold climbs the model.
-        p = lin(t, a, a + 0.85)
-        yb = H * (1.02 - 1.15 * ease_in_out(p))
-        band = np.exp(-((self.yy[:, :1] - yb) / 70.0) ** 2)
-        img += (m * band * 2.2)[..., None] * np.array(GOLD, np.float32) * (1 if 0 < p < 1 else 0)
-        img += (m * 0.25 * ss(t, a, a + 0.9))[..., None] * np.array(GOLD, np.float32) * img.mean(axis=2, keepdims=True)
-        return img
-
-    def finance(self, n, L):
-        T, t = self.T, self.t_of(n)
-        img = self.src.plate("finance", n)
-        m = self.src.mask("finance", "lights", n)
-        a = T["names"][3]
-        img = self.layer(img, L, "finance", n, a + 0.02, a + 0.85)
-        # The towers' floors light from the street up: dark above the wave, gold below it.
-        p = lin(t, a - 0.02, a + 0.94)
-        yw = H * (1.05 - 1.2 * ease_in_out(p))
-        yy = self.yy[:, :1]
-        below = np.clip((yy - yw) / 60.0 + 0.5, 0, 1)
-        front = np.exp(-((yy - yw) / 40.0) ** 2)
-        img *= (1 - m * 0.75 * (1 - below))[..., None]
-        img += (m * (0.55 * below + 1.6 * front))[..., None] * np.array(WARM, np.float32) * 0.8
-        return img
-
-    def comms(self, n, L):
-        T, t = self.T, self.t_of(n)
-        img = self.src.plate("comms", n)
-        tr = self.src.mask("comms", "trails", n)
-        ph = self.src.mask("comms", "phase", n)
-        a = T["names"][4]
-        img = self.layer(img, L, "comms", n, a + 0.02, a + 0.85)
-        # Streams of light along the trails, toward the city: pulses travelling up each trail's own length.
-        u = ph * 7.0 - t * 2.6
-        pulse = np.exp(-((u - np.floor(u) - 0.5) / 0.08) ** 2)
-        img += (tr * (0.25 + 1.6 * pulse))[..., None] * img
-        return img
-
-    WORLDS = ["research", "clients", "reports", "finance", "comms"]
-
-    def world(self, key, n, L):
-        return getattr(self, key)(n, L)
-
-    def sunrise(self, n, L):
-        T, t = self.T, self.t_of(n)
-        img = self.src.plate("sunrise", n)
-        cx, cy, cok, csc = self.src.at("sunrise", "crown", n)
-        names = ["p4", "p1", "p3", "p5", "p2"]
-        starts = [T["more"] - 0.4, T["more"] - 0.2, T["more"] + 0.05, T["valuable"] if "valuable" in T else T["more"] + 0.3,
-                  T["more"] + 0.6]
-        dest = T["destinations"]
-        arrived = 0.0
-        fade = 1 - ss(t, dest + 0.25, dest + 0.85)
-        for name, t0 in zip(names, starts):
-            ox, oy, ook, _ = self.src.at("sunrise", name, n)
-            # Each place a module of its own first: its mark, lit with a ring going out.
-            on = ss(t, t0 - 0.35, t0 - 0.1) * fade
-            if on > 0 and -50 < ox < W + 50 and -50 < oy < H + 50:
-                mod = names.index(name)
-                self.glyph(L, mod, ox, oy - 34, on)
-                L.point(ox, oy, 2.2 * on, WARM, 1.4)
-                L.path([[ox, oy], [ox, oy - 8]], 0.8 * on, GOLD, 0.8)
-                pg = lin(t, t0 - 0.35, t0 + 0.4)
-                if 0 < pg < 1:
-                    L.ring(ox, oy - 34, 26 + 60 * ease_out(pg), GOLD, 0.6 * (1 - pg), 1.0)
-            g = ease_in_out(lin(t, t0, t0 + 1.45))
-            if g <= 0 or fade <= 0:
-                continue
-            mid = ((ox + cx) / 2, min(oy, cy) - 0.32 * math.hypot(cx - ox, cy - oy))
-            curve = bezier((ox, oy), mid, (cx, cy), 96)
-            m = max(2, int(len(curve) * g))
-            seg = curve[:m]
-            kk = np.linspace(0.35, 1.0, m) * fade * (1 + 1.2 * flash(t, dest, 0.06, 0.4))
-            L.path(seg, 0.95 * kk, GOLD, 0.85)
-            L.path(seg, 0.22 * kk, GOLD, 3.2)
-            L.path(seg, 0.05 * kk, GOLD, 11.0)
-            if g < 1:
-                hx, hy = seg[-1]
-                L.point(hx, hy, 3.0 * fade, WARM, 1.4)
-                L.glow(hx, hy, 16, GOLD, 0.28 * fade)
-            arrived += flash(t, t0 + 1.45, 0.03, 0.35)
-        if cok or n < self.src.shots["sunrise"]["a"] + 100:
-            beacon(L, cx, cy, 1.0 + 0.6 * arrived, flare=0.6 * arrived + 1.4 * flash(t, dest, 0.06, 0.6))
-        return img
-
-    def pulse_(self, n, L):
-        T, t = self.T, self.t_of(n)
-        img = self.src.plate("pulse", n)
-        road = self.src.mask("pulse", "road", n)
-        vx, vy, _, _ = self.src.at("pulse", "vp", n)
-        bx, by, _, _ = self.src.at("pulse", "road", n)
-
-        def on_road(D):
-            """The road's centre line D road-lengths away (1 at the frame's foot), in the frame."""
-            return vx + (bx - vx) / D, vy + (by - vy) / D
-
-        def pulse_at(t0, tt):
-            # It leaves the camera behind, slower than its own speed looks: it is chased, not lost.
-            return math.exp(1.25 * max(0.0, tt - t0)) * 0.92
-
-        # Behind the pulses the avenue takes on the platform's layer: intelligence moving through the city, and the
-        # city known as it passes.
-        D1 = pulse_at(T["intelligence"], t) if t > T["intelligence"] else 0.0
-        if D1 > 0:
-            hy = on_road(D1)[1]
-            reach = H - (H - hy) * 1.0
-            self.twin("pulse").draw(L, n, reveal=lambda pos: np.clip((pos[:, 1] - reach) / 260.0, 0, 1)
-                                    * np.clip(1.2 - np.abs(pos[:, 0] - W / 2) / 520.0, 0, 1), k=0.55, links=0.2)
-            img *= (1 - 0.25 * np.clip((self.yy[:, :1] - reach) / 260.0, 0, 1))[..., None]
-        for t0, k in ((T["intelligence"], 1.0), (T["move"], 0.8), (T["context"], 0.9)):
-            if t < t0 - 0.02 or t > t0 + 2.6:
-                continue
-            D = pulse_at(t0, t)
-            hx, hy = on_road(D)
-            # its tail: where it was over the last half second
-            ts = np.linspace(max(t0, t - 0.5), t, 56)
-            tail = np.array([on_road(pulse_at(t0, s)) for s in ts])
-            w = max(1.0 / D, 0.22)
-            fade = 1 - lin(t, t0 + 1.8, t0 + 2.6)
-            kk = np.linspace(0.0, 1.0, len(tail)) ** 1.5 * k * fade
-            L.path(tail, 1.8 * kk, WARM, max(0.9, 3.6 * w))
-            L.path(tail, 0.4 * kk, GOLD, max(2.5, 13 * w))
-            L.point(hx, hy, 14.0 * k * fade, WHITE, max(1.4, 5.5 * w))
-            L.point(hx, hy, 2.0 * k * fade, WARM, max(3.0, 14 * w))
-            L.glow(hx, hy, max(12, 90 * w), GOLD, 0.5 * k * fade)
-            L.streak(hx, hy, max(60, 380 * w), mixc(GOLD, WHITE, 0.3), 1.0 * k * fade)
-            # its light on the wet road
-            pool = np.exp(-(((self.xx - hx) / (220 * w + 12)) ** 2 + ((self.yy - hy) / (360 * w + 16)) ** 2))
-            img += (road * pool * 1.6 * k * fade)[..., None] * np.array(GOLD, np.float32)
-        return img
-
-    def context_tags(self, img, n):
-        """The client's and the property's tags, following the third pulse up the avenue from "context", above the
-        words: they come in low over the road one after the other and glide toward the light, smaller as they go."""
-        T, t = self.T, self.t_of(n)
-        end = self.cut["grid"] / FPS
-        if not (T["context"] - 0.05 < t < end):
+    def context_tags(self, img, t):
+        """The client's and the property's tags, following the pulse from "context": they come in beside it one
+        after the other and ride with it, up its thread to the system."""
+        T = self.T
+        a0, end = T["context"], T["business"]
+        if not (a0 - 0.05 < t < end + 0.3):
             return
-        vx, vy, _, _ = self.src.at("pulse", "vp", n)
-        bx, by, _, _ = self.src.at("pulse", "road", n)
-        y0 = 1075.0
-        for i, (key, lag) in enumerate((("client", 0.1), ("property", 0.42))):
-            tt = t - T["context"] - lag
+        pose = self.world.pose(t)
+        lay = np.zeros((H, W, 3), np.float32)
+        alp = np.zeros((H, W), np.float32)
+        for i, (key, lag) in enumerate((("client", 0.16), ("property", 0.4))):
+            tt = t - a0 - (lag - 0.16)
             if tt < 0:
                 continue
-            y = vy + (y0 - vy) / (1 + 0.75 * tt)
-            x = vx + (bx - vx) * (y - vy) / (by - vy)
-            s = 0.34 * ((y - vy) / (y0 - vy)) ** 0.3
-            y += i * 92 * s / 0.34
-            k = ease_out(lin(tt, 0, 0.22)) * (1 - ss(t, end - 0.4, end - 0.08))
+            anc = self.world.tag_anchor(t, lag)
+            if anc is None:
+                continue
+            x, y, z = anc
             prem, a = self.tags[key]
             th, tw = a.shape
+            s = clamp(pose.F * 3.0 / z / tw, 0.14, 0.4)
+            k = ease_out(lin(tt, 0, 0.25)) * (1 - ss(t, end - 0.2, end + 0.2))
             rise = (1 - ease_out(lin(tt, 0, 0.3))) * 18
-            dst = np.array([[x - tw * s / 2, y - th * s / 2 + rise], [x + tw * s / 2, y - th * s / 2 + rise],
-                            [x + tw * s / 2, y + th * s / 2 + rise], [x - tw * s / 2, y + th * s / 2 + rise]])
-            lay = np.zeros((H, W, 3), np.float32)
-            alp = np.zeros((H, W), np.float32)
-            self.noise._quad_warp(prem * 1.15, a, np.array([[0, 0], [tw, 0], [tw, th], [0, th]], np.float64), dst,
+            cx, cy = x + 40 * s / 0.3, y - (95 + i * 86) * s / 0.3 + rise
+            dst = np.array([[cx, cy - th * s / 2], [cx + tw * s, cy - th * s / 2],
+                            [cx + tw * s, cy + th * s / 2], [cx, cy + th * s / 2]])
+            self.panes._quad_warp(prem * 1.15, a, np.array([[0, 0], [tw, 0], [tw, th], [0, th]], np.float64), dst,
                                   lay, alp, k)
-            img *= (1 - alp)[..., None]
-            img += lay
-
-    def grid(self, n, L):
-        T, t = self.T, self.t_of(n)
-        img = self.src.plate("grid", n)
-        st = self.src.mask("grid", "streets", n)
-        li = self.src.mask("grid", "lights", n)
-        ph = self.src.mask("grid", "phase", n)
-        a = self.cut["grid"] / FPS
-        r = 0.02 + 0.98 * ease_in_out(lin(t, a + 0.05, T["one"] - 0.05))
-        lit = np.clip((r - ph) / 0.04, 0, 1) * (ph > 0)
-        front = np.exp(-((ph - r) / 0.025) ** 2) * (r < 0.99)
-        one = flash(t, T["one"], 0.03, 0.55)
-        after = ss(t, T["one"], T["one"] + 0.3)
-        gold = np.array(GOLD, np.float32)
-        img += (st * (0.55 * lit + 1.4 * front))[..., None] * gold
-        img += ((st * 1.1 + li * 1.4) * one + (st * 0.3 + li * 0.35) * after)[..., None] * gold * (0.6 + 0.4 * img)
-        cx, cy, _, _ = self.src.at("grid", "centre", n)
-        g = lin(t, T["one"], T["one"] + 0.9)
-        if 0 < g < 1:
-            L.ring(cx, cy, 20 + 1300 * ease_out(g), GOLD, 1.1 * (1 - g) ** 1.6, 2.0)
-        L.glow(cx, cy, 260, GOLD, 0.35 * one)
-        return img
-
-    def device(self, n, L):
-        T, t = self.T, self.t_of(n)
-        img = self.src.plate("device", n)
-        sc = self.src.mask("device", "screen", n)
-        sp = self.src.mask("device", "spill", n)
-        k = ease_in_out(lin(t, T["is_"], T["is_"] + 0.35))
-        if k > 0:
-            glass = np.array([0.006, 0.008, 0.012], np.float32)
-            img = img * (1 - (sc * k * 0.97))[..., None] + (sc * k)[..., None] * glass
-            img *= (1 - sp * k * 0.75)[..., None]
-        return img
-
-    RISE_EDGES = [("n1", "n14"), ("n14", "n4"), ("n1", "n2"), ("n2", "n3"), ("n3", "n4"), ("n3", "n8"), ("n8", "n7"),
-                  ("n7", "n12"), ("n4", "n11"), ("n11", "n13"), ("n13", "n5"), ("n5", "n6"), ("n5", "n10"),
-                  ("n10", "n9"), ("n9", "n13"), ("n12", "n11")]
-    RISE_HUBS = ["n1", "n14", "n4", "n13", "n9", "n3"]
-
-    def rise(self, n, L, lift_off=True):
-        T, t = self.T, self.t_of(n)
-        img = self.src.plate("rise", n)
-        P = {k: np.array(self.src.at("rise", k, n)[:2]) for k in [f"n{i}" for i in range(1, 15)] + ["crown", "base"]}
-        crown = P["crown"]
-        a = self.cut["rise"] / FPS
-        grow = ease_out(lin(t, a + 0.1, a + 1.0))
-        draw_in = ease_in_out(lin(t, T["becomes"] - 0.1, T["system"] + 0.05))
-        lift = flash(t, T["system"], 0.05, 0.7)
-        k = (1 - draw_in) * grow
-        # The network across the city, each line drawn from its middle out, then all of it drawn in to the tower.
-        for i, (u, v) in enumerate(self.RISE_EDGES):
-            p0, p1 = P[u], P[v]
-            p0 = p0 + (crown - p0) * draw_in
-            p1 = p1 + (crown - p1) * draw_in
-            m = (p0 + p1) / 2
-            s = clamp(grow * 1.4 - i * 0.025)
-            q0, q1 = m + (p0 - m) * s, m + (p1 - m) * s
-            L.path([q0, q1], 0.55 * k, GOLD, 0.8)
-            L.path([q0, q1], 0.12 * k, GOLD, 3.0)
-            # a pulse running each line toward the tower
-            ph = (t * 0.9 + i * 0.37) % 1.0
-            pp = q0 + (q1 - q0) * ph
-            L.point(pp[0], pp[1], 1.6 * k, WARM, 1.3)
-        for hub in self.RISE_HUBS:
-            p = P[hub] + (crown - P[hub]) * draw_in
-            kh = k * ss(t, a + 0.4, a + 1.2)
-            L.path([p, crown], 0.5 * kh, GOLD, 0.8)
-            L.path([p, crown], 0.1 * kh, GOLD, 3.0)
-        for i in range(1, 15):
-            p = P[f"n{i}"] + (crown - P[f"n{i}"]) * draw_in
-            L.point(p[0], p[1], 1.5 * k * grow, WARM, 1.4)
-            L.glow(p[0], p[1], 12, GOLD, 0.12 * k * grow)
-        gathered = ss(t, T["becomes"], T["system"])
-        # "becomes the system": the city turns into its digital twin from the tower out, the whole of it one system.
-        R = 2600 * ease_in_out(lin(t, T["becomes"] - 0.15, T["system"] + 0.2))
-        if R > 0:
-            gone = 1 - ss(n, self.dissolve[0], self.dissolve[1])
-            img = self.turn(img, L, "rise", n, crown[0], crown[1], R, dim=0.85 * gone, k=0.9 * gone,
-                            ring=gone * (1 - lin(t, T["system"], T["system"] + 0.3)))
-        beacon(L, crown[0], crown[1], 0.9 + 1.4 * gathered, flare=1.3 * lift + 0.4 * gathered)
-        # On "the system", the line of light lifts off the crown and rises out of the frame.
-        up = ease_out(lin(t, T["system"], T["system"] + 0.55))
-        if up > 0 and lift_off:
-            top = crown[1] - 3 - up * (crown[1] + 80)
-            filament(L, crown[0], crown[1] - 3, top, 2.0)
-            L.path([[crown[0], crown[1]], [crown[0], top]], 0.12, mixc(GOLD, ICE, 0.4), 14.0)
-        return img
+        img *= (1 - alp)[..., None]
+        img += lay
 
     # ---------------------------------------------------------------- the end card
-
-    def rise_crown(self):
-        """Where the rise leaves the crown: the line of light hangs down to there in the sky."""
-        s = self.src.shots["rise"]
-        return self.src.at("rise", "crown", s["b"] - 1)[:2]
 
     def art_to_film(self, ax, ay):
         s = self.card_s
         return self.card_o[0] + (ax - self.art["apex"][0]) * s, self.card_o[1] + (ay - self.art["apex"][1]) * s
 
-    def card(self, img, L, t, beam_x=None, beam_bottom=None):
-        """The beam drawn into the emblem's orb, the triangle traced, the emblem, its lettering letter by letter, and
-        the light circling inside the A until the orb keeps it (As One's end card)."""
+    def card(self, img, L, t):
+        """The emblem over the system's own triangle, its lettering letter by letter, and the light circling inside
+        the A until the orb keeps it (As One's end card); the orb's pulses are the space's (space.World._waves)."""
         T = self.T
         ox, oy = self.art_to_film(*self.art["orb"])
         gather = ease_in_out(lin(t, T["aurixa"] - 0.1, T["aurixa"] + 1.05))
-        # The beam: from the top of the frame and up from the horizon, both ends closing on the orb.
-        if gather < 1:
-            top = -40 + (oy + 40) * gather
-            b0 = self.rise_crown()[1] if beam_bottom is None else beam_bottom
-            bot = b0 + (oy - b0) * gather
-            bx = ox if beam_x is None else beam_x
-            if bot - top > 2:
-                ys = np.linspace(top, bot, 160)
-                kk = (1.0 - 0.6 * gather) * (1 + 1.0 * flash(t, T["aurixa"] + 0.05, 0.18, 0.9))
-                pts = np.stack([np.full_like(ys, bx), ys], 1)
-                col = mixc(WARM, ICE, 0.45 + 0.4 * gather)
-                L.path(pts, 1.5 * kk, col, 1.0)
-                L.path(pts, 0.3 * kk, col, 4.0)
-                L.path(pts, 0.05 * kk, col, 26.0)
-        # The triangle traced in gold as the beam closes, gone as the emblem comes.
-        tri = [self.art_to_film(*self.art[k]) for k in ("apex", "bl", "br")]
-        kt = ss(t, T["aurixa"] - 0.35, T["aurixa"] + 0.05) * (1 - ss(t, T["aurixa"] + 0.15, T["aurixa"] + 0.7))
-        if kt > 0:
-            for i in range(3):
-                L.path([tri[i], tri[(i + 1) % 3]], 2.2 * kt, GOLD, 1.3)
-                L.path([tri[i], tri[(i + 1) % 3]], 0.3 * kt, GOLD, 6.0)
-        # The emblem: its light, added.
-        e = ss(t, T["aurixa"] - 0.05, T["aurixa"] + 0.6)
+        # The emblem: its light, added, as the system's triangle of light gives way to it.
+        e = ss(t, T["aurixa"] - 0.12, T["aurixa"] + 0.55)
         if e > 0:
             x0, y0, x1, y1 = self.art["emblem_crop"]
             X0, Y0 = self.art_to_film(x0, y0)
             X1, Y1 = self.art_to_film(x1, y1)
             self.paste_light(img, self.emblem, (X0, Y0, X1, Y1), 0.9 * e * (1 + 0.6 * flash(t, T["aurixa"] + 0.35, 0.1, 0.8)))
-            L.glow(ox, oy, 220, WARM, 0.05 * e)
+            L.glow(ox, oy, 220, WARM, 0.04 * e)
         # Its lettering, letter by letter: AURIXA on "Aurixa", SYSTEMS on "Systems".
         for i, Lr in enumerate(self.letters):
             first = i < 6
@@ -1149,9 +686,9 @@ class Film:
             kept = ss(t, rings[2][2] - 0.3, rings[2][2] + 0.8)
             arrive = ss(gather, 0.55, 1.0)
             breath = 0.88 + 0.12 * math.sin((t - T["aurixa"]) * 2.2)
-            orb = 0.42 * arrive * (1 - 0.45 * kept) + 0.3 * taken + 0.3 * kept * breath
-            L.glow(ox, oy, OR * 0.9, ICE, 0.55 * orb)
-            L.glow(ox, oy, OR * 2.2, ICE, 0.12 * orb)
+            orb = 0.32 * arrive * (1 - 0.45 * kept) + 0.25 * taken + 0.25 * kept * breath
+            L.glow(ox, oy, OR * 0.9, ICE, 0.45 * orb)
+            L.glow(ox, oy, OR * 2.2, ICE, 0.1 * orb)
             if kept > 0.002:
                 rr = OR * 1.07
                 a0 = 0.6 + (t - rings[2][2]) * 1.3
@@ -1184,176 +721,44 @@ class Film:
         img *= (1 - a2 * 0.92)
         img += out[..., :3] * k * 1.08
 
-    # ---------------------------------------------------------------- transitions
-
-    def bands(self, n, L):
-        """The five worlds side by side; as the drop nears they close on the frame's centre line, a seam of gold."""
-        t = self.t_of(n)
-        B = self.edit["bands"]
-        out = np.zeros((H, W, 3), np.float32)
-        t_open = B["open"] / FPS
-        c = ease_in(lin(n, B["close"], B["drop"] - 0.6))
-        for i, s in enumerate(B["strips"]):
-            arrive = ease_out(lin(t, t_open + 0.06 * i, t_open + 0.06 * i + 0.34))
-            if arrive <= 0:
-                continue
-            w = Light()
-            pic = self.world(s["key"], n, w)
-            if w.used:
-                pic += w.resolve()
-            x0, x1 = s["x0"], s["x1"]
-            # the strip shows its world's middle
-            sw = x1 - x0
-            src = pic[:, W // 2 - sw // 2: W // 2 - sw // 2 + sw]
-            # closing: each strip squeezes toward the centre line
-            nx0 = W / 2 + (x0 - W / 2) * (1 - c)
-            nx1 = W / 2 + (x1 - W / 2) * (1 - c)
-            dy = (1 - arrive) * (H if i % 2 == 0 else -H) * 0.6
-            M = np.array([[(nx1 - nx0) / sw, 0, nx0], [0, 1, dy]], np.float32)
-            strip = cv2.warpAffine(src, M, (W, H), flags=cv2.INTER_AREA if c > 0.05 else cv2.INTER_LINEAR,
-                                   borderMode=cv2.BORDER_CONSTANT)
-            mask = cv2.warpAffine(np.ones((H, sw), np.float32), M, (W, H), flags=cv2.INTER_LINEAR,
-                                  borderMode=cv2.BORDER_CONSTANT)
-            out = out * (1 - mask[..., None]) + strip
-        # The seam: as the five close, a line of gold at the centre, burning brighter to the drop.
-        if c > 0:
-            k = 0.4 + 3.0 * c ** 2
-            L.path([[W / 2, -20], [W / 2, H + 20]], 1.8 * k, WARM, 1.0 + 1.5 * c)
-            L.path([[W / 2, -20], [W / 2, H + 20]], 0.25 * k, GOLD, 8.0)
-            out *= 1 - 0.6 * c
-        return out
-
-    def reveal(self, img, n, L):
-        """The drop: the seam bursts open on the sunrise, edges of gold opening outward, a flash and a wave."""
-        t = self.t_of(n)
-        d = self.clock.drop
-        p = ease_out(lin(t, d - 0.01, d + 0.3))
-        half = 8 + p * (W / 2 + 60)
-        dx = np.abs(self.xx[:1] - W / 2)
-        open_ = np.clip((half - dx) / 3.0, 0, 1)
-        img *= open_[..., None] if p < 1 else 1
-        if p < 1:
-            for sgn in (-1, 1):
-                x = W / 2 + sgn * half
-                L.path([[x, -20], [x, H + 20]], 1.6 * (1 - p) + 0.3, GOLD, 1.2)
-                L.path([[x, -20], [x, H + 20]], 0.25 * (1 - p), GOLD, 9.0)
-        fl = flash(t, d, 0.02, 0.12)
-        L.glow(W / 2, H * 0.45, 150, WARM, 0.9 * fl)
-        L.glow(W / 2, H * 0.45, 420, GOLD, 0.12 * fl)
-        L.streak(W / 2, H * 0.45, 420, mixc(GOLD, ICE, 0.3), 1.2 * fl)
-        return img
-
-    def wave(self, img, cx, cy, t, at, amp=16.0, speed=1600.0, width=60.0, life=0.8):
-        """A shockwave through the picture: a ring that bends what is behind it as it passes."""
-        g = t - at
-        if not 0 < g < life:
-            return img
-        r = speed * g
-        dx, dy = self.xx - cx, self.yy - cy
-        dist = np.sqrt(dx * dx + dy * dy) + 1e-3
-        k = amp * (1 - g / life) ** 2 * np.exp(-((dist - r) / width) ** 2) * ((dist - r) / width)
-        mx = (self.xx - k * dx / dist).astype(np.float32)
-        my = (self.yy - k * dy / dist).astype(np.float32)
-        return cv2.remap(img, mx, my, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
-
-    def zoom_about(self, img, cx, cy, s):
-        M = np.array([[s, 0, cx - s * cx], [0, s, cy - s * cy]], np.float32)
-        return cv2.warpAffine(img, M, (W, H), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
-
     # ---------------------------------------------------------------- one frame
 
     def picture(self, n):
         """The frame's picture and its light, in linear light (before the finish and the words)."""
-        T, t, C = self.T, self.t_of(n), self.cut
+        T, t = self.T, self.t_of(n)
         L = Light()
-        if n < C["office"]:
-            img = self.open_(n, L)
-        elif n < C["air"] - 6:
-            img = self.office(n, L, L)
-        elif n < C["air"] + 6:
-            # Through the glass: the office rushes at its window, and the night opens through it.
-            g = lin(n, C["air"] - 6, C["air"] + 6)
-            front = Light()
-            off = self.office(n, front, front)
-            if front.used:
-                off += front.resolve()
-            x, y, _, _ = self.src.at("office", "crown", n)
-            cy = y + 120
-            base = 1 + 0.9 * ease_in(g)
-            acc = None
-            for j in range(6):
-                z = self.zoom_about(off, x, cy, base * (1 + 0.05 * g * j / 5))
-                acc = z if acc is None else acc + z
-            off = acc / 6
-            air = self.air(n, L)
-            ax, ay, _, _ = self.src.at("night-air", "glow", n)
-            acc = None
-            za = 0.82 + 0.18 * ease_out(g)
-            for j in range(6):
-                z = self.zoom_about(air, ax, ay, za * (1 + 0.05 * (1 - g) * j / 5))
-                acc = z if acc is None else acc + z
-            air = acc / 6
-            m = ss(g, 0.3, 0.72)
-            img = off * (1 - m) + air * m
-            # at the crossing, the light of the pane itself
-            img *= 1 + 0.35 * math.sin(math.pi * clamp((g - 0.3) / 0.42))
-            # the glass catching the light as it is passed: a fine glint across the pane
-            gl = lin(g, 0.2, 0.75)
-            if 0 < gl < 1:
-                d0 = -300 + 2600 * gl
-                xs = np.array([-50.0, W + 50.0])
-                ys = (d0 - xs * 0.6) / 0.8
-                kg = math.sin(math.pi * gl)
-                L.path(np.stack([xs, ys], 1), 1.2 * kg, ICE, 1.2)
-                L.path(np.stack([xs, ys], 1), 0.12 * kg, ICE, 18.0)
-        elif n < C["research"]:
-            img = self.air(n, L)
-        elif n < C["bands"]:
-            key = self.WORLDS[max(i for i, k in enumerate(self.WORLDS) if n >= C[k])]
-            img = self.world(key, n, L)
-        elif n < C["drop"]:
-            img = self.bands(n, L)
-        elif n < C["pulse"]:
-            img = self.sunrise(n, L)
-            if n < C["drop"] + 10:
-                img = self.reveal(img, n, L)
-            img = self.wave(img, W / 2, H * 0.45, t, self.clock.drop, amp=22, speed=1900, width=70, life=0.7)
-        elif n < C["grid"]:
-            img = self.pulse_(n, L)
-            self.context_tags(img, n)
-        elif n < C["device"]:
-            img = self.grid(n, L)
-            cx, cy, _, _ = self.src.at("grid", "centre", n)
-            img = self.wave(img, cx, cy, t, T["one"], amp=14, speed=1500, width=60, life=0.8)
-        elif n < C["rise"]:
-            img = self.device(n, L)
-        elif n < self.dissolve[0]:
-            img = self.rise(n, L)
-        elif n < self.dissolve[1]:
-            g = ss(n, *self.dissolve)
-            rl = Light()
-            a = self.rise(n, rl, lift_off=False)
-            if rl.used:
-                a += rl.resolve()
-            b = self.src.plate("sky", n)
-            img = a * (1 - g) + b * g
-            self.sun(img, L, t)
-            # The rise's line of light is the card's beam: from the crown's column to the orb's as the sky comes.
-            crown_x, crown_y = self.src.at("rise", "crown", n)[:2]
-            ox = self.art_to_film(*self.art["orb"])[0]
-            self.card(img, L, t, beam_x=crown_x + (ox - crown_x) * g, beam_bottom=crown_y)
-        else:
-            img = self.src.plate("sky", n)
-            self.sun(img, L, t)
-            self.card(img, L, t)
+        k = self.samples(t)
+        shutter = 0.5 / FPS
+        for j in range(k):
+            ts = t if k == 1 else t + ((j + 0.5) / k - 0.5) * shutter
+            self.world.draw(L, ts, 1.0 / k)
+        pose = self.world.pose(t)
+        glow, dawn = self.world.sky(t)
+        img = space.backdrop(pose, glow, dawn)
         if L.used:
             img += L.resolve()
+        # the panes, the glass they break into, and the light that lies on them
+        front = Light()
+        if T["not_"] - 0.1 < t < T["changes"] + 1.2:
+            self.panes.draw(img, front, t, samples=3)
+        # the next tool, and what it comes apart into
+        if T["so"] < t < T["ask"] + 1.5:
+            self.tool.draw(self.panes, img, front, t)
+        self.context_tags(img, t)
+        if t > T["aurixa"] - 0.4:
+            self.card(img, front, t)
+        if front.used:
+            img += front.resolve()
+        # the drop: the frame takes the light, for a moment
+        fl = flash(t, self.drop, 0.02, 0.16)
+        if fl > 0.001:
+            img = img * (1 + 1.1 * fl) + 0.02 * fl
         return self.jolt(img, t)
 
     def jolt(self, img, t):
         """The camera taken by the drop and by "one": a few pixels, settling in a third of a second."""
         k = 0.0
-        for at, amp in ((self.clock.drop, 7.0), (self.T["one"], 5.0)):
+        for at, amp in ((self.drop, 7.0), (self.T["one"], 5.0)):
             g = t - at
             if 0 <= g < 0.35:
                 k = max(k, amp * math.exp(-g / 0.09))
@@ -1363,14 +768,6 @@ class Film:
         dx, dy = k * math.sin(ph * 1.7), k * math.cos(ph * 2.3)
         M = np.array([[1.01, 0, dx - 0.01 * W / 2], [0, 1.01, dy - 0.01 * H / 2]], np.float32)
         return cv2.warpAffine(img, M, (W, H), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
-
-    def sun(self, img, L, t):
-        T = self.T
-        x, y, _, _ = self.src.at("sky", "sun", max(self.cut["end"], int(t * FPS)))
-        swell = ss(t, T["aurixa"] + 0.5, 45.5)
-        L.glow(x, y, 40 + 50 * swell, WARM, 0.3 + 0.5 * swell)
-        L.glow(x, y, 160 + 120 * swell, GOLD, 0.03 + 0.05 * swell)
-        L.streak(x, y, 300 + 260 * swell, WARM, 0.1 + 0.2 * swell)
 
     def finish(self, lin_img, n):
         """Bloom, a soft shoulder (a light's core goes to white as it passes the top), vignette, then sRGB and grain."""
@@ -1421,14 +818,30 @@ class Film:
     def frame(self, n):
         return self.words(self.finish(self.picture(n), n), n)
 
+    def labels(self):
+        """Where each tier's name goes, frame by frame, while the five come in: for type.py."""
+        T = self.T
+        a, b = int(math.floor((T["names"][0] - 0.2) * FPS)), int(math.ceil((T["powerful"] + 0.3) * FPS))
+        frames = {}
+        for n in range(a, b + 1):
+            frames[n] = [[round(l["x"], 1), round(l["y"], 1), round(l["k"], 3), l["dx"], l["dy"]]
+                         for l in self.world.labels(n / FPS)]
+        return {"fps": FPS, "first": a, "last": b, "names": [t.upper() for t in space.TIERS], "frames": frames}
+
 
 def main():
     work = Path(sys.argv[1]).resolve()
     args = sys.argv[2:]
     film = Film(work)
+    if args and args[0] == "--labels":
+        out = film.root / "type"
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "labels.json").write_text(json.dumps(film.labels()))
+        print(f"{out / 'labels.json'}: the tiers' names, frame by frame")
+        return
     frames = None
     out = None
-    first, last = 0, film.edit["frames"]
+    first, last = 0, film.frames
     i = 0
     while i < len(args):
         if args[i] == "--frames":
@@ -1451,6 +864,7 @@ def main():
     d = film.root / "film"
     d.mkdir(exist_ok=True)
     path = out or d / f"part-{first:05d}.mkv"
+    cv2.setNumThreads(1)  # film.sh runs four of these side by side, one to a core
     enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}",
                             "-r", str(FPS), "-i", "-", "-c:v", "libx264", "-preset", "medium", "-crf", "4",
                             "-pix_fmt", "yuv444p", "-x264-params", "keyint=24", str(path)], stdin=subprocess.PIPE)

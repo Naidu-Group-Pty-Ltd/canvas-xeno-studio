@@ -1,7 +1,8 @@
-// We Are Here's drawn things, as pictures with their own transparency, for light.py to set in the frame: the panes of
-// software that crowd the office (windows and dashboards, each tool its own accent), the strip of tabs and its one
-// word, "AI", and the client's and the property's tags. They are As One's (scripts/aurixa-teaser/as-one/film.js),
-// drawn the same way at twice As One's size, so they stay sharp as the camera comes close.
+// We Are Here's drawn things, as pictures with their own transparency, for comp.py to set in the frame: the panes of
+// software that crowd the space before the core (windows and dashboards), the strip of tabs and its one word, "AI",
+// and the client's and the property's tags. They are As One's (scripts/aurixa-teaser/as-one/film.js), drawn the same
+// way at twice As One's size, so they stay sharp as the camera comes close, and in the brand's own colours only: its
+// navy, its gold and the emblem's ice, where As One gave each tool an accent of its own.
 //   node scripts/aurixa-teaser/we-are-here/textures.cjs <work files dir>     # writes we-are-here/textures/*.png
 const fs = require("fs");
 const path = require("path");
@@ -32,7 +33,7 @@ function rr(x, X, Y, W, Hh, r) {
   x.arcTo(X + W, Y, X + W, Y + Hh, r); x.arcTo(X + W, Y + Hh, X, Y + Hh, r);
   x.arcTo(X, Y + Hh, X, Y, r); x.arcTo(X, Y, X + W, Y, r); x.closePath();
 }
-const ACCENTS = ["#7aa7ff", "#9b8cff", "#5fd0c5", "#ff9f6e", "#c58cff", "#6ec7ff", "#ffcf6e", "#8ce0a0"];
+const ACCENTS = ["#F5D17A", "#CFE3FF", "#D7B35F", "#A9C7EE"];
 function pane(kind, seed) {
   const rnd = (k) => hash(seed * 13.7 + k * 3.1);
   const acc = ACCENTS[Math.floor(rnd(1) * ACCENTS.length)];
@@ -44,7 +45,7 @@ function pane(kind, seed) {
     x.fillStyle = "rgba(255,255,255,0.06)"; x.fillRect(8, 8, w - 16, 40);
     for (let i = 0; i < 3; i++) {
       x.beginPath(); x.arc(30 + i * 22, 28, 7, 0, Math.PI * 2);
-      x.fillStyle = ["rgba(255,120,110,.7)", "rgba(255,200,90,.7)", "rgba(110,210,130,.7)"][i]; x.fill();
+      x.fillStyle = ["rgba(207,227,255,.6)", "rgba(207,227,255,.42)", "rgba(207,227,255,.28)"][i]; x.fill();
     }
     x.fillStyle = "rgba(200,220,255,0.30)"; rr(x, 110, 20, 120 + rnd(2) * 120, 14, 7); x.fill();
     x.fillStyle = acc; x.globalAlpha = 0.9; rr(x, w - 70, 19, 40, 16, 8); x.fill(); x.globalAlpha = 1;

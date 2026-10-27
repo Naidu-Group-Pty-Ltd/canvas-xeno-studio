@@ -1,7 +1,9 @@
 // We Are Here's words at any instant, from the time alone (type.py's page). window.setT(t) shows t and resolves once
 // it is drawn. Each word rises into place as it is heard (As One's motion: up a fifth of its height, out of a blur,
 // in a quarter of a second); each line goes as the next is about to be heard; the gold phrase's hairline draws under
-// it as its last word is spoken. The shade behind the words comes and goes with them.
+// it as its last word is spoken. The shade behind the words comes and goes with them. The five tiers' names ride on
+// their rings (type/labels.json, from comp.py): each comes in on its word, its letters settling, and all five go as
+// "Powerful on their own" begins.
 "use strict";
 (() => {
   const D = window.DATA;
@@ -22,7 +24,7 @@
   // When each block goes (it fades over 0.28 s from then); b5 is cut by the drop.
   const GO = {
     b1: wt("s2", 0) - 0.3, b2a: wt("s2", 6) - 0.12, b2b: wt("s2", 12) - 0.12, b2c: T.at - 0.15,
-    b3: T.names[0] - 0.25, b4: T.powerful - 0.22, b5: D.bands.dropFrame, b6: T.when - 0.25,
+    b3: T.names[0] - 0.25, b5: D.dropFrame, b6: T.when - 0.25,
     b7a: T.grid - 0.18, b7b: T.grid - 0.18, b7c: T.so - 0.3,
     b8: T.ask - 0.2, b9: T.aurixa - 0.1, b11: 99,
   };
@@ -57,34 +59,34 @@
     el("shade").style.opacity = String(shade);
   }
 
-  function chapters(t) {
-    for (const c of D.chapters) {
-      // In with its cut (a fifth of a second), out with the next; letter-spacing settles as it comes.
-      const k = lin(t, c.a, c.a + 0.2) * (1 - lin(t, c.b - 0.05, c.b));
-      const div = el(c.id);
+  function tiers(t) {
+    const Lb = D.labels;
+    const f = t * Lb.fps;
+    const n0 = Math.floor(f);
+    const u = f - n0;
+    const a = Lb.frames[String(n0)];
+    const b = Lb.frames[String(n0 + 1)] || a;
+    for (let i = 0; i < Lb.names.length; i++) {
+      const div = el(`tier${i}`);
+      if (!a) {
+        div.style.opacity = "0";
+        continue;
+      }
+      const p = a[i], q = b[i];
+      const x = p[0] + (q[0] - p[0]) * u, y = p[1] + (q[1] - p[1]) * u, k = p[2] + (q[2] - p[2]) * u;
       div.style.opacity = String(k);
-      const f = easeOut(lin(t, c.a, c.a + 0.45));
-      div.querySelector(".name").style.letterSpacing = `${0.42 + 0.18 * (1 - f)}em`;
+      div.style.transform = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px)`;
+      // the letters settle as the name comes in
+      const said = T.names[i];
+      const s = easeOut(lin(t, said - 0.06, said + 0.45));
+      el(`tier${i}-name`).style.letterSpacing = `${0.3 + 0.16 * (1 - s)}em`;
     }
-    // The bands' marks: each in as its band arrives, all out as the bands close.
-    const B = D.bands;
-    for (let i = 0; i < 5; i++) {
-      const at = B.a + 0.06 * i;
-      const k = ss(t, at + 0.1, at + 0.35) * (1 - lin(t, B.close - 0.12, B.close + 0.02));
-      el(`bd${i}`).style.opacity = String(t < B.drop ? k : 0);
-    }
-  }
-
-  function label(t) {
-    // Scenes created with AI: from the first light of the opening to the last frame.
-    el("ai").style.opacity = String(ss(t, 0.05, 0.8));
   }
 
   window.setT = async (t) => {
     await document.fonts.ready;
     words(t);
-    chapters(t);
-    label(t);
+    tiers(t);
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     return true;
   };

@@ -6,17 +6,19 @@ lay over the picture (type.js: window.setT(seconds) shows that instant).
 
 Every spoken word rises as it is heard, so the teaser reads with the sound off: As One's lines, word for word, in its
 styles (Playfair Display, the turn of each line in gold italic with its hairline), set low in the frame over a soft
-shade, where a phone's own buttons do not reach. Over the five worlds, each one's name marks its chapter, and the five
-bands carry theirs. "Scenes created with AI" stays in the top-left corner throughout: the scenes are realistic, and
-the brand labels them.
+shade, where a phone's own buttons do not reach. One line is not set low: "Research, clients, reports, finance,
+communication." Each of those five words is set where its tier is, on its ring about the core, as it is said
+(comp.py --labels writes where, frame by frame, to type/labels.json; run it first).
+
+Nothing in the film is a generated scene, so it carries no label for one: the space, the city and the light are drawn
+in code, and the emblem is the supplied art.
 """
 import json
 import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE))  # run with -I: edit.py is beside it
-from edit import BANDS, CUT, FPS  # noqa: E402
+FPS = 24
 
 W = Path(sys.argv[1]).resolve()
 OUT = W / "we-are-here" / "type"
@@ -49,16 +51,18 @@ html, body { margin:0; width:1080px; height:1920px; background:transparent; over
 .say .em .w { font-style:italic; background-image:linear-gradient(180deg, #f5d17a 6%, #d7b35f 52%, #c89b3c 82%, #e6c36e 100%); }
 .say .ul { position:absolute; left:.06em; right:.06em; bottom:.04em; height:2px; transform-origin:0 50%; transform:scaleX(0);
   background:linear-gradient(90deg, #c89b3c, #d7b35f 60%, rgba(215,179,95,.15)); }
-.ai { position:absolute; left:46px; top:50px; font:400 23px/1 "MONO4", monospace; letter-spacing:.06em; color:rgba(236,242,250,.8);
-  text-shadow:0 1px 10px rgba(2,6,14,.85); }
-.chapter { position:absolute; left:0; right:0; top:150px; text-align:center; opacity:0; text-shadow:0 1px 14px rgba(2,6,14,.85); }
-.chapter .n { font:400 22px/1 "MONO4", monospace; letter-spacing:.3em; color:rgba(245,209,122,.78); padding-left:.3em; }
-.chapter .rule { width:46px; height:1px; margin:16px auto 17px; background:linear-gradient(90deg, rgba(245,209,122,0), #f5d17a, rgba(245,209,122,0)); }
-.chapter .name { font:700 31px/1 "MONO", monospace; letter-spacing:.42em; color:#f5d17a; padding-left:.42em; }
-.band { position:absolute; top:182px; text-align:center; opacity:0; text-shadow:0 1px 10px rgba(2,6,14,.95); }
-.band .n { font:400 17px/1 "MONO4", monospace; letter-spacing:.24em; color:rgba(245,209,122,.8); padding-left:.24em; }
-.band .rule { width:26px; height:1px; margin:10px auto 11px; background:#d7b35f; opacity:.85; }
-.band .name { font:700 17px/1 "MONO", monospace; letter-spacing:.2em; color:#f5d17a; padding-left:.2em; white-space:nowrap; }
+.tier { position:absolute; left:0; top:0; opacity:0; will-change:transform; }
+.tier .dot { position:absolute; left:-5px; top:-5px; width:10px; height:10px; border-radius:50%; background:#fbe7b5;
+  box-shadow:0 0 10px 3px rgba(245,209,122,.55); }
+.tier .rule { position:absolute; height:1px; background:linear-gradient(90deg, rgba(245,209,122,.95), rgba(245,209,122,.25)); }
+.tier .name { position:absolute; white-space:nowrap; font:700 30px/1 "MONO", monospace; color:#f5d17a;
+  text-shadow:0 1px 12px rgba(2,6,14,.95), 0 0 2px rgba(2,6,14,.8); }
+.tier.left .rule { left:-56px; top:0; width:50px; transform:scaleX(-1); }
+.tier.left .name { right:66px; top:-15px; text-align:right; }
+.tier.right .rule { left:6px; top:0; width:50px; }
+.tier.right .name { left:66px; top:-15px; }
+.tier.down .rule { left:0; top:6px; width:1px; height:40px; background:linear-gradient(180deg, rgba(245,209,122,.95), rgba(245,209,122,.25)); }
+.tier.down .name { left:0; top:56px; transform:translateX(-50%); }
 """
 
 
@@ -88,7 +92,6 @@ BLOCKS = [
     ("b2b", "not because they'll have <br> *more dashboards,*", 1222, 68, "s2", 6),
     ("b2c", "and not because <br> *AI became another tab.*", 1222, 68, "s2", 12),
     ("b3", "At a certain level of ambition, <br> *the question changes.*", 1226, 64, "s3", 0),
-    ("b4", "Research, clients, reports, <br> finance, *communication.*", 1226, 64, "s4", 0),
     ("b5", "*Powerful* on their own.", 1262, 72, "s5", 0),
     ("b6", "More valuable when they <br> stop behaving like <br> *separate destinations.*", 1172, 64, "s6", 0),
     ("b7a", "When *intelligence* can move,", 1186, 62, "s7", 0),
@@ -110,35 +113,33 @@ for bid, text, top, size, sent, first in BLOCKS:
     blocks[bid] = {"sentence": sent, "words": [{"start": w["start"], "end": w["end"]} for w in words]}
     blocks_html.append(f'<div class="say" id="{bid}" style="top:{top}px;font-size:{size}px">{html}</div>')
 
-# The five worlds' chapters (each from its cut to the next), and the five bands' marks.
-NAMES = ["RESEARCH", "CLIENTS", "REPORTS", "FINANCE", "COMMUNICATION"]
-KEYS = ["research", "clients", "reports", "finance", "comms"]
-chapters = []
-for i, (name, key) in enumerate(zip(NAMES, KEYS)):
-    a = CUT[key] / FPS
-    b = (CUT[KEYS[i + 1]] if i < 4 else CUT["bands"]) / FPS
-    chapters.append({"id": f"ch{i}", "a": a, "b": b})
-chapters_html = "".join(
-    f'<div class="chapter" id="ch{i}"><div class="n">{i + 1:02d}</div><div class="rule"></div><div class="name">{name}</div></div>'
-    for i, name in enumerate(NAMES))
-bands_html = "".join(
-    f'<div class="band" id="bd{i}" style="left:{s["x0"]}px;width:{s["x1"] - s["x0"]}px"><div class="n">{i + 1:02d}</div>'
-    f'<div class="rule"></div><div class="name">{name}</div></div>'
-    for i, (name, s) in enumerate(zip(NAMES, BANDS["strips"])))
+# The five tiers' names, where their tiers are, as they are said: the spoken words, in the labels' capitals.
+labels = json.loads((OUT / "labels.json").read_text())
+said = [w["text"].strip(".,").lower() for w in lines["s4"]["words"]]
+if said != [n.lower() for n in labels["names"]]:
+    raise SystemExit(f"tiers: named {labels['names']}, spoken {said}")
 
-# The drop's frame: "Powerful on their own." goes with the frame the drop lands in.
-DATA = {"cues": cues, "blocks": blocks, "chapters": chapters, "bands": {"a": CUT["bands"] / FPS, "drop": cues["drop"],
-        "dropFrame": CUT["drop"] / FPS, "close": BANDS["close"] / FPS}, "fps": FPS}
+
+def side(dx, dy):
+    """Where a name sits from its point: beyond it, on the side of the frame its tier faces."""
+    return "down" if dy > 0.7 else ("left" if dx < 0 else "right")
+
+
+row0 = labels["frames"][str(labels["first"])]
+tiers_html = "".join(
+    f'<div class="tier {side(row[3], row[4])}" id="tier{i}"><i class="dot"></i><i class="rule"></i>'
+    f'<span class="name" id="tier{i}-name">{name}</span></div>'
+    for i, (name, row) in enumerate(zip(labels["names"], row0)))
+DATA = {"cues": cues, "blocks": blocks, "labels": labels, "dropFrame": round(cues["drop"] * FPS) / FPS,
+        "fps": FPS}
 page = f"""<!doctype html><html><head><meta charset="utf-8"><style>{CSS}</style></head>
 <body><div class="frame" id="frame">
   <div class="shade" id="shade"></div>
   {''.join(blocks_html)}
-  {chapters_html}
-  {bands_html}
-  <div class="ai" id="ai">Scenes created with AI</div>
+  {tiers_html}
 </div>
 <script>window.DATA = {json.dumps(DATA)};</script>
 <script src="{url(HERE / 'type.js')}"></script>
 </body></html>"""
 (OUT / "type.html").write_text(page)
-print(json.dumps({"page": str(OUT / "type.html"), "blocks": len(BLOCKS), "chapters": len(chapters)}))
+print(json.dumps({"page": str(OUT / "type.html"), "blocks": len(BLOCKS), "tiers": len(labels["names"])}))

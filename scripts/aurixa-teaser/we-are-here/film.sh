@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# We Are Here, from its parts to its delivery master: the composite in four runs side by side (comp.py), joined into
-# one picture, laid on As One's soundtrack at 24 frames a second (../encode.sh), and measured (../qc.py).
+# We Are Here, from its parts to its delivery master: every frame drawn in four runs side by side (comp.py), joined
+# into one picture, laid on As One's soundtrack at 24 frames a second (../encode.sh), and measured (../qc.py).
 #   scripts/aurixa-teaser/we-are-here/film.sh <work files dir> <python with numpy and OpenCV>
-# The plates (plates.py), the masks (masks.py), the tracks (track.py), the textures (textures.cjs) and the words
-# (type.py, type.cjs) come first; README.md has the order.
+# The textures (textures.cjs), the tiers' names (comp.py --labels) and the words (type.py, type.cjs) come first;
+# README.md has the order.
 set -euo pipefail
 WORK="$(cd "$1" && pwd)" PY="$2"
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -11,8 +11,9 @@ ROOT="$WORK/we-are-here"
 FILM="$ROOT/film"
 mkdir -p "$FILM"
 FRAMES=1092
-# Runs of about equal cost: the office's panes and glass, and the five bands, take the longest per frame.
-BOUNDS=(0 260 470 760 "$FRAMES")
+# Runs of about equal cost: the panes and their glass, and the camera's fast moves (drawn at more moments of the
+# shutter), take the longest per frame.
+BOUNDS=(0 290 545 810 "$FRAMES")
 pids=()
 for k in 0 1 2 3; do
   "$PY" -I "$HERE/comp.py" "$WORK" "${BOUNDS[$k]}:${BOUNDS[$((k + 1))]}" > "$FILM/run-$k.log" 2>&1 &

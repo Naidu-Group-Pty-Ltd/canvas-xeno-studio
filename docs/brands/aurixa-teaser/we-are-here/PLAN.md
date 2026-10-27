@@ -1,126 +1,132 @@
 # Aurixa Systems · Teaser · _We Are Here_ · plan
 
-The second version of _As One_, asked for on 27 October 2026: far more powerful, captivating and cinematic, with an
-atmosphere that says "We are here". The client asked for:
+The second version of _As One_, made on 27 October 2026 at the client's brief: far more powerful, captivating and
+cinematic, with an atmosphere that says "We are here". It keeps _As One_'s script word for word and its soundtrack,
+_National Treasures_, as mixed. It is 45.5 s at 1080 x 1920, like _As One_, and plays at 24 frames a second, the
+cinema's rate.
 
-- the script kept word for word;
-- _National Treasures_ as _As One_ uses it;
-- cinematic realism, exceptional clarity, sophisticated transitions and powerful imagery;
-- the physical world of property meeting advanced technology, so the audience feels the world evolving before their
-  eyes.
+## The brief, as it settled
 
-It is 45.5 s at 1080 x 1920, like _As One_, and it plays at 24 frames a second, the cinema's rate and the rate its
-footage is made at.
+The client's notes came while the film was being made, and each one moved it. They are recorded here in order,
+because the last one is the brief this film answers.
+
+1. **The connected platform.** The teaser brings in a connected platform. Script and picture must keep in step, and
+   show more than buildings: the journey through the world of technology, and how Aurixa Systems bridges the gap.
+2. **Realism.** The generated buildings and the house looked animated and AI-made. The technology must complement the
+   real world, not counter it.
+3. **The system, half and half.** The film must be as much the system as the architecture. It must show how the
+   system connects things behind closed doors, which opens doors to new heights for businesses, across the levels of
+   the industry. This is the first opening to the market nationally, with international reach to follow.
+4. **The five as one.** "Research, clients, reports, finance, communication" must be one cinematic view of all five
+   working together, interlinked with Aurixa Systems, not five frames.
+5. **The final brief.**
+   - Keep the brand's colours and nothing else: no rainbow.
+   - Take the buildings out, because they had become a tangent. Aurixa Systems is software as a service, so the film
+     belongs in the space of technology, with as few buildings and structures as the story needs.
+   - Make everything discussed one continuous cinematic approach: the five tiers all together as one, working
+     together for one outcome, and the Aurixa Systems logo as a pulse at the end.
+
+The photographic versions that answered the first notes are in the repository's history: the city at dawn
+(`b1fbaed`) and the connected platform with its digital twin (`4ff2c35`). This film replaces them.
 
 ## What stays from _As One_
 
 - **The soundtrack, as mastered** (`sound-as-one/master.wav` in the work). That is Gabby's single dry take of the 95
-  words, under _National Treasures_ from its first sample, at -14 LUFS. Every time below is where a word sounds in it.
-- **The type.** Every spoken word rises on screen as it is heard, so the teaser reads with the sound off. The lines are
-  in Playfair Display, the turn of each line in gold italic; the labels are in Inconsolata capitals.
-- **The end card.** The supplied emblem and lettering, placed and never redrawn. The line of light is drawn into the
-  emblem's orb and circles inside the A, which the client asked for on _As One_.
+  words, under _National Treasures_ from its first sample, at -14 LUFS. Every time below is where a word sounds in it
+  (`sound-as-one/cues.json`).
+- **The words.** Every spoken word rises on screen as it is heard, so the teaser reads with the sound off. The lines
+  are in Playfair Display with the turn of each line in gold italic, and the labels are in Inconsolata capitals.
+- **The end card.** It uses the supplied emblem and lettering, placed and never redrawn. The light circles inside the A
+  until the orb keeps it, which the client asked for on _As One_.
+- **The panes of software and the tags.** These are _As One_'s, now drawn in the brand's colours only.
 
 ## The concept
 
-The night before a new day, over a city of property. The world of property is already lit, but it is lit in separate
-places: towers, homes, offices and streets, each a light of its own. In 45 seconds the night turns to dawn, and the
-city's lights join into one system.
+**One continuous move, through the system itself.** The whole film is one camera in one world, with no cut. The world
+is the emblem's own: navy space, fine gold lines, and an orb of ice light. The property world is there as little as
+the story needs: far below, a city at night drawn as its streets of light, with a few slender towers at its heart.
 
-The film's one sign is a thread of gold light. It begins as a single point at the crown of the city's tallest tower on
-"will operate differently". It is blocked by the noise of software, and it breaks free on "the question changes". It
-touches five worlds of the business. On the drop it comes up with the sun and joins everything. It runs the streets,
-carries the client's context, and lights the whole city as one. At the end it rises from the city and is kept in the
-emblem's orb. The sunrise is the arrival: we are here.
+The film's sign is a core of ice light, the emblem's orb, and about it the platform's five tiers:
 
-Its world is real: a fictional Australian harbour city, its homes, towers, streets and boardrooms, photographed as a
-film would photograph them. Its technology is light that behaves with intent: fine gold filaments, a cool cyan scan
-and five labels, drawn exactly over the footage. It is never neon or spectacle.
+- **Research, clients, reports, finance and communication**, each a ring about the core with a life of its own.
+- **Apart**, each turns on its own tilt: powerful on its own.
+- **As one**, they lie in one plane, turn together, and reach down into the city.
+- **At the end** they stand to face us as the emblem's rings, and the system draws the emblem's triangle about its
+  own core. The logo arrives as the system's pulse.
 
-## The connected platform
-
-The client's note, while the film was being made (27 October): the teaser brings in a connected platform, so the
-picture must keep in step with the script and show more than buildings. It must show the journey through the world of
-technology and how Aurixa Systems bridges the gap.
-
-So the film has two worlds, and a bridge between them. The physical one is the city of property, photographed. The
-technological one is the same city as the platform knows it: its digital twin (`twin.py`). That is every point of the
-picture placed in its depth and drawn as light, with cool points on its surfaces, brighter outlines along its edges,
-gold where its own lights are, and threads between them. The twin is drawn through the shot's own camera, so it lies
-exactly on the picture, and it can be flown into, as the picture cannot. Where the script turns, the film crosses
-the bridge:
-
-| Line                                            | The bridge                                                                                                                       |
-| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| "the question changes"                          | A wave of light goes out from the tower's crown, and behind it the night city becomes its twin; the camera flies on into it     |
-| "Research, clients, reports, finance, communication" | Each world is read by the platform: a scan crosses it, and behind the scan its twin lies over the photograph, which stays |
-| "separate destinations" (after the drop)        | The five places across the city are the five modules, each its mark in gold (a lot's scan, a home, a page, a rise, a signal), wired to the tower |
-| "When intelligence can move, when context can follow" | The pulses leave the platform's layer on the avenue behind them, and the client's and the property's tags follow           |
-| "the business becomes the system"               | The whole city becomes its twin from the tower out: one connected system, from which the line of light lifts                    |
+The story is the script's, told in that world. The noise of more software hides the light, and ambition breaks it.
+The five tiers come in one by one and work as one. Their threads reach every part of the property world, and
+intelligence and the client's context move through it and back. The business becomes the system, and the system is
+Aurixa Systems.
 
 ## The world
 
-| Thing         | What it is                                                                                                                                                                                                   |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| The city      | A fictional modern Australian harbour city, its headlands and water, with one slender supertall tower at its centre that every wide shot keeps. No real landmark appears (no Opera House, no harbour bridge) |
-| The night     | Deep blue hour, a sea of low cloud, city lights glittering through it: the brand's navy and blue-black, warm sodium gold                                                                                    |
-| The noise     | Translucent panes of generic software (windows, dashboards, a strip of tabs, the last one "AI") crowding the air of a dark office. Grey wireframes with no words and no figures                              |
-| The five      | Research: a suburb seen straight down, scanned. Clients: a family home at blue hour. Reports: a scale model on black stone. Finance: towers lighting floor by floor. Communication: a motorway's light trails  |
-| The thread    | The brand's gold (#F5D17A to #C89B3C): a point, a filament, a pulse along a road, lines between places, the network over the city                                                                            |
-| The twin      | The city as the platform knows it: points and outlines of cool light in the city's own depth, its lights in gold with threads between them. The technological world the film journeys through             |
-| The context   | Small gold-edged tags that follow the pulse: the demo record's client and property (Jordan Ellis, 14 Wattle Grove), as the reels show them                                                                  |
-| The dawn      | Sunrise over the city on the drop, gold on the tower tops and mist on the harbour; at the end, the sky above a sea of cloud, navy above and gold at the horizon, behind the emblem                         |
+| Thing         | What it is                                                                                                                                                                                                                                                                                                       |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The space     | The brand's navy, deepest overhead, lifting toward a faint haze at the horizon where the city's light hangs in the air. Motes of light drift in it, a few of them sparkles as in the emblem's own sky. At the end the horizon warms toward dawn                                                              |
+| The core      | A point of white in a glow of ice: the emblem's orb, where the system begins and ends                                                                                                                                                                                                                          |
+| The five      | Five rings about the core, each with its own life. Research is a scan reading its ring, its points answering. Clients are a constellation of points, joined. Reports are pages gathering on the ring. Finance is a rise of light around its ring, with its flow. Communication is pulses running its ring, and the spokes that join every ring to every other and to the core |
+| The threads   | Fine gold lines from the rings down to the city: the system reaching the places it serves                                                                                                                                                                                                                       |
+| The city      | Minimal. A city at night seen from the air, drawn as its streets of light, district by district on their own grids. A harbour and a river run through it, dark, and roads run out of it with their traffic moving. A few towers stand at its heart, each a column of lit floors. No building is drawn as more than that |
+| The noise     | _As One_'s panes of software (windows, dashboards, a strip of tabs, the fourth "AI"), in navy, ice and gold, set in the space before the core                                                                                                                                                                 |
+| The tool      | One pane: "the next tool", which comes apart into light                                                                                                                                                                                                                                                          |
+| The context   | The brand kit's demo record, Jordan Ellis and 14 Wattle Grove, as gold-edged tags                                                                                                                                                                                                                               |
+| The emblem    | The supplied art: the triangle, its orb and its rings, and the lettering                                                                                                                                                                                                                                        |
 
 ## The timeline
 
-The voice's times are where its words sound in `master.wav` (`sound-as-one/cues.json`). _National Treasures_' bars fall
-every 1.861 s; bar 0 is the drop, at 22.255 s.
+The voice's times are where its words sound in `master.wav`. _National Treasures_' bars fall every 1.861 s; bar 0 is
+the drop, at 22.255 s.
 
-| Time (s)    | Voice                                                                         | Picture                                                                                                                                                                                                                                                                  |
-| ----------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0.0–4.45    | "The next generation of property professionals will operate differently."     | Night, from far above the city through a sea of cloud, descending. On "operate" a point of gold light kindles at the crown of the supertall tower, and a fine filament of it climbs into the sky.                                                                       |
-| 4.45–14.1   | "Not because they'll use more software, … and not because AI became another tab." | Cut to a dark office high in a tower. The city is through the glass, the tower's gold point in the middle of it, and the camera moves toward the window. Panes of software crowd the air between: windows (4.9 s), dashboards (7.1 s), a strip of tabs, the last one "AI" (10.2 s). The gold point is lost behind them.                                                   |
-| 12.2–15.8   | "At a certain level of ambition, the question changes."                       | On "ambition" (13.3 s) the panes break into glass that blows past the lens. On "the question changes" the camera goes through the window into the open air over the city and flies at the tower.                                                                        |
-| 15.8–20.7   | "Research, clients, reports, finance, communication."                         | A cut on each word to its world, its name in gold over it: the suburb from above with a cyan scan crossing its lots; the home; the scale model; the towers lighting floor by floor; the motorway's light.                                                               |
-| 20.7–22.25  | "Powerful on their own."                                                      | The track falls silent. The five hold side by side in five bands, each in its own frame: five separate destinations.                                                                                                                                                    |
-| 22.255      | (the drop)                                                                    | The bands close in a flash of gold, and the five become one picture: sunrise over the city. The camera surges toward the tower as the light breaks.                                                                                                                      |
-| 22.6–27.7   | "More valuable when they stop behaving like separate destinations."           | Gold lines rise from five places across the city and meet at the tower.                                                                                                                                                                                                  |
-| 27.7–31.8   | "When intelligence can move, when context can follow,"                        | Low along an avenue at dawn, chasing a pulse of gold down the road. On "context" the client's and the property's tags follow it.                                                                                                                                         |
-| 31.8–34.25  | "when the business can act as one."                                           | Straight down on the city's grid, threads of gold along its streets; on "one" (33.45 s, on the bar) the whole city lights gold at once.                                                                                                                                  |
-| 34.25–36.7  | "So don't ask what the next tool is."                                         | Stillness: a phone on black marble, its screen alight. On "is" (35.9 s) it goes dark.                                                                                                                                                                                    |
-| 36.7–40.25  | "Ask what happens when the business becomes the system."                      | The camera rises from the city into the morning sky. The gold network across it draws in to the tower and, on "the system", lifts off it as one line of light.                                                                                                           |
-| 40.25–41.5  | "Aurixa Systems."                                                             | Above the clouds at sunrise, the line of light becomes the emblem's orb. The emblem forms around it, and the lettering rises letter by letter, "Systems" on the bar (40.86 s).                                                                                          |
-| 41.8–45.5   | "A new operating standard is coming."                                         | The line rises under the logo. The light circles inside the A in three rings and the orb keeps it. The music fades as _As One_'s does, and the sun swells at the horizon.                                                                                               |
+| Time (s)    | Voice                                                                             | Picture                                                                                                                                                                                                                                                                                                  |
+| ----------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.0–4.45    | "The next generation of property professionals will operate differently."        | Low over the city at night, toward the towers at its heart. On "operate" (3.2 s) the core kindles above them, a ring of gold goes out from it and a thread climbs into the sky; the camera rises toward it.                                                                                            |
+| 4.45–13.3   | "Not because they'll use more software, … and not because AI became another tab." | Panes of software crowd the space before the core as the voice names them: windows (4.9 s), dashboards (7.1 s), a strip of tabs whose fourth is "AI" (10.2 s). By "ambition" they have hidden it.                                                                                                     |
+| 13.3–15.8   | "At a certain level of ambition, the question changes."                           | On "ambition" the panes break into glass that blows past the lens, and the camera goes through. On "the question changes" (14.7 s) the core flares and a wave of light goes out from it; in its wake five faint rings appear about it.                                                                |
+| 15.8–20.7   | "Research, clients, reports, finance, communication."                             | One view, the camera circling the core. Each tier lights on its word, its name set on its ring as it is said. By "communication" all five work at once, every ring joined to every other and to the core, pulses running through all of them.                                                       |
+| 20.7–22.25  | "Powerful on their own."                                                          | The track falls silent. The rings drift apart, each on its own tilt, their spokes dark, and the camera closes on the core. Just before the drop the five are drawn into it.                                                                                                                            |
+| 22.255      | (the drop)                                                                        | The core bursts. The five come out of it as one, in one plane and turning together, with a flash and a ring of light through the space, and the camera is thrown back.                                                                                                                                |
+| 22.95–27.7  | "More valuable when they stop behaving like separate destinations."               | Threads of gold fall from the rings to thirty places across the city, one after another all round it. Each place answers with a ring of light, and the streets about it warm to gold. On "destinations" (25.8 s) every thread flares.                                                                |
+| 27.7–31.8   | "When intelligence can move, when context can follow,"                            | A pulse leaves the outer ring and runs down a thread into the city, the camera beside it. It runs a street, which lights gold behind it. On "context" the client's and the property's tags come in beside it and ride with it up another thread, back to the system and in to the core.               |
+| 31.8–34.25  | "when the business can act as one."                                               | The camera rises over the whole. A wave of gold crosses the city from its centre, and on "one" (33.45 s, on the bar) everything lights at once: the rings, the threads and the city.                                                                                                                  |
+| 34.25–36.7  | "So don't ask what the next tool is."                                             | Stillness: one pane, a single tool, before the core. On "is" (35.9 s) it comes apart into motes of its own light, which drift into the system.                                                                                                                                                         |
+| 36.7–40.25  | "Ask what happens when the business becomes the system."                          | The camera draws back to face the core. The threads are drawn up out of the city, and the rings stand to face us as the emblem's rings. On "becomes" (38.6 s) three bars of light draw the emblem's triangle about the core, and on "the system" (39.2 s) it locks with a pulse.                     |
+| 40.25–41.5  | "Aurixa Systems."                                                                 | The emblem takes the system's place, the core its orb, and a pulse goes out from the orb as it lands. Its lettering rises letter by letter, with "Systems" and a second pulse on the bar (40.86 s).                                                                                                    |
+| 41.85–45.5  | "A new operating standard is coming."                                             | The light circles inside the A in three rings until the orb keeps it, as on _As One_'s end card. The orb beats on the bars (42.7 s, 44.6 s), each beat a ring through the space, and the horizon warms toward dawn.                                                                                  |
 
 ## How it is made
 
-- **The footage is generated, then drawn over.**
-  - Each shot's keyframe is a 4K still, made with Marketing Studio 2.5 Flare from a written description in the brand's
-    look.
-  - Each keyframe is set in motion as a 4K take (2160 x 3840, 24 fps) with Kling 3.0 4K (image to video).
-  - Both run through the studio's API (`scripts/aurixa-teaser/we-are-here/gen.py`, `shots.json`). Each request is asked
-    for once and kept with the work, in its project.
-  - Higgsfield's API credit ran out after the first two takes (the opening and the sunrise). The other shots are their
-    keyframes moved by a camera through their depth (`depth.py`, `camera.py`, `plates.py`): a push, a turn, a dolly
-    or an orbit, with parallax, so the film is whole without them. Each take, when it comes, takes its keyframe's
-    place: `edit.py` uses a shot's take wherever there is one.
-- **Nothing generated carries a word, a figure or a logo.** Every keyframe was read for text before it was set in
-  motion, and every take is read again. The panes, the labels, the tags, the words and the emblem are drawn in code,
-  exactly.
-- **The light is placed on the footage.** It is anchored where the footage moves: tracked through the takes (the
-  tower's crown, five places across the city), and carried through the keyframes' cameras (the road, the lots, the
-  city's nodes). Where the light acts on the picture, it acts on the picture's own windows, streets and trails, found
-  in each keyframe (`masks.py`).
-- **Assembled in three layers.**
-  - The plates are graded to one look and cut on the voice's words.
-  - The light and the type are drawn by Chromium as transparent frames.
-  - A compositor lays the light over the plates, then the type, and joins the picture to `master.wav`.
+Nothing in it is generated: the world is drawn in code, and the emblem is the supplied art. The scripts are in
+`scripts/aurixa-teaser/we-are-here/`, and their README says what each does and in what order.
+
+- **One world, one camera** (`space.py`). The camera's path runs through keys on the voice's words, a smooth curve
+  through all of them, so it never jerks and stops only where it is told to. Everything it sees is a deterministic
+  function of time: the core, the five tiers, the threads, the city, the pulse it chases.
+- **Light, as a lens records it.**
+  - Every point and line is drawn in linear light and high range, as a Gaussian of its own width; a line is points a
+    fraction of a pixel apart.
+  - The lens has a focus: what is off it spreads by its circle of confusion and keeps its energy, so a near mote is a
+    wide faint disc and a far one a fine point.
+  - The air dims what is far.
+  - Where the camera moves fast, a frame is the average of up to four moments of a half-frame shutter.
+  - The whole is bloomed, given a soft shoulder, parted a little in colour toward the edges as a lens is, vignetted
+    and grained.
+- **The city is made, not found.** Districts each have their own street grid; a harbour and a river cut through;
+  roads run out with their traffic; and a few towers stand at the heart. It is a fictional city, with no real
+  landmark in it.
+- **The panes and the glass** are _As One_'s (`textures.cjs`), redrawn in the brand's colours and set in the space.
+  Each breaks into Voronoi shards that fly at the lens, turning and catching the light by their angle.
+- **The words** are drawn by Chromium as transparent frames (`type.py`, `type.js`, `type.cjs`). The five tiers' names
+  ride on their rings, from where the space says each ring is, frame by frame (`comp.py --labels`).
 
 ## The brand's rules it keeps
 
-- **Realistic AI scenes are labelled.** A small "Scenes created with AI" sits in the frame's top-left corner throughout.
-- **No people.** No AI person is shown, so none is presented as a client, adviser, broker or expert.
-- **No lettering or fake interface text in the footage.** Every pane is a wireframe with no words, and the only word in
-  one is the tab "AI", as in _As One_.
+- **The brand's colours only**, at the client's instruction: navy, gold and the emblem's ice. _As One_'s panes are
+  redrawn in them.
+- **No AI scene, so no AI label.** Nothing in the film is a generated picture, so "Scenes created with AI" is not
+  needed and not shown.
+- **No people.** No person, real or generated, appears.
+- **No lettering but the script's and the brand's.** The words on screen are the voice's own, the tiers' names (its
+  words, on their rings), the demo record's two tags, the one tab "AI" (as in _As One_) and the emblem's lettering.
 - **No real landmark, and no neon or science-fiction spectacle.** The light is fine, gold and controlled.
 - **The demo record only.** Jordan Ellis and 14 Wattle Grove are the brand kit's demo client and property.
