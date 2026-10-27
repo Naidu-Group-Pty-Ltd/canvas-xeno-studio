@@ -11,9 +11,9 @@ ROOT="$WORK/we-are-here"
 FILM="$ROOT/film"
 mkdir -p "$FILM"
 FRAMES=1092
-# Runs of about equal cost: the panes and their glass, and the camera's fast moves (drawn at more moments of the
-# shutter), take the longest per frame.
-BOUNDS=(0 290 545 810 "$FRAMES")
+# Four runs. The first two are the opening as delivered (part-00000, frames 0-289; part-00290, 290-489), the runs
+# australia.sh keeps and joins to its own from frame 490, so either script's runs join with the other's.
+BOUNDS=(0 290 490 770 "$FRAMES")
 pids=()
 for k in 0 1 2 3; do
   "$PY" -I "$HERE/comp.py" "$WORK" "${BOUNDS[$k]}:${BOUNDS[$((k + 1))]}" > "$FILM/run-$k.log" 2>&1 &

@@ -17,8 +17,13 @@ OUT="$(cd "$OUT" && pwd)"
 FRAMES=1092
 # Four runs of about equal cost: the drop's and the chase's fast moves are drawn at the most moments of the shutter.
 BOUNDS=(490 640 770 930 "$FRAMES")
-for f in part-00000.mkv part-00290.mkv; do
-  [ -s "$KEEP/$f" ] || { echo "$KEEP/$f is missing: the opening's runs are kept as delivered (HANDOFF.md 4.4)" >&2; exit 1; }
+# The opening's runs must hold exactly frames 0-289 and 290-489 (film.sh cuts its runs there too), or the joined
+# picture repeats frames; checked before anything is drawn, by their packets (one a frame).
+for f in part-00000.mkv:290 part-00290.mkv:200; do
+  run="${f%%:*}" want="${f##*:}"
+  [ -s "$KEEP/$run" ] || { echo "$KEEP/$run is missing: the opening's runs are kept as delivered (HANDOFF.md 4.4)" >&2; exit 1; }
+  got=$(ffprobe -v error -count_packets -select_streams v:0 -show_entries stream=nb_read_packets -of csv=p=0 "$KEEP/$run")
+  [ "$got" = "$want" ] || { echo "$KEEP/$run holds $got frames, not $want: draw it again with comp.py (HANDOFF.md 4.4)" >&2; exit 1; }
 done
 pids=()
 for k in 0 1 2 3; do
