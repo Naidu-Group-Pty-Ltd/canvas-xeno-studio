@@ -340,11 +340,20 @@ class Earth:
         cover = np.clip(0.5 - alpha * pose.F, 0, 1)
         navy, ice, gold, warm = (np.asarray(look[k], np.float32) for k in ("navy", "ice", "gold", "warm"))
         det, dawn, haze = float(look["detail"]), float(look["dawn"]), float(look["haze"])
+        # At the city's own scale the sphere's horizon still lies a degree under the horizontal (35 units up over a
+        # radius of 200,000), where the city's flat ground put it at the horizontal: there the sky and its haze are
+        # graded on the true horizontal, as space.backdrop drew them, and the sliver between the two is the ground's
+        # dark; as the system rises (look's "flat" from 1 to 0) the limb's own dip comes in, the horizon falling away.
+        flat = float(look.get("flat", 0.0))
+        grade = alpha - np.float32((math.pi / 2 - rho) * flat)
 
         # ---- the sky: the navy of space, lifting toward the limb, the air's haze along it, and its airglow
-        up = np.sin(np.clip(alpha, 0, None))
+        up = np.sin(np.clip(grade, 0, None))
         sky = navy * (0.3 + 0.7 * np.exp(-up / 0.3))[..., None]
-        band = np.exp(-(alpha / 0.14) ** 2) * 0.7 + np.exp(-(alpha / 0.04) ** 2) * 0.3
+        if flat > 0:
+            sky = np.where((grade < 0)[..., None], navy * (0.28 + 0.4 * np.exp(np.minimum(grade, 0) / 0.1))[..., None],
+                           sky)
+        band = np.exp(-(grade / 0.14) ** 2) * 0.7 + np.exp(-(grade / 0.04) ** 2) * 0.3
         cool = np.array([0.0030, 0.0065, 0.0130], np.float32)
         sky += band[..., None] * cool * haze
         h_km = gr.height(pose.pos)

@@ -643,7 +643,9 @@ class World:
         haze, _ = self.sky(t)
         det = ss(math.log(g.km), math.log(2.0), math.log(6.0))
         dawn = ss(t, T["aurixa"] - 0.6, 45.5)
-        return dict(detail=det, moon=g.direction(self.moon_g), sun=self.sun(t, g), dawn=dawn, haze=haze,
+        # the city's flat horizon, giving way to the limb's dip as the system rises (earth.Earth.plate)
+        flat = 1 - ss(math.log(g.km), math.log(self.rise_km[0]), math.log(0.5))
+        return dict(detail=det, moon=g.direction(self.moon_g), sun=self.sun(t, g), dawn=dawn, haze=haze, flat=flat,
                     navy=NAVY, ice=ICE, gold=GOLD, warm=WARM)
 
     def sun(self, t, g):
