@@ -174,8 +174,9 @@ class Painter:
             sel = b == i
             self.L._add(float(SIGMAS[i]), X[sel], Y[sel], wr[sel], wg[sel], wb[sel])
 
-    def points(self, P, k, rgb, sigma=0.8, max_sigma=22.0):
-        """Points of light: in focus each peaks at k; off focus it spreads and keeps its energy."""
+    def points(self, P, k, rgb, sigma=0.8, max_sigma=22.0, fog=True):
+        """Points of light: in focus each peaks at k; off focus it spreads and keeps its energy (and the air dims it
+        by its distance, unless `fog` is off: the Earth's lights are dimmed by the Earth's own air)."""
         P = np.asarray(P, np.float64).reshape(-1, 3)
         if not len(P):
             return
@@ -193,7 +194,7 @@ class Painter:
         ok = (X > -m) & (X < W + m) & (Y > -m) & (Y < H + m)
         if not ok.any():
             return
-        e = k[ok] * (2 * math.pi * sigma * sigma) * self._fog(z[ok]) * self.w
+        e = k[ok] * (2 * math.pi * sigma * sigma) * (self._fog(z[ok]) if fog else 1.0) * self.w
         self._deposit(X[ok], Y[ok], sig[ok], e * rgb[ok, 0], e * rgb[ok, 1], e * rgb[ok, 2])
 
     def segments(self, A, B, k, rgb, sigma=0.9, spacing=0.6, max_sigma=22.0):
@@ -829,7 +830,8 @@ class World:
         elem = 1 - ss(t, T["ask"], T["becomes"])
         # as the rings are drawn into the core before the drop their details go, and they come back after the burst
         elem *= 1 - (ss(t, d - 0.42, d - 0.14) if t < d else 1 - ss(t, d + 0.18, d + 0.6))
-        end = 1 - 0.75 * ss(t, T["aurixa"] + 0.15, T["aurixa"] + 1.1)
+        # once the emblem has landed the rings go, with the system's triangle: the logo's own rings stay, as it is
+        end = 1 - ss(t, T["aurixa"] + 0.15, T["aurixa"] + 1.1)
         sep = ss(t, T["powerful"], T["own"]) * (t < d)  # the silent bar: each on its own
         bt = self.beat(t)
         th = np.linspace(0, 2 * math.pi, 361)
@@ -1049,9 +1051,10 @@ class World:
     def _triangle(self, pt, t):
         T = self.T
         a = T["becomes"] - 0.05
-        if t < a:
+        # once the emblem has landed the triangle gives way to it entirely, and the logo stays as it is
+        k = 1.0 - ss(t, T["aurixa"] + 0.05, T["aurixa"] + 0.9)
+        if t < a or k <= 0:
             return
-        k = 1.0 * (1 - 0.85 * ss(t, T["aurixa"] + 0.05, T["aurixa"] + 0.7))
         lock = flash(t, T["system"], 0.05, 0.6)
         A, Bl, Br = self.TRI
         for (p, q, t0, t1) in ((A, Bl, a, a + 0.45), (A, Br, a, a + 0.45), (Bl, Br, a + 0.3, T["system"] + 0.05)):

@@ -15,6 +15,9 @@ Writes, in the cache:
       GeoNames' places of 1,000 people or more (CC BY 4.0), all-the-cities 3.1.0 (npm)
   data/au-places.json
       Australia's places, read from cities.pbf by places.py
+  data/region-places.json
+      every place from 100 E to 180 E and 0 to 50 S, with its country (We Are Here's Earth: Australia, New Zealand
+      and their neighbours)
 Keep the cache outside the work's folder: the packages are large, public and fetched again in a minute."""
 import subprocess
 import sys
@@ -58,4 +61,7 @@ places = C / "data/au-places.json"
 if not places.exists():
     places.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run([sys.executable, "-I", str(HERE / "places.py"), str(pbf), str(places)], check=True)
+region = C / "data/region-places.json"
+if not region.exists():
+    subprocess.run([sys.executable, "-I", str(HERE / "places.py"), str(pbf), str(region), "--region"], check=True)
 print("cache ready:", C)
