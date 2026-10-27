@@ -3,14 +3,14 @@
 panes of software and the glass they break into, the one tool that comes apart, the client's context following the
 pulse, the emblem and its pulse at the end, and over all of it the words (type.cjs).
 
-  python3 -I comp.py <work files dir> [first:last] [--frames n,n,...] [--out path] [--cache dir | --city]
+  python3 -I comp.py <work files dir> [first:last] [--frames n,n,...] [--out path] [--cache dir]
   python3 -I comp.py <work files dir> --labels       # where the five tiers' names are, frame by frame, for type.py
 
-Writes we-are-here/film/part-<first>.mkv (x264 at CRF 4, 4:4:4) for a run of frames, or PNGs of single frames
-(--frames, into --out). film.sh joins the runs and lays them on master.wav. (Needs numpy and OpenCV.)
+Writes we-are-here/film/part-<first>.mkv (or --out; x264 at CRF 4, 4:4:4) for a run of frames, or PNGs of single
+frames (--frames, into --out). film.sh joins the runs and lays them on master.wav. (Needs numpy and OpenCV.)
 
-From 21 s the world below is Australia (earth.py), drawn from the map data in the work's cache (<work>/../cache, or
---cache; ../fetch.py fills it). --city draws the city to the end instead, as the version delivered first did.
+The world below the system is Australia (earth.py) from the first frame to the last, drawn from the map data in the
+work's cache (<work>/../cache, or --cache; ../fetch.py and ../terrain.py fill it).
 
 The space is drawn in linear light and in high range: points and lines of light (space.Painter), each spread by its
 own Gaussian and by the lens's focus, through as many moments of a half-frame shutter as the camera's speed needs.
@@ -544,8 +544,8 @@ class Tool:
 
 
 class Film:
-    def __init__(self, work, cache=None, city=False):
-        """cache: the map data (default <work>/../cache); city: the city to the end, with no Earth."""
+    def __init__(self, work, cache=None):
+        """cache: the map data (default <work>/../cache)."""
         self.work = work
         self.root = work / "we-are-here"
         cues = json.loads((work / "sound-as-one" / "cues.json").read_text())
@@ -554,12 +554,11 @@ class Film:
         self.drop = self.clock.drop
         self.bars = cues["bars"]
         self.frames = int(round(cues["length"] * FPS))
-        self.earth = None
-        if not city:
-            cache = Path(cache) if cache else work.parent / "cache"
-            if not (cache / "data" / "region-places.json").exists():
-                sys.exit(f"No map data in {cache}: fill it with ../fetch.py {cache} (or draw the city with --city).")
-            self.earth = earth.Earth(cache)
+        cache = Path(cache) if cache else work.parent / "cache"
+        for need in ("region-places.json", "terrain-6.npy", "terrain-8.npy", "terrain-9.npy"):
+            if not (cache / "data" / need).exists():
+                sys.exit(f"No {need} in {cache}/data: fill it with ../fetch.py {cache}, then ../terrain.py {cache}.")
+        self.earth = earth.Earth(cache)
         self.world = space.World(self.T, self.drop, self.bars, self.earth)
         self.panes = Panes(self.root / "textures", self.T, self.world)
         self.tool = Tool(self.panes.tex["pane-window-2"], self.world, self.T)
@@ -589,9 +588,10 @@ class Film:
 
     def samples(self, t):
         """The moments of a half-frame shutter a frame is drawn at: one while the camera is slow, up to four where it
-        moves fast, by how far points ahead of it move across the frame in the shutter's time; and the moments the
-        Earth's lights are drawn at, by how far its ground in view moves (with the camera, and by the Earth's own
-        motion: the rise, the descent to the chase), so each light streaks rather than leaving a dotted trail."""
+        moves fast (eight in the fastest), by how far points ahead of it move across the frame in the shutter's time;
+        the moments the Earth's lights are drawn at, by how far its ground in view moves (with the camera, and by the
+        Earth's own motion), so each light streaks rather than leaving a dotted trail; and the moments its land is
+        drawn at, so that it blurs as it moves where it moves fast (the drop, the dive to the chase), not strobes."""
         a, b = self.world.pose(t - 0.25 / FPS), self.world.pose(t + 0.25 / FPS)
         look = self.world.c_look(t)
         ring = np.array([[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1], [0, 0, 0]]) * 6.0 + look
@@ -601,28 +601,27 @@ class Film:
         if ok.any():
             d = float(np.max(np.hypot(Xb - Xa, Yb - Ya)[ok]))
             k = 1 if d < 1.0 else 2 if d < 3.0 else 3 if d < 8.0 else 4
-            if self.earth is not None and t >= space.EARTH_FROM and d >= 8.0:
-                # over the Earth the fastest moves (the drop's, the chase's) get the moments they need: at four a
-                # thread moving 20 px in the shutter was drawn as four lines
+            if d >= 8.0:
+                # the fastest moves (the drop's, the chase's) get the moments they need: at four a thread moving 20 px
+                # in the shutter was drawn as four lines
                 k = int(np.clip(np.ceil(d / 3.0), 4, 8))
         else:
             k = 3
         ga, gb, g = self.world.ground(t - 0.25 / FPS), self.world.ground(t + 0.25 / FPS), self.world.ground(t)
         de = 0.0
-        if ga is not None and gb is not None:
-            pose = self.world.pose(t)
-            xs, ys = np.meshgrid(np.linspace(60, W - 60, 6), np.linspace(80, H - 80, 9))
-            ray = pose.ray(xs.ravel(), ys.ravel())
-            P = g.meet(pose.pos, ray / np.linalg.norm(ray, axis=1, keepdims=True))
-            P = P[np.isfinite(P[:, 0])]
-            if len(P):
-                q = g.to_geo(P)
-                Xa, Ya, za = a.project(ga.world(q))
-                Xb, Yb, zb = b.project(gb.world(q))
-                ok = (za > 0.5) & (zb > 0.5)
-                if ok.any():
-                    de = float(np.max(np.hypot(Xb - Xa, Yb - Ya)[ok]))
-        return k, int(np.clip(np.ceil(de / 0.8), k, 24))
+        pose = self.world.pose(t)
+        xs, ys = np.meshgrid(np.linspace(60, W - 60, 6), np.linspace(80, H - 80, 9))
+        ray = pose.ray(xs.ravel(), ys.ravel())
+        P = g.meet(pose.pos, ray / np.linalg.norm(ray, axis=1, keepdims=True))
+        P = P[np.isfinite(P[:, 0])]
+        if len(P):
+            q = g.to_geo(P)
+            Xa, Ya, za = a.project(ga.world(q))
+            Xb, Yb, zb = b.project(gb.world(q))
+            ok = (za > 0.5) & (zb > 0.5)
+            if ok.any():
+                de = float(np.max(np.hypot(Xb - Xa, Yb - Ya)[ok]))
+        return k, int(np.clip(np.ceil(de / 0.8), k, 24)), int(np.clip(np.ceil(de / 2.5), 1, 10))
 
     # ---------------------------------------------------------------- the client's context
 
@@ -655,7 +654,9 @@ class Film:
             cx = x - 40 * s / 0.3 - tw * s if left else x + 40 * s / 0.3
             cy = y - (95 + i * 86) * s / 0.3 + rise
             cx = clamp(cx, 28, W - 28 - tw * s)
-            cy = clamp(cy, 200 + th * s / 2, 1120 - th * s / 2)
+            # kept above the words; the property's tag stays its height above the client's even where both are held
+            # at that edge, so the two never lie on each other
+            cy = clamp(cy, 200 + th * s / 2, 1120 - th * s / 2 - i * 86 * s / 0.3)
             dst = np.array([[cx, cy - th * s / 2], [cx + tw * s, cy - th * s / 2],
                             [cx + tw * s, cy + th * s / 2], [cx, cy + th * s / 2]])
             self.panes._quad_warp(prem * 1.15, a, np.array([[0, 0], [tw, 0], [tw, th], [0, th]], np.float64), dst,
@@ -775,19 +776,18 @@ class Film:
         """The frame's picture and its light, in linear light (before the finish and the words)."""
         T, t = self.T, self.t_of(n)
         L = Light()
-        k, kl = self.samples(t)
+        k, kl, kp = self.samples(t)
         shutter = 0.5 / FPS
         for j in range(k):
             ts = t if k == 1 else t + ((j + 0.5) / k - 0.5) * shutter
             self.world.draw(L, ts, 1.0 / k, lights=False)
         self.world.draw_lights(L, t, kl, shutter)
         pose = self.world.pose(t)
-        g = self.world.ground(t)
-        if g is None:
-            glow, dawn = self.world.sky(t)
-            img = space.backdrop(pose, glow, dawn)
-        else:  # Australia from 21 s: the Earth and the sky as one plate behind the space's light
-            img = self.earth.plate(pose, g, self.world.look(t), W, H)
+        # the Earth and the sky as one plate behind the space's light, at as many moments as its motion needs
+        img = np.zeros((H, W, 3), np.float32)
+        for j in range(kp):
+            ts = t if kp == 1 else t + ((j + 0.5) / kp - 0.5) * shutter
+            img += self.earth.plate(self.world.pose(ts), self.world.ground(ts), self.world.look(ts), W, H) / kp
         if L.used:
             img += L.resolve()
         # the panes, the glass they break into, and the light that lies on them
@@ -892,14 +892,12 @@ class Film:
 def main():
     work = Path(sys.argv[1]).resolve()
     args = sys.argv[2:]
-    cache, city = None, "--city" in args
-    if city:
-        args.remove("--city")
+    cache = None
     if "--cache" in args:
         i = args.index("--cache")
         cache = args[i + 1]
         del args[i:i + 2]
-    film = Film(work, cache, city)
+    film = Film(work, cache)
     if args and args[0] == "--labels":
         out = film.root / "type"
         out.mkdir(parents=True, exist_ok=True)

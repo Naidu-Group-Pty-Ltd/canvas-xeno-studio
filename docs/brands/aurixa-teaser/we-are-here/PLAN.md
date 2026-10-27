@@ -5,10 +5,12 @@ cinematic, with an atmosphere that says "We are here". It keeps _As One_'s scrip
 _National Treasures_, as mixed. It is 45.5 s at 1080 x 1920, like _As One_, and plays at 24 frames a second, the
 cinema's rate.
 
-**The Australia version** (the client's last notes, 6 to 8 below) is the film as it now stands. From 21 s the world
-below the system is Australia at night, seen from orbit, where the delivered version had its city of streets; at the
-end the system's triangle gives way to the logo, and the logo's pulse runs out over the country. Frames 0 to 503
-(0 to 20.96 s) are the delivered film's, unchanged. [`DELIVERY.md`](./DELIVERY.md) has the final and its measures.
+**The third version, Australia throughout** (the client's last note, 9 below) is the film as it now stands. From the
+first frame to the logo the world below the system is Australia: a vibrant topographic relief of the whole continent,
+its land in the brand's gold and steel, its coast drawn by its own shelf seas against the navy ocean. The system
+comes down to it from orbit, its threads reach forty places in every state and territory, and those places link up
+across the country into one network that its pulses run, state to state, faster than the eye can follow the land.
+[`DELIVERY.md`](./DELIVERY.md) has the final and its measures.
 
 ## The brief, as it settled
 
@@ -39,10 +41,17 @@ because the last one is the brief this film answers.
 7. **The triangle goes.** Once the logo has come in at the end, the system's triangle stayed. It must dissipate, and
    the logo remain as it is.
 8. **The pulse stays, with its power.** The pulsing at the end must be there, to carry the power of Aurixa Systems.
+9. **Australia throughout** (after the Australia version was delivered). The background from the start to about 21 s
+   was dull. Bring in a vibrant 3D map of Australia from the very beginning through to the logo, flowing throughout:
+   distinctly topographical, the continent clearly set apart from the space around it by contrasting colour, depth and
+   definition, for realism and prominence. As the systems link together, the connections must move quickly,
+   efficiently and seamlessly across the states: the national reach of one integrated ecosystem. A captivating journey
+   across Australia, vibrant topography with dynamic, interconnected technology.
 
 The photographic versions that answered the first notes are in the repository's history: the city at dawn
-(`b1fbaed`) and the connected platform with its digital twin (`4ff2c35`). This film replaces them, and the
-Australia version replaces the city version delivered first (its file stays in the work's `files/delivery`).
+(`b1fbaed`) and the connected platform with its digital twin (`4ff2c35`). This film replaces them. The versions
+delivered before this one, the city to the end and the Australia version (the city to 21 s, Australia at night after
+it; its code is at `ad68d85`), stay in the work's `files/delivery`.
 
 ## What stays from _As One_
 
@@ -58,73 +67,91 @@ Australia version replaces the city version delivered first (its file stays in t
 ## The concept
 
 **One continuous move, through the system itself.** The whole film is one camera in one world, with no cut. The world
-is the emblem's own: navy space, fine gold lines, and an orb of ice light. The property world is there as little as
-the story needs: far below, a city at night drawn as its streets of light, with a few slender towers at its heart.
+is the emblem's own: navy space, fine gold lines, and an orb of ice light. Below it, from the first frame, lies the
+country the system serves: Australia, seen from orbit as a relief map in the brand's colours.
 
 The film's sign is a core of ice light, the emblem's orb, and about it the platform's five tiers:
 
 - **Research, clients, reports, finance and communication**, each a ring about the core with a life of its own.
 - **Apart**, each turns on its own tilt: powerful on its own.
-- **As one**, they lie in one plane, turn together, and reach down into the city.
+- **As one**, they lie in one plane, turn together, and reach down to every state and territory.
 - **At the end** they stand to face us as the emblem's rings, and the system draws the emblem's triangle about its
   own core. The logo arrives as the system's pulse.
 
 The story is the script's, told in that world. The noise of more software hides the light, and ambition breaks it.
-The five tiers come in one by one and work as one. Their threads reach every part of the property world, and
-intelligence and the client's context move through it and back. The business becomes the system, and the system is
-Aurixa Systems.
+The five tiers come in one by one and work as one. Their threads reach places across the country, which stop being
+separate destinations and link up into one network; intelligence and the client's context move through it and back.
+The business becomes the system, and the system is Aurixa Systems.
 
-## Australia, from 21 s
+## Australia, throughout
 
-The client asked for a realistic satellite view of Australia under the system, in the film's own palette. Daylight
-Australia is ochre, red and green; **Australia at night from orbit** is real satellite imagery (as NASA's night-time
-views and the space station's photographs are) and is already navy, gold and ice: the land in moonlight, deep navy
-with its relief and its plains, the sea darker with the moon's sheen on it, every town's lights in gold, and the air's
-fine line of ice on the limb. The first teaser's orbit had this look, and the client took to it.
+The client asked for a vibrant 3D map of Australia from the first frame to the logo, distinctly topographical and
+clearly set apart from the space around it, in the film's own palette (note 9). Australia by day is ochre, red and
+green; here it is carried into the brand's colours as a relief map lit from orbit.
 
-- **The system stays where it is; the Earth moves.** The core, the five rings, the threads' behaviour, the camera's
-  whole path, the words, the tags, the panes, the tool and the end card are the delivered film's. The Earth's surface
-  lies 30 units under the core, where the city's ground was, and moves on keys of its own: the point under the core,
-  the compass bearing the camera faces there, and its scale (kilometres a unit: the system's height is 30 of them).
-- **The rise (21.0 to 22.25 s, the silent bar).** The system rises out of the city into orbit. The city shrinks about
-  the point under the core into one cluster among the Earth's lights, Canberra's, as the scale grows from the city's
-  own (30 m a unit) to orbit (20 km a unit). The horizon falls and curves into the limb, the land's moonlight and the
-  coast come in, the stars come out below the horizontal, and the drop lands on its end. Through the rise and the
-  drop's swing round the core the Earth turns against the camera, so the view holds north-east, over Sydney's lights,
-  the coast and the moon's sheen on the Tasman.
-- **The journey.** From the drop the system travels north up the east coast, the land flowing toward the camera:
-  from Canberra over the Sydney basin and the ranges to New England, then turning east over the northern coast.
-- **The threads (22.95 to 25.8 s)** reach thirty real places across the country: Dubbo and Banksia Rise (the chase's),
-  Sydney, Melbourne, Brisbane, Adelaide, Hobart, Canberra, Newcastle, Wollongong, the Gold Coast, Geelong, Ballarat,
-  Bendigo, Albury, Wagga Wagga, Orange, Bathurst, Tamworth, Port Macquarie, Coffs Harbour, Toowoomba, Launceston,
-  Mildura, Broken Hill, Mount Gambier, Rockhampton, Townsville, Alice Springs and Cairns. Each falls as before, in a
-  sweep round the system, and lands on its town with a ring laid on the ground; those beyond the horizon arc over it.
-  The towns about each place turn gold as the system reaches it.
-- **The chase (27.85 to 31.9 s).** The pulse runs down a thread to Dubbo, along the ground 269 km over the ranges into
-  Sydney's lights to Banksia Rise (the demo property's pin), and up a thread from there with the client's and the
-  property's tags. The Earth holds still while it runs, in the frame that puts the two places exactly where the
-  city's two were, so the camera's run beside the pulse is the one delivered.
-- **"One" (31.8 to 33.45 s).** The system rises again over the country; a wave of gold crosses it from under the core,
-  each town flaring as it is reached, and on "one" everything lights and a ring runs out over the land.
-- **The end (36.7 s on).** The camera faces the core and the Earth turns east under it: the northern coast's towns
-  lie along the foot of the frame, under the words, and the Tasman runs out to the limb, where the dawn comes up in a
-  thin gold rim behind the emblem as "a new operating standard is coming".
-- **The end card and its pulse** (notes 7 and 8). Once the emblem has landed, the system's triangle and its fine rings
-  fade out completely (40.3 to 41.15 s), and the logo stays as it is. On "Aurixa", on "Systems" and on every bar
-  after it (40.86, 42.72 and 44.58 s, the music's own hits) the logo pulses: its light swells, its orb flares, a ring
-  runs out from the orb with a fine echo behind it, and the beat runs on out over the country, every town it passes
-  flaring.
+- **The land.** Its shape is the real ground's (Mapzen's terrain tiles: 0.3 km a cell over the chase's ranges, 0.6 km
+  over Australia, 2.4 km over the region). Its ranges are drawn taller than they stand, about five times at the
+  chase's height and up to about eighty times from orbit, where a range a kilometre high would otherwise be a shade no
+  eye could find. A key light from the north-north-east, 28 degrees up, lights the slopes that face it and casts the
+  ranges' shadows; the sky's ice fills the rest, less in the valleys. The whole film looks north to east, so the light
+  falls from ahead and to the left and the ranges read as ranges.
+- **Its colours**, carried into the palette from NASA's Blue Marble: the deserts the brand's gold (the red centre is
+  ochre), where the land is green a deep steel between the navy and the ice, pale ground sand, the salt lakes a warm
+  white. Close in, where the frame resolves finer than the Blue Marble, the green lies on the rugged ground (the
+  forest on the ranges and the escarpments, the plains between cleared), so the colour follows the relief.
+- **The coast** is drawn by the sea itself: the shelf seas over the bathymetry (ETOPO1's) lift toward the ice, the
+  deep ocean lies in navy, so the continent stands clear of the space about it, with the air's line of ice on the
+  limb.
+- **The towns' lights** in gold, every place of 1,000 people or more, as before.
+- **The system stays where it is; the Earth moves.** The core, the five rings, the threads' behaviour, the words, the
+  tags, the panes, the tool and the end card are the delivered film's. The Earth's surface lies 30 units under the
+  core and moves on keys of its own, beat by beat with the camera (`space.World._beats`): the point under the core,
+  the compass bearing the camera looks across it, and its scale (kilometres a unit: the system's height is 30 of them).
+
+The journey:
+
+- **The opening (0 to 4.7 s)**: the whole continent from orbit, about 6,400 km up, the camera coming down toward the
+  core as it kindles over the country on "operate" and the Earth brings the east coast under it.
+- **The panes and the five tiers (4.7 to 20.7 s)**: the system comes down over the east coast, and the camera circles
+  the core over the Sydney basin, the Blue Mountains and the coast, about 540 km up, higher over the rings than before
+  so the land fills the frame below them.
+- **The silent bar and the drop (20.7 to 23.7 s)**: the system rises, and the drop lands over the whole country.
+- **The network (22.95 to 26.4 s, "More valuable when they stop behaving like separate destinations")**: seen from
+  about 4,500 km, north up the frame, the system over the heart of the continent. Threads fall in a fast cascade to
+  forty places in every state and territory (Dubbo and Banksia Rise for the chase; the eight capitals, Sydney,
+  Melbourne, Brisbane, Perth, Adelaide, Hobart, Darwin and Canberra; and Newcastle, Wollongong, the Gold Coast,
+  Geelong, Ballarat, Bendigo, Albury, Wagga Wagga, Tamworth, Coffs Harbour, Toowoomba, Rockhampton, Mackay,
+  Townsville, Cairns, Mount Isa, Launceston, Mildura, Broken Hill, Port Augusta, Mount Gambier, Bunbury, Albany,
+  Geraldton, Kalgoorlie, Karratha, Broome, Katherine, Alice Springs and Tennant Creek). As each pair of neighbours is
+  reached, the link between them runs out, fast, from the first to the second: 54 links, each place joined to its own
+  neighbours as roads and lines join towns (the east coast's chain, the Hume, Bass Strait to Tasmania, the Nullarbor
+  to Perth, the west coast to Darwin, the Stuart and the Barkly up the middle). Pulses then race along twelve routes
+  from one state or territory to another (Perth to Sydney, Darwin to Melbourne, Brisbane to Adelaide, Hobart to Cairns
+  and on), 4,200 km a second, a tail of gold behind each. While the network is busiest the land gives it a little
+  room, its light lowered by a quarter. On "destinations" everything flares.
+- **Into New South Wales (25.9 to 27.0 s)**: the Earth comes up to the chase's frame while the camera still looks down
+  on the system, then the camera comes down beside the pulse.
+- **The chase (27.85 to 31.9 s)**: as delivered, now over the ranges in relief: the pulse runs down a thread to
+  Dubbo, 269 km along the ground over the Blue Mountains into Sydney to Banksia Rise (the demo property's pin), and up
+  a thread from there with the client's and the property's tags. The network's pulses run on below.
+- **"One" (31.9 to 34.25 s)**: the system rises over the whole country again; the gold wave crosses it from under the
+  core, lighting every town and link it reaches, and on "one" the whole network flares and a ring runs out over the
+  land.
+- **The end (34.25 s on)**: the Earth turns east under the system, which comes down over inland Queensland. The camera
+  faces the core, about 390 km up: the land runs from the foot of the frame to the coast and the Tasman at the limb,
+  where the dawn comes up in a thin gold rim behind the emblem. The network stays, finer, and every pulse of the logo
+  runs out over the country along it, its towns flaring as it passes.
 
 ## The world
 
 | Thing         | What it is                                                                                                                                                                                                                                                                                                       |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The space     | The brand's navy, deepest overhead, lifting toward a faint haze at the horizon where the city's light hangs in the air. Motes of light drift in it, a few of them sparkles as in the emblem's own sky. At the end the horizon warms toward dawn                                                              |
+| The space     | The brand's navy, deepest overhead, lifting toward the limb, where the air over the lit Earth is a line of ice. Motes of light drift in it, a few of them sparkles as in the emblem's own sky. At the end the dawn comes up on the limb                                                              |
 | The core      | A point of white in a glow of ice: the emblem's orb, where the system begins and ends                                                                                                                                                                                                                          |
 | The five      | Five rings about the core, each with its own life. Research is a scan reading its ring, its points answering. Clients are a constellation of points, joined. Reports are pages gathering on the ring. Finance is a rise of light around its ring, with its flow. Communication is pulses running its ring, and the spokes that join every ring to every other and to the core |
-| The threads   | Fine gold lines from the rings down to the city, and from 21 s to thirty towns across Australia: the system reaching the places it serves                                                                                                                                                                   |
-| The city      | Minimal, and to 21 s. A city at night seen from the air, drawn as its streets of light, district by district on their own grids. A harbour and a river run through it, dark, and roads run out of it with their traffic moving. A few towers stand at its heart, each a column of lit floors. No building is drawn as more than that |
-| The Earth     | From 21 s. Australia at night from orbit: the land in moonlight, deep navy with its relief; the sea darker, the moon's sheen on it; every town's lights in gold; the air's fine line of ice on the limb, and at the end the dawn's gold rim. Public map data, drawn in code                                    |
+| The threads   | Fine gold lines from the rings down to forty places in every state and territory: the system reaching the places it serves. High over the whole country they are drawn finer, and close to the ground the far ones give way                                                                      |
+| The network   | 54 links between the places, each joined to its own neighbours, as fine arcs of pale gold over the ground; pulses racing along twelve routes from one state or territory to another. It forms as the threads reach both ends of each link, flares on "destinations" and on "one", and stays, finer, under the logo |
+| The Earth     | From the first frame. Australia as a relief map lit from orbit: its real topography drawn taller than it stands, lit by a key light with the shadows its ranges cast; its land in the palette (the deserts gold, the green deep steel, pale ground sand, salt white); its shelf seas lifting toward the ice over the navy ocean; every town's lights in gold. Public map data, drawn in code |
 | The noise     | _As One_'s panes of software (windows, dashboards, a strip of tabs, the fourth "AI"), in navy, ice and gold, set in the space before the core                                                                                                                                                                 |
 | The tool      | One pane: "the next tool", which comes apart into light                                                                                                                                                                                                                                                          |
 | The context   | The brand kit's demo record, Jordan Ellis and 14 Wattle Grove, as gold-edged tags                                                                                                                                                                                                                               |
@@ -137,19 +164,19 @@ the drop, at 22.255 s.
 
 | Time (s)    | Voice                                                                             | Picture                                                                                                                                                                                                                                                                                                  |
 | ----------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0.0–4.45    | "The next generation of property professionals will operate differently."        | Low over the city at night, toward the towers at its heart. On "operate" (3.2 s) the core kindles above them, a ring of gold goes out from it and a thread climbs into the sky; the camera rises toward it.                                                                                            |
-| 4.45–13.3   | "Not because they'll use more software, … and not because AI became another tab." | Panes of software crowd the space before the core as the voice names them: windows (4.9 s), dashboards (7.1 s), a strip of tabs whose fourth is "AI" (10.2 s). By "ambition" they have hidden it.                                                                                                     |
+| 0.0–4.45    | "The next generation of property professionals will operate differently."        | The whole of Australia from orbit, its relief in gold and steel, its shelf seas glowing about it, its towns' lights along the east coast. The camera comes down toward the system. On "operate" (3.2 s) the core kindles over the country, a ring of gold goes out from it and a thread climbs into the sky.                                                                                            |
+| 4.45–13.3   | "Not because they'll use more software, … and not because AI became another tab." | Panes of software crowd the space before the core as the voice names them: windows (4.9 s), dashboards (7.1 s), a strip of tabs whose fourth is "AI" (10.2 s). By "ambition" they have hidden it. Behind them the system comes down over the east coast.                                                                                                     |
 | 13.3–15.8   | "At a certain level of ambition, the question changes."                           | On "ambition" the panes break into glass that blows past the lens, and the camera goes through. On "the question changes" (14.7 s) the core flares and a wave of light goes out from it; in its wake five faint rings appear about it.                                                                |
-| 15.8–20.7   | "Research, clients, reports, finance, communication."                             | One view, the camera circling the core. Each tier lights on its word, its name set on its ring as it is said. By "communication" all five work at once, every ring joined to every other and to the core, pulses running through all of them.                                                       |
-| 20.7–22.25  | "Powerful on their own."                                                          | The track falls silent. The rings drift apart, each on its own tilt, their spokes dark, and the camera closes on the core. From 21 s the system rises out of the city into orbit: the city shrinks into Canberra's lights, the horizon falls into the curve of the limb, and Sydney's lights, the coast and the moon's sheen on the Tasman come up. Just before the drop the five are drawn into the core. |
-| 22.255      | (the drop)                                                                        | The core bursts over the coast. The five come out of it as one, in one plane and turning together, with a flash and a ring of light through the space, and the camera is thrown back.                                                                                                                 |
-| 22.95–27.7  | "More valuable when they stop behaving like separate destinations."               | Threads of gold fall from the rings to thirty towns across Australia, one after another all round the system, the far ones arcing over the horizon. Each answers with a ring of light on the ground, and the lights about it turn gold. On "destinations" (25.8 s) every thread flares. The land flows toward the camera as the system travels north. |
-| 27.7–31.8   | "When intelligence can move, when context can follow,"                            | A pulse leaves the outer ring and runs down a thread to Dubbo, the camera beside it. It runs 269 km along the ground over the ranges into Sydney's lights, lighting gold behind it. On "context" the client's and the property's tags come in beside it at Banksia Rise and ride with it up another thread, back to the system and in to the core. |
-| 31.8–34.25  | "when the business can act as one."                                               | The camera rises over the whole. A wave of gold crosses the country from under the core, each town flaring as it is reached, and on "one" (33.45 s, on the bar) everything lights at once: the rings, the threads and the country, and a ring runs out over the land.                                  |
-| 34.25–36.7  | "So don't ask what the next tool is."                                             | Stillness: one pane, a single tool, before the core, the Earth's limb low in the frame. On "is" (35.9 s) it comes apart into motes of its own light, which drift into the system.                                                                                                                     |
-| 36.7–40.25  | "Ask what happens when the business becomes the system."                          | The camera draws back to face the core as the Earth turns east under it. The threads are drawn up out of the country, and the rings stand to face us as the emblem's rings. On "becomes" (38.6 s) three bars of light draw the emblem's triangle about the core, and on "the system" (39.2 s) it locks with a pulse. |
+| 15.8–20.7   | "Research, clients, reports, finance, communication."                             | One view, the camera circling the core over the Sydney basin, the Blue Mountains and the coast. Each tier lights on its word, its name set on its ring as it is said. By "communication" all five work at once, every ring joined to every other and to the core, pulses running through all of them.                                                       |
+| 20.7–22.25  | "Powerful on their own."                                                          | The track falls silent. The rings drift apart, each on its own tilt, their spokes dark, and the camera closes on the core as the system rises over the country. Just before the drop the five are drawn into the core. |
+| 22.255      | (the drop)                                                                        | The core bursts over the country. The five come out of it as one, in one plane and turning together, with a flash and a ring of light through the space, and the camera is thrown back and up over the whole of Australia.                                                                                                                 |
+| 22.95–27.7  | "More valuable when they stop behaving like separate destinations."               | Threads of gold fall in a fast cascade from the rings to forty places in every state and territory, each answering with a ring of light on the ground, the lights about it turning gold. As each pair of neighbours is reached the link between them runs out across the country, and pulses race from state to state along the network. On "destinations" (25.8 s) everything flares; then the Earth comes up to New South Wales. |
+| 27.7–31.8   | "When intelligence can move, when context can follow,"                            | A pulse leaves the outer ring and runs down a thread to Dubbo, the camera beside it. It runs 269 km along the ground over the Blue Mountains into Sydney, lighting gold behind it. On "context" the client's and the property's tags come in beside it at Banksia Rise and ride with it up another thread, back to the system and in to the core. |
+| 31.8–34.25  | "when the business can act as one."                                               | The system rises over the whole country again. A wave of gold crosses it from under the core, each town and link flaring as it is reached, pulses racing the network, and on "one" (33.45 s, on the bar) everything lights at once: the rings, the threads, the network and the country, and a ring runs out over the land.                                  |
+| 34.25–36.7  | "So don't ask what the next tool is."                                             | Stillness: one pane, a single tool, before the core, the land low in the frame. On "is" (35.9 s) it comes apart into motes of its own light, which drift into the system.                                                                                                                     |
+| 36.7–40.25  | "Ask what happens when the business becomes the system."                          | The camera draws back to face the core as the Earth turns east under it, over inland Queensland. The threads are drawn up out of the country, and the rings stand to face us as the emblem's rings. On "becomes" (38.6 s) three bars of light draw the emblem's triangle about the core, and on "the system" (39.2 s) it locks with a pulse. |
 | 40.25–41.5  | "Aurixa Systems."                                                                 | The emblem takes the system's place, the core its orb, and a pulse goes out from the orb as it lands. The triangle and the rings' fine lines dissipate, and the logo stays as it is. Its lettering rises letter by letter, with "Systems" and a second pulse on the bar (40.86 s).                      |
-| 41.85–45.5  | "A new operating standard is coming."                                             | The light circles inside the A in three rings until the orb keeps it, as on _As One_'s end card. The logo beats on the bars (42.72 s, 44.58 s): its light swells, a ring goes through the space from the orb, and the beat runs out over the northern coast's towns below. The dawn comes up on the limb, a thin gold rim behind the emblem. |
+| 41.85–45.5  | "A new operating standard is coming."                                             | The light circles inside the A in three rings until the orb keeps it, as on _As One_'s end card. The logo beats on the bars (42.72 s, 44.58 s): its light swells, a ring goes through the space from the orb, and the beat runs out over the country below along the network, every town it passes flaring. The land runs to the coast and the Tasman at the limb, where the dawn comes up, a thin gold rim behind the emblem. |
 
 ## How it is made
 
@@ -158,40 +185,40 @@ Nothing in it is generated: the world is drawn in code, and the emblem is the su
 
 - **One world, one camera** (`space.py`). The camera's path runs through keys on the voice's words, a smooth curve
   through all of them, so it never jerks and stops only where it is told to. Everything it sees is a deterministic
-  function of time: the core, the five tiers, the threads, the city, the pulse it chases.
+  function of time: the core, the five tiers, the threads, the network, the pulse it chases.
 - **Light, as a lens records it.**
   - Every point and line is drawn in linear light and high range, as a Gaussian of its own width; a line is points a
     fraction of a pixel apart.
   - The lens has a focus: what is off it spreads by its circle of confusion and keeps its energy, so a near mote is a
     wide faint disc and a far one a fine point.
   - The air dims what is far.
-  - Where the camera moves fast, a frame is the average of up to four moments of a half-frame shutter (over the Earth,
-    up to eight in its fastest moves, and the Earth's lights at as many as their own motion needs, so they streak).
+  - Where the camera moves fast, a frame is the average of up to eight moments of a half-frame shutter; the Earth's
+    lights are drawn at as many as their own motion needs, so they streak, and the land at up to ten where it moves
+    fast, so it blurs rather than strobes.
   - The whole is bloomed, given a soft shoulder, parted a little in colour toward the edges as a lens is, vignetted
     and grained.
-- **The city is made, not found.** Districts each have their own street grid; a harbour and a river cut through;
-  roads run out with their traffic; and a few towers stand at the heart. It is a fictional city, with no real
-  landmark in it.
 - **The panes and the glass** are _As One_'s (`textures.cjs`), redrawn in the brand's colours and set in the space.
   Each breaks into Voronoi shards that fly at the lens, turning and catching the light by their angle.
 - **The words** are drawn by Chromium as transparent frames (`type.py`, `type.js`, `type.cjs`). The five tiers' names
   ride on their rings, from where the space says each ring is, frame by frame (`comp.py --labels`).
-- **The Earth is public map data, drawn in code** (`earth.py`), as the first teaser's orbit was: no satellite
-  photograph and no generated picture.
-  - The sky and the ground are one plate, a ray to every pixel: the sky graded on each ray's angle above the limb (so
-    the city's flat horizon and the orbit's curved limb are one sky, and the rise has no seam), the airglow's line,
-    the land in moonlight and the sea with the moon's sheen broken by a swell. Each map is read at each pixel's own
-    footprint, so the coast neither shimmers far off nor aliases at the limb.
+- **The Earth is public map data, drawn in code** (`earth.py`): no satellite photograph and no generated picture.
+  - The sky and the ground are one plate, a ray to every pixel: the sky graded on each ray's angle above the limb, the
+    air's line of ice on the limb, the land lit as a relief map and the sea over its own bathymetry. Each map is read
+    at each pixel's own footprint, so the coast and the relief neither shimmer far off nor alias at the limb.
+  - The relief's light is worked out once for every level of every grid (`earth.Relief`): the key light's shading on
+    each slope, the shadows the ranges cast along the light's way, the sky's light by how open the ground is, and how
+    rugged it is, each at its own exaggeration, which grows with the level's cell.
   - The towns' lights are points of the space, so they keep the lens's focus and the shutter. Each stands for a patch
     of a town's lamps and grows as the camera nears it, so a city keeps its brightness on the frame from orbit down to
     the chase.
-  - The space's paths on the ground (the threads, the chase's run, the rings) are drawn as on the city's flat ground,
-    in the flat picture about the point under the core, and bent onto the sphere, each point keeping its height. The
-    Earth hides what lies behind it.
-  - The data, fetched once into the work's cache by `scripts/aurixa-teaser/fetch.py` from the package registries and
-    read as data: GLOBE's 30-arc-second land mask (NOAA, public domain); NASA's Blue Marble Next Generation and Natural
-    Earth's shaded relief (public domain); and GeoNames' places of 1,000 people or more (CC BY 4.0), for where the
-    lights are and the thirty towns.
+  - The space's paths on the ground (the threads, the chase's run, the rings) are drawn in the flat picture about the
+    point under the core and bent onto the sphere, each point keeping its height; the network's links are arcs over
+    the great circles between their places. The Earth hides what lies behind it.
+  - The data, fetched once into the work's cache by `scripts/aurixa-teaser/fetch.py` and read as data (no package's
+    code is run): GLOBE's 30-arc-second land mask (NOAA, public domain); Mapzen's terrain tiles (AWS Open Data: SRTM
+    and GMTED2010 from the USGS, ETOPO1 from NOAA, Geoscience Australia's and LINZ's models), laid on grids by
+    `scripts/aurixa-teaser/terrain.py`; NASA's Blue Marble Next Generation (public domain); and GeoNames' places of
+    1,000 people or more (CC BY 4.0), for where the lights are and the forty places.
 
 ## The brand's rules it keeps
 
@@ -200,8 +227,8 @@ Nothing in it is generated: the world is drawn in code, and the emblem is the su
 - **No AI scene, so no AI label.** Nothing in the film is a generated picture, so "Scenes created with AI" is not
   needed and not shown. Australia is public map data drawn in code.
 - **Real geography, no landmark.** Australia's coast, relief and towns' lights seen from orbit are what the client asked
-  for; no landmark is drawn as a landmark. GeoNames' data is CC BY 4.0: "GeoNames" is credited wherever the film's
-  credits or description allow ([`DELIVERY.md`](./DELIVERY.md)).
+  for; no landmark is drawn as a landmark. GeoNames' data is CC BY 4.0, and the terrain's sources ask for credit:
+  they are credited wherever the film's credits or description allow ([`DELIVERY.md`](./DELIVERY.md)).
 - **No people.** No person, real or generated, appears.
 - **No lettering but the script's and the brand's.** The words on screen are the voice's own, the tiers' names (its
   words, on their rings), the demo record's two tags, the one tab "AI" (as in _As One_) and the emblem's lettering.
