@@ -4,6 +4,26 @@ Written on 27 October 2026 by the Claude Code session that was making it
 (claude.ai/code/session_01FBVSiSH8istozkpbKdw5MY), at the moment it stopped, so that a session in a new account
 picks it up exactly here. Read all of it before changing anything. Every path is from the repository's root.
 
+> **Done, the same day.** A session in the new account (claude.ai/code/session_01DZHkJBn5z8APAJz2xoqAyf, on branch
+> `claude/eager-goldberg-jyfldk`, fast-forwarded from this one's) took it up from section 0 and carried section 9
+> through to delivery: [`DELIVERY.md`](./DELIVERY.md) has the final and its measures, [`PLAN.md`](./PLAN.md) the
+> Australia view as made. Where it went past this file:
+>
+> - **The chase starts at Dubbo, not Bathurst** (7.2's open question). At 7.86 km a unit the camera ran 55 km over
+>   the ground, the land went soft and Sydney's lights broke into faint dots; from Dubbo (269 km to Banksia Rise,
+>   16.62 km a unit) it runs 116 km up, in the frame that still puts the two places where the city's were.
+> - **The Earth turns against the camera's swing** through the rise and the drop, so the view holds north-east over
+>   Sydney's lights and the Tasman, not the dark inland the camera's path looks at; the journey runs north from
+>   Canberra to New England, and the end looks east over the northern coast's towns (28.7 S, 149.6 E).
+> - **The client's note at the hand-over**, verbatim: "I also saw that in the last message that the Aurixa logo at
+>   the end has been amended and corrected, please also note the the Pulsing factor needs to be there at the end to
+>   enhance the power of Aurixa systems". The logo now beats on "Systems" and on every bar after it, its light and orb
+>   swelling, a ring with an echo through the space, and each beat running out over the country's towns.
+> - **`cues.json` has 24 bars, numbered from 0**: the end's beats are `bars[22]` = 42.72 s and `bars[23]` = 44.58 s
+>   (section 5 put them one bar early; the code always read them right).
+>
+> The rest of this file is as it was written.
+
 ---
 
 ## 0. Start here
