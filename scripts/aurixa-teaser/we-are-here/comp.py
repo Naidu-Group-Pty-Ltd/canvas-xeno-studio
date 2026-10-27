@@ -25,7 +25,8 @@ import cv2
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))  # run with -I: camera.py is beside it
-from camera import FPS, H, W  # noqa: E402
+from camera import FPS, H, W, StillCamera  # noqa: E402
+from twin import Twin  # noqa: E402
 
 # ------------------------------------------------------------------ helpers
 
@@ -621,6 +622,87 @@ class Film:
         self.card_o = (540.0, 382.0)
         tr = {tuple(x["pair"]): x for x in self.edit["transitions"]}[("rise", "sky")]
         self.dissolve = (tr["a"], tr["b"])
+        self.twins = {}
+
+    # ---------------------------------------------------------------- the digital twin and the platform's marks
+
+    def twin(self, key):
+        """A shot's digital twin (twin.py), built the first time it is wanted."""
+        if key not in self.twins:
+            shot = self.src.shots[key]
+            self.twins[key] = Twin(shot, StillCamera(shot), seed=len(self.twins) + 5)
+        return self.twins[key]
+
+    def turn(self, img, L, key, n, cx, cy, R, extra=0.0, dim=0.9, soft=160.0, ring=1.0, scan=None, k=1.0):
+        """The physical picture turned into its digital twin behind a wave of light going out from (cx, cy) to radius
+        R: the picture dims behind the wave (by `dim`), the twin is drawn there, and the wave's front is a ring."""
+        if R <= 0:
+            return img
+        dist = np.hypot(self.xx - cx, self.yy - cy)
+        m = np.clip((R - dist) / soft, 0, 1)
+        img *= (1 - dim * m)[..., None]
+
+        def reveal(pos):
+            return np.clip((R - np.hypot(pos[:, 0] - cx, pos[:, 1] - cy)) / soft, 0, 1)
+
+        self.twin(key).draw(L, n, extra=extra, reveal=reveal, k=k, scan=scan)
+        if ring > 0 and R < 2600:
+            L.ring(cx, cy, R, mixc(ICE, GOLD, 0.25), 0.9 * ring, 1.4)
+            L.ring(cx, cy, R, mixc(ICE, GOLD, 0.25), 0.1 * ring, 14.0)
+        return img
+
+    def layer(self, img, L, key, n, t0, t1, k=0.85):
+        """The platform's layer laid over a world: a scan crosses the frame from top to bottom between t0 and t1, and
+        behind it the world's twin lies over its picture, which stays, a little darker. The scan line is cyan."""
+        t = self.t_of(n)
+        p = lin(t, t0, t1)
+        ys = -80 + ease_in_out(p) * (H + 160)
+        yy = self.yy[:, :1]
+        m = np.clip((ys - yy) / 120.0, 0, 1)
+        img *= (1 - 0.42 * m)[..., None]
+        self.twin(key).draw(L, n, reveal=lambda pos: np.clip((ys - pos[:, 1]) / 120.0, 0, 1), k=k, links=0.25)
+        if 0 < p < 1:
+            L.path([[-10, ys], [W + 10, ys]], 1.3, CYAN, 1.2)
+            L.path([[-10, ys], [W + 10, ys]], 0.16, CYAN, 10.0)
+        return img
+
+    MODULES = ["research", "clients", "reports", "finance", "communication"]
+
+    def glyph(self, L, i, x, y, k, r=26.0):
+        """A module's mark, in gold line: research a scan of a lot, clients a home, reports a page, finance a rise,
+        communication a signal; each in its ring."""
+        if k <= 0.01:
+            return
+        g = GOLD
+        L.ring(x, y, r, g, 1.0 * k, 1.0)
+        L.ring(x, y, r, g, 0.12 * k, 5.0)
+        L.glow(x, y, r * 1.3, g, 0.05 * k)
+        s = r * 0.52
+
+        def line(*pts):
+            L.path(np.array(pts, np.float64) * s + [x, y], 1.2 * k, WARM, 0.9)
+
+        if i == 0:
+            line((-1, -1), (1, -1), (1, 1), (-1, 1), (-1, -1))
+            line((-0.5, 0), (0.5, 0))
+            line((0, -0.5), (0, 0.5))
+        elif i == 1:
+            line((-0.9, 0.85), (-0.9, -0.1), (0, -0.95), (0.9, -0.1), (0.9, 0.85), (-0.9, 0.85))
+            line((-0.25, 0.85), (-0.25, 0.3), (0.25, 0.3), (0.25, 0.85))
+        elif i == 2:
+            line((-0.7, -1), (0.35, -1), (0.75, -0.6), (0.75, 1), (-0.7, 1), (-0.7, -1))
+            for yy in (-0.35, 0.05, 0.45):
+                line((-0.42, yy), (0.45, yy))
+        elif i == 3:
+            for j, hh in enumerate((0.55, 1.0, 1.5)):
+                xx = -0.7 + j * 0.6
+                line((xx, 0.9), (xx, 0.9 - hh), (xx + 0.32, 0.9 - hh), (xx + 0.32, 0.9))
+            line((-0.85, 0.15), (-0.2, -0.3), (0.3, -0.15), (0.9, -0.85))
+        else:
+            L.point(x - 0.55 * s, y + 0.55 * s, 2.0 * k, WARM, 1.4)
+            for j, rr in enumerate((0.55, 1.0, 1.45)):
+                a = np.linspace(-1.35, -0.2, 16)
+                line(*[(-0.55 + rr * math.cos(v), 0.55 + rr * math.sin(v)) for v in a])
 
     # ---------------------------------------------------------------- the five worlds and the shots' own light
 
@@ -672,6 +754,15 @@ class Film:
         # Free: the filament runs up from the crown out of the frame.
         climb = ease_out(lin(t, T["question"] - 0.1, T["changes"] + 0.45))
         filament(L, tx, ty - 3, ty - 3 - (0.12 + 0.88 * climb) * (ty + 60), 1.1 + 0.8 * surge)
+        # On "changes" the question changes the world: the city turns into its digital twin from the crown out, and
+        # the camera flies on into it, a plane of light passing through it ahead of the camera.
+        a = T["changes"] - 0.02
+        if t > a:
+            R = 2400 * ease_out(lin(t, a, a + 0.6))
+            end = self.cut["research"] / FPS
+            fly = 0.92 * ease_in_out(lin(t, a + 0.05, end + 0.05))
+            sweep = 0.95 - 0.9 * lin(t, a + 0.1, end)
+            img = self.turn(img, L, "night-air", n, tx, ty, R, extra=fly, dim=0.9, scan=(sweep, 2.5))
         return img
 
     def research(self, n, L):
@@ -679,21 +770,13 @@ class Film:
         img = self.src.plate("research", n)
         e = self.src.mask("research", "edges", n)
         a = T["names"][0]
-        # A cyan scan down the frame; the lots' edges light as it passes and keep a little of it.
-        p = lin(t, a + 0.02, a + 0.78)
-        ys = -60 + p * (H + 120)
-        yy = self.yy[:, :1]
-        near = np.exp(-((yy - ys) / 26.0) ** 2)
-        passed = (yy < ys).astype(np.float32) * np.exp(-np.clip(ys - yy, 0, None) / 520.0)
-        on = 0 < p < 1
-        edge = e * (1.8 * near + 0.35 * passed) if on else e * 0.3 * lin(t, a, a + 0.8)
-        img += edge[..., None] * np.array(CYAN, np.float32) * 0.9
-        if on:
-            L.path([[-10, ys], [W + 10, ys]], 1.4, CYAN, 1.2)
-            L.path([[-10, ys], [W + 10, ys]], 0.18, CYAN, 9.0)
-            # the beam's wake above the line
-            wake = np.exp(-np.clip(ys - yy, 0, None) / 90.0) * (yy < ys)
-            img += (wake * 0.05)[..., None] * np.array(CYAN, np.float32)
+        # The platform reads the suburb: its scan crosses the frame, its layer lies on the lots behind it, and the lots'
+        # lit edges answer in cyan.
+        img = self.layer(img, L, "research", n, a + 0.02, a + 0.8)
+        p = lin(t, a + 0.02, a + 0.8)
+        ys = -80 + ease_in_out(p) * (H + 160)
+        near = np.exp(-((self.yy[:, :1] - ys) / 26.0) ** 2)
+        img += (e * (1.6 * near * (0 < p < 1) + 0.25 * (self.yy[:, :1] < ys)))[..., None] * np.array(CYAN, np.float32) * 0.8
         # Then the one lot: four corners of gold drawn about it.
         sel = ease_out(lin(t, a + 0.5, a + 0.95))
         if sel > 0:
@@ -712,6 +795,7 @@ class Film:
         img = self.src.plate("clients", n)
         win = self.src.mask("clients", "windows", n)
         a = T["names"][1]
+        img = self.layer(img, L, "clients", n, a + 0.02, a + 0.9)
         up = ss(t, a - 0.05, a + 0.7)
         img += (win * (0.35 + 0.9 * up))[..., None] * img * 1.0
         x, y, _, _ = self.src.at("clients", "door", n)
@@ -723,6 +807,7 @@ class Film:
         img = self.src.plate("reports", n)
         m = self.src.mask("reports", "model", n)
         a = T["names"][2]
+        img = self.layer(img, L, "reports", n, a + 0.02, a + 0.85)
         # A rim of gold climbs the model.
         p = lin(t, a, a + 0.85)
         yb = H * (1.02 - 1.15 * ease_in_out(p))
@@ -736,6 +821,7 @@ class Film:
         img = self.src.plate("finance", n)
         m = self.src.mask("finance", "lights", n)
         a = T["names"][3]
+        img = self.layer(img, L, "finance", n, a + 0.02, a + 0.85)
         # The towers' floors light from the street up: dark above the wave, gold below it.
         p = lin(t, a - 0.02, a + 0.94)
         yw = H * (1.05 - 1.2 * ease_in_out(p))
@@ -751,6 +837,8 @@ class Film:
         img = self.src.plate("comms", n)
         tr = self.src.mask("comms", "trails", n)
         ph = self.src.mask("comms", "phase", n)
+        a = T["names"][4]
+        img = self.layer(img, L, "comms", n, a + 0.02, a + 0.85)
         # Streams of light along the trails, toward the city: pulses travelling up each trail's own length.
         u = ph * 7.0 - t * 2.6
         pulse = np.exp(-((u - np.floor(u) - 0.5) / 0.08) ** 2)
@@ -774,11 +862,16 @@ class Film:
         fade = 1 - ss(t, dest + 0.25, dest + 0.85)
         for name, t0 in zip(names, starts):
             ox, oy, ook, _ = self.src.at("sunrise", name, n)
-            # Each place a light of its own first.
+            # Each place a module of its own first: its mark, lit with a ring going out.
             on = ss(t, t0 - 0.35, t0 - 0.1) * fade
             if on > 0 and -50 < ox < W + 50 and -50 < oy < H + 50:
+                mod = names.index(name)
+                self.glyph(L, mod, ox, oy - 34, on)
                 L.point(ox, oy, 2.2 * on, WARM, 1.4)
-                L.glow(ox, oy, 18, GOLD, 0.2 * on)
+                L.path([[ox, oy], [ox, oy - 8]], 0.8 * on, GOLD, 0.8)
+                pg = lin(t, t0 - 0.35, t0 + 0.4)
+                if 0 < pg < 1:
+                    L.ring(ox, oy - 34, 26 + 60 * ease_out(pg), GOLD, 0.6 * (1 - pg), 1.0)
             g = ease_in_out(lin(t, t0, t0 + 1.45))
             if g <= 0 or fade <= 0:
                 continue
@@ -814,6 +907,15 @@ class Film:
             # It leaves the camera behind, slower than its own speed looks: it is chased, not lost.
             return math.exp(1.25 * max(0.0, tt - t0)) * 0.92
 
+        # Behind the pulses the avenue takes on the platform's layer: intelligence moving through the city, and the
+        # city known as it passes.
+        D1 = pulse_at(T["intelligence"], t) if t > T["intelligence"] else 0.0
+        if D1 > 0:
+            hy = on_road(D1)[1]
+            reach = H - (H - hy) * 1.0
+            self.twin("pulse").draw(L, n, reveal=lambda pos: np.clip((pos[:, 1] - reach) / 260.0, 0, 1)
+                                    * np.clip(1.2 - np.abs(pos[:, 0] - W / 2) / 520.0, 0, 1), k=0.55, links=0.2)
+            img *= (1 - 0.25 * np.clip((self.yy[:, :1] - reach) / 260.0, 0, 1))[..., None]
         for t0, k in ((T["intelligence"], 1.0), (T["move"], 0.8), (T["context"], 0.9)):
             if t < t0 - 0.02 or t > t0 + 2.6:
                 continue
@@ -940,6 +1042,12 @@ class Film:
             L.point(p[0], p[1], 1.5 * k * grow, WARM, 1.4)
             L.glow(p[0], p[1], 12, GOLD, 0.12 * k * grow)
         gathered = ss(t, T["becomes"], T["system"])
+        # "becomes the system": the city turns into its digital twin from the tower out, the whole of it one system.
+        R = 2600 * ease_in_out(lin(t, T["becomes"] - 0.15, T["system"] + 0.2))
+        if R > 0:
+            gone = 1 - ss(n, self.dissolve[0], self.dissolve[1])
+            img = self.turn(img, L, "rise", n, crown[0], crown[1], R, dim=0.85 * gone, k=0.9 * gone,
+                            ring=gone * (1 - lin(t, T["system"], T["system"] + 0.3)))
         beacon(L, crown[0], crown[1], 0.9 + 1.4 * gathered, flare=1.3 * lift + 0.4 * gathered)
         # On "the system", the line of light lifts off the crown and rises out of the frame.
         up = ease_out(lin(t, T["system"], T["system"] + 0.55))

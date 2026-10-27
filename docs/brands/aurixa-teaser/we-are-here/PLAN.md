@@ -37,6 +37,27 @@ Its world is real: a fictional Australian harbour city, its homes, towers, stree
 film would photograph them. Its technology is light that behaves with intent: fine gold filaments, a cool cyan scan
 and five labels, drawn exactly over the footage. It is never neon or spectacle.
 
+## The connected platform
+
+The client's note, while the film was being made (27 October): the teaser brings in a connected platform, so the
+picture must keep in step with the script and show more than buildings. It must show the journey through the world of
+technology and how Aurixa Systems bridges the gap.
+
+So the film has two worlds, and a bridge between them. The physical one is the city of property, photographed. The
+technological one is the same city as the platform knows it: its digital twin (`twin.py`). That is every point of the
+picture placed in its depth and drawn as light, with cool points on its surfaces, brighter outlines along its edges,
+gold where its own lights are, and threads between them. The twin is drawn through the shot's own camera, so it lies
+exactly on the picture, and it can be flown into, as the picture cannot. Where the script turns, the film crosses
+the bridge:
+
+| Line                                            | The bridge                                                                                                                       |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| "the question changes"                          | A wave of light goes out from the tower's crown, and behind it the night city becomes its twin; the camera flies on into it     |
+| "Research, clients, reports, finance, communication" | Each world is read by the platform: a scan crosses it, and behind the scan its twin lies over the photograph, which stays |
+| "separate destinations" (after the drop)        | The five places across the city are the five modules, each its mark in gold (a lot's scan, a home, a page, a rise, a signal), wired to the tower |
+| "When intelligence can move, when context can follow" | The pulses leave the platform's layer on the avenue behind them, and the client's and the property's tags follow           |
+| "the business becomes the system"               | The whole city becomes its twin from the tower out: one connected system, from which the line of light lifts                    |
+
 ## The world
 
 | Thing         | What it is                                                                                                                                                                                                   |
@@ -46,6 +67,7 @@ and five labels, drawn exactly over the footage. It is never neon or spectacle.
 | The noise     | Translucent panes of generic software (windows, dashboards, a strip of tabs, the last one "AI") crowding the air of a dark office. Grey wireframes with no words and no figures                              |
 | The five      | Research: a suburb seen straight down, scanned. Clients: a family home at blue hour. Reports: a scale model on black stone. Finance: towers lighting floor by floor. Communication: a motorway's light trails  |
 | The thread    | The brand's gold (#F5D17A to #C89B3C): a point, a filament, a pulse along a road, lines between places, the network over the city                                                                            |
+| The twin      | The city as the platform knows it: points and outlines of cool light in the city's own depth, its lights in gold with threads between them. The technological world the film journeys through             |
 | The context   | Small gold-edged tags that follow the pulse: the demo record's client and property (Jordan Ellis, 14 Wattle Grove), as the reels show them                                                                  |
 | The dawn      | Sunrise over the city on the drop, gold on the tower tops and mist on the harbour; at the end, the sky above a sea of cloud, navy above and gold at the horizon, behind the emblem                         |
 

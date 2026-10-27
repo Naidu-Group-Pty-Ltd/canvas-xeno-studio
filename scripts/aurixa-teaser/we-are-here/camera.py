@@ -88,21 +88,29 @@ class StillCamera:
                 sy = c["ccy"] + by / s
         return sx.astype(np.float32), sy.astype(np.float32)
 
-    def frame_of(self, n, pts):
-        """Source points (shares of the still) -> where they are in the film's frame (px of 1080 x 1920) at n."""
+    def frame_of(self, n, pts, extra=0.0, with_scale=False, near=None):
+        """Source points (shares of the still) -> where they are in the film's frame (px of 1080 x 1920) at n. `extra`
+        moves the camera further in than the shot's own dolly (into the digital twin, twin.py), `near` gives the
+        points' nearness when it is known (else it is looked up), and with_scale also returns how much each point is
+        magnified, and how near the camera has come to it (1 - travelled / its distance; at 0 it is passed)."""
         c = self.at(n)
         pts = np.asarray(pts, np.float64).reshape(-1, 2)
         px, py = pts[:, 0] * self.ws, pts[:, 1] * self.hs
-        w = cv2.remap(self.depth, px.astype(np.float32).reshape(1, -1), py.astype(np.float32).reshape(1, -1),
-                      cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT).reshape(-1).astype(np.float64)
-        s = self.scale(c["k"], w)
+        if near is None:
+            w = cv2.remap(self.depth, px.astype(np.float32).reshape(1, -1), py.astype(np.float32).reshape(1, -1),
+                          cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT).reshape(-1).astype(np.float64)
+        else:
+            w = np.asarray(near, np.float64)
+        gap = 1.0 - (c["k"] + extra) * (0.15 + 0.85 * w)
+        s = 1.0 / np.maximum(0.2, gap) if not extra else 1.0 / np.maximum(1e-3, gap)
         dx = (px - c["ccx"] - c["truck"] * (w - self.pivot)) * s
         dy = (py - c["ccy"]) * s
         unit = (self.ws / W) / c["zoom"]
         ca, sa = math.cos(-c["ang"]), math.sin(-c["ang"])
         X = (dx * ca - dy * sa) / unit
         Y = (dx * sa + dy * ca) / unit
-        return np.stack([X + W / 2, Y + H / 2], axis=1)
+        out = np.stack([X + W / 2, Y + H / 2], axis=1)
+        return (out, s, gap) if with_scale else out
 
     def px_per_share(self, n):
         """How many film pixels one share of the still's width spans at n (at the centre, before the dolly)."""
