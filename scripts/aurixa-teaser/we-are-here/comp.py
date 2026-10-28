@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """We Are Here, put together frame by frame: the system's space (space.py) drawn through its one camera, with the
 panes of software and the glass they break into, the one tool that comes apart, the client's context following the
-pulse, the emblem and its pulse at the end, and over all of it the words (type.cjs).
+pulse, the emblem at the end with its pulse and the light of its arrival (shafts of light, a flare, the sweeps across
+it, the dawn's star), and over all of it the words and the tiers' boxes (type.cjs), frosted glass under each box.
 
   python3 -I comp.py <work files dir> [first:last] [--frames n,n,...] [--out path] [--cache dir]
-  python3 -I comp.py <work files dir> --labels       # where the five tiers' names are, frame by frame, for type.py
+  python3 -I comp.py <work files dir> --labels       # where each tier's box joins its ring, frame by frame, for type.py
 
 Writes we-are-here/film/part-<first>.mkv (or --out; x264 at CRF 4, 4:4:4) for a run of frames, or PNGs of single
-frames (--frames, into --out). film.sh joins the runs and lays them on master.wav. (Needs numpy and OpenCV.)
+frames (--frames, into --out). film.sh joins the runs and lays them on the soundtrack. (Needs numpy and OpenCV.)
 
 The world below the system is Australia (earth.py) from the first frame to the last, drawn from the map data in the
 work's cache (<work>/../cache, or --cache; ../fetch.py and ../terrain.py fill it).
@@ -568,6 +569,18 @@ class Film:
         rng = np.random.default_rng(11)
         self.grain = [cv2.GaussianBlur(rng.normal(0, 1, (H, W)).astype(np.float32), (0, 0), 0.7) for _ in range(6)]
         yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
+        self.xx, self.yy = xx, yy
+        # The light breaking out behind the emblem as it lands: shafts from the orb, a fixed pattern of them by angle
+        # (sixty, each its own width and strength), turning slowly.
+        rng = np.random.default_rng(17)
+        ang = np.linspace(0, 2 * math.pi, 4096, endpoint=False)
+        lut = np.zeros(4096, np.float32)
+        for th, w, a in zip(rng.uniform(0, 2 * math.pi, 60), rng.uniform(0.006, 0.03, 60), rng.uniform(0.25, 1.0, 60) ** 2):
+            d = np.angle(np.exp(1j * (ang - th)))
+            lut += a * np.exp(-(d / w) ** 2)
+        self.ray_lut = (lut / lut.max()).astype(np.float32)
+        self._logo = None
+        self._boxes = None
         self.vignette = (1 - 0.2 * (((xx - W / 2) / (W / 2)) ** 2 * 0.7 + ((yy - H / 2) / (H / 2)) ** 2)).clip(0, 1)
         # A real lens parts its colours a little toward the frame's edges: red out, blue in, half a pixel at most.
         self.ca = {}
@@ -686,6 +699,10 @@ class Film:
             self.paste_light(img, self.emblem, (X0, Y0, X1, Y1),
                              0.9 * e * (1 + 0.6 * flash(t, T["aurixa"] + 0.35, 0.1, 0.8) + 0.32 * beat))
             L.glow(ox, oy, 220, CYAN_HOT, (0.04 + 0.025 * beat) * e)
+            # its light breaking out behind it as it lands, in shafts from the orb, and again a little on every beat;
+            # and a streak of it through the orb, as a lens takes a light that bright
+            self.rays(img, ox, oy, t, e * (0.85 * flash(t, T["aurixa"] + 0.06, 0.12, 1.0) + 0.022 + 0.11 * beat))
+            L.streak(ox, oy, 560, (0.80, 0.97, 1.0), 1.3 * e * flash(t, T["aurixa"] + 0.04, 0.05, 0.6))
         # Its lettering, letter by letter: AURIXA on "Aurixa", SYSTEMS on "Systems".
         for i, Lr in enumerate(self.letters):
             first = i < 6
@@ -697,6 +714,8 @@ class Film:
             X0, Y0 = self.art_to_film(Lr["l"], Lr["y0"])
             X1, Y1 = self.art_to_film(Lr["r"], Lr["y1"])
             self.paste_over(img, self.lettering, (Lr["l"], Lr["y0"], Lr["r"], Lr["y1"]), (X0, Y0 + dy, X1, Y1 + dy), f)
+        # Light sweeping across the logo's metal: once its name is in, and once more on the last bar.
+        self.sheen(img, t)
         # The light in the orb: three rings circle inside the A, each faster as it tightens, and close on the orb one
         # after another; the orb takes each in and keeps the light, breathing.
         if gather > 0.4:
@@ -742,6 +761,92 @@ class Film:
                 behind = np.mod(a0 - phis, 2 * math.pi)
                 kk = 0.55 * kept * breath * (0.18 + np.exp(-behind / 1.4))
                 L.path(np.stack([ox + rr * np.cos(phis), oy - rr * np.sin(phis)], 1), kk, CYAN_HOT, 1.15)
+
+    def rays(self, img, ox, oy, t, k):
+        """Shafts of light from the orb (ox, oy), out through the space about the emblem and behind it, k their
+        strength: the shafts' pattern by angle (self.ray_lut), turning slowly, each fading as it reaches out, pale
+        ice at the orb and the system's cyan at their ends."""
+        if k <= 0.003:
+            return
+        dx, dy = self.xx - ox, self.yy - oy
+        r = np.sqrt(dx * dx + dy * dy) + 1e-3
+        th = np.mod(np.arctan2(dy, dx) + 0.05 * t, 2 * math.pi)
+        shaft = self.ray_lut[(th * (4096 / (2 * math.pi))).astype(np.int32) % 4096]
+        fall = np.exp(-r / 380.0) * (1 - np.exp(-(r / 60.0) ** 2))
+        light = (shaft * fall * k)[..., None]
+        out = np.clip(r / 650.0, 0, 1)[..., None]
+        logo = self.logo_mask()
+        img += light * (1 - 0.85 * logo[..., None]) * (np.array(ICE, np.float32) * (1 - out)
+                                                        + np.array(CYAN, np.float32) * 0.6 * out)
+
+    def logo_mask(self):
+        """Where the logo's metal is on the frame (0 to 1): the emblem's and the lettering's light, each where it lies
+        at rest, for the light that sweeps it and the shafts that pass behind it."""
+        if self._logo is None:
+            m = np.zeros((H, W), np.float32)
+            x0, y0, x1, y1 = self.art["emblem_crop"]
+            X0, Y0 = self.art_to_film(x0, y0)
+            X1, Y1 = self.art_to_film(x1, y1)
+            rgb, a = self.emblem
+            lum = (rgb @ np.array([0.2126, 0.7152, 0.0722], np.float32)) * a
+            sx, sy = (X1 - X0) / lum.shape[1], (Y1 - Y0) / lum.shape[0]
+            m += cv2.warpAffine(lum, np.array([[sx, 0, X0], [0, sy, Y0]], np.float32), (W, H),
+                                flags=cv2.INTER_AREA if sx < 1 else cv2.INTER_LINEAR)
+            rgb, a = self.lettering
+            lum = (rgb @ np.array([0.2126, 0.7152, 0.0722], np.float32)) * a
+            for Lr in self.letters:
+                l, t0, r, b = [int(round(v)) for v in (Lr["l"], Lr["y0"], Lr["r"], Lr["y1"])]
+                X0, Y0 = self.art_to_film(Lr["l"], Lr["y0"])
+                X1, Y1 = self.art_to_film(Lr["r"], Lr["y1"])
+                crop = lum[t0:b, l:r]
+                sx, sy = (X1 - X0) / crop.shape[1], (Y1 - Y0) / crop.shape[0]
+                m += cv2.warpAffine(crop, np.array([[sx, 0, X0], [0, sy, Y0]], np.float32), (W, H),
+                                    flags=cv2.INTER_LINEAR)
+            self._logo = np.clip(m / max(float(np.percentile(m[m > 0.01], 99)), 1e-3), 0, 1) ** 0.8
+        return self._logo
+
+    def sheen(self, img, t):
+        """Light sweeping across the logo's metal, a slanted band of it from left to right: once its name is all in,
+        and once more on the last bar."""
+        T = self.T
+        for t0, dur, k in ((T["systems"] + 0.45, 0.95, 1.6), (self.bars[23] + 0.04, 0.85, 1.25)):
+            u = lin(t, t0, t0 + dur)
+            if not 0 < u < 1:
+                continue
+            n = (math.cos(math.radians(-24)), math.sin(math.radians(-24)))  # the band's normal: it leans to the right
+            span = self.xx * n[0] + self.yy * n[1]
+            a, b = -250.0, 1250.0
+            pos = a + (b - a) * ease_in_out(u)
+            band = np.exp(-((span - pos) / 46.0) ** 2) + 0.35 * np.exp(-((span - pos) / 150.0) ** 2)
+            img += ((band * self.logo_mask() * k * math.sin(math.pi * u) ** 0.5)[..., None]
+                    * np.array((1.0, 0.96, 0.88), np.float32))
+
+    def sunrise(self, img, t, pose):
+        """The sun breaking over the limb on the last bar: its disc's light, held to the sky over the limb, and the
+        lens's streak and star of it."""
+        if t < self.bars[23] - 0.8:
+            return
+        s, above = self.world.sunrise(t)
+        X, Y, z = pose.project(pose.pos[None, :] + s[None, :] * 5000.0)
+        if z[0] <= 0:
+            return
+        k = ss(above, -0.3, 0.4)
+        if k <= 0.002:
+            return
+        x, y = float(X[0]), float(Y[0])
+        sky = Light()
+        sky.glow(x, y, 6.0, (1.0, 0.97, 0.9), 9.0 * k)
+        sky.glow(x, y, 34.0, (1.0, 0.86, 0.62), 0.9 * k)
+        sky.glow(x, y, 160.0, (1.0, 0.72, 0.32), 0.12 * k)
+        over = 1 - 0.9 * getattr(self.earth, "cover", np.zeros((H, W), np.float32))
+        img += sky.resolve() * over[..., None]
+        lens = Light()
+        lens.streak(x, y, 820.0, (1.0, 0.9, 0.72), 1.1 * k)
+        for a_, ln in ((30, 210), (90, 260), (150, 210), (210, 210), (270, 160), (330, 210)):
+            d = np.array([math.cos(math.radians(a_)), -math.sin(math.radians(a_))])
+            pts = np.array([x, y]) + np.linspace(0, ln, 40)[:, None] * d
+            lens.path(pts, np.linspace(0.9, 0.0, 40) ** 1.5 * k, (1.0, 0.93, 0.8), 0.9)
+        img += lens.resolve()
 
     def paste_light(self, img, pic, box, k):
         """A picture's light, added (As One's emblem): its colour times its own alpha, scaled into box."""
@@ -795,6 +900,7 @@ class Film:
         if T["so"] < t < T["ask"] + 1.5:
             self.tool.draw(self.panes, img, front, t)
         self.context_tags(img, t)
+        self.sunrise(img, t, pose)
         if t > T["aurixa"] - 0.4:
             self.card(img, front, t)
         if front.used:
@@ -864,7 +970,34 @@ class Film:
         srgb = srgb + (g * amt)[..., None]
         return np.clip(srgb, 0, 1)
 
+    def glass(self, srgb, n):
+        """Frosted glass under the five tiers' boxes (type/boxes.json, from type.py): the picture behind each blurred,
+        as far as the box shows, so the box reads as glass over the space and not as a card laid on it."""
+        if self._boxes is None:
+            path = self.root / "type" / "boxes.json"
+            self._boxes = json.loads(path.read_text()) if path.exists() else {}
+        bx = self._boxes
+        rows = bx.get("frames", {}).get(str(n))
+        if not rows or max(r[3] for r in rows) <= 0.002:
+            return srgb
+        blur = cv2.GaussianBlur(srgb, (0, 0), 18)
+        mask = np.zeros((H, W), np.float32)
+        for cx, cy, s, o in rows:
+            if o <= 0.002:
+                continue
+            w, h, r = bx["w"] * s, bx["h"] * s, bx["r"] * s
+            x0, x1 = int(max(0, cx - w / 2 - 2)), int(min(W, cx + w / 2 + 3))
+            y0, y1 = int(max(0, cy - h / 2 - 2)), int(min(H, cy + h / 2 + 3))
+            if x0 >= x1 or y0 >= y1:
+                continue
+            qx = np.abs(self.xx[y0:y1, x0:x1] + 0.5 - cx) - (w / 2 - r)
+            qy = np.abs(self.yy[y0:y1, x0:x1] + 0.5 - cy) - (h / 2 - r)
+            d = np.hypot(np.maximum(qx, 0), np.maximum(qy, 0)) + np.minimum(np.maximum(qx, qy), 0) - r
+            mask[y0:y1, x0:x1] = np.maximum(mask[y0:y1, x0:x1], np.clip(0.5 - d, 0, 1) * o)
+        return srgb * (1 - mask[..., None]) + blur * mask[..., None]
+
     def words(self, srgb, n):
+        srgb = self.glass(srgb, n)
         path = self.type_dir / f"{n:05d}.png"
         if not path.exists():
             return srgb
@@ -876,14 +1009,18 @@ class Film:
         return self.words(self.finish(self.picture(n), n), n)
 
     def labels(self):
-        """Where each tier's name goes, frame by frame, while the five come in: for type.py."""
+        """Where each tier's box joins its ring, and where the core is, frame by frame, while the five come in: for
+        type.py."""
         T = self.T
         a, b = int(math.floor((T["names"][0] - 0.2) * FPS)), int(math.ceil((T["powerful"] + 0.3) * FPS))
-        frames = {}
+        frames, core = {}, {}
         for n in range(a, b + 1):
             frames[n] = [[round(l["x"], 1), round(l["y"], 1), round(l["k"], 3), l["dx"], l["dy"]]
                          for l in self.world.labels(n / FPS)]
-        return {"fps": FPS, "first": a, "last": b, "names": [t.upper() for t in space.TIERS], "frames": frames}
+            X, Y, _ = self.world.pose(n / FPS).project(np.zeros((1, 3)))
+            core[n] = [round(float(X[0]), 1), round(float(Y[0]), 1)]
+        return {"fps": FPS, "first": a, "last": b, "names": [t.upper() for t in space.TIERS], "frames": frames,
+                "core": core}
 
 
 def main():
@@ -899,7 +1036,7 @@ def main():
         out = film.root / "type"
         out.mkdir(parents=True, exist_ok=True)
         (out / "labels.json").write_text(json.dumps(film.labels()))
-        print(f"{out / 'labels.json'}: the tiers' names, frame by frame")
+        print(f"{out / 'labels.json'}: where the tiers' boxes join their rings, frame by frame")
         return
     frames = None
     out = None

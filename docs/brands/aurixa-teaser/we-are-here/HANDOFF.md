@@ -10,8 +10,10 @@ picks it up exactly here. Read all of it before changing anything. Every path is
 > rebuilt for it (`space.World._beats`, `earth.Relief`). Then by its fourth version (note 10): everything the system
 > draws is electric cyan, and the soundtrack is mixed again by the studio's mixer with the music dipped under the voice
 > (`soundtrack.ts`). So the rule below of the brand's colours only now holds for the world and the brand, not the
-> system's light. [`DELIVERY.md`](./DELIVERY.md) has the final. What follows describes the Australia version, whose
-> code is at `ad68d85`.
+> system's light. Then by its fifth version (notes 11 and 12): the country lies in the night until the system's light
+> runs out over it, the five tiers are boxes of glass about the core, and the film has a sound design of its own
+> (`sfx.py`), so the moonlit night below is back for the opening's first three seconds. [`DELIVERY.md`](./DELIVERY.md)
+> has the final. What follows describes the Australia version, whose code is at `ad68d85`.
 >
 > **Done, the same day.** A session in the new account (claude.ai/code/session_01DZHkJBn5z8APAJz2xoqAyf, on branch
 > `claude/eager-goldberg-jyfldk`, fast-forwarded from this one's) took it up from section 0 and carried section 9

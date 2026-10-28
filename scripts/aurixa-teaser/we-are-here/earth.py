@@ -54,6 +54,8 @@ LAND_SALT = WARM * 1.05
 # The light on it: the key (a warm white, the sun's) and the sky (the ice), and how strong each is.
 KEY_COL = np.array([1.0, 0.93, 0.80], np.float32)
 KEY_K, SKY_K = 0.62, 0.16
+# Moonlight on the land at night: a cool light of the same brightness as the colour it takes the place of.
+MOON = (np.array([0.62, 0.80, 1.0], np.float32) / np.float32(0.2126 * 0.62 + 0.7152 * 0.80 + 0.0722 * 1.0)) * 0.85
 # The sea over the shelf, where it is shallow: a deep ice between the navy and the emblem's ice.
 SHELF = NAVY * 3.0 + ICE * 0.012
 
@@ -484,8 +486,10 @@ class Earth:
         """The Earth and the sky at one pose, in linear light (H x W x 3).
 
         look: day (the light on the land, 0 to 1: all of the key light's and half of the sky's go with it), dawn (0 to
-        1) with the sun (a world direction) just under the limb, haze (the air's light), and the space's colours
-        (navy, ice, gold, warm)."""
+        1) with the sun (a world direction) just under the limb, haze (the air's light), the space's colours (navy,
+        ice, gold, warm), and the light coming on (wave, or none): night (the day before it, a share of day), g (the
+        point it runs out from, the Earth's own unit vector), r (how far it has run, km), w (its edge's softness, km),
+        front (its edge's flare, 0 to 1, fw km wide) and all (0 to 1: the rest of the world lit as it finishes)."""
         r, u, f = pose.R
         vx = (np.arange(W, dtype=np.float64) + 0.5 - pose.cx) / pose.F
         vy = -(np.arange(H, dtype=np.float64) + 0.5 - pose.cy) / pose.F
@@ -500,6 +504,9 @@ class Earth:
         cover = np.clip(0.5 - alpha * pose.F, 0, 1)
         navy, ice, gold, warm = (np.asarray(look[k], np.float32) for k in ("navy", "ice", "gold", "warm"))
         day, dawn, haze = float(look["day"]), float(look["dawn"]), float(look["haze"])
+        wave = look.get("wave")
+        # the air's own light on the limb waits for the land's
+        day_sky = day if wave is None else day * (wave["night"] + (1 - wave["night"]) * wave["all"])
 
         # ---- the sky: the navy of space, lifting toward the limb; over the lit Earth the air seen edge on along the
         # limb, the brightest of the sky, in ice, falling away into space; and the airglow's fine line 92 km up
@@ -511,7 +518,7 @@ class Earth:
         px = 1.0 / (gr.km * dist_c)  # radians a km of height at the limb
         hk = np.clip(alpha, 0, None) / px  # km over the limb, along the sight line
         edge = alpha > -2 / pose.F
-        sky += ((np.exp(-hk / 14.0) * 0.07 + np.exp(-hk / 60.0) * 0.012) * edge * day)[..., None] * ice * haze
+        sky += ((np.exp(-hk / 14.0) * 0.07 + np.exp(-hk / 60.0) * 0.012) * edge * day_sky)[..., None] * ice * haze
         rho_a = math.asin(min(1.0, (gr.R + 92.0 / gr.km) / dist_c))
         sky += (np.exp(-((alpha - (rho_a - rho)) / (6.0 * px)) ** 2) * 0.012)[..., None] * ice * haze
         if dawn > 0:
@@ -553,8 +560,21 @@ class Earth:
             key, fill, hgt, rug = self.relief.sample(lat, lon, km_px)
             base = np.maximum(ground_colour(self.classes.sample(lat, lon, km_px), rug,
                                             np.clip((6.0 - km_px) / 4.0, 0, 1)), 0)
-            # the land: its own colour, lit by the key light on its slopes toward it and the sky's ice on the rest
-            land_c = base * (KEY_COL * (KEY_K * day * key)[:, None] + ice * (SKY_K * (0.5 + 0.5 * day) * fill)[:, None])
+            # the land: its own colour, lit by the key light on its slopes toward it and the sky's ice on the rest;
+            # while the light comes on, night where it has not yet run, and its edge flaring on the relief it reaches
+            dayv, front = day, None
+            if wave is not None:
+                d_km = np.arccos(np.clip(g @ np.asarray(wave["g"], np.float64), -1, 1)) * RE
+                lit = np.clip((wave["r"] - d_km) / wave["w"] + 0.5, 0, 1)
+                lit = np.maximum(lit * lit * (3 - 2 * lit), wave["all"]).astype(np.float32)
+                dayv = (day * (wave["night"] + (1 - wave["night"]) * lit)).astype(np.float32)
+                front = (np.exp(-((d_km - wave["r"]) / wave["fw"]) ** 2) * wave["front"]).astype(np.float32)
+                # by night the land has no colour of its own but the moon's: its brightness, cool
+                moon = (base @ np.array([0.2126, 0.7152, 0.0722], np.float32))[:, None] * MOON
+                base = base * lit[:, None] + moon * (1 - lit)[:, None]
+            land_c = base * (KEY_COL * (KEY_K * dayv * key)[:, None] + ice * (SKY_K * (0.5 + 0.5 * dayv) * fill)[:, None])
+            if front is not None:
+                land_c += base * (KEY_COL * (KEY_K * 1.15 * front * (0.35 + key))[:, None])
             # the sea: the navy, deepest over the abyss, its shallows over the shelf lifting toward the ice
             depth = np.minimum(hgt, 0.0)
             sea_c = (navy * (0.55 + 0.35 * np.exp(depth / 1500.0))[:, None]
@@ -571,6 +591,7 @@ class Earth:
                 + (band.ravel()[idx] * haze)[:, None] * cool
             cv_ = cover.ravel()[idx][:, None]
             img[idx] = img[idx] * (1 - cv_) + surf.astype(np.float32) * cv_
+        self.cover = cover  # where the ground is, for what lies beyond the limb (the sun at the end)
         return img.reshape(H, W, 3)
 
     # -------------------------------------------------------------- the towns' lights, as points of the space

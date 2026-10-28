@@ -9,10 +9,12 @@ it.
 
 The system stays where it is and the Earth moves under it, on keys of its own (World._beats): how high the system
 stands over the country, over which place, and which way the camera looks. It opens on the whole continent from
-orbit, comes down over the east coast while the five tiers come in, rises in the silent bar so the drop lands over all
-of it, sends its threads to forty places in every state and territory, which link up with each other across the
-country (World._network), goes down with the pulse the camera chases into Sydney, rises again for "one", and turns
-east over the land toward the dawn for the end.
+orbit at night, until on "operate" the system's light runs out over it (World.light_wave), comes down over the east
+coast while the five tiers come in, rises in the silent bar so the drop lands over all of it, sends its threads to
+forty places in every state and territory, which link up with each other across the country and carry its traffic
+(World._network), goes down with the pulse the camera chases into Sydney, rises again for "one", when a beam of light
+stands up from every place, draws the country's light up its threads into the core, and turns east over the land
+toward the dawn for the end.
 
 Everything is light, drawn in linear light and high range (comp.Light): a point is a Gaussian of its own width,
 a line is points a fraction of a pixel apart. The camera is a lens: what is off its focus spreads (its circle of
@@ -594,12 +596,41 @@ class World:
         # while the network is at its busiest over the whole country the land gives it a little room
         busy = max(ss(t, self.drop + 0.4, self.drop + 1.4) * (1 - ss(t, T["destinations"] + 0.5, T["when"])),
                    ss(t, T["business"] - 0.1, T["business"] + 0.6) * (1 - ss(t, T["so"] - 0.2, T["so"] + 0.5)))
+        lw = self.light_wave(t)
+        wave = None if lw is None else dict(g=self.op_g, r=lw[0], w=self.LIGHT_EDGE[0], fw=self.LIGHT_EDGE[1],
+                                             front=lw[1], all=lw[2], night=self.LIGHT_NIGHT)
         return dict(day=1.0 - 0.28 * busy, sun=self.sun(t, g), dawn=ss(t, T["aurixa"] - 0.6, 45.5),
-                    haze=1.0 + 0.6 * flash(t, T["one"], 0.05, 0.8), navy=NAVY, ice=ICE, gold=GOLD, warm=WARM)
+                    haze=1.0 + 0.6 * flash(t, T["one"], 0.05, 0.8), navy=NAVY, ice=ICE, gold=GOLD, warm=WARM,
+                    wave=wave)
+
+    # The film opens on the country at night, its towns' lights the only light on it; on "operate" the system comes on
+    # and its light runs out over the land from under the core, the relief flaring as it reaches it, until the whole
+    # continent lies in the day the rest of the film is in.
+    LIGHT_NIGHT = 0.07  # the land's light before it comes on, a share of the day's: the sky's ice, as moonlight
+    LIGHT_RUN = (1700.0, 120.0, 2.6)  # it runs 1,700 km in its first second, slowing by 120 km/s each second, 2.6 s
+    LIGHT_EDGE = (300.0, 130.0)  # its edge's softness, and the width of the flare along it (km)
+
+    def light_wave(self, t):
+        """The light coming on at t: how far it has run (km), its edge's flare (0 to 1) and how far the rest of the
+        world is lit (0 to 1); None once it is all day."""
+        t0 = self.T["operate"] + 0.04
+        v, slow, dur = self.LIGHT_RUN
+        if t > t0 + dur + 0.3:
+            return None
+        tau = clamp(t - t0, 0.0, dur)
+        r = v * tau - slow * tau * tau if t >= t0 else -3 * self.LIGHT_EDGE[0]
+        front = (1 - tau / dur) ** 0.6 * (t >= t0)
+        return r, front, ss(t, t0 + 1.4, t0 + dur + 0.3)
 
     def sun(self, t, g):
-        """The sun at the end: straight ahead of the camera, under the limb by 3 degrees as the emblem lands and by
-        0.6 at the last frame."""
+        """The sun at the end: straight ahead of the camera, under the limb by 3 degrees as the emblem lands, nearing
+        it, and breaking over it on the last bar (World.sunrise)."""
+        return self.sunrise(t, g)[0]
+
+    def sunrise(self, t, g=None):
+        """The sun at the end and how far over the limb it stands (degrees, negative under it): 3 under as the emblem
+        lands, at the limb on the last bar, and half a degree over it, its first light, at the last frame."""
+        g = self.ground(t) if g is None else g
         pos = self.pose(t).pos
         lo, hi = 0.0, math.pi / 2  # the limb's depression straight ahead, by bisection on the tangent ray
         for _ in range(40):
@@ -609,8 +640,10 @@ class World:
                 hi = e
             else:
                 lo = e
-        e = lo + math.radians(3.0 - 2.4 * ss(t, self.T["aurixa"] - 0.6, 45.5))
-        return np.array([0.0, -math.sin(e), -math.cos(e)])
+        last = self.bars[23]
+        under = 3.0 * (1 - ease_in_out(lin(t, self.T["aurixa"] - 0.6, last))) - 0.5 * ease_out(lin(t, last, 45.5))
+        e = lo + math.radians(under)
+        return np.array([0.0, -math.sin(e), -math.cos(e)]), -under
 
     def _places(self):
         """The places the threads reach (PLACES), held as the Earth's own unit vectors so they travel with it, and
@@ -648,6 +681,9 @@ class World:
         self.e_wave = np.arccos(np.clip(E.light_g @ self.one_g, -1, 1)) * geo_earth.RE
         self.end_g = self.ground(T["aurixa"]).M[1].copy()
         self.e_end = np.arccos(np.clip(E.light_g @ self.end_g, -1, 1)) * geo_earth.RE
+        # the light that comes on over the country on "operate" runs out from the point under the core then
+        self.op_g = self.ground(T["operate"]).M[1].copy()
+        self.e_op = np.arccos(np.clip(E.light_g @ self.op_g, -1, 1)) * geo_earth.RE
         self.end_pulses = (T["aurixa"], T["systems"] + 0.05, self.bars[22], self.bars[23])
 
     # -------------------------------------------------------------- the national network
@@ -702,6 +738,14 @@ class World:
         self.link_lift = np.concatenate(lift_all)
         self.link_slices, self.link_len = slices, np.array(length)
         self.link_on, self.link_dur, self.link_ends = np.array(on), np.array(dur), ends
+        # the traffic: once a link is there it carries the country's business both ways, a few points of light on
+        # each (more on the long ones), each at its own speed, from 900 to 1,600 km a second
+        rng = np.random.default_rng(9)
+        self.traffic = []
+        for i, L in enumerate(length):
+            for _ in range(2 + int(L / 650.0)):
+                self.traffic.append((i, rng.uniform(0, 1), rng.choice([-1.0, 1.0]), rng.uniform(900.0, 1600.0),
+                                     rng.uniform(0.6, 1.0)))
         # how far each of the network's points is from where the wave of "one" and the end's pulses run out from
         self.l_wave = np.arccos(np.clip(self.link_g @ self.one_g, -1, 1)) * geo_earth.RE
         self.l_end = np.arccos(np.clip(self.link_g @ self.end_g, -1, 1)) * geo_earth.RE
@@ -777,11 +821,29 @@ class World:
                 pt.points(tip[None], 0.3, CYAN, 3.0, occlude=True)
             pt.polyline(seg, kk, CYAN_HOT, 0.85, occlude=True)
             pt.polyline(seg, 0.09 * kk, CYAN, 3.2, occlude=True)
-        # the pulses, each running a route from one state or territory to another, faster than the eye can follow
-        # the land under it, a short tail of light behind it
+        # the traffic along every link that is there, as the network carries the country's business
         run = 1 - ss(t, T["ask"], T["becomes"])
         if run <= 0:
             return
+        for i, s0_, dirn, v, kk0 in self.traffic:
+            ready = self.link_on[i] + self.link_dur[i]
+            if t < ready:
+                continue
+            s0, s1 = self.link_slices[i]
+            seg = Pw[s0:s1]
+            n = len(seg)
+            L = self.link_len[i]
+            k = kk0 * run * ss(t, ready, ready + 0.5) * (0.8 + 0.6 * flare)
+            head = (s0_ + dirn * v * (t - ready) / L) % 1.0
+            tail = head - dirn * np.linspace(0.0, min(0.5, 110.0 / L), 7)
+            if np.any((tail < 0) | (tail > 1)):
+                tail = np.clip(tail, 0, 1)
+            q = np.stack([np.interp(tail * (n - 1), np.arange(n), seg[:, c]) for c in range(3)], 1)
+            pt.polyline(q[::-1], np.linspace(0.05, 1.1, 7) * k, CYAN_HOT, 0.9, occlude=True)
+            pt.points(q[:1], 2.6 * k, WHITE, 1.0, occlude=True)
+            pt.points(q[:1], 0.2 * k, CYAN, 3.0, occlude=True)
+        # the pulses, each running a route from one state or territory to another, faster than the eye can follow
+        # the land under it, a short tail of light behind it
         for r in self.routes:
             for s in r["starts"]:
                 head = (t - s) * ROUTE_KMS
@@ -931,8 +993,9 @@ class World:
         fl = (0.9 * flash(t, T["operate"] + 0.08, 0.08, 0.6) + 1.3 * flash(t, T["changes"], 0.1, 0.7)
               + 2.4 * flash(t, d, 0.03, 0.5) + 0.8 * flash(t, T["destinations"], 0.06, 0.5)
               + 1.2 * flash(t, T["one"], 0.03, 0.5) + 1.6 * flash(t, T["system"], 0.06, 0.6))
-        # the silent bar: the core gathers itself before the drop
+        # the silent bar: the core gathers itself before the drop; and again as the country's light runs up into it
         gather = ss(t, T["own"] - 0.2, d) * (t < d)
+        gather += 0.8 * ss(t, T["ask"] + 0.2, T["becomes"]) * (1 - ss(t, T["system"], T["system"] + 0.35))
         return k, fl, gather
 
     def draw_lights(self, L, t, n, shutter):
@@ -970,6 +1033,8 @@ class World:
         # the national network over the ground, the threads to the country and their pulses
         self._links(pt, t, g)
         self._threads(pt, t, apart, stand, spread)
+        # on "one" every place sends a beam of light up into the sky at once
+        self._beams(pt, t, g)
         # intelligence moving
         self._chase_draw(pt, t)
         # the waves: on "operate", on "changes", at the drop, on "one", and the emblem's pulses at the end
@@ -1004,6 +1069,13 @@ class World:
         settle = 1 - 0.55 * ss(t, T["ask"], T["becomes"] + 0.5)
         k = 0.06 * (0.85 + 1.4 * one) * settle * (1 + 0.5 * self.beat(t))
         gain = self._pulse_gain(t)
+        lw = self.light_wave(t)
+        if lw is not None:
+            # at night the towns' lights are the country's only light; each flares as the light comes over it
+            r, front, rest = lw
+            lit = np.clip((r - self.e_op) / self.LIGHT_EDGE[0] + 0.5, 0, 1)
+            lit = np.maximum(lit * lit * (3 - 2 * lit), rest)
+            gain = (1 + 1.6 * (1 - lit)) * (1 + 2.6 * front * np.exp(-((self.e_op - r) / 150.0) ** 2))
         if T["business"] - 0.2 < t < T["one"] + 0.1:
             # the wave's front: each town flares as it reaches it, so the light is seen crossing the country
             front = 1 + 2.2 * np.exp(-((sweep - self.e_wave) / 180.0) ** 2)
@@ -1196,6 +1268,17 @@ class World:
             k = (0.3 + 0.8 * flare + 0.3 * bt) * fine * near[j] * np.linspace(1.0, 0.6, len(seg))
             pt.polyline(seg, k, CYAN, 0.8, occlude=occ)
             pt.polyline(seg, 0.05 * k, CYAN, 3.0, occlude=occ)
+            # as the threads are drawn up, the country's light runs up every one of them into the core
+            conv = ss(t, T["ask"] - 0.35, T["ask"] + 0.1) * (1 - ss(t, T["becomes"] - 0.1, T["becomes"] + 0.2))
+            if conv > 0.002:
+                for u0 in (0.0, 0.34, 0.67):
+                    ph = ((t - T["ask"]) / 0.62 + u0 + 0.137 * j) % 1.0
+                    uh = hi - (hi - lo) * ph  # from the place end up toward the ring
+                    ut = np.clip(uh + np.linspace(0.0, 0.07, 6), lo, hi)
+                    q = np.stack([np.interp(ut * 63, np.arange(64), C[:, c]) for c in range(3)], 1)
+                    pt.polyline(q, np.linspace(2.4, 0.05, 6) * conv * near[j], CYAN_HOT, 1.0, occlude=occ)
+                    pt.points(q[:1], 4.5 * conv * near[j], WHITE, 1.1, occlude=occ)
+                    pt.points(q[:1], 0.35 * conv * near[j], CYAN, 3.5, occlude=occ)
             if g < 1:
                 pt.points(seg[-1:], 3.0, WHITE, 1.2, occlude=occ)
                 pt.points(seg[-1:], 0.4, CYAN, 3.5, occlude=occ)
@@ -1216,6 +1299,24 @@ class World:
                         if lo < u < hi:
                             i = int(u * 63)
                             pt.points(C[i:i + 1], 1.6, CYAN_HOT, 1.0, occlude=occ)
+
+    BEAM_KM = 900.0  # how high the beams of "one" reach over their places
+
+    def _beams(self, pt, t, gr):
+        """On "one" the whole country acts as one: from every one of the forty places a beam of light rises into the
+        sky at once, brightest at the ground and fading as it climbs, and falls away over a second and a half."""
+        T = self.T
+        k = flash(t, T["one"] - 0.02, 0.04, 0.95)
+        if k < 0.004:
+            return
+        h = self.BEAM_KM / gr.km * (0.15 + 0.85 * ease_out(lin(t, T["one"] - 0.06, T["one"] + 0.35)))
+        base = gr.world(self.dest_g, 0.0)
+        up = (base - gr.C) / np.linalg.norm(base - gr.C, axis=1, keepdims=True)
+        top = base + up * h
+        kk = np.stack([np.full(len(base), 2.2 * k), np.zeros(len(base))], 1)
+        pt.segments(base, top, kk, CYAN_HOT, 1.0, occlude=True)
+        pt.segments(base, top, kk * 0.14, CYAN, 4.5, occlude=True)
+        pt.points(base, 2.2 * k, WHITE, 1.2, occlude=True)
 
     def _chase_draw(self, pt, t):
         a, b = self.chase_t
@@ -1273,10 +1374,16 @@ class World:
                 if r < 2600:
                     L.ring(x, y, r, tuple(col), k * (1 - g) ** 1.5 * pt.w, 1.3)
                     L.ring(x, y, r, tuple(col), 0.08 * k * (1 - g) ** 1.5 * pt.w, 14.0)
+        gr = self.ground(t)
+        # the edge of the light coming on, running out over the land from under the core
+        lw = self.light_wave(t)
+        if lw is not None and lw[1] > 0.002 and lw[0] > 1.0:
+            q = geo_earth.circle(self.op_g, lw[0] / geo_earth.RE, 900)
+            pt.polyline(gr.world(q, 0.06), 0.9 * lw[1], CYAN_HOT, 1.0, closed=True, occlude=True)
+            pt.polyline(gr.world(q, 0.06), 0.07 * lw[1], CYAN, 6.0, closed=True, occlude=True)
         # the ground's ring on "one": the whole country answering at once; the wave before it has its front drawn
         # too, a faint line of light crossing the land
         g = lin(t, T["one"], T["one"] + 1.2)
-        gr = self.ground(t)
         if T["business"] - 0.2 < t < T["one"] + 0.05:
             kf = 0.4 * ss(t, T["business"] - 0.2, T["business"] + 0.15) * (1 - ss(t, T["one"] - 0.2, T["one"] + 0.05))
             if kf > 0.002 and self.sweep(t) > 1.0:
@@ -1329,17 +1436,20 @@ class World:
             if g < 1:
                 pt.points([e], 4.0 * k, WHITE, 1.4)
 
-    # -------------------------------------------------------------- what the words need: where the tiers are
+    # -------------------------------------------------------------- what the boxes need: where the tiers are
 
-    LABEL_DIRS = np.array([[-0.75, -0.66], [0.75, -0.66], [-0.8, 0.6], [0.8, 0.6], [0.0, 1.0]])
-    # each name's width on the frame (Inconsolata 700 at 30 px, letter-spaced 0.3 em: 24 px a letter), and how far
-    # from its point it begins
+    # the way from the core to each tier's box on the frame (type.py's BOX_AT: research up and left, clients up and
+    # right, reports and finance down, communication straight up)
+    LABEL_DIRS = np.array([[-0.75, -0.66], [0.75, -0.66], [-0.8, 0.6], [0.8, 0.6], [0.0, -1.0]])
+    # the room each point keeps clear toward its box: the tier's name as it was once set on its ring (Inconsolata 700
+    # at 30 px, letter-spaced 0.3 em: 24 px a letter), and how far from its point the name began
     LABEL_W = np.array([8, 7, 7, 7, 13]) * 24.0
     LABEL_GAP = 66.0
 
     def labels(self, t):
-        """Each tier's name at t: the point of its ring furthest toward its own side of the frame, from the core, of
-        those that leave the whole name inside the frame and above the words; and how much it shows."""
+        """Where each tier's box joins its ring at t: the point of the ring furthest toward the box's side of the
+        frame, from the core, of those that keep the room of its name inside the frame and above the words (the names
+        were set there before the boxes); and how much the tier shows."""
         pose = self.pose(t)
         apart, stand, spread = self.state(t)
         T, d = self.T, self.drop

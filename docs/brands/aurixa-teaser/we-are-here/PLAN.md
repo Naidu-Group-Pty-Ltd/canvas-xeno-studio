@@ -2,15 +2,29 @@
 
 The second version of _As One_, made on 27 October 2026 at the client's brief: far more powerful, captivating and
 cinematic, with an atmosphere that says "We are here". It keeps _As One_'s script word for word and its soundtrack,
-_National Treasures_ under the brand voice (mixed again for the fourth version, the music dipped under the voice). It
-is 45.5 s at 1080 x 1920, like _As One_, and plays at 24 frames a second, the cinema's rate.
+_National Treasures_ under the brand voice (mixed again for the fourth version, the music dipped under the voice, and
+for the fifth with the film's own sound design). It is 45.5 s at 1080 x 1920, like _As One_, and plays at 24 frames a
+second, the cinema's rate.
 
-**The fourth version, in electric cyan with the voice heard** (the client's last note, 10 below) is the film as it
-now stands. It is the third version with everything the system draws in electric cyan, so that it stands out over
-the gold land: its threads, links and pulses, its rings, beams and waves, the panes of software, the tags, the tiers'
-names and the turn of each line. The soundtrack is _As One_'s, mixed again by the studio's own mixer as the reels'
-soundtracks are, the music dipped under the voice so that every word is heard. [`DELIVERY.md`](./DELIVERY.md) has
-the final and its measures.
+**The fifth version, Aurixa Systems brought to life** (the client's last notes, 11 and 12 below) is the film as it now
+stands: the fourth, given the weight of a first showing.
+
+- The country lies in the night until "operate". Then the system's light runs out over it from the core, and the land
+  comes up gold behind a cyan front.
+- The five tiers come in as five boxes of glass, each showing what it does, joined to their rings and to one another
+  by lines of light that carry the system's pulses.
+- The network carries traffic. On "one", beams of light stand up from the places the system reaches. Before the
+  reveal, the country's light runs into the core.
+- The logo arrives in shafts of light and a flare. A sweep of light crosses it, and the dawn comes up under it.
+- Under all of it is a sound design drawn in code, in the track's key and at its own tuning, laid in by the studio's
+  mixer with the voice kept clear over it. The music takes a breath before "Aurixa".
+
+[`DELIVERY.md`](./DELIVERY.md) has the final and its measures.
+
+**The fourth version, in electric cyan with the voice heard** (note 10) made the system's light electric cyan, so that
+it stands out over the gold land: its threads, links and pulses, its rings, beams and waves, the panes of software, the
+tags, the tiers' names and the turn of each line. Its soundtrack is _As One_'s, mixed again by the studio's own mixer
+as the reels' soundtracks are, the music dipped under the voice so that every word is heard.
 
 **The third version, Australia throughout** (note 9) made the film's world. From the first frame to the logo the world
 below the system is Australia: a vibrant topographic relief of the whole continent, its land in the brand's gold and
@@ -57,12 +71,23 @@ because the last one is the brief this film answers.
     All the light trails, beams and interface elements become electric cyan: the map is gold, and cyan stands out
     against it. And the soundtrack dips under the voiceover, with Xeno Studio's volume mixing, as in the videos made
     before, so that the voice is heard.
+11. **Brought to life** (after the fourth version was delivered, which the client called close to perfect, the sound
+    mixing and the colour with it). Something was still missing that they could not put a hand on: not enough power
+    for the first time Aurixa Systems is presented. Think outside the box: premium, luxury, smooth and efficient. Make
+    this final version bring Aurixa Systems to life, breathtaking, so that property professionals and businesses feel
+    they are missing out if they do not have it.
+12. **The five, as boxes** (with note 11). Around the orb, the rings, lines and words for research, clients, reports,
+    finance and communication were convoluted and not visually appealing. Enhance them substantially, with boxes that
+    show what research, clients, reports, finance and communication each are, so that the moment has visual appeal
+    and not only words. No investment grade or actual report is needed, only the visual appeal, and the communication
+    box should show things happening. The rings need not be simplified so much as show how the five are
+    interconnected.
 
 The photographic versions that answered the first notes are in the repository's history: the city at dawn
 (`b1fbaed`) and the connected platform with its digital twin (`4ff2c35`). This film replaces them. The versions
 delivered before this one, the city to the end, the Australia version (the city to 21 s, Australia at night after it;
-its code is at `ad68d85`) and the third version (Australia throughout, in gold; its code is at `17f059d`), stay in the
-work's `files/delivery`.
+its code is at `ad68d85`), the third version (Australia throughout, in gold; its code is at `17f059d`) and the fourth
+(in electric cyan, the voice heard; its code is at `90d1de8`), stay in the work's `files/delivery`.
 
 ## What stays from _As One_
 
@@ -70,7 +95,8 @@ work's `files/delivery`.
   words, under _National Treasures_ from its first sample. Every word stays where _As One_ placed it, and every time
   below is where a word sounds (`sound-as-one/cues.json`). For the fourth version the two are mixed again by the
   studio's mixer, the music dipped under the voice, at -14 LUFS (`sound-we-are-here/soundtrack.wav`, made by
-  `soundtrack.ts`).
+  `soundtrack.ts`). For the fifth the film's sound design (`sfx.py`) is laid under them in the same mix, as a sound
+  effect on the Music & FX channel, and the music takes a breath before "Aurixa".
 - **The words.** Every spoken word rises on screen as it is heard, so the teaser reads with the sound off. The lines
   are in Playfair Display with the turn of each line in italic, now in the system's electric cyan, and the labels are
   in Inconsolata capitals.
@@ -88,7 +114,8 @@ gold and steel, which the cyan stands out against.
 
 The film's sign is a core of ice light, the emblem's orb, and about it the platform's five tiers:
 
-- **Research, clients, reports, finance and communication**, each a ring about the core with a life of its own.
+- **Research, clients, reports, finance and communication**, each a ring about the core with a life of its own,
+  and, as it is said, a box of glass that shows what it does, joined to its ring and to the boxes beside it.
 - **Apart**, each turns on its own tilt: powerful on its own.
 - **As one**, they lie in one plane, turn together, and reach down to every state and territory.
 - **At the end** they stand to face us as the emblem's rings, and the system draws the emblem's triangle about its
@@ -127,8 +154,12 @@ green; here it is carried into the brand's colours as a relief map lit from orbi
 
 The journey:
 
-- **The opening (0 to 4.7 s)**: the whole continent from orbit, about 6,400 km up, the camera coming down toward the
-  core as it kindles over the country on "operate" and the Earth brings the east coast under it.
+- **The opening (0 to 4.7 s)**: the whole continent from orbit, about 6,400 km up, at night: the land in a cool
+  moonlight at 7% of its day's light, its towns' lights bright along the coasts. The camera comes down toward the core
+  as it kindles over the country on "operate", and the system's light runs out from under it across the continent,
+  fast and then slowing, about 3,600 km in 2.6 s: the land comes up gold behind a front of cyan light, and each town
+  flares as the front passes. By 6 s the whole country is lit, and the Earth has brought the east coast under the
+  system.
 - **The panes and the five tiers (4.7 to 20.7 s)**: the system comes down over the east coast, and the camera circles
   the core over the Sydney basin, the Blue Mountains and the coast, about 540 km up, higher over the rings than before
   so the land fills the frame below them.
@@ -165,14 +196,14 @@ The journey:
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | The space     | The brand's navy, deepest overhead, lifting toward the limb, where the air over the lit Earth is a line of ice. Motes of light drift in it, a few of them sparkles as in the emblem's own sky. At the end the dawn comes up on the limb                                                              |
 | The core      | A point of white in a glow of ice: the emblem's orb, where the system begins and ends                                                                                                                                                                                                                          |
-| The five      | Five rings about the core, each with its own life. Research is a scan reading its ring, its points answering. Clients are a constellation of points, joined. Reports are pages gathering on the ring. Finance is a rise of light around its ring, with its flow. Communication is pulses running its ring, and the spokes that join every ring to every other and to the core |
+| The five      | Five rings about the core, each with its own life. Research is a scan reading its ring, its points answering. Clients are a constellation of points, joined. Reports are pages gathering on the ring. Finance is a rise of light around its ring, with its flow. Communication is pulses running its ring, and the spokes that join every ring to every other and to the core. As each is said, a box of navy glass comes in about the core, set as a pentagon with communication at its head, and shows in motion what it does: research a sweep that finds what it looks for, clients a constellation of people joined to one, reports pages that gather into one with its chart and a check, finance a line of growth over its bars, communication messages back and forth. A line of light joins each box to its ring, and each to the boxes beside it, pulses running all of it |
 | The threads   | Fine cyan lines from the rings down to forty places in every state and territory: the system reaching the places it serves. High over the whole country they are drawn finer, and close to the ground the far ones give way                                                                      |
-| The network   | 54 links between the places, each joined to its own neighbours, as fine arcs of cyan light over the ground; pulses racing along twelve routes from one state or territory to another. It forms as the threads reach both ends of each link, flares on "destinations" and on "one", and stays, finer, under the logo |
-| The Earth     | From the first frame. Australia as a relief map lit from orbit: its real topography drawn taller than it stands, lit by a key light with the shadows its ranges cast; its land in the palette (the deserts gold, the green deep steel, pale ground sand, salt white); its shelf seas lifting toward the ice over the navy ocean; every town's lights in gold, turning cyan as the system reaches them. Public map data, drawn in code |
+| The network   | 54 links between the places, each joined to its own neighbours, as fine arcs of cyan light over the ground; pulses racing along twelve routes from one state or territory to another, and on every link its own traffic, points of light with short tails running both ways at 900 to 1,600 km a second. It forms as the threads reach both ends of each link, flares on "destinations" and on "one", when a beam of light stands up from every one of the forty places, and stays, finer, under the logo |
+| The Earth     | From the first frame, at night until the system's light runs out over it on "operate". Australia as a relief map lit from orbit: its real topography drawn taller than it stands, lit by a key light with the shadows its ranges cast; its land in the palette (the deserts gold, the green deep steel, pale ground sand, salt white); its shelf seas lifting toward the ice over the navy ocean; every town's lights in gold, turning cyan as the system reaches them. Public map data, drawn in code |
 | The noise     | _As One_'s panes of software (windows, dashboards, a strip of tabs, the fourth "AI"), navy glass with electric cyan, set in the space before the core                                                                                                                                                         |
 | The tool      | One pane: "the next tool", which comes apart into light                                                                                                                                                                                                                                                          |
 | The context   | The brand kit's demo record, Jordan Ellis and 14 Wattle Grove, as cyan-edged tags                                                                                                                                                                                                                               |
-| The emblem    | The supplied art: the triangle, its orb and its rings, and the lettering                                                                                                                                                                                                                                        |
+| The emblem    | The supplied art: the triangle, its orb and its rings, and the lettering. It arrives in shafts of light from behind it and a long flare across it; a sweep of light crosses it after "Systems" and on the last bar, and the dawn comes up on the limb under it |
 
 ## The timeline
 
@@ -181,19 +212,19 @@ the drop, at 22.255 s.
 
 | Time (s)    | Voice                                                                             | Picture                                                                                                                                                                                                                                                                                                  |
 | ----------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0.0–4.45    | "The next generation of property professionals will operate differently."        | The whole of Australia from orbit, its relief in gold and steel, its shelf seas glowing about it, its towns' lights along the east coast. The camera comes down toward the system. On "operate" (3.2 s) the core kindles over the country, a ring of cyan light goes out from it and a thread climbs into the sky.                                                                                            |
+| 0.0–4.45    | "The next generation of property professionals will operate differently."        | The whole of Australia from orbit at night, the land in a cool moonlight, its towns' lights along the coasts. The camera comes down toward the system. On "operate" (3.2 s) the core kindles over the country, a thread climbs into the sky, and the system's light runs out across the continent behind a front of cyan light: the land comes up gold and steel in relief, its shelf seas glowing about it, each town flaring as the front passes. |
 | 4.45–13.3   | "Not because they'll use more software, … and not because AI became another tab." | Panes of software crowd the space before the core as the voice names them: windows (4.9 s), dashboards (7.1 s), a strip of tabs whose fourth is "AI" (10.2 s). By "ambition" they have hidden it. Behind them the system comes down over the east coast.                                                                                                     |
 | 13.3–15.8   | "At a certain level of ambition, the question changes."                           | On "ambition" the panes break into glass that blows past the lens, and the camera goes through. On "the question changes" (14.7 s) the core flares and a wave of light goes out from it; in its wake five faint rings appear about it.                                                                |
-| 15.8–20.7   | "Research, clients, reports, finance, communication."                             | One view, the camera circling the core over the Sydney basin, the Blue Mountains and the coast. Each tier lights on its word, its name set on its ring as it is said. By "communication" all five work at once, every ring joined to every other and to the core, pulses running through all of them.                                                       |
-| 20.7–22.25  | "Powerful on their own."                                                          | The track falls silent. The rings drift apart, each on its own tilt, their spokes dark, and the camera closes on the core as the system rises over the country. Just before the drop the five are drawn into the core. |
+| 15.8–20.7   | "Research, clients, reports, finance, communication."                             | One view, the camera circling the core over the Sydney basin, the Blue Mountains and the coast. Each tier lights on its ring as its word is said, and its box comes in about the core, a pentagon of navy glass with communication at its head: research's sweep finding what it looks for, clients joined to one, reports gathering into one with a check, finance's line of growth, messages back and forth. A line of light joins each box to its ring and to the boxes beside it. By "communication" all five work at once, every ring joined to every other and to the core, pulses running through all of it. |
+| 20.7–22.25  | "Powerful on their own."                                                          | The track falls silent. The boxes' lines let go, and the boxes drift apart and are gone. The rings drift apart, each on its own tilt, their spokes dark, and the camera closes on the core as the system rises over the country. Just before the drop the five are drawn into the core. |
 | 22.255      | (the drop)                                                                        | The core bursts over the country. The five come out of it as one, in one plane and turning together, with a flash and a ring of light through the space, and the camera is thrown back and up over the whole of Australia.                                                                                                                 |
-| 22.95–27.7  | "More valuable when they stop behaving like separate destinations."               | Threads of cyan light fall in a fast cascade from the rings to forty places in every state and territory, each answering with a ring of light on the ground, the lights about it turning cyan. As each pair of neighbours is reached the link between them runs out across the country, and pulses race from state to state along the network. On "destinations" (25.8 s) everything flares; then the Earth comes up to New South Wales. |
+| 22.95–27.7  | "More valuable when they stop behaving like separate destinations."               | Threads of cyan light fall in a fast cascade from the rings to forty places in every state and territory, each answering with a ring of light on the ground, the lights about it turning cyan. As each pair of neighbours is reached the link between them runs out across the country, pulses race from state to state along the network, and every link carries its own traffic both ways. On "destinations" (25.8 s) everything flares; then the Earth comes up to New South Wales. |
 | 27.7–31.8   | "When intelligence can move, when context can follow,"                            | A pulse leaves the outer ring and runs down a thread to Dubbo, the camera beside it. It runs 269 km along the ground over the Blue Mountains into Sydney, lighting the towns behind it. On "context" the client's and the property's tags come in beside it at Banksia Rise and ride with it up another thread, back to the system and in to the core. |
-| 31.8–34.25  | "when the business can act as one."                                               | The system rises over the whole country again. A wave of light crosses it from under the core, each town and link flaring as it is reached, pulses racing the network, and on "one" (33.45 s, on the bar) everything lights at once: the rings, the threads, the network and the country, and a ring runs out over the land.                                  |
+| 31.8–34.25  | "when the business can act as one."                                               | The system rises over the whole country again. A wave of light crosses it from under the core, each town and link flaring as it is reached, pulses racing the network, and on "one" (33.45 s, on the bar) everything lights at once: the rings, the threads, the network and the country, a beam of light stands up from every one of the forty places, and a ring runs out over the land. |
 | 34.25–36.7  | "So don't ask what the next tool is."                                             | Stillness: one pane, a single tool, before the core, the land low in the frame. On "is" (35.9 s) it comes apart into motes of its own light, which drift into the system.                                                                                                                     |
-| 36.7–40.25  | "Ask what happens when the business becomes the system."                          | The camera draws back to face the core as the Earth turns east under it, over inland Queensland. The threads are drawn up out of the country, and the rings stand to face us as the emblem's rings. On "becomes" (38.6 s) three bars of light draw the emblem's triangle about the core, and on "the system" (39.2 s) it locks with a pulse. |
-| 40.25–41.5  | "Aurixa Systems."                                                                 | The emblem takes the system's place, the core its orb, and a pulse goes out from the orb as it lands. The triangle and the rings' fine lines dissipate, and the logo stays as it is. Its lettering rises letter by letter, with "Systems" and a second pulse on the bar (40.86 s).                      |
-| 41.85–45.5  | "A new operating standard is coming."                                             | The light circles inside the A in three rings until the orb keeps it, as on _As One_'s end card. The logo beats on the bars (42.72 s, 44.58 s): its light swells, a ring goes through the space from the orb, and the beat runs out over the country below along the network, every town it passes flaring. The land runs to the coast and the Tasman at the limb, where the dawn comes up, a thin gold rim behind the emblem. |
+| 36.7–40.25  | "Ask what happens when the business becomes the system."                          | The camera draws back to face the core as the Earth turns east under it, over inland Queensland. The network's traffic stills. The threads are drawn up out of the country, the country's light running up them into the core, which gathers it, and the rings stand to face us as the emblem's rings. On "becomes" (38.6 s) three bars of light draw the emblem's triangle about the core, and on "the system" (39.2 s) it locks with a pulse. |
+| 40.25–41.5  | "Aurixa Systems."                                                                 | The emblem takes the system's place, the core its orb, and a pulse goes out from the orb as it lands, with shafts of light from behind it and a long flare across it. The triangle and the rings' fine lines dissipate, and the logo stays as it is. Its lettering rises letter by letter, with "Systems" and a second pulse on the bar (40.86 s). |
+| 41.85–45.5  | "A new operating standard is coming."                                             | The light circles inside the A in three rings until the orb keeps it, as on _As One_'s end card. The logo beats on the bars (42.72 s, 44.58 s): its light swells, a ring goes through the space from the orb, and the beat runs out over the country below along the network, every town it passes flaring. A sweep of light crosses the logo after "Systems" and again on the last bar. The land runs to the coast and the Tasman at the limb, where the dawn comes up under the emblem: a thin gold rim, and the sun's first light, a star with its flare. |
 
 ## How it is made
 
@@ -217,8 +248,21 @@ Nothing in it is generated: the world is drawn in code, and the emblem is the su
 - **The panes and the glass** are _As One_'s (`textures.cjs`), redrawn in navy glass and electric cyan and set in the
   space.
   Each breaks into Voronoi shards that fly at the lens, turning and catching the light by their angle.
-- **The words** are drawn by Chromium as transparent frames (`type.py`, `type.js`, `type.cjs`). The five tiers' names
-  ride on their rings, from where the space says each ring is, frame by frame (`comp.py --labels`).
+- **The words and the five boxes** are drawn by Chromium as transparent frames (`type.py`, `type.js`, `type.cjs`).
+  Each box's line of light runs to its ring, from where the space says the ring is, frame by frame
+  (`comp.py --labels`), and `comp.py` lays frosted glass under each box: the picture behind it blurred where it stands
+  (`type/boxes.json`).
+- **The light of the reveal** is drawn in `comp.py` over the finished space: shafts of light from behind the logo,
+  held back where the logo itself stands, its flare, the sweeps of light across it, and the dawn's star on the limb,
+  hidden where the Earth stands in front of it.
+- **The sound design is drawn in code too** (`sfx.py`): sine waves and noise, filtered, shaped and put in a hall of
+  its own, numpy alone, with nothing sampled or generated. Every sound sits on its word or bar, and every pitched one
+  is in the track's key, B flat minor, at the track's own tuning, measured: about half a semitone sharp of A440. The
+  sounds are deep hits with their weight dry and their body in the hall, rises and swells drawn in backwards into
+  them, glass ticks and its breaking, chimes for the five boxes, air for the camera's moves and the network's data,
+  a lock as the triangle closes, a shimmer of glass for the light and the reveal, and a heartbeat under the logo's
+  beats. Where the voice speaks, the sound design gives way to it in the voice's band, so that every word stays clear.
+  The studio's mixer lays it in as a sound effect on the Music & FX channel.
 - **The Earth is public map data, drawn in code** (`earth.py`): no satellite photograph and no generated picture.
   - The sky and the ground are one plate, a ray to every pixel: the sky graded on each ray's angle above the limb, the
     air's line of ice on the limb, the land lit as a relief map and the sea over its own bathymetry. Each map is read
@@ -250,7 +294,7 @@ Nothing in it is generated: the world is drawn in code, and the emblem is the su
   they are credited wherever the film's credits or description allow ([`DELIVERY.md`](./DELIVERY.md)).
 - **No people.** No person, real or generated, appears.
 - **No lettering but the script's and the brand's.** The words on screen are the voice's own, the tiers' names (its
-  words, on their rings), the demo record's two tags, the one tab "AI" (as in _As One_) and the emblem's lettering.
+  words, in their boxes), the demo record's two tags, the one tab "AI" (as in _As One_) and the emblem's lettering.
 - **No real landmark, and no neon or science-fiction spectacle.** The light is fine and controlled: electric cyan, in
   fine lines and soft glows.
 - **The demo record only.** Jordan Ellis and 14 Wattle Grove are the brand kit's demo client and property.
