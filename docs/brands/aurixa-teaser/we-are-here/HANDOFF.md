@@ -4,6 +4,17 @@ Written on 27 October 2026 by the Claude Code session that was making it
 (claude.ai/code/session_01FBVSiSH8istozkpbKdw5MY), at the moment it stopped, so that a session in a new account
 picks it up exactly here. Read all of it before changing anything. Every path is from the repository's root.
 
+> **Superseded by the third version, Australia throughout** (the client's note 9 in [`PLAN.md`](./PLAN.md)): Australia
+> is now the world below the system from the first frame to the logo, as a topographic relief map in the brand's
+> colours, and the city and the moonlit night look are gone. The world, the camera and the Earth's journey were
+> rebuilt for it (`space.World._beats`, `earth.Relief`). Then by its fourth version (note 10): everything the system
+> draws is electric cyan, and the soundtrack is mixed again by the studio's mixer with the music dipped under the voice
+> (`soundtrack.ts`). So the rule below of the brand's colours only now holds for the world and the brand, not the
+> system's light. Then by its fifth version (notes 11 and 12): the country lies in the night until the system's light
+> runs out over it, the five tiers are boxes of glass about the core, and the film has a sound design of its own
+> (`sfx.py`), so the moonlit night below is back for the opening's first three seconds. [`DELIVERY.md`](./DELIVERY.md)
+> has the final. What follows describes the Australia version, whose code is at `ad68d85`.
+>
 > **Done, the same day.** A session in the new account (claude.ai/code/session_01DZHkJBn5z8APAJz2xoqAyf, on branch
 > `claude/eager-goldberg-jyfldk`, fast-forwarded from this one's) took it up from section 0 and carried section 9
 > through to delivery: [`DELIVERY.md`](./DELIVERY.md) has the final and its measures, [`PLAN.md`](./PLAN.md) the

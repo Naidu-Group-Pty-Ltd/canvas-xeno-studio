@@ -1,21 +1,25 @@
-"""We Are Here's Australia: the night side of the Earth under the system, from 21 s to the end.
+"""We Are Here's Australia: the Earth under the system, from the first frame to the last.
 
-In the silent bar the system rises out of the city into orbit, and from the drop it travels over Australia at night:
-the land in moonlight, its coast, the lights of every town and city where people live, and the air along the limb.
-The Earth is a sphere whose surface lies 30 units under the core (the city's ground), so the space's own light (the
-core, the rings, the threads) stays as it was. What moves is the Earth: how many kilometres a unit is (the system's
-height), the point under the core and the bearing the camera's -z faces there, on keys of their own (space.World),
-so one world rises from a street to orbit, travels and turns without a cut.
+The continent as a relief map lit from orbit: its ranges drawn taller than they stand and lit by a key light from the
+north-north-east with the shadows they cast and the sky's light in their valleys, so its topography reads at every
+height; its own colours carried into the palette (the deserts the brand's gold, the green the deep steel between the
+navy and the ice, pale ground sand, salt the ice's white); its shelf seas lifting toward the ice over the navy of the
+deep ocean, so the coast is drawn by the sea itself; the air along the limb; and every town's lights. The Earth is a
+sphere whose surface lies 30 units under the core, so the space's own light (the core, the rings, the threads) keeps
+its scale. What moves is the Earth: how many kilometres a unit is (the system's height), the point under the core and
+the bearing the camera's -z faces there, on keys of their own (space.World._beats).
 
 It is drawn in two parts: the ground and the sky as a picture behind the space's light (a ray to every pixel, the
 sphere it meets: Earth.plate), and the towns' lights as points of the space (Earth.lights), so they keep the lens's
 focus and the shutter like everything else in it.
 
-Everything on it is public data, read as data (fetched once into the work's cache by ../fetch.py, as the first
-teaser's orbit was; no package's code is run):
+Everything on it is public data, read as data (fetched once into the work's cache by ../fetch.py and laid on grids by
+../terrain.py; no package's code is run):
   land and sea      GLOBE's 30 arc-second land mask (NOAA, public domain), global-land-mask 1.0.0's .npz
-  the ground        NASA's Blue Marble Next Generation and Natural Earth's shaded relief (public domain),
-                    basemap-data 2.0.0's bmng.jpg and shadedrelief.jpg
+  the ground's      Mapzen's terrain tiles (AWS Open Data): SRTM and GMTED2010 (USGS), ETOPO1 under the sea
+  shape             (NOAA), Geoscience Australia's and LINZ's own models (each asks for credit: DELIVERY.md),
+                    at 2.4 km over the region, 0.6 km over Australia and 0.3 km over the chase's ranges
+  its colour        NASA's Blue Marble Next Generation (public domain), basemap-data 2.0.0's bmng.jpg
   where people live GeoNames' places of 1,000 people or more (CC BY 4.0), data/region-places.json (../places.py):
                     Australia's, and New Zealand's and the other neighbours' that a far view can reach
 """
@@ -28,13 +32,63 @@ import cv2
 import numpy as np
 
 RE = 6371.0  # km
-ORB = 30.0  # how far below the core the ground lies, in units: the city's ground
+ORB = 30.0  # how far below the core the ground lies, in units
 
-# The part of the globe every map here is cut to: Australia, New Zealand and the seas between.
-NORTH, SOUTH, WEST, EAST = 0.0, -50.0, 100.0, 180.0
+# The part of the globe every map here is cut to: Australia, New Zealand, the islands to the north and the seas
+# between, as far as the widest view reaches.
+NORTH, SOUTH, WEST, EAST = 20.0, -60.0, 90.0, 180.0
 
-# The land under the moon: the emblem's ice deepened toward the navy, so the ground reads navy, not grey.
-MOONLIT = np.array([0.36, 0.60, 1.0], np.float32)
+# The brand's colours, linear (space.py's).
+NAVY = np.array([0.0024, 0.0080, 0.0222], np.float32)
+GOLD = np.array([1.0, 0.72, 0.32], np.float32)
+WARM = np.array([1.0, 0.86, 0.62], np.float32)
+ICE = np.array([0.62, 0.84, 1.0], np.float32)
+
+# The ground's own colours in the palette (ground_colour): the deserts the brand's gold, as the red centre is ochre;
+# where the land is green and dark, a deep steel between the navy and the ice; pale ground a pale sand of the warm;
+# salt pans and dry lakes the ice's white.
+LAND_WARM = GOLD * 0.92
+LAND_COOL = NAVY * 14.0 + ICE * 0.06
+LAND_SAND = WARM * 0.5 + ICE * 0.12
+LAND_SALT = WARM * 1.05
+# The light on it: the key (a warm white, the sun's) and the sky (the ice), and how strong each is.
+KEY_COL = np.array([1.0, 0.93, 0.80], np.float32)
+KEY_K, SKY_K = 0.62, 0.16
+# Moonlight on the land at night: a cool light of the same brightness as the colour it takes the place of.
+MOON = (np.array([0.62, 0.80, 1.0], np.float32) / np.float32(0.2126 * 0.62 + 0.7152 * 0.80 + 0.0722 * 1.0)) * 0.85
+# The sea over the shelf, where it is shallow: a deep ice between the navy and the emblem's ice.
+SHELF = NAVY * 3.0 + ICE * 0.012
+
+
+def ground_classes(bgr):
+    """What the Blue Marble (8-bit BGR) says the ground is, cell by cell (H x W x 4): how much is red (the deserts),
+    how much dark and not red (where it is green), how much bright and pale (salt), and its brightness, eased.
+    ground_colour carries them into the palette."""
+    s = bgr[..., ::-1].astype(np.float32) / 255
+    lin = np.where(s <= 0.04045, s / 12.92, ((s + 0.055) / 1.055) ** 2.4)
+    R, G = lin[..., 0], lin[..., 1]
+    Y = lin @ np.array([0.2126, 0.7152, 0.0722], np.float32)
+    red = (R - G) / (R + G + 0.02)
+    w = np.clip((red - 0.02) / 0.28, 0, 1)
+    w = w * w * (3 - 2 * w)
+    b = np.clip((Y / 0.08) ** 0.55, 0.42, 1.9)
+    salt = np.clip((Y - 0.16) / 0.12, 0, 1) * (1 - np.clip((red - 0.2) / 0.2, 0, 1))
+    cool = (1 - w) * np.clip((0.07 - Y) / 0.05, 0, 1)
+    return np.stack([w, cool, salt, b], -1).astype(np.float32)
+
+
+def ground_colour(cls, rug, fine):
+    """The ground's colour in the palette, linear (N x 3): the deserts the gold, the green the deep steel, the rest
+    the pale sand, salt the white; from ground_classes' cells (N x 4), and where the frame resolves finer than the
+    Blue Marble does (`fine`, 0 to 1), its green laid where the ground is rugged (`rug`, 0 to 1: the forest on the
+    ranges and the escarpments, the plains between cleared), so the colour follows the relief, not the map's cells."""
+    w, cool, salt, b = cls[:, 0], cls[:, 1], cls[:, 2], cls[:, 3]
+    on_slopes = np.clip((rug + cool - 1) / 0.3 + 0.5, 0, 1) * (1 - w)
+    c = cool + (on_slopes - cool) * fine
+    b = b * (1 + 0.5 * (cool - c))  # the forest darker, the cleared ground lighter
+    pale = np.clip(1 - w - c, 0, 1)
+    col = b[:, None] * (LAND_WARM * w[:, None] + LAND_COOL * c[:, None] + LAND_SAND * pale[:, None])
+    return col * (1 - salt[:, None]) + LAND_SALT * salt[:, None]
 
 
 def geo(lat, lon):
@@ -127,10 +181,10 @@ class Ground:
         b = d @ (np.asarray(cam, np.float64) - self.C)
         return (b < 0) & (b * b > float(self._c(cam)))
 
-    # The city's ground was flat, and the space's paths on it (the threads, the chase's run, the rings on the
-    # ground) were drawn on it. On the Earth they are drawn the same way in its flat picture about the point under
-    # the core (each place at its distance along the ground, on its bearing: the azimuthal equidistant projection)
-    # and bent onto the sphere, each point keeping its height over the ground. Near the core the two are one.
+    # The space's paths on the ground (the threads, the chase's run, the rings on the ground) are drawn in the Earth's
+    # flat picture about the point under the core (each place at its distance along the ground, on its bearing: the
+    # azimuthal equidistant projection) and bent onto the sphere, each point keeping its height over the ground. Near
+    # the core the two are one.
 
     def flat(self, g):
         """The Earth's unit vectors g (N x 3) in the flat picture: world x and z, y on the ground (-ORB)."""
@@ -210,11 +264,12 @@ def _grid_sample(img, lat, lon, lat0, lon0, step, border=0.0):
 
 class Mips:
     """A map and its halvings: each point is read at its own footprint on the frame (km a pixel there), a blend of
-    the two nearest levels, so the coast and the relief neither shimmer far off nor alias toward the limb."""
+    the two nearest levels, so the coast and the relief neither shimmer far off nor alias toward the limb. `given`:
+    the levels made already (Relief's light, worked out at each level's own cell)."""
 
-    def __init__(self, img, lat0, lon0, step, levels, border=0.0):
-        self.levels = [img]
-        for _ in range(levels - 1):
+    def __init__(self, img, lat0, lon0, step, levels, border=0.0, given=None):
+        self.levels = given or [img]
+        for _ in range(levels - len(self.levels)):
             a = self.levels[-1]
             self.levels.append(cv2.resize(a, (a.shape[1] // 2, a.shape[0] // 2), interpolation=cv2.INTER_AREA))
         self.lat0, self.lon0, self.step, self.border = lat0, lon0, step, border
@@ -224,7 +279,7 @@ class Mips:
         lvl = np.clip(np.log2(np.maximum(km_px, 1e-6) / self.texel), 0, len(self.levels) - 1)
         i0 = np.minimum(np.floor(lvl).astype(np.int32), len(self.levels) - 2)
         f = (lvl - i0).astype(np.float32)
-        out = np.zeros(lat.shape, np.float32)
+        out = np.zeros(lat.shape + self.levels[0].shape[2:], np.float32)
         for k in range(len(self.levels)):
             w = np.where(i0 == k, 1 - f, 0) + np.where(i0 + 1 == k, f, 0)
             sel = w > 0
@@ -233,8 +288,126 @@ class Mips:
             s = 2 ** k
             v = _grid_sample(self.levels[k], lat[sel], lon[sel], self.lat0 - (s - 1) / 2 * self.step,
                              self.lon0 + (s - 1) / 2 * self.step, self.step * s, self.border)
-            out[sel] += w[sel] * v
+            out[sel] += (w[sel] if v.ndim == 1 else w[sel][:, None]) * v
         return out
+
+
+# ------------------------------------------------------------------ the ground's shape, and its light
+
+# The relief's key light: from the north-north-east, 28 degrees up, as the sun stands over Australia in a winter's late
+# morning. The whole film looks north to east, so in the frame it falls from ahead and a little to the left, and the
+# ranges read as ranges (a light from below the frame turns them into valleys). It is given as a relief map gives its
+# light, from the same bearing and height over every place, so each level's light is worked out once.
+KEY_AZ, KEY_EL = 20.0, 28.0
+# How much taller the ground is drawn than it stands: a little at the chase's height, more from orbit, where a range a
+# kilometre high is otherwise a shade no eye can find. By each level's cell (km), so every height has its own.
+EX0, EX_POW = 5.0, 0.8
+
+
+def exaggeration(cell_km):
+    return EX0 * (cell_km / 0.3) ** EX_POW
+
+
+class Relief:
+    """The ground's shape, terrain.py's grids (../terrain.py: the region at 2.4 km, Australia at 0.6 km, the chase's
+    ranges at 0.3 km), and at each level of each the light it takes: the key light's shading (its slopes toward the
+    light and away, and the shadows its ranges cast) and the sky's (open ground lit, valleys less). Read at each
+    point's footprint from the finest grid that holds it, blended across each grid's edge."""
+
+    def __init__(self, cache):
+        self.grids = []
+        for z, levels in ((6, 6), (8, 7), (9, 5)):
+            meta = json.loads((cache / f"data/terrain-{z}.json").read_text())
+            h = np.load(cache / f"data/terrain-{z}.npy", allow_pickle=False).astype(np.float32)
+            key, fill, rug, hh = [], [], [], []
+            for L in range(levels):
+                if L:
+                    h = cv2.resize(h, (h.shape[1] // 2, h.shape[0] // 2), interpolation=cv2.INTER_AREA)
+                k, f, r = self._light(h, meta["lat0"] - (2 ** L - 1) / 2 * meta["step"], meta["step"] * 2 ** L)
+                key.append(k)
+                fill.append(f)
+                rug.append(r)
+                hh.append(np.clip(np.round(h), -32768, 32767).astype(np.int16))
+            at = (meta["lat0"], meta["lon0"], meta["step"])
+            self.grids.append(dict(bounds=(meta["north"], meta["south"], meta["west"], meta["east"]),
+                                   key=Mips(None, *at, levels, 0, key), fill=Mips(None, *at, levels, 200, fill),
+                                   rug=Mips(None, *at, levels, 0, rug), h=Mips(None, *at, levels, -4000, hh)))
+        self.grids.reverse()  # the finest first
+
+    @staticmethod
+    def _light(h, lat0, step):
+        """The key light's shading, the sky's, and how rugged the ground is, on one level (uint8, 255 full): h its
+        heights (m), lat0 its first row's latitude, step its cell (degrees)."""
+        rows, cols = h.shape
+        dy = step * 111200.0
+        coslat = np.cos(np.radians(lat0 - np.arange(rows) * step)).astype(np.float32)
+        ex = exaggeration(dy / 1000.0)
+        hl = np.maximum(h, 0.0)  # the sea's floor is not lit: the sea lies flat over it
+        gx = np.empty_like(hl)
+        gy = np.empty_like(hl)
+        gx[:, 1:-1] = hl[:, 2:] - hl[:, :-2]
+        gx[:, 0], gx[:, -1] = gx[:, 1], gx[:, -2]
+        gy[1:-1] = hl[:-2] - hl[2:]  # rows run south: this is the rise to the north
+        gy[0], gy[-1] = gy[1], gy[-2]
+        gx *= ex / (2 * dy * coslat[:, None])
+        gy *= ex / (2 * dy)
+        # rugged: the ground's own slope (not drawn taller), steep at a tenth, about a cell
+        rug = cv2.GaussianBlur(np.sqrt(gx * gx + gy * gy) / ex, (0, 0), 1.0) / 0.10
+        az, el = math.radians(KEY_AZ), math.radians(KEY_EL)
+        lx, ly, lz = math.sin(az) * math.cos(el), math.cos(az) * math.cos(el), math.sin(el)
+        inv = 1.0 / np.sqrt(gx * gx + gy * gy + 1.0)
+        shade = np.clip((-gx * lx - gy * ly + lz) * inv, 0, 1)
+        nz = inv
+        del gx, gy
+        # the shadows: from each cell, the steepest rise to any cell on the light's way, against the light's height
+        n = int(np.clip(math.ceil(ex * 1500.0 / math.tan(el) / dy), 3, 48))
+        best = np.full((rows, cols), -1.0, np.float32)
+        for r0 in range(0, rows, 512):  # each band of rows at its own cos(latitude)
+            r1 = min(rows, r0 + 512)
+            a0, a1 = max(0, r0 - n - 2), min(rows, r1 + n + 2)
+            band = np.ascontiguousarray(hl[a0:a1])
+            c = float(coslat[(r0 + r1) // 2])
+            for s in range(1, n + 1):
+                M = np.float32([[1, 0, s * lx / math.cos(el) / c], [0, 1, -s * ly / math.cos(el)]])
+                ahead = cv2.warpAffine(band, M, (cols, a1 - a0), flags=cv2.INTER_LINEAR | cv2.WARP_INVERSE_MAP,
+                                       borderMode=cv2.BORDER_REPLICATE)
+                np.maximum(best[r0:r1], (ahead[r0 - a0:r1 - a0] - band[r0 - a0:r1 - a0]) * (ex / (s * dy)),
+                           out=best[r0:r1])
+        lit = np.clip(0.5 + (math.tan(el) - best) / 0.14, 0, 1)
+        del best
+        key = shade * lit
+        # the sky: open ground takes all of it, a slope less, a valley less again (its depth under its surroundings)
+        sig = 2.5
+        deep = hl - cv2.GaussianBlur(hl, (0, 0), sig)
+        open_ = np.clip(1.0 + 1.2 * ex * deep / (sig * dy), 0.35, 1.25)
+        fill = (0.5 + 0.5 * nz) * open_ / 1.25
+        return tuple(np.clip(a * 255 + 0.5, 0, 255).astype(np.uint8) for a in (key, fill, rug))
+
+    def sample(self, lat, lon, km_px):
+        """The key light's shading, the sky's and how rugged the ground is (0 to 1), and the height (m, the sea's
+        floor below 0), at each point."""
+        key = np.zeros(lat.shape, np.float32)
+        rug = np.zeros(lat.shape, np.float32)
+        fill = np.full(lat.shape, 200 / 255, np.float32)
+        h = np.full(lat.shape, -4000.0, np.float32)
+        left = np.ones(lat.shape, np.float32)  # how much of each point is still to be read from a coarser grid
+        for g in self.grids:
+            n, s, w, e = g["bounds"]
+            m = 0.25  # degrees over which a grid gives way to the next coarser one at its edge
+            inside = np.minimum.reduce([lat - s, n - lat, lon - w, e - lon]) / m
+            wgt = np.clip(inside, 0, 1).astype(np.float32) * left
+            sel = wgt > 0
+            if not sel.any():
+                continue
+            la, lo, kp, ww = lat[sel], lon[sel], km_px[sel], wgt[sel]
+            key[sel] += ww * g["key"].sample(la, lo, kp) / 255.0
+            rug[sel] += ww * g["rug"].sample(la, lo, kp) / 255.0
+            fill[sel] += ww * (g["fill"].sample(la, lo, kp) / 255.0 - 200 / 255)
+            h[sel] += ww * (g["h"].sample(la, lo, kp) + 4000.0)
+            left[sel] -= ww
+            if not (left > 1e-6).any():
+                break
+        return key, fill, h, rug
 
 
 class Earth:
@@ -251,21 +424,11 @@ class Earth:
         self.land = Mips(land, 90 - r0 / 120, -180 + c0 / 120, 1 / 120, 6)
         with zipfile.ZipFile(cache / "pkgs/bmd/basemap_data-2.0.0-py3-none-any.whl") as z:
             bm = cv2.imdecode(np.frombuffer(z.read("mpl_toolkits/basemap_data/bmng.jpg"), np.uint8), cv2.IMREAD_COLOR)
-            rl = cv2.imdecode(np.frombuffer(z.read("mpl_toolkits/basemap_data/shadedrelief.jpg"), np.uint8),
-                              cv2.IMREAD_GRAYSCALE)
-        # Both whole-Earth, row 0 at the north, column 0 at 180 W, their samples at the cells' centres. The Blue
-        # Marble gives the ground's own brightness; the relief, about its middle grey, its shape.
-        alb, at = self._cut(bm.astype(np.float32) @ np.array([0.11, 0.59, 0.30], np.float32) / 255)
-        self.albedo = Mips(alb, *at, 4, 0.3)
-        rel, at = self._cut(rl.astype(np.float32) / 255)
-        rel -= float(np.median(rel))
-        self.relief = Mips(rel, *at, 5, 0.0)
-        # the sea's swell, from a few hundred km down to a few: it breaks the moon's path on the water into a sheen,
-        # and is read at each pixel's footprint like the maps, so it neither shimmers far off nor smears near
-        rng = np.random.default_rng(seed)
-        sw = sum(cv2.resize(rng.normal(0, 1, (8 * 2 ** i, 13 * 2 ** i)).astype(np.float32), (1664, 1024),
-                            interpolation=cv2.INTER_CUBIC) / 2 ** (i * 0.45) for i in range(8))
-        self.swell = Mips((sw / sw.std()).astype(np.float32), NORTH, WEST, (NORTH - SOUTH) / 1024, 5)
+        # Whole-Earth, row 0 at the north, column 0 at 180 W, its samples at the cells' centres: the ground's own
+        # colour, carried into the palette (ground_colour)
+        cls, at = self._cut(ground_classes(bm))
+        self.classes = Mips(cls, *at, 4, 0.0)
+        self.relief = Relief(cache)
         self._places(cache, seed)
 
     @staticmethod
@@ -322,9 +485,11 @@ class Earth:
     def plate(self, pose, gr, look, W, H):
         """The Earth and the sky at one pose, in linear light (H x W x 3).
 
-        look: detail (0 to 1: the land's own light, its relief and its coast; at 0 the ground is the city's dark),
-        moon and sun (world directions), dawn (0 to 1), haze (the air's light along the horizon), and the space's
-        colours (navy, ice, gold, warm)."""
+        look: day (the light on the land, 0 to 1: all of the key light's and half of the sky's go with it), dawn (0 to
+        1) with the sun (a world direction) just under the limb, haze (the air's light), the space's colours (navy,
+        ice, gold, warm), and the light coming on (wave, or none): night (the day before it, a share of day), g (the
+        point it runs out from, the Earth's own unit vector), r (how far it has run, km), w (its edge's softness, km),
+        front (its edge's flare, 0 to 1, fw km wide) and all (0 to 1: the rest of the world lit as it finishes)."""
         r, u, f = pose.R
         vx = (np.arange(W, dtype=np.float64) + 0.5 - pose.cx) / pose.F
         vy = -(np.arange(H, dtype=np.float64) + 0.5 - pose.cy) / pose.F
@@ -333,37 +498,29 @@ class Earth:
         dist_c = float(np.linalg.norm(oc))
         b = (vx[None, :] * (r @ oc) + vy[:, None] * (u @ oc) + f @ oc) * inv  # each ray's reach toward the centre
         c = float(gr._c(pose.pos))
-        # each ray's angle above the limb (negative where it meets the ground): the sky is graded on it, so the
-        # city's flat horizon and the orbit's curved limb are one sky
+        # each ray's angle above the limb (negative where it meets the ground): the sky is graded on it
         rho = math.asin(min(1.0, gr.R / dist_c))
         alpha = (np.arccos(np.clip(-b / dist_c, -1, 1)) - rho).astype(np.float32)
         cover = np.clip(0.5 - alpha * pose.F, 0, 1)
         navy, ice, gold, warm = (np.asarray(look[k], np.float32) for k in ("navy", "ice", "gold", "warm"))
-        det, dawn, haze = float(look["detail"]), float(look["dawn"]), float(look["haze"])
-        # At the city's own scale the sphere's horizon still lies a degree under the horizontal (35 units up over a
-        # radius of 200,000), where the city's flat ground put it at the horizontal: there the sky and its haze are
-        # graded on the true horizontal, as space.backdrop drew them, and the sliver between the two is the ground's
-        # dark; as the system rises (look's "flat" from 1 to 0) the limb's own dip comes in, the horizon falling away.
-        flat = float(look.get("flat", 0.0))
-        grade = alpha - np.float32((math.pi / 2 - rho) * flat)
+        day, dawn, haze = float(look["day"]), float(look["dawn"]), float(look["haze"])
+        wave = look.get("wave")
+        # the air's own light on the limb waits for the land's
+        day_sky = day if wave is None else day * (wave["night"] + (1 - wave["night"]) * wave["all"])
 
-        # ---- the sky: the navy of space, lifting toward the limb, the air's haze along it, and its airglow
-        up = np.sin(np.clip(grade, 0, None))
+        # ---- the sky: the navy of space, lifting toward the limb; over the lit Earth the air seen edge on along the
+        # limb, the brightest of the sky, in ice, falling away into space; and the airglow's fine line 92 km up
+        up = np.sin(np.clip(alpha, 0, None))
         sky = navy * (0.3 + 0.7 * np.exp(-up / 0.3))[..., None]
-        if flat > 0:
-            sky = np.where((grade < 0)[..., None], navy * (0.28 + 0.4 * np.exp(np.minimum(grade, 0) / 0.1))[..., None],
-                           sky)
-        band = np.exp(-(grade / 0.14) ** 2) * 0.7 + np.exp(-(grade / 0.04) ** 2) * 0.3
+        band = np.exp(-(alpha / 0.14) ** 2) * 0.7 + np.exp(-(alpha / 0.04) ** 2) * 0.3
         cool = np.array([0.0030, 0.0065, 0.0130], np.float32)
         sky += band[..., None] * cool * haze
-        h_km = gr.height(pose.pos)
         px = 1.0 / (gr.km * dist_c)  # radians a km of height at the limb
-        orbit = det * float(np.clip((h_km - 100) / 150, 0, 1))
-        if orbit > 0:  # above the air: its thin bright edge on the limb, and the airglow's line 92 km over it
-            rho_a = math.asin(min(1.0, (gr.R + 92.0 / gr.km) / dist_c))
-            line = np.exp(-((alpha - (rho_a - rho)) / (6.0 * px)) ** 2)
-            edge = np.exp(-np.clip(alpha, 0, None) / (18.0 * px)) * (alpha > -2 / pose.F)
-            sky += (line * 0.020 + edge * 0.012)[..., None] * ice * haze * orbit
+        hk = np.clip(alpha, 0, None) / px  # km over the limb, along the sight line
+        edge = alpha > -2 / pose.F
+        sky += ((np.exp(-hk / 14.0) * 0.07 + np.exp(-hk / 60.0) * 0.012) * edge * day_sky)[..., None] * ice * haze
+        rho_a = math.asin(min(1.0, (gr.R + 92.0 / gr.km) / dist_c))
+        sky += (np.exp(-((alpha - (rho_a - rho)) / (6.0 * px)) ** 2) * 0.012)[..., None] * ice * haze
         if dawn > 0:
             # The sun below the limb lights the air over it from behind, in layers as it is seen from orbit: the
             # lowest air a thin gold rim, cooler air over that in ice, strongest toward the sun and gone a little
@@ -371,7 +528,6 @@ class Earth:
             s = np.asarray(look["sun"], np.float64)
             ts = ((vx[None, :] * (r @ s) + vy[:, None] * (u @ s) + f @ s) * inv).astype(np.float32)
             along = np.exp(-(1 - ts) / 0.1)
-            hk = np.clip(alpha, 0, None) / px  # km over the limb, along the sight line
             lit = along * (alpha > -1.5 / pose.F)
             sky += ((np.exp(-hk / 9.0) * 0.10 * lit)[..., None] * (0.7 * gold + 0.3 * warm)
                     + (np.exp(-hk / 45.0) * 0.022 * lit)[..., None] * ice) * dawn
@@ -401,45 +557,51 @@ class Earth:
             cos_inc = np.clip(-np.einsum("ij,ij->i", D, n), 0, 1).astype(np.float32)
             km_px = (t * gr.km * iv / pose.F / np.sqrt(np.maximum(cos_inc, 0.02))).astype(np.float32)
             land = self.land.sample(lat, lon, km_px) / 255.0
-            alb = np.clip(self.albedo.sample(lat, lon, km_px), 0, 1)
-            rel = self.relief.sample(lat, lon, km_px)
-            # where a cell of the relief covers many pixels its shape is a blur, and the land keeps only its tone
-            sharp = np.clip((14.0 - self.relief.texel / np.maximum(km_px, 1e-6)) / 9.0, 0, 1)
-            moon = np.asarray(look["moon"], np.float64)
-            lam = np.clip(n @ moon, 0, 1).astype(np.float32)
-            # the land in moonlight: its own brightness and its relief, in the emblem's ice deepened to navy
-            tex = alb ** 0.85 * np.clip(1.0 + 3.0 * rel * sharp, 0.1, 3.0)
-            ground = navy * (0.28 + 0.4 * np.exp(-cos_inc / 0.1))[:, None]
-            lit = (0.004 + 0.08 * lam) * tex
-            land_c = ground * (1 - det) + det * (navy * 0.55 + MOONLIT * lit[:, None])
-            # the sea: darker, and the moon's path on it, a broad sheen broken by the swell
-            hv = moon[None, :] - D
-            hv /= np.linalg.norm(hv, axis=1, keepdims=True)
-            nh = np.clip(np.einsum("ij,ij->i", n, hv), 0, 1)
-            sw = self.swell.sample(lat, lon, km_px)
-            rough = np.exp(0.35 * sw)
-            sheen = (nh ** (260 / rough) * 0.03 + nh ** (45 / rough) * 0.007) * (0.7 + 0.3 * sw.clip(-2, 2))
-            sea_c = ground * (1 - det) + det * (navy * (0.22 + 0.12 * cos_inc)[:, None] + sheen[:, None] * ice)
+            key, fill, hgt, rug = self.relief.sample(lat, lon, km_px)
+            base = np.maximum(ground_colour(self.classes.sample(lat, lon, km_px), rug,
+                                            np.clip((6.0 - km_px) / 4.0, 0, 1)), 0)
+            # the land: its own colour, lit by the key light on its slopes toward it and the sky's ice on the rest;
+            # while the light comes on, night where it has not yet run, and its edge flaring on the relief it reaches
+            dayv, front = day, None
+            if wave is not None:
+                d_km = np.arccos(np.clip(g @ np.asarray(wave["g"], np.float64), -1, 1)) * RE
+                lit = np.clip((wave["r"] - d_km) / wave["w"] + 0.5, 0, 1)
+                lit = np.maximum(lit * lit * (3 - 2 * lit), wave["all"]).astype(np.float32)
+                dayv = (day * (wave["night"] + (1 - wave["night"]) * lit)).astype(np.float32)
+                front = (np.exp(-((d_km - wave["r"]) / wave["fw"]) ** 2) * wave["front"]).astype(np.float32)
+                # by night the land has no colour of its own but the moon's: its brightness, cool
+                moon = (base @ np.array([0.2126, 0.7152, 0.0722], np.float32))[:, None] * MOON
+                base = base * lit[:, None] + moon * (1 - lit)[:, None]
+            land_c = base * (KEY_COL * (KEY_K * dayv * key)[:, None] + ice * (SKY_K * (0.5 + 0.5 * dayv) * fill)[:, None])
+            if front is not None:
+                land_c += base * (KEY_COL * (KEY_K * 1.15 * front * (0.35 + key))[:, None])
+            # the sea: the navy, deepest over the abyss, its shallows over the shelf lifting toward the ice
+            depth = np.minimum(hgt, 0.0)
+            sea_c = (navy * (0.55 + 0.35 * np.exp(depth / 1500.0))[:, None]
+                     + SHELF * (np.exp(depth / 120.0) + 0.25 * np.exp(depth / 700.0))[:, None])
             surf = land_c * land[:, None] + sea_c * (1 - land)[:, None]
-            # the air along the limb over the ground: it lifts toward the edge as the sight crosses more of it; with
-            # no detail yet (the city's own ground) it is the city's haze, about the horizon on both sides of it as
-            # space.backdrop drew it, so the plate takes the backdrop's place without a seam
-            surf += (np.exp(-cos_inc * 7.0) * 1.1 * det + band.ravel()[idx] * (1 - det))[:, None] * cool * haze
             if dawn > 0:  # the first light on the ground, where the sun is up
                 s = np.asarray(look["sun"], np.float64)
-                day = np.clip(n @ s + 0.03, 0, None).astype(np.float32) * dawn
-                surf += (day * (0.3 + 0.7 * alb) * np.clip(1 + 2.4 * rel * sharp, 0.2, 2.6))[:, None] * gold * 0.05
+                dd = np.clip(n @ s + 0.03, 0, None).astype(np.float32) * dawn
+                surf += (dd * (0.3 + 0.7 * land) * 0.05)[:, None] * gold
+            # the air between: the farther and the more edge on the ground is seen, the more of the air's light is
+            # over it and the less of its own comes through; along the limb it is all air
+            air = 1 - np.exp(-0.035 / np.maximum(cos_inc, 0.02))
+            surf = surf * (1 - 0.72 * air)[:, None] + (air * 0.035 * haze)[:, None] * ice \
+                + (band.ravel()[idx] * haze)[:, None] * cool
             cv_ = cover.ravel()[idx][:, None]
             img[idx] = img[idx] * (1 - cv_) + surf.astype(np.float32) * cv_
+        self.cover = cover  # where the ground is, for what lies beyond the limb (the sun at the end)
         return img.reshape(H, W, 3)
 
     # -------------------------------------------------------------- the towns' lights, as points of the space
 
-    def lights(self, pt, gr, k, gold=None, cols=None, t=0.0, gain=None):
+    def lights(self, pt, gr, k, reached=None, cols=None, t=0.0, gain=None):
         """Every town's lights through the painter: a pale gold, a great city's heart warm-white and a few in ice,
-        each turning the brand's full gold, and brighter, by its share of `gold` (per light: where the system has
-        reached), and `gain` times as bright (per light, or none). Those over the horizon are left out, and those
-        near the limb dimmed by the long way through the air. cols: the warm, the ice and the gold, linear."""
+        each turning the system's colour, and brighter, by its share of `reached` (per light: where the system has
+        reached it), and `gain` times as bright (per light, or none). Those over the horizon are left out, and those
+        near the limb dimmed by the long way through the air. cols: the warm, the ice, the gold and the system's
+        colour, linear."""
         cam = pt.p.pos
         P = gr.world(self.light_g)
         to = P - cam
@@ -452,14 +614,14 @@ class Earth:
         air = np.clip(facing[vis] / 0.3, 0, 1) ** 0.7
         flick = 0.88 + 0.12 * np.sin(t * 1.3 + self.light_ph[vis])
         kk = self.light_k[vis] * k * air * flick
-        warm, ice, gcol = (np.asarray(c, np.float64) for c in cols)
+        warm, ice, gcol, scol = (np.asarray(c, np.float64) for c in cols)
         hw = self.light_heart[vis][:, None]
         col = (0.5 * warm + 0.5 * gcol) * (1 - hw) + warm * hw
         col = np.where((self.light_warm[vis] > 0.94)[:, None], ice, col)
-        if gold is not None:
-            gk = gold[vis][:, None]
-            col = col * (1 - gk) + gcol * gk
-            kk = kk * (1 + 1.4 * gold[vis])
+        if reached is not None:
+            rk = reached[vis][:, None]
+            col = col * (1 - rk) + scol * rk
+            kk = kk * (1 + 1.4 * reached[vis])
         if gain is not None:
             kk = kk * gain[vis]
         # Each light stands for a patch of a town's lamps. From orbit the patches are finer than a pixel and a city

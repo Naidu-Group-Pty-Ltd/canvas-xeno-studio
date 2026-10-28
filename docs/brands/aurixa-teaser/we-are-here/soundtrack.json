@@ -1,0 +1,473 @@
+{
+ "written": "2026-10-28",
+ "note": "We Are Here's soundtrack: As One's two stems (scripts/aurixa-teaser/as-one/sound.py) as a studio edit's audio (src/lib/edit/timeline.ts), the music dipped under the voice and mixed by the media worker's code (media-worker/src/sequence.js), measured by its mix report (media-worker/src/mixreport.js). The voice keeps every word where As One placed it (sound-as-one/cues.json); the music runs from its first sample.",
+ "stems": {
+  "voice": {
+   "file": "sound-as-one/stems/voice.wav",
+   "asset": "e2a6be68-4f01-43c1-987e-06e4a5de7f9d"
+  },
+  "music": {
+   "file": "sound-as-one/stems/music.wav",
+   "asset": "221832d4-8d43-4302-b7a4-9fb517e80c5f"
+  },
+  "sfx": {
+   "file": "sound-we-are-here/sfx.wav",
+   "stands_in": "5644308b-e45b-477d-886f-8bd562374fb8",
+   "made_by": "sfx.py"
+  }
+ },
+ "timeline": {
+  "audio": [
+   {
+    "id": "voiceover",
+    "assetId": "e2a6be68-4f01-43c1-987e-06e4a5de7f9d",
+    "role": "voiceover",
+    "start": 0,
+    "trimStart": 0,
+    "duration": 45.5,
+    "volume": 1,
+    "fadeIn": 0,
+    "fadeOut": 0,
+    "loop": false,
+    "duck": false,
+    "duckLevel": 0.25,
+    "label": "The voice: the brand voice's take in its eleven sentences, as As One placed them",
+    "pauses": []
+   },
+   {
+    "id": "music-1",
+    "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+    "role": "music",
+    "start": 0,
+    "trimStart": 0,
+    "duration": 22.2499,
+    "volume": 1,
+    "fadeIn": 0,
+    "fadeOut": 0.03,
+    "loop": false,
+    "duck": true,
+    "duckLevel": 0.42,
+    "label": "The intro and its silent bar, under the first five lines",
+    "pauses": []
+   },
+   {
+    "id": "music-2",
+    "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+    "role": "music",
+    "start": 22.2199,
+    "trimStart": 22.2199,
+    "duration": 0.3301,
+    "volume": 0.65,
+    "fadeIn": 0.03,
+    "fadeOut": 0.15,
+    "loop": false,
+    "duck": false,
+    "duckLevel": 1,
+    "label": "The drop's first hit, before the voice comes back",
+    "pauses": []
+   },
+   {
+    "id": "music-3",
+    "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+    "role": "music",
+    "start": 22.4,
+    "trimStart": 22.4,
+    "duration": 17.549,
+    "volume": 1,
+    "fadeIn": 0.15,
+    "fadeOut": 0.2,
+    "loop": false,
+    "duck": true,
+    "duckLevel": 0.47,
+    "label": "The groove, under 'More valuable' to 'the system'",
+    "pauses": []
+   },
+   {
+    "id": "music-4",
+    "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+    "role": "music",
+    "start": 39.749,
+    "trimStart": 39.749,
+    "duration": 0.494,
+    "volume": 0.4,
+    "fadeIn": 0.2,
+    "fadeOut": 0.03,
+    "loop": false,
+    "duck": true,
+    "duckLevel": 0.47,
+    "label": "The breath before the reveal",
+    "pauses": []
+   },
+   {
+    "id": "music-5",
+    "assetId": "221832d4-8d43-4302-b7a4-9fb517e80c5f",
+    "role": "music",
+    "start": 40.213,
+    "trimStart": 40.213,
+    "duration": 5.287,
+    "volume": 1,
+    "fadeIn": 0.03,
+    "fadeOut": 0,
+    "loop": false,
+    "duck": true,
+    "duckLevel": 0.47,
+    "label": "The reveal, under 'Aurixa Systems' and 'A new operating standard is coming'",
+    "pauses": []
+   },
+   {
+    "id": "sfx",
+    "assetId": "5644308b-e45b-477d-886f-8bd562374fb8",
+    "role": "sfx",
+    "start": 0,
+    "trimStart": 0,
+    "duration": 45.5,
+    "volume": 0.63,
+    "fadeIn": 0,
+    "fadeOut": 0,
+    "loop": false,
+    "duck": false,
+    "duckLevel": 0.25,
+    "label": "The sound design (sfx.py): the film's moments, on its clock",
+    "pauses": []
+   }
+  ],
+  "mix": {
+   "picture": {
+    "level": 1,
+    "muted": true
+   },
+   "voiceover": {
+    "level": 1,
+    "muted": false
+   },
+   "audio": {
+    "level": 1,
+    "muted": false
+   }
+  },
+  "normalizeLoudness": true
+ },
+ "plan": {
+  "total": 45.5,
+  "loudness": -14,
+  "mix": {
+   "picture": 0,
+   "voiceover": 1,
+   "music": 1,
+   "sfx": 1
+  }
+ },
+ "speech": [
+  [
+   0.637,
+   11.748
+  ],
+  [
+   12.185,
+   15.442
+  ],
+  [
+   15.849,
+   22.03
+  ],
+  [
+   22.57,
+   27.15
+  ],
+  [
+   27.728,
+   33.743
+  ],
+  [
+   34.252,
+   39.714
+  ],
+  [
+   40.256,
+   41.456
+  ],
+  [
+   41.841,
+   43.97
+  ]
+ ],
+ "mix_report": {
+  "band_hz": [
+   300,
+   4000
+  ],
+  "sections": [
+   {
+    "index": 1,
+    "from": 0,
+    "to": 22.25,
+    "speech_seconds": 20.55,
+    "voice_db": -20,
+    "music_db": -32.5,
+    "margin_db": 12.5
+   },
+   {
+    "index": 2,
+    "from": 22.22,
+    "to": 22.55,
+    "speech_seconds": 0,
+    "voice_db": null,
+    "music_db": null,
+    "margin_db": null
+   },
+   {
+    "index": 3,
+    "from": 22.4,
+    "to": 39.949,
+    "speech_seconds": 16.06,
+    "voice_db": -22.3,
+    "music_db": -33.6,
+    "margin_db": 11.3
+   },
+   {
+    "index": 4,
+    "from": 39.749,
+    "to": 40.243,
+    "speech_seconds": 0,
+    "voice_db": null,
+    "music_db": null,
+    "margin_db": null
+   },
+   {
+    "index": 5,
+    "from": 40.213,
+    "to": 45.5,
+    "speech_seconds": 3.33,
+    "voice_db": -18.3,
+    "music_db": -36.2,
+    "margin_db": 17.9
+   }
+  ],
+  "margin_db": {
+   "min": 11.3,
+   "max": 17.9
+  },
+  "loudness": {
+   "integrated_lufs": -14.2,
+   "range_lu": 3,
+   "true_peak_dbtp": -1.5
+  },
+  "mixed_lufs": -12.7
+ },
+ "with_sound_design": {
+  "note": "The voice's margin over the music and the sound design together (the mix report weighs the music alone): the report's speech band and arithmetic, the two buses' bands summed.",
+  "sections": [
+   {
+    "index": 1,
+    "from": 0,
+    "to": 22.25,
+    "speech_seconds": 20.55,
+    "voice_db": -20,
+    "music_db": -31.7,
+    "margin_db": 11.7
+   },
+   {
+    "index": 2,
+    "from": 22.22,
+    "to": 22.55,
+    "speech_seconds": 0,
+    "voice_db": null,
+    "music_db": null,
+    "margin_db": null
+   },
+   {
+    "index": 3,
+    "from": 22.4,
+    "to": 39.949,
+    "speech_seconds": 16.06,
+    "voice_db": -22.3,
+    "music_db": -33.3,
+    "margin_db": 11
+   },
+   {
+    "index": 4,
+    "from": 39.749,
+    "to": 40.243,
+    "speech_seconds": 0,
+    "voice_db": null,
+    "music_db": null,
+    "margin_db": null
+   },
+   {
+    "index": 5,
+    "from": 40.213,
+    "to": 45.5,
+    "speech_seconds": 3.33,
+    "voice_db": -18.3,
+    "music_db": -30.1,
+    "margin_db": 11.8
+   }
+  ],
+  "sentences": [
+   {
+    "line": "The next generation of property professionals will operate differently.",
+    "index": 1,
+    "from": 0.632,
+    "to": 4.394,
+    "speech_seconds": 3.76,
+    "voice_db": -19.3,
+    "music_db": -31.7,
+    "margin_db": 12.4
+   },
+   {
+    "line": "Not because they'll use more software, not because they'll have more dashboards, and not because AI became another tab.",
+    "index": 2,
+    "from": 4.497,
+    "to": 11.753,
+    "speech_seconds": 7.25,
+    "voice_db": -19.7,
+    "music_db": -30.7,
+    "margin_db": 11
+   },
+   {
+    "line": "At a certain level of ambition, the question changes.",
+    "index": 3,
+    "from": 12.182,
+    "to": 15.459,
+    "speech_seconds": 3.26,
+    "voice_db": -19.1,
+    "music_db": -32.8,
+    "margin_db": 13.7
+   },
+   {
+    "line": "Research, clients, reports, finance, communication.",
+    "index": 4,
+    "from": 15.843,
+    "to": 20.611,
+    "speech_seconds": 4.76,
+    "voice_db": -22.1,
+    "music_db": -32.1,
+    "margin_db": 10
+   },
+   {
+    "line": "Powerful on their own.",
+    "index": 5,
+    "from": 20.733,
+    "to": 22.055,
+    "speech_seconds": 1.3,
+    "voice_db": -19.5,
+    "music_db": -37.9,
+    "margin_db": 18.4
+   },
+   {
+    "line": "More valuable when they stop behaving like separate destinations.",
+    "index": 6,
+    "from": 22.55,
+    "to": 27.164,
+    "speech_seconds": 4.58,
+    "voice_db": -22.9,
+    "music_db": -32.7,
+    "margin_db": 9.8
+   },
+   {
+    "line": "When intelligence can move, when context can follow, when the business can act as one.",
+    "index": 7,
+    "from": 27.723,
+    "to": 33.807,
+    "speech_seconds": 6.02,
+    "voice_db": -23,
+    "music_db": -33.5,
+    "margin_db": 10.5
+   },
+   {
+    "line": "So don't ask what the next tool is.",
+    "index": 8,
+    "from": 34.237,
+    "to": 36.333,
+    "speech_seconds": 2.08,
+    "voice_db": -18.9,
+    "music_db": -32.7,
+    "margin_db": 13.8
+   },
+   {
+    "line": "Ask what happens when the business becomes the system.",
+    "index": 9,
+    "from": 36.576,
+    "to": 39.749,
+    "speech_seconds": 3.14,
+    "voice_db": -23.4,
+    "music_db": -35,
+    "margin_db": 11.6
+   },
+   {
+    "line": "Aurixa Systems.",
+    "index": 10,
+    "from": 40.252,
+    "to": 41.473,
+    "speech_seconds": 1.2,
+    "voice_db": -16.4,
+    "music_db": -28.9,
+    "margin_db": 12.5
+   },
+   {
+    "line": "A new operating standard is coming.",
+    "index": 11,
+    "from": 41.836,
+    "to": 44.004,
+    "speech_seconds": 2.13,
+    "voice_db": -19.9,
+    "music_db": -30.9,
+    "margin_db": 11
+   }
+  ]
+ },
+ "as_one": {
+  "note": "As One's own balance (nothing ducked, every item at its full level), measured the same way.",
+  "margin_db": {
+   "min": 4.8,
+   "max": 11.3
+  },
+  "sections": [
+   {
+    "index": 1,
+    "from": 0,
+    "to": 22.25,
+    "speech_seconds": 20.55,
+    "voice_db": -20,
+    "music_db": -25,
+    "margin_db": 5
+   },
+   {
+    "index": 2,
+    "from": 22.22,
+    "to": 22.55,
+    "speech_seconds": 0,
+    "voice_db": null,
+    "music_db": null,
+    "margin_db": null
+   },
+   {
+    "index": 3,
+    "from": 22.4,
+    "to": 39.949,
+    "speech_seconds": 16.06,
+    "voice_db": -22.3,
+    "music_db": -27.1,
+    "margin_db": 4.8
+   },
+   {
+    "index": 4,
+    "from": 39.749,
+    "to": 40.243,
+    "speech_seconds": 0,
+    "voice_db": null,
+    "music_db": null,
+    "margin_db": null
+   },
+   {
+    "index": 5,
+    "from": 40.213,
+    "to": 45.5,
+    "speech_seconds": 3.33,
+    "voice_db": -18.3,
+    "music_db": -29.6,
+    "margin_db": 11.3
+   }
+  ]
+ }
+}
