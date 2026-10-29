@@ -586,6 +586,65 @@ export function withBrandStyle(
   return text ? `${text}\n\n${line}` : line;
 }
 
+/** What the brand never shows, said in a prompt: for a model with no negative prompt. */
+export function neverShowLine(avoid: string): string {
+  const text = avoid.trim();
+  return text ? `Never show: ${sentence(text)}.` : "";
+}
+
+/** Where a brand's avoid line went in a generation, or why it is not there. */
+export type BrandAvoidPlacement = "negative_prompt" | "prompt" | "none" | "no_room";
+
+/**
+ * A generation's prompt and negative prompt in a brand's look: its style line
+ * in the prompt, and what it never shows in the negative prompt — or, for a
+ * model with no negative prompt (GPT Image and Flare among them, and most
+ * video models), in the prompt as one "Never show" line, because a rule the
+ * model is never sent is not followed. Each goes in once: a prompt that
+ * already carries a line keeps it as it is. A never-show line that would take
+ * the prompt past the model's limit is left out (`no_room`), because the limit
+ * would cut it off the end anyway; the caller says so.
+ *
+ * The Create page and the studio API both send what this returns, so the two
+ * cannot make the same generation two ways.
+ */
+export function promptInBrand(input: {
+  prompt: string;
+  negativePrompt?: string | null;
+  brand: BrandLook;
+  kind: "image" | "video";
+  /** The model's settings: whether it takes a negative prompt, and its prompt's limit. */
+  fields: ReadonlyArray<{ key: string; maxLength?: number | null }>;
+}): { prompt: string; negativePrompt?: string; avoid: BrandAvoidPlacement } {
+  const prompt = withBrandStyle(input.prompt, input.brand, input.kind);
+  const avoid = brandAvoidLine(input.brand);
+  if (!avoid) return { prompt, avoid: "none" };
+  if (input.fields.some((field) => field.key === "negative_prompt")) {
+    const existing = input.negativePrompt?.trim() ?? "";
+    return {
+      prompt,
+      negativePrompt: existing.includes(avoid)
+        ? existing
+        : [existing, avoid].filter(Boolean).join(", "),
+      avoid: "negative_prompt",
+    };
+  }
+  if (prompt.includes(avoid)) return { prompt, avoid: "prompt" };
+  const withLine = `${prompt}\n\n${neverShowLine(avoid)}`;
+  const max = input.fields.find((field) => field.key === "prompt")?.maxLength;
+  if (max && withLine.length > max) return { prompt, avoid: "no_room" };
+  return { prompt: withLine, avoid: "prompt" };
+}
+
+/**
+ * The brand line a long video's clips and keyframes carry: its look and,
+ * because the clip and keyframe models are sent no negative prompt, what it
+ * never shows. Empty when the brand has nothing to say.
+ */
+export function longVideoBrandLine(look: string, avoid: string): string {
+  return [look.trim(), neverShowLine(avoid)].filter(Boolean).join(" ");
+}
+
 /**
  * What a long video keeps of the brand it was started in, so every clip,
  * keyframe and line of it is made in the same look even if the kit changes.

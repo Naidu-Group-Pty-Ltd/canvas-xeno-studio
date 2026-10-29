@@ -43,7 +43,11 @@ import {
 } from "../edit/compile";
 import { compilePresenterEdit, type PresenterTitle } from "../edit/presenter";
 import { applyBrandKit, brandKitOf, kitForProject, type BrandKit } from "../edit/brand";
-import { storedBrandSnapshot } from "../brand/design";
+import { longVideoBrandLine, storedBrandSnapshot, type BrandSnapshot } from "../brand/design";
+
+/** The brand line a keyframe carries: its look, and what it never shows (the painter takes no negative prompt). */
+const brandLineOf = (snapshot: BrandSnapshot | null) =>
+  snapshot ? longVideoBrandLine(snapshot.styleLine, snapshot.avoidLine) || null : null;
 import { soulStillValues } from "../characters/views";
 import { isMissingTableError } from "../edit/errors";
 import type { ModelRegistryEntry } from "../model-schema";
@@ -4015,7 +4019,7 @@ async function startKeyframe(
     references: chosen.references,
     aspect: settings.aspect,
     note: keyframe.note,
-    brand: storedBrandSnapshot(run.brand)?.styleLine ?? null,
+    brand: brandLineOf(storedBrandSnapshot(run.brand)),
   });
   const values = withSoul
     ? soulStillValues(model, settings.width / settings.height, soul!.referenceId)

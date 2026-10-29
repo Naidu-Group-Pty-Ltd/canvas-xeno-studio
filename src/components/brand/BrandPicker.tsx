@@ -35,7 +35,8 @@ function Swatches({ kit, className }: { kit: BrandKit; className?: string | unde
 /**
  * The brand a picture or video is made in: its look goes into the prompt
  * (the line shown here), what it never shows into the negative prompt where
- * the model has one, and its style references can be added as reference
+ * the model has one and into the prompt as a "Never show" line where it has
+ * not (`promptInBrand`), and its style references can be added as reference
  * images. A long video keeps it for every clip, keyframe and its edit.
  */
 export function BrandPicker({
@@ -44,6 +45,7 @@ export function BrandPicker({
   kind,
   room,
   onAddReferences,
+  negativePrompt,
 }: {
   kitId: string | null;
   onChange: (kitId: string | null) => void;
@@ -51,6 +53,8 @@ export function BrandPicker({
   /** How many more reference images the model takes (0: none). */
   room: number;
   onAddReferences?: ((assets: AssetRow[]) => void) | undefined;
+  /** Whether the model takes a negative prompt; unknown when not said. */
+  negativePrompt?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const { data } = useBrandKits();
@@ -102,8 +106,8 @@ export function BrandPicker({
       </PopoverTrigger>
       <PopoverContent align="start" className="w-80 space-y-2 p-2">
         <p className="px-1 text-[11px] text-muted-foreground">
-          Made in a brand, the prompt carries its look (palette, light, style, mood) and avoids what
-          it never shows.
+          Made in a brand, the prompt carries its look (palette, light, style, mood) and what it
+          never shows.
         </p>
         <div className="max-h-64 space-y-0.5 overflow-y-auto">
           {kits.map((entry) => (
@@ -150,7 +154,16 @@ export function BrandPicker({
               <Sparkles className="size-3 text-primary" /> Added to the prompt
             </p>
             <p className="text-muted-foreground">{line || "Nothing yet: this kit has no look."}</p>
-            {avoid && <p className="text-muted-foreground">Avoids: {avoid}</p>}
+            {avoid && (
+              <p className="text-muted-foreground">
+                Never shows: {avoid}
+                {negativePrompt === true
+                  ? " (in the negative prompt)"
+                  : negativePrompt === false
+                    ? " (in the prompt: this model takes no negative prompt)"
+                    : ""}
+              </p>
+            )}
             {references.length > 0 && onAddReferences && (
               <Button
                 size="sm"

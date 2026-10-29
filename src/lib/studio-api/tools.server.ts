@@ -955,28 +955,31 @@ const queueStage = tool({
   },
 });
 
-/** A generation's parameters in a brand's look: its style line in the prompt, its avoid line in the negative prompt. */
+/**
+ * A generation's parameters in a brand's look (`promptInBrand`): its style line
+ * in the prompt, and what it never shows in the negative prompt, or in the
+ * prompt as a "Never show" line on a model with no negative prompt.
+ */
 async function withBrand(
   model: ModelRegistryEntry,
   parameters: Record<string, unknown>,
   brandKitId: string,
 ): Promise<Record<string, unknown>> {
   const { requireBrandKit } = await import("../brand/use.server");
-  const { brandAvoidLine, withBrandStyle } = await import("../brand/design");
+  const { promptInBrand } = await import("../brand/design");
   const kit = await requireBrandKit(brandKitId);
-  const prompt = typeof parameters["prompt"] === "string" ? parameters["prompt"] : "";
-  const avoid = brandAvoidLine(kit);
-  const negativeField = (model.parameter_schema?.fields ?? []).some(
-    (field) => field.key === "negative_prompt",
-  );
-  const negative =
-    typeof parameters["negative_prompt"] === "string" ? parameters["negative_prompt"].trim() : "";
+  const branded = promptInBrand({
+    prompt: typeof parameters["prompt"] === "string" ? parameters["prompt"] : "",
+    negativePrompt:
+      typeof parameters["negative_prompt"] === "string" ? parameters["negative_prompt"] : null,
+    brand: kit,
+    kind: model.output_type === "video" ? "video" : "image",
+    fields: model.parameter_schema?.fields ?? [],
+  });
   return {
     ...parameters,
-    prompt: withBrandStyle(prompt, kit, model.output_type === "video" ? "video" : "image"),
-    ...(negativeField && avoid && !negative.includes(avoid)
-      ? { negative_prompt: [negative, avoid].filter(Boolean).join(", ") }
-      : {}),
+    prompt: branded.prompt,
+    ...(branded.negativePrompt !== undefined ? { negative_prompt: branded.negativePrompt } : {}),
   };
 }
 
