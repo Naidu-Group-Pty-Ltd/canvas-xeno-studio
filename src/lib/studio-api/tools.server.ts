@@ -213,7 +213,7 @@ const listModels = tool({
   name: "list_models",
   title: "List models",
   description:
-    "The generation models the studio offers: their ids, what they make, the media inputs they take (by role) and the parameters that can be set. Models marked lipSync move a speaker's lips to a voiceover (use them with start_presenter_video).",
+    "The generation models the studio offers: their ids, what they make, the media inputs they take (by role) and the parameters that can be set. Models marked lipSync move a speaker's lips to a voiceover (use them with start_presenter_video). `listPrice` is the team's list price for a model ({usd, unit: image, request or second}), null when it has none: a model Higgsfield quotes no figure for (GPT Image and Flare among them) then comes back unpriced, and queue_stage refuses it unless allowUnpriced. An admin sets one on the Usage page. It is left out when the prices couldn't be read.",
   scope: "read",
   input: z.object({
     output: z.enum(["image", "video", "audio"]).optional().describe("Only models that make this"),
@@ -225,6 +225,8 @@ const listModels = tool({
     if (args.output) query = query.eq("output_type", args.output);
     const { data, error } = await query;
     if (error) throw new AppError("UNKNOWN", "The models couldn't be read");
+    const { listPrices } = await import("../generation-costs.server");
+    const prices = await listPrices();
     const words = args.search?.toLowerCase().split(/\s+/).filter(Boolean) ?? [];
     return ((data ?? []) as unknown as ModelRegistryEntry[])
       .filter((model) =>
@@ -233,7 +235,12 @@ const listModels = tool({
         ),
       )
       .filter((model) => args.lipSync === undefined || lipSyncCapable(model) === args.lipSync)
-      .map(modelSummary);
+      .map((model) => {
+        const summary = modelSummary(model);
+        if (!prices) return summary;
+        const price = prices.get(model.id);
+        return { ...summary, listPrice: price ? { usd: price.usd, unit: price.unit } : null };
+      });
   },
 });
 
