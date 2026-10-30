@@ -1,6 +1,6 @@
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { AlertTriangle, Loader2, Pause, Play, Sparkles } from "lucide-react";
+import { AlertTriangle, ImageDown, Loader2, Pause, Play, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import {
   imageIdsFor,
@@ -36,7 +36,11 @@ import { QUALITY_SETTINGS, renderEstimate, type RenderQuality } from "@/lib/comp
 import { specKey, type CompositionClip, type CompositionSpec } from "@/lib/compositions/spec";
 import { TEMPLATES, templateById } from "@/lib/compositions/templates";
 import { TEMPLATE_GROUP_LABELS, type TemplateGroup } from "@/lib/compositions/types";
-import { startComposition } from "@/lib/compositions.functions";
+import {
+  getCompositionRender,
+  startComposition,
+  startCompositionStill,
+} from "@/lib/compositions.functions";
 import { formatTime } from "@/lib/edit/timeline";
 import { cn } from "@/lib/utils";
 import { CompositionFields } from "./CompositionFields";
@@ -128,6 +132,9 @@ function CompositionEditor({
   const [quality, setQuality] = useState<RenderQuality>(initial?.quality ?? "draft");
   const [submitting, setSubmitting] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  // The moment the preview is paused on (null while it plays): what a still is drawn at.
+  const [pausedAt, setPausedAt] = useState<number | null>(null);
+  const [stilling, setStilling] = useState(false);
 
   const template = templateById(templateId) ?? TEMPLATES[0]!;
   const params = useMemo(
@@ -245,6 +252,47 @@ function CompositionEditor({
     }
   }
 
+  /**
+   * One moment of it as a picture twice the frame's size, into the library:
+   * the paused moment, else the end, where everything has arrived. Followed
+   * here until it is drawn, so the person hears when it is in.
+   */
+  async function saveStill() {
+    if (blocked) return;
+    setStilling(true);
+    setProblem(null);
+    try {
+      let view = await startCompositionStill({
+        data: { spec, brandKitId: kitId, projectId, width, height, fps, at: pausedAt },
+      });
+      if (view.status !== "completed")
+        toast.info(`Drawing a ${width * 2}×${height * 2} still. It goes into the library.`);
+      for (
+        let tries = 0;
+        tries < 60 && view.status !== "completed" && view.status !== "failed";
+        tries++
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        view = await getCompositionRender({ data: { renderId: view.renderId } });
+      }
+      if (view.status === "completed")
+        toast.success(
+          view.cached
+            ? `This still was drawn before: it is in the library (Still · ${template.title}).`
+            : `The still is in the library (Still · ${template.title}).`,
+        );
+      else if (view.status === "failed")
+        toast.error(view.errorMessage ?? "The still couldn't be drawn");
+      else toast.info("The still is still being drawn: it will be in the library when it's done.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "The still couldn't be started";
+      setProblem(message);
+      toast.error(message);
+    } finally {
+      setStilling(false);
+    }
+  }
+
   const missing = built.scene?.missing ?? [];
 
   return (
@@ -305,6 +353,7 @@ function CompositionEditor({
             fps={fps}
             duration={duration}
             label={`${template.title} preview`}
+            onPaused={setPausedAt}
           />
           {missing.length > 0 && (
             <p className="flex items-start gap-1.5 rounded-md border border-warning/40 bg-warning/5 p-2 text-[11px]">
@@ -411,6 +460,21 @@ function CompositionEditor({
           Cancel
         </Button>
         <Button
+          variant="outline"
+          size="sm"
+          className="h-8"
+          disabled={stilling || Boolean(blocked)}
+          onClick={() => void saveStill()}
+          title={`One moment of it as a ${width * 2}×${height * 2} picture in the library: the paused moment, else the end`}
+        >
+          {stilling ? (
+            <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+          ) : (
+            <ImageDown className="mr-1.5 size-3.5" />
+          )}
+          {pausedAt === null ? "Save as a picture" : `Save ${formatTime(pausedAt)} as a picture`}
+        </Button>
+        <Button
           size="sm"
           className="h-8"
           disabled={submitting || Boolean(blocked)}
@@ -433,6 +497,7 @@ function PreviewPane({
   fps,
   duration,
   label,
+  onPaused,
 }: {
   scene: Scene | null;
   error: string | null;
@@ -441,6 +506,8 @@ function PreviewPane({
   fps: number;
   duration: number;
   label: string;
+  /** The moment it is paused on, or null while it plays. */
+  onPaused?: (at: number | null) => void;
 }) {
   const [time, setTime] = useState(0);
   const [playing, setPlaying] = useState(true);
@@ -458,6 +525,8 @@ function PreviewPane({
     return () => cancelAnimationFrame(frame);
   }, [playing, duration]);
   const at = Math.min(time, duration);
+  const paused = playing ? null : at;
+  useEffect(() => onPaused?.(paused), [paused, onPaused]);
   const beats = scene?.scene.beats ?? [];
   return (
     <>

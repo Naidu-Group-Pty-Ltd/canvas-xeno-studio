@@ -35,7 +35,36 @@ export const startComposition = createServerFn({ method: "POST" })
     return startCompositionRender({ ...data, userId: context.userId });
   });
 
-/** A composition drawing's progress, and its library video once drawn. */
+/**
+ * Draws one moment of a composition as a picture twice the frame's size (or
+ * returns the one drawn before): a thumbnail or a cover in the brand's type.
+ * `at` is the moment; the composition's end when not given.
+ */
+export const startCompositionStill = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        spec: compositionSpecSchema,
+        brandKitId: z.string().uuid().nullable().default(null),
+        projectId: z.string().uuid().nullable().default(null),
+        at: z.number().min(0).max(60).nullable().default(null),
+        ...frame,
+      })
+      .parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    const { startCompositionRender } = await import("./compositions/render.server");
+    const { at, ...rest } = data;
+    return startCompositionRender({
+      ...rest,
+      quality: "still",
+      stillAt: at,
+      userId: context.userId,
+    });
+  });
+
+/** A composition drawing's progress, and its library video (or a still's picture) once drawn. */
 export const getCompositionRender = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ renderId: z.string().uuid() }).parse(data))

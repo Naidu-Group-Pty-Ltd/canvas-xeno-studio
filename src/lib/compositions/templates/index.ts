@@ -4,6 +4,7 @@
  * what it draws raises its version.
  */
 import type { AnyCompositionTemplate } from "../types";
+import { coverTemplate } from "./cover";
 import { ctaTemplate } from "./cta";
 import { dashboardTemplate } from "./dashboard";
 import { documentTemplate } from "./document";
@@ -30,6 +31,7 @@ export const TEMPLATES: readonly AnyCompositionTemplate[] = [
   // Brand cards.
   titleTemplate,
   statTemplate,
+  coverTemplate,
   // Product pages, drawn from the brand's demo record.
   dashboardTemplate,
   reportTemplate,

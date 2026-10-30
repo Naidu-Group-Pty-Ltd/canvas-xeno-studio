@@ -552,7 +552,8 @@ export async function drawFrames({ bundle, serve, from, to, browsers, gpu, sink,
  * render_composition: sources are the bundle (role "data"), then its images
  * ("image") and fonts ("font") in the bundle's order. `output` "full" makes
  * the master, the playable copy and a poster; "stretch" makes the master of
- * frames [from_frame, to_frame) alone, to be joined. `verify` is the share of
+ * frames [from_frame, to_frame) alone, to be joined; "still" makes a one-frame
+ * composition's one drawing a PNG (see renderStill). `verify` is the share of
  * frames put to the vote besides those the settle check captured again (0 to
  * 0.5; 0.05 for a final drawing unless given, none for a draft).
  */
@@ -561,6 +562,10 @@ export async function renderComposition({ sources, params, dir, progress = () =>
   const bundle = readBundle(await readFile(data.path, "utf8"));
   if (bundle.webgl && !config.gpu)
     console.log(JSON.stringify({ event: "composition_webgl_in_software", frames: bundle.frames }));
+  if (params.output === "still") {
+    const serve = await pageFiles(bundle, sources.filter((source) => source !== data));
+    return renderStill({ bundle, serve, dir, progress });
+  }
   const output = params.output === "stretch" ? "stretch" : "full";
   const { from, to } = frameRange(params, bundle.frames);
   const serve = await pageFiles(bundle, sources.filter((source) => source !== data));
@@ -649,6 +654,64 @@ export async function renderComposition({ sources, params, dir, progress = () =>
       { path: poster, mime: "image/jpeg", kind: "image" },
     ],
     metadata: { ...metadata, ...(await probe(proxy)) },
+  };
+}
+
+/**
+ * A still: a one-frame composition's one drawing, kept as the PNG the browser
+ * captured at the bundle's scale (twice the frame at STILL_SETTINGS, so a
+ * 1920 x 1080 frame is a 3840 x 2160 picture). It is kept once two captures of
+ * it agree, as every drawing is (./settle.js); with nothing moving there is no
+ * shutter to average and nothing to scale down. `draw` and `chrome` are for tests.
+ */
+export async function renderStill({ bundle, serve, dir, progress = () => {}, chrome, draw = drawFrames }) {
+  if (bundle.frames !== 1 || bundle.settings.drawings !== 1) throw bad("A still is one frame of one drawing");
+  const { width, height, fps } = bundle;
+  const { scale } = bundle.settings;
+  const still = join(dir, "still.png");
+  const started = Date.now();
+  let png = null;
+  progress(0, "Opening the composition");
+  const counts = await draw({
+    bundle,
+    serve,
+    from: 0,
+    to: 1,
+    browsers: 1,
+    gpu: config.gpu,
+    sink: async (_frame, pngs) => {
+      png = pngs[0] ?? null;
+    },
+    progress: (fraction, stage) => progress(Math.min(0.95, fraction * 0.95), stage),
+    stallMs: config.renderStallSeconds * 1000,
+    recycle: config.compositionRecycleFrames,
+    verify: 0,
+    shape: { width, height, scale, drawings: 1, fps, zscale: false },
+    chrome,
+  });
+  if (!png) throw new TaskError("RENDER_FAILED", "The still wasn't drawn");
+  await writeFile(still, png);
+  return {
+    outputs: [{ path: still, mime: "image/png", kind: "image" }],
+    metadata: {
+      width: width * scale,
+      height: height * scale,
+      composition: {
+        still: true,
+        frames: 1,
+        width,
+        height,
+        scale,
+        drawings_captured: counts.captured,
+        seconds_per_drawing: counts.captured ? Number((counts.captureMs / counts.captured / 1000).toFixed(4)) : null,
+        seconds: Number(((Date.now() - started) / 1000).toFixed(1)),
+        browser_launches: counts.launches,
+        chromium: counts.chromium,
+        gpu: config.gpu,
+        webgl: bundle.webgl === true,
+        settle: counts.settle,
+      },
+    },
   };
 }
 

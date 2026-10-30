@@ -1,8 +1,10 @@
 /**
  * The studio API's motion graphics (see ../compositions): the templates and
  * their settings, drawing one in a brand kit (a drawing made before is
- * returned at once: the same composition is never drawn twice), following a
- * drawing, and setting the demo record a brand's product screens read. They
+ * returned at once: the same composition is never drawn twice), drawing one
+ * moment of one as a still picture (a thumbnail or a cover in the brand's own
+ * type), following a drawing, and setting the demo record a brand's product
+ * screens read. They
  * follow the same steps as the Editor's motion graphic dialog, so a script
  * and a person drawing the same composition share one drawing.
  *
@@ -138,11 +140,64 @@ const drawMotionGraphic = tool({
   },
 });
 
+const drawStill = tool({
+  name: "draw_still",
+  title: "Draw a still",
+  description:
+    "Draws one moment of a motion graphic as a picture twice the frame's size, in a brand kit: a 1080p 16:9 frame is a 3840 x 2160 PNG, a 9:16 one 2160 x 3840. Every letter is set by the page in the kit's own fonts, every image is a library file (a stage made by a model, the product's own screens, the logo), so nothing is lettered by a model. The cover template is made for it (a stage, the headline with its last word in the accent, the logo, the call to action and the product's screens leaning in depth); any template can be drawn this way. `at` is the moment (seconds; the end, where everything has arrived, when left out). The same still drawn before comes back at once with cached true. Returns the drawing's renderId; get_motion_graphic follows it, and once completed its assetId is a library picture. Read it back with check_text if it carries words a model drew.",
+  scope: "edit",
+  readOnly: false,
+  input: z.object({
+    template: z.string().min(1).max(60).default("cover"),
+    params: z.record(z.string(), z.unknown()).default({}),
+    seconds: z
+      .number()
+      .min(0.5)
+      .max(COMPOSITION_MAX_SECONDS)
+      .optional()
+      .describe("The composition's length (the template's default when left out)"),
+    at: z.number().min(0).max(COMPOSITION_MAX_SECONDS).optional().describe("The moment drawn"),
+    brandKitId: id().nullable().default(null).describe("null: the studio's own look"),
+    aspectRatio: z.enum(ASPECT_RATIOS).default("16:9"),
+    resolution: z
+      .enum(RESOLUTIONS)
+      .default("1080p")
+      .describe("The frame it is laid out in; the picture is twice it"),
+    projectId: id().nullable().default(null),
+  }),
+  run: async (args, caller) => {
+    const template = templateById(args.template);
+    if (!template)
+      throw new AppError(
+        "INVALID_PARAMETERS",
+        `There is no motion graphic template called "${args.template}" (list_motion_templates has them)`,
+      );
+    const frame = frameSize(args.aspectRatio, args.resolution);
+    const { startCompositionRender } = await import("../compositions/render.server");
+    return startCompositionRender({
+      userId: caller.userId,
+      projectId: args.projectId,
+      spec: {
+        template: template.id,
+        version: template.version,
+        params: args.params,
+        duration: args.seconds ?? template.duration.default,
+      },
+      brandKitId: args.brandKitId,
+      quality: "still",
+      stillAt: args.at ?? null,
+      width: frame.width,
+      height: frame.height,
+      fps: 30,
+    });
+  },
+});
+
 const getMotionGraphic = tool({
   name: "get_motion_graphic",
   title: "Get a motion graphic's drawing",
   description:
-    "A motion graphic's drawing: its status (queued, drawing, joining, completed or failed), progress, stage, about how long it takes, the demo record fields its text names but the record lacks, and once completed the library video (assetId) an edit's clip plays, with how its frames were checked (checks and checksSummary: every drawing is kept once two captures of it agree, and a final drawing has a share of its frames drawn again by a browser of its own and put to the vote; recaptured, unsettled, voted, disagreed, replaced and unresolved). Also what was drawn: its spec, brand kit, frame and rate, and the hash that keeps it.",
+    "A motion graphic's drawing (or a still's): its status (queued, drawing, joining, completed or failed), progress, stage, about how long it takes, the demo record fields its text names but the record lacks, and once completed the library video (assetId) an edit's clip plays, or for a still (quality still) the library picture, with how its frames were checked (checks and checksSummary: every drawing is kept once two captures of it agree, and a final drawing has a share of its frames drawn again by a browser of its own and put to the vote; recaptured, unsettled, voted, disagreed, replaced and unresolved). Also what was drawn: its spec, brand kit, frame and rate, and the hash that keeps it.",
   scope: "read",
   input: z.object({ renderId: id() }),
   run: async (args, caller) => {
@@ -202,6 +257,7 @@ const setDemoRecord = tool({
 export const COMPOSITION_TOOLS: StudioTool[] = [
   listMotionTemplates,
   drawMotionGraphic,
+  drawStill,
   getMotionGraphic,
   setDemoRecord,
 ];

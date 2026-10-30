@@ -239,3 +239,65 @@ describe("an edit render waiting on its motion graphics", () => {
     expect(Date.parse(after["updated_at"] as string)).toBeGreaterThan(Date.now() - 60_000);
   });
 });
+
+describe("a still drawn", () => {
+  test("its picture joins the library as a PNG twice the frame, and the drawing completes once", async () => {
+    const media = task({ status: "processing", storage_bucket: "generated-assets" });
+    const row = drawing({
+      template: "cover",
+      spec: { template: "cover", version: 1, params: {}, duration: 3 },
+      quality: "still",
+      frames: 1,
+      drawings: 1,
+      changing: 1,
+      width: 1920,
+      height: 1080,
+      media_task_id: media["id"],
+    });
+    const report = {
+      ...media,
+      input_payload: {
+        composition_render_id: row["id"],
+        composition_step: "still",
+        storage_paths: [`compositions/${row["hash"]}/still.png`],
+      },
+      project_id: null,
+      created_by: null,
+      storage_bucket: "generated-assets",
+    };
+    const done = {
+      status: "completed",
+      outputs: [{ storage_key: `compositions/${row["hash"]}/still.png`, bytes: 4_812_345 }],
+      metadata: {
+        width: 3840,
+        height: 2160,
+        composition: { still: true, seconds_per_drawing: 0.61, seconds: 6.2 },
+      },
+    };
+    expect(await callback.recordCompositionReport(report as never, done)).toBe(true);
+    const drawn = db.find("composition_renders", row["id"])!;
+    expect(drawn).toMatchObject({
+      status: "completed",
+      progress: 1,
+      master_path: `compositions/${row["hash"]}/still.png`,
+      poster_path: null,
+      seconds_per_drawing: 0.61,
+    });
+    const picture = db.find("assets", drawn["proxy_asset_id"] as string)!;
+    expect(picture).toMatchObject({
+      asset_type: "image",
+      source_type: "generated",
+      title: "Still · Cover",
+      mime_type: "image/png",
+      width: 3840,
+      height: 2160,
+      storage_path: `compositions/${row["hash"]}/still.png`,
+    });
+    expect(db.find("media_tasks", media["id"])?.["status"]).toBe("completed");
+    // Reported again: the same picture, nothing new.
+    const pictures = db.rows("assets").length;
+    expect(await callback.recordCompositionReport(report as never, done)).toBe(true);
+    expect(db.rows("assets").length).toBe(pictures);
+    expect(db.find("composition_renders", row["id"])?.["proxy_asset_id"]).toBe(picture["id"]);
+  });
+});

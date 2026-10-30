@@ -219,6 +219,7 @@ describe("estimate_stage", () => {
     const prompt = 'A dashboard on a laptop, with the headline "Your numbers, sorted".';
     const stage = await call(reader, "estimate_stage", {
       generations: [item(still["id"], { parameters: { prompt } }), item(still["id"])],
+      projectId: reel["id"],
     });
     const items = stage.body.result!["items"] as Array<Record<string, unknown>>;
     expect((items[0]!["warnings"] as Array<{ code: string }>).map((w) => w.code)).toEqual([

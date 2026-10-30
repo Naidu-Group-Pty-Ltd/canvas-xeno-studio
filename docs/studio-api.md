@@ -493,14 +493,16 @@ A script runs them like this:
 Motion graphics are drawn from the studio's templates in a brand kit (see `docs/compositions.md`):
 the graphics kit Reel 1 was built from, brand cards, and product pages drawn from the kit's demo
 record. Drawing one costs no credits, so these need the `edit` scope (reading them, `read`). An
-admin applies migration `drizzle/migrations/0034_compositions.sql` first.
+admin applies migration `drizzle/migrations/0034_compositions.sql` first, and
+`0038_composition_stills.sql` for stills.
 
-| Operation               | What it does                                                                                                                                              |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `list_motion_templates` | The templates: each one's `id`, `version`, what it draws, how long it may run (`seconds`), its `settings` (kind, limits, meaning) and its `defaults`.     |
-| `draw_motion_graphic`   | Draws one: a `template` with its `params` and `seconds`, in a `brandKitId`, as a `draft` or `final`. `sequenceId` draws it at that edit's frame and rate. |
-| `get_motion_graphic`    | A drawing's status, progress and estimate; once completed, the library video (`assetId`) a clip plays, and what was drawn (`spec`, kit, frame, `hash`).   |
-| `set_demo_record`       | Sets the fictional record a kit's product screens show (its people, records, figures and lists). `null` goes back to the studio's own.                    |
+| Operation               | What it does                                                                                                                                                                                                                                        |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `list_motion_templates` | The templates: each one's `id`, `version`, what it draws, how long it may run (`seconds`), its `settings` (kind, limits, meaning) and its `defaults`.                                                                                               |
+| `draw_motion_graphic`   | Draws one: a `template` with its `params` and `seconds`, in a `brandKitId`, as a `draft` or `final`. `sequenceId` draws it at that edit's frame and rate.                                                                                           |
+| `draw_still`            | One moment of one as a picture twice the frame's size (a 1080p 16:9 frame: 3840 × 2160 PNG): a `template` (`cover` unless given) with its `params`, in a `brandKitId`, at `at` seconds (its end unless given). Every letter set in the kit's fonts. |
+| `get_motion_graphic`    | A drawing's status, progress and estimate; once completed, the library video (`assetId`) a clip plays, and what was drawn (`spec`, kit, frame, `hash`).                                                                                             |
+| `set_demo_record`       | Sets the fictional record a kit's product screens show (its people, records, figures and lists). `null` goes back to the studio's own.                                                                                                              |
 
 The same composition is never drawn twice: drawing it again (the same template, settings, kit,
 demo record, frame, rate and quality) returns the drawing already made, with `cached: true`. A

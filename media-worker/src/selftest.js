@@ -1934,6 +1934,32 @@ if (TASKS.render_composition) {
     if ((await probe(joined.outputs[0].path)).width !== 160) throw new Error("no playable copy");
   });
 
+  await check("render_composition draws a still: its one drawing, twice the frame, as a PNG", async () => {
+    // The app compiles a still as one frame whose one drawing is the moment it was asked for: the box 48 px across.
+    const STILL = { scale: 2, drawings: 1, shutter: 0, reuse: true };
+    const still = { ...boxBundle({ frames: 1, settings: STILL }), drawings: [[[0, -1, { transform: "translateX(48px)" }]]] };
+    const source = await bundleFile("box-still", still);
+    const work = await mkdtemp(join(dir, "still-"));
+    const result = await TASKS.render_composition.run({ sources: [source], params: { output: "still", priority: "final" }, dir: work });
+    if (result.outputs.length !== 1 || result.outputs[0].mime !== "image/png") throw new Error(`a still made ${JSON.stringify(result.outputs)}`);
+    const info = await probe(result.outputs[0].path);
+    if (info.width !== 320 || info.height !== 192) throw new Error(`the still is ${info.width}x${info.height}, not twice 160x96`);
+    if (result.metadata.width !== 320 || result.metadata.height !== 192) throw new Error("the still's size isn't reported");
+    // At twice the size the box runs from 96 to 176 across, on the navy ground.
+    const row = await rowOf(result.outputs[0].path, 0, 96, 320);
+    if (!near(row[130], [200, 155, 60]) || !near(row[40], [10, 25, 47]) || !near(row[250], [10, 25, 47])) throw new Error(`the still reads ${JSON.stringify([row[40], row[130], row[250]])}`);
+    const counts = result.metadata.composition;
+    if (!counts.still || counts.drawings_captured !== 1 || counts.settle?.unsettled?.length) throw new Error(`the still's drawing: ${JSON.stringify(counts)}`);
+    if (!FEATURES.includes("composition_stills")) throw new Error("stills aren't offered");
+  });
+
+  await check("a still is one frame of one drawing", async () => {
+    const source = await bundleFile("box-not-still", boxBundle({ frames: 2, settings: DRAFT }));
+    const work = await mkdtemp(join(dir, "still-"));
+    const refused = await TASKS.render_composition.run({ sources: [source], params: { output: "still" }, dir: work }).then(() => null, (error) => error);
+    if (!refused || refused.code !== "INVALID_PARAMETERS") throw new Error(`expected INVALID_PARAMETERS, got ${refused?.code ?? "no error"}`);
+  });
+
   await check("render_composition refuses a bundle that isn't one", async () => {
     const path = join(dir, "not-a-bundle.json");
     await writeFile(path, JSON.stringify({ format: "something-else" }), "utf8");
@@ -1942,7 +1968,7 @@ if (TASKS.render_composition) {
   });
 } else {
   await check("compositions aren't offered without a browser", async () => {
-    if (FEATURES.includes("compositions")) throw new Error("compositions offered with no browser");
+    if (FEATURES.includes("compositions") || FEATURES.includes("composition_stills")) throw new Error("compositions offered with no browser");
   });
 }
 
