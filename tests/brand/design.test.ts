@@ -10,7 +10,10 @@ import {
   EMPTY_DESIGN,
   isEmptyDesign,
   kitColoursOf,
+  longVideoBrandLine,
+  neverShowLine,
   paletteOf,
+  promptInBrand,
   paletteWords,
   sourceOf,
   storedBrandSnapshot,
@@ -218,6 +221,67 @@ describe("what generations carry", () => {
     expect(avoid).toContain("neon colours, clutter");
     expect(avoid).toContain("stock-photo handshakes");
     expect(avoid).not.toContain("exclamation");
+  });
+
+  test("a model with a negative prompt is sent the avoid line there, once", () => {
+    const fields = [{ key: "prompt" }, { key: "negative_prompt" }];
+    const sent = promptInBrand({
+      prompt: "A founder at her desk.",
+      negativePrompt: "blur",
+      brand: look(),
+      kind: "image",
+      fields,
+    });
+    expect(sent.avoid).toBe("negative_prompt");
+    expect(sent.negativePrompt).toBe(`blur, ${brandAvoidLine(look())}`);
+    expect(sent.prompt).not.toContain("Never show");
+    const again = promptInBrand({ ...sent, brand: look(), kind: "image", fields });
+    expect(again.negativePrompt).toBe(sent.negativePrompt);
+    expect(again.prompt).toBe(sent.prompt);
+  });
+
+  test("a model with no negative prompt is told in the prompt what the brand never shows", () => {
+    // GPT Image and Flare have no negative prompt: the avoid line used to be dropped for them.
+    const fields = [{ key: "prompt", maxLength: 5000 }, { key: "aspect_ratio" }];
+    const sent = promptInBrand({
+      prompt: "A founder at her desk.",
+      brand: look(),
+      kind: "image",
+      fields,
+    });
+    expect(sent.avoid).toBe("prompt");
+    expect(sent.negativePrompt).toBeUndefined();
+    expect(sent.prompt).toStartWith("A founder at her desk.\n\nIn Aurixa's brand look:");
+    expect(sent.prompt).toEndWith(`\n\nNever show: ${brandAvoidLine(look())}.`);
+    expect(
+      promptInBrand({ prompt: sent.prompt, brand: look(), kind: "image", fields }).prompt,
+    ).toBe(sent.prompt);
+  });
+
+  test("a never-show line the model's limit would cut off is left out, and said", () => {
+    const sent = promptInBrand({
+      prompt: "x".repeat(900),
+      brand: look(),
+      kind: "image",
+      fields: [{ key: "prompt", maxLength: 1000 }],
+    });
+    expect(sent.avoid).toBe("no_room");
+    expect(sent.prompt).not.toContain("Never show");
+  });
+
+  test("a brand with nothing to avoid sends nothing for it", () => {
+    const quiet = look({ design: designOf({ promptStyle: "Calm light" }) });
+    expect(
+      promptInBrand({ prompt: "A desk.", brand: quiet, kind: "image", fields: [] }).avoid,
+    ).toBe("none");
+    expect(neverShowLine("  ")).toBe("");
+  });
+
+  test("a long video's clips and keyframes carry the look and what it never shows", () => {
+    expect(longVideoBrandLine("In Aurixa's brand look: calm.", "neon colours, clutter.")).toBe(
+      "In Aurixa's brand look: calm. Never show: neon colours, clutter.",
+    );
+    expect(longVideoBrandLine("", "")).toBe("");
   });
 
   test("the voice and the brief", () => {

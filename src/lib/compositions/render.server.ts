@@ -6,6 +6,11 @@
  * as there are and joined frame for frame, and each stretch kept on its own
  * hash, so a change draws only the stretches it touches (the handover's A3).
  *
+ * A still is the same composition drawn as one moment, once, at twice the
+ * frame's size (STILL_SETTINGS), and kept as a library picture: a thumbnail,
+ * a cover or a card set in the brand's type over a stage, never lettered by a
+ * model.
+ *
  * The media worker's results come back through the usual callback
  * (./callback.server). See docs/compositions.md.
  */
@@ -35,7 +40,13 @@ import {
   stretchIdentity,
   type CompiledComposition,
 } from "./compile";
-import { QUALITY_SETTINGS, renderEstimate, type RenderQuality } from "./settings";
+import {
+  QUALITY_SETTINGS,
+  renderEstimate,
+  STILL_SETTINGS,
+  type RenderQuality,
+  type RenderSettings,
+} from "./settings";
 import { compositionSpecSchema, uuidsIn, type CompositionSpec } from "./spec";
 import { templateById } from "./templates";
 
@@ -43,15 +54,24 @@ const OUTPUT_BUCKET = "generated-assets";
 const SOURCE_URL_TTL = 2 * 60 * 60;
 export const COMPOSITIONS_MIGRATION = "0034_compositions";
 export const COMPOSITIONS_NOT_SET_UP = `Motion graphics need a database update (migration ${COMPOSITIONS_MIGRATION}). Ask an admin to apply it.`;
+export const STILLS_MIGRATION = "0038_composition_stills";
+export const STILLS_NOT_SET_UP = `Stills need a database update (migration ${STILLS_MIGRATION}). Ask an admin to apply it.`;
+
+/** What a drawing is: a clip's draft or final, or a still (one moment, as a picture). */
+export type DrawingQuality = RenderQuality | "still";
+
+/** How a drawing of this quality is drawn. */
+export const settingsOf = (quality: DrawingQuality): RenderSettings =>
+  quality === "still" ? STILL_SETTINGS : QUALITY_SETTINGS[quality];
 
 /** A composition render as the Editor and the API see it. */
 export interface CompositionRenderView {
   renderId: string;
   status: "queued" | "drawing" | "joining" | "completed" | "failed";
-  quality: RenderQuality;
+  quality: DrawingQuality;
   progress: number;
   stage: string | null;
-  /** The playable copy, once drawn: the library video an Editor clip plays. */
+  /** Once drawn: the playable copy (the library video an Editor clip plays), or a still's picture. */
   assetId: string | null;
   frames: number;
   drawings: number;
@@ -90,7 +110,7 @@ type RenderRow = {
   brand_kit_id: string | null;
   fps: number;
   status: CompositionRenderView["status"];
-  quality: RenderQuality;
+  quality: DrawingQuality;
   progress: number;
   stage: string | null;
   proxy_asset_id: string | null;
@@ -147,7 +167,9 @@ export async function compiledFor(input: {
   width: number;
   height: number;
   fps: number;
-  quality: RenderQuality;
+  quality: DrawingQuality;
+  /** For a still: the moment drawn (the composition's end when not given). */
+  stillAt?: number | null;
 }): Promise<{
   compiled: CompiledComposition;
   images: ImageRow[];
@@ -201,7 +223,8 @@ export async function compiledFor(input: {
       width: input.width,
       height: input.height,
       fps: input.fps,
-      settings: QUALITY_SETTINGS[input.quality],
+      settings: settingsOf(input.quality),
+      ...(input.quality === "still" ? { stillAt: input.stillAt ?? spec.duration } : {}),
       imageInfo: (assetId) => {
         const row = byId.get(assetId);
         return row?.width && row.height ? { width: row.width, height: row.height } : null;
@@ -236,7 +259,7 @@ function viewOf(
   cached: boolean,
   secondsPerDrawing: number | null,
 ): CompositionRenderView {
-  const settings = QUALITY_SETTINGS[row.quality];
+  const settings = settingsOf(row.quality);
   return {
     renderId: row.id,
     status: row.status,
@@ -274,7 +297,7 @@ function viewOf(
  * What one drawing has been measured to take at this quality (the median of
  * the latest renders the media worker measured), for estimates.
  */
-export async function measuredSecondsPerDrawing(quality: RenderQuality): Promise<number | null> {
+export async function measuredSecondsPerDrawing(quality: DrawingQuality): Promise<number | null> {
   const { data, error } = await supabaseAdmin
     .from("composition_renders" as never)
     .select("seconds_per_drawing")
@@ -432,11 +455,14 @@ export async function startCompositionRender(input: {
   projectId: string | null;
   spec: CompositionSpec;
   brandKitId: string | null;
-  quality: RenderQuality;
+  quality: DrawingQuality;
   width: number;
   height: number;
   fps: number;
+  /** For a still: the moment drawn (the composition's end when not given). */
+  stillAt?: number | null;
 }): Promise<CompositionRenderView> {
+  const still = input.quality === "still";
   await requireActiveMember(input.userId);
   const { compiled, images, hash } = await compiledFor(input);
   const secondsPerDrawing = await measuredSecondsPerDrawing(input.quality);
@@ -473,6 +499,11 @@ export async function startCompositionRender(input: {
       "INVALID_PARAMETERS",
       "The media service can't draw motion graphics until it is updated (it needs a browser in its image). Deploy the latest media worker, then try again.",
     );
+  if (still && !health.data?.features?.includes("composition_stills"))
+    throw new AppError(
+      "INVALID_PARAMETERS",
+      "The media service can't draw stills until it is updated. Deploy the latest media worker, then try again.",
+    );
 
   const bundlePath = `compositions/${hash}/bundle.json`;
   const { error: uploadError } = await supabaseAdmin.storage
@@ -483,7 +514,7 @@ export async function startCompositionRender(input: {
     });
   if (uploadError) throw new AppError("STORAGE_FAILED", "The motion graphic couldn't be stored");
 
-  const settings = QUALITY_SETTINGS[input.quality];
+  const settings = settingsOf(input.quality);
   const values = {
     hash,
     template: input.spec.template,
@@ -502,7 +533,8 @@ export async function startCompositionRender(input: {
     status: "queued",
     stage: "Waiting for the media service",
     progress: 0,
-    priority: input.quality === "final" ? "final" : "draft",
+    // A still is wanted as soon as a final, and is one drawing.
+    priority: input.quality === "draft" ? "draft" : "final",
     bundle_bucket: OUTPUT_BUCKET,
     bundle_path: bundlePath,
     missing_fields: compiled.missing,
@@ -521,6 +553,8 @@ export async function startCompositionRender(input: {
       .eq("status", "failed")
       .select(RENDER_FIELDS)
       .maybeSingle();
+    if (error?.code === "23514" && still)
+      throw new AppError("INVALID_PARAMETERS", STILLS_NOT_SET_UP);
     if (error) unlessMissing(error);
     if (!data) return compositionRender(before.id);
     row = data as unknown as RenderRow;
@@ -530,6 +564,9 @@ export async function startCompositionRender(input: {
       .insert(values as never)
       .select(RENDER_FIELDS)
       .maybeSingle();
+    // 23514: the database predates stills (its quality check knows draft and final only).
+    if (error?.code === "23514" && still)
+      throw new AppError("INVALID_PARAMETERS", STILLS_NOT_SET_UP);
     if (error?.code === "23505") {
       // Asked for twice at once: the other request's record is this one.
       const { data: raced } = await supabaseAdmin
@@ -560,7 +597,8 @@ export async function startCompositionRender(input: {
       input.quality === "final" && compiled.bundle.frames > STRETCH_FRAMES * 1.5
         ? planStretches(compiled.bundle.frames)
         : null;
-    if (stretches) await drawInStretches(context, compiled, stretches);
+    if (still) await drawStill(context);
+    else if (stretches) await drawInStretches(context, compiled, stretches);
     else await drawWhole(context);
   } catch (problem) {
     const message =
@@ -635,6 +673,24 @@ async function drawWhole(context: DrawContext): Promise<void> {
     params: { output: "full", priority: context.priority },
     dedupeKey: `composition:${context.hash}:whole:${Date.now()}`,
     payload: { composition_render_id: context.renderId, composition_step: "whole" },
+    context,
+  });
+  await supabaseAdmin
+    .from("composition_renders" as never)
+    .update({ status: "drawing", stage: "Drawing", media_task_id: taskId } as never)
+    .eq("id", context.renderId);
+}
+
+/** A still in one task: its one drawing, as a picture twice the frame's size. */
+async function drawStill(context: DrawContext): Promise<void> {
+  const dir = outputsDir(context.hash);
+  const taskId = await sendCompositionTask({
+    taskType: "render_composition",
+    sources: drawingSources(context),
+    storagePaths: [`${dir}/still.png`],
+    params: { output: "still", priority: context.priority },
+    dedupeKey: `composition:${context.hash}:still:${Date.now()}`,
+    payload: { composition_render_id: context.renderId, composition_step: "still" },
     context,
   });
   await supabaseAdmin

@@ -55,7 +55,13 @@ import { SoulStartFrame } from "@/components/characters/SoulStartFrame";
 import { BrandPicker } from "@/components/brand/BrandPicker";
 import { useBrandKits } from "@/hooks/useBrandKits";
 import { brandKitIn } from "@/lib/edit/brand";
-import { brandAvoidLine, brandStyleLine, withBrandStyle } from "@/lib/brand/design";
+import {
+  brandAvoidLine,
+  brandStyleLine,
+  longVideoBrandLine,
+  promptInBrand,
+} from "@/lib/brand/design";
+import { promptWarnings } from "@/lib/media/prompt-warnings";
 import { startLongVideo } from "@/lib/long-video.functions";
 import { endCardSize } from "@/lib/long-video/finisher";
 import {
@@ -575,7 +581,9 @@ function CreatePage() {
     voiceover: voiceReference
       ? { assetId: voiceReference.assetId, preparation: lipSync.voiceover }
       : null,
-    brandLine: brandKit ? brandStyleLine(brandKit, "video") : null,
+    brandLine: brandKit
+      ? longVideoBrandLine(brandStyleLine(brandKit, "video"), brandAvoidLine(brandKit))
+      : null,
   });
   const longMode = mediaType === "video" && longDraft.enabled && longPlan.eligible;
   const longPanel = mediaType === "video" && longDraft.enabled && !!model;
@@ -701,33 +709,30 @@ function CreatePage() {
       ? [...baseIssues, ...conversionIssues, ...lipSyncIssues]
       : [];
   const issueMap = Object.fromEntries(issues.map((issue) => [issue.key, issue.message]));
+  // What the prompt asks that image and video models are known to get wrong (the API says the same).
+  const promptText = typeof values["prompt"] === "string" ? values["prompt"] : "";
+  const promptNotices = useMemo(() => promptWarnings(promptText), [promptText]);
   const submitValues = useMemo(() => {
     const prompt = (values["prompt"] as string) ?? "";
     const compiled =
       model && cinemaOn
         ? { ...values, prompt: compileCinemaPrompt(prompt, cinema, promptCinemaGroups(model)) }
         : values;
-    // Made in a brand: its look in the prompt, what it never shows in the negative prompt.
+    // Made in a brand: its look in the prompt, what it never shows in the
+    // negative prompt (or the prompt, on a model without one), as the API does.
     if (!model || !brandKit || typeof compiled["prompt"] !== "string") return compiled;
-    const fields = model.parameter_schema?.fields ?? [];
-    const avoid = brandAvoidLine(brandKit);
-    const negative = fields.some((field) => field.key === "negative_prompt") && avoid;
-    const existing =
-      typeof compiled["negative_prompt"] === "string" ? compiled["negative_prompt"].trim() : "";
+    const branded = promptInBrand({
+      prompt: compiled["prompt"],
+      negativePrompt:
+        typeof compiled["negative_prompt"] === "string" ? compiled["negative_prompt"] : null,
+      brand: brandKit,
+      kind: model.output_type === "video" ? "video" : "image",
+      fields: model.parameter_schema?.fields ?? [],
+    });
     return {
       ...compiled,
-      prompt: withBrandStyle(
-        compiled["prompt"],
-        brandKit,
-        model.output_type === "video" ? "video" : "image",
-      ),
-      ...(negative
-        ? {
-            negative_prompt: existing.includes(avoid)
-              ? existing
-              : [existing, avoid].filter(Boolean).join(", "),
-          }
-        : {}),
+      prompt: branded.prompt,
+      ...(branded.negativePrompt !== undefined ? { negative_prompt: branded.negativePrompt } : {}),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model?.id, JSON.stringify(values), JSON.stringify(cinema), cinemaOn, brandKit]);
@@ -1567,6 +1572,9 @@ function CreatePage() {
                       kitId={brandKit?.id ?? null}
                       onChange={chooseBrand}
                       kind={model.output_type === "video" ? "video" : "image"}
+                      negativePrompt={(model.parameter_schema?.fields ?? []).some(
+                        (field) => field.key === "negative_prompt",
+                      )}
                       room={maxReferences(model) - references.length}
                       onAddReferences={(assets) =>
                         setReferences((current) =>
@@ -1616,6 +1624,19 @@ function CreatePage() {
                         }
                       : {})}
                   />
+                )}
+                {promptField && promptNotices.length > 0 && (
+                  <ul className="space-y-1" data-testid="prompt-warnings">
+                    {promptNotices.map((warning) => (
+                      <li
+                        key={warning.code}
+                        className="flex gap-1.5 rounded-md bg-warning/10 px-2 py-1.5 text-[11px] leading-relaxed text-foreground"
+                      >
+                        <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-warning" />
+                        {warning.message}
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </div>
             </div>

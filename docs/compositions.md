@@ -33,21 +33,22 @@ motion graphic added from the library keeps its composition.
 
 ## The templates
 
-| Template           | Group         | What it draws                                                                                                   |
-| ------------------ | ------------- | --------------------------------------------------------------------------------------------------------------- |
-| Product window     | Graphics kit  | A screen in the brand's glass window: the camera pushes in, the pointer presses, the result is held in corners. |
-| Journey rail       | Graphics kit  | A journey's stages on a rail: the traveller moves from one to the next, each passed checked off.                |
-| Record card        | Graphics kit  | A record from the demo record: its fields arrive one by one, its grade lands in a ring drawn to the score.      |
-| Document           | Graphics kit  | A page lands flat, its lines arrive in reading order, a signature is drawn and a stamp pressed.                 |
-| Pages running past | Graphics kit  | A run of pages passes the camera in depth, each held square to it, then carried away.                           |
-| Notifications      | Graphics kit  | Notifications drop in, the newest on top, each from someone in the demo record; the last can be pressed.        |
-| Call to action     | Graphics kit  | The call to action on a living button: its light runs on the music's bars and beats; the pointer presses it.    |
-| Title card         | Brand cards   | The logo with one pass of light across it, the headline word by word and the tagline.                           |
-| Big number         | Brand cards   | One figure counts up to its value, a ring draws round to its share, and its label follows.                      |
-| Product dashboard  | Product pages | The dashboard from the demo record: its figures count up, its records arrive, and one is selected.              |
-| Report page        | Product pages | A report page: its grade in a ring and a bar chart growing bar by bar.                                          |
-| Record list        | Product pages | The list of records: a status filter is pressed, the rest fold away, and the match is selected.                 |
-| Client file        | Product pages | A client's file: who they are and its overview, then Documents is pressed and its files arrive.                 |
+| Template           | Group         | What it draws                                                                                                                                                 |
+| ------------------ | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Product window     | Graphics kit  | A screen in the brand's glass window: the camera pushes in, the pointer presses, the result is held in corners.                                               |
+| Journey rail       | Graphics kit  | A journey's stages on a rail: the traveller moves from one to the next, each passed checked off.                                                              |
+| Record card        | Graphics kit  | A record from the demo record: its fields arrive one by one, its grade lands in a ring drawn to the score.                                                    |
+| Document           | Graphics kit  | A page lands flat, its lines arrive in reading order, a signature is drawn and a stamp pressed.                                                               |
+| Pages running past | Graphics kit  | A run of pages passes the camera in depth, each held square to it, then carried away.                                                                         |
+| Notifications      | Graphics kit  | Notifications drop in, the newest on top, each from someone in the demo record; the last can be pressed.                                                      |
+| Call to action     | Graphics kit  | The call to action on a living button: its light runs on the music's bars and beats; the pointer presses it.                                                  |
+| Title card         | Brand cards   | The logo with one pass of light across it, the headline word by word and the tagline.                                                                         |
+| Big number         | Brand cards   | One figure counts up to its value, a ring draws round to its share, and its label follows.                                                                    |
+| Cover              | Brand cards   | A stage, the headline with its last word in the accent italic, the logo, the call to action and the product's screens in depth: a thumbnail drawn as a still. |
+| Product dashboard  | Product pages | The dashboard from the demo record: its figures count up, its records arrive, and one is selected.                                                            |
+| Report page        | Product pages | A report page: its grade in a ring and a bar chart growing bar by bar.                                                                                        |
+| Record list        | Product pages | The list of records: a status filter is pressed, the rest fold away, and the match is selected.                                                               |
+| Client file        | Product pages | A client's file: who they are and its overview, then Documents is pressed and its files arrive.                                                               |
 
 Each has settings with defaults (`{}` is always a valid start) and a range of lengths. The studio
 API's `list_motion_templates` lists them with their settings.
@@ -70,6 +71,33 @@ A composition is drawn in a brand kit (or the studio's own look):
   record** section on the Brand page (or with the API's `set_demo_record`), so renaming the record
   renames it in every motion graphic the next time each is drawn. A field the record lacks is left
   blank, never shown as a placeholder, and the Editor says which.
+
+## Stills: a thumbnail or a cover, in the brand's own type
+
+A composition can be drawn as one moment, once, at twice the frame's size, and kept as a library
+picture: **Save as a picture** in the motion graphic dialog (the paused moment, else the end, where
+everything has arrived), or the API's `draw_still`. A 1080p 16:9 frame makes a 3840 × 2160 PNG.
+
+It is the studio's answer to what the Briefing Room thumbnails (Oct 2026) had to be built beside
+it for: every letter set by the page in the kit's own fonts, every screen the product's own, the
+logo the supplied file, and a model asked for light only (the cover's stage: a picture with no
+text, screens or people in it). The **Cover** template is made for it: side by side in a landscape
+frame, the words above the screens in a portrait one. Any template can be drawn as a still.
+
+- A still is compiled as one frame whose one drawing is the scene at that moment
+  (`compileComposition`'s `stillAt`), drawn at `STILL_SETTINGS` (2x, one drawing, no shutter), so
+  it is kept under its own hash and never drawn twice. It is a `composition_renders` row of
+  quality `still` (migration `0038_composition_stills`; until it applies, a still says it needs
+  it).
+- The media worker draws it with `render_composition`'s output `still`: the one drawing, kept once
+  two captures agree, as the PNG the browser captured (`renderStill`). A worker that can says so
+  (`composition_stills`); an older one is refused before anything is sent.
+- The library picture is `Still · <template>`, and `get_motion_graphic` follows it like any
+  drawing.
+
+A kit's font files are declared as the faces they are (italic, bold): a family's italic file was
+declared as its normal face, so whichever came last set every word in the family. Drawings made in
+a kit with an italic or bold file draw again, once, the next time they are asked for.
 
 ## Drawing as a camera would (A2)
 
@@ -202,7 +230,7 @@ for it. A template's id never changes once used.
   the Editor. `src/components/brand/DemoRecordEditor.tsx`: the Brand page.
 - `media-worker/src/composition.js`, `chromium.js`: `render_composition` and `join_stretches`.
 - `src/lib/studio-api/compositions.server.ts`: `list_motion_templates`, `draw_motion_graphic`,
-  `get_motion_graphic` and `set_demo_record` (see `docs/studio-api.md`).
+  `draw_still`, `get_motion_graphic` and `set_demo_record` (see `docs/studio-api.md`).
 
 Limits: a composition runs up to 60 s at 24, 25, 30 or 60 fps, at most 3,600 frames and 3840 ×
 3840 drawn at twice its size; its page up to 8 MB; up to 64 stretches.

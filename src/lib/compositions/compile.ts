@@ -12,7 +12,7 @@ import type { BrandFont } from "../edit/brand";
 import { fontFilesFor, type CompositionBrand } from "./brand";
 import { fillDemo } from "./demo";
 import { kitCss } from "./kit";
-import { drawingTimes, frameCount, type RenderSettings } from "./settings";
+import { drawingTimes, frameCount, stillMoment, type RenderSettings } from "./settings";
 import { motionOf, type ElementProps } from "./state";
 import type { CompositionSpec } from "./spec";
 import { templateById } from "./templates";
@@ -112,11 +112,15 @@ function pageDocument(
   u: number,
   fontUrl: (font: BrandFont, index: number) => string,
 ): string {
+  // Each file as the face it is: a family's italic and bold files would
+  // otherwise all be its normal face, and the one declared last would set
+  // every word in it.
   const faces = fonts
-    .map(
-      (font, index) =>
-        `@font-face { font-family:"${font.family.replace(/["\\]/g, "")}"; src:url("${fontUrl(font, index)}"); font-display:block; }`,
-    )
+    .map((font, index) => {
+      const italic = font.style === "italic" || font.style === "bold_italic";
+      const bold = font.style === "bold" || font.style === "bold_italic";
+      return `@font-face { font-family:"${font.family.replace(/["\\]/g, "")}"; src:url("${fontUrl(font, index)}"); font-style:${italic ? "italic" : "normal"}; font-weight:${bold ? 700 : 400}; font-display:block; }`;
+    })
     .join("\n");
   return [
     "<!doctype html>",
@@ -167,23 +171,35 @@ export interface CompiledComposition {
   changing: number;
 }
 
-/** A composition compiled for the media service at `settings`. */
+/**
+ * A composition compiled for the media service at `settings`. With `stillAt`
+ * it is one frame, its one drawing the scene at that moment (a still, drawn
+ * at STILL_SETTINGS).
+ */
 export function compileComposition(
-  input: Omit<SceneInput, "imageUrl" | "fontUrl"> & { settings: RenderSettings },
+  input: Omit<SceneInput, "imageUrl" | "fontUrl"> & {
+    settings: RenderSettings;
+    stillAt?: number | null;
+  },
 ): CompiledComposition {
   const built = buildScene({
     ...input,
     imageUrl: (_assetId, index) => `${COMPOSITION_HOST}/image/${index}`,
     fontUrl: (_font, index) => `${COMPOSITION_HOST}/font/${index}`,
   });
-  const frames = frameCount(input.spec.duration, input.fps);
+  const still =
+    input.stillAt === undefined || input.stillAt === null
+      ? null
+      : stillMoment(input.spec.duration, input.stillAt);
+  const frames = still === null ? frameCount(input.spec.duration, input.fps) : 1;
   const selectors: string[] = [];
   const selectorIndex = new Map<string, number>();
   const last = new Map<string, ElementProps>();
   const drawings: (0 | TrackUpdate[])[] = [];
   let changing = 0;
   for (let frame = 0; frame < frames; frame += 1) {
-    for (const time of drawingTimes(frame, input.settings, input.fps)) {
+    const times = still === null ? drawingTimes(frame, input.settings, input.fps) : [still];
+    for (const time of times) {
       const updates = built.scene.state(Math.max(0, time)).diff(last);
       // Without reuse every drawing is taken afresh, even when nothing changed.
       if (!updates.length && input.settings.reuse && drawings.length) {

@@ -9,6 +9,7 @@
  * (/api/public/studio/<tool>). See docs/studio-api.md.
  */
 import { z } from "zod/v4";
+import type { BrandAvoidPlacement } from "../brand/design";
 import { supabaseAdmin as db } from "@/integrations/supabase/client.server";
 import { AppError } from "../higgsfield/errors";
 import { lipSyncCapable, lipSyncValues } from "../lip-sync/models";
@@ -212,7 +213,7 @@ const listModels = tool({
   name: "list_models",
   title: "List models",
   description:
-    "The generation models the studio offers: their ids, what they make, the media inputs they take (by role) and the parameters that can be set. Models marked lipSync move a speaker's lips to a voiceover (use them with start_presenter_video).",
+    "The generation models the studio offers: their ids, what they make, the media inputs they take (by role) and the parameters that can be set. Models marked lipSync move a speaker's lips to a voiceover (use them with start_presenter_video). `listPrice` is the team's list price for a model ({usd, unit: image, request or second}), null when it has none: a model Higgsfield quotes no figure for (GPT Image and Flare among them) then comes back unpriced, and queue_stage refuses it unless allowUnpriced. An admin sets one on the Usage page. It is left out when the prices couldn't be read.",
   scope: "read",
   input: z.object({
     output: z.enum(["image", "video", "audio"]).optional().describe("Only models that make this"),
@@ -224,6 +225,8 @@ const listModels = tool({
     if (args.output) query = query.eq("output_type", args.output);
     const { data, error } = await query;
     if (error) throw new AppError("UNKNOWN", "The models couldn't be read");
+    const { listPrices } = await import("../generation-costs.server");
+    const prices = await listPrices();
     const words = args.search?.toLowerCase().split(/\s+/).filter(Boolean) ?? [];
     return ((data ?? []) as unknown as ModelRegistryEntry[])
       .filter((model) =>
@@ -232,7 +235,12 @@ const listModels = tool({
         ),
       )
       .filter((model) => args.lipSync === undefined || lipSyncCapable(model) === args.lipSync)
-      .map(modelSummary);
+      .map((model) => {
+        const summary = modelSummary(model);
+        if (!prices) return summary;
+        const price = prices.get(model.id);
+        return { ...summary, listPrice: price ? { usd: price.usd, unit: price.unit } : null };
+      });
   },
 });
 
@@ -548,7 +556,7 @@ const getBrandKit = tool({
   name: "get_brand_kit",
   title: "Get a brand kit",
   description:
-    "One brand kit's whole design system: palette (each colour's role and use), typefaces, the look of its imagery (mood, photography, lighting, grading, composition, motion), its voice (tone, sample lines, words it uses and avoids), its rules, the line generations carry and what they must not show, and its style reference images. Its `production` holds the roles its graphics are drawn in (ground, surfaces, glass, ink, accent, signature, lines; display, body and mono type; corners, shadows, blur) and its motion (move, settle, enter, exit and press curves and durations), each with the repository, file and line it is declared on; `productionChecks` says whether they pass, and with `includeCss` `productionCss` is them as one stylesheet of --brand-* custom properties.",
+    "One brand kit's whole design system: palette (each colour's role and use), typefaces, the look of its imagery (mood, photography, lighting, grading, composition, motion), its voice (tone, sample lines, words it uses and avoids), its rules, the line generations carry and what they must not show, and its style reference images. `fontFiles` links each of its font files (an hour each), so type set outside the studio is set in the kit's own fonts. Its `production` holds the roles its graphics are drawn in (ground, surfaces, glass, ink, accent, signature, lines; display, body and mono type; corners, shadows, blur) and its motion (move, settle, enter, exit and press curves and durations), each with the repository, file and line it is declared on; `productionChecks` says whether they pass, and with `includeCss` `productionCss` is them as one stylesheet of --brand-* custom properties.",
   scope: "read",
   input: z.object({
     brandKitId: id(),
@@ -564,6 +572,13 @@ const getBrandKit = tool({
     return {
       ...rest,
       fonts: fonts.map((font) => font.family),
+      fontFiles: await Promise.all(
+        fonts.map(async (font) => ({
+          family: font.family,
+          ...(font.style ? { style: font.style } : {}),
+          url: await signedLink(font.bucket, font.path),
+        })),
+      ),
       styleLine: brandStyleLine(kit),
       videoStyleLine: brandStyleLine(kit, "video"),
       avoidLine: brandAvoidLine(kit),
@@ -832,14 +847,35 @@ const generationSpec = z.object({
     ),
 });
 
-/** A generation's parameters and inputs as they will be sent: its characters and brand in them. */
+/**
+ * A generation's parameters and inputs as they will be sent: its characters
+ * and brand in them, and what the prompt asks that the model is known to get
+ * wrong (`warnings`, said and never refused: see ../media/prompt-warnings).
+ */
 async function asSent(model: ModelRegistryEntry, args: z.output<typeof generationSpec>) {
   const cast = args.characterIds.length
     ? await withCharacters(model, args.parameters, args.inputs, args.characterIds)
     : { parameters: args.parameters, inputs: args.inputs };
-  if (args.brandKitId) cast.parameters = await withBrand(model, cast.parameters, args.brandKitId);
-  return cast;
+  const { promptWarnings } = await import("../media/prompt-warnings");
+  const warnings: Array<{ code: string; message: string }> = promptWarnings(
+    typeof args.parameters["prompt"] === "string" ? args.parameters["prompt"] : "",
+  ).map(({ code, message }) => ({ code, message }));
+  if (args.brandKitId) {
+    const branded = await withBrand(model, cast.parameters, args.brandKitId);
+    cast.parameters = branded.parameters;
+    if (branded.avoid === "no_room")
+      warnings.push({
+        code: "brand_avoid_left_out",
+        message:
+          "The brand kit's never-show line didn't fit in this model's prompt limit, so the model isn't told what the brand never shows. Shorten the prompt to make room.",
+      });
+  }
+  return { ...cast, warnings };
 }
+
+/** An answer with the warnings added, when there are any (the answer is otherwise as it was). */
+const warned = <T extends object>(answer: T, warnings: Array<{ code: string; message: string }>) =>
+  warnings.length ? { ...answer, warnings } : answer;
 
 const queueGeneration = tool({
   name: "queue_generation",
@@ -860,16 +896,19 @@ const queueGeneration = tool({
       await import("../generation-create.server");
     await assertGenerationAllowed(caller.userId);
     const cast = await asSent(model, args);
-    return createAndSubmitGeneration({
-      userId: caller.userId,
-      model,
-      parameters: cast.parameters,
-      inputs: cast.inputs.map((input, position) => ({ ...input, position })),
-      projectId: args.projectId ?? null,
-      campaignId: args.campaignId ?? null,
-      estimatedCostUsd: args.estimatedCostUsd ?? null,
-      clientRequestId: args.clientRequestId,
-    });
+    return warned(
+      await createAndSubmitGeneration({
+        userId: caller.userId,
+        model,
+        parameters: cast.parameters,
+        inputs: cast.inputs.map((input, position) => ({ ...input, position })),
+        projectId: args.projectId ?? null,
+        campaignId: args.campaignId ?? null,
+        estimatedCostUsd: args.estimatedCostUsd ?? null,
+        clientRequestId: args.clientRequestId,
+      }),
+      cast.warnings,
+    );
   },
 });
 
@@ -885,12 +924,15 @@ const estimateGeneration = tool({
     const model = await activeModel(args.modelId);
     const cast = await asSent(model, args);
     const { estimateGenerationCost } = await import("../generation-estimate.server");
-    return estimateGenerationCost({
-      userId: caller.userId,
-      modelId: model.id,
-      parameters: cast.parameters,
-      inputs: cast.inputs.map((input, position) => ({ ...input, position })),
-    });
+    return warned(
+      await estimateGenerationCost({
+        userId: caller.userId,
+        modelId: model.id,
+        parameters: cast.parameters,
+        inputs: cast.inputs.map((input, position) => ({ ...input, position })),
+      }),
+      cast.warnings,
+    );
   },
 });
 
@@ -955,28 +997,34 @@ const queueStage = tool({
   },
 });
 
-/** A generation's parameters in a brand's look: its style line in the prompt, its avoid line in the negative prompt. */
+/**
+ * A generation's parameters in a brand's look (`promptInBrand`): its style line
+ * in the prompt, and what it never shows in the negative prompt, or in the
+ * prompt as a "Never show" line on a model with no negative prompt.
+ */
 async function withBrand(
   model: ModelRegistryEntry,
   parameters: Record<string, unknown>,
   brandKitId: string,
-): Promise<Record<string, unknown>> {
+): Promise<{ parameters: Record<string, unknown>; avoid: BrandAvoidPlacement }> {
   const { requireBrandKit } = await import("../brand/use.server");
-  const { brandAvoidLine, withBrandStyle } = await import("../brand/design");
+  const { promptInBrand } = await import("../brand/design");
   const kit = await requireBrandKit(brandKitId);
-  const prompt = typeof parameters["prompt"] === "string" ? parameters["prompt"] : "";
-  const avoid = brandAvoidLine(kit);
-  const negativeField = (model.parameter_schema?.fields ?? []).some(
-    (field) => field.key === "negative_prompt",
-  );
-  const negative =
-    typeof parameters["negative_prompt"] === "string" ? parameters["negative_prompt"].trim() : "";
+  const branded = promptInBrand({
+    prompt: typeof parameters["prompt"] === "string" ? parameters["prompt"] : "",
+    negativePrompt:
+      typeof parameters["negative_prompt"] === "string" ? parameters["negative_prompt"] : null,
+    brand: kit,
+    kind: model.output_type === "video" ? "video" : "image",
+    fields: model.parameter_schema?.fields ?? [],
+  });
   return {
-    ...parameters,
-    prompt: withBrandStyle(prompt, kit, model.output_type === "video" ? "video" : "image"),
-    ...(negativeField && avoid && !negative.includes(avoid)
-      ? { negative_prompt: [negative, avoid].filter(Boolean).join(", ") }
-      : {}),
+    parameters: {
+      ...parameters,
+      prompt: branded.prompt,
+      ...(branded.negativePrompt !== undefined ? { negative_prompt: branded.negativePrompt } : {}),
+    },
+    avoid: branded.avoid,
   };
 }
 
@@ -1316,7 +1364,8 @@ const makeSoulStill = tool({
           prompt: soulStillPrompt(args.scene, character),
         };
         return args.brandKitId
-          ? withBrand(model as unknown as ModelRegistryEntry, values, args.brandKitId)
+          ? (await withBrand(model as unknown as ModelRegistryEntry, values, args.brandKitId))
+              .parameters
           : values;
       })(),
       inputs: [],
@@ -1595,11 +1644,36 @@ const checkText = tool({
     'Reads every piece of lettering in a generated picture (or in frames through a video) and says whether it is readable or garbled (AI models often letter screens and signs with gibberish). A video answers "sampling" while its frames are taken: ask again a few seconds later.',
   scope: "generate",
   readOnly: false,
-  input: z.object({ assetId: id(), again: z.boolean().default(false) }),
+  input: z.object({
+    assetId: id(),
+    again: z.boolean().default(false),
+    expected: z
+      .array(z.string().trim().min(1).max(80))
+      .max(20)
+      .optional()
+      .describe(
+        "Names and words that may appear, spelt exactly so, so they aren't taken for misspellings",
+      ),
+    brandKitId: id()
+      .optional()
+      .describe("A brand kit whose name and terms may appear (added to expected)"),
+  }),
   run: async (args, caller) => {
     await roleOf(caller.userId);
+    const expected = [...(args.expected ?? [])];
+    if (args.brandKitId) {
+      const { requireBrandKit } = await import("../brand/use.server");
+      const kit = await requireBrandKit(args.brandKitId);
+      expected.push(kit.name, ...kit.terms);
+    }
+    const names = [...new Set(expected.map((name) => name.trim()).filter(Boolean))].slice(0, 20);
     const { checkAssetText } = await import("../media/text-check.server");
-    return checkAssetText({ assetId: args.assetId, userId: caller.userId, again: args.again });
+    return checkAssetText({
+      assetId: args.assetId,
+      userId: caller.userId,
+      again: args.again,
+      ...(names.length ? { expected: names } : {}),
+    });
   },
 });
 

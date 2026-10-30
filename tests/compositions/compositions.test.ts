@@ -338,9 +338,9 @@ describe("a kit's look and motion", () => {
 });
 
 describe("the templates", () => {
-  test("thirteen, each with a unique id, defaults for every setting, and a length it may run", () => {
-    expect(TEMPLATES).toHaveLength(13);
-    expect(new Set(TEMPLATES.map((template) => template.id)).size).toBe(13);
+  test("fourteen, each with a unique id, defaults for every setting, and a length it may run", () => {
+    expect(TEMPLATES).toHaveLength(14);
+    expect(new Set(TEMPLATES.map((template) => template.id)).size).toBe(14);
     for (const template of TEMPLATES) {
       expect(template.schema.safeParse({}).success).toBe(true);
       expect(template.duration.min).toBeLessThanOrEqual(template.duration.default);
@@ -730,6 +730,7 @@ describe("the studio API's motion graphics", () => {
     expect(COMPOSITION_TOOLS.map((tool) => tool.name)).toEqual([
       "list_motion_templates",
       "draw_motion_graphic",
+      "draw_still",
       "get_motion_graphic",
       "set_demo_record",
     ]);
@@ -740,5 +741,7 @@ describe("the studio API's motion graphics", () => {
     expect(COMPOSITION_TOOLS.find((tool) => tool.name === "draw_motion_graphic")?.scope).toBe(
       "edit",
     );
+    // A still costs no credits either.
+    expect(COMPOSITION_TOOLS.find((tool) => tool.name === "draw_still")?.scope).toBe("edit");
   });
 });

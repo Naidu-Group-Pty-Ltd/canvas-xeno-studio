@@ -215,6 +215,20 @@ describe("the MCP server", () => {
     }[];
     expect(listed.map((model) => model.path)).toEqual(["wan/v2.7/image-to-video"]);
     expect(listed[0]!.inputs.map((input) => input.role)).toEqual(["source", "audio"]);
+    // It has no list price yet: a run of it is priced only by Higgsfield's quote.
+    expect(listed[0]).toHaveProperty("listPrice", null);
+    db.add("model_list_prices", {
+      model_registry_id: db.rows("model_registry")[0]!["id"],
+      unit: "request",
+      usd: 0.25,
+      note: null,
+      set_by: null,
+      set_at: new Date().toISOString(),
+    });
+    const priced = (
+      (await call("list_models", { lipSync: true })).structuredContent as { result: unknown[] }
+    ).result as { listPrice: unknown }[];
+    expect(priced[0]!.listPrice).toEqual({ usd: 0.25, unit: "request" });
 
     const bad = await call("get_asset", { assetId: "not-an-id" });
     expect(bad.isError).toBe(true);

@@ -74,6 +74,25 @@ export async function listPriceFor(modelId: string): Promise<ListPrice | null> {
   return data ? listPriceOf(data as Record<string, unknown>) : null;
 }
 
+/**
+ * Every model's list price, by model id: a model missing from it has none.
+ * Null when the prices couldn't be read, which is never "none".
+ */
+export async function listPrices(): Promise<Map<string, ListPrice> | null> {
+  const { data, error } = await supabaseAdmin.from("model_list_prices").select("*");
+  if (error) {
+    if (isMissingTableError(error)) return new Map();
+    console.error("model list prices not read", { message: error.message });
+    return null;
+  }
+  const prices = new Map<string, ListPrice>();
+  for (const row of (data ?? []) as Record<string, unknown>[]) {
+    const price = listPriceOf(row);
+    if (price) prices.set(price.modelId, price);
+  }
+  return prices;
+}
+
 /** A model's settings, from its parameter schema as the database holds it. */
 function fieldsOf(schema: unknown): NonNullable<ModelRegistryEntry["parameter_schema"]>["fields"] {
   const fields = (schema as { fields?: unknown } | null)?.fields;

@@ -128,8 +128,9 @@ export const FEATURES = [
   "speech_audio",
   "review_sheet",
   ...(lipCheckAvailable ? ["lip_check"] : []),
-  // Code-driven motion graphics drawn in Chromium ("compositions"), on a GPU here ("compositions_gpu").
-  ...(chromiumAvailable ? ["compositions", ...(config.gpu ? ["compositions_gpu"] : [])] : []),
+  // Code-driven motion graphics drawn in Chromium ("compositions"), on a GPU here ("compositions_gpu"), and
+  // one moment of one drawn as a picture twice its size ("composition_stills": render_composition's output "still").
+  ...(chromiumAvailable ? ["compositions", "composition_stills", ...(config.gpu ? ["compositions_gpu"] : [])] : []),
 ];
 
 /** The point of the picture (0-1 across and down) a crop keeps in frame: the centre unless given. */
@@ -606,15 +607,15 @@ export const TASKS = {
 
   /**
    * A composition (code-driven motion graphics; see composition.js) drawn as a
-   * camera would: its lossless master, a playable copy and a poster, or one
-   * lossless stretch of it. Its sources are its bundle, then its images and
-   * fonts. Only on a worker whose image has a browser.
+   * camera would: its lossless master, a playable copy and a poster, one
+   * lossless stretch of it, or a still (one picture). Its sources are its
+   * bundle, then its images and fonts. Only on a worker whose image has a browser.
    */
   ...(chromiumAvailable
     ? {
         render_composition: {
           sources: { min: 1, max: 1 + 64 + 24 },
-          outputs: (params) => (params?.output === "stretch" ? 1 : 3),
+          outputs: (params) => (params?.output === "stretch" || params?.output === "still" ? 1 : 3),
           run: renderComposition,
         },
         /** A composition's stretches joined frame for frame: its master, playable copy and poster. */

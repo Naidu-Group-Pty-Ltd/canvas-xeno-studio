@@ -43,6 +43,19 @@ export const QUALITY_SETTINGS: Record<RenderQuality, RenderSettings> = {
 };
 
 /**
+ * A still: one drawing of one moment at twice the frame's size, kept as it
+ * is (a PNG twice the frame, 3840 x 2160 from a 1920 x 1080 frame). Nothing
+ * moves within it, so there is no shutter to average over.
+ */
+export const STILL_SETTINGS: RenderSettings = { scale: 2, drawings: 1, shutter: 0, reuse: true };
+
+/** The moment a still is drawn at by default: just short of the end, where everything has arrived. */
+export function stillMoment(duration: number, at?: number | null): number {
+  const end = Math.max(0, duration - 1 / 60);
+  return at === undefined || at === null ? end : Math.min(end, Math.max(0, at));
+}
+
+/**
  * The times frame `frame`'s drawings are taken at: evenly over the part of
  * the frame the shutter is open, centred on the frame. Drawing j of n is at
  * (f + ((j + 0.5) / n - 0.5) × shutter / 360) / fps, so with one drawing it

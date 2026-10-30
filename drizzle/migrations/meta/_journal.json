@@ -267,6 +267,13 @@
       "when": 1791311605140,
       "tag": "0037_work_journal",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1791311665140,
+      "tag": "0038_composition_stills",
+      "breakpoints": true
     }
   ]
 }

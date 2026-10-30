@@ -2,9 +2,10 @@
  * What the media worker reports about a composition's tasks: a stretch drawn
  * (the render is joined once every stretch is in), the whole composition or
  * its join done (its playable copy joins the library, its master is kept for
- * the edits that use it), progress, and failures. Each report is recorded
- * idempotently: a repeat changes nothing. Edit renders waiting on the
- * composition are moved on (./sequence.server).
+ * the edits that use it), a still drawn (its picture joins the library),
+ * progress, and failures. Each report is recorded idempotently: a repeat
+ * changes nothing. Edit renders waiting on the composition are moved on
+ * (./sequence.server).
  */
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { failRender, joinIfReady } from "./render.server";
@@ -28,6 +29,37 @@ export function isCompositionTask(taskType: string): boolean {
 
 const number = (value: unknown): number | null =>
   typeof value === "number" && Number.isFinite(value) ? value : null;
+
+/**
+ * The library file at this storage path: the one already there (a report
+ * repeated, or two at once), or the one recorded now. Null when it couldn't
+ * be recorded, so the report is answered 503 and sent again.
+ */
+async function libraryAssetAt(
+  bucket: string,
+  path: string,
+  insert: Record<string, unknown>,
+): Promise<string | null> {
+  const found = async () => {
+    const { data } = await supabaseAdmin
+      .from("assets")
+      .select("id")
+      .eq("storage_bucket", bucket)
+      .eq("storage_path", path)
+      .maybeSingle();
+    return data?.id ?? null;
+  };
+  const existing = await found();
+  if (existing) return existing;
+  const { data: inserted, error } = await supabaseAdmin
+    .from("assets")
+    .insert({ ...insert, storage_bucket: bucket, storage_path: path } as never)
+    .select("id")
+    .maybeSingle();
+  if (error?.code === "23505") return found();
+  if (error || !inserted) return null;
+  return (inserted as { id: string }).id;
+}
 
 /**
  * Records a report. Returns false when something couldn't be recorded, so
@@ -195,61 +227,77 @@ export async function recordCompositionReport(
     proxy_asset_id: string | null;
   } | null;
   if (!render) return finishTask("completed");
-  // Outputs, in order: the playable copy, the lossless master, the poster.
-  const [proxy, master, poster] = [keyOf(0), keyOf(1), keyOf(2)];
-  if (!proxy || !master) return false;
-  let assetId = render.proxy_asset_id;
-  if (!assetId) {
-    const { data: existing } = await supabaseAdmin
-      .from("assets")
-      .select("id")
-      .eq("storage_bucket", bucket)
-      .eq("storage_path", proxy)
-      .maybeSingle();
-    assetId = existing?.id ?? null;
-  }
-  if (!assetId) {
-    const template = templateById(render.template);
-    const { data: inserted, error } = await supabaseAdmin
-      .from("assets")
-      .insert({
+  const template = templateById(render.template);
+  const composition = {
+    render_id: render.id,
+    template: render.template,
+    quality: render.quality,
+    hash: render.hash,
+  };
+
+  if (render.quality === "still") {
+    // One output: the picture, twice the frame's size.
+    const picture = keyOf(0);
+    if (!picture) return false;
+    const assetId =
+      render.proxy_asset_id ??
+      (await libraryAssetAt(bucket, picture, {
         uploaded_by: task.created_by,
         project_id: task.project_id,
-        asset_type: "video",
+        asset_type: "image",
         source_type: "generated",
-        title: `Motion · ${template?.title ?? render.template}${render.quality === "draft" ? " (draft)" : ""}`,
-        storage_bucket: bucket,
-        storage_path: proxy,
-        mime_type: "video/mp4",
+        title: `Still · ${template?.title ?? render.template}`,
+        mime_type: "image/png",
         file_size: number(outputs[0]?.["bytes"]),
         width: number(metadata["width"]),
         height: number(metadata["height"]),
-        duration_seconds: number(metadata["duration_seconds"]),
-        metadata: {
-          composition: {
-            render_id: render.id,
-            template: render.template,
-            quality: render.quality,
-            hash: render.hash,
-          },
-          ...(poster ? { poster_path: poster } : {}),
-          ...(number(metadata["fps"]) !== null ? { fps: number(metadata["fps"]) } : {}),
-          probe: metadata,
-        } as never,
-      })
-      .select("id")
-      .maybeSingle();
-    if (error?.code === "23505") {
-      const { data: raced } = await supabaseAdmin
-        .from("assets")
-        .select("id")
-        .eq("storage_bucket", bucket)
-        .eq("storage_path", proxy)
-        .maybeSingle();
-      assetId = raced?.id ?? null;
-    } else if (error || !inserted) return false;
-    else assetId = inserted.id;
+        metadata: { composition, probe: metadata },
+      }));
+    if (!assetId) return false;
+    const { error: stillError } = await supabaseAdmin
+      .from("composition_renders" as never)
+      .update({
+        status: "completed",
+        progress: 1,
+        stage: null,
+        proxy_asset_id: assetId,
+        master_bucket: bucket,
+        master_path: picture,
+        poster_path: null,
+        seconds_per_drawing: number(measured["seconds_per_drawing"]),
+        render_seconds: number(measured["seconds"]),
+        completed_at: now,
+        error_code: null,
+        error_message: null,
+      } as never)
+      .eq("id", render.id);
+    if (stillError) return false;
+    return finishTask("completed");
   }
+
+  // Outputs, in order: the playable copy, the lossless master, the poster.
+  const [proxy, master, poster] = [keyOf(0), keyOf(1), keyOf(2)];
+  if (!proxy || !master) return false;
+  const assetId =
+    render.proxy_asset_id ??
+    (await libraryAssetAt(bucket, proxy, {
+      uploaded_by: task.created_by,
+      project_id: task.project_id,
+      asset_type: "video",
+      source_type: "generated",
+      title: `Motion · ${template?.title ?? render.template}${render.quality === "draft" ? " (draft)" : ""}`,
+      mime_type: "video/mp4",
+      file_size: number(outputs[0]?.["bytes"]),
+      width: number(metadata["width"]),
+      height: number(metadata["height"]),
+      duration_seconds: number(metadata["duration_seconds"]),
+      metadata: {
+        composition,
+        ...(poster ? { poster_path: poster } : {}),
+        ...(number(metadata["fps"]) !== null ? { fps: number(metadata["fps"]) } : {}),
+        probe: metadata,
+      },
+    }));
   if (!assetId) return false;
   // What one drawing cost: this task's own measure, or for a join its stretches'.
   let secondsPerDrawing = number(measured["seconds_per_drawing"]);
