@@ -214,6 +214,31 @@ describe("estimate_stage", () => {
     expect(queued).toHaveLength(0);
   });
 
+  test("says what an item's prompt asks that the model gets wrong, as estimate_generation does", async () => {
+    const reader = await tokenFor(["read"]);
+    const prompt = 'A dashboard on a laptop, with the headline "Your numbers, sorted".';
+    const stage = await call(reader, "estimate_stage", {
+      generations: [item(still["id"], { parameters: { prompt } }), item(still["id"])],
+    });
+    const items = stage.body.result!["items"] as Array<Record<string, unknown>>;
+    expect((items[0]!["warnings"] as Array<{ code: string }>).map((w) => w.code)).toEqual([
+      "lettering",
+      "screens",
+    ]);
+    // An item with nothing to warn about answers as it always did.
+    expect(items[1]).not.toHaveProperty("warnings");
+
+    const one = await call(reader, "estimate_generation", {
+      modelId: still["id"],
+      parameters: { prompt },
+    });
+    expect(one.body.result).toMatchObject({ ok: true, costUsd: 0.17 });
+    expect((one.body.result!["warnings"] as Array<{ code: string }>).map((w) => w.code)).toEqual([
+      "lettering",
+      "screens",
+    ]);
+  });
+
   test("says when a stage would run the balance out part way, and why", async () => {
     spentUsd = 10;
     const { body } = await call(await tokenFor(["read"]), "estimate_stage", {

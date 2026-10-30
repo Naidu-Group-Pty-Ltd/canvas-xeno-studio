@@ -61,6 +61,7 @@ import {
   longVideoBrandLine,
   promptInBrand,
 } from "@/lib/brand/design";
+import { promptWarnings } from "@/lib/media/prompt-warnings";
 import { startLongVideo } from "@/lib/long-video.functions";
 import { endCardSize } from "@/lib/long-video/finisher";
 import {
@@ -708,6 +709,9 @@ function CreatePage() {
       ? [...baseIssues, ...conversionIssues, ...lipSyncIssues]
       : [];
   const issueMap = Object.fromEntries(issues.map((issue) => [issue.key, issue.message]));
+  // What the prompt asks that image and video models are known to get wrong (the API says the same).
+  const promptText = typeof values["prompt"] === "string" ? values["prompt"] : "";
+  const promptNotices = useMemo(() => promptWarnings(promptText), [promptText]);
   const submitValues = useMemo(() => {
     const prompt = (values["prompt"] as string) ?? "";
     const compiled =
@@ -1620,6 +1624,19 @@ function CreatePage() {
                         }
                       : {})}
                   />
+                )}
+                {promptField && promptNotices.length > 0 && (
+                  <ul className="space-y-1" data-testid="prompt-warnings">
+                    {promptNotices.map((warning) => (
+                      <li
+                        key={warning.code}
+                        className="flex gap-1.5 rounded-md bg-warning/10 px-2 py-1.5 text-[11px] leading-relaxed text-foreground"
+                      >
+                        <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-warning" />
+                        {warning.message}
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </div>
             </div>

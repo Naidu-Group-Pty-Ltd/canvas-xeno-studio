@@ -9,6 +9,7 @@
  * (/api/public/studio/<tool>). See docs/studio-api.md.
  */
 import { z } from "zod/v4";
+import type { BrandAvoidPlacement } from "../brand/design";
 import { supabaseAdmin as db } from "@/integrations/supabase/client.server";
 import { AppError } from "../higgsfield/errors";
 import { lipSyncCapable, lipSyncValues } from "../lip-sync/models";
@@ -548,7 +549,7 @@ const getBrandKit = tool({
   name: "get_brand_kit",
   title: "Get a brand kit",
   description:
-    "One brand kit's whole design system: palette (each colour's role and use), typefaces, the look of its imagery (mood, photography, lighting, grading, composition, motion), its voice (tone, sample lines, words it uses and avoids), its rules, the line generations carry and what they must not show, and its style reference images. Its `production` holds the roles its graphics are drawn in (ground, surfaces, glass, ink, accent, signature, lines; display, body and mono type; corners, shadows, blur) and its motion (move, settle, enter, exit and press curves and durations), each with the repository, file and line it is declared on; `productionChecks` says whether they pass, and with `includeCss` `productionCss` is them as one stylesheet of --brand-* custom properties.",
+    "One brand kit's whole design system: palette (each colour's role and use), typefaces, the look of its imagery (mood, photography, lighting, grading, composition, motion), its voice (tone, sample lines, words it uses and avoids), its rules, the line generations carry and what they must not show, and its style reference images. `fontFiles` links each of its font files (an hour each), so type set outside the studio is set in the kit's own fonts. Its `production` holds the roles its graphics are drawn in (ground, surfaces, glass, ink, accent, signature, lines; display, body and mono type; corners, shadows, blur) and its motion (move, settle, enter, exit and press curves and durations), each with the repository, file and line it is declared on; `productionChecks` says whether they pass, and with `includeCss` `productionCss` is them as one stylesheet of --brand-* custom properties.",
   scope: "read",
   input: z.object({
     brandKitId: id(),
@@ -564,6 +565,13 @@ const getBrandKit = tool({
     return {
       ...rest,
       fonts: fonts.map((font) => font.family),
+      fontFiles: await Promise.all(
+        fonts.map(async (font) => ({
+          family: font.family,
+          ...(font.style ? { style: font.style } : {}),
+          url: await signedLink(font.bucket, font.path),
+        })),
+      ),
       styleLine: brandStyleLine(kit),
       videoStyleLine: brandStyleLine(kit, "video"),
       avoidLine: brandAvoidLine(kit),
@@ -832,14 +840,35 @@ const generationSpec = z.object({
     ),
 });
 
-/** A generation's parameters and inputs as they will be sent: its characters and brand in them. */
+/**
+ * A generation's parameters and inputs as they will be sent: its characters
+ * and brand in them, and what the prompt asks that the model is known to get
+ * wrong (`warnings`, said and never refused: see ../media/prompt-warnings).
+ */
 async function asSent(model: ModelRegistryEntry, args: z.output<typeof generationSpec>) {
   const cast = args.characterIds.length
     ? await withCharacters(model, args.parameters, args.inputs, args.characterIds)
     : { parameters: args.parameters, inputs: args.inputs };
-  if (args.brandKitId) cast.parameters = await withBrand(model, cast.parameters, args.brandKitId);
-  return cast;
+  const { promptWarnings } = await import("../media/prompt-warnings");
+  const warnings: Array<{ code: string; message: string }> = promptWarnings(
+    typeof args.parameters["prompt"] === "string" ? args.parameters["prompt"] : "",
+  ).map(({ code, message }) => ({ code, message }));
+  if (args.brandKitId) {
+    const branded = await withBrand(model, cast.parameters, args.brandKitId);
+    cast.parameters = branded.parameters;
+    if (branded.avoid === "no_room")
+      warnings.push({
+        code: "brand_avoid_left_out",
+        message:
+          "The brand kit's never-show line didn't fit in this model's prompt limit, so the model isn't told what the brand never shows. Shorten the prompt to make room.",
+      });
+  }
+  return { ...cast, warnings };
 }
+
+/** An answer with the warnings added, when there are any (the answer is otherwise as it was). */
+const warned = <T extends object>(answer: T, warnings: Array<{ code: string; message: string }>) =>
+  warnings.length ? { ...answer, warnings } : answer;
 
 const queueGeneration = tool({
   name: "queue_generation",
@@ -860,16 +889,19 @@ const queueGeneration = tool({
       await import("../generation-create.server");
     await assertGenerationAllowed(caller.userId);
     const cast = await asSent(model, args);
-    return createAndSubmitGeneration({
-      userId: caller.userId,
-      model,
-      parameters: cast.parameters,
-      inputs: cast.inputs.map((input, position) => ({ ...input, position })),
-      projectId: args.projectId ?? null,
-      campaignId: args.campaignId ?? null,
-      estimatedCostUsd: args.estimatedCostUsd ?? null,
-      clientRequestId: args.clientRequestId,
-    });
+    return warned(
+      await createAndSubmitGeneration({
+        userId: caller.userId,
+        model,
+        parameters: cast.parameters,
+        inputs: cast.inputs.map((input, position) => ({ ...input, position })),
+        projectId: args.projectId ?? null,
+        campaignId: args.campaignId ?? null,
+        estimatedCostUsd: args.estimatedCostUsd ?? null,
+        clientRequestId: args.clientRequestId,
+      }),
+      cast.warnings,
+    );
   },
 });
 
@@ -885,12 +917,15 @@ const estimateGeneration = tool({
     const model = await activeModel(args.modelId);
     const cast = await asSent(model, args);
     const { estimateGenerationCost } = await import("../generation-estimate.server");
-    return estimateGenerationCost({
-      userId: caller.userId,
-      modelId: model.id,
-      parameters: cast.parameters,
-      inputs: cast.inputs.map((input, position) => ({ ...input, position })),
-    });
+    return warned(
+      await estimateGenerationCost({
+        userId: caller.userId,
+        modelId: model.id,
+        parameters: cast.parameters,
+        inputs: cast.inputs.map((input, position) => ({ ...input, position })),
+      }),
+      cast.warnings,
+    );
   },
 });
 
@@ -964,7 +999,7 @@ async function withBrand(
   model: ModelRegistryEntry,
   parameters: Record<string, unknown>,
   brandKitId: string,
-): Promise<Record<string, unknown>> {
+): Promise<{ parameters: Record<string, unknown>; avoid: BrandAvoidPlacement }> {
   const { requireBrandKit } = await import("../brand/use.server");
   const { promptInBrand } = await import("../brand/design");
   const kit = await requireBrandKit(brandKitId);
@@ -977,9 +1012,12 @@ async function withBrand(
     fields: model.parameter_schema?.fields ?? [],
   });
   return {
-    ...parameters,
-    prompt: branded.prompt,
-    ...(branded.negativePrompt !== undefined ? { negative_prompt: branded.negativePrompt } : {}),
+    parameters: {
+      ...parameters,
+      prompt: branded.prompt,
+      ...(branded.negativePrompt !== undefined ? { negative_prompt: branded.negativePrompt } : {}),
+    },
+    avoid: branded.avoid,
   };
 }
 
@@ -1319,7 +1357,8 @@ const makeSoulStill = tool({
           prompt: soulStillPrompt(args.scene, character),
         };
         return args.brandKitId
-          ? withBrand(model as unknown as ModelRegistryEntry, values, args.brandKitId)
+          ? (await withBrand(model as unknown as ModelRegistryEntry, values, args.brandKitId))
+              .parameters
           : values;
       })(),
       inputs: [],
@@ -1598,11 +1637,36 @@ const checkText = tool({
     'Reads every piece of lettering in a generated picture (or in frames through a video) and says whether it is readable or garbled (AI models often letter screens and signs with gibberish). A video answers "sampling" while its frames are taken: ask again a few seconds later.',
   scope: "generate",
   readOnly: false,
-  input: z.object({ assetId: id(), again: z.boolean().default(false) }),
+  input: z.object({
+    assetId: id(),
+    again: z.boolean().default(false),
+    expected: z
+      .array(z.string().trim().min(1).max(80))
+      .max(20)
+      .optional()
+      .describe(
+        "Names and words that may appear, spelt exactly so, so they aren't taken for misspellings",
+      ),
+    brandKitId: id()
+      .optional()
+      .describe("A brand kit whose name and terms may appear (added to expected)"),
+  }),
   run: async (args, caller) => {
     await roleOf(caller.userId);
+    const expected = [...(args.expected ?? [])];
+    if (args.brandKitId) {
+      const { requireBrandKit } = await import("../brand/use.server");
+      const kit = await requireBrandKit(args.brandKitId);
+      expected.push(kit.name, ...kit.terms);
+    }
+    const names = [...new Set(expected.map((name) => name.trim()).filter(Boolean))].slice(0, 20);
     const { checkAssetText } = await import("../media/text-check.server");
-    return checkAssetText({ assetId: args.assetId, userId: caller.userId, again: args.again });
+    return checkAssetText({
+      assetId: args.assetId,
+      userId: caller.userId,
+      again: args.again,
+      ...(names.length ? { expected: names } : {}),
+    });
   },
 });
 

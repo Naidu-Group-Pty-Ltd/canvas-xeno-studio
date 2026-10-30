@@ -39,6 +39,8 @@ export interface SendHelpers {
   ) => Promise<{
     parameters: Record<string, unknown>;
     inputs: { assetId: string; role: string }[];
+    /** What its prompt asks that the model is known to get wrong (../media/prompt-warnings). */
+    warnings?: Array<{ code: string; message: string }>;
   }>;
 }
 
@@ -55,7 +57,11 @@ interface StageItem {
   /** It can't be sent as it is (its model, inputs or settings), whatever it costs. */
   blocking: boolean;
   model: ModelRegistryEntry | null;
-  sent: { parameters: Record<string, unknown>; inputs: { assetId: string; role: string }[] } | null;
+  sent: {
+    parameters: Record<string, unknown>;
+    inputs: { assetId: string; role: string }[];
+    warnings?: Array<{ code: string; message: string }>;
+  } | null;
 }
 
 const labelOf = (item: StageItemRequest, index: number) =>
@@ -160,6 +166,7 @@ function answerOf(items: StageItem[], verdict: StageVerdict) {
       subtotalUsd: item.usd === null ? null : Number((item.usd * item.takes).toFixed(4)),
       costSource: item.costSource,
       problem: item.problem,
+      ...(item.sent?.warnings?.length ? { warnings: item.sent.warnings } : {}),
     })),
     totalUsd: verdict.totalUsd,
     withAllowanceUsd: verdict.withAllowanceUsd,
